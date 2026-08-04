@@ -26,7 +26,9 @@ Options:
                            unless --force is given.
   --chown <user:group>     Chown applied to the entries this restore wrote
                            (files restored and directories created), never to
-                           pre-existing content. Default: vx:users.
+                           pre-existing content. The --restore-path root is
+                           included only when the restore created it or found
+                           it empty. Default: vx:users.
                            Pass 'none' to skip the chown step.
   --force                  Allow restoring into a pre-existing non-empty
                            --restore-path. Restored entries can overwrite
@@ -50,7 +52,9 @@ Exit codes:
   0    success (or dry-run completed)
   64   usage error (bad arguments, mutually exclusive options, bad regex,
        pre-existing non-empty --restore-path without --force)
-  66   manifest, env file, or db unreadable; target missing or disabled
+  66   manifest, env file, or db unreadable; target missing or disabled;
+       impact-analysis query failed or returned non-numeric output;
+       --restore-path timestamps too coarse to scope the ownership pass
   77   not running as root
   78   missing credentials in env file
   127  required command not found
@@ -109,6 +113,7 @@ require_cmd mktemp
 require_cmd sort
 require_cmd comm
 require_cmd xargs
+require_cmd sleep
 
 human_bytes() {
   local n=${1:-0}
@@ -464,7 +469,8 @@ if "$dry_run"; then
   # read-only and imports the matching IDs into a temp table. Capture output
   # and status separately: a here-string read would succeed on the empty line
   # a failed sqlite3 leaves behind and report garbage counts as a clean run.
-  if ! impact_output=$(
+  impact_status=0
+  impact_output=$(
     sqlite3 -separator ' ' -noheader <<SQL
 ATTACH DATABASE '${src_uri}' AS src;
 CREATE TEMP TABLE matching_ids (ID INTEGER PRIMARY KEY);
@@ -488,8 +494,10 @@ SELECT
   COALESCE((SELECT SUM(Size) FROM matching_blocks), 0),
   (SELECT COUNT(*) FROM matching_blocks WHERE State = 'Uploaded');
 SQL
-  ); then
-    echo "impact analysis query failed (sqlite3 exit $?); db locked, corrupt, or schema drift?" >&2
+  ) || impact_status=$?
+
+  if [[ $impact_status -ne 0 ]]; then
+    echo "impact analysis query failed (sqlite3 exit ${impact_status}); db locked, corrupt, or schema drift?" >&2
     exit 66
   fi
 
@@ -526,14 +534,20 @@ if [[ ! -r $db_path ]]; then
   echo
 fi
 
-restore_path_preexisting=false
+# Only content the restore must not disturb makes the path "populated". An
+# existing but empty directory has nothing to protect, so its root still gets
+# the chown/chmod below; otherwise a `mkdir` beforehand would leave the target
+# root-owned and unusable by --chown's user.
+restore_path_populated=false
 if [[ -e $restore_path ]]; then
   if [[ ! -d $restore_path ]]; then
     echo "--restore-path exists and is not a directory: $restore_path" >&2
     exit 64
   fi
-  restore_path_preexisting=true
-  if [[ -n $(find "$restore_path" -mindepth 1 -print -quit) && $force != true ]]; then
+  if [[ -n $(find "$restore_path" -mindepth 1 -print -quit) ]]; then
+    restore_path_populated=true
+  fi
+  if [[ $restore_path_populated == true && $force != true ]]; then
     echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
     echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
     echo "  ownership/permission pass would mix with pre-existing content." >&2
@@ -549,17 +563,58 @@ mkdir -p "$restore_path"
 # (newer than the marker's mtime); duplicati also bumps the ctime of
 # pre-existing directories it writes into, so those are excluded through the
 # inventory instead of being re-owned as a side effect.
+#
+# The marker lives inside --restore-path, not in $TMPDIR: -cnewer compares
+# ctimes on the target filesystem against the marker's mtime, so a marker on a
+# finer-grained filesystem (tmpfs nanoseconds vs. a 1s-granularity NFS or
+# FAT-backed target) reads as newer than entries the restore just wrote and
+# drops them from both the ownership pass and the final listing.
+scope_dir=""
+restore_marker=""
+cleanup_scope() {
+  [[ -n $scope_dir ]] && rm -rf "$scope_dir"
+  [[ -n $restore_marker ]] && rm -f "$restore_marker" "${restore_marker}.probe"
+  return 0
+}
+trap cleanup_scope EXIT
+
 scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
-trap 'rm -rf "$scope_dir"' EXIT
-restore_marker="${scope_dir}/marker"
+restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX")
 pre_dirs="${scope_dir}/pre-dirs"
-: >"$restore_marker"
+
+# -cnewer is strict, so an entry sharing the marker's timestamp tick is missed.
+# Wait for the target's clock to move past the marker instead of backdating it:
+# a backdated marker would sweep in pre-existing entries whose ctime landed in
+# the window just before the restore, which is what this scoping exists to
+# prevent.
+marker_probe="${restore_marker}.probe"
+marker_settled=false
+for _ in {1..50}; do
+  : >"$marker_probe"
+  if [[ $marker_probe -nt $restore_marker ]]; then
+    marker_settled=true
+    break
+  fi
+  sleep 0.1
+done
+rm -f "$marker_probe"
+if [[ $marker_settled != true ]]; then
+  echo "timestamps under '$restore_path' did not advance past the restore marker in 5s;" >&2
+  echo "  cannot scope the post-restore chown/chmod to the entries this restore writes." >&2
+  exit 66
+fi
+
 find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"
 
+# comm must collate identically to the sort feeding it: GNU comm compares with
+# xmemcoll whenever LC_COLLATE is not C, so a C-sorted stream read under a
+# UTF-8 locale pairs the streams wrongly (emitting pre-existing directories as
+# new) and then exits non-zero on "input is not in sorted order", killing the
+# script under pipefail after a successful restore.
 restored_entries() {
   find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0
   find "$restore_path" -mindepth 1 -type d -cnewer "$restore_marker" -print0 |
-    LC_ALL=C sort -z | comm -z -23 - "$pre_dirs"
+    LC_ALL=C sort -z | LC_ALL=C comm -z -23 - "$pre_dirs"
 }
 
 declare -a restore_args=(
@@ -602,7 +657,7 @@ if [[ $chown_spec != "none" ]]; then
   echo
   echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
   restored_entries | xargs -0 -r chown "$chown_spec"
-  if [[ $restore_path_preexisting == false ]]; then
+  if [[ $restore_path_populated == false ]]; then
     chown "$chown_spec" "$restore_path"
   fi
 fi
@@ -616,7 +671,7 @@ fi
 # restored entries so pre-existing content keeps its modes.
 echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_path}..."
 restored_entries | xargs -0 -r chmod u+rwX,go-rwx
-if [[ $restore_path_preexisting == false ]]; then
+if [[ $restore_path_populated == false ]]; then
   chmod u+rwX,go-rwx "$restore_path"
 fi
 
