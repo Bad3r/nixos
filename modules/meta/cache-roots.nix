@@ -68,10 +68,13 @@ let
     "webex"
   ];
 
+  nvidiaLoaded = hostConfig: lib.elem "nvidia" hostConfig.services.xserver.videoDrivers;
+
   # Packages the bare package-set attribute never produces, or that never
-  # reach environment.systemPackages at all. Each entry names the option
-  # holding the resolved package and the condition under which the host
-  # actually installs it.
+  # reach environment.systemPackages at all. Each entry names the attribute
+  # path holding the resolved package and the condition under which the host
+  # actually installs it. A path may reach past the option into the value it
+  # holds, for derivations that hang off a package rather than being one.
   #
   # The condition is explicit rather than derived from the option path
   # because these options do not share one shape. nemo.extended.finalPackage
@@ -97,7 +100,31 @@ let
         "nvidia"
         "package"
       ];
-      installed = hostConfig: lib.elem "nvidia" hostConfig.services.xserver.videoDrivers;
+      installed = nvidiaLoaded;
+    };
+    # Two derivations hanging off hardware.nvidia.package rather than outputs
+    # of it, so linking every output does not reach them. `mod` is the kernel
+    # module built against boot.kernelPackages, which upstream puts in
+    # boot.extraModulePackages whenever hardware.nvidia.open is not true, and
+    # is the expensive half of the driver. `settings` is nvidia-settings,
+    # added to environment.systemPackages under hardware.nvidia.nvidiaSettings.
+    nvidia-kernel-modules = {
+      path = [
+        "hardware"
+        "nvidia"
+        "package"
+        "mod"
+      ];
+      installed = hostConfig: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.open != true;
+    };
+    nvidia-settings = {
+      path = [
+        "hardware"
+        "nvidia"
+        "package"
+        "settings"
+      ];
+      installed = hostConfig: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
     };
     # modules/apps/steam.nix installs nothing itself: it sets
     # programs.steam.enable with extraCompatPackages and extraPackages, and
@@ -270,10 +297,19 @@ in
       # Hosts share most apps, so the same derivation arrives under several
       # host-qualified keys. linkFarm rejects duplicate keys, not duplicate
       # paths, and the keys already differ; the closure counts each path once.
-      linkFarmEntries = map (entry: {
-        inherit (entry) path;
-        name = entry.key;
-      }) entries;
+      #
+      # Every output is linked, not just the default one. cache-push walks the
+      # closure of this linkFarm, and a multi-output derivation's outPath does
+      # not reach its siblings, so those outputs would be built on CI and then
+      # dropped. nvidia-x11 alone splits into out, lib32, bin, modsrc, and
+      # firmware.
+      linkFarmEntries = lib.concatMap (
+        entry:
+        map (output: {
+          name = "${entry.key}/${output}";
+          path = entry.path.${output};
+        }) (entry.path.outputs or [ "out" ])
+      ) entries;
 
       buildsHere = hosts != { };
     in

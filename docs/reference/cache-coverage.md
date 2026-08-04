@@ -112,7 +112,8 @@ glob such as `proton-vpn-[0-9]*` is caught the same as `proton-vpn*`. The
 entry's package name is checked as well: a glob spelled that way suppresses
 nothing here, since that name never reaches this report, but it declares the
 same disposition the rule forbids. The host-qualified `linkFarm` key
-(`<host>/<package>`) is not checked, because no glob is written that way. Its
+(`<host>/<package>/<output>`) is not checked, because no glob is written that
+way. Its
 domain is the published entries, not the closure
 members the push also serves, because that closure does not exist at evaluation
 time; extending the check to them is
