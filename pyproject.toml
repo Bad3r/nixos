@@ -3,6 +3,18 @@ line-length = 100
 indent-width = 4
 target-version = "py314"
 
+# update-flake.yml and update-firefoxpwa-extension.yml run
+# scripts/update-firefoxpwa-extension.py on ubuntu-latest through its
+# `#!/usr/bin/env python3` shebang, and scripts/updater/__init__.py eagerly
+# imports every submodule, so those files are parsed by the runner's
+# interpreter and never by the pinned 3.14. Without this floor the formatter
+# is free to emit 3.14-only syntax into them, which surfaces as a SyntaxError
+# in a scheduled workflow. py312 is the floor because updater/http.py uses
+# PEP 695 `type` statements.
+[tool.ruff.per-file-target-version]
+"scripts/update-firefoxpwa-extension.py" = "py312"
+"scripts/updater/*.py" = "py312"
+
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
