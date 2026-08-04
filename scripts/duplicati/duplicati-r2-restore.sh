@@ -68,7 +68,8 @@ Exit codes:
   66   manifest, env file, or db unreadable; target missing or disabled;
        impact-analysis query failed or returned non-numeric output;
        --restore-path timestamps too coarse to scope the ownership pass;
-       pre-existing directories under --restore-path could not be inventoried
+       pre-existing directories under --restore-path could not be inventoried;
+       the restore lock could not be created
   75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
   78   missing credentials in env file
@@ -589,7 +590,14 @@ if [[ -e $restore_path ]]; then
   # Ignoring them is not the same as cleaning them up, and cleanup_scope only
   # unlinks the marker this run created. Removing the rest here would break a
   # concurrent run against the same path, so say they are there instead.
-  if [[ -n $(find "$restore_path" -mindepth 1 -maxdepth 1 -name '.duplicati-restore-marker.*' -print -quit) ]]; then
+  #
+  # Held lock means those markers belong to a live run, not to a dead one, and
+  # this note tells the operator to delete them. Doing that under a running
+  # restore removes its marker, so its -cnewer scans fail and both passes get an
+  # empty list: the very outcome the paragraph above declines to cause. Stay
+  # quiet and let the lock refusal below report the real situation.
+  if [[ ! -d ${restore_path}/.duplicati-restore-marker.lock ]] &&
+    [[ -n $(find "$restore_path" -mindepth 1 -maxdepth 1 -name '.duplicati-restore-marker.*' -print -quit) ]]; then
     echo "NOTE: orphaned restore markers are present under '$restore_path'." >&2
     echo "  They are ignored by the emptiness check and are not removed automatically;" >&2
     echo "  delete .duplicati-restore-marker.* by hand once no restore is running." >&2
@@ -655,6 +663,16 @@ if [[ $restore_path_defaulted == true ]]; then
   chmod 0711 "$restore_parent"
 fi
 mkdir -p "$restore_path"
+# Same gap the parent closes just above, for the leaf: its -L test sits before
+# the whole parent guard, and mkdir -p is a silent no-op over a link to a
+# directory. An explicit --restore-path may legitimately sit under a user-owned
+# parent, so that user can plant the leaf as a symlink in the window and put
+# duplicati, the lock, the marker, and both scoped passes on the far side.
+if [[ -L $restore_path ]]; then
+  echo "--restore-path must not be a symlink: $restore_path" >&2
+  echo "  It was created or replaced while this run was starting." >&2
+  exit 64
+fi
 
 # Marker plus pre-existing-directory inventory scope the post-restore chown
 # and chmod to entries this restore writes. Restored files get a fresh ctime
@@ -685,14 +703,25 @@ trap cleanup_scope EXIT
 # restore and pre-existing content. mkdir is atomic, so it settles the claim.
 # Named under the marker prefix so the emptiness probe already ignores it and
 # the orphan note above already covers clearing it after an untrappable death.
-if ! mkdir "${restore_path}/.duplicati-restore-marker.lock" 2>/dev/null; then
+# Separate "already held" from "could not create at all": mkdir -p on an
+# existing --restore-path is a no-op and succeeds on a read-only mount, so this
+# is the first call that actually fails there. Discarding the errno would tell
+# the operator to remove a lock that does not exist.
+restore_lock_path="${restore_path}/.duplicati-restore-marker.lock"
+lock_status=0
+lock_err=$(mkdir "$restore_lock_path" 2>&1) || lock_status=$?
+if [[ $lock_status -ne 0 ]]; then
+  if [[ ! -d $restore_lock_path ]]; then
+    echo "could not create the restore lock at '$restore_lock_path': ${lock_err}" >&2
+    exit 66
+  fi
   echo "refusing: a restore already holds '$restore_path'." >&2
   echo "  Concurrent runs scope against each other: each one's ctime window sweeps in" >&2
   echo "  the other's restored entries and applies its own --chown to them." >&2
-  echo "  Remove ${restore_path}/.duplicati-restore-marker.lock if no restore is in flight." >&2
+  echo "  Remove ${restore_lock_path} if no restore is in flight." >&2
   exit 64
 fi
-restore_lock="${restore_path}/.duplicati-restore-marker.lock"
+restore_lock="$restore_lock_path"
 
 scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
 restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX")
