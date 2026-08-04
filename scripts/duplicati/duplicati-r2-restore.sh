@@ -61,10 +61,11 @@ Exit codes:
   64   usage error (bad arguments, mutually exclusive options, bad regex,
        --restore-path is a symlink or not a directory, its parent is a symlink,
        the default restore parent is not root-owned, pre-existing non-empty
-       --restore-path without --force)
+       --restore-path without --force, --chown user or group unresolvable)
   66   manifest, env file, or db unreadable; target missing or disabled;
        impact-analysis query failed or returned non-numeric output;
-       --restore-path timestamps too coarse to scope the ownership pass
+       --restore-path timestamps too coarse to scope the ownership pass;
+       pre-existing directories under --restore-path could not be inventoried
   77   not running as root
   78   missing credentials in env file
   127  required command not found
@@ -683,18 +684,39 @@ fi
 # successful restore, leaving every restored file with duplicati's read-only
 # modes. Degrade loudly instead of dropping the protection silently.
 chmod_noderef=()
-chmod_probe="${scope_dir}/chmod-probe"
-: >"$chmod_probe"
-if chmod -h u+rw "$chmod_probe" 2>/dev/null; then
+scope_probe="${scope_dir}/probe"
+: >"$scope_probe"
+if chmod -h u+rw "$scope_probe" 2>/dev/null; then
   chmod_noderef=(-h)
 else
   echo "WARNING: this chmod has no -h (coreutils < 9.5)." >&2
   echo "  The permission pass will follow a symlink swapped into the restore set" >&2
   echo "  instead of skipping it. The chown pass is unaffected." >&2
 fi
-rm -f "$chmod_probe"
 
-find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"
+# Resolve --chown here too. The post-restore pass tolerates a per-entry failure
+# because an entry can legitimately vanish under it, which makes an unresolvable
+# user or group indistinguishable there: it fails on every entry and reads as a
+# racy target. Catching it now costs one probe instead of a whole restore.
+if [[ $chown_spec != "none" ]] && ! chown "$chown_spec" "$scope_probe" 2>/dev/null; then
+  echo "--chown '${chown_spec}' cannot be applied; unknown user or group?" >&2
+  exit 64
+fi
+rm -f "$scope_probe"
+
+# The pre-existing-directory inventory is the one scan that must not be
+# tolerated: a short list makes comm -23 emit pre-existing directories as new,
+# and the passes would then chown and chmod them, which is the regression this
+# scoping removes. Fail before the restore starts, where nothing is lost yet,
+# and say why rather than leaving find's bare exit 1 to be read as a duplicati
+# failure.
+if ! find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"; then
+  echo "could not inventory pre-existing directories under '$restore_path'." >&2
+  echo "  A partial inventory would let the post-restore chown/chmod reach pre-existing" >&2
+  echo "  directories, so refusing before the restore starts." >&2
+  echo "  Quiesce other writers on the target and re-run." >&2
+  exit 66
+fi
 
 # comm must collate identically to the sort feeding it: GNU comm compares with
 # xmemcoll whenever LC_COLLATE is not C, so a C-sorted stream read under a
@@ -781,10 +803,22 @@ if [[ $chown_spec != "none" ]]; then
   # outside --restore-path. lchown(2) is identical to chown(2) for the regular
   # files and directories actually in the list, and the `chown -R` this replaced
   # was immune for the same reason (FTS_PHYSICAL, never dereferences).
-  xargs -0 -r chown -h "$chown_spec" <"$restored_list"
-  xargs -0 -r chown -h "$chown_spec" <"$restored_links"
+  #
+  # Tolerated for the same reason the scan is: the list is a snapshot, so an
+  # entry can be unlinked before chown reaches it, and xargs turns that into
+  # 123. Aborting here would skip the permission pass below and leave every
+  # restored file with duplicati's cleared write bits. chown keeps going after a
+  # failed operand, so the rest of the list is still applied. An unresolvable
+  # --chown was already rejected before the restore, so it cannot land here.
+  chown_status=0
+  xargs -0 -r chown -h "$chown_spec" <"$restored_list" || chown_status=$?
+  xargs -0 -r chown -h "$chown_spec" <"$restored_links" || chown_status=$?
   if [[ $restore_path_populated == false ]]; then
-    chown -h "$chown_spec" "$restore_path"
+    chown -h "$chown_spec" "$restore_path" || chown_status=$?
+  fi
+  if [[ $chown_status -ne 0 ]]; then
+    echo "WARNING: the chown pass exited ${chown_status}; an entry the scan listed may have" >&2
+    echo "  vanished before chown reached it. The permission pass below still runs." >&2
   fi
 fi
 
@@ -799,10 +833,17 @@ fi
 # time, and chmod resolves each operand when it runs. GNU chmod skips a symlink
 # operand under -h instead of reaching its referent, so a path swapped in the
 # window is a no-op rather than a mode rewrite outside --restore-path.
+# Tolerated like the chown pass, so a vanished entry cannot cost the root chmod
+# below or the restored-files listing that follows it.
 echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_path}..."
-xargs -0 -r chmod "${chmod_noderef[@]}" u+rwX,go-rwx <"$restored_list"
+chmod_status=0
+xargs -0 -r chmod "${chmod_noderef[@]}" u+rwX,go-rwx <"$restored_list" || chmod_status=$?
 if [[ $restore_path_populated == false ]]; then
-  chmod "${chmod_noderef[@]}" u+rwX,go-rwx "$restore_path"
+  chmod "${chmod_noderef[@]}" u+rwX,go-rwx "$restore_path" || chmod_status=$?
+fi
+if [[ $chmod_status -ne 0 ]]; then
+  echo "WARNING: the permission pass exited ${chmod_status}; an entry the scan listed may have" >&2
+  echo "  vanished before chmod reached it. Re-run once other writers are quiesced." >&2
 fi
 
 echo
