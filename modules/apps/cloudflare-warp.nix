@@ -16,7 +16,7 @@
     serviceMode: mdm.xml service_mode (warp | tunnelonly | 1dot1 | proxy | postureonly).
     autoConnect: mdm.xml auto_connect minutes (0-1440); 0 keeps the client off after a manual disconnect.
     switchLocked: mdm.xml switch_locked; when true the user cannot disconnect.
-    connectOnBoot: run a best-effort oneshot `warp-cli connect` after the daemon starts.
+    connectOnBoot: run a best-effort oneshot `warp-cli connect` after the daemon starts when enrolled.
 
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
@@ -47,10 +47,10 @@ let
       installSecretsDeps = sopsInstallSecretsDeps config;
 
       # Logged by the connect-on-boot oneshot when the device has no managed
-      # mdm.xml, so the journal explains why `warp-cli connect` only reaches
-      # consumer WARP instead of the Zero Trust org.
-      unenrolledNotice = lib.optionalString (!enrolling) ''
-        echo "cloudflare-warp-connect: device is UN-ENROLLED (no managed mdm.xml); connecting to consumer WARP only. Create secrets/cloudflare-warp.yaml to enroll."
+      # mdm.xml. The guard prevents an absent secret from selecting consumer WARP.
+      unenrolledGuard = lib.optionalString (!enrolling) ''
+        echo "cloudflare-warp-connect: device is UN-ENROLLED (no managed mdm.xml); not connecting. Create secrets/cloudflare-warp.yaml to enroll."
+        exit 0
       '';
 
       # Linux mdm.xml is a bare <dict> plist fragment (no XML declaration, no
@@ -254,6 +254,7 @@ let
                 RemainAfterExit = true;
               };
               script = ''
+                ${unenrolledGuard}
                 # Wait for the warp-svc IPC socket to answer before connecting.
                 for _ in {1..30}; do
                   if ${cfg.package}/bin/warp-cli status >/dev/null 2>&1; then
@@ -261,12 +262,11 @@ let
                   fi
                   sleep 1
                 done
-                ${unenrolledNotice}
                 # When enrolling, mdm.xml (service token) has already registered the
                 # device and accepted ToS, so no interactive `warp-cli registration
-                # new` is needed. This connect is best-effort either way: log the
-                # outcome and exit 0 so a user who legitimately keeps WARP off does
-                # not leave the unit failed.
+                # new` is needed. This connect is best-effort: log the outcome and
+                # exit 0 so a user who legitimately keeps WARP off does not leave
+                # the unit failed.
                 if ${cfg.package}/bin/warp-cli --accept-tos connect; then
                   echo "cloudflare-warp-connect: connect requested"
                 else
