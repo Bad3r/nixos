@@ -96,8 +96,12 @@
         assert lib.assertMsg (
           !builtins.hasAttr "firefoxpwa/dmail/url" noGecko.config.sops.secrets
         ) "browsers/firefoxpwa-module-eval: a missing gecko.yaml must not declare the sops secret";
+        assert lib.assertMsg (
+          hm.config.warnings == [ ]
+        ) "browsers/firefoxpwa-module-eval: the enabled configuration must not warn";
         builtins.deepSeq {
           execStart = hm.config.systemd.user.services.firefoxpwa-dmail.Service.ExecStart;
+          environment = hm.config.systemd.user.services.firefoxpwa-dmail.Service.Environment;
           secretPath = hm.config.sops.secrets."firefoxpwa/dmail/url".path;
           sessionVariables = {
             inherit (hm.config.home.sessionVariables) FFPWA_USERDATA XDG_DATA_HOME;
