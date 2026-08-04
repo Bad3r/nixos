@@ -406,6 +406,12 @@
             expect "explicit default port refreshes" 0 "updated start URL"
 
             reset
+            set_url 'https://mail.example.com/a'
+            "$installer" >/dev/null
+            set_url 'https://mail.example.com:443/b'
+            expect "added default port refreshes" 0 "updated start URL"
+
+            reset
             set_url 'https://${idnHost}/a'
             "$installer" >/dev/null
             assert_equal "IDN scope is punycoded by the stub" \

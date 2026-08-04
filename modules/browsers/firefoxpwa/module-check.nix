@@ -82,6 +82,11 @@
             secretsRoot = "${./module-check-fixtures}/missing";
           };
         in
+        assert lib.assertMsg
+          (lib.any (lib.hasInfix "extended.enable is false") noFirefoxpwa.config.warnings)
+          "browsers/firefoxpwa-module-eval: dmail.enable without extended.enable must warn";
+        assert lib.assertMsg (lib.any (lib.hasInfix "gecko.yaml is missing") noGecko.config.warnings)
+          "browsers/firefoxpwa-module-eval: a missing gecko.yaml must warn";
         builtins.deepSeq {
           execStart = hm.config.systemd.user.services.firefoxpwa-dmail.Service.ExecStart;
           secretPath = hm.config.sops.secrets."firefoxpwa/dmail/url".path;

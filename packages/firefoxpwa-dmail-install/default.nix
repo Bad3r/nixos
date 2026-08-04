@@ -116,10 +116,20 @@ writeShellApplication {
     # embedded manifest, neither of which site update can rewrite, so
     # credentials left there would outlive every rotation. Stripped as a suffix
     # rather than a third group, so nothing depends on how the regex engine
-    # splits two adjacent [^/?#] runs. Emits the origin, or nothing.
+    # splits two adjacent [^/?#] runs. Default ports are omitted and scheme and
+    # host case is folded so equivalent origin spellings compare identically.
+    # Emits the origin, or nothing.
     url_origin() {
       [[ $1 =~ ^([A-Za-z][A-Za-z0-9+.-]*://)([^/?#]+) ]] || return 0
-      printf '%s' "''${BASH_REMATCH[1]}''${BASH_REMATCH[2]##*@}"
+      local scheme authority
+      scheme="''${BASH_REMATCH[1],,}"
+      authority="''${BASH_REMATCH[2]##*@}"
+      authority="''${authority,,}"
+      case "$scheme$authority" in
+        https://*:443) authority="''${authority%:443}" ;;
+        http://*:80) authority="''${authority%:80}" ;;
+      esac
+      printf '%s' "$scheme$authority"
     }
 
     # The marker holds the decrypted secret, so it is created owner-only.
