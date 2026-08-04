@@ -21,7 +21,7 @@
     * `jupyter-all` is `jupyter.override` from nixpkgs that swaps the default kernel definition set for the Clojure, Octave, R, and Ruby ones.
     * The Wolfram kernel is intentionally excluded upstream because it is unfree.
     * Every kernelspec the wrapper can reach is re-exported on JUPYTER_PATH so external clients such as the VS Code Jupyter extension can launch them.
-    * JUPYTER_PATH precedes the user data dir in `jupyter_path()` and the first kernelspec of a given name wins, so this `python3` shadows a user-installed `~/.local/share/jupyter/kernels/python3`.
+    * JUPYTER_PATH precedes both the user data dir and `sys.prefix/share/jupyter` in `jupyter_path()`, and the first kernelspec of a given name wins, so this `python3` shadows both a user-installed `~/.local/share/jupyter/kernels/python3` and the `python3` spec `pip install ipykernel` writes into an active virtualenv.
 */
 _:
 let
@@ -160,6 +160,39 @@ in
 
             if [ "$(find "$kernels" -mindepth 1 -maxdepth 1 -not -name python3 | wc -l)" -eq 0 ]; then
               echo "only python3 reached $kernels; the override kernels were not re-exported" >&2
+              exit 1
+            fi
+
+            touch $out
+          '';
+
+      # The other branch of mkKernelspecs: a package whose definitions supply
+      # their own python3 keeps that kernelspec verbatim. Byte comparison
+      # rather than a field check, so any reappearance of the unconditional
+      # rewrite fails. Eval-only for the same reason as the check above.
+      checks.jupyter-kernelspecs-preserved =
+        let
+          package = pkgs.jupyter;
+          specs = mkKernelspecs pkgs package;
+        in
+        pkgs.runCommand "jupyter-kernelspecs-preserved"
+          {
+            nativeBuildInputs = [ pkgs.jq ];
+          }
+          ''
+            wrapperData=$(${package}/bin/jupyter --paths --json | jq -r '.data[0]')
+            wrapperSpec="$wrapperData/kernels/python3/kernel.json"
+            emitted=${specs}/share/jupyter/kernels/python3/kernel.json
+
+            if [ ! -e "$wrapperSpec" ]; then
+              echo "jupyter-kernel.default no longer supplies python3, so this check asserts nothing" >&2
+              exit 1
+            fi
+
+            if ! cmp -s "$wrapperSpec" "$emitted"; then
+              echo "the wrapper's python3 kernelspec was rewritten instead of preserved" >&2
+              echo "wrapper:  $(jq -c . "$wrapperSpec")" >&2
+              echo "emitted:  $(jq -c . "$emitted")" >&2
               exit 1
             fi
 
