@@ -25,6 +25,8 @@
   - Technical manual for SKILL.md files covering frontmatter fields, invocation methods, execution lifecycle, and best practices.
 - [claude-code/writing-CLAUDE.md](claude-code/writing-CLAUDE.md)
   - How to write CLAUDE.md files: persistent, always-active agent instructions loaded at session start.
+- [claude-code/scratchpad.md](claude-code/scratchpad.md)
+  - scratchpad
 
 ## Cloudflare
 
@@ -115,6 +117,11 @@
 - [nixos-manual/manual.md](nixos-manual/manual.md)
   - Upstream manual structure file for chapters, appendices, options, and release notes.
 
+## Networking
+
+- [networking/README.md](networking/README.md)
+  - NetworkManager MAC-address policies, the re-keying step the `"stable"` cutover needs, systemd-udevd `.link` policies, and temporary macchanger commands.
+
 ## mpv
 
 - [mpv/README.md](mpv/README.md)
@@ -164,6 +171,10 @@
 
 ## Reference
 
+- [reference/binary-cache-coverage.md](reference/binary-cache-coverage.md)
+  - Operator surface for serving custom derivations from a binary cache, its substituter wiring, build surface, and CI publisher.
+- [reference/cache-coverage.md](reference/cache-coverage.md)
+  - Per-host report of closure derivations that would compile locally despite a substitutable nixpkgs equivalent.
 - [reference/fork-sync-automation.md](reference/fork-sync-automation.md)
   - Scheduled upstream sync workflow installed in each flake-input fork, its conflict behavior, and the installer for adding new forks.
 - [reference/github-labels.md](reference/github-labels.md)
@@ -172,6 +183,8 @@
   - List of repositories mirrored locally via `git-mirror` for offline access and patching.
 - [reference/mcp-tools.md](reference/mcp-tools.md)
   - Quick reference for available MCP tools including context7, cfdocs, cfbrowser, and deepwiki.
+- [reference/stash-prune.md](reference/stash-prune.md)
+  - Age-based stash pruning, the archive-before-drop recoverability guarantee, archive retention sweeps, and recovery paths.
 - [reference/useful-commands.md](reference/useful-commands.md)
   - Collection of handy general-purpose CLI commands not tied to NixOS or this repository.
 - [reference/worktree-prune.md](reference/worktree-prune.md)

@@ -151,7 +151,6 @@ in
             "frontend-design@claude-plugins-official" = false;
             "pr-review-toolkit@claude-plugins-official" = false;
             "claude-code-setup@claude-plugins-official" = false;
-            "greptile@claude-plugins-official" = false;
           };
           example = lib.literalExpression ''
             {
@@ -236,6 +235,14 @@ in
                     (!cfg.installMethods.nix.enable) && (!cfg.installMethods.bun.enable) && cfg.externalBinary == null;
                 in
                 [
+                  {
+                    assertion = cfg.externalBinary == null || lib.hasPrefix "/" cfg.externalBinary;
+                    message = ''
+                      programs.claude-code.extended.externalBinary must be an absolute path.
+                      The Home Manager wrapper and tweakcc shell-wrapper resolver require
+                      a leading "/" for the selected target.
+                    '';
+                  }
                   {
                     assertion = (!cfg.installMethods.bun.enable) || config.programs.bun.extended.enable;
                     message = ''

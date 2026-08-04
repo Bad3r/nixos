@@ -1,0 +1,105 @@
+diff --git a/src/installationDetection.ts b/src/installationDetection.ts
+index c0f8978..f8fb855 100644
+--- a/src/installationDetection.ts
++++ b/src/installationDetection.ts
+@@ -59,11 +59,12 @@ const PE_MAGIC = Buffer.from([0x4d, 0x5a]); // MZ (DOS/PE/Windows executable)
+ 
+ /**
+  * File type detection using magic numbers and heuristics.
+- * Returns 'javascript' for JS files, 'binary' for executables, or null if unknown.
++ * Returns 'javascript' for JS files, 'binary' for executables,
++ * 'shell-wrapper' for shell launchers, or null if unknown.
+  */
+ function detectFileTypeHeuristic(
+   prefix: Buffer
+-): 'javascript' | 'binary' | null {
++): 'javascript' | 'binary' | 'shell-wrapper' | null {
+   if (prefix.length === 0) {
+     return null;
+   }
+@@ -77,6 +78,10 @@ function detectFileTypeHeuristic(
+       debug('detectFileTypeHeuristic: Detected JavaScript via shebang');
+       return 'javascript';
+     }
++    if (/(?:^|[/\s])(?:bash|dash|zsh|ksh|ash|sh)(?:\s|$)/.test(shebangStr)) {
++      debug('detectFileTypeHeuristic: Detected shell wrapper via shebang');
++      return 'shell-wrapper';
++    }
+   }
+ 
+   // Check for binary magic numbers
+@@ -229,14 +234,55 @@ async function maybeResolveNixWrapper(binaryPath: string): Promise<string> {
+   return binaryPath;
+ }
+ 
++/**
++ * Resolves static targets used by shell launchers. Home Manager wrappers use
++ * `target=/absolute/path/to/claude`, while makeWrapper uses
++ * `exec -a "<argv0>" "/absolute/path/to/.name-wrapped"`.
++ * The producer is `modules/agents/claude-code/_wrapper.nix`.
++ */
++async function resolveShellWrapper(wrapperPath: string): Promise<string | null> {
++  try {
++    const wrapper = await fs.readFile(wrapperPath, 'utf8');
++    const targetMatch = wrapper.match(
++      /^\s*target=(?:"([^"]+)"|'([^']+)'|([^\s#]+))\s*$/m
++    );
++    const execTargetMatch = wrapper.match(
++      /^\s*exec\s+(?:-a\s+(?:"[^"]*"|'[^']*'|\S+)\s+)?(["'])(\/[^"'\n]*\/\.[^"'\n/]+-wrapped_*)\1/m
++    );
++    const target =
++      targetMatch?.[1] ??
++      targetMatch?.[2] ??
++      targetMatch?.[3] ??
++      execTargetMatch?.[2];
++    if (!target || !target.startsWith('/')) {
++      return null;
++    }
++
++    const resolved = await fs.realpath(target);
++    debug(`resolveShellWrapper: resolved ${wrapperPath} -> ${resolved}`);
++    return resolved;
++  } catch (error) {
++    debug('resolveShellWrapper: could not resolve shell target:', error);
++    return null;
++  }
++}
++
+ /**
+  * Resolves a path to its installation type.
+  * Handles symlinks by resolving to target.
+  * Returns the kind and resolved path, or null if unrecognized.
+  */
+ export async function resolvePathToInstallationType(
+-  filePath: string
++  filePath: string,
++  depth = 0
+ ): Promise<ResolvedInstallation | null> {
++  if (depth > 5) {
++    debug(
++      `resolvePathToInstallationType: shell wrapper depth exceeded for ${filePath}`
++    );
++    return null;
++  }
++
+   try {
+     // Resolve symlinks to get the actual file
+     const resolvedPath = await fs.realpath(filePath);
+@@ -252,6 +298,17 @@ export async function resolvePathToInstallationType(
+     debug('resolvePathToInstallationType: Using heuristic file type detection');
+     const fileType = detectFileTypeHeuristic(prefix);
+ 
++    if (fileType === 'shell-wrapper') {
++      const shellTarget = await resolveShellWrapper(resolvedPath);
++      if (shellTarget) {
++        const resolved = await resolvePathToInstallationType(shellTarget, depth + 1);
++        if (resolved) {
++          return resolved;
++        }
++      }
++      return { kind: 'npm-based', resolvedPath };
++    }
++
+     if (fileType === 'javascript') {
+       return { kind: 'npm-based', resolvedPath };
+     }

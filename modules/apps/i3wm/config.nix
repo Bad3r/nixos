@@ -536,7 +536,7 @@
           description = "Primary network interface for the i3status net block.";
           type = lib.types.nullOr lib.types.str;
           default = null;
-          example = "enp4s0";
+          example = "eth0";
         };
 
         lockCommand = lib.mkOption {

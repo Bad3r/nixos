@@ -114,6 +114,13 @@ payloads land on stdout.
 Read subcommands:
   list-threads                             Paginated review threads (with
                                            inner comment pagination merged).
+                                           Per thread: id, isResolved,
+                                           isOutdated, isCollapsed, path,
+                                           line, startLine, diffSide,
+                                           startDiffSide,
+                                           subjectType, resolvedBy,
+                                           viewerCan{Resolve,Unresolve,Reply}
+                                           and the comment nodes.
                                            Default output: JSON array.
   list-reviews                             Paginated reviews (state, body,
                                            author, submittedAt, url, commit).
@@ -141,8 +148,19 @@ Read subcommands:
                                            resolves it. Output matches the
                                            list-comments shape for top-level
                                            comments; review comments add
-                                           path, line, diffHunk, side,
-                                           replyTo, etc.
+                                           path, line, diffHunk, replyTo,
+                                           etc. LEFT/RIGHT is a thread
+                                           property in GraphQL, so read it
+                                           from list-threads/get-thread
+                                           (diffSide, startDiffSide). To get
+                                           there from a comment id:
+                                           list-threads merges inner comment
+                                           pagination, so every comment
+                                           appears under
+                                           .comments.nodes[].id; find its
+                                           thread with `list-threads | jq
+                                           'map(select(.comments.nodes[].id
+                                           == "<comment-node-id>"))'`.
   current-pr                               PR view as JSON. Fields:
                                            id, number, title, body, state,
                                            url, headRefName, baseRefName,
@@ -1240,6 +1258,7 @@ query($id: ID!, $cursor: String) {
           databaseId
           author { login }
           body
+          createdAt
           diffHunk
           originalLine
           originalStartLine
@@ -1313,6 +1332,9 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
           isCollapsed
           path
           line
+          startLine
+          diffSide
+          startDiffSide
           subjectType
           resolvedBy { login }
           viewerCanResolve
@@ -1325,6 +1347,7 @@ query($owner: String!, $repo: String!, $number: Int!, $cursor: String) {
               databaseId
               author { login }
               body
+              createdAt
               diffHunk
               originalLine
               originalStartLine
@@ -1521,6 +1544,9 @@ query($id: ID!) {
       isCollapsed
       path
       line
+      startLine
+      diffSide
+      startDiffSide
       subjectType
       resolvedBy { login }
       viewerCanResolve
@@ -1533,6 +1559,7 @@ query($id: ID!) {
           databaseId
           author { login }
           body
+          createdAt
           diffHunk
           originalLine
           originalStartLine
@@ -1681,6 +1708,10 @@ _get_comment_graphql() {
   # PullRequestReviewComment payload. The shared fields match the
   # list-comments shape; review comments add path/line/diffHunk and the
   # related review-context fields.
+  # LEFT/RIGHT lives on PullRequestReviewThread (diffSide, startDiffSide),
+  # not on the comment, and the comment has no edge back to its thread.
+  # Selecting side/startSide here rejected the whole query, so every
+  # get-comment invocation failed. Read the side from list-threads.
   local comment_id="$1"
 
   local response
@@ -1716,8 +1747,6 @@ query($id: ID!) {
       startLine
       originalStartLine
       diffHunk
-      side
-      startSide
       subjectType
       isMinimized
       minimizedReason

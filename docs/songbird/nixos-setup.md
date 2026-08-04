@@ -80,7 +80,7 @@ already covered by the shared baseline and needs no per-host code.
 | 285K P/E cores, virtualization   | intel_pstate, kvm-intel, coretemp  | hosts-common (`boot.nix`); microcode via `hardware-config.nix`         |
 | Arrow Lake iGPU (Xe-LPG)         | i915/xe, linux-firmware            | Present for bring-up; VA-API only if `vaapi.backend = "intel-media"`   |
 | RTX 5080 (Blackwell GB203)       | NVIDIA open kernel modules, >= 570 | `modules/songbird/nvidia-gpu.nix` over `flake.nixosModules.nvidia-gpu` |
-| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; name feeds `firewallDnsInterfaces`                     |
+| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; pin its name if it ever serves DNS/DHCP                |
 | Realtek 5 GbE (RTL8126)          | r8169 (in-kernel since 6.8)        | Nothing needed; zen kernel is well past 6.8                            |
 | Wi-Fi 7 module (vendor unlisted) | iwlwifi or mt76 + linux-firmware   | Identify at first boot (`lspci -nn`); in-kernel either way             |
 | Bluetooth 5.4                    | btusb                              | `hardware.bluetooth.enable` in `hardware-config.nix`                   |
@@ -432,10 +432,63 @@ _: {
     r2RuntimeReady = false;
 
     extraHomeApps = [ ];
-    firewallDnsInterfaces = [ "<wired-interface-name>" ];
+    firewallDnsInterfaces = [ ]; # only if songbird serves DNS/DHCP; see below
   };
 }
 ```
+
+Leave `firewallDnsInterfaces` empty unless songbird actually serves DNS or DHCP
+to the network. It opens inbound UDP 53/67 and TCP 53, and both existing hosts
+now leave it empty for that reason; NetworkManager's `dns = "dnsmasq"` mode does
+not count, since that dnsmasq binds `127.0.0.1` and `::1` with no `dhcp-range`.
+
+If songbird does gain such a listener: `shareCommon = true` means it boots with
+`net.ifnames=0`, so the kernel names interfaces `eth0`, `eth1`, and `wlan0`
+rather than the `enp*` names an installer shows. `modules/hosts/common/firewall.nix`
+rejects an `enp*`/`wlp*` name on such a host with an assertion, and warns when a
+name is neither kernel-assigned nor created by a declaration on the host; a
+kernel name that is simply wrong for the machine passes both and silently opens
+nothing. Do not put a bare kernel name in `firewallDnsInterfaces` on this host: songbird has two wired NICs of the same class, so the numbering
+follows discovery order and can move between them, and the value opens UDP
+53/67 and TCP 53 on whichever NIC holds the name that boot. Pin the intended
+NIC as shown below and use the pinned name. A stale name is not an evaluation
+error either: `modules/hosts/common/firewall.nix` emits a
+`networking.firewall.interfaces.<name>` entry for a device that never appears,
+so the opening silently does nothing.
+
+The two same-class NICs are the Intel 2.5 GbE on `igc` and the Realtek 5 GbE on
+`r8169`. Pin the intended one by PCI path, the way
+`modules/system76/networking.nix` pins its USB adapter:
+
+```sh
+ip -br link
+for dev in /sys/class/net/*; do
+  udevadm info -q property -p "$dev" \
+    | grep -E '^(INTERFACE|ID_NET_DRIVER|ID_PATH)='
+done
+```
+
+`modules/songbird/networking.nix`:
+
+```nix
+_: {
+  configurations.nixos.songbird.module = {
+    systemd.network.links."10-lan0" = {
+      matchConfig.Path = "<ID_PATH of the intended NIC>";
+      linkConfig = {
+        Name = "lan0";
+        # The pin displaces 99-default.link for this device, so restore the
+        # alternative names it would otherwise supply. Its "mac" token is left
+        # out: that derives an altname from the factory hardware address.
+        AlternativeNamesPolicy = "database onboard slot path";
+      };
+    };
+  };
+}
+```
+
+Then set `firewallDnsInterfaces = [ "lan0" ]`. `docs/networking/README.md`
+explains why the pinned name stays outside the kernel's `eth*` namespace.
 
 `modules/songbird/host-id.nix` (derive on the target:
 `head -c 8 /etc/machine-id`):
@@ -532,7 +585,7 @@ remain open; these are measurements that require the hardware.
 | --------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
 | LUKS, ext4, ESP, swap UUIDs | `nixos-generate-config --root /mnt`     | `hardware-config.nix`                                                    |
 | hostId                      | `head -c 8 /etc/machine-id`             | `host-id.nix`                                                            |
-| Wired interface names       | `ip link`                               | `policy.nix` `firewallDnsInterfaces`                                     |
+| Wired interface names       | `ip -br link` after the first boot      | Only needed if a DNS/DHCP listener is added; see note below              |
 | Wi-Fi module vendor         | `lspci -nn \| grep -i network`          | project-songbird.md (note)                                               |
 | Host SSH public key         | `cat /etc/ssh/ssh_host_ed25519_key.pub` | `ssh.nix`                                                                |
 | Tailnet IPv4                | `tailscale ip -4` after joining         | `policy.nix` `tailnetIp`                                                 |
