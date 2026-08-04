@@ -40,7 +40,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (v3.2.2.0, 2026-01-26).
 - evil-winrm
   - run..: `nix run nixpkgs#evil-winrm -- -i $ip -u $user -p $pass`
-    - ⚠️ Failed to run: Ruby 3.4 LoadError. The `csv` gem is missing and `winrm-fs` fails to load. Upstream nixpkgs build is currently broken.
+    - ℹ️ `-h` writes its usage banner only to a TTY; piped or redirected it exits 0 with no output.
   - Repo.: <https://github.com/Hackplayers/evil-winrm>
   - Docs.: <https://github.com/Hackplayers/evil-winrm#readme>
   - Desc.: Interactive WinRM shell with built-in upload/download, AMSI bypass scaffolding, and PowerShell pass-through.
@@ -59,7 +59,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (5.0.4, 2025-11-22).
 - mitm6
   - run..: `nix run nixpkgs#mitm6 -- -d $domain`
-    - ⚠️ Failed to run: Python 3.13 evaluation error. `future-1.0.0` is not supported on the active interpreter.
   - Repo.: <https://github.com/dirkjanm/mitm6>
   - Docs.: <https://blog.fox-it.com/2018/01/11/mitm6-compromising-ipv4-networks-via-ipv6/>
   - Desc.: DHCPv6 spoofer for IPv6-based DNS takeover and NTLM relay setup.
@@ -215,7 +214,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (v2.2.19, 2025-12-11).
 - maigret
   - run..: `nix run nixpkgs#maigret -- $username`
-    - ⚠️ Failed to run: blocked by the `python3.13-pypdf2-3.0.1` insecure marker. Requires a `permittedInsecurePackages` override.
   - Repo.: <https://github.com/soxoj/maigret>
   - Docs.: <https://maigret.readthedocs.io/>
   - Desc.: Username enumerator across 3000+ sites with profile-data extraction; extended fork of sherlock.
@@ -234,7 +232,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintenance mode (last release v5.1.2, 2021-08-25; active upstream commits through 2024-11-01).
 - maltego
   - run..: `nix run nixpkgs#maltego`
-    - ⚠️ Failed to run: unfree license. Requires `allowUnfree = true` and an entry in `modules/meta/nixpkgs-allowed-unfree.nix`.
+    - ⚠️ Failed to run: unfree license. Needs `NIXPKGS_ALLOW_UNFREE=1 --impure`, or `nixpkgs.allowedUnfreePackages` set from the module that wants it (the option is declared in `modules/meta/nixpkgs-allowed-unfree.nix`, which holds no entries itself).
   - Repo.: <https://www.maltego.com/>
   - Docs.: <https://docs.maltego.com/>
   - Desc.: Graph-based OSINT and link-analysis platform with transforms across public and commercial data sources (community edition usable from nixpkgs).
@@ -304,7 +302,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintenance mode (last release 2.2.7, 2024-11-03; active upstream commits through 2025-02-20).
 - waybackurls
   - run..: `nix run nixpkgs#waybackurls -- $domain`
-    - ⚠️ Failed to run: marked unfree in nixpkgs. Refuses to evaluate without `NIXPKGS_ALLOW_UNFREE=1 --impure` (or an entry in `modules/meta/nixpkgs-allowed-unfree.nix`).
   - Repo.: <https://github.com/tomnomnom/waybackurls>
   - Docs.: <https://github.com/tomnomnom/waybackurls#readme>
   - Desc.: Stream all URLs the Wayback Machine knows for a domain.
@@ -436,7 +433,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Deprecated (no formal releases; last commit 2018-03-14; Python 2 vintage, abandoned 7+ years).
 - patator
   - run..: `uvx patator $module host=$target ...`
-    - ⚠️ Failed to run: build of the transitive `cx-oracle 8.3.0` dependency fails. The build backend depends on `pkg_resources` without declaring it.
+    - ⚠️ Failed to run: build of the transitive `mysqlclient 2.2.8` dependency fails. Its setup script aborts with `Can not find valid pkg-config name` because no MySQL client library is on the `uvx` build path.
   - Repo.: <https://github.com/lanjelot/patator>
   - Docs.: <https://github.com/lanjelot/patator/wiki>
   - Desc.: Multi-purpose modular brute-forcer covering services hydra/medusa miss (Telnet, finger, MySQL, custom). Not in nixpkgs.
@@ -521,7 +518,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (2026.02.18, 2026-02-18).
 - angr
   - run..: `nix shell nixpkgs#python3Packages.angr -c python3`
-    - ⚠️ Failed to run: nixpkgs build fails. `setuptools-rust` is missing from `nativeBuildInputs` during wheel preparation.
+    - ⚠️ Failed to run: nixpkgs build fails. `setuptools-rust` is missing from `nativeBuildInputs` during wheel preparation. Tracked upstream as <https://github.com/NixOS/nixpkgs/issues/501379>.
   - Repo.: <https://github.com/angr/angr>
   - Docs.: <https://docs.angr.io/>
   - Desc.: Symbolic-execution and binary-analysis framework for CFG recovery, taint tracking, and concolic exploration.
@@ -551,7 +548,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - run..: `NIXPKGS_ALLOW_UNFREE=1 nix shell --impure nixpkgs#volatility3 -c vol -- -f $memdump windows.info`
   - Repo.: <https://github.com/volatilityfoundation/volatility3>
   - Docs.: <https://volatility3.readthedocs.io/>
-  - Desc.: Memory forensics framework for Windows/Linux/macOS captures. Binaries are `vol` and `volshell`; the derivation is marked unfree, so the invocation needs `NIXPKGS_ALLOW_UNFREE=1 --impure` (or an entry in `modules/meta/nixpkgs-allowed-unfree.nix`).
+  - Desc.: Memory forensics framework for Windows/Linux/macOS captures. Binaries are `vol` and `volshell`; the derivation is marked unfree, so the invocation needs `NIXPKGS_ALLOW_UNFREE=1 --impure` (or `nixpkgs.allowedUnfreePackages` set from the module that wants it).
   - Stat.: Maintained (v2.28.0, 2026-04-30).
 - sleuthkit
   - run..: `nix shell nixpkgs#sleuthkit -c fls -- -r $image`
@@ -580,7 +577,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Deprecated (no formal releases; last commit 2021-03-26; maintainers state effort abandoned).
 - dc3dd
   - run..: `nix run nixpkgs#dc3dd -- if=$src hof=$dst hash=sha256`
-    - ⚠️ Failed to run: nixpkgs compile failure with modern gcc. `argmatch.c:63: too many arguments to function 'usage'` (legacy macro mismatch).
   - Repo.: <https://sourceforge.net/projects/dc3dd/>
   - Docs.: <https://sourceforge.net/projects/dc3dd/files/>
   - Desc.: Forensic-focused dd patch with hashing-on-the-fly, progress reporting, and split output.

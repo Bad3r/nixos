@@ -38,6 +38,21 @@ pattern already used by `url-catalog-add.py`. Package updaters under
 `#!/usr/bin/env nix` shebang. Add packages for commands invoked directly,
 such as `yq-go` in `packages/webcrack/update.py`.
 
+A new `#!/usr/bin/env python3` script here also needs an entry in
+`[tool.ruff.per-file-target-version]` in `pyproject.toml`. Its interpreter comes
+from the invoker's `PATH` rather than the flake, and `ubuntu-latest` still ships
+3.12, so at the repo-wide `py314` target `ruff format` will rewrite portable
+code such as `except (KeyError, ValueError):` into the PEP 758 unbracketed form
+and break the script where it actually runs. The `uv run --script` shebang above
+needs no floor, because uv selects the interpreter from the script's own PEP 723
+`requires-python`. The `nix-shell -i python3` shebang does not pin one either:
+`--packages` resolves against `<nixpkgs>` from the ambient `NIX_PATH`. The
+`packages/*/update.py` updaters are nonetheless exempt, and none of them carry a
+floor, because they run through `scripts/run-packages-updaters.sh` on repo hosts
+where `modules/base/nixpkgs.nix` points `nix.nixPath` at the flake's nixpkgs.
+That exemption is a property of where they run, not of the shebang, so it stops
+holding for anything invoked with a different `NIX_PATH`.
+
 ## Validation Commands
 
 Validate the exact entrypoint changed before broader hooks:

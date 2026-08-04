@@ -1,7 +1,43 @@
 [tool.ruff]
 line-length = 100
 indent-width = 4
-target-version = "py313"
+target-version = "py314"
+
+# Files whose interpreter is chosen by the invoker rather than by the flake.
+# Without a floor the formatter may emit 3.14-only syntax into them, which
+# surfaces as a SyntaxError only when they actually run.
+#
+# Every `#!/usr/bin/env python3` entry script here runs under whatever python3
+# is on PATH, which is the criterion for this list; how each one is reached
+# only changes who hits the SyntaxError first.
+#   update-firefoxpwa-extension.py  run by the update-flake and
+#                                   update-firefoxpwa-extension workflows on
+#                                   ubuntu-latest
+#   update-gecko-userscripts.py     no workflow; operator-run only
+#   usbguard-ensure-allow.py        exec'd by `EDITOR=... sops` from a dev shell
+#                                   that modules/devshell.nix gives no python
+# scripts/updater is listed because __init__.py eagerly imports every submodule,
+# so the whole package is parsed alongside the scripts that import it. py312 is
+# the floor because updater/http.py uses PEP 695 `type` statements.
+#
+# updater_bootstrap.py is reached only through packages/*/update.py, which run
+# on the pinned interpreter, so it is here to keep the two gates agreeing: the
+# pyright environment below floors everything under scripts/ at 3.12, and
+# without a matching ruff floor the formatter emits `except A, B:` that pyright
+# then rejects as "Multiple exception types must be parenthesized prior to
+# Python 3.14", leaving both gates unsatisfiable at once.
+#
+# Not listed here: url-catalog-add.py, which declares requires-python >=3.14 in
+# its PEP 723 block so uv selects the interpreter, and packages/*/update.py,
+# whose `nix-shell -i python3 --packages python3` resolves <nixpkgs> from
+# NIX_PATH, which modules/base/nixpkgs.nix points at the flake's nixpkgs on repo
+# hosts.
+[tool.ruff.per-file-target-version]
+"scripts/update-firefoxpwa-extension.py" = "py312"
+"scripts/update-gecko-userscripts.py" = "py312"
+"scripts/updater/*.py" = "py312"
+"scripts/updater_bootstrap.py" = "py312"
+"scripts/usbguard-ensure-allow.py" = "py312"
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -49,8 +85,23 @@ indent-style = "space"
 
 [tool.pyright]
 typeCheckingMode = "strict"
-pythonVersion = "3.13"
+pythonVersion = "3.14"
 pythonPlatform = "Linux"
 include = ["packages", "scripts"]
 exclude = ["packages/duplicati-r2-tools", "scripts/url-catalog-add.py", "scripts/usbguard-ensure-allow.py"]
+extraPaths = ["scripts"]
+
+# The ruff floor above only constrains syntax the formatter emits. Type-checking
+# scripts/ at 3.14 would accept a 3.14-only stdlib API (Path.copy, annotationlib,
+# the new typing members) in files that run on the invoker's interpreter, failing
+# at runtime instead of at check time. Array-of-tables must stay last in this
+# table.
+[[tool.pyright.executionEnvironments]]
+root = "scripts"
+pythonVersion = "3.12"
+extraPaths = ["scripts"]
+
+[[tool.pyright.executionEnvironments]]
+root = "."
+pythonVersion = "3.14"
 extraPaths = ["scripts"]

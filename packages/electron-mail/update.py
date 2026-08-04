@@ -1,5 +1,7 @@
 #!/usr/bin/env nix-shell
 #! nix-shell -i python3 --packages python3
+# Copyright (c) 2026 Bad3r
+
 """Update script for electron-mail."""
 
 from __future__ import annotations

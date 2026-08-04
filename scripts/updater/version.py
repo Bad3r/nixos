@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Version fetching from various sources (GitHub, npm, custom APIs)."""
 
 import re
@@ -277,7 +279,7 @@ def fetch_npm_version(package: str) -> str:
         cmd = ["npm", "view", package, "version"]
         result = run_command(cmd)
         return result.stdout.strip()
-    except (FileNotFoundError, OSError):
+    except OSError:
         # npm command not available, fallback to registry API
         url = f"https://registry.npmjs.org/{package}/latest"
         data = fetch_json(url)
