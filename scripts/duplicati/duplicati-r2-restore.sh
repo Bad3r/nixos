@@ -81,7 +81,8 @@ Exit codes:
        restore parent or --restore-path could not be created;
        restore parent's mode could not be set;
        --restore-path's mode could not be set;
-       the scope directory could not be created;
+       the scope directory, scope probe, restore marker, or marker probe
+       could not be created;
        the restore lock could not be created
   75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
@@ -813,7 +814,10 @@ if [[ $restore_path_populated == false ]] && ! chmod "${chmod_noderef[@]}" 0700 
   exit 66
 fi
 
-restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX")
+if ! restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX"); then
+  echo "could not create the restore marker under '$restore_path'; mktemp's diagnostic is above." >&2
+  exit 66
+fi
 pre_dirs="${scope_dir}/pre-dirs"
 
 # -cnewer is strict, so an entry sharing the marker's timestamp tick is missed.
@@ -824,7 +828,10 @@ pre_dirs="${scope_dir}/pre-dirs"
 marker_probe="${restore_marker}.probe"
 marker_settled=false
 for _ in {1..50}; do
-  : >"$marker_probe"
+  if ! : >"$marker_probe"; then
+    echo "could not create the restore marker probe under '$restore_path'; shell's diagnostic is above." >&2
+    exit 66
+  fi
   if [[ $marker_probe -nt $restore_marker ]]; then
     marker_settled=true
     break
