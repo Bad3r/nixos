@@ -8,12 +8,17 @@ target-version = "py314"
 # surfaces as a SyntaxError only when they actually run.
 #
 # Every `#!/usr/bin/env python3` entry script here runs under whatever python3
-# is on PATH: the two update scripts via workflows on ubuntu-latest, and
-# usbguard-ensure-allow.py via `EDITOR=... sops`, which execs it from the dev
-# shell where modules/devshell.nix provides no python. scripts/updater is listed
-# because __init__.py eagerly imports every submodule, so the whole package is
-# parsed alongside the update scripts that import it. py312 is the floor because
-# updater/http.py uses PEP 695 `type` statements.
+# is on PATH, which is the criterion for this list; how each one is reached
+# only changes who hits the SyntaxError first.
+#   update-firefoxpwa-extension.py  run by the update-flake and
+#                                   update-firefoxpwa-extension workflows on
+#                                   ubuntu-latest
+#   update-gecko-userscripts.py     no workflow; operator-run only
+#   usbguard-ensure-allow.py        exec'd by `EDITOR=... sops` from a dev shell
+#                                   that modules/devshell.nix gives no python
+# scripts/updater is listed because __init__.py eagerly imports every submodule,
+# so the whole package is parsed alongside the scripts that import it. py312 is
+# the floor because updater/http.py uses PEP 695 `type` statements.
 #
 # Scripts that provision their own interpreter do not belong here:
 # url-catalog-add.py declares requires-python >=3.14 in its PEP 723 block and
