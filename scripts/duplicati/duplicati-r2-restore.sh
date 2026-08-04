@@ -29,7 +29,13 @@ Options:
                            when it already exists. A restore directory this
                            run creates, or finds already empty, is set to
                            0700; under --force the pre-existing directory's
-                           own mode is left untouched.
+                           own mode is left untouched. While the restore runs,
+                           .duplicati-restore-marker.* entries are created
+                           directly under this path for the lock and timestamp
+                           scope, then removed on exit. An untrappable death
+                           (SIGKILL, power loss) leaves them behind, and the
+                           next run refuses with exit 64 until the lock
+                           directory is removed by hand.
   --chown <user:group>     Chown applied to the entries written during the
                            restore (files restored, directories created),
                            selected by ctime rather than by asking duplicati,
