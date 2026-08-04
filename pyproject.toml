@@ -7,15 +7,23 @@ target-version = "py314"
 # Without a floor the formatter may emit 3.14-only syntax into them, which
 # surfaces as a SyntaxError only when they actually run.
 #
-# The two `#!/usr/bin/env python3` entry scripts run under whatever python3 is
-# on PATH, and scripts/updater/__init__.py eagerly imports every submodule, so
-# the whole package is parsed alongside them; update-flake.yml and
-# update-firefoxpwa-extension.yml take that path on ubuntu-latest. py312 is the
-# floor there because updater/http.py uses PEP 695 `type` statements.
+# Every `#!/usr/bin/env python3` entry script here runs under whatever python3
+# is on PATH: the two update scripts via workflows on ubuntu-latest, and
+# usbguard-ensure-allow.py via `EDITOR=... sops`, which execs it from the dev
+# shell where modules/devshell.nix provides no python. scripts/updater is listed
+# because __init__.py eagerly imports every submodule, so the whole package is
+# parsed alongside the update scripts that import it. py312 is the floor because
+# updater/http.py uses PEP 695 `type` statements.
+#
+# Scripts that provision their own interpreter do not belong here:
+# url-catalog-add.py declares requires-python >=3.14 in its PEP 723 block and
+# runs under `uv run --script`, and packages/*/update.py run under
+# `nix-shell -i python3` off the pinned nixpkgs.
 [tool.ruff.per-file-target-version]
 "scripts/update-firefoxpwa-extension.py" = "py312"
 "scripts/update-gecko-userscripts.py" = "py312"
 "scripts/updater/*.py" = "py312"
+"scripts/usbguard-ensure-allow.py" = "py312"
 
 [tool.ruff.lint]
 select = ["ALL"]
