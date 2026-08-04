@@ -44,19 +44,30 @@
           ''
             set -o errexit -o nounset -o pipefail
 
+            # The optional ! keeps the anchoring at a command position while
+            # admitting the negated spelling of it, which fails open the same
+            # way and is the more natural way to write an assertion that wants
+            # to report a leftover. Spelled with the negation inline rather than
+            # quoted in this comment, because the scan below reads this file
+            # too and a quoted command position is a hit like any other.
             scan() {
               grep -rnE \
-                '^[[:space:]]*compgen\b|\$\(compgen\b|(if|while|until|then|else|do|;|&&|\|\|)[[:space:]]+compgen\b' \
+                '^[[:space:]]*!?[[:space:]]*compgen\b|\$\(!?[[:space:]]*compgen\b|(if|while|until|then|else|do|;|&&|\|\|)[[:space:]]+!?[[:space:]]*compgen\b' \
                 "$@" || true
             }
 
             planted="$PWD/planted"
             mkdir -p "$planted"
             # Assembled rather than written out, so this file is not a hit in its
-            # own scan and does not have to exclude itself from it.
-            printf 'if %s -A function; then :; fi\n' compgen >"$planted/fixture.sh"
-            if [ -z "$(scan "$planted")" ]; then
-              echo "build-time-shell: the scan reports nothing for a planted usage, so the tree scan below would pass regardless" >&2
+            # own scan and does not have to exclude itself from it. Both
+            # spellings, and counted: a fixture for one of them proves only the
+            # alternative it happens to take, which is how the negated form went
+            # unscanned while the self-test stayed green.
+            printf 'if %s -A function; then :; fi\n' compgen >"$planted/plain.sh"
+            printf 'if ! %s -A function; then :; fi\n' compgen >"$planted/negated.sh"
+            planted_hits=$(scan "$planted" | wc -l)
+            if [ "$planted_hits" -ne 2 ]; then
+              echo "build-time-shell: the scan reports $planted_hits of 2 planted usages, so the tree scan below would pass regardless" >&2
               exit 1
             fi
 
