@@ -27,10 +27,11 @@ target-version = "py314"
 # then rejects as "Multiple exception types must be parenthesized prior to
 # Python 3.14", leaving both gates unsatisfiable at once.
 #
-# Scripts that provision their own interpreter do not belong here:
-# url-catalog-add.py declares requires-python >=3.14 in its PEP 723 block and
-# runs under `uv run --script`, and packages/*/update.py run under
-# `nix-shell -i python3` off the pinned nixpkgs.
+# Not listed here: url-catalog-add.py, which declares requires-python >=3.14 in
+# its PEP 723 block so uv selects the interpreter, and packages/*/update.py,
+# whose `nix-shell -i python3 --packages python3` resolves <nixpkgs> from
+# NIX_PATH, which modules/base/nixpkgs.nix points at the flake's nixpkgs on repo
+# hosts.
 [tool.ruff.per-file-target-version]
 "scripts/update-firefoxpwa-extension.py" = "py312"
 "scripts/update-gecko-userscripts.py" = "py312"
