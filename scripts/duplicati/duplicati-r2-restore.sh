@@ -723,6 +723,21 @@ if [[ $lock_status -ne 0 ]]; then
 fi
 restore_lock="$restore_lock_path"
 
+# The emptiness probe ran before mkdir -p claimed the leaf, and the -L re-test
+# covers only a symlink planted in that window. An explicit --restore-path may
+# sit under a user-owned parent, so that user can instead create the leaf with
+# content: the --force gate would be skipped and the root then chowned and
+# chmod'd as though this run had created it. The lock makes the observation
+# stable, so take it again now that it is held.
+if [[ -n $(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ]]; then
+  restore_path_populated=true
+  if [[ $force != true ]]; then
+    echo "refusing: --restore-path '$restore_path' became non-empty while this run was starting." >&2
+    echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+    exit 64
+  fi
+fi
+
 scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
 restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX")
 pre_dirs="${scope_dir}/pre-dirs"
