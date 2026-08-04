@@ -370,14 +370,17 @@ and a host actually installs it. License is no longer a criterion; see
   - `self'.packages`, when only the devshell surface consumes it;
   - the owning flake input, when a module consumes the input's package
     directly (context7-mcp);
-  - the option that holds the resolved package, listed in
-    `hostOptionPackages`, when the bare package-set attribute never produces
-    it or it never reaches `environment.systemPackages`
-    (nemo-with-extensions, nvidia-x11). Give the entry an `installed`
-    predicate naming the condition under which the host installs it; do not
-    assume a sibling `enable` exists, because upstream options such as
-    `hardware.nvidia.package` carry a default and stay defined on hosts that
-    never use them.
+  - the host config, listed in `hostOptionPackages`, when the bare
+    package-set attribute never produces it or it never reaches
+    `environment.systemPackages` (nemo-with-extensions, nvidia-x11). Write
+    `path` as a `hostConfig: package` function, not an option path: it may
+    reach past the option into a derivation hanging off the package
+    (`hardware.nvidia.package.settings`) or choose between derivations by
+    another option's value (`hardware.nvidia.open`). Give the entry an
+    `installed` predicate naming the condition under which the host installs
+    it; do not assume a sibling `enable` exists, because upstream options such
+    as `hardware.nvidia.package` carry a default and stay defined on hosts
+    that never use them.
 - A name enabled on no host aborts evaluation rather than publishing nothing,
   so a rename or a last-host disable fails `nix flake check` instead of leaving
   a dead entry.
