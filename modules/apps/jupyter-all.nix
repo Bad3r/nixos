@@ -35,9 +35,9 @@ let
   # jupyter-kernel.default and its absolute interpreter argv, leaving
   # ipykernel's own kernelspec, whose argv[0] is the bare string "python".
   # That resolves through PATH, and outside the wrapper PATH yields
-  # programs.python.extended's hiPrio pkgs.python3, which has no ipykernel. Only
-  # kernel.json needs rewriting; buildEnv unfolds the python3 directory and
-  # links ipykernel's logos next to it.
+  # programs.python.extended's hiPrio pkgs.python3, which has no ipykernel.
+  # Only kernel.json needs rewriting; buildEnv unfolds the python3 directory
+  # and links ipykernel's logos next to it.
   mkKernelspecs =
     pkgs: package:
     pkgs.runCommand "jupyter-all-kernelspecs"
@@ -104,22 +104,23 @@ let
             (lib.hiPrio kernelspecs)
           ];
 
-          # NixOS links no /share/jupyter by default, so kernelspecs stay
-          # reachable only through the wrapped `jupyter` binary, which sets
-          # JUPYTER_PATH itself. profileRelativeSessionVariables expands the
-          # suffix over environment.profiles, so a kernel installed through
-          # home.packages is exported alongside the system one, and it feeds
-          # both /etc/pam/environment (so editors started from the desktop
-          # inherit it) and profileRelativeEnvVars for shells. Profiles that
-          # ship no kernels cost nothing: _list_kernels_in skips a path that
-          # is not a directory.
-          # Only kernels: cfg.package's share/jupyter also carries
+          # Kernels only: cfg.package's share/jupyter also carries
           # labextensions and nbconvert/templates, both resolved through
           # jupyter_path(), and exporting those would outrank a virtualenv's
           # own copies for `jupyter lab` and `jupyter nbconvert`. buildEnv
           # still creates the intermediate share/jupyter that JUPYTER_PATH
           # names.
           pathsToLink = [ "/share/jupyter/kernels" ];
+
+          # NixOS links nothing under /share/jupyter by default, so kernelspecs
+          # stay reachable only through the wrapped `jupyter` binary, which
+          # sets JUPYTER_PATH itself. profileRelativeSessionVariables expands
+          # the suffix over environment.profiles, so a kernel installed through
+          # home.packages is exported alongside the system one, and it feeds
+          # both /etc/pam/environment (so editors started from the desktop
+          # inherit it) and profileRelativeEnvVars for shells. Profiles that
+          # ship no kernels cost nothing: _list_kernels_in skips a path that is
+          # not a directory.
           profileRelativeSessionVariables.JUPYTER_PATH = [ "/share/jupyter" ];
         };
       };
