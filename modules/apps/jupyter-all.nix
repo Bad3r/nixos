@@ -171,6 +171,16 @@ in
                 ;;
             esac
 
+            # Compared against the spec the rewrite reads from rather than a
+            # literal, so the assertion tracks whatever label ipykernel writes
+            # into a user or virtualenv install.
+            label=$(jq -r '.display_name' "$kernels/python3/kernel.json")
+            shadowed=$(jq -r '.display_name' ${package}/share/jupyter/kernels/python3/kernel.json)
+            if [ "$label" = "$shadowed" ]; then
+              echo "python3 display_name is '$label', the label ipykernel installs: the exported spec is indistinguishable in a kernel picker from the user and virtualenv specs it shadows" >&2
+              exit 1
+            fi
+
             if [ "$(find "$kernels" -mindepth 1 -maxdepth 1 -not -name python3 | wc -l)" -eq 0 ]; then
               echo "only python3 reached $kernels; the override kernels were not re-exported" >&2
               exit 1
