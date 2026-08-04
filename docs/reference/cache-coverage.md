@@ -98,19 +98,22 @@ Allowlisting and caching are mutually exclusive dispositions, not a
 preference. A glob here declares that the divergence is a permanent local
 build; a name in `cache-roots.nix` declares that CI publishes it. Choose the
 allowlist only when the package cannot be cached: `allowSubstitutes = false`
-on the expensive derivation (tor-browser, mullvad-browser), an unfree or
-non-redistributable license while the cache is public (the RAR-enabled
-p7zip), or a wrapper cheap enough that publishing it costs more CI time than
-it saves. Everything else belongs in `cache-roots.nix`, and adding it there
+on the expensive derivation (tor-browser, mullvad-browser), or a wrapper cheap
+enough that publishing it costs more CI time than it saves. A license is not a
+reason; `cache-roots.nix` publishes unfree packages too, so the RAR-enabled
+p7zip is now an unclaimed candidate rather than a permanent local build.
+Everything else belongs in `cache-roots.nix`, and adding it there
 means deleting the glob here in the same change. That is enforced rather than
 left to memory: the `cache-roots-allowlist-disjoint` flake check in
 `modules/meta/cache-roots.nix` reads this file and aborts evaluation naming the
 offender. It matches each published entry on the derivation `name` and `pname`,
 which are the strings this report matches globs against, so a version-anchored
 glob such as `proton-vpn-[0-9]*` is caught the same as `proton-vpn*`. The
-`linkFarm` key is checked as well: a glob spelled that way suppresses nothing
-here, since the key never reaches this report, but it declares the same
-disposition the rule forbids. Its domain is the published entries, not the closure
+entry's package name is checked as well: a glob spelled that way suppresses
+nothing here, since that name never reaches this report, but it declares the
+same disposition the rule forbids. The host-qualified `linkFarm` key
+(`<host>/<package>`) is not checked, because no glob is written that way. Its
+domain is the published entries, not the closure
 members the push also serves, because that closure does not exist at evaluation
 time; extending the check to them is
 https://github.com/Bad3r/nixos/issues/428. It throws
