@@ -18,7 +18,7 @@
 
   Example Usage:
     * `valgrind ./app` -- Run a binary under Memcheck to catch memory issues.
-    * `valgrind --tool=callgrind ./app {PRESERVED_DOCUMENTATION}{PRESERVED_DOCUMENTATION} kcachegrind callgrind.out.*` -- Profile CPU hotspots and inspect results.
+    * `valgrind --tool=callgrind ./app && kcachegrind callgrind.out.*` -- Profile CPU hotspots and inspect results.
     * `valgrind --tool=massif --massif-out-file=massif.out ./server` -- Monitor heap growth for long-running services.
 */
 _:

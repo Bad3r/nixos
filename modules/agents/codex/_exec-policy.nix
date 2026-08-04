@@ -180,6 +180,26 @@ let
         ++ (map withAcceptFlakeConfig nixAllowedSubcommands)
         ++ [ [ "nix-instantiate" ] ];
 
+      # The archive-before-drop stash helper. `nix develop` is auto-allowed
+      # above, so without these the wrapped form would run unprompted while the
+      # bare `git stash drop` it replaces prompts. Decision is resolved by
+      # `max()` over every matching rule (Allow < Prompt < Forbidden in
+      # codex-rs/execpolicy/src/decision.rs), so these win over that allow
+      # regardless of rule order.
+      #
+      # Shared with the claude-code `bashAsk` list; see that file for why, and
+      # the shared file for why the coverage is best-effort rather than
+      # exhaustive. Codex has no fallback here: execpolicy sees
+      # `nix develop ... -c prune-old-stashes` as one argv, so an uncovered
+      # spelling is never re-evaluated against the inner name.
+      stashHelperInvocations = import ../_stash-helper-invocations.nix;
+
+      promptedStashHelperRules = map (pattern: {
+        inherit pattern;
+        decision = "prompt";
+        justification = "Drops stashes, archive-first but still destructive; ask before running.";
+      }) stashHelperInvocations;
+
       promptedGitRules = [
         {
           pattern = [
@@ -456,6 +476,7 @@ let
         ""
         "# Destructive git prefixes that must ask first"
       ]
+      ++ map execPolicyRule promptedStashHelperRules
       ++ map execPolicyRule promptedGitRules
       ++ [
         ""

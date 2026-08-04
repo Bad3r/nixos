@@ -1,0 +1,666 @@
+#!/usr/bin/env bash
+# Archives and drops git stashes older than an age threshold. Recoverability
+# is the design constraint: a stash is only dropped after its commit is
+# archived under refs/stash-archive/<YYYY-MM-DD>/<short-sha>, and archive
+# refs are only deleted by an explicit --sweep-archive past the retention
+# window. `git stash clear` is never used; every drop is per-stash.
+set -Eeuo pipefail
+export LC_ALL=C
+# `git -C <dir>` changes directory but does not override these: with any of them
+# exported, as a git hook or `git rebase --exec` does, every `git -C "$repo"`
+# below would read and drop stashes from that repository while the report names
+# another, and --all-worktrees would collapse to it because every root hashes to
+# the same dedup key.
+unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR GIT_INDEX_FILE GIT_OBJECT_DIRECTORY GIT_NAMESPACE
+
+prog_name="${0##*/}"
+
+usage() {
+  # Help requested explicitly (-h/--help) prints to stdout; callers on the
+  # error path redirect this to stderr with `usage >&2`.
+  cat <<EOF
+usage: ${prog_name} [options]
+
+Prunes stashes older than --age (default 14d). Dry-run by default: prints
+the plan and changes nothing; --apply performs it. Every pruned stash is
+archived under refs/stash-archive/<YYYY-MM-DD>/<short-sha> (archive date,
+12-hex short sha) before the drop; a failed archive write aborts that
+stash's drop and the run exits non-zero.
+
+Recover a pruned stash within the retention window:
+  git stash apply refs/stash-archive/<YYYY-MM-DD>/<short-sha>
+
+options:
+  --apply                   Archive and drop selected stashes.
+  --age <dur>               Age threshold, also --age=<dur>. Formats: 14d,
+                            2w, bare integer (days); at most 6 digits.
+                            Default: 14d. 0 selects every stash; unlike
+                            --archive-retention 0 it disables nothing.
+  --archive-retention <dur> Grace period for archive refs, also
+                            --archive-retention=<dur>; at most 6 digits; a
+                            usage error without --sweep-archive. Default:
+                            90d. Measured from the ref's date, so 1 expires
+                            refs dated two or more days before today. A
+                            value of 0 disables expiry, as it does for
+                            --backup-retention-days in
+                            prune-stale-worktrees.
+  --sweep-archive           Also delete archive refs whose archive date is
+                            past the retention window (dry-run without
+                            --apply). Refs written under today's date are
+                            never swept, so a single invocation cannot
+                            delete the archive of a stash it just dropped,
+                            and a repository this run could not read or
+                            could not write to is not swept at all.
+  --all-worktrees           Also process repositories under each --root.
+                            Roots sharing a common git dir are processed
+                            once: linked worktrees share one stash stack.
+  --root <dir>              Repeatable, also --root=<dir>. Directory
+                            scanned by --all-worktrees; a usage error
+                            without it. Default: \$HOME/trees/nixos.
+                            Exactly one level below each root is scanned,
+                            so a root must directly contain the checkouts;
+                            unlike prune-stale-worktrees, container
+                            directories are not descended into. A named
+                            root that is missing, or that contains no
+                            checkouts, is reported and counted as a
+                            failure.
+  -h, --help                Print this help.
+
+Runs are serialized by a per-user lock; a second concurrent invocation exits
+1 rather than resolving stash positions against a stack another run is
+mutating. The lock needs flock from util-linux, which the dev-shell wrapper
+and the flake package supply; a run started any other way exits 1 without it.
+
+exit codes:
+  0   success (or clean dry-run)
+  1   the run did not complete everything it selected, or could not start at
+      all. Causes: an archive write, drop, or archive-ref deletion failed; a
+      selected stash moved or vanished before its drop; a stash-list entry was
+      unparsable; the stash list or the archive refs could not be read; the
+      common git dir of a repository could not be resolved; a named --root is
+      missing or contains no checkouts; any scanned root, including the default
+      one, holds a broken checkout or a directory that is not the root of the
+      repository it resolves to; flock is not installed; the lock directory
+      could not be created, or exists and is not a directory this user owns, or
+      the lock path is a symlink; another instance holds the run lock
+  64  usage error
+EOF
+}
+
+parse_duration_days() {
+  # Digits are normalized through 10# here because the result is re-evaluated
+  # by later arithmetic, where a leading zero means octal: `010` would become a
+  # 10-day threshold read back as 8, and `08`/`09` abort with "value too great
+  # for base".
+  #
+  # The digit run is bounded because that arithmetic is 64-bit and wraps
+  # silently: `--age 999999999999999` puts age_cutoff in the future, so every
+  # stash satisfies `ct <= age_cutoff` and a threshold asking to keep
+  # everything selects a stash pushed seconds ago. Out of range now takes the
+  # documented exit-64 path.
+  local spec=$1
+  if [[ $spec =~ ^([0-9]{1,6})d?$ ]]; then
+    printf '%s' "$((10#${BASH_REMATCH[1]}))"
+  elif [[ $spec =~ ^([0-9]{1,6})w$ ]]; then
+    printf '%s' "$((10#${BASH_REMATCH[1]} * 7))"
+  else
+    echo "${prog_name}: invalid duration '${spec}' (expected e.g. 14d, 2w, 30; at most 6 digits)" >&2
+    return 64
+  fi
+}
+
+apply=false
+sweep=false
+all_worktrees=false
+declare -a scan_roots=()
+age_days=14
+retention_days=90
+retention_explicit=false
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+  --apply)
+    apply=true
+    shift
+    ;;
+  --sweep-archive)
+    sweep=true
+    shift
+    ;;
+  --all-worktrees)
+    all_worktrees=true
+    shift
+    ;;
+  --root)
+    [[ $# -ge 2 ]] || {
+      echo "${prog_name}: --root requires a value" >&2
+      exit 64
+    }
+    scan_roots+=("$2")
+    shift 2
+    ;;
+  --root=*)
+    scan_roots+=("${1#*=}")
+    shift
+    ;;
+  --age)
+    [[ $# -ge 2 ]] || {
+      echo "${prog_name}: --age requires a value" >&2
+      exit 64
+    }
+    age_days=$(parse_duration_days "$2") || exit 64
+    shift 2
+    ;;
+  --age=*)
+    age_days=$(parse_duration_days "${1#*=}") || exit 64
+    shift
+    ;;
+  --archive-retention)
+    [[ $# -ge 2 ]] || {
+      echo "${prog_name}: --archive-retention requires a value" >&2
+      exit 64
+    }
+    retention_days=$(parse_duration_days "$2") || exit 64
+    retention_explicit=true
+    shift 2
+    ;;
+  --archive-retention=*)
+    retention_days=$(parse_duration_days "${1#*=}") || exit 64
+    retention_explicit=true
+    shift
+    ;;
+  -h | --help)
+    usage
+    exit 0
+    ;;
+  *)
+    echo "${prog_name}: unknown argument: $1" >&2
+    usage >&2
+    exit 64
+    ;;
+  esac
+done
+
+# Serialize runs the way the sibling destructive helper does
+# (scripts/prune-stale-worktrees.sh). Checked here, ahead of every repository
+# read and ahead of the empty-roots exit below, so a host without util-linux
+# names the missing tool instead of exiting 64 for "not inside a git
+# repository" or reporting per-checkout failures from a run that cannot start.
+# `command not found` returns 127 into the `flock -n` `||` branch further down
+# and would otherwise be reported as contention with a process that does not
+# exist, which never clears no matter how long the operator waits.
+command -v flock >/dev/null 2>&1 || {
+  echo "${prog_name}: flock is required to serialize runs (install util-linux, or use the dev-shell wrapper)" >&2
+  exit 1
+}
+
+now=$(date +%s)
+age_cutoff=$((now - age_days * 86400))
+# The extra day is the one the ref name cannot express: archive refs carry a
+# date, so `epoch` is midnight of that date while the cutoff is an instant.
+# Without it, `--archive-retention N` grants only N-1 days of grace; a ref
+# written yesterday at 23:00 would be deleted by a run at 00:30 today with
+# `--archive-retention 1`, 90 minutes after it was written.
+retention_cutoff=$((now - (retention_days + 1) * 86400))
+archive_date=$(date -u +%F)
+failures=0
+selected=0
+would_sweep=0
+dropped=0
+swept=0
+
+# Collect candidate roots, then deduplicate by resolved common git dir so a
+# stash stack shared by linked worktrees is only processed once.
+declare -a roots=()
+if toplevel=$(git rev-parse --show-toplevel 2>/dev/null); then
+  roots+=("$toplevel")
+fi
+# A --root that is never scanned is a typo, not a preference: silently
+# ignoring it prunes only the current repository while the operator believes a
+# whole tree was covered.
+if [[ ${#scan_roots[@]} -gt 0 && $all_worktrees != true ]]; then
+  echo "${prog_name}: --root has no effect without --all-worktrees" >&2
+  exit 64
+fi
+# Same rule: a retention window that is never applied is a typo, not a
+# preference. retention_days is read only inside sweep_repo, so without
+# --sweep-archive the run reports success while the archive refs the operator
+# asked to expire keep accumulating.
+if [[ $retention_explicit == true && $sweep != true ]]; then
+  echo "${prog_name}: --archive-retention has no effect without --sweep-archive" >&2
+  exit 64
+fi
+if [[ $all_worktrees == true ]]; then
+  roots_explicit=true
+  if [[ ${#scan_roots[@]} -eq 0 ]]; then
+    roots_explicit=false
+    scan_roots=("$HOME/trees/nixos")
+  fi
+  for scan_root in "${scan_roots[@]}"; do
+    # An empty value makes the glob below expand to `/*/`, enumerating every
+    # top-level directory of the filesystem root; a mistyped one matches
+    # nothing and reports a clean run over a tree that was never scanned.
+    if [[ -z $scan_root || ! -d $scan_root ]]; then
+      echo "${prog_name}: root does not exist, skipping: ${scan_root}" >&2
+      # A root the operator named and misspelled belongs in the exit status.
+      # The default one simply may not exist on a host without worktrees.
+      if [[ $roots_explicit == true ]]; then
+        failures=$((failures + 1))
+      fi
+      continue
+    fi
+    scanned=0
+    anomalies=0
+    for dir in "$scan_root"/*/; do
+      [[ -d $dir ]] || continue
+      # rev-parse walks up, so a directory that is not itself a checkout
+      # resolves to whatever repository encloses the root: one plain directory
+      # under the root is enough to pull a dotfiles repo at $HOME into the scan
+      # set and prune its stashes.
+      [[ -e ${dir%/}/.git ]] || continue
+      if wt_top=$(git -C "$dir" rev-parse --show-toplevel 2>/dev/null); then
+        # Presence of .git is not the property being relied on; "this directory
+        # is the repository root" is. Git treats .git as a repository only when
+        # it validates, so an empty or partially deleted .git directory does not
+        # stop discovery and rev-parse walks up to the enclosing repository. A
+        # non-empty prefix says the repository found is not rooted here.
+        # Checked, not just captured: a failed invocation yields an empty
+        # string, which is indistinguishable from "the prefix is empty" and so
+        # from "this directory is the repository root". Failing open here
+        # registers whatever --show-toplevel resolved, which is the enclosing
+        # repository in exactly the case this guard exists to catch. The two
+        # are separate invocations, so success on the first carries nothing.
+        if ! prefix=$(git -C "$dir" rev-parse --show-prefix 2>/dev/null) || [[ -n $prefix ]]; then
+          echo "${prog_name}: not a checkout root, skipping: ${dir%/}" >&2
+          failures=$((failures + 1))
+          anomalies=$((anomalies + 1))
+          continue
+        fi
+        roots+=("$wt_top")
+        scanned=$((scanned + 1))
+      else
+        # A .git that does not resolve is a broken checkout, not an absence:
+        # left silent it is indistinguishable from one that was processed,
+        # while its stashes stay outside the tool's reach. Counted whichever
+        # root it came from, unlike a missing or empty root: the default root
+        # is exempt because a host may legitimately have no worktrees, and
+        # corruption inside an existing tree is not that case.
+        echo "${prog_name}: broken checkout, skipping: ${dir%/}" >&2
+        failures=$((failures + 1))
+        anomalies=$((anomalies + 1))
+      fi
+    done
+    # Exactly one level is scanned, so a root aimed one level too high exists,
+    # matches directories, and still registers nothing. Left silent that is the
+    # same clean report over an unscanned tree a missing root already reports.
+    # Only when nothing was found at all: a root whose entries were reported as
+    # broken or misrooted does contain checkouts, and calling that an absence
+    # would both misdescribe it and count one problem twice.
+    if ((scanned == 0 && anomalies == 0)); then
+      echo "${prog_name}: no checkouts directly under root: ${scan_root}" >&2
+      if [[ $roots_explicit == true ]]; then
+        failures=$((failures + 1))
+      fi
+    fi
+  done
+fi
+if [[ ${#roots[@]} -eq 0 ]]; then
+  echo "${prog_name}: not inside a git repository and no repositories found under the scanned roots" >&2
+  # Entries already reported as broken or misrooted are corruption inside an
+  # existing tree, not a usage error, and exiting 64 here would also discard
+  # the failure count the summary below would have printed.
+  if ((failures > 0)); then
+    echo "${prog_name}: ${failures} failure(s)" >&2
+    exit 1
+  fi
+  exit 64
+fi
+
+declare -A seen_common=()
+declare -a repos=()
+for root in "${roots[@]}"; do
+  # The only git read whose status must not be dropped silently: it decides
+  # which repositories are pruned. An unchecked failure yields an empty word,
+  # `cd ""` stays put, and the key degrades to the worktree path, so two linked
+  # worktrees of one stack would be processed as separate repositories.
+  # CDPATH is cleared because --git-common-dir returns a bare relative `.git`
+  # for a main worktree, and cd consults CDPATH for any target not starting
+  # with / ./ or ../: on a hit it lands elsewhere and echoes the resolved path,
+  # so two unrelated repositories would hash to one key.
+  if ! common_dir=$(git -C "$root" rev-parse --git-common-dir) ||
+    ! common=$(cd "$root" && CDPATH='' cd -- "$common_dir" && pwd -P); then
+    echo "${prog_name}: cannot resolve the common git dir of ${root}; skipping it" >&2
+    failures=$((failures + 1))
+    continue
+  fi
+  [[ -n ${seen_common[$common]:-} ]] && continue
+  seen_common[$common]=1
+  repos+=("$root")
+done
+
+# Prints the current stack position of a stash commit. Exit 1 when the commit
+# is no longer stashed, 2 when the stack cannot be read at all.
+locate_stash_index() {
+  local repo=$1 want=$2 live listed pos=0
+  live=$(git -C "$repo" stash list --format='%H') || return 2
+  # An empty stack means the commit is not there. Handled here rather than by
+  # skipping blank lines in the loop: a blank line inside a non-empty listing
+  # occupies a stack slot, and stepping over it would resolve every commit
+  # below it one index too low.
+  [[ -n $live ]] || return 1
+  while IFS= read -r listed; do
+    if [[ $listed == "$want" ]]; then
+      printf '%s' "$pos"
+      return 0
+    fi
+    pos=$((pos + 1))
+  done <<<"$live"
+  return 1
+}
+
+prune_repo() {
+  local repo=$1
+  local -a positions=() shas=() ctimes=() subjects=()
+  local listing gd ct sha subject idx pos=0 listing_unusable=false
+
+  echo "repo: ${repo}"
+
+  # The listing is captured with its exit status rather than piped in from a
+  # process substitution, whose failure is invisible: the loop would read zero
+  # lines and an unreadable repository would be reported as a clean result.
+  if ! listing=$(git -C "$repo" stash list --format='%gd|%ct|%H|%s'); then
+    echo "  ERROR: cannot read the stash list of ${repo}" >&2
+    failures=$((failures + 1))
+    return 1
+  fi
+
+  # An empty listing is the "no stashes" case and is handled here rather than
+  # by skipping blank lines inside the loop: a blank line in a non-empty
+  # listing occupies a stack slot like any other and must be rejected loudly,
+  # not stepped over without advancing the position.
+  if [[ -n $listing ]]; then
+    while IFS='|' read -r gd ct sha subject; do
+      # Entries that do not have the expected shape are rejected, not treated
+      # as old: an empty ct evaluates as 0 and would select the entry
+      # unconditionally.
+      # ct is bounded for the reason parse_duration_days is: it feeds the same
+      # 64-bit arithmetic, and a value past INTMAX_MAX wraps. A wrap to a
+      # negative value satisfies `ct <= age_cutoff` regardless of --age, and
+      # this is the side of that comparison that decides whether a stash is
+      # dropped. Eleven digits reaches the year 5138.
+      if [[ ! $ct =~ ^[0-9]{1,11}$ || ! $sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]]; then
+        echo "  ERROR: unparsable stash list entry: ${gd}" >&2
+        failures=$((failures + 1))
+        # A listing this run could not fully interpret is the same failure
+        # state as one it could not read: its archive refs must not be expired.
+        listing_unusable=true
+        # A rejected entry still occupies a stack slot, so the counter has to
+        # advance or every position below it is reported one too low.
+        pos=$((pos + 1))
+        continue
+      fi
+      # Normalized like parse_duration_days, and for the same reason: the shape
+      # check accepts a leading zero, which bash arithmetic reads as octal.
+      # `07000000000` would compare as 939524096 and select a stash dated 2191
+      # for dropping, while `09999999999` makes `((...))` abort inside an `if`
+      # condition, which returns 1 and skips the entry with no error at all.
+      ct=$((10#$ct))
+      if ((ct <= age_cutoff)); then
+        positions+=("$pos")
+        shas+=("$sha")
+        ctimes+=("$ct")
+        subjects+=("$subject")
+      fi
+      pos=$((pos + 1))
+    done <<<"$listing"
+  fi
+
+  local count=${#shas[@]}
+  if ((count == 0)); then
+    # Not the clean-stack case when part of the listing was rejected: a bare
+    # age result there would report a clean read of entries this run could not
+    # interpret. The per-entry errors above carry which ones.
+    if [[ $listing_unusable == true ]]; then
+      echo "  ERROR: no stash older than ${age_days}d was selected, and the listing had entries this run could not interpret" >&2
+      return 1
+    fi
+    echo "  no stashes older than ${age_days}d"
+    return 0
+  fi
+
+  # Iterate from the highest stash index down: dropping stash@{N} shifts
+  # every index above N, but never the lower ones still pending.
+  local i age_d ref current located rc drop_out dropped_sha rescue writes_failed=false
+  for ((i = count - 1; i >= 0; i--)); do
+    sha=${shas[i]}
+    age_d=$(((now - ctimes[i]) / 86400))
+    ref="refs/stash-archive/${archive_date}/${sha:0:12}"
+    selected=$((selected + 1))
+
+    if [[ $apply != true ]]; then
+      echo "  would archive stash@{${positions[i]}} (${age_d}d old) -> ${ref}"
+      echo "    ${subjects[i]}"
+      continue
+    fi
+
+    # The position recorded at listing time is a snapshot: one `git stash push`
+    # from another shell shifts every index, and asserting the stale one would
+    # fail every remaining candidate even though each is still present and
+    # still eligible. The live position is resolved from the recorded sha, so
+    # the identity of what gets dropped never depends on the snapshot.
+    rc=0
+    located=$(locate_stash_index "$repo" "$sha") || rc=$?
+    if ((rc == 2)); then
+      echo "  ERROR: cannot re-read the stash list of ${repo}; not dropping ${sha}" >&2
+      failures=$((failures + 1))
+      listing_unusable=true
+      continue
+    elif ((rc != 0)); then
+      echo "  ERROR: ${sha} is no longer in the stash stack of ${repo}; skipping its drop" >&2
+      failures=$((failures + 1))
+      continue
+    fi
+    idx=$located
+
+    echo "  archiving stash@{${idx}} (${age_d}d old) -> ${ref}"
+    echo "    ${subjects[i]}"
+    if ! git -C "$repo" update-ref "$ref" "$sha"; then
+      echo "  ERROR: archive write failed for stash@{${idx}}; NOT dropping it" >&2
+      failures=$((failures + 1))
+      writes_failed=true
+      continue
+    fi
+    # Last check before the destructive step: the archive above is keyed by sha
+    # and costs nothing if this fails, but the drop is keyed by index.
+    current=$(git -C "$repo" rev-parse --verify --quiet "stash@{${idx}}") || current=""
+    if [[ $current != "$sha" ]]; then
+      echo "  ERROR: stash@{${idx}} no longer resolves to ${sha}; skipping its drop (archive ref ${ref} kept)" >&2
+      failures=$((failures + 1))
+      continue
+    fi
+    if ! drop_out=$(git -C "$repo" stash drop "stash@{${idx}}"); then
+      echo "  ERROR: drop failed for stash@{${idx}} (archive ref ${ref} kept)" >&2
+      failures=$((failures + 1))
+      writes_failed=true
+      continue
+    fi
+    # The gate above and this call are separate processes and git has no
+    # sha-keyed drop, so a `git stash push` in between shifts stash@{idx} onto
+    # a neighbour this run never archived. The lock excludes other runs of this
+    # tool, not the operator's shell. git names the commit it dropped, so the
+    # window cannot be closed but it can be caught: archive the commit that was
+    # actually dropped, which makes it durable rather than unreachable-until-gc.
+    if [[ $drop_out != *"${sha}"* ]]; then
+      dropped_sha=${drop_out##*\(}
+      dropped_sha=${dropped_sha%%\)*}
+      rescue="refs/stash-archive/${archive_date}/${dropped_sha:0:12}"
+      if [[ $dropped_sha =~ ^[0-9a-f]{40}([0-9a-f]{24})?$ ]] &&
+        git -C "$repo" update-ref "$rescue" "$dropped_sha"; then
+        echo "  ERROR: stash@{${idx}} shifted before the drop: git dropped ${dropped_sha}, not ${sha}; archived it as ${rescue}" >&2
+      else
+        echo "  ERROR: stash@{${idx}} shifted before the drop: git reported '${drop_out}', not ${sha}; recover that commit before it is garbage collected" >&2
+      fi
+      failures=$((failures + 1))
+      writes_failed=true
+      continue
+    fi
+    echo "  dropped stash@{${idx}} (recover: git stash apply ${ref})"
+    dropped=$((dropped + 1))
+  done
+  # A repository whose stash list this run could not read or fully interpret,
+  # or in which one of this run's own writes failed, must not have its archive
+  # refs expired: they are the only copies of stashes already dropped there,
+  # and a ref store that just rejected a write is exactly where not to start
+  # deleting recovery material.
+  if [[ $listing_unusable == true || $writes_failed == true ]]; then
+    return 1
+  fi
+  return 0
+}
+
+sweep_repo() {
+  local repo=$1
+  local archive_refs ref date_part epoch
+
+  # 0 disables expiry, matching --backup-retention-days in
+  # scripts/prune-stale-worktrees.sh. The same operator drives both helpers, so
+  # the value must not mean "keep everything" in one and "delete everything" in
+  # the other. Said out loud rather than returned silently: the same command
+  # deleted every archive ref before that alignment.
+  if ((retention_days == 0)); then
+    echo "  archive retention disabled (--archive-retention 0); no archive refs expired"
+    return 0
+  fi
+
+  # Captured with its status for the same reason as the stash listing: a
+  # for-each-ref failure inside a process substitution would look like a
+  # repository that simply has no archive refs left to expire.
+  if ! archive_refs=$(git -C "$repo" for-each-ref --format='%(refname)' 'refs/stash-archive/'); then
+    echo "  ERROR: cannot read archive refs of ${repo}" >&2
+    failures=$((failures + 1))
+    return 0
+  fi
+
+  while read -r ref; do
+    [[ -n $ref ]] || continue
+    date_part=${ref#refs/stash-archive/}
+    date_part=${date_part%%/*}
+    # Refs bearing this run's archive date are never expired. prune_repo runs
+    # first, so with --archive-retention 0 the sweep would otherwise delete the
+    # archive of a stash dropped moments earlier and leave it irrecoverable,
+    # which is the one guarantee this tool exists to provide. Ref names carry
+    # only a date, so "written by this run" cannot be narrowed below a day.
+    if [[ $date_part == "$archive_date" ]]; then
+      continue
+    fi
+    # `date -u -d` accepts far more than a calendar date: `@0` resolves to the
+    # epoch and `yesterday` to a real timestamp, either of which would drive an
+    # update-ref -d. The shape is checked first, as everywhere else in this
+    # script that an input reaches a decision.
+    if [[ ! $date_part =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]]; then
+      echo "  skipping archive ref with a non-date component: ${ref}" >&2
+      continue
+    fi
+    if ! epoch=$(date -u -d "$date_part" +%s 2>/dev/null); then
+      echo "  skipping archive ref with unparsable date: ${ref}" >&2
+      continue
+    fi
+    ((epoch <= retention_cutoff)) || continue
+    if [[ $apply == true ]]; then
+      if git -C "$repo" update-ref -d "$ref"; then
+        echo "  deleted archive ref ${ref} (past ${retention_days}d retention)"
+        swept=$((swept + 1))
+      else
+        echo "  ERROR: failed to delete archive ref ${ref}" >&2
+        failures=$((failures + 1))
+      fi
+    else
+      echo "  would delete archive ref ${ref} (past ${retention_days}d retention)"
+      would_sweep=$((would_sweep + 1))
+    fi
+  done <<<"$archive_refs"
+  # Explicit, like prune_repo: this is the last command of the for body under
+  # errexit, so leaking the loop's trailing status would abort the run before
+  # the remaining repositories and before the failure summary.
+  return 0
+}
+
+# Two runs over one stash stack would each resolve positions against a stack the
+# other is mutating. Dry runs take the lock too, so a report is never printed
+# against a stack being pruned. The flock availability check is hoisted to
+# argument parsing; only the lock itself is taken here.
+lock_dir="${XDG_RUNTIME_DIR:-${TMPDIR:-/tmp}}/prune-old-stashes.$(id -u)"
+# The last fallback is /tmp, which is world-writable, and `exec 200>` below
+# follows symlinks and truncates: with neither XDG_RUNTIME_DIR nor TMPDIR set,
+# the leaf name is predictable, so another user who creates it first as a
+# symlink redirects the open onto any file this uid can write and empties it
+# before any guard here runs. The sticky bit does not help, since nothing is
+# being replaced. A private directory this run confirmed it owns takes the leaf
+# out of reach.
+# Created under a private umask rather than the ambient one: the chmod below
+# does not remove entries already inside, so a directory left group- or
+# world-writable by a run interrupted before it lets another user plant the
+# leaf at leisure, and the redirect below then follows it.
+(umask 077 && mkdir -p -- "${lock_dir}") || {
+  echo "${prog_name}: could not create the lock directory ${lock_dir}" >&2
+  exit 1
+}
+# mkdir -p succeeds on a pre-existing symlink to a directory, so ownership and
+# type are checked rather than assumed.
+if [[ -L ${lock_dir} || ! -d ${lock_dir} || ! -O ${lock_dir} ]]; then
+  echo "${prog_name}: lock directory is not a directory this user owns: ${lock_dir}" >&2
+  exit 1
+fi
+# Set after the check, not through `mkdir -m`: with -p that applies only to the
+# deepest component created and never to a directory that already existed, so a
+# directory from an earlier run under a looser umask stays reachable otherwise.
+chmod 700 -- "${lock_dir}"
+lock_file="${lock_dir}/lock"
+# The checks above cover the directory, not what is in it: a leaf planted while
+# the directory was still writable outlives the chmod. Not a race, since the
+# directory is 700 and owned by this user by now, so no one else can swap the
+# entry between here and the redirect.
+if [[ -L ${lock_file} ]]; then
+  echo "${prog_name}: lock path is a symlink, refusing to open it: ${lock_file}" >&2
+  exit 1
+fi
+exec 200>"${lock_file}"
+flock -n 200 || {
+  echo "${prog_name}: another instance is already running (lock: ${lock_file})" >&2
+  exit 1
+}
+
+for repo in "${repos[@]}"; do
+  # A repository whose stash list could not be read is not swept. Its archive
+  # refs are the only copies of stashes already dropped there, and expiring
+  # them is the wrong move precisely when the repository is in a failure state.
+  if prune_repo "$repo"; then
+    if [[ $sweep == true ]]; then
+      sweep_repo "$repo"
+    fi
+  elif [[ $sweep == true ]]; then
+    # A sweep the operator asked for must say when it does not happen: under
+    # --all-worktrees this repository is one line in a wall of output and the
+    # closing counts would silently exclude it.
+    echo "  archive sweep skipped: the stash list of ${repo} could not be read or interpreted, or a write to it failed" >&2
+  fi
+done
+
+# Both modes close with a total. `selected` counts stashes attempted, and any
+# of the drop-loop gates can reject one, so the destructive mode is the one
+# where an operator most needs the count of what actually happened.
+echo
+if [[ $apply != true ]]; then
+  if ((selected > 0 || would_sweep > 0)); then
+    echo "dry-run: ${selected} stash(es) and ${would_sweep} archive ref(s) selected; no changes made. Re-run with --apply."
+  else
+    echo "dry-run: nothing selected; no changes made."
+  fi
+else
+  echo "applied: ${dropped} stash(es) archived and dropped, ${swept} archive ref(s) deleted."
+fi
+
+if ((failures > 0)); then
+  echo "${prog_name}: ${failures} failure(s)" >&2
+  exit 1
+fi

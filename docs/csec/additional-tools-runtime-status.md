@@ -3,9 +3,39 @@
 Companion report for `docs/csec/additional-tools-reference.md`. Each tool's
 documented `run` command was invoked with a help or version flag (placeholders
 such as `$target`, `$url`, `$domain` substituted) under a 60-second timeout to
-confirm the package can launch on the current `flake.lock` state.
+confirm the package could launch on the `flake.lock` state used for the smoke
+test.
 
-Verified on 2026-05-04 against the active flake pin.
+The runtime smoke test was run on 2026-05-04 against the active flake pin at
+that time, and the inventory and summary below were reconciled on 2026-08-01
+against the companion reference without re-executing anything.
+
+The only entries re-run since are the nine the 2026-05-04 snapshot recorded
+under "build or evaluation error"; all 118 others still carry their 2026-05-04
+result. Those nine were re-run in two batches. Five cleared and one was
+reclassified, taking the group from nine entries to three and "run as
+documented" from 95 to 100.
+
+`mitm6` and `maigret` were re-verified on 2026-07-23 under Python 3.14.6 and
+now run as documented: upstream `mitm6` dropped its `future` dependency
+(closure is netifaces / scapy / twisted only) and `maigret` migrated the
+insecure `pypdf2-3.0.1` to `pypdf-6.14.2`, clearing the two evaluation blocks
+recorded earlier.
+
+The remaining seven were re-run on 2026-08-04 against the current pin
+(python3 3.14.6). Three cleared and one was reclassified:
+
+- `dc3dd` now builds and runs; the recorded gcc failure is gone.
+- `evil-winrm` was fixed by `Bad3r/nixpkgs@807b1085` (3.7 -> 3.9), whose
+  regenerated Bundler environment adds the `csv`, `benchmark` and `syslog` gems
+  that Ruby unbundled.
+- `waybackurls` was blocked only by an incorrect `unfree` placeholder license,
+  corrected in `Bad3r/nixpkgs@a71f346e` (waybackurls is MIT), so it now runs
+  with no override.
+- `patator` still fails, but on a different dependency than the one recorded.
+
+`maltego` was never a build defect either; it is genuinely unfree and gets its
+own category.
 
 ## Summary
 
@@ -13,18 +43,23 @@ Verified on 2026-05-04 against the active flake pin.
 | ---------------------------------------------------------------- | ------- |
 | ✅ Run as documented                                             | 100     |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
-| ⚠️ Build or evaluation error                                     | 9       |
+| ⚠️ Build or evaluation error                                     | 3       |
+| ⚠️ Blocked by the unfree license gate                            | 1       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
 | ⚠️ Documented attribute resolves to a different upstream project | 2       |
 | ⚠️ Documented smoke flag incompatible with the binary            | 2       |
 | ⚠️ External (non-nixpkgs) toolchain blocked                      | 1       |
 | ⚠️ Closure too large for smoke budget                            | 1       |
 | ⚠️ Documented uvx / PyPI invocation broken                       | 2       |
-| **Total entries in the reference**                               | **132** |
+| **Total entries in the reference**                               | **127** |
 
 The reference doc flags each unavailable tool inline (the entry's `run..:`
 field carries text such as `Not in nixpkgs ...` or `Must create a custom nixpkg`); there is no dedicated section for them. The groupings below are
 this report's, collected by the underlying reason for the failure.
+
+The five tools promoted into `docs/csec/toolkit.md` (katana, gau, gowitness,
+nikto, and wafw00f) are intentionally absent from this report because they are
+no longer entries in the companion reference.
 
 ## ✅ Tools that run as documented
 
@@ -35,19 +70,20 @@ this report's, collected by the underlying reason for the failure.
 - ✅ bloodhound-py
 - ✅ responder
 - ✅ certipy
+- ✅ mitm6
 - ✅ enum4linux-ng
 - ✅ smbmap
 - ✅ adidnsdump
 - ✅ ldapdomaindump
 - ✅ donpapi
+- ✅ evil-winrm (`-h` writes usage only to a TTY; piped or redirected it exits 0 silently)
 
 ### Network Reconnaissance and Enumeration
 
-- ✅ nikto
-- ✅ wafw00f
 - ✅ rustscan
 - ✅ theharvester
 - ✅ sherlock
+- ✅ maigret
 - ✅ bettercap
 - ✅ ettercap
 - ✅ hping (binary `hping3`)
@@ -76,9 +112,6 @@ this report's, collected by the underlying reason for the failure.
 
 - ✅ dalfox
 - ✅ arjun
-- ✅ katana
-- ✅ gau
-- ✅ gowitness (CLI subcommand `single` was renamed to `scan` in v3)
 - ✅ unfurl
 - ✅ qsreplace
 - ✅ meg
@@ -89,6 +122,7 @@ this report's, collected by the underlying reason for the failure.
 - ✅ gospider
 - ✅ hakrawler
 - ✅ photon
+- ✅ waybackurls
 
 ### Credential Attacks and Wordlists
 
@@ -120,6 +154,7 @@ this report's, collected by the underlying reason for the failure.
 - ✅ dcfldd
 - ✅ safecopy
 - ✅ chainsaw
+- ✅ dc3dd
 
 ### Cryptography, Stego and CTF
 
@@ -183,26 +218,29 @@ The reference itself flags these. Listed for completeness.
 
 ### Build or evaluation error
 
-- ⚠️ evil-winrm: Ruby 3.4 LoadError, `csv` gem missing then `winrm-fs` cannot
-  load. Upstream nixpkgs build is currently broken.
-- ⚠️ mitm6: Python 3.13 evaluation error, `future-1.0.0` is not supported on
-  the active interpreter.
-- ⚠️ maigret: blocked by `python3.13-pypdf2-3.0.1` insecure marker. Requires
-  `permittedInsecurePackages` override.
-- ⚠️ maltego: unfree license. Requires `allowUnfree = true` and inclusion in
-  `modules/meta/nixpkgs-allowed-unfree.nix`.
-- ⚠️ waybackurls: marked unfree in nixpkgs. Refuses to evaluate without
-  `NIXPKGS_ALLOW_UNFREE=1` and `--impure` (or an entry in
-  `modules/meta/nixpkgs-allowed-unfree.nix`).
-- ⚠️ droopescan (uvx): runtime crash, `cement 2.6.2` imports the removed
-  `imp` module on Python 3.12+.
-- ⚠️ patator (uvx): build of transitive `cx-oracle 8.3.0` fails, its build
-  backend depends on `pkg_resources` without declaring it.
-- ⚠️ python3Packages.angr: nixpkgs build fails, `setuptools-rust` missing
-  from `nativeBuildInputs` during wheel preparation.
-- ⚠️ dc3dd: nixpkgs compile failure with modern gcc,
-  `argmatch.c:63: too many arguments to function 'usage'` (legacy macro
-  mismatch).
+Re-verified 2026-08-04 under python3 3.14.6.
+
+- ⚠️ droopescan (uvx): runtime crash, `cement 2.6.2` imports the `imp` module
+  that Python 3.12 removed. Unchanged under 3.14.
+- ⚠️ patator (uvx): the recorded `cx-oracle` cause no longer applies. The
+  install now fails building transitive `mysqlclient 2.2.8`, whose setup
+  script aborts with `Can not find valid pkg-config name` because no MySQL
+  client library is on the `uvx` build path.
+- ⚠️ python3Packages.angr: wheel preparation aborts with
+  `angr requires setuptools-rust to build`, which is missing from
+  `nativeBuildInputs`. Tracked upstream as
+  [NixOS/nixpkgs#501379](https://github.com/NixOS/nixpkgs/issues/501379),
+  which covers the `python314Packages.angr` job.
+
+### Blocked by the unfree license gate
+
+The package builds and runs; the only blocker is policy. For repo configs, set
+`nixpkgs.allowedUnfreePackages` from the module that wants the package; the
+flake-parts option is declared in `modules/meta/nixpkgs-allowed-unfree.nix`,
+which holds no entries of its own. For a one-off, pass `NIXPKGS_ALLOW_UNFREE=1`
+with `--impure`. Re-verified 2026-08-04.
+
+- ⚠️ maltego: unfree license. `NIXPKGS_ALLOW_UNFREE=1 nix build --impure nixpkgs#maltego` completes.
 
 ### Binary path mismatch in the documented attribute
 
@@ -268,8 +306,6 @@ exist (or `meta.mainProgram` is wrong).
 Run-command corrections that would prevent a future smoke run from
 regressing on these entries:
 
-- `gowitness`: replace `single -u $url` with `scan -u $url` (CLI changed in
-  v3).
 - `impacket`: invoke the canonical `secretsdump.py` script names rather
   than `impacket-secretsdump`.
 - `volatility3`: invoke `vol` (or `volshell`) and prefix with

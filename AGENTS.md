@@ -12,7 +12,7 @@ These rules override all other instructions. Violations are unacceptable.
 
 Absolutely forbidden:
 
-- `git stash drop` or `git stash clear`
+- Bare `git stash drop` or `git stash clear` (the archived `prune-old-stashes --apply` routes below are the sole exception)
 - `git reset --hard` without explicit user approval
 - `git clean -fd` or similar destructive operations
 - `rm -rf` on user files or directories
@@ -21,8 +21,9 @@ Absolutely forbidden:
 Required practices:
 
 - Use `rip <path>` instead of `rm` for deletions (recoverable from graveyard)
-- Use `git stash` when needed, but never drop stashes
+- Use `git stash` when needed; never drop a stash except through the sanctioned path below
 - Allowed stash operations are `git stash`, `git stash list`, `git stash show`, and `git stash apply`
+- The one sanctioned drop path is `nix develop path:. -c prune-old-stashes --apply` run from the repository root, which archives each stash under `refs/stash-archive/<date>/<sha>` before dropping it and keeps it recoverable for the retention window (see `docs/reference/stash-prune.md`). It ships only with this repository, either from its dev shell or as the flake package (`nix run path:.#prune-old-stashes -- --apply`); no drop path outside this repository is sanctioned. Like `git stash pop`, it requires explicit user approval before you run it; never issue a bare `git stash drop` yourself
 - `git stash pop` requires explicit user approval
 - Preserve user changes; if uncertain, ask first
 - Before any potentially destructive operation, stop and ask
@@ -135,7 +136,8 @@ is `modules/readme.nix`.
   - Notes: Encrypted payloads managed via `sops.secrets`.
 - Generated artifacts
   - Location: `.actrc`, `.githooks/post-checkout`, `.gitignore`,
-    `.gitleaks.toml`, `.sops.yaml`, `README.md`
+    `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
+    `.sops.yaml`, `README.md`
   - Notes: Owned by the files module. Update source definitions instead of editing generated output directly.
 
 ### Local Mirrors
@@ -206,7 +208,7 @@ PR body should include:
 - Generate artifacts
   - Command: `nix develop --accept-flake-config -c write-files --offline`
   - Preconditions: Dev shell ready; managed files may update.
-  - Post-check: Review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`, `.gitleaks.toml`, `.sops.yaml`, `README.md`.
+  - Post-check: Review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`, `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`, `.sops.yaml`, `README.md`.
 
 ### Validation and Builds
 

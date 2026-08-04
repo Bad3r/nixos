@@ -1,4 +1,8 @@
+# Copyright (c) 2026 Bad3r
+
 """Hash calculation utilities for Nix packages."""
+
+from __future__ import annotations
 
 import base64
 import re
@@ -6,10 +10,13 @@ import shutil
 import tempfile
 import urllib.parse
 import urllib.request
-from collections.abc import Mapping
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .nix import nix_hash_file, nix_prefetch_url, nix_store_prefetch_file
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 # Dummy hash used to trigger Nix build errors to extract correct hash
 DUMMY_SHA256_HASH = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="

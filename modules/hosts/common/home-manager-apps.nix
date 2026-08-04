@@ -81,6 +81,7 @@ let
   # alone.
   sharedBrowserNames = [
     "firefox"
+    "firefoxpwa"
     "google-chrome"
     "librewolf"
     "ungoogled-chromium"

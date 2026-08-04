@@ -23,7 +23,7 @@
       placeholder = name: config.sops.placeholder.${name};
 
       workBookmarkUrls = {
-        deemMail = placeholder "gecko/work/bookmark/url-1";
+        dmail = placeholder "gecko/work/bookmark/url-1";
         outlook = placeholder "gecko/work/bookmark/url-2";
         teams = placeholder "gecko/work/bookmark/url-3";
       };

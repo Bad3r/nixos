@@ -1,5 +1,7 @@
-#!/usr/bin/env nix
-#! nix shell nixpkgs#python3 nixpkgs#nix --command python3
+#!/usr/bin/env nix-shell
+#! nix-shell -i python3 --packages python3
+# Copyright (c) 2026 Bad3r
+
 """Update script for wakaru.
 
 Upstream migrated the project from a pnpm JavaScript monorepo (``cli-v*`` tags,
@@ -24,11 +26,11 @@ TAG_PATTERN = r"^v(?P<version>\d+\.\d+\.\d+)$"
 SCRIPTS_DIR = Path(__file__).resolve().parent.parent.parent / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
-from updater_bootstrap import bootstrap, host_package_attr  # noqa: E402
+from updater_bootstrap import bootstrap  # noqa: E402
 
 FLAKE_ROOT, PACKAGE_DIR = bootstrap(__file__, PACKAGE_NAME)
 HASHES_FILE = PACKAGE_DIR / "hashes.json"
-PACKAGE_ATTR = host_package_attr(FLAKE_ROOT, PACKAGE_NAME)
+PACKAGE_ATTR = f"{FLAKE_ROOT}#{PACKAGE_NAME}"
 sys.path.insert(0, str(FLAKE_ROOT / "scripts"))
 
 from updater import (  # noqa: E402

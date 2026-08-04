@@ -2,7 +2,6 @@
   config,
   lib,
   inputs,
-  metaOwner,
   ...
 }:
 let
@@ -23,8 +22,6 @@ in
     hardware = lib.optionalAttrs system76SupportExists {
       system76.extended.enable = true;
     };
-
-    home-manager.users.${metaOwner.username}.home.greptileSecrets.enable = lib.mkForce false;
 
     # Gaming & performance
     programs = {
