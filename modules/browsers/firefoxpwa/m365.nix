@@ -67,6 +67,13 @@ _: {
           systemd.user.services.firefoxpwa-m365 = {
             Unit = {
               Description = "Install the Microsoft 365 web apps (firefoxpwa)";
+              # firefoxpwa rewrites the whole of config.json with no lock, so
+              # this unit and ./dmail.nix's, both pulled in by default.target,
+              # would race at login and the later writer would drop the other's
+              # site. Ordering only: the dmail unit does not exist when its
+              # toggle is off, and an After= naming an absent unit is ignored
+              # rather than fatal, so this needs no condition on that toggle.
+              After = [ "firefoxpwa-dmail.service" ];
               # Bounds the Restart= below, so an entry this unit refuses
               # permanently (a site moved across origins, a foreign site under
               # a managed name) stops after three tries instead of restarting
