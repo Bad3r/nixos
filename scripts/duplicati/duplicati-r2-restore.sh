@@ -72,6 +72,7 @@ Exit codes:
        --restore-path timestamps too coarse to scope the ownership pass;
        pre-existing directories under --restore-path could not be inventoried;
        --restore-path emptiness could not be determined;
+       restore parent or --restore-path could not be created;
        the restore lock could not be created
   75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
@@ -133,6 +134,8 @@ require_cmd sort
 require_cmd comm
 require_cmd xargs
 require_cmd sleep
+require_cmd dirname
+require_cmd rmdir
 
 human_bytes() {
   local n=${1:-0}
@@ -649,7 +652,10 @@ if [[ -L $restore_parent ]]; then
   echo "  mkdir -p follows it, so the restore would be written outside --restore-path." >&2
   exit 64
 fi
-(umask 066 && mkdir -p "$restore_parent")
+if ! (umask 066 && mkdir -p "$restore_parent"); then
+  echo "could not create restore parent '$restore_parent'; mkdir's diagnostic is above." >&2
+  exit 66
+fi
 # Re-test after the create. A link planted between the test above and this call
 # is entered silently by mkdir -p, and everything downstream dereferences: -O
 # would stat a root-owned target and pass, chmod 0711 would land on that target
@@ -680,7 +686,10 @@ if [[ $restore_path_defaulted == true ]]; then
   # symlink per the check before it, and dedicated to this script.
   chmod 0711 "$restore_parent"
 fi
-mkdir -p "$restore_path"
+if ! mkdir -p "$restore_path"; then
+  echo "could not create restore path '$restore_path'; mkdir's diagnostic is above." >&2
+  exit 66
+fi
 # Same gap the parent closes just above, for the leaf: its -L test sits before
 # the whole parent guard, and mkdir -p is a silent no-op over a link to a
 # directory. An explicit --restore-path may legitimately sit under a user-owned
