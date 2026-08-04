@@ -51,9 +51,19 @@
             # quoted in this comment, because the scan below reads this file
             # too and a quoted command position is a hit like any other.
             scan() {
+              local status=0
               grep -rnE \
                 '^[[:space:]]*!?[[:space:]]*compgen\b|\$\(!?[[:space:]]*compgen\b|(if|while|until|then|else|do|;|&&|\|\|)[[:space:]]+!?[[:space:]]*compgen\b' \
-                "$@" || true
+                "$@" || status=$?
+              # 1 is "matched nothing"; 2 and up mean grep could not read a path
+              # it was given, and an empty result from that is indistinguishable
+              # from a clean tree. Reachable without anything being broken:
+              # lib.fileset.toSource materializes a directory only when a file
+              # in it matches, so ${"\${sources}"}/tests exists only while tests/ still
+              # holds a .sh file. Returned rather than reported, so the callers
+              # abort: hits=$(scan ...) fails the assignment under errexit, and
+              # the planted count fails through pipefail.
+              [ "$status" -le 1 ] || return "$status"
             }
 
             planted="$PWD/planted"
