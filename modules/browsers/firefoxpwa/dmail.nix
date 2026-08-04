@@ -49,10 +49,11 @@ _: {
       # name means the app is already installed.
       appName = "DMail";
 
-      # Same directory ./home.nix pins and hardens to 0700. Derived twice they
-      # drift apart as soon as xdg.dataHome moves, leaving the marker and
-      # config.json outside the directory that hardening applies to.
-      dataDir = "${config.xdg.dataHome}/firefoxpwa";
+      # Owned by ./home.nix, which pins and hardens it to 0700. Read rather
+      # than re-derived: a second rule drifts from it as soon as either side
+      # is edited, leaving the marker and config.json outside the directory
+      # the hardening applies to.
+      inherit (config.programs.firefoxpwa) dataDir;
 
       installScript = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
         firefoxpwa = firefoxpwaPackage;

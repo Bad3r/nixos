@@ -32,35 +32,54 @@
     {
       checks."browsers/firefoxpwa-module-eval" =
         let
-          hm = inputs.home-manager.lib.homeManagerConfiguration {
-            inherit pkgs;
-            modules = [
-              inputs.sops-nix.homeManagerModules.sops
-              config.flake.homeManagerModules.browsers.firefoxpwa
-              {
-                home = {
-                  username = "hm-smoke";
-                  homeDirectory = "/tmp/hm-smoke";
-                  stateVersion = (lib.importJSON "${inputs.home-manager}/release.json").release;
-                  enableNixpkgsReleaseCheck = false;
-                };
-                programs.home-manager.enable = true;
-                # This check forces module output, not secret decryption. Keep
-                # the fixture non-secret and validate only the generated
-                # manifest shape.
-                sops.validateSopsFiles = false;
-                sops.age.keyFile = "/dev/null";
-              }
-            ];
-            extraSpecialArgs = {
-              osConfig = {
-                programs.firefoxpwa = {
-                  extended.enable = true;
-                  dmail.enable = true;
-                };
+          mkHm =
+            {
+              firefoxpwaConfig,
+              secretsRoot ? ./module-check-fixtures,
+            }:
+            inputs.home-manager.lib.homeManagerConfiguration {
+              inherit pkgs;
+              modules = [
+                inputs.sops-nix.homeManagerModules.sops
+                config.flake.homeManagerModules.browsers.firefoxpwa
+                {
+                  home = {
+                    username = "hm-smoke";
+                    homeDirectory = "/tmp/hm-smoke";
+                    stateVersion = (lib.importJSON "${inputs.home-manager}/release.json").release;
+                    enableNixpkgsReleaseCheck = false;
+                  };
+                  programs.home-manager.enable = true;
+                  # This check forces module output, not secret decryption. Keep
+                  # the fixture non-secret and validate only the generated
+                  # manifest shape.
+                  sops.validateSopsFiles = false;
+                  sops.age.keyFile = "/dev/null";
+                }
+              ];
+              extraSpecialArgs = {
+                osConfig.programs.firefoxpwa = firefoxpwaConfig;
+                inherit secretsRoot;
               };
-              secretsRoot = ./module-check-fixtures;
             };
+          hm = mkHm {
+            firefoxpwaConfig = {
+              extended.enable = true;
+              dmail.enable = true;
+            };
+          };
+          noFirefoxpwa = mkHm {
+            firefoxpwaConfig = {
+              extended.enable = false;
+              dmail.enable = true;
+            };
+          };
+          noGecko = mkHm {
+            firefoxpwaConfig = {
+              extended.enable = true;
+              dmail.enable = true;
+            };
+            secretsRoot = "${./module-check-fixtures}/missing";
           };
         in
         builtins.deepSeq {
@@ -70,6 +89,11 @@
             inherit (hm.config.home.sessionVariables) FFPWA_USERDATA XDG_DATA_HOME;
           };
           activation = hm.config.home.activation.ensureFirefoxpwaSecretDir;
+          warnings = {
+            enabled = hm.config.warnings;
+            noFirefoxpwa = noFirefoxpwa.config.warnings;
+            noGecko = noGecko.config.warnings;
+          };
         } hm.config.home-files;
     };
 }
