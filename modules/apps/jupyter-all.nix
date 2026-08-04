@@ -21,7 +21,7 @@
     * `jupyter-all` is `jupyter.override` from nixpkgs that swaps the default kernel definition set for the Clojure, Octave, R, and Ruby ones.
     * The Wolfram kernel is intentionally excluded upstream because it is unfree.
     * Every kernelspec the wrapper can reach is re-exported on JUPYTER_PATH so external clients such as the VS Code Jupyter extension can launch them.
-    * JUPYTER_PATH precedes both the user data dir and `sys.prefix/share/jupyter` in `jupyter_path()`, and the first kernelspec of a given name wins, so this `python3` shadows both a user-installed `~/.local/share/jupyter/kernels/python3` and the `python3` spec `pip install ipykernel` writes into an active virtualenv.
+    * JUPYTER_PATH precedes both the user data dir and `sys.prefix/share/jupyter` in `jupyter_path()`, and the first kernelspec of a given name wins, so this `python3` shadows both a user-installed `~/.local/share/jupyter/kernels/python3` and the `python3` spec `pip install ipykernel` writes into an active virtualenv. It is labelled `Python 3 (jupyter-all)` so the substitution is visible in a client's kernel picker.
 */
 _:
 let
@@ -67,7 +67,11 @@ let
         if [ ! -e "$out/share/jupyter/kernels/python3/kernel.json" ]; then
           ${package}/bin/python -c 'import ipykernel_launcher'
           install -d "$out/share/jupyter/kernels/python3"
-          jq --arg interpreter '${package}/bin/python' '.argv[0] = $interpreter' \
+          # Relabelled because the spec this shadows carries ipykernel's own
+          # "Python 3 (ipykernel)", so without it the two are indistinguishable
+          # in a client's kernel picker.
+          jq --arg interpreter '${package}/bin/python' \
+            '.argv[0] = $interpreter | .display_name = "Python 3 (jupyter-all)"' \
             ${package}/share/jupyter/kernels/python3/kernel.json \
             > "$out/share/jupyter/kernels/python3/kernel.json"
         fi
