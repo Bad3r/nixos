@@ -26,8 +26,10 @@ Options:
                            unless --force is given. Parent directories this
                            run creates are made traversable (0711); for the
                            default path the parent's mode is set to 0711 even
-                           when it already exists. The restore directory
-                           itself stays 0700.
+                           when it already exists. A restore directory this
+                           run creates, or finds already empty, is set to
+                           0700; under --force the pre-existing directory's
+                           own mode is left untouched.
   --chown <user:group>     Chown applied to the entries written during the
                            restore (files restored, directories created),
                            selected by ctime rather than by asking duplicati,
