@@ -7,7 +7,7 @@
 
   Summary:
     * Provides a single environment with `jupyter`, `jupyter-lab`, `jupyter-notebook`, `jupyter-console`, `jupyter-nbconvert`, and `ipython` entry points.
-    * Ships additional Clojure (Clojupyter) and Octave kernels in addition to the default Python kernel via the nixpkgs override.
+    * Ships Clojure (Clojupyter), Octave, R (Ark), and Ruby (IRuby) kernels in addition to the default Python kernel via the nixpkgs override.
 
   Options:
     notebook: Launch the classic web-based Jupyter Notebook server.
@@ -18,9 +18,9 @@
     server: Run only the headless Jupyter server backend without a UI.
 
   Notes:
-    * `jupyter-all` is `jupyter.override` from nixpkgs that registers Clojure (clojupyter) and Octave kernels alongside the Python kernel.
+    * `jupyter-all` is `jupyter.override` from nixpkgs that swaps the default kernel definition set for the Clojure, Octave, R, and Ruby ones.
     * The Wolfram kernel is intentionally excluded upstream because it is unfree.
-    * Kernelspecs are re-exported on JUPYTER_PATH so external clients such as the VS Code Jupyter extension can launch them.
+    * Every kernelspec the wrapper can reach is re-exported on JUPYTER_PATH so external clients such as the VS Code Jupyter extension can launch them.
 */
 _:
 let
@@ -34,13 +34,19 @@ let
     let
       cfg = config.programs."jupyter-all".extended;
 
-      # jupyter-all replaces the jupyter-kernel definition set instead of
-      # extending it, so upstream drops jupyter-kernel.default.python3 and its
-      # absolute interpreter argv. The only surviving Python kernelspec is
-      # ipykernel's own, whose argv[0] is the bare string "python". That
-      # resolves through PATH, and outside the wrapped `jupyter` binary PATH
+      # The kernels named in the override land in a standalone
+      # jupyter-kernel.create output that only the wrapped `jupyter` binary
+      # knows about, through its own JUPYTER_PATH. Resolve that directory
+      # through the wrapper instead of restating upstream's definition list.
+      #
+      # python3 is absent from that set: jupyter-all replaces the definitions
+      # instead of extending them, so upstream drops jupyter-kernel.default
+      # and its absolute interpreter argv. The only surviving Python
+      # kernelspec is ipykernel's own, whose argv[0] is the bare string
+      # "python". That resolves through PATH, and outside the wrapper PATH
       # yields programs.python.extended's hiPrio python313, which has no
-      # ipykernel.
+      # ipykernel. Only kernel.json needs rewriting; buildEnv unfolds the
+      # python3 directory and links ipykernel's logos next to it.
       kernelspecs =
         pkgs.runCommand "jupyter-all-kernelspecs"
           {
@@ -49,9 +55,21 @@ let
           ''
             ${cfg.package}/bin/python -c 'import ipykernel_launcher'
 
+            wrapperData=$(${cfg.package}/bin/jupyter --paths --json | jq -r '.data[0]')
+
+            install -d "$out/share/jupyter"
+            cp -R "$wrapperData/kernels" "$out/share/jupyter/kernels"
+            chmod -R u+w "$out/share/jupyter/kernels"
+
+            # The override output holds only the non-Python kernels, so a
+            # python3-only tree means .data[0] resolved to the environment's
+            # own share/jupyter and the override kernels were missed.
+            if [ "$(find "$out/share/jupyter/kernels" -mindepth 1 -maxdepth 1 -not -name python3 | wc -l)" -eq 0 ]; then
+              echo "no non-Python kernelspec under $wrapperData/kernels" >&2
+              exit 1
+            fi
+
             install -d "$out/share/jupyter/kernels/python3"
-            install -m444 -t "$out/share/jupyter/kernels/python3" \
-              ${cfg.package}/share/jupyter/kernels/python3/logo-*
             jq --arg interpreter '${cfg.package}/bin/python' '.argv[0] = $interpreter' \
               ${cfg.package}/share/jupyter/kernels/python3/kernel.json \
               > "$out/share/jupyter/kernels/python3/kernel.json"
