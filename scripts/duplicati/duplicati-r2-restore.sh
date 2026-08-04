@@ -874,7 +874,11 @@ pre_dirs="${scope_dir}/pre-dirs"
 marker_probe="${restore_marker}.probe"
 marker_settled=false
 for _ in {1..50}; do
-  if ! : >"$marker_probe"; then
+  if ! rm -f "$marker_probe"; then
+    echo "could not remove the previous restore marker probe under '$restore_path'; rm's diagnostic is above." >&2
+    exit 66
+  fi
+  if ! (set -o noclobber && : >"$marker_probe"); then
     echo "could not create the restore marker probe under '$restore_path'; shell's diagnostic is above." >&2
     exit 66
   fi
@@ -884,7 +888,10 @@ for _ in {1..50}; do
   fi
   sleep 0.1
 done
-rm -f "$marker_probe"
+if ! rm -f "$marker_probe"; then
+  echo "could not remove the restore marker probe under '$restore_path'; rm's diagnostic is above." >&2
+  exit 66
+fi
 if [[ $marker_settled != true ]]; then
   echo "timestamps under '$restore_path' did not advance past the restore marker in 5s;" >&2
   echo "  cannot scope the post-restore chown/chmod to the entries this restore writes." >&2
