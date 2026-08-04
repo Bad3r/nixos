@@ -54,7 +54,6 @@ let
 
           systemd.services.usbguard = {
             after = installSecretsDeps;
-            requires = installSecretsDeps;
             preStart = lib.mkAfter ''
               install -D -m 0600 /dev/null ${runtimeRuleFile}
               cat ${baseRulesFile} > ${runtimeRuleFile}
