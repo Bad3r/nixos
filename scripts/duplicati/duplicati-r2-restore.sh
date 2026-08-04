@@ -509,7 +509,7 @@ if "$dry_run"; then
     FROM File f
     JOIN FilesetEntry fse ON fse.FileID = f.ID
     WHERE fse.FilesetID = ${fileset_id};
-  " | awk -v re="$user_regex" -F'\t' '{ id=$1; sub(/^[^\t]*\t/, ""); if ($0 ~ re) print id }' >"$ids_file"
+  " | re="$user_regex" awk -F'\t' '{ id=$1; sub(/^[^\t]*\t/, ""); if ($0 ~ ENVIRON["re"]) print id }' >"$ids_file"
   scan_stages=("${PIPESTATUS[@]}")
   set -e
   if [[ ${scan_stages[0]} -ne 0 ]]; then
