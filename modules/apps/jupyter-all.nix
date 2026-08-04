@@ -113,7 +113,13 @@ let
           # inherit it) and profileRelativeEnvVars for shells. Profiles that
           # ship no kernels cost nothing: _list_kernels_in skips a path that
           # is not a directory.
-          pathsToLink = [ "/share/jupyter" ];
+          # Only kernels: cfg.package's share/jupyter also carries
+          # labextensions and nbconvert/templates, both resolved through
+          # jupyter_path(), and exporting those would outrank a virtualenv's
+          # own copies for `jupyter lab` and `jupyter nbconvert`. buildEnv
+          # still creates the intermediate share/jupyter that JUPYTER_PATH
+          # names.
+          pathsToLink = [ "/share/jupyter/kernels" ];
           profileRelativeSessionVariables.JUPYTER_PATH = [ "/share/jupyter" ];
         };
       };
@@ -140,7 +146,7 @@ in
               package
               (pkgs.lib.hiPrio (mkKernelspecs pkgs package))
             ];
-            pathsToLink = [ "/share/jupyter" ];
+            pathsToLink = [ "/share/jupyter/kernels" ];
             ignoreCollisions = false;
           };
         in
