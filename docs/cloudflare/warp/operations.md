@@ -13,9 +13,10 @@ warp-cli registration show                        # enrolled into <team> (non_id
 warp-cli status                                   # Connected
 ```
 
-The `cloudflare-warp-connect` oneshot polls the daemon for up to 30 seconds
-before it issues `warp-cli connect`, so on a fresh boot the unit can take that
-long to reach `active (exited)`.
+For an enrolled host, the `cloudflare-warp-connect` oneshot polls the daemon for
+up to 30 seconds before it issues `warp-cli connect`, so on a fresh boot the unit
+can take that long to reach `active (exited)`. Without the sops secret, it logs
+UN-ENROLLED and exits without connecting.
 
 Confirm WARP is carrying traffic:
 
@@ -60,7 +61,8 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
   `networking.firewall.checkReversePath = "loose"` by default. If a host firewall
   module forces `strict`, the `CloudflareWARP` interface drops return traffic.
 - **DNS resolver conflict.** Full mode (`warp` / `1dot1`) makes WARP the DNS
-  resolver. Do not also enable `services.dnscrypt-proxy` (or import
-  `flake.nixosModules.workstation`); the module warns if you do.
+  resolver. Do not also enable `services.dnscrypt-proxy` or another local
+  resolver on `127.0.0.1:53`; the module warns when `services.dnscrypt-proxy`
+  is enabled.
 - **General diagnostics.** `sudo warp-diag` writes a zip with logs and settings;
   `sudo warp-diag feedback` is the same bundle framed for a support ticket.

@@ -26,14 +26,16 @@ is enabled it:
 2. Declares three sops secrets (`organization`, `auth_client_id`,
    `auth_client_secret`) from `secrets/cloudflare-warp.yaml`, guarded by
    `builtins.pathExists` so a missing secret warns and runs `warp-svc`
-   un-enrolled instead of failing evaluation.
+   un-enrolled instead of failing evaluation. The connect-on-boot unit logs an
+   UN-ENROLLED notice and remains disconnected until the secret is available.
 3. Renders `/var/lib/cloudflare-warp/mdm.xml` from non-secret options plus sops
    placeholders, and installs it (mode 0600, root) via an `ExecStartPre` right
    before `warp-svc` starts.
 4. Sets `networking.firewall.checkReversePath = "loose"` (the WARP interface
    trips strict reverse-path filtering).
 5. Adds a best-effort `cloudflare-warp-connect` oneshot that waits for the daemon
-   and runs `warp-cli connect` on boot.
+   and runs `warp-cli connect` on boot when managed enrollment is available. Without
+   the secret, it logs the UN-ENROLLED state and exits without connecting.
 
 `service_mode` is authoritative through `mdm.xml`; the module never calls
 `warp-cli mode`, so the managed config and the local client cannot fight.
@@ -50,8 +52,8 @@ OFF; enrollment is a deliberate per-host opt-in. `system76` enables the wrapper
 directly. `tpnix` gates `enable` on `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`
 (currently `true` since repo-managed sops landed for tpnix in PR #305,
 `modules/tpnix/policy.nix`), like its other sops consumers, so both hosts run
-the wrapper un-enrolled until `secrets/cloudflare-warp.yaml` is committed. The
-gate remains a kill switch: if tpnix ever loses its runtime decryption key,
+the wrapper un-enrolled and disconnected until `secrets/cloudflare-warp.yaml` is
+committed. The gate remains a kill switch: if tpnix ever loses its runtime key,
 flipping the flag back to `false` also drops the `cloudflare-warp/*` secret
 declarations that would otherwise fail activation on an un-decryptable payload.
 

@@ -41,9 +41,11 @@ Do not run a local resolver on `127.0.0.1:53` while using full mode. If a host
 enables `services.dnscrypt-proxy` or imports a module that provides a competing
 local resolver, switch WARP to `tunnelonly` or disable the local resolver.
 
-The `tpnix` and `system76` hosts use NetworkManager with DHCP, and the unused
-`flake.nixosModules.workstation` module owns the `services.dnscrypt-proxy`
-definition. Full mode is the expected setting for the current enrolled hosts.
+The current host modules do not enable `services.dnscrypt-proxy`. `tpnix` can
+select NetworkManager dnsmasq mode for SignalX DNS when its SOPS secret is
+available, so inspect host-specific DNS settings before selecting full mode.
+Full mode is the expected setting for enrolled hosts when no competing local
+resolver is active.
 
 ## Configure split tunnels
 
