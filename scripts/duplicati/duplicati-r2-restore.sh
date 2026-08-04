@@ -69,6 +69,7 @@ Exit codes:
        impact-analysis query failed or returned non-numeric output;
        --restore-path timestamps too coarse to scope the ownership pass;
        pre-existing directories under --restore-path could not be inventoried;
+       --restore-path emptiness could not be determined;
        the restore lock could not be created
   75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
@@ -557,6 +558,23 @@ fi
 # the chown/chmod below; otherwise a `mkdir` beforehand would leave the target
 # root-owned and unusable by --chown's user.
 restore_path_populated=false
+probe_restore_path() {
+  local probe_status=0
+  local probe_hit
+
+  probe_hit=$(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ||
+    probe_status=$?
+  if [[ $probe_status -ne 0 ]]; then
+    echo "could not determine whether '$restore_path' is empty (find exited ${probe_status})." >&2
+    echo "  Reading it as empty would skip the --force refusal and hand the root to the" >&2
+    echo "  post-restore chown/chmod, so refusing before the restore starts." >&2
+    exit 66
+  fi
+  if [[ -n $probe_hit ]]; then
+    restore_path_populated=true
+  fi
+}
+
 # Trailing slashes are stripped before the symlink test: pathname resolution
 # applies the slash first, so [[ -L /data/torrent/ ]] lstats the referent and
 # reports false, walking straight past the refusal below. Normalizing here also
@@ -602,9 +620,7 @@ if [[ -e $restore_path ]]; then
     echo "  They are ignored by the emptiness check and are not removed automatically;" >&2
     echo "  delete .duplicati-restore-marker.* by hand once no restore is running." >&2
   fi
-  if [[ -n $(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ]]; then
-    restore_path_populated=true
-  fi
+  probe_restore_path
   if [[ $restore_path_populated == true && $force != true ]]; then
     echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
     echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
@@ -729,13 +745,11 @@ restore_lock="$restore_lock_path"
 # content: the --force gate would be skipped and the root then chowned and
 # chmod'd as though this run had created it. The lock makes the observation
 # stable, so take it again now that it is held.
-if [[ -n $(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ]]; then
-  restore_path_populated=true
-  if [[ $force != true ]]; then
-    echo "refusing: --restore-path '$restore_path' became non-empty while this run was starting." >&2
-    echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
-    exit 64
-  fi
+probe_restore_path
+if [[ $restore_path_populated == true && $force != true ]]; then
+  echo "refusing: --restore-path '$restore_path' became non-empty while this run was starting." >&2
+  echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+  exit 64
 fi
 
 scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
