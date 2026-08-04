@@ -26,16 +26,22 @@ Options:
                            unless --force is given. Parent directories this
                            run creates are made traversable (0711); the
                            restore directory itself stays 0700.
-  --chown <user:group>     Chown applied to the entries this restore wrote
-                           (files restored and directories created), never to
-                           pre-existing content. The --restore-path root is
-                           included only when the restore created it or found
-                           it empty. Default: vx:users.
+  --chown <user:group>     Chown applied to the entries written during the
+                           restore (files restored, directories created),
+                           selected by ctime rather than by asking duplicati,
+                           so pre-existing content is left alone unless
+                           another process writes to it while the restore
+                           runs. The --restore-path root is included only when
+                           the restore created it or found it empty.
+                           Default: vx:users.
                            Pass 'none' to skip the chown step.
   --force                  Allow restoring into a pre-existing non-empty
                            --restore-path. Restored entries can overwrite
-                           files there (per --overwrite); chown/chmod stays
-                           scoped to what the restore wrote.
+                           files there (per --overwrite). The chown/chmod pass
+                           is scoped by ctime, so anything another process
+                           writes into the tree while the restore runs is
+                           swept in as well; quiesce other writers on the
+                           target first.
   --version <n>            Snapshot version (0=latest, 1=second-latest, ...).
                            Mutually exclusive with --time.
   --time <iso>             Snapshot time as ISO-8601. Selects the most recent
@@ -609,11 +615,19 @@ fi
 # under a world-writable /tmp, so any local user can own it before a root run
 # and then swap the leaf. An explicit --restore-path is the operator's choice
 # and may legitimately sit under a tree they own rather than root.
-if [[ $restore_path_defaulted == true && ! -O $restore_parent ]]; then
-  echo "refusing: default restore parent '$restore_parent' is not root-owned." >&2
-  echo "  A local user controlling it can redirect this root-run restore elsewhere." >&2
-  echo "  Remove it, or pass an explicit --restore-path." >&2
-  exit 64
+if [[ $restore_path_defaulted == true ]]; then
+  if [[ ! -O $restore_parent ]]; then
+    echo "refusing: default restore parent '$restore_parent' is not root-owned." >&2
+    echo "  A local user controlling it can redirect this root-run restore elsewhere." >&2
+    echo "  Remove it, or pass an explicit --restore-path." >&2
+    exit 64
+  fi
+  # The umask above only shapes a parent this run creates, and the default
+  # container is a fixed name that outlives a run. One left at 0700 by an
+  # earlier invocation would still block --chown's user, so set the mode rather
+  # than inherit whatever created it. Root-owned per the check above, not a
+  # symlink per the check before it, and dedicated to this script.
+  chmod 0711 "$restore_parent"
 fi
 mkdir -p "$restore_path"
 
@@ -688,9 +702,11 @@ find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"
 # new) and then exits non-zero on "input is not in sorted order", killing the
 # script under pipefail after a successful restore.
 restored_entries() {
-  find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0
+  local rc=0
+  find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0 || rc=$?
   find "$restore_path" -mindepth 1 -type d -cnewer "$restore_marker" -print0 |
-    LC_ALL=C sort -z | LC_ALL=C comm -z -23 - "$pre_dirs"
+    LC_ALL=C sort -z | LC_ALL=C comm -z -23 - "$pre_dirs" || rc=$?
+  return "$rc"
 }
 
 declare -a restore_args=(
@@ -734,13 +750,27 @@ fi
 # four more times and could pick up entries another writer added in between.
 restored_list="${scope_dir}/restored"
 restored_links="${scope_dir}/restored-links"
-restored_entries >"$restored_list"
+# A scan error must not abort the run: duplicati has already succeeded, and
+# dying here would skip both passes and leave every restored file root-owned
+# with the read-only modes they exist to repair. GNU find tolerates a plain
+# file vanishing mid-walk but exits 1 when a directory disappears or turns
+# unreadable, which a live --force target does on its own. A short list
+# under-scopes the passes and is fixed by re-running; no pass at all is not.
+scan_status=0
+restored_entries >"$restored_list" || scan_status=$?
 # Symlinks stay out of restored_entries because the chmod pass below follows
 # them and would rewrite modes on targets outside the tree. Ownership still has
 # to reach them: the replaced `chown -R` covered links, since GNU chown
 # traverses with FTS_PHYSICAL and lchowns each one it meets. -h restores that
 # without touching referents.
-find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$restored_links"
+find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$restored_links" || scan_status=$?
+
+if [[ $scan_status -ne 0 ]]; then
+  echo "WARNING: the post-restore scan exited ${scan_status}; find's own diagnostic is above." >&2
+  echo "  A directory vanishing or turning unreadable mid-walk does this on a live target." >&2
+  echo "  The passes below may cover fewer entries than the restore wrote." >&2
+  echo "  Re-run once other writers are quiesced to finish them." >&2
+fi
 
 if [[ $chown_spec != "none" ]]; then
   echo
