@@ -61,107 +61,182 @@ derivations built locally per full system build. Three groups remain:
 
 ## Build surface
 
-`packages.<system>.cache-roots` is a `linkFarm` over an explicit allowlist
-of free, redistribution-safe packages:
+`packages.<system>.cache-roots` is a `linkFarm` over an explicit list of the
+packages hosts would otherwise build locally. Every output of each entry is
+linked, not just the default one: `cache-push.yml` pushes the closure of the
+built `result`, and a multi-output derivation's `outPath` does not reach its
+siblings, so those outputs would be built on CI and then dropped. `nvidia-x11`
+alone splits into `out`, `lib32`, `bin`, `modsrc`, and `firmware`. Links are
+keyed `<host>/<package>/<output>`.
 
-- Host-sourced entries come from the primary host's package set so custom
-  overlays (firefoxpwa policy injection, john patches) and nixpkgs config
-  produce exactly the derivations a host switch evaluates. Every entry's
-  app must be enabled on that host: overlays are gated on
-  `programs.<name>.extended.enable`, and a disabled app resolves to the
-  stock nixpkgs attr that no host consumes (which is why wfuzz is not
-  listed).
+- Host-sourced entries read `programs.<name>.extended.package` on each host,
+  which is the value those modules install, so custom overlays (firefoxpwa
+  policy injection, john patches), nixpkgs config, and any per-host override
+  of that option produce exactly the derivations a host switch evaluates.
+  Reading the bare package-set attribute instead would desync silently: an
+  override keeps `extended.enable = true`, so the gate stays green while the
+  published derivation is one nobody builds, and the symptom is a cache miss
+  rather than an error. Every registered
+  host that builds for the current system contributes its own entries, so an
+  app only a sibling host enables still reaches the cache and each host's
+  distinct closure is published separately (nvidia-x11 is 580.173.02 on
+  system76 and 595.84 on tpnix).
+  Entries are gated per host on `programs.<name>.extended.enable`, so a host
+  that turns an app off contributes nothing for it and the cache never carries
+  a closure that host will not install (which is why wfuzz is not listed).
   `nix build --dry-run "path:.#cache-roots"` on a host that has switched
   recently should report no unexpected package rebuilds; that is the
   derivation-parity check.
-- Option-sourced entries (`hostFinalPackagePaths`) read the owning module's
-  read-only resolved-package option on the primary host, for modules that
-  install a configured variant the bare package-set attribute never produces
-  (nemo-with-extensions, via `programs.nemo.extended.finalPackage`). The
-  enable invariant holds here through the option's shape: `finalPackage` is
-  declared with no default and assigned inside `config = lib.mkIf cfg.enable`,
-  so a disabled module leaves it undefined rather than resolving to a closure
-  no host installs. `cache-roots.nix` reads the sibling `enable` as well, so
-  the failure names the entry, the option path, and the host instead of
-  surfacing a bare "was accessed but has no value defined".
+- Option-sourced entries (`hostOptionPackages`) resolve the package from the
+  host config, for packages the bare package-set attribute never produces or
+  that never reach `environment.systemPackages` at all. Resolution is a
+  function rather than an option path, because it can mean reaching past the
+  option into the value it holds, or choosing between derivations by another
+  option's value: `hardware.nvidia.package.mod` is the kernel module built
+  against `boot.kernelPackages` and installed through
+  `boot.extraModulePackages`, `hardware.nvidia.package.settings` is
+  nvidia-settings, and neither is an output, so linking every output does not
+  reach them. Each entry carries
+  its own `installed` predicate rather than deriving a sibling `enable` from
+  the option path, because these options do not share one shape:
+  `programs.nemo.extended.finalPackage` is assigned inside
+  `config = lib.mkIf cfg.enable` and is undefined when the module is off, so
+  its sibling `enable` is the real signal, while `hardware.nvidia.package` and
+  `programs.steam.package` carry upstream defaults and stay defined on hosts
+  that never install them, so `services.xserver.videoDrivers` and the upstream
+  `programs.steam.enable` are what actually install them.
 - perSystem-sourced entries (codeburn, restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
-- Input-sourced entries (context7-mcp, codex) come from the flake input the
-  consuming module resolves them from, because the host package set can
-  carry a same-named but different derivation.
+- Input-sourced entries (context7-mcp, mcp-server-sequential-thinking, codex)
+  come from the flake input the consuming module resolves them from, because
+  host package sets can carry a same-named but different derivation.
 
-The allowlist is explicit because `cachix push` publishes the full runtime
-closure to a public cache. Every entry's closure must be redistributable. An
-`assertFree` guard aborts evaluation for any entry whose `meta.license` is
-missing or is neither free nor redistributable, so a license-violating addition
-fails `nix flake check` (the check `modules/package-checks.nix` mirrors from
-this output) instead of reaching the cache. The guard reads the entry's own
-`meta.license` only; it does not walk the closure, so a wrapper that pulls in
-separately licensed packages still needs the manual check under
-"Extending the allowlist".
+The list names the module hosts enable, which is not always the attribute that
+shares the app's common name: `vscode-fhs` and `ventoy-full` are what
+`modules/apps/` enables, while the bare `vscode` and `ventoy` attributes are
+different derivations no host consumes. `vscode` still reaches the cache as a
+dependency of the `vscode-fhs` closure.
 
-## Classification (2026-07-17 build logs)
+A name listed but enabled on no host aborts evaluation instead of quietly
+publishing nothing, so renaming an app or disabling it on the last host that
+had it fails `nix flake check` rather than leaving a dead entry behind.
 
-License fields read from each package's `meta.license` on the surface that
-entry is sourced from, per the rule under "Extending the allowlist": the
-primary host's package set for host-sourced entries,
-`programs.nemo.extended.finalPackage` for nemo-with-extensions, the owning
-flake input for context7-mcp and codex, and `self'.packages` for codeburn
-and restringer.
+There is no license gate. `cachix push` publishes the full runtime closure,
+and the cache is operator-private in use, so unfree packages are published
+alongside free ones and redistribution is not evaluated at build time. See
+"License posture" below for what that assumes.
 
-Cached via cache-roots (free, redistributable):
+## License posture
 
-| Package              | License            |
-| -------------------- | ------------------ |
-| codeburn             | MIT                |
-| codex                | Apache-2.0         |
-| context7-mcp         | MIT                |
-| electron-mail        | GPL-3.0            |
-| firefoxpwa           | MPL-2.0            |
-| john                 | GPL-2.0-or-later   |
-| nemo-with-extensions | GPL-2.0 + LGPL-2.0 |
-| planify              | GPL-3.0-or-later   |
-| proton-vpn           | GPL-3.0-only       |
-| restringer           | MIT                |
-| tweakcc              | MIT                |
-| upscayl              | AGPL-3.0-or-later  |
-| wappalyzer-next      | GPL-3.0-only       |
+The cache carries unfree packages. This rests on the cache being consumed by
+its operator alone, not on any redistribution grant: most entries below
+(vscode, google-chrome, webex, charles, obsidian, veracrypt, ventoy-full,
+discord, dropbox, nomachine-client, burpsuite) are `unfree` with
+`redistributable = false` in nixpkgs, so publishing them to an audience would
+violate their licenses. `nvidia-x11`, `firefox-bin`, and `steam` are the only
+unfree entries nixpkgs marks redistributable.
 
-context7-mcp is sourced from the `mcp-servers-nix` input, matching the
-consumer in `modules/agents/mcp.nix`; the host package set carries a
-same-named but different derivation no consumer runs. nemo-with-extensions
+That assumption is not enforced by anything in this repo. `bad3r-nixos.cachix.org`
+is a public cache: `modules/hosts/common/nix-substituters.nix` reads it with no
+token and `nix-cache-info` answers anonymously, so the store paths are reachable
+by anyone who knows the cache name. Making the Cachix cache private is what would
+make the posture match the mechanism.
+
+An earlier `assertFree` guard aborted evaluation for any entry that was neither
+free nor redistributable. It was removed with this policy; nothing now checks a
+license at build time, so adding an entry is purely an operator decision.
+
+## Inventory (2026-07-17, 2026-08-03, and 2026-08-04 build logs)
+
+Host-sourced entries, published per host that enables them. Only system76
+enables the last six.
+
+| Package             | Hosts           |
+| ------------------- | --------------- |
+| burpsuite           | system76, tpnix |
+| charles             | system76, tpnix |
+| electron-mail       | system76, tpnix |
+| firefoxpwa          | system76, tpnix |
+| google-chrome       | system76, tpnix |
+| john                | system76, tpnix |
+| nomachine-client    | system76, tpnix |
+| obsidian            | system76, tpnix |
+| p7zip-rar           | system76, tpnix |
+| planify             | system76, tpnix |
+| proton-vpn          | system76, tpnix |
+| searchfox-cli       | system76, tpnix |
+| source-map-explorer | system76, tpnix |
+| tweakcc             | system76, tpnix |
+| vscode-fhs          | system76, tpnix |
+| wappalyzer-next     | system76, tpnix |
+| webex               | system76, tpnix |
+| discord             | system76        |
+| dropbox             | system76        |
+| kiro-fhs            | system76        |
+| upscayl             | system76        |
+| ventoy-full         | system76        |
+| veracrypt           | system76        |
+
+Option-sourced entries, resolved from the host config that holds the installed
+package:
+
+| Package               | Resolved from                         | Hosts           |
+| --------------------- | ------------------------------------- | --------------- |
+| nemo-with-extensions  | `programs.nemo.extended.finalPackage` | system76, tpnix |
+| nvidia-x11            | `hardware.nvidia.package`             | system76, tpnix |
+| nvidia-kernel-modules | `hardware.nvidia.package.{open,mod}`  | system76, tpnix |
+| nvidia-settings       | `hardware.nvidia.package.settings`    | system76, tpnix |
+| steam                 | `programs.steam.package`              | system76        |
+
+`nvidia-kernel-modules` selects the module flavor the host installs rather than
+gating on one of them, mirroring upstream's
+`boot.extraModulePackages = if useOpenModules then [ nvidia_x11.open ] else [ nvidia_x11.mod ]`
+with `useOpenModules = cfg.open == true`. Gating on one flavor would drop
+coverage silently on a host that flips `hardware.nvidia.open`, which
+`modules/hardware/nvidia-gpu.nix` documents as required on Blackwell and newer,
+and a symmetric second entry cannot exist while no host sets it: the
+unused-name throw would abort on it. `nvidia-settings` is gated on
+`hardware.nvidia.nvidiaSettings`. Both hosts currently set `open = false` and
+`nvidiaSettings = true`.
+
+`steam` is option-sourced because `modules/apps/steam.nix` installs nothing
+itself: it sets `programs.steam.enable` with `extraCompatPackages` and
+`extraPackages`, and upstream's `programs.steam.package` carries an `apply`
+that re-`override`s the FHS env with both lists. The applied value is what
+upstream puts in `environment.systemPackages`, and proton-ge-bin, dwarfs,
+fuse-overlayfs, and protonup-rs live inside it. On system76 the applied
+derivation is `steam-1.0.0.87` at a different store path than
+`pkgs.steam`, so the bare attribute published a closure no host substitutes
+from.
+
+perSystem-sourced (codeburn, restringer) and input-sourced (context7-mcp,
+mcp-server-sequential-thinking, codex) entries are published once, not per
+host, because no host package set shapes them.
+
+context7-mcp and mcp-server-sequential-thinking are sourced from the
+`mcp-servers-nix` input, matching the consumer in `modules/agents/mcp.nix`,
+which resolves every server's package through
+`inputs.mcp-servers-nix.packages.<system>`; host package sets carry
+same-named but different derivations no consumer runs. nemo-with-extensions
 is sourced from `programs.nemo.extended.finalPackage` for the same reason:
 `modules/apps/nemo.nix` re-wraps nemo with an explicit extension list, so
 the bare `pkgs.nemo-with-extensions` attribute is a derivation no host
 installs, and its closure omits nemo-preview and nemo-seahorse. For entries built
-through `buildFHSEnv` or wrapper derivations (electron-mail, upscayl,
-nemo-with-extensions), the outer wrapper sets `allowSubstitutes = false`
-and always rebuilds locally; that is trivial assembly work, and the heavy
-dependency closure underneath substitutes normally.
+through `buildFHSEnv` or wrapper derivations (electron-mail, kiro-fhs, upscayl,
+vscode-fhs, nemo-with-extensions), the outer wrapper sets
+`allowSubstitutes = false` and always rebuilds locally; that is trivial
+assembly work, and the heavy dependency closure underneath substitutes
+normally.
 
-Intentionally local, unfree with redistribution not permitted or unclear
-(publishing these to a public cache would violate their licenses):
+Deliberately absent:
 
-| Package       | License note                       |
-| ------------- | ---------------------------------- |
-| charles       | unfree                             |
-| discord       | unfree                             |
-| dropbox       | unfree                             |
-| google-chrome | unfree                             |
-| kiro          | Amazon Software License            |
-| veracrypt     | TrueCrypt-derived, unfree          |
-| ventoy        | unfree (vendored blobs)            |
-| vscode        | unfree (Microsoft product license) |
-| webex         | unfree                             |
-
-Unfree but marked redistributable in nixpkgs; candidates for a later
-operator decision, kept local until then:
-
-| Package     | License note                               |
-| ----------- | ------------------------------------------ |
-| firefox-bin | Firefox trademark license, redistributable |
-| nvidia-x11  | unfreeRedistributable                      |
-| steam       | unfreeRedistributable                      |
+- firefox-bin: no host installs it as an entry would publish it. Both hosts
+  install `firefox-153.0.1`, which wraps the source-built `firefox-unwrapped`,
+  and that wrapper is dispositioned as an accepted local build by the
+  `firefox-[0-9]*` glob in `scripts/cache-coverage-allowlist.txt`. The
+  `firefox-bin` closure is pushed anyway, as a member of the dropbox FHS
+  rootfs, so listing it would add an entry and no coverage.
+- tor-browser and mullvad-browser: see the residual-local-builds list below.
 
 Residual local builds accepted with reasons:
 
@@ -175,9 +250,8 @@ Residual local builds accepted with reasons:
   backfill here.
 - pentest wrappers (`pentest-*`): the wrapper derivations embed the flake
   self path and change on every commit; their heavy runtime payloads are
-  either Hydra-built (metasploit, nmap, sqlmap, ...), covered by
-  cache-roots entries (john, wappalyzer-next), or unfree (burpsuite,
-  charles) and excluded by license.
+  either Hydra-built (metasploit, nmap, sqlmap, ...) or covered by
+  cache-roots entries (john, wappalyzer-next, burpsuite, charles).
 - nix-index-with-full-db: fetch-dominated assembly of a prebuilt database,
   negligible build cost.
 - host config and systemd unit text derivations: cheap by design.
@@ -241,13 +315,16 @@ the remaining work. Four gaps carry it.
    name added to the publisher leaves behind a dead glob that absorbs the next
    regression on it. The allowlist's other entries are permanent dispositions
    `docs/reference/cache-coverage.md` accepts rather than reconciliation debt:
-   the RAR-enabled p7zip is unfree while the cache is public, and the
-   configuration wrappers are too cheap to be worth the CI time.
-2. Only the primary host sources entries
-   (https://github.com/Bad3r/nixos/issues/423). `cache-roots.nix` hardcodes
-   `primaryHost`, so apps a sibling host enables and the primary does not
-   (`modules/tpnix/apps-enable.nix` turns on projectlibre and thinkfan) never
-   reach the cache, and neither do that host's distinct wrapper closures.
+   the configuration wrappers are too cheap to be worth the CI time. The
+   RAR-enabled p7zip left the file for the opposite reason: `cache-roots.nix`
+   publishes it as `p7zip-rar` now, so its glob was deleted in the same change.
+2. ~~Only the primary host sources entries~~ (closed,
+   https://github.com/Bad3r/nixos/issues/423). `cache-roots.nix` iterates every
+   registered host that builds for the current system and keys links
+   `<host>/<package>/<output>`, so a sibling host's apps and its distinct
+   closures are published too. This is what pulls tpnix's nvidia-x11 595.84 into the cache
+   alongside system76's 580.173.02; before the change, evaluating the flake
+   fetched that 595.84 driver and then published nothing for it.
 3. Nothing gates coverage in CI
    (https://github.com/Bad3r/nixos/issues/424). `scripts/cache-coverage.sh`
    is reachable only through `build.sh --cache-coverage` and `nix run`, and
@@ -264,72 +341,66 @@ the remaining work. Four gaps carry it.
    restore coverage on paper and suppress the next real divergence on that
    package.
 
-The unfree group remains the issue's phase 2 and stays out of scope while the
-cache is public: serving it needs a private or authenticated cache with the
-token provisioned to hosts through sops.
+The issue's phase 2 is now partly inverted: the unfree group is served, but the
+private or authenticated cache it was meant to be served from does not exist
+yet. Provisioning a Cachix read token to hosts through sops is what would close
+the gap between the posture under "License posture" and the mechanism.
 
 Before-and-after measurement of switch time belongs to the detector, not to a
 manual log diff. Once gap 3 lands, the report's own class counts are the
 metric.
 
-## Extending the allowlist
+## Extending the list
 
-Add a package to `modules/meta/cache-roots.nix` when it shows up in build
-logs and its full runtime closure is redistributable:
+Add a package to `modules/meta/cache-roots.nix` when it shows up in build logs
+and a host actually installs it. License is no longer a criterion; see
+"License posture".
 
+- Name the attribute a host installs, not the one that shares the app's common
+  name. `pkgs.vscode` and `pkgs.ventoy` are derivations no host consumes; the
+  installed attributes are `vscode-fhs` and `ventoy-full`. Confirm with
+  `nix eval` that the attribute's `outPath` appears in the host's
+  `environment.systemPackages` or Home Manager `home.packages`, or that it is a
+  dependency of the wrapper that does.
 - Source it from the surface that owns the derivation:
   - the host package set, when a custom overlay or host nixpkgs config
-    shapes it;
+    shapes it. `hostPackageNames` entries are gated per host on
+    `programs.<name>.extended.enable`, so the app must be wired through
+    `modules/hosts/common/apps-enable.nix` or a per-host override;
   - `self'.packages`, when only the devshell surface consumes it;
   - the owning flake input, when a module consumes the input's package
     directly (context7-mcp);
-  - the owning module's read-only resolved-package option, listed in
-    `hostFinalPackagePaths`, when the module installs a configured variant
-    rather than the bare package-set attribute (nemo-with-extensions).
-    Declare that option with no default and assign it inside
-    `config = lib.mkIf cfg.enable`, next to a sibling `enable` that
-    `cache-roots.nix` reads; `modules/browsers/ungoogled-chromium/apps.nix`
-    and `modules/apps/nemo.nix` are the reference shape.
-- Verify the license on the surface the entry is sourced from, not on the
-  host package set by default, because the bare `pkgs.<name>` attribute can
-  be a different derivation than the one that gets published:
-  - host-sourced:
-    `nix eval "path:.#nixosConfigurations.<host>.pkgs.<name>.meta.license"`
-  - option-sourced:
-    `nix eval "path:.#nixosConfigurations.<host>.config.<option-path>.meta.license"`
-  - perSystem- and input-sourced: the matching `self'.packages.<name>` or
-    flake-input attribute.
-- For a wrapper-style entry, check the packages it wraps as well. `meta.license`
-  on the wrapper describes the wrapper alone, and `assertFree` reads that same
-  field, so neither covers what the wrapper pulls into the published closure:
-  `nemo-with-extensions` reports GPL-2.0 and LGPL-2.0 while carrying
-  nemo-preview, nemo-seahorse, nemo-python, nemo-fileroller (GPL-2.0-or-later),
-  nemo-emblems, and folder-color-switcher (GPL-3.0-only).
+  - the host config, listed in `hostOptionPackages`, when the bare
+    package-set attribute never produces it or it never reaches
+    `environment.systemPackages` (nemo-with-extensions, nvidia-x11). Write
+    `path` as a `hostConfig: package` function, not an option path: it may
+    reach past the option into a derivation hanging off the package
+    (`hardware.nvidia.package.settings`) or choose between derivations by
+    another option's value (`hardware.nvidia.open`). Give the entry an
+    `installed` predicate naming the condition under which the host installs
+    it; do not assume a sibling `enable` exists, because upstream options such
+    as `hardware.nvidia.package` carry a default and stay defined on hosts
+    that never use them.
+- A name enabled on no host aborts evaluation rather than publishing nothing,
+  so a rename or a last-host disable fails `nix flake check` instead of leaving
+  a dead entry.
 - Verify the heavy derivation substitutes: a derivation that sets
   `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`) never hits
   the cache itself, so what matters is whether that derivation is the
   expensive one. An entry belongs in the list when the non-substitutable
   derivation is thin assembly over a substitutable dependency closure
-  (electron-mail, upscayl, nemo-with-extensions all set it on the outer
-  wrapper). It does not belong when the non-substitutable derivation is
+  (electron-mail, upscayl, vscode-fhs, nemo-with-extensions all set it on the
+  outer wrapper). It does not belong when the non-substitutable derivation is
   itself the expensive build (tor-browser, mullvad-browser).
 - Drop the matching glob from `scripts/cache-coverage-allowlist.txt` in the
   same change. That file records divergences accepted as permanent local
   builds; a package the cache now serves is no longer one, and leaving the
   glob behind hides the next regression on that name. The
   `cache-roots-allowlist-disjoint` check enforces this: it matches every
-  published entry against the file's globs, on the `linkFarm` key and on the
+  published entry against the file's globs, on the entry name and on the
   derivation `name` and `pname`, and aborts evaluation naming the offender. So
   forgetting the deletion fails `nix flake check` rather than surfacing as a
   silently dead glob later.
 - Confirm derivation parity with
   `nix build --dry-run "path:.#cache-roots"` on a recently switched host:
   the new entry must not introduce rebuilds of paths the host already has.
-
-Unfree packages must never enter the allowlist while the cache is public.
-Serving them requires the issue's phase 2: a private or authenticated
-cache with the token provisioned to hosts via sops. The `assertFree` guard
-in `cache-roots.nix` backstops this: a package whose license is missing or
-non-redistributable aborts evaluation. Unfree-but-redistributable packages
-(firefox-bin, nvidia-x11, steam) pass the guard's legal check but stay out of
-the allowlist until that phase-2 operator decision.
