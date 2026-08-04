@@ -25,6 +25,14 @@
 */
 _:
 let
+  # Kernels only: cfg.package's share/jupyter also carries labextensions and
+  # nbconvert/templates, both resolved through jupyter_path(), and exporting
+  # those would outrank a virtualenv's own copies for `jupyter lab` and
+  # `jupyter nbconvert`. buildEnv still creates the intermediate share/jupyter
+  # that JUPYTER_PATH names. Shared with checks.jupyter-all-kernelspecs, which
+  # only asserts anything while it reproduces the real merge.
+  kernelspecPathsToLink = [ "/share/jupyter/kernels" ];
+
   # The kernels named in the override land in a standalone
   # jupyter-kernel.create output that only the wrapped `jupyter` binary knows
   # about, through its own JUPYTER_PATH. Resolve that directory through the
@@ -108,13 +116,7 @@ let
             (lib.hiPrio kernelspecs)
           ];
 
-          # Kernels only: cfg.package's share/jupyter also carries
-          # labextensions and nbconvert/templates, both resolved through
-          # jupyter_path(), and exporting those would outrank a virtualenv's
-          # own copies for `jupyter lab` and `jupyter nbconvert`. buildEnv
-          # still creates the intermediate share/jupyter that JUPYTER_PATH
-          # names.
-          pathsToLink = [ "/share/jupyter/kernels" ];
+          pathsToLink = kernelspecPathsToLink;
 
           # NixOS links nothing under /share/jupyter by default, so kernelspecs
           # stay reachable only through the wrapped `jupyter` binary, which
@@ -151,7 +153,7 @@ in
               package
               (pkgs.lib.hiPrio (mkKernelspecs pkgs package))
             ];
-            pathsToLink = [ "/share/jupyter/kernels" ];
+            pathsToLink = kernelspecPathsToLink;
             ignoreCollisions = false;
           };
         in
