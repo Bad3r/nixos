@@ -740,7 +740,10 @@ restore_lock=""
 cleanup_scope() {
   [[ -n $scope_dir ]] && rm -rf "$scope_dir"
   [[ -n $restore_marker ]] && rm -f "$restore_marker" "${restore_marker}.probe"
-  [[ -n $restore_lock ]] && rmdir "$restore_lock" 2>/dev/null
+  if [[ -n $restore_lock ]] && ! rmdir "$restore_lock" 2>/dev/null; then
+    echo "WARNING: could not remove the restore lock at '$restore_lock'." >&2
+    echo "  The next run against this path refuses with exit 64 until it is gone." >&2
+  fi
   return 0
 }
 trap cleanup_scope EXIT
