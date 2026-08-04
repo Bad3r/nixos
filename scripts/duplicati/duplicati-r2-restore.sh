@@ -579,6 +579,13 @@ probe_restore_path() {
   local probe_status=0
   local probe_hit
 
+  # find -P treats a symlink start point as empty, so recheck after the lock
+  # is held before the probe result can clear the --force gate.
+  if [[ -L $restore_path ]]; then
+    echo "--restore-path must not be a symlink: $restore_path" >&2
+    echo "  It was created or replaced while this run was starting." >&2
+    exit 64
+  fi
   probe_hit=$(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ||
     probe_status=$?
   if [[ $probe_status -ne 0 ]]; then
