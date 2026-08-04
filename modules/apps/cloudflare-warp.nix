@@ -167,7 +167,7 @@ let
                   dnsmasq). Use serviceMode "tunnelonly"/"proxy" or disable the local resolver.
                 ''
               ++ lib.optional (!haveSecrets) ''
-                programs.cloudflare-warp.extended: ${secretsFile} is missing; running warp-svc
+                programs.cloudflare-warp.extended: secrets/cloudflare-warp.yaml is missing; running warp-svc
                 WITHOUT managed enrollment (degraded). Create the sops secret (see
                 docs/cloudflare/warp/deployment.md) and rebuild.
               '';
