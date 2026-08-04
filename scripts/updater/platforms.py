@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Multi-platform hash calculation utilities for Nix package updaters."""
 
 from concurrent.futures import ThreadPoolExecutor, as_completed

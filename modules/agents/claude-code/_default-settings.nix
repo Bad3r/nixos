@@ -43,6 +43,7 @@ let
     "ls"
     "make"
     "mkdir"
+    "nix"
     "npm run"
     "nvim"
     "patch"
@@ -58,13 +59,10 @@ let
     "source"
     "tail"
     "tee"
-    "time"
-    "timeout"
     "touch"
     "uniq"
     "uv"
     "wc"
-    "xargs"
     "zsh"
   ];
 
@@ -75,6 +73,13 @@ let
   # same operations. `git checkout -- ` is the discard form codex's prefix-only
   # matcher cannot express; the positional wildcard leaves branch switches
   # (`git checkout main`) untouched.
+  # Imported rather than transcribed: this list and the codex prompt rules
+  # gated different spellings twice in #399, and nothing failed when they
+  # diverged. See that file for why the coverage is best-effort.
+  stashHelperAsk = map (argv: builtins.concatStringsSep " " argv) (
+    import ../_stash-helper-invocations.nix
+  );
+
   bashAsk = [
     "git clean"
     "git reset"
@@ -102,6 +107,34 @@ let
     "git push --mirror"
     "git push --delete"
     "git push --prune"
+  ]
+  ++ stashHelperAsk
+  ++ [
+    # No codex counterpart: `bash` is in bashAllow here and deliberately not in
+    # codex's allowAllCommands, and codex hands the inner script of a wrapped
+    # invocation back to execpolicy while this layer does not. The wrapping
+    # forms themselves must ask, or every rule above is bypassable through
+    # `bash -c '...'`.
+    "bash scripts/prune-old-stashes.sh"
+    "bash ./scripts/prune-old-stashes.sh"
+    "bash -c"
+    "bash -lc"
+    "zsh -c"
+    "zsh -lc"
+    # The same bypass without a shell: each takes a program name as its first
+    # operand, so `timeout 60 <cmd>` reaches every rule above without matching
+    # any of them. Gated here and absent from bashAllow, since ask wins and an
+    # allow entry for the same prefix would only be a dead rule claiming the
+    # opposite.
+    #
+    # Best-effort, like the shared invocation list: `find -exec`, `make`,
+    # `nix develop -c`, `nix run`, `nvim`, `python` and `source` reach an
+    # arbitrary program too and stay allowed, because gating them would prompt
+    # on this repo's ordinary use of each. The three below are the ones whose
+    # only purpose is to run one.
+    "timeout"
+    "time"
+    "xargs"
   ];
 
   # coreutils rm bypasses the PATH shim that routes bare `rm` to trash-cli, so
@@ -126,7 +159,16 @@ let
     "Read(**)"
     "Edit(**)"
   ];
+
+  # Both lists become `Bash(<cmd> *)`, and ask is evaluated first, so a prefix
+  # present in both leaves an allow rule that can never match while stating the
+  # opposite of the one that does. Exact strings only: `bash` in bashAllow and
+  # `bash -c` in bashAsk are different rules, and both are live.
+  deadAllow = builtins.filter (cmd: builtins.elem cmd bashAsk) bashAllow;
 in
+assert
+  deadAllow == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " deadAllow} are in both bashAllow and bashAsk; ask wins, so drop them from bashAllow rather than leaving the two lists disagreeing";
 {
   claudeSettingsBase = {
     cleanupPeriodDays = 30;

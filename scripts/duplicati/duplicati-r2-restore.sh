@@ -23,17 +23,27 @@ Options:
   --restore-path <dir>     Output directory.
                            Default: /tmp/duplicati-restore/<slug>-<utc-ts>
                            A pre-existing non-empty directory is refused
-                           unless --force is given.
-  --chown <user:group>     Chown applied to the entries this restore wrote
-                           (files restored and directories created), never to
-                           pre-existing content. The --restore-path root is
-                           included only when it started out empty or absent.
+                           unless --force is given. Parent directories this
+                           run creates are made traversable (0711); for the
+                           default path the parent's mode is set to 0711 even
+                           when it already exists. The restore directory
+                           itself stays 0700.
+  --chown <user:group>     Chown applied to the entries written during the
+                           restore (files restored, directories created),
+                           selected by ctime rather than by asking duplicati,
+                           so pre-existing content is left alone unless
+                           another process writes to it while the restore
+                           runs. The --restore-path root is included only when
+                           the restore created it or found it empty.
                            Default: vx:users.
                            Pass 'none' to skip the chown step.
   --force                  Allow restoring into a pre-existing non-empty
                            --restore-path. Restored entries can overwrite
-                           files there (per --overwrite); chown/chmod stays
-                           scoped to what the restore wrote.
+                           files there (per --overwrite). The chown/chmod pass
+                           is scoped by ctime, so anything another process
+                           writes into the tree while the restore runs is
+                           swept in as well; quiesce other writers on the
+                           target first.
   --version <n>            Snapshot version (0=latest, 1=second-latest, ...).
                            Mutually exclusive with --time.
   --time <iso>             Snapshot time as ISO-8601. Selects the most recent
@@ -51,8 +61,16 @@ Environment variables:
 Exit codes:
   0    success (or dry-run completed)
   64   usage error (bad arguments, mutually exclusive options, bad regex,
-       pre-existing non-empty --restore-path without --force)
-  66   manifest, env file, or db unreadable; target missing or disabled
+       --restore-path is a symlink or not a directory, its parent is a symlink,
+       the default restore parent is not root-owned, pre-existing non-empty
+       --restore-path without --force, --chown user or group unresolvable,
+       another restore already holds --restore-path)
+  66   manifest, env file, or db unreadable; target missing or disabled;
+       impact-analysis query failed or returned non-numeric output;
+       --restore-path timestamps too coarse to scope the ownership pass;
+       pre-existing directories under --restore-path could not be inventoried;
+       the restore lock could not be created
+  75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
   78   missing credentials in env file
   127  required command not found
@@ -111,6 +129,7 @@ require_cmd mktemp
 require_cmd sort
 require_cmd comm
 require_cmd xargs
+require_cmd sleep
 
 human_bytes() {
   local n=${1:-0}
@@ -381,9 +400,11 @@ dest="s3://${bucket}/${hostname_value}/${encoded_subpath}\
 &s3-ext-httpclientcachesize=4\
 &s3-ext-maxconnectionsperserver=8"
 
+restore_path_defaulted=false
 if [[ -z $restore_path ]]; then
   ts=$(date -u +%Y%m%dT%H%M%SZ)
   restore_path="/tmp/duplicati-restore/${slug}-${ts}"
+  restore_path_defaulted=true
 fi
 
 cat <<INFO
@@ -466,8 +487,6 @@ if "$dry_run"; then
   # read-only and imports the matching IDs into a temp table. Capture output
   # and status separately: a here-string read would succeed on the empty line
   # a failed sqlite3 leaves behind and report garbage counts as a clean run.
-  # `|| impact_status=$?` rather than `if ! ...`, whose `!` leaves $? at the
-  # negated value (always 0) inside the branch.
   impact_status=0
   impact_output=$(
     sqlite3 -separator ' ' -noheader <<SQL
@@ -533,65 +552,269 @@ if [[ ! -r $db_path ]]; then
   echo
 fi
 
-# Tracks pre-existing content, not mere existence: an empty directory holds
-# nothing to protect, so the restore-path root stays eligible for the chown and
-# chmod below. Leaving it out would hand the chown target a tree it cannot add
-# to or clean up, under a root the script never touches.
+# Only content the restore must not disturb makes the path "populated". An
+# existing but empty directory has nothing to protect, so its root still gets
+# the chown/chmod below; otherwise a `mkdir` beforehand would leave the target
+# root-owned and unusable by --chown's user.
 restore_path_populated=false
+# Trailing slashes are stripped before the symlink test: pathname resolution
+# applies the slash first, so [[ -L /data/torrent/ ]] lstats the referent and
+# reports false, walking straight past the refusal below. Normalizing here also
+# keeps the --restore-path= value handed to duplicati in one form.
+while [[ $restore_path == */ && ${#restore_path} -gt 1 ]]; do
+  restore_path=${restore_path%/}
+done
+# A symlink target would be scanned and written through inconsistently: find
+# defaults to -P and reports the link as empty, so the populated guard, the
+# directory inventory, and the scoped passes all see nothing, while the root
+# chown/chmod have no -h and follow the link onto the real tree. Refuse rather
+# than resolve, so the operator names the tree the restore actually writes to.
+# -L is tested before -e because -e is false for a dangling link, which would
+# otherwise reach mkdir -p and fail there with "File exists".
+if [[ -L $restore_path ]]; then
+  echo "--restore-path must not be a symlink: $restore_path" >&2
+  echo "  Pass the resolved directory so the scoping scans and the root chown/chmod" >&2
+  echo "  operate on the same tree the restore writes to." >&2
+  exit 64
+fi
 if [[ -e $restore_path ]]; then
   if [[ ! -d $restore_path ]]; then
     echo "--restore-path exists and is not a directory: $restore_path" >&2
     exit 64
   fi
-  if [[ -n $(find "$restore_path" -mindepth 1 -print -quit) ]]; then
+  # A marker orphaned by an untrappable death (SIGKILL, power loss) is this
+  # script's own debris, not content to protect. Counting it would make a
+  # directory the script created and emptied read as populated, so the rerun
+  # would demand --force and then skip the root chown/chmod that a freshly
+  # created path is supposed to get.
+  # Ignoring them is not the same as cleaning them up, and cleanup_scope only
+  # unlinks the marker this run created. Removing the rest here would break a
+  # concurrent run against the same path, so say they are there instead.
+  #
+  # Held lock means those markers belong to a live run, not to a dead one, and
+  # this note tells the operator to delete them. Doing that under a running
+  # restore removes its marker, so its -cnewer scans fail and both passes get an
+  # empty list: the very outcome the paragraph above declines to cause. Stay
+  # quiet and let the lock refusal below report the real situation.
+  if [[ ! -d ${restore_path}/.duplicati-restore-marker.lock ]] &&
+    [[ -n $(find "$restore_path" -mindepth 1 -maxdepth 1 -name '.duplicati-restore-marker.*' -print -quit) ]]; then
+    echo "NOTE: orphaned restore markers are present under '$restore_path'." >&2
+    echo "  They are ignored by the emptiness check and are not removed automatically;" >&2
+    echo "  delete .duplicati-restore-marker.* by hand once no restore is running." >&2
+  fi
+  if [[ -n $(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ]]; then
     restore_path_populated=true
+  fi
+  if [[ $restore_path_populated == true && $force != true ]]; then
+    echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
+    echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
+    echo "  ownership/permission pass would mix with pre-existing content." >&2
+    echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+    exit 64
   fi
 fi
 
-if [[ $restore_path_populated == true && $force != true ]]; then
-  echo "refusing: --restore-path '$restore_path' already exists and is not empty." >&2
-  echo "  A restore into it can overwrite files (per --overwrite) and the post-restore" >&2
-  echo "  ownership/permission pass would mix with pre-existing content." >&2
-  echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+# umask 077 masks every directory mkdir -p creates, intermediates included, so
+# the default /tmp/duplicati-restore/<slug>-<ts> would leave the container at
+# 0700 root:root and block --chown's user from traversing to its own restore.
+# Only the intermediates are widened; the leaf holds the restored data and
+# stays 0700 for the whole run rather than being re-tightened at the end.
+# 066 grants traverse without read, so 0711: --chown's user reaches a path it
+# was told, and a shared /tmp does not expose the <slug>-<ts> names to a listing.
+#
+# The leaf refusal above does not cover the parent, and mkdir -p resolves
+# symlinks in every component: a parent pre-created as a symlink is entered
+# silently and the whole restore lands wherever it points.
+restore_parent=$(dirname "$restore_path")
+if [[ -L $restore_parent ]]; then
+  echo "--restore-path parent must not be a symlink: $restore_parent" >&2
+  echo "  mkdir -p follows it, so the restore would be written outside --restore-path." >&2
   exit 64
 fi
-
+(umask 066 && mkdir -p "$restore_parent")
+# Re-test after the create. A link planted between the test above and this call
+# is entered silently by mkdir -p, and everything downstream dereferences: -O
+# would stat a root-owned target and pass, chmod 0711 would land on that target
+# rather than on a container of ours, and the leaf would be created on the far
+# side. Retesting here is decisive, because an attacker who cannot create a
+# root-owned real directory has no substitution left, and once mkdir -p has put
+# one under a sticky /tmp they cannot unlink or rename it either.
+if [[ -L $restore_parent ]]; then
+  echo "--restore-path parent must not be a symlink: $restore_parent" >&2
+  echo "  It was created or replaced while this run was starting." >&2
+  exit 64
+fi
+# Only the default path gets the ownership check. Its parent is a fixed name
+# under a world-writable /tmp, so any local user can own it before a root run
+# and then swap the leaf. An explicit --restore-path is the operator's choice
+# and may legitimately sit under a tree they own rather than root.
+if [[ $restore_path_defaulted == true ]]; then
+  if [[ ! -O $restore_parent ]]; then
+    echo "refusing: default restore parent '$restore_parent' is not root-owned." >&2
+    echo "  A local user controlling it can redirect this root-run restore elsewhere." >&2
+    echo "  Remove it, or pass an explicit --restore-path." >&2
+    exit 64
+  fi
+  # The umask above only shapes a parent this run creates, and the default
+  # container is a fixed name that outlives a run. One left at 0700 by an
+  # earlier invocation would still block --chown's user, so set the mode rather
+  # than inherit whatever created it. Root-owned per the check above, not a
+  # symlink per the check before it, and dedicated to this script.
+  chmod 0711 "$restore_parent"
+fi
 mkdir -p "$restore_path"
+# Same gap the parent closes just above, for the leaf: its -L test sits before
+# the whole parent guard, and mkdir -p is a silent no-op over a link to a
+# directory. An explicit --restore-path may legitimately sit under a user-owned
+# parent, so that user can plant the leaf as a symlink in the window and put
+# duplicati, the lock, the marker, and both scoped passes on the far side.
+if [[ -L $restore_path ]]; then
+  echo "--restore-path must not be a symlink: $restore_path" >&2
+  echo "  It was created or replaced while this run was starting." >&2
+  exit 64
+fi
 
 # Marker plus pre-existing-directory inventory scope the post-restore chown
 # and chmod to entries this restore writes. Restored files get a fresh ctime
 # (newer than the marker's mtime); duplicati also bumps the ctime of
 # pre-existing directories it writes into, so those are excluded through the
 # inventory instead of being re-owned as a side effect.
+#
+# The marker lives inside --restore-path, not in $TMPDIR: -cnewer compares
+# ctimes on the target filesystem against the marker's mtime, so a marker on a
+# finer-grained filesystem (tmpfs nanoseconds vs. a 1s-granularity NFS or
+# FAT-backed target) reads as newer than entries the restore just wrote and
+# drops them from both the ownership pass and the final listing.
+scope_dir=""
+restore_marker=""
+restore_lock=""
+cleanup_scope() {
+  [[ -n $scope_dir ]] && rm -rf "$scope_dir"
+  [[ -n $restore_marker ]] && rm -f "$restore_marker" "${restore_marker}.probe"
+  [[ -n $restore_lock ]] && rmdir "$restore_lock" 2>/dev/null
+  return 0
+}
+trap cleanup_scope EXIT
+
+# Two runs against one --restore-path scope against each other: each inventories
+# pre_dirs over a tree the other is writing into, and each -cnewer window sweeps
+# in the other's restored entries and applies its own --chown to them. That is
+# this branch's own failure mode, between invocations instead of between the
+# restore and pre-existing content. mkdir is atomic, so it settles the claim.
+# Named under the marker prefix so the emptiness probe already ignores it and
+# the orphan note above already covers clearing it after an untrappable death.
+# Separate "already held" from "could not create at all": mkdir -p on an
+# existing --restore-path is a no-op and succeeds on a read-only mount, so this
+# is the first call that actually fails there. Discarding the errno would tell
+# the operator to remove a lock that does not exist.
+restore_lock_path="${restore_path}/.duplicati-restore-marker.lock"
+lock_status=0
+lock_err=$(mkdir "$restore_lock_path" 2>&1) || lock_status=$?
+if [[ $lock_status -ne 0 ]]; then
+  if [[ ! -d $restore_lock_path ]]; then
+    echo "could not create the restore lock at '$restore_lock_path': ${lock_err}" >&2
+    exit 66
+  fi
+  echo "refusing: a restore already holds '$restore_path'." >&2
+  echo "  Concurrent runs scope against each other: each one's ctime window sweeps in" >&2
+  echo "  the other's restored entries and applies its own --chown to them." >&2
+  echo "  Remove ${restore_lock_path} if no restore is in flight." >&2
+  exit 64
+fi
+restore_lock="$restore_lock_path"
+
+# The emptiness probe ran before mkdir -p claimed the leaf, and the -L re-test
+# covers only a symlink planted in that window. An explicit --restore-path may
+# sit under a user-owned parent, so that user can instead create the leaf with
+# content: the --force gate would be skipped and the root then chowned and
+# chmod'd as though this run had created it. The lock makes the observation
+# stable, so take it again now that it is held.
+if [[ -n $(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ]]; then
+  restore_path_populated=true
+  if [[ $force != true ]]; then
+    echo "refusing: --restore-path '$restore_path' became non-empty while this run was starting." >&2
+    echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
+    exit 64
+  fi
+fi
+
 scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
 restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX")
-restore_probe="${restore_marker}.probe"
-trap 'rm -rf "$scope_dir"; rm -f "$restore_marker" "$restore_probe"' EXIT
 pre_dirs="${scope_dir}/pre-dirs"
 
-# The marker lives on the target filesystem so its mtime carries the same
-# granularity as the ctimes it is compared against; one in $TMPDIR would carry
-# tmpfs nanoseconds and sort newer than every ctime a coarser target records.
-# -cnewer is strict and the kernel hands out one cached timestamp per tick, so
-# entries written in the marker's own tick compare equal and drop out of the
-# scope: wait for the target's clock to pass the marker before the restore runs.
-for _ in {1..40}; do
-  : >"$restore_probe"
-  [[ $restore_probe -nt $restore_marker ]] && break
+# -cnewer is strict, so an entry sharing the marker's timestamp tick is missed.
+# Wait for the target's clock to move past the marker instead of backdating it:
+# a backdated marker would sweep in pre-existing entries whose ctime landed in
+# the window just before the restore, which is what this scoping exists to
+# prevent.
+marker_probe="${restore_marker}.probe"
+marker_settled=false
+for _ in {1..50}; do
+  : >"$marker_probe"
+  if [[ $marker_probe -nt $restore_marker ]]; then
+    marker_settled=true
+    break
+  fi
   sleep 0.1
 done
-rm -f "$restore_probe"
+rm -f "$marker_probe"
+if [[ $marker_settled != true ]]; then
+  echo "timestamps under '$restore_path' did not advance past the restore marker in 5s;" >&2
+  echo "  cannot scope the post-restore chown/chmod to the entries this restore writes." >&2
+  exit 66
+fi
 
-find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"
+# chown -h is POSIX, but chmod grew -h/--no-dereference only in coreutils 9.5.
+# Probe before the restore rather than discovering it afterwards: an unguarded
+# `chmod -h` on an older build aborts the permission pass right after a
+# successful restore, leaving every restored file with duplicati's read-only
+# modes. Degrade loudly instead of dropping the protection silently.
+chmod_noderef=()
+scope_probe="${scope_dir}/probe"
+: >"$scope_probe"
+if chmod -h u+rw "$scope_probe" 2>/dev/null; then
+  chmod_noderef=(-h)
+else
+  echo "WARNING: this chmod has no -h (coreutils < 9.5)." >&2
+  echo "  The permission pass will follow a symlink swapped into the restore set" >&2
+  echo "  instead of skipping it. The chown pass is unaffected." >&2
+fi
 
-# comm must run under the same collation as the sort that produced both
-# streams: GNU comm compares with xmemcoll, not memcmp, whenever LC_COLLATE is
-# not C, so a UTF-8 caller locale reads the C-sorted inputs as out of order,
-# stops pairing pre-existing directories, and emits them as newly created.
+# Resolve --chown here too. The post-restore pass tolerates a per-entry failure
+# because an entry can legitimately vanish under it, which makes an unresolvable
+# user or group indistinguishable there: it fails on every entry and reads as a
+# racy target. Catching it now costs one probe instead of a whole restore.
+if [[ $chown_spec != "none" ]] && ! chown "$chown_spec" "$scope_probe" 2>/dev/null; then
+  echo "--chown '${chown_spec}' cannot be applied; unknown user or group?" >&2
+  exit 64
+fi
+rm -f "$scope_probe"
+
+# The pre-existing-directory inventory is the one scan that must not be
+# tolerated: a short list makes comm -23 emit pre-existing directories as new,
+# and the passes would then chown and chmod them, which is the regression this
+# scoping removes. Fail before the restore starts, where nothing is lost yet,
+# and say why rather than leaving find's bare exit 1 to be read as a duplicati
+# failure.
+if ! find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"; then
+  echo "could not inventory pre-existing directories under '$restore_path'." >&2
+  echo "  A partial inventory would let the post-restore chown/chmod reach pre-existing" >&2
+  echo "  directories, so refusing before the restore starts." >&2
+  echo "  Quiesce other writers on the target and re-run." >&2
+  exit 66
+fi
+
+# comm must collate identically to the sort feeding it: GNU comm compares with
+# xmemcoll whenever LC_COLLATE is not C, so a C-sorted stream read under a
+# UTF-8 locale pairs the streams wrongly (emitting pre-existing directories as
+# new) and then exits non-zero on "input is not in sorted order", killing the
+# script under pipefail after a successful restore.
 restored_entries() {
-  find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0
+  local rc=0
+  find "$restore_path" -mindepth 1 -type f -cnewer "$restore_marker" -print0 || rc=$?
   find "$restore_path" -mindepth 1 -type d -cnewer "$restore_marker" -print0 |
-    LC_ALL=C sort -z | LC_ALL=C comm -z -23 - "$pre_dirs"
+    LC_ALL=C sort -z | LC_ALL=C comm -z -23 - "$pre_dirs" || rc=$?
+  return "$rc"
 }
 
 declare -a restore_args=(
@@ -630,12 +853,63 @@ if [[ $rc -ne 0 ]]; then
   exit "$rc"
 fi
 
+# Walk the tree once and reuse the result: both passes below must act on the
+# same set, and re-running the scans would traverse a populated --restore-path
+# four more times and could pick up entries another writer added in between.
+restored_list="${scope_dir}/restored"
+restored_links="${scope_dir}/restored-links"
+# A scan error must not abort the run: duplicati has already succeeded, and
+# dying here would skip both passes and leave every restored file root-owned
+# with the read-only modes they exist to repair. GNU find tolerates a plain
+# file vanishing mid-walk but exits 1 when a directory disappears or turns
+# unreadable, which a live --force target does on its own. A short list
+# under-scopes the passes and is fixed by re-running; no pass at all is not.
+scan_status=0
+restored_entries >"$restored_list" || scan_status=$?
+# Symlinks stay out of restored_entries because the chmod pass below follows
+# them and would rewrite modes on targets outside the tree. Ownership still has
+# to reach them: the replaced `chown -R` covered links, since GNU chown
+# traverses with FTS_PHYSICAL and lchowns each one it meets. -h restores that
+# without touching referents. Gated on the same condition as its only consumer:
+# under --chown none this would otherwise walk the tree again for a list nobody
+# reads, and an error during that walk would raise the incomplete-pass warning
+# and exit 75 for a run that has no ownership pass to be incomplete.
+if [[ $chown_spec != "none" ]]; then
+  find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$restored_links" || scan_status=$?
+fi
+
+if [[ $scan_status -ne 0 ]]; then
+  echo "WARNING: the post-restore scan exited ${scan_status}; find's own diagnostic is above." >&2
+  echo "  A directory vanishing or turning unreadable mid-walk does this on a live target." >&2
+  echo "  The passes below may cover fewer entries than the restore wrote." >&2
+  echo "  Re-run once other writers are quiesced to finish them." >&2
+fi
+
 if [[ $chown_spec != "none" ]]; then
   echo
   echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
-  restored_entries | xargs -0 -r chown "$chown_spec"
+  # -h on both: find classified these paths with -P at scan time, but chown
+  # resolves each operand when it runs, so a writer in the tree could swap a
+  # listed path for a symlink in between and have root re-own the referent
+  # outside --restore-path. lchown(2) is identical to chown(2) for the regular
+  # files and directories actually in the list, and the `chown -R` this replaced
+  # was immune for the same reason (FTS_PHYSICAL, never dereferences).
+  #
+  # Tolerated for the same reason the scan is: the list is a snapshot, so an
+  # entry can be unlinked before chown reaches it, and xargs turns that into
+  # 123. Aborting here would skip the permission pass below and leave every
+  # restored file with duplicati's cleared write bits. chown keeps going after a
+  # failed operand, so the rest of the list is still applied. An unresolvable
+  # --chown was already rejected before the restore, so it cannot land here.
+  chown_status=0
+  xargs -0 -r chown -h "$chown_spec" <"$restored_list" || chown_status=$?
+  xargs -0 -r chown -h "$chown_spec" <"$restored_links" || chown_status=$?
   if [[ $restore_path_populated == false ]]; then
-    chown "$chown_spec" "$restore_path"
+    chown -h "$chown_spec" "$restore_path" || chown_status=$?
+  fi
+  if [[ $chown_status -ne 0 ]]; then
+    echo "WARNING: the chown pass exited ${chown_status}; an entry the scan listed may have" >&2
+    echo "  vanished before chown reached it. The permission pass below still runs." >&2
   fi
 fi
 
@@ -646,10 +920,21 @@ fi
 # gates the unix-mode/uid/gid path. Re-grant owner rwX and strip group/other
 # so the tree is usable post-chown without widening exposure. Scoped to the
 # restored entries so pre-existing content keeps its modes.
+# -h for the same reason as the chown pass: the list was classified at scan
+# time, and chmod resolves each operand when it runs. GNU chmod skips a symlink
+# operand under -h instead of reaching its referent, so a path swapped in the
+# window is a no-op rather than a mode rewrite outside --restore-path.
+# Tolerated like the chown pass, so a vanished entry cannot cost the root chmod
+# below or the restored-files listing that follows it.
 echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_path}..."
-restored_entries | xargs -0 -r chmod u+rwX,go-rwx
+chmod_status=0
+xargs -0 -r chmod "${chmod_noderef[@]}" u+rwX,go-rwx <"$restored_list" || chmod_status=$?
 if [[ $restore_path_populated == false ]]; then
-  chmod u+rwX,go-rwx "$restore_path"
+  chmod "${chmod_noderef[@]}" u+rwX,go-rwx "$restore_path" || chmod_status=$?
+fi
+if [[ $chmod_status -ne 0 ]]; then
+  echo "WARNING: the permission pass exited ${chmod_status}; an entry the scan listed may have" >&2
+  echo "  vanished before chmod reached it. Re-run once other writers are quiesced." >&2
 fi
 
 echo
@@ -658,3 +943,13 @@ find "$restore_path" -type f -cnewer "$restore_marker" -printf '  %p (%s bytes)\
 
 echo
 printf 'Done in %ss.\n' "$elapsed"
+
+# The scan and both passes fail open so a completed restore is never discarded,
+# but a caller still has to be able to tell a fully applied run from one that
+# only warned. 75 (EX_TEMPFAIL) carries exactly that: the restore succeeded,
+# ownership and permissions are incomplete, re-run once writers are quiesced.
+# chown_status is assigned only inside the chown branch, hence the default.
+if [[ $scan_status -ne 0 || ${chown_status:-0} -ne 0 || $chmod_status -ne 0 ]]; then
+  echo "the restore completed but the ownership/permission pass was incomplete." >&2
+  exit 75
+fi

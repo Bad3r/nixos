@@ -1,3 +1,5 @@
+# Copyright (c) 2026 Bad3r
+
 """Bootstrap helpers for package update scripts."""
 
 from __future__ import annotations

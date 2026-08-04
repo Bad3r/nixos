@@ -119,6 +119,7 @@
               ssh-to-pgp
               ghActionsRun
               ghActionsList
+              config.packages.prune-old-stashes
               config.packages.generation-manager
             ])
             ++ config.pre-commit.settings.enabledPackages
