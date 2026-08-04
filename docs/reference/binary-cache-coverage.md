@@ -137,7 +137,7 @@ license at build time, so adding an entry is purely an operator decision.
 ## Inventory (2026-07-17, 2026-08-03, and 2026-08-04 build logs)
 
 Host-sourced entries, published per host that enables them. Only system76
-enables the last five.
+enables the last six.
 
 | Package             | Hosts           |
 | ------------------- | --------------- |
@@ -159,6 +159,7 @@ enables the last five.
 | webex               | system76, tpnix |
 | discord             | system76        |
 | dropbox             | system76        |
+| kiro-fhs            | system76        |
 | upscayl             | system76        |
 | ventoy-full         | system76        |
 | veracrypt           | system76        |
@@ -195,7 +196,7 @@ is sourced from `programs.nemo.extended.finalPackage` for the same reason:
 `modules/apps/nemo.nix` re-wraps nemo with an explicit extension list, so
 the bare `pkgs.nemo-with-extensions` attribute is a derivation no host
 installs, and its closure omits nemo-preview and nemo-seahorse. For entries built
-through `buildFHSEnv` or wrapper derivations (electron-mail, upscayl,
+through `buildFHSEnv` or wrapper derivations (electron-mail, kiro-fhs, upscayl,
 vscode-fhs, nemo-with-extensions), the outer wrapper sets
 `allowSubstitutes = false` and always rebuilds locally; that is trivial
 assembly work, and the heavy dependency closure underneath substitutes
@@ -209,7 +210,7 @@ Deliberately absent:
   `firefox-[0-9]*` glob in `scripts/cache-coverage-allowlist.txt`. The
   `firefox-bin` closure is pushed anyway, as a member of the dropbox FHS
   rootfs, so listing it would add an entry and no coverage.
-- kiro, tor-browser, mullvad-browser: see the residual-local-builds list below.
+- tor-browser and mullvad-browser: see the residual-local-builds list below.
 
 Residual local builds accepted with reasons:
 
