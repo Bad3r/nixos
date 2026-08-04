@@ -81,6 +81,7 @@ Exit codes:
        restore parent or --restore-path could not be created;
        restore parent's mode could not be set;
        --restore-path's mode could not be set;
+       the scope directory could not be created;
        the restore lock could not be created
   75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
@@ -776,17 +777,42 @@ if [[ $restore_path_populated == true && $force != true ]]; then
   exit 64
 fi
 
+# The chmod capability probe needs a private scratch directory, and it must run
+# before the empty-root mode change so that change can use -h when available.
+if ! scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX); then
+  echo "could not create the scope directory; mktemp's diagnostic is above." >&2
+  exit 66
+fi
+
+# chown -h is POSIX, but chmod grew -h/--no-dereference only in coreutils 9.5.
+# Probe before the restore rather than discovering it afterwards: an unguarded
+# `chmod -h` on an older build aborts the permission pass right after a
+# successful restore, leaving every restored file with duplicati's read-only
+# modes. Degrade loudly instead of dropping the protection silently.
+chmod_noderef=()
+scope_probe="${scope_dir}/probe"
+if ! : >"$scope_probe"; then
+  echo "could not create the scope probe; shell's diagnostic is above." >&2
+  exit 66
+fi
+if chmod -h u+rw "$scope_probe" 2>/dev/null; then
+  chmod_noderef=(-h)
+else
+  echo "WARNING: this chmod has no -h (coreutils < 9.5)." >&2
+  echo "  The permission pass will follow a symlink swapped into the restore set" >&2
+  echo "  instead of skipping it. The chown pass is unaffected." >&2
+fi
+
 # mkdir -p is a no-op over an existing directory, so a leaf the operator
 # pre-created under a default umask stands at 0755 until the permission pass
 # runs after duplicati returns, exposing the restored names for the whole run.
 # Narrow it now, matching what --help promises for a path this run creates or
 # finds empty. A populated path keeps its own mode, per --force.
-if [[ $restore_path_populated == false ]] && ! chmod 0700 "$restore_path"; then
+if [[ $restore_path_populated == false ]] && ! chmod "${chmod_noderef[@]}" 0700 "$restore_path"; then
   echo "could not set the mode on '$restore_path'; chmod's diagnostic is above." >&2
   exit 66
 fi
 
-scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
 restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX")
 pre_dirs="${scope_dir}/pre-dirs"
 
@@ -810,22 +836,6 @@ if [[ $marker_settled != true ]]; then
   echo "timestamps under '$restore_path' did not advance past the restore marker in 5s;" >&2
   echo "  cannot scope the post-restore chown/chmod to the entries this restore writes." >&2
   exit 66
-fi
-
-# chown -h is POSIX, but chmod grew -h/--no-dereference only in coreutils 9.5.
-# Probe before the restore rather than discovering it afterwards: an unguarded
-# `chmod -h` on an older build aborts the permission pass right after a
-# successful restore, leaving every restored file with duplicati's read-only
-# modes. Degrade loudly instead of dropping the protection silently.
-chmod_noderef=()
-scope_probe="${scope_dir}/probe"
-: >"$scope_probe"
-if chmod -h u+rw "$scope_probe" 2>/dev/null; then
-  chmod_noderef=(-h)
-else
-  echo "WARNING: this chmod has no -h (coreutils < 9.5)." >&2
-  echo "  The permission pass will follow a symlink swapped into the restore set" >&2
-  echo "  instead of skipping it. The chown pass is unaffected." >&2
 fi
 
 # Resolve --chown here too. The post-restore pass tolerates a per-entry failure
