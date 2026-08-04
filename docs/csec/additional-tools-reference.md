@@ -40,7 +40,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintained (v3.2.2.0, 2026-01-26).
 - evil-winrm
   - run..: `nix run nixpkgs#evil-winrm -- -i $ip -u $user -p $pass`
-    - ⚠️ Failed to run: the derivation builds, but startup aborts with `cannot load such file -- csv (LoadError)`, cascading to `winrm-fs`. Ruby 3.4 removed `csv` from the default gems and the nixpkgs `Gemfile` does not add it back.
+    - ℹ️ `-h` writes its usage banner only to a TTY; piped or redirected it exits 0 with no output.
   - Repo.: <https://github.com/Hackplayers/evil-winrm>
   - Docs.: <https://github.com/Hackplayers/evil-winrm#readme>
   - Desc.: Interactive WinRM shell with built-in upload/download, AMSI bypass scaffolding, and PowerShell pass-through.

@@ -16,21 +16,28 @@ and `maigret` migrated the insecure `pypdf2-3.0.1` to `pypdf-6.14.2`, clearing
 the two evaluation blocks recorded earlier.
 
 Every entry that the 2026-05-04 snapshot recorded under "build or evaluation
-error" was re-run on 2026-08-04 against the current pin (python3 3.14.6). Two
-outcomes changed: `dc3dd` now builds and runs, and `patator` still fails but on
-a different dependency than the one recorded. `waybackurls` was blocked only by
-an incorrect `unfree` placeholder license, corrected upstream in
-`Bad3r/nixpkgs@a71f346e` (waybackurls is MIT), so it now runs with no override
-and is counted as documented. `maltego` was never a build defect either; it is
-genuinely unfree and gets its own category.
+error" was re-run on 2026-08-04 against the current pin (python3 3.14.6), and
+four of the seven cleared:
+
+- `dc3dd` now builds and runs; the recorded gcc failure is gone.
+- `evil-winrm` was fixed by `Bad3r/nixpkgs@807b1085` (3.7 -> 3.9), whose
+  regenerated Bundler environment adds the `csv`, `benchmark` and `syslog` gems
+  that Ruby unbundled.
+- `waybackurls` was blocked only by an incorrect `unfree` placeholder license,
+  corrected in `Bad3r/nixpkgs@a71f346e` (waybackurls is MIT), so it now runs
+  with no override.
+- `patator` still fails, but on a different dependency than the one recorded.
+
+`maltego` was never a build defect either; it is genuinely unfree and gets its
+own category.
 
 ## Summary
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 99      |
+| ✅ Run as documented                                             | 100     |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
-| ⚠️ Build or evaluation error                                     | 4       |
+| ⚠️ Build or evaluation error                                     | 3       |
 | ⚠️ Blocked by the unfree license gate                            | 1       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
 | ⚠️ Documented attribute resolves to a different upstream project | 2       |
@@ -63,6 +70,7 @@ no longer entries in the companion reference.
 - ✅ adidnsdump
 - ✅ ldapdomaindump
 - ✅ donpapi
+- ✅ evil-winrm (`-h` writes usage only to a TTY; piped or redirected it exits 0 silently)
 
 ### Network Reconnaissance and Enumeration
 
@@ -206,12 +214,6 @@ The reference itself flags these. Listed for completeness.
 
 Re-verified 2026-08-04 under python3 3.14.6.
 
-- ⚠️ evil-winrm: the derivation builds, but the binary aborts at startup with
-  `cannot load such file -- csv (LoadError)`, cascading to
-  `cannot load such file -- winrm-fs`. Ruby 3.4 removed `csv` from the default
-  gems, and the package's `Gemfile` adds `stringio`, `logger` and `fileutils`
-  for that same reason but not `csv`. Reproduces identically on
-  `nixpkgs-unstable`; no upstream issue is open for it.
 - ⚠️ droopescan (uvx): runtime crash, `cement 2.6.2` imports the `imp` module
   that Python 3.12 removed. Unchanged under 3.14.
 - ⚠️ patator (uvx): the recorded `cx-oracle` cause no longer applies. The
