@@ -232,7 +232,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintenance mode (last release v5.1.2, 2021-08-25; active upstream commits through 2024-11-01).
 - maltego
   - run..: `nix run nixpkgs#maltego`
-    - ⚠️ Failed to run: unfree license. Requires `allowUnfree = true` and an entry in `modules/meta/nixpkgs-allowed-unfree.nix`.
+    - ⚠️ Failed to run: unfree license. Needs `NIXPKGS_ALLOW_UNFREE=1 --impure`, or `nixpkgs.allowedUnfreePackages` set from the module that wants it (the option is declared in `modules/meta/nixpkgs-allowed-unfree.nix`, which holds no entries itself).
   - Repo.: <https://www.maltego.com/>
   - Docs.: <https://docs.maltego.com/>
   - Desc.: Graph-based OSINT and link-analysis platform with transforms across public and commercial data sources (community edition usable from nixpkgs).
@@ -548,7 +548,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - run..: `NIXPKGS_ALLOW_UNFREE=1 nix shell --impure nixpkgs#volatility3 -c vol -- -f $memdump windows.info`
   - Repo.: <https://github.com/volatilityfoundation/volatility3>
   - Docs.: <https://volatility3.readthedocs.io/>
-  - Desc.: Memory forensics framework for Windows/Linux/macOS captures. Binaries are `vol` and `volshell`; the derivation is marked unfree, so the invocation needs `NIXPKGS_ALLOW_UNFREE=1 --impure` (or an entry in `modules/meta/nixpkgs-allowed-unfree.nix`).
+  - Desc.: Memory forensics framework for Windows/Linux/macOS captures. Binaries are `vol` and `volshell`; the derivation is marked unfree, so the invocation needs `NIXPKGS_ALLOW_UNFREE=1 --impure` (or `nixpkgs.allowedUnfreePackages` set from the module that wants it).
   - Stat.: Maintained (v2.28.0, 2026-04-30).
 - sleuthkit
   - run..: `nix shell nixpkgs#sleuthkit -c fls -- -r $image`

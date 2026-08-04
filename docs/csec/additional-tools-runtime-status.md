@@ -234,10 +234,11 @@ Re-verified 2026-08-04 under python3 3.14.6.
 
 ### Blocked by the unfree license gate
 
-The package builds and runs; the only blocker is policy. Add it to
-`modules/meta/nixpkgs-allowed-unfree.nix` for repo configs, or pass
-`NIXPKGS_ALLOW_UNFREE=1` with `--impure` for a one-off. Re-verified
-2026-08-04.
+The package builds and runs; the only blocker is policy. For repo configs, set
+`nixpkgs.allowedUnfreePackages` from the module that wants the package; the
+flake-parts option is declared in `modules/meta/nixpkgs-allowed-unfree.nix`,
+which holds no entries of its own. For a one-off, pass `NIXPKGS_ALLOW_UNFREE=1`
+with `--impure`. Re-verified 2026-08-04.
 
 - ⚠️ maltego: unfree license. `NIXPKGS_ALLOW_UNFREE=1 nix build --impure nixpkgs#maltego` completes.
 
