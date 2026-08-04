@@ -61,8 +61,8 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
   `networking.firewall.checkReversePath = "loose"` by default. If a host firewall
   module forces `strict`, the `CloudflareWARP` interface drops return traffic.
 - **DNS resolver conflict.** Full mode (`warp` / `1dot1`) makes WARP the DNS
-  resolver. Do not also enable `services.dnscrypt-proxy` or another local
-  resolver on `127.0.0.1:53`; the module warns when `services.dnscrypt-proxy`
-  is enabled.
+  resolver. Do not also enable `services.dnscrypt-proxy` or NetworkManager's
+  dnsmasq mode on `127.0.0.1:53`; the module warns when either local resolver
+  is selected.
 - **General diagnostics.** `sudo warp-diag` writes a zip with logs and settings;
   `sudo warp-diag feedback` is the same bundle framed for a support ticket.

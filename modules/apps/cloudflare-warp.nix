@@ -155,7 +155,7 @@ let
             warnings =
               lib.optional
                 (
-                  config.services.dnscrypt-proxy.enable
+                  (config.services.dnscrypt-proxy.enable || config.networking.networkmanager.dns == "dnsmasq")
                   && builtins.elem cfg.serviceMode [
                     "warp"
                     "1dot1"
@@ -163,8 +163,8 @@ let
                 )
                 ''
                   programs.cloudflare-warp.extended.serviceMode "${cfg.serviceMode}" takes over DNS,
-                  but services.dnscrypt-proxy is enabled (binds 127.0.0.1:53). Use serviceMode
-                  "tunnelonly"/"proxy" or disable dnscrypt-proxy.
+                  but a local resolver is bound to 127.0.0.1:53 (dnscrypt-proxy or NetworkManager
+                  dnsmasq). Use serviceMode "tunnelonly"/"proxy" or disable the local resolver.
                 ''
               ++ lib.optional (!haveSecrets) ''
                 programs.cloudflare-warp.extended: ${secretsFile} is missing; running warp-svc
