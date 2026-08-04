@@ -18,18 +18,20 @@ the two evaluation blocks recorded earlier.
 Every entry that the 2026-05-04 snapshot recorded under "build or evaluation
 error" was re-run on 2026-08-04 against the current pin (python3 3.14.6). Two
 outcomes changed: `dc3dd` now builds and runs, and `patator` still fails but on
-a different dependency than the one recorded. The `maltego` and `waybackurls`
-entries were never build defects and now have their own category, because both
-build and run once the unfree gate is opened.
+a different dependency than the one recorded. `waybackurls` was blocked only by
+an incorrect `unfree` placeholder license, corrected upstream in
+`Bad3r/nixpkgs@a71f346e` (waybackurls is MIT), so it now runs with no override
+and is counted as documented. `maltego` was never a build defect either; it is
+genuinely unfree and gets its own category.
 
 ## Summary
 
 | Result                                                           | Count   |
 | ---------------------------------------------------------------- | ------- |
-| ✅ Run as documented                                             | 98      |
+| ✅ Run as documented                                             | 99      |
 | ⚠️ Documented as unavailable in the reference                    | 10      |
 | ⚠️ Build or evaluation error                                     | 4       |
-| ⚠️ Blocked by the unfree license gate                            | 2       |
+| ⚠️ Blocked by the unfree license gate                            | 1       |
 | ⚠️ Binary path mismatch in the documented attribute              | 5       |
 | ⚠️ Documented attribute resolves to a different upstream project | 2       |
 | ⚠️ Documented smoke flag incompatible with the binary            | 2       |
@@ -106,6 +108,7 @@ no longer entries in the companion reference.
 - ✅ gospider
 - ✅ hakrawler
 - ✅ photon
+- ✅ waybackurls
 
 ### Credential Attacks and Wordlists
 
@@ -223,17 +226,12 @@ Re-verified 2026-08-04 under python3 3.14.6.
 
 ### Blocked by the unfree license gate
 
-Both packages build and run; the only blocker is policy. Add them to
+The package builds and runs; the only blocker is policy. Add it to
 `modules/meta/nixpkgs-allowed-unfree.nix` for repo configs, or pass
 `NIXPKGS_ALLOW_UNFREE=1` with `--impure` for a one-off. Re-verified
 2026-08-04.
 
 - ⚠️ maltego: unfree license. `NIXPKGS_ALLOW_UNFREE=1 nix build --impure nixpkgs#maltego` completes.
-- ⚠️ waybackurls: marked unfree in nixpkgs.
-  `NIXPKGS_ALLOW_UNFREE=1 nix run --impure nixpkgs#waybackurls -- -h` prints
-  full help. The license attribute is the bare `unfree` placeholder
-  (`fullName: "Unfree"`) rather than a named license, which is likely a
-  mislabel for an MIT-licensed Go tool.
 
 ### Binary path mismatch in the documented attribute
 

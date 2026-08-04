@@ -302,7 +302,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Stat.: Maintenance mode (last release 2.2.7, 2024-11-03; active upstream commits through 2025-02-20).
 - waybackurls
   - run..: `nix run nixpkgs#waybackurls -- $domain`
-    - ⚠️ Failed to run: marked unfree in nixpkgs. Refuses to evaluate without `NIXPKGS_ALLOW_UNFREE=1 --impure` (or an entry in `modules/meta/nixpkgs-allowed-unfree.nix`).
   - Repo.: <https://github.com/tomnomnom/waybackurls>
   - Docs.: <https://github.com/tomnomnom/waybackurls#readme>
   - Desc.: Stream all URLs the Wayback Machine knows for a domain.
