@@ -74,6 +74,7 @@ Exit codes:
        --restore-path without --force, --chown user or group unresolvable,
        another restore already holds --restore-path)
   66   manifest, env file, or db unreadable; target missing or disabled;
+       fileset selector or scan query failed;
        impact-analysis query failed or returned non-numeric output;
        --restore-path timestamps too coarse to scope the ownership pass;
        pre-existing directories under --restore-path could not be inventoried;
@@ -461,16 +462,24 @@ if "$dry_run"; then
 
   src_uri="file:${db_path}?mode=ro&immutable=1&nolock=1"
 
+  fileset_query_status=0
   if [[ -n $version_arg ]]; then
-    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset ORDER BY Timestamp DESC LIMIT 1 OFFSET ${version_arg};")
+    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset ORDER BY Timestamp DESC LIMIT 1 OFFSET ${version_arg};") ||
+      fileset_query_status=$?
   elif [[ -n $time_arg ]]; then
     epoch=$(date -d "$time_arg" +%s 2>/dev/null) || {
       echo "could not parse --time '$time_arg'" >&2
       exit 64
     }
-    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset WHERE Timestamp <= ${epoch} ORDER BY Timestamp DESC LIMIT 1;")
+    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset WHERE Timestamp <= ${epoch} ORDER BY Timestamp DESC LIMIT 1;") ||
+      fileset_query_status=$?
   else
-    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset ORDER BY Timestamp DESC LIMIT 1;")
+    fileset_id=$(sqlite3 "$src_uri" "SELECT ID FROM Fileset ORDER BY Timestamp DESC LIMIT 1;") ||
+      fileset_query_status=$?
+  fi
+  if [[ $fileset_query_status -ne 0 ]]; then
+    echo "fileset selector query failed (sqlite3 exit ${fileset_query_status}); db locked, corrupt, or schema drift?" >&2
+    exit 66
   fi
 
   if [[ -z $fileset_id ]]; then
@@ -478,7 +487,13 @@ if "$dry_run"; then
     exit 66
   fi
 
-  fileset_ts=$(sqlite3 "$src_uri" "SELECT datetime(Timestamp, 'unixepoch') FROM Fileset WHERE ID = ${fileset_id};")
+  fileset_ts_status=0
+  fileset_ts=$(sqlite3 "$src_uri" "SELECT datetime(Timestamp, 'unixepoch') FROM Fileset WHERE ID = ${fileset_id};") ||
+    fileset_ts_status=$?
+  if [[ $fileset_ts_status -ne 0 ]]; then
+    echo "fileset timestamp query failed (sqlite3 exit ${fileset_ts_status}); db locked, corrupt, or schema drift?" >&2
+    exit 66
+  fi
   echo "Fileset        : ID=${fileset_id} (${fileset_ts} UTC)"
   echo
 
@@ -487,12 +502,15 @@ if "$dry_run"; then
   ids_file="${scratch}/ids.tsv"
 
   echo "Scanning fileset for matching paths..."
-  sqlite3 -separator $'\t' -noheader "$src_uri" "
+  if ! sqlite3 -separator $'\t' -noheader "$src_uri" "
     SELECT f.ID, f.Path
     FROM File f
     JOIN FilesetEntry fse ON fse.FileID = f.ID
     WHERE fse.FilesetID = ${fileset_id};
-  " | awk -v re="$user_regex" -F'\t' '{ id=$1; sub(/^[^\t]*\t/, ""); if ($0 ~ re) print id }' >"$ids_file"
+  " | awk -v re="$user_regex" -F'\t' '{ id=$1; sub(/^[^\t]*\t/, ""); if ($0 ~ re) print id }' >"$ids_file"; then
+    echo "fileset scan query failed; db locked, corrupt, or schema drift?" >&2
+    exit 66
+  fi
 
   match_count=$(wc -l <"$ids_file" | awk '{print $1}')
 
