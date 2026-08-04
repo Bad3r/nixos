@@ -34,9 +34,12 @@
     desired contents, then run `proton-drive-sync --resync` once. Timer-driven
     runs refuse to sync until that tuple's baseline marker exists instead of silently
     seeding (for bisync, --resync also lets the local side win conflicts).
-    One-way runs pass --max-delete=25 as an absolute 25-file deletion cap.
-    Normal bisync runs pass the same value as rclone's 25-percent deletion
-    check; bisync --resync establishes the initial baseline without that check.
+    Normal one-way runs refuse an empty source and pass --max-delete=25 as an
+    absolute 25-file deletion cap; explicit --resync skips the empty-source
+    guard and cap after the operator confirms the destination. Normal bisync
+    runs pass the same value as rclone's 25-percent deletion check; bisync
+    --resync establishes the initial baseline without that check. Bisync
+    listings live under this module's state directory beside the tuple marker.
 
     Per-invocation overrides:
       PROTON_DRIVE_LOCAL=/path proton-drive-sync
@@ -115,6 +118,12 @@ _: {
 
           extra=(${lib.escapeShellArgs cfg.extraArgs})
           common=(--protondrive-enable-caching=false --transfers=4 --checkers=8 --log-level INFO)
+          # The cap protects unattended timer runs. --resync is the explicit
+          # operator confirmation that a full one-way reconciliation is intended.
+          delete_cap=(--max-delete=25)
+          if [ "$resync" -eq 1 ]; then
+            delete_cap=()
+          fi
 
           case "$direction" in
             up)
@@ -127,7 +136,14 @@ _: {
                 echo "proton-drive-sync: no baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed (up mirrors local -> remote and deletes remote-only files)." >&2
                 exit 1
               fi
-              rclone sync "$local_path" "$remote" --create-empty-src-dirs --max-delete=25 "''${common[@]}" "''${extra[@]}"
+              if [ "$resync" -ne 1 ]; then
+                local_entries=$(find "$local_path" -mindepth 1 -maxdepth 1 -print -quit)
+                if [ -z "$local_entries" ]; then
+                  echo "proton-drive-sync: '$local_path' is empty; refusing to mirror an empty local onto '$remote' (unmounted or relocated data?). Re-run with --resync to confirm this is intentional." >&2
+                  exit 1
+                fi
+              fi
+              rclone sync "$local_path" "$remote" --create-empty-src-dirs "''${delete_cap[@]}" "''${common[@]}" "''${extra[@]}"
               touch "$marker"
               ;;
             down)
@@ -138,13 +154,20 @@ _: {
                 echo "proton-drive-sync: no baseline; run 'proton-drive-sync --resync' once after confirming '$remote' holds the desired contents (down mirrors remote -> local and deletes local-only files)." >&2
                 exit 1
               fi
-              rclone sync "$remote" "$local_path" --create-empty-src-dirs --max-delete=25 "''${common[@]}" "''${extra[@]}"
+              if [ "$resync" -ne 1 ]; then
+                remote_entries=$(rclone lsf --max-depth=1 "$remote" "''${common[@]}")
+                if [ -z "$remote_entries" ]; then
+                  echo "proton-drive-sync: '$remote' is empty; refusing to mirror an empty remote onto '$local_path'. Re-run with --resync to confirm this is intentional." >&2
+                  exit 1
+                fi
+              fi
+              rclone sync "$remote" "$local_path" --create-empty-src-dirs "''${delete_cap[@]}" "''${common[@]}" "''${extra[@]}"
               touch "$marker"
               ;;
             bisync)
               if [ "$resync" -eq 1 ]; then
                 echo "proton-drive-sync: building bisync baseline (--resync; local side wins conflicts)" >&2
-                rclone bisync "$local_path" "$remote" --resync --create-empty-src-dirs --resilient "''${common[@]}" "''${extra[@]}"
+                rclone bisync "$local_path" "$remote" --resync --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient "''${common[@]}" "''${extra[@]}"
                 touch "$marker"
               elif [ ! -e "$marker" ]; then
                 echo "proton-drive-sync: no bisync baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed contents." >&2
@@ -152,7 +175,7 @@ _: {
               else
                 # rclone sync treats --max-delete as an absolute file count,
                 # while bisync treats the same value as a percentage.
-                rclone bisync "$local_path" "$remote" --create-empty-src-dirs --resilient --conflict-resolve=newer --max-delete=25 "''${common[@]}" "''${extra[@]}"
+                rclone bisync "$local_path" "$remote" --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient --conflict-resolve=newer --max-delete=25 "''${common[@]}" "''${extra[@]}"
               fi
               ;;
             *)
