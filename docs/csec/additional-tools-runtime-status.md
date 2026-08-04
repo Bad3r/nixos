@@ -16,8 +16,8 @@ and `maigret` migrated the insecure `pypdf2-3.0.1` to `pypdf-6.14.2`, clearing
 the two evaluation blocks recorded earlier.
 
 Every entry that the 2026-05-04 snapshot recorded under "build or evaluation
-error" was re-run on 2026-08-04 against the current pin (python3 3.14.6), and
-four of the seven cleared:
+error" was re-run on 2026-08-04 against the current pin (python3 3.14.6). Three
+cleared, one was reclassified, and the group went from seven entries to three:
 
 - `dc3dd` now builds and runs; the recorded gcc failure is gone.
 - `evil-winrm` was fixed by `Bad3r/nixpkgs@807b1085` (3.7 -> 3.9), whose
