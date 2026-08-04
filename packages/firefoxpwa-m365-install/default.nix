@@ -14,8 +14,16 @@
   that only a secret needs: the start URLs are public and declared in the Nix
   store, so they are logged, and the records are ordinary 0600-by-directory
   files rather than umask-guarded ones. What this installer adds is the loop:
-  each entry is installed independently and a failure is counted rather than
+  each entry is installed independently and a refusal is counted rather than
   raised, so one site that cannot be installed does not cost the others theirs.
+
+  A refusal is counted; a fault is not. The refusals are the states this script
+  decides it must not act on (a foreign site under a managed name, a move
+  across origins, an install that never registered), and each one leaves the
+  entry describable and recoverable. A failed write to a record or to
+  config.json is neither, so it aborts the run under errexit instead: the
+  records are what authenticate a site on the next run, and continuing past a
+  half-written one is how an entry ends up permanently refused.
 */
 {
   lib,
@@ -102,6 +110,19 @@ writeShellApplication {
       mv "$1.next" "$1"
     }
 
+    failed=0
+    # Counted here rather than by the caller testing install_app's status: a
+    # bash function invoked as the left side of `||` runs its whole body with
+    # errexit ignored, and that suppression is inherited by every compound
+    # command inside it, so a failed record or config.json read would pass
+    # silently and the entry would be reported installed. install_app is called
+    # as a plain command instead, which keeps errexit in force for the writes,
+    # and the states it decides not to act on land here.
+    refuse() {
+      echo "firefoxpwa-m365: $1" >&2
+      failed=$((failed + 1))
+    }
+
     install_app() {
       local key=$1 name=$2 url=$3
       local applied_file="$data_dir/m365-$key-applied-url"
@@ -119,8 +140,8 @@ writeShellApplication {
       # derived from it cannot be a prefix of a start URL that keeps it, and
       # site update cannot rewrite scope afterwards.
       if [[ $url =~ ^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]*@ ]]; then
-        echo "firefoxpwa-m365: the start URL for '$name' embeds credentials; declare it without them" >&2
-        return 1
+        refuse "the start URL for '$name' embeds credentials; declare it without them"
+        return
       fi
 
       # Manifest scope is a prefix match and site update cannot rewrite it, so
@@ -128,8 +149,8 @@ writeShellApplication {
       # navigation and every later URL change into the external browser.
       origin=$(url_origin "$url")
       if [ -z "$origin" ]; then
-        echo "firefoxpwa-m365: cannot derive an origin from the start URL '$url' for '$name'" >&2
-        return 1
+        refuse "cannot derive an origin from the start URL '$url' for '$name'"
+        return
       fi
 
       # Separated from "no site": jq exits non-zero on an unreadable or
@@ -138,8 +159,8 @@ writeShellApplication {
       # when this unit runs), and treating that as absent would register a
       # second site under the same name.
       if ! ulid=$(site_ulid "$name"); then
-        echo "firefoxpwa-m365: cannot read $config_file; not installing a second '$name'" >&2
-        return 1
+        refuse "cannot read $config_file; not installing a second '$name'"
+        return
       fi
 
       if [ -n "$ulid" ]; then
@@ -172,8 +193,8 @@ writeShellApplication {
         elif [ -r "$applied_file" ]; then
           guard_origin=$(url_origin "$(<"$applied_file")")
         else
-          echo "firefoxpwa-m365: '$name' exists but nothing records the origin it was installed at; uninstall the site so this unit can reinstall it" >&2
-          return 1
+          refuse "'$name' exists but nothing records the origin it was installed at; uninstall the site so this unit can reinstall it"
+          return
         fi
 
         if [ ! -r "$ulid_file" ] || [ "$(<"$ulid_file")" != "$ulid" ]; then
@@ -191,8 +212,8 @@ writeShellApplication {
             record "$ulid_file" "$ulid"
             rm -f "$pending_file"
           else
-            echo "firefoxpwa-m365: '$name' ($ulid) is not the site this unit installed; uninstall it so this unit can reinstall its own" >&2
-            return 1
+            refuse "'$name' ($ulid) is not the site this unit installed; uninstall it so this unit can reinstall its own"
+            return
           fi
         fi
 
@@ -204,8 +225,8 @@ writeShellApplication {
         # fixed at install time, so the new start URL would sit outside it and
         # every navigation would go to the external browser.
         if [ "''${guard_origin,,}" != "''${origin,,}" ]; then
-          echo "firefoxpwa-m365: '$name' is installed at '$guard_origin' but is now declared at '$origin'; uninstall the site so this unit can reinstall it at the new origin" >&2
-          return 1
+          refuse "'$name' is installed at '$guard_origin' but is now declared at '$origin'; uninstall the site so this unit can reinstall it at the new origin"
+          return
         fi
 
         echo "firefoxpwa-m365: refreshing start URL for '$name' ($ulid)"
@@ -214,8 +235,8 @@ writeShellApplication {
           record "$applied_file" "$url"
           return 0
         fi
-        echo "firefoxpwa-m365: failed to update start URL for '$name'" >&2
-        return 1
+        refuse "failed to update start URL for '$name'"
+        return
       fi
 
       # A data: manifest keeps the install self-contained: firefoxpwa does not
@@ -243,13 +264,13 @@ writeShellApplication {
           --start-url "$url" \
           --name "$name"; then
           if ! ulid=$(site_ulid "$name"); then
-            echo "firefoxpwa-m365: cannot read $config_file after installing '$name'" >&2
-            return 1
+            refuse "cannot read $config_file after installing '$name'"
+            return
           fi
           if [ -z "$ulid" ]; then
             rm -f "$pending_file"
-            echo "firefoxpwa-m365: '$name' reported installed but is not in $config_file" >&2
-            return 1
+            refuse "'$name' reported installed but is not in $config_file"
+            return
           fi
           record "$ulid_file" "$ulid"
           rm -f "$pending_file"
@@ -264,14 +285,14 @@ writeShellApplication {
         # otherwise satisfy the no-op fast path on the next run and skip the
         # site update this branch defers the repair to.
         if ! ulid=$(site_ulid "$name"); then
-          echo "firefoxpwa-m365: cannot read $config_file; not retrying '$name'" >&2
-          return 1
+          refuse "cannot read $config_file; not retrying '$name'"
+          return
         fi
         if [ -n "$ulid" ]; then
           record "$ulid_file" "$ulid"
           rm -f "$pending_file" "$applied_file"
-          echo "firefoxpwa-m365: '$name' was registered by a failed install; the next activation repairs it with site update" >&2
-          return 1
+          refuse "'$name' was registered by a failed install; the next run repairs it with site update"
+          return
         fi
         rm -f "$pending_file"
         [ "$attempt" -lt 3 ] || break
@@ -284,18 +305,16 @@ writeShellApplication {
       # exists, and a stale one would let a future foreign site pass the
       # identity check above.
       rm -f "$origin_file" "$applied_file" "$ulid_file" "$pending_file"
-      echo "firefoxpwa-m365: installing '$name' failed after 3 attempts" >&2
-      return 1
+      refuse "installing '$name' failed after 3 attempts"
     }
 
-    failed=0
     # Unrolled from the app table at build time rather than iterated from an
     # embedded JSON document: the values reach the shell through
     # escapeShellArg, so no field separator can be confused with content, and
     # the store path shows exactly which sites a generation installs.
     ${lib.concatMapStringsSep "\n" (
       app:
-      "install_app ${lib.escapeShellArg app.key} ${lib.escapeShellArg app.name} ${lib.escapeShellArg app.url} || failed=$((failed + 1))"
+      "install_app ${lib.escapeShellArg app.key} ${lib.escapeShellArg app.name} ${lib.escapeShellArg app.url}"
     ) apps}
 
     if [ "$failed" -ne 0 ]; then

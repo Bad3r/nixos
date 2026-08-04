@@ -383,6 +383,38 @@ assert lib.assertMsg (lib.all (
               "$(cat "$data_dir/m365-alpha-applied-url")" "https://alpha.example/"
 
             echo
+            echo "-- a record write that fails stops the run instead of reporting an install --"
+            reset
+            # A directory where the record's temporary goes: the redirection
+            # fails, which is what a full or read-only filesystem does to this
+            # write, without needing either. Planted on the ulid record because
+            # that is the write whose silent failure is unrecoverable: the
+            # pending record is removed on the next line, and without either
+            # record every later run refuses the entry as foreign.
+            mkdir -p "$data_dir/m365-alpha-applied-ulid.next"
+            # Aborts rather than counting a refusal: a failed record is a
+            # filesystem fault, not a state this installer decided not to act
+            # on. Asserting the message text would only prove bash still names
+            # the file it could not open; what has to hold is that the run
+            # stopped and left the entry repairable.
+            expect "failed record write is fatal" "$declared" 1 "m365-alpha-applied-ulid.next"
+            assert_equal "the entry after the fault was never attempted" "$(site_count)" 1
+            if [ -s "$data_dir/m365-alpha-installing" ]; then
+              echo "PASS  pending record survives a failed ulid write"
+            else
+              echo "FAIL  pending record cleared despite the failed ulid write"
+              failures=$((failures + 1))
+            fi
+            rmdir "$data_dir/m365-alpha-applied-ulid.next"
+            # The pending record is the whole point of the assertion above: it
+            # is what lets the adopt branch recognize the registered site as
+            # this unit's own instead of refusing it forever.
+            expect "the next run adopts the site the fault left behind" "$declared" 0 "installed 'Beta'"
+            assert_equal "no second Alpha registered" "$(site_count)" 2
+            assert_equal "alpha ulid recorded on the recovery run" \
+              "$(cat "$data_dir/m365-alpha-applied-ulid")" "01STUB0"
+
+            echo
             echo "-- the shipped catalog installs end to end --"
             reset
             expect "catalog install" "$shipped" 0 "installed 'Word'"
