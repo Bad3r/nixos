@@ -62,10 +62,16 @@ let
         cp -R "$wrapperData/kernels" "$out/share/jupyter/kernels"
         chmod -R u+w "$out/share/jupyter/kernels"
 
-        install -d "$out/share/jupyter/kernels/python3"
-        jq --arg interpreter '${package}/bin/python' '.argv[0] = $interpreter' \
-          ${package}/share/jupyter/kernels/python3/kernel.json \
-          > "$out/share/jupyter/kernels/python3/kernel.json"
+        # Only when the wrapper set has no python3 of its own. A definition
+        # that supplies one carries a deliberate interpreter, display name,
+        # and env, and jupyter-kernel.create already writes it with an
+        # absolute argv.
+        if [ ! -e "$out/share/jupyter/kernels/python3/kernel.json" ]; then
+          install -d "$out/share/jupyter/kernels/python3"
+          jq --arg interpreter '${package}/bin/python' '.argv[0] = $interpreter' \
+            ${package}/share/jupyter/kernels/python3/kernel.json \
+            > "$out/share/jupyter/kernels/python3/kernel.json"
+        fi
       '';
 
   JupyterAllModule =
