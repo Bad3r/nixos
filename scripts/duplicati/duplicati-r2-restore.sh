@@ -870,8 +870,13 @@ restored_entries >"$restored_list" || scan_status=$?
 # them and would rewrite modes on targets outside the tree. Ownership still has
 # to reach them: the replaced `chown -R` covered links, since GNU chown
 # traverses with FTS_PHYSICAL and lchowns each one it meets. -h restores that
-# without touching referents.
-find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$restored_links" || scan_status=$?
+# without touching referents. Gated on the same condition as its only consumer:
+# under --chown none this would otherwise walk the tree again for a list nobody
+# reads, and an error during that walk would raise the incomplete-pass warning
+# and exit 75 for a run that has no ownership pass to be incomplete.
+if [[ $chown_spec != "none" ]]; then
+  find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 >"$restored_links" || scan_status=$?
+fi
 
 if [[ $scan_status -ne 0 ]]; then
   echo "WARNING: the post-restore scan exited ${scan_status}; find's own diagnostic is above." >&2
