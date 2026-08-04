@@ -20,6 +20,13 @@ target-version = "py314"
 # so the whole package is parsed alongside the scripts that import it. py312 is
 # the floor because updater/http.py uses PEP 695 `type` statements.
 #
+# updater_bootstrap.py is reached only through packages/*/update.py, which run
+# on the pinned interpreter, so it is here to keep the two gates agreeing: the
+# pyright environment below floors everything under scripts/ at 3.12, and
+# without a matching ruff floor the formatter emits `except A, B:` that pyright
+# then rejects as "Multiple exception types must be parenthesized prior to
+# Python 3.14", leaving both gates unsatisfiable at once.
+#
 # Scripts that provision their own interpreter do not belong here:
 # url-catalog-add.py declares requires-python >=3.14 in its PEP 723 block and
 # runs under `uv run --script`, and packages/*/update.py run under
@@ -28,6 +35,7 @@ target-version = "py314"
 "scripts/update-firefoxpwa-extension.py" = "py312"
 "scripts/update-gecko-userscripts.py" = "py312"
 "scripts/updater/*.py" = "py312"
+"scripts/updater_bootstrap.py" = "py312"
 "scripts/usbguard-ensure-allow.py" = "py312"
 
 [tool.ruff.lint]
