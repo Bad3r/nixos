@@ -522,12 +522,12 @@ if "$dry_run"; then
   ' >"$ids_file"
   scan_stages=("${PIPESTATUS[@]}")
   set -e
-  if [[ ${scan_stages[0]} -ne 0 ]]; then
-    echo "fileset scan query failed (sqlite3 exit ${scan_stages[0]}); db locked, corrupt, or schema drift?" >&2
+  if [[ ${scan_stages[1]} -ne 0 ]]; then
+    echo "fileset scan filter failed (awk exit ${scan_stages[1]}); invalid record framing, regex rejected by awk, or could not write '$ids_file'?" >&2
     exit 66
   fi
-  if [[ ${scan_stages[1]} -ne 0 ]]; then
-    echo "fileset scan filter failed (awk exit ${scan_stages[1]}); could not write '$ids_file'?" >&2
+  if [[ ${scan_stages[0]} -ne 0 ]]; then
+    echo "fileset scan query failed (sqlite3 exit ${scan_stages[0]}); db locked, corrupt, or schema drift?" >&2
     exit 66
   fi
 
