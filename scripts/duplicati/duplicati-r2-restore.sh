@@ -53,7 +53,8 @@ Environment variables:
 Exit codes:
   0    success (or dry-run completed)
   64   usage error (bad arguments, mutually exclusive options, bad regex,
-       --restore-path is a symlink or not a directory, pre-existing non-empty
+       --restore-path is a symlink or not a directory, its parent is a symlink,
+       the default restore parent is not root-owned, pre-existing non-empty
        --restore-path without --force)
   66   manifest, env file, or db unreadable; target missing or disabled;
        impact-analysis query failed or returned non-numeric output;
@@ -387,9 +388,11 @@ dest="s3://${bucket}/${hostname_value}/${encoded_subpath}\
 &s3-ext-httpclientcachesize=4\
 &s3-ext-maxconnectionsperserver=8"
 
+restore_path_defaulted=false
 if [[ -z $restore_path ]]; then
   ts=$(date -u +%Y%m%dT%H%M%SZ)
   restore_path="/tmp/duplicati-restore/${slug}-${ts}"
+  restore_path_defaulted=true
 fi
 
 cat <<INFO
@@ -591,7 +594,27 @@ fi
 # stays 0700 for the whole run rather than being re-tightened at the end.
 # 066 grants traverse without read, so 0711: --chown's user reaches a path it
 # was told, and a shared /tmp does not expose the <slug>-<ts> names to a listing.
-(umask 066 && mkdir -p "$(dirname "$restore_path")")
+#
+# The leaf refusal above does not cover the parent, and mkdir -p resolves
+# symlinks in every component: a parent pre-created as a symlink is entered
+# silently and the whole restore lands wherever it points.
+restore_parent=$(dirname "$restore_path")
+if [[ -L $restore_parent ]]; then
+  echo "--restore-path parent must not be a symlink: $restore_parent" >&2
+  echo "  mkdir -p follows it, so the restore would be written outside --restore-path." >&2
+  exit 64
+fi
+(umask 066 && mkdir -p "$restore_parent")
+# Only the default path gets the ownership check. Its parent is a fixed name
+# under a world-writable /tmp, so any local user can own it before a root run
+# and then swap the leaf. An explicit --restore-path is the operator's choice
+# and may legitimately sit under a tree they own rather than root.
+if [[ $restore_path_defaulted == true && ! -O $restore_parent ]]; then
+  echo "refusing: default restore parent '$restore_parent' is not root-owned." >&2
+  echo "  A local user controlling it can redirect this root-run restore elsewhere." >&2
+  echo "  Remove it, or pass an explicit --restore-path." >&2
+  exit 64
+fi
 mkdir -p "$restore_path"
 
 # Marker plus pre-existing-directory inventory scope the post-restore chown
