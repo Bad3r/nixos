@@ -2,6 +2,8 @@
 
 """Hashes file I/O utilities for Nix package updaters."""
 
+from __future__ import annotations
+
 import json
 from typing import TYPE_CHECKING, Any, cast
 

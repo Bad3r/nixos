@@ -2,6 +2,8 @@
 
 """Hash calculation utilities for Nix packages."""
 
+from __future__ import annotations
+
 import base64
 import re
 import shutil

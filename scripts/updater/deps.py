@@ -7,6 +7,8 @@ This module provides utilities for calculating dependency hashes
 dummy-hash-and-build pattern.
 """
 
+from __future__ import annotations
+
 from typing import TYPE_CHECKING, Any
 
 from .hash import DUMMY_SHA256_HASH, extract_hash_from_build_error
