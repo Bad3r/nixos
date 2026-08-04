@@ -402,18 +402,24 @@ assert lib.assertMsg (lib.all (
             else
               echo "PASS  nothing written outside the configured data directory"
             fi
-            # Globbed rather than matched with compgen, which the builder's
-            # bash does not provide and which fails open: a "command not found"
-            # takes the else branch and reports a pass.
-            shopt -s nullglob
-            leftover=("$data_dir"/*.next)
-            shopt -u nullglob
-            if [ "''${#leftover[@]}" -ne 0 ]; then
-              echo "FAIL  record temporary file left behind: ''${leftover[*]}"
-              failures=$((failures + 1))
-            else
-              echo "PASS  record writes leave no temporary"
-            fi
+            # Globbed rather than matched with compgen: the bash a runCommand
+            # builder runs is built without programmable completion, so the
+            # first form of this assertion reported "command not found" into
+            # the else branch and passed on every run. Planted against a real
+            # temporary first, because an assertion nothing proves can fail is
+            # what made that defect invisible.
+            leftover_temps() {
+              local found=()
+              shopt -s nullglob
+              found=("$data_dir"/*.next)
+              shopt -u nullglob
+              printf '%s\n' "''${found[@]##*/}"
+            }
+            : >"$data_dir/planted.next"
+            assert_equal "leftover detector reports a planted temporary" \
+              "$(leftover_temps)" "planted.next"
+            rm -f "$data_dir/planted.next"
+            assert_equal "record writes leave no temporary" "$(leftover_temps)" ""
 
             echo
             if [ "$failures" -ne 0 ]; then
