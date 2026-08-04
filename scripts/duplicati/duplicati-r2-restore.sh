@@ -1022,8 +1022,10 @@ if [[ $chmod_status -ne 0 ]]; then
 fi
 
 echo
-echo "Entries under ${restore_path} written during the restore window:"
-find "$restore_path" -type f -cnewer "$restore_marker" -printf '  %p (%s bytes)\n' 2>/dev/null | sort || true
+echo "Files under ${restore_path} written during the restore window:"
+if ! find "$restore_path" -type f -cnewer "$restore_marker" -printf '  %p (%s bytes)\n' | sort; then
+  echo "WARNING: the listing walk failed; it may be shorter than what the restore wrote." >&2
+fi
 
 echo
 printf 'Done in %ss.\n' "$elapsed"
