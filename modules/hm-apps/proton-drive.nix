@@ -35,11 +35,12 @@
     runs refuse to sync until that tuple's baseline marker exists instead of silently
     seeding (for bisync, --resync also lets the local side win conflicts).
     Normal one-way runs refuse an empty source and pass --max-delete=25 as an
-    absolute 25-file deletion cap; explicit --resync skips the empty-source
-    guard and cap after the operator confirms the destination. Normal bisync
-    runs pass the same value as rclone's 25-percent deletion check; bisync
-    --resync establishes the initial baseline without that check. Bisync
-    listings live under this module's state directory beside the tuple marker.
+    absolute 25-file deletion cap; --resync skips the cap after the operator
+    confirms a nonempty source, while --force-resync also permits an empty
+    source. Normal bisync runs pass the same value as rclone's 25-percent
+    deletion check; bisync --resync establishes the initial baseline without
+    that check. Bisync listings live under this module's state directory beside
+    the tuple marker.
 
     Per-invocation overrides:
       PROTON_DRIVE_LOCAL=/path proton-drive-sync
@@ -49,7 +50,8 @@
     another explicit --resync.
 
     proton-drive-sync            # run the configured sync immediately
-    proton-drive-sync --resync   # establish (or rebuild) the baseline
+    proton-drive-sync --resync   # establish (or rebuild) a nonempty baseline
+    proton-drive-sync --force-resync # explicitly permit an empty one-way source
 
   Multi-host caveat:
     services.protonDriveSync.enable is off by default and should be enabled on
@@ -90,6 +92,7 @@ _: {
         runtimeInputs = [
           rclonePackage
           pkgs.coreutils
+          pkgs.findutils
         ];
         text = ''
           # The defaults are single-quoted shell literals so metacharacters
@@ -106,9 +109,14 @@ _: {
           mkdir -p "$state_dir" "$local_path"
 
           resync=0
+          force=0
           for arg in "$@"; do
             case "$arg" in
-              --resync | --force-resync) resync=1 ;;
+              --resync) resync=1 ;;
+              --force-resync)
+                resync=1
+                force=1
+                ;;
               *)
                 echo "proton-drive-sync: unknown argument: $arg" >&2
                 exit 2
@@ -125,6 +133,18 @@ _: {
             delete_cap=()
           fi
 
+          sync_one_way() {
+            local rc=0
+            rclone sync "$@" || rc=$?
+            if [ "$rc" -eq 7 ]; then
+              # rclone can delete up to --max-delete files before returning
+              # this fatal error. Clear the marker so the timer cannot repeat.
+              rm -f -- "$marker"
+              echo "proton-drive-sync: rclone aborted fatally (exit $rc); cleared the baseline so the timer stops. Inspect '$local_path' and '$remote', then re-run 'proton-drive-sync --resync' to resume." >&2
+            fi
+            return "$rc"
+          }
+
           case "$direction" in
             up)
               # rclone sync mirrors local -> remote and deletes remote-only
@@ -136,14 +156,14 @@ _: {
                 echo "proton-drive-sync: no baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed (up mirrors local -> remote and deletes remote-only files)." >&2
                 exit 1
               fi
-              if [ "$resync" -ne 1 ]; then
+              if [ "$force" -ne 1 ]; then
                 local_entries=$(find "$local_path" -mindepth 1 -maxdepth 1 -print -quit)
                 if [ -z "$local_entries" ]; then
-                  echo "proton-drive-sync: '$local_path' is empty; refusing to mirror an empty local onto '$remote' (unmounted or relocated data?). Re-run with --resync to confirm this is intentional." >&2
+                  echo "proton-drive-sync: '$local_path' is empty; refusing to mirror an empty local onto '$remote' (unmounted or relocated data?). Re-run with --force-resync to confirm this is intentional." >&2
                   exit 1
                 fi
               fi
-              rclone sync "$local_path" "$remote" --create-empty-src-dirs "''${delete_cap[@]}" "''${common[@]}" "''${extra[@]}"
+              sync_one_way "$local_path" "$remote" --create-empty-src-dirs "''${delete_cap[@]}" "''${common[@]}" "''${extra[@]}"
               touch "$marker"
               ;;
             down)
@@ -154,14 +174,14 @@ _: {
                 echo "proton-drive-sync: no baseline; run 'proton-drive-sync --resync' once after confirming '$remote' holds the desired contents (down mirrors remote -> local and deletes local-only files)." >&2
                 exit 1
               fi
-              if [ "$resync" -ne 1 ]; then
+              if [ "$force" -ne 1 ]; then
                 remote_entries=$(rclone lsf --max-depth=1 "$remote" "''${common[@]}")
                 if [ -z "$remote_entries" ]; then
-                  echo "proton-drive-sync: '$remote' is empty; refusing to mirror an empty remote onto '$local_path'. Re-run with --resync to confirm this is intentional." >&2
+                  echo "proton-drive-sync: '$remote' is empty; refusing to mirror an empty remote onto '$local_path'. Re-run with --force-resync to confirm this is intentional." >&2
                   exit 1
                 fi
               fi
-              rclone sync "$remote" "$local_path" --create-empty-src-dirs "''${delete_cap[@]}" "''${common[@]}" "''${extra[@]}"
+              sync_one_way "$remote" "$local_path" --create-empty-src-dirs "''${delete_cap[@]}" "''${common[@]}" "''${extra[@]}"
               touch "$marker"
               ;;
             bisync)
@@ -265,6 +285,7 @@ _: {
             Unit.Description = "Proton Drive sync via rclone (${cfg.direction})";
             Service = {
               Type = "oneshot";
+              TimeoutStartSec = "2h";
               ExecStart = lib.getExe syncScript;
             };
           };
