@@ -34,6 +34,9 @@
     desired contents, then run `proton-drive-sync --resync` once. Timer-driven
     runs refuse to sync until that tuple's baseline marker exists instead of silently
     seeding (for bisync, --resync also lets the local side win conflicts).
+    One-way runs pass --max-delete=25 as an absolute 25-file deletion cap.
+    Normal bisync runs pass the same value as rclone's 25-percent deletion
+    check; bisync --resync establishes the initial baseline without that check.
 
     Per-invocation overrides:
       PROTON_DRIVE_LOCAL=/path proton-drive-sync
@@ -86,9 +89,14 @@ _: {
           pkgs.coreutils
         ];
         text = ''
-          local_path=''${PROTON_DRIVE_LOCAL:-${cfg.localPath}}
-          remote=''${PROTON_DRIVE_REMOTE:-${cfg.remote}}
-          direction=''${PROTON_DRIVE_DIRECTION:-${cfg.direction}}
+          # The defaults are single-quoted shell literals so metacharacters
+          # in configured paths and remotes remain data, not shell syntax.
+          # shellcheck disable=SC2016
+          local_path=''${PROTON_DRIVE_LOCAL:-${lib.escapeShellArg cfg.localPath}}
+          # shellcheck disable=SC2016
+          remote=''${PROTON_DRIVE_REMOTE:-${lib.escapeShellArg cfg.remote}}
+          # shellcheck disable=SC2016
+          direction=''${PROTON_DRIVE_DIRECTION:-${lib.escapeShellArg cfg.direction}}
           state_dir=''${XDG_STATE_HOME:-$HOME/.local/state}/proton-drive-sync
           state_key=$(printf '%s\0%s\0%s' "$direction" "$local_path" "$remote" | sha256sum | cut -c1-16)
           marker="$state_dir/initialized-$state_key"
@@ -142,6 +150,8 @@ _: {
                 echo "proton-drive-sync: no bisync baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed contents." >&2
                 exit 1
               else
+                # rclone sync treats --max-delete as an absolute file count,
+                # while bisync treats the same value as a percentage.
                 rclone bisync "$local_path" "$remote" --create-empty-src-dirs --resilient --conflict-resolve=newer --max-delete=25 "''${common[@]}" "''${extra[@]}"
               fi
               ;;

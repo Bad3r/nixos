@@ -155,6 +155,8 @@ _: {
                   unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
                   . "$protondriveEnvPath"
 
+                  # A readable but malformed secret is an explicit configuration
+                  # error. Do not preserve stale credentials for invalid input.
                   if [ -z "''${PROTONDRIVE_USERNAME:-}" ] || [ -z "''${PROTONDRIVE_PASSWORD:-}" ]; then
                     echo "rclone protondrive env file is missing PROTONDRIVE_USERNAME or PROTONDRIVE_PASSWORD: $protondriveEnvPath" >&2
                     exit 1
@@ -179,6 +181,7 @@ _: {
                     printf 'enable_caching = false\n'
                   } >> "$tmpConfig"
                 fi
+                unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
               fi
 
               chmod 600 "$tmpConfig"
