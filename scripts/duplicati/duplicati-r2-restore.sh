@@ -63,11 +63,13 @@ Exit codes:
   64   usage error (bad arguments, mutually exclusive options, bad regex,
        --restore-path is a symlink or not a directory, its parent is a symlink,
        the default restore parent is not root-owned, pre-existing non-empty
-       --restore-path without --force, --chown user or group unresolvable)
+       --restore-path without --force, --chown user or group unresolvable,
+       another restore already holds --restore-path)
   66   manifest, env file, or db unreadable; target missing or disabled;
        impact-analysis query failed or returned non-numeric output;
        --restore-path timestamps too coarse to scope the ownership pass;
        pre-existing directories under --restore-path could not be inventoried
+  75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
   78   missing credentials in env file
   127  required command not found
@@ -667,12 +669,30 @@ mkdir -p "$restore_path"
 # drops them from both the ownership pass and the final listing.
 scope_dir=""
 restore_marker=""
+restore_lock=""
 cleanup_scope() {
   [[ -n $scope_dir ]] && rm -rf "$scope_dir"
   [[ -n $restore_marker ]] && rm -f "$restore_marker" "${restore_marker}.probe"
+  [[ -n $restore_lock ]] && rmdir "$restore_lock" 2>/dev/null
   return 0
 }
 trap cleanup_scope EXIT
+
+# Two runs against one --restore-path scope against each other: each inventories
+# pre_dirs over a tree the other is writing into, and each -cnewer window sweeps
+# in the other's restored entries and applies its own --chown to them. That is
+# this branch's own failure mode, between invocations instead of between the
+# restore and pre-existing content. mkdir is atomic, so it settles the claim.
+# Named under the marker prefix so the emptiness probe already ignores it and
+# the orphan note above already covers clearing it after an untrappable death.
+if ! mkdir "${restore_path}/.duplicati-restore-marker.lock" 2>/dev/null; then
+  echo "refusing: a restore already holds '$restore_path'." >&2
+  echo "  Concurrent runs scope against each other: each one's ctime window sweeps in" >&2
+  echo "  the other's restored entries and applies its own --chown to them." >&2
+  echo "  Remove ${restore_path}/.duplicati-restore-marker.lock if no restore is in flight." >&2
+  exit 64
+fi
+restore_lock="${restore_path}/.duplicati-restore-marker.lock"
 
 scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
 restore_marker=$(mktemp "${restore_path}/.duplicati-restore-marker.XXXXXX")
@@ -874,3 +894,13 @@ find "$restore_path" -type f -cnewer "$restore_marker" -printf '  %p (%s bytes)\
 
 echo
 printf 'Done in %ss.\n' "$elapsed"
+
+# The scan and both passes fail open so a completed restore is never discarded,
+# but a caller still has to be able to tell a fully applied run from one that
+# only warned. 75 (EX_TEMPFAIL) carries exactly that: the restore succeeded,
+# ownership and permissions are incomplete, re-run once writers are quiesced.
+# chown_status is assigned only inside the chown branch, hence the default.
+if [[ $scan_status -ne 0 || ${chown_status:-0} -ne 0 || $chmod_status -ne 0 ]]; then
+  echo "the restore completed but the ownership/permission pass was incomplete." >&2
+  exit 75
+fi
