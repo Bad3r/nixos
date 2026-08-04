@@ -8,20 +8,22 @@ test.
 
 The runtime smoke test was run on 2026-05-04 against the active flake pin at
 that time, and the inventory and summary below were reconciled on 2026-08-01
-against the companion reference without re-executing anything. Nine entries
-have since been re-run on the current `flake.lock`: `mitm6` and `maigret` on
-2026-07-23, and the seven former build-error entries on 2026-08-04. Every other
-entry still carries its 2026-05-04 result.
+against the companion reference without re-executing anything.
 
-The `mitm6` and `maigret` entries were re-verified on
-2026-07-23 under Python 3.14.6 and now run as documented: upstream `mitm6`
-dropped its `future` dependency (closure is netifaces / scapy / twisted only)
-and `maigret` migrated the insecure `pypdf2-3.0.1` to `pypdf-6.14.2`, clearing
-the two evaluation blocks recorded earlier.
+The only entries re-run since are the nine the 2026-05-04 snapshot recorded
+under "build or evaluation error"; all 118 others still carry their 2026-05-04
+result. Those nine were re-run in two batches. Five cleared and one was
+reclassified, taking the group from nine entries to three and "run as
+documented" from 95 to 100.
 
-Every entry that the 2026-05-04 snapshot recorded under "build or evaluation
-error" was re-run on 2026-08-04 against the current pin (python3 3.14.6). Three
-cleared, one was reclassified, and the group went from seven entries to three:
+`mitm6` and `maigret` were re-verified on 2026-07-23 under Python 3.14.6 and
+now run as documented: upstream `mitm6` dropped its `future` dependency
+(closure is netifaces / scapy / twisted only) and `maigret` migrated the
+insecure `pypdf2-3.0.1` to `pypdf-6.14.2`, clearing the two evaluation blocks
+recorded earlier.
+
+The remaining seven were re-run on 2026-08-04 against the current pin
+(python3 3.14.6). Three cleared and one was reclassified:
 
 - `dc3dd` now builds and runs; the recorded gcc failure is gone.
 - `evil-winrm` was fixed by `Bad3r/nixpkgs@807b1085` (3.7 -> 3.9), whose
