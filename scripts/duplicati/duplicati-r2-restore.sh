@@ -105,8 +105,8 @@ Examples:
   sudo ./duplicati-r2-restore.sh --dry-run bankdata '.*\.torrent$'
 
   # Restore .torrent files into the populated /data/torrent tree. --force
-  # acknowledges the pre-existing content; chown/chmod touches only what the
-  # restore writes.
+  # acknowledges the pre-existing content. chown/chmod is ctime-scoped, so
+  # quiesce other writers on this tree first.
   sudo ./duplicati-r2-restore.sh \
     --restore-path /data/torrent \
     --chown vx:users \
@@ -142,6 +142,7 @@ require_cmd numfmt
 require_cmd hostname
 require_cmd date
 require_cmd mktemp
+require_cmd mkdir
 require_cmd sort
 require_cmd comm
 require_cmd xargs
