@@ -137,9 +137,10 @@
           execStart = hm.config.systemd.user.services.firefoxpwa-dmail.Service.ExecStart;
           environment = hm.config.systemd.user.services.firefoxpwa-dmail.Service.Environment;
           secretPath = hm.config.sops.secrets."firefoxpwa/dmail/url".path;
-          m365 = {
-            inherit (hm.config.systemd.user.services.firefoxpwa-m365.Service) ExecStart Environment;
-          };
+          # The whole unit, not the two attributes dmail names above: this one
+          # also carries the restart policy that gives a failed run its rerun,
+          # and no host enables the toggle, so nothing else would force it.
+          m365 = hm.config.systemd.user.services.firefoxpwa-m365;
           sessionVariables = {
             inherit (hm.config.home.sessionVariables) FFPWA_USERDATA XDG_DATA_HOME;
           };

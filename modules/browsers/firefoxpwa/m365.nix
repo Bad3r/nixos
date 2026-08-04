@@ -24,7 +24,14 @@
   Unlike ./dmail.nix there is no secret to wait for, so the unit is ordered
   against nothing: its ExecStart path changes whenever the app table does, and
   systemd.user.startServices = "sd-switch" (modules/home-manager/base.nix)
-  restarts it on the switch that changes it.
+  restarts it on the switch that changes it. That is the only switch it runs
+  on, which is why a failed run retries itself rather than waiting: sd-switch
+  restarts a unit only when the unit's own text changed, so a run that failed
+  with an unchanged app table would otherwise sit failed until the next login,
+  and the install branch that returns non-zero expecting a rerun to repair a
+  registered-but-unfinished site would never get one. ./dmail.nix has no such
+  need: PartOf = sops-nix.service, which sops-nix restarts on every switch,
+  gives that unit a rerun for free.
 */
 _: {
   flake.homeManagerModules.browsers.firefoxpwa =
@@ -58,10 +65,26 @@ _: {
       config = lib.mkMerge [
         (lib.mkIf (m365Enabled && firefoxpwaEnabled && apps != [ ]) {
           systemd.user.services.firefoxpwa-m365 = {
-            Unit.Description = "Install the Microsoft 365 web apps (firefoxpwa)";
+            Unit = {
+              Description = "Install the Microsoft 365 web apps (firefoxpwa)";
+              # Bounds the Restart= below, so an entry this unit refuses
+              # permanently (a site moved across origins, a foreign site under
+              # a managed name) stops after three tries instead of restarting
+              # for the rest of the session. Short enough that the window in
+              # which a later `systemctl --user start` is refused with "start
+              # request repeated too quickly" closes on its own.
+              StartLimitIntervalSec = 600;
+              StartLimitBurst = 3;
+            };
             Service = {
               Type = "oneshot";
               RemainAfterExit = true;
+              # Permitted for Type=oneshot (only always and on-success are
+              # not). RemainAfterExit keeps a successful run from repeating;
+              # this is what makes a failed one reachable again, since nothing
+              # else reruns the unit while the app table is unchanged.
+              Restart = "on-failure";
+              RestartSec = 120;
               # Both are exported by the installer itself from the same
               # dataDir/xdgDataHome passed to it, so the binary and the script
               # agree by construction rather than through this unit. Set here
