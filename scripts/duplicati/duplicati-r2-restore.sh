@@ -799,21 +799,24 @@ fi
 
 # chown -h is POSIX, but chmod grew -h/--no-dereference only in coreutils 9.5.
 # Probe before the restore rather than discovering it afterwards: an unguarded
-# `chmod -h` on an older build aborts the permission pass right after a
-# successful restore, leaving every restored file with duplicati's read-only
-# modes. Degrade loudly instead of dropping the protection silently.
+# `chmod -h` on an older build leaves the pre-restore root mode change and the
+# permission pass following symlinks instead of skipping them. Degrade loudly
+# instead of dropping the protection silently.
 chmod_noderef=()
 scope_probe="${scope_dir}/probe"
 if ! : >"$scope_probe"; then
   echo "could not create the scope probe; shell's diagnostic is above." >&2
   exit 66
 fi
-if chmod -h u+rw "$scope_probe" 2>/dev/null; then
+chmod_probe_status=0
+chmod_probe_err=$(chmod -h u+rw "$scope_probe" 2>&1) || chmod_probe_status=$?
+if [[ $chmod_probe_status -eq 0 ]]; then
   chmod_noderef=(-h)
 else
-  echo "WARNING: this chmod has no -h (coreutils < 9.5)." >&2
-  echo "  The permission pass will follow a symlink swapped into the restore set" >&2
-  echo "  instead of skipping it. The chown pass is unaffected." >&2
+  echo "WARNING: chmod -h is unusable: ${chmod_probe_err}" >&2
+  echo "  The pre-restore mode change on --restore-path and the permission pass will" >&2
+  echo "  both follow a symlink swapped in for their operand instead of skipping it." >&2
+  echo "  The chown pass is unaffected." >&2
 fi
 
 # mkdir -p is a no-op over an existing directory, so a leaf the operator
