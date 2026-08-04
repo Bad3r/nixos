@@ -135,6 +135,7 @@ require_cmd duplicati-cli
 require_cmd sqlite3
 require_cmd grep
 require_cmd awk
+require_cmd wc
 require_cmd find
 require_cmd numfmt
 require_cmd hostname
@@ -146,6 +147,7 @@ require_cmd xargs
 require_cmd sleep
 require_cmd dirname
 require_cmd rmdir
+require_cmd rm
 require_cmd chown
 require_cmd chmod
 
