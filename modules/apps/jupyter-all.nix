@@ -35,7 +35,7 @@ let
   # jupyter-kernel.default and its absolute interpreter argv, leaving
   # ipykernel's own kernelspec, whose argv[0] is the bare string "python".
   # That resolves through PATH, and outside the wrapper PATH yields
-  # programs.python.extended's hiPrio python313, which has no ipykernel. Only
+  # programs.python.extended's hiPrio pkgs.python3, which has no ipykernel. Only
   # kernel.json needs rewriting; buildEnv unfolds the python3 directory and
   # links ipykernel's logos next to it.
   mkKernelspecs =
