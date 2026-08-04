@@ -1,0 +1,426 @@
+/*
+  Check: Microsoft 365 installer behaviour (packages/firefoxpwa-m365-install).
+
+  The installer is a shell script whose interesting branches only appear after
+  firefoxpwa has rewritten config.json, which parsing and shellcheck cannot
+  see. This builds the real derivation against a stub firefoxpwa and drives it
+  through the states that matter for a multi-entry install:
+
+  - the url crate normalizes what it stores (a bare origin comes back with a
+    path), so any check comparing a declared URL against a value read back from
+    config.json is wrong,
+  - site update accepts neither --document-url nor --manifest-url, so those
+    fields are immutable and a moved entry must be refused rather than patched,
+  - one entry that cannot be installed must not cost the others theirs.
+
+  The stub is passed as the firefoxpwa package rather than placed on PATH:
+  writeShellApplication prepends runtimeInputs, so a PATH stub would be
+  shadowed by the real binary.
+*/
+{
+  lib,
+  ...
+}:
+let
+  catalog = import ./_m365-apps.nix;
+  catalogKeys = map (app: app.key) catalog;
+  catalogNames = map (app: app.name) catalog;
+in
+# The shipped catalog is a default no host has to restate, so nothing else
+# would notice these until a site was installed under a colliding record.
+assert lib.assertMsg (
+  lib.unique catalogKeys == catalogKeys
+) "browsers/firefoxpwa-m365: _m365-apps.nix has duplicate keys";
+assert lib.assertMsg (
+  lib.unique catalogNames == catalogNames
+) "browsers/firefoxpwa-m365: _m365-apps.nix has duplicate names";
+assert lib.assertMsg (lib.all (
+  app: lib.hasPrefix "https://" app.url
+) catalog) "browsers/firefoxpwa-m365: every _m365-apps.nix start URL must be https";
+{
+  perSystem =
+    { pkgs, ... }:
+    let
+      stub = pkgs.writeShellApplication {
+        name = "firefoxpwa";
+        runtimeInputs = [
+          pkgs.jq
+          pkgs.coreutils
+        ];
+        text = ''
+          # Resolved the way the real binary does (native/src/directories.rs):
+          # FFPWA_USERDATA if set, else the XDG data directory plus a firefoxpwa
+          # suffix. The stub must not be told the path directly, or it would
+          # agree with an installer that picked its own and hide the mismatch.
+          userdata="''${FFPWA_USERDATA:-''${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa}"
+          mkdir -p "$userdata"
+          # Recorded so a check can assert this equals the xdgDataHome the
+          # installer was given, proving it pins system integration's directory
+          # from that parameter rather than from the caller's environment.
+          printf '%s' "$XDG_DATA_HOME" >"$userdata/.xdg-data-home-seen"
+          config_file="$userdata/config.json"
+          [ -f "$config_file" ] || echo '{"sites":{}}' >"$config_file"
+
+          # The url crate fills in an empty path, so a bare origin is stored
+          # with a trailing slash. The stub only has to be wrong in the same
+          # way the real one is.
+          normalize() {
+            if [[ $1 =~ ^[A-Za-z][A-Za-z0-9+.-]*://[^/?#]+$ ]]; then
+              printf '%s/' "$1"
+            else
+              printf '%s' "$1"
+            fi
+          }
+
+          [ "''${1:-}" = "site" ] || exit 64
+
+          case "''${2:-}" in
+            install)
+              manifest_url="$3"
+              start_url="" document_url="" name=""
+              while [ $# -gt 0 ]; do
+                case "$1" in
+                  --start-url) start_url="$2" ;;
+                  --document-url) document_url="$2" ;;
+                  --name) name="$2" ;;
+                esac
+                shift
+              done
+              # Reproduces an install that fails before storage.write ever
+              # runs, for example a network error: the site is never
+              # registered, unlike STUB_FAIL_AFTER_REGISTER.
+              if [ "''${STUB_FAIL_NAME:-}" = "$name" ] && [ -n "''${STUB_FAIL_BEFORE_REGISTER:-}" ]; then
+                exit 1
+              fi
+              # Sites are keyed by insertion order, so several can coexist and
+              # a check can tell one entry's site from another's.
+              ulid="01STUB$(jq -r '(.sites // {}) | length' "$config_file")"
+              jq --arg u "$ulid" --arg n "$name" --arg m "$manifest_url" \
+                --arg s "$(normalize "$start_url")" --arg d "$(normalize "$document_url")" \
+                '.sites[$u] = {
+                   config: {name: $n, start_url: $s, document_url: $d, manifest_url: $m},
+                   manifest: {scope: $d}
+                 }' "$config_file" >"$config_file.next"
+              mv "$config_file.next" "$config_file"
+              # Reproduces an install that registers the site and then fails,
+              # for example on desktop integration.
+              if [ "''${STUB_FAIL_NAME:-}" = "$name" ] && [ -n "''${STUB_FAIL_AFTER_REGISTER:-}" ]; then
+                exit 1
+              fi
+              ;;
+            update)
+              ulid="$3"
+              start_url=""
+              while [ $# -gt 0 ]; do
+                case "$1" in
+                  # The real binary takes neither: accepting them here would
+                  # hide an installer trying to rewrite an immutable field.
+                  --document-url | --manifest-url) exit 64 ;;
+                  --start-url) start_url="$2" ;;
+                esac
+                shift
+              done
+              jq -e --arg u "$ulid" '.sites[$u]' "$config_file" >/dev/null
+              jq --arg u "$ulid" --arg s "$(normalize "$start_url")" \
+                '.sites[$u].config.start_url = $s' "$config_file" >"$config_file.next"
+              mv "$config_file.next" "$config_file"
+              ;;
+            *) exit 64 ;;
+          esac
+        '';
+      };
+
+      # Deliberately not $XDG_DATA_HOME/firefoxpwa: passing a directory the
+      # script could not have guessed proves it uses the parameter rather than
+      # re-deriving a path of its own. Relative, so it lands in the build
+      # directory rather than a fixed path two concurrent builds would share.
+      dataDir = "firefoxpwa-m365-check/data";
+      # A third, distinct path: the build environment's own XDG_DATA_HOME (set
+      # below) is deliberately wrong, so asserting the stub sees this value
+      # proves the installer's own export takes effect.
+      pinnedXdgDataHome = "firefoxpwa-m365-check/xdg-pinned";
+
+      mkInstaller =
+        apps:
+        (pkgs.callPackage ../../../packages/firefoxpwa-m365-install { }) {
+          firefoxpwa = stub;
+          xdgDataHome = pinnedXdgDataHome;
+          inherit dataDir apps;
+          # Exercises the retry loop's control flow without three real
+          # 5-second sleeps per entry.
+          retryDelay = 0;
+        };
+
+      declared = mkInstaller [
+        {
+          key = "alpha";
+          name = "Alpha";
+          url = "https://alpha.example/";
+        }
+        {
+          key = "beta";
+          name = "Beta";
+          url = "https://beta.example/";
+        }
+      ];
+      # Alpha moved within its own origin: applied in place.
+      moved = mkInstaller [
+        {
+          key = "alpha";
+          name = "Alpha";
+          url = "https://alpha.example/deep/link";
+        }
+        {
+          key = "beta";
+          name = "Beta";
+          url = "https://beta.example/";
+        }
+      ];
+      # Alpha moved to another origin: refused, because scope is immutable.
+      crossOrigin = mkInstaller [
+        {
+          key = "alpha";
+          name = "Alpha";
+          url = "https://alpha.example.net/";
+        }
+        {
+          key = "beta";
+          name = "Beta";
+          url = "https://beta.example/";
+        }
+      ];
+      # The shipped default, built and driven like any other list: writing it
+      # is the only thing that proves the catalog survives escapeShellArg,
+      # shellcheck and a real run, since no host enables the toggle yet.
+      shipped = mkInstaller catalog;
+      credentials = mkInstaller [
+        {
+          key = "alpha";
+          name = "Alpha";
+          url = "https://user:pass@alpha.example/";
+        }
+        {
+          key = "beta";
+          name = "Beta";
+          url = "https://beta.example/";
+        }
+      ];
+    in
+    {
+      checks."browsers/firefoxpwa-m365" =
+        pkgs.runCommand "firefoxpwa-m365-check"
+          {
+            # Opts this check into the build step in .github/workflows/check.yml;
+            # its assertions run in the derivation, so forcing drvPath proves
+            # nothing. passthru, not a plain attr: runCommand's second argument
+            # becomes derivationArgs, so a plain attr would be an unread build
+            # environment variable and part of the derivation hash.
+            passthru.runtimeCheck = true;
+            nativeBuildInputs = [
+              pkgs.jq
+              pkgs.coreutils
+            ];
+          }
+          ''
+            set -o errexit -o nounset -o pipefail
+
+            export HOME="$PWD/home"
+            # Points somewhere the installer must not use: it pins both
+            # FFPWA_USERDATA and XDG_DATA_HOME itself.
+            export XDG_DATA_HOME="$PWD/xdg"
+            data_dir=${lib.escapeShellArg dataDir}
+            pinned_xdg_data_home=${lib.escapeShellArg pinnedXdgDataHome}
+            config_file="$data_dir/config.json"
+            install -d "$HOME" "$XDG_DATA_HOME"
+
+            declared=${lib.getExe declared}
+            shipped=${lib.getExe shipped}
+            moved=${lib.getExe moved}
+            cross_origin=${lib.getExe crossOrigin}
+            credentials=${lib.getExe credentials}
+            failures=0
+
+            reset() {
+              rm -rf "$data_dir" "$pinned_xdg_data_home"
+              install -d -m 700 "$data_dir"
+            }
+
+            # Matched with case, not piped into grep: under pipefail, grep -q
+            # exiting on first match can SIGPIPE the producer and flip a real
+            # match into a reported failure.
+            expect() {
+              local label="$1" installer="$2" want_rc="$3" want_text="$4" out rc=0 ok=1
+              out=$("$installer" 2>&1) || rc=$?
+              case "$out" in
+                *"$want_text"*) [ "$rc" = "$want_rc" ] && ok=0 ;;
+              esac
+              if [ "$ok" = 0 ]; then
+                echo "PASS  $label"
+              else
+                echo "FAIL  $label (rc=$rc, expected $want_rc)"
+                printf '%s\n' "$out" | sed 's/^/      /'
+                failures=$((failures + 1))
+              fi
+            }
+
+            assert_equal() {
+              if [ "$2" = "$3" ]; then
+                echo "PASS  $1"
+              else
+                echo "FAIL  $1: got '$2', expected '$3'"
+                failures=$((failures + 1))
+              fi
+            }
+
+            site_count() { jq -r '(.sites // {}) | length' "$config_file"; }
+            start_url_of() {
+              jq -r --arg n "$1" \
+                'first((.sites // {}) | to_entries[] | select(.value.config.name == $n) | .value.config.start_url) // ""' \
+                "$config_file"
+            }
+            scope_of() {
+              jq -r --arg n "$1" \
+                'first((.sites // {}) | to_entries[] | select(.value.config.name == $n) | .value.manifest.scope) // ""' \
+                "$config_file"
+            }
+
+            echo "-- a fresh run installs every declared entry --"
+            reset
+            expect "fresh install" "$declared" 0 "installed 'Alpha'"
+            assert_equal "both sites registered" "$(site_count)" 2
+            assert_equal "alpha start URL stored normalized" "$(start_url_of Alpha)" "https://alpha.example/"
+            assert_equal "alpha scope is the bare origin" "$(scope_of Alpha)" "https://alpha.example/"
+            assert_equal "alpha applied record is the declared URL" \
+              "$(cat "$data_dir/m365-alpha-applied-url")" "https://alpha.example/"
+            assert_equal "alpha origin recorded" \
+              "$(cat "$data_dir/m365-alpha-applied-origin")" "https://alpha.example"
+            assert_equal "alpha ulid recorded" "$(cat "$data_dir/m365-alpha-applied-ulid")" "01STUB0"
+            if [ -e "$data_dir/m365-alpha-installing" ]; then
+              echo "FAIL  pending record left behind after a successful install"
+              failures=$((failures + 1))
+            else
+              echo "PASS  pending record cleared after a successful install"
+            fi
+
+            echo
+            echo "-- rerunning the same generation changes nothing --"
+            expect "idempotent rerun" "$declared" 0 ""
+            assert_equal "no duplicate sites" "$(site_count)" 2
+
+            echo
+            echo "-- an entry moved within its origin is applied in place --"
+            expect "same-origin move" "$moved" 0 "refreshing start URL for 'Alpha'"
+            assert_equal "still no duplicate sites" "$(site_count)" 2
+            assert_equal "alpha start URL updated" "$(start_url_of Alpha)" "https://alpha.example/deep/link"
+            assert_equal "alpha applied record updated" \
+              "$(cat "$data_dir/m365-alpha-applied-url")" "https://alpha.example/deep/link"
+            # The declared URL is a bare origin while config.json holds the
+            # url crate's trailing-slash form, so a no-op here would mean the
+            # installer compared against config.json instead of its record.
+            expect "move back to the origin" "$declared" 0 "refreshing start URL for 'Alpha'"
+            assert_equal "alpha start URL restored" "$(start_url_of Alpha)" "https://alpha.example/"
+
+            echo
+            echo "-- an entry moved across origins is refused, the rest are not --"
+            expect "cross-origin move" "$cross_origin" 1 "uninstall the site so this unit can reinstall it at the new origin"
+            assert_equal "no site added for the new origin" "$(site_count)" 2
+            assert_equal "alpha still points at the installed origin" \
+              "$(start_url_of Alpha)" "https://alpha.example/"
+            assert_equal "beta record untouched" \
+              "$(cat "$data_dir/m365-beta-applied-url")" "https://beta.example/"
+
+            echo
+            echo "-- a start URL with credentials is refused before any site lookup --"
+            reset
+            expect "credentials refused" "$credentials" 1 "embeds credentials"
+            assert_equal "only the other entry was installed" "$(site_count)" 1
+            assert_equal "beta installed anyway" "$(cat "$data_dir/m365-beta-applied-url")" "https://beta.example/"
+
+            echo
+            echo "-- a same-named site this unit did not install is refused --"
+            reset
+            "$declared" >/dev/null
+            # What an uninstall followed by a browser-extension install leaves:
+            # the site carries the managed name but not the manifest URL this
+            # installer would have given it, and its ulid record is gone.
+            rm -f "$data_dir/m365-alpha-applied-ulid"
+            jq '.sites["01STUB0"].config.manifest_url = "https://alpha.example/manifest.json"' \
+              "$config_file" >"$config_file.next"
+            mv "$config_file.next" "$config_file"
+            expect "foreign site refused" "$declared" 1 "is not the site this unit installed"
+            assert_equal "no second Alpha registered" "$(site_count)" 2
+
+            echo
+            echo "-- an entry that never registers does not stop the others --"
+            reset
+            # Exported rather than prefixed onto the call: the stub reads them
+            # from its environment, and a prefix on a shell function is not
+            # reliably scoped to that call.
+            export STUB_FAIL_NAME=Alpha STUB_FAIL_BEFORE_REGISTER=1
+            expect "failing entry reported" "$declared" 1 "failed after 3 attempts"
+            unset STUB_FAIL_NAME STUB_FAIL_BEFORE_REGISTER
+            assert_equal "the other entry installed" "$(site_count)" 1
+            assert_equal "beta installed" "$(cat "$data_dir/m365-beta-applied-url")" "https://beta.example/"
+            for record in applied-url applied-origin applied-ulid installing; do
+              if [ -e "$data_dir/m365-alpha-$record" ]; then
+                echo "FAIL  m365-alpha-$record survived an install that registered nothing"
+                failures=$((failures + 1))
+              else
+                echo "PASS  m365-alpha-$record cleared"
+              fi
+            done
+
+            echo
+            echo "-- an install that registers the site and then fails is repaired, not duplicated --"
+            reset
+            export STUB_FAIL_NAME=Alpha STUB_FAIL_AFTER_REGISTER=1
+            expect "registered-then-failed reported" "$declared" 1 "was registered by a failed install"
+            unset STUB_FAIL_NAME STUB_FAIL_AFTER_REGISTER
+            assert_equal "exactly one Alpha registered" "$(site_count)" 2
+            expect "next run repairs it" "$declared" 0 "refreshing start URL for 'Alpha'"
+            assert_equal "still exactly one Alpha" "$(site_count)" 2
+            assert_equal "alpha applied record recovered" \
+              "$(cat "$data_dir/m365-alpha-applied-url")" "https://alpha.example/"
+
+            echo
+            echo "-- the shipped catalog installs end to end --"
+            reset
+            expect "catalog install" "$shipped" 0 "installed 'Word'"
+            assert_equal "every catalog entry installed" \
+              "$(site_count)" ${toString (builtins.length catalog)}
+            expect "catalog rerun" "$shipped" 0 ""
+            assert_equal "catalog rerun adds nothing" \
+              "$(site_count)" ${toString (builtins.length catalog)}
+
+            echo
+            echo "-- the installer uses the directories it is given --"
+            assert_equal "system integration directory pinned" \
+              "$(cat "$data_dir/.xdg-data-home-seen")" "$pinned_xdg_data_home"
+            if [ -e "$XDG_DATA_HOME/firefoxpwa" ]; then
+              echo "FAIL  installer re-derived a path under XDG_DATA_HOME"
+              failures=$((failures + 1))
+            else
+              echo "PASS  nothing written outside the configured data directory"
+            fi
+            # Globbed rather than matched with compgen, which the builder's
+            # bash does not provide and which fails open: a "command not found"
+            # takes the else branch and reports a pass.
+            shopt -s nullglob
+            leftover=("$data_dir"/*.next)
+            shopt -u nullglob
+            if [ "''${#leftover[@]}" -ne 0 ]; then
+              echo "FAIL  record temporary file left behind: ''${leftover[*]}"
+              failures=$((failures + 1))
+            else
+              echo "PASS  record writes leave no temporary"
+            fi
+
+            echo
+            if [ "$failures" -ne 0 ]; then
+              echo "$failures assertion(s) failed"
+              exit 1
+            fi
+            echo "all assertions passed" >"$out"
+          '';
+    };
+}
