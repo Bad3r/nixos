@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Bad3r
 
 """Sync the firefoxpwa management-extension pin with the nixpkgs connector.
 
