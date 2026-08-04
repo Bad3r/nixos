@@ -87,6 +87,15 @@
           "browsers/firefoxpwa-module-eval: dmail.enable without extended.enable must warn";
         assert lib.assertMsg (lib.any (lib.hasInfix "gecko.yaml is missing") noGecko.config.warnings)
           "browsers/firefoxpwa-module-eval: a missing gecko.yaml must warn";
+        assert lib.assertMsg
+          (!builtins.hasAttr "firefoxpwa-dmail" noFirefoxpwa.config.systemd.user.services)
+          "browsers/firefoxpwa-module-eval: dmail.enable without extended.enable must not declare the install unit";
+        assert lib.assertMsg (
+          !builtins.hasAttr "firefoxpwa-dmail" noGecko.config.systemd.user.services
+        ) "browsers/firefoxpwa-module-eval: a missing gecko.yaml must not declare the install unit";
+        assert lib.assertMsg (
+          !builtins.hasAttr "firefoxpwa/dmail/url" noGecko.config.sops.secrets
+        ) "browsers/firefoxpwa-module-eval: a missing gecko.yaml must not declare the sops secret";
         builtins.deepSeq {
           execStart = hm.config.systemd.user.services.firefoxpwa-dmail.Service.ExecStart;
           secretPath = hm.config.sops.secrets."firefoxpwa/dmail/url".path;
