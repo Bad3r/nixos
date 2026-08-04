@@ -45,8 +45,10 @@
                   enableNixpkgsReleaseCheck = false;
                 };
                 programs.home-manager.enable = true;
-                # Not read: nothing here decrypts anything, so this only has
-                # to be a value the option accepts.
+                # This check forces module output, not secret decryption. Keep
+                # the fixture non-secret and validate only the generated
+                # manifest shape.
+                sops.validateSopsFiles = false;
                 sops.age.keyFile = "/dev/null";
               }
             ];
