@@ -32,8 +32,15 @@
     (bisync, up, down) requires a one-time baseline so an unattended first run
     cannot wipe the destination: confirm the authoritative side holds the
     desired contents, then run `proton-drive-sync --resync` once. Timer-driven
-    runs refuse to sync until that baseline marker exists instead of silently
+    runs refuse to sync until that tuple's baseline marker exists instead of silently
     seeding (for bisync, --resync also lets the local side win conflicts).
+
+    Per-invocation overrides:
+      PROTON_DRIVE_LOCAL=/path proton-drive-sync
+      PROTON_DRIVE_REMOTE=protondrive:Folder proton-drive-sync
+      PROTON_DRIVE_DIRECTION=up proton-drive-sync
+    These values are part of the baseline tuple, so changing one requires
+    another explicit --resync.
 
     proton-drive-sync            # run the configured sync immediately
     proton-drive-sync --resync   # establish (or rebuild) the baseline
@@ -58,7 +65,7 @@ _: {
     let
       rcloneEnabled = lib.attrByPath [ "programs" "rclone" "extended" "enable" ] false osConfig;
       repoSecretsEnabled = lib.attrByPath [ "security" "repoSecrets" "enable" ] true osConfig;
-      protondriveSecretFile = "${secretsRoot}/rclone_protondrive.env";
+      protondriveSecretFile = secretsRoot + "/rclone_protondrive.env";
       protondriveSecretExists = builtins.pathExists protondriveSecretFile;
       protondriveEnvPath = lib.attrByPath [
         "sops"
@@ -83,6 +90,8 @@ _: {
           remote=''${PROTON_DRIVE_REMOTE:-${cfg.remote}}
           direction=''${PROTON_DRIVE_DIRECTION:-${cfg.direction}}
           state_dir=''${XDG_STATE_HOME:-$HOME/.local/state}/proton-drive-sync
+          state_key=$(printf '%s\0%s\0%s' "$direction" "$local_path" "$remote" | sha256sum | cut -c1-16)
+          marker="$state_dir/initialized-$state_key"
           mkdir -p "$state_dir" "$local_path"
 
           resync=0
@@ -106,30 +115,30 @@ _: {
               # empty local would wipe Proton. Gate the first run behind an
               # explicit --resync (after the operator confirms the local seed),
               # same as bisync; later timer runs proceed once the marker exists.
-              if [ "$resync" -ne 1 ] && [ ! -e "$state_dir/initialized" ]; then
+              if [ "$resync" -ne 1 ] && [ ! -e "$marker" ]; then
                 echo "proton-drive-sync: no baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed (up mirrors local -> remote and deletes remote-only files)." >&2
                 exit 1
               fi
-              rclone sync "$local_path" "$remote" --create-empty-src-dirs "''${common[@]}" "''${extra[@]}"
-              touch "$state_dir/initialized"
+              rclone sync "$local_path" "$remote" --create-empty-src-dirs --max-delete=25 "''${common[@]}" "''${extra[@]}"
+              touch "$marker"
               ;;
             down)
               # rclone sync mirrors remote -> local and deletes local-only
               # files, so an unattended first run would clobber a local seed.
               # Same first-run gate as up/bisync.
-              if [ "$resync" -ne 1 ] && [ ! -e "$state_dir/initialized" ]; then
+              if [ "$resync" -ne 1 ] && [ ! -e "$marker" ]; then
                 echo "proton-drive-sync: no baseline; run 'proton-drive-sync --resync' once after confirming '$remote' holds the desired contents (down mirrors remote -> local and deletes local-only files)." >&2
                 exit 1
               fi
-              rclone sync "$remote" "$local_path" --create-empty-src-dirs "''${common[@]}" "''${extra[@]}"
-              touch "$state_dir/initialized"
+              rclone sync "$remote" "$local_path" --create-empty-src-dirs --max-delete=25 "''${common[@]}" "''${extra[@]}"
+              touch "$marker"
               ;;
             bisync)
               if [ "$resync" -eq 1 ]; then
                 echo "proton-drive-sync: building bisync baseline (--resync; local side wins conflicts)" >&2
                 rclone bisync "$local_path" "$remote" --resync --create-empty-src-dirs --resilient "''${common[@]}" "''${extra[@]}"
-                touch "$state_dir/initialized"
-              elif [ ! -e "$state_dir/initialized" ]; then
+                touch "$marker"
+              elif [ ! -e "$marker" ]; then
                 echo "proton-drive-sync: no bisync baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed contents." >&2
                 exit 1
               else
@@ -209,6 +218,13 @@ _: {
         })
 
         (lib.mkIf cfg.enable {
+          assertions = [
+            {
+              assertion = protondriveReady;
+              message = "services.protonDriveSync.enable requires the protondrive rclone remote to be ready: programs.rclone.extended.enable and security.repoSecrets.enable must be true, and secrets/rclone_protondrive.env must exist so sops.secrets.\"rclone/protondrive-env\" has a path.";
+            }
+          ];
+
           systemd.user.services.proton-drive-sync = {
             # No network-online.target dependency: the user manager has no
             # such target, so ordering against it is a no-op. OnBootSec plus

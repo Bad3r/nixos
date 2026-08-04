@@ -215,13 +215,13 @@ _: {
 
           (lib.mkIf (protondriveSecretExists && (!repoSecretsEnabled)) {
             warnings = [
-              "programs.rclone.extended.enable is true and ${protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive remote setup. Manage ~/.config/rclone/rclone.conf manually or enable repo secrets after SOPS decryption is configured."
+              "programs.rclone.extended.enable is true and ${toString protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive remote setup. Manage ~/.config/rclone/rclone.conf manually or enable repo secrets after SOPS decryption is configured."
             ];
           })
 
           (lib.mkIf (protondriveSecretExists && repoSecretsEnabled && protondriveEnvPath == null) {
             warnings = [
-              "programs.rclone.extended.enable is true and ${protondriveSecretFile} exists, but no system-side rclone/protondrive-env secret path was declared in osConfig; skipping protondrive remote setup."
+              "programs.rclone.extended.enable is true and ${toString protondriveSecretFile} exists, but no system-side rclone/protondrive-env secret path was declared in osConfig; skipping protondrive remote setup."
             ];
           })
         ]

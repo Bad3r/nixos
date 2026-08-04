@@ -31,7 +31,7 @@ let
       gdriveSecretFile = secretsRoot + "/rclone_gdrive.env";
       gdriveSecretExists = builtins.pathExists gdriveSecretFile;
       gdriveSecretPath = "/run/secrets/rclone/gdrive-env";
-      protondriveSecretFile = "${secretsRoot}/rclone_protondrive.env";
+      protondriveSecretFile = secretsRoot + "/rclone_protondrive.env";
       protondriveSecretExists = builtins.pathExists protondriveSecretFile;
       protondriveSecretPath = "/run/secrets/rclone/protondrive-env";
       repoSecretsEnabled = lib.attrByPath [ "security" "repoSecrets" "enable" ] true config;
@@ -89,7 +89,7 @@ let
         # actionable case where the secret exists but repo secrets are off.
         (lib.mkIf (cfg.enable && protondriveSecretExists && (!repoSecretsEnabled)) {
           warnings = [
-            "programs.rclone.extended.enable is true and ${protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive secret materialization. Manage rclone protondrive config manually or enable repo secrets after SOPS decryption is configured."
+            "programs.rclone.extended.enable is true and ${toString protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive secret materialization. Manage rclone protondrive config manually or enable repo secrets after SOPS decryption is configured."
           ];
         })
       ];
