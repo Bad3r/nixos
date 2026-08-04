@@ -253,6 +253,12 @@
             # Matched with case, not piped into grep: under pipefail, grep -q
             # exiting on first match can SIGPIPE the producer and flip a real
             # match into a reported failure.
+            #
+            # A matching fragment with the wrong status leaves the case arm, and
+            # so the case, returning 1, which does not trip errexit: bash
+            # ignores -e for the left side of an && list and the enclosing
+            # compound inherits that, so the FAIL branch below still reports the
+            # mismatch and the assertions after it still run.
             expect() {
               local label="$1" want_rc="$2" want_text="$3" out rc=0 ok=1
               out=$("$installer" 2>&1) || rc=$?
