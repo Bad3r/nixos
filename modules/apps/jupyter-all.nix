@@ -83,6 +83,22 @@ let
             ${package}/share/jupyter/kernels/python3/kernel.json \
             > "$out/share/jupyter/kernels/python3/kernel.json"
         fi
+
+        # The property this derivation exists to establish, asserted for
+        # whatever `package` supplies rather than only for the two the checks
+        # pin. The guard above is a string comparison, so it misses a data[0]
+        # that lands on an environment whose prefix differs from `package`:
+        # cp -R would land ipykernel's relative-argv spec, the rewrite would
+        # then be skipped because that file exists, and argv[0] would resolve
+        # through PATH outside the wrapper.
+        argv0=$(jq -r '.argv[0]' "$out/share/jupyter/kernels/python3/kernel.json")
+        case "$argv0" in
+          ${builtins.storeDir}/*) ;;
+          *)
+            echo "python3 argv[0] is '$argv0', not a store path: it would resolve through PATH outside the wrapper" >&2
+            exit 1
+            ;;
+        esac
       '';
 
   JupyterAllModule =
