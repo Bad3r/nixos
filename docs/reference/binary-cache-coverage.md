@@ -316,13 +316,13 @@ the remaining work. Four gaps carry it.
    regression on it. The allowlist's other entries are permanent dispositions
    `docs/reference/cache-coverage.md` accepts rather than reconciliation debt:
    the configuration wrappers are too cheap to be worth the CI time. The
-   RAR-enabled p7zip is no longer among them on license grounds and is now an
-   unclaimed candidate.
+   RAR-enabled p7zip left the file for the opposite reason: `cache-roots.nix`
+   publishes it as `p7zip-rar` now, so its glob was deleted in the same change.
 2. ~~Only the primary host sources entries~~ (closed,
    https://github.com/Bad3r/nixos/issues/423). `cache-roots.nix` iterates every
-   registered host that builds for the current system and keys entries
-   `<host>/<package>`, so a sibling host's apps and its distinct closures are
-   published too. This is what pulls tpnix's nvidia-x11 595.84 into the cache
+   registered host that builds for the current system and keys links
+   `<host>/<package>/<output>`, so a sibling host's apps and its distinct
+   closures are published too. This is what pulls tpnix's nvidia-x11 595.84 into the cache
    alongside system76's 580.173.02; before the change, evaluating the flake
    fetched that 595.84 driver and then published nothing for it.
 3. Nothing gates coverage in CI
