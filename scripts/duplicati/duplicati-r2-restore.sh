@@ -80,6 +80,7 @@ Exit codes:
        --restore-path emptiness could not be determined;
        restore parent or --restore-path could not be created;
        restore parent's mode could not be set;
+       --restore-path's mode could not be set;
        the restore lock could not be created
   75   restore completed but the ownership/permission pass was incomplete
   77   not running as root
@@ -773,6 +774,16 @@ if [[ $restore_path_populated == true && $force != true ]]; then
   echo "refusing: --restore-path '$restore_path' became non-empty while this run was starting." >&2
   echo "  Re-run with --force to accept that, or pass a fresh directory." >&2
   exit 64
+fi
+
+# mkdir -p is a no-op over an existing directory, so a leaf the operator
+# pre-created under a default umask stands at 0755 until the permission pass
+# runs after duplicati returns, exposing the restored names for the whole run.
+# Narrow it now, matching what --help promises for a path this run creates or
+# finds empty. A populated path keeps its own mode, per --force.
+if [[ $restore_path_populated == false ]] && ! chmod 0700 "$restore_path"; then
+  echo "could not set the mode on '$restore_path'; chmod's diagnostic is above." >&2
+  exit 66
 fi
 
 scope_dir=$(mktemp -d -t duplicati-restore-scope.XXXXXX)
