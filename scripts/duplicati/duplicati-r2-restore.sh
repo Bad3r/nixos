@@ -23,7 +23,9 @@ Options:
   --restore-path <dir>     Output directory.
                            Default: /tmp/duplicati-restore/<slug>-<utc-ts>
                            A pre-existing non-empty directory is refused
-                           unless --force is given.
+                           unless --force is given. Parent directories this
+                           run creates are made traversable (0755); the
+                           restore directory itself stays 0700.
   --chown <user:group>     Chown applied to the entries this restore wrote
                            (files restored and directories created), never to
                            pre-existing content. The --restore-path root is
@@ -556,6 +558,12 @@ if [[ -e $restore_path ]]; then
   fi
 fi
 
+# umask 077 masks every directory mkdir -p creates, intermediates included, so
+# the default /tmp/duplicati-restore/<slug>-<ts> would leave the container at
+# 0700 root:root and block --chown's user from traversing to its own restore.
+# Only the intermediates are widened; the leaf holds the restored data and
+# stays 0700 for the whole run rather than being re-tightened at the end.
+(umask 022 && mkdir -p "$(dirname "$restore_path")")
 mkdir -p "$restore_path"
 
 # Marker plus pre-existing-directory inventory scope the post-restore chown
