@@ -505,12 +505,21 @@ if "$dry_run"; then
 
   echo "Scanning fileset for matching paths..."
   set +e
-  sqlite3 -separator $'\t' -noheader "$src_uri" "
+  sqlite3 -ascii -noheader "$src_uri" "
     SELECT f.ID, f.Path
     FROM File f
     JOIN FilesetEntry fse ON fse.FileID = f.ID
     WHERE fse.FilesetID = ${fileset_id};
-  " | re="$user_regex" awk -F'\t' '{ id=$1; sub(/^[^\t]*\t/, ""); if ($0 ~ ENVIRON["re"]) print id }' >"$ids_file"
+  " | re="$user_regex" awk -v RS=$'\x1e' -F$'\x1f' '
+    NF != 2 {
+      if ($0 != "") {
+        print "fileset scan output had an invalid record" > "/dev/stderr"
+        exit 2
+      }
+      next
+    }
+    $2 ~ ENVIRON["re"] { print $1 }
+  ' >"$ids_file"
   scan_stages=("${PIPESTATUS[@]}")
   set -e
   if [[ ${scan_stages[0]} -ne 0 ]]; then
@@ -538,6 +547,7 @@ if "$dry_run"; then
   impact_status=0
   impact_output=$(
     sqlite3 -separator ' ' -noheader <<SQL
+.bail on
 ATTACH DATABASE '${src_uri}' AS src;
 CREATE TEMP TABLE matching_ids (ID INTEGER PRIMARY KEY);
 .mode tabs
