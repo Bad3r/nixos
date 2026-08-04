@@ -24,7 +24,7 @@ Options:
                            Default: /tmp/duplicati-restore/<slug>-<utc-ts>
                            A pre-existing non-empty directory is refused
                            unless --force is given. Parent directories this
-                           run creates are made traversable (0755); the
+                           run creates are made traversable (0711); the
                            restore directory itself stays 0700.
   --chown <user:group>     Chown applied to the entries this restore wrote
                            (files restored and directories created), never to
@@ -542,6 +542,13 @@ fi
 # the chown/chmod below; otherwise a `mkdir` beforehand would leave the target
 # root-owned and unusable by --chown's user.
 restore_path_populated=false
+# Trailing slashes are stripped before the symlink test: pathname resolution
+# applies the slash first, so [[ -L /data/torrent/ ]] lstats the referent and
+# reports false, walking straight past the refusal below. Normalizing here also
+# keeps the --restore-path= value handed to duplicati in one form.
+while [[ $restore_path == */ && ${#restore_path} -gt 1 ]]; do
+  restore_path=${restore_path%/}
+done
 # A symlink target would be scanned and written through inconsistently: find
 # defaults to -P and reports the link as empty, so the populated guard, the
 # directory inventory, and the scoped passes all see nothing, while the root
@@ -560,7 +567,12 @@ if [[ -e $restore_path ]]; then
     echo "--restore-path exists and is not a directory: $restore_path" >&2
     exit 64
   fi
-  if [[ -n $(find "$restore_path" -mindepth 1 -print -quit) ]]; then
+  # A marker orphaned by an untrappable death (SIGKILL, power loss) is this
+  # script's own debris, not content to protect. Counting it would make a
+  # directory the script created and emptied read as populated, so the rerun
+  # would demand --force and then skip the root chown/chmod that a freshly
+  # created path is supposed to get.
+  if [[ -n $(find "$restore_path" -mindepth 1 ! -name '.duplicati-restore-marker.*' -print -quit) ]]; then
     restore_path_populated=true
   fi
   if [[ $restore_path_populated == true && $force != true ]]; then
