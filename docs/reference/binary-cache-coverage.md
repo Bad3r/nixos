@@ -64,9 +64,14 @@ derivations built locally per full system build. Three groups remain:
 `packages.<system>.cache-roots` is a `linkFarm` over an explicit list of the
 packages hosts would otherwise build locally:
 
-- Host-sourced entries come from each host's own package set so custom
-  overlays (firefoxpwa policy injection, john patches) and nixpkgs config
-  produce exactly the derivations a host switch evaluates. Every registered
+- Host-sourced entries read `programs.<name>.extended.package` on each host,
+  which is the value those modules install, so custom overlays (firefoxpwa
+  policy injection, john patches), nixpkgs config, and any per-host override
+  of that option produce exactly the derivations a host switch evaluates.
+  Reading the bare package-set attribute instead would desync silently: an
+  override keeps `extended.enable = true`, so the gate stays green while the
+  published derivation is one nobody builds, and the symptom is a cache miss
+  rather than an error. Every registered
   host that builds for the current system contributes its own entries, keyed
   `<host>/<package>`, so an app only a sibling host enables still reaches the
   cache and each host's distinct closure is published separately (nvidia-x11
@@ -93,8 +98,8 @@ packages hosts would otherwise build locally:
   come from the flake input the consuming module resolves them from, because
   host package sets can carry a same-named but different derivation.
 
-The list names the attribute hosts install, which is not always the attribute
-that shares the app's common name: `vscode-fhs` and `ventoy-full` are what
+The list names the module hosts enable, which is not always the attribute that
+shares the app's common name: `vscode-fhs` and `ventoy-full` are what
 `modules/apps/` enables, while the bare `vscode` and `ventoy` attributes are
 different derivations no host consumes. `vscode` still reaches the cache as a
 dependency of the `vscode-fhs` closure.

@@ -8,8 +8,8 @@
   them after each nixpkgs bump.
 
   A cache hit requires the exact derivation a consumer evaluates, so each
-  entry is sourced from the package set that owns it: host apps come from
-  each host's own pkgs, and devshell-consumed packages come from the
+  entry is sourced where that consumer resolves it: host apps come from the
+  option each host installs, and devshell-consumed packages come from the
   perSystem instance that `nix develop` uses. Every registered host on the
   building system contributes its own entries (issue #423), so an app a
   sibling host enables and the primary does not still reaches the cache, and
@@ -22,8 +22,15 @@
 { config, lib, ... }:
 let
   # Apps published for every host that enables them, gated on
-  # programs.<name>.extended.enable. A name enabled on no host is a throw
+  # programs.<name>.extended.enable and resolved through
+  # programs.<name>.extended.package. A name enabled on no host is a throw
   # below rather than a silently absent entry.
+  #
+  # Each of these modules installs its own extended.package, so that option
+  # and not the bare package-set attribute is what a host evaluates. A host
+  # overriding it keeps extended.enable = true, so reading the attribute
+  # instead would leave the gate green while publishing a derivation nobody
+  # builds, and the symptom would be a cache miss rather than an error.
   #
   # tor-browser and mullvad-browser stay out: nixpkgs sets
   # allowSubstitutes = false on the derivation that carries the build, so
@@ -122,13 +129,12 @@ in
       hostEntries =
         hostName: nixos:
         let
-          hostPkgs = nixos.pkgs;
           hostConfig = nixos.config;
         in
         map (name: {
           key = "${hostName}/${name}";
           pkgName = name;
-          path = hostPkgs.${name};
+          path = hostConfig.programs.${name}.extended.package;
         }) (lib.filter (appEnabled hostConfig) hostPackageNames)
         ++ lib.mapAttrsToList (name: entry: {
           key = "${hostName}/${name}";
