@@ -106,13 +106,15 @@ let
 
           # NixOS links no /share/jupyter by default, so kernelspecs stay
           # reachable only through the wrapped `jupyter` binary, which sets
-          # JUPYTER_PATH itself. Exported through sessionVariables
-          # (PAM-initialised) rather than variables (shell-profile only) so
-          # editors started from the desktop inherit it. A singleton list so a
-          # second definition merges into the colon-joined value instead of
-          # conflicting.
+          # JUPYTER_PATH itself. profileRelativeSessionVariables expands the
+          # suffix over environment.profiles, so a kernel installed through
+          # home.packages is exported alongside the system one, and it feeds
+          # both /etc/pam/environment (so editors started from the desktop
+          # inherit it) and profileRelativeEnvVars for shells. Profiles that
+          # ship no kernels cost nothing: _list_kernels_in skips a path that
+          # is not a directory.
           pathsToLink = [ "/share/jupyter" ];
-          sessionVariables.JUPYTER_PATH = [ "/run/current-system/sw/share/jupyter" ];
+          profileRelativeSessionVariables.JUPYTER_PATH = [ "/share/jupyter" ];
         };
       };
     };
