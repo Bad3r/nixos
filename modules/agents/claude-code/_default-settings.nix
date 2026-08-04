@@ -43,6 +43,7 @@ let
     "ls"
     "make"
     "mkdir"
+    "nix"
     "npm run"
     "nvim"
     "patch"
@@ -126,10 +127,11 @@ let
     # allow entry for the same prefix would only be a dead rule claiming the
     # opposite.
     #
-    # Best-effort, like the shared invocation list: `find -exec`, `python`,
-    # `make`, `nvim` and `source` reach an arbitrary program too and stay
-    # allowed, because gating them would prompt on this repo's ordinary use of
-    # each. The three below are the ones whose only purpose is to run one.
+    # Best-effort, like the shared invocation list: `find -exec`, `make`,
+    # `nix develop -c`, `nix run`, `nvim`, `python` and `source` reach an
+    # arbitrary program too and stay allowed, because gating them would prompt
+    # on this repo's ordinary use of each. The three below are the ones whose
+    # only purpose is to run one.
     "timeout"
     "time"
     "xargs"
