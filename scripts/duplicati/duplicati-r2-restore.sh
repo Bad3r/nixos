@@ -859,9 +859,13 @@ fi
 # because an entry can legitimately vanish under it, which makes an unresolvable
 # user or group indistinguishable there: it fails on every entry and reads as a
 # racy target. Catching it now costs one probe instead of a whole restore.
-if [[ $chown_spec != "none" ]] && ! chown "$chown_spec" "$scope_probe" 2>/dev/null; then
-  echo "--chown '${chown_spec}' cannot be applied; unknown user or group?" >&2
-  exit 64
+if [[ $chown_spec != "none" ]]; then
+  chown_probe_status=0
+  chown_probe_err=$(chown "$chown_spec" "$scope_probe" 2>&1) || chown_probe_status=$?
+  if [[ $chown_probe_status -ne 0 ]]; then
+    echo "--chown '${chown_spec}' cannot be applied: ${chown_probe_err}" >&2
+    exit 64
+  fi
 fi
 rm -f "$scope_probe"
 
