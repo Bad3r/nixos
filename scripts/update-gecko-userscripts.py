@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+# Copyright (c) 2026 Bad3r
 
 """Update Gecko Violentmonkey userscript pins."""
 

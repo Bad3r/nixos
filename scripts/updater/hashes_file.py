@@ -1,8 +1,14 @@
+# Copyright (c) 2026 Bad3r
+
 """Hashes file I/O utilities for Nix package updaters."""
 
+from __future__ import annotations
+
 import json
-from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def load_hashes(path: Path) -> dict[str, Any]:

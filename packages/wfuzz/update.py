@@ -1,5 +1,7 @@
-#!/usr/bin/env nix
-#! nix shell nixpkgs#python3 nixpkgs#nix --command python3
+#!/usr/bin/env nix-shell
+#! nix-shell -i python3 --packages python3
+# Copyright (c) 2026 Bad3r
+
 """Update script for wfuzz."""
 
 from __future__ import annotations
@@ -123,12 +125,19 @@ def main() -> None:
     )
     updated = updated_package_text(latest, src_hash)
 
-    if updated != package_text:
-        PACKAGE_FILE.write_text(updated, encoding="utf-8")
-        print(f"Updated {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
+    changed = updated != package_text
+    validated = False
+    try:
+        if changed:
+            PACKAGE_FILE.write_text(updated, encoding="utf-8")
+            print(f"Updated {PACKAGE_FILE.relative_to(FLAKE_ROOT)} to {latest}")
 
-    print("Validating package patches...")
-    nix_build(PACKAGE_ATTR, no_link=True)
+        print("Validating package patches...")
+        nix_build(PACKAGE_ATTR, no_link=True, capture_output=False)
+        validated = True
+    finally:
+        if changed and not validated:
+            PACKAGE_FILE.write_text(package_text, encoding="utf-8")
 
 
 if __name__ == "__main__":
