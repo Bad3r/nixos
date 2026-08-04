@@ -47,7 +47,15 @@ _: {
         let
           nixSources = lib.fileset.toSource {
             root = ../../..;
-            fileset = lib.fileset.fileFilter (file: file.hasExt "nix") ../../..;
+            # docs/nixos-manual/ is an upstream mirror synced by
+            # scripts/update-nixos-manual.sh, excluded by ../pre-commit.nix and
+            # ../treefmt.nix for that reason. Scanning it here would fail CI on
+            # code this repo cannot fix without diverging from upstream, and
+            # would be the scope drift between hook and check this file exists
+            # to remove.
+            fileset = lib.fileset.difference (lib.fileset.fileFilter (
+              file: file.hasExt "nix"
+            ) ../../..) ../../../docs/nixos-manual;
           };
         in
         pkgs.runCommand "statix-tree-check"
