@@ -143,6 +143,8 @@ require_cmd xargs
 require_cmd sleep
 require_cmd dirname
 require_cmd rmdir
+require_cmd chown
+require_cmd chmod
 
 human_bytes() {
   local n=${1:-0}
