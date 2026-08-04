@@ -7,9 +7,13 @@ confirm the package could launch on the `flake.lock` state used for the smoke
 test.
 
 The runtime smoke test was run on 2026-05-04 against the active flake pin at
-that time. The inventory and summary below were reconciled on 2026-08-01
-against the companion reference; no run commands were re-executed on the
-current `flake.lock`. The `mitm6` and `maigret` entries were re-verified on
+that time, and the inventory and summary below were reconciled on 2026-08-01
+against the companion reference without re-executing anything. Nine entries
+have since been re-run on the current `flake.lock`: `mitm6` and `maigret` on
+2026-07-23, and the seven former build-error entries on 2026-08-04. Every other
+entry still carries its 2026-05-04 result.
+
+The `mitm6` and `maigret` entries were re-verified on
 2026-07-23 under Python 3.14.6 and now run as documented: upstream `mitm6`
 dropped its `future` dependency (closure is netifaces / scapy / twisted only)
 and `maigret` migrated the insecure `pypdf2-3.0.1` to `pypdf-6.14.2`, clearing
