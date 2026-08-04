@@ -657,6 +657,13 @@ if [[ $chown_spec != "none" ]]; then
   echo
   echo "Applying chown ${chown_spec} to restored entries under ${restore_path}..."
   restored_entries | xargs -0 -r chown "$chown_spec"
+  # Symlinks stay out of restored_entries because the chmod pass below follows
+  # them and would rewrite modes on targets outside the tree. Ownership still
+  # has to reach them: the replaced `chown -R` covered links, since GNU chown
+  # traverses with FTS_PHYSICAL and lchowns each one it meets. -h restores that
+  # without touching referents.
+  find "$restore_path" -mindepth 1 -type l -cnewer "$restore_marker" -print0 |
+    xargs -0 -r chown -h "$chown_spec"
   if [[ $restore_path_populated == false ]]; then
     chown "$chown_spec" "$restore_path"
   fi
