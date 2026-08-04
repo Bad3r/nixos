@@ -663,6 +663,23 @@ if [[ $marker_settled != true ]]; then
   exit 66
 fi
 
+# chown -h is POSIX, but chmod grew -h/--no-dereference only in coreutils 9.5.
+# Probe before the restore rather than discovering it afterwards: an unguarded
+# `chmod -h` on an older build aborts the permission pass right after a
+# successful restore, leaving every restored file with duplicati's read-only
+# modes. Degrade loudly instead of dropping the protection silently.
+chmod_noderef=()
+chmod_probe="${scope_dir}/chmod-probe"
+: >"$chmod_probe"
+if chmod -h u+rw "$chmod_probe" 2>/dev/null; then
+  chmod_noderef=(-h)
+else
+  echo "WARNING: this chmod has no -h (coreutils < 9.5)." >&2
+  echo "  The permission pass will follow a symlink swapped into the restore set" >&2
+  echo "  instead of skipping it. The chown pass is unaffected." >&2
+fi
+rm -f "$chmod_probe"
+
 find "$restore_path" -mindepth 1 -type d -print0 | LC_ALL=C sort -z >"$pre_dirs"
 
 # comm must collate identically to the sort feeding it: GNU comm compares with
@@ -753,9 +770,9 @@ fi
 # operand under -h instead of reaching its referent, so a path swapped in the
 # window is a no-op rather than a mode rewrite outside --restore-path.
 echo "Resetting permissions to u+rwX,go-rwx on restored entries under ${restore_path}..."
-xargs -0 -r chmod -h u+rwX,go-rwx <"$restored_list"
+xargs -0 -r chmod "${chmod_noderef[@]}" u+rwX,go-rwx <"$restored_list"
 if [[ $restore_path_populated == false ]]; then
-  chmod -h u+rwX,go-rwx "$restore_path"
+  chmod "${chmod_noderef[@]}" u+rwX,go-rwx "$restore_path"
 fi
 
 echo
