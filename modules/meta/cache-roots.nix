@@ -58,7 +58,6 @@ let
     "proton-vpn"
     "searchfox-cli"
     "source-map-explorer"
-    "steam"
     "tweakcc"
     "upscayl"
     "ventoy-full"
@@ -77,9 +76,10 @@ let
   # because these options do not share one shape. nemo.extended.finalPackage
   # is assigned inside `config = lib.mkIf cfg.enable` and is undefined when
   # the module is off, so its sibling `enable` is the real signal.
-  # hardware.nvidia.package carries an upstream default and stays defined on
-  # hosts that never load the driver, so a sibling `enable` would not exist
-  # to read; services.xserver.videoDrivers is what actually installs it.
+  # hardware.nvidia.package and programs.steam.package carry upstream defaults
+  # and stay defined on hosts that never install them, so no sibling
+  # extended.enable is readable there; services.xserver.videoDrivers and the
+  # upstream programs.steam.enable are what actually install them.
   hostOptionPackages = {
     nemo-with-extensions = {
       path = [
@@ -97,6 +97,21 @@ let
         "package"
       ];
       installed = hostConfig: lib.elem "nvidia" hostConfig.services.xserver.videoDrivers;
+    };
+    # modules/apps/steam.nix installs nothing itself: it sets
+    # programs.steam.enable with extraCompatPackages and extraPackages, and
+    # upstream's programs.steam.package carries an `apply` that re-overrides
+    # the FHS env with both lists. The applied value is what upstream puts in
+    # environment.systemPackages, and proton-ge-bin, dwarfs, fuse-overlayfs,
+    # and protonup-rs live inside it; pkgs.steam is a different derivation
+    # missing exactly the part that costs a switch.
+    steam = {
+      path = [
+        "programs"
+        "steam"
+        "package"
+      ];
+      installed = hostConfig: hostConfig.programs.steam.enable;
     };
   };
 

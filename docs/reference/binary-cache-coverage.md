@@ -89,9 +89,10 @@ packages hosts would otherwise build locally:
   the option path, because these options do not share one shape:
   `programs.nemo.extended.finalPackage` is assigned inside
   `config = lib.mkIf cfg.enable` and is undefined when the module is off, so
-  its sibling `enable` is the real signal, while `hardware.nvidia.package`
-  carries an upstream default and stays defined on hosts that never load the
-  driver, so `services.xserver.videoDrivers` is what actually installs it.
+  its sibling `enable` is the real signal, while `hardware.nvidia.package` and
+  `programs.steam.package` carry upstream defaults and stay defined on hosts
+  that never install them, so `services.xserver.videoDrivers` and the upstream
+  `programs.steam.enable` are what actually install them.
 - perSystem-sourced entries (codeburn, restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
 - Input-sourced entries (context7-mcp, mcp-server-sequential-thinking, codex)
@@ -136,7 +137,7 @@ license at build time, so adding an entry is purely an operator decision.
 ## Inventory (2026-07-17, 2026-08-03, and 2026-08-04 build logs)
 
 Host-sourced entries, published per host that enables them. Only system76
-enables the last six.
+enables the last five.
 
 | Package             | Hosts           |
 | ------------------- | --------------- |
@@ -158,7 +159,6 @@ enables the last six.
 | webex               | system76, tpnix |
 | discord             | system76        |
 | dropbox             | system76        |
-| steam               | system76        |
 | upscayl             | system76        |
 | ventoy-full         | system76        |
 | veracrypt           | system76        |
@@ -170,6 +170,17 @@ package:
 | -------------------- | ------------------------------------- | --------------- |
 | nemo-with-extensions | `programs.nemo.extended.finalPackage` | system76, tpnix |
 | nvidia-x11           | `hardware.nvidia.package`             | system76, tpnix |
+| steam                | `programs.steam.package`              | system76        |
+
+`steam` is option-sourced because `modules/apps/steam.nix` installs nothing
+itself: it sets `programs.steam.enable` with `extraCompatPackages` and
+`extraPackages`, and upstream's `programs.steam.package` carries an `apply`
+that re-`override`s the FHS env with both lists. The applied value is what
+upstream puts in `environment.systemPackages`, and proton-ge-bin, dwarfs,
+fuse-overlayfs, and protonup-rs live inside it. On system76 the applied
+derivation is `steam-1.0.0.87` at a different store path than
+`pkgs.steam`, so the bare attribute published a closure no host substitutes
+from.
 
 perSystem-sourced (codeburn, restringer) and input-sourced (context7-mcp,
 mcp-server-sequential-thinking, codex) entries are published once, not per
