@@ -250,6 +250,15 @@ _: {
           # bypassable from the unit's inherited environment. Clear the
           # log-routing ones run_bisync depends on to detect the abort.
           unset RCLONE_LOG_FILE RCLONE_LOG_FORMAT RCLONE_LOG_LEVEL RCLONE_SYSLOG RCLONE_USE_JSON_LOG
+          # bisync's own --force and --resync register the same way
+          # (cmd/bisync/cmd.go flags.BoolVarP), and neither is on the command
+          # line for a normal run, so the environment supplies their default
+          # unopposed. --force skips both safety checks outright
+          # (cmd/bisync/operations.go guards each with `if !opt.Force`), leaving
+          # the deletions to propagate with no abort for the latch to catch, and
+          # --resync makes every fire a superset merge. Every other flag this
+          # script depends on is passed explicitly, so the command line wins.
+          unset RCLONE_FORCE RCLONE_RESYNC
 
           extra=(${lib.escapeShellArgs cfg.extraArgs})
           common=(--config ${lib.escapeShellArg "${config.xdg.configHome}/rclone/rclone.conf"} --protondrive-enable-caching=false --transfers=4 --checkers=8 --log-level INFO)

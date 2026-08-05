@@ -45,6 +45,10 @@
               echo "rclone stub: a log-routing RCLONE_ variable reached rclone" >&2
               exit 99
             fi
+            if [ -n "''${RCLONE_FORCE:-}''${RCLONE_RESYNC:-}" ]; then
+              echo "rclone stub: a safety-disabling RCLONE_ variable reached rclone" >&2
+              exit 98
+            fi
             printf '%s\n' "$*" >> "$RCLONE_STUB_CALLS"
             if [ -n "''${RCLONE_STUB_STDERR:-}" ]; then
               printf '%s\n' "$RCLONE_STUB_STDERR" >&2
@@ -233,6 +237,7 @@
                 RCLONE_STUB_EXIT=2 \
                 RCLONE_LOG_FILE=/dev/null RCLONE_SYSLOG=true RCLONE_USE_JSON_LOG=true \
                 RCLONE_LOG_LEVEL=NOTICE RCLONE_LOG_FORMAT=nolevel \
+                RCLONE_FORCE=true RCLONE_RESYNC=true \
                 RCLONE_STUB_STDERR='ERROR : Safety abort: too many deletes (>25%, 8 of 8) on Path1 "/x". Run with --force if desired.' \
                   "$sync" || rc=$?
                 [ "$rc" -ne 0 ] || fail "a bisync safety abort must fail the run"
