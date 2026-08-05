@@ -512,7 +512,7 @@ assert
   #   "formatter@anthropic-tools": true }. Also supports extended format with
   #   version constraints. Settings precedence is user < project < local < flag
   #   < policy, so to disable a plugin that project settings enable, set it to
-  #   false in .claude/settings.local.json \u2014 setting false in
+  #   false in .claude/settings.local.json - setting false in
   #   ~/.claude/settings.json is overridden by the project.
   #   enabledPlugins = { };                             # [record]
   #
@@ -541,7 +541,7 @@ assert
   #   with fast mode off.
   #   fastModePerSessionOptIn = true;                   # [boolean]
   #
-  #   Probability (0\u20131) that the session quality survey appears when
+  #   Probability (0-1) that the session quality survey appears when
   #   eligible. 0.05 is a reasonable starting point.
   #   feedbackSurveyRate = 0;                           # [number]
   #
@@ -820,7 +820,7 @@ assert
   #   Advisory size guideline for the dynamic workflows Claude writes: "small"
   #   aims for fewer than 5 agents, "medium" (the default) fewer than 15,
   #   "large" fewer than 50, and "unrestricted" sends no guideline. A value here
-  #   \u2014 including from managed settings \u2014 takes precedence over the
+  #   - including from managed settings - takes precedence over the
   #   "Dynamic workflow size" choice in /config, and that /config row is hidden
   #   while a settings file provides the key. This is a guideline, not an
   #   enforced limit.
@@ -831,9 +831,9 @@ assert
   #   default. Common examples: "node_modules", ".cache", ".bin"
   #   worktree = { };                                   # [object]
   #
-  #   When set to true in either admin-only Windows source \u2014 the HKLM
+  #   When set to true in either admin-only Windows source - the HKLM
   #   SOFTWARE/Policies/ClaudeCode registry key or C:/Program
-  #   Files/ClaudeCode/managed-settings.json \u2014 WSL reads managed settings
+  #   Files/ClaudeCode/managed-settings.json - WSL reads managed settings
   #   from the full Windows policy chain (HKLM, C:/Program Files/ClaudeCode via
   #   DrvFs, HKCU) in addition to /etc/claude-code. Windows sources take
   #   priority. The flag is also required in HKCU itself for HKCU policy to
