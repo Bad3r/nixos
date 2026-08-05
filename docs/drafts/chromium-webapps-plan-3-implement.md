@@ -1099,11 +1099,15 @@ EOF
 
 # Chromium reads the managed directory from a fixed path and offers no override
 # for it, so the probe has to go into the host's own /etc rather than a
-# throwaway root. Two consequences of that, both load-bearing:
+# throwaway root. Two consequences of that, the second load-bearing:
 #
-#   * `zz-` sorts last, which is what makes the probe win the ExtensionSettings
-#     key against extended.json. The config-dir loader picks one file's value
-#     outright instead of merging, as this plan relies on elsewhere.
+#   * `zz-` sorts last, so the probe wins the ExtensionSettings key under the
+#     config-dir loader's pick-one-file semantics. Nothing contests it today:
+#     extended.json is _chromium-hardening.nix's policies plus
+#     managedDefaultSearchProvider and carries no ExtensionSettings key, and
+#     webapps.json does not reach the host until the post-merge switch. The
+#     prefix is insurance against a file added later, not a dependency, so a
+#     probe that fails to block is not a merge conflict.
 #   * While the file is in place, "*" = blocked binds the daily-driver
 #     brave-origin too: 1Password stops being force-installed in the main
 #     profile and every other extension is refused there. Nothing removes it
