@@ -144,10 +144,10 @@
           "browsers/firefoxpwa-module-eval: the m365 unit must be ordered after the dmail unit";
         assert lib.assertMsg
           (
-            hm.config.systemd.user.services.firefoxpwa-m365.Service.SuccessExitStatus
-            == hm.config.systemd.user.services.firefoxpwa-m365.Service.RestartPreventExitStatus
+            hm.config.systemd.user.services.firefoxpwa-m365.Service.SuccessExitStatus == "78"
+            && hm.config.systemd.user.services.firefoxpwa-m365.Service.RestartPreventExitStatus == "78"
           )
-          "browsers/firefoxpwa-module-eval: a permanent m365 refusal must use one shared non-restarting status";
+          "browsers/firefoxpwa-module-eval: a permanent m365 refusal must exit EX_CONFIG 78, which no installer fault produces";
         builtins.deepSeq {
           # The whole unit, not selected attributes: a removed binding in its
           # Unit or Install blocks must fail this check too.
