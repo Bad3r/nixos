@@ -1829,11 +1829,20 @@ Create `modules/browsers/webapps/home.nix`:
               }
             else
               null;
-          urlExpr =
-            if app.urlSecret != null then
-              ''"$(cat ${lib.escapeShellArg config.sops.secrets."webapps/${key}/url".path})"''
-            else
-              lib.escapeShellArg app.url;
+          # Read into a variable rather than substituted straight into the
+          # argument. writeShellApplication sets errexit, but bash applies it to
+          # a command substitution only when the substitution is the whole
+          # command or the right side of an assignment, not when it is one
+          # argument of another command: `exec brave --app="$(cat missing)"`
+          # leaves cat's failure unchecked, passes --app= empty, and opens a
+          # plain window in the app's isolated profile with no error. The path
+          # exists at eval time (usableApps checks it) and can still be missing
+          # at launch, since the HM sops runtime dir is recreated per login.
+          urlExpr = if app.urlSecret != null then ''"$url"'' else lib.escapeShellArg app.url;
+
+          readSecretUrl = lib.optionalString (app.urlSecret != null) ''
+            url="$(cat ${lib.escapeShellArg config.sops.secrets."webapps/${key}/url".path})"
+          '';
 
           # Assembled as a list rather than backslash-continued lines. An
           # lib.optionalString inside a continued argument list renders an empty
@@ -1860,7 +1869,11 @@ Create `modules/browsers/webapps/home.nix`:
             osCfg.package
             pkgs.coreutils
           ];
-          text = ''
+          # readSecretUrl is a whole-line optionalString, not one inside a
+          # continued argument list, so it carries none of the SC2215 hazard the
+          # args comment above describes: when it is empty the line simply is
+          # not there.
+          text = readSecretUrl + ''
             install -d -m 700 ${lib.escapeShellArg profileDir}
             exec ${browser} ${lib.concatStringsSep " " args} "$@"
           '';
