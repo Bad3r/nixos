@@ -1585,7 +1585,13 @@ test_cdpath_does_not_divert_the_dedup_key
 # which the bash a runCommand builder runs is built without, so the enumeration
 # this guard depends on would exist only because modules/meta/script-tests.nix
 # happens to put pkgs.bash on PATH. declare -F is a plain builtin.
-expected="$(declare -F | sed -n 's/^declare -f \(test_.*\)$/\1/p' | sort)"
+expected="$(
+  while read -r _ _ fn; do
+    if [[ ${fn} == test_* ]]; then
+      printf '%s\n' "${fn}"
+    fi
+  done < <(declare -F) | sort
+)"
 ran="$(printf '%s\n' "${tests_ran[@]}" | sort -u)"
 if [[ ${ran} != "${expected}" ]]; then
   printf 'run.sh: defined but never ran:\n%s\n' \
