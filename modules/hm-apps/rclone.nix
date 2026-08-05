@@ -80,11 +80,12 @@ _: {
       # effective onepassword-cli group, which only the setgid wrapper from
       # programs._1password carries; the plain package binary runs without it
       # and every op read fails. modules/apps/rclone.nix asserts the wrapper
-      # exists whenever the op:// source is selected.
-      onePasswordEnabled = lib.attrByPath [ "programs" "_1password" "enable" ] false osConfig;
+      # exists whenever the op:// source is selected, so falling back to the
+      # package would only substitute one failing binary for another while
+      # making the unfree CLI a store reference of the activation script, which
+      # is emitted for every host with programs.rclone.extended.enable.
       onePasswordWrapperDir = lib.attrByPath [ "security" "wrapperDir" ] "/run/wrappers/bin" osConfig;
-      onePasswordExecutable =
-        if onePasswordEnabled then "${onePasswordWrapperDir}/op" else lib.getExe' pkgs._1password-cli "op";
+      onePasswordExecutable = "${onePasswordWrapperDir}/op";
       # Ownership guard inputs. The r2-flake Home Manager module declares
       # programs.r2-cloud only when a host policy imports it, so probe with
       # attrByPath instead of reading undeclared options.
