@@ -144,6 +144,22 @@ _: {
       cfg = config.services.protonDriveSync;
       rclonePackage = lib.attrByPath [ "programs" "rclone" "package" ] pkgs.rclone config;
 
+      # run_bisync reads the run's own stderr to detect a safety abort, so an
+      # extraArg that moves or reshapes that record disables the latch without
+      # any other symptom: --log-file and --syslog write elsewhere
+      # (rclone fs/log/log.go), a --log-level under ERROR drops it, and
+      # --log-format nolevel and --use-json-log strip the level prefix.
+      logRoutingFlags = [
+        "--log-file"
+        "--log-format"
+        "--log-level"
+        "--syslog"
+        "--use-json-log"
+      ];
+      logRoutingArgs = lib.filter (
+        arg: lib.any (flag: arg == flag || lib.hasPrefix "${flag}=" arg) logRoutingFlags
+      ) cfg.extraArgs;
+
       syncScript = pkgs.writeShellApplication {
         name = "proton-drive-sync";
         runtimeInputs = [
@@ -386,7 +402,13 @@ _: {
           type = lib.types.listOf lib.types.str;
           default = [ ];
           example = [ "--bwlimit=2M" ];
-          description = "Extra arguments appended to every rclone sync and bisync invocation, not to the down-direction emptiness probe.";
+          description = ''
+            Extra arguments appended to every rclone sync and bisync
+            invocation, not to the down-direction emptiness probe. Arguments
+            that redirect or reshape rclone's log output (`--log-file`,
+            `--log-format`, `--log-level`, `--syslog`, `--use-json-log`) are
+            rejected: safety-abort detection reads the run's own stderr.
+          '';
         };
       };
 
@@ -395,6 +417,13 @@ _: {
         # (proton-drive-sync --resync), so it must exist while the timer is
         # still off; only the units are gated on cfg.enable.
         (lib.mkIf protondriveReady {
+          assertions = [
+            {
+              assertion = logRoutingArgs == [ ];
+              message = "services.protonDriveSync.extraArgs must not redirect or reshape rclone's log output, but carries ${lib.concatStringsSep " " logRoutingArgs}. proton-drive-sync detects rclone's bisync safety abort by matching its ERROR record on the run's stderr; these flags send that record to a file or syslog, drop it below the ERROR threshold, or strip the level prefix, leaving the abort unlatched and the timer repeating the same aborted run every ${cfg.interval}.";
+            }
+          ];
+
           home.packages = [ syncScript ];
         })
 

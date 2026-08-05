@@ -52,6 +52,7 @@
             {
               protonDrive,
               secretsRoot ? ./proton-drive-check-fixtures,
+              extraArgs ? [ ],
             }:
             inputs.home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
@@ -68,7 +69,10 @@
                   programs.rclone.package = rcloneStub;
                   xdg.stateHome = "${root}/state";
                   xdg.configHome = "${root}/config";
-                  services.protonDriveSync.enable = protonDrive.enable;
+                  services.protonDriveSync = {
+                    inherit (protonDrive) enable;
+                    inherit extraArgs;
+                  };
                 }
               ];
               extraSpecialArgs = {
@@ -113,6 +117,16 @@
           disabledHm = mkHm {
             protonDrive = {
               enable = false;
+              authSource = "sops";
+            };
+          };
+
+          # Routing rclone's log away from stderr would leave the abort below
+          # unlatched, so the module must refuse the argument at eval.
+          logRoutedHm = mkHm {
+            extraArgs = [ "--log-file=/tmp/rclone.log" ];
+            protonDrive = {
+              enable = true;
               authSource = "sops";
             };
           };
@@ -230,6 +244,11 @@
         assert lib.assertMsg (lib.all (entry: entry.assertion)
           hm.config.assertions
         ) "hm-apps/proton-drive-sync: the stubbed configuration must satisfy its own assertions";
+        # home-manager throws on the whole configuration when an assertion
+        # fails, so a rejected extraArg reads as an eval failure here.
+        assert lib.assertMsg (
+          !(builtins.tryEval logRoutedHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: --log-file in extraArgs must fail an assertion";
         builtins.deepSeq units drive;
     };
 }
