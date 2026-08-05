@@ -238,6 +238,13 @@ _: {
           fi
           mkdir -p "$state_dir" "$local_path"
 
+          # rclone honours an RCLONE_<FLAG> environment variable for every
+          # flag (fs/config/flags: installFlag reads it before command-line
+          # parsing), so the eval-time extraArgs assertion above is
+          # bypassable from the unit's inherited environment. Clear the
+          # log-routing ones run_bisync depends on to detect the abort.
+          unset RCLONE_LOG_FILE RCLONE_LOG_FORMAT RCLONE_LOG_LEVEL RCLONE_SYSLOG RCLONE_USE_JSON_LOG
+
           extra=(${lib.escapeShellArgs cfg.extraArgs})
           common=(--config ${lib.escapeShellArg "${config.xdg.configHome}/rclone/rclone.conf"} --protondrive-enable-caching=false --transfers=4 --checkers=8 --log-level INFO)
           # The cap protects unattended timer runs. --resync lifts it for a
