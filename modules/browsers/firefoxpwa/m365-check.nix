@@ -112,11 +112,19 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
               [ ! -f "$seq_file" ] || seq=$(<"$seq_file")
               ulid="01STUB$seq"
               printf '%s' "$((seq + 1))" >"$seq_file"
+              # Decoded from the manifest the installer actually built, the way
+              # ./dmail-check.nix's stub does. Taking it from --document-url
+              # would make manifest.scope a copy of a field the installer passes
+              # separately, so the scope assertion could not see a manifest built
+              # with the wrong one, which is the invariant the whole design rests
+              # on: scope is fixed at install time and must be the bare origin.
+              scope=$(printf '%s' "''${manifest_url#*base64,}" | base64 -d | jq -r .scope)
               jq --arg u "$ulid" --arg n "$name" --arg m "$manifest_url" \
                 --arg s "$(normalize "$start_url")" --arg d "$(normalize "$document_url")" \
+                --arg sc "$(normalize "$scope")" \
                 '.sites[$u] = {
                    config: {name: $n, start_url: $s, document_url: $d, manifest_url: $m},
-                   manifest: {scope: $d}
+                   manifest: {scope: $sc}
                  }' "$config_file" >"$config_file.next"
               mv "$config_file.next" "$config_file"
               # Reproduces an install that registers the site and then fails,
@@ -195,6 +203,18 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
           key = "beta";
           name = "Beta";
           url = "https://beta.example/";
+        }
+      ];
+      # Alpha installed straight at a deep URL rather than moved there. The
+      # discriminating case for scope: a start URL equal to its own origin
+      # normalizes to the same string either way, so only an entry installed
+      # below its origin can show whether the manifest carries the origin or the
+      # start URL.
+      deep = mkInstaller [
+        {
+          key = "alpha";
+          name = "Alpha";
+          url = "https://alpha.example/deep/link";
         }
       ];
       # Alpha moved to another origin: refused, because scope is immutable.
@@ -290,6 +310,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             moved=${lib.getExe moved}
             cross_origin=${lib.getExe crossOrigin}
             renamed=${lib.getExe renamed}
+            deep=${lib.getExe deep}
             rekeyed=${lib.getExe rekeyed}
             credentials=${lib.getExe credentials}
             failures=0
@@ -361,6 +382,20 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             else
               echo "PASS  pending record cleared after a successful install"
             fi
+
+            echo
+            echo "-- an entry installed below its origin still scopes to the origin --"
+            reset
+            expect "deep install" "$deep" 0 "installed 'Alpha'"
+            # Scope is fixed at install time and site update cannot rewrite it,
+            # so a manifest built from the start URL rather than the origin
+            # would push every same-origin navigation into the external browser.
+            assert_equal "scope is the origin, not the start URL" \
+              "$(scope_of Alpha)" "https://alpha.example/"
+            assert_equal "the start URL is still the declared one" \
+              "$(start_url_of Alpha)" "https://alpha.example/deep/link"
+            reset
+            "$declared" >/dev/null
 
             echo
             echo "-- rerunning the same generation changes nothing --"
