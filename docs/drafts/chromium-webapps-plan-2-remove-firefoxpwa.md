@@ -188,14 +188,35 @@ Remove the `firefoxpwaEnabled ? false,` and `firefoxpwaPackage ? pkgs.firefoxpwa
 
 In each, delete the `firefoxpwaEnabled` / `firefoxpwaPackage` `lib.attrByPath` lookups, their `inherit` entries in the `mkProfile` argument set, and the `++ lib.optional firefoxpwaEnabled firefoxpwaPackage` on the native-messaging-hosts list together with its comment. The list must keep every other element unchanged.
 
-- [ ] **Step 5: Verify the gecko stack still evaluates**
+- [ ] **Step 5: Verify the edited gecko files still parse**
+
+`nix flake check` cannot pass here, so do not run it. Task 2 deleted
+`modules/browsers/firefoxpwa/` while every host-side reference to it is still in the tree:
+`modules/hosts/common/home-manager-apps.nix` lists `"firefoxpwa"` in `sharedBrowserNames` and its
+`getBrowserModule` throws when the module is absent, `modules/hosts/common/apps-enable.nix` and
+`modules/tpnix/apps-enable.nix` assign `programs.firefoxpwa.*` options that no longer exist, and
+`modules/meta/cache-roots.nix` resolves `programs.firefoxpwa.extended.package`. Task 4 removes all four and runs the
+full check at its Step 8. Running it here reports Task 4's outstanding work as a failure of this task and sends the
+operator into the `_gecko-*.nix` files for an error that is not there.
 
 ```bash
 nix fmt
-nix flake check path:. --accept-flake-config --no-build --offline
+nix-instantiate --parse modules/browsers/_gecko-extension-data.nix \
+  modules/browsers/_gecko-extensions.nix modules/browsers/_gecko-mk-profile.nix \
+  modules/browsers/firefox/home.nix modules/browsers/librewolf/home.nix > /dev/null
 ```
 
-Expected: exit 0. A leftover reference surfaces here as an undefined-variable error.
+Expected: exit 0. That is what this task can prove on its own. A leftover reference in these five files surfaces at
+Task 4 Step 8 as an undefined-variable error.
+
+Tasks 2 and 3 therefore do not evaluate standalone, which this series treats as a defect elsewhere: Task 10 Step 4
+exists so that every phase 3 commit evaluates from a clean checkout. The alternative is to unwire first and delete
+last, which is achievable here, `modules/browsers/firefoxpwa/` reads none of the gecko bindings Task 3 removes, so the
+order 3, 4, 2 would leave every commit evaluating. It is not taken because the removal is one atomic `rip` whose
+recoverability the baseline sweep in Task 2 Step 2 is written against, and because renumbering the phase would
+invalidate the cross-references the other two plan files and the PR body make to these task numbers. The cost is
+bounded and stated: two commits in this phase evaluate only as part of the sequence, and the phase does not merge
+until Task 4 Step 8 passes.
 
 - [ ] **Step 6: Commit**
 
@@ -208,7 +229,8 @@ Removes the PWAsForFirefox management extension entry, the AMO pin reader and it
 add-on (installed only into PWA runtime profiles, never the regular browsers), and the firefoxpwaRuntimePolicies set
 the deleted overlay injected. firefox and librewolf lose the firefoxpwa native-messaging host.
 
-Validation: nix flake check path:. --accept-flake-config --no-build --offline"
+Validation: nix-instantiate --parse over the five edited files. The full flake check runs in the next commit, which
+removes the host-side references that still name the module tree deleted in the previous one."
 ```
 
 ### Task 4: Unwire firefoxpwa from host configuration and CI
