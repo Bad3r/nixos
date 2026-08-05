@@ -893,9 +893,20 @@ Create `modules/browsers/webapps/nixos.nix`:
             environment.etc.${cfg.policyFile}.source = config.sops.templates."webapps-policy".path;
           })
 
-          (lib.mkIf (!usesSops) {
+          (lib.mkIf (!usesSops && policyApps != { }) {
             # policyApps holds no secret origin in this branch, so
             # originPlaceholder is never called and the file needs no template.
+            #
+            # Guarded on a non-empty set: _policy.nix always emits
+            # AudioCaptureAllowed, VideoCaptureAllowed and ScreenCaptureAllowed
+            # as false, and those three keys exist nowhere in
+            # _chromium-hardening.nix, which carries only Default*Setting = 2
+            # for the non-capture permissions. Writing the file for an empty
+            # app set therefore denies mic, camera and screen share with no
+            # prompt across every Brave-family profile, the daily driver
+            # included, with no app benefiting and no launcher installed. That
+            # is the state a host reaches when every app has an originSecret
+            # and the secrets file is absent.
             environment.etc.${cfg.policyFile}.text = builtins.toJSON policy;
           })
 
@@ -903,7 +914,12 @@ Create `modules/browsers/webapps/nixos.nix`:
             warnings = [
               "programs.webapps: ${toString cfg.secretsFile} is missing, so ${
                 lib.concatStringsSep ", " (lib.attrNames secretApps)
-              } are absent from the policy. Every app with a literal URL keeps its permission grants."
+              } are absent from the policy. ${
+                if policyApps == { } then
+                  "No app is left, so ${cfg.policyFile} is not written at all."
+                else
+                  "Every app with a literal URL keeps its permission grants."
+              }"
             ];
           })
         ]
@@ -2115,7 +2131,9 @@ Create `modules/browsers/webapps/policy-check.nix`:
   - The generated policy against a committed fixture, so a permission silently
     appearing or disappearing from an app is a diff rather than a surprise at
     the next switch.
-  - Disjointness against _chromium-hardening.nix. Both files land in
+  - Disjointness against everything brave-origin/apps.nix writes, which is
+    _chromium-hardening.nix's policies merged with managedDefaultSearchProvider,
+    not the hardening half alone. Both files land in
     /etc/brave/policies/managed, and Chromium's config-dir loader lets one file
     win a repeated key outright rather than merging it, so a key named in both
     silently loses one file's value.
@@ -2140,7 +2158,16 @@ Create `modules/browsers/webapps/policy-check.nix`:
           inherit (checkApps) policy;
           withDefaults = checkApps.apps;
 
-          hardening = (import ../_chromium-hardening.nix).policies;
+          # The merged set, not just the hardening half. What lands next to
+          # webapps.json is policies // managedDefaultSearchProvider (Task 8
+          # Step 1), so comparing against policies alone leaves the seven
+          # DefaultSearchProvider* keys outside the eval-time invariant, and
+          # only Task 18 Step 1's post-switch comm would catch a collision
+          # there. Both sources are pure imports, so closing it costs one
+          # expression.
+          hardening =
+            (import ../_chromium-hardening.nix).policies
+            // (import ../_chromium-policies.nix).managedDefaultSearchProvider;
           overlap = lib.intersectLists (lib.attrNames policy) (lib.attrNames hardening);
 
           # Every allowlist, paired with the permission that fills it.
@@ -2924,10 +2951,9 @@ Expected: two files listed, and `comm` produces no output.
 under a fifth of the set it asked the operator to compare, against a second list they also had to scan. Disjointness
 is the invariant this plan calls the most important one, and this is its only runtime check.
 
-It is also the only place the search-provider half is checked at all. `policy-check.nix` asserts `_policy.nix`
-against `(import ../_chromium-hardening.nix).policies`, while the file actually written is
-`policies // managedDefaultSearchProvider`, so those seven `DefaultSearchProvider*` keys sit outside the eval-time
-invariant. They do not collide today, and `comm` is what would say so if that changed.
+This confirms on a real host what `policy-check.nix` asserts at eval time. That check compares `_policy.nix` against
+`policies // managedDefaultSearchProvider`, the same merge `brave-origin/apps.nix` writes, so the seven
+`DefaultSearchProvider*` keys are inside the invariant rather than only covered here after the switch.
 
 - [ ] **Step 2: Confirm the policy actually applied**
 
