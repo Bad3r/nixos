@@ -810,21 +810,35 @@ Create `modules/browsers/webapps/nixos.nix`:
 
       config = lib.mkIf cfg.enable (
         let
+          secretApps = lib.filterAttrs (_: app: app.originSecret != null) cfg.apps;
+          secretsPresent = cfg.secretsFile != null && builtins.pathExists cfg.secretsFile;
+
+          # Only a secret origin needs sops. Without one the policy is rendered
+          # straight into /etc and the module carries no sops dependency.
+          usesSops = secretApps != { } && secretsPresent;
+
+          # A missing secrets file costs only the apps whose origin is a secret.
+          # Dropping the whole file instead would take the literal-URL apps'
+          # grants with it, leaving them under _chromium-hardening.nix's
+          # Default*Setting = 2 blocks with no allowlist to open them: Outlook
+          # and Teams would lose notifications, Teams mic and camera.
+          policyApps =
+            if usesSops then cfg.apps else lib.filterAttrs (_: app: app.originSecret == null) cfg.apps;
+
           policy = import ./_policy.nix {
             inherit lib;
-            inherit (cfg) apps defaultExtensions;
+            apps = policyApps;
+            inherit (cfg) defaultExtensions;
             inherit (import ./_keepalive-key.nix) keepAliveExtensionId;
             originPlaceholder = key: config.sops.placeholder."webapps/${key}/origin";
           };
-
-          secretApps = lib.filterAttrs (_: app: app.originSecret != null) cfg.apps;
-          secretsPresent = cfg.secretsFile != null && builtins.pathExists cfg.secretsFile;
         in
         lib.mkMerge [
           {
             # Ungated: a host without the secrets submodule still gets the
-            # browser. Only the policy file depends on sops being able to
-            # resolve the secret origins.
+            # browser. Nothing else here depends on sops either; a missing
+            # secrets file costs only the apps whose origin is a secret, and
+            # the rest keep their policy entries through policyApps.
             environment.systemPackages = [ cfg.package ];
 
             assertions = lib.mapAttrsToList (key: app: {
@@ -860,7 +874,7 @@ Create `modules/browsers/webapps/nixos.nix`:
             ];
           }
 
-          (lib.mkIf (secretApps == { } || secretsPresent) {
+          (lib.mkIf usesSops {
             sops.secrets = lib.mapAttrs' (
               key: app:
               lib.nameValuePair "webapps/${key}/origin" {
@@ -878,9 +892,17 @@ Create `modules/browsers/webapps/nixos.nix`:
             environment.etc.${cfg.policyFile}.source = config.sops.templates."webapps-policy".path;
           })
 
-          (lib.mkIf (secretApps != { } && cfg.secretsFile != null && !secretsPresent) {
+          (lib.mkIf (!usesSops) {
+            # policyApps holds no secret origin in this branch, so
+            # originPlaceholder is never called and the file needs no template.
+            environment.etc.${cfg.policyFile}.text = builtins.toJSON policy;
+          })
+
+          (lib.mkIf (secretApps != { } && !secretsPresent) {
             warnings = [
-              "programs.webapps: ${toString cfg.secretsFile} is missing; skipping the web app policy and launchers."
+              "programs.webapps: ${toString cfg.secretsFile} is missing, so ${
+                lib.concatStringsSep ", " (lib.attrNames secretApps)
+              } are absent from the policy. Every app with a literal URL keeps its permission grants."
             ];
           })
         ]
@@ -1650,6 +1672,17 @@ Create `modules/browsers/webapps/home.nix`:
       secretApps = lib.filterAttrs (_: app: app.urlSecret != null) apps;
       needsSecrets = secretApps != { };
 
+      # A missing gecko.yaml costs only the apps that need it. Every other app
+      # carries a literal URL from _catalog.nix and has no dependency on the
+      # secrets submodule, so gating the whole set on one app's secret would
+      # leave the host with the browser nixos.nix installs and no launcher for
+      # anything, which is the shape ungating environment.systemPackages was
+      # meant to avoid.
+      usableApps =
+        if geckoFileExists then apps else lib.filterAttrs (_: app: app.urlSecret == null) apps;
+
+      usableSecretApps = lib.filterAttrs (_: app: app.urlSecret != null) usableApps;
+
       mkReloadExtension = pkgs.callPackage ./_reload-extension.nix { };
 
       resolveIcon =
@@ -1773,13 +1806,15 @@ Create `modules/browsers/webapps/home.nix`:
           inherit browserLauncher;
           entry = if app.tray.enable then mkTrayLauncher key app browserLauncher else browserLauncher;
         }
-      ) apps;
+      ) usableApps;
 
-      active = enabled && (!needsSecrets || geckoFileExists);
+      active = enabled && usableApps != { };
     in
     {
       config = lib.mkMerge [
         (lib.mkIf active {
+          # usableSecretApps, not secretApps: when gecko.yaml is missing this is
+          # empty, so the module never names a sopsFile that is not there.
           sops.secrets = lib.mapAttrs' (
             key: app:
             lib.nameValuePair "webapps/${key}/url" {
@@ -1787,7 +1822,7 @@ Create `modules/browsers/webapps/home.nix`:
               key = app.urlSecret;
               mode = "0400";
             }
-          ) secretApps;
+          ) usableSecretApps;
 
           # Both are installed: the tray wrapper is what the desktop entry runs,
           # and the plain launcher stays on PATH so an i3 binding or a shell can
@@ -1807,7 +1842,7 @@ Create `modules/browsers/webapps/home.nix`:
             settings = {
               StartupWMClass = "WebApp-${key}";
             };
-          }) apps;
+          }) usableApps;
 
           # Created before first launch so a profile never inherits a permissive
           # umask. Same treatment and ordering as modules/home/gecko-secrets.nix.
@@ -1819,13 +1854,15 @@ Create `modules/browsers/webapps/home.nix`:
                 ''
                 + lib.concatMapStrings (key: ''
                   install -d -m 700 ${lib.escapeShellArg "${dataRoot}/${key}"}
-                '') (lib.attrNames apps)
+                '') (lib.attrNames usableApps)
               );
         })
 
         (lib.mkIf (enabled && needsSecrets && !geckoFileExists) {
           warnings = [
-            "programs.webapps declares an app with a secret URL but ${toString geckoFile} is missing; skipping the web app launchers."
+            "programs.webapps: ${toString geckoFile} is missing, so ${
+              lib.concatStringsSep ", " (lib.attrNames secretApps)
+            } have no launcher. Every app with a literal URL is unaffected."
           ];
         })
       ];
@@ -2347,11 +2384,20 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
           };
 
           packageNames = map (p: p.name or "") hm.config.home.packages;
+          noGeckoPackageNames = map (p: p.name or "") noGecko.config.home.packages;
         in
         assert lib.assertMsg (lib.any (lib.hasInfix "gecko.yaml is missing") noGecko.config.warnings)
           "browsers/webapps-module-eval: a missing gecko.yaml must warn";
         assert lib.assertMsg (noGecko.config.sops.secrets == { })
           "browsers/webapps-module-eval: a missing gecko.yaml must not declare sops secrets";
+        assert lib.assertMsg (lib.elem "webapp-plain" noGeckoPackageNames && lib.elem "webapp-trayed-tray" noGeckoPackageNames)
+          "browsers/webapps-module-eval: a missing gecko.yaml must keep the launchers for apps with a literal url";
+        assert lib.assertMsg (!lib.elem "webapp-secret" noGeckoPackageNames)
+          "browsers/webapps-module-eval: a missing gecko.yaml must drop the launcher for an app with urlSecret";
+        assert lib.assertMsg (!builtins.hasAttr "secret" noGecko.config.xdg.desktopEntries)
+          "browsers/webapps-module-eval: a dropped app must not leave a desktop entry pointing at nothing";
+        assert lib.assertMsg (builtins.hasAttr "plain" noGecko.config.xdg.desktopEntries)
+          "browsers/webapps-module-eval: a literal-url app must keep its desktop entry when gecko.yaml is missing";
         assert lib.assertMsg (hm.config.warnings == [ ])
           "browsers/webapps-module-eval: the enabled configuration must not warn";
         assert lib.assertMsg (lib.elem "webapp-plain" packageNames)
@@ -2372,6 +2418,11 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
           packages = packageNames;
           secrets = lib.attrNames hm.config.sops.secrets;
           activation = hm.config.home.activation.ensureWebappProfileDirs;
+          noGecko = {
+            entries = noGecko.config.xdg.desktopEntries;
+            packages = noGeckoPackageNames;
+            activation = noGecko.config.home.activation.ensureWebappProfileDirs;
+          };
           warnings = {
             enabled = hm.config.warnings;
             noGecko = noGecko.config.warnings;
@@ -2665,6 +2716,13 @@ An app whose URL must not enter the Nix store sets `urlSecret` and
 `originSecret`, both keys in `secrets/gecko.yaml`. The launcher reads the URL
 from the decrypted file at launch; the policy carries only the origin, because
 Chromium content-setting patterns are scheme/host/port only and reject a path.
+
+A host without `secrets/gecko.yaml` loses exactly those apps and nothing else.
+The launchers, desktop entries and policy entries for every app with a literal
+URL are built as usual, both scopes emit a warning naming the apps that were
+dropped, and no sops secret or template is declared. Gating the whole set on one
+app's secret would have left such a host with the browser installed and no
+launcher for anything.
 
 ## Where the policy lands
 
