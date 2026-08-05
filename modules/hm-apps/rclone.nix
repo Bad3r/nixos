@@ -61,9 +61,9 @@ _: {
         protondriveAuth.enable
         && protondriveAuth.authSource == "onePassword"
         && lib.all (ref: lib.hasPrefix "op://" ref) protondriveOnePasswordRefs;
+      protondriveSopsSelected = protondriveAuth.enable && protondriveAuth.authSource == "sops";
       protondriveSopsReady =
-        protondriveAuth.enable
-        && protondriveAuth.authSource == "sops"
+        protondriveSopsSelected
         && protondriveSecretExists
         && repoSecretsEnabled
         && protondriveEnvPath != null;
@@ -337,17 +337,28 @@ _: {
             ];
           })
 
-          (lib.mkIf (protondriveSecretExists && (!repoSecretsEnabled)) {
+          # Only the SOPS source needs the secret; under the 1Password source the
+          # system side declares no rclone/protondrive-env path, so an ungated
+          # warning fires while the remote renders fine.
+          (lib.mkIf (protondriveSopsSelected && protondriveSecretExists && (!repoSecretsEnabled)) {
             warnings = [
-              "programs.rclone.extended.enable is true and ${toString protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive remote setup. Manage ~/.config/rclone/rclone.conf manually or enable repo secrets after SOPS decryption is configured."
+              "programs.rclone.extended.protonDrive.authSource is \"sops\" and ${toString protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive remote setup. Manage ~/.config/rclone/rclone.conf manually or enable repo secrets after SOPS decryption is configured."
             ];
           })
 
-          (lib.mkIf (protondriveSecretExists && repoSecretsEnabled && protondriveEnvPath == null) {
-            warnings = [
-              "programs.rclone.extended.enable is true and ${toString protondriveSecretFile} exists, but no system-side rclone/protondrive-env secret path was declared in osConfig; skipping protondrive remote setup."
-            ];
-          })
+          (lib.mkIf
+            (
+              protondriveSopsSelected
+              && protondriveSecretExists
+              && repoSecretsEnabled
+              && protondriveEnvPath == null
+            )
+            {
+              warnings = [
+                "programs.rclone.extended.protonDrive.authSource is \"sops\" and ${toString protondriveSecretFile} exists, but no system-side rclone/protondrive-env secret path was declared in osConfig; skipping protondrive remote setup."
+              ];
+            }
+          )
         ]
       );
     };
