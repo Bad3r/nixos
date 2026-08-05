@@ -78,7 +78,7 @@
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
               connectScript = enrolled.config.systemd.services.cloudflare-warp-connect.script;
-              restartTriggers = enrolled.config.systemd.services.cloudflare-warp-connect.restartTriggers;
+              restartTriggers = enrolled.config.systemd.services.cloudflare-warp.restartTriggers;
             };
           unenrolledAttrs =
             assert lib.assertMsg (
@@ -86,7 +86,8 @@
             ) "apps/cloudflare-warp-module-eval: un-enrolled branch must not declare organization secret";
             {
               connectScript = unenrolled.config.systemd.services.cloudflare-warp-connect.script;
-              restartTriggers = unenrolled.config.systemd.services.cloudflare-warp-connect.restartTriggers;
+              execStartPre = unenrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
+              restartTriggers = unenrolled.config.systemd.services.cloudflare-warp.restartTriggers;
               warnings = unenrolled.config.warnings;
             };
         in
