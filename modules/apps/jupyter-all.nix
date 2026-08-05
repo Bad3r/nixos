@@ -96,10 +96,12 @@ let
           # the bare argv[0] "python". Linking that subpath would export it, and
           # outside the wrapper it resolves through PATH to
           # programs.python.extended's hiPrio pkgs.python3, which has no
-          # ipykernel. sessionVariables feeds /etc/pam/environment, so editors
-          # started from the desktop inherit it, and environment.variables for
-          # shells.
-          sessionVariables.JUPYTER_PATH = [ "${kernelspecs}/share/jupyter" ];
+          # ipykernel. Publish the generated directory through a stable /etc
+          # symlink so an existing PAM session does not retain a collectable
+          # store path after a generation switch. The session variable feeds
+          # /etc/pam/environment, and environment.variables feeds shells.
+          etc."jupyter-all-kernelspecs".source = kernelspecs;
+          sessionVariables.JUPYTER_PATH = "/etc/jupyter-all-kernelspecs/share/jupyter";
         };
       };
     };
