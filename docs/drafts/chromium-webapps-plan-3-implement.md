@@ -2762,9 +2762,20 @@ git add secrets
 
 # The gitlink has to have moved, and the revision it names has to be on the remote.
 git diff --cached --submodule=short -- secrets
-[ "$(git -C secrets rev-parse HEAD)" = "$(git -C secrets ls-remote origin main | cut -f1)" ] \
-  || { echo "secrets: origin/main does not carry this commit; the push did not land" >&2; exit 1; }
+if [ "$(git -C secrets rev-parse HEAD)" = "$(git -C secrets ls-remote origin main | cut -f1)" ]; then
+  echo "SECRETS-PUSHED: origin/main carries this commit"
+else
+  echo "STOP: origin/main does not carry this commit; the push did not land." >&2
+fi
+```
 
+Read that output before running the next block. `git diff --cached --submodule=short -- secrets` must print a
+`-Subproject commit` / `+Subproject commit` pair, and the check must print `SECRETS-PUSHED`. The two are a separate
+block on purpose: the commit below is the point of no return for the gitlink, and this step is pasted rather than
+sourced, so an `exit 1` here would close the operator's shell and discard the rest of the buffer with `secrets`
+already staged.
+
+```bash
 git commit -m "feat(webapps): install DMail with a secret start URL
 
 gecko_work_bookmark_url_1 already held the URL; gecko_work_bookmark_origin_1 is new because Chromium content-setting
@@ -2790,7 +2801,7 @@ but that only applies under `--remote`. On a detached HEAD a bare `git push` abo
 branch", and `git status --short --branch` prints `## HEAD (no branch)`, which carries no `ahead` field at all: a
 check that passes when `ahead` is absent passes precisely when the push did not happen. A branch with no configured
 upstream fails the same way, printing `## main`. Hence `push origin HEAD:main`, which works from either state, and an
-`ls-remote` comparison that fails loudly. Without it the step reports success while the superproject commit names a
+`ls-remote` comparison that reports rather than infers. Without it the step reports success while the superproject commit names a
 revision no clone can fetch, and the failure surfaces at the next clean checkout or in CI, where `nixos.nix` resolves
 `originSecret` against a `gecko.yaml` that lacks the key: sops-nix cannot render `webapps-policy`, and DMail's
 launcher opens a URL the policy grants nothing to.
