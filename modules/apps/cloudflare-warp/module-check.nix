@@ -38,7 +38,14 @@
               if builtins.hasAttr name module then module.${name} else findModule name (module.imports or [ ])
             else
               null;
-          warpModule = findModule "cloudflare-warp" config.flake.nixosModules.apps;
+          warpModule =
+            let
+              found = findModule "cloudflare-warp" config.flake.nixosModules.apps;
+            in
+            assert lib.assertMsg (
+              found != null
+            ) "apps/cloudflare-warp-module-eval: cloudflare-warp app export is missing";
+            found;
           mkNixos =
             { secretsRoot }:
             inputs.nixpkgs.lib.nixosSystem {
@@ -84,6 +91,17 @@
             assert lib.assertMsg (
               !builtins.hasAttr "cloudflare-warp/organization" unenrolled.config.sops.secrets
             ) "apps/cloudflare-warp-module-eval: un-enrolled branch must not declare organization secret";
+            assert
+              let
+                connectScript = unenrolled.config.systemd.services.cloudflare-warp-connect.script;
+                beforeConnect = lib.head (lib.splitString "warp-cli --accept-tos connect" connectScript);
+              in
+              lib.assertMsg
+                (
+                  lib.hasInfix "<4>cloudflare-warp-connect: device is UN-ENROLLED" beforeConnect
+                  && lib.hasInfix "exit 0" beforeConnect
+                )
+                "apps/cloudflare-warp-module-eval: un-enrolled connect script must warn and exit before warp-cli connect";
             {
               connectScript = unenrolled.config.systemd.services.cloudflare-warp-connect.script;
               execStartPre = unenrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;

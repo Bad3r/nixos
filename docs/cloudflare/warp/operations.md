@@ -22,7 +22,7 @@ seconds. The worst-case run is about 130 seconds, inside the unit's explicit
 or when requests succeed but the final status remains disconnected, logging
 `tunnel is not connected after <n> attempts`; use `warp-cli status` rather than
 the unit state to confirm the tunnel is up.
-Without the sops secret, it logs UN-ENROLLED and exits without connecting.
+Without the sops secret, it logs UN-ENROLLED at warning priority and exits without connecting.
 
 Confirm WARP is carrying traffic:
 
@@ -72,7 +72,8 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
   cap, and the oneshot has an explicit 180-second start timeout. The final
   `warp-cli status` output is logged; if no request succeeds, or requests succeed
   while the status remains disconnected, the `<3>` prefix makes `connect never succeeded` or `tunnel is not connected after <n> attempts` visible to
-  `journalctl -u cloudflare-warp-connect -p err`. Inspect the daemon logs and rerun:
+  `journalctl -u cloudflare-warp-connect -p err`. The `<4>` UN-ENROLLED notice is visible to
+  `journalctl -u cloudflare-warp-connect -p warning`. Inspect the daemon logs and rerun:
 
   `systemctl restart cloudflare-warp-connect.service`
 

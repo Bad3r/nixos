@@ -50,7 +50,7 @@ let
       # Logged by the connect-on-boot oneshot when the device has no managed
       # mdm.xml. The guard prevents an absent secret from selecting consumer WARP.
       unenrolledGuard = lib.optionalString (!enrolling) ''
-        echo "cloudflare-warp-connect: device is UN-ENROLLED (no managed mdm.xml); not connecting. Create secrets/cloudflare-warp.yaml to enroll."
+        echo "<4>cloudflare-warp-connect: device is UN-ENROLLED (no managed mdm.xml); not connecting. Create secrets/cloudflare-warp.yaml to enroll."
         exit 0
       '';
 
