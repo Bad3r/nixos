@@ -41,8 +41,9 @@
     bypass it; --force-resync also permits an empty source. Normal bisync runs
     pass the same value as rclone's 25-percent deletion check; bisync --resync
     establishes the initial baseline without that check, and --force explicitly
-    bypasses the normal bisync safety abort. Bisync listings live under this
-    module's state directory beside the tuple marker.
+    bypasses the normal bisync safety abort after confirming a nonempty local
+    source. Bisync listings live under this module's state directory beside the
+    tuple marker.
 
     Per-invocation overrides:
       PROTON_DRIVE_LOCAL=/path proton-drive-sync
@@ -54,7 +55,7 @@
     proton-drive-sync            # run the configured sync immediately
     proton-drive-sync --resync   # establish (or rebuild) a nonempty baseline
     proton-drive-sync --force-resync # override the abort cap or permit an empty source
-    proton-drive-sync --force    # retry a bisync safety abort with rclone --force
+    proton-drive-sync --force    # retry a bisync safety abort after confirming the local source
 
   Multi-host caveat:
     services.protonDriveSync.enable is off by default and should be enabled on
@@ -132,6 +133,18 @@ _: {
           if [ "''${#bisync_force[@]}" -gt 0 ] && [ "$direction" != bisync ]; then
             echo "proton-drive-sync: --force is only valid for bisync; use --force-resync for one-way runs." >&2
             exit 2
+          fi
+
+          if [ "''${#bisync_force[@]}" -gt 0 ]; then
+            if [ ! -d "$local_path" ]; then
+              echo "proton-drive-sync: '$local_path' does not exist; refusing --force because recreating it could delete the remote. Mount or populate it before retrying." >&2
+              exit 1
+            fi
+            bisync_entries=$(find -H "$local_path" -mindepth 1 -maxdepth 1 -print -quit)
+            if [ -z "$bisync_entries" ]; then
+              echo "proton-drive-sync: '$local_path' is empty; refusing --force because it disables the bisync deletion guard. Confirm the local source is mounted and populated before retrying." >&2
+              exit 1
+            fi
           fi
 
           if [ "$direction" = "up" ] && [ ! -d "$local_path" ]; then
