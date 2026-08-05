@@ -94,11 +94,13 @@
             assert
               let
                 connectScript = unenrolled.config.systemd.services.cloudflare-warp-connect.script;
-                beforeConnect = lib.head (lib.splitString "warp-cli --accept-tos connect" connectScript);
+                parts = lib.splitString "warp-cli --accept-tos connect" connectScript;
+                beforeConnect = lib.head parts;
               in
               lib.assertMsg
                 (
-                  lib.hasInfix "<4>cloudflare-warp-connect: device is UN-ENROLLED" beforeConnect
+                  lib.length parts > 1
+                  && lib.hasInfix "<4>cloudflare-warp-connect: device is UN-ENROLLED" beforeConnect
                   && lib.hasInfix "exit 0" beforeConnect
                 )
                 "apps/cloudflare-warp-module-eval: un-enrolled connect script must warn and exit before warp-cli connect";
