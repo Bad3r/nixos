@@ -40,10 +40,14 @@
     that abort, --resync retains the cap and --force-resync is required to
     bypass it; --force-resync also permits an empty source. Normal bisync runs
     pass the same value as rclone's 25-percent deletion check; bisync --resync
-    establishes the initial baseline without that check, and --force explicitly
-    bypasses the normal bisync safety abort after confirming a nonempty local
-    source. Bisync listings live under this module's state directory beside the
-    tuple marker.
+    establishes the initial baseline without that check. A tripped bisync safety
+    check leaves both sides untouched and carries no --resync lockout, so the run
+    latches the same tuple instead of recomputing the abort from a full listing
+    every interval; --force releases the latch and propagates the deletions after
+    confirming a nonempty local source, and --resync releases it by rebuilding
+    the baseline as a superset of both sides. Bisync listings live under this
+    module's state directory beside the tuple marker, rooted at xdg.stateHome so
+    the timer and an interactive shell resolve the same path.
 
     Per-invocation overrides:
       PROTON_DRIVE_LOCAL=/path proton-drive-sync
@@ -55,7 +59,7 @@
     proton-drive-sync            # run the configured sync immediately
     proton-drive-sync --resync   # establish (or rebuild) a nonempty baseline
     proton-drive-sync --force-resync # override the abort cap or permit an empty source
-    proton-drive-sync --force    # retry a bisync safety abort after confirming the local source
+    proton-drive-sync --force    # release a latched bisync safety abort after confirming the local source
 
   Multi-host caveat:
     services.protonDriveSync.enable is off by default and should be enabled on
@@ -97,6 +101,7 @@ _: {
           rclonePackage
           pkgs.coreutils
           pkgs.findutils
+          pkgs.gnugrep
         ];
         text = ''
           # The defaults are single-quoted shell literals so metacharacters
@@ -107,7 +112,10 @@ _: {
           remote=''${PROTON_DRIVE_REMOTE:-${lib.escapeShellArg cfg.remote}}
           # shellcheck disable=SC2016
           direction=''${PROTON_DRIVE_DIRECTION:-${lib.escapeShellArg cfg.direction}}
-          state_dir=''${XDG_STATE_HOME:-$HOME/.local/state}/proton-drive-sync
+          # Pinned at eval time like the rclone config below: the systemd user
+          # manager and an interactive shell must never disagree about where
+          # the baseline marker lives, or the timer looks in the wrong root.
+          state_dir=${lib.escapeShellArg "${config.xdg.stateHome}/proton-drive-sync"}
           state_key=$(printf '%s\0%s\0%s' "$direction" "$local_path" "$remote" | sha256sum | cut -c1-16)
           marker="$state_dir/initialized-$state_key"
           aborted="$state_dir/aborted-$state_key"
@@ -184,6 +192,25 @@ _: {
             return "$rc"
           }
 
+          run_bisync() {
+            local rc=0
+            local log
+            log=$(mktemp -t proton-drive-sync-bisync.XXXXXX)
+            rclone bisync "$@" 2>&1 | tee -- "$log" >&2 || rc=$?
+            # rclone's bisync safety checks (excess deletes, all files changed)
+            # set abort without critical, so no listing is invalidated and no
+            # --resync lockout follows: the next timer fire would recompute the
+            # same abort from a full uncached listing of both sides, forever.
+            # Latch instead. "Safety abort" marks exactly the two checks whose
+            # documented release is --force (cmd/bisync/{deltas,operations}.go).
+            if [ "$rc" -ne 0 ] && grep -qF 'Safety abort' -- "$log"; then
+              touch "$aborted"
+              echo "proton-drive-sync: rclone's bisync safety check aborted the run without changing either side; latched the timer off. Confirm '$local_path' is mounted and its deletions are intended, then re-run 'proton-drive-sync --force'." >&2
+            fi
+            rm -f -- "$log"
+            return "$rc"
+          }
+
           case "$direction" in
             up)
               # rclone sync mirrors local -> remote and deletes remote-only
@@ -230,13 +257,21 @@ _: {
                 echo "proton-drive-sync: building bisync baseline (--resync; local side wins conflicts)" >&2
                 rclone bisync "$local_path" "$remote" --resync --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient "''${bisync_force[@]}" "''${common[@]}" "''${extra[@]}"
                 touch "$marker"
+                rm -f -- "$aborted"
               elif [ ! -e "$marker" ]; then
                 echo "proton-drive-sync: no bisync baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed contents." >&2
+                exit 1
+              elif [ -e "$aborted" ] && [ "''${#bisync_force[@]}" -eq 0 ]; then
+                # Clearing the marker would be the wrong stop: --resync merges
+                # both sides into a superset, resurrecting the very deletions
+                # that tripped the check instead of propagating them.
+                echo "proton-drive-sync: the previous bisync hit rclone's safety check and changed nothing; refusing to repeat it every interval. Confirm '$local_path' is mounted and its deletions are intended, then re-run with --force to propagate them (or --resync to rebuild the baseline as a superset of both sides)." >&2
                 exit 1
               else
                 # rclone sync treats --max-delete as an absolute file count,
                 # while bisync treats the same value as a percentage.
-                rclone bisync "$local_path" "$remote" --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient --conflict-resolve=newer --max-delete=25 "''${bisync_force[@]}" "''${common[@]}" "''${extra[@]}"
+                run_bisync "$local_path" "$remote" --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient --conflict-resolve=newer --max-delete=25 "''${bisync_force[@]}" "''${common[@]}" "''${extra[@]}"
+                rm -f -- "$aborted"
               fi
               ;;
             *)
