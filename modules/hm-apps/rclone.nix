@@ -164,13 +164,19 @@ _: {
 
                   # The protondrive backend persists reusable login credentials
                   # in the remote stanza after authentication. Preserve only
-                  # those backend-owned keys when rebuilding from unchanged
-                  # SOPS credentials.
+                  # those backend-owned keys when every SOPS-sourced credential
+                  # that feeds login is unchanged.
                   prevProtonSession=""
                   prevProtonCreds=""
                   currentProtonCreds="$(printf '%s\n%s' "$PROTONDRIVE_USERNAME" "$PROTONDRIVE_PASSWORD")"
+                  if [ -n "''${PROTONDRIVE_OTP_SECRET_KEY:-}" ]; then
+                    currentProtonCreds="$(printf '%s\n%s' "$currentProtonCreds" "$PROTONDRIVE_OTP_SECRET_KEY")"
+                  fi
+                  if [ -n "''${PROTONDRIVE_MAILBOX_PASSWORD:-}" ]; then
+                    currentProtonCreds="$(printf '%s\n%s' "$currentProtonCreds" "$PROTONDRIVE_MAILBOX_PASSWORD")"
+                  fi
                   if [ -r "$renderedConfig" ]; then
-                    prevProtonCreds="$(sed -n '/^\[protondrive\]$/,/^\[/{ s/^username *= *//p; s/^password *= *//p; }' "$renderedConfig")"
+                    prevProtonCreds="$(sed -n '/^\[protondrive\]$/,/^\[/{ s/^username *= *//p; s/^password *= *//p; s/^otp_secret_key *= *//p; s/^mailbox_password *= *//p; }' "$renderedConfig")"
                     if [ "$prevProtonCreds" = "$currentProtonCreds" ]; then
                       prevProtonSession="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^client_uid *=/p; /^client_access_token *=/p; /^client_refresh_token *=/p; /^client_salted_key_pass *=/p; }' "$renderedConfig")"
                     fi
