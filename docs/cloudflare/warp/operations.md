@@ -19,7 +19,8 @@ For an enrolled host, the `cloudflare-warp-connect` oneshot issues
 worst-case run is about 135 seconds, inside the unit's explicit
 `TimeoutStartSec=180`. The oneshot is best-effort: it exits 0 and reaches
 `active (exited)` even when no attempt succeeds, logging `connect never succeeded`,
-so use `warp-cli status` rather than the unit state to confirm the tunnel is up.
+or when the final status is disconnected, logging `tunnel is not connected`; use
+`warp-cli status` rather than the unit state to confirm the tunnel is up.
 Without the sops secret, it logs UN-ENROLLED and exits without connecting.
 
 Confirm WARP is carrying traffic:
@@ -67,10 +68,10 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
   starts. Activation-script hosts decrypt secrets before any unit ordering. The
   connect oneshot waits for the daemon and makes up to 30 retry attempts within
   a 120-second deadline. Each `warp-cli` call has a five-second cap, and the
-  oneshot has an explicit 180-second start timeout. If it logs the error
-  message `connect never succeeded`, the `<3>` prefix makes it visible to
-  `journalctl -u cloudflare-warp-connect -p err`; inspect the daemon logs and
-  rerun:
+  oneshot has an explicit 180-second start timeout. The final `warp-cli status`
+  output is logged; if it reports a disconnected tunnel, or the connection
+  request never succeeds, the `<3>` prefix makes `tunnel is not connected` or
+  `connect never succeeded` visible to `journalctl -u cloudflare-warp-connect -p err`. Inspect the daemon logs and rerun:
 
   `systemctl restart cloudflare-warp-connect.service`
 

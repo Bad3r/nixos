@@ -295,7 +295,13 @@ let
                 if [ -z "$connected" ]; then
                   echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
                 fi
-                timeout 5s warp-cli status || echo "cloudflare-warp-connect: status unavailable"
+                status="$(timeout 5s warp-cli status 2>&1)" || status="status unavailable"
+                echo "cloudflare-warp-connect: $status"
+                case "$status" in
+                  *Disconnected* | *"status unavailable"*)
+                    echo "<3>cloudflare-warp-connect: tunnel is not connected"
+                    ;;
+                esac
               '';
             };
           })
