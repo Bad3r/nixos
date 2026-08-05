@@ -321,7 +321,7 @@ the error before continuing.
 git add modules/browsers/_chromium-hardening.nix modules/browsers/brave/apps.nix
 git commit -m "refactor(browsers): share the Brave hardening policy set
 
-brave-origin needs the same ~80 policies and reads the same /etc/brave/policies directory (confirmed in the binary's
+brave-origin needs the same hardened policy set and reads the same /etc/brave/policies directory (confirmed in the binary's
 own string table), so the set moves out of brave/apps.nix into _chromium-hardening.nix rather than being duplicated.
 Byte-identical output proven by diffing the evaluated managedPolicies before and after.
 
