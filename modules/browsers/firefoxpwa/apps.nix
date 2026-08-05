@@ -136,11 +136,13 @@ let
               place. Moving it to another origin is not: the manifest scope is
               fixed at install time and `firefoxpwa site update` cannot rewrite
               it, so the installer refuses that entry until the site is removed
-              with `firefoxpwa site uninstall`. The user service then reports
-              failure on the switch that moves the entry, on each of the bounded
-              restarts that follow it, and at every login after that. The
-              remaining entries are still installed, so one refusal does not hold
-              up the rest of the suite.
+              with `firefoxpwa site uninstall`. The installer logs the refusal
+              and exits `EX_CONFIG` (78), which the user service treats as a
+              successful, non-restarting exit: the unit stays active rather than
+              failing, does not consume its restart burst, and repeats the
+              refusal at every login until the entry is fixed. The remaining
+              entries are still installed, so one refusal does not hold up the
+              rest of the suite.
 
               Renaming an entry while keeping its `key` is refused on the same
               terms. `name` is the idempotency key, so the installer would
