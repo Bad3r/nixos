@@ -1616,7 +1616,15 @@ Create `modules/browsers/webapps/home.nix`:
         in
         pkgs.writeShellApplication {
           name = "webapp-${key}";
-          runtimeInputs = [ osCfg.package ] ++ lib.optional (app.urlSecret != null) pkgs.coreutils;
+          # coreutils is unconditional: install(1) runs for every app and cat(1)
+          # for the secret-URL ones. writeShellApplication only prepends
+          # runtimeInputs to PATH, so gating it on urlSecret left every other
+          # launcher resolving install from whatever the ambient environment
+          # happened to provide.
+          runtimeInputs = [
+            osCfg.package
+            pkgs.coreutils
+          ];
           text = ''
             install -d -m 700 ${lib.escapeShellArg profileDir}
             exec ${browser} ${lib.concatStringsSep " " args} "$@"
