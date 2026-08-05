@@ -75,18 +75,18 @@ in
           for name in ${lib.escapeShellArgs (lib.attrNames claudeEnv.binary)}; do
             sed -i "/^export $name=/d" "$out/bin/claude"
           done
-          wrapProgram $out/bin/claude \
-            ${binaryEnvFlags}
-          if ! grep -h -q '^#!' "$out"/bin/.claude-wrapped* 2>/dev/null; then
-            echo "claude-code: expected a textual inner wrapper after wrapProgram; the pinned llm-agents wrapper shape changed" >&2
+          if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
+            echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1
           fi
           for name in ${lib.escapeShellArgs (lib.attrNames claudeEnv.binary)}; do
-            if grep -h -qE "^export $name=" "$out"/bin/.claude-wrapped* 2>/dev/null; then
+            if grep -qE "^export $name=" "$out/bin/claude"; then
               echo "claude-code: inner wrapper still exports $name after strip; the pinned llm-agents wrapper shape changed" >&2
               exit 1
             fi
           done
+          wrapProgram $out/bin/claude \
+            ${binaryEnvFlags}
         '';
       });
     in
