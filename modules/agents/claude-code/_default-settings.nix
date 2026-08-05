@@ -166,40 +166,12 @@ let
   # `bash -c` in bashAsk are different rules, and both are live.
   deadAllow = builtins.filter (cmd: builtins.elem cmd bashAsk) bashAllow;
 
-  # Keys retired from existing ~/.claude.json files.
+  # Keys retired from existing ~/.claude/settings.json and ~/.claude.json files.
   retired = {
+    settings = [ ];
     claudeJson = [ "autocheckpointingEnabled" ];
   };
 
-  # UI preferences for ~/.claude.json (merged with existing config in _settings.nix)
-  claudeJsonConfigBase = {
-    hasTrustDialogAccepted = true;
-    hasCompletedProjectOnboarding = true;
-    bypassPermissionsModeAccepted = true;
-    autoCompactEnabled = true; # Auto-compact
-    autoConnectIde = false; # Auto-connect to IDE
-    autoUpdates = false; # Auto-updates
-    claudeInChromeDefaultEnabled = true; # Chrome enabled by default
-    defaultToAgentsView = true; # Open agents view by default
-    diffTool = "diff"; # Diff tool
-    editorMode = "vim"; # Editor mode
-    externalEditorContext = true; # Show last response in external editor
-    preferredNotifChannel = "iterm2_with_bell"; # Notifications
-    theme = "dark"; # Theme
-    verbose = true; # Verbose output
-  };
-  retiredJsonButLive = builtins.filter (
-    name: builtins.hasAttr name claudeJsonConfigBase
-  ) retired.claudeJson;
-in
-assert
-  deadAllow == [ ]
-  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " deadAllow} are in both bashAllow and bashAsk; ask wins, so drop them from bashAllow rather than leaving the two lists disagreeing";
-assert
-  retiredJsonButLive == [ ]
-  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredJsonButLive} are both retired and live; remove the name from retired or claudeJsonConfigBase";
-{
-  inherit claudeJsonConfigBase retired;
   claudeSettingsBase = {
     cleanupPeriodDays = 30;
     # Disables + bash knobs from the shared source
@@ -227,6 +199,42 @@ assert
     terminalProgressBarEnabled = true; # Terminal progress bar
     useAutoModeDuringPlan = false; # Use auto mode during plan
   };
+
+  # UI preferences for ~/.claude.json (merged with existing config in _settings.nix)
+  claudeJsonConfigBase = {
+    hasTrustDialogAccepted = true;
+    hasCompletedProjectOnboarding = true;
+    bypassPermissionsModeAccepted = true;
+    autoCompactEnabled = true; # Auto-compact
+    autoConnectIde = false; # Auto-connect to IDE
+    autoUpdates = false; # Auto-updates
+    claudeInChromeDefaultEnabled = true; # Chrome enabled by default
+    defaultToAgentsView = true; # Open agents view by default
+    diffTool = "diff"; # Diff tool
+    editorMode = "vim"; # Editor mode
+    externalEditorContext = true; # Show last response in external editor
+    preferredNotifChannel = "iterm2_with_bell"; # Notifications
+    theme = "dark"; # Theme
+    verbose = true; # Verbose output
+  };
+  retiredJsonButLive = builtins.filter (
+    name: builtins.hasAttr name claudeJsonConfigBase
+  ) retired.claudeJson;
+  retiredSettingsButLive = builtins.filter (
+    name: builtins.hasAttr name claudeSettingsBase
+  ) retired.settings;
+in
+assert
+  deadAllow == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " deadAllow} are in both bashAllow and bashAsk; ask wins, so drop them from bashAllow rather than leaving the two lists disagreeing";
+assert
+  retiredJsonButLive == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredJsonButLive} are both retired and live; remove the name from retired or claudeJsonConfigBase";
+assert
+  retiredSettingsButLive == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredSettingsButLive} are both retired and live; remove the name from retired or claudeSettingsBase";
+{
+  inherit claudeJsonConfigBase claudeSettingsBase retired;
 
   # === Undocumented settings.json keys (2.1.222 binary schema) ==============
   # Present in the binary's settings schema but absent from the published settings

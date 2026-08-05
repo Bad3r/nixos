@@ -3,8 +3,8 @@
 
   Produces:
     - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
-      ~/.claude.json, preserving user keys while wholly replacing Nix-managed
-      mcpServers entries.
+      ~/.claude.json, preserving user keys while deleting source-declared
+      retired keys and wholly replacing Nix-managed mcpServers entries.
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 
@@ -24,6 +24,12 @@
   claudeDefaults,
 }:
 let
+  retiredSettingsJq = lib.optionalString (claudeDefaults.retired.settings != [ ]) (
+    " | "
+    + lib.concatMapStringsSep " | " (
+      name: "del(.[${builtins.toJSON name}])"
+    ) claudeDefaults.retired.settings
+  );
   retiredEnvJq = lib.optionalString (claudeEnv.retired != [ ]) (
     " | " + lib.concatMapStringsSep " | " (name: "del(.env[${builtins.toJSON name}])") claudeEnv.retired
   );
@@ -67,7 +73,7 @@ in
       | ($existing * $nix)
       | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
       | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
-      | .env = (($existing.env // {}) + ($nix.env // {}))${retiredEnvJq}' \
+      | .env = (($existing.env // {}) + ($nix.env // {}))${retiredEnvJq}${retiredSettingsJq}' \
       "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
       echo "ERROR: jq failed to merge Claude Code settings" >&2
       exit 1
