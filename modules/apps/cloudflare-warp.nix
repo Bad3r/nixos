@@ -39,7 +39,7 @@ let
     let
       cfg = config.programs.cloudflare-warp.extended;
       rootDir = config.services.cloudflare-warp.rootDir;
-      secretsFile = "${secretsRoot}/cloudflare-warp.yaml";
+      secretsFile = secretsRoot + "/cloudflare-warp.yaml";
       haveSecrets = builtins.pathExists secretsFile;
       enrolling = haveSecrets;
       # Gate the sops-install-secrets.service dependency on
