@@ -20,31 +20,43 @@ ______________________________________________________________________
 
 Locked before writing this plan. Do not relitigate during execution.
 
-| Decision        | Choice                                           | Rationale                                                                                                                                                                |
-| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Base browser    | `brave-origin`                                   | Verified reads `/etc/brave/policies` (binary strings); honors `--load-extension` because it is not a `GOOGLE_CHROME_BRANDING` build; already enabled per host.           |
-| Isolation       | per-app `--user-data-dir`                        | Complete cookie and storage separation. NOT extension separation: `ExtensionSettings` is managed policy and therefore browser-wide.                                      |
-| Extensions      | Hybrid                                           | Third-party from the Web Store via `ExtensionSettings` (correct IDs, 1Password native messaging works); only the generated keep-alive extension uses `--load-extension`. |
-| Tray            | kdocker per app                                  | `-i` per-app icon, `-z` keep-running, `-l` iconify on focus loss. Opt-in per app.                                                                                        |
-| Keep-alive      | Generated MV3 extension, reload only when hidden | `chrome.alarms` wakes the service worker; skips the reload when the app window is focused.                                                                               |
-| Secret URLs     | One sops-rendered policy file                    | Avoids Chromium's config-dir merge, where a repeated list policy has one file win outright instead of concatenating.                                                     |
-| PR #435         | Close, salvage the two unrelated fixes           | The compgen and statix fixes are repo-wide and must survive.                                                                                                             |
-| Catalog         | DMail + full M365 including Teams                | Teams was excluded from #435 only because it rejects Gecko.                                                                                                              |
-| Policy scope    | Full hardened set plus webapp entries            | Lifted from `modules/browsers/brave/apps.nix` and shared.                                                                                                                |
-| Policy reach    | Browser-wide, not app-scoped                     | Chromium reads one managed directory per browser. `webapps.json` therefore binds every `brave-origin` instance including the daily driver. Consequences below.           |
-| Keep-alive ID   | Pinned by a committed manifest `key`             | An unpacked extension's ID is a hash of its store path, so it changes every rebuild. A pinned ID is allowlistable in `ExtensionSettings` and stops profile-litter.       |
-| Option shape    | Keyed attrset with submodule                     | Per-key override without rewriting the catalog.                                                                                                                          |
-| NixOS file name | `webapps/nixos.nix`, not `webapps/apps.nix`      | `modules/meta/hooks/apps-catalog-sync.nix` treats every `modules/browsers/*/apps.nix` as a catalog entry and demands a matching `<dir>.extended.enable` line.            |
-| PR structure    | Three PRs                                        | Salvage, remove, implement.                                                                                                                                              |
-| Tests           | Eval checks plus generated-artifact fixtures     | No installer shell exists in this design.                                                                                                                                |
+| Decision        | Choice                                           | Rationale                                                                                                                                                                                               |
+| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Base browser    | `brave-origin`                                   | Verified reads `/etc/brave/policies` (binary strings); honors `--load-extension` because it is not a `GOOGLE_CHROME_BRANDING` build; already enabled per host.                                          |
+| Isolation       | per-app `--user-data-dir`                        | Complete cookie and storage separation. NOT extension separation: `ExtensionSettings` is managed policy and therefore browser-wide.                                                                     |
+| Extensions      | Hybrid                                           | Third-party from the Web Store via `ExtensionSettings` (correct IDs, 1Password native messaging works); only the generated keep-alive extension uses `--load-extension`.                                |
+| Tray            | kdocker per app                                  | `-i` per-app icon, `-z` keep-running, `-l` iconify on focus loss. Opt-in per app.                                                                                                                       |
+| Keep-alive      | Generated MV3 extension, reload only when hidden | `chrome.alarms` wakes the service worker; skips the reload when the app window is focused.                                                                                                              |
+| Secret URLs     | One sops-rendered policy file                    | Avoids Chromium's config-dir merge, where a repeated list policy has one file win outright instead of concatenating.                                                                                    |
+| PR #435         | Close, salvage the two unrelated fixes           | The compgen and statix fixes are repo-wide and must survive.                                                                                                                                            |
+| Catalog         | DMail + full M365 including Teams                | Teams was excluded from #435 only because it rejects Gecko.                                                                                                                                             |
+| Policy scope    | Full hardened set plus webapp entries            | Lifted from `modules/browsers/brave/apps.nix` and shared.                                                                                                                                               |
+| Policy reach    | Browser-wide, not app-scoped                     | Chromium reads one managed directory per browser, and `brave` shares it with `brave-origin`. `webapps.json` therefore binds every Brave-family instance including the daily driver. Consequences below. |
+| Keep-alive ID   | Pinned by a committed manifest `key`             | An unpacked extension's ID is a hash of its store path, so it changes every rebuild. A pinned ID is allowlistable in `ExtensionSettings` and stops profile-litter.                                      |
+| Option shape    | Keyed attrset with submodule                     | Per-key override without rewriting the catalog.                                                                                                                                                         |
+| NixOS file name | `webapps/nixos.nix`, not `webapps/apps.nix`      | `modules/meta/hooks/apps-catalog-sync.nix` treats every `modules/browsers/*/apps.nix` as a catalog entry and demands a matching `<dir>.extended.enable` line.                                           |
+| PR structure    | Three PRs                                        | Salvage, remove, implement.                                                                                                                                                                             |
+| Tests           | Eval checks plus generated-artifact fixtures     | No installer shell exists in this design.                                                                                                                                                               |
 
 ### Consequences of a browser-wide policy
 
 `programs.webapps` writes `/etc/brave/policies/managed/webapps.json`. Chromium
 applies a managed directory per browser, not per profile or per
-`--user-data-dir`, so everything in that file also binds the `brave-origin`
-instance used for general browsing on each host that enables it. Accepted, with
-these effects stated rather than discovered later:
+`--user-data-dir`, and `brave` and `brave-origin` share that one directory,
+which is exactly what Task 8 Step 3's assertion exists to guard. So everything
+in that file binds `brave` as well as the `brave-origin` instance used for
+general browsing on each host that enables webapps, whichever of the two is the
+daily driver. Task 13 turns `programs.webapps.enable` on for every common host
+regardless of which Brave-family build that host installs.
+
+Today `modules/hosts/common/apps-enable.nix` sets `brave.extended.enable` to
+`false`, so the `brave` half is latent. It stops being latent in the one
+configuration Task 8's assertion contemplates: `brave` enabled with
+`brave-origin.extended.enableManagedPolicies` off. Task 18 Step 8 checks
+`brave-origin` only, so a host in that shape gets the promptless capture denial
+in `brave` without the plan's verification noticing.
+
+Accepted, with these effects stated rather than discovered later:
 
 - `AudioCaptureAllowed`, `VideoCaptureAllowed` and `ScreenCaptureAllowed` become
   hard denials with no prompt for all browsing. Only the origins listed in the
@@ -514,9 +526,9 @@ Create `modules/browsers/webapps/nixos.nix`:
       installed into every profile and only interaction is scoped, through
       runtime_blocked_hosts.
     * Permissions are denied browser-wide and granted per origin. Chromium reads
-      one managed directory per browser, so this file also binds the
-      brave-origin instance used for general browsing, not just the web apps.
-      See "Consequences of a browser-wide policy" in the plan.
+      one managed directory per browser and brave shares brave-origin's, so this
+      file also binds general browsing in either Brave-family build, not just
+      the web apps. See "Consequences of a browser-wide policy" in the plan.
     * The whole file is rendered by sops-nix so an app whose origin is a secret
       never has that origin written to the Nix store. Chromium's config-dir
       loader lets one file win a repeated key outright instead of merging, so
@@ -994,9 +1006,10 @@ Create `modules/browsers/webapps/_policy.nix`:
   deny-by-default sits next to the allowlist that opens it.
 
   Everything written here is browser-wide. Chromium applies a managed directory
-  per browser, not per profile or per --user-data-dir, so these keys also bind
-  the brave-origin instance used for general browsing. That is the accepted
-  tradeoff; see "Consequences of a browser-wide policy" in the plan.
+  per browser, not per profile or per --user-data-dir, and brave reads the same
+  directory as brave-origin, so these keys also bind general browsing in either
+  Brave-family build. That is the accepted tradeoff; see "Consequences of a
+  browser-wide policy" in the plan.
 */
 {
   lib,
@@ -2477,9 +2490,10 @@ force-installed set; what is scoped per app is interaction, through
 ## Scope: the policy is browser-wide
 
 Chromium applies a managed policy directory per browser, not per profile and not
-per `--user-data-dir`. Everything `programs.webapps` writes to
-`/etc/brave/policies/managed/webapps.json` therefore also binds the
-`brave-origin` instance used for general browsing.
+per `--user-data-dir`, and `brave` and `brave-origin` share that directory.
+Everything `programs.webapps` writes to
+`/etc/brave/policies/managed/webapps.json` therefore also binds general
+browsing, in whichever of the two this host installs.
 
 What that means in practice:
 
@@ -2841,8 +2855,14 @@ dunstctl history | jq -r '.data[0][] | {appname, summary}' 2>/dev/null | head
 - [ ] **Step 8: Confirm what the browser-wide policy cost**
 
 The denials in `webapps.json` apply to general browsing, so check the daily
-driver rather than assuming. In a plain `brave-origin` window (no
-`--user-data-dir`), open any site that asks for the camera or the microphone.
+driver rather than assuming. In a plain window of whichever Brave-family build
+this host enables (no `--user-data-dir`), open any site that asks for the camera
+or the microphone. Check both if both are installed: they read the same managed
+directory, so `webapps.json` binds `brave` too.
+
+```bash
+rg -n 'brave.*extended.enable' modules/hosts/common/apps-enable.nix
+```
 
 Expected: denied with no prompt. That is the documented behavior, not a bug. If
 it is not acceptable in practice, the follow-up is one of the two options in
@@ -2876,7 +2896,7 @@ ______________________________________________________________________
 
 **Known gaps, stated rather than hidden.**
 
-- **The permission policy is browser-wide, not app-scoped.** Chromium applies a managed directory per browser, so `webapps.json` binds the daily-driver `brave-origin` too: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 18 Step 8. The escape hatches are a `brave` / `brave-origin` split or dropping the capture denies, both follow-ups.
+- **The permission policy is browser-wide, not app-scoped, and the "browser" is the whole Brave family.** Chromium applies a managed directory per browser and `brave` shares `brave-origin`'s, so `webapps.json` binds the daily driver whichever of the two that is: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 18 Step 8. The escape hatches are a `brave` / `brave-origin` split or dropping the capture denies, both follow-ups.
 - **Extensions are not isolated per app.** `--user-data-dir` separates cookies and storage; `ExtensionSettings` is managed policy and therefore browser-wide. `extensions.enable` installs an extension everywhere and scopes only interaction. The phrase "no two apps share cookies, storage or extensions" was wrong and is corrected everywhere it appeared.
 - Geolocation cannot be granted per app. Chromium has no allowlist counterpart to `GeolocationBlockedForUrls`. Documented in `docs/reference/webapps.md` and omitted from the submodule rather than silently accepted and ignored.
 - kdocker is X11 only. This matches the current i3 and lightdm setup (`modules/apps/i3wm/nixos.nix:75`) but would need replacing under Wayland.
