@@ -755,7 +755,7 @@ Create `modules/browsers/webapps/nixos.nix`:
               icon = lib.mkOption {
                 type = lib.types.nullOr lib.types.path;
                 default = null;
-                description = "Tray icon. Falls back to icon, then programs.webapps.defaultTrayIcon.";
+                description = "Tray icon. Falls back to programs.webapps.defaultTrayIcon, then to icon.";
               };
             };
 
