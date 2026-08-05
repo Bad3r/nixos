@@ -63,9 +63,13 @@ let
     USE_BUILTIN_RIPGREP = "0";
   };
 
-  # Names removed from managed settings. These stay out of `settings` and
-  # `all`; activation deletes them from existing files.
-  retired = [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
+  # Names removed from managed environment groups. These stay out of
+  # `settings` and `all`; activation and launch wrappers delete old values.
+  retired = [
+    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE"
+    "CLAUDE_CODE_ENABLE_TELEMETRY"
+    "DISABLE_NON_ESSENTIAL_MODEL_CALLS"
+  ];
   retiredButLive = builtins.filter (
     name: builtins.hasAttr name (binary // bashRuntime // modelRouting // shellOnly)
   ) retired;
