@@ -64,10 +64,17 @@ in
 
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
-          # The pinned llm-agents package still sets this removed legacy name;
-          # clear it in the final wrapper so _env.nix remains authoritative.
+          # The pinned llm-agents package wraps bin/claude before this hook and
+          # still exports the removed legacy name. Strip it from that inner
+          # wrapper before adding the shared binary environment flags.
+          if ! grep -q '^export DISABLE_NON_ESSENTIAL_MODEL_CALLS=' "$out/bin/claude"; then
+            echo "error: pinned claude-code wrapper no longer exports the removed legacy name" >&2
+            exit 1
+          fi
+          sed -i \
+            '/^export DISABLE_NON_ESSENTIAL_MODEL_CALLS=/c\unset DISABLE_NON_ESSENTIAL_MODEL_CALLS' \
+            "$out/bin/claude"
           wrapProgram $out/bin/claude \
-            --unset DISABLE_NON_ESSENTIAL_MODEL_CALLS \
             ${binaryEnvFlags}
         '';
       });
