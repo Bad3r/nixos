@@ -1545,7 +1545,7 @@ Create `modules/browsers/webapps/home.nix`:
 /*
   Web apps: launchers, per-app profiles and tray integration
   Description: Builds one launcher per web app declared in programs.webapps
-  (NixOS scope, ./apps.nix) and registers a desktop entry for it. Each launcher
+  (NixOS scope, ./nixos.nix) and registers a desktop entry for it. Each launcher
   runs the browser against its own --user-data-dir, which is what keeps cookies
   and storage separate between apps and keeps a session usable across launches.
   Extensions are not separated this way: ExtensionSettings is browser-wide, so
@@ -1560,7 +1560,7 @@ Create `modules/browsers/webapps/home.nix`:
   An app whose start URL is a secret reads it from the decrypted file at launch
   rather than having it baked into the launcher, so the URL never enters the
   store. The origin still reaches the managed policy through a separate secret
-  key; see ./apps.nix.
+  key; see ./nixos.nix.
 */
 {
   flake.homeManagerModules.browsers.webapps =
