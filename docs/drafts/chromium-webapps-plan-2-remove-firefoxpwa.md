@@ -381,8 +381,9 @@ Replaced in the following PR by a Chromium web-app module on brave-origin. Plan:
 
 - `nix flake check path:. --accept-flake-config --no-build --offline`
 - `nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel`
-- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/nixos-manual/` and `docs/drafts/`, which hold the
-  manual mirror and this migration plan
+- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/nixos-manual/`, `docs/drafts/` and the
+  `docs/index.md` rows that link them: the manual mirror, this migration plan, and the index entry `docs/AGENTS.md`
+  requires for it
 EOF
 )"
 ```
