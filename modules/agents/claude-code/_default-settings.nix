@@ -362,7 +362,7 @@ assert
   #   attribution = { };                                # [object]
   #
   #   Automatically compact conversation when context fills
-  #   autoCompactEnabled = true;                        # [boolean]
+  #   autoCompactEnabled = true;                        # [boolean] ACTIVE in claudeJsonConfigBase
   #
   #   Auto-compact window size
   #   autoCompactWindow = 0;                            # [number]
@@ -494,7 +494,7 @@ assert
   #   disabledMcpjsonServers = [ ];                     # [array]
   #
   #   Key binding mode for the prompt input
-  #   editorMode = "";                                  # [enum]
+  #   editorMode = "";                                  # [enum]    ACTIVE in claudeJsonConfigBase
   #
   #   When false, the :emoji: shortcode typeahead (the suggestion popup and the
   #   :name: inline replacement) is disabled. When absent or true, it is
@@ -663,7 +663,7 @@ assert
   #   prUrlTemplate = "";                               # [string]
   #
   #   Preferred OS notification channel
-  #   preferredNotifChannel = "";                       # [enum]
+  #   preferredNotifChannel = "";                       # [enum]    ACTIVE in claudeJsonConfigBase
   #
   #   Reduce or disable animations for accessibility (spinner shimmer, flash
   #   effects, etc.)
@@ -779,7 +779,7 @@ assert
   #   teammateMode = "";                                # [enum]
   #
   #   Color theme for the UI
-  #   theme = "";                                       # [union]
+  #   theme = "";                                       # [union]   ACTIVE in claudeJsonConfigBase
   #
   #   Terminal UI renderer. "fullscreen" uses the flicker-free alt-screen
   #   renderer with virtualized scrollback (equivalent to
@@ -795,7 +795,7 @@ assert
   #   ultracode = true;                                 # [boolean]
   #
   #   Show full tool output instead of truncated summaries
-  #   verbose = true;                                   # [boolean]
+  #   verbose = true;                                   # [boolean] ACTIVE in claudeJsonConfigBase
   #
   #   Default transcript view mode on startup
   #   viewMode = "default";                             # [default | verbose | focus]
