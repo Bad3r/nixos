@@ -2702,12 +2702,13 @@ git add modules/browsers/webapps/_catalog.nix modules/browsers/webapps/check-fix
 
 git -C secrets add gecko.yaml
 git -C secrets commit -m "feat(gecko): add gecko_work_bookmark_origin_1 for programs.webapps"
-git -C secrets push
+git -C secrets push origin HEAD:main
 git add secrets
 
 # The gitlink has to have moved, and the revision it names has to be on the remote.
 git diff --cached --submodule=short -- secrets
-git -C secrets status --short --branch | head -1
+[ "$(git -C secrets rev-parse HEAD)" = "$(git -C secrets ls-remote origin main | cut -f1)" ] \
+  || { echo "secrets: origin/main does not carry this commit; the push did not land" >&2; exit 1; }
 
 git commit -m "feat(webapps): install DMail with a secret start URL
 
@@ -2726,10 +2727,18 @@ same step because `flake.nix` sets `self.submodules = true`, so every evaluation
 
 The `nix flake check` above cannot catch either omission: it reads the working tree, where the key is present and
 decryptable, so it passes whether or not the submodule was committed. The two commands after `git add secrets` are
-what catch it. `git diff --cached --submodule=short -- secrets` must print a `-Subproject commit` / `+Subproject commit` pair; empty output means the gitlink did not move. The `status --branch` line must not report `ahead`, which
-would mean the commit exists locally but not on the remote. Without both, the failure surfaces at the next clean
-checkout or in CI, where `nixos.nix` resolves `originSecret` against a `gecko.yaml` that lacks the key: sops-nix
-cannot render `webapps-policy`, and DMail's launcher opens a URL the policy grants nothing to.
+what catch it. `git diff --cached --submodule=short -- secrets` must print a `-Subproject commit` / `+Subproject commit` pair; empty output means the gitlink did not move.
+
+The second one compares against the remote ref rather than reading the local branch state, because
+`git submodule update` leaves `secrets/` on a detached HEAD at the recorded SHA. `.gitmodules` sets `branch = main`,
+but that only applies under `--remote`. On a detached HEAD a bare `git push` aborts with "You are not currently on a
+branch", and `git status --short --branch` prints `## HEAD (no branch)`, which carries no `ahead` field at all: a
+check that passes when `ahead` is absent passes precisely when the push did not happen. A branch with no configured
+upstream fails the same way, printing `## main`. Hence `push origin HEAD:main`, which works from either state, and an
+`ls-remote` comparison that fails loudly. Without it the step reports success while the superproject commit names a
+revision no clone can fetch, and the failure surfaces at the next clean checkout or in CI, where `nixos.nix` resolves
+`originSecret` against a `gecko.yaml` that lacks the key: sops-nix cannot render `webapps-policy`, and DMail's
+launcher opens a URL the policy grants nothing to.
 
 ### Task 17: Document the module and open the PR
 
@@ -3233,6 +3242,6 @@ ______________________________________________________________________
 - Task 15's module check asserted the right things about the wrong behavior. It confirmed that a missing `gecko.yaml` warns and declares no sops secret, both of which held while the guard was also deleting the launchers, desktop entries and policy entries for the seven apps that never needed the secrets submodule. An assertion that a guard's failure path is quiet says nothing about how much it took down; the check now names what has to survive it.
 - Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created two steps earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds.
 - Task 14's `policy-check.nix` derived its independent expectation with `lib.splitString "/" app.url` and no secret branch. Every app in the catalog at that point has a literal `url`, so Task 14 passes; Task 16 adds DMail with `url = null` and `originSecret` set, and the check aborts with `cannot coerce null to a string` as soon as `lib.sort` forces the element. The failure would have surfaced two tasks after the file that caused it. `originOf` now takes the `originSecret` branch, reusing only `_check-apps.nix`'s placeholder constant.
-- Task 16 staged the new secret with `git -C secrets add` and `git add secrets` and no commit inside the submodule, so the gitlink never moved and the superproject recorded the pre-edit revision. Its `nix flake check` reads the working tree, where the key is present, so the step passed while the key stayed local. `self.submodules = true` means the failure lands on the next clean checkout or in CI, one task before the PR opens. The submodule commit and push are part of the step now, with a `git diff --cached --submodule=short` and a `status --branch` line to prove both happened.
+- Task 16 staged the new secret with `git -C secrets add` and `git add secrets` and no commit inside the submodule, so the gitlink never moved and the superproject recorded the pre-edit revision. Its `nix flake check` reads the working tree, where the key is present, so the step passed while the key stayed local. `self.submodules = true` means the failure lands on the next clean checkout or in CI, one task before the PR opens. The submodule commit and push are part of the step now, with a `git diff --cached --submodule=short` for the gitlink and an `ls-remote` comparison for the push. The first attempt at that second check read `git status --short --branch` for an `ahead` field, which is itself an instance of this same pattern: `git submodule update` leaves the submodule on a detached HEAD, where the line reads `## HEAD (no branch)` and carries no `ahead` field, so the check passed exactly when the push had not happened.
 
 **Type consistency.** `key`, `name`, `url`, `urlSecret`, `originSecret`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `nixos.nix`, `_check-apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. Both `originOf` implementations, the generator's in `_policy.nix` and the independent one in `policy-check.nix`, branch on `originSecret` before reading `url`, so an app with a secret origin never reaches `lib.splitString` with a `null`. The `originPlaceholder` argument has the same `key -> string` signature at both call sites (`nixos.nix` and `_check-apps.nix`). `keepAliveExtensionId` is a plain `str` at its three call sites (`nixos.nix`, `_check-apps.nix`, `keepalive-id-check.nix`) and is the value `_reload-extension.nix` bakes into the manifest through `publicKey`.
