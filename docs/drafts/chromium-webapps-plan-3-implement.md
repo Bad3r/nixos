@@ -1662,6 +1662,14 @@ Create `modules/browsers/webapps/home.nix`:
       # kdocker launches and docks the command it is given. A separate wrapper
       # rather than kdocker flags inline in the desktop entry, so the browser
       # arguments are never re-parsed by kdocker's own option handling.
+      #
+      # Arguments are forwarded past the command, because the desktop entry this
+      # wrapper backs is generated with %U and would otherwise drop every URL
+      # handed to it. kdocker takes positional[0] as the app and
+      # positional[1..] as its arguments, and sets
+      # QCommandLineParser::ParseAsPositionalArguments, so nothing after the
+      # command is re-read as a kdocker option (KDocker 6.2,
+      # src/commandlineargs.cpp).
       mkTrayLauncher =
         key: app: browserLauncher:
         let
@@ -1687,7 +1695,7 @@ Create `modules/browsers/webapps/home.nix`:
             browserLauncher
           ];
           text = ''
-            exec kdocker ${lib.concatStringsSep " " args}
+            exec kdocker ${lib.concatStringsSep " " args} "$@"
           '';
         };
 
@@ -1819,7 +1827,9 @@ cat "$traydir/bin/webapp-teams-tray"
 Expected: `webapp-word` is a single `exec` line carrying `--user-data-dir`,
 `--class` and `--app` with no `--load-extension` and no blank continuation;
 `webapp-teams-tray` is a single `exec kdocker` line with `-z -q -l -d 30` and no
-`-i` (every icon default is null until one is set).
+`-i` (every icon default is null until one is set). Both lines end with `"$@"`:
+the desktop entries are generated with `%U`, so a wrapper that stops forwarding
+drops every URL `xdg-open` hands it, silently.
 
 - [ ] **Step 5: Commit**
 
