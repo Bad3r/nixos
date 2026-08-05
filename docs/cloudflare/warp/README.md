@@ -31,10 +31,11 @@ is enabled it:
 3. Renders `/var/lib/cloudflare-warp/mdm.xml` from non-secret options plus sops
    placeholders, and installs it (mode 0600, root) via an `ExecStartPre` right
    before `warp-svc` starts.
-4. For enrolled hosts, sets `networking.firewall.checkReversePath = "loose"`
-   (the WARP interface trips strict reverse-path filtering). Un-enrolled hosts
-   do not receive this WARP-specific relaxation; shared VPN defaults may still
-   set `loose` where applicable.
+4. Leaves `networking.firewall.checkReversePath` to the shared
+   `hosts-common` `vpn-defaults` owner. Hosts using this repository's common
+   baseline receive `loose` for asymmetric VPN routing, and a host firewall
+   module can override it when required. The WARP module does not add a second
+   owner for this setting.
 5. Adds a best-effort `cloudflare-warp-connect` oneshot that waits for the daemon
    and runs `warp-cli connect` on boot when managed enrollment is available. Without
    the secret, it logs the UN-ENROLLED state and exits without connecting.

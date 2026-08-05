@@ -21,7 +21,8 @@
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
     * Secrets (organization/auth_client_id/auth_client_secret) live in secrets/cloudflare-warp.yaml (sops).
-    * Sets networking.firewall.checkReversePath = "loose" (mkDefault) for enrolled hosts; the WARP interface trips strict rp_filter.
+    * Relies on the hosts-common vpn-defaults owner for networking.firewall.checkReversePath;
+      the WARP interface trips strict rp_filter when that shared baseline is overridden.
     * Pairs with per-host enablement in modules/tpnix/cloudflare-warp.nix and modules/system76/cloudflare-warp.nix.
 */
 { config, ... }:
@@ -147,11 +148,6 @@ let
               enable = true;
               inherit (cfg) package udpPort openFirewall;
             };
-
-            # WARP's CloudflareWARP interface trips strict reverse-path filtering.
-            # Only enrolled hosts can connect through WARP; mkDefault lets a host
-            # firewall module override the setting.
-            networking.firewall.checkReversePath = lib.mkIf enrolling (lib.mkDefault "loose");
 
             warnings =
               lib.optional
@@ -281,7 +277,7 @@ let
                 # Best-effort: log the outcome and exit 0 so a user who legitimately
                 # keeps WARP off does not leave the unit failed.
                 if [ -z "$connected" ]; then
-                  echo "cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
+                  echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
                 fi
                 timeout 5s warp-cli status || echo "cloudflare-warp-connect: status unavailable"
               '';

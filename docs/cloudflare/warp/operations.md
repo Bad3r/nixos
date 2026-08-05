@@ -7,17 +7,20 @@ Runtime verification, coexistence checks, and troubleshooting after
 
 ```bash
 systemctl status cloudflare-warp.service          # warp-svc running
-systemctl status cloudflare-warp-connect.service  # oneshot succeeded (active/exited)
+systemctl status cloudflare-warp-connect.service  # oneshot lifecycle (active/exited)
 ls -l /var/lib/cloudflare-warp/mdm.xml            # 0600 root:root, present
 warp-cli registration show                        # enrolled into <team> (non_identity@<team>...)
 warp-cli status                                   # Connected
 ```
 
-For an enrolled host, the `cloudflare-warp-connect` oneshot makes up to 30
-readiness attempts within a 120-second deadline before it issues `warp-cli connect`. Each IPC command is capped at five seconds. Its explicit
-`TimeoutStartSec=180` covers the retry window, final status query, and shell
-overhead, so a fresh boot can take up to three minutes to reach `active (exited)`. Without the sops secret, it logs UN-ENROLLED and exits without
-connecting.
+For an enrolled host, the `cloudflare-warp-connect` oneshot issues
+`warp-cli connect` on every attempt, up to 30 attempts bounded by a
+120-second deadline, with each `warp-cli` call capped at five seconds. The
+worst-case run is about 135 seconds, inside the unit's explicit
+`TimeoutStartSec=180`. The oneshot is best-effort: it exits 0 and reaches
+`active (exited)` even when no attempt succeeds, logging `connect never succeeded`,
+so use `warp-cli status` rather than the unit state to confirm the tunnel is up.
+Without the sops secret, it logs UN-ENROLLED and exits without connecting.
 
 Confirm WARP is carrying traffic:
 
@@ -64,17 +67,20 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
   starts. Activation-script hosts decrypt secrets before any unit ordering. The
   connect oneshot waits for the daemon and makes up to 30 retry attempts within
   a 120-second deadline. Each `warp-cli` call has a five-second cap, and the
-  oneshot has an explicit 180-second start timeout. If it logs `connect never succeeded`, inspect the daemon logs and rerun:
+  oneshot has an explicit 180-second start timeout. If it logs the error
+  message `connect never succeeded`, the `<3>` prefix makes it visible to
+  `journalctl -u cloudflare-warp-connect -p err`; inspect the daemon logs and
+  rerun:
 
   `systemctl restart cloudflare-warp-connect.service`
 
   after enrollment is ready.
 
-- **No connectivity with strict rp_filter.** Enrolled hosts set
-  `networking.firewall.checkReversePath = "loose"` by default. If a host firewall
-  module forces `strict`, the `CloudflareWARP` interface drops return traffic.
-  Un-enrolled hosts do not receive this WARP-specific setting; shared VPN defaults
-  may still apply.
+- **No connectivity with strict rp_filter.** The shared `hosts-common`
+  `vpn-defaults` module sets `networking.firewall.checkReversePath = "loose"`
+  for hosts that opt into the common baseline. If a host firewall module forces
+  `strict`, the `CloudflareWARP` interface drops return traffic. The WARP module
+  does not add a second owner for this setting.
 
 - **DNS resolver conflict.** Full mode (`warp` / `1dot1`) makes WARP the DNS
   resolver. Do not also enable `services.dnscrypt-proxy` or NetworkManager's

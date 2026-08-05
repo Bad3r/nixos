@@ -18,10 +18,11 @@ warp-cli tunnel stats
 curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E '^warp='
 ```
 
-A healthy full-mode deployment shows the daemon running, the connect oneshot as
-`active (exited)`, a `0600 root:root` `mdm.xml`, an enrolled Zero Trust
-registration, `warp-cli status` as connected, and `warp=on` in the Cloudflare
-trace output.
+A healthy full-mode deployment shows the daemon running, the connect oneshot in
+its expected `active (exited)` lifecycle, a `0600 root:root` `mdm.xml`, an
+enrolled Zero Trust registration, `warp-cli status` as connected, and `warp=on`
+in the Cloudflare trace output. The oneshot state alone is not a tunnel health
+check.
 
 ## Control the tunnel
 
