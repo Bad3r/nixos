@@ -157,10 +157,10 @@
           in
           lib.assertMsg
             (
-              m365Unit.Unit.StartLimitIntervalSec
-              >= m365Unit.Unit.StartLimitBurst * (m365Unit.Service.TimeoutStartSec + m365Unit.Service.RestartSec)
+              m365Unit.Unit.StartLimitIntervalSec >= m365Unit.Unit.StartLimitBurst
+              * (m365Unit.Service.TimeoutStartSec + m365Unit.Service.RestartMaxDelaySec)
             )
-            "browsers/firefoxpwa-module-eval: StartLimitIntervalSec must cover StartLimitBurst * (TimeoutStartSec + RestartSec)";
+            "browsers/firefoxpwa-module-eval: StartLimitIntervalSec must cover StartLimitBurst * (TimeoutStartSec + RestartMaxDelaySec)";
         builtins.deepSeq {
           # The whole unit, not selected attributes: a removed binding in its
           # Unit or Install blocks must fail this check too.

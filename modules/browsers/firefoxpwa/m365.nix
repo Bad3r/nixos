@@ -91,10 +91,10 @@ _: {
               # EX_CONFIG refusal is a successful start and still consumes a
               # slot, as does each sd-switch restart the user triggers while
               # fixing the entry. Sized beyond
-              # 5 * (TimeoutStartSec + RestartSec), so a run killed at the
-              # 900-second timeout still counts toward the burst rather than
-              # landing alone in a shorter sliding window.
-              StartLimitIntervalSec = 10800;
+              # 5 * (TimeoutStartSec + RestartMaxDelaySec), so a run killed at
+              # the 900-second timeout still counts toward the burst rather
+              # than landing alone in a shorter sliding window.
+              StartLimitIntervalSec = 6000;
               StartLimitBurst = 5;
             };
             Service = {
@@ -105,12 +105,15 @@ _: {
               # this is what makes a failed one reachable again, since nothing
               # else reruns the unit while the app table is unchanged.
               Restart = "on-failure";
-              # Pace the automatic retries across the start window rather than
-              # burning the whole budget in minutes. Restart=on-failure retries
-              # until the burst is spent, so a corrective switch after
-              # start-limit-hit needs `systemctl --user reset-failed
-              # firefoxpwa-m365` first, as documented in apps.nix.
-              RestartSec = 1080;
+              # Back off automatic retries: the likely config.json race clears
+              # in milliseconds, while slow faults still need pacing across
+              # the start window. Restart=on-failure retries until the burst
+              # is spent, so a corrective switch after start-limit-hit needs
+              # `systemctl --user reset-failed firefoxpwa-m365` first, as
+              # documented in apps.nix.
+              RestartSec = 10;
+              RestartSteps = 4;
+              RestartMaxDelaySec = 300;
               # The installer returns EX_CONFIG (78) for a permanent refusal
               # that needs user action. Treating it as successful prevents
               # Restart=on-failure from burning the retry window automatically
