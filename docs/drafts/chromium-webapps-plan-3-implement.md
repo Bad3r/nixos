@@ -411,6 +411,17 @@ In the header comment, change the Summary bullet `* Exposes the upstream binary 
     * Exposes the upstream binary as `brave-origin` with the shared Brave managed policy set.
 ```
 
+The `brave://policy` line in Options is falsified by this task and has to change with it. It reads
+`Inspect the active policy set after rebuild (empty by default).`, and after Step 1 the default `managedPolicies` is
+`(import ../_chromium-hardening.nix).policies // managedDefaultSearchProvider`, written to
+`/etc/brave/policies/managed/extended.json` whenever `enableManagedPolicies` is on, which is its default. Otherwise
+the header ships saying the set is empty two lines above a new line saying this module generates it, in the file a
+reader checks first:
+
+```
+    brave://policy: Inspect the active policy set after rebuild.
+```
+
 and add to Options:
 
 ```
