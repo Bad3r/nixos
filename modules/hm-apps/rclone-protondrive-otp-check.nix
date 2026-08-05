@@ -73,54 +73,63 @@
             printf 'obscured:%s' "$(cat)"
           '';
 
-          hm = inputs.home-manager.lib.homeManagerConfiguration {
-            inherit pkgs;
-            modules = [
-              # The module declares a sops template for the r2 endpoint
-              # unconditionally, so its options must exist even though
-              # home.r2Secrets.enable is off here.
-              inputs.sops-nix.homeManagerModules.sops
-              config.flake.homeManagerModules.apps.rclone
-              {
-                home = {
-                  username = "hm-smoke";
-                  homeDirectory = "${root}/home";
-                  stateVersion = (lib.importJSON "${inputs.home-manager}/release.json").release;
-                  enableNixpkgsReleaseCheck = false;
-                };
-                programs.home-manager.enable = true;
-                programs.rclone.package = rcloneStub;
-                xdg.configHome = "${root}/config";
-              }
-            ];
-            extraSpecialArgs = {
-              # No secret exists at eval under the op:// source, and a present
-              # one would additionally arm the gdrive and sops branches.
-              secretsRoot = "${./proton-drive-check-fixtures}/missing";
-              osConfig = {
-                security.repoSecrets.enable = true;
-                # Selects "${security.wrapperDir}/op" as the op executable, which
-                # is the only seam the activation script offers for that binary.
-                programs._1password.enable = true;
-                security.wrapperDir = "${opStub}/bin";
-                programs.rclone.extended = {
-                  enable = true;
-                  protonDrive = {
+          mkHm =
+            { mailboxPasswordRef }:
+            inputs.home-manager.lib.homeManagerConfiguration {
+              inherit pkgs;
+              modules = [
+                # The module declares a sops template for the r2 endpoint
+                # unconditionally, so its options must exist even though
+                # home.r2Secrets.enable is off here.
+                inputs.sops-nix.homeManagerModules.sops
+                config.flake.homeManagerModules.apps.rclone
+                {
+                  home = {
+                    username = "hm-smoke";
+                    homeDirectory = "${root}/home";
+                    stateVersion = (lib.importJSON "${inputs.home-manager}/release.json").release;
+                    enableNixpkgsReleaseCheck = false;
+                  };
+                  programs.home-manager.enable = true;
+                  programs.rclone.package = rcloneStub;
+                  xdg.configHome = "${root}/config";
+                }
+              ];
+              extraSpecialArgs = {
+                # No secret exists at eval under the op:// source, and a present
+                # one would additionally arm the gdrive and sops branches.
+                secretsRoot = "${./proton-drive-check-fixtures}/missing";
+                osConfig = {
+                  security.repoSecrets.enable = true;
+                  # Selects "${security.wrapperDir}/op" as the op executable,
+                  # which is the only seam the script offers for that binary.
+                  programs._1password.enable = true;
+                  security.wrapperDir = "${opStub}/bin";
+                  programs.rclone.extended = {
                     enable = true;
-                    authSource = "onePassword";
-                    onePassword = {
-                      usernameRef = "op://check/protondrive/username";
-                      passwordRef = "op://check/protondrive/password";
-                      otpRef = "op://check/protondrive/one-time password";
-                      mailboxPasswordRef = "";
+                    protonDrive = {
+                      enable = true;
+                      authSource = "onePassword";
+                      onePassword = {
+                        usernameRef = "op://check/protondrive/username";
+                        passwordRef = "op://check/protondrive/password";
+                        otpRef = "op://check/protondrive/one-time password";
+                        inherit mailboxPasswordRef;
+                      };
                     };
                   };
                 };
               };
             };
-          };
 
-          activation = hm.config.home.activation.configureRcloneConfig.data;
+          activation = (mkHm { mailboxPasswordRef = ""; }).config.home.activation.configureRcloneConfig.data;
+
+          # A two-password account. Kept separate because the ref is what
+          # decides between opting out and reading a field that must not be
+          # blank, and that is exactly the distinction under test.
+          mailboxActivation =
+            (mkHm { mailboxPasswordRef = "op://check/protondrive/mailbox"; })
+            .config.home.activation.configureRcloneConfig.data;
 
           # RFC 4226 R6 puts the shared secret at 128 bits; this is the 160-bit
           # base32 shape Proton issues.
@@ -159,12 +168,16 @@
             ${activation}
             ACTIVATION_EOF
 
+            cat > "$check_root/activation-mailbox.sh" <<'MAILBOX_ACTIVATION_EOF'
+            ${mailboxActivation}
+            MAILBOX_ACTIVATION_EOF
+
             # writeShellApplication lints the sync script, but an activation
             # entry is a raw string that nothing lints, which is how this branch
             # grew to its current size unchecked. SC1090 is excluded because
             # both env files it names are resolved at run time by design.
             shellcheck --shell=bash --severity=warning --exclude=SC1090 \
-              "$check_root/activation.sh"
+              "$check_root/activation.sh" "$check_root/activation-mailbox.sh"
 
             fail() {
               echo "hm-apps/rclone-protondrive-otp: $1" >&2
@@ -185,6 +198,16 @@
             run_activation() {
               rm -rf -- "$check_root/config"
               run_activation_keeping_config
+            }
+
+            run_mailbox_activation() {
+              rm -rf -- "$check_root/config"
+              rc=0
+              (
+                run() { "$@"; }
+                . "$check_root/activation-mailbox.sh"
+              ) > "$check_root/stdout" 2> "$check_root/stderr" || rc=$?
+              printf '%s' "$rc"
             }
 
             # A seed pasted verbatim into the 1Password field, which is what op
@@ -215,7 +238,7 @@
             for code in 234567 123456 23456723; do
               rc=$(OP_STUB_OTP="$code" run_activation)
               [ "$rc" -ne 0 ] || fail "the rendered six-digit code $code must fail activation"
-              grep -q 'stable TOTP seed' "$check_root/stderr" ||
+              grep -q 'OTP reference did not yield' "$check_root/stderr" ||
                 fail "the rendered code $code must be rejected by the OTP diagnostic"
             done
 
@@ -249,7 +272,7 @@
               fail "an unavailable 1Password must warn"
             # The seed was never read, so reporting it as malformed would turn a
             # transient lock into a failed switch.
-            ! grep -q 'stable TOTP seed' "$check_root/stderr" ||
+            ! grep -q 'OTP reference did not yield' "$check_root/stderr" ||
               fail "an unavailable 1Password must not report an OTP validation failure"
 
             rc=$(OP_STUB_FAIL=1 run_activation)
@@ -278,6 +301,27 @@
             [ "$rc" -eq 0 ] || fail "a rotated password must not fail activation (exit $rc)"
             ! grep -q '^client_uid = ' "$rendered" ||
               fail "a rotated password must drop the session keys"
+
+            # ?attribute=otp renders the code into the URI's own secret=, so
+            # validating only the bare arm would let the same six digits through
+            # by the other shape.
+            rc=$(OP_STUB_OTP="otpauth://totp/Proton:me?secret=234567&issuer=Proton" run_activation)
+            [ "$rc" -ne 0 ] || fail "an otpauth:// URI carrying a rendered code must fail activation"
+            rc=$(OP_STUB_OTP="otpauth://totp/Proton:me?secret=MFRG%3D&issuer=Proton" run_activation)
+            [ "$rc" -ne 0 ] || fail "an otpauth:// URI whose secret= is not decodable base32 must fail activation"
+
+            # A configured mailboxPasswordRef that reads back blank would
+            # otherwise render a stanza that authenticates and then cannot
+            # decrypt. Opting out is an empty ref, which never reaches op read.
+            rc=$(OP_STUB_OTP="$seed" OP_STUB_MAILBOX=mailbox-secret run_mailbox_activation)
+            [ "$rc" -eq 0 ] || fail "a populated mailbox reference must not fail activation (exit $rc)"
+            grep -qxF 'mailbox_password = obscured:mailbox-secret' "$rendered" ||
+              fail "a populated mailbox reference must render mailbox_password"
+
+            rc=$(OP_STUB_OTP="$seed" OP_STUB_MAILBOX="" run_mailbox_activation)
+            [ "$rc" -ne 0 ] || fail "a blank mailbox reference must fail activation"
+            ! grep -q '^\[protondrive\]$' "$rendered" ||
+              fail "a blank mailbox reference must not render a stanza"
 
             touch "$out"
           '';

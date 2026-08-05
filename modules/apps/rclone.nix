@@ -98,7 +98,13 @@ let
             mailboxPasswordRef = lib.mkOption {
               type = lib.types.str;
               default = "";
-              description = "1Password secret reference for the Proton mailbox password, or \"\" on a single-password account.";
+              description = ''
+                1Password secret reference for the Proton mailbox password, or
+                "" on a single-password account. A set reference must resolve to
+                a non-empty value: pointing it at a blank field renders a remote
+                that authenticates and then cannot decrypt, so activation fails
+                instead.
+              '';
             };
           };
         };
