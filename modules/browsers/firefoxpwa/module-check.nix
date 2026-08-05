@@ -143,12 +143,13 @@
           (lib.elem "firefoxpwa-dmail.service" hm.config.systemd.user.services.firefoxpwa-m365.Unit.After)
           "browsers/firefoxpwa-module-eval: the m365 unit must be ordered after the dmail unit";
         builtins.deepSeq {
-          execStart = hm.config.systemd.user.services.firefoxpwa-dmail.Service.ExecStart;
-          environment = hm.config.systemd.user.services.firefoxpwa-dmail.Service.Environment;
+          # The whole unit, not selected attributes: a removed binding in its
+          # Unit or Install blocks must fail this check too.
+          dmail = hm.config.systemd.user.services.firefoxpwa-dmail;
           secretPath = hm.config.sops.secrets."firefoxpwa/dmail/url".path;
-          # The whole unit, not the two attributes dmail names above: this one
-          # also carries the restart policy that gives a failed run its rerun,
-          # and no host enables the toggle, so nothing else would force it.
+          # The whole unit also carries the restart policy that gives a failed
+          # run its rerun, and no host enables the toggle, so nothing else would
+          # force it.
           m365 = hm.config.systemd.user.services.firefoxpwa-m365;
           sessionVariables = {
             inherit (hm.config.home.sessionVariables) FFPWA_USERDATA XDG_DATA_HOME;
