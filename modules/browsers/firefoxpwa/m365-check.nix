@@ -640,6 +640,15 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             assert_equal "record writes leave no temporary" "$(leftover_temps)" ""
 
             echo
+            echo "-- the installer creates the data directory it is given --"
+            # reset pre-creates the directory for every other scenario, so this
+            # is the first-run path that proves the shared builder owns it.
+            rm -rf "$data_dir" "$pinned_xdg_data_home"
+            expect "install into a missing data directory" "$declared" 0 "installed 'Alpha'"
+            assert_equal "the data directory is created 0700" \
+              "$(stat -c %a "$data_dir")" 700
+
+            echo
             if [ "$failures" -ne 0 ]; then
               echo "$failures assertion(s) failed"
               exit 1
