@@ -49,7 +49,7 @@ let
           description = "Whether to enable patchelf.";
         };
 
-        package = lib.mkPackageOption pkgs "patchelf" { };
+        package = lib.mkPackageOption pkgs "patchelfUnstable" { };
       };
 
       config = lib.mkIf cfg.enable {
