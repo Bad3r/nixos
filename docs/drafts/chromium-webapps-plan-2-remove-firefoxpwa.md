@@ -87,6 +87,7 @@ cd "$HOME/trees/nixos/refactor-drop-firefoxpwa"
 
 ```bash
 rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+  | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan' \
   > /tmp/firefoxpwa-before.txt
 wc -l /tmp/firefoxpwa-before.txt
 cut -d: -f1 /tmp/firefoxpwa-before.txt | sort -u | wc -l
@@ -95,6 +96,12 @@ cut -d: -f1 /tmp/firefoxpwa-before.txt | sort -u | wc -l
 `docs/drafts` is excluded throughout this task. The three plan files for this series are themselves in the repo and
 name firefoxpwa on nearly every page, so a sweep that includes them can never reach zero and the removal could never
 be certified complete.
+
+The `docs/index.md` filter is the same exclusion reaching one level further out. `docs/AGENTS.md` requires an index
+row per page, so the index links each of the three plan files by name and one of those names contains the string.
+Only rows pointing at a `chromium-webapps-plan` file are dropped, not the whole file: a row that named a real
+firefoxpwa page would still be reported, and so would that page. A future edit that puts the word back into an index
+summary shows up as an extra hit rather than disappearing, which is the direction this sweep should fail in.
 
 Record the two numbers rather than comparing them against a figure written here: the counts move whenever a draft or
 a workflow is edited, and a stale figure would either mask a missed reference or fail for an unrelated reason. The
@@ -269,7 +276,8 @@ In `pyproject.toml`, delete the `update-firefoxpwa-extension.py` mention from th
 - [ ] **Step 7: Verify nothing references the deleted paths**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts'
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+  | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan'
 ```
 
 Expected: only `docs/architecture/04-home-manager.md` and `docs/reference/binary-cache-coverage.md`, handled in Task 5.
@@ -330,11 +338,13 @@ Expected: a `README.md` diff only if firefoxpwa appeared in generated output. Re
 - [ ] **Step 4: Confirm the reference set is empty**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts'
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+  | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan'
 ```
 
 Expected: no output. The `docs/drafts` exclusion is what makes that reachable: this plan and its two siblings live in
-the repo and name firefoxpwa throughout.
+the repo and name firefoxpwa throughout, and `docs/index.md` links each of them by name. Both exclusions are
+explained at Task 2 Step 2.
 
 - [ ] **Step 5: Validate the host closure still builds**
 
