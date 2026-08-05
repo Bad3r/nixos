@@ -75,7 +75,15 @@ _: {
       renderedRcloneConfig = "${config.xdg.configHome}/rclone/rclone.conf";
       rclonePackage = lib.attrByPath [ "programs" "rclone" "package" ] pkgs.rclone config;
       rcloneExecutable = lib.getExe' rclonePackage "rclone";
-      onePasswordExecutable = lib.getExe' pkgs._1password-cli "op";
+      # The 1Password desktop app authorizes CLI integration by the caller's
+      # effective onepassword-cli group, which only the setgid wrapper from
+      # programs._1password carries; the plain package binary runs without it
+      # and every op read fails. modules/apps/rclone.nix asserts the wrapper
+      # exists whenever the op:// source is selected.
+      onePasswordEnabled = lib.attrByPath [ "programs" "_1password" "enable" ] false osConfig;
+      onePasswordWrapperDir = lib.attrByPath [ "security" "wrapperDir" ] "/run/wrappers/bin" osConfig;
+      onePasswordExecutable =
+        if onePasswordEnabled then "${onePasswordWrapperDir}/op" else lib.getExe' pkgs._1password-cli "op";
       # Ownership guard inputs. The r2-flake Home Manager module declares
       # programs.r2-cloud only when a host policy imports it, so probe with
       # attrByPath instead of reading undeclared options.

@@ -110,6 +110,10 @@ let
               ];
               message = "programs.rclone.extended.protonDrive.authSource = \"onePassword\" requires four non-empty op:// references: usernameRef, passwordRef, otpRef, and mailboxPasswordRef.";
             }
+            {
+              assertion = config.programs._1password.enable;
+              message = "programs.rclone.extended.protonDrive.authSource = \"onePassword\" resolves its op:// references during Home Manager activation, which needs the setgid ${config.security.wrapperDir}/op wrapper declared by programs._1password: the 1Password desktop app authorizes CLI integration by the caller's onepassword-cli group, and no user is a member of it directly. Enable programs.\"1password-cli\".extended or set authSource = \"sops\".";
+            }
           ];
         })
 

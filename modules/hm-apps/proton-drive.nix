@@ -26,9 +26,13 @@
          PROTONDRIVE_PASSWORD=<obscured>
          PROTONDRIVE_OTP_SECRET_KEY=<obscured>      # only if 2FA is enabled
          PROTONDRIVE_MAILBOX_PASSWORD=<obscured>    # only on two-password accounts
-    4. For the 1Password source, the OTP reference must return the stable
-       otpauth:// URI without `?attribute=otp`; the module extracts and obscures
-       its seed. It does not store or request the changing six-digit code.
+    4. For the 1Password source, the desktop app must be running and unlocked
+       with CLI integration turned on: activation resolves the references
+       through the setgid `op` wrapper from `programs._1password`, and the app
+       authorizes that call by its onepassword-cli group. The OTP reference must
+       return the stable otpauth:// URI without `?attribute=otp`; the module
+       extracts and obscures its seed. It does not store or request the changing
+       six-digit code.
        Proton passkeys remain browser-only because the rclone backend logs in
        through the Proton API with username, password, mailbox password, and 2FA.
 
