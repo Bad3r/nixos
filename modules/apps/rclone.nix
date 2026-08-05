@@ -45,11 +45,72 @@ let
         };
 
         package = lib.mkPackageOption pkgs "rclone" { };
+
+        protonDrive = {
+          enable = lib.mkOption {
+            type = lib.types.bool;
+            default = false;
+            description = "Whether to enable the Proton Drive rclone integration.";
+          };
+
+          authSource = lib.mkOption {
+            type = lib.types.enum [
+              "sops"
+              "onePassword"
+            ];
+            default = "onePassword";
+            description = "Credential source for the Proton Drive rclone remote.";
+          };
+
+          onePassword = {
+            usernameRef = lib.mkOption {
+              type = lib.types.str;
+              default = "op://Personal/wi7bkkt6pkphzioobyl2ddpkka/username";
+              description = "1Password secret reference for the Proton username.";
+            };
+
+            passwordRef = lib.mkOption {
+              type = lib.types.str;
+              default = "op://Personal/wi7bkkt6pkphzioobyl2ddpkka/password";
+              description = "1Password secret reference for the Proton login password.";
+            };
+
+            otpRef = lib.mkOption {
+              type = lib.types.str;
+              default = "op://Personal/wi7bkkt6pkphzioobyl2ddpkka/one-time password";
+              description = ''
+                1Password secret reference for the OTP field. The reference must
+                return the otpauth:// URI, without the ?attribute=otp query, so
+                the stable seed can be extracted and rclone can generate codes.
+              '';
+            };
+
+            mailboxPasswordRef = lib.mkOption {
+              type = lib.types.str;
+              default = "op://Personal/zgofe2wyj3j27vetjth7qr4hs4/password";
+              description = "1Password secret reference for the Proton mailbox password.";
+            };
+          };
+        };
       };
 
       config = lib.mkMerge [
         (lib.mkIf cfg.enable {
           environment.systemPackages = [ cfg.package ];
+        })
+
+        (lib.mkIf (cfg.enable && cfg.protonDrive.enable && cfg.protonDrive.authSource == "onePassword") {
+          assertions = [
+            {
+              assertion = lib.all (ref: lib.hasPrefix "op://" ref) [
+                cfg.protonDrive.onePassword.usernameRef
+                cfg.protonDrive.onePassword.passwordRef
+                cfg.protonDrive.onePassword.otpRef
+                cfg.protonDrive.onePassword.mailboxPasswordRef
+              ];
+              message = "programs.rclone.extended.protonDrive.authSource = \"onePassword\" requires four non-empty op:// references: usernameRef, passwordRef, otpRef, and mailboxPasswordRef.";
+            }
+          ];
         })
 
         (lib.mkIf (cfg.enable && gdriveSecretExists && repoSecretsEnabled) {
@@ -74,24 +135,42 @@ let
           ];
         })
 
-        (lib.mkIf (cfg.enable && protondriveSecretExists && repoSecretsEnabled) {
-          sops.secrets."rclone/protondrive-env" = {
-            sopsFile = protondriveSecretFile;
-            format = "dotenv";
-            path = protondriveSecretPath;
-            inherit owner;
-            mode = "0400";
-          };
-        })
+        (lib.mkIf
+          (
+            cfg.enable
+            && cfg.protonDrive.enable
+            && cfg.protonDrive.authSource == "sops"
+            && protondriveSecretExists
+            && repoSecretsEnabled
+          )
+          {
+            sops.secrets."rclone/protondrive-env" = {
+              sopsFile = protondriveSecretFile;
+              format = "dotenv";
+              path = protondriveSecretPath;
+              inherit owner;
+              mode = "0400";
+            };
+          }
+        )
 
-        # Proton Drive is opt-in: a missing secret is the common case (most hosts
-        # do not use it), so no warning fires on absence. Only surface the
-        # actionable case where the secret exists but repo secrets are off.
-        (lib.mkIf (cfg.enable && protondriveSecretExists && (!repoSecretsEnabled)) {
-          warnings = [
-            "programs.rclone.extended.enable is true and ${toString protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive secret materialization. Manage rclone protondrive config manually or enable repo secrets after SOPS decryption is configured."
-          ];
-        })
+        # Proton Drive is separately gated by protonDrive.enable. A missing SOPS
+        # secret is valid while the 1Password source is selected, so only
+        # surface the actionable case where SOPS is explicitly selected.
+        (lib.mkIf
+          (
+            cfg.enable
+            && cfg.protonDrive.enable
+            && cfg.protonDrive.authSource == "sops"
+            && protondriveSecretExists
+            && (!repoSecretsEnabled)
+          )
+          {
+            warnings = [
+              "programs.rclone.extended.protonDrive.enable is true and ${toString protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive secret materialization. Manage rclone protondrive config manually or enable repo secrets after SOPS decryption is configured."
+            ];
+          }
+        )
       ];
     };
 in

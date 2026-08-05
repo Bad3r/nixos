@@ -7,8 +7,9 @@
     * Drives an automatic, periodic Proton Drive sync from a systemd user timer
       plus an on-demand `proton-drive-sync` command for forcing a sync now.
     * The `[protondrive]` rclone remote itself is rendered by the rclone home
-      module (modules/hm-apps/rclone.nix) from the SOPS secret
-      secrets/rclone_protondrive.env; this module only orchestrates syncing.
+      module (modules/hm-apps/rclone.nix) from either the SOPS secret
+      secrets/rclone_protondrive.env or configured 1Password references; this
+      module only orchestrates syncing.
 
   Status caveat:
     The protondrive backend is reverse-engineered (third-party Proton-API-Bridge)
@@ -16,15 +17,20 @@
     of important data. enable_caching is forced off on the remote because Proton's
     change-event system is unimplemented.
 
-  Activation prerequisites (one-time, cannot be automated, see CLAUDE.md flow):
+  Authentication prerequisites (one-time, cannot be automated):
     1. Log into Proton Drive in a browser once so account encryption keys exist.
-    2. `rclone obscure '<login-password>'` (and the same for the TOTP secret and,
-       on two-password accounts, the mailbox password).
-    3. `sops secrets/rclone_protondrive.env` and store:
+    2. Enable `programs.rclone.extended.protonDrive.enable`; the rclone module
+       defaults to the shared 1Password-backed credential references.
+    3. To use the SOPS fallback, set `authSource = "sops"` and obscure and store:
          PROTONDRIVE_USERNAME=you@proton.me
          PROTONDRIVE_PASSWORD=<obscured>
          PROTONDRIVE_OTP_SECRET_KEY=<obscured>      # only if 2FA is enabled
          PROTONDRIVE_MAILBOX_PASSWORD=<obscured>    # only on two-password accounts
+    4. For the 1Password source, the OTP reference must return the stable
+       otpauth:// URI without `?attribute=otp`; the module extracts and obscures
+       its seed. It does not store or request the changing six-digit code.
+       Proton passkeys remain browser-only because the rclone backend logs in
+       through the Proton API with username, password, mailbox password, and 2FA.
 
   Bootstrap and on-demand use:
     The proton-drive-sync CLI is installed whenever the protondrive remote is
@@ -89,8 +95,47 @@ _: {
         "rclone/protondrive-env"
         "path"
       ] null osConfig;
+      protondriveAuth =
+        lib.attrByPath
+          [
+            "programs"
+            "rclone"
+            "extended"
+            "protonDrive"
+          ]
+          {
+            enable = false;
+            authSource = "sops";
+            onePassword = {
+              usernameRef = "";
+              passwordRef = "";
+              otpRef = "";
+              mailboxPasswordRef = "";
+            };
+          }
+          osConfig;
+      protondriveOnePassword = protondriveAuth.onePassword or { };
+      protondriveOnePasswordReady =
+        protondriveAuth.enable
+        && protondriveAuth.authSource == "onePassword"
+        && lib.all (ref: lib.hasPrefix "op://" ref) [
+          (protondriveOnePassword.usernameRef or "")
+          (protondriveOnePassword.passwordRef or "")
+          (protondriveOnePassword.otpRef or "")
+          (protondriveOnePassword.mailboxPasswordRef or "")
+        ];
       protondriveReady =
-        rcloneEnabled && protondriveSecretExists && repoSecretsEnabled && protondriveEnvPath != null;
+        rcloneEnabled
+        && (
+          protondriveOnePasswordReady
+          || (
+            protondriveAuth.enable
+            && protondriveAuth.authSource == "sops"
+            && protondriveSecretExists
+            && repoSecretsEnabled
+            && protondriveEnvPath != null
+          )
+        );
 
       cfg = config.services.protonDriveSync;
       rclonePackage = lib.attrByPath [ "programs" "rclone" "package" ] pkgs.rclone config;
@@ -350,7 +395,7 @@ _: {
           assertions = [
             {
               assertion = protondriveReady;
-              message = "services.protonDriveSync.enable requires the protondrive rclone remote to be ready: programs.rclone.extended.enable and security.repoSecrets.enable must be true, and secrets/rclone_protondrive.env must exist so sops.secrets.\"rclone/protondrive-env\" has a path.";
+              message = "services.protonDriveSync.enable requires the protondrive rclone remote to be ready: enable programs.rclone.extended and programs.rclone.extended.protonDrive, then configure either the SOPS secret secrets/rclone_protondrive.env or four programs.rclone.extended.protonDrive.onePassword op:// references.";
             }
           ];
 

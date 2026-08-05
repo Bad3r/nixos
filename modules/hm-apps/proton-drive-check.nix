@@ -2,16 +2,21 @@
   Check: proton-drive-sync builds, and a bisync safety abort latches the tuple
   (modules/hm-apps/proton-drive.nix).
 
-  home.packages carries the script only when protondriveReady is true, which
-  needs secrets/rclone_protondrive.env. No tracked host ships that file and CI
-  has no secrets submodule at all, so writeShellApplication's shellcheck pass
-  has never run on the script and none of its abort handling has ever executed.
+  home.packages carries the script only when protondriveReady is true. CI has no
+  secrets submodule and no 1Password session, and no `nix flake check` step
+  builds a host toplevel, so writeShellApplication's shellcheck pass had never
+  run on the script and none of its abort handling had ever executed.
 
   Builds a standalone Home Manager configuration the way
   modules/browsers/firefoxpwa/module-check.nix does, with osConfig stubbed to
   make the remote ready and secretsRoot pointed at an in-repo fixture, then
   replaces programs.rclone.package with a stub replaying a scripted exit code
   and stderr so the script's control flow, not rclone, is under test.
+
+  Both credential sources gate the same script, so the op:// source is asserted
+  to install it without any secret present and protonDrive.enable = false to
+  withhold it, keeping protondriveReady's three inputs (rclone, protonDrive,
+  authSource) covered by eval alone.
 
   Runs under the build sandbox's private /tmp because the state root and local
   path are pinned at eval time; the pre-existing-state guard below turns an
@@ -41,31 +46,74 @@
             exit "''${RCLONE_STUB_EXIT:-0}"
           '';
 
-          hm = inputs.home-manager.lib.homeManagerConfiguration {
-            inherit pkgs;
-            modules = [
-              config.flake.homeManagerModules.apps.proton-drive
-              {
-                home = {
-                  username = "hm-smoke";
-                  homeDirectory = "${root}/home";
-                  stateVersion = (lib.importJSON "${inputs.home-manager}/release.json").release;
-                  enableNixpkgsReleaseCheck = false;
+          opRef = field: "op://check/protondrive/${field}";
+
+          mkHm =
+            {
+              protonDrive,
+              secretsRoot ? ./proton-drive-check-fixtures,
+            }:
+            inputs.home-manager.lib.homeManagerConfiguration {
+              inherit pkgs;
+              modules = [
+                config.flake.homeManagerModules.apps.proton-drive
+                {
+                  home = {
+                    username = "hm-smoke";
+                    homeDirectory = "${root}/home";
+                    stateVersion = (lib.importJSON "${inputs.home-manager}/release.json").release;
+                    enableNixpkgsReleaseCheck = false;
+                  };
+                  programs.home-manager.enable = true;
+                  programs.rclone.package = rcloneStub;
+                  xdg.stateHome = "${root}/state";
+                  xdg.configHome = "${root}/config";
+                  services.protonDriveSync.enable = protonDrive.enable;
+                }
+              ];
+              extraSpecialArgs = {
+                osConfig = {
+                  programs.rclone.extended = {
+                    enable = true;
+                    inherit protonDrive;
+                  };
+                  security.repoSecrets.enable = true;
+                  sops.secrets."rclone/protondrive-env".path = "${root}/protondrive-env";
                 };
-                programs.home-manager.enable = true;
-                programs.rclone.package = rcloneStub;
-                xdg.stateHome = "${root}/state";
-                xdg.configHome = "${root}/config";
-                services.protonDriveSync.enable = true;
-              }
-            ];
-            extraSpecialArgs = {
-              osConfig = {
-                programs.rclone.extended.enable = true;
-                security.repoSecrets.enable = true;
-                sops.secrets."rclone/protondrive-env".path = "${root}/protondrive-env";
+                inherit secretsRoot;
               };
-              secretsRoot = ./proton-drive-check-fixtures;
+            };
+
+          installsScript =
+            hmConfig: lib.any (drv: (drv.name or "") == "proton-drive-sync") hmConfig.config.home.packages;
+
+          hm = mkHm {
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
+          # The op:// source authenticates through the activation script at run
+          # time, so no secret exists at eval and secretsRoot must not matter.
+          onePasswordHm = mkHm {
+            secretsRoot = "${./proton-drive-check-fixtures}/missing";
+            protonDrive = {
+              enable = true;
+              authSource = "onePassword";
+              onePassword = {
+                usernameRef = opRef "username";
+                passwordRef = opRef "password";
+                otpRef = opRef "one-time password";
+                mailboxPasswordRef = opRef "mailbox";
+              };
+            };
+          };
+
+          disabledHm = mkHm {
+            protonDrive = {
+              enable = false;
+              authSource = "sops";
             };
           };
 
@@ -156,7 +204,12 @@
         in
         assert lib.assertMsg (
           syncScript != null
-        ) "hm-apps/proton-drive-sync: the stubbed configuration must install proton-drive-sync";
+        ) "hm-apps/proton-drive-sync: the sops source must install proton-drive-sync";
+        assert lib.assertMsg (installsScript onePasswordHm)
+          "hm-apps/proton-drive-sync: op:// references must install proton-drive-sync with no secret present";
+        assert lib.assertMsg (
+          !installsScript disabledHm
+        ) "hm-apps/proton-drive-sync: protonDrive.enable = false must withhold proton-drive-sync";
         assert lib.assertMsg (lib.all (entry: entry.assertion)
           hm.config.assertions
         ) "hm-apps/proton-drive-sync: the stubbed configuration must satisfy its own assertions";

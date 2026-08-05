@@ -10,6 +10,7 @@ _: {
       config,
       osConfig,
       lib,
+      pkgs,
       secretsRoot,
       ...
     }:
@@ -30,12 +31,51 @@ _: {
         "rclone/protondrive-env"
         "path"
       ] null osConfig;
-      protondriveReady = protondriveSecretExists && repoSecretsEnabled && protondriveEnvPath != null;
+      protondriveAuth =
+        lib.attrByPath
+          [
+            "programs"
+            "rclone"
+            "extended"
+            "protonDrive"
+          ]
+          {
+            enable = false;
+            authSource = "sops";
+            onePassword = {
+              usernameRef = "";
+              passwordRef = "";
+              otpRef = "";
+              mailboxPasswordRef = "";
+            };
+          }
+          osConfig;
+      protondriveOnePassword = protondriveAuth.onePassword or { };
+      protondriveOnePasswordRefs = [
+        (protondriveOnePassword.usernameRef or "")
+        (protondriveOnePassword.passwordRef or "")
+        (protondriveOnePassword.otpRef or "")
+        (protondriveOnePassword.mailboxPasswordRef or "")
+      ];
+      protondriveOnePasswordReady =
+        protondriveAuth.enable
+        && protondriveAuth.authSource == "onePassword"
+        && lib.all (ref: lib.hasPrefix "op://" ref) protondriveOnePasswordRefs;
+      protondriveSopsReady =
+        protondriveAuth.enable
+        && protondriveAuth.authSource == "sops"
+        && protondriveSecretExists
+        && repoSecretsEnabled
+        && protondriveEnvPath != null;
+      protondriveReady = protondriveSopsReady || protondriveOnePasswordReady;
       r2SecretFile = secretsRoot + "/r2.yaml";
       r2SecretExists = builtins.pathExists r2SecretFile;
       r2SecretsEnabled = lib.attrByPath [ "home" "r2Secrets" "enable" ] false config;
       r2EndpointAvailable = r2SecretsEnabled && r2SecretExists;
       renderedRcloneConfig = "${config.xdg.configHome}/rclone/rclone.conf";
+      rclonePackage = lib.attrByPath [ "programs" "rclone" "package" ] pkgs.rclone config;
+      rcloneExecutable = lib.getExe' rclonePackage "rclone";
+      onePasswordExecutable = lib.getExe' pkgs._1password-cli "op";
       # Ownership guard inputs. The r2-flake Home Manager module declares
       # programs.r2-cloud only when a host policy imports it, so probe with
       # attrByPath instead of reading undeclared options.
@@ -80,7 +120,16 @@ _: {
               gdriveEnabled=${lib.boolToString gdriveReady}
               gdriveEnvPath=${lib.escapeShellArg (if gdriveReady then gdriveEnvPath else "")}
               protondriveEnabled=${lib.boolToString protondriveReady}
-              protondriveEnvPath=${lib.escapeShellArg (if protondriveReady then protondriveEnvPath else "")}
+              protondriveEnvPath=${lib.escapeShellArg (if protondriveSopsReady then protondriveEnvPath else "")}
+              protondriveAuthSource=${lib.escapeShellArg protondriveAuth.authSource}
+              protondriveUsernameRef=${lib.escapeShellArg (protondriveOnePassword.usernameRef or "")}
+              protondrivePasswordRef=${lib.escapeShellArg (protondriveOnePassword.passwordRef or "")}
+              protondriveOtpRef=${lib.escapeShellArg (protondriveOnePassword.otpRef or "")}
+              protondriveMailboxPasswordRef=${
+                lib.escapeShellArg (protondriveOnePassword.mailboxPasswordRef or "")
+              }
+              opExecutable=${lib.escapeShellArg onePasswordExecutable}
+              rcloneExecutable=${lib.escapeShellArg rcloneExecutable}
 
               run mkdir -p "$renderedDir"
               chmod 700 "$renderedDir"
@@ -136,36 +185,74 @@ _: {
               fi
 
               if [ "$protondriveEnabled" = true ]; then
-                # Mirror the gdrive guard: the sops secret may be unmaterialized
-                # on a first activation, so skip with a warning instead of letting
-                # `. "$protondriveEnvPath"` abort the whole home-manager activation
-                # under set -eu.
-                if [ ! -r "$protondriveEnvPath" ]; then
-                  echo "rclone protondrive env file is missing or unreadable at $protondriveEnvPath; skipping protondrive remote refresh for this activation" >&2
-                  # Carry the previously rendered [protondrive] stanza forward so a
-                  # transiently unreadable secret does not drop a working remote.
-                  if [ -r "$renderedConfig" ]; then
-                    prevProton="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^\[protondrive\]$/p; /^\[/!p; }' "$renderedConfig")"
-                    if [ -n "$prevProton" ]; then
-                      printf '\n%s\n' "$prevProton" >> "$tmpConfig"
-                      echo "rclone protondrive remote preserved from the previous rendered config" >&2
+                protondriveCredentialsState=unavailable
+                unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
+
+                if [ "$protondriveAuthSource" = onePassword ]; then
+                  protondriveLookupFailed=0
+                  protondriveUsernameRaw=""
+                  protondrivePasswordRaw=""
+                  protondriveOtpUri=""
+                  protondriveOtpSeed=""
+                  protondriveMailboxPasswordRaw=""
+                  protondriveUsernameRaw="$("$opExecutable" read --no-newline "$protondriveUsernameRef")" || protondriveLookupFailed=1
+                  protondrivePasswordRaw="$("$opExecutable" read --no-newline "$protondrivePasswordRef")" || protondriveLookupFailed=1
+                  protondriveOtpUri="$("$opExecutable" read --no-newline "$protondriveOtpRef")" || protondriveLookupFailed=1
+                  protondriveMailboxPasswordRaw="$("$opExecutable" read --no-newline "$protondriveMailboxPasswordRef")" || protondriveLookupFailed=1
+
+                  if [ "$protondriveLookupFailed" -eq 0 ]; then
+                    case "$protondriveOtpUri" in
+                      otpauth://*secret=*)
+                        protondriveOtpSeed="$(printf '%s\n' "$protondriveOtpUri" | sed -n 's/.*[?&]secret=\([^&]*\).*/\1/p')"
+                        ;;
+                      *)
+                        echo "rclone protondrive 1Password OTP reference did not return an otpauth:// URI containing a secret" >&2
+                        protondriveCredentialsState=invalid
+                        ;;
+                    esac
+
+                    if [ -z "$protondriveUsernameRaw" ] || [ -z "$protondrivePasswordRaw" ] || [ -z "$protondriveOtpSeed" ] || [ -z "$protondriveMailboxPasswordRaw" ]; then
+                      echo "rclone protondrive 1Password references returned an empty required value" >&2
+                      protondriveCredentialsState=invalid
+                    fi
+
+                    if [ "$protondriveCredentialsState" != invalid ]; then
+                      PROTONDRIVE_USERNAME="$protondriveUsernameRaw"
+                      PROTONDRIVE_PASSWORD="$(printf '%s\n' "$protondrivePasswordRaw" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
+                      PROTONDRIVE_OTP_SECRET_KEY="$(printf '%s\n' "$protondriveOtpSeed" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
+                      PROTONDRIVE_MAILBOX_PASSWORD="$(printf '%s\n' "$protondriveMailboxPasswordRaw" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
+                      if [ "$protondriveCredentialsState" != invalid ]; then
+                        protondriveCredentialsState=ready
+                      fi
                     fi
                   fi
-                else
-                  unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
-                  . "$protondriveEnvPath"
 
-                  # A readable but malformed secret is an explicit configuration
-                  # error. Do not preserve stale credentials for invalid input.
-                  if [ -z "''${PROTONDRIVE_USERNAME:-}" ] || [ -z "''${PROTONDRIVE_PASSWORD:-}" ]; then
-                    echo "rclone protondrive env file is missing PROTONDRIVE_USERNAME or PROTONDRIVE_PASSWORD: $protondriveEnvPath" >&2
-                    exit 1
+                  if [ "$protondriveLookupFailed" -ne 0 ]; then
+                    echo "rclone protondrive 1Password credentials are unavailable; skipping protondrive remote refresh for this activation" >&2
                   fi
+                else
+                  # The SOPS secret may be unmaterialized on a first activation,
+                  # so preserve a working remote instead of aborting activation.
+                  if [ ! -r "$protondriveEnvPath" ]; then
+                    echo "rclone protondrive env file is missing or unreadable at $protondriveEnvPath; skipping protondrive remote refresh for this activation" >&2
+                  else
+                    . "$protondriveEnvPath"
 
+                    if [ -z "''${PROTONDRIVE_USERNAME:-}" ] || [ -z "''${PROTONDRIVE_PASSWORD:-}" ]; then
+                      echo "rclone protondrive env file is missing PROTONDRIVE_USERNAME or PROTONDRIVE_PASSWORD: $protondriveEnvPath" >&2
+                      protondriveCredentialsState=invalid
+                    else
+                      protondriveCredentialsState=ready
+                    fi
+                  fi
+                fi
+
+                if [ "$protondriveCredentialsState" = invalid ]; then
+                  exit 1
+                elif [ "$protondriveCredentialsState" = ready ]; then
                   # The protondrive backend persists reusable login credentials
                   # in the remote stanza after authentication. Preserve only
-                  # those backend-owned keys when every SOPS-sourced credential
-                  # that feeds login is unchanged.
+                  # those backend-owned keys when every login credential is unchanged.
                   prevProtonSession=""
                   prevProtonCreds=""
                   currentProtonCreds="$(printf '%s\n%s' "$PROTONDRIVE_USERNAME" "$PROTONDRIVE_PASSWORD")"
@@ -182,11 +269,9 @@ _: {
                     fi
                   fi
 
-                  # password/otp_secret_key/mailbox_password must already be rclone-obscured
-                  # in the secret (run `rclone obscure <value>`); the backend reveals them.
-                  # enable_caching is forced off: required for `rclone mount` (Proton's
-                  # change-event system is unimplemented, so a metadata cache goes stale)
-                  # and harmless for bisync.
+                  # password/otp_secret_key/mailbox_password are rclone-obscured;
+                  # the backend reveals them. enable_caching is forced off because
+                  # Proton's change-event system is unimplemented.
                   {
                     printf '\n[protondrive]\n'
                     printf 'type = protondrive\n'
@@ -203,8 +288,20 @@ _: {
                     fi
                     printf 'enable_caching = false\n'
                   } >> "$tmpConfig"
+                else
+                  # Carry the previous stanza forward when 1Password is locked or
+                  # a SOPS secret is unavailable during a transient activation.
+                  if [ -r "$renderedConfig" ]; then
+                    prevProton="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^\[protondrive\]$/p; /^\[/!p; }' "$renderedConfig")"
+                    if [ -n "$prevProton" ]; then
+                      printf '\n%s\n' "$prevProton" >> "$tmpConfig"
+                      echo "rclone protondrive remote preserved from the previous rendered config" >&2
+                    fi
+                  fi
                 fi
+
                 unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
+                unset protondriveUsernameRaw protondrivePasswordRaw protondriveOtpUri protondriveOtpSeed protondriveMailboxPasswordRaw
                 unset prevProtonSession prevProtonCreds currentProtonCreds
               fi
 
