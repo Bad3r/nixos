@@ -15,15 +15,18 @@ configuration. Dashboard steps target an Enterprise Zero Trust account.
    permissions > Manage. Add a rule whose action is **Service Auth**, including
    the service token from step 2. Required for token enrollment; without it the
    daemon enrolls then fails policy.
-4. **Device profile.** Settings > WARP Client > Device profiles > Default >
-   Service mode = **Gateway with WARP** so dashboard policy matches the local
-   `service_mode = warp`.
+4. **Device profiles.** Assign a profile whose service mode matches each host:
+   **Gateway with WARP** (`service_mode = warp`) for system76, and **Secure Web
+   Gateway without DNS filtering** (`service_mode = tunnelonly`) for tpnix.
+   tpnix keeps its local NetworkManager dnsmasq mappings for private hosts.
 5. **Split Tunnels (Exclude IPs).** Keep the default RFC1918 ranges excluded and
-   ADD Tailscale's `100.64.0.0/10` so the tailnet keeps working under full
+   ADD Tailscale's `100.64.0.0/10` so the tailnet keeps working under the WARP
    tunnel. Confirm `10.0.0.0/8` (the LAN range used by the tpnix SSH firewall
    rule) stays excluded.
-6. **Local Domain Fallback.** Add internal/dev domains (for example `local`,
-   `internal`, corporate AD) so they resolve outside Cloudflare DNS.
+6. **Local Domain Fallback.** For Full-mode hosts, add internal/dev domains
+   (for example `local`, `internal`, corporate AD) so they resolve outside
+   Cloudflare DNS. tpnix keeps its private mappings in local NetworkManager
+   dnsmasq because it uses `tunnelonly`.
 
 ## 2. Create the encrypted secret
 
@@ -52,7 +55,8 @@ git -C secrets add cloudflare-warp.yaml
 
 ## 3. Enable the host
 
-Each host opts in through a small file that enables the wrapper in Full mode:
+Each host opts in through a small file that enables the wrapper with its host's
+required service mode:
 
 - `modules/system76/cloudflare-warp.nix` sets `enable = true` directly; system76
   has runtime SOPS decryption.
@@ -98,7 +102,7 @@ in
   configurations.nixos.tpnix.module = {
     programs.cloudflare-warp.extended = {
       enable = sopsRuntimeReady;
-      serviceMode = "warp";
+      serviceMode = "tunnelonly";
       autoConnect = 0;
       switchLocked = false;
       connectOnBoot = true;

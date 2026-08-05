@@ -44,8 +44,13 @@ is enabled it:
 
 | Host       | Service mode         | Enable file                            |
 | ---------- | -------------------- | -------------------------------------- |
-| `tpnix`    | `warp` (full tunnel) | `modules/tpnix/cloudflare-warp.nix`    |
+| `tpnix`    | `tunnelonly`         | `modules/tpnix/cloudflare-warp.nix`    |
 | `system76` | `warp` (full tunnel) | `modules/system76/cloudflare-warp.nix` |
+
+`tpnix` uses `tunnelonly` because its private-DNS module selects NetworkManager
+dnsmasq for SignalX host mappings. This keeps those mappings under the host's
+DNS while retaining the WARP tunnel, HTTP filtering, network policies, and
+posture checks. `system76` has no competing local resolver and uses Full mode.
 
 The common baseline (`modules/hosts/common/apps-enable.nix`) defaults the app
 OFF; enrollment is a deliberate per-host opt-in. `system76` enables the wrapper

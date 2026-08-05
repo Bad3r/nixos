@@ -1,9 +1,14 @@
 /*
   Per-host Cloudflare WARP (Zero Trust) enrollment for tpnix.
 
-  Enables the programs.cloudflare-warp.extended wrapper in Full mode
-  ("Gateway with WARP"). Credentials come from secrets/cloudflare-warp.yaml
-  (sops); see docs/cloudflare/warp/deployment.md for the dashboard prerequisites.
+  Enables the programs.cloudflare-warp.extended wrapper in tunnel-only mode
+  ("Secure Web Gateway without DNS filtering"). Credentials come from
+  secrets/cloudflare-warp.yaml (sops); see docs/cloudflare/warp/deployment.md
+  for the dashboard prerequisites.
+
+  Tunnel-only mode preserves tpnix's NetworkManager dnsmasq private-host
+  mappings while WARP supplies the tunnel, HTTP filtering, network policies,
+  and posture checks. It intentionally does not use Gateway DNS.
 
   Gated on tpnix's sopsRuntimeReady flag (modules/tpnix/policy.nix), matching the
   other tpnix sops consumers (duplicati.nix, printing.nix, fonts.nix). Repo-managed
@@ -27,7 +32,7 @@ in
   configurations.nixos.tpnix.module = {
     programs.cloudflare-warp.extended = {
       enable = sopsRuntimeReady;
-      serviceMode = "warp";
+      serviceMode = "tunnelonly";
       autoConnect = 0;
       switchLocked = false;
       connectOnBoot = true;

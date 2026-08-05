@@ -4,9 +4,10 @@ Choose the WARP mode before changing host configuration. The mode controls which
 Zero Trust features reach the device because each mode combines DNS, tunneling,
 and posture collection differently.
 
-This repository enables `Gateway with WARP` by default for enrolled hosts. That
-maps to `service_mode = "warp"` in `mdm.xml` and keeps DNS filtering, HTTP
-filtering, device posture, and domain-based split tunneling active.
+System76 uses `Gateway with WARP`, which maps to `service_mode = "warp"` in
+`mdm.xml` and keeps DNS filtering, HTTP filtering, device posture, and
+domain-based split tunneling active. Tpnix uses `tunnelonly` because its local
+NetworkManager dnsmasq service owns private-host resolution.
 
 ## Compare the client modes
 
@@ -21,7 +22,7 @@ filtering, device posture, and domain-based split tunneling active.
 `warp-cli settings` reports the same modes as `WarpWithDnsOverHttps`,
 `DnsOverHttps`, `TunnelOnly`, `WarpProxy`, and `PostureOnly`.
 
-## Prefer full mode for enrolled hosts
+## Select full mode when no local resolver is active
 
 Use `Gateway with WARP` unless a host must keep an independent DNS resolver.
 Full mode makes WARP the system resolver, so Gateway DNS policies can block
@@ -35,6 +36,10 @@ Use `tunnelonly` only when Cloudflare cannot control DNS on the device. It keeps
 the tunnel, HTTP filtering, network policies, and posture checks, but it removes
 Gateway DNS filtering, DNS query logs, and domain-based split tunneling.
 
+Tpnix intentionally uses `tunnelonly` so its SignalX private-host mappings stay
+available through NetworkManager dnsmasq. Do not change it to `warp` unless those
+mappings move to Zero Trust Local Domain Fallback first.
+
 ## Avoid local DNS resolver conflicts
 
 Do not run a local resolver on `127.0.0.1:53` while using full mode. If a host
@@ -45,10 +50,9 @@ The current host modules do not enable `services.dnscrypt-proxy`. The shared
 private-DNS module selects NetworkManager dnsmasq only when the host declares
 private DNS keys, its SOPS runtime is ready, and `secrets/<host>.yaml` exists.
 `tpnix` currently meets those conditions for SignalX DNS, so inspect the
-evaluated host DNS setting before selecting full mode. The WARP module warns
-when either local resolver is selected.
-Full mode is the expected setting for enrolled hosts when no competing local
-resolver is active.
+evaluated host DNS setting before selecting full mode. Tpnix therefore uses
+`tunnelonly` and does not trigger the Full-mode resolver warning. Full mode is
+appropriate for system76 because no competing local resolver is active there.
 
 ## Configure split tunnels
 
