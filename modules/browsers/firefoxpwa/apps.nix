@@ -147,6 +147,13 @@ let
               otherwise register a second site under the new name and overwrite
               the record naming the first, leaving the original app and its
               launcher entry with nothing pointing at them.
+
+              Editing `key` and `name` together is not refused. Both lookups then
+              miss the old site, so the installer treats the entry as new and
+              registers a second site while leaving the original app and its
+              launcher entry orphaned. Uninstall the old site before changing
+              both fields. Editing only one field while the old site remains is
+              refused.
             '';
           };
 
