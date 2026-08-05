@@ -2710,18 +2710,38 @@ Chromium derived. Both are visible by diffing `brave://extensions` against
 - [ ] **Step 4: Confirm the ID is stable across a rebuild**
 
 The pinned manifest key exists so a rebuild does not orphan the extension in
-every profile. Verify it once:
+every profile. `Extensions/` is the wrong place to look for that: it holds
+unpacked CRX installs, and `--load-extension` never materializes anything there.
+Chromium loads the extension in place from its store path and records the
+registration in the profile's `Preferences`, under `extensions.settings`, keyed
+by ID with a `path` pointing back at the store. The profile is also
+`<user-data-dir>/Default`, not the `--user-data-dir` root.
+
+Close Teams first so Chromium has flushed `Preferences`, then record the
+store-backed registrations:
 
 ```bash
-before="$(ls -1 "${XDG_DATA_HOME:-$HOME/.local/share}/webapps/teams/Extensions" 2>/dev/null)"
-# rebuild and switch, then:
-after="$(ls -1 "${XDG_DATA_HOME:-$HOME/.local/share}/webapps/teams/Extensions" 2>/dev/null)"
-diff <(printf '%s\n' "$before") <(printf '%s\n' "$after")
+prefs="${XDG_DATA_HOME:-$HOME/.local/share}/webapps/teams/Default/Preferences"
+jq -r '.extensions.settings | to_entries[]
+       | select((.value.path? // "") | startswith("/nix/store")) | .key' "$prefs" \
+  | sort > /tmp/webapp-teams-extids-before
 ```
 
-Expected: no new directory. A second extension ID appearing after a rebuild
-means the manifest `key` did not take effect and the profile will accumulate one
-orphan per rebuild.
+Rebuild, switch, launch Teams, close it again, then read the same file:
+
+```bash
+prefs="${XDG_DATA_HOME:-$HOME/.local/share}/webapps/teams/Default/Preferences"
+jq -r '.extensions.settings | to_entries[]
+       | select((.value.path? // "") | startswith("/nix/store")) | .key' "$prefs" \
+  | sort > /tmp/webapp-teams-extids-after
+diff /tmp/webapp-teams-extids-before /tmp/webapp-teams-extids-after
+```
+
+Expected: each file holds exactly one ID, equal to `keepAliveExtensionId`, and
+`diff` produces no output. A second ID after the rebuild means the manifest
+`key` did not take effect and every profile accumulates one orphan per rebuild.
+An empty file means the extension never loaded at all; go back to Step 3 rather
+than reading this as a pass.
 
 - [ ] **Step 5: Confirm isolation**
 
