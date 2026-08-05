@@ -132,7 +132,7 @@ mkSiteInstaller {
       # firefoxpwa registering the site and record below is repaired rather
       # than refused. Cleared on every path that ends one.
       local pending_file="$data_dir/m365-$key-installing"
-      local origin ulid guard_origin manifest manifest_url attempt
+      local origin ulid guard_origin manifest manifest_url attempt installed_manifest
 
       # Refused rather than installed: url_origin drops userinfo, so the scope
       # derived from it cannot be a prefix of a start URL that keeps it, and
