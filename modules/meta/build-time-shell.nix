@@ -56,7 +56,7 @@
             scan() {
               local status=0
               grep -rnE \
-                '^[[:space:]]*!?[[:space:]]*compgen\b|\$\(!?[[:space:]]*compgen\b|(if|while|until|then|else|do|;|&&|\|\|)[[:space:]]+!?[[:space:]]*compgen\b' \
+                '^[[:space:]]*!?[[:space:]]*compgen\b|\$\(!?[[:space:]]*compgen\b|(if|elif|while|until|then|else|do|;|&&|\|\|?)[[:space:]]+!?[[:space:]]*compgen\b' \
                 "$@" || status=$?
               # 1 is "matched nothing"; 2 and up mean grep could not read a path
               # it was given, and an empty result from that is indistinguishable
