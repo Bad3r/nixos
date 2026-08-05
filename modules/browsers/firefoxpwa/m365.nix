@@ -87,10 +87,11 @@ _: {
               # Bounds the Restart= below, so an entry this unit refuses
               # permanently (a site moved across origins, a foreign site under
               # a managed name) stops after three tries instead of restarting
-              # for the rest of the session. Short enough that the window in
-              # which a later `systemctl --user start` is refused with "start
-              # request repeated too quickly" closes on its own.
-              StartLimitIntervalSec = 600;
+              # for the rest of the session. Sized beyond
+              # 3 * (TimeoutStartSec + RestartSec), so a run killed at the
+              # 900-second timeout still counts toward the burst rather than
+              # landing alone in a shorter sliding window.
+              StartLimitIntervalSec = 3600;
               StartLimitBurst = 3;
             };
             Service = {
