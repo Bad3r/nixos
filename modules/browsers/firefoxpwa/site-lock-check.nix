@@ -117,7 +117,7 @@ _: {
             printf '0' >"$data_dir/counter"
             exec 8>"$data_dir/.config-lock"
             flock 8
-            ${pkgs.lib.getExe (locked "site-lock-a")} 2>"$PWD/wait.log" &
+            ${pkgs.lib.getExe (locked "site-lock-a")} 8>&- 2>"$PWD/wait.log" &
             queued=$!
             announced=0
             for _ in $(seq 100); do
