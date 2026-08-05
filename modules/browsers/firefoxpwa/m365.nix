@@ -29,7 +29,7 @@
   whenever the app table does, and
   systemd.user.startServices = "sd-switch" (modules/home-manager/base.nix)
   restarts it on the switch that changes it. That is the only switch it runs
-  on, which is why a failed run retries itself rather than waiting: sd-switch
+  on, which is why a retryable failed run retries itself rather than waiting: sd-switch
   restarts a unit only when the unit's own text changed, so a run that failed
   with an unchanged app table would otherwise sit failed until the next login,
   and the install branch that returns non-zero expecting a rerun to repair a
@@ -84,10 +84,9 @@ _: {
               # exist when its toggle is off, and an After= naming an absent
               # unit is ignored rather than fatal.
               After = [ "firefoxpwa-dmail.service" ];
-              # Bounds the Restart= below, so an entry this unit refuses
-              # permanently (a site moved across origins, a foreign site under
-              # a managed name) stops after three tries instead of restarting
-              # for the rest of the session. Sized beyond
+              # Bounds the Restart= below, so a retryable fault stops after
+              # three tries instead of restarting for the rest of the session.
+              # Sized beyond
               # 3 * (TimeoutStartSec + RestartSec), so a run killed at the
               # 900-second timeout still counts toward the burst rather than
               # landing alone in a shorter sliding window.
@@ -103,6 +102,13 @@ _: {
               # else reruns the unit while the app table is unchanged.
               Restart = "on-failure";
               RestartSec = 120;
+              # The installer returns EX_CONFIG (78) for a permanent refusal
+              # that needs user action. Treating it as successful prevents
+              # Restart=on-failure from burning the retry window before the
+              # user can fix the entry and switch again. Filesystem, firefoxpwa
+              # and timeout faults retain status 1 and the bounded retry.
+              SuccessExitStatus = "78";
+              RestartPreventExitStatus = "78";
               # Past the default 90s, which a legitimate wait can exceed: the
               # installer holds the shared site lock for its whole run, and the
               # queued unit is the one that pays. Being killed there costs the

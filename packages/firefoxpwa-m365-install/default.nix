@@ -97,6 +97,7 @@ mkSiteInstaller {
     }
 
     failed=0
+    retryable=0
     # Counted here rather than by the caller testing install_app's status: a
     # bash function invoked as the left side of `||` runs its whole body with
     # errexit ignored, and that suppression is inherited by every compound
@@ -107,6 +108,11 @@ mkSiteInstaller {
     refuse() {
       echo "firefoxpwa-m365: $1" >&2
       failed=$((failed + 1))
+    }
+
+    retry_refusal() {
+      refuse "$1"
+      retryable=1
     }
 
     install_app() {
@@ -145,7 +151,7 @@ mkSiteInstaller {
       # when this unit runs), and treating that as absent would register a
       # second site under the same name.
       if ! ulid=$(site_ulid "$name"); then
-        refuse "cannot read $config_file; not installing a second '$name'"
+        retry_refusal "cannot read $config_file; not installing a second '$name'"
         return
       fi
 
@@ -221,7 +227,7 @@ mkSiteInstaller {
           record "$applied_file" "$url"
           return 0
         fi
-        refuse "failed to update start URL for '$name'"
+        retry_refusal "failed to update start URL for '$name'"
         return
       fi
 
@@ -242,7 +248,7 @@ mkSiteInstaller {
         # is what site_ulid's own [ -f ] does with it.
         if ! recorded=$(jq -r --arg u "$(<"$ulid_file")" \
           'if ((.sites // {}) | has($u)) then "yes" else "" end' "$config_file" 2>/dev/null); then
-          refuse "cannot read $config_file; not installing a second '$name'"
+          retry_refusal "cannot read $config_file; not installing a second '$name'"
           return
         fi
         if [ -n "$recorded" ]; then
@@ -276,12 +282,12 @@ mkSiteInstaller {
           --start-url "$url" \
           --name "$name"; then
           if ! ulid=$(site_ulid "$name"); then
-            refuse "cannot read $config_file after installing '$name'"
+            retry_refusal "cannot read $config_file after installing '$name'"
             return
           fi
           if [ -z "$ulid" ]; then
             rm -f "$pending_file"
-            refuse "'$name' reported installed but is not in $config_file"
+            retry_refusal "'$name' reported installed but is not in $config_file"
             return
           fi
           record "$ulid_file" "$ulid"
@@ -297,13 +303,13 @@ mkSiteInstaller {
         # otherwise satisfy the no-op fast path on the next run and skip the
         # site update this branch defers the repair to.
         if ! ulid=$(site_ulid "$name"); then
-          refuse "cannot read $config_file; not retrying '$name'"
+          retry_refusal "cannot read $config_file; not retrying '$name'"
           return
         fi
         if [ -n "$ulid" ]; then
           record "$ulid_file" "$ulid"
           rm -f "$pending_file" "$applied_file"
-          refuse "'$name' was registered by a failed install; the next run repairs it with site update"
+          retry_refusal "'$name' was registered by a failed install; the next run repairs it with site update"
           return
         fi
         rm -f "$pending_file"
@@ -317,7 +323,7 @@ mkSiteInstaller {
       # exists, and a stale one would let a future foreign site pass the
       # identity check above.
       rm -f "$origin_file" "$applied_file" "$ulid_file" "$pending_file"
-      refuse "installing '$name' failed after 3 attempts"
+      retry_refusal "installing '$name' failed after 3 attempts"
     }
 
     # Unrolled from the app table at build time rather than iterated from an
@@ -331,6 +337,13 @@ mkSiteInstaller {
 
     if [ "$failed" -ne 0 ]; then
       echo "firefoxpwa-m365: $failed of ${toString (builtins.length apps)} web apps could not be installed" >&2
+      # 78 is EX_CONFIG: a refusal needs user action and must remain visible in
+      # the journal, but it must not consume the service's restart burst before
+      # the user can fix the entry and switch again. Retryable faults keep the
+      # ordinary failure status so systemd reruns them with its bounded policy.
+      if [ "$retryable" -eq 0 ]; then
+        exit 78
+      fi
       exit 1
     fi
   '';

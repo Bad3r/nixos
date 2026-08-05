@@ -142,6 +142,12 @@
         assert lib.assertMsg
           (lib.elem "firefoxpwa-dmail.service" hm.config.systemd.user.services.firefoxpwa-m365.Unit.After)
           "browsers/firefoxpwa-module-eval: the m365 unit must be ordered after the dmail unit";
+        assert lib.assertMsg
+          (hm.config.systemd.user.services.firefoxpwa-m365.Service.SuccessExitStatus == "78")
+          "browsers/firefoxpwa-module-eval: a permanent m365 refusal must be a successful non-restarting service exit";
+        assert lib.assertMsg (
+          hm.config.systemd.user.services.firefoxpwa-m365.Service.RestartPreventExitStatus == "78"
+        ) "browsers/firefoxpwa-module-eval: a permanent m365 refusal must not consume the restart burst";
         builtins.deepSeq {
           # The whole unit, not selected attributes: a removed binding in its
           # Unit or Install blocks must fail this check too.
