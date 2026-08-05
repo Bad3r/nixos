@@ -128,6 +128,14 @@ let
                       Slug for this entry's install records under the firefoxpwa
                       data directory. Constrained to a path-safe alphabet because
                       it is interpolated into those file names.
+
+                      Editing it is not a rename. The records move with the slug,
+                      so the installer finds the installed site with nothing
+                      recording the origin it was installed at, and refuses that
+                      entry until the site is removed with
+                      `firefoxpwa site uninstall`, which destroys its PWA profile
+                      and session state. The `m365-<old-key>-*` records are left
+                      behind and have to be deleted by hand.
                     '';
                   };
                   name = lib.mkOption {

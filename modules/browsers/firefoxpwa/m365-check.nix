@@ -214,6 +214,21 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
       # is the only thing that proves the catalog survives escapeShellArg,
       # shellcheck and a real run, since no host enables the toggle yet.
       shipped = mkInstaller catalog;
+      # Alpha's key edited while its name stays: the lookup still finds the
+      # site, but every record moved to the new slug, so nothing can show the
+      # site is still at the origin it was installed at.
+      rekeyed = mkInstaller [
+        {
+          key = "alpha-2";
+          name = "Alpha";
+          url = "https://alpha.example/";
+        }
+        {
+          key = "beta";
+          name = "Beta";
+          url = "https://beta.example/";
+        }
+      ];
       # Alpha's launcher name edited while its key stays: the lookup misses the
       # site the key installed, so the fresh-install branch has to refuse rather
       # than register a second one.
@@ -275,6 +290,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             moved=${lib.getExe moved}
             cross_origin=${lib.getExe crossOrigin}
             renamed=${lib.getExe renamed}
+            rekeyed=${lib.getExe rekeyed}
             credentials=${lib.getExe credentials}
             failures=0
 
@@ -400,6 +416,24 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             jq 'del(.sites["01STUB0"])' "$config_file" >"$config_file.next"
             mv "$config_file.next" "$config_file"
             expect "an uninstalled site is reinstalled under the new name" "$renamed" 0 "installed 'Alpha Renamed'"
+
+            echo
+            echo "-- editing an entry's key is refused, not silently reinstalled --"
+            reset
+            "$declared" >/dev/null
+            # Documented on the option as destructive: the remedy the message
+            # names destroys a working PWA profile, so what must not happen is
+            # the installer deciding that for itself.
+            expect "key edit refused" "$rekeyed" 1 "nothing records the origin it was installed at"
+            assert_equal "no site added under the new slug" "$(site_count)" 2
+            assert_equal "the old slug's records are left for the user to clear" \
+              "$(cat "$data_dir/m365-alpha-applied-ulid")" "01STUB0"
+            if [ -e "$data_dir/m365-alpha-2-applied-ulid" ]; then
+              echo "FAIL  a record was written under the new slug for a refused entry"
+              failures=$((failures + 1))
+            else
+              echo "PASS  nothing recorded under the new slug"
+            fi
 
             echo
             echo "-- a start URL with credentials is refused before any site lookup --"
