@@ -46,8 +46,10 @@ _: {
 
       # The launcher name doubles as the idempotency key. firefoxpwa stores it in
       # config.json at .sites.<ulid>.config.name, so an existing site with this
-      # name means the app is already installed.
-      appName = "DMail";
+      # name means the app is already installed. Read from the option rather
+      # than written here, so ./apps.nix can register it among the names every
+      # site installer claims and catch a collision at eval.
+      appName = osConfig.programs.firefoxpwa.dmail.name or "DMail";
 
       # Owned by ./home.nix, which pins and hardens it to 0700. Read rather
       # than re-derived: a second rule drifts from it as soon as either side

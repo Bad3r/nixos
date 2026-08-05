@@ -24,6 +24,7 @@ let
     }:
     let
       cfg = config.programs.firefoxpwa.extended;
+      dmailCfg = config.programs.firefoxpwa.dmail;
       m365Cfg = config.programs.firefoxpwa.m365;
       m365Keys = map (app: app.key) m365Cfg.apps;
       m365Names = map (app: app.name) m365Cfg.apps;
@@ -41,10 +42,36 @@ let
           package = lib.mkPackageOption pkgs "firefoxpwa" { };
         };
 
+        # Every site installer shares one config.json and looks a site up by
+        # its launcher name (.sites.<ulid>.config.name), so two claiming the
+        # same name collide there rather than at eval: the second finds a site
+        # no record of its own accounts for and refuses it on every run, with a
+        # remedy that destroys the first one's PWA profile. Each site registers
+        # the names it claims here and the assertion below is one check over all
+        # of them, so a site added later joins it by contributing rather than by
+        # anyone remembering to widen a comparison.
+        siteNames = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          internal = true;
+          description = "Launcher names claimed by the enabled firefoxpwa site installers.";
+        };
+
         # Per-site install toggles are declared here (NixOS scope) so the common
         # app catalog and per-host apps-enable files can layer them like any other
         # app, and the Home Manager installer in ./dmail.nix can read them through
         # `osConfig`.
+        dmail.name = lib.mkOption {
+          type = lib.types.str;
+          default = "DMail";
+          description = ''
+            Launcher name for the DMail site, and its idempotency key: the
+            installer finds the site it installed by matching this against
+            `.sites.<ulid>.config.name`. Declared rather than fixed in
+            ./dmail.nix so it takes part in the collision check above.
+          '';
+        };
+
         dmail.enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
@@ -187,22 +214,31 @@ let
           environment.systemPackages = [ cfg.package ];
         })
 
+        (lib.mkIf dmailCfg.enable { programs.firefoxpwa.siteNames = [ dmailCfg.name ]; })
+
         (lib.mkIf m365Cfg.enable {
-          # Both collisions are silent at install time and only surface as a
-          # site the installer then refuses to adopt: two entries sharing a
-          # name race for the same idempotency key, and two sharing a key
-          # overwrite each other's install records.
+          programs.firefoxpwa.siteNames = m365Names;
+
+          # Silent at install time and surfacing only as a site the installer
+          # then refuses to adopt: two entries sharing a key overwrite each
+          # other's install records. Names are checked across every site
+          # installer instead, below.
           assertions = [
             {
               assertion = duplicates m365Keys == [ ];
               message = "programs.firefoxpwa.m365.apps has duplicate keys: ${lib.concatStringsSep ", " (duplicates m365Keys)}";
             }
-            {
-              assertion = duplicates m365Names == [ ];
-              message = "programs.firefoxpwa.m365.apps has duplicate names: ${lib.concatStringsSep ", " (duplicates m365Names)}";
-            }
           ];
         })
+
+        {
+          assertions = [
+            {
+              assertion = duplicates config.programs.firefoxpwa.siteNames == [ ];
+              message = "firefoxpwa site installers claim the same launcher name, which they would fight over in one config.json: ${lib.concatStringsSep ", " (duplicates config.programs.firefoxpwa.siteNames)}";
+            }
+          ];
+        }
       ];
     };
 in
