@@ -12,7 +12,7 @@
 
 **Architecture:** A NixOS-scope module owns the managed enterprise policy (permissions and extensions) written into `/etc/brave/policies/managed/`; a Home Manager module owns per-app launchers, `--user-data-dir` isolation, desktop entries, and kdocker tray wrapping. App definitions live in one typed keyed attrset that both scopes read. No installer script, no systemd unit, no runtime state reconciliation.
 
-**Tech Stack:** Nix (flake-parts, Dendritic pattern), Home Manager, sops-nix, brave-origin (Chromium 1.93.x), Chromium enterprise policy, MV3 extensions, kdocker.
+**Tech Stack:** Nix (flake-parts, Dendritic pattern), Home Manager, sops-nix, brave-origin (Brave 1.95.31 on Chromium 151, pinned in `packages/brave-origin/default.nix`), Chromium enterprise policy, MV3 extensions, kdocker.
 
 ______________________________________________________________________
 
@@ -22,7 +22,7 @@ Locked before writing this plan. Do not relitigate during execution.
 
 | Decision        | Choice                                           | Rationale                                                                                                                                                                |
 | --------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Base browser    | `brave-origin`                                   | Verified reads `/etc/brave/policies` (binary strings); honors `--load-extension` because it is not a `GOOGLE_CHROME_BRANDING` build; already enabled on both hosts.      |
+| Base browser    | `brave-origin`                                   | Verified reads `/etc/brave/policies` (binary strings); honors `--load-extension` because it is not a `GOOGLE_CHROME_BRANDING` build; already enabled per host.           |
 | Isolation       | per-app `--user-data-dir`                        | Complete cookie and storage separation. NOT extension separation: `ExtensionSettings` is managed policy and therefore browser-wide.                                      |
 | Extensions      | Hybrid                                           | Third-party from the Web Store via `ExtensionSettings` (correct IDs, 1Password native messaging works); only the generated keep-alive extension uses `--load-extension`. |
 | Tray            | kdocker per app                                  | `-i` per-app icon, `-z` keep-running, `-l` iconify on focus loss. Opt-in per app.                                                                                        |
@@ -43,8 +43,8 @@ Locked before writing this plan. Do not relitigate during execution.
 `programs.webapps` writes `/etc/brave/policies/managed/webapps.json`. Chromium
 applies a managed directory per browser, not per profile or per
 `--user-data-dir`, so everything in that file also binds the `brave-origin`
-instance used for general browsing on both hosts. Accepted, with these effects
-stated rather than discovered later:
+instance used for general browsing on each host that enables it. Accepted, with
+these effects stated rather than discovered later:
 
 - `AudioCaptureAllowed`, `VideoCaptureAllowed` and `ScreenCaptureAllowed` become
   hard denials with no prompt for all browsing. Only the origins listed in the
@@ -66,14 +66,29 @@ are follow-ups, not part of this plan.
 
 ### Verified facts this plan depends on
 
-- `brave-origin` binary contains the string `/etc/brave/policies`. Reproduce: `strings -a "$(nix eval --impure --raw --expr 'with import <nixpkgs> {}; "${brave-origin}"')/opt/brave.com/brave-origin/brave" | rg '^/etc/brave'`
+- `brave-origin` binary contains the string `/etc/brave/policies`. The binary is under `brave-origin-nightly/`, which is the channel the package ships (`packages/brave-origin/default.nix`), not `brave-origin/`. Reproduce: `strings -a "$(nix eval --impure --raw --expr 'with import <nixpkgs> {}; "${brave-origin}"')/opt/brave.com/brave-origin-nightly/brave" | rg '^/etc/brave'`
+
 - `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available.
+
 - Policy names and types confirmed against the Chromium policy registry: `AudioCaptureAllowed` (bool), `VideoCaptureAllowed` (bool), `ScreenCaptureAllowed` (bool), `DefaultNotificationsSetting` (int), `DefaultClipboardSetting` (int), `DefaultSensorsSetting` (int), `DefaultWindowManagementSetting` (int), `DefaultLocalFontsSetting` (int), `ExtensionSettings` (dict), `BackgroundModeEnabled` (bool).
+
 - Allowlist policies that exist: `AudioCaptureAllowedUrls`, `VideoCaptureAllowedUrls`, `NotificationsAllowedForUrls`, `ClipboardAllowedForUrls`, `ScreenCaptureAllowedByOrigins`, `SensorsAllowedForUrls`, `WindowManagementAllowedForUrls`, `LocalFontsAllowedForUrls`.
-- **Geolocation has no allowlist policy.** Only `GeolocationBlockedForUrls` and `PreciseGeolocationAllowedForUrls` exist. Geolocation is therefore block-only in this design and is deliberately absent from the permission submodule.
+
+- **Every policy name this plan writes is registered in the pinned build.** Each of the names in the two bullets above, plus `URLAllowlist` and `SafeBrowsingProtectionLevel`, appears as an exact standalone string in the brave-origin 1.95.31 binary's string table. This is what rules out a removed or renamed key. Reproduce:
+
+  ```bash
+  bin="$(nix eval --impure --raw --expr 'with import <nixpkgs> {}; "${brave-origin}"')/opt/brave.com/brave-origin-nightly/brave"
+  strings -a "$bin" | rg -x -F 'ScreenCaptureAllowed'
+  ```
+
+- **Geolocation has no allowlist policy.** Only `GeolocationBlockedForUrls` and `PreciseGeolocationAllowedForUrls` exist; `GeolocationAllowedForUrls` is absent from the same string table that carries the other eight allowlists. Geolocation is therefore block-only in this design and is deliberately absent from the permission submodule.
+
 - `kdocker` 6.2 flags used: `-i <file>` custom icon, `-z` keep running with no windows, `-q` quiet, `-l` iconify on focus lost, `-d <sec>` command start timeout.
+
 - `modules/meta/hooks/apps-catalog-sync.nix` collects catalog entries with `find modules/browsers -mindepth 2 -maxdepth 2 -type f -name apps.nix ! -path "*/_*/*"` and requires each result to have a `<dir>.extended.enable` line in `modules/hosts/common/apps-enable.nix`. A NixOS-scope file named `webapps/apps.nix` would therefore fail `pre-commit run --all-files --hook-stage manual`. The module is named `webapps/nixos.nix`, matching the existing `modules/apps/i3wm/nixos.nix` precedent.
+
 - `pkgs.diffutils` declares no `meta.mainProgram`, so `lib.getExe pkgs.diffutils` resolves to a nonexistent `bin/diffutils`. The package ships `diff`, `cmp`, `diff3` and `sdiff`; use `lib.getExe' pkgs.diffutils "diff"`.
+
 - An unpacked extension loaded with `--load-extension` gets an ID derived from the absolute path unless `manifest.json` carries a `key`. With a `key`, the ID is derived from that public key instead and stays stable across rebuilds.
 
 ### Facts still to verify before implementing
@@ -87,10 +102,14 @@ that names it and record the outcome in the plan before continuing.
   outright. Task 10 Step 0 tests this on a real `brave-origin` before the policy
   generator is written. The pinned-ID design exists so the answer can be `yes`
   without reworking the plan.
-- **Is `ScreenCaptureAllowedByOrigins` honored by this Brave build?** It is
-  present in the Chromium policy registry, but Brave has removed or renamed
-  capture policies before. Task 18 Step 2 reads `brave://policy` for a conflict
-  or unknown-policy warning on every key this plan writes.
+- **Does this Brave build enforce `ScreenCaptureAllowedByOrigins`, or only
+  recognize it?** The name is registered in the pinned build, so the
+  removed-or-renamed case is ruled out (see the verified facts above). What is
+  still unproven is that a listed origin actually gets `getDisplayMedia` back
+  once `ScreenCaptureAllowed = false` denies it globally; Brave has diverged on
+  capture behavior before. Task 18 Step 2 reads `brave://policy` for a conflict
+  or ignored-value warning on every key this plan writes, then starts a real
+  screen share from Teams, which is the only thing that settles it.
 
 ### On line-number anchors
 
@@ -371,7 +390,7 @@ Expected: a count of roughly 80. If the command errors with a missing attribute,
 git add modules/browsers/brave-origin/apps.nix
 git commit -m "feat(brave-origin): apply the shared Brave managed policy set
 
-brave-origin shipped unpoliced while it is the enabled Brave on both hosts, so general browsing ran without
+brave-origin shipped unpoliced while it is the enabled Brave on every host that turns it on, so general browsing ran without
 HttpsOnlyMode, BlockThirdPartyCookies, WebRtcIPHandling or any of the Default*Setting permission blocks. It reads
 /etc/brave/policies, the same directory as brave, so an assertion refuses the configuration when both modules would
 write extended.json.
@@ -2672,10 +2691,14 @@ Expected: two files; no key appears in both listings.
 
 Launch any web app, open a new tab to `brave://policy`, and confirm `AudioCaptureAllowed`, `VideoCaptureAllowedUrls`, `ScreenCaptureAllowedByOrigins`, `NotificationsAllowedForUrls`, `URLAllowlist` and `ExtensionSettings` are listed with status OK and no conflict warnings.
 
-`ScreenCaptureAllowedByOrigins` gets particular attention: it is in the Chromium
-registry, but Brave has removed and renamed capture policies before. A status of
-"unknown policy" there means screen sharing is denied for Teams too, with the
-allowlist inert.
+`ScreenCaptureAllowedByOrigins` gets particular attention. The name is
+registered in this build (verified in its string table), so the question is not
+recognition but enforcement: `ScreenCaptureAllowed = false` denies capture
+browser-wide, and if the allowlist is inert then Teams loses screen sharing
+along with everything else. Reading the policy page is not enough, so start a
+screen share in Teams and confirm the picker appears. If it does not, record the
+outcome under "Facts still to verify" and drop `ScreenCaptureAllowed` from
+`_policy.nix` rather than leaving the capability silently unavailable.
 
 - [ ] **Step 3: Confirm the keep-alive extension actually loaded**
 
@@ -2797,7 +2820,7 @@ ______________________________________________________________________
 | --------------------------------------------------------------------- | ------------------------------------------------------------- |
 | Complete firefoxpwa cleanup including extension and CLI               | Phase 2, Tasks 2-6                                            |
 | Idiomatic, modular, reusable for many future apps                     | Tasks 9-12; keyed submodule plus a pure generator             |
-| Working integrated notifications                                      | `permissions.notifications`, Task 10; verified Task 18 Step 5 |
+| Working integrated notifications                                      | `permissions.notifications`, Task 10; verified Task 18 Step 7 |
 | Opt-in backgrounding with a tray icon, default overridable per app    | `tray.{enable,icon}` plus `defaultTrayIcon`, Tasks 9 and 12   |
 | Explicit per-app permissions, disabled by default                     | Task 10; deny-by-default plus per-origin allowlists           |
 | Per-app profile, no shared cookies, sessions reused                   | Task 12; `--user-data-dir` per app                            |
@@ -2814,7 +2837,7 @@ ______________________________________________________________________
 - Each running app is a separate browser instance, roughly 250-400 MB baseline. Same cost firefoxpwa would have had with per-site profiles, but it bounds how many apps are worth leaving resident.
 - `--load-extension` availability depends on the build not being Google-branded and on Enhanced Safe Browsing being off. Both hold for brave-origin under the hardened set (`SafeBrowsingProtectionLevel = 1`), but switching `programs.webapps.package` to Chrome would silently disable the keep-alive extension. Task 9's `package` option documents the constraint; consider an assertion if a second browser is ever supported.
 - Visio and Clipchamp are excluded pending a Chromium re-test (Task 18 Step 9).
-- Two facts are assumed rather than proven: that `ExtensionSettings` gates `--load-extension` (Task 10 Step 0) and that Brave honors `ScreenCaptureAllowedByOrigins` (Task 18 Step 2). Both have a named step and neither changes the plan's shape.
+- Two facts are assumed rather than proven: that `ExtensionSettings` gates `--load-extension` (Task 10 Step 0) and that Brave enforces `ScreenCaptureAllowedByOrigins` rather than merely recognizing the key (Task 18 Step 2). Every policy name the plan writes is confirmed present in the pinned brave-origin 1.95.31 string table, so neither open question is about a removed or renamed policy. Both have a named step and neither changes the plan's shape.
 - `_check-apps.nix` restates the submodule defaults from `nixos.nix` and the default of `defaultExtensions`. Nothing enforces that they agree, so a new option default added to `nixos.nix` alone makes the fixture describe a policy the hosts do not get. The file header says so; a check that compares the two is a reasonable follow-up.
 
 **Where validation would have missed a real failure.** Four cases the first draft of this plan would have passed:
