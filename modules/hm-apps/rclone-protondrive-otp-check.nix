@@ -200,6 +200,17 @@
               run_activation_keeping_config
             }
 
+            # Home Manager's run echoes instead of executing under --dry-run,
+            # so anything the entry writes outside run survives a dry run.
+            run_dry_activation() {
+              rc=0
+              (
+                run() { echo "DRY: $*"; }
+                . "$check_root/activation.sh"
+              ) > "$check_root/stdout" 2> "$check_root/stderr" || rc=$?
+              printf '%s' "$rc"
+            }
+
             run_mailbox_activation() {
               rm -rf -- "$check_root/config"
               rc=0
@@ -322,6 +333,25 @@
             [ "$rc" -ne 0 ] || fail "a blank mailbox reference must fail activation"
             ! grep -q '^\[protondrive\]$' "$rendered" ||
               fail "a blank mailbox reference must not render a stanza"
+
+            # A dry run must not advance the fingerprint while leaving the
+            # config it describes untouched: the next real activation would read
+            # that as an unchanged credential set and graft the pre-rotation
+            # session keys onto the post-rotation stanza.
+            fingerprint="$check_root/config/rclone/protondrive-credentials.fingerprint"
+            rc=$(OP_STUB_OTP="$seed" run_activation)
+            [ "$rc" -eq 0 ] || fail "seeding the dry-run path must succeed (exit $rc)"
+            before=$(cat "$fingerprint")
+            config_before=$(cat "$rendered")
+
+            rc=$(OP_STUB_OTP="$seed" OP_STUB_PASSWORD=rotated run_dry_activation)
+            [ "$rc" -eq 0 ] || fail "a dry run must not fail activation (exit $rc)"
+            [ "$(cat "$fingerprint")" = "$before" ] ||
+              fail "a dry run must not advance the credential fingerprint"
+            [ "$(cat "$rendered")" = "$config_before" ] ||
+              fail "a dry run must not rewrite the rendered config"
+            [ -z "$(find "$check_root/config/rclone" -name 'protondrive-credentials.fingerprint.*' -print -quit)" ] ||
+              fail "a dry run must not leave a staged fingerprint behind"
 
             touch "$out"
           '';

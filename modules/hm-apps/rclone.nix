@@ -365,8 +365,16 @@ _: {
               if [ -n "''${protondriveFingerprint:-}" ]; then
                 # A digest of the credentials, not the credentials: the config
                 # beside it already carries their reversible obscured form.
-                printf '%s\n' "$protondriveFingerprint" > "$protondriveFingerprintFile"
-                chmod 600 "$protondriveFingerprintFile"
+                # Moved through run like the config above: a dry run that wrote
+                # this while leaving the config alone would leave the digest
+                # describing credentials the stanza beside it never received, and
+                # the next real activation would read that as "unchanged" and
+                # graft the pre-rotation session keys onto the new stanza.
+                tmpFingerprint="$(mktemp "$renderedDir/protondrive-credentials.fingerprint.XXXXXX")"
+                trap 'rm -f "$tmpConfig" "$tmpFingerprint"' EXIT
+                printf '%s\n' "$protondriveFingerprint" > "$tmpFingerprint"
+                chmod 600 "$tmpFingerprint"
+                run mv "$tmpFingerprint" "$protondriveFingerprintFile"
               fi
             '';
           }
