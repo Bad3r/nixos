@@ -120,6 +120,7 @@ _: {
             home.activation.configureRcloneConfig = lib.hm.dag.entryAfter [ "reloadSystemd" ] ''
               renderedConfig=${lib.escapeShellArg renderedRcloneConfig}
               renderedDir="$(dirname "$renderedConfig")"
+              protondriveFingerprintFile="$renderedDir/protondrive-credentials.fingerprint"
               endpointFile=${
                 lib.escapeShellArg (
                   if r2EndpointAvailable then config.sops.templates."rclone/r2-endpoint".path else ""
@@ -194,6 +195,7 @@ _: {
 
               if [ "$protondriveEnabled" = true ]; then
                 protondriveCredentialsState=unavailable
+                protondriveCredentialMaterial=""
                 unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
 
                 if [ "$protondriveAuthSource" = onePassword ]; then
@@ -229,6 +231,10 @@ _: {
                       PROTONDRIVE_PASSWORD="$(printf '%s\n' "$protondrivePasswordRaw" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
                       PROTONDRIVE_OTP_SECRET_KEY="$(printf '%s\n' "$protondriveOtpSeed" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
                       PROTONDRIVE_MAILBOX_PASSWORD="$(printf '%s\n' "$protondriveMailboxPasswordRaw" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
+                      # rclone obscure draws a fresh random IV per call, so the
+                      # ciphertexts above differ on every activation. Fingerprint
+                      # the stable 1Password values instead.
+                      protondriveCredentialMaterial="$(printf '%s\n%s\n%s\n%s' "$protondriveUsernameRaw" "$protondrivePasswordRaw" "$protondriveOtpSeed" "$protondriveMailboxPasswordRaw")"
                       if [ "$protondriveCredentialsState" != invalid ]; then
                         protondriveCredentialsState=ready
                       fi
@@ -250,6 +256,8 @@ _: {
                       echo "rclone protondrive env file is missing PROTONDRIVE_USERNAME or PROTONDRIVE_PASSWORD: $protondriveEnvPath" >&2
                       protondriveCredentialsState=invalid
                     else
+                      # Already obscured in the secret, so these are stable.
+                      protondriveCredentialMaterial="$(printf '%s\n%s\n%s\n%s' "$PROTONDRIVE_USERNAME" "$PROTONDRIVE_PASSWORD" "''${PROTONDRIVE_OTP_SECRET_KEY:-}" "''${PROTONDRIVE_MAILBOX_PASSWORD:-}")"
                       protondriveCredentialsState=ready
                     fi
                   fi
@@ -260,21 +268,16 @@ _: {
                 elif [ "$protondriveCredentialsState" = ready ]; then
                   # The protondrive backend persists reusable login credentials
                   # in the remote stanza after authentication. Preserve only
-                  # those backend-owned keys when every login credential is unchanged.
+                  # those backend-owned keys when every login credential is
+                  # unchanged; dropping them forces a fresh Proton login, and
+                  # Proton rate-limits repeated logins.
                   prevProtonSession=""
-                  prevProtonCreds=""
-                  currentProtonCreds="$(printf '%s\n%s' "$PROTONDRIVE_USERNAME" "$PROTONDRIVE_PASSWORD")"
-                  if [ -n "''${PROTONDRIVE_OTP_SECRET_KEY:-}" ]; then
-                    currentProtonCreds="$(printf '%s\n%s' "$currentProtonCreds" "$PROTONDRIVE_OTP_SECRET_KEY")"
-                  fi
-                  if [ -n "''${PROTONDRIVE_MAILBOX_PASSWORD:-}" ]; then
-                    currentProtonCreds="$(printf '%s\n%s' "$currentProtonCreds" "$PROTONDRIVE_MAILBOX_PASSWORD")"
-                  fi
-                  if [ -r "$renderedConfig" ]; then
-                    prevProtonCreds="$(sed -n '/^\[protondrive\]$/,/^\[/{ s/^username *= *//p; s/^password *= *//p; s/^otp_secret_key *= *//p; s/^mailbox_password *= *//p; }' "$renderedConfig")"
-                    if [ "$prevProtonCreds" = "$currentProtonCreds" ]; then
-                      prevProtonSession="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^client_uid *=/p; /^client_access_token *=/p; /^client_refresh_token *=/p; /^client_salted_key_pass *=/p; }' "$renderedConfig")"
-                    fi
+                  protondriveFingerprint="$(printf '%s' "$protondriveCredentialMaterial" | sha256sum | cut -d' ' -f1)"
+                  if
+                    [ -r "$protondriveFingerprintFile" ] && [ -r "$renderedConfig" ] &&
+                      [ "$(cat "$protondriveFingerprintFile")" = "$protondriveFingerprint" ]
+                  then
+                    prevProtonSession="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^client_uid *=/p; /^client_access_token *=/p; /^client_refresh_token *=/p; /^client_salted_key_pass *=/p; }' "$renderedConfig")"
                   fi
 
                   # password/otp_secret_key/mailbox_password are rclone-obscured;
@@ -310,11 +313,18 @@ _: {
 
                 unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
                 unset protondriveUsernameRaw protondrivePasswordRaw protondriveOtpUri protondriveOtpSeed protondriveMailboxPasswordRaw
-                unset prevProtonSession prevProtonCreds currentProtonCreds
+                unset prevProtonSession protondriveCredentialMaterial
               fi
 
               chmod 600 "$tmpConfig"
               run mv "$tmpConfig" "$renderedConfig"
+
+              if [ -n "''${protondriveFingerprint:-}" ]; then
+                # A digest of the credentials, not the credentials: the config
+                # beside it already carries their reversible obscured form.
+                printf '%s\n' "$protondriveFingerprint" > "$protondriveFingerprintFile"
+                chmod 600 "$protondriveFingerprintFile"
+              fi
             '';
           }
 
