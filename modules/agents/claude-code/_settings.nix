@@ -11,8 +11,8 @@
       in _activation.nix.
 
   Note: attribute order is irrelevant for builtins.toJSON, so re-adding
-  enabledPlugins and mcpServers via `//` produces JSON byte-identical to a
-  monolithic attrset literal with `inherit`.
+  enabledPlugins, deniedMcpServers, and mcpServers via `//` produces JSON
+  byte-identical to a monolithic attrset literal with `inherit`.
 */
 {
   pkgs,

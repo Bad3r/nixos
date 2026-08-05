@@ -3,8 +3,9 @@
 
   Source of truth for default ~/.claude/settings.json keys, ~/.claude.json
   UI preferences, and ~/.claude/keybindings.json. Values that depend on runtime
-  evaluation (enabledPlugins, mcpServers) are injected by _settings.nix; this
-  attrset only carries the static portion shared across hosts.
+  evaluation (enabledPlugins, deniedMcpServers, mcpServers) are injected by
+  _settings.nix; this attrset only carries the static portion shared across
+  hosts.
 
   Permission rule semantics (code.claude.com/docs/en/permissions):
     * Rules evaluate deny -> ask -> allow; first match wins, so an ask/deny
@@ -172,6 +173,15 @@ let
     claudeJson = [ "autocheckpointingEnabled" ];
   };
 
+  # Runtime-owned keys are merged over these static bases by _settings.nix.
+  # Keep these lists aligned with that producer so retirement cannot delete a
+  # key that the same activation pass just injected.
+  injectedSettings = [
+    "enabledPlugins"
+    "deniedMcpServers"
+  ];
+  injectedClaudeJson = [ "mcpServers" ];
+
   claudeSettingsBase = {
     cleanupPeriodDays = 30;
     # Disables + bash knobs from the shared source
@@ -218,10 +228,10 @@ let
     verbose = true; # Verbose output
   };
   retiredJsonButLive = builtins.filter (
-    name: builtins.hasAttr name claudeJsonConfigBase
+    name: builtins.hasAttr name claudeJsonConfigBase || builtins.elem name injectedClaudeJson
   ) retired.claudeJson;
   retiredSettingsButLive = builtins.filter (
-    name: builtins.hasAttr name claudeSettingsBase
+    name: builtins.hasAttr name claudeSettingsBase || builtins.elem name injectedSettings
   ) retired.settings;
 in
 assert
@@ -229,10 +239,10 @@ assert
   || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " deadAllow} are in both bashAllow and bashAsk; ask wins, so drop them from bashAllow rather than leaving the two lists disagreeing";
 assert
   retiredJsonButLive == [ ]
-  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredJsonButLive} are both retired and live; remove the name from retired or claudeJsonConfigBase";
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredJsonButLive} are both retired and live; remove the name from retired, claudeJsonConfigBase, or the _settings.nix injected keys";
 assert
   retiredSettingsButLive == [ ]
-  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredSettingsButLive} are both retired and live; remove the name from retired or claudeSettingsBase";
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredSettingsButLive} are both retired and live; remove the name from retired, claudeSettingsBase, or the _settings.nix injected keys";
 {
   inherit claudeJsonConfigBase claudeSettingsBase retired;
 
@@ -476,7 +486,7 @@ assert
   #   server is on the denylist, it will be blocked across all scopes including
   #   enterprise. Denylist takes precedence over allowlist - if a server is on
   #   both lists, it is denied.
-  #   deniedMcpServers = [ ];                           # [array]
+  #   deniedMcpServers = [ ];                           # [array]    SET BY _settings.nix (programs.claude-code.extended.deniedMcpServers)
   #
   #   Disable agent view (`claude agents`, `--bg`, /background, the on-demand
   #   daemon). Typically set in managed settings. Equivalent to
@@ -554,7 +564,7 @@ assert
   #   < policy, so to disable a plugin that project settings enable, set it to
   #   false in .claude/settings.local.json - setting false in
   #   ~/.claude/settings.json is overridden by the project.
-  #   enabledPlugins = { };                             # [record]
+  #   enabledPlugins = { };                             # [record]   SET BY _settings.nix (programs.claude-code.extended.extraPlugins / lspPlugins)
   #
   #   When true and availableModels is a non-empty array, the Default model
   #   selection is also constrained: if the default model for the user tier is
