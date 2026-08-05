@@ -175,6 +175,12 @@ let
                       `firefoxpwa site uninstall`, which destroys its PWA profile
                       and session state. The `m365-<old-key>-*` records are left
                       behind and have to be deleted by hand.
+
+                      That refusal holds only while `name` is unchanged. Editing
+                      both fields makes every lookup miss the installed site, so
+                      it is registered a second time and the original app and
+                      its launcher entry are orphaned with no message. Uninstall
+                      the old site before changing both.
                     '';
                   };
                   name = lib.mkOption {
