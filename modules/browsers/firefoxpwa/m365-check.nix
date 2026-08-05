@@ -255,6 +255,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             nativeBuildInputs = [
               pkgs.jq
               pkgs.coreutils
+              pkgs.gnugrep
             ];
           }
           ''
@@ -494,6 +495,20 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             expect "catalog rerun" "$shipped" 0 ""
             assert_equal "catalog rerun adds nothing" \
               "$(site_count)" ${toString (builtins.length catalog)}
+
+            echo
+            echo "-- the installer is built through the shared site installer --"
+            # ./site-lock-check.nix proves the builder serializes, but nothing
+            # there names this derivation: rewriting default.nix back to a
+            # direct writeShellApplication would keep that check green while
+            # losing the mutual exclusion it exists to provide. The lock path is
+            # the tie, since it is the shared resource rather than the mechanism.
+            if grep -q '\.config-lock' "$declared"; then
+              echo "PASS  takes the shared site lock"
+            else
+              echo "FAIL  no shared site lock in the installer text; it was not built through packages/firefoxpwa-site-installer"
+              failures=$((failures + 1))
+            fi
 
             echo
             echo "-- the installer uses the directories it is given --"

@@ -220,6 +220,7 @@
             nativeBuildInputs = [
               pkgs.jq
               pkgs.coreutils
+              pkgs.gnugrep
             ];
           }
           ''
@@ -919,6 +920,20 @@
               failures=$((failures + 1))
             else
               echo "PASS  marker write leaves no temporary"
+            fi
+
+            echo
+            echo "-- the installer is built through the shared site installer --"
+            # ./site-lock-check.nix proves the builder serializes, but nothing
+            # there names this derivation: rewriting default.nix back to a
+            # direct writeShellApplication would keep that check green while
+            # losing the mutual exclusion it exists to provide. The lock path is
+            # the tie, since it is the shared resource rather than the mechanism.
+            if grep -q '\.config-lock' "$installer"; then
+              echo "PASS  takes the shared site lock"
+            else
+              echo "FAIL  no shared site lock in the installer text; it was not built through packages/firefoxpwa-site-installer"
+              failures=$((failures + 1))
             fi
 
             echo
