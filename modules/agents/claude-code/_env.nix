@@ -25,10 +25,12 @@
   above; leaving it commented keeps Claude's own default.
 */
 let
-  # Privacy/telemetry/update disables baked into the binary.
+  # Privacy, telemetry, error-reporting, and update disables baked into the binary.
   binary = {
     DISABLE_AUTOUPDATER = "1";
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
+    CLAUDE_CODE_ENABLE_TELEMETRY = "0";
+    DISABLE_ERROR_REPORTING = "1";
     DISABLE_TELEMETRY = "1";
     DISABLE_INSTALLATION_CHECKS = "1";
   };
@@ -56,8 +58,6 @@ let
 
   # Shell-level vars not needed in settings.json.
   shellOnly = {
-    CLAUDE_CODE_ENABLE_TELEMETRY = "0";
-    DISABLE_ERROR_REPORTING = "1";
     BASH_MAX_OUTPUT_LENGTH = "1024";
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
     CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
