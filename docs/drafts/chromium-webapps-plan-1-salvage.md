@@ -73,22 +73,37 @@ cd "$HOME/trees/nixos/fix-build-time-shell"
 git cherry-pick "$COMPGEN_SHA" "$STATIX_SHA"
 ```
 
-If a hunk conflicts because it also touched `modules/browsers/firefoxpwa/m365-check.nix`, drop that path: it is deleted in PR 2.
+Only if the cherry-pick stops on a conflict in `modules/browsers/firefoxpwa/m365-check.nix`, drop that path: it is
+deleted in PR 2. Run this against that path alone, then finish the pick:
 
 ```bash
-git rm --cached modules/browsers/firefoxpwa/m365-check.nix 2>/dev/null || true
-git checkout --ours . 2>/dev/null || true
+git status --short          # confirm m365-check.nix is the only conflicted path
+git rm -f modules/browsers/firefoxpwa/m365-check.nix
+git cherry-pick --continue
 ```
+
+Do not resolve with `git checkout --ours .`. During a cherry-pick `--ours` is `HEAD`, which here is the clean branch,
+so it resolves every conflicted path to the pre-fix content: run over `.` it discards the compgen and statix hunks
+this task exists to rescue, and a trailing `|| true` hides that it happened. `git rm --cached` is also wrong on its
+own: it leaves the file in the working tree as untracked, and without `--continue` the cherry-pick is never
+finished, so Step 5 would run against a tree still mid-conflict.
+
+If any path other than `m365-check.nix` conflicts, stop and resolve it by reading the hunk. The two commits touch
+three files and none of them should conflict on a branch cut from `main`.
 
 - [ ] **Step 4: Verify the compgen fix actually detects what it claims**
 
 ```bash
 cd "$HOME/trees/nixos/fix-build-time-shell"
 rg -n 'declare -F' tests/prune-old-stashes/run.sh
-rg -n 'compgen' tests/ modules/ packages/
+rg -n 'compgen' tests/ modules/ packages/ -g '!modules/meta/build-time-shell.nix'
 ```
 
-Expected: `declare -F` present in the test runner; no `compgen` at a command position anywhere.
+Expected: `declare -F` present in the test runner; no output from the second command.
+
+`modules/meta/build-time-shell.nix` is excluded because it is the check created in Step 3, so it necessarily carries
+the literal string it scans for. Without the exclusion the sweep always prints hits and the pass condition has to be
+judged by eye.
 
 - [ ] **Step 5: Run the checks**
 
