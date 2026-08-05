@@ -153,6 +153,28 @@
         ) "browsers/firefoxpwa-apps-eval: a name is only claimed while its site is enabled";
         assert lib.assertMsg (failsWith duplicateKeys "duplicate keys")
           "browsers/firefoxpwa-apps-eval: two m365 entries sharing a key must fail an assertion";
+        # The m365-only duplicate-name assertion was dropped as subsumed by the
+        # union above; this is the intra-list case it used to cover, and it
+        # reaches the union only through siteNames = m365Names in ./apps.nix.
+        assert lib.assertMsg (failsWith (evalWith {
+          extended.enable = true;
+          m365 = {
+            enable = true;
+            apps = [
+              {
+                key = "word";
+                name = "Word";
+                url = "https://word.example/";
+              }
+              {
+                key = "word-2";
+                name = "Word";
+                url = "https://word-2.example/";
+              }
+            ];
+          };
+        }) "same launcher name")
+          "browsers/firefoxpwa-apps-eval: two m365 entries sharing a name must fail an assertion";
         assert lib.assertMsg (lib.elem "DMail" shipped.programs.firefoxpwa.siteNames)
           "browsers/firefoxpwa-apps-eval: an enabled site must register its launcher name";
         assert lib.assertMsg (accepts "https://word.cloud.microsoft/")
