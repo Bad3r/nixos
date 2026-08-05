@@ -1219,21 +1219,28 @@ public key:
   stable to check against during verification.
 
 With a `key`, the ID is derived from that public key and never moves. Only the
-public half is used; unpacked extensions are never signed, so the private key is
-generated, used once to derive the public key, and discarded.
+public half is used; unpacked extensions are never signed, so the private key
+exists just long enough to derive the public key and is never written to disk.
+
+That last part is a security property, not tidiness. `keepAliveExtensionId` is
+the one ID exempted from `ExtensionSettings."*" = blocked`, so whoever holds the
+matching private key can package a CRX that the policy admits into a browser
+that refuses everything else. Writing the key to a `mktemp` file and removing it
+with `rip` would not have destroyed it: `rip` is this repo's `rm` and is
+trash-cli backed (`modules/apps/rip.nix`), so the key would sit in
+`~/.local/share/Trash` indefinitely. It stays in a shell variable instead.
 
 ```bash
-priv="$(mktemp)"
-openssl genrsa -out "$priv" 2048 2>/dev/null
+priv="$(openssl genrsa 2048 2>/dev/null)"
 
-pubkey="$(openssl rsa -in "$priv" -pubout -outform DER 2>/dev/null | base64 -w0)"
+pubkey="$(printf '%s' "$priv" | openssl rsa -pubout -outform DER 2>/dev/null | base64 -w0)"
 
 # Chromium's ID: first 128 bits of SHA-256 over the DER public key, each hex
 # nibble mapped 0-9a-f to a-p.
-extid="$(openssl rsa -in "$priv" -pubout -outform DER 2>/dev/null \
+extid="$(printf '%s' "$priv" | openssl rsa -pubout -outform DER 2>/dev/null \
   | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')"
 
-rip "$priv"
+unset priv
 
 printf 'publicKey  = %s\nextensionId = %s\n' "$pubkey" "$extid"
 ```
@@ -1251,9 +1258,12 @@ Create `modules/browsers/webapps/_keepalive-key.nix` with those two values:
   leading underscore keeps this file out of module auto-discovery.
 
   This is a public key only. Unpacked extensions are never signed, so the
-  matching private key was generated once, used to derive these two values, and
-  discarded. Regenerating it changes the extension ID, which orphans the
-  registration in every existing app profile.
+  matching private key was generated in a shell variable, used to derive these
+  two values, and never written to disk. That matters: keepAliveExtensionId is
+  the one ID exempted from ExtensionSettings."*" = blocked, so the private key
+  would sign a CRX this browser's policy admits and nothing else's.
+  Regenerating the key changes the extension ID, which orphans the registration
+  in every existing app profile.
 
   keepAliveExtensionId is the first 128 bits of SHA-256 over the DER-encoded
   public key with each hex nibble mapped 0-9a-f to a-p. ./keepalive-id-check.nix
