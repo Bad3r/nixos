@@ -2669,15 +2669,22 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
 Temporarily change the tray assertion to expect `webapp-plain-tray`, run the check, and confirm it reports the failure rather than passing:
 
 ```bash
-sed -i 's/lib.elem "webapp-trayed-tray" packageNames/lib.elem "webapp-plain-tray" packageNames/' \
+sed -i 's/(lib.elem "webapp-trayed-tray" packageNames)/(lib.elem "webapp-plain-tray" packageNames)/' \
   modules/browsers/webapps/module-check.nix
 nix build "path:.#checks.x86_64-linux.\"browsers/webapps-module-eval\"" --accept-flake-config 2>&1 \
   | rg -q 'must install a kdocker wrapper' && echo ASSERTIONS-REACHABLE
-sed -i 's/lib.elem "webapp-plain-tray" packageNames/lib.elem "webapp-trayed-tray" packageNames/' \
+sed -i 's/(lib.elem "webapp-plain-tray" packageNames)/(lib.elem "webapp-trayed-tray" packageNames)/' \
   modules/browsers/webapps/module-check.nix
 ```
 
 Expected: `ASSERTIONS-REACHABLE`.
+
+Both patterns carry the opening paren so the restore cannot reach the negative assertion two lines below, which reads
+`(!lib.elem "webapp-plain-tray" packageNames)`. Without the paren the second `sed` matches that line too, since `sed`
+replaces the first match on every line: it becomes `!lib.elem "webapp-trayed-tray" packageNames`, which is false, and
+Step 4's clean run then fails on an assertion the operator never touched. The file is untracked until Step 5, so there
+is no `git checkout` to fall back on. The trailing `packageNames)` keeps both patterns off the `noGeckoPackageNames`
+assertion above.
 
 - [ ] **Step 4: Run the check clean**
 
