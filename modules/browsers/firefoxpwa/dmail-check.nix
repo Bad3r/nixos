@@ -951,7 +951,10 @@
             # the rename guard reads that file, so it has to tell "no file" from
             # "cannot read this file" and let the first install.
             rm -f "$config_file"
-            expect "a config.json that is gone does not block the install" 0 "installed" "$renamed"
+            # The full message, not just "installed": that substring also matches
+            # "already installed with current URL", so the loose form pins
+            # neither the branch that ran nor the name it installed under.
+            expect "a config.json that is gone does not block the install" 0 "installed 'Work Mail'" "$renamed"
 
             reset
             set_url 'https://mail.example.com/a'
@@ -961,7 +964,9 @@
             # case must still install: the guard is on the site being there.
             jq 'del(.sites["01STUB"])' "$config_file" >"$config_file.next"
             mv "$config_file.next" "$config_file"
-            expect "an uninstalled site is reinstalled under the new name" 0 "installed" "$renamed"
+            expect "an uninstalled site is reinstalled under the new name" 0 "installed 'Work Mail'" "$renamed"
+            assert_equal "the reinstalled site carries the new name" \
+              "$(jq -r '.sites["01STUB"].config.name' "$config_file")" "Work Mail"
 
             echo
             echo "-- the installer is built through the shared site installer --"
