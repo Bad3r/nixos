@@ -81,7 +81,7 @@ are follow-ups, not part of this plan.
 
 ### Verified facts this plan depends on
 
-- `brave-origin` binary contains the string `/etc/brave/policies`. The binary is under `brave-origin-nightly/`, which is the channel the package ships (`packages/brave-origin/default.nix`), not `brave-origin/`. Reproduce: `strings -a "$(nix eval --impure --raw --expr 'with import <nixpkgs> {}; "${brave-origin}"')/opt/brave.com/brave-origin-nightly/brave" | rg '^/etc/brave'`
+- `brave-origin` binary contains the string `/etc/brave/policies`. The binary is under `brave-origin-nightly/`, which is the channel the package ships (`packages/brave-origin/default.nix`), not `brave-origin/`. Reproduce: `strings -a "$(nix build --impure --no-link --print-out-paths --expr 'with import <nixpkgs> {}; brave-origin')/opt/brave.com/brave-origin-nightly/brave" | rg '^/etc/brave'`
 
 - `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available.
 
@@ -92,7 +92,7 @@ are follow-ups, not part of this plan.
 - **Every policy name this plan writes is registered in the build the repo pins.** Each of the names in the two bullets above, plus `URLAllowlist` and `SafeBrowsingProtectionLevel`, appears as an exact standalone string in the `brave-origin` binary's string table. This is what rules out a removed or renamed key. It is a property of whatever version `packages/brave-origin/default.nix` currently pins, so re-run it after a bump rather than trusting this line:
 
   ```bash
-  bin="$(nix eval --impure --raw --expr 'with import <nixpkgs> {}; "${brave-origin}"')/opt/brave.com/brave-origin-nightly/brave"
+  bin="$(nix build --impure --no-link --print-out-paths --expr 'with import <nixpkgs> {}; brave-origin')/opt/brave.com/brave-origin-nightly/brave"
   strings -a "$bin" > /tmp/brave-strings.txt
   for p in AudioCaptureAllowed VideoCaptureAllowed ScreenCaptureAllowed \
     AudioCaptureAllowedUrls VideoCaptureAllowedUrls ScreenCaptureAllowedByOrigins \
@@ -1605,28 +1605,31 @@ runCommand "webapp-reload-${key}"
 
 - [ ] **Step 4: Build one and inspect it**
 
+`nix build`, not `nix eval`. `nix eval --raw` coerces the derivation to its `outPath` and returns without realising
+it, so on a store that does not already hold `webapp-reload-teams` every path below is a `No such file or directory`
+and the step cannot reach its expectation. Nothing in this expression forces a build.
+
 ```bash
-nix eval --impure --raw --expr '
+ext="$(nix build --impure --no-link --print-out-paths --expr '
   let pkgs = import <nixpkgs> {}; in
   (import ./modules/browsers/webapps/_reload-extension.nix {
     inherit (pkgs) lib runCommand;
-  }) { key = "teams"; appName = "Microsoft Teams"; intervalMinutes = 20; }
-' | xargs -I{} sh -c 'jq . {}/manifest.json && head -5 {}/service-worker.js'
+  }) { key = "teams"; appName = "Microsoft Teams"; intervalMinutes = 20; }')"
+jq . "$ext/manifest.json"
+head -5 "$ext/service-worker.js"
 ```
 
 Expected: valid JSON with `manifest_version: 3`, `permissions: ["alarms","tabs"]` and a `key` matching `publicKey` in `_keepalive-key.nix`, and a service worker whose `PERIOD_MINUTES` is `20`.
 
 The heredoc is quoted (`<<'MANIFEST'`), so `${publicKey}` is interpolated by Nix
 before the shell ever sees it. Confirm the rendered key is the base64 blob and
-not the literal string `${publicKey}`:
+not the literal string `${publicKey}`. This is the check that matters most here:
+a literal `${publicKey}` yields an extension whose ID is a path hash, which
+`ExtensionSettings."*" = blocked` then refuses, and nothing else in the plan
+would notice.
 
 ```bash
-nix eval --impure --raw --expr '
-  let pkgs = import <nixpkgs> {}; in
-  (import ./modules/browsers/webapps/_reload-extension.nix {
-    inherit (pkgs) lib runCommand;
-  }) { key = "teams"; appName = "Microsoft Teams"; intervalMinutes = 20; }
-' | xargs -I{} jq -r '.key' {}/manifest.json | head -c 32
+jq -r '.key' "$ext/manifest.json" | head -c 32
 ```
 
 Expected: a base64 prefix, conventionally starting `MIIBIjANBgkqhkiG9w0B`.
