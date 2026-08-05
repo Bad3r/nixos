@@ -40,8 +40,9 @@
     that abort, --resync retains the cap and --force-resync is required to
     bypass it; --force-resync also permits an empty source. Normal bisync runs
     pass the same value as rclone's 25-percent deletion check; bisync --resync
-    establishes the initial baseline without that check. Bisync listings live
-    under this module's state directory beside the tuple marker.
+    establishes the initial baseline without that check, and --force explicitly
+    bypasses the normal bisync safety abort. Bisync listings live under this
+    module's state directory beside the tuple marker.
 
     Per-invocation overrides:
       PROTON_DRIVE_LOCAL=/path proton-drive-sync
@@ -53,6 +54,7 @@
     proton-drive-sync            # run the configured sync immediately
     proton-drive-sync --resync   # establish (or rebuild) a nonempty baseline
     proton-drive-sync --force-resync # override the abort cap or permit an empty source
+    proton-drive-sync --force    # retry a bisync safety abort with rclone --force
 
   Multi-host caveat:
     services.protonDriveSync.enable is off by default and should be enabled on
@@ -111,6 +113,7 @@ _: {
 
           resync=0
           force=0
+          bisync_force=()
           for arg in "$@"; do
             case "$arg" in
               --resync) resync=1 ;;
@@ -118,12 +121,18 @@ _: {
                 resync=1
                 force=1
                 ;;
+              --force) bisync_force=(--force) ;;
               *)
                 echo "proton-drive-sync: unknown argument: $arg" >&2
                 exit 2
-                ;;
+              ;;
             esac
           done
+
+          if [ "''${#bisync_force[@]}" -gt 0 ] && [ "$direction" != bisync ]; then
+            echo "proton-drive-sync: --force is only valid for bisync; use --force-resync for one-way runs." >&2
+            exit 2
+          fi
 
           if [ "$direction" = "up" ] && [ ! -d "$local_path" ]; then
             echo "proton-drive-sync: '$local_path' does not exist; refusing to create it and mirror an empty local onto '$remote'." >&2
@@ -198,7 +207,7 @@ _: {
             bisync)
               if [ "$resync" -eq 1 ]; then
                 echo "proton-drive-sync: building bisync baseline (--resync; local side wins conflicts)" >&2
-                rclone bisync "$local_path" "$remote" --resync --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient "''${common[@]}" "''${extra[@]}"
+                rclone bisync "$local_path" "$remote" --resync --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient "''${bisync_force[@]}" "''${common[@]}" "''${extra[@]}"
                 touch "$marker"
               elif [ ! -e "$marker" ]; then
                 echo "proton-drive-sync: no bisync baseline; run 'proton-drive-sync --resync' once after confirming '$local_path' holds the desired seed contents." >&2
@@ -206,7 +215,7 @@ _: {
               else
                 # rclone sync treats --max-delete as an absolute file count,
                 # while bisync treats the same value as a percentage.
-                rclone bisync "$local_path" "$remote" --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient --conflict-resolve=newer --max-delete=25 "''${common[@]}" "''${extra[@]}"
+                rclone bisync "$local_path" "$remote" --workdir "$state_dir/bisync" --create-empty-src-dirs --resilient --conflict-resolve=newer --max-delete=25 "''${bisync_force[@]}" "''${common[@]}" "''${extra[@]}"
               fi
               ;;
             *)
