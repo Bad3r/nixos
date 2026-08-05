@@ -2,16 +2,16 @@
 
 ## Module options (`programs.cloudflare-warp.extended`)
 
-| Option          | Type       | Default                                              | Description                                                                                          |
-| --------------- | ---------- | ---------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| `enable`        | bool       | `false`                                              | Run `warp-svc` and enroll into Zero Trust.                                                           |
-| `package`       | package    | `pkgs.cloudflare-warp.override { headless = true; }` | WARP package; headless ships `warp-cli`/`warp-svc`/`warp-dex`/`warp-diag`.                           |
-| `serviceMode`   | enum       | `"warp"`                                             | `mdm.xml` `service_mode`: `warp`, `tunnelonly`, `1dot1`, `proxy`, `postureonly`.                     |
-| `autoConnect`   | int 0-1440 | `0`                                                  | `mdm.xml` `auto_connect` minutes before reconnect after a manual disconnect.                         |
-| `switchLocked`  | bool       | `false`                                              | `mdm.xml` `switch_locked`; when true the user cannot disconnect.                                     |
-| `connectOnBoot` | bool       | `true`                                               | Best-effort oneshot with up to 30 attempts and a 180-second start timeout; otherwise logs and exits. |
-| `openFirewall`  | bool       | `true`                                               | Open the WARP UDP port.                                                                              |
-| `udpPort`       | port       | `2408`                                               | WARP UDP port to open.                                                                               |
+| Option          | Type       | Default                                              | Description                                                                                             |
+| --------------- | ---------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `enable`        | bool       | `false`                                              | Run `warp-svc` and enroll into Zero Trust.                                                              |
+| `package`       | package    | `pkgs.cloudflare-warp.override { headless = true; }` | WARP package; headless ships `warp-cli`/`warp-svc`/`warp-dex`/`warp-diag`.                              |
+| `serviceMode`   | enum       | `"warp"`                                             | `mdm.xml` `service_mode`: `warp`, `tunnelonly`, `1dot1`, `proxy`, `postureonly`.                        |
+| `autoConnect`   | int 0-1440 | `0`                                                  | `mdm.xml` `auto_connect` minutes before reconnect after a manual disconnect.                            |
+| `switchLocked`  | bool       | `false`                                              | `mdm.xml` `switch_locked`; when true the user cannot disconnect.                                        |
+| `connectOnBoot` | bool       | `true`                                               | Best-effort oneshot with up to 30 attempts within a 120-second deadline and a 180-second start timeout. |
+| `openFirewall`  | bool       | `true`                                               | Open the WARP UDP port.                                                                                 |
+| `udpPort`       | port       | `2408`                                               | WARP UDP port to open.                                                                                  |
 
 ## mdm.xml parameters
 

@@ -14,11 +14,10 @@ warp-cli status                                   # Connected
 ```
 
 For an enrolled host, the `cloudflare-warp-connect` oneshot makes up to 30
-readiness attempts before it issues `warp-cli connect`. Its explicit
-`TimeoutStartSec=180` gives slow IPC calls headroom while keeping the unit's
-startup bounded, so a fresh boot can take up to three minutes to reach
-`active (exited)`. Without the sops secret, it logs UN-ENROLLED and exits
-without connecting.
+readiness attempts within a 120-second deadline before it issues `warp-cli connect`. Each IPC command is capped at five seconds. Its explicit
+`TimeoutStartSec=180` covers the retry window, final status query, and shell
+overhead, so a fresh boot can take up to three minutes to reach `active (exited)`. Without the sops secret, it logs UN-ENROLLED and exits without
+connecting.
 
 Confirm WARP is carrying traffic:
 
@@ -63,18 +62,19 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
   dependency (`config.flake.lib.security.sopsInstallSecretsDeps`), so on
   systemd-activation hosts the rendered template is present before `warp-svc`
   starts. Activation-script hosts decrypt secrets before any unit ordering. The
-  connect oneshot waits for the daemon and makes up to 30 retry attempts because
-  the IPC socket can answer before managed registration completes. The oneshot
-  has an explicit 180-second start timeout. If it logs `connect never succeeded`,
-  inspect the daemon logs and rerun:
+  connect oneshot waits for the daemon and makes up to 30 retry attempts within
+  a 120-second deadline. Each `warp-cli` call has a five-second cap, and the
+  oneshot has an explicit 180-second start timeout. If it logs `connect never succeeded`, inspect the daemon logs and rerun:
 
   `systemctl restart cloudflare-warp-connect.service`
 
   after enrollment is ready.
 
-- **No connectivity with strict rp_filter.** The module sets
+- **No connectivity with strict rp_filter.** Enrolled hosts set
   `networking.firewall.checkReversePath = "loose"` by default. If a host firewall
   module forces `strict`, the `CloudflareWARP` interface drops return traffic.
+  Un-enrolled hosts do not receive this WARP-specific setting; shared VPN defaults
+  may still apply.
 
 - **DNS resolver conflict.** Full mode (`warp` / `1dot1`) makes WARP the DNS
   resolver. Do not also enable `services.dnscrypt-proxy` or NetworkManager's

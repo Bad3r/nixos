@@ -21,7 +21,7 @@
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
     * Secrets (organization/auth_client_id/auth_client_secret) live in secrets/cloudflare-warp.yaml (sops).
-    * Sets networking.firewall.checkReversePath = "loose" (mkDefault); the WARP interface trips strict rp_filter.
+    * Sets networking.firewall.checkReversePath = "loose" (mkDefault) for enrolled hosts; the WARP interface trips strict rp_filter.
     * Pairs with per-host enablement in modules/tpnix/cloudflare-warp.nix and modules/system76/cloudflare-warp.nix.
 */
 { config, ... }:
@@ -149,8 +149,9 @@ let
             };
 
             # WARP's CloudflareWARP interface trips strict reverse-path filtering.
-            # mkDefault so a host firewall module can still override it.
-            networking.firewall.checkReversePath = lib.mkDefault "loose";
+            # Only enrolled hosts can connect through WARP; mkDefault lets a host
+            # firewall module override the setting.
+            networking.firewall.checkReversePath = lib.mkIf enrolling (lib.mkDefault "loose");
 
             warnings =
               lib.optional
@@ -249,11 +250,15 @@ let
               requires = [ "cloudflare-warp.service" ];
               partOf = [ "cloudflare-warp.service" ];
               wantedBy = [ "multi-user.target" ];
+              path = [
+                pkgs.coreutils
+                cfg.package
+              ];
               serviceConfig = {
                 Type = "oneshot";
                 RemainAfterExit = true;
-                # Bound the wall-clock readiness window even if an IPC call takes
-                # longer than the retry interval.
+                # The script bounds each IPC call and its retry window; this larger
+                # unit timeout covers the final status query and shell overhead.
                 TimeoutStartSec = 180;
               };
               script = ''
@@ -261,9 +266,12 @@ let
                 # The IPC socket can answer before mdm.xml service-token registration
                 # completes, so retry connect during the bounded readiness window.
                 connected=""
-                for _ in {1..30}; do
-                  if ${cfg.package}/bin/warp-cli status >/dev/null 2>&1 \
-                    && ${cfg.package}/bin/warp-cli --accept-tos connect; then
+                attempt=0
+                deadline=$((SECONDS + 120))
+                while [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
+                  attempt=$((attempt + 1))
+                  if timeout 5s warp-cli status >/dev/null 2>&1 \
+                    && timeout 5s warp-cli --accept-tos connect; then
                     connected=1
                     echo "cloudflare-warp-connect: connect requested"
                     break
@@ -275,7 +283,7 @@ let
                 if [ -z "$connected" ]; then
                   echo "cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
                 fi
-                ${cfg.package}/bin/warp-cli status || echo "cloudflare-warp-connect: status unavailable"
+                timeout 5s warp-cli status || echo "cloudflare-warp-connect: status unavailable"
               '';
             };
           })
