@@ -798,7 +798,12 @@ Create `modules/browsers/webapps/nixos.nix`:
         secretsFile = lib.mkOption {
           type = lib.types.nullOr lib.types.path;
           default = null;
-          description = "SOPS file backing urlSecret and originSecret keys.";
+          description = ''
+            SOPS file backing urlSecret and originSecret keys. Read by both
+            scopes: ./nixos.nix resolves originSecret against it, and
+            ./home.nix reads it through osConfig for urlSecret, so overriding
+            it moves both together.
+          '';
         };
 
         apps = lib.mkOption {
@@ -847,11 +852,16 @@ Create `modules/browsers/webapps/nixos.nix`:
               message = "programs.webapps.apps.${key}: set exactly one of url or urlSecret.";
             }) cfg.apps
             ++ lib.mapAttrsToList (key: app: {
-              assertion = app.urlSecret == null || app.originSecret != null;
+              assertion = (app.urlSecret == null) == (app.originSecret == null);
               message = ''
-                programs.webapps.apps.${key}: urlSecret requires originSecret. The permission
-                policy needs a scheme://host origin and sops templates substitute values
-                without transforming them, so the origin has to be its own key.
+                programs.webapps.apps.${key}: urlSecret and originSecret are set together or
+                not at all. The permission policy needs a scheme://host origin and sops
+                templates substitute values without transforming them, so the origin has to
+                be its own key. The converse matters just as much: ./nixos.nix partitions on
+                originSecret and ./home.nix on urlSecret, so originSecret alone makes the
+                policy grant permissions to whatever the secret decrypts to while the
+                launcher opens the literal url, and policy-drops the app when the secrets
+                file is absent while the launcher stays.
               '';
             }) cfg.apps
             ++ lib.mapAttrsToList (key: app: {
@@ -1677,7 +1687,6 @@ Create `modules/browsers/webapps/home.nix`:
       lib,
       pkgs,
       osConfig,
-      secretsRoot,
       ...
     }:
     let
@@ -1685,8 +1694,15 @@ Create `modules/browsers/webapps/home.nix`:
       enabled = osCfg.enable or false;
       apps = osCfg.apps or { };
 
-      geckoFile = secretsRoot + "/gecko.yaml";
-      geckoFileExists = builtins.pathExists geckoFile;
+      # programs.webapps.secretsFile, not a fixed path under secretsRoot.
+      # ./nixos.nix drives secretsPresent, usesSops, policyApps and its
+      # webapps/<key>/origin secrets from that option, so reading a different
+      # file here splits the two scopes the moment a host overrides it: the
+      # policy would carry an app whose launcher was dropped, or the launcher
+      # would open one origin while the policy granted permissions to another,
+      # with nothing failing at eval, at switch or at launch.
+      geckoFile = osCfg.secretsFile or null;
+      geckoFileExists = geckoFile != null && builtins.pathExists geckoFile;
 
       dataRoot = "${config.xdg.dataHome}/webapps";
 
@@ -1881,7 +1897,9 @@ Create `modules/browsers/webapps/home.nix`:
 
         (lib.mkIf (enabled && needsSecrets && !geckoFileExists) {
           warnings = [
-            "programs.webapps: ${toString geckoFile} is missing, so ${
+            "programs.webapps: ${
+              if geckoFile == null then "secretsFile is unset" else "${toString geckoFile} is missing"
+            }, so ${
               lib.concatStringsSep ", " (lib.attrNames secretApps)
             } have no launcher. Every app with a literal URL is unaffected."
           ];
@@ -1926,7 +1944,7 @@ as the catalog and requires each hit to have a `<dir>.extended.enable` line in
 the module file `apps.nix` are mutually exclusive; this plan stays out of the
 catalog. Task 13 Step 2 runs that hook.
 
-`secretsRoot` is already a NixOS-scope module argument: `modules/configurations/nixos.nix:42` passes it, and `modules/hosts/common/duplicati.nix:9`, `fonts.nix:8` and `usbguard.nix:6` already consume it that way. No change to `modules/configurations/nixos.nix` is needed.
+`secretsRoot` is already a NixOS-scope module argument: `modules/configurations/nixos.nix:42` passes it, and `modules/hosts/common/duplicati.nix:9`, `fonts.nix:8` and `usbguard.nix:6` already consume it that way. No change to `modules/configurations/nixos.nix` is needed. This file is the only place that resolves it: `home.nix` reads `programs.webapps.secretsFile` through `osConfig` instead, so both scopes consult one path.
 
 ```nix
 /*
@@ -2338,17 +2356,20 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
 /*
   Check: the webapps Home Manager module evaluates (modules/browsers/webapps).
 
-  home.nix guards everything behind lib.mkIf (enabled && (!needsSecrets ||
-  geckoFileExists)), and CI never has the secrets submodule (see
+  home.nix guards everything behind lib.mkIf (enabled && usableApps != { }),
+  and usableApps drops the secret-URL apps when programs.webapps.secretsFile is
+  absent. CI never has the secrets submodule (see
   .github/workflows/check.yml), so every attribute inside that block, the
   launcher text, the desktop entry, the sops secret, would never be evaluated
   by nix flake check. A typo or a reference to a removed binding would reach
   main and fail only at the next real switch.
 
   Builds a standalone Home Manager configuration the way
-  modules/home-manager/checks.nix does, with osConfig stubbed and secretsRoot
-  pointed at ./check-fixtures, so the guard evaluates true here regardless of
-  what the real secrets submodule holds.
+  modules/home-manager/checks.nix does, with osConfig stubbed and
+  programs.webapps.secretsFile pointed at ./check-fixtures/gecko.yaml, so the
+  guard evaluates true here regardless of what the real secrets submodule
+  holds. The noGecko case varies that same option rather than a separate root,
+  because it is the option both scopes read.
 
   programs.webapps.package is stubbed rather than set to pkgs.brave-origin.
   Nothing here launches a browser: home.nix only takes lib.getExe' on it and
@@ -2374,7 +2395,7 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
           mkHm =
             {
               webappsConfig,
-              secretsRoot ? ./check-fixtures,
+              secretsFile ? ./check-fixtures/gecko.yaml,
             }:
             inputs.home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
@@ -2394,8 +2415,9 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
                 }
               ];
               extraSpecialArgs = {
-                osConfig.programs.webapps = webappsConfig;
-                inherit secretsRoot;
+                osConfig.programs.webapps = webappsConfig // {
+                  inherit secretsFile;
+                };
               };
             };
 
@@ -2468,7 +2490,7 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
           hm = mkHm { inherit webappsConfig; };
           noGecko = mkHm {
             inherit webappsConfig;
-            secretsRoot = "${./check-fixtures}/missing";
+            secretsFile = "${./check-fixtures}/missing/gecko.yaml";
           };
 
           packageNames = map (p: p.name or "") hm.config.home.packages;
@@ -2486,8 +2508,12 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
           "browsers/webapps-module-eval: a dropped app must not leave a desktop entry pointing at nothing";
         assert lib.assertMsg (builtins.hasAttr "plain" noGecko.config.xdg.desktopEntries)
           "browsers/webapps-module-eval: a literal-url app must keep its desktop entry when gecko.yaml is missing";
-        assert lib.assertMsg (hm.config.warnings == [ ])
-          "browsers/webapps-module-eval: the enabled configuration must not warn";
+        # Narrow, not warnings == [ ]: config.warnings is shared with Home
+        # Manager and every imported module, sops-nix included, so the strict
+        # form turns an unrelated upstream warning into a nix flake check break
+        # reported against this module.
+        assert lib.assertMsg (!lib.any (lib.hasInfix "gecko.yaml is missing") hm.config.warnings)
+          "browsers/webapps-module-eval: a present gecko.yaml must not warn about being absent";
         assert lib.assertMsg (lib.elem "webapp-plain" packageNames)
           "browsers/webapps-module-eval: every app must install a launcher";
         assert lib.assertMsg (lib.elem "webapp-trayed-tray" packageNames)
@@ -2550,7 +2576,7 @@ git add modules/browsers/webapps/module-check.nix modules/browsers/webapps/check
 git commit -m "test(webapps): force the Home Manager module's guarded output
 
 CI never has the secrets submodule, so everything inside home.nix's mkIf guard, the launcher text, the desktop entry
-and the sops secret, would never be evaluated by nix flake check. The fixture secretsRoot makes the guard true
+and the sops secret, would never be evaluated by nix flake check. A fixture programs.webapps.secretsFile makes the guard true
 regardless. Assertions proven reachable by inverting the tray expectation before the clean run is trusted.
 
 Validation: nix build path:.#checks.x86_64-linux.\"browsers/webapps-module-eval\""
