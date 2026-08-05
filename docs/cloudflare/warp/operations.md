@@ -57,11 +57,20 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
 
 ## Disable or de-enroll
 
-Set `programs.cloudflare-warp.extended.enable = false` and rebuild the host. When
-the wrapper is disabled, its tmpfiles rule removes the wrapper-owned
+De-enroll first, while `warp-svc` is still running:
+
+```bash
+sudo warp-cli registration delete   # revokes this device's Zero Trust registration
+```
+
+Then set `programs.cloudflare-warp.extended.enable = false` and rebuild the host.
+When the wrapper is disabled, its tmpfiles rule removes the wrapper-owned
 `/var/lib/cloudflare-warp/mdm.xml` during the next NixOS activation, clearing the
-runtime managed configuration and cached service token. Re-enabling the wrapper
-recreates the file from the encrypted sops secret before `warp-svc` starts.
+runtime managed configuration and the cached service token. It does **not** delete
+the device registration: skipping the step above leaves the host an active device
+in the Zero Trust tenant, so remove it under Team & Resources > Devices instead.
+Re-enabling the wrapper recreates `mdm.xml` from the encrypted sops secret before
+`warp-svc` starts and re-enrolls with the service token.
 
 ## Troubleshooting
 
