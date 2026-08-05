@@ -183,16 +183,24 @@ let
   # ANTHROPIC_MODEL = "";
   # Override AWS region for the Haiku-class model when using Amazon Bedrock or Amazon Bedrock Mantle.
   # ANTHROPIC_SMALL_FAST_MODEL_AWS_REGION = "";
-  # Set to 1 to prevent automatic remapping of Opus 4.0 and 4.1 to the current Opus version on the Anthropic API. Use when you intentionally want to... [1 or unset]
+  # Set to 1 to prevent automatic remapping of Opus 4.0 and 4.1 to the current
+  # Opus version on the Anthropic API. Use when you intentionally want to pin
+  # an older model. [1 or unset]
   # CLAUDE_CODE_DISABLE_LEGACY_MODEL_REMAP = "1";
-  # Set to 1 to populate the /model picker from your gateway's /v1/models endpoint when ANTHROPIC_BASE_URL points at an Anthropic-compatible gateway... [1 or unset]
+  # Set to 1 to populate the /model picker from your gateway's /v1/models
+  # endpoint when ANTHROPIC_BASE_URL points at an Anthropic-compatible gateway.
+  # Off by default because a shared gateway key could expose every model it can
+  # access. [1 or unset]
   # CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
   # The model Claude Code uses for all subagents, agent teams, and agents in a workflow.
   # CLAUDE_CODE_SUBAGENT_MODEL = "";   # ACTIVE above
-  # Set to any non-empty value, such as 1, to make every model stop retrying with a repeated-overload error when no fallback model is configured...
+  # Set to any non-empty value, such as 1, to make every model stop retrying
+  # with a repeated-overload error when no fallback model is configured.
+  # Setting it to 0 or false still enables this, unlike most on/off variables;
+  # unset the variable to restore the default retry behavior.
   # FALLBACK_FOR_ALL_PRIMARY_MODELS = "";
 
-  # Effort, thinking, context, memory (16)
+  # Effort, thinking, context, memory (17)
   # -----------------------------------------
   # Set the percentage (1-100) of the auto-compact window at which auto-compaction triggers.
   # CLAUDE_AUTOCOMPACT_PCT_OVERRIDE = "";
@@ -202,7 +210,9 @@ let
   # CLAUDE_CODE_AUTO_COMPACT_WINDOW = "";
   # Set to 1 to disable 1M context window support. [1 or unset]
   # CLAUDE_CODE_DISABLE_1M_CONTEXT = "1";
-  # Set to 1 to disable adaptive reasoning on Opus 4.6 and Sonnet 4.6 and fall back to the fixed thinking budget controlled by MAX_THINKING_TOKENS... [1 or unset]
+  # Set to 1 to disable adaptive reasoning on Opus 4.6 and Sonnet 4.6 and fall
+  # back to the fixed thinking budget controlled by MAX_THINKING_TOKENS.
+  # [1 or unset]
   # CLAUDE_CODE_DISABLE_ADAPTIVE_THINKING = "1";
   # Set to 1 to disable auto memory. [1 or unset]
   # CLAUDE_CODE_DISABLE_AUTO_MEMORY = "1";
@@ -216,6 +226,9 @@ let
   # CLAUDE_CODE_MAX_CONTEXT_TOKENS = "";
   # Set the maximum number of output tokens for most requests.
   # CLAUDE_CODE_MAX_OUTPUT_TOKENS = "";
+  # Maximum age in milliseconds of the last transcript message for a session
+  # that ended mid-turn to continue automatically on resume. [numeric]
+  # CLAUDE_CODE_RESUME_INTERRUPTED_TURN_MAX_AGE_MS = "";
   # Set to 1 to disable automatic compaction when approaching the context limit. [1 or unset]
   # DISABLE_AUTO_COMPACT = "1";
   # Set to 1 to disable all compaction: both automatic compaction and the manual /compact command. [1 or unset]
@@ -229,11 +242,17 @@ let
 
   # Privacy, telemetry, updates (25)
   # -----------------------------------
-  # Set to any non-empty value, such as 1, to disable nonessential network traffic: auto-updates, telemetry, error reporting, the /feedback command,...
+  # Set to any non-empty value, such as 1, to disable nonessential network
+  # traffic: auto-updates, telemetry, error reporting, the /feedback command,
+  # release notes, model discovery refreshes, and availability checks. Setting
+  # it to 0 or false still disables this traffic; unset the variable to allow
+  # it again.
   # CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "";   # ACTIVE above
   # Set to 1 to enable OpenTelemetry data collection for metrics and logging. [1 or unset]
   # CLAUDE_CODE_ENABLE_TELEMETRY = "1";   # ACTIVE above
-  # Maximum length of content-bearing OpenTelemetry attributes (model responses, tool content, system prompts, raw API bodies), truncation marker...
+  # Maximum length of content-bearing OpenTelemetry attributes (model
+  # responses, tool content, system prompts, raw API bodies), including the
+  # truncation marker, in UTF-16 code units (default: 61440, or 60 KB).
   # CLAUDE_CODE_OTEL_CONTENT_MAX_LENGTH = "";
   # Set to 1 to write OpenTelemetry exporter diagnostic errors to stderr. [1 or unset]
   # CLAUDE_CODE_OTEL_DIAG_STDERR = "1";
@@ -247,11 +266,15 @@ let
   # CLAUDE_CODE_PACKAGE_MANAGER_AUTO_UPDATE = "1";
   # Set to 1 to disable automatic background updates. [1 or unset]
   # DISABLE_AUTOUPDATER = "1";   # ACTIVE above
-  # Set to any non-empty value, such as 1, to opt out of error reporting. **Setting it to 0 or false still opts out**, unlike most on/off variables;...
+  # Set to any non-empty value, such as 1, to opt out of error reporting.
+  # **Setting it to 0 or false still opts out**, unlike most on/off variables;
+  # unset the variable to turn error reporting back on.
   # DISABLE_ERROR_REPORTING = "";   # ACTIVE above
   # Set to 1 to disable installation warnings. [1 or unset]
   # DISABLE_INSTALLATION_CHECKS = "1";   # ACTIVE above
-  # Set to any non-empty value, such as 1, to opt out of telemetry. **Setting it to 0 or false still opts out**, unlike most on/off variables; unset...
+  # Set to any non-empty value, such as 1, to opt out of telemetry. **Setting
+  # it to 0 or false still opts out**, unlike most on/off variables; unset the
+  # variable to turn telemetry back on.
   # DISABLE_TELEMETRY = "";   # ACTIVE above
   # Set to 1 to block all updates including manual claude update and claude install. [1 or unset]
   # DISABLE_UPDATES = "1";
@@ -265,7 +288,10 @@ let
   # OTEL_LOG_RAW_API_BODIES = "1";
   # Set to 1 to include tool input and output content in OpenTelemetry span events. [1 or unset]
   # OTEL_LOG_TOOL_CONTENT = "1";
-  # Set to 1 to include tool input arguments, MCP server names, user-authored workflow names, raw error strings on tool failures, the refusal category... [1 or unset]
+  # Set to 1 to include tool input arguments, MCP server names, user-authored
+  # workflow names, raw error strings on tool failures, refusal categories, and
+  # other tool details in OpenTelemetry traces and logs. Disabled by default to
+  # protect PII. [1 or unset]
   # OTEL_LOG_TOOL_DETAILS = "1";
   # Set to 1 to include user prompt text in OpenTelemetry traces and logs. [1 or unset]
   # OTEL_LOG_USER_PROMPTS = "1";
@@ -280,7 +306,7 @@ let
   # Set to true to include Claude Code version in metrics attributes (default: excluded).
   # OTEL_METRICS_INCLUDE_VERSION = "";
 
-  # Bash, tools, sandbox (16)
+  # Bash, tools, sandbox (17)
   # ----------------------------
   # Default timeout for long-running bash commands (default: 120000, or 2 minutes).
   # BASH_DEFAULT_TIMEOUT_MS = "";   # ACTIVE above
@@ -288,6 +314,10 @@ let
   # BASH_MAX_OUTPUT_LENGTH = "";   # ACTIVE above
   # Maximum timeout the model can set for long-running bash commands (default: 600000, or 10 minutes).
   # BASH_MAX_TIMEOUT_MS = "";   # ACTIVE above
+  # Maximum number of read-only tools and subagents that can execute in
+  # parallel (default: 10). Higher values increase parallelism but consume
+  # more resources.
+  # CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY = "";
   # Return to the original working directory after each Bash or PowerShell command in the main session.
   # CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "";   # ACTIVE above
   # Set to 1 to disable the advisor tool. [1 or unset]
@@ -300,11 +330,16 @@ let
   # CLAUDE_CODE_GIT_BASH_PATH = "";
   # Idle timeout in milliseconds for MCP tool calls. [0 or unset]
   # CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT = "0";
-  # Set to 1 to stop Claude Code from passing -ExecutionPolicy Bypass when spawning PowerShell for tool calls, hooks, and status line commands, and... [1 or unset]
+  # Set to 1 to stop Claude Code from passing -ExecutionPolicy Bypass when
+  # spawning PowerShell for tool calls, hooks, and status line commands, and
+  # respect the machine's effective execution policy instead. By default Claude
+  # Code bypasses execution policy at process scope. [1 or unset]
   # CLAUDE_CODE_POWERSHELL_RESPECT_EXECUTION_POLICY = "1";
   # Set the shell Claude Code uses to run Bash tool commands.
   # CLAUDE_CODE_SHELL = "";
-  # Command prefix that wraps shell commands Claude Code spawns: Bash tool calls, hook commands, status line commands, and stdio MCP server startup...
+  # Command prefix that wraps shell commands Claude Code spawns: Bash tool
+  # calls, hook commands, status line commands, and stdio MCP server startup
+  # commands. Useful for logging or auditing.
   # CLAUDE_CODE_SHELL_PREFIX = "";
   # Controls MCP tool search.
   # ENABLE_TOOL_SEARCH = "";
@@ -319,7 +354,9 @@ let
   # -----------
   # Set to 1 to skip the mcp__<server>__ prefix on tool names from SDK-created MCP servers. [1 or unset]
   # CLAUDE_AGENT_SDK_MCP_NO_PREFIX = "1";
-  # Set to 1 to spawn stdio MCP servers with only a safe baseline environment plus the server's configured env, instead of inheriting your shell... [1 or unset]
+  # Set to 1 to spawn stdio MCP servers with only a safe baseline environment
+  # plus the server's configured env, instead of inheriting your shell
+  # environment. [1 or unset]
   # CLAUDE_CODE_MCP_ALLOWLIST_ENV = "1";
   # Elapsed time in milliseconds before a still-running MCP tool call moves to a background task (default: 120000, or 2 minutes). [0 or unset]
   # CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS = "0";
@@ -352,9 +389,15 @@ let
   # CLAUDE_AFK_TIMEOUT_MS = "";
   # Stall timeout in milliseconds for background subagents. [numeric]
   # CLAUDE_ASYNC_AGENT_STALL_TIMEOUT_MS = "";
-  # Time in milliseconds Claude Code waits for the AWS default credential provider chain to produce credentials before the request fails with AWS... [numeric]
+  # Time in milliseconds Claude Code waits for the AWS default credential
+  # provider chain to produce credentials before the request fails with an AWS
+  # default-chain credential resolve timeout (default: 60000). Raise it when a
+  # chain step legitimately needs longer, such as browser-based SSO with MFA.
+  # [numeric]
   # CLAUDE_CODE_AWS_CHAIN_RESOLVE_TIMEOUT_MS = "";
-  # Comma-separated list of CA certificate sources for TLS connections. bundled is the Mozilla CA set shipped with Claude Code. system is the...
+  # Comma-separated list of CA certificate sources for TLS connections. bundled
+  # is the Mozilla CA set shipped with Claude Code. system is the operating
+  # system trust store. Default is bundled,system.
   # CLAUDE_CODE_CERT_STORE = "";
   # Path to client certificate file for mTLS authentication.
   # CLAUDE_CODE_CLIENT_CERT = "";
@@ -366,7 +409,9 @@ let
   # CLAUDE_CODE_GLOB_TIMEOUT_SECONDS = "";
   # Timeout in milliseconds for git operations when installing or updating plugins (default: 120000). [numeric]
   # CLAUDE_CODE_PLUGIN_GIT_TIMEOUT_MS = "";
-  # Set to 1 to clone GitHub owner/repo shorthand sources over HTTPS instead of SSH. Applies to plugin install and update, and to /plugin marketplace... [1 or unset]
+  # Set to 1 to clone GitHub owner/repo shorthand sources over HTTPS instead of
+  # SSH. Applies to plugin install and update, and to /plugin marketplace add
+  # and update. [1 or unset]
   # CLAUDE_CODE_PLUGIN_PREFER_HTTPS = "1";
   # Set to 1 to allow the proxy to perform DNS resolution instead of the caller. [1 or unset]
   # CLAUDE_CODE_PROXY_RESOLVES_HOSTS = "1";
@@ -433,7 +478,10 @@ let
   # CLAUDE_CODE_PROVIDER_MANAGED_BY_HOST = "";
   # Set to false to disable syntax highlighting in diff output.
   # CLAUDE_CODE_SYNTAX_HIGHLIGHT = "";
-  # Set to any non-empty value, such as 1, to allow 24-bit truecolor output inside tmux. **Setting it to 0 or false still allows truecolor**, unlike...
+  # Set to any non-empty value, such as 1, to allow 24-bit truecolor output
+  # inside tmux. **Setting it to 0 or false still allows truecolor**, unlike
+  # most on/off variables; unset the variable to restore the 256-color clamp.
+  # [1 or unset]
   # CLAUDE_CODE_TMUX_TRUECOLOR = "";
   # Number of times to retry when the model's response fails validation against the --json-schema in non-interactive mode (the -p flag).
   # MAX_STRUCTURED_OUTPUT_RETRIES = "";
@@ -450,19 +498,28 @@ let
   # CLAUDE_CODE_DISABLE_ARTIFACT = "1";
   # Set to 1 to disable attachment processing. [1 or unset]
   # CLAUDE_CODE_DISABLE_ATTACHMENTS = "1";
-  # Set to 1 to disable all background task functionality, including the run_in_background parameter on Bash and subagent tools, auto-backgrounding,... [1 or unset]
+  # Set to 1 to disable all background task functionality, including the
+  # run_in_background parameter on Bash and subagent tools, auto-backgrounding,
+  # and the Ctrl+B shortcut. [1 or unset]
   # CLAUDE_CODE_DISABLE_BACKGROUND_TASKS = "1";
   # Set to 1 to skip the check that an Amazon Bedrock streaming response carries the application/vnd.amazon.eventstream content-type. [1 or unset]
   # CLAUDE_CODE_DISABLE_BEDROCK_CONTENT_TYPE_GUARD = "1";
-  # Set to 1 to stop a background session's running background shell commands, dynamic workflows, and, as of v2.1.198, background subagents when the... [1 or unset]
+  # Set to 1 to stop a background session's running background shell commands,
+  # dynamic workflows, and background subagents when the supervisor stops,
+  # restarts, or updates that session's process, instead of handing them to the
+  # session's next process. [1 or unset]
   # CLAUDE_CODE_DISABLE_BG_EXIT_HANDOFF = "1";
-  # Set to 1 to disable the skills and workflows included with Claude Code: bundled skills and workflows are removed entirely, while built-in commands... [1 or unset]
+  # Set to 1 to disable the skills and workflows included with Claude Code.
+  # Bundled skills and workflows are removed entirely, while built-in commands
+  # remain available but hidden from the model. [1 or unset]
   # CLAUDE_CODE_DISABLE_BUNDLED_SKILLS = "1";
   # Set to 1 to prevent loading any CLAUDE.md memory files into context, including user, project, and auto-memory files. [1 or unset]
   # CLAUDE_CODE_DISABLE_CLAUDE_MDS = "1";
   # Set to 1 to disable scheduled tasks. [1 or unset]
   # CLAUDE_CODE_DISABLE_CRON = "1";
-  # Set to 1 to strip Anthropic-specific anthropic-beta request headers and beta tool-schema fields (such as defer_loading and eager_input_streaming)... [1 or unset]
+  # Set to 1 to strip Anthropic-specific anthropic-beta request headers and beta
+  # tool-schema fields, such as defer_loading and eager_input_streaming, from
+  # API requests. [1 or unset]
   # CLAUDE_CODE_DISABLE_EXPERIMENTAL_BETAS = "1";
   # Set to 1 to disable the built-in Explore and Plan subagents. [1 or unset]
   # CLAUDE_CODE_DISABLE_EXPLORE_PLAN_AGENTS = "1";
@@ -498,13 +555,18 @@ let
   # CLAUDE_CODE_ENABLE_AWAY_SUMMARY = "1";
   # Set to 1 to refresh plugin state at turn boundaries in non-interactive mode after a background install completes. [1 or unset]
   # CLAUDE_CODE_ENABLE_BACKGROUND_PLUGIN_REFRESH = "1";
-  # Set to 1 to route the "How is Claude doing?" session quality survey to your own OpenTelemetry collector when Anthropic-bound nonessential traffic... [1 or unset]
+  # Set to 1 to route the "How is Claude doing?" session quality survey to your
+  # own OpenTelemetry collector when Anthropic-bound nonessential traffic is
+  # blocked. Survey ratings are emitted only as OTEL events to your configured
+  # collector. [1 or unset]
   # CLAUDE_CODE_ENABLE_FEEDBACK_SURVEY_FOR_OTEL = "1";
   # Set to false to disable prompt suggestions (the "Prompt suggestions" toggle in /config).
   # CLAUDE_CODE_ENABLE_PROMPT_SUGGESTION = "";
   # Controls whether sessions use the structured Task tools (TaskCreate, TaskUpdate, TaskGet, TaskList) or the legacy TodoWrite tool. [0 or unset]
   # CLAUDE_CODE_ENABLE_TASKS = "0";
-  # Set to 1 to turn off the in-process cache of credentials resolved from the AWS default credential provider chain, so Claude Code resolves the... [1 or unset]
+  # Set to 1 to turn off the in-process cache of credentials resolved from the
+  # AWS default credential provider chain, so Claude Code resolves the chain on
+  # every API request. [1 or unset]
   # CLAUDE_CODE_SKIP_AWS_CRED_CACHE = "1";
   # Set to 1 to treat a failed fast mode availability check as available, for networks that block the check's direct request to api.anthropic.com. [1 or unset]
   # CLAUDE_CODE_SKIP_FAST_MODE_NETWORK_ERRORS = "1";
@@ -553,11 +615,14 @@ let
   # Deprecated.
   # ENABLE_PROMPT_CACHING_1H_BEDROCK = "";
 
-  # Other (68)
+  # Other (69)
   # -------------
   # Set to 1 to force claude --cloud to bundle and upload your local repository even when GitHub access is available. [1 or unset]
   # CCR_FORCE_BUNDLE = "1";
-  # Set to 1 in subprocesses Claude Code spawns (Bash and PowerShell tools, tmux sessions, hook commands, status line commands, stdio MCP server... [1 or unset]
+  # Set to 1 in subprocesses Claude Code spawns (Bash and PowerShell tools, tmux
+  # sessions, hook commands, status line commands, and stdio MCP server
+  # subprocesses). Use to detect when a script is running inside a subprocess
+  # spawned by Claude Code. [1 or unset]
   # CLAUDECODE = "1";
   # How many milliseconds before auto-continue the on-screen countdown appears on an unanswered AskUserQuestion dialog. [numeric]
   # CLAUDE_AFK_COUNTDOWN_MS = "";
@@ -583,15 +648,21 @@ let
   # CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS = "1";
   # JSON object to merge into the top level of every API request body.
   # CLAUDE_CODE_EXTRA_BODY = "";
-  # Set to 1 to force transcript persistence, prompt history, and claude agents registration even when this claude was launched from inside another... [1 or unset]
+  # Set to 1 to force transcript persistence, prompt history, and claude agents
+  # registration even when this claude was launched from inside another Claude
+  # Code session. [1 or unset]
   # CLAUDE_CODE_FORCE_SESSION_PERSISTENCE = "1";
-  # Set to 1 to force strikethrough rendering for ~~text~~ in Claude's responses when your terminal supports it but is not auto-detected, such as over... [1 or unset]
+  # Set to 1 to force strikethrough rendering for ~~text~~ in Claude's
+  # responses when your terminal supports it but is not auto-detected, such as
+  # over SSH without TERM_PROGRAM forwarded. [1 or unset]
   # CLAUDE_CODE_FORCE_STRIKETHROUGH = "1";
   # Set to 1 to force-enable DEC private mode 2026 synchronized output when your terminal supports it but is not auto-detected. [1 or unset]
   # CLAUDE_CODE_FORCE_SYNC_OUTPUT = "1";
   # Set to 1 to let Claude spawn forked subagents, or 0 to disable them, overriding any server-side rollout. [1 or unset]
   # CLAUDE_CODE_FORK_SUBAGENT = "1";
-  # Set to 1 to emit subagent text and thinking blocks in claude -p --output-format stream-json output, the same behavior as the... [1 or unset]
+  # Set to 1 to emit subagent text and thinking blocks in claude -p
+  # --output-format stream-json output, the same behavior as the
+  # --forward-subagent-text flag. [1 or unset]
   # CLAUDE_CODE_FORWARD_SUBAGENT_TEXT = "1";
   # Set to false to exclude dotfiles from results when Claude invokes the Glob tool.
   # CLAUDE_CODE_GLOB_HIDDEN = "";
@@ -601,7 +672,9 @@ let
   # CLAUDE_CODE_NEW_INIT = "1";
   # OAuth refresh token for Claude.ai authentication.
   # CLAUDE_CODE_OAUTH_REFRESH_TOKEN = "";
-  # Space-separated OAuth scopes the refresh token was issued with, such as "user:profile user:inference user:sessions:claude_code". Required when...
+  # Space-separated OAuth scopes the refresh token was issued with, such as
+  # "user:profile user:inference user:sessions:claude_code". Required when
+  # CLAUDE_CODE_OAUTH_REFRESH_TOKEN is set.
   # CLAUDE_CODE_OAUTH_SCOPES = "";
   # OAuth access token for Claude.ai authentication.
   # CLAUDE_CODE_OAUTH_TOKEN = "";
@@ -611,9 +684,22 @@ let
   # CLAUDE_CODE_PLUGIN_CACHE_DIR = "";
   # Set to 1 to skip the re-clone attempt and keep using the existing marketplace cache when a git pull fails. [1 or unset]
   # CLAUDE_CODE_PLUGIN_KEEP_MARKETPLACE_ON_FAILURE = "1";
-  # Maximum time in milliseconds that non-interactive mode with the -p flag waits after the final turn for background subagents and workflows whose... [0 or unset | default 600000, or 10 minutes. When the cap is exceeded, remaining background tasks are terminated and the process exits. Set to 0 to wait indefinitely. This cap is separate from the five-second grace period that applies to plain background shells]
+  # Path to one or more read-only plugin seed directories, separated by : on
+  # Unix or ; on Windows. Use this to bundle a pre-populated plugins directory
+  # into a container image.
+  # CLAUDE_CODE_PLUGIN_SEED_DIR = "";
+  # Maximum time in milliseconds that non-interactive mode with the -p flag
+  # waits after the final turn for background subagents and workflows whose
+  # result is part of the output. [0 or unset | default 600000, or 10 minutes.
+  # When the cap is exceeded, remaining background tasks are terminated and the
+  # process exits. Set to 0 to wait indefinitely. This cap is separate from the
+  # five-second grace period that applies to plain background shells]
   # CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS = "0";
-  # Launch the processes Claude Code starts from its own binary, such as the background service that hosts agent view sessions, through a corporate...
+  # Launch the processes Claude Code starts from its own binary, such as the
+  # background service that hosts agent view sessions, through a corporate
+  # launcher given as an argv prefix like /opt/corp/launcher. Set it in the env
+  # block of user or managed settings so the detached background service
+  # inherits it.
   # CLAUDE_CODE_PROCESS_WRAPPER = "";
   # Set to 1 to propagate W3C trace context when ANTHROPIC_BASE_URL points at a custom proxy. [1 or unset]
   # CLAUDE_CODE_PROPAGATE_TRACEPARENT = "1";
@@ -621,7 +707,10 @@ let
   # CLAUDE_CODE_RESUME_INTERRUPTED_TURN = "1";
   # Override the continuation message injected when resuming a session that ended mid-turn.
   # CLAUDE_CODE_RESUME_PROMPT = "";
-  # Set to 1 to start in safe mode: CLAUDE.md, skills, plugins, hooks, MCP servers, custom commands and agents, output styles, workflows, custom... [1 or unset]
+  # Set to 1 to start in safe mode: CLAUDE.md, skills, plugins, hooks, MCP
+  # servers, custom commands and agents, output styles, workflows, custom
+  # themes, custom keybindings, status line and file-suggestion commands, LSP
+  # servers, and auto-memory do not load. [1 or unset]
   # CLAUDE_CODE_SAFE_MODE = "1";
   # JSON object limiting how many times specific scripts may be invoked per session when CLAUDE_CODE_SUBPROCESS_ENV_SCRUB is set. [numeric]
   # CLAUDE_CODE_SCRIPT_CAPS = "";
@@ -631,7 +720,9 @@ let
   # CLAUDE_CODE_SIMPLE = "1";
   # Set to 1 to use a shorter system prompt and abbreviated tool descriptions on any model. [1 or unset]
   # CLAUDE_CODE_SIMPLE_SYSTEM_PROMPT = "1";
-  # Maximum number of consecutive times a Stop or SubagentStop hook may block the turn from ending before Claude Code overrides it and ends the turn... [0 or unset]
+  # Maximum number of consecutive times a Stop or SubagentStop hook may block
+  # the turn from ending before Claude Code overrides it and ends the turn
+  # anyway (default: 8). Set to 0 to disable the cap. [0 or unset]
   # CLAUDE_CODE_STOP_HOOK_BLOCK_CAP = "0";
   # Set to 1 to strip Anthropic and cloud provider credentials from subprocess environments (Bash tool, hooks, MCP stdio servers). [1 or unset]
   # CLAUDE_CODE_SUBPROCESS_ENV_SCRUB = "1";
@@ -645,7 +736,9 @@ let
   # CLAUDE_CODE_TMPDIR = "/tmp";
   # Override the configuration directory (default: ~/.claude).
   # CLAUDE_CONFIG_DIR = "";
-  # Path to a shell script whose contents Claude Code runs before each Bash command in the same shell process, so exports in the file are visible to...
+  # Path to a shell script whose contents Claude Code runs before each Bash
+  # command in the same shell process, so exports in the file are visible to
+  # the command. Use to persist virtualenv or conda activation across commands.
   # CLAUDE_ENV_FILE = "";
   # Prefix for auto-generated Remote Control session names when no explicit name is provided.
   # CLAUDE_REMOTE_CONTROL_SESSION_NAME_PREFIX = "";
@@ -657,7 +750,9 @@ let
   # FORCE_HYPERLINK = "1";
   # Set to 1 to force the 5-minute prompt cache TTL even when 1-hour TTL would otherwise apply. [1 or unset]
   # FORCE_PROMPT_CACHING_5M = "1";
-  # Set to any non-empty value, such as 1, to enable demo mode: hides your email and organization name from the header and /status output, and skips...
+  # Set to any non-empty value, such as 1, to enable demo mode: hides your email
+  # and organization name from the header and /status output, and skips
+  # onboarding. [1 or unset]
   # IS_DEMO = "";
   # Override region for Claude 3.5 Haiku when using Google Cloud's Agent Platform.
   # VERTEX_REGION_CLAUDE_3_5_HAIKU = "";
@@ -692,22 +787,19 @@ let
   # Override region for Claude Haiku 4.5 when using Google Cloud's Agent Platform.
   # VERTEX_REGION_CLAUDE_HAIKU_4_5 = "";
 
-  # Read-only (exported by Claude Code; do not set) (10)
+  # Read-only (exported by Claude Code; do not set) (7)
   # -------------------------------------------------------
-  # Set automatically in Bash tool and hook command subprocesses while the session has an active Remote Control connection, and removed when the...
+  # Set automatically in Bash tool and hook command subprocesses while the
+  # session has an active Remote Control connection, and removed when the
+  # connection ends. The value is the session ID in session_ form, which can
+  # link a script back to the session transcript.
   # CLAUDE_CODE_BRIDGE_SESSION_ID = "";
   # Set to 1 in subprocesses Claude Code spawns via the Bash, PowerShell, and Monitor tools, hook commands, and status line commands. [1 or unset]
   # CLAUDE_CODE_CHILD_SESSION = "1";
-  # Maximum number of read-only tools and subagents that can execute in parallel (default: 10).
-  # CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY = "";
-  # Path to one or more read-only plugin seed directories, separated by : on Unix or ; on Windows.
-  # CLAUDE_CODE_PLUGIN_SEED_DIR = "";
   # Set automatically to true when Claude Code is running as a cloud session.
   # CLAUDE_CODE_REMOTE = "";
   # Set automatically in cloud sessions to the current session's ID. Read this to construct a link back to the session transcript.
   # CLAUDE_CODE_REMOTE_SESSION_ID = "";
-  # Maximum age in milliseconds of the last transcript message for a session that ended mid-turn to continue automatically on resume. [numeric]
-  # CLAUDE_CODE_RESUME_INTERRUPTED_TURN_MAX_AGE_MS = "";
   # Set automatically to the current session ID in Bash and PowerShell tool subprocesses, hook command subprocesses, and stdio MCP server subprocesses.
   # CLAUDE_CODE_SESSION_ID = "";
   # Set automatically in Bash tool subprocesses and hook commands to the active effort level for the turn: low, medium, high, xhigh, or max.
