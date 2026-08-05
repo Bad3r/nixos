@@ -532,6 +532,13 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             assert_equal "no second Alpha registered" "$(site_count)" 2
 
             echo
+            echo "-- a truncated config.json is retryable rather than a second install --"
+            reset
+            "$declared" >/dev/null
+            : >"$config_file"
+            expect "zero-byte config.json is retryable" "$declared" 1 "not installing a second"
+
+            echo
             echo "-- an entry that never registers does not stop the others --"
             reset
             # Exported rather than prefixed onto the call: the stub reads them

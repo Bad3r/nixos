@@ -66,6 +66,10 @@ mkSiteInstaller {
     # reports as failure.
     site_ulid() {
       [ -f "$config_file" ] || return 0
+      # File::create truncates before writing, so zero bytes is a mid-write
+      # config rather than an empty site list. jq otherwise exits 0 without
+      # producing a value, which callers would take as "no site".
+      [ -s "$config_file" ] || return 1
       jq -r --arg n "$1" \
         'first((.sites // {}) | to_entries[] | select(.value.config.name == $n) | .key) // empty' \
         "$config_file" 2>/dev/null
@@ -203,6 +207,10 @@ mkSiteInstaller {
           # rather than the permanent foreign-site refusal below.
           installed_manifest=""
           if [ -s "$pending_file" ]; then
+            if [ ! -s "$config_file" ]; then
+              retry_refusal "cannot read $config_file; not installing a second '$name'"
+              return
+            fi
             if ! installed_manifest=$(jq -r --arg u "$ulid" \
               '.sites[$u].config.manifest_url // empty' "$config_file" 2>/dev/null); then
               retry_refusal "cannot read $config_file; not installing a second '$name'"
@@ -249,6 +257,10 @@ mkSiteInstaller {
       # still being there.
       if [ -r "$ulid_file" ] && [ -f "$config_file" ]; then
         local recorded
+        if [ ! -s "$config_file" ]; then
+          retry_refusal "cannot read $config_file; not installing a second '$name'"
+          return
+        fi
         # jq's failure separated from "no such site", the way the lookup above
         # separates it from "no site": a read racing firefoxpwa connector's own
         # rewrite exits non-zero, and treating that as "the recorded site is

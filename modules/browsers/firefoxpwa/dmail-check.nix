@@ -586,6 +586,13 @@
             expect "unreadable config.json refuses rather than risking a duplicate" 1 \
               "not installing a second"
 
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            : >"$config_file"
+            expect "zero-byte config.json refuses rather than risking a duplicate" 1 \
+              "not installing a second"
+
             # Following the refusal's own remedy: installed at A, rotated to B,
             # site uninstalled, then the reinstall registers and fails. The
             # applied URL still names A while the origin record names B, so
