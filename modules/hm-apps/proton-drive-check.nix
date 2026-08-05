@@ -222,6 +222,26 @@
             };
           };
 
+          # The tuple key is direction/local/remote, so neither of these appears
+          # in it: --config re-points the account the baseline stands for, and
+          # --workdir moves the listings without moving the marker that claims
+          # they exist.
+          configHm = mkHm {
+            extraArgs = [ "--config=/tmp/other.conf" ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
+          workdirHm = mkHm {
+            extraArgs = [ "--workdir=/tmp/bisync" ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
           # rclone withholds destination deletes from a run that hit errors;
           # this is the flag that turns that off, and --max-delete cannot
           # express it because the deletes are within the cap.
@@ -469,6 +489,19 @@
         assert lib.assertMsg (
           !(builtins.tryEval ignoreErrorsHm.config.home.packages).success
         ) "hm-apps/proton-drive-sync: --ignore-errors in extraArgs must fail an assertion";
+        assert lib.assertMsg (
+          !(builtins.tryEval configHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: --config in extraArgs must fail an assertion";
+        assert lib.assertMsg (
+          !(builtins.tryEval workdirHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: --workdir in extraArgs must fail an assertion";
+        # The unit inherits the user manager's environment, and the script reads
+        # these three before any other logic, so the timer must run the
+        # configured values rather than whatever the session happens to export.
+        assert lib.assertMsg (
+          (hm.config.systemd.user.services.proton-drive-sync.Service.UnsetEnvironment or "")
+          == "PROTON_DRIVE_LOCAL PROTON_DRIVE_REMOTE PROTON_DRIVE_DIRECTION"
+        ) "hm-apps/proton-drive-sync: the unit must drop the PROTON_DRIVE_* per-invocation overrides";
         assert lib.assertMsg (installsScript tuningHm)
           "hm-apps/proton-drive-sync: long-form tuning arguments must still be accepted";
         builtins.deepSeq units drive;

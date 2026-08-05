@@ -196,7 +196,17 @@ _: {
       # the enable_caching = false the rclone module writes into the stanza.
       # Caching stays off because Proton's change-event system is unimplemented,
       # so a stale metadata cache feeds bisync's delta computation directly.
+      # --config and --workdir are the same class by a longer route, through the
+      # tuple key rather than a deletion: the key is direction/local/remote, so
+      # neither appears in it. A replacement --config that also defines
+      # protondrive: reuses this account's baseline and latch against another
+      # account's tree, and --workdir moves the bisync listings without moving
+      # the $marker under state_dir that claims they exist, so pointing it at
+      # /tmp (a tmpfs cleared on boot on this fleet) survives one reboot as a
+      # baseline with nothing behind it: the unlatchable repeat --dry-run is
+      # rejected for, reached with no intent to disable anything.
       rejectedFlags = [
+        "--config"
         "--conflict-loser"
         "--dry-run"
         "--force"
@@ -211,6 +221,7 @@ _: {
         "--resync-mode"
         "--syslog"
         "--use-json-log"
+        "--workdir"
       ];
       # Short options cluster, so they cannot be matched flag by flag: `-nv` is
       # --dry-run plus --verbose, and bisync gives --resync the shorthand `-1`.
@@ -496,13 +507,14 @@ _: {
             `--syslog`, `--use-json-log`): safety-abort detection reads the
             run's own stderr.
 
-            Arguments that override a safety flag or the sync mode
-            (`--conflict-loser`, `--dry-run`, `--force`, `--ignore-errors`,
-            `--max-delete`, `--protondrive-enable-caching`, `--resync`,
-            `--resync-mode`): each defeats the deletion cap, the withholding of
-            deletes from an errored run, the bisync safety checks, the baseline
-            the tuple marker records, or the caching-off the Beta backend
-            requires.
+            Arguments that override a safety flag, the sync mode, or the state
+            the tuple key does not cover (`--config`, `--conflict-loser`,
+            `--dry-run`, `--force`, `--ignore-errors`, `--max-delete`,
+            `--protondrive-enable-caching`, `--resync`, `--resync-mode`,
+            `--workdir`): each defeats the deletion cap, the withholding of
+            deletes from an errored run, the bisync safety checks, the
+            caching-off the Beta backend requires, or the correspondence between
+            the tuple marker and the account and listings it stands for.
 
             Short options are rejected wholesale because they cluster (`-nv` is
             `--dry-run` plus `--verbose`); use the long form. The equivalent
@@ -545,6 +557,16 @@ _: {
               Type = "oneshot";
               TimeoutStartSec = "2h";
               ExecStart = lib.getExe syncScript;
+              # local_path, remote and direction come from PROTON_DRIVE_* before
+              # any other logic, and this unit inherits the user manager's
+              # environment, which no eval-time guard sees: the same surface the
+              # RCLONE_ sweep closes, for the values that decide what is synced
+              # rather than how. A stray PROTON_DRIVE_DIRECTION=up turns every
+              # scheduled bisync into a one-way mirror keyed on a tuple of its
+              # own, so neither the configured tuple's baseline gate nor its
+              # abort latch applies to it. Dropped for the unit only, so the
+              # documented interactive override still works.
+              UnsetEnvironment = "PROTON_DRIVE_LOCAL PROTON_DRIVE_REMOTE PROTON_DRIVE_DIRECTION";
             };
           };
 
