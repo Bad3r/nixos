@@ -301,12 +301,13 @@ nix fmt
 nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-after.json
 
-cp modules/browsers/brave/apps.nix /tmp/brave-apps-refactored.nix
-trap 'cp /tmp/brave-apps-refactored.nix modules/browsers/brave/apps.nix' EXIT INT TERM
-git show HEAD:modules/browsers/brave/apps.nix > modules/browsers/brave/apps.nix
+repo="$PWD"
+cp "$repo/modules/browsers/brave/apps.nix" /tmp/brave-apps-refactored.nix
+trap 'cp /tmp/brave-apps-refactored.nix "$repo/modules/browsers/brave/apps.nix"' EXIT INT TERM
+git show HEAD:modules/browsers/brave/apps.nix > "$repo/modules/browsers/brave/apps.nix"
 nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-before.json
-cp /tmp/brave-apps-refactored.nix modules/browsers/brave/apps.nix
+cp /tmp/brave-apps-refactored.nix "$repo/modules/browsers/brave/apps.nix"
 trap - EXIT INT TERM
 
 diff /tmp/brave-policies-before.json /tmp/brave-policies-after.json
@@ -322,6 +323,17 @@ harmless: the leading underscore keeps it out of module auto-discovery and the
 If `/tmp/brave-policies-before.json` is empty or malformed, the eval failed
 rather than produced a different value. Re-run it without `2>/dev/null` and read
 the error before continuing.
+
+`repo="$PWD"` rather than the repo-relative paths this block used, because the
+trap is armed in the operator's interactive shell and this block is pasted, not
+sourced. On the success path `trap - EXIT INT TERM` disarms it. On the path the
+trap exists for it does not: after Ctrl-C the INT trap restores correctly, and
+the EXIT trap stays armed in the login shell and fires whenever that shell
+finally exits, from whatever directory it has then. This phase moves between
+`/home/vx/nixos` and the worktree's `secrets/`, so a relative path would write
+`/tmp/brave-apps-refactored.nix` over a different checkout's
+`modules/browsers/brave/apps.nix`, or fail with no one watching. Binding `$PWD`
+once makes the trap resolve the same path wherever it fires.
 
 - [ ] **Step 5: Commit**
 
