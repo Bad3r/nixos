@@ -2638,8 +2638,15 @@ Validation: nix build path:.#checks.x86_64-linux.\"browsers/webapps-module-eval\
 
 `gecko_work_bookmark_url_1` already exists and is the DMail URL (see `modules/home/gecko-secrets.nix:18,26`). The policy needs a separate origin key because Chromium content-setting patterns are scheme/host/port only.
 
+Edit the copy in this phase's worktree, not the primary checkout's. Task 7 Step 1 created
+`$HOME/trees/nixos/feat-chromium-webapps` and every step since has run there. `git worktree add` gives the linked
+worktree its own `secrets/` working tree and its own submodule gitdir under
+`.git/worktrees/<name>/modules/secrets`, so editing `/home/vx/nixos/secrets/gecko.yaml` leaves this worktree's copy
+untouched. Step 5's `git -C secrets add gecko.yaml` then stages nothing, `git -C secrets commit` aborts on an empty
+commit, and the push and both gitlink checks never run at all.
+
 ```bash
-cd /home/vx/nixos/secrets
+cd "$HOME/trees/nixos/feat-chromium-webapps/secrets"
 sops gecko.yaml
 ```
 
