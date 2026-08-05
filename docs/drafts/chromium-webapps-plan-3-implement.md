@@ -485,9 +485,12 @@ Create `modules/browsers/webapps/_catalog.nix`. It is pure data keyed by app key
 ```nix
 /*
   Internal: default web app catalog
-  Description: Default for programs.webapps.apps. Keyed by app key so a host or
-  a later module can override one entry without restating the catalog. The
-  leading underscore keeps this file out of module auto-discovery.
+  Description: Merged into programs.webapps.apps by ./nixos.nix, per leaf at
+  mkDefault priority, so a host or a later module can add an app or override one
+  field without restating the catalog. Not the option's default: an option
+  default is one definition at priority 1500, and any host definition would
+  filter it out and take the whole catalog with it. The leading underscore keeps
+  this file out of module auto-discovery.
 
   Start URLs are bare origins. Microsoft's landing paths are locale- and
   tenant-dependent (/en-us/, /mail/, /tasks/), so pinning one ages out while the
@@ -833,9 +836,14 @@ Create `modules/browsers/webapps/nixos.nix`:
 
         apps = lib.mkOption {
           type = lib.types.attrsOf appModule;
-          default = import ./_catalog.nix;
-          defaultText = lib.literalExpression "import ./_catalog.nix";
-          description = "Web apps to install, keyed by app key.";
+          default = { };
+          description = ''
+            Web apps to install, keyed by app key. ./_catalog.nix is merged in
+            through config below, per leaf at mkDefault priority, rather than
+            being this option's default. An option default is a single
+            definition at priority 1500, so any host definition of one key
+            filters it out and takes the rest of the catalog with it.
+          '';
         };
       };
 
@@ -871,6 +879,15 @@ Create `modules/browsers/webapps/nixos.nix`:
             # secrets file costs only the apps whose origin is a secret, and
             # the rest keep their policy entries through policyApps.
             environment.systemPackages = [ cfg.package ];
+
+            # The catalog is a definition, not the option's default, so a host
+            # adding one app keeps the other eight. mapAttrsRecursive rather
+            # than mapAttrs: wrapping each app whole puts the mkDefault on
+            # apps.<key>, and a host setting apps.teams.tray.enable then
+            # filters that whole definition out and leaves name undefined.
+            # Per leaf, the host overrides one field and the rest of the entry
+            # survives.
+            programs.webapps.apps = lib.mapAttrsRecursive (_: lib.mkDefault) (import ./_catalog.nix);
 
             assertions = lib.mapAttrsToList (key: app: {
               assertion = (app.url == null) != (app.urlSecret == null);
@@ -2831,6 +2848,10 @@ programs.webapps.apps.grafana = {
   };
 };
 ```
+
+The catalog entries survive that. `_catalog.nix` is merged into the option per
+leaf at `mkDefault` priority rather than being the option's default, so a host
+definition adds a key or overrides one field and leaves the rest in place.
 
 Refresh the policy fixture afterwards, or `checks."browsers/webapps-policy"`
 fails with a diff:
