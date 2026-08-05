@@ -175,6 +175,7 @@ ______________________________________________________________________
 - `modules/browsers/brave-origin/apps.nix`: gain `enableManagedPolicies` / `managedPolicies`, write `/etc/brave/policies/managed/extended.json`
 - `modules/hosts/common/home-manager-apps.nix`: add `"webapps"` to `sharedBrowserNames`
 - `modules/meta/cache-roots.nix`: add `"brave-origin"`
+- `docs/reference/binary-cache-coverage.md`: add the matching `brave-origin` inventory row
 - `docs/architecture/04-home-manager.md`: add the webapps worked example to the browser-modules paragraph, which
   phase 2 left without one because the files did not exist yet
 - `docs/reference/local-mirrors.md` is untouched; `README.md` is regenerated
@@ -1624,6 +1625,10 @@ nix build path:.#checks.x86_64-linux.\"browsers/webapps-keepalive-id\", proven r
 
 - Create: `modules/browsers/webapps/home.nix`
 
+- Create: `modules/browsers/webapps/enable.nix`
+
+- Modify: `modules/hosts/common/home-manager-apps.nix`
+
 - [ ] **Step 1: Write the Home Manager module**
 
 Create `modules/browsers/webapps/home.nix`:
@@ -1884,7 +1889,55 @@ In `modules/hosts/common/home-manager-apps.nix`, add `"webapps"` to `sharedBrows
   ];
 ```
 
-- [ ] **Step 3: Verify the launchers exist**
+- [ ] **Step 3: Turn the module on**
+
+Everything below evaluates against a disabled module without this step.
+`programs.webapps.enable` defaults to `false` (Task 9) and nothing sets it,
+so `home.nix`'s `active` guard is false, no `webapp-*` derivation reaches
+`home.packages`, and Step 4's `rg` matches nothing while Step 5's `nix build`
+succeeds without ever running `shellcheck` over a launcher body, which is the
+one thing that step exists for.
+
+Create `modules/browsers/webapps/enable.nix`. It uses the shared-host-module
+pattern from CLAUDE.md rather than the flat app catalog, because
+`programs.webapps.enable` is not a `<name>.extended.enable` entry and the
+catalog's duplicate-override check keys on that shape.
+
+This is the other half of the `nixos.nix` naming decision from Task 9.
+`modules/meta/hooks/apps-catalog-sync.nix` reads `modules/browsers/*/apps.nix`
+as the catalog and requires each hit to have a `<dir>.extended.enable` line in
+`modules/hosts/common/apps-enable.nix`. Staying out of the catalog and naming
+the module file `apps.nix` are mutually exclusive; this plan stays out of the
+catalog. Task 13 Step 2 runs that hook.
+
+`secretsRoot` is already a NixOS-scope module argument: `modules/configurations/nixos.nix:42` passes it, and `modules/hosts/common/duplicati.nix:9`, `fonts.nix:8` and `usbguard.nix:6` already consume it that way. No change to `modules/configurations/nixos.nix` is needed.
+
+```nix
+/*
+  Web apps: common-host baseline
+  Description: Turns programs.webapps on for every host that shares the common
+  baseline, and points it at the SOPS file backing secret start URLs. Kept out
+  of modules/hosts/common/apps-enable.nix because that catalog is keyed on
+  <name>.extended.enable and modules/hosts/common/checks.nix compares against
+  that shape.
+*/
+{ lib, ... }:
+let
+  body =
+    { secretsRoot, ... }:
+    {
+      programs.webapps = {
+        enable = lib.mkOverride 1100 true;
+        secretsFile = lib.mkOverride 1100 (secretsRoot + "/gecko.yaml");
+      };
+    };
+in
+{
+  flake.nixosModules.hosts-common.imports = [ body ];
+}
+```
+
+- [ ] **Step 4: Verify the launchers exist**
 
 ```bash
 nix fmt
@@ -1893,11 +1946,12 @@ nix eval --raw "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.ho
   | rg '^webapp-'
 ```
 
-Expected: one `webapp-<key>` per catalog app, plus `webapp-outlook-tray` and `webapp-teams-tray`.
+Expected: one `webapp-<key>` per catalog app, plus `webapp-outlook-tray` and `webapp-teams-tray`. An empty result
+means Step 3's `enable.nix` is missing or was not picked up, not that the launchers are broken.
 
-- [ ] **Step 4: Build the launchers and read one**
+- [ ] **Step 5: Build the launchers and read one**
 
-Step 3 proves nothing about the launcher body. `writeShellApplication` runs
+Step 4 proves nothing about the launcher body. `writeShellApplication` runs
 `shellcheck` at build time, so a malformed command is a build failure, not an
 eval failure, and eval-only validation cannot see it. This is the step that
 would have caught the empty-`optionalString` line-continuation bug: it hits
@@ -1933,10 +1987,11 @@ Expected: `webapp-word` is a single `exec` line carrying `--user-data-dir`,
 the desktop entries are generated with `%U`, so a wrapper that stops forwarding
 drops every URL `xdg-open` hands it, silently.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add modules/browsers/webapps/home.nix modules/hosts/common/home-manager-apps.nix
+git add modules/browsers/webapps/home.nix modules/browsers/webapps/enable.nix \
+  modules/hosts/common/home-manager-apps.nix
 git commit -m "feat(webapps): build per-app launchers, profiles and tray entries
 
 Each launcher runs the browser against its own --user-data-dir, which is the isolation the firefoxpwa installer never
@@ -1948,57 +2003,27 @@ Both commands are assembled as argument lists rather than backslash-continued li
 continuation renders a whitespace-only line when the option is off, which ends the command there and leaves the rest
 as a second command starting with a flag; shellcheck rejects that as SC2215 and writeShellApplication fails to build.
 
+enable.nix ships here rather than with the cache-roots edit because programs.webapps.enable defaults to false, so
+without it home.nix's guard is false and no launcher reaches home.packages: the shellcheck pass this commit is
+validated by would have run over an empty package set.
+
 Validation: nix build of home.packages, which runs shellcheck over every launcher; webapp-word and webapp-teams-tray
 read back to confirm the no-extension and no-icon shapes"
 ```
 
-### Task 13: Wire the hosts-common baseline
+### Task 13: Cache brave-origin and validate the baseline
 
 **Files:**
 
-- Create: `modules/browsers/webapps/enable.nix`
-
 - Modify: `modules/meta/cache-roots.nix`
 
-- [ ] **Step 1: Write the baseline toggle**
+- Modify: `docs/reference/binary-cache-coverage.md`
 
-Create `modules/browsers/webapps/enable.nix`. It uses the shared-host-module pattern from CLAUDE.md rather than the flat app catalog, because `programs.webapps.enable` is not a `<name>.extended.enable` entry and the catalog's duplicate-override check keys on that shape.
+`modules/browsers/webapps/enable.nix` was created and committed in Task 12
+Step 3, because every validation in that task evaluates against a disabled
+module without it.
 
-This is the other half of the `nixos.nix` naming decision from Task 9.
-`modules/meta/hooks/apps-catalog-sync.nix` reads
-`modules/browsers/*/apps.nix` as the catalog and requires each hit to have a
-`<dir>.extended.enable` line in `modules/hosts/common/apps-enable.nix`. Staying
-out of the catalog and naming the module file `apps.nix` are mutually exclusive;
-this plan stays out of the catalog.
-
-`secretsRoot` is already a NixOS-scope module argument: `modules/configurations/nixos.nix:42` passes it, and `modules/hosts/common/duplicati.nix:9`, `fonts.nix:8` and `usbguard.nix:6` already consume it that way. No change to `modules/configurations/nixos.nix` is needed.
-
-```nix
-/*
-  Web apps: common-host baseline
-  Description: Turns programs.webapps on for every host that shares the common
-  baseline, and points it at the SOPS file backing secret start URLs. Kept out
-  of modules/hosts/common/apps-enable.nix because that catalog is keyed on
-  <name>.extended.enable and modules/hosts/common/checks.nix compares against
-  that shape.
-*/
-{ lib, ... }:
-let
-  body =
-    { secretsRoot, ... }:
-    {
-      programs.webapps = {
-        enable = lib.mkOverride 1100 true;
-        secretsFile = lib.mkOverride 1100 (secretsRoot + "/gecko.yaml");
-      };
-    };
-in
-{
-  flake.nixosModules.hosts-common.imports = [ body ];
-}
-```
-
-- [ ] **Step 2: Add brave-origin to the cache roots**
+- [ ] **Step 1: Add brave-origin to the cache roots and its inventory row**
 
 In `modules/meta/cache-roots.nix`, insert `"brave-origin"` as the first element of `hostPackageNames`, immediately above `"burpsuite"`, keeping the list alphabetical. Every other element stays untouched.
 
@@ -2015,7 +2040,31 @@ rg -n -A2 'hostPackageNames = \[' modules/meta/cache-roots.nix
 
 Expected: `1 insertion(+)`, and the list now opens with `"brave-origin"` followed by `"burpsuite"`.
 
-- [ ] **Step 3: Validate the full configuration evaluates**
+`modules/meta/cache-roots.nix`'s own header names
+`docs/reference/binary-cache-coverage.md` as the per-package inventory, and that
+file carries one hand-maintained row per `hostPackageNames` entry. Phase 2
+Task 5 Step 2 already edits that table to delete the `firefoxpwa` row, so adding
+an entry without its row leaves the inventory a row short. Add to the
+host-sourced table, keeping the existing alphabetical order:
+
+```markdown
+| brave-origin        | system76, tpnix |
+```
+
+Confirm every cache root has a row. One-way, not a `diff`: the coverage doc
+carries other tables whose packages are not `hostPackageNames` entries.
+
+```bash
+comm -23 \
+  <(sed -n '/hostPackageNames = \[/,/\];/p' modules/meta/cache-roots.nix \
+      | rg -o '"([a-z0-9-]+)"' -r '$1' | sort) \
+  <(rg -o '^\| ([a-z0-9-]+) ' -r '$1' docs/reference/binary-cache-coverage.md | sort)
+```
+
+Expected: no output. Anything printed is a cache root with no inventory row,
+which is the state this step exists to prevent.
+
+- [ ] **Step 2: Validate the full configuration evaluates**
 
 ```bash
 nix fmt
@@ -2030,17 +2079,18 @@ Task 17 because this is the task that decides `programs.webapps` stays out of
 catalog, a file under `modules/browsers/webapps/` was named `apps.nix` and needs
 renaming, not a catalog entry.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 3: Commit**
 
 ```bash
-git add modules/browsers/webapps/enable.nix modules/meta/cache-roots.nix
-git commit -m "feat(webapps): enable the baseline and cache brave-origin
+git add modules/meta/cache-roots.nix docs/reference/binary-cache-coverage.md
+git commit -m "feat(webapps): cache brave-origin for every host that enables it
 
-programs.webapps.enable stays out of modules/hosts/common/apps-enable.nix because that catalog is keyed on
-<name>.extended.enable and modules/hosts/common/checks.nix compares against that shape. brave-origin joins the cache
-roots now that every web app launcher depends on it.
+Every web app launcher puts brave-origin on PATH, so it belongs in the host-sourced cache roots. The per-package
+inventory in docs/reference/binary-cache-coverage.md is hand-maintained and named as such by cache-roots.nix's own
+header, so the row goes in the same commit.
 
-Validation: nix flake check path:. --accept-flake-config --no-build --offline;
+Validation: comm over hostPackageNames against the inventory table, no cache root without a row;
+nix flake check path:. --accept-flake-config --no-build --offline;
 nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel"
 ```
 
@@ -2272,6 +2322,15 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
   modules/home-manager/checks.nix does, with osConfig stubbed and secretsRoot
   pointed at ./check-fixtures, so the guard evaluates true here regardless of
   what the real secrets submodule holds.
+
+  programs.webapps.package is stubbed rather than set to pkgs.brave-origin.
+  Nothing here launches a browser: home.nix only takes lib.getExe' on it and
+  puts it in runtimeInputs, so a script with the right binary name is
+  sufficient, and building this check does not then pull a browser closure.
+  The perSystem pkgs is also not the pkgs a host gets: it is built in
+  modules/meta/nixpkgs-allowed-unfree.nix with no overlays, so
+  modules/custom-overlays/brave-origin.nix does not apply and pkgs.brave-origin
+  here would be the nixpkgs build rather than the one hosts run.
 */
 {
   lib,
@@ -2345,7 +2404,9 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
 
           webappsConfig = {
             enable = true;
-            package = pkgs.brave-origin;
+            # See the header: the check never launches it, and the perSystem
+            # pkgs carries no overlays, so this would not be the host's build.
+            package = pkgs.writeShellScriptBin "brave-origin" "";
             browserBinary = "brave-origin";
             defaultIcon = null;
             defaultTrayIcon = null;
@@ -3040,9 +3101,9 @@ ______________________________________________________________________
 
 **Where validation would have missed a real failure.** Six cases earlier drafts of this series would have passed:
 
-- Task 12's launcher validated by `nix eval` on package names. `writeShellApplication` runs `shellcheck` at build time, so a malformed command body is a build failure that eval never reaches. An `lib.optionalString` inside a backslash-continued argument list rendered a whitespace-only line for every app without `reload.enable` and both tray wrappers, terminating the command early. Now validated with `nix build` plus reading back the two shapes that differ (Task 12 Step 4).
+- Task 12's launcher validated by `nix eval` on package names. `writeShellApplication` runs `shellcheck` at build time, so a malformed command body is a build failure that eval never reaches. An `lib.optionalString` inside a backslash-continued argument list rendered a whitespace-only line for every app without `reload.enable` and both tray wrappers, terminating the command early. Now validated with `nix build` plus reading back the two shapes that differ (Task 12 Step 5), after Task 12 Step 3 turns the module on so the build has launchers to check at all.
 - `lib.getExe pkgs.diffutils` in Task 14 pointed at a `bin/diffutils` that does not exist, so the policy check would have failed on its own tooling. Now `lib.getExe' pkgs.diffutils "diff"`.
-- `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 17 with `webapps` reported missing from `apps-enable.nix`, which Task 13 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 3 runs the hook rather than deferring it to Task 17.
+- `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 17 with `webapps` reported missing from `apps-enable.nix`, which Task 13 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 2 runs the hook rather than deferring it to Task 17.
 - Task 15's module check asserted the right things about the wrong behavior. It confirmed that a missing `gecko.yaml` warns and declares no sops secret, both of which held while the guard was also deleting the launchers, desktop entries and policy entries for the seven apps that never needed the secrets submodule. An assertion that a guard's failure path is quiet says nothing about how much it took down; the check now names what has to survive it.
 - Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created two steps earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds.
 - Task 14's `policy-check.nix` derived its independent expectation with `lib.splitString "/" app.url` and no secret branch. Every app in the catalog at that point has a literal `url`, so Task 14 passes; Task 16 adds DMail with `url = null` and `originSecret` set, and the check aborts with `cannot coerce null to a string` as soon as `lib.sort` forces the element. The failure would have surfaced two tasks after the file that caused it. `originOf` now takes the `originSecret` branch, reusing only `_check-apps.nix`'s placeholder constant.
