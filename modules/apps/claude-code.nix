@@ -61,12 +61,18 @@ in
       binaryEnvFlags = lib.concatStringsSep " " (
         lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") claudeEnv.binary
       );
+      retiredEnvFlags = lib.concatMapStringsSep " " (
+        name: "--unset ${lib.escapeShellArg name}"
+      ) claudeEnv.retired;
+      binaryNames = lib.attrNames claudeEnv.binary;
 
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
           # The pinned llm-agents package wraps bin/claude before this hook and
-          # can export both retired and shared binary names. Strip those names
-          # from the inner wrapper before adding the shared flags.
+          # can export both retired and shared binary names. Strip shared names
+          # from the inner wrapper before applying the shared flags. The outer
+          # wrapper also unsets retired names for direct package launches when
+          # the dependency has already stopped exporting them.
           if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
             echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1
@@ -76,17 +82,19 @@ in
               sed -i "/^export $name=/c\unset $name" "$out/bin/claude"
             done
           ''}
-          for name in ${lib.escapeShellArgs (lib.attrNames claudeEnv.binary)}; do
-            sed -i "/^export $name=/d" "$out/bin/claude"
-          done
-          for name in ${lib.escapeShellArgs (lib.attrNames claudeEnv.binary)}; do
-            if grep -qF "$name" "$out/bin/claude"; then
-              echo "claude-code: inner wrapper still references $name after strip; the pinned llm-agents wrapper shape changed" >&2
-              exit 1
-            fi
-          done
+          ${lib.optionalString (binaryNames != [ ]) ''
+            for name in ${lib.escapeShellArgs binaryNames}; do
+              sed -i "/^export $name=/d" "$out/bin/claude"
+            done
+            for name in ${lib.escapeShellArgs binaryNames}; do
+              if grep -qF "$name" "$out/bin/claude"; then
+                echo "claude-code: inner wrapper still references $name after strip; the pinned llm-agents wrapper shape changed" >&2
+                exit 1
+              fi
+            done
+          ''}
           wrapProgram $out/bin/claude \
-            ${binaryEnvFlags}
+            ${binaryEnvFlags} ${retiredEnvFlags}
         '';
       });
     in
