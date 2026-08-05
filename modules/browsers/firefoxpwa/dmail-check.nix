@@ -921,6 +921,7 @@
               echo "PASS  marker write leaves no temporary"
             fi
 
+            echo
             echo "-- the installer uses the directory it is given --"
             if [ -e "$XDG_DATA_HOME/firefoxpwa" ]; then
               echo "FAIL  installer re-derived a path under XDG_DATA_HOME"

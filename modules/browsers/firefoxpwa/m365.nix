@@ -67,12 +67,18 @@ _: {
           systemd.user.services.firefoxpwa-m365 = {
             Unit = {
               Description = "Install the Microsoft 365 web apps (firefoxpwa)";
-              # firefoxpwa rewrites the whole of config.json with no lock, so
-              # this unit and ./dmail.nix's, both pulled in by default.target,
-              # would race at login and the later writer would drop the other's
-              # site. Ordering only: the dmail unit does not exist when its
-              # toggle is off, and an After= naming an absent unit is ignored
-              # rather than fatal, so this needs no condition on that toggle.
+              # Both units are pulled in by default.target and firefoxpwa
+              # rewrites the whole of config.json with no lock, so at login they
+              # would otherwise start together. What keeps them apart is the
+              # lock every site installer takes
+              # (../../../packages/firefoxpwa-site-installer); ordering cannot,
+              # because Home Manager activates sd-switch before the sops-nix
+              # step, so a switch starts this unit and only then restarts the
+              # dmail one through PartOf, the direction this After= does not
+              # constrain. Kept because it costs nothing and keeps the common
+              # case from reaching the lock at all: the dmail unit does not
+              # exist when its toggle is off, and an After= naming an absent
+              # unit is ignored rather than fatal.
               After = [ "firefoxpwa-dmail.service" ];
               # Bounds the Restart= below, so an entry this unit refuses
               # permanently (a site moved across origins, a foreign site under

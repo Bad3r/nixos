@@ -9,13 +9,19 @@
 
   Returns a function: the caller supplies the firefoxpwa package and the runtime
   path of the decrypted URL secret.
+
+  Built through ../firefoxpwa-site-installer, which supplies the prelude every
+  site installer needs and takes the lock that keeps two of them off
+  config.json at once. Only what is specific to this site lives here.
 */
 {
   lib,
-  writeShellApplication,
+  callPackage,
   jq,
-  coreutils,
 }:
+let
+  mkSiteInstaller = callPackage ../firefoxpwa-site-installer { };
+in
 {
   firefoxpwa,
   urlPath,
@@ -26,32 +32,16 @@
   # three real 5-second sleeps per run.
   retryDelay ? 5,
 }:
-writeShellApplication {
+mkSiteInstaller {
   name = "firefoxpwa-install-dmail";
+  inherit dataDir xdgDataHome;
   runtimeInputs = [
     firefoxpwa
     jq
-    coreutils
   ];
   text = ''
     url_file=${lib.escapeShellArg urlPath}
     app_name=${lib.escapeShellArg appName}
-    # Passed in rather than re-derived from XDG_DATA_HOME: the caller uses this
-    # same value for the sops secret path and the 0700 activation step, and a
-    # second rule here would put the marker and config.json outside the
-    # directory those protect whenever xdg.dataHome is not at its default.
-    data_dir=${lib.escapeShellArg dataDir}
-    # Exported, not just read: firefoxpwa resolves its own userdata tree from
-    # FFPWA_USERDATA and, separately, its system-integration directory (the
-    # .desktop entry and icon, through directories::BaseDirs) from
-    # XDG_DATA_HOME. Neither is read by this script, but both are read by the
-    # site install / site update calls it makes below, so pinning them from
-    # the values the caller already chose makes the binary and this script
-    # agree by construction, rather than depending on a systemd unit's
-    # Environment= staying in sync with this file from the outside.
-    export FFPWA_USERDATA="$data_dir"
-    export XDG_DATA_HOME=${lib.escapeShellArg xdgDataHome}
-    config_file="$data_dir/config.json"
     retry_delay=${lib.escapeShellArg (toString retryDelay)}
 
     # firefoxpwa deserializes start_url into the Rust url crate's Url

@@ -10,6 +10,10 @@
   Returns a function: the caller supplies the firefoxpwa package and the app
   table to install.
 
+  Built through ../firefoxpwa-site-installer, which supplies the prelude every
+  site installer needs and takes the lock that keeps two of them off
+  config.json at once. Only what is specific to this suite lives here.
+
   Same site bookkeeping as packages/firefoxpwa-dmail-install, minus the parts
   that only a secret needs: the start URLs are public and declared in the Nix
   store, so they are logged, and the records are ordinary 0600-by-directory
@@ -27,10 +31,12 @@
 */
 {
   lib,
-  writeShellApplication,
+  callPackage,
   jq,
-  coreutils,
 }:
+let
+  mkSiteInstaller = callPackage ../firefoxpwa-site-installer { };
+in
 {
   firefoxpwa,
   dataDir,
@@ -40,35 +46,15 @@
   # three real 5-second sleeps per entry.
   retryDelay ? 5,
 }:
-writeShellApplication {
+mkSiteInstaller {
   name = "firefoxpwa-install-m365";
+  inherit dataDir xdgDataHome;
   runtimeInputs = [
     firefoxpwa
     jq
-    coreutils
   ];
   text = ''
-    # Passed in rather than re-derived from XDG_DATA_HOME: the caller uses this
-    # same value for the 0700 activation step, and a second rule here would put
-    # the records and config.json outside the directory that protects them
-    # whenever xdg.dataHome is not at its default.
-    data_dir=${lib.escapeShellArg dataDir}
-    # Exported, not just read: firefoxpwa resolves its own userdata tree from
-    # FFPWA_USERDATA and, separately, its system-integration directory (the
-    # .desktop entry and icon, through directories::BaseDirs) from
-    # XDG_DATA_HOME. Neither is read by this script, but both are read by the
-    # site install / site update calls it makes, so pinning them from the
-    # values the caller already chose makes the binary and this script agree by
-    # construction rather than through a systemd unit's Environment=.
-    export FFPWA_USERDATA="$data_dir"
-    export XDG_DATA_HOME=${lib.escapeShellArg xdgDataHome}
-    config_file="$data_dir/config.json"
     retry_delay=${lib.escapeShellArg (toString retryDelay)}
-
-    # Created here, not only by ./home.nix's activation step: unlike the DMail
-    # unit, nothing decrypts a secret into this directory first, and the first
-    # record below is written before firefoxpwa (which would create it) has run.
-    install -d -m 700 "$data_dir"
 
     # firefoxpwa stores the managed site under .sites.<ulid> and the launcher
     # name set with --name lands at .config.name, so a site carrying an entry's
