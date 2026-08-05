@@ -328,7 +328,21 @@ let
                     else
                       echo "<3>cloudflare-warp-connect: tunnel is not connected after $attempt attempts"
                     fi
-                  fi
+                  fi${lib.optionalString enrolling ''
+
+                  # A revoked/expired token or a rejected mdm.xml leaves managed
+                  # enrollment inactive while `connect` still raises CONSUMER WARP.
+                  # Confirm the device registered against the managed team name.
+                  if [ -n "$connected" ]; then
+                    managed_org="$(cat ${config.sops.secrets."cloudflare-warp/organization".path})"
+                    registration="$(timeout 5s warp-cli registration show 2>&1 || true)"
+                    case "$registration" in
+                      *"$managed_org"*) ;;
+                      *)
+                        echo "<3>cloudflare-warp-connect: connected WITHOUT the managed Zero Trust registration (consumer WARP); managed enrollment did not apply"
+                        ;;
+                    esac
+                  fi''}
                 '';
               };
             })
