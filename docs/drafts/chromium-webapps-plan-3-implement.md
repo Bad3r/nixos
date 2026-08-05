@@ -1666,7 +1666,7 @@ runCommand "webapp-reload-${key}"
       "version": "1.0.0",
       "description": "Reloads ${appName} every ${toString intervalMinutes} minutes while it is not in use.",
       "key": "${publicKey}",
-      "permissions": ["alarms", "tabs"],
+      "permissions": ["alarms"],
       "background": { "service_worker": "service-worker.js" }
     }
     MANIFEST
@@ -1724,7 +1724,13 @@ jq . "$ext/manifest.json"
 head -5 "$ext/service-worker.js"
 ```
 
-Expected: valid JSON with `manifest_version: 3`, `permissions: ["alarms","tabs"]` and a `key` matching `publicKey` in `_keepalive-key.nix`, and a service worker whose `PERIOD_MINUTES` is `20`.
+Expected: valid JSON with `manifest_version: 3`, `permissions: ["alarms"]` and a `key` matching `publicKey` in `_keepalive-key.nix`, and a service worker whose `PERIOD_MINUTES` is `20`.
+
+`alarms` alone, with no `tabs`. This is the one extension `ExtensionSettings."*" = blocked` exempts, so its permission
+set is the last thing standing between that exemption and a capability. `chrome.tabs.query` and `chrome.tabs.reload`
+need no permission; `tabs` only unlocks `url`, `pendingUrl`, `title` and `favIconUrl` on the returned objects, and the
+service worker reads `tab.id` alone. Task 18 Step 6 exercises this end to end by leaving the app iconified past
+`intervalMinutes` and checking the session survived, so a wrong call here surfaces there rather than silently.
 
 The heredoc is quoted (`<<'MANIFEST'`), so `${publicKey}` is interpolated by Nix
 before the shell ever sees it. Confirm the rendered key is the base64 blob and
