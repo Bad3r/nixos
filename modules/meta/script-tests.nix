@@ -59,6 +59,16 @@ let
       ];
       extraInputs = _: [ ];
     };
+    pr-comments-mgmt = {
+      dir = ../../tests/pr-comments-mgmt;
+      subjects = [
+        {
+          src = ../../scripts/gh-cli/pr-comments-mgmt.sh;
+          dest = "scripts/gh-cli/pr-comments-mgmt.sh";
+        }
+      ];
+      extraInputs = pkgs: [ pkgs.jq ];
+    };
     ci-upstream-tracker = {
       dir = ../../tests/ci-upstream-tracker;
       subjects = [
