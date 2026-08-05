@@ -947,6 +947,16 @@
             # both of those read identically either way.
             assert_equal "the installed site still carries the original name" \
               "$(jq -r '.sites["01STUB"].config.name' "$config_file")" "DMail"
+            # config.json gone entirely rather than the site removed from it:
+            # the rename guard reads that file, so it has to tell "no file" from
+            # "cannot read this file" and let the first install.
+            rm -f "$config_file"
+            expect "a config.json that is gone does not block the install" 0 "installed" "$renamed"
+
+            reset
+            set_url 'https://mail.example.com/a'
+            "$installer" >/dev/null
+            expect "rename still refused after the reset" 1 "is a new name for the site this unit installed" "$renamed"
             # An uninstall leaves the same record but takes the site, and that
             # case must still install: the guard is on the site being there.
             jq 'del(.sites["01STUB"])' "$config_file" >"$config_file.next"

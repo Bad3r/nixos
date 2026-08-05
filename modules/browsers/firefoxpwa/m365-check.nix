@@ -445,6 +445,18 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
               "$(cat "$data_dir/m365-alpha-applied-ulid")" "01STUB0"
             assert_equal "the applied record still names the original entry" \
               "$(cat "$data_dir/m365-alpha-applied-url")" "https://alpha.example/"
+            # config.json gone entirely rather than the site removed from it:
+            # the rename guard reads that file, so it has to tell "no file" from
+            # "cannot read this file" and let the first install.
+            rm -f "$config_file"
+            expect "a config.json that is gone does not block the install" "$renamed" 0 "installed 'Alpha Renamed'"
+            # 01STUB2, not 01STUB0: only config.json was removed, so the stub's
+            # ulid counter survives and the reinstall is a genuinely new site.
+            assert_equal "alpha ulid re-recorded" "$(cat "$data_dir/m365-alpha-applied-ulid")" "01STUB2"
+
+            reset
+            "$declared" >/dev/null
+            expect "rename still refused after the reset" "$renamed" 1 "is a new name for the site this unit installed"
             # An uninstall leaves the same stale record but takes the site, and
             # that case must still reinstall: the guard is on the site being
             # there, not on the record existing.

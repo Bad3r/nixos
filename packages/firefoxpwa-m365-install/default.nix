@@ -232,10 +232,23 @@ mkSiteInstaller {
       # with nothing pointing at them. Told apart from the documented uninstall,
       # which leaves the record behind but takes the site with it, by the site
       # still being there.
-      if [ -r "$ulid_file" ] \
-        && jq -e --arg u "$(<"$ulid_file")" '.sites[$u]' "$config_file" >/dev/null 2>&1; then
-        refuse "'$name' is a new name for the site this unit installed as $(<"$ulid_file"); uninstall that site so this unit can reinstall it under the new name"
-        return
+      if [ -r "$ulid_file" ] && [ -f "$config_file" ]; then
+        local recorded
+        # jq's failure separated from "no such site", the way the lookup above
+        # separates it from "no site": a read racing firefoxpwa connector's own
+        # rewrite exits non-zero, and treating that as "the recorded site is
+        # gone" drops into the fresh install below and duplicates it. The -f
+        # test above keeps a config.json that is gone entirely installing, which
+        # is what site_ulid's own [ -f ] does with it.
+        if ! recorded=$(jq -r --arg u "$(<"$ulid_file")" \
+          'if ((.sites // {}) | has($u)) then "yes" else "" end' "$config_file" 2>/dev/null); then
+          refuse "cannot read $config_file; not installing a second '$name'"
+          return
+        fi
+        if [ -n "$recorded" ]; then
+          refuse "'$name' is a new name for the site this unit installed as $(<"$ulid_file"); uninstall that site so this unit can reinstall it under the new name"
+          return
+        fi
       fi
 
       # A data: manifest keeps the install self-contained: firefoxpwa does not

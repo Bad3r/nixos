@@ -305,10 +305,22 @@ mkSiteInstaller {
     # a missing record here to refuse on. Told apart from the documented
     # uninstall, which leaves the records behind but takes the site with it, by
     # the site still being there.
-    if [ -r "$ulid_file" ] \
-      && jq -e --arg u "$(<"$ulid_file")" '.sites[$u]' "$config_file" >/dev/null 2>&1; then
-      echo "firefoxpwa-dmail: '$app_name' is a new name for the site this unit installed as $(<"$ulid_file"); uninstall that site so this unit can reinstall it under the new name" >&2
-      exit 1
+    if [ -r "$ulid_file" ] && [ -f "$config_file" ]; then
+      # jq's failure separated from "no such site", the way site_ulid's caller
+      # above separates it from "no site": a read racing firefoxpwa connector's
+      # own rewrite exits non-zero, and treating that as "the recorded site is
+      # gone" falls into the install below with the dmail-* records fixed, so
+      # the second site takes them. The -f test keeps a config.json that is gone
+      # entirely installing, which is what site_ulid's own [ -f ] does with it.
+      if ! recorded=$(jq -r --arg u "$(<"$ulid_file")" \
+        'if ((.sites // {}) | has($u)) then "yes" else "" end' "$config_file" 2>/dev/null); then
+        echo "firefoxpwa-dmail: cannot read $config_file; not installing a second '$app_name'" >&2
+        exit 1
+      fi
+      if [ -n "$recorded" ]; then
+        echo "firefoxpwa-dmail: '$app_name' is a new name for the site this unit installed as $(<"$ulid_file"); uninstall that site so this unit can reinstall it under the new name" >&2
+        exit 1
+      fi
     fi
 
     # A data: manifest keeps the install self-contained: firefoxpwa does not
