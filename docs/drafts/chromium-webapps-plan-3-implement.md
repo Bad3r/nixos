@@ -2366,11 +2366,20 @@ git show "$(git log --diff-filter=D --format=%H -1 -- modules/browsers/firefoxpw
   > modules/browsers/webapps/check-fixtures/gecko.yaml
 ```
 
-Add the origin key the new module needs. Open the file and confirm it holds non-secret placeholder values, then append:
+Take it as it is. The recovered file is a header comment over a single `{}` document, and its own header says its
+only job is to exist: nothing decrypts it and nothing parses it. `module-check.nix` sets
+`sops.validateSopsFiles = false`, and `home.nix` only calls `builtins.pathExists` on
+`programs.webapps.secretsFile`.
 
-```yaml
-gecko_work_bookmark_origin_1: https://mail.example.invalid
+Do not append an origin key to it. `home.nix` reads `urlSecret` for `sops.secrets."webapps/<key>/url"` and never
+touches `originSecret`, which `nixos.nix` resolves and this check never evaluates, so the key would be dead weight.
+It would also break the file: a block mapping after a flow-mapping `{}` document is not valid YAML.
+
+```bash
+tail -1 modules/browsers/webapps/check-fixtures/gecko.yaml
 ```
+
+Expected: `{}`. Anything else means the recovery picked up the wrong revision.
 
 - [ ] **Step 2: Write the check**
 
