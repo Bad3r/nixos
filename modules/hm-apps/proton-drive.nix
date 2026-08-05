@@ -250,9 +250,12 @@ _: {
             # set abort without critical, so no listing is invalidated and no
             # --resync lockout follows: the next timer fire would recompute the
             # same abort from a full uncached listing of both sides, forever.
-            # Latch instead. "Safety abort" marks exactly the two checks whose
-            # documented release is --force (cmd/bisync/{deltas,operations}.go).
-            if [ "$rc" -ne 0 ] && grep -qF 'Safety abort' -- "$log"; then
+            # Latch instead. The pattern is rclone's own ERROR record for
+            # exactly the two checks whose documented release is --force
+            # (cmd/bisync/{deltas,operations}.go); matching the bare phrase
+            # would also latch on a transferred path that happens to contain it.
+            if [ "$rc" -ne 0 ] &&
+              grep -qE 'ERROR +: Safety abort: (too many deletes|all files were changed)' -- "$log"; then
               touch "$aborted"
               echo "proton-drive-sync: rclone's bisync safety check aborted the run without changing either side; latched the timer off. Confirm '$local_path' is mounted and its deletions are intended, then re-run 'proton-drive-sync --force'." >&2
             fi

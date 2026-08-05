@@ -199,6 +199,23 @@
                 [ "$rc" -ne 0 ] || fail "a transient rclone failure must fail the run"
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "a transient rclone failure must not latch"
 
+                # An INFO line echoes the transferred path, so the abort text can
+                # reach the log without either safety check having fired.
+                rc=0
+                RCLONE_STUB_EXIT=5 \
+                RCLONE_STUB_STDERR='2026/01/01 00:00:00 INFO  : notes/Safety abort: too many deletes.md: Copied (new)' \
+                  "$sync" || rc=$?
+                [ "$rc" -ne 0 ] || fail "the stubbed failure must fail the run"
+                [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "a transferred path naming the abort must not latch"
+
+                # The second safety check rclone releases with --force.
+                rc=0
+                RCLONE_STUB_EXIT=2 \
+                RCLONE_STUB_STDERR='2026/01/01 00:00:00 ERROR : Safety abort: all files were changed on Path1 "/x". Run with --force if desired.' \
+                  "$sync" || rc=$?
+                [ "$rc" -ne 0 ] || fail "an all-files-changed abort must fail the run"
+                [ "$(marker_count 'aborted-*')" -eq 1 ] || fail "an all-files-changed abort must latch the tuple"
+
                 touch "$out"
               '';
         in
