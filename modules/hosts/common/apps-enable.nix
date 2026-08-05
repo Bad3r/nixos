@@ -337,6 +337,7 @@ let
       pandoc.extended.enable = lib.mkOverride 1100 true;
       parted.extended.enable = lib.mkOverride 1100 true;
       patch.extended.enable = lib.mkOverride 1100 true;
+      patchelf.extended.enable = lib.mkOverride 1100 true;
       path.extended.enable = lib.mkOverride 1100 true;
       pciutils.extended.enable = lib.mkOverride 1100 true;
       picom.extended.enable = lib.mkOverride 1100 true;
