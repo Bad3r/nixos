@@ -2,9 +2,9 @@
 
 Reference catalog of cybersecurity tools that complement the active toolkit in [`toolkit.md`](toolkit.md). Most can be invoked ad-hoc through `nix run`, dropped into a `nix shell`, or promoted to a host by authoring a `modules/apps/<name>.nix` module and flipping the corresponding flag in `apps-enable.nix`.
 
-Each entry lists a representative run command, upstream repository, official documentation, and a one-line description. Verified against `nixpkgs` rev pinned in `flake.lock` on 2026-05-04. The companion smoke-test report lives in [`additional-tools-runtime-status.md`](additional-tools-runtime-status.md).
+Each entry lists a representative run command, upstream repository, official documentation, and a one-line description. Verified against `nixpkgs` rev pinned in `flake.lock` on 2026-05-04, except `arwen`, which was added and verified on 2026-08-05. The companion smoke-test report lives in [`additional-tools-runtime-status.md`](additional-tools-runtime-status.md).
 
-`Stat.` classifies upstream health as of 2026-06-02: **Maintained** (tagged release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), or **Deprecated** (archived, abandoned, or officially superseded). GitHub-hosted release dates were refreshed via the GitHub release API on 2026-06-02; the `maltego` and SourceForge entries retain their 2026-05-04 manual check.
+`Stat.` classifies upstream health as of 2026-06-02: **Maintained** (tagged release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), or **Deprecated** (archived, abandoned, or officially superseded). GitHub-hosted release dates were refreshed via the GitHub release API on 2026-06-02; the `maltego` and SourceForge entries retain their 2026-05-04 manual check. Entries added later carry their own verification date inline.
 
 ## Active Directory & Windows
 
@@ -541,6 +541,12 @@ Each entry lists a representative run command, upstream repository, official doc
   - Docs.: <https://upx.github.io/>
   - Desc.: Ultimate Packer for eXecutables; (un)packs PE/ELF/Mach-O binaries (commonly seen in malware analysis).
   - Stat.: Maintained (v5.1.1, 2026-03-05).
+- arwen
+  - run..: `nix run nixpkgs#arwen -- elf print-interpreter $binary`
+  - Repo.: <https://github.com/nichmor/arwen>
+  - Docs.: <https://nichmor.github.io/arwen/>
+  - Desc.: Rust replacement for `patchelf` and `install_name_tool`. The `elf` subcommand edits interpreter, RPATH/RUNPATH, `DT_NEEDED`, `DT_SONAME`, OS ABI, GNU_STACK exec flag, and dynamic symbol names; the `macho` subcommand handles rpaths, install names/IDs, and ad-hoc signing. Covers Mach-O samples and symbol renaming, neither of which `patchelf` in `toolkit.md` supports.
+  - Stat.: Maintained (v0.0.5, 2026-01-16; upstream commits through 2026-04-07). Verified 2026-08-05; nixpkgs ships `0.0.5-unstable-2026-04-07`.
 
 ## Forensics, Recovery & Imaging
 
