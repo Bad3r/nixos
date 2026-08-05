@@ -78,11 +78,12 @@ in
           name: value:
           let
             assignment = "export ${name}=${lib.escapeShellArg value}";
+            assignmentPattern = ''(^|[[:space:];])${name}=[\"']?${lib.escapeRegex value}[\"']?([[:space:];]|$)'';
           in
           ''
             sed -i "/^${assignment}$/d" "$out/bin/claude"
-            if grep -qFx ${lib.escapeShellArg assignment} "$out/bin/claude"; then
-              echo "claude-code: inner wrapper still assigns legacy value ${assignment} after strip; the pinned llm-agents wrapper shape changed" >&2
+            if grep -qE ${lib.escapeShellArg assignmentPattern} "$out/bin/claude"; then
+              echo "claude-code: inner wrapper still assigns legacy value ${name}=${value} after strip; the pinned llm-agents wrapper shape changed" >&2
               exit 1
             fi
           ''
@@ -97,8 +98,9 @@ in
           # owned by this module from the inner wrapper before applying shared
           # flags. Permanent retired assignments fail closed because an outer
           # unset cannot override an inner export. Legacy assignments are
-          # removed only for their exact value so a documented replacement
-          # value can survive the conditional outer run.
+          # removed for their exact value, then checked in shell assignment
+          # forms so wrapper serialization drift fails before a legacy value
+          # can survive the conditional outer run.
           if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
             echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1

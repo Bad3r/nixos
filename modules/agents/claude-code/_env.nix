@@ -477,7 +477,7 @@ let
   # Set to 1 to disable fullscreen rendering and use the classic main-screen renderer. [1 or unset]
   # CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN = "1";
   # Set to 1 to disable automatic terminal title updates based on conversation context. [1 or unset]
-  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
+  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";   # LEGACY "0" migrated below; documented values are 1 or unset
   # Set to 1 to hide the working directory in the startup logo. [1 or unset]
   # CLAUDE_CODE_HIDE_CWD = "1";
   # Override the host address used to connect to the IDE extension.
