@@ -307,7 +307,7 @@ let
   # Set to true to include Claude Code version in metrics attributes (default: excluded).
   # OTEL_METRICS_INCLUDE_VERSION = "";
 
-  # Bash, tools, sandbox (23)
+  # Bash, tools, sandbox (20)
   # ----------------------------
   # Default timeout for long-running bash commands (default: 120000, or 2 minutes).
   # BASH_DEFAULT_TIMEOUT_MS = "";   # ACTIVE above
@@ -341,8 +341,6 @@ let
   # CLAUDE_CODE_ENABLE_FINE_GRAINED_TOOL_STREAMING = "1";
   # Windows only: path to the Git Bash executable (bash.exe).
   # CLAUDE_CODE_GIT_BASH_PATH = "";
-  # Idle timeout in milliseconds for MCP tool calls. [0 or unset]
-  # CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT = "0";
   # Set to 1 to stop Claude Code from passing -ExecutionPolicy Bypass when
   # spawning PowerShell for tool calls, hooks, and status line commands, and
   # respect the machine's effective execution policy instead. By default Claude
@@ -354,16 +352,12 @@ let
   # calls, hook commands, status line commands, and stdio MCP server startup
   # commands. Useful for logging or auditing.
   # CLAUDE_CODE_SHELL_PREFIX = "";
-  # Controls MCP tool search.
-  # ENABLE_TOOL_SEARCH = "";
-  # Timeout in milliseconds for MCP tool execution (default: 100000000, about 28 hours). [numeric]
-  # MCP_TOOL_TIMEOUT = "";
   # Override the character budget for skill metadata shown to the Skill tool.
   # SLASH_COMMAND_TOOL_CHAR_BUDGET = "";
   # Set to 0 to use system-installed rg instead of rg included with Claude Code. [0 or unset]
   # USE_BUILTIN_RIPGREP = "0";   # ACTIVE above
 
-  # MCP (11)
+  # MCP (14)
   # -----------
   # Set to 1 to skip the mcp__<server>__ prefix on tool names from SDK-created MCP servers. [1 or unset]
   # CLAUDE_AGENT_SDK_MCP_NO_PREFIX = "1";
@@ -373,8 +367,12 @@ let
   # CLAUDE_CODE_MCP_ALLOWLIST_ENV = "1";
   # Elapsed time in milliseconds before a still-running MCP tool call moves to a background task (default: 120000, or 2 minutes). [0 or unset]
   # CLAUDE_CODE_MCP_AUTO_BACKGROUND_MS = "0";
+  # Idle timeout in milliseconds for MCP tool calls. [0 or unset]
+  # CLAUDE_CODE_MCP_TOOL_IDLE_TIMEOUT = "0";
   # Set to false to disable claude.ai MCP servers in Claude Code.
   # ENABLE_CLAUDEAI_MCP_SERVERS = "";
+  # Controls MCP tool search.
+  # ENABLE_TOOL_SEARCH = "";
   # OAuth client secret for MCP servers that require pre-configured credentials.
   # MCP_CLIENT_SECRET = "";
   # Controls whether startup waits for MCP servers to connect before the first query. [0 or unset]
@@ -389,6 +387,8 @@ let
   # MCP_SERVER_CONNECTION_BATCH_SIZE = "";
   # Timeout in milliseconds for MCP server startup (default: 30000, or 30 seconds). [numeric]
   # MCP_TIMEOUT = "";
+  # Timeout in milliseconds for MCP tool execution (default: 100000000, about 28 hours). [numeric]
+  # MCP_TOOL_TIMEOUT = "";
 
   # Network, proxy, TLS, timeouts (25)
   # -------------------------------------
