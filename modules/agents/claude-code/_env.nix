@@ -161,7 +161,7 @@ let
   # Display description for the pinned Haiku model in the /model picker.
   # ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION = "";
   # Display name for the pinned Haiku model in the /model picker.
-  # ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "";
+  # ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "";   # ACTIVE above
   # Comma-separated list of capabilities the pinned Haiku model supports, for example effort,thinking.
   # ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES = "";
   # Model ID that the opus alias resolves to, and that opusplan uses while Plan Mode is active.
@@ -349,7 +349,7 @@ let
   # Code bypasses execution policy at process scope. [1 or unset]
   # CLAUDE_CODE_POWERSHELL_RESPECT_EXECUTION_POLICY = "1";
   # Set the shell Claude Code uses to run Bash tool commands.
-  # CLAUDE_CODE_SHELL = "";
+  # CLAUDE_CODE_SHELL = "";   # SET BY _wrapper.nix (controlled bash + rm shim); do not activate here
   # Command prefix that wraps shell commands Claude Code spawns: Bash tool
   # calls, hook commands, status line commands, and stdio MCP server startup
   # commands. Useful for logging or auditing.
