@@ -714,7 +714,10 @@ Create `modules/browsers/webapps/nixos.nix`:
                 description = ''
                   IDs from programs.webapps.defaultExtensions this app opts out of.
                   The extension stays installed but is blocked from this origin
-                  through runtime_blocked_hosts.
+                  through runtime_blocked_hosts. An assertion refuses an ID that
+                  is not a default: _policy.nix builds the opt-out by iterating
+                  defaultExtensions, so such an entry is never consulted and
+                  blocks nothing.
                 '';
               };
             };
@@ -917,6 +920,17 @@ Create `modules/browsers/webapps/nixos.nix`:
                 everywhere to blocked everywhere except this app's origin, and ExtensionSettings is browser-wide, so
                 that lands in every app profile and in the daily driver. Use extensions.disable on the other apps
                 instead.
+              '';
+            }) cfg.apps
+            ++ lib.mapAttrsToList (key: app: {
+              assertion = lib.subtractLists cfg.defaultExtensions app.extensions.disable == [ ];
+              message = ''
+                programs.webapps.apps.${key}.extensions.disable names ${
+                  toString (lib.subtractLists cfg.defaultExtensions app.extensions.disable)
+                }
+                which programs.webapps.defaultExtensions does not carry. _policy.nix builds the opt-out by iterating
+                defaultExtensions and asking which apps disabled each ID, so an ID that is not a default is never
+                consulted: the entry reads as a block and does nothing at all.
               '';
             }) cfg.apps
             ++ [
