@@ -130,6 +130,14 @@ _: {
             esac
           done
 
+          case "$direction" in
+            bisync | up | down) ;;
+            *)
+              echo "proton-drive-sync: unknown direction '$direction' (want bisync|up|down)" >&2
+              exit 1
+              ;;
+          esac
+
           if [ "''${#bisync_force[@]}" -gt 0 ] && [ "$direction" != bisync ]; then
             echo "proton-drive-sync: --force is only valid for bisync; use --force-resync for one-way runs." >&2
             exit 2
