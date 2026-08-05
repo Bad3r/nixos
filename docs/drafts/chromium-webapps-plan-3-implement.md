@@ -1,6 +1,12 @@
-# Chromium Web Apps Implementation Plan
+# Chromium Web Apps, Phase 3: Implement the web-app module
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+
+**Phase 3 of 3.** The series replaces the firefoxpwa subsystem with a declarative Chromium web-app module on brave-origin, one PR per phase:
+
+- Phase 1: `docs/drafts/chromium-webapps-plan-1-salvage.md`.
+- Phase 2: `docs/drafts/chromium-webapps-plan-2-remove-firefoxpwa.md`. Must be merged before this phase starts.
+- Phase 3, this file: build the module. It carries the decisions table, the verified facts and the self-review for the whole series.
 
 **Goal:** Replace the firefoxpwa subsystem with a declarative Chromium web-app module on brave-origin that gives every app its own isolated profile, per-origin permissions, opt-in tray backgrounding, and opt-in session keep-alive.
 
@@ -104,36 +110,6 @@ ______________________________________________________________________
 
 ## File Structure
 
-### PR 1: salvage (files modified)
-
-- `tests/prune-old-stashes/run.sh`: replace `compgen` guard with `declare -F`
-- `modules/meta/build-time-shell.nix`: new flake check banning `compgen` at a command position in build-time shell
-- `modules/meta/hooks/statix.nix`: whole-tree branch when invoked with no arguments
-
-### PR 2: removal (files deleted)
-
-- `modules/browsers/firefoxpwa/` (entire directory)
-- `packages/firefoxpwa-dmail-install/`
-- `modules/custom-overlays/firefoxpwa.nix`
-- `modules/browsers/_firefoxpwa-extension-pin.json`
-- `scripts/update-firefoxpwa-extension.py`
-- `.github/workflows/update-firefoxpwa-extension.yml`
-
-### PR 2: removal (files modified)
-
-- `modules/browsers/_gecko-extension-data.nix`: drop `firefoxpwaExt`, the pin reader, `tabReloader`, `firefoxpwaRuntimePolicies`, and their `inherit` entries
-- `modules/browsers/_gecko-extensions.nix`: drop the `firefoxpwaEnabled`/`firefoxpwaPackage` arguments and the gated extension entry
-- `modules/browsers/_gecko-mk-profile.nix`: drop the two pass-through arguments
-- `modules/browsers/firefox/home.nix`: drop the osConfig lookups and the native-messaging host
-- `modules/browsers/librewolf/home.nix`: same
-- `modules/hosts/common/home-manager-apps.nix:84`: drop `"firefoxpwa"`
-- `modules/hosts/common/apps-enable.nix:155`: drop the catalog entry
-- `modules/tpnix/apps-enable.nix:79-84`: drop the `dmail.enable` override block
-- `modules/meta/cache-roots.nix:52`: drop `"firefoxpwa"`
-- `.github/workflows/update-flake.yml:88-92`: drop the pin sync step
-- `pyproject.toml`: drop the script references
-- `docs/architecture/04-home-manager.md:94`, `docs/reference/binary-cache-coverage.md:73,159`
-
 ### PR 3: implementation (files created)
 
 | File                                                  | Responsibility                                                                 |
@@ -163,435 +139,9 @@ ______________________________________________________________________
 
 ______________________________________________________________________
 
-# Part 1: Salvage from PR #435
+## Tasks
 
-The branch is at `/home/vx/trees/nixos/feat-firefoxpwa-m365`. Its commits 2 and 3 fix repo-wide defects that have nothing to do with firefoxpwa. They must land before the removal so main stops carrying a check that reports a pass while verifying nothing.
-
-### Task 1: Rescue the compgen and statix fixes onto a clean branch
-
-**Files:**
-
-- Modify: `tests/prune-old-stashes/run.sh`
-
-- Create: `modules/meta/build-time-shell.nix`
-
-- Modify: `modules/meta/hooks/statix.nix`
-
-- [ ] **Step 1: Create the worktree**
-
-```bash
-cd /home/vx/nixos
-git worktree add "$HOME/trees/nixos/fix-build-time-shell" -b "fix/build-time-shell"
-```
-
-- [ ] **Step 2: Identify the two commits to cherry-pick**
-
-```bash
-cd /home/vx/trees/nixos/feat-firefoxpwa-m365
-git log --oneline --format='%h %s' main..HEAD -- \
-  tests/prune-old-stashes/run.sh modules/meta/build-time-shell.nix modules/meta/hooks/statix.nix
-```
-
-Expected: commit hashes touching only those three paths. Record them as `$COMPGEN_SHA` and `$STATIX_SHA`.
-
-- [ ] **Step 3: Cherry-pick them onto the clean branch**
-
-```bash
-cd "$HOME/trees/nixos/fix-build-time-shell"
-git cherry-pick "$COMPGEN_SHA" "$STATIX_SHA"
-```
-
-If a hunk conflicts because it also touched `modules/browsers/firefoxpwa/m365-check.nix`, drop that path: it is deleted in PR 2.
-
-```bash
-git rm --cached modules/browsers/firefoxpwa/m365-check.nix 2>/dev/null || true
-git checkout --ours . 2>/dev/null || true
-```
-
-- [ ] **Step 4: Verify the compgen fix actually detects what it claims**
-
-```bash
-cd "$HOME/trees/nixos/fix-build-time-shell"
-rg -n 'declare -F' tests/prune-old-stashes/run.sh
-rg -n 'compgen' tests/ modules/ packages/
-```
-
-Expected: `declare -F` present in the test runner; no `compgen` at a command position anywhere.
-
-- [ ] **Step 5: Run the checks**
-
-```bash
-cd "$HOME/trees/nixos/fix-build-time-shell"
-nix fmt
-nix flake check path:. --accept-flake-config --no-build --offline
-```
-
-Expected: exit 0.
-
-- [ ] **Step 6: Commit and open the PR**
-
-```bash
-cd "$HOME/trees/nixos/fix-build-time-shell"
-git add tests/prune-old-stashes/run.sh modules/meta/build-time-shell.nix modules/meta/hooks/statix.nix
-git commit -m "fix(checks): stop trusting compgen in build-time shell text
-
-The bash a runCommand builder runs is built without programmable completion, so \`compgen -G\` resolves to no command
-and a condition context turns that into false rather than an error. Every leftover-temporary assertion written with it
-reported a pass while checking nothing. tests/prune-old-stashes/run.sh used the same builtin for its
-defined-but-never-ran guard and passes today only because modules/meta/script-tests.nix puts pkgs.bash on PATH.
-Replaced with \`declare -F\`, and checks.build-time-shell now scans modules/, packages/ and tests/ for the builtin at a
-command position. statix reached only staged files, so checks.statix-tree runs hook-statix with no arguments.
-
-Validation: nix fmt; nix flake check path:. --accept-flake-config --no-build --offline"
-git push -u origin fix/build-time-shell
-gh pr create --title "fix(checks): stop trusting compgen in build-time shell text" --body "$(cat <<'EOF'
-## Summary
-
-- `compgen -G` is unavailable in `runCommand` bash, so every leftover-temporary assertion using it passed without
-  checking anything. Replaced with `declare -F`.
-- `checks.build-time-shell` scans `modules/`, `packages/` and `tests/` for the builtin at a command position.
-- `checks.statix-tree` runs `hook-statix` with no arguments so lints in unstaged files are reachable in CI.
-
-Rescued from #435, which is being closed unmerged.
-
-## Test plan
-
-- `nix flake check path:. --accept-flake-config --no-build --offline`
-- Planted-lint proof: the statix check reports a planted lint before scanning the tree.
-EOF
-)"
-```
-
-- [ ] **Step 7: Close PR #435 with a pointer**
-
-```bash
-gh pr close 435 --comment "Closing unmerged. The firefoxpwa subsystem is being replaced by a Chromium web-app module (see docs/drafts/chromium-webapps-plan.md); the M365 catalog carries over as data. The two unrelated fixes from this branch (compgen false-pass, whole-tree statix) are rescued in the PR linked above."
-```
-
-______________________________________________________________________
-
-# Part 2: Remove firefoxpwa
-
-Do not start until PR 1 has merged. Every step here is a deletion or an unwiring; no behavior is added.
-
-### Task 2: Delete the firefoxpwa-owned files
-
-**Files:**
-
-- Delete: `modules/browsers/firefoxpwa/`, `packages/firefoxpwa-dmail-install/`, `modules/custom-overlays/firefoxpwa.nix`, `modules/browsers/_firefoxpwa-extension-pin.json`, `scripts/update-firefoxpwa-extension.py`, `.github/workflows/update-firefoxpwa-extension.yml`
-
-- [ ] **Step 1: Create the worktree**
-
-```bash
-cd /home/vx/nixos
-git worktree add "$HOME/trees/nixos/refactor-drop-firefoxpwa" -b "refactor/drop-firefoxpwa"
-cd "$HOME/trees/nixos/refactor-drop-firefoxpwa"
-```
-
-- [ ] **Step 2: Record the pre-removal reference set**
-
-```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' > /tmp/firefoxpwa-before.txt
-wc -l /tmp/firefoxpwa-before.txt
-```
-
-Expected: 61 matching lines across 20 files. This is the checklist; the file is consulted again in Task 6.
-
-- [ ] **Step 3: Remove the files using the recoverable deletion path**
-
-```bash
-rip modules/browsers/firefoxpwa \
-    packages/firefoxpwa-dmail-install \
-    modules/custom-overlays/firefoxpwa.nix \
-    modules/browsers/_firefoxpwa-extension-pin.json \
-    scripts/update-firefoxpwa-extension.py \
-    .github/workflows/update-firefoxpwa-extension.yml
-```
-
-- [ ] **Step 4: Verify only the intended paths are gone**
-
-```bash
-git status --short
-```
-
-Expected: only `D ` entries for the six paths above, nothing else.
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add -A modules/browsers/firefoxpwa packages/firefoxpwa-dmail-install \
-  modules/custom-overlays/firefoxpwa.nix modules/browsers/_firefoxpwa-extension-pin.json \
-  scripts/update-firefoxpwa-extension.py .github/workflows/update-firefoxpwa-extension.yml
-git commit -m "refactor(firefoxpwa)!: delete the firefoxpwa module tree
-
-PWAsForFirefox installs every site into one shared profile unless a profile is created per site, so the isolation the
-module was carrying its complexity for was never actually configured: packages/firefoxpwa-dmail-install called
-\`firefoxpwa site install\` with no --profile. Adding it means tracking a second ulid in a script that already needed
-21 KB of shell and a 47 KB regression check for one site. Replaced by a Chromium web-app module.
-
-Unwiring of the gecko browsers, the app catalog and the workflows follows in the next commits."
-```
-
-### Task 3: Unwire firefoxpwa from the gecko browser stack
-
-**Files:**
-
-- Modify: `modules/browsers/_gecko-extension-data.nix:45-67,69-73,98-126,146-150`
-
-- Modify: `modules/browsers/_gecko-extensions.nix:10-14,35-36,363-372`
-
-- Modify: `modules/browsers/_gecko-mk-profile.nix:17-18,31-32`
-
-- Modify: `modules/browsers/firefox/home.nix:14-20,26-27,67-68,73`
-
-- Modify: `modules/browsers/librewolf/home.nix:33-39,45-46,86,91`
-
-- [ ] **Step 1: Strip `_gecko-extension-data.nix`**
-
-Delete these bindings and their comments: `firefoxpwaExt` (the `firefoxpwa@filips.si` identifier), `firefoxpwaExtensionPin` (the `builtins.fromJSON (builtins.readFile ./_firefoxpwa-extension-pin.json)` reader), `mkFirefoxpwaInstallUrl` (including its stale-pin `throw`), `tabReloader` (PWA-runtime only, per its own comment), and the whole `firefoxpwaRuntimePolicies` attrset. Remove `firefoxpwaExt`, `mkFirefoxpwaInstallUrl` and `firefoxpwaRuntimePolicies` from the trailing `inherit` list.
-
-Keep `mkNormalInstalledPolicy`: it is still referenced by the regular browsers.
-
-Verify `tabReloader` has no other consumer before deleting:
-
-```bash
-rg -n 'tabReloader' modules/
-```
-
-Expected: matches only inside `_gecko-extension-data.nix`.
-
-- [ ] **Step 2: Strip `_gecko-extensions.nix`**
-
-Remove the `firefoxpwaEnabled ? false,` and `firefoxpwaPackage ? null,` function arguments and their leading comment, remove `firefoxpwaExt` and `mkFirefoxpwaInstallUrl` from the `inherit` of `_gecko-extension-data.nix`, and delete the whole trailing:
-
-```nix
-// lib.optionalAttrs firefoxpwaEnabled {
-  "${firefoxpwaExt}" = { ... };
-}
-```
-
-- [ ] **Step 3: Strip `_gecko-mk-profile.nix`**
-
-Remove the `firefoxpwaEnabled ? false,` and `firefoxpwaPackage ? pkgs.firefoxpwa,` arguments and the matching `inherit` entries in the `geckoExtensions = import ./_gecko-extensions.nix { ... }` call.
-
-- [ ] **Step 4: Strip `firefox/home.nix` and `librewolf/home.nix`**
-
-In each, delete the `firefoxpwaEnabled` / `firefoxpwaPackage` `lib.attrByPath` lookups, their `inherit` entries in the `mkProfile` argument set, and the `++ lib.optional firefoxpwaEnabled firefoxpwaPackage` on the native-messaging-hosts list together with its comment. The list must keep every other element unchanged.
-
-- [ ] **Step 5: Verify the gecko stack still evaluates**
-
-```bash
-nix fmt
-nix flake check path:. --accept-flake-config --no-build --offline
-```
-
-Expected: exit 0. A leftover reference surfaces here as an undefined-variable error.
-
-- [ ] **Step 6: Commit**
-
-```bash
-git add modules/browsers/_gecko-extension-data.nix modules/browsers/_gecko-extensions.nix \
-  modules/browsers/_gecko-mk-profile.nix modules/browsers/firefox/home.nix modules/browsers/librewolf/home.nix
-git commit -m "refactor(browsers)!: drop firefoxpwa wiring from the gecko stack
-
-Removes the PWAsForFirefox management extension entry, the AMO pin reader and its stale-pin throw, the Tab Reloader
-add-on (installed only into PWA runtime profiles, never the regular browsers), and the firefoxpwaRuntimePolicies set
-the deleted overlay injected. firefox and librewolf lose the firefoxpwa native-messaging host.
-
-Validation: nix flake check path:. --accept-flake-config --no-build --offline"
-```
-
-### Task 4: Unwire firefoxpwa from host configuration and CI
-
-**Files:**
-
-- Modify: `modules/hosts/common/home-manager-apps.nix:84`
-
-- Modify: `modules/hosts/common/apps-enable.nix:155`
-
-- Modify: `modules/tpnix/apps-enable.nix:79-84`
-
-- Modify: `modules/meta/cache-roots.nix:52`
-
-- Modify: `.github/workflows/update-flake.yml:88-92`
-
-- Modify: `pyproject.toml:13-14,36`
-
-- [ ] **Step 1: Remove the shared browser registration**
-
-In `modules/hosts/common/home-manager-apps.nix`, delete the `"firefoxpwa"` element from `sharedBrowserNames` so the list reads:
-
-```nix
-  sharedBrowserNames = [
-    "firefox"
-    "google-chrome"
-    "librewolf"
-    "ungoogled-chromium"
-  ];
-```
-
-- [ ] **Step 2: Remove the catalog entry**
-
-In `modules/hosts/common/apps-enable.nix`, delete the line:
-
-```nix
-      firefoxpwa.extended.enable = lib.mkOverride 1100 true;
-```
-
-- [ ] **Step 3: Remove the per-host override**
-
-In `modules/tpnix/apps-enable.nix`, the `configurations.nixos.tpnix.module` block collapses back to a plain `mapAttrs` because `firefoxpwa.dmail.enable` was its only non-flat entry:
-
-```nix
-  configurations.nixos.tpnix.module = {
-    programs = lib.mapAttrs mkExtendedEnable programOverrides;
-    services = lib.mapAttrs mkExtendedEnable serviceOverrides;
-  };
-```
-
-Delete the three-line comment above it that explains the non-flat routing, and drop `lib.recursiveUpdate` if `lib` is now otherwise unused in that expression (it is not; `lib.mapAttrs` remains).
-
-- [ ] **Step 4: Remove the cache root**
-
-In `modules/meta/cache-roots.nix`, delete `"firefoxpwa"` from `hostPackageNames`.
-
-- [ ] **Step 5: Remove the workflow step**
-
-In `.github/workflows/update-flake.yml`, delete the whole `- name: Sync firefoxpwa extension pin` step including its `if:`, comment and `run:` lines.
-
-- [ ] **Step 6: Remove the Python tooling references**
-
-In `pyproject.toml`, delete the `update-firefoxpwa-extension.py` mention from the header comment and the `"scripts/update-firefoxpwa-extension.py" = "py312"` entry.
-
-- [ ] **Step 7: Verify nothing references the deleted paths**
-
-```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual'
-```
-
-Expected: only `docs/architecture/04-home-manager.md` and `docs/reference/binary-cache-coverage.md`, handled in Task 5.
-
-- [ ] **Step 8: Validate and commit**
-
-```bash
-nix fmt
-nix flake check path:. --accept-flake-config --no-build --offline
-git add modules/hosts/common/home-manager-apps.nix modules/hosts/common/apps-enable.nix \
-  modules/tpnix/apps-enable.nix modules/meta/cache-roots.nix .github/workflows/update-flake.yml pyproject.toml
-git commit -m "refactor(hosts)!: drop firefoxpwa from the app catalog and CI
-
-Removes the shared browser registration, the common baseline and tpnix dmail override, the cache root that existed
-only because the deleted overlay forced a firefoxpwa-unwrapped rebuild, the update-flake pin sync step and the ruff
-target for the deleted script.
-
-Validation: nix flake check path:. --accept-flake-config --no-build --offline"
-```
-
-### Task 5: Update documentation and regenerate managed artifacts
-
-**Files:**
-
-- Modify: `docs/architecture/04-home-manager.md:94`
-
-- Modify: `docs/reference/binary-cache-coverage.md:73,159`
-
-- Regenerate: `README.md`
-
-- [ ] **Step 1: Rewrite the browser-modules paragraph**
-
-In `docs/architecture/04-home-manager.md`, the sentence beginning "A sibling file can extend the same `browsers.<name>` key" cites firefoxpwa as its worked example. Replace the firefoxpwa clause so the paragraph ends:
-
-```markdown
-A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/webapps/home.nix` owns the per-app launchers and data directories, and `modules/browsers/webapps/nixos.nix` owns the NixOS-scope managed policy that the same app catalog drives.
-```
-
-- [ ] **Step 2: Update the cache coverage reference**
-
-In `docs/reference/binary-cache-coverage.md`, change the parenthetical on line 73 from `(firefoxpwa policy injection, john patches)` to `(john patches)`, and delete the `| firefoxpwa | system76, tpnix |` table row.
-
-- [ ] **Step 3: Regenerate managed artifacts**
-
-```bash
-nix develop path:. --accept-flake-config -c write-files --offline
-git diff --stat
-```
-
-Expected: a `README.md` diff only if firefoxpwa appeared in generated output. Review it before staging.
-
-- [ ] **Step 4: Confirm the reference set is empty**
-
-```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual'
-```
-
-Expected: no output.
-
-- [ ] **Step 5: Validate the host closure still builds**
-
-```bash
-nix flake check path:. --accept-flake-config --no-build --offline
-nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
-```
-
-Expected: both succeed.
-
-- [ ] **Step 6: Commit and open the PR**
-
-```bash
-git add docs/architecture/04-home-manager.md docs/reference/binary-cache-coverage.md README.md
-git commit -m "docs(browsers): retire the firefoxpwa references
-
-Validation: nix flake check path:. --accept-flake-config --no-build --offline;
-nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel"
-git push -u origin refactor/drop-firefoxpwa
-gh pr create --title "refactor(browsers)!: remove the firefoxpwa subsystem" --body "$(cat <<'EOF'
-## Summary
-
-Removes PWAsForFirefox entirely: the module tree, the DMail installer derivation, the runtime policy overlay, the AMO
-extension pin and its weekly workflow, the cache root, and the gecko-side wiring.
-
-The isolation the subsystem's complexity paid for was never configured. `packages/firefoxpwa-dmail-install` called
-`firefoxpwa site install` with no `--profile`, and PWAsForFirefox installs into the shared default profile when none is
-given, so DMail shared a cookie jar with every extension-installed site.
-
-Replaced in the following PR by a Chromium web-app module on brave-origin. Plan:
-`docs/drafts/chromium-webapps-plan.md`.
-
-## Test plan
-
-- `nix flake check path:. --accept-flake-config --no-build --offline`
-- `nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel`
-- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/nixos-manual/`
-EOF
-)"
-```
-
-### Task 6: Clean up user-side leftovers after the switch
-
-Not part of the PR. Run once on each host after `refactor/drop-firefoxpwa` merges and the switch completes. The old userdata tree holds real PWA profile state and is not deleted by the module removal.
-
-- [ ] **Step 1: Confirm what remains**
-
-```bash
-ls -la "${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa"
-ls "${XDG_DATA_HOME:-$HOME/.local/share}/applications" | rg -i 'FFPWA|firefoxpwa'
-```
-
-- [ ] **Step 2: Remove the launcher entries and the userdata tree**
-
-```bash
-rip "${XDG_DATA_HOME:-$HOME/.local/share}"/applications/FFPWA-*.desktop
-rip "${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa"
-systemctl --user reset-failed firefoxpwa-dmail.service 2>/dev/null || true
-```
-
-Both paths stay recoverable through the `rip` graveyard.
-
-______________________________________________________________________
-
-# Part 3: Implement the Chromium web-app module
-
-Do not start until PR 2 has merged.
+Do not start until the phase 2 PR (`docs/drafts/chromium-webapps-plan-2-remove-firefoxpwa.md`) has merged.
 
 ### Task 7: Extract the shared Chromium hardening set
 
@@ -2939,7 +2489,7 @@ Inspect what actually applied with `brave://policy`.
 
 - [ ] **Step 2: Update the architecture doc**
 
-In `docs/architecture/04-home-manager.md`, the browser-modules paragraph was already rewritten in Task 5 Step 1 to cite webapps. Confirm it reads correctly now that both files exist:
+In `docs/architecture/04-home-manager.md`, the browser-modules paragraph was already rewritten in phase 2 Task 5 Step 1 to cite webapps. Confirm it reads correctly now that both files exist:
 
 ```bash
 rg -n 'webapps' docs/architecture/04-home-manager.md
@@ -3007,7 +2557,7 @@ the daily driver:
 Intentional hardening, recorded rather than discovered later. `docs/reference/webapps.md` documents the two ways out
 if it gets in the way.
 
-Plan: `docs/drafts/chromium-webapps-plan.md`. Operator docs: `docs/reference/webapps.md`.
+Plan: `docs/drafts/chromium-webapps-plan-3-implement.md`. Operator docs: `docs/reference/webapps.md`.
 
 ## Test plan
 
@@ -3150,7 +2700,7 @@ ______________________________________________________________________
 
 | Requirement                                                           | Where                                                         |
 | --------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Complete firefoxpwa cleanup including extension and CLI               | Tasks 2-6                                                     |
+| Complete firefoxpwa cleanup including extension and CLI               | Phase 2, Tasks 2-6                                            |
 | Idiomatic, modular, reusable for many future apps                     | Tasks 9-12; keyed submodule plus a pure generator             |
 | Working integrated notifications                                      | `permissions.notifications`, Task 10; verified Task 18 Step 5 |
 | Opt-in backgrounding with a tray icon, default overridable per app    | `tray.{enable,icon}` plus `defaultTrayIcon`, Tasks 9 and 12   |
