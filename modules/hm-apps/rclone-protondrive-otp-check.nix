@@ -53,6 +53,11 @@
               echo "op stub: expected 'read', got: $*" >&2
               exit 1
             fi
+            # Counted so the check can assert that a failing read short-circuits
+            # the remaining three rather than waiting out four timeouts.
+            if [ -n "''${OP_STUB_CALLS-}" ]; then
+              printf '%s\n' "$*" >> "$OP_STUB_CALLS"
+            fi
             # A locked desktop app, and equally the exit 124 of the timeout the
             # script wraps each read in.
             if [ -n "''${OP_STUB_FAIL-}" ]; then
@@ -343,8 +348,14 @@
             # config first, then lock the vault without clearing it.
             rc=$(OP_STUB_OTP="$seed" run_activation)
             [ "$rc" -eq 0 ] || fail "seeding the preserve path must succeed (exit $rc)"
-            rc=$(OP_STUB_FAIL=1 run_activation_keeping_config)
+            # A locked vault answers no read, so the first expiry settles the
+            # outcome. Unguarded, the other three re-raise the same prompt and
+            # wait out another timeout each, adding 90 seconds to every switch.
+            : > "$check_root/op-calls"
+            rc=$(OP_STUB_CALLS="$check_root/op-calls" OP_STUB_FAIL=1 run_activation_keeping_config)
             [ "$rc" -eq 0 ] || fail "an unavailable 1Password must not fail activation (exit $rc)"
+            [ "$(wc -l < "$check_root/op-calls")" -eq 1 ] ||
+              fail "a failing op read must short-circuit the remaining reads"
             grep -qxF "otp_secret_key = obscured:$seed" "$rendered" ||
               fail "an unavailable 1Password must carry the previous stanza forward"
             grep -q 'credentials are unavailable' "$check_root/stderr" ||

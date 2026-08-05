@@ -211,15 +211,24 @@ _: {
                   # blocks op read until it is answered; time out instead of
                   # stalling activation, and let the existing failure path
                   # below take the warn-and-preserve branch.
+                  #
+                  # Each read is gated on the running total because the first
+                  # expiry already proves the vault will not answer: unguarded,
+                  # the remaining three re-raise the same prompt and wait it out
+                  # again, so a locked vault cost 4 x 30s of every switch on
+                  # every host carrying the op:// source, which is the delay the
+                  # timeout was added to bound.
                   protondriveUsernameRaw="$(timeout 30 "$opExecutable" read --no-newline "$protondriveUsernameRef")" || protondriveLookupFailed=1
-                  protondrivePasswordRaw="$(timeout 30 "$opExecutable" read --no-newline "$protondrivePasswordRef")" || protondriveLookupFailed=1
+                  if [ "$protondriveLookupFailed" -eq 0 ]; then
+                    protondrivePasswordRaw="$(timeout 30 "$opExecutable" read --no-newline "$protondrivePasswordRef")" || protondriveLookupFailed=1
+                  fi
                   # otp_secret_key and mailbox_password are per-account optional
                   # (2FA / two-password accounts only), so an empty configured
                   # ref opts out instead of being read.
-                  if [ -n "$protondriveOtpRef" ]; then
+                  if [ "$protondriveLookupFailed" -eq 0 ] && [ -n "$protondriveOtpRef" ]; then
                     protondriveOtpUri="$(timeout 30 "$opExecutable" read --no-newline "$protondriveOtpRef")" || protondriveLookupFailed=1
                   fi
-                  if [ -n "$protondriveMailboxPasswordRef" ]; then
+                  if [ "$protondriveLookupFailed" -eq 0 ] && [ -n "$protondriveMailboxPasswordRef" ]; then
                     protondriveMailboxPasswordRaw="$(timeout 30 "$opExecutable" read --no-newline "$protondriveMailboxPasswordRef")" || protondriveLookupFailed=1
                   fi
 
