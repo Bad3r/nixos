@@ -671,6 +671,12 @@ Create `modules/browsers/webapps/nixos.nix`:
                   Web Store extension IDs active only for this app. Force-installed
                   everywhere but blocked from interacting with every origin except
                   this one, through runtime_blocked_hosts and runtime_allowed_hosts.
+
+                  Must not repeat an ID from programs.webapps.defaultExtensions.
+                  The per-app entry replaces the default one rather than merging
+                  with it, which would silently turn an always-on default into
+                  blocked-everywhere-but-here in every profile. An assertion
+                  refuses that; use extensions.disable on the other apps instead.
                 '';
               };
               disable = lib.mkOption {
@@ -831,6 +837,19 @@ Create `modules/browsers/webapps/nixos.nix`:
                 programs.webapps.apps.${key}: urlSecret requires originSecret. The permission
                 policy needs a scheme://host origin and sops templates substitute values
                 without transforming them, so the origin has to be its own key.
+              '';
+            }) cfg.apps
+            ++ lib.mapAttrsToList (key: app: {
+              assertion = lib.intersectLists app.extensions.enable cfg.defaultExtensions == [ ];
+              message = ''
+                programs.webapps.apps.${key}.extensions.enable repeats ${
+                  toString (lib.intersectLists app.extensions.enable cfg.defaultExtensions)
+                }
+                from programs.webapps.defaultExtensions. _policy.nix merges perAppEntries over defaultEntries, so the
+                per-app entry replaces the default one outright: the extension would go from force-installed
+                everywhere to blocked everywhere except this app's origin, and ExtensionSettings is browser-wide, so
+                that lands in every app profile and in the daily driver. Use extensions.disable on the other apps
+                instead.
               '';
             }) cfg.apps
             ++ [
