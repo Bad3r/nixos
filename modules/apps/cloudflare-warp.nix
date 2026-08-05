@@ -270,7 +270,7 @@ let
                 Type = "oneshot";
                 RemainAfterExit = true;
                 # The script bounds each IPC call and its retry window; this larger
-                # unit timeout covers the final status query and shell overhead.
+                # unit timeout covers the status queries and shell overhead.
                 TimeoutStartSec = 180;
               };
               script = ''
@@ -283,28 +283,7 @@ let
                 attempt=0
                 deadline=$((SECONDS + 120))
 
-                if status="$(timeout 5s warp-cli status 2>&1)"; then
-                  status="''${status:-status unavailable}"
-                else
-                  echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
-                  status="''${status:-status unavailable}"
-                fi
-                echo "cloudflare-warp-connect: $status"
-                case "$status" in
-                  *Disconnected* | *"status unavailable"*) ;;
-                  *Connected*)
-                    connected=1
-                    ;;
-                esac
-
-                while [ -z "$connected" ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
-                  attempt=$((attempt + 1))
-                  if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
-                    connect_requested=1
-                    echo "cloudflare-warp-connect: connect requested"
-                  else
-                    echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
-                  fi
+                refresh_status() {
                   if status="$(timeout 5s warp-cli status 2>&1)"; then
                     status="''${status:-status unavailable}"
                   else
@@ -318,6 +297,19 @@ let
                       connected=1
                       ;;
                   esac
+                }
+
+                refresh_status
+
+                while [ -z "$connected" ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
+                  attempt=$((attempt + 1))
+                  if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
+                    connect_requested=1
+                    echo "cloudflare-warp-connect: connect requested"
+                  else
+                    echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
+                  fi
+                  refresh_status
                   if [ -z "$connected" ]; then
                     sleep 1
                   fi
