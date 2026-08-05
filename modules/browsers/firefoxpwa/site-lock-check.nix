@@ -23,12 +23,24 @@ _: {
     let
       dataDir = "firefoxpwa-site-lock-check/data";
 
-      # Read, pause, write: the shape of what firefoxpwa does to config.json,
-      # so two runs that overlap here interleave the way they interleave there
-      # and the counter ends at 1 instead of 2.
+      # Read, mark, wait for the peer, write: the shape of what firefoxpwa does
+      # to config.json, with the interleaving decided by whether the peer can
+      # enter rather than by which process the scheduler happens to run first. A
+      # fixed pause would make the unlocked control's result a race outcome, so
+      # a builder busy enough to delay the second exec past it would fail this
+      # check on a change that touched nothing here. Locked, the peer cannot
+      # enter and each run burns the bound; unlocked, both read before either
+      # writes and one update is lost, whatever the startup skew.
       body = ''
         n=$(cat "$data_dir/counter")
-        sleep 1
+        : >"$data_dir/entered.$$"
+        shopt -s nullglob
+        for _ in $(seq 100); do
+          entered=("$data_dir"/entered.*)
+          if [ "''${#entered[@]}" -ge 2 ]; then break; fi
+          sleep 0.1
+        done
+        shopt -u nullglob
         printf '%s' "$((n + 1))" >"$data_dir/counter"
       '';
 
