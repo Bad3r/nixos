@@ -885,15 +885,27 @@ cat > "$tmp/pol/probe.json" <<'EOF'
 }
 EOF
 
-# Chromium reads the managed directory from a fixed path, so the probe needs a
-# throwaway root rather than the host's /etc.
-sudo install -D -m 0444 "$tmp/pol/probe.json" /etc/brave/policies/managed/zz-probe.json
+# Chromium reads the managed directory from a fixed path and offers no override
+# for it, so the probe has to go into the host's own /etc rather than a
+# throwaway root. Two consequences of that, both load-bearing:
+#
+#   * `zz-` sorts last, which is what makes the probe win the ExtensionSettings
+#     key against extended.json. The config-dir loader picks one file's value
+#     outright instead of merging, as this plan relies on elsewhere.
+#   * While the file is in place, "*" = blocked binds the daily-driver
+#     brave-origin too: 1Password stops being force-installed in the main
+#     profile and every other extension is refused there. Left behind, that
+#     persists until the next nixos-rebuild switch, so the cleanup runs from a
+#     trap rather than from the last line of the block.
+(
+  trap 'sudo rm -f /etc/brave/policies/managed/zz-probe.json' EXIT INT TERM
+  sudo install -D -m 0444 "$tmp/pol/probe.json" /etc/brave/policies/managed/zz-probe.json
 
-brave-origin --user-data-dir="$tmp/profile" --load-extension="$tmp/ext" \
-  --no-first-run about:blank
-# In the running instance, open brave://extensions and brave://policy.
-
-sudo rm -f /etc/brave/policies/managed/zz-probe.json
+  brave-origin --user-data-dir="$tmp/profile" --load-extension="$tmp/ext" \
+    --no-first-run about:blank
+  # In the running instance, open brave://extensions and brave://policy, then
+  # close the window to reach the cleanup.
+)
 ```
 
 Record the result here before continuing:
