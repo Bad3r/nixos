@@ -208,9 +208,19 @@ _: {
       # /tmp (a tmpfs cleared on boot on this fleet) survives one reboot as a
       # baseline with nothing behind it: the unlatchable repeat --dry-run is
       # rejected for, reached with no intent to disable anything.
+      #
+      # --conflict-resolve and --resilient close the same set: the first is the
+      # other half of the decision --conflict-loser governs, and --resilient is
+      # a bool, so --resilient=false reinstates bisync's -err listing rename on
+      # a retryable critical error (cmd/bisync/operations.go skips it only under
+      # `b.retryable && b.opt.Resilient && !b.opt.Resync`), turning the
+      # offline-at-boot retry the unit relies on into that same repeat. Every
+      # flag the script puts on the command line is here, which is the invariant
+      # the check asserts against rejectedExtraArgs below.
       rejectedFlags = [
         "--config"
         "--conflict-loser"
+        "--conflict-resolve"
         "--dry-run"
         "--force"
         "--ignore-errors"
@@ -220,6 +230,7 @@ _: {
         "--log-systemd"
         "--max-delete"
         "--protondrive-enable-caching"
+        "--resilient"
         "--resync"
         "--resync-mode"
         "--syslog"
@@ -451,6 +462,19 @@ _: {
     in
     {
       options.services.protonDriveSync = {
+        # Four rounds of review found a flag the script passes that extraArgs
+        # could still replace, each time because the two lists were maintained
+        # by hand. Exposing this lets the check assert that every flag it
+        # verifies on the command line is also refused here, so the pair cannot
+        # drift again without a check failure.
+        rejectedExtraArgs = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          internal = true;
+          readOnly = true;
+          default = rejectedFlags;
+          description = "Arguments refused in extraArgs, for the module's own check.";
+        };
+
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
@@ -514,12 +538,13 @@ _: {
 
             Arguments that override a safety flag, the sync mode, or the state
             the tuple key does not cover (`--config`, `--conflict-loser`,
-            `--dry-run`, `--force`, `--ignore-errors`, `--max-delete`,
-            `--protondrive-enable-caching`, `--resync`, `--resync-mode`,
-            `--workdir`): each defeats the deletion cap, the withholding of
-            deletes from an errored run, the bisync safety checks, the
-            caching-off the Beta backend requires, or the correspondence between
-            the tuple marker and the account and listings it stands for.
+            `--conflict-resolve`, `--dry-run`, `--force`, `--ignore-errors`,
+            `--max-delete`, `--protondrive-enable-caching`, `--resilient`,
+            `--resync`, `--resync-mode`, `--workdir`): each defeats the deletion
+            cap, the withholding of deletes from an errored run, the bisync
+            safety checks, the conflict winner, the retry the unit relies on,
+            the caching-off the Beta backend requires, or the correspondence
+            between the tuple marker and the account and listings it stands for.
 
             Short options are rejected wholesale because they cluster (`-nv` is
             `--dry-run` plus `--verbose`); use the long form. The equivalent

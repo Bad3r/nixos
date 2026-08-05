@@ -112,6 +112,21 @@
           installsScript =
             hmConfig: lib.any (drv: (drv.name or "") == "proton-drive-sync") hmConfig.config.home.packages;
 
+          # The runner asserts each of these is on a normal bisync command line.
+          # They are asserted there only because rejectedFlags refuses an
+          # extraArg that would replace them, so the two lists must agree: four
+          # review rounds found a flag present in one and missing from the
+          # other. Split on "=" because the runner pins values too.
+          ownedFlagTokens = [
+            "--config"
+            "--conflict-resolve=newer"
+            "--max-delete=25"
+            "--protondrive-enable-caching=false"
+            "--resilient"
+            "--workdir"
+          ];
+          ownedFlagNames = map (token: lib.head (lib.splitString "=" token)) ownedFlagTokens;
+
           hm = mkHm {
             protonDrive = {
               enable = true;
@@ -383,8 +398,7 @@
                 # every other case here green. This is the first run that
                 # reaches rclone by the normal bisync path.
                 last_call=$(tail -n1 "$PROTON_DRIVE_STUB_CALLS")
-                for flag in --max-delete=25 --resilient --conflict-resolve=newer \
-                  --protondrive-enable-caching=false --config --workdir; do
+                for flag in ${lib.escapeShellArgs ownedFlagTokens}; do
                   case "$last_call" in
                     *"$flag"*) ;;
                     *) fail "a normal bisync run must pass $flag" ;;
@@ -513,6 +527,11 @@
         assert lib.assertMsg (
           !(builtins.tryEval workdirHm.config.home.packages).success
         ) "hm-apps/proton-drive-sync: --workdir in extraArgs must fail an assertion";
+        # Asserting a flag is passed is only meaningful while extraArgs cannot
+        # replace it, so every flag the runner pins must also be refused.
+        assert lib.assertMsg
+          (lib.subtractLists hm.config.services.protonDriveSync.rejectedExtraArgs ownedFlagNames == [ ])
+          "hm-apps/proton-drive-sync: flags asserted on the command line but absent from rejectedExtraArgs: ${lib.concatStringsSep " " (lib.subtractLists hm.config.services.protonDriveSync.rejectedExtraArgs ownedFlagNames)}";
         # The unit inherits the user manager's environment, and the script reads
         # these three before any other logic, so the timer must run the
         # configured values rather than whatever the session happens to export.
