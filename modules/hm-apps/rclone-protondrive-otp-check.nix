@@ -17,8 +17,17 @@
   stub replays a scripted field value, and the rclone obscure stub is
   deterministic where the real one draws a random IV per call.
 
+  Both credential sources are driven, not just the op:// one the check is named
+  for. The entry assembles its credential fingerprint per source, from plaintext
+  op read values on one side and the already-obscured secret values on the
+  other, and only the digest, comparison and session-key graft below them are
+  shared. With the sops assembly unexecuted, a defect confined to it grafted
+  pre-rotation client_uid/client_access_token onto a post-rotation stanza with
+  every op:// assertion still green.
+
   The activation entry is a raw DAG string, so unlike the sync script it never
-  passes through writeShellApplication's shellcheck; the check lints it here.
+  passes through writeShellApplication's shellcheck; the check lints all three
+  rendered entries here.
 
   Runs under the build sandbox's private /tmp because xdg.configHome is pinned at
   eval time; the check creates that whole root itself and fails when it already
@@ -73,8 +82,19 @@
             printf 'obscured:%s' "$(cat)"
           '';
 
+          # protondriveSopsReady gates on an eval-time pathExists against
+          # secretsRoot, while the file the sops arm sources at run time is the
+          # osConfig secret path below, which the runner writes and rewrites.
+          # The two are independent, so the fixture arms the branch without any
+          # decryptable secret existing.
+          sopsEnv = "${root}/protondrive-env";
+
           mkHm =
-            { mailboxPasswordRef }:
+            {
+              mailboxPasswordRef,
+              authSource ? "onePassword",
+              secretsRoot ? "${./proton-drive-check-fixtures}/missing",
+            }:
             inputs.home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
               modules = [
@@ -98,18 +118,23 @@
               extraSpecialArgs = {
                 # No secret exists at eval under the op:// source, and a present
                 # one would additionally arm the gdrive and sops branches.
-                secretsRoot = "${./proton-drive-check-fixtures}/missing";
+                inherit secretsRoot;
                 osConfig = {
                   security.repoSecrets.enable = true;
                   # Selects "${security.wrapperDir}/op" as the op executable,
                   # which is the only seam the script offers for that binary.
                   programs._1password.enable = true;
                   security.wrapperDir = "${opStub}/bin";
+                  # Inert under the op:// source: protondriveSopsReady tests
+                  # authSource and the secretsRoot fixture before this path
+                  # reaches the rendered script, so the op:// activation text is
+                  # byte-identical with and without it.
+                  sops.secrets."rclone/protondrive-env".path = sopsEnv;
                   programs.rclone.extended = {
                     enable = true;
                     protonDrive = {
                       enable = true;
-                      authSource = "onePassword";
+                      inherit authSource;
                       onePassword = {
                         usernameRef = "op://check/protondrive/username";
                         passwordRef = "op://check/protondrive/password";
@@ -131,6 +156,19 @@
             (mkHm { mailboxPasswordRef = "op://check/protondrive/mailbox"; })
             .config.home.activation.configureRcloneConfig.data;
 
+          # The credential fingerprint that decides whether the backend's
+          # session keys survive an activation is assembled per credential
+          # source: the op:// arm digests the plaintext op read values, this one
+          # the already-obscured values the secret carries. Only the shared
+          # digest, comparison and graft below them were under test, so a defect
+          # confined to this assembly left every existing assertion green.
+          sopsActivation =
+            (mkHm {
+              mailboxPasswordRef = "";
+              authSource = "sops";
+              secretsRoot = ./proton-drive-check-fixtures;
+            }).config.home.activation.configureRcloneConfig.data;
+
           # RFC 4226 R6 puts the shared secret at 128 bits; this is the 160-bit
           # base32 shape Proton issues.
           seed = "MFRGGZDFMZTWQ2LKNNWG23TPOBYXE43U";
@@ -149,6 +187,7 @@
             check_root=${lib.escapeShellArg root}
             rendered=${lib.escapeShellArg "${root}/config/rclone/rclone.conf"}
             seed=${lib.escapeShellArg seed}
+            sops_env=${lib.escapeShellArg sopsEnv}
 
             # Every path here is fixed at eval time, so without the sandbox's
             # private /tmp another user could plant the root and have the
@@ -172,12 +211,17 @@
             ${mailboxActivation}
             MAILBOX_ACTIVATION_EOF
 
+            cat > "$check_root/activation-sops.sh" <<'SOPS_ACTIVATION_EOF'
+            ${sopsActivation}
+            SOPS_ACTIVATION_EOF
+
             # writeShellApplication lints the sync script, but an activation
             # entry is a raw string that nothing lints, which is how this branch
             # grew to its current size unchecked. SC1090 is excluded because
             # both env files it names are resolved at run time by design.
             shellcheck --shell=bash --severity=warning --exclude=SC1090 \
-              "$check_root/activation.sh" "$check_root/activation-mailbox.sh"
+              "$check_root/activation.sh" "$check_root/activation-mailbox.sh" \
+              "$check_root/activation-sops.sh"
 
             fail() {
               echo "hm-apps/rclone-protondrive-otp: $1" >&2
@@ -219,6 +263,30 @@
                 . "$check_root/activation-mailbox.sh"
               ) > "$check_root/stdout" 2> "$check_root/stderr" || rc=$?
               printf '%s' "$rc"
+            }
+
+            run_sops_activation_keeping_config() {
+              rc=0
+              (
+                run() { "$@"; }
+                . "$check_root/activation-sops.sh"
+              ) > "$check_root/stdout" 2> "$check_root/stderr" || rc=$?
+              printf '%s' "$rc"
+            }
+
+            run_sops_activation() {
+              rm -rf -- "$check_root/config"
+              run_sops_activation_keeping_config
+            }
+
+            # sops stores these already obscured, which is why this arm never
+            # calls rclone and why its fingerprint material is the ciphertext
+            # rather than the plaintext the op:// arm digests.
+            write_sops_env() {
+              printf 'PROTONDRIVE_USERNAME=%s\n' user@proton.me > "$sops_env"
+              printf 'PROTONDRIVE_PASSWORD=%s\n' "$1" >> "$sops_env"
+              printf 'PROTONDRIVE_OTP_SECRET_KEY=%s\n' stored-otp >> "$sops_env"
+              printf 'PROTONDRIVE_MAILBOX_PASSWORD=%s\n' stored-mailbox >> "$sops_env"
             }
 
             # A seed pasted verbatim into the 1Password field, which is what op
@@ -331,7 +399,11 @@
 
             rc=$(OP_STUB_OTP="$seed" OP_STUB_MAILBOX="" run_mailbox_activation)
             [ "$rc" -ne 0 ] || fail "a blank mailbox reference must fail activation"
-            ! grep -q '^\[protondrive\]$' "$rendered" ||
+            # The exit 1 precedes the run mv, so the config is absent rather
+            # than stanza-free; grep on a missing path would satisfy this by
+            # exiting 2, which is not the same assertion.
+            [ ! -e "$rendered" ] ||
+              ! grep -q '^\[protondrive\]$' "$rendered" ||
               fail "a blank mailbox reference must not render a stanza"
 
             # A dry run must not advance the fingerprint while leaving the
@@ -352,6 +424,57 @@
               fail "a dry run must not rewrite the rendered config"
             [ -z "$(find "$check_root/config/rclone" -name 'protondrive-credentials.fingerprint.*' -print -quit)" ] ||
               fail "a dry run must not leave a staged fingerprint behind"
+
+            # The sops arm reaches the same fingerprint comparison through its
+            # own credential-material assembly, which nothing executed: a defect
+            # confined to it grafts pre-rotation session keys onto a
+            # post-rotation stanza with every assertion above still green.
+            write_sops_env already-obscured-1
+            rc=$(run_sops_activation)
+            [ "$rc" -eq 0 ] || fail "a materialized sops secret must not fail activation (exit $rc)"
+            # Verbatim, not "obscured:...": the secret already holds the
+            # obscured form, so this arm must not re-obscure it.
+            grep -qxF 'password = already-obscured-1' "$rendered" ||
+              fail "the sops source must render the secret's obscured password verbatim"
+            grep -qxF 'otp_secret_key = stored-otp' "$rendered" ||
+              fail "the sops source must render otp_secret_key"
+            grep -qxF 'mailbox_password = stored-mailbox' "$rendered" ||
+              fail "the sops source must render mailbox_password"
+
+            printf 'client_uid = uid-1\nclient_access_token = tok-1\n' >> "$rendered"
+            rc=$(run_sops_activation_keeping_config)
+            [ "$rc" -eq 0 ] || fail "an unchanged sops secret must not fail activation (exit $rc)"
+            grep -qxF 'client_uid = uid-1' "$rendered" ||
+              fail "an unchanged sops secret must preserve the session keys"
+            grep -qxF 'client_access_token = tok-1' "$rendered" ||
+              fail "an unchanged sops secret must preserve every session key"
+
+            write_sops_env already-obscured-2
+            rc=$(run_sops_activation_keeping_config)
+            [ "$rc" -eq 0 ] || fail "a rotated sops password must not fail activation (exit $rc)"
+            ! grep -q '^client_uid = ' "$rendered" ||
+              fail "a rotated sops password must drop the session keys"
+
+            # sops-nix materializes the secret after the switch, so an absent
+            # one is the first-activation case, not a configuration error.
+            # Removed rather than chmod 000, because the builder can be uid 0.
+            printf 'client_uid = uid-2\n' >> "$rendered"
+            rm -f -- "$sops_env"
+            rc=$(run_sops_activation_keeping_config)
+            [ "$rc" -eq 0 ] || fail "an unmaterialized sops secret must not fail activation (exit $rc)"
+            grep -q 'env file is missing or unreadable' "$check_root/stderr" ||
+              fail "an unmaterialized sops secret must warn"
+            grep -qxF 'client_uid = uid-2' "$rendered" ||
+              fail "an unmaterialized sops secret must carry the previous stanza forward"
+
+            # A secret that materialized without the login pair is a
+            # configuration error, and takes the same exit 1 the op:// arm does.
+            printf 'PROTONDRIVE_USERNAME=%s\n' user@proton.me > "$sops_env"
+            rc=$(run_sops_activation)
+            [ "$rc" -ne 0 ] || fail "a sops secret with no PROTONDRIVE_PASSWORD must fail activation"
+            [ ! -e "$rendered" ] ||
+              ! grep -q '^\[protondrive\]$' "$rendered" ||
+              fail "a rejected sops secret must not render a [protondrive] stanza"
 
             touch "$out"
           '';
