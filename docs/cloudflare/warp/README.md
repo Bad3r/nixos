@@ -40,6 +40,10 @@ is enabled it:
    and runs `warp-cli connect` on boot when managed enrollment is available. Without
    the secret, it logs the UN-ENROLLED state and exits without connecting.
 
+When the wrapper is disabled, it emits a tmpfiles removal rule for the
+wrapper-owned `/var/lib/cloudflare-warp/mdm.xml`. The next NixOS activation
+removes the runtime managed file instead of leaving the service token on disk.
+
 `service_mode` is authoritative through `mdm.xml`; the module never calls
 `warp-cli mode`, so the managed config and the local client cannot fight.
 
@@ -72,6 +76,9 @@ declarations that would otherwise fail activation on an un-decryptable payload.
   from sops placeholders, so neither the team name nor the credentials enter the
   Nix store or git history.
 - `mdm.xml` is written to `/var/lib/cloudflare-warp/mdm.xml` as `0600 root:root`.
+- Disabling the wrapper removes the runtime `mdm.xml` during the next NixOS
+  activation, so the cleartext service-token cache does not remain after a
+  de-enrollment switch.
 - `secrets/` is a git submodule; the encrypted payload is committed there, the
   Nix changes in the main repository.
 

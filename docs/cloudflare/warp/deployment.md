@@ -69,7 +69,8 @@ required service mode:
   non-interactive enrollment.
   The gate remains a kill switch: if tpnix ever loses its runtime decryption key,
   flipping the flag back to `false` drops the `cloudflare-warp/*` secret
-  declarations that would otherwise fail activation on an un-decryptable payload.
+  declarations and removes the previously rendered runtime `mdm.xml` on the next
+  activation, avoiding a stranded service-token cache.
 
 A SOPS-ready host enables directly:
 
@@ -91,7 +92,8 @@ tpnix keeps `enable` gated on `sopsRuntimeReady` as a kill switch. The flag is
 currently `true`, so tpnix behaves like a SOPS-ready host; if the tpnix
 decryption key is ever lost, flipping the flag back to `false` in
 `modules/tpnix/policy.nix` drops the `cloudflare-warp/*` secret declarations and
-the mdm template with it:
+the mdm template with it, and the disabled wrapper removes the previously
+rendered runtime `mdm.xml` on the next activation:
 
 ```nix
 { config, ... }:

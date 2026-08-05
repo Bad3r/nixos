@@ -47,7 +47,10 @@
             ) "apps/cloudflare-warp-module-eval: cloudflare-warp app export is missing";
             found;
           mkNixos =
-            { secretsRoot }:
+            {
+              secretsRoot,
+              enable ? true,
+            }:
             inputs.nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";
               modules = [
@@ -57,7 +60,7 @@
                   nixpkgs.config.allowUnfree = true;
                   networking.firewall.checkReversePath = "loose";
                   programs.cloudflare-warp.extended = {
-                    enable = true;
+                    inherit enable;
                     serviceMode = "warp";
                     autoConnect = 0;
                     switchLocked = false;
@@ -75,6 +78,10 @@
           };
           unenrolled = mkNixos {
             secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
+          };
+          disabled = mkNixos {
+            secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
+            enable = false;
           };
           enrolledAttrs =
             assert lib.assertMsg (builtins.hasAttr "cloudflare-warp/organization" enrolled.config.sops.secrets)
@@ -110,10 +117,20 @@
               restartTriggers = unenrolled.config.systemd.services.cloudflare-warp.restartTriggers;
               warnings = unenrolled.config.warnings;
             };
+          disabledAttrs =
+            assert lib.assertMsg (
+              !disabled.config.services.cloudflare-warp.enable
+            ) "apps/cloudflare-warp-module-eval: disabled branch must not enable upstream WARP";
+            assert lib.assertMsg
+              (builtins.elem "r /var/lib/cloudflare-warp/mdm.xml" disabled.config.systemd.tmpfiles.rules)
+              "apps/cloudflare-warp-module-eval: disabled branch must remove managed mdm.xml";
+            {
+              tmpfilesRules = disabled.config.systemd.tmpfiles.rules;
+            };
         in
         builtins.deepSeq
           {
-            inherit enrolledAttrs unenrolledAttrs;
+            inherit enrolledAttrs unenrolledAttrs disabledAttrs;
           }
           (
             pkgs.runCommandLocal "cloudflare-warp-module-eval-ok" { } ''

@@ -141,193 +141,200 @@ let
         };
       };
 
-      config = lib.mkIf cfg.enable (
-        lib.mkMerge [
-          {
-            services.cloudflare-warp = {
-              enable = true;
-              inherit (cfg) package udpPort openFirewall;
-            };
+      config = lib.mkMerge [
+        # Remove the wrapper-owned managed file when the wrapper is disabled.
+        # Leave an independently configured upstream service's state untouched.
+        (lib.mkIf (!cfg.enable && !config.services.cloudflare-warp.enable) {
+          systemd.tmpfiles.rules = [ "r ${rootDir}/mdm.xml" ];
+        })
+        (lib.mkIf cfg.enable (
+          lib.mkMerge [
+            {
+              services.cloudflare-warp = {
+                enable = true;
+                inherit (cfg) package udpPort openFirewall;
+              };
 
-            warnings =
-              lib.optional
-                (
-                  (config.services.dnscrypt-proxy.enable || config.networking.networkmanager.dns == "dnsmasq")
-                  && builtins.elem cfg.serviceMode [
-                    "warp"
-                    "1dot1"
-                  ]
-                )
-                ''
-                  programs.cloudflare-warp.extended.serviceMode "${cfg.serviceMode}" takes over DNS,
-                  but a local resolver is bound to 127.0.0.1:53 (dnscrypt-proxy or NetworkManager
-                  dnsmasq). Use serviceMode "tunnelonly"/"proxy" or disable the local resolver.
-                ''
-              ++ lib.optional (!haveSecrets) ''
-                programs.cloudflare-warp.extended: secrets/cloudflare-warp.yaml is missing; running warp-svc
-                WITHOUT managed enrollment (degraded). Create the sops secret (see
-                docs/cloudflare/warp/deployment.md) and rebuild.
-              ''
-              ++
+              warnings =
                 lib.optional
                   (
-                    config.networking.firewall.enable
-                    && builtins.elem config.networking.firewall.checkReversePath [
-                      true
-                      "strict"
+                    (config.services.dnscrypt-proxy.enable || config.networking.networkmanager.dns == "dnsmasq")
+                    && builtins.elem cfg.serviceMode [
+                      "warp"
+                      "1dot1"
                     ]
                   )
                   ''
-                    programs.cloudflare-warp.extended is enabled but
-                    networking.firewall.checkReversePath is strict; the CloudflareWARP
-                    interface routes asymmetrically, so return traffic is dropped. Import
-                    the hosts-common vpn-defaults baseline (shareCommon = true) or set
-                    networking.firewall.checkReversePath = "loose" on this host.
-                  '';
-          }
+                    programs.cloudflare-warp.extended.serviceMode "${cfg.serviceMode}" takes over DNS,
+                    but a local resolver is bound to 127.0.0.1:53 (dnscrypt-proxy or NetworkManager
+                    dnsmasq). Use serviceMode "tunnelonly"/"proxy" or disable the local resolver.
+                  ''
+                ++ lib.optional (!haveSecrets) ''
+                  programs.cloudflare-warp.extended: secrets/cloudflare-warp.yaml is missing; running warp-svc
+                  WITHOUT managed enrollment (degraded). Create the sops secret (see
+                  docs/cloudflare/warp/deployment.md) and rebuild.
+                ''
+                ++
+                  lib.optional
+                    (
+                      config.networking.firewall.enable
+                      && builtins.elem config.networking.firewall.checkReversePath [
+                        true
+                        "strict"
+                      ]
+                    )
+                    ''
+                      programs.cloudflare-warp.extended is enabled but
+                      networking.firewall.checkReversePath is strict; the CloudflareWARP
+                      interface routes asymmetrically, so return traffic is dropped. Import
+                      the hosts-common vpn-defaults baseline (shareCommon = true) or set
+                      networking.firewall.checkReversePath = "loose" on this host.
+                    '';
+            }
 
-          # When not enrolling (the sops secret is absent),
-          # remove any mdm.xml left by a previous enrollment. mdm.xml is
-          # authoritative for service_mode and caches the service token, so a stale
-          # file would keep warp-svc in managed mode instead of degrading to the
-          # un-enrolled daemon. rootDir is the upstream StateDirectory.
-          (lib.mkIf (!enrolling) {
-            systemd.services.cloudflare-warp.serviceConfig.ExecStartPre = [
-              "${pkgs.coreutils}/bin/rm -f ${rootDir}/mdm.xml"
-            ];
-          })
+            # When not enrolling (the sops secret is absent),
+            # remove any mdm.xml left by a previous enrollment. mdm.xml is
+            # authoritative for service_mode and caches the service token, so a stale
+            # file would keep warp-svc in managed mode instead of degrading to the
+            # un-enrolled daemon. rootDir is the upstream StateDirectory.
+            (lib.mkIf (!enrolling) {
+              systemd.services.cloudflare-warp.serviceConfig.ExecStartPre = [
+                "${pkgs.coreutils}/bin/rm -f ${rootDir}/mdm.xml"
+              ];
+            })
 
-          (lib.mkIf enrolling {
-            sops = {
-              secrets = {
-                "cloudflare-warp/organization" = {
-                  sopsFile = secretsFile;
-                  key = "organization";
-                  mode = "0400";
+            (lib.mkIf enrolling {
+              sops = {
+                secrets = {
+                  "cloudflare-warp/organization" = {
+                    sopsFile = secretsFile;
+                    key = "organization";
+                    mode = "0400";
+                  };
+                  "cloudflare-warp/auth_client_id" = {
+                    sopsFile = secretsFile;
+                    key = "auth_client_id";
+                    mode = "0400";
+                  };
+                  "cloudflare-warp/auth_client_secret" = {
+                    sopsFile = secretsFile;
+                    key = "auth_client_secret";
+                    mode = "0400";
+                  };
                 };
-                "cloudflare-warp/auth_client_id" = {
-                  sopsFile = secretsFile;
-                  key = "auth_client_id";
-                  mode = "0400";
-                };
-                "cloudflare-warp/auth_client_secret" = {
-                  sopsFile = secretsFile;
-                  key = "auth_client_secret";
-                  mode = "0400";
+                templates."cloudflare-warp-mdm" = {
+                  content = mdmContent;
+                  mode = "0600";
+                  # restartTriggers below only hash non-secret fields. Rotating
+                  # auth_client_id/auth_client_secret re-renders this template but
+                  # would not restart warp-svc, so the daemon would keep the old
+                  # token until reboot. Restart on rotation (matches the repo
+                  # pattern in usbguard.nix and duplicati-r2.nix).
+                  restartUnits = [ "cloudflare-warp.service" ];
                 };
               };
-              templates."cloudflare-warp-mdm" = {
-                content = mdmContent;
-                mode = "0600";
-                # restartTriggers below only hash non-secret fields. Rotating
-                # auth_client_id/auth_client_secret re-renders this template but
-                # would not restart warp-svc, so the daemon would keep the old
-                # token until reboot. Restart on rotation (matches the repo
-                # pattern in usbguard.nix and duplicati-r2.nix).
-                restartUnits = [ "cloudflare-warp.service" ];
+
+              # Install the rendered mdm.xml into rootDir right before warp-svc starts.
+              # rootDir already exists from the upstream tmpfiles rule, and the sops
+              # template is rendered during activation (before multi-user.target).
+              systemd.services.cloudflare-warp = {
+                # Order warp-svc after sops installs the secret/template so the
+                # ExecStartPre install of mdm.xml sees the rendered file. No-op on
+                # activation-script hosts (installSecretsDeps = []).
+                after = installSecretsDeps;
+                requires = installSecretsDeps;
+                serviceConfig.ExecStartPre = [
+                  "${pkgs.coreutils}/bin/install -D -m0600 -o root -g root ${
+                    config.sops.templates."cloudflare-warp-mdm".path
+                  } ${rootDir}/mdm.xml"
+                ];
+                # Re-apply managed config when any non-secret mdm field changes.
+                restartTriggers = [
+                  (builtins.toJSON {
+                    inherit (cfg)
+                      serviceMode
+                      autoConnect
+                      switchLocked
+                      ;
+                  })
+                ];
               };
-            };
+            })
 
-            # Install the rendered mdm.xml into rootDir right before warp-svc starts.
-            # rootDir already exists from the upstream tmpfiles rule, and the sops
-            # template is rendered during activation (before multi-user.target).
-            systemd.services.cloudflare-warp = {
-              # Order warp-svc after sops installs the secret/template so the
-              # ExecStartPre install of mdm.xml sees the rendered file. No-op on
-              # activation-script hosts (installSecretsDeps = []).
-              after = installSecretsDeps;
-              requires = installSecretsDeps;
-              serviceConfig.ExecStartPre = [
-                "${pkgs.coreutils}/bin/install -D -m0600 -o root -g root ${
-                  config.sops.templates."cloudflare-warp-mdm".path
-                } ${rootDir}/mdm.xml"
-              ];
-              # Re-apply managed config when any non-secret mdm field changes.
-              restartTriggers = [
-                (builtins.toJSON {
-                  inherit (cfg)
-                    serviceMode
-                    autoConnect
-                    switchLocked
-                    ;
-                })
-              ];
-            };
-          })
+            (lib.mkIf cfg.connectOnBoot {
+              systemd.services.cloudflare-warp-connect = {
+                description = "Cloudflare WARP connect on boot";
+                after = [ "cloudflare-warp.service" ];
+                requires = [ "cloudflare-warp.service" ];
+                partOf = [ "cloudflare-warp.service" ];
+                wantedBy = [ "multi-user.target" ];
+                path = [
+                  pkgs.coreutils
+                  cfg.package
+                ];
+                serviceConfig = {
+                  Type = "oneshot";
+                  RemainAfterExit = true;
+                  # The script bounds each IPC call and its retry window; this larger
+                  # unit timeout covers the status queries and shell overhead.
+                  TimeoutStartSec = 180;
+                };
+                script = ''
+                  ${unenrolledGuard}
+                  # The IPC socket can answer before mdm.xml service-token registration
+                  # completes, so poll status during the bounded readiness window.
+                  connected=""
+                  connect_requested=""
+                  status=""
+                  attempt=0
+                  deadline=$((SECONDS + 120))
 
-          (lib.mkIf cfg.connectOnBoot {
-            systemd.services.cloudflare-warp-connect = {
-              description = "Cloudflare WARP connect on boot";
-              after = [ "cloudflare-warp.service" ];
-              requires = [ "cloudflare-warp.service" ];
-              partOf = [ "cloudflare-warp.service" ];
-              wantedBy = [ "multi-user.target" ];
-              path = [
-                pkgs.coreutils
-                cfg.package
-              ];
-              serviceConfig = {
-                Type = "oneshot";
-                RemainAfterExit = true;
-                # The script bounds each IPC call and its retry window; this larger
-                # unit timeout covers the status queries and shell overhead.
-                TimeoutStartSec = 180;
-              };
-              script = ''
-                ${unenrolledGuard}
-                # The IPC socket can answer before mdm.xml service-token registration
-                # completes, so poll status during the bounded readiness window.
-                connected=""
-                connect_requested=""
-                status=""
-                attempt=0
-                deadline=$((SECONDS + 120))
+                  refresh_status() {
+                    if status="$(timeout 5s warp-cli status 2>&1)"; then
+                      status="''${status:-status unavailable}"
+                    else
+                      echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
+                      status="''${status:-status unavailable}"
+                    fi
+                    echo "cloudflare-warp-connect: $status"
+                    case "$status" in
+                      *Disconnected* | *"status unavailable"*) ;;
+                      *Connected*)
+                        connected=1
+                        ;;
+                    esac
+                  }
 
-                refresh_status() {
-                  if status="$(timeout 5s warp-cli status 2>&1)"; then
-                    status="''${status:-status unavailable}"
-                  else
-                    echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
-                    status="''${status:-status unavailable}"
-                  fi
-                  echo "cloudflare-warp-connect: $status"
-                  case "$status" in
-                    *Disconnected* | *"status unavailable"*) ;;
-                    *Connected*)
-                      connected=1
-                      ;;
-                  esac
-                }
-
-                refresh_status
-
-                while [ -z "$connected" ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
-                  attempt=$((attempt + 1))
-                  if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
-                    connect_requested=1
-                    echo "cloudflare-warp-connect: connect requested"
-                  else
-                    echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
-                  fi
                   refresh_status
+
+                  while [ -z "$connected" ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
+                    attempt=$((attempt + 1))
+                    if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
+                      connect_requested=1
+                      echo "cloudflare-warp-connect: connect requested"
+                    else
+                      echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
+                    fi
+                    refresh_status
+                    if [ -z "$connected" ]; then
+                      sleep 1
+                    fi
+                  done
+                  # Best-effort: log the outcome and exit 0 so a user who legitimately
+                  # keeps WARP off does not leave the unit failed.
                   if [ -z "$connected" ]; then
-                    sleep 1
+                    if [ -z "$connect_requested" ]; then
+                      echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
+                    else
+                      echo "<3>cloudflare-warp-connect: tunnel is not connected after $attempt attempts"
+                    fi
                   fi
-                done
-                # Best-effort: log the outcome and exit 0 so a user who legitimately
-                # keeps WARP off does not leave the unit failed.
-                if [ -z "$connected" ]; then
-                  if [ -z "$connect_requested" ]; then
-                    echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
-                  else
-                    echo "<3>cloudflare-warp-connect: tunnel is not connected after $attempt attempts"
-                  fi
-                fi
-              '';
-            };
-          })
-        ]
-      );
+                '';
+              };
+            })
+          ]
+        ))
+      ];
     };
 in
 {

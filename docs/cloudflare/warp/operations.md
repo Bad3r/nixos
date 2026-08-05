@@ -55,6 +55,14 @@ and rebuilding restarts `warp-svc`, which re-reads `mdm.xml`. The team name
 re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
 `warp-svc` on the next activation.
 
+## Disable or de-enroll
+
+Set `programs.cloudflare-warp.extended.enable = false` and rebuild the host. When
+the wrapper is disabled, its tmpfiles rule removes the wrapper-owned
+`/var/lib/cloudflare-warp/mdm.xml` during the next NixOS activation, clearing the
+runtime managed configuration and cached service token. Re-enabling the wrapper
+recreates the file from the encrypted sops secret before `warp-svc` starts.
+
 ## Troubleshooting
 
 - **Enrollment fails / device shows then drops.** The service token likely lacks
