@@ -104,6 +104,37 @@ _: {
               failures=$((failures + 1))
             fi
 
+            # The announce before the blocking acquire, which is what makes a
+            # unit killed at TimeoutStartSec attributable to the lock rather
+            # than to an unexplained timeout. Held here rather than by a peer
+            # installer: which of two peers blocks is a scheduling outcome, and
+            # this way the queued run is guaranteed to wait.
+            rm -rf "$data_dir"
+            install -d -m 700 "$data_dir"
+            printf '0' >"$data_dir/counter"
+            exec 8>"$data_dir/.config-lock"
+            flock 8
+            ${pkgs.lib.getExe (locked "site-lock-a")} 2>"$PWD/wait.log" &
+            queued=$!
+            announced=0
+            for _ in $(seq 100); do
+              case "$(cat "$PWD/wait.log")" in
+                *.config-lock*)
+                  announced=1
+                  break
+                  ;;
+              esac
+              sleep 0.1
+            done
+            exec 8>&-
+            wait "$queued"
+            if [ "$announced" = 1 ]; then
+              echo "PASS  the queued installer names the lock it is waiting on"
+            else
+              echo "FAIL  the queued installer blocked silently on the lock"
+              failures=$((failures + 1))
+            fi
+
             got=$(run_pair ${pkgs.lib.getExe (unlocked "site-lock-unlocked-a")} ${pkgs.lib.getExe (unlocked "site-lock-unlocked-b")})
             if [ "$got" = 1 ]; then
               echo "PASS  the same pair without the builder loses an update (counter=$got)"
