@@ -19,6 +19,12 @@
   protondriveReady's three inputs (rclone, protonDrive, authSource) by eval
   alone.
 
+  The stub also measures the RCLONE_ namespace sweep, which is the only runtime
+  guard on the latch: it exits 99 when any RCLONE_ variable survives into
+  rclone's environment, and the safety-abort case sets ten of them. Its own
+  knobs are PROTON_DRIVE_STUB_* precisely so the sweep cannot silence the stub
+  that measures it.
+
   Runs under the build sandbox's private /tmp because the state root and local
   path are pinned at eval time; the check creates that whole root itself and
   fails when it already exists, so an unsandboxed build cannot pass on stale
@@ -40,20 +46,23 @@
           stateDir = "${root}/state/proton-drive-sync";
           localPath = "${root}/home/ProtonDrive";
 
+          # The stub's own knobs sit outside the RCLONE_ namespace the script
+          # sweeps, so the sweep cannot defang the stub that measures it.
           rcloneStub = pkgs.writeShellScriptBin "rclone" ''
-            if [ -n "''${RCLONE_LOG_FILE:-}''${RCLONE_LOG_FORMAT:-}''${RCLONE_LOG_LEVEL:-}''${RCLONE_SYSLOG:-}''${RCLONE_USE_JSON_LOG:-}" ]; then
-              echo "rclone stub: a log-routing RCLONE_ variable reached rclone" >&2
+            leaked=("''${!RCLONE_@}")
+            if [ "''${#leaked[@]}" -gt 0 ]; then
+              echo "rclone stub: RCLONE_ variables reached rclone: ''${leaked[*]}" >&2
               exit 99
             fi
-            if [ -n "''${RCLONE_FORCE:-}''${RCLONE_RESYNC:-}" ]; then
-              echo "rclone stub: a safety-disabling RCLONE_ variable reached rclone" >&2
+            if [ -z "''${PROTON_DRIVE_STUB_CALLS:-}" ]; then
+              echo "rclone stub: PROTON_DRIVE_STUB_CALLS is unset; the call log would be silently dropped" >&2
               exit 98
             fi
-            printf '%s\n' "$*" >> "$RCLONE_STUB_CALLS"
-            if [ -n "''${RCLONE_STUB_STDERR:-}" ]; then
-              printf '%s\n' "$RCLONE_STUB_STDERR" >&2
+            printf '%s\n' "$*" >> "$PROTON_DRIVE_STUB_CALLS"
+            if [ -n "''${PROTON_DRIVE_STUB_STDERR:-}" ]; then
+              printf '%s\n' "$PROTON_DRIVE_STUB_STDERR" >&2
             fi
-            exit "''${RCLONE_STUB_EXIT:-0}"
+            exit "''${PROTON_DRIVE_STUB_EXIT:-0}"
           '';
 
           opRef = field: "op://check/protondrive/${field}";
@@ -171,6 +180,17 @@
             };
           };
 
+          # --log-systemd takes no value, so it is the shape the assertion's
+          # "${flag}=" prefix test cannot catch, and it both moves the record to
+          # the journal and clears the level prefix the abort pattern requires.
+          logSystemdHm = mkHm {
+            extraArgs = [ "--log-systemd" ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
           syncScript = lib.findFirst (
             drv: (drv.name or "") == "proton-drive-sync"
           ) null hm.config.home.packages;
@@ -214,18 +234,18 @@
                 export HOME=${lib.escapeShellArg "${root}/home"}
                 mkdir -p "$local_path"
                 : > "$local_path/seed"
-                RCLONE_STUB_CALLS="$TMPDIR/rclone-calls"
-                export RCLONE_STUB_CALLS
-                : > "$RCLONE_STUB_CALLS"
+                PROTON_DRIVE_STUB_CALLS="$TMPDIR/rclone-calls"
+                export PROTON_DRIVE_STUB_CALLS
+                : > "$PROTON_DRIVE_STUB_CALLS"
 
                 fail() {
                   echo "hm-apps/proton-drive-sync: $1" >&2
                   exit 1
                 }
                 marker_count() { find "$state" -maxdepth 1 -name "$1" | wc -l; }
-                call_count() { wc -l < "$RCLONE_STUB_CALLS"; }
+                call_count() { wc -l < "$PROTON_DRIVE_STUB_CALLS"; }
 
-                RCLONE_STUB_EXIT=0 "$sync" --resync
+                PROTON_DRIVE_STUB_EXIT=0 "$sync" --resync
                 [ "$(marker_count 'initialized-*')" -eq 1 ] || fail "--resync must write the baseline marker"
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--resync must not latch"
 
@@ -233,12 +253,21 @@
                 # they leave the listings valid and exit non-zero having changed
                 # nothing. Without the latch the timer recomputes this abort from
                 # a full listing of both sides every interval, forever.
+                #
+                # The RCLONE_ variables here are the payload for the script's
+                # namespace sweep, and the stub exits 99 on any survivor. They
+                # deliberately reach past the log-routing and safety-disabling
+                # names two earlier rounds enumerated: RCLONE_DRY_RUN,
+                # RCLONE_RESYNC_MODE and RCLONE_CONFLICT_LOSER are equally
+                # destructive and were never on any list, which is why the guard
+                # is a namespace and not a list.
                 rc=0
-                RCLONE_STUB_EXIT=2 \
+                PROTON_DRIVE_STUB_EXIT=2 \
                 RCLONE_LOG_FILE=/dev/null RCLONE_SYSLOG=true RCLONE_USE_JSON_LOG=true \
-                RCLONE_LOG_LEVEL=NOTICE RCLONE_LOG_FORMAT=nolevel \
+                RCLONE_LOG_LEVEL=NOTICE RCLONE_LOG_FORMAT=nolevel RCLONE_LOG_SYSTEMD=true \
                 RCLONE_FORCE=true RCLONE_RESYNC=true \
-                RCLONE_STUB_STDERR='ERROR : Safety abort: too many deletes (>25%, 8 of 8) on Path1 "/x". Run with --force if desired.' \
+                RCLONE_DRY_RUN=true RCLONE_RESYNC_MODE=path2 RCLONE_CONFLICT_LOSER=delete \
+                PROTON_DRIVE_STUB_STDERR='ERROR : Safety abort: too many deletes (>25%, 8 of 8) on Path1 "/x". Run with --force if desired.' \
                   "$sync" || rc=$?
                 [ "$rc" -ne 0 ] || fail "a bisync safety abort must fail the run"
                 [ "$(marker_count 'aborted-*')" -eq 1 ] || fail "a bisync safety abort must latch the tuple"
@@ -246,19 +275,19 @@
 
                 before=$(call_count)
                 rc=0
-                RCLONE_STUB_EXIT=0 "$sync" || rc=$?
+                PROTON_DRIVE_STUB_EXIT=0 "$sync" || rc=$?
                 [ "$rc" -eq 1 ] || fail "a latched tuple must exit 1"
                 [ "$(call_count)" -eq "$before" ] || fail "a latched tuple must not reach rclone"
 
-                RCLONE_STUB_EXIT=0 "$sync" --force
+                PROTON_DRIVE_STUB_EXIT=0 "$sync" --force
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--force must release the latch"
-                grep -q -- '--force' "$RCLONE_STUB_CALLS" || fail "--force must reach rclone"
+                grep -q -- '--force' "$PROTON_DRIVE_STUB_CALLS" || fail "--force must reach rclone"
 
                 # A transient backend failure must keep retrying on the timer;
                 # latching it would strand the sync until a human runs --force.
                 rc=0
-                RCLONE_STUB_EXIT=5 \
-                RCLONE_STUB_STDERR='ERROR : Attempt 1/3 failed: connection reset by peer' \
+                PROTON_DRIVE_STUB_EXIT=5 \
+                PROTON_DRIVE_STUB_STDERR='ERROR : Attempt 1/3 failed: connection reset by peer' \
                   "$sync" || rc=$?
                 [ "$rc" -ne 0 ] || fail "a transient rclone failure must fail the run"
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "a transient rclone failure must not latch"
@@ -266,23 +295,23 @@
                 # An INFO line echoes the transferred path, so the abort text can
                 # reach the log without either safety check having fired.
                 rc=0
-                RCLONE_STUB_EXIT=5 \
-                RCLONE_STUB_STDERR='2026/01/01 00:00:00 INFO  : notes/Safety abort: too many deletes.md: Copied (new)' \
+                PROTON_DRIVE_STUB_EXIT=5 \
+                PROTON_DRIVE_STUB_STDERR='2026/01/01 00:00:00 INFO  : notes/Safety abort: too many deletes.md: Copied (new)' \
                   "$sync" || rc=$?
                 [ "$rc" -ne 0 ] || fail "the stubbed failure must fail the run"
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "a transferred path naming the abort must not latch"
 
                 # The second safety check rclone releases with --force.
                 rc=0
-                RCLONE_STUB_EXIT=2 \
-                RCLONE_STUB_STDERR='2026/01/01 00:00:00 ERROR : Safety abort: all files were changed on Path1 "/x". Run with --force if desired.' \
+                PROTON_DRIVE_STUB_EXIT=2 \
+                PROTON_DRIVE_STUB_STDERR='2026/01/01 00:00:00 ERROR : Safety abort: all files were changed on Path1 "/x". Run with --force if desired.' \
                   "$sync" || rc=$?
                 [ "$rc" -ne 0 ] || fail "an all-files-changed abort must fail the run"
                 [ "$(marker_count 'aborted-*')" -eq 1 ] || fail "an all-files-changed abort must latch the tuple"
 
                 # The other release the refusal message advertises, on a
                 # different branch than --force.
-                RCLONE_STUB_EXIT=0 "$sync" --resync
+                PROTON_DRIVE_STUB_EXIT=0 "$sync" --resync
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--resync must release the latch"
                 [ "$(marker_count 'initialized-*')" -eq 1 ] || fail "--resync must keep the baseline marker"
 
@@ -309,6 +338,9 @@
         assert lib.assertMsg (
           !(builtins.tryEval logRoutedHm.config.home.packages).success
         ) "hm-apps/proton-drive-sync: --log-file in extraArgs must fail an assertion";
+        assert lib.assertMsg (
+          !(builtins.tryEval logSystemdHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: --log-systemd in extraArgs must fail an assertion";
         builtins.deepSeq units drive;
     };
 }

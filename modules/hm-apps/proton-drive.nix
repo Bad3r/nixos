@@ -164,12 +164,17 @@ _: {
       # run_bisync reads the run's own stderr to detect a safety abort, so an
       # extraArg that moves or reshapes that record disables the latch without
       # any other symptom: --log-file and --syslog write elsewhere
-      # (rclone fs/log/log.go), a --log-level under ERROR drops it, and
-      # --log-format nolevel and --use-json-log strip the level prefix.
+      # (rclone fs/log/log.go), a --log-level under ERROR drops it,
+      # --log-format nolevel and --use-json-log strip the level prefix, and
+      # --log-systemd does both (fs/log/systemd_unix.go startSystemdLog sets a
+      # journald output and logFormatNoLevel). Auto-detection of a journal
+      # stream is not a hole: run_bisync pipes rclone into tee, and
+      # journal.StderrIsJournalStream stats fd 2, which is that pipe.
       logRoutingFlags = [
         "--log-file"
         "--log-format"
         "--log-level"
+        "--log-systemd"
         "--syslog"
         "--use-json-log"
       ];
@@ -251,21 +256,27 @@ _: {
           fi
           mkdir -p "$state_dir" "$local_path"
 
-          # rclone honours an RCLONE_<FLAG> environment variable for every
-          # flag (fs/config/flags: installFlag reads it before command-line
-          # parsing), so the eval-time extraArgs assertion above is
-          # bypassable from the unit's inherited environment. Clear the
-          # log-routing ones run_bisync depends on to detect the abort.
-          unset RCLONE_LOG_FILE RCLONE_LOG_FORMAT RCLONE_LOG_LEVEL RCLONE_SYSLOG RCLONE_USE_JSON_LOG
-          # bisync's own --force and --resync register the same way
-          # (cmd/bisync/cmd.go flags.BoolVarP), and neither is on the command
-          # line for a normal run, so the environment supplies their default
-          # unopposed. --force skips both safety checks outright
-          # (cmd/bisync/operations.go guards each with `if !opt.Force`), leaving
-          # the deletions to propagate with no abort for the latch to catch, and
-          # --resync makes every fire a superset merge. Every other flag this
-          # script depends on is passed explicitly, so the command line wins.
-          unset RCLONE_FORCE RCLONE_RESYNC
+          # rclone reads RCLONE_<FLAG> for every registered flag before
+          # command-line parsing (fs/config/flags.go installFlag via
+          # fs.OptionToEnv), and the systemd user unit inherits the manager's
+          # environment, which the eval-time extraArgs assertion cannot see.
+          # Enumerating the dangerous names came up short twice: past the
+          # log-routing ones that move the record run_bisync greps for,
+          # RCLONE_FORCE skips both safety checks outright
+          # (cmd/bisync/operations.go guards each with `if !opt.Force`),
+          # RCLONE_RESYNC and RCLONE_RESYNC_MODE turn a normal fire into a
+          # superset merge (the latter also inverting the conflict winner the
+          # resync branch announces), RCLONE_DRY_RUN diverts the resync listings
+          # to `-dry` paths while that branch still writes $marker, leaving
+          # every later fire on a critical error the abort pattern never
+          # matches, and RCLONE_CONFLICT_LOSER=delete drops the losing copy of
+          # every conflict. Every flag this script depends on is passed
+          # explicitly and the command line wins, so clear the whole namespace.
+          # Prefix expansion, not compgen: nixpkgs' runtimeShell is built
+          # without progcomp, where compgen exits 127 and sweeps nothing.
+          for rclone_env_name in "''${!RCLONE_@}"; do
+            unset "$rclone_env_name"
+          done
 
           extra=(${lib.escapeShellArgs cfg.extraArgs})
           common=(--config ${lib.escapeShellArg "${config.xdg.configHome}/rclone/rclone.conf"} --protondrive-enable-caching=false --transfers=4 --checkers=8 --log-level INFO)
@@ -439,8 +450,11 @@ _: {
             Extra arguments appended to every rclone sync and bisync
             invocation, not to the down-direction emptiness probe. Arguments
             that redirect or reshape rclone's log output (`--log-file`,
-            `--log-format`, `--log-level`, `--syslog`, `--use-json-log`) are
-            rejected: safety-abort detection reads the run's own stderr.
+            `--log-format`, `--log-level`, `--log-systemd`, `--syslog`,
+            `--use-json-log`) are rejected: safety-abort detection reads the
+            run's own stderr. The equivalent `RCLONE_<FLAG>` environment
+            variables cannot be rejected at eval, so the script clears the whole
+            `RCLONE_` namespace before invoking rclone.
           '';
         };
       };
@@ -453,7 +467,7 @@ _: {
           assertions = [
             {
               assertion = logRoutingArgs == [ ];
-              message = "services.protonDriveSync.extraArgs must not redirect or reshape rclone's log output, but carries ${lib.concatStringsSep " " logRoutingArgs}. proton-drive-sync detects rclone's bisync safety abort by matching its ERROR record on the run's stderr; these flags send that record to a file or syslog, drop it below the ERROR threshold, or strip the level prefix, leaving the abort unlatched and the timer repeating the same aborted run every ${cfg.interval}.";
+              message = "services.protonDriveSync.extraArgs must not redirect or reshape rclone's log output, but carries ${lib.concatStringsSep " " logRoutingArgs}. proton-drive-sync detects rclone's bisync safety abort by matching its ERROR record on the run's stderr; these flags send that record to a file, syslog or the journal, drop it below the ERROR threshold, or strip the level prefix, leaving the abort unlatched and the timer repeating the same aborted run every ${cfg.interval}.";
             }
           ];
 
