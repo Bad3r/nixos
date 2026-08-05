@@ -41,6 +41,10 @@
           localPath = "${root}/home/ProtonDrive";
 
           rcloneStub = pkgs.writeShellScriptBin "rclone" ''
+            if [ -n "''${RCLONE_LOG_FILE:-}''${RCLONE_LOG_FORMAT:-}''${RCLONE_LOG_LEVEL:-}''${RCLONE_SYSLOG:-}''${RCLONE_USE_JSON_LOG:-}" ]; then
+              echo "rclone stub: a log-routing RCLONE_ variable reached rclone" >&2
+              exit 99
+            fi
             printf '%s\n' "$*" >> "$RCLONE_STUB_CALLS"
             if [ -n "''${RCLONE_STUB_STDERR:-}" ]; then
               printf '%s\n' "$RCLONE_STUB_STDERR" >&2
@@ -227,6 +231,8 @@
                 # a full listing of both sides every interval, forever.
                 rc=0
                 RCLONE_STUB_EXIT=2 \
+                RCLONE_LOG_FILE=/dev/null RCLONE_SYSLOG=true RCLONE_USE_JSON_LOG=true \
+                RCLONE_LOG_LEVEL=NOTICE RCLONE_LOG_FORMAT=nolevel \
                 RCLONE_STUB_STDERR='ERROR : Safety abort: too many deletes (>25%, 8 of 8) on Path1 "/x". Run with --force if desired.' \
                   "$sync" || rc=$?
                 [ "$rc" -ne 0 ] || fail "a bisync safety abort must fail the run"
