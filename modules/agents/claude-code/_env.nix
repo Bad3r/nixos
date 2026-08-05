@@ -75,7 +75,8 @@ let
   ) retired;
 
   # === Catalog: every documented Claude Code environment variable ===========
-  # Entries marked ACTIVE are already set in a group above.
+  # Entries marked ACTIVE are already set in a group above. Entries marked
+  # RETIRED are intentionally removed from managed environments and old files.
 
   # Authentication and providers (30)
   # ------------------------------------
@@ -252,7 +253,7 @@ let
   # it again.
   # CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "";   # ACTIVE above
   # Set to 1 to enable OpenTelemetry data collection for metrics and logging. [1 or unset]
-  # CLAUDE_CODE_ENABLE_TELEMETRY = "1";
+  # CLAUDE_CODE_ENABLE_TELEMETRY = "1";   # RETIRED below
   # Maximum length of content-bearing OpenTelemetry attributes (model
   # responses, tool content, system prompts, raw API bodies), including the
   # truncation marker, in UTF-16 code units (default: 61440, or 60 KB).
@@ -466,7 +467,7 @@ let
   # Set to 1 to disable fullscreen rendering and use the classic main-screen renderer. [1 or unset]
   # CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN = "1";
   # Set to 1 to disable automatic terminal title updates based on conversation context. [1 or unset]
-  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
+  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";   # RETIRED below
   # Set to 1 to hide the working directory in the startup logo. [1 or unset]
   # CLAUDE_CODE_HIDE_CWD = "1";
   # Override the host address used to connect to the IDE extension.

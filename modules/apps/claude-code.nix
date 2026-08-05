@@ -93,8 +93,8 @@ in
               sed -i "/^export $name=/d" "$out/bin/claude"
             done
             for name in ${lib.escapeShellArgs binaryNames}; do
-              if grep -qF "$name" "$out/bin/claude"; then
-                echo "claude-code: inner wrapper still references $name after strip; the pinned llm-agents wrapper shape changed" >&2
+              if grep -qF "$name=" "$out/bin/claude"; then
+                echo "claude-code: inner wrapper still assigns $name after strip; the pinned llm-agents wrapper shape changed" >&2
                 exit 1
               fi
             done
