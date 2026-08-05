@@ -156,6 +156,15 @@ let
               the removal, the reinstall runs at the next login or after
               `systemctl --user restart firefoxpwa-m365`.
 
+              A retryable fault is bounded differently. Five starts inside the
+              unit's `StartLimitIntervalSec` leave it failed with
+              `start-limit-hit`; while those starts remain in the window, later
+              starts can be refused with "start request repeated too quickly",
+              including a corrective `sd-switch` or an explicit restart. After
+              fixing the fault, run
+              `systemctl --user reset-failed firefoxpwa-m365` before restarting
+              the unit to clear the start counter.
+
               Renaming an entry while keeping its `key` is refused on the same
               terms. `name` is the idempotency key, so the installer would
               otherwise register a second site under the new name and overwrite
