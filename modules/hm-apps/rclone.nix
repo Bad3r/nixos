@@ -162,6 +162,14 @@ _: {
                     exit 1
                   fi
 
+                  # The protondrive backend persists reusable login credentials
+                  # in the remote stanza after authentication. Preserve only
+                  # those backend-owned keys when rebuilding from SOPS input.
+                  prevProtonSession=""
+                  if [ -r "$renderedConfig" ]; then
+                    prevProtonSession="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^client_uid *=/p; /^client_access_token *=/p; /^client_refresh_token *=/p; /^client_salted_key_pass *=/p; }' "$renderedConfig")"
+                  fi
+
                   # password/otp_secret_key/mailbox_password must already be rclone-obscured
                   # in the secret (run `rclone obscure <value>`); the backend reveals them.
                   # enable_caching is forced off: required for `rclone mount` (Proton's
@@ -177,6 +185,9 @@ _: {
                     fi
                     if [ -n "''${PROTONDRIVE_MAILBOX_PASSWORD:-}" ]; then
                       printf 'mailbox_password = %s\n' "$PROTONDRIVE_MAILBOX_PASSWORD"
+                    fi
+                    if [ -n "$prevProtonSession" ]; then
+                      printf '%s\n' "$prevProtonSession"
                     fi
                     printf 'enable_caching = false\n'
                   } >> "$tmpConfig"
