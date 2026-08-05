@@ -850,9 +850,16 @@ Validation: nix-instantiate --parse"
 
 **Ordering:** both files created here import
 `modules/browsers/webapps/_keepalive-key.nix`, which Task 11 Step 1 generates.
-Run Task 11 Step 1 first, or nothing in this task evaluates. The tasks stay in
-this order because the policy generator is what explains why the key has to be
-pinned at all.
+Run Task 11 Step 1 now, before Step 1 below, or nothing in this task evaluates.
+The tasks stay in this order because the policy generator is what explains why
+the key has to be pinned at all.
+
+The key is committed here, with its first consumers, rather than in Task 11.
+Staging only `_policy.nix` and `_check-apps.nix` would produce a commit that
+evaluates in the working tree solely because `_keepalive-key.nix` sits there
+untracked; a clean checkout of it could neither evaluate the generator nor
+reproduce Step 3's validation. Task 11 Step 6 therefore commits only the check
+and the extension builder.
 
 - [ ] **Step 0: Settle whether `ExtensionSettings` blocks `--load-extension`**
 
@@ -1155,14 +1162,20 @@ nix eval --impure --json --expr '
 
 Expected: `AudioCaptureAllowedUrls` and `VideoCaptureAllowedUrls` each contain exactly `https://teams.cloud.microsoft`; `NotificationsAllowedForUrls` contains `https://outlook.cloud.microsoft` and `https://teams.cloud.microsoft`; every other allowlist is `[]`; no origin carries a trailing path; `ExtensionSettings` holds `*`, the 1Password ID and the keep-alive ID.
 
-This step depends on Task 11's `_keepalive-key.nix`. Either do Task 11 Step 1
-first, or stub the file with the real key once Task 11 generates it and re-run
-this step before committing.
+This step reads `_keepalive-key.nix`, so Task 11 Step 1 has to have run. A
+stubbed placeholder value passes this step and then silently allowlists the
+wrong extension ID, so generate the real key rather than filling the file in
+later.
 
 - [ ] **Step 4: Commit**
 
+The key ships in this commit, not in Task 11's, so the commit evaluates from a
+clean checkout.
+
 ```bash
-git add modules/browsers/webapps/_policy.nix modules/browsers/webapps/_check-apps.nix
+git add modules/browsers/webapps/_keepalive-key.nix \
+  modules/browsers/webapps/_policy.nix \
+  modules/browsers/webapps/_check-apps.nix
 git commit -m "feat(webapps): generate per-origin permission and extension policy
 
 Deny-by-default capture toggles sit next to the allowlist that opens them, so a granted capability is one line of
@@ -1170,6 +1183,9 @@ diff. Per-app extension scoping uses runtime_blocked_hosts and runtime_allowed_h
 files, because Chromium's config-dir loader lets one file win a repeated key outright instead of merging it. The
 keep-alive extension ID is allowlisted explicitly: Chromium routes --load-extension through the same
 installation-mode lookup ExtensionSettings fills, so \"*\" = blocked would otherwise refuse it silently.
+
+_keepalive-key.nix ships here rather than with the extension builder because both files added in this commit import
+it, and a commit that evaluates only while the key sits untracked in the working tree is not reproducible.
 
 Validation: nix eval of the generator against _catalog.nix, asserting teams holds the only capture grants"
 ```
@@ -1183,6 +1199,12 @@ Validation: nix eval of the generator against _catalog.nix, asserting teams hold
 - Create: `modules/browsers/webapps/_reload-extension.nix`
 
 - [ ] **Step 1: Pin the extension ID**
+
+Task 10 runs this step before its own Step 1 and commits the resulting file, so
+following the plan in order means `_keepalive-key.nix` already exists and is
+tracked by the time this task is reached. Read the reasoning, confirm the file
+matches, and go to Step 2 rather than regenerating: a new key is a new extension
+ID, which orphans the registration in every profile that already has one.
 
 Without a `key` in `manifest.json`, Chromium derives an unpacked extension's ID
 from the SHA-256 of its absolute path. Every rebuild moves the store path, so
@@ -1450,9 +1472,11 @@ Expected: `ASSERT-OK`.
 
 - [ ] **Step 6: Commit**
 
+`_keepalive-key.nix` is already committed by Task 10 Step 4, which is where its
+first consumers land.
+
 ```bash
-git add modules/browsers/webapps/_keepalive-key.nix \
-  modules/browsers/webapps/keepalive-id-check.nix \
+git add modules/browsers/webapps/keepalive-id-check.nix \
   modules/browsers/webapps/_reload-extension.nix
 git commit -m "feat(webapps): generate a per-app MV3 keep-alive extension
 
