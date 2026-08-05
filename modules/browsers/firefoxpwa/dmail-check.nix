@@ -941,8 +941,12 @@
             expect "rename refused" 1 "is a new name for the site this unit installed" "$renamed"
             assert_equal "no second site registered under the new name" \
               "$(jq -r '(.sites // {}) | length' "$config_file")" 1
-            assert_equal "the ulid record still names the original site" \
-              "$(cat "$data_dir/dmail-applied-ulid")" "01STUB"
+            # The site's own name, not the count or the ulid record: this stub
+            # writes every install to .sites["01STUB"], so without the guard the
+            # renamed run overwrites the original rather than adding one, and
+            # both of those read identically either way.
+            assert_equal "the installed site still carries the original name" \
+              "$(jq -r '.sites["01STUB"].config.name' "$config_file")" "DMail"
             # An uninstall leaves the same record but takes the site, and that
             # case must still install: the guard is on the site being there.
             jq 'del(.sites["01STUB"])' "$config_file" >"$config_file.next"
