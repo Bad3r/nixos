@@ -94,6 +94,9 @@
             assert lib.assertMsg
               (lib.hasInfix "warp-cli --accept-tos registration organization" enrolled.config.systemd.services.cloudflare-warp-connect.script)
               "apps/cloudflare-warp-module-eval: enrolled connect script must verify managed registration";
+            assert lib.assertMsg
+              (lib.hasInfix "managed organization secret unavailable; cannot verify registration" enrolled.config.systemd.services.cloudflare-warp-connect.script)
+              "apps/cloudflare-warp-module-eval: enrolled connect script must reject an empty managed organization";
             assert
               let
                 connectScript = enrolled.config.systemd.services.cloudflare-warp-connect.script;

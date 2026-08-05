@@ -91,7 +91,9 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   succeeds, managed registration is unavailable, or requests succeed while the
   status remains disconnected, the `<3>` prefix makes `connect never succeeded`,
   `managed enrollment is not ready`, or `tunnel is not connected after <n> attempts` visible to
-  `journalctl -u cloudflare-warp-connect -p err`. The `<4>` UN-ENROLLED notice is visible to
+  `journalctl -u cloudflare-warp-connect -p err`. If an existing tunnel has no matching
+  managed registration, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. An empty
+  or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`. The `<4>` UN-ENROLLED notice is visible to the
   `journalctl -u cloudflare-warp-connect -p warning`. Inspect the daemon logs and rerun:
 
   `systemctl restart cloudflare-warp-connect.service`

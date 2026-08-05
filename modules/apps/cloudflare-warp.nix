@@ -55,9 +55,20 @@ let
       '';
 
       managedRegistrationSetup = lib.optionalString enrolling ''
-        managed_org="$(cat ${config.sops.secrets."cloudflare-warp/organization".path})"
+        if managed_org="$(cat ${
+          config.sops.secrets."cloudflare-warp/organization".path
+        } 2>/dev/null)" && [ -n "$managed_org" ]; then
+          :
+        else
+          managed_org=""
+          echo "<3>cloudflare-warp-connect: managed organization secret unavailable; cannot verify registration"
+        fi
 
         refresh_registration() {
+          if [ -z "$managed_org" ]; then
+            managed_registration=""
+            return
+          fi
           if registration="$(timeout 5s warp-cli --accept-tos registration organization 2>&1)"; then
             if [ "$registration" = "$managed_org" ]; then
               managed_registration=1
