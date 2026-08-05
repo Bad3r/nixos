@@ -157,6 +157,11 @@
         assert lib.assertMsg (
           failures shipped == [ ]
         ) "browsers/firefoxpwa-apps-eval: the shipped catalog alongside DMail must not fail an assertion";
+        # The assertions above reach only key and name, so nothing applies the
+        # url type to ./_m365-apps.nix. Forced whole, so every field of every
+        # shipped entry goes through its own option type.
+        assert lib.assertMsg (builtins.deepSeq shipped.programs.firefoxpwa.m365.apps true)
+          "browsers/firefoxpwa-apps-eval: every shipped catalog entry must satisfy its option types";
         assert lib.assertMsg (
           failures dmailOff == [ ]
         ) "browsers/firefoxpwa-apps-eval: a name is only claimed while its site is enabled";
