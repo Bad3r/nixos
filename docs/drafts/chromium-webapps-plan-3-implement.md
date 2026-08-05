@@ -915,13 +915,23 @@ Create `modules/browsers/webapps/nixos.nix`:
             environment.systemPackages = [ cfg.package ];
 
             # The catalog is a definition, not the option's default, so a host
-            # adding one app keeps the other eight. mapAttrsRecursive rather
-            # than mapAttrs: wrapping each app whole puts the mkDefault on
-            # apps.<key>, and a host setting apps.teams.tray.enable then
-            # filters that whole definition out and leaves name undefined.
-            # Per leaf, the host overrides one field and the rest of the entry
-            # survives.
-            programs.webapps.apps = lib.mapAttrsRecursive (_: lib.mkDefault) (import ./_catalog.nix);
+            # adding one app keeps the other eight. Per leaf rather than per
+            # app: wrapping each app whole puts the mkDefault on apps.<key>,
+            # and a host setting apps.teams.tray.enable then filters that whole
+            # definition out and leaves name undefined. Per leaf, the host
+            # overrides one field and the rest of the entry survives.
+            #
+            # RecursiveCond stopping at derivations, not plain
+            # mapAttrsRecursive: icon and tray.icon are types.path, whose check
+            # is isStringLike and so accepts a derivation, and a derivation is
+            # an attrset. Recursing into one shreds it into drvPath, outPath,
+            # meta and the rest, each separately mkDefault'd, and the type
+            # check then fails against apps.<key>.icon rather than against this
+            # line. Every icon option defaults to null, so the first icon
+            # anyone sets is the first value of that shape the catalog holds.
+            programs.webapps.apps = lib.mapAttrsRecursiveCond (as: !lib.isDerivation as) (_: lib.mkDefault) (
+              import ./_catalog.nix
+            );
 
             assertions = lib.mapAttrsToList (key: app: {
               assertion = (app.url == null) != (app.urlSecret == null);
