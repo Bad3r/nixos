@@ -67,9 +67,11 @@ in
           # The pinned llm-agents package wraps bin/claude before this hook and
           # can export both retired and shared binary names. Strip those names
           # from the inner wrapper before adding the shared flags.
-          for name in ${lib.escapeShellArgs claudeEnv.retired}; do
-            sed -i "/^export $name=/c\unset $name" "$out/bin/claude"
-          done
+          ${lib.optionalString (claudeEnv.retired != [ ]) ''
+            for name in ${lib.escapeShellArgs claudeEnv.retired}; do
+              sed -i "/^export $name=/c\unset $name" "$out/bin/claude"
+            done
+          ''}
           for name in ${lib.escapeShellArgs (lib.attrNames claudeEnv.binary)}; do
             sed -i "/^export $name=/d" "$out/bin/claude"
           done
