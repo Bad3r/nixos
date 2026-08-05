@@ -15,11 +15,14 @@
   Keeping the layers as one expression makes the belt-and-suspenders coverage
   explicit and removes the drift risk between sites.
 
-  The catalog below the active groups enumerates every environment variable
-  documented at https://code.claude.com/docs/en/env-vars for Claude Code
-  2.1.222, commented out with its accepted values and default. Activate one by
-  moving the line into a group above; leaving it commented keeps Claude's own
-  default. Read-only and deprecated entries are segregated at the end.
+  Two catalogs and an evidence list follow the active groups. The first
+  enumerates every environment variable documented at
+  https://code.claude.com/docs/en/env-vars for Claude Code 2.1.222, with its
+  accepted values and default. The second lists type-resolved variables read by
+  the 2.1.222 binary that the published docs do not mention. A final
+  unconfirmed-identifiers list preserves extraction names whose accessor type
+  could not be resolved. Activate a catalog entry by moving it into a group
+  above; leaving it commented keeps Claude's own default.
 */
 let
   # Privacy/telemetry/update disables baked into the binary.
@@ -705,12 +708,12 @@ let
   # Claude Code sets this to its own process ID in the subprocesses it spawns: Bash and PowerShell tool commands and hook commands.
   # CLAUDE_PID = "";
 
-  # === Undocumented: read by the 2.1.222 binary, absent from the published docs ===
-  # Extracted from the binary's env accessor registry. The type is authoritative;
-  # there is no official description, so semantics are inferred from the name only
-  # and are unverified. Unsupported surface: it can change without a changelog entry.
+  # === Undocumented: type-resolved variables read by the 2.1.222 binary =====
+  # Extracted from the binary's env accessor registry. There is no official
+  # description, so semantics are inferred from the name only and are
+  # unverified. Unsupported surface: it can change without a changelog entry.
 
-  # Auth, providers, gateway (53)
+  # Auth, providers, gateway (50)
   # AGENT_PROXY_AUTH_TOKEN = "";                                  # string
   # ANTHROPIC_FEDERATION_RULE_ID = "";                            # string
   # ANTHROPIC_GOOGLE_CLOUD_BASE_URL = "";                         # string
@@ -719,8 +722,6 @@ let
   # ANTHROPIC_GOOGLE_CLOUD_WORKSPACE_ID = "";                     # string
   # ANTHROPIC_ORGANIZATION_ID = "";                               # string
   # ANTHROPIC_PROFILE = "";                                       # string
-  # CLAUDE_AI_OAUTH_SCOPES = "";                                  # unknown type
-  # CLAUDE_AI_PROFILE_SCOPE = "";                                 # unknown type
   # CLAUDE_BG_AUTH_SNAPSHOT_PATH = "";                            # string
   # CLAUDE_BG_CLAIM_AUTH = "";                                    # string
   # CLAUDE_BG_PTY_AUTH = "";                                      # string
@@ -761,7 +762,6 @@ let
   # CLAUDE_LOCAL_OAUTH_CONSOLE_BASE = "";                         # string
   # CLAUDE_SESSION_INGRESS_TOKEN_FILE = "";                       # string
   # CLAUDE_TRUSTED_DEVICE_TOKEN = "";                             # string
-  # MAX_TOTAL_TAG_TOKENS = "";                                    # unknown type
   # MCP_OAUTH_CLIENT_METADATA_URL = "";                           # string
   # MCP_XAA_IDP_CLIENT_SECRET = "";                               # string
 
@@ -773,13 +773,11 @@ let
   # CLAUDE_CODE_REFUSAL_FALLBACK_CATCH_ALL = "";                  # true | false | unset
   # CLAUDE_CONTEXT_COLLAPSE_MODEL = "";                           # string
 
-  # Agents, tasks, workflows (36)
+  # Agents, tasks, workflows (31)
   # AGENT_PROXY_URL = "";                                         # string
-  # AGENT_VIEW_RELAUNCH_ENV_KEY = "";                             # unknown type
   # CCR_AGENT_PROXY_ENABLED = "";                                 # bool
   # CCR_AGENT_PROXY_INCLUDE_HOSTS = "";                           # string
   # CCR_AGENT_PROXY_RELAY_MODE = "";                              # string
-  # CLAUDE_AGENT = "";                                            # unknown type
   # CLAUDE_AGENTS_SELECT = "";                                    # string
   # CLAUDE_AGENT_SDK_CLIENT_APP = "";                             # string
   # CLAUDE_AGENT_SDK_VERSION = "";                                # string
@@ -807,11 +805,8 @@ let
   # CLAUDE_SUBAGENT_BG_SHELL_MAX_MS = "";                         # int {min:1}
   # CLAUDE_WORKFLOW_NAME_ONLY = "";                               # bool
   # ENABLE_SESSION_BACKGROUNDING = "";                            # bool
-  # MAX_TASK_OUTPUT_BYTES = "";                                   # unknown type
-  # MAX_TASK_OUTPUT_BYTES_DISPLAY = "";                           # unknown type
-  # MCP_TASK = "";                                                # unknown type
 
-  # Memory, context, compaction (31)
+  # Memory, context, compaction (29)
   # CLAUDE_AFTER_LAST_COMPACT = "";                               # string
   # CLAUDE_BRIDGE_REATTACH_SESSION = "";                          # string
   # CLAUDE_BRIDGE_SESSION_INGRESS_URL = "";                       # string
@@ -833,7 +828,6 @@ let
   # CLAUDE_CODE_SESSION_KIND = "";                                # string
   # CLAUDE_CODE_SESSION_LOG = "";                                 # string
   # CLAUDE_CODE_SESSION_NAME = "";                                # string
-  # CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION = "";                # unknown type
   # CLAUDE_CODE_SYNC_SESSION_REFS = "";                           # bool
   # CLAUDE_CODE_TMUX_SESSION = "";                                # string
   # CLAUDE_CONTEXT_COLLAPSE = "";                                 # bool
@@ -841,44 +835,33 @@ let
   # CLAUDE_COWORK_MEMORY_GUIDELINES = "";                         # string
   # CLAUDE_COWORK_MEMORY_INDEX_CONTENT = "";                      # string
   # CLAUDE_COWORK_MEMORY_PATH_OVERRIDE = "";                      # string
-  # CLAUDE_MEMORY_STORES = "";                                    # unknown type
   # ENABLE_SESSION_PERSISTENCE = "";                              # bool
 
-  # Tools, bash, sandbox (15)
+  # Tools, bash, sandbox (12)
   # CLAUDE_CODE_BASH_SANDBOX_SHOW_INDICATOR = "";                 # bool
   # CLAUDE_CODE_DIAGNOSTICS_FILE = "";                            # string
   # CLAUDE_CODE_EMIT_TOOL_USE_SUMMARIES = "";                     # bool
   # CLAUDE_CODE_ENABLE_EXPERIMENTAL_ADVISOR_TOOL = "";            # bool
   # CLAUDE_CODE_ENABLE_REFRESH_MCP_TOOLS = "";                    # bool
-  # CLAUDE_CODE_HOST_CREDS_FILE = "";                             # unknown type
   # CLAUDE_CODE_PEWTER_OWL_TOOL = "";                             # true | false | unset
   # CLAUDE_CODE_REMOTE_RAW_EVENTS_FILE = "";                      # string
   # CLAUDE_CODE_SANDBOXED = "";                                   # bool
   # CLAUDE_CODE_TERMINAL_MCP_TOOLS = "";                          # string
-  # CLAUDE_IN_CHROME_DOMAIN_RULE_TOOL = "";                       # unknown type
   # CLAUDE_STAGE_FILE_ROOT = "";                                  # string
   # ENABLE_LSP_TOOL = "";                                         # bool
   # ENABLE_MCP_LARGE_OUTPUT_FILES = "";                           # true | false | unset
-  # MAX_WORKING_FILE_BYTES = "";                                  # unknown type
 
-  # MCP (15)
+  # MCP (8)
   # CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS = "";                     # bool
   # CLAUDE_CODE_SKIP_PLUGIN_MCP_SERVERS_EXCEPT = "";              # string
-  # CLAUDE_CODE_SYNC_PLUGINS_MCP_TIMEOUT_MS = "";                 # unknown type
-  # CLAUDE_IN_CHROME_MCP_SERVER_NAME = "";                        # unknown type
-  # MAX_MCP_CONFIG_BYTES = "";                                    # unknown type
-  # MCP_CLIENT_METADATA_URL = "";                                 # unknown type
   # MCP_DISCOVERY_CACHE = "";                                     # true | false | unset
   # MCP_DISCOVERY_CACHE_MAX_STALE_S = "";                         # int {min:1}
   # MCP_DISCOVERY_CACHE_TTL_S = "";                               # int {min:1}
   # MCP_PROTOCOL_NEGOTIATION = "";                                # string
-  # MCP_SCHEMA_BY_TYPE = "";                                      # unknown type
   # MCP_SDK_GENERATION = "";                                      # string
-  # MCP_SETTINGS_SCOPES = "";                                     # unknown type
-  # MCP_TREE_ID = "";                                             # unknown type
   # MCP_TRUNCATION_PROMPT_OVERRIDE = "";                          # string
 
-  # Network, proxy, timeouts (37)
+  # Network, proxy, timeouts (36)
   # ANTHROPIC_UNIX_SOCKET = "";                                   # string
   # CLAUDE_BRIDGE_BASE_URL = "";                                  # string
   # CLAUDE_BYTE_STREAM_IDLE_TIMEOUT_MS = "";                      # int {min:1}
@@ -886,7 +869,6 @@ let
   # CLAUDE_CODE_ARTIFACTS_API_BASE_URL = "";                      # string
   # CLAUDE_CODE_ARTIFACT_ASSET_BASE_URL = "";                     # string
   # CLAUDE_CODE_ARTIFACT_LIVE_BASE_URL = "";                      # string
-  # CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL = "";                 # unknown type
   # CLAUDE_CODE_DEV_RAW_CHANGELOG_URL = "";                       # string
   # CLAUDE_CODE_FABLE_BRIDGE_DIALOG_TIMEOUT_MS = "";              # int
   # CLAUDE_CODE_GB_BASE_URL = "";                                 # string
@@ -930,7 +912,7 @@ let
   # FORCE_CODE_TERMINAL = "";                                     # bool
   # FORCE_COLOR = "";                                             # string
 
-  # Telemetry, logging, debug (15)
+  # Telemetry, logging, debug (13)
   # CLAUDE_CODE_COMMIT_LOG = "";                                  # string
   # CLAUDE_CODE_DD_ERROR_TRACKING_FLUSH_INTERVAL_MS = "";         # int {min:1}
   # CLAUDE_CODE_DEBUG_REPAINTS = "";                              # bool
@@ -941,14 +923,11 @@ let
   # CLAUDE_CODE_PERFETTO_TRACE = "";                              # string
   # CLAUDE_DEBUG = "";                                            # bool
   # CLAUDE_GATEWAY_LOG_LEVEL = "";                                # string
-  # ENABLE_ENHANCED_TELEMETRY_BETA = "";                          # unknown type
-  # MAX_DECLARED_DIALOG_KINDS = "";                               # unknown type
   # OTEL_LOGRECORD_ATTRIBUTE_VALUE_LENGTH_LIMIT = "";             # int {min:0}
   # OTEL_RESOURCE_ATTRIBUTES = "";                                # string
   # OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT = "";                  # int {min:0}
 
-  # Remote control, cloud, sharing (19)
-  # CCR_BYOC_BETA = "";                                           # unknown type
+  # Remote control, cloud, sharing (17)
   # CCR_ENABLE_BUNDLE = "";                                       # bool
   # CCR_ON_BRANCH_DEFAULT_GUARD = "";                             # enum ["enforce","observe","off"]
   # CLAUDE_BRIDGE_REATTACH_GROUPING = "";                         # string
@@ -966,12 +945,9 @@ let
   # CLAUDE_CODE_REMOTE_SEND_KEEPALIVES = "";                      # bool
   # CLAUDE_CODE_REMOTE_SETTINGS_PATH = "";                        # string
   # CLAUDE_CODE_REMOTE_SETTINGS_POLL_MS = "";                     # int
-  # MAX_ARTIFACT_BYTES = "";                                      # unknown type
 
-  # Other (152)
+  # Other (136)
   # ANTHROPIC_CONFIG_DIR = "";                                    # string
-  # CLAUDE_AI_INFERENCE_SCOPE = "";                               # unknown type
-  # CLAUDE_API_SKILL_DESCRIPTION = "";                            # unknown type
   # CLAUDE_AX_STARTUP_QUIET_MS = "";                              # int {min:0}
   # CLAUDE_CHROME_CLASSIFIER_FLOOR = "";                          # true | false | unset
   # CLAUDE_CHROME_PERMISSION_MODE = "";                           # string
@@ -1009,7 +985,6 @@ let
   # CLAUDE_CODE_ENABLE_LAUNCH_COMPOSER = "";                      # bool
   # CLAUDE_CODE_ENABLE_MENU_KIND_LANES = "";                      # bool
   # CLAUDE_CODE_ENABLE_XAA = "";                                  # bool
-  # CLAUDE_CODE_ENTRYPOINT = "";                                  # unknown type
   # CLAUDE_CODE_ENVIRONMENT_KIND = "";                            # string
   # CLAUDE_CODE_ENVIRONMENT_RUNNER_VERSION = "";                  # string
   # CLAUDE_CODE_EXTRA_METADATA = "";                              # string
@@ -1032,7 +1007,6 @@ let
   # CLAUDE_CODE_JUNIPER_SUNDIAL = "";                             # int {min:1,digitsOnly:!0}
   # CLAUDE_CODE_KB_COHESION_FIXES = "";                           # bool
   # CLAUDE_CODE_LANTERN_PRISM = "";                               # bool
-  # CLAUDE_CODE_LARCH_CISTERN = "";                               # unknown type
   # CLAUDE_CODE_LOOP_KEEPALIVE = "";                              # bool
   # CLAUDE_CODE_LOOP_PERSISTENT = "";                             # bool
   # CLAUDE_CODE_MANAGED_SETTINGS_PATH = "";                       # string
@@ -1054,7 +1028,6 @@ let
   # CLAUDE_CODE_RESUME_SOURCE_ALIVE = "";                         # string
   # CLAUDE_CODE_RESUME_THRESHOLD_MINUTES = "";                    # int
   # CLAUDE_CODE_SEND_FEEDBACK = "";                               # true | false | unset
-  # CLAUDE_CODE_SKILL_NAME = "";                                  # unknown type
   # CLAUDE_CODE_SKIP_HFI_VERSION_CHECK = "";                      # bool
   # CLAUDE_CODE_SKIP_PROJECT_BACKFILL = "";                       # bool
   # CLAUDE_CODE_SKIP_REPO_UPLOAD = "";                            # bool
@@ -1104,23 +1077,12 @@ let
   # CLAUDE_SSH_VERSION = "";                                      # string
   # CLAUDE_TMPDIR = "";                                           # string
   # DISABLE_BRIEF_MODE_STOP_HOOK = "";                            # bool
-  # DISABLE_BUG_COMMAND = "";                                     # bool
+  # DISABLE_BUG_COMMAND = "";                                     # bool   ACTIVE above
   # DISABLE_PROMPT_CACHING_MYTHOS = "";                           # bool
   # ENABLE_BETA_TRACING_DETAILED = "";                            # bool
   # ENABLE_LOCKLESS_UPDATES = "";                                 # bool
   # ENABLE_PID_BASED_VERSION_LOCKING = "";                        # true | false | unset
   # FORCE_VCR = "";                                               # bool
-  # MAX_ESTIMATED_NESTING = "";                                   # unknown type
-  # MAX_LAUNCH_BUNDLE_BYTES = "";                                 # unknown type
-  # MAX_MARKDOWN_LENGTH = "";                                     # unknown type
-  # MAX_PERSIST_BINARY_BYTES = "";                                # unknown type
-  # MAX_QUEUED_EVENTS = "";                                       # unknown type
-  # MAX_SANE_EPOCH_MS = "";                                       # unknown type
-  # MAX_SANITIZED_LENGTH = "";                                    # unknown type
-  # MAX_SCAN_ENTRIES = "";                                        # unknown type
-  # MAX_SCAN_WORK = "";                                           # unknown type
-  # MAX_TOTAL_OPEN_TAGS = "";                                     # unknown type
-  # MAX_TRANSCRIPT_READ_BYTES = "";                               # unknown type
 
   # Test-only harness hooks (7)
   # CLAUDE_CODE_DOWNLOAD_DEADLINE_MS_FOR_TESTING = "";            # string
@@ -1136,6 +1098,70 @@ let
   # CLAUDE_CODE_3P_PROBE_WROTE_SONNET_DEFAULT = "";               # string
   # CLAUDE_INTERNAL_ASSISTANT_TEAM_NAME = "";                     # string
   # CLAUDE_INTERNAL_FC_OVERRIDES = "";                            # string
+
+  # === Unconfirmed identifiers ==============================================
+  # These names appeared in the binary extraction, but their accessor type
+  # could not be resolved. They are retained as evidence only, not as
+  # environment variables. Do not activate them without verifying the binary.
+
+  # Auth, providers, gateway (3)
+  # CLAUDE_AI_OAUTH_SCOPES = "";
+  # CLAUDE_AI_PROFILE_SCOPE = "";
+  # MAX_TOTAL_TAG_TOKENS = "";
+
+  # Agents, tasks, workflows (5)
+  # AGENT_VIEW_RELAUNCH_ENV_KEY = "";
+  # CLAUDE_AGENT = "";
+  # MAX_TASK_OUTPUT_BYTES = "";
+  # MAX_TASK_OUTPUT_BYTES_DISPLAY = "";
+  # MCP_TASK = "";
+
+  # Memory, context, compaction (2)
+  # CLAUDE_CODE_SUPPRESS_SESSION_ATTRIBUTION = "";
+  # CLAUDE_MEMORY_STORES = "";
+
+  # Tools, bash, sandbox (3)
+  # CLAUDE_CODE_HOST_CREDS_FILE = "";
+  # CLAUDE_IN_CHROME_DOMAIN_RULE_TOOL = "";
+  # MAX_WORKING_FILE_BYTES = "";
+
+  # MCP (7)
+  # CLAUDE_CODE_SYNC_PLUGINS_MCP_TIMEOUT_MS = "";
+  # CLAUDE_IN_CHROME_MCP_SERVER_NAME = "";
+  # MAX_MCP_CONFIG_BYTES = "";
+  # MCP_CLIENT_METADATA_URL = "";
+  # MCP_SCHEMA_BY_TYPE = "";
+  # MCP_SETTINGS_SCOPES = "";
+  # MCP_TREE_ID = "";
+
+  # Network, proxy, timeouts (1)
+  # CLAUDE_CODE_ASSUME_FIRST_PARTY_BASE_URL = "";
+
+  # Telemetry, logging, debug (2)
+  # ENABLE_ENHANCED_TELEMETRY_BETA = "";
+  # MAX_DECLARED_DIALOG_KINDS = "";
+
+  # Remote control, cloud, sharing (2)
+  # CCR_BYOC_BETA = "";
+  # MAX_ARTIFACT_BYTES = "";
+
+  # Other (16)
+  # CLAUDE_AI_INFERENCE_SCOPE = "";
+  # CLAUDE_API_SKILL_DESCRIPTION = "";
+  # CLAUDE_CODE_ENTRYPOINT = "";
+  # CLAUDE_CODE_LARCH_CISTERN = "";
+  # CLAUDE_CODE_SKILL_NAME = "";
+  # MAX_ESTIMATED_NESTING = "";
+  # MAX_LAUNCH_BUNDLE_BYTES = "";
+  # MAX_MARKDOWN_LENGTH = "";
+  # MAX_PERSIST_BINARY_BYTES = "";
+  # MAX_QUEUED_EVENTS = "";
+  # MAX_SANE_EPOCH_MS = "";
+  # MAX_SANITIZED_LENGTH = "";
+  # MAX_SCAN_ENTRIES = "";
+  # MAX_SCAN_WORK = "";
+  # MAX_TOTAL_OPEN_TAGS = "";
+  # MAX_TRANSCRIPT_READ_BYTES = "";
 
 in
 {

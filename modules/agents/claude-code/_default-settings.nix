@@ -276,8 +276,8 @@ assert
   #   'countdown' uses the live remaining context-window tokens, 'padded-
   #   countdown' counts down from totalTokensReminderBudget (re-anchoring to the
   #   full budget on each regular user prompt when
-  #   totalTokensReminderAfterUserTurn "+"is on \u2014 task-budget semantics).
-  #   Defaults to off. Env var "+"CLAUDE_CODE_TOTAL_TOKENS_REMINDER overrides.
+  #   totalTokensReminderAfterUserTurn is on - task-budget semantics).
+  #   Defaults to off. Env var CLAUDE_CODE_TOTAL_TOKENS_REMINDER overrides.
   #   totalTokensReminder = "off";  # off | infinite | fixed | countdown | padded-countdown
   #
   #   @internal When true, emit the totalTokensReminder block after each regular
@@ -330,8 +330,8 @@ assert
   #   local, and CLI argument permission rules are ignored.
   #   allowManagedPermissionRulesOnly = true;           # [boolean]
   #
-  #   Managed-org allowlist of channel plugins. When set, "+"replaces the
-  #   default Anthropic allowlist \u2014 admins decide which "+"plugins may push
+  #   Managed-org allowlist of channel plugins. When set, replaces the
+  #   default Anthropic allowlist - admins decide which plugins may push
   #   inbound messages. Undefined falls back to the default. Requires
   #   channelsEnabled: true.
   #   allowedChannelPlugins = [ ];                      # [array]
@@ -353,8 +353,8 @@ assert
   #   apiKeyHelper = "";                                # [string]
   #
   #   Idle time before Claude's questions auto-continue with any answers
-  #   "+"selected so far. Defaults to never \u2014 auto-continue only runs
-  #   "+"when explicitly set to 60s/5m/10m.
+  #   selected so far. Defaults to never - auto-continue only runs
+  #   when explicitly set to 60s/5m/10m.
   #   askUserQuestionTimeout = "60s";                   # [60s | 5m | 10m | never]
   #
   #   Attribution text for git commits, including any trailers. Empty string
@@ -460,8 +460,8 @@ assert
   #   disableBundledSkills = true;                      # [boolean]
   #
   #   When true in any settings source, claude.ai MCP cloud connectors are not
-  #   auto-fetched or connected. "+"Only gates auto-fetched connectors \u2014 a
-  #   claudeai-proxy server passed explicitly "+"(e.g. via --mcp-config or the
+  #   auto-fetched or connected. Only gates auto-fetched connectors - a
+  #   claudeai-proxy server passed explicitly (e.g. via --mcp-config or the
   #   SDK mcpServers option) still follows the normal MCP config trust flow.
   #   Any-source-true wins: a project can opt out, but a project-level false
   #   cannot override a user-level true.
@@ -757,8 +757,8 @@ assert
   #   Enterprise strict list of allowed marketplace sources. When set in managed
   #   settings, ONLY these exact sources can be added as marketplaces. The check
   #   happens BEFORE downloading, so blocked sources never touch the filesystem.
-  #   "+"Note: this is a policy gate only \u2014 it does NOT register
-  #   marketplaces. "+"To pre-register allowed marketplaces for users, also set
+  #   Note: this is a policy gate only - it does NOT register
+  #   marketplaces. To pre-register allowed marketplaces for users, also set
   #   extraKnownMarketplaces.
   #   strictKnownMarketplaces = [ ];                    # [array]
   #
@@ -788,8 +788,8 @@ assert
   #   tui = "default";                                  # [default | fullscreen]
   #
   #   Enable ultracode for the session: xhigh effort plus standing dynamic-
-  #   workflow orchestration. "+"Session-scoped \u2014 typically provided via
-  #   --settings or the apply_flag_settings control request; "+"interactive
+  #   workflow orchestration. Session-scoped - typically provided via
+  #   --settings or the apply_flag_settings control request; interactive
   #   toggles never persist it. Requires workflows to be enabled and an xhigh-
   #   capable model.
   #   ultracode = true;                                 # [boolean]
