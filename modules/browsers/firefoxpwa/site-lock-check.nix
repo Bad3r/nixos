@@ -94,8 +94,13 @@ _: {
               local first=$!
               "$2" &
               local second=$!
-              wait "$first"
-              wait "$second"
+              local first_rc=0 second_rc=0
+              wait "$first" || first_rc=$?
+              wait "$second" || second_rc=$?
+              if [ "$first_rc" -ne 0 ] || [ "$second_rc" -ne 0 ]; then
+                echo "installer exited non-zero (rc=$first_rc/$second_rc)"
+                return 0
+              fi
               cat "$data_dir/counter"
             }
 
