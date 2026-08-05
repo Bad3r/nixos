@@ -86,6 +86,12 @@ _: {
             Service = {
               Type = "oneshot";
               RemainAfterExit = true;
+              # Past the default 90s, which a legitimate wait can exceed: the
+              # installers share one lock (packages/firefoxpwa-site-installer)
+              # and this unit is the one with no Restart=, so a run killed while
+              # queued behind another would sit failed until the next switch.
+              # Still a bound, so a genuine hang fails rather than sits.
+              TimeoutStartSec = 900;
               # FFPWA_USERDATA (the userdata tree, ProjectDirs) and
               # XDG_DATA_HOME (system integration's applications/ directory,
               # BaseDirs) are exported by the installer itself from the same

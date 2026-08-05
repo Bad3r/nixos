@@ -65,11 +65,21 @@ writeShellApplication {
     # first. 0700 is what modules/browsers/firefoxpwa/home.nix pins it to.
     install -d -m 700 "$data_dir"
 
-    # Held for the whole run rather than per call: the installs are short, the
-    # entries few, and a lock reacquired between them would let another
-    # installer land in the gap with a stale copy of config.json.
+    # Held for the whole run rather than per call: a lock reacquired between
+    # calls would let another installer land in the gap with a stale copy of
+    # config.json.
     exec 9>"$data_dir/.config-lock"
-    flock 9
+    # Announced before blocking. A run holding this can span several site
+    # installs and their retry sleeps, so a queued one can wait past the unit's
+    # TimeoutStartSec and be killed, and a bare blocking acquire leaves the
+    # journal showing only a timeout with nothing naming the lock or the
+    # installer holding it. The units that run these raise that timeout past
+    # what a legitimate wait costs; this is what makes the wait legible when
+    # something exceeds even that.
+    if ! flock -n 9; then
+      echo "${name}: waiting for another firefoxpwa site installer to release $data_dir/.config-lock" >&2
+      flock 9
+    fi
 
   ''
   + text;

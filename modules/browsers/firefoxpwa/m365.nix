@@ -98,6 +98,12 @@ _: {
               # else reruns the unit while the app table is unchanged.
               Restart = "on-failure";
               RestartSec = 120;
+              # Past the default 90s, which a legitimate wait can exceed: the
+              # installer holds the shared site lock for its whole run, and the
+              # queued unit is the one that pays. Being killed there costs the
+              # run for a reason that is not a fault, so the bound is generous;
+              # it is still a bound, so a genuine hang fails rather than sits.
+              TimeoutStartSec = 900;
               # Both are exported by the installer itself from the same
               # dataDir/xdgDataHome passed to it, so the binary and the script
               # agree by construction rather than through this unit. Set here
