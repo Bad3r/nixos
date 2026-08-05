@@ -58,7 +58,6 @@ let
   # Shell-level vars not needed in settings.json.
   shellOnly = {
     BASH_MAX_OUTPUT_LENGTH = "1024";
-    CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
     CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
     DISABLE_BUG_COMMAND = "1";
     USE_BUILTIN_RIPGREP = "0";
@@ -463,7 +462,7 @@ let
   # Set to 1 to disable fullscreen rendering and use the classic main-screen renderer. [1 or unset]
   # CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN = "1";
   # Set to 1 to disable automatic terminal title updates based on conversation context. [1 or unset]
-  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";   # ACTIVE above
+  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
   # Set to 1 to hide the working directory in the startup logo. [1 or unset]
   # CLAUDE_CODE_HIDE_CWD = "1";
   # Override the host address used to connect to the IDE extension.

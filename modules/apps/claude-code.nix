@@ -70,9 +70,11 @@ in
         postFixup = (old.postFixup or "") + ''
           # The pinned llm-agents package wraps bin/claude before this hook and
           # can export both retired and shared binary names. Strip shared names
-          # from the inner wrapper before applying the shared flags. The outer
-          # wrapper also unsets retired names for direct package launches when
-          # the dependency has already stopped exporting them.
+          # from the inner wrapper before applying the shared flags, and fail if
+          # a retired assignment survives because an outer unset cannot override
+          # an inner export. The outer wrapper also unsets retired names for
+          # direct package launches when the dependency has already stopped
+          # exporting them.
           if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
             echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1
@@ -80,6 +82,10 @@ in
           ${lib.optionalString (claudeEnv.retired != [ ]) ''
             for name in ${lib.escapeShellArgs claudeEnv.retired}; do
               sed -i "/^export $name=/c\unset $name" "$out/bin/claude"
+              if grep -qF "$name=" "$out/bin/claude"; then
+                echo "claude-code: inner wrapper still assigns retired name $name after strip; the pinned llm-agents wrapper shape changed" >&2
+                exit 1
+              fi
             done
           ''}
           ${lib.optionalString (binaryNames != [ ]) ''
