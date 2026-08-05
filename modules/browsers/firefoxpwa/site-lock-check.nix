@@ -131,11 +131,13 @@ _: {
               sleep 0.1
             done
             exec 8>&-
-            wait "$queued"
-            if [ "$announced" = 1 ]; then
+            queued_rc=0
+            wait "$queued" || queued_rc=$?
+            if [ "$announced" = 1 ] && [ "$queued_rc" -eq 0 ]; then
               echo "PASS  the queued installer names the lock it is waiting on"
             else
-              echo "FAIL  the queued installer blocked silently on the lock"
+              echo "FAIL  the queued installer blocked silently on the lock (rc=$queued_rc)"
+              cat "$PWD/wait.log" >&2
               failures=$((failures + 1))
             fi
 
