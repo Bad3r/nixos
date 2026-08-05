@@ -64,7 +64,11 @@ in
 
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
-          wrapProgram $out/bin/claude ${binaryEnvFlags}
+          # The pinned llm-agents package still sets this removed legacy name;
+          # clear it in the final wrapper so _env.nix remains authoritative.
+          wrapProgram $out/bin/claude \
+            --unset DISABLE_NON_ESSENTIAL_MODEL_CALLS \
+            ${binaryEnvFlags}
         '';
       });
     in
