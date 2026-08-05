@@ -2920,8 +2920,8 @@ The catalog entries survive that. `_catalog.nix` is merged into the option per
 leaf at `mkDefault` priority rather than being the option's default, so a host
 definition adds a key or overrides one field and leaves the rest in place.
 
-Refresh the policy fixture afterwards, or `checks."browsers/webapps-policy"`
-fails with a diff:
+Refresh the policy fixture after editing `_catalog.nix`, or
+`checks."browsers/webapps-policy"` fails with a diff:
 
 ```sh
 nix eval --impure --json --expr \
@@ -2930,6 +2930,14 @@ nix eval --impure --json --expr \
 ```
 
 The check prints that same command when it fails.
+
+An app added from a host module instead is not covered by that check.
+`_check-apps.nix` imports `_catalog.nix` directly rather than reading
+`programs.webapps.apps`, so a host definition reaches neither the fixture nor
+the recomputed-grant assertion: the check keeps passing, the refresh command
+produces no diff, and the app's `permissions` reach
+`/etc/brave/policies/managed/webapps.json` with nothing checking them. Put an
+app in `_catalog.nix` if you want it pinned.
 
 ## Permissions
 
