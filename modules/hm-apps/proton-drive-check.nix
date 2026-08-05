@@ -377,7 +377,7 @@
                 # reaches rclone by the normal bisync path.
                 last_call=$(tail -n1 "$PROTON_DRIVE_STUB_CALLS")
                 for flag in --max-delete=25 --resilient --conflict-resolve=newer \
-                  --protondrive-enable-caching=false --config; do
+                  --protondrive-enable-caching=false --config --workdir; do
                   case "$last_call" in
                     *"$flag"*) ;;
                     *) fail "a normal bisync run must pass $flag" ;;
@@ -442,11 +442,22 @@
                   *) fail "--resync after a fatal one-way abort must retain the deletion cap" ;;
                 esac
 
+                # That --resync succeeded, so sync_one_way cleared $aborted. The
+                # cap-free assertion below would then be satisfied by the
+                # "[ ! -e $aborted ]" disjunct rather than by force, leaving
+                # --force-resync's documented purpose unpinned. Re-latch first,
+                # so only [ "$force" -eq 1 ] can drop the cap.
+                rc=0
+                PROTON_DRIVE_DIRECTION=up PROTON_DRIVE_STUB_EXIT=7 "$sync" || rc=$?
+                [ "$rc" -eq 7 ] || fail "re-latching the up tuple must propagate rclone's exit 7"
+                [ "$(marker_count 'aborted-*')" -eq 1 ] || fail "re-latching the up tuple must latch"
+
                 PROTON_DRIVE_DIRECTION=up PROTON_DRIVE_STUB_EXIT=0 "$sync" --force-resync
                 case "$(tail -n1 "$PROTON_DRIVE_STUB_CALLS")" in
                   *--max-delete*) fail "--force-resync must bypass the deletion cap" ;;
                   *) ;;
                 esac
+                [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--force-resync must release the latch"
 
                 touch "$out"
               '';
