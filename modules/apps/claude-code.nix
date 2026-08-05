@@ -79,9 +79,11 @@ in
           let
             assignment = "export ${name}=${lib.escapeShellArg value}";
             assignmentPattern = ''(^|[[:space:];])${name}=[\"']?${lib.escapeRegex value}[\"']?([[:space:];]|$)'';
+            sedPattern = lib.replaceStrings [ "/" ] [ "\\/" ] (lib.escapeRegex assignment);
+            sedExpression = "/^${sedPattern}$/d";
           in
           ''
-            sed -i "/^${assignment}$/d" "$out/bin/claude"
+            sed -i -E ${lib.escapeShellArg sedExpression} "$out/bin/claude"
             if grep -qE ${lib.escapeShellArg assignmentPattern} "$out/bin/claude"; then
               echo "claude-code: inner wrapper still assigns legacy value ${name}=${value} after strip; the pinned llm-agents wrapper shape changed" >&2
               exit 1
