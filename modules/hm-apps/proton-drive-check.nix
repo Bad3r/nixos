@@ -20,8 +20,9 @@
   alone.
 
   Runs under the build sandbox's private /tmp because the state root and local
-  path are pinned at eval time; the pre-existing-state guard below turns an
-  unsandboxed build into a failure instead of a stale-state pass.
+  path are pinned at eval time; the check creates that whole root itself and
+  fails when it already exists, so an unsandboxed build cannot pass on stale
+  state or write through a planted symlink.
 */
 {
   lib,
@@ -170,12 +171,18 @@
               ''
                 set -o errexit -o nounset -o pipefail
 
+                check_root=${lib.escapeShellArg root}
                 state=${lib.escapeShellArg stateDir}
                 local_path=${lib.escapeShellArg localPath}
                 sync=${lib.getExe syncScript}
 
-                if [ -e "$state" ]; then
-                  echo "hm-apps/proton-drive-sync: $state already exists; this check needs the sandbox's private /tmp" >&2
+                # Every path below is a fixed /tmp path, so without the sandbox's
+                # private /tmp another user could plant the root and have the
+                # mkdir and seed-file writes below follow its symlinks. mkdir
+                # fails on an existing directory or symlink, which also catches
+                # leftover state from an earlier unsandboxed run.
+                if ! mkdir -m 700 -- "$check_root" 2>/dev/null; then
+                  echo "hm-apps/proton-drive-sync: $check_root already exists; this check needs the sandbox's private /tmp" >&2
                   exit 1
                 fi
 
