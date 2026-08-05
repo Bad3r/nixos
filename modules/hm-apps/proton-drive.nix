@@ -29,10 +29,12 @@
     4. For the 1Password source, the desktop app must be running and unlocked
        with CLI integration turned on: activation resolves the references
        through the setgid `op` wrapper from `programs._1password`, and the app
-       authorizes that call by its onepassword-cli group. The OTP reference must
-       return the stable otpauth:// URI without `?attribute=otp`; the module
-       extracts and obscures its seed. It does not store or request the changing
-       six-digit code.
+       authorizes that call by its onepassword-cli group. usernameRef and
+       passwordRef are mandatory; otpRef and mailboxPasswordRef may be left ""
+       (only if 2FA is enabled / only on two-password accounts, same as the
+       SOPS fields above). The OTP reference must return the stable otpauth://
+       URI without `?attribute=otp`; the module extracts and obscures its
+       seed. It does not store or request the changing six-digit code.
        Proton passkeys remain browser-only because the rclone backend logs in
        through the Proton API with username, password, mailbox password, and 2FA.
 
@@ -119,15 +121,17 @@ _: {
           }
           osConfig;
       protondriveOnePassword = protondriveAuth.onePassword or { };
+      # otp_secret_key and mailbox_password are per-account optional (2FA /
+      # two-password accounts only), so an empty ref opts out instead of
+      # failing readiness; a non-empty ref still must be an op:// reference.
+      protondriveOptionalRefValid = ref: ref == "" || lib.hasPrefix "op://" ref;
       protondriveOnePasswordReady =
         protondriveAuth.enable
         && protondriveAuth.authSource == "onePassword"
-        && lib.all (ref: lib.hasPrefix "op://" ref) [
-          (protondriveOnePassword.usernameRef or "")
-          (protondriveOnePassword.passwordRef or "")
-          (protondriveOnePassword.otpRef or "")
-          (protondriveOnePassword.mailboxPasswordRef or "")
-        ];
+        && lib.hasPrefix "op://" (protondriveOnePassword.usernameRef or "")
+        && lib.hasPrefix "op://" (protondriveOnePassword.passwordRef or "")
+        && protondriveOptionalRefValid (protondriveOnePassword.otpRef or "")
+        && protondriveOptionalRefValid (protondriveOnePassword.mailboxPasswordRef or "");
       protondriveReady =
         rcloneEnabled
         && (

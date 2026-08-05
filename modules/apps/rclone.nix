@@ -102,13 +102,14 @@ let
         (lib.mkIf (cfg.enable && cfg.protonDrive.enable && cfg.protonDrive.authSource == "onePassword") {
           assertions = [
             {
-              assertion = lib.all (ref: lib.hasPrefix "op://" ref) [
-                cfg.protonDrive.onePassword.usernameRef
-                cfg.protonDrive.onePassword.passwordRef
-                cfg.protonDrive.onePassword.otpRef
-                cfg.protonDrive.onePassword.mailboxPasswordRef
-              ];
-              message = "programs.rclone.extended.protonDrive.authSource = \"onePassword\" requires four non-empty op:// references: usernameRef, passwordRef, otpRef, and mailboxPasswordRef.";
+              assertion =
+                lib.hasPrefix "op://" cfg.protonDrive.onePassword.usernameRef
+                && lib.hasPrefix "op://" cfg.protonDrive.onePassword.passwordRef
+                && lib.all (ref: ref == "" || lib.hasPrefix "op://" ref) [
+                  cfg.protonDrive.onePassword.otpRef
+                  cfg.protonDrive.onePassword.mailboxPasswordRef
+                ];
+              message = "programs.rclone.extended.protonDrive.authSource = \"onePassword\" requires non-empty op:// references for usernameRef and passwordRef. otpRef and mailboxPasswordRef are per-account optional (2FA / two-password accounts only): leave empty to opt out, or set an op:// reference.";
             }
             {
               assertion = config.programs._1password.enable;

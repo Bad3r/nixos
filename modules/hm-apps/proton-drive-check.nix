@@ -118,6 +118,22 @@
             };
           };
 
+          # otp_secret_key and mailbox_password are per-account optional (2FA
+          # / two-password accounts only); an empty ref must still be ready.
+          onePasswordNoOtpHm = mkHm {
+            secretsRoot = "${./proton-drive-check-fixtures}/missing";
+            protonDrive = {
+              enable = true;
+              authSource = "onePassword";
+              onePassword = {
+                usernameRef = opRef "username";
+                passwordRef = opRef "password";
+                otpRef = "";
+                mailboxPasswordRef = "";
+              };
+            };
+          };
+
           disabledHm = mkHm {
             protonDrive = {
               enable = false;
@@ -260,6 +276,8 @@
         ) "hm-apps/proton-drive-sync: the sops source must install proton-drive-sync";
         assert lib.assertMsg (installsScript onePasswordHm)
           "hm-apps/proton-drive-sync: op:// references must install proton-drive-sync with no secret present";
+        assert lib.assertMsg (installsScript onePasswordNoOtpHm)
+          "hm-apps/proton-drive-sync: an empty otpRef/mailboxPasswordRef must still be ready (per-account optional fields)";
         assert lib.assertMsg (
           !installsScript disabledHm
         ) "hm-apps/proton-drive-sync: protonDrive.enable = false must withhold proton-drive-sync";

@@ -51,16 +51,17 @@ _: {
           }
           osConfig;
       protondriveOnePassword = protondriveAuth.onePassword or { };
-      protondriveOnePasswordRefs = [
-        (protondriveOnePassword.usernameRef or "")
-        (protondriveOnePassword.passwordRef or "")
-        (protondriveOnePassword.otpRef or "")
-        (protondriveOnePassword.mailboxPasswordRef or "")
-      ];
+      # otp_secret_key and mailbox_password are per-account optional (2FA /
+      # two-password accounts only), so an empty ref opts out instead of
+      # failing readiness; a non-empty ref still must be an op:// reference.
+      protondriveOptionalRefValid = ref: ref == "" || lib.hasPrefix "op://" ref;
       protondriveOnePasswordReady =
         protondriveAuth.enable
         && protondriveAuth.authSource == "onePassword"
-        && lib.all (ref: lib.hasPrefix "op://" ref) protondriveOnePasswordRefs;
+        && lib.hasPrefix "op://" (protondriveOnePassword.usernameRef or "")
+        && lib.hasPrefix "op://" (protondriveOnePassword.passwordRef or "")
+        && protondriveOptionalRefValid (protondriveOnePassword.otpRef or "")
+        && protondriveOptionalRefValid (protondriveOnePassword.mailboxPasswordRef or "");
       protondriveSopsSelected = protondriveAuth.enable && protondriveAuth.authSource == "sops";
       protondriveSopsReady =
         protondriveSopsSelected
@@ -205,32 +206,49 @@ _: {
                   protondriveOtpUri=""
                   protondriveOtpSeed=""
                   protondriveMailboxPasswordRaw=""
-                  protondriveUsernameRaw="$("$opExecutable" read --no-newline "$protondriveUsernameRef")" || protondriveLookupFailed=1
-                  protondrivePasswordRaw="$("$opExecutable" read --no-newline "$protondrivePasswordRef")" || protondriveLookupFailed=1
-                  protondriveOtpUri="$("$opExecutable" read --no-newline "$protondriveOtpRef")" || protondriveLookupFailed=1
-                  protondriveMailboxPasswordRaw="$("$opExecutable" read --no-newline "$protondriveMailboxPasswordRef")" || protondriveLookupFailed=1
+                  # A locked desktop app raises an unlock/biometric prompt and
+                  # blocks op read until it is answered; time out instead of
+                  # stalling activation, and let the existing failure path
+                  # below take the warn-and-preserve branch.
+                  protondriveUsernameRaw="$(timeout 30 "$opExecutable" read --no-newline "$protondriveUsernameRef")" || protondriveLookupFailed=1
+                  protondrivePasswordRaw="$(timeout 30 "$opExecutable" read --no-newline "$protondrivePasswordRef")" || protondriveLookupFailed=1
+                  # otp_secret_key and mailbox_password are per-account optional
+                  # (2FA / two-password accounts only), so an empty configured
+                  # ref opts out instead of being read.
+                  if [ -n "$protondriveOtpRef" ]; then
+                    protondriveOtpUri="$(timeout 30 "$opExecutable" read --no-newline "$protondriveOtpRef")" || protondriveLookupFailed=1
+                  fi
+                  if [ -n "$protondriveMailboxPasswordRef" ]; then
+                    protondriveMailboxPasswordRaw="$(timeout 30 "$opExecutable" read --no-newline "$protondriveMailboxPasswordRef")" || protondriveLookupFailed=1
+                  fi
 
                   if [ "$protondriveLookupFailed" -eq 0 ]; then
-                    case "$protondriveOtpUri" in
-                      otpauth://*secret=*)
-                        protondriveOtpSeed="$(printf '%s\n' "$protondriveOtpUri" | sed -n 's/.*[?&]secret=\([^&]*\).*/\1/p')"
-                        ;;
-                      *)
-                        echo "rclone protondrive 1Password OTP reference did not return an otpauth:// URI containing a secret" >&2
-                        protondriveCredentialsState=invalid
-                        ;;
-                    esac
+                    if [ -n "$protondriveOtpRef" ]; then
+                      case "$protondriveOtpUri" in
+                        otpauth://*secret=*)
+                          protondriveOtpSeed="$(printf '%s\n' "$protondriveOtpUri" | sed -n 's/.*[?&]secret=\([^&]*\).*/\1/p')"
+                          ;;
+                        *)
+                          echo "rclone protondrive 1Password OTP reference did not return an otpauth:// URI containing a secret" >&2
+                          protondriveCredentialsState=invalid
+                          ;;
+                      esac
+                    fi
 
-                    if [ -z "$protondriveUsernameRaw" ] || [ -z "$protondrivePasswordRaw" ] || [ -z "$protondriveOtpSeed" ] || [ -z "$protondriveMailboxPasswordRaw" ]; then
-                      echo "rclone protondrive 1Password references returned an empty required value" >&2
+                    if [ -z "$protondriveUsernameRaw" ] || [ -z "$protondrivePasswordRaw" ]; then
+                      echo "rclone protondrive 1Password references returned an empty username or password" >&2
                       protondriveCredentialsState=invalid
                     fi
 
                     if [ "$protondriveCredentialsState" != invalid ]; then
                       PROTONDRIVE_USERNAME="$protondriveUsernameRaw"
                       PROTONDRIVE_PASSWORD="$(printf '%s\n' "$protondrivePasswordRaw" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
-                      PROTONDRIVE_OTP_SECRET_KEY="$(printf '%s\n' "$protondriveOtpSeed" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
-                      PROTONDRIVE_MAILBOX_PASSWORD="$(printf '%s\n' "$protondriveMailboxPasswordRaw" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
+                      if [ -n "$protondriveOtpSeed" ]; then
+                        PROTONDRIVE_OTP_SECRET_KEY="$(printf '%s\n' "$protondriveOtpSeed" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
+                      fi
+                      if [ -n "$protondriveMailboxPasswordRaw" ]; then
+                        PROTONDRIVE_MAILBOX_PASSWORD="$(printf '%s\n' "$protondriveMailboxPasswordRaw" | "$rcloneExecutable" obscure -)" || protondriveCredentialsState=invalid
+                      fi
                       # rclone obscure draws a fresh random IV per call, so the
                       # ciphertexts above differ on every activation. Fingerprint
                       # the stable 1Password values instead.
