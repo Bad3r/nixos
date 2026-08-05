@@ -1890,8 +1890,12 @@ Create `modules/browsers/webapps/home.nix`:
             lib.attrValues launchers
           );
 
-          xdg.enable = lib.mkDefault true;
-
+          # No xdg.enable here. It is a host-wide toggle, off by default, and
+          # this module needs neither half of it: xdg-desktop-entries.nix gates
+          # only on `xdg.desktopEntries != { }`, and xdg.dataHome is given its
+          # default in the !enable branches too, so dataRoot resolves either
+          # way. Turning it on would export XDG_*_HOME into every session on
+          # every host Task 13 enables, from the web-app launcher module.
           xdg.desktopEntries = lib.mapAttrs (key: app: {
             inherit (app) name categories;
             exec = "${lib.getExe launchers.${key}.entry} %U";
