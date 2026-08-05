@@ -53,7 +53,8 @@ The branch is at `/home/vx/trees/nixos/feat-firefoxpwa-m365`. Its commits 2 and 
 
 ```bash
 cd /home/vx/nixos
-git worktree add "$HOME/trees/nixos/fix-build-time-shell" -b "fix/build-time-shell" main
+git fetch origin main
+git worktree add "$HOME/trees/nixos/fix-build-time-shell" -b "fix/build-time-shell" origin/main
 ```
 
 - [ ] **Step 2: Identify the two commits to cherry-pick**
@@ -89,7 +90,7 @@ own: it leaves the file in the working tree as untracked, and without `--continu
 finished, so Step 5 would run against a tree still mid-conflict.
 
 If any path other than `m365-check.nix` conflicts, stop and resolve it by reading the hunk. The two commits touch
-three files and none of them should conflict on a branch cut from `main`.
+three files and none of them should conflict on a branch cut from `origin/main`.
 
 - [ ] **Step 4: Verify the compgen fix actually detects what it claims**
 
@@ -121,12 +122,12 @@ Step 3's `git cherry-pick` already committed both changes, and its conflict path
 which commits too. Without collapsing them first there is nothing left to commit here: `git add` stages nothing,
 `git commit` exits 1 with `nothing added to commit`, and because this block is pasted rather than run under `set -e`
 the `git push` and `gh pr create` below still run, publishing #435's two original messages instead of the one written
-here. `git reset --soft main` puts both picked changes plus Step 5's `nix fmt` result back in the index as one
-staged change. `m365-check.nix` is absent from `main`, so Step 3's `git rm -f` resolution contributes nothing.
+here. `git reset --soft origin/main` puts both picked changes plus Step 5's `nix fmt` result back in the index as one
+staged change. `m365-check.nix` is absent from `origin/main`, so Step 3's `git rm -f` resolution contributes nothing.
 
 ```bash
 cd "$HOME/trees/nixos/fix-build-time-shell"
-git reset --soft main
+git reset --soft origin/main
 git add tests/prune-old-stashes/run.sh modules/meta/build-time-shell.nix modules/meta/hooks/statix.nix
 git commit -m "fix(checks): stop trusting compgen in build-time shell text
 

@@ -204,9 +204,17 @@ Do not start until the phase 2 PR (`docs/drafts/chromium-webapps-plan-2-remove-f
 
 ```bash
 cd /home/vx/nixos
-git worktree add "$HOME/trees/nixos/feat-chromium-webapps" -b "feat/chromium-webapps"
+git fetch origin main
+git worktree add "$HOME/trees/nixos/feat-chromium-webapps" -b "feat/chromium-webapps" origin/main
 cd "$HOME/trees/nixos/feat-chromium-webapps"
 ```
+
+`origin/main`, not `main`. This phase assumes phase 2 has landed, and a local `main` that has not been pulled since
+that merge still carries `modules/browsers/firefoxpwa/` and still lists `"firefoxpwa"` in `sharedBrowserNames`. Cut
+from there, Task 12 Step 2 adds `"webapps"` to a list that still holds the deleted browser and `getBrowserModule`
+throws for it, and Task 15 Step 1's `git log --diff-filter=D` finds no deletion commit, leaving `git show "^:<path>"`
+as the recovery command. Naming a remote-tracking start point also removes the case where the primary checkout is on
+some other branch entirely.
 
 - [ ] **Step 2: Create the shared hardening file**
 

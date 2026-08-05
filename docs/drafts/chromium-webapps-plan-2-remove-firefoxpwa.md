@@ -79,7 +79,8 @@ Do not start until the phase 1 PR (`docs/drafts/chromium-webapps-plan-1-salvage.
 
 ```bash
 cd /home/vx/nixos
-git worktree add "$HOME/trees/nixos/refactor-drop-firefoxpwa" -b "refactor/drop-firefoxpwa"
+git fetch origin main
+git worktree add "$HOME/trees/nixos/refactor-drop-firefoxpwa" -b "refactor/drop-firefoxpwa" origin/main
 cd "$HOME/trees/nixos/refactor-drop-firefoxpwa"
 ```
 
