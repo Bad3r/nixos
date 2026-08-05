@@ -195,9 +195,12 @@ in
             Additional non-LSP Claude Code plugins to enable, keyed by the
             `"<plugin>@<marketplace>"` identifier used in
             `~/.claude/settings.json`'s `enabledPlugins`. Set an entry to
-            `false` to keep the key registered but disabled, or override the
-            whole attrset to drop defaults entirely. The marketplace named in
-            the suffix must already be registered in
+            `false` to keep the key registered but disabled. Activation unions
+            this attrset with existing `enabledPlugins` entries, so removing a
+            key here does not remove a previously written key from
+            `~/.claude/settings.json`; delete stale entries there explicitly
+            when removing a plugin. The marketplace named in the suffix must
+            already be registered in
             `~/.claude/plugins/known_marketplaces.json` for the entry to take
             effect. LSP plugin keys (those that would collide with
             `lspPlugins.<key>@claude-plugins-official`) are rejected by
