@@ -39,7 +39,10 @@
             # Opts this check into the runtime build step in
             # .github/workflows/check.yml, which otherwise only forces drvPaths.
             passthru.runtimeCheck = true;
-            nativeBuildInputs = [ pkgs.gnugrep ];
+            nativeBuildInputs = [
+              pkgs.gnugrep
+              pkgs.coreutils
+            ];
           }
           ''
             set -o errexit -o nounset -o pipefail
