@@ -2685,6 +2685,8 @@ Validation: nix flake check path:. --accept-flake-config --no-build --offline; f
 
 - Create: `docs/reference/webapps.md`
 
+- Modify: `docs/index.md`
+
 - Regenerate: `README.md`
 
 - [ ] **Step 1: Write the operator reference**
@@ -2854,7 +2856,7 @@ loses one file's value. `checks."browsers/webapps-policy"` asserts this.
 Inspect what actually applied with `brave://policy`.
 ````
 
-- [ ] **Step 2: Update the architecture doc**
+- [ ] **Step 2: Update the architecture doc and register the reference page**
 
 Phase 2 Task 5 Step 1 dropped the firefoxpwa worked example from the browser-modules paragraph without replacing it,
 because the replacement names files that did not exist yet. They exist now, so this is the PR that adds the citation.
@@ -2874,6 +2876,24 @@ ls modules/browsers/webapps/home.nix modules/browsers/webapps/nixos.nix
 ```
 
 Expected: the sentence names both files, and both exist.
+
+`docs/index.md` is hand-maintained and `docs/AGENTS.md` requires an entry for every page. It is not a
+`config.files.file` artifact, so Step 3's `write-files` cannot add the row. Add it under `## Reference`,
+alphabetically between `useful-commands.md` and `worktree-prune.md`, as a link line plus its indented summary:
+
+```markdown
+- [reference/webapps.md](reference/webapps.md)
+  - Declarative Chromium web apps on brave-origin: per-app browser instances, the browser-wide scope of the managed permission policy, tray docking, and session keep-alive.
+```
+
+```bash
+diff <(ls docs/reference/ | sort) \
+  <(rg -o '\(reference/([a-z0-9-]+\.md)\)' -r '$1' docs/index.md | sort -u)
+```
+
+Expected: no output. The check reports `< webapps.md` while the row is missing. Nothing in CI covers this: the only
+hook that reads `docs/` is `modules/meta/hooks/mcp-docs-sync.nix`, and it checks `docs/reference/mcp-tools.md` alone.
+Commit `78b1f775` exists because PR #383 shipped two reference pages without their index rows.
 
 - [ ] **Step 3: Regenerate managed artifacts**
 
@@ -2897,7 +2917,7 @@ Expected: all succeed.
 - [ ] **Step 5: Commit and open the PR**
 
 ```bash
-git add docs/reference/webapps.md docs/architecture/04-home-manager.md README.md
+git add docs/reference/webapps.md docs/architecture/04-home-manager.md docs/index.md README.md
 git commit -m "docs(webapps): document the web app module
 
 Validation: nix flake check path:. --accept-flake-config --no-build --offline;
