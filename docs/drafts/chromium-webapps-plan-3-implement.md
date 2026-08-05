@@ -2452,13 +2452,29 @@ nix eval --impure --json --expr '
 
 - [ ] **Step 4: Confirm no real host leaked into the fixture**
 
+The check prints what is **not** on the known-good list, rather than counting what is. `rg -c` reports how many lines
+matched: a leaked real host sits on its own line in the `jq -S` output, does not match, and so is neither counted nor
+printed. The number stays plausible and the step passes. This is the shape the Self-Review's
+where-validation-would-have-missed list names.
+
 ```bash
 rg -n 'PLACEHOLDER-dmail' modules/browsers/webapps/check-fixtures/policy.json
-rg -c 'cloud.microsoft|example.invalid|PLACEHOLDER' modules/browsers/webapps/check-fixtures/policy.json
+
+jq -r '[.. | strings] | unique[]' modules/browsers/webapps/check-fixtures/policy.json \
+  | rg -v '^https://[a-z0-9-]+\.cloud\.microsoft(/\*)?$' \
+  | rg -v '^PLACEHOLDER-[a-z0-9-]+(/\*)?$'
+
 git diff --stat modules/browsers/webapps/check-fixtures/policy.json
 ```
 
-Expected: `PLACEHOLDER-dmail` appears in `NotificationsAllowedForUrls` and `URLAllowlist`; every origin in the file is a `cloud.microsoft` host or a placeholder. If any other hostname appears, stop and fix the generator before committing.
+Expected: `PLACEHOLDER-dmail` in `NotificationsAllowedForUrls` and `URLAllowlist`, and the second command printing
+only the fixed non-origin constants: `*://*/*`, `force_installed`, `blocked`, `allowed`, the
+`blocked_install_message` text, and the `clients2.google.com` update URL. Anything else is the leak. Stop and fix the
+generator before committing.
+
+`[.. | strings]` walks the whole document, so it also reaches origins buried in
+`ExtensionSettings.<id>.runtime_blocked_hosts` and `runtime_allowed_hosts`. A filter that read only the top-level
+allowlists would miss those, and they are where a per-app extension puts an app's origin.
 
 - [ ] **Step 5: Validate and commit**
 
@@ -2758,11 +2774,22 @@ Not part of the PR. Run after `feat/chromium-webapps` merges and the host switch
 
 ```bash
 ls -la /etc/brave/policies/managed/
-jq -S 'keys' /etc/brave/policies/managed/extended.json | head -20
-jq -S 'keys' /etc/brave/policies/managed/webapps.json
+
+comm -12 \
+  <(jq -r 'keys[]' /etc/brave/policies/managed/extended.json | sort) \
+  <(jq -r 'keys[]' /etc/brave/policies/managed/webapps.json | sort)
 ```
 
-Expected: two files; no key appears in both listings.
+Expected: two files listed, and `comm` produces no output.
+
+`comm`, not two `jq -S 'keys'` listings compared by eye. `extended.json` carries 106 keys, so a `head -20` showed
+under a fifth of the set it asked the operator to compare, against a second list they also had to scan. Disjointness
+is the invariant this plan calls the most important one, and this is its only runtime check.
+
+It is also the only place the search-provider half is checked at all. `policy-check.nix` asserts `_policy.nix`
+against `(import ../_chromium-hardening.nix).policies`, while the file actually written is
+`policies // managedDefaultSearchProvider`, so those seven `DefaultSearchProvider*` keys sit outside the eval-time
+invariant. They do not collide today, and `comm` is what would say so if that changed.
 
 - [ ] **Step 2: Confirm the policy actually applied**
 
