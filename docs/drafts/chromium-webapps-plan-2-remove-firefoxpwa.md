@@ -106,7 +106,7 @@ summary shows up as an extra hit rather than disappearing, which is the directio
 
 Record the two numbers rather than comparing them against a figure written here: the counts move whenever a draft or
 a workflow is edited, and a stale figure would either mask a missed reference or fail for an unrelated reason. The
-file itself is the checklist, and it is consulted again in Task 6.
+saved file is the checklist Task 4 Step 7 `comm`s its own sweep against; nothing else reads it.
 
 - [ ] **Step 3: Remove the files using the recoverable deletion path**
 
@@ -300,10 +300,20 @@ In `pyproject.toml`, delete the `update-firefoxpwa-extension.py` mention from th
 
 ```bash
 rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
-  | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan'
+  | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan' \
+  > /tmp/firefoxpwa-after.txt
+cat /tmp/firefoxpwa-after.txt
+
+# Files in the Task 2 baseline that no longer match. Everything the removal
+# was supposed to reach has to be here.
+comm -23 <(cut -d: -f1 /tmp/firefoxpwa-before.txt | sort -u) \
+  <(cut -d: -f1 /tmp/firefoxpwa-after.txt | sort -u)
 ```
 
-Expected: only `docs/architecture/04-home-manager.md` and `docs/reference/binary-cache-coverage.md`, handled in Task 5.
+Expected: the first command prints only `docs/architecture/04-home-manager.md` and
+`docs/reference/binary-cache-coverage.md`, handled in Task 5. The `comm` prints every other file the baseline held,
+which is the checklist Task 2 Step 2 recorded: a file listed there and absent from this output is one the removal
+missed.
 
 - [ ] **Step 8: Validate and commit**
 
