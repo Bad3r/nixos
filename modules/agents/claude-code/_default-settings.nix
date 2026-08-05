@@ -186,8 +186,12 @@ assert
     alwaysThinkingEnabled = true;
     # Persisted effort accepts low|medium|high|xhigh only. `max` is session-scoped
     # (/effort, --effort, CLAUDE_CODE_EFFORT_LEVEL) and rejected by the settings schema.
+    # Persisted effort accepts low|medium|high|xhigh only; `max` is silently
+    # dropped by the schema's .catch(). CLAUDE_CODE_EFFORT_LEVEL in `env` pins
+    # max and outranks this, which stays as the floor if that var is unset.
     effortLevel = "xhigh";
     enableAllProjectMcpServers = true;
+    fileCheckpointingEnabled = true; # Snapshot files before edits so /rewind can restore them
     language = "en"; # Language
     outputStyle = "Proactive"; # Output style
     respectGitignore = false; # Respect .gitignore in file picker
@@ -202,7 +206,6 @@ assert
     hasCompletedProjectOnboarding = true;
     bypassPermissionsModeAccepted = true;
     autoCompactEnabled = true; # Auto-compact
-    autocheckpointingEnabled = true; # Rewind code (checkpoints)
     autoConnectIde = false; # Auto-connect to IDE
     autoUpdates = false; # Auto-updates
     claudeInChromeDefaultEnabled = true; # Chrome enabled by default

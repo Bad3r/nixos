@@ -20,7 +20,6 @@ let
   binary = {
     DISABLE_AUTOUPDATER = "1";
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
-    DISABLE_NON_ESSENTIAL_MODEL_CALLS = "1";
     DISABLE_TELEMETRY = "1";
     DISABLE_INSTALLATION_CHECKS = "1";
   };
@@ -30,6 +29,19 @@ let
     CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "1";
     BASH_DEFAULT_TIMEOUT_MS = "240000";
     BASH_MAX_TIMEOUT_MS = "4800000";
+  };
+
+  # Model/effort routing. CLAUDE_CODE_SUBAGENT_MODEL overrides every spawned
+  # subagent, including built-in agents whose definition pins `model: haiku`
+  # (review, claude-code-guide); it beats agent frontmatter, which is the only
+  # lever that reaches them. CLAUDE_CODE_EFFORT_LEVEL carries `max`, which the
+  # persisted `effortLevel` schema rejects (see _default-settings.nix).
+  modelRouting = {
+    CLAUDE_CODE_SUBAGENT_MODEL = "claude-sonnet-5";
+    CLAUDE_CODE_EFFORT_LEVEL = "max";
+    # Repoints the `haiku` alias, which also backs background work the subagent
+    # override does not reach (titles, summarization, classifiers).
+    ANTHROPIC_DEFAULT_HAIKU_MODEL = "claude-sonnet-5";
   };
 
   # Shell-level vars not needed in settings.json.
@@ -49,6 +61,6 @@ let
 in
 {
   inherit binary;
-  settings = binary // bashRuntime;
-  all = binary // bashRuntime // shellOnly;
+  settings = binary // bashRuntime // modelRouting;
+  all = binary // bashRuntime // modelRouting // shellOnly;
 }
