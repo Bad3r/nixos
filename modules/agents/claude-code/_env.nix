@@ -63,13 +63,17 @@ let
     USE_BUILTIN_RIPGREP = "0";
   };
 
-  # Names removed from managed environment groups. These stay out of
-  # `settings` and `all`; activation and launch wrappers delete old values.
+  # Names permanently removed from managed environment groups. These stay out
+  # of `settings` and `all`; activation and launch wrappers always remove them.
   retired = [
-    "CLAUDE_CODE_DISABLE_TERMINAL_TITLE"
     "CLAUDE_CODE_ENABLE_TELEMETRY"
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS"
   ];
+  # Invalid values from older generations are removed only when they match
+  # exactly, so documented user values remain available to Claude.
+  legacyEnvValues = {
+    CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
+  };
   retiredButLive = builtins.filter (
     name: builtins.hasAttr name (binary // bashRuntime // modelRouting // shellOnly)
   ) retired;
@@ -467,7 +471,7 @@ let
   # Set to 1 to disable fullscreen rendering and use the classic main-screen renderer. [1 or unset]
   # CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN = "1";
   # Set to 1 to disable automatic terminal title updates based on conversation context. [1 or unset]
-  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";   # RETIRED below
+  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
   # Set to 1 to hide the working directory in the startup logo. [1 or unset]
   # CLAUDE_CODE_HIDE_CWD = "1";
   # Override the host address used to connect to the IDE extension.
@@ -1271,7 +1275,7 @@ assert
   retiredButLive == [ ]
   || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " retiredButLive} are both retired and live; remove the name from retired or its live group";
 {
-  inherit binary retired;
+  inherit binary legacyEnvValues retired;
   settings = binary // bashRuntime // modelRouting;
   all = binary // bashRuntime // modelRouting // shellOnly;
 }
