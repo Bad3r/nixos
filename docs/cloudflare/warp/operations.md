@@ -13,10 +13,12 @@ warp-cli registration show                        # enrolled into <team> (non_id
 warp-cli status                                   # Connected
 ```
 
-For an enrolled host, the `cloudflare-warp-connect` oneshot polls the daemon for
-up to 30 seconds before it issues `warp-cli connect`, so on a fresh boot the unit
-can take that long to reach `active (exited)`. Without the sops secret, it logs
-UN-ENROLLED and exits without connecting.
+For an enrolled host, the `cloudflare-warp-connect` oneshot makes up to 30
+readiness attempts before it issues `warp-cli connect`. Its explicit
+`TimeoutStartSec=180` gives slow IPC calls headroom while keeping the unit's
+startup bounded, so a fresh boot can take up to three minutes to reach
+`active (exited)`. Without the sops secret, it logs UN-ENROLLED and exits
+without connecting.
 
 Confirm WARP is carrying traffic:
 
@@ -27,14 +29,18 @@ curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E '^warp='   # warp=on
 ## Zero Trust dashboard checks
 
 - The device appears under Team & Resources > Devices.
-- Gateway DNS/HTTP logs show this device's queries (confirms Full mode + Gateway
-  DNS).
+- For system76, Gateway DNS/HTTP logs show this device's queries (confirms Full
+  mode + Gateway DNS).
+- For tpnix, HTTP/policy telemetry is expected while private-host lookups remain
+  served by the local NetworkManager dnsmasq configuration.
 
 ## Coexistence checks
 
 - `tailscale status` is still reachable (confirms the `100.64.0.0/10`
   split-tunnel exclude).
 - Internal / `.local` names resolve (confirms Local Domain Fallback).
+- On tpnix, SignalX private-host names resolve through NetworkManager dnsmasq;
+  this is expected because the host uses `tunnelonly`.
 
 ## Reapplying managed config
 
@@ -50,23 +56,30 @@ re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
 - **Enrollment fails / device shows then drops.** The service token likely lacks
   device-enrollment permission. Add a Service Auth rule referencing the token
   (Deployment, step 3). Collect a diagnostics bundle: `sudo warp-diag`.
+
 - **mdm.xml missing at boot (race).** `mdm.xml` is installed by an `ExecStartPre`
   that copies the sops-rendered template. Ordering is wired into the module:
   `cloudflare-warp.service` carries `after`/`requires` on the sops secret-install
   dependency (`config.flake.lib.security.sopsInstallSecretsDeps`), so on
   systemd-activation hosts the rendered template is present before `warp-svc`
   starts. Activation-script hosts decrypt secrets before any unit ordering. The
-  connect oneshot waits for the daemon and retries `warp-cli connect` for up to
-  30 seconds because the IPC socket can answer before managed registration
-  completes. If it logs `connect never succeeded`, inspect the daemon logs and
-  rerun `systemctl restart cloudflare-warp-connect.service` after enrollment is
-  ready.
+  connect oneshot waits for the daemon and makes up to 30 retry attempts because
+  the IPC socket can answer before managed registration completes. The oneshot
+  has an explicit 180-second start timeout. If it logs `connect never succeeded`,
+  inspect the daemon logs and rerun:
+
+  `systemctl restart cloudflare-warp-connect.service`
+
+  after enrollment is ready.
+
 - **No connectivity with strict rp_filter.** The module sets
   `networking.firewall.checkReversePath = "loose"` by default. If a host firewall
   module forces `strict`, the `CloudflareWARP` interface drops return traffic.
+
 - **DNS resolver conflict.** Full mode (`warp` / `1dot1`) makes WARP the DNS
   resolver. Do not also enable `services.dnscrypt-proxy` or NetworkManager's
   dnsmasq mode on `127.0.0.1:53`; the module warns when either local resolver
-  is selected.
+  is selected. Tpnix avoids the conflict by using `tunnelonly`.
+
 - **General diagnostics.** `sudo warp-diag` writes a zip with logs and settings;
   `sudo warp-diag feedback` is the same bundle framed for a support ticket.

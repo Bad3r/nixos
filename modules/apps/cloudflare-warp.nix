@@ -252,6 +252,9 @@ let
               serviceConfig = {
                 Type = "oneshot";
                 RemainAfterExit = true;
+                # Bound the wall-clock readiness window even if an IPC call takes
+                # longer than the retry interval.
+                TimeoutStartSec = 180;
               };
               script = ''
                 ${unenrolledGuard}
