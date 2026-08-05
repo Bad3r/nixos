@@ -171,6 +171,7 @@ ______________________________________________________________________
 | `modules/browsers/webapps/module-check.nix`           | Flake check: Home Manager module evaluates and produces the expected launcher. |
 | `modules/browsers/webapps/check-fixtures/policy.json` | Expected policy output.                                                        |
 | `modules/browsers/webapps/check-fixtures/gecko.yaml`  | Non-secret fixture for the HM eval check.                                      |
+| `docs/reference/webapps.md`                           | Operator reference for `programs.webapps`.                                     |
 
 ### PR 3: implementation (files modified)
 
@@ -179,8 +180,10 @@ ______________________________________________________________________
 - `modules/hosts/common/home-manager-apps.nix`: add `"webapps"` to `sharedBrowserNames`
 - `modules/meta/cache-roots.nix`: add `"brave-origin"`
 - `docs/reference/binary-cache-coverage.md`: add the matching `brave-origin` inventory row
-- `docs/architecture/04-home-manager.md`: add the webapps worked example to the browser-modules paragraph, which
-  phase 2 left without one because the files did not exist yet
+- `docs/architecture/04-home-manager.md`: add a sentence for the webapps pair spanning both scopes, after the
+  sibling-merge sentence phase 2 left without a worked example
+- `docs/index.md`: add the `reference/webapps.md` row `docs/AGENTS.md` requires, which `write-files` cannot generate
+- `secrets/gecko.yaml`: add `gecko_work_bookmark_origin_1`, committed and pushed inside the submodule (Task 16)
 - `docs/reference/local-mirrors.md` is untouched; `README.md` is regenerated
 
 ______________________________________________________________________
