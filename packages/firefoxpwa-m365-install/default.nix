@@ -199,10 +199,17 @@ mkSiteInstaller {
           # and adopt regardless. Its content is the manifest_url the attempt
           # used, which only an install through this script's synthetic data:
           # manifest could produce, so matching it authenticates the site
-          # whatever state ulid_file is in.
-          if [ -s "$pending_file" ] \
-            && [ "$(jq -r --arg u "$ulid" '.sites[$u].config.manifest_url // empty' \
-                  "$config_file" 2>/dev/null)" = "$(<"$pending_file")" ]; then
+          # whatever state ulid_file is in. A jq read failure is retryable,
+          # rather than the permanent foreign-site refusal below.
+          installed_manifest=""
+          if [ -s "$pending_file" ]; then
+            if ! installed_manifest=$(jq -r --arg u "$ulid" \
+              '.sites[$u].config.manifest_url // empty' "$config_file" 2>/dev/null); then
+              retry_refusal "cannot read $config_file; not installing a second '$name'"
+              return
+            fi
+          fi
+          if [ -s "$pending_file" ] && [ "$installed_manifest" = "$(<"$pending_file")" ]; then
             record "$ulid_file" "$ulid"
             rm -f "$pending_file"
           else

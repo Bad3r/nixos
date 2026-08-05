@@ -269,10 +269,17 @@ mkSiteInstaller {
         # then yields empty output too) would otherwise compare "" = "" and
         # adopt regardless. Requiring non-empty here is enough on its own:
         # equality against a non-empty marker already implies the jq read
-        # produced that same non-empty value.
-        if [ -s "$pending_file" ] \
-          && [ "$(jq -r --arg u "$ulid" '.sites[$u].config.manifest_url // empty' \
-                "$config_file" 2>/dev/null)" = "$(<"$pending_file")" ]; then
+        # produced that same non-empty value. A jq read failure is a transient
+        # fault, not proof of a foreign site.
+        installed_manifest=""
+        if [ -s "$pending_file" ]; then
+          if ! installed_manifest=$(jq -r --arg u "$ulid" \
+            '.sites[$u].config.manifest_url // empty' "$config_file" 2>/dev/null); then
+            echo "firefoxpwa-dmail: cannot read $config_file; not installing a second '$app_name'" >&2
+            exit 1
+          fi
+        fi
+        if [ -s "$pending_file" ] && [ "$installed_manifest" = "$(<"$pending_file")" ]; then
           record_ulid
           rm -f "$pending_file"
         else
