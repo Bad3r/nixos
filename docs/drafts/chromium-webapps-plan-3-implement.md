@@ -834,8 +834,9 @@ Create `modules/browsers/webapps/nixos.nix`:
           default = "brave/policies/managed/webapps.json";
           description = ''
             Path under /etc for the generated web app policy. Must sit in the same
-            managed directory the browser reads, and must not be the file
-            programs.brave-origin.extended writes.
+            managed directory the browser reads. An assertion refuses the
+            brave-origin extended.json name, because two owners of one
+            environment.etc entry fail silently rather than at evaluation.
           '';
         };
 
@@ -982,6 +983,22 @@ Create `modules/browsers/webapps/nixos.nix`:
               {
                 assertion = secretApps == { } || cfg.secretsFile != null;
                 message = "programs.webapps: an app declares urlSecret but programs.webapps.secretsFile is null.";
+              }
+              {
+                assertion =
+                  !(
+                    config.programs."brave-origin".extended.enable
+                    && config.programs."brave-origin".extended.enableManagedPolicies
+                    && cfg.policyFile == "brave/policies/managed/extended.json"
+                  );
+                message = ''
+                  programs.webapps.policyFile names the same /etc entry programs.brave-origin.extended
+                  writes. environment.etc.<name>.text is nullOr lines and merges by concatenation, so two
+                  owners leave one file holding two JSON documents and no policy at all; and when a secret
+                  origin routes this file through sops, the explicit source definition here wins over the
+                  one derived from brave-origin's text and drops the hardened set instead. Neither fails
+                  at evaluation. Use a different file name in the same managed directory.
+                '';
               }
             ];
           }
