@@ -508,6 +508,13 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             expect "credentials refused" "$credentials" 78 "embeds credentials"
             assert_equal "only the other entry was installed" "$(site_count)" 1
             assert_equal "beta installed anyway" "$(cat "$data_dir/m365-beta-applied-url")" "https://beta.example/"
+            # A retryable fault must outrank a permanent refusal: 78 is a
+            # successful exit for the user service, so the wrong precedence
+            # would leave the transient fault with no rerun.
+            reset
+            export STUB_FAIL_NAME=Beta STUB_FAIL_BEFORE_REGISTER=1
+            expect "a retryable fault outranks a permanent refusal" "$credentials" 1 "failed after 3 attempts"
+            unset STUB_FAIL_NAME STUB_FAIL_BEFORE_REGISTER
 
             echo
             echo "-- a same-named site this unit did not install is refused --"
