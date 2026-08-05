@@ -3173,11 +3173,12 @@ Adds DMail plus the Microsoft 365 suite including Teams, which the firefoxpwa ca
 ## Scope of the policy
 
 Read this before switching. The permission policy is **browser-wide, not app-scoped**. Chromium applies a managed
-directory per browser, so `/etc/brave/policies/managed/webapps.json` binds every `brave-origin` instance including
-the daily driver:
+directory per browser and `brave` shares `brave-origin`'s, so `/etc/brave/policies/managed/webapps.json` binds every
+Brave-family instance on the host, whichever of the two is the daily driver:
 
 - Mic, camera and screen capture become hard denials with no prompt for all browsing. The only exception is
-  `teams.cloud.microsoft`. Video calls and screen shares on any other site fail in `brave-origin`.
+  `teams.cloud.microsoft`. Video calls and screen shares on any other site fail in whichever Brave-family build the
+  host installs.
 - Extension installs are blocked in the daily-driver profile, and 1Password is force-installed there.
 - Extensions are not isolated per app either: `extensions.enable` installs everywhere and scopes only interaction,
   through `runtime_blocked_hosts` / `runtime_allowed_hosts`.
