@@ -50,11 +50,14 @@ daily driver. Task 13 turns `programs.webapps.enable` on for every common host
 regardless of which Brave-family build that host installs.
 
 Today `modules/hosts/common/apps-enable.nix` sets `brave.extended.enable` to
-`false`, so the `brave` half is latent. It stops being latent in the one
-configuration Task 8's assertion contemplates: `brave` enabled with
-`brave-origin.extended.enableManagedPolicies` off. Task 18 Step 8 checks
-`brave-origin` only, so a host in that shape gets the promptless capture denial
-in `brave` without the plan's verification noticing.
+`false`, so the `brave` half is latent. It stops being latent in either shape
+Task 8's assertion leaves open: `brave` enabled with its own
+`enableManagedPolicies` off, or `brave` enabled with
+`brave-origin.extended.enableManagedPolicies` off. Either way one module owns
+`extended.json` and neither of them touches `webapps.json`, so a host in either
+shape takes the promptless capture denial in `brave` too. That is why Task 18
+Step 8 reads whichever Brave-family builds the host installs rather than
+`brave-origin` alone.
 
 Accepted, with these effects stated rather than discovered later:
 
@@ -393,16 +396,33 @@ and add to Options:
 
 - [ ] **Step 3: Guard against brave and brave-origin fighting over one file**
 
-Both modules write `/etc/brave/policies/managed/extended.json`. Add to `modules/browsers/brave-origin/apps.nix`, inside `config`:
+Both modules can write `/etc/brave/policies/managed/extended.json`. `brave` writes it under
+`programs.brave.extended.enable && programs.brave.extended.enableManagedPolicies`
+(`modules/browsers/brave/apps.nix`, where `etc` sits inside `lib.mkIf cfg.enableManagedPolicies`), so the guard has to
+name brave's own toggle too. Asserting on `enable` alone rejects `brave` enabled with its managed policies off, which
+writes nothing and leaves no shared file to fight over.
+
+Nothing else catches the collision: `environment.etc.<name>.text` is `nullOr lines`, and `lines` merges by
+concatenation rather than conflicting, so two owners produce one file holding two JSON documents back to back. That
+parses as nothing and the browser applies no policy at all, with no eval error. Add to
+`modules/browsers/brave-origin/apps.nix`, inside `config`:
 
 ```nix
         assertions = [
           {
-            assertion = !(config.programs.brave.extended.enable && cfg.enableManagedPolicies);
+            assertion =
+              !(
+                config.programs.brave.extended.enable
+                && config.programs.brave.extended.enableManagedPolicies
+                && cfg.enableManagedPolicies
+              );
             message = ''
-              programs.brave.extended.enable and programs.brave-origin.extended.enableManagedPolicies both write
+              programs.brave.extended and programs.brave-origin.extended would both write
               /etc/brave/policies/managed/extended.json. Brave and Brave Origin share one policy directory
-              (verified in the brave-origin binary's string table), so only one may own that file. Disable
+              (verified in the brave-origin binary's string table), and environment.etc text definitions
+              concatenate instead of conflicting, so two writers leave one unparsable file and no policy at
+              all. Both modules default to the same _chromium-hardening.nix set, so whichever one owns the file
+              still covers both browsers. Disable programs.brave.extended.enableManagedPolicies, or disable
               programs.brave-origin.extended.enableManagedPolicies, or disable programs.brave.extended.enable.
             '';
           }
