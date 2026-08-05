@@ -281,7 +281,7 @@
               if [ "$ok" = 0 ]; then
                 echo "PASS  $label"
               else
-                echo "FAIL  $label (rc=$rc, expected $want_rc)"
+                echo "FAIL  $label (rc=$rc, expected $want_rc; wanted output containing '$want_text')"
                 printf '%s\n' "$out" | sed 's/^/      /'
                 failures=$((failures + 1))
               fi
