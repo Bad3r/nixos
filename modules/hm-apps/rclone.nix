@@ -164,10 +164,16 @@ _: {
 
                   # The protondrive backend persists reusable login credentials
                   # in the remote stanza after authentication. Preserve only
-                  # those backend-owned keys when rebuilding from SOPS input.
+                  # those backend-owned keys when rebuilding from unchanged
+                  # SOPS credentials.
                   prevProtonSession=""
+                  prevProtonCreds=""
+                  currentProtonCreds="$(printf '%s\n%s' "$PROTONDRIVE_USERNAME" "$PROTONDRIVE_PASSWORD")"
                   if [ -r "$renderedConfig" ]; then
-                    prevProtonSession="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^client_uid *=/p; /^client_access_token *=/p; /^client_refresh_token *=/p; /^client_salted_key_pass *=/p; }' "$renderedConfig")"
+                    prevProtonCreds="$(sed -n '/^\[protondrive\]$/,/^\[/{ s/^username *= *//p; s/^password *= *//p; }' "$renderedConfig")"
+                    if [ "$prevProtonCreds" = "$currentProtonCreds" ]; then
+                      prevProtonSession="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^client_uid *=/p; /^client_access_token *=/p; /^client_refresh_token *=/p; /^client_salted_key_pass *=/p; }' "$renderedConfig")"
+                    fi
                   fi
 
                   # password/otp_secret_key/mailbox_password must already be rclone-obscured
@@ -193,6 +199,7 @@ _: {
                   } >> "$tmpConfig"
                 fi
                 unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
+                unset prevProtonSession prevProtonCreds currentProtonCreds
               fi
 
               chmod 600 "$tmpConfig"
