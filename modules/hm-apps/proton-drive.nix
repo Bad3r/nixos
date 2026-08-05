@@ -260,9 +260,9 @@ _: {
 
         interval = lib.mkOption {
           type = lib.types.str;
-          default = "10m";
+          default = "30m";
           example = "1h";
-          description = "systemd time span between automatic syncs (OnUnitActiveSec).";
+          description = "systemd time span between automatic syncs (OnUnitActiveSec); the 30m default limits repeated full listings against the Proton backend.";
         };
 
         extraArgs = lib.mkOption {
