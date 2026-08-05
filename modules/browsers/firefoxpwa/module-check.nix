@@ -133,6 +133,15 @@
         assert lib.assertMsg (
           hm.config.warnings == [ ]
         ) "browsers/firefoxpwa-module-eval: the enabled configuration must not warn";
+        # Forcing the unit below proves the attribute evaluates, not that it
+        # names the right unit, and systemd ignores an After= on a unit that
+        # does not exist rather than reporting it: a typo here would be silent
+        # at switch and at login. The installers' shared lock is what actually
+        # keeps the two apart, so this only has to hold the ordering that keeps
+        # the common case off the lock.
+        assert lib.assertMsg
+          (lib.elem "firefoxpwa-dmail.service" hm.config.systemd.user.services.firefoxpwa-m365.Unit.After)
+          "browsers/firefoxpwa-module-eval: the m365 unit must be ordered after the dmail unit";
         builtins.deepSeq {
           execStart = hm.config.systemd.user.services.firefoxpwa-dmail.Service.ExecStart;
           environment = hm.config.systemd.user.services.firefoxpwa-dmail.Service.Environment;
