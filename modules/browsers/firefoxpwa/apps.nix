@@ -139,10 +139,12 @@ let
               with `firefoxpwa site uninstall`. The installer logs the refusal
               and exits `EX_CONFIG` (78), which the user service treats as a
               successful, non-restarting exit: the unit stays active rather than
-              failing, does not consume its restart burst, and repeats the
-              refusal at every login until the entry is fixed. The remaining
-              entries are still installed, so one refusal does not hold up the
-              rest of the suite.
+              failing and does not trigger automatic retries. The unit still
+              counts each start, including corrective switches, within its
+              bounded five-start window, so the refusal remains visible while
+              leaving room to fix the entry without an immediate rate-limit
+              lockout. The remaining entries are still installed, so one
+              refusal does not hold up the rest of the suite.
 
               Renaming an entry while keeping its `key` is refused on the same
               terms. `name` is the idempotency key, so the installer would

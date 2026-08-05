@@ -85,13 +85,16 @@ _: {
               # unit is ignored rather than fatal.
               After = [ "firefoxpwa-dmail.service" ];
               # Bounds the Restart= below, so a retryable fault stops after
-              # three tries instead of restarting for the rest of the session.
-              # Sized beyond
-              # 3 * (TimeoutStartSec + RestartSec), so a run killed at the
+              # five tries instead of restarting for the rest of the session.
+              # The burst counts every start, not only failed ones: an
+              # EX_CONFIG refusal is a successful start and still consumes a
+              # slot, as does each sd-switch restart the user triggers while
+              # fixing the entry. Sized beyond
+              # 5 * (TimeoutStartSec + RestartSec), so a run killed at the
               # 900-second timeout still counts toward the burst rather than
               # landing alone in a shorter sliding window.
-              StartLimitIntervalSec = 3600;
-              StartLimitBurst = 3;
+              StartLimitIntervalSec = 5400;
+              StartLimitBurst = 5;
             };
             Service = {
               Type = "oneshot";
@@ -104,9 +107,11 @@ _: {
               RestartSec = 120;
               # The installer returns EX_CONFIG (78) for a permanent refusal
               # that needs user action. Treating it as successful prevents
-              # Restart=on-failure from burning the retry window before the
-              # user can fix the entry and switch again. Filesystem, firefoxpwa
-              # and timeout faults retain status 1 and the bounded retry.
+              # Restart=on-failure from burning the retry window automatically
+              # before the user can fix the entry and switch again. The starts
+              # still count toward the five-start budget above. Filesystem,
+              # firefoxpwa and timeout faults retain status 1 and the bounded
+              # retry.
               SuccessExitStatus = "78";
               RestartPreventExitStatus = "78";
               # Past the default 90s, which a legitimate wait can exceed: the
