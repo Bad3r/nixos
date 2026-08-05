@@ -201,6 +201,7 @@
                   echo "hm-apps/proton-drive-sync: $check_root already exists; this check needs the sandbox's private /tmp" >&2
                   exit 1
                 fi
+                trap 'rm -rf -- "$check_root"' EXIT
 
                 export HOME=${lib.escapeShellArg "${root}/home"}
                 mkdir -p "$local_path"
