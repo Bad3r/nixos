@@ -78,9 +78,11 @@
             # unscanned while the self-test stayed green.
             printf 'if %s -A function; then :; fi\n' compgen >"$planted/plain.sh"
             printf 'if ! %s -A function; then :; fi\n' compgen >"$planted/negated.sh"
+            printf 'elif %s -A function; then :; fi\n' compgen >"$planted/elif.sh"
+            printf 'true | %s -A function\n' compgen >"$planted/pipe.sh"
             planted_hits=$(scan "$planted" | wc -l)
-            if [ "$planted_hits" -ne 2 ]; then
-              echo "build-time-shell: the scan reports $planted_hits of 2 planted usages, so the tree scan below would pass regardless" >&2
+            if [ "$planted_hits" -ne 4 ]; then
+              echo "build-time-shell: the scan reports $planted_hits of 4 planted usages, so the tree scan below would pass regardless" >&2
               exit 1
             fi
 
