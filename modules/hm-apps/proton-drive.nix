@@ -214,13 +214,22 @@ _: {
       # a bool, so --resilient=false reinstates bisync's -err listing rename on
       # a retryable critical error (cmd/bisync/operations.go skips it only under
       # `b.retryable && b.opt.Resilient && !b.opt.Resync`), turning the
-      # offline-at-boot retry the unit relies on into that same repeat. Every
-      # flag the script puts on the command line is here, which is the invariant
-      # the check asserts against rejectedExtraArgs below.
+      # offline-at-boot retry the unit relies on into that same repeat.
+      # --create-empty-src-dirs decides whether an empty source directory is
+      # mirrored at all, and it is on all four invocations, so flipping it
+      # changes what the bisync listings describe from one fire to the next.
+      #
+      # The invariant is that every flag the script passes is either here or
+      # deliberately tunable (--transfers, --checkers, and --max-depth on the
+      # down probe, which extra never reaches). The check reads the stub's
+      # recorded argv and fails on any flag covered by neither, because stating
+      # this in a comment is how --create-empty-src-dirs stayed outside both
+      # lists while four rounds patched the ones next to it.
       rejectedFlags = [
         "--config"
         "--conflict-loser"
         "--conflict-resolve"
+        "--create-empty-src-dirs"
         "--dry-run"
         "--force"
         "--ignore-errors"
@@ -538,13 +547,16 @@ _: {
 
             Arguments that override a safety flag, the sync mode, or the state
             the tuple key does not cover (`--config`, `--conflict-loser`,
-            `--conflict-resolve`, `--dry-run`, `--force`, `--ignore-errors`,
-            `--max-delete`, `--protondrive-enable-caching`, `--resilient`,
-            `--resync`, `--resync-mode`, `--workdir`): each defeats the deletion
-            cap, the withholding of deletes from an errored run, the bisync
-            safety checks, the conflict winner, the retry the unit relies on,
-            the caching-off the Beta backend requires, or the correspondence
-            between the tuple marker and the account and listings it stands for.
+            `--conflict-resolve`, `--create-empty-src-dirs`, `--dry-run`,
+            `--force`, `--ignore-errors`, `--max-delete`,
+            `--protondrive-enable-caching`, `--resilient`, `--resync`,
+            `--resync-mode`, `--workdir`): each defeats the deletion cap, the
+            withholding of deletes from an errored run, the bisync safety
+            checks, the conflict winner, the retry the unit relies on, the
+            caching-off the Beta backend requires, the mirroring of empty
+            directories, or the correspondence between the tuple marker and the
+            account and listings it stands for. `--transfers`, `--checkers` and
+            everything else stay tunable.
 
             Short options are rejected wholesale because they cluster (`-nv` is
             `--dry-run` plus `--verbose`); use the long form. The equivalent

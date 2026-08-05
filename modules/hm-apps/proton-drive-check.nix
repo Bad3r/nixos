@@ -120,12 +120,24 @@
           ownedFlagTokens = [
             "--config"
             "--conflict-resolve=newer"
+            "--create-empty-src-dirs"
             "--max-delete=25"
             "--protondrive-enable-caching=false"
             "--resilient"
             "--workdir"
           ];
           ownedFlagNames = map (token: lib.head (lib.splitString "=" token)) ownedFlagTokens;
+
+          # Flags the script passes and deliberately leaves overridable:
+          # throughput knobs, and the depth of the down-direction emptiness
+          # probe, which extraArgs never reaches. Anything the script passes
+          # that is neither here nor refused is a value the module chose and
+          # extraArgs can silently replace.
+          tunableFlags = [
+            "--checkers"
+            "--max-depth"
+            "--transfers"
+          ];
 
           hm = mkHm {
             protonDrive = {
@@ -479,6 +491,21 @@
                   *) ;;
                 esac
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--force-resync must release the latch"
+
+                # Every flag any invocation above actually passed must be one
+                # extraArgs cannot replace, or one deliberately left tunable.
+                # Reading the recorded argv rather than a hand-kept list is what
+                # makes this cover a flag missing from both: that is how
+                # --create-empty-src-dirs sat outside them while four rounds
+                # patched the flags beside it.
+                rejected=${lib.escapeShellArg (lib.concatStringsSep " " hm.config.services.protonDriveSync.rejectedExtraArgs)}
+                tunable=${lib.escapeShellArg (lib.concatStringsSep " " tunableFlags)}
+                while read -r flag; do
+                  case " $rejected $tunable " in
+                    *" $flag "*) ;;
+                    *) fail "the script passes $flag, which extraArgs can replace and neither list covers" ;;
+                  esac
+                done < <(grep -oh -- '--[a-z][a-z0-9-]*' "$PROTON_DRIVE_STUB_CALLS" | sort -u)
 
                 touch "$out"
               '';
