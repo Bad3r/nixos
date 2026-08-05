@@ -492,6 +492,24 @@
                 esac
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--force-resync must release the latch"
 
+                # down mirrors remote -> local and deletes local-only files, so
+                # the emptiness probe is what stops a listing that came back
+                # empty from wiping the local tree. It was the one direction
+                # with no coverage, and the only one whose deletions are local.
+                # --force-resync skips both the first-run gate and the probe;
+                # the fire after it hits the probe against a remote the stub
+                # reports as empty, which is the refusal.
+                PROTON_DRIVE_DIRECTION=down PROTON_DRIVE_STUB_EXIT=0 "$sync" --force-resync
+                [ "$(marker_count 'initialized-*')" -eq 3 ] ||
+                  fail "down --force-resync must write its own baseline marker"
+
+                rc=0
+                PROTON_DRIVE_DIRECTION=down PROTON_DRIVE_STUB_EXIT=0 "$sync" || rc=$?
+                [ "$rc" -eq 1 ] ||
+                  fail "an empty remote listing must refuse to mirror onto the local tree"
+                [ "$(marker_count 'initialized-*')" -eq 3 ] ||
+                  fail "a refused down run must leave every baseline marker in place"
+
                 # Every flag any invocation above actually passed must be one
                 # extraArgs cannot replace, or one deliberately left tunable.
                 # Reading the recorded argv rather than a hand-kept list is what

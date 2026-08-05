@@ -98,6 +98,7 @@
             {
               mailboxPasswordRef,
               authSource ? "onePassword",
+              otpRef ? "op://check/protondrive/one-time password",
               secretsRoot ? "${./proton-drive-check-fixtures}/missing",
             }:
             inputs.home-manager.lib.homeManagerConfiguration {
@@ -143,7 +144,7 @@
                       onePassword = {
                         usernameRef = "op://check/protondrive/username";
                         passwordRef = "op://check/protondrive/password";
-                        otpRef = "op://check/protondrive/one-time password";
+                        inherit otpRef;
                         inherit mailboxPasswordRef;
                       };
                     };
@@ -160,6 +161,17 @@
           mailboxActivation =
             (mkHm { mailboxPasswordRef = "op://check/protondrive/mailbox"; })
             .config.home.activation.configureRcloneConfig.data;
+
+          # An account without 2FA. The empty ref is three decisions in the
+          # entry, all skips: no op read, no case/base32 validation, no obscure,
+          # so the stanza must render well-formed with no otp_secret_key. Only
+          # the readiness half was covered, by eval in proton-drive-check.nix,
+          # and the OTP arm has taken three rounds of fixes without this.
+          noOtpActivation =
+            (mkHm {
+              mailboxPasswordRef = "";
+              otpRef = "";
+            }).config.home.activation.configureRcloneConfig.data;
 
           # The credential fingerprint that decides whether the backend's
           # session keys survive an activation is assembled per credential
@@ -220,13 +232,17 @@
             ${sopsActivation}
             SOPS_ACTIVATION_EOF
 
+            cat > "$check_root/activation-no-otp.sh" <<'NO_OTP_ACTIVATION_EOF'
+            ${noOtpActivation}
+            NO_OTP_ACTIVATION_EOF
+
             # writeShellApplication lints the sync script, but an activation
             # entry is a raw string that nothing lints, which is how this branch
             # grew to its current size unchecked. SC1090 is excluded because
             # both env files it names are resolved at run time by design.
             shellcheck --shell=bash --severity=warning --exclude=SC1090 \
               "$check_root/activation.sh" "$check_root/activation-mailbox.sh" \
-              "$check_root/activation-sops.sh"
+              "$check_root/activation-sops.sh" "$check_root/activation-no-otp.sh"
 
             fail() {
               echo "hm-apps/rclone-protondrive-otp: $1" >&2
@@ -256,6 +272,16 @@
               (
                 run() { echo "DRY: $*"; }
                 . "$check_root/activation.sh"
+              ) > "$check_root/stdout" 2> "$check_root/stderr" || rc=$?
+              printf '%s' "$rc"
+            }
+
+            run_no_otp_activation() {
+              rm -rf -- "$check_root/config"
+              rc=0
+              (
+                run() { "$@"; }
+                . "$check_root/activation-no-otp.sh"
               ) > "$check_root/stdout" 2> "$check_root/stderr" || rc=$?
               printf '%s' "$rc"
             }
@@ -399,6 +425,21 @@
             [ "$rc" -ne 0 ] || fail "an otpauth:// URI carrying a rendered code must fail activation"
             rc=$(OP_STUB_OTP="otpauth://totp/Proton:me?secret=MFRG%3D&issuer=Proton" run_activation)
             [ "$rc" -ne 0 ] || fail "an otpauth:// URI whose secret= is not decodable base32 must fail activation"
+
+            # An account with no 2FA. The empty ref skips the read, the
+            # validation and the obscure, so the stanza must come out
+            # well-formed with no otp_secret_key rather than failing the way a
+            # configured ref reading back empty does.
+            rc=$(OP_STUB_OTP="should-not-be-read" run_no_otp_activation)
+            [ "$rc" -eq 0 ] || fail "an empty otpRef must not fail activation (exit $rc)"
+            grep -q '^\[protondrive\]$' "$rendered" ||
+              fail "an empty otpRef must still render a [protondrive] stanza"
+            ! grep -q '^otp_secret_key' "$rendered" ||
+              fail "an empty otpRef must render no otp_secret_key"
+            grep -qxF 'password = obscured:proton-password' "$rendered" ||
+              fail "an empty otpRef must still render the password"
+            ! grep -q 'OTP reference did not yield' "$check_root/stderr" ||
+              fail "an empty otpRef must not report an OTP validation failure"
 
             # A configured mailboxPasswordRef that reads back blank would
             # otherwise render a stanza that authenticates and then cannot
