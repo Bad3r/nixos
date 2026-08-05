@@ -86,11 +86,19 @@ cd "$HOME/trees/nixos/refactor-drop-firefoxpwa"
 - [ ] **Step 2: Record the pre-removal reference set**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' > /tmp/firefoxpwa-before.txt
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+  > /tmp/firefoxpwa-before.txt
 wc -l /tmp/firefoxpwa-before.txt
+cut -d: -f1 /tmp/firefoxpwa-before.txt | sort -u | wc -l
 ```
 
-Expected: 61 matching lines across 20 files. This is the checklist; the file is consulted again in Task 6.
+`docs/drafts` is excluded throughout this task. The three plan files for this series are themselves in the repo and
+name firefoxpwa on nearly every page, so a sweep that includes them can never reach zero and the removal could never
+be certified complete.
+
+Record the two numbers rather than comparing them against a figure written here: the counts move whenever a draft or
+a workflow is edited, and a stale figure would either mask a missed reference or fail for an unrelated reason. The
+file itself is the checklist, and it is consulted again in Task 6.
 
 - [ ] **Step 3: Remove the files using the recoverable deletion path**
 
@@ -261,7 +269,7 @@ In `pyproject.toml`, delete the `update-firefoxpwa-extension.py` mention from th
 - [ ] **Step 7: Verify nothing references the deleted paths**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual'
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts'
 ```
 
 Expected: only `docs/architecture/04-home-manager.md` and `docs/reference/binary-cache-coverage.md`, handled in Task 5.
@@ -316,10 +324,11 @@ Expected: a `README.md` diff only if firefoxpwa appeared in generated output. Re
 - [ ] **Step 4: Confirm the reference set is empty**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual'
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts'
 ```
 
-Expected: no output.
+Expected: no output. The `docs/drafts` exclusion is what makes that reachable: this plan and its two siblings live in
+the repo and name firefoxpwa throughout.
 
 - [ ] **Step 5: Validate the host closure still builds**
 
@@ -356,7 +365,8 @@ Replaced in the following PR by a Chromium web-app module on brave-origin. Plan:
 
 - `nix flake check path:. --accept-flake-config --no-build --offline`
 - `nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel`
-- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/nixos-manual/`
+- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/nixos-manual/` and `docs/drafts/`, which hold the
+  manual mirror and this migration plan
 EOF
 )"
 ```
