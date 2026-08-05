@@ -51,6 +51,7 @@ let
     # Repoints the `haiku` alias, which also backs background work the subagent
     # override does not reach (titles, summarization, classifiers).
     ANTHROPIC_DEFAULT_HAIKU_MODEL = "claude-sonnet-5";
+    ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "Sonnet 5";
   };
 
   # Shell-level vars not needed in settings.json.
@@ -306,7 +307,7 @@ let
   # Set to true to include Claude Code version in metrics attributes (default: excluded).
   # OTEL_METRICS_INCLUDE_VERSION = "";
 
-  # Bash, tools, sandbox (17)
+  # Bash, tools, sandbox (23)
   # ----------------------------
   # Default timeout for long-running bash commands (default: 120000, or 2 minutes).
   # BASH_DEFAULT_TIMEOUT_MS = "";   # ACTIVE above
@@ -318,6 +319,18 @@ let
   # parallel (default: 10). Higher values increase parallelism but consume
   # more resources.
   # CLAUDE_CODE_MAX_TOOL_USE_CONCURRENCY = "";
+  # How many subagents can be running in one session before the Agent tool refuses to spawn another (default: 20).
+  # CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS = "";
+  # Cap on the number of subagents one session can spawn with the Agent tool (default: 200).
+  # CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION = "";
+  # Number of subagent layers allowed below the main conversation (default: 3).
+  # CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH = "";
+  # Cap the number of agentic turns when no explicit limit is passed. [numeric]
+  # CLAUDE_CODE_MAX_TURNS = "";
+  # Cap on the total number of WebSearch calls one session can make (default: 200).
+  # CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION = "";
+  # Maximum number of characters in subagent output before truncation (default: 32000, maximum: 160000).
+  # TASK_MAX_OUTPUT_LENGTH = "";
   # Return to the original working directory after each Bash or PowerShell command in the main session.
   # CLAUDE_BASH_MAINTAIN_PROJECT_WORKING_DIR = "";   # ACTIVE above
   # Set to 1 to disable the advisor tool. [1 or unset]
@@ -377,7 +390,7 @@ let
   # Timeout in milliseconds for MCP server startup (default: 30000, or 30 seconds). [numeric]
   # MCP_TIMEOUT = "";
 
-  # Network, proxy, TLS, timeouts (24)
+  # Network, proxy, TLS, timeouts (25)
   # -------------------------------------
   # Override the API endpoint to route requests through a proxy or gateway.
   # ANTHROPIC_BASE_URL = "";
@@ -385,6 +398,8 @@ let
   # API_FORCE_IDLE_TIMEOUT = "1";
   # Timeout for API requests in milliseconds (default: 600000, or 10 minutes; maximum: 2147483647). [numeric]
   # API_TIMEOUT_MS = "";
+  # Override the number of times to retry failed API requests (default: 10).
+  # CLAUDE_CODE_MAX_RETRIES = "";
   # How many milliseconds of idle time before an unanswered AskUserQuestion dialog auto-continues without you. [numeric]
   # CLAUDE_AFK_TIMEOUT_MS = "";
   # Stall timeout in milliseconds for background subagents. [numeric]
@@ -436,7 +451,7 @@ let
   # List of domains and IPs to which requests will be directly issued, bypassing proxy.
   # NO_PROXY = "";
 
-  # Terminal, rendering, accessibility (23)
+  # Terminal, rendering, accessibility (16)
   # ------------------------------------------
   # Set to 1 to render screen-reader friendly output: flat text without decorative borders or animations. [1 or unset]
   # CLAUDE_AX_SCREEN_READER = "1";
@@ -458,18 +473,6 @@ let
   # CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";   # ACTIVE above
   # Set to 1 to skip validation of IDE lockfile entries during connection. [1 or unset]
   # CLAUDE_CODE_IDE_SKIP_VALID_CHECK = "1";
-  # How many subagents can be running in one session before the Agent tool refuses to spawn another (default: 20).
-  # CLAUDE_CODE_MAX_CONCURRENT_SUBAGENTS = "";
-  # Override the number of times to retry failed API requests (default: 10).
-  # CLAUDE_CODE_MAX_RETRIES = "";
-  # Cap on the number of subagents one session can spawn with the Agent tool (default: 200).
-  # CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION = "";
-  # Number of subagent layers allowed below the main conversation (default: 3).
-  # CLAUDE_CODE_MAX_SUBAGENT_SPAWN_DEPTH = "";
-  # Cap the number of agentic turns when no explicit limit is passed. [numeric]
-  # CLAUDE_CODE_MAX_TURNS = "";
-  # Cap on the total number of WebSearch calls one session can make (default: 200).
-  # CLAUDE_CODE_MAX_WEB_SEARCHES_PER_SESSION = "";
   # Set to 1 to show the terminal's own cursor at the input caret instead of a drawn block. [1 or unset]
   # CLAUDE_CODE_NATIVE_CURSOR = "1";
   # Set to 1 to enable fullscreen rendering, a research preview that reduces flicker and keeps memory flat in long conversations. [1 or unset]
@@ -485,8 +488,6 @@ let
   # CLAUDE_CODE_TMUX_TRUECOLOR = "";
   # Number of times to retry when the model's response fails validation against the --json-schema in non-interactive mode (the -p flag).
   # MAX_STRUCTURED_OUTPUT_RETRIES = "";
-  # Maximum number of characters in subagent output before truncation (default: 32000, maximum: 160000).
-  # TASK_MAX_OUTPUT_LENGTH = "";
 
   # Feature toggles (55)
   # -----------------------
