@@ -125,7 +125,7 @@ let
                   cfg.protonDrive.onePassword.otpRef
                   cfg.protonDrive.onePassword.mailboxPasswordRef
                 ];
-              message = "programs.rclone.extended.protonDrive.authSource = \"onePassword\" requires non-empty op:// references for usernameRef and passwordRef. otpRef and mailboxPasswordRef are per-account optional (2FA / two-password accounts only): leave empty to opt out, or set an op:// reference.";
+              message = "programs.rclone.extended.protonDrive.authSource = \"onePassword\" requires non-empty op:// references for usernameRef and passwordRef. otpRef and mailboxPasswordRef are per-account optional (2FA / two-password accounts only): leave empty to opt out, or set an op:// reference. Hosts in the hosts-common aggregate inherit all four from modules/hosts/common/rclone-protondrive-1password.nix; a host outside that aggregate sets them itself.";
             }
             {
               assertion = config.programs._1password.enable;

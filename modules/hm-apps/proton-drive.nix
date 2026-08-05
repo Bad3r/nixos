@@ -19,8 +19,15 @@
 
   Authentication prerequisites (one-time, cannot be automated):
     1. Log into Proton Drive in a browser once so account encryption keys exist.
-    2. Enable `programs.rclone.extended.protonDrive.enable`; the rclone module
-       defaults to the shared 1Password-backed credential references.
+    2. Enable `programs.rclone.extended.enable` and
+       `programs.rclone.extended.protonDrive.enable`. Hosts in the hosts-common
+       aggregate inherit those, `programs."1password-cli".extended`, and the
+       four vault references at that aggregate's mkOverride 1100 baseline
+       (modules/hosts/common/apps-enable.nix and
+       modules/hosts/common/rclone-protondrive-1password.nix), which a per-host
+       file overrides at 1000. Any other host supplies them itself: all four
+       `onePassword.*Ref` options default to "", and usernameRef and passwordRef
+       must be set.
     3. To use the SOPS fallback, set `authSource = "sops"` and obscure and store:
          PROTONDRIVE_USERNAME=you@proton.me
          PROTONDRIVE_PASSWORD=<obscured>
@@ -457,7 +464,7 @@ _: {
           assertions = [
             {
               assertion = protondriveReady;
-              message = "services.protonDriveSync.enable requires the protondrive rclone remote to be ready: enable programs.rclone.extended and programs.rclone.extended.protonDrive, then configure either the SOPS secret secrets/rclone_protondrive.env or four programs.rclone.extended.protonDrive.onePassword op:// references.";
+              message = "services.protonDriveSync.enable requires the protondrive rclone remote to be ready: enable programs.rclone.extended and programs.rclone.extended.protonDrive, then configure either the SOPS secret secrets/rclone_protondrive.env or the programs.rclone.extended.protonDrive.onePassword usernameRef and passwordRef op:// references (otpRef and mailboxPasswordRef are per-account optional).";
             }
           ];
 
