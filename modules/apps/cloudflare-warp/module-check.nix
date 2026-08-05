@@ -88,6 +88,13 @@
               "apps/cloudflare-warp-module-eval: enrolled branch must declare organization secret";
             assert lib.assertMsg (builtins.hasAttr "cloudflare-warp-mdm" enrolled.config.sops.templates)
               "apps/cloudflare-warp-module-eval: enrolled branch must declare mdm template";
+            assert
+              lib.assertMsg
+                (
+                  !lib.hasInfix "UN-ENROLLED"
+                    enrolled.config.systemd.services.cloudflare-warp-connect.script
+                )
+                "apps/cloudflare-warp-module-eval: enrolled connect script must not carry the un-enrolled guard";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
