@@ -238,11 +238,22 @@ Confirm the boundaries were right before continuing:
 
 ```bash
 head -20 modules/browsers/_chromium-hardening.nix | tail -3
-rg -c '=' modules/browsers/_chromium-hardening.nix
+
+src="$(sed -n '40,161p' modules/browsers/brave/apps.nix | grep -c '=')"
+out="$(rg -c '=' modules/browsers/_chromium-hardening.nix)"
+printf 'source assignments: %s\nextracted: %s (one more, the "policies = {" wrapper)\n' "$src" "$out"
+[ "$out" -eq "$((src + 1))" ] && echo COUNT-MATCHES || echo "STOP: the boundary is wrong"
+
 rg -n 'managedDefaultSearchProvider|defaultManagedPolicies' modules/browsers/_chromium-hardening.nix || echo "merge line correctly excluded"
 ```
 
-Expected: the first policy line is `BraveAIChatEnabled = false;`, roughly 80 assignments, and `merge line correctly excluded`.
+Expected: the first policy line is `BraveAIChatEnabled = false;`, then `COUNT-MATCHES` and
+`merge line correctly excluded`.
+
+The count is derived from the source range on both sides rather than compared against a figure written here. That
+figure was "roughly 80"; the range actually holds 99 assignments, so an operator taking it seriously would have
+stopped at a correct extraction. Every `=` in the range is a one-line assignment and no value contains a second `=`,
+so the count survives `nix fmt`.
 
 - [ ] **Step 3: Point brave at the shared file**
 
@@ -403,9 +414,15 @@ Both modules write `/etc/brave/policies/managed/extended.json`. Add to `modules/
 nix fmt
 nix eval --raw "path:.#nixosConfigurations.tpnix.config.environment.etc.\"brave/policies/managed/extended.json\".text" \
   --accept-flake-config | jq -r 'keys | length'
+
+# The same number, derived from the two sources the value is built from.
+echo $(( $(rg -c '=' modules/browsers/_chromium-hardening.nix) - 1 \
+       + $(rg -c '^    DefaultSearchProvider' modules/browsers/_chromium-policies.nix) ))
 ```
 
-Expected: a count of roughly 80. If the command errors with a missing attribute, `brave-origin.extended.enable` is false on that host; check `modules/hosts/common/apps-enable.nix:63`.
+Expected: the two numbers agree. They are the hardened set plus the `managedDefaultSearchProvider` keys the merge line
+adds. If the first command errors with a missing attribute, `brave-origin.extended.enable` is false on that host;
+check `modules/hosts/common/apps-enable.nix:63`.
 
 - [ ] **Step 5: Commit**
 
