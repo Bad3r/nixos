@@ -149,6 +149,13 @@ let
               restart. The remaining entries are still installed, so one
               refusal does not hold up the rest of the suite.
 
+              Removing a refused site does not rerun the unit by itself. The
+              unit remains `active (exited)` because `RemainAfterExit` and exit
+              status 78 make the refusal successful, and its text is unchanged,
+              so neither `sd-switch` nor `Restart=on-failure` starts it. After
+              the removal, the reinstall runs at the next login or after
+              `systemctl --user restart firefoxpwa-m365`.
+
               Renaming an entry while keeping its `key` is refused on the same
               terms. `name` is the idempotency key, so the installer would
               otherwise register a second site under the new name and overwrite
@@ -180,8 +187,11 @@ let
                       recording the origin it was installed at, and refuses that
                       entry until the site is removed with
                       `firefoxpwa site uninstall`, which destroys its PWA profile
-                      and session state. The `m365-<old-key>-*` records are left
-                      behind and have to be deleted by hand.
+                      and session state. After the removal, the reinstall runs at
+                      the next login or after
+                      `systemctl --user restart firefoxpwa-m365`. The
+                      `m365-<old-key>-*` records are left behind and have to be
+                      deleted by hand.
 
                       That refusal holds only while `name` is unchanged. Editing
                       both fields makes every lookup miss the installed site, so
