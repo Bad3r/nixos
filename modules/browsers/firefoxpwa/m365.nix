@@ -21,8 +21,12 @@
     * firefoxpwa system integration writes the launcher .desktop entry, making
       each app discoverable from the desktop menu.
 
-  Unlike ./dmail.nix there is no secret to wait for, so the unit is ordered
-  against nothing: its ExecStart path changes whenever the app table does, and
+  Unlike ./dmail.nix there is no secret to wait for, so the only ordering this
+  unit carries is the After= on ./dmail.nix's unit below, which waits on nothing
+  it needs: what keeps the two installers off config.json is the lock every one
+  of them takes (../../../packages/firefoxpwa-site-installer), and the ordering
+  only keeps the common case from reaching it. Its ExecStart path changes
+  whenever the app table does, and
   systemd.user.startServices = "sd-switch" (modules/home-manager/base.nix)
   restarts it on the switch that changes it. That is the only switch it runs
   on, which is why a failed run retries itself rather than waiting: sd-switch
