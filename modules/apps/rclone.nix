@@ -88,8 +88,10 @@ let
               description = ''
                 1Password secret reference for the OTP field, or "" if the
                 account has no 2FA enabled. The reference must return the
-                otpauth:// URI, without the ?attribute=otp query, so the
-                stable seed can be extracted and rclone can generate codes.
+                stable seed, either as an otpauth:// URI carrying a secret=
+                parameter or as the bare base32 seed, so rclone can generate
+                codes. Omit the ?attribute=otp query: it renders the current
+                six-digit code, which is rejected.
               '';
             };
 

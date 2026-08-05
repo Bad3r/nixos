@@ -225,14 +225,24 @@ _: {
                   if [ "$protondriveLookupFailed" -eq 0 ]; then
                     if [ -n "$protondriveOtpRef" ]; then
                       case "$protondriveOtpUri" in
-                        otpauth://*secret=*)
+                        otpauth://*)
                           protondriveOtpSeed="$(printf '%s\n' "$protondriveOtpUri" | sed -n 's/.*[?&]secret=\([^&]*\).*/\1/p')"
                           ;;
                         *)
-                          echo "rclone protondrive 1Password OTP reference did not return an otpauth:// URI containing a secret" >&2
-                          protondriveCredentialsState=invalid
+                          # 1Password stores the one-time password field
+                          # verbatim, which is commonly the bare base32 seed
+                          # rather than an otpauth:// URI. Digits 2-7 are base32,
+                          # so a rendered code passes a bare character test; the
+                          # length floor is what separates the two (RFC 4226 R6
+                          # puts the shared secret at 128 bits, and no TOTP seed
+                          # is under the 16 characters of an 80-bit one).
+                          protondriveOtpSeed="$(printf '%s' "$protondriveOtpUri" | tr -d ' ' | sed -n '/^[A-Za-z2-7]\{16,\}=*$/p')"
                           ;;
                       esac
+                      if [ -z "$protondriveOtpSeed" ]; then
+                        echo "rclone protondrive 1Password OTP reference returned neither an otpauth:// URI with a secret= parameter nor a bare base32 seed; it must hold the stable TOTP seed, not the rendered six-digit code" >&2
+                        protondriveCredentialsState=invalid
+                      fi
                     fi
 
                     if [ -z "$protondriveUsernameRaw" ] || [ -z "$protondrivePasswordRaw" ]; then
