@@ -167,7 +167,23 @@ let
                 programs.cloudflare-warp.extended: secrets/cloudflare-warp.yaml is missing; running warp-svc
                 WITHOUT managed enrollment (degraded). Create the sops secret (see
                 docs/cloudflare/warp/deployment.md) and rebuild.
-              '';
+              ''
+              ++
+                lib.optional
+                  (
+                    config.networking.firewall.enable
+                    && builtins.elem config.networking.firewall.checkReversePath [
+                      true
+                      "strict"
+                    ]
+                  )
+                  ''
+                    programs.cloudflare-warp.extended is enabled but
+                    networking.firewall.checkReversePath is strict; the CloudflareWARP
+                    interface routes asymmetrically, so return traffic is dropped. Import
+                    the hosts-common vpn-defaults baseline (shareCommon = true) or set
+                    networking.firewall.checkReversePath = "loose" on this host.
+                  '';
           }
 
           # When not enrolling (the sops secret is absent),
