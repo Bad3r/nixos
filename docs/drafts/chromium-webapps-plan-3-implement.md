@@ -74,10 +74,14 @@ Accepted, with these effects stated rather than discovered later:
   browsing. It is inert here and kept only so a future `URLBlocklist` does not
   lock the apps out.
 
-If the mic/camera denial becomes a problem for general browsing, the fix is to
-split the daily driver onto `brave` and leave `brave-origin` to the web apps, or
-to drop the capture denies from `_policy.nix` and rely on per-site prompts. Both
-are follow-ups, not part of this plan.
+If the mic/camera denial becomes a problem for general browsing, moving the
+daily driver to `brave` does not escape it: `brave` reads the same
+`/etc/brave/policies/managed/` directory, which is the premise of this whole
+section, so `webapps.json` binds it too. The two fixes that work are to move the
+web apps onto a browser family with a different managed directory, setting
+`programs.webapps.package`, `browserBinary` and `policyFile` together, or to drop
+the capture denies from `_policy.nix` and rely on per-site prompts. Both are
+follow-ups, not part of this plan.
 
 ### Verified facts this plan depends on
 
@@ -2922,8 +2926,11 @@ What that means in practice:
   browsing.
 
 This is deliberate hardening, not an oversight. If the capture denial gets in
-the way, the two ways out are to move general browsing to `brave` and leave
-`brave-origin` to the web apps, or to drop the capture denies from
+the way, moving general browsing to `brave` does not escape it: `brave` reads
+the same `/etc/brave/policies/managed/` directory, so `webapps.json` binds it
+too. The two real ways out are to move the web apps onto a browser family with a
+different managed directory, setting `programs.webapps.package`, `browserBinary`
+and `policyFile` together, or to drop the capture denies from
 `modules/browsers/webapps/_policy.nix` and go back to per-site prompts.
 
 ## Adding an app
@@ -3385,7 +3392,7 @@ ______________________________________________________________________
 
 **Known gaps, stated rather than hidden.**
 
-- **The permission policy is browser-wide, not app-scoped, and the "browser" is the whole Brave family.** Chromium applies a managed directory per browser and `brave` shares `brave-origin`'s, so `webapps.json` binds the daily driver whichever of the two that is: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 18 Step 8. The escape hatches are a `brave` / `brave-origin` split or dropping the capture denies, both follow-ups.
+- **The permission policy is browser-wide, not app-scoped, and the "browser" is the whole Brave family.** Chromium applies a managed directory per browser and `brave` shares `brave-origin`'s, so `webapps.json` binds the daily driver whichever of the two that is: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 18 Step 8. A `brave` / `brave-origin` split is not an escape, since both read the same managed directory; the ways out are retargeting the web apps onto a browser family with a different managed directory (`package`, `browserBinary` and `policyFile` together) or dropping the capture denies, both follow-ups.
 - **Extensions are not isolated per app.** `--user-data-dir` separates cookies and storage; `ExtensionSettings` is managed policy and therefore browser-wide. `extensions.enable` installs an extension everywhere and scopes only interaction. The phrase "no two apps share cookies, storage or extensions" was wrong and is corrected everywhere it appeared.
 - Geolocation cannot be granted per app. Chromium has no allowlist counterpart to `GeolocationBlockedForUrls`. Documented in `docs/reference/webapps.md` and omitted from the submodule rather than silently accepted and ignored.
 - kdocker is X11 only. This matches the current i3 and lightdm setup (`modules/apps/i3wm/nixos.nix:75`) but would need replacing under Wayland.
