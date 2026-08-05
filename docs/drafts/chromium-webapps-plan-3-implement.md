@@ -2800,14 +2800,25 @@ registration in the profile's `Preferences`, under `extensions.settings`, keyed
 by ID with a `path` pointing back at the store. The profile is also
 `<user-data-dir>/Default`, not the `--user-data-dir` root.
 
+`extensions.settings` is in `Preferences`, not `Secure Preferences`. Verified on
+this machine's existing `Brave-Origin-Nightly`, `Brave-Browser` and `chromium`
+profiles: `Preferences` carries the dictionary, and `Secure Preferences` holds
+only a `protection` key with no `extensions` at all.
+
+The filter matches the reload extension's derivation name rather than any
+`/nix/store` path, because the browser's own component extensions (`web_store`,
+`pdf`, `brave_extension`) are registered with store paths too, under the
+browser's output. Those move on every `brave-origin` bump, so a looser filter
+reports drift for a browser update and the step stops meaning what it says.
+
 Close Teams first so Chromium has flushed `Preferences`, then record the
-store-backed registrations:
+generated registrations:
 
 ```bash
 prefs="${XDG_DATA_HOME:-$HOME/.local/share}/webapps/teams/Default/Preferences"
 jq -r '.extensions.settings | to_entries[]
-       | select((.value.path? // "") | startswith("/nix/store")) | .key' "$prefs" \
-  | sort > /tmp/webapp-teams-extids-before
+       | select((.value.path? // "") | test("/nix/store/[^/]*-webapp-reload-"))
+       | .key' "$prefs" | sort > /tmp/webapp-teams-extids-before
 ```
 
 Rebuild, switch, launch Teams, close it again, then read the same file:
@@ -2815,8 +2826,8 @@ Rebuild, switch, launch Teams, close it again, then read the same file:
 ```bash
 prefs="${XDG_DATA_HOME:-$HOME/.local/share}/webapps/teams/Default/Preferences"
 jq -r '.extensions.settings | to_entries[]
-       | select((.value.path? // "") | startswith("/nix/store")) | .key' "$prefs" \
-  | sort > /tmp/webapp-teams-extids-after
+       | select((.value.path? // "") | test("/nix/store/[^/]*-webapp-reload-"))
+       | .key' "$prefs" | sort > /tmp/webapp-teams-extids-after
 diff /tmp/webapp-teams-extids-before /tmp/webapp-teams-extids-after
 ```
 
