@@ -14,9 +14,10 @@
   and stderr so the script's control flow, not rclone, is under test.
 
   Both credential sources gate the same script, so the op:// source is asserted
-  to install it without any secret present and protonDrive.enable = false to
-  withhold it, keeping protondriveReady's three inputs (rclone, protonDrive,
-  authSource) covered by eval alone.
+  to install it without any secret present, while protonDrive.enable = false and
+  rclone.extended.enable = false are each asserted to withhold it. That covers
+  protondriveReady's three inputs (rclone, protonDrive, authSource) by eval
+  alone.
 
   Runs under the build sandbox's private /tmp because the state root and local
   path are pinned at eval time; the pre-existing-state guard below turns an
@@ -53,6 +54,8 @@
               protonDrive,
               secretsRoot ? ./proton-drive-check-fixtures,
               extraArgs ? [ ],
+              rcloneEnabled ? true,
+              serviceEnable ? protonDrive.enable,
             }:
             inputs.home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
@@ -70,7 +73,7 @@
                   xdg.stateHome = "${root}/state";
                   xdg.configHome = "${root}/config";
                   services.protonDriveSync = {
-                    inherit (protonDrive) enable;
+                    enable = serviceEnable;
                     inherit extraArgs;
                   };
                 }
@@ -78,7 +81,7 @@
               extraSpecialArgs = {
                 osConfig = {
                   programs.rclone.extended = {
-                    enable = true;
+                    enable = rcloneEnabled;
                     inherit protonDrive;
                   };
                   security.repoSecrets.enable = true;
@@ -117,6 +120,18 @@
           disabledHm = mkHm {
             protonDrive = {
               enable = false;
+              authSource = "sops";
+            };
+          };
+
+          # The system-side rclone module renders the [protondrive] remote this
+          # script syncs against, so a ready credential source is not enough.
+          # The timer stays off here because its own assertion would fire first.
+          rcloneDisabledHm = mkHm {
+            rcloneEnabled = false;
+            serviceEnable = false;
+            protonDrive = {
+              enable = true;
               authSource = "sops";
             };
           };
@@ -241,6 +256,8 @@
         assert lib.assertMsg (
           !installsScript disabledHm
         ) "hm-apps/proton-drive-sync: protonDrive.enable = false must withhold proton-drive-sync";
+        assert lib.assertMsg (!installsScript rcloneDisabledHm)
+          "hm-apps/proton-drive-sync: programs.rclone.extended.enable = false must withhold proton-drive-sync";
         assert lib.assertMsg (lib.all (entry: entry.assertion)
           hm.config.assertions
         ) "hm-apps/proton-drive-sync: the stubbed configuration must satisfy its own assertions";
