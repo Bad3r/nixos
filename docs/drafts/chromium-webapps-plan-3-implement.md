@@ -220,16 +220,26 @@ still untracked at this point, it would leave a stash entry behind, and dropping
 that entry is a forbidden operation under the repo's safety rules. Swapping the
 file content in place has none of those properties.
 
+Between the swap and the restore the only copy of the refactor is
+`/tmp/brave-apps-refactored.nix`, and the gap spans a full host evaluation. The
+restore therefore runs from a `trap` rather than from the next line: a Ctrl-C or
+a crashed `nix eval` in that window would otherwise leave the working tree
+holding the `HEAD` version with the refactor stranded in `/tmp`, which is
+exactly the failure `git stash` could not produce. The `git diff --stat` below
+only catches that if the operator reaches it.
+
 ```bash
 nix fmt
 nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-after.json
 
 cp modules/browsers/brave/apps.nix /tmp/brave-apps-refactored.nix
+trap 'cp /tmp/brave-apps-refactored.nix modules/browsers/brave/apps.nix' EXIT INT TERM
 git show HEAD:modules/browsers/brave/apps.nix > modules/browsers/brave/apps.nix
 nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-before.json
 cp /tmp/brave-apps-refactored.nix modules/browsers/brave/apps.nix
+trap - EXIT INT TERM
 
 diff /tmp/brave-policies-before.json /tmp/brave-policies-after.json
 git diff --stat modules/browsers/brave/apps.nix
