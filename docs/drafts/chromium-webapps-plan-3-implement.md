@@ -1996,12 +1996,16 @@ in
 ```bash
 nix fmt
 nix eval --raw "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
-  --accept-flake-config --apply 'ps: builtins.concatStringsSep "\n" (map (p: p.name) ps)' 2>/dev/null \
+  --accept-flake-config --apply 'ps: builtins.concatStringsSep "\n" (map (p: p.name) ps)' \
   | rg '^webapp-'
 ```
 
 Expected: one `webapp-<key>` per catalog app, plus `webapp-outlook-tray` and `webapp-teams-tray`. An empty result
-means Step 3's `enable.nix` is missing or was not picked up, not that the launchers are broken.
+from a successful eval means Step 3's `enable.nix` is missing or was not picked up, not that the launchers are
+broken. The `2>/dev/null` this step used to carry made those two indistinguishable: a missing
+`home-manager.users.vx` attribute, a typo in the `--apply`, or any error elsewhere in the module tree produces the
+same empty stdout as a disabled module, and the step then sent the operator to `enable.nix`. It bought nothing here,
+since `nix eval` writes its result to stdout.
 
 - [ ] **Step 5: Build the launchers and read one**
 
