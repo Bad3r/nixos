@@ -162,7 +162,7 @@ _: {
           mkdir -p "$state_dir" "$local_path"
 
           extra=(${lib.escapeShellArgs cfg.extraArgs})
-          common=(--protondrive-enable-caching=false --transfers=4 --checkers=8 --log-level INFO)
+          common=(--config ${lib.escapeShellArg "${config.xdg.configHome}/rclone/rclone.conf"} --protondrive-enable-caching=false --transfers=4 --checkers=8 --log-level INFO)
           # The cap protects unattended timer runs. --resync lifts it for a
           # confirmed one-way reconciliation unless the previous run aborted
           # fatally; --force-resync is then required to bypass the latch.
