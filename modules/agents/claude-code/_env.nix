@@ -67,6 +67,9 @@ let
   # Names removed from managed settings. These stay out of `settings` and
   # `all`; activation deletes them from existing files.
   retired = [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
+  retiredButLive = builtins.filter (
+    name: builtins.hasAttr name (binary // bashRuntime // modelRouting // shellOnly)
+  ) retired;
 
   # === Catalog: every documented Claude Code environment variable ===========
   # Entries marked ACTIVE are already set in a group above.
@@ -1168,6 +1171,9 @@ let
   # MAX_TRANSCRIPT_READ_BYTES = "";
 
 in
+assert
+  retiredButLive == [ ]
+  || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " retiredButLive} are both retired and live; remove the name from retired or its live group";
 {
   inherit binary retired;
   settings = binary // bashRuntime // modelRouting;

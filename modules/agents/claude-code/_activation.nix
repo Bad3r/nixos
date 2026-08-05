@@ -20,10 +20,10 @@
   config,
   claudeSettingsFile,
   claudeJsonConfigFile,
+  claudeEnv,
+  claudeDefaults,
 }:
 let
-  claudeEnv = import ./_env.nix;
-  claudeDefaults = import ./_default-settings.nix;
   retiredEnvJq = lib.optionalString (claudeEnv.retired != [ ]) (
     " | " + lib.concatMapStringsSep " | " (name: "del(.env[${builtins.toJSON name}])") claudeEnv.retired
   );
