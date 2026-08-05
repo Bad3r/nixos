@@ -14,20 +14,49 @@ ______________________________________________________________________
 
 Locked before writing this plan. Do not relitigate during execution.
 
-| Decision     | Choice                                           | Rationale                                                                                                                                                                |
-| ------------ | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Base browser | `brave-origin`                                   | Verified reads `/etc/brave/policies` (binary strings); honors `--load-extension` because it is not a `GOOGLE_CHROME_BRANDING` build; already enabled on both hosts.      |
-| Isolation    | per-app `--user-data-dir`                        | Complete cookie/storage/extension separation. Required because `--load-extension` is per browser instance, not per profile.                                              |
-| Extensions   | Hybrid                                           | Third-party from the Web Store via `ExtensionSettings` (correct IDs, 1Password native messaging works); only the generated keep-alive extension uses `--load-extension`. |
-| Tray         | kdocker per app                                  | `-i` per-app icon, `-z` keep-running, `-l` iconify on focus loss. Opt-in per app.                                                                                        |
-| Keep-alive   | Generated MV3 extension, reload only when hidden | `chrome.alarms` wakes the service worker; skips the reload when the app window is focused.                                                                               |
-| Secret URLs  | One sops-rendered policy file                    | Avoids Chromium's config-dir merge, where a repeated list policy has one file win outright instead of concatenating.                                                     |
-| PR #435      | Close, salvage the two unrelated fixes           | The compgen and statix fixes are repo-wide and must survive.                                                                                                             |
-| Catalog      | DMail + full M365 including Teams                | Teams was excluded from #435 only because it rejects Gecko.                                                                                                              |
-| Policy scope | Full hardened set plus webapp entries            | Lifted from `modules/browsers/brave/apps.nix` and shared.                                                                                                                |
-| Option shape | Keyed attrset with submodule                     | Per-key override without rewriting the catalog.                                                                                                                          |
-| PR structure | Three PRs                                        | Salvage, remove, implement.                                                                                                                                              |
-| Tests        | Eval checks plus generated-artifact fixtures     | No installer shell exists in this design.                                                                                                                                |
+| Decision        | Choice                                           | Rationale                                                                                                                                                                |
+| --------------- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Base browser    | `brave-origin`                                   | Verified reads `/etc/brave/policies` (binary strings); honors `--load-extension` because it is not a `GOOGLE_CHROME_BRANDING` build; already enabled on both hosts.      |
+| Isolation       | per-app `--user-data-dir`                        | Complete cookie and storage separation. NOT extension separation: `ExtensionSettings` is managed policy and therefore browser-wide.                                      |
+| Extensions      | Hybrid                                           | Third-party from the Web Store via `ExtensionSettings` (correct IDs, 1Password native messaging works); only the generated keep-alive extension uses `--load-extension`. |
+| Tray            | kdocker per app                                  | `-i` per-app icon, `-z` keep-running, `-l` iconify on focus loss. Opt-in per app.                                                                                        |
+| Keep-alive      | Generated MV3 extension, reload only when hidden | `chrome.alarms` wakes the service worker; skips the reload when the app window is focused.                                                                               |
+| Secret URLs     | One sops-rendered policy file                    | Avoids Chromium's config-dir merge, where a repeated list policy has one file win outright instead of concatenating.                                                     |
+| PR #435         | Close, salvage the two unrelated fixes           | The compgen and statix fixes are repo-wide and must survive.                                                                                                             |
+| Catalog         | DMail + full M365 including Teams                | Teams was excluded from #435 only because it rejects Gecko.                                                                                                              |
+| Policy scope    | Full hardened set plus webapp entries            | Lifted from `modules/browsers/brave/apps.nix` and shared.                                                                                                                |
+| Policy reach    | Browser-wide, not app-scoped                     | Chromium reads one managed directory per browser. `webapps.json` therefore binds every `brave-origin` instance including the daily driver. Consequences below.           |
+| Keep-alive ID   | Pinned by a committed manifest `key`             | An unpacked extension's ID is a hash of its store path, so it changes every rebuild. A pinned ID is allowlistable in `ExtensionSettings` and stops profile-litter.       |
+| Option shape    | Keyed attrset with submodule                     | Per-key override without rewriting the catalog.                                                                                                                          |
+| NixOS file name | `webapps/nixos.nix`, not `webapps/apps.nix`      | `modules/meta/hooks/apps-catalog-sync.nix` treats every `modules/browsers/*/apps.nix` as a catalog entry and demands a matching `<dir>.extended.enable` line.            |
+| PR structure    | Three PRs                                        | Salvage, remove, implement.                                                                                                                                              |
+| Tests           | Eval checks plus generated-artifact fixtures     | No installer shell exists in this design.                                                                                                                                |
+
+### Consequences of a browser-wide policy
+
+`programs.webapps` writes `/etc/brave/policies/managed/webapps.json`. Chromium
+applies a managed directory per browser, not per profile or per
+`--user-data-dir`, so everything in that file also binds the `brave-origin`
+instance used for general browsing on both hosts. Accepted, with these effects
+stated rather than discovered later:
+
+- `AudioCaptureAllowed`, `VideoCaptureAllowed` and `ScreenCaptureAllowed` become
+  hard denials with no prompt for all browsing. Only the origins listed in the
+  matching `*AllowedUrls` policy, which today means `teams.cloud.microsoft`
+  alone, can use mic, camera or screen share. A video call or screen share on
+  any other site fails silently in `brave-origin`.
+- `ExtensionSettings."*" = blocked` blocks manual extension installs in the
+  daily-driver profile, and force-installs `defaultExtensions` (1Password)
+  there too.
+- `URLAllowlist` is additive-only in Chromium (it exempts entries from
+  `URLBlocklist`), so listing the app origins does not restrict general
+  browsing. It is inert here and kept only so a future `URLBlocklist` does not
+  lock the apps out.
+
+If the mic/camera denial becomes a problem for general browsing, the fix is to
+split the daily driver onto `brave` and leave `brave-origin` to the web apps, or
+to drop the capture denies from `_policy.nix` and rely on per-site prompts. Both
+are follow-ups, not part of this plan.
 
 ### Verified facts this plan depends on
 
@@ -37,6 +66,39 @@ Locked before writing this plan. Do not relitigate during execution.
 - Allowlist policies that exist: `AudioCaptureAllowedUrls`, `VideoCaptureAllowedUrls`, `NotificationsAllowedForUrls`, `ClipboardAllowedForUrls`, `ScreenCaptureAllowedByOrigins`, `SensorsAllowedForUrls`, `WindowManagementAllowedForUrls`, `LocalFontsAllowedForUrls`.
 - **Geolocation has no allowlist policy.** Only `GeolocationBlockedForUrls` and `PreciseGeolocationAllowedForUrls` exist. Geolocation is therefore block-only in this design and is deliberately absent from the permission submodule.
 - `kdocker` 6.2 flags used: `-i <file>` custom icon, `-z` keep running with no windows, `-q` quiet, `-l` iconify on focus lost, `-d <sec>` command start timeout.
+- `modules/meta/hooks/apps-catalog-sync.nix` collects catalog entries with `find modules/browsers -mindepth 2 -maxdepth 2 -type f -name apps.nix ! -path "*/_*/*"` and requires each result to have a `<dir>.extended.enable` line in `modules/hosts/common/apps-enable.nix`. A NixOS-scope file named `webapps/apps.nix` would therefore fail `pre-commit run --all-files --hook-stage manual`. The module is named `webapps/nixos.nix`, matching the existing `modules/apps/i3wm/nixos.nix` precedent.
+- `pkgs.diffutils` declares no `meta.mainProgram`, so `lib.getExe pkgs.diffutils` resolves to a nonexistent `bin/diffutils`. The package ships `diff`, `cmp`, `diff3` and `sdiff`; use `lib.getExe' pkgs.diffutils "diff"`.
+- An unpacked extension loaded with `--load-extension` gets an ID derived from the absolute path unless `manifest.json` carries a `key`. With a `key`, the ID is derived from that public key instead and stays stable across rebuilds.
+
+### Facts still to verify before implementing
+
+Two assumptions carry the design and are not yet proven. Verify each at the step
+that names it and record the outcome in the plan before continuing.
+
+- **Does `ExtensionSettings."*" = blocked` also block `--load-extension`?** Chromium's
+  unpacked loader consults the same `ExtensionManagement` installation mode that
+  `ExtensionSettings` sets, which would block the generated keep-alive extension
+  outright. Task 10 Step 0 tests this on a real `brave-origin` before the policy
+  generator is written. The pinned-ID design exists so the answer can be `yes`
+  without reworking the plan.
+- **Is `ScreenCaptureAllowedByOrigins` honored by this Brave build?** It is
+  present in the Chromium policy registry, but Brave has removed or renamed
+  capture policies before. Task 18 Step 2 reads `brave://policy` for a conflict
+  or unknown-policy warning on every key this plan writes.
+
+### On line-number anchors
+
+This plan spans three sequential PRs, so file contents shift under it. Every
+`path:line` in this document is a hint, not an address. The one exception is the
+`sed -n '40,161p'` extraction in Task 7 Step 2, which is followed by an explicit
+boundary check. Everywhere else, re-locate the target before editing:
+
+```bash
+rg -n '<the string the plan quotes>' <the file the plan names>
+```
+
+If the string is gone, stop and re-read the file rather than editing by line
+number.
 
 ______________________________________________________________________
 
@@ -78,12 +140,15 @@ ______________________________________________________________________
 | ----------------------------------------------------- | ------------------------------------------------------------------------------ |
 | `modules/browsers/_chromium-hardening.nix`            | The hardened policy set, shared by brave and brave-origin. Pure data.          |
 | `modules/browsers/webapps/_catalog.nix`               | Default app catalog. Pure data, no `lib`.                                      |
+| `modules/browsers/webapps/_keepalive-key.nix`         | Committed public key and derived extension ID for the keep-alive extension.    |
 | `modules/browsers/webapps/_policy.nix`                | Pure function: apps attrset to Chromium policy attrset.                        |
+| `modules/browsers/webapps/_check-apps.nix`            | Single source of the fixture-generation shim; used by the check and the shell. |
 | `modules/browsers/webapps/_reload-extension.nix`      | Pure function: builds the per-app MV3 keep-alive extension derivation.         |
-| `modules/browsers/webapps/apps.nix`                   | NixOS module: options, sops policy template, `environment.etc`.                |
+| `modules/browsers/webapps/nixos.nix`                  | NixOS module: options, sops policy template, `environment.etc`.                |
 | `modules/browsers/webapps/home.nix`                   | Home Manager module: launchers, data dirs, desktop entries, tray.              |
 | `modules/browsers/webapps/enable.nix`                 | hosts-common baseline toggle.                                                  |
 | `modules/browsers/webapps/policy-check.nix`           | Flake check: generated policy vs fixture, plus the disjoint-key invariant.     |
+| `modules/browsers/webapps/keepalive-id-check.nix`     | Flake check: the transcribed extension ID matches its committed public key.    |
 | `modules/browsers/webapps/module-check.nix`           | Flake check: Home Manager module evaluates and produces the expected launcher. |
 | `modules/browsers/webapps/check-fixtures/policy.json` | Expected policy output.                                                        |
 | `modules/browsers/webapps/check-fixtures/gecko.yaml`  | Non-secret fixture for the HM eval check.                                      |
@@ -437,7 +502,7 @@ Validation: nix flake check path:. --accept-flake-config --no-build --offline"
 In `docs/architecture/04-home-manager.md`, the sentence beginning "A sibling file can extend the same `browsers.<name>` key" cites firefoxpwa as its worked example. Replace the firefoxpwa clause so the paragraph ends:
 
 ```markdown
-A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/webapps/home.nix` owns the per-app launchers and data directories, and `modules/browsers/webapps/apps.nix` owns the NixOS-scope managed policy that the same app catalog drives.
+A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/webapps/home.nix` owns the per-app launchers and data directories, and `modules/browsers/webapps/nixos.nix` owns the NixOS-scope managed policy that the same app catalog drives.
 ```
 
 - [ ] **Step 2: Update the cache coverage reference**
@@ -599,18 +664,36 @@ Keep the `inherit (import ../_chromium-policies.nix) managedDefaultSearchProvide
 
 - [ ] **Step 4: Prove the move changed nothing**
 
+The pre-refactor value comes from `git show HEAD:` rather than from `git stash`.
+A plain `git stash` would work here only because `_chromium-hardening.nix` is
+still untracked at this point, it would leave a stash entry behind, and dropping
+that entry is a forbidden operation under the repo's safety rules. Swapping the
+file content in place has none of those properties.
+
 ```bash
 nix fmt
 nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-after.json
-git stash
+
+cp modules/browsers/brave/apps.nix /tmp/brave-apps-refactored.nix
+git show HEAD:modules/browsers/brave/apps.nix > modules/browsers/brave/apps.nix
 nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-before.json
-git stash apply
+cp /tmp/brave-apps-refactored.nix modules/browsers/brave/apps.nix
+
 diff /tmp/brave-policies-before.json /tmp/brave-policies-after.json
+git diff --stat modules/browsers/brave/apps.nix
 ```
 
-Expected: `diff` produces no output.
+Expected: `diff` produces no output, and `git diff --stat` still shows the
+refactor, confirming the restore landed. `path:.` copies untracked files, so the
+unused `_chromium-hardening.nix` sitting in the tree during the `before` eval is
+harmless: the leading underscore keeps it out of module auto-discovery and the
+`HEAD` version of `brave/apps.nix` does not import it.
+
+If `/tmp/brave-policies-before.json` is empty or malformed, the eval failed
+rather than produced a different value. Re-run it without `2>/dev/null` and read
+the error before continuing.
 
 - [ ] **Step 5: Commit**
 
@@ -742,7 +825,15 @@ Validation: nix eval of environment.etc.\"brave/policies/managed/extended.json\"
 
 - Create: `modules/browsers/webapps/_catalog.nix`
 
-- Create: `modules/browsers/webapps/apps.nix`
+- Create: `modules/browsers/webapps/nixos.nix`
+
+The NixOS-scope file is `nixos.nix`, not `apps.nix`.
+`modules/meta/hooks/apps-catalog-sync.nix` globs
+`modules/browsers/*/apps.nix` and requires each hit to carry a
+`<dir>.extended.enable` line in `modules/hosts/common/apps-enable.nix`;
+`programs.webapps.enable` is deliberately not that shape (see Task 13), so an
+`apps.nix` here would fail `pre-commit run --all-files --hook-stage manual` in
+Task 17. `modules/apps/i3wm/nixos.nix` is the existing precedent for the name.
 
 - [ ] **Step 1: Write the catalog**
 
@@ -816,7 +907,7 @@ Create `modules/browsers/webapps/_catalog.nix`. It is pure data keyed by app key
 
 - [ ] **Step 2: Write the NixOS module with the typed option surface**
 
-Create `modules/browsers/webapps/apps.nix`:
+Create `modules/browsers/webapps/nixos.nix`:
 
 ```nix
 /*
@@ -828,10 +919,14 @@ Create `modules/browsers/webapps/apps.nix`:
 
   Mechanism:
     * Each app is a distinct Chromium instance with its own --user-data-dir, so
-      no two apps share cookies, storage or extensions.
-    * Permissions are denied globally and granted per origin. Chromium's
-      permission policies are origin-scoped, so one host-wide file grants
-      exactly the apps that declared each capability.
+      no two apps share cookies or storage. Extensions are NOT isolated: a
+      managed ExtensionSettings policy is browser-wide, so defaultExtensions is
+      installed into every profile and only interaction is scoped, through
+      runtime_blocked_hosts.
+    * Permissions are denied browser-wide and granted per origin. Chromium reads
+      one managed directory per browser, so this file also binds the
+      brave-origin instance used for general browsing, not just the web apps.
+      See "Consequences of a browser-wide policy" in the plan.
     * The whole file is rendered by sops-nix so an app whose origin is a secret
       never has that origin written to the Nix store. Chromium's config-dir
       loader lets one file win a repeated key outright instead of merging, so
@@ -1093,6 +1188,7 @@ Create `modules/browsers/webapps/apps.nix`:
           policy = import ./_policy.nix {
             inherit lib;
             inherit (cfg) apps defaultExtensions;
+            inherit (import ./_keepalive-key.nix) keepAliveExtensionId;
             originPlaceholder = key: config.sops.placeholder."webapps/${key}/origin";
           };
 
@@ -1101,6 +1197,11 @@ Create `modules/browsers/webapps/apps.nix`:
         in
         lib.mkMerge [
           {
+            # Ungated: a host without the secrets submodule still gets the
+            # browser. Only the policy file depends on sops being able to
+            # resolve the secret origins.
+            environment.systemPackages = [ cfg.package ];
+
             assertions = lib.mapAttrsToList (key: app: {
               assertion = (app.url == null) != (app.urlSecret == null);
               message = "programs.webapps.apps.${key}: set exactly one of url or urlSecret.";
@@ -1137,7 +1238,6 @@ Create `modules/browsers/webapps/apps.nix`:
             };
 
             environment.etc.${cfg.policyFile}.source = config.sops.templates."webapps-policy".path;
-            environment.systemPackages = [ cfg.package ];
           })
 
           (lib.mkIf (secretApps != { } && cfg.secretsFile != null && !secretsPresent) {
@@ -1154,21 +1254,28 @@ Create `modules/browsers/webapps/apps.nix`:
 - [ ] **Step 3: Verify the module parses before the policy generator exists**
 
 ```bash
-nix-instantiate --parse modules/browsers/webapps/apps.nix > /dev/null && echo PARSE-OK
+nix-instantiate --parse modules/browsers/webapps/nixos.nix > /dev/null && echo PARSE-OK
+find modules/browsers -mindepth 2 -maxdepth 2 -type f -name apps.nix ! -path '*/_*/*' -printf '%h\n' \
+  | sed 's|.*/||' | rg -q '^webapps$' \
+  && echo "STOP: apps-catalog-sync will demand a webapps.extended.enable entry" \
+  || echo CATALOG-HOOK-CLEAR
 ```
 
-Expected: `PARSE-OK`. Evaluation still fails until Task 10 adds `_policy.nix`.
+Expected: `PARSE-OK` and `CATALOG-HOOK-CLEAR`. Evaluation still fails until
+Task 10 adds `_policy.nix` and Task 11 adds `_keepalive-key.nix`.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add modules/browsers/webapps/_catalog.nix modules/browsers/webapps/apps.nix
+git add modules/browsers/webapps/_catalog.nix modules/browsers/webapps/nixos.nix
 git commit -m "feat(webapps): declare the web app option surface and catalog
 
 Keyed attrset with a typed submodule so a host overrides one app by key instead of restating the catalog. Teams is
 included where the firefoxpwa catalog excluded it: that exclusion was a Gecko-only /v2/unsupported-browser redirect.
 Geolocation is absent from the permission submodule because Chromium ships GeolocationBlockedForUrls with no matching
-allowlist, so it cannot be granted per origin.
+allowlist, so it cannot be granted per origin. The file is nixos.nix rather than apps.nix because
+modules/meta/hooks/apps-catalog-sync.nix reads every modules/browsers/*/apps.nix as a catalog entry and demands a
+matching <dir>.extended.enable line, which programs.webapps.enable is not.
 
 Validation: nix-instantiate --parse"
 ```
@@ -1178,6 +1285,69 @@ Validation: nix-instantiate --parse"
 **Files:**
 
 - Create: `modules/browsers/webapps/_policy.nix`
+
+- Create: `modules/browsers/webapps/_check-apps.nix`
+
+**Ordering:** both files created here import
+`modules/browsers/webapps/_keepalive-key.nix`, which Task 11 Step 1 generates.
+Run Task 11 Step 1 first, or nothing in this task evaluates. The tasks stay in
+this order because the policy generator is what explains why the key has to be
+pinned at all.
+
+- [ ] **Step 0: Settle whether `ExtensionSettings` blocks `--load-extension`**
+
+Blocking. Chromium routes unpacked loads through the same `ExtensionManagement`
+installation-mode lookup that `ExtensionSettings` populates, so
+`"*" = { installation_mode = "blocked"; }` plausibly blocks the generated
+keep-alive extension too. That is not proven, and the answer decides whether the
+policy needs an explicit allowlist entry. Test it before writing the generator:
+
+```bash
+tmp="$(mktemp -d)"
+mkdir -p "$tmp/ext" "$tmp/profile" "$tmp/pol"
+
+cat > "$tmp/ext/manifest.json" <<'EOF'
+{
+  "manifest_version": 3,
+  "name": "load-extension probe",
+  "version": "1.0.0",
+  "background": { "service_worker": "sw.js" }
+}
+EOF
+printf 'console.log("probe loaded");\n' > "$tmp/sw.js"
+cp "$tmp/sw.js" "$tmp/ext/sw.js"
+
+cat > "$tmp/pol/probe.json" <<'EOF'
+{
+  "ExtensionSettings": {
+    "*": { "installation_mode": "blocked" }
+  }
+}
+EOF
+
+# Chromium reads the managed directory from a fixed path, so the probe needs a
+# throwaway root rather than the host's /etc.
+sudo install -D -m 0444 "$tmp/pol/probe.json" /etc/brave/policies/managed/zz-probe.json
+
+brave-origin --user-data-dir="$tmp/profile" --load-extension="$tmp/ext" \
+  --no-first-run about:blank
+# In the running instance, open brave://extensions and brave://policy.
+
+sudo rm -f /etc/brave/policies/managed/zz-probe.json
+```
+
+Record the result here before continuing:
+
+- [ ] Blocked. `brave://extensions` shows the probe missing or flagged
+  "Blocked by administrator". **The generator must allowlist the keep-alive
+  extension ID.** Proceed with Step 1 as written and with Task 11's pinned key.
+- [ ] Loaded. `brave://extensions` lists "load-extension probe".
+  `--load-extension` bypasses `ExtensionSettings`. Keep the allowlist entry
+  anyway: it costs one policy key and it makes the behavior explicit rather than
+  dependent on a Chromium implementation detail that has changed before.
+
+Either outcome leaves the plan unchanged. What changes is whether the keep-alive
+extension silently never runs, which is the failure this step exists to prevent.
 
 - [ ] **Step 1: Write the policy generator**
 
@@ -1199,11 +1369,18 @@ Create `modules/browsers/webapps/_policy.nix`:
   The capture toggles (AudioCaptureAllowed, VideoCaptureAllowed,
   ScreenCaptureAllowed) live here rather than in the hardening set so each
   deny-by-default sits next to the allowlist that opens it.
+
+  Everything written here is browser-wide. Chromium applies a managed directory
+  per browser, not per profile or per --user-data-dir, so these keys also bind
+  the brave-origin instance used for general browsing. That is the accepted
+  tradeoff; see "Consequences of a browser-wide policy" in the plan.
 */
 {
   lib,
   apps,
   defaultExtensions,
+  # Stable ID of the generated keep-alive extension, from ./_keepalive-key.nix.
+  keepAliveExtensionId,
   # key -> string. Returns a sops placeholder for apps whose origin is secret.
   originPlaceholder,
 }:
@@ -1296,8 +1473,9 @@ in
   WindowManagementAllowedForUrls = granted "windowManagement";
   LocalFontsAllowedForUrls = granted "localFonts";
 
-  # Web app origins are the only sites these instances ever load, so nothing
-  # else needs an exemption.
+  # Additive only: URLAllowlist exempts entries from URLBlocklist and does not
+  # restrict anything on its own. Nothing here narrows general browsing; it is
+  # kept so a future URLBlocklist cannot lock the apps out.
   URLAllowlist = allOrigins;
 
   ExtensionSettings = {
@@ -1305,48 +1483,121 @@ in
       installation_mode = "blocked";
       blocked_install_message = "Web app extensions are managed through Nix and cannot be installed from the browser.";
     };
+
+    # The generated keep-alive extension is loaded with --load-extension, and
+    # Chromium routes unpacked loads through the same installation-mode lookup
+    # this policy fills, so "*" = blocked would otherwise refuse it. The ID is
+    # pinned by the manifest key in ./_keepalive-key.nix; without that pin it
+    # would be a hash of the store path and unlistable here.
+    ${keepAliveExtensionId} = {
+      installation_mode = "allowed";
+    };
   }
   // defaultEntries
   // perAppEntries;
 }
 ```
 
-- [ ] **Step 2: Verify the generator against the catalog by hand**
+- [ ] **Step 2: Write the fixture shim once**
+
+The generator has to be callable outside the module system, which means the
+submodule defaults have to be restated somewhere. They were restated four times
+in the first draft of this plan: in the shell command below, in Task 14's
+`policy-check.nix`, in Task 14's fixture regeneration, and in Task 16's fixture
+refresh. Four copies drift. They live in one file instead.
+
+Create `modules/browsers/webapps/_check-apps.nix`:
+
+```nix
+/*
+  Internal: the app set as ./_policy.nix sees it, outside the module system
+  Description: ./nixos.nix builds this shape through lib.types.submodule
+  defaults, which needs a whole host evaluation. Checks and the fixture-refresh
+  command need the same shape from _catalog.nix alone, so the defaults are
+  restated here once rather than at every call site. The leading underscore
+  keeps this file out of module auto-discovery.
+
+  MAINTENANCE: these defaults duplicate the submodule in ./nixos.nix and the
+  default of programs.webapps.defaultExtensions. Changing either option's
+  default without changing this file makes the fixture describe a policy the
+  hosts do not get. Add the option here in the same commit.
+*/
+{ lib }:
+let
+  catalog = import ./_catalog.nix;
+in
+rec {
+  apps = lib.mapAttrs (key: app: {
+    inherit key;
+    url = app.url or null;
+    originSecret = app.originSecret or null;
+    permissions = {
+      microphone = false;
+      camera = false;
+      notifications = false;
+      clipboard = false;
+      screenCapture = false;
+      sensors = false;
+      windowManagement = false;
+      localFonts = false;
+    }
+    // (app.permissions or { });
+    extensions = {
+      enable = [ ];
+      disable = [ ];
+    }
+    // (app.extensions or { });
+  }) catalog;
+
+  defaultExtensions = [ "aeblfdkhhhdcdjpifhhbdiojplfjncoa" ];
+
+  # Fixtures must never carry a real secret origin.
+  originPlaceholder = key: "PLACEHOLDER-${key}";
+
+  inherit (import ./_keepalive-key.nix) keepAliveExtensionId;
+
+  policy = import ./_policy.nix {
+    inherit
+      lib
+      apps
+      defaultExtensions
+      originPlaceholder
+      keepAliveExtensionId
+      ;
+  };
+}
+```
+
+The one thing that stays duplicated on purpose is Task 14's independent
+recomputation of the expected grants. Sharing that with the generator would make
+the check assert that the generator agrees with itself.
+
+- [ ] **Step 3: Verify the generator against the catalog by hand**
 
 ```bash
 nix eval --impure --json --expr '
-  let
+  (import ./modules/browsers/webapps/_check-apps.nix {
     lib = (import <nixpkgs> {}).lib;
-    catalog = import ./modules/browsers/webapps/_catalog.nix;
-    withDefaults = lib.mapAttrs (key: app: {
-      inherit key;
-      url = app.url or null;
-      originSecret = app.originSecret or null;
-      permissions = {
-        microphone = false; camera = false; notifications = false; clipboard = false;
-        screenCapture = false; sensors = false; windowManagement = false; localFonts = false;
-      } // (app.permissions or {});
-      extensions = { enable = []; disable = []; } // (app.extensions or {});
-    }) catalog;
-  in import ./modules/browsers/webapps/_policy.nix {
-    inherit lib;
-    apps = withDefaults;
-    defaultExtensions = [ "aeblfdkhhhdcdjpifhhbdiojplfjncoa" ];
-    originPlaceholder = key: "PLACEHOLDER-${key}";
-  }' | jq -S .
+  }).policy' | jq -S .
 ```
 
-Expected: `AudioCaptureAllowedUrls` and `VideoCaptureAllowedUrls` each contain exactly `https://teams.cloud.microsoft`; `NotificationsAllowedForUrls` contains `https://outlook.cloud.microsoft` and `https://teams.cloud.microsoft`; every other allowlist is `[]`; no origin carries a trailing path.
+Expected: `AudioCaptureAllowedUrls` and `VideoCaptureAllowedUrls` each contain exactly `https://teams.cloud.microsoft`; `NotificationsAllowedForUrls` contains `https://outlook.cloud.microsoft` and `https://teams.cloud.microsoft`; every other allowlist is `[]`; no origin carries a trailing path; `ExtensionSettings` holds `*`, the 1Password ID and the keep-alive ID.
 
-- [ ] **Step 3: Commit**
+This step depends on Task 11's `_keepalive-key.nix`. Either do Task 11 Step 1
+first, or stub the file with the real key once Task 11 generates it and re-run
+this step before committing.
+
+- [ ] **Step 4: Commit**
 
 ```bash
-git add modules/browsers/webapps/_policy.nix
+git add modules/browsers/webapps/_policy.nix modules/browsers/webapps/_check-apps.nix
 git commit -m "feat(webapps): generate per-origin permission and extension policy
 
 Deny-by-default capture toggles sit next to the allowlist that opens them, so a granted capability is one line of
 diff. Per-app extension scoping uses runtime_blocked_hosts and runtime_allowed_hosts rather than separate policy
-files, because Chromium's config-dir loader lets one file win a repeated key outright instead of merging it.
+files, because Chromium's config-dir loader lets one file win a repeated key outright instead of merging it. The
+keep-alive extension ID is allowlisted explicitly: Chromium routes --load-extension through the same
+installation-mode lookup ExtensionSettings fills, so \"*\" = blocked would otherwise refuse it silently.
 
 Validation: nix eval of the generator against _catalog.nix, asserting teams holds the only capture grants"
 ```
@@ -1355,9 +1606,137 @@ Validation: nix eval of the generator against _catalog.nix, asserting teams hold
 
 **Files:**
 
+- Create: `modules/browsers/webapps/_keepalive-key.nix`
+
 - Create: `modules/browsers/webapps/_reload-extension.nix`
 
-- [ ] **Step 1: Write the extension builder**
+- [ ] **Step 1: Pin the extension ID**
+
+Without a `key` in `manifest.json`, Chromium derives an unpacked extension's ID
+from the SHA-256 of its absolute path. Every rebuild moves the store path, so
+the ID changes on every rebuild. Three consequences, all fixed by one committed
+public key:
+
+- The ID cannot be named in `ExtensionSettings`, so `"*" = blocked` has nothing
+  to make an exception for (Task 10 Step 0).
+- Each persistent profile under `~/.local/share/webapps/<key>` accumulates a
+  fresh extension registration per rebuild, since the old ID never matches.
+- `brave://extensions` shows a different ID each time, so there is nothing
+  stable to check against during verification.
+
+With a `key`, the ID is derived from that public key and never moves. Only the
+public half is used; unpacked extensions are never signed, so the private key is
+generated, used once to derive the public key, and discarded.
+
+```bash
+priv="$(mktemp)"
+openssl genrsa -out "$priv" 2048 2>/dev/null
+
+pubkey="$(openssl rsa -in "$priv" -pubout -outform DER 2>/dev/null | base64 -w0)"
+
+# Chromium's ID: first 128 bits of SHA-256 over the DER public key, each hex
+# nibble mapped 0-9a-f to a-p.
+extid="$(openssl rsa -in "$priv" -pubout -outform DER 2>/dev/null \
+  | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')"
+
+rip "$priv"
+
+printf 'publicKey  = %s\nextensionId = %s\n' "$pubkey" "$extid"
+```
+
+Create `modules/browsers/webapps/_keepalive-key.nix` with those two values:
+
+```nix
+/*
+  Internal: identity of the generated keep-alive extension
+  Description: An unpacked extension's ID is a hash of its absolute path unless
+  manifest.json carries a `key`, in which case the ID is derived from that
+  public key instead. The generated keep-alive extension needs a stable ID: it
+  is loaded with --load-extension into a browser whose ExtensionSettings policy
+  blocks everything not named, and its store path changes on every rebuild. The
+  leading underscore keeps this file out of module auto-discovery.
+
+  This is a public key only. Unpacked extensions are never signed, so the
+  matching private key was generated once, used to derive these two values, and
+  discarded. Regenerating it changes the extension ID, which orphans the
+  registration in every existing app profile.
+
+  keepAliveExtensionId is the first 128 bits of SHA-256 over the DER-encoded
+  public key with each hex nibble mapped 0-9a-f to a-p. ./keepalive-id-check.nix
+  recomputes it rather than trusting the value transcribed here.
+*/
+{
+  publicKey = "<base64 DER SubjectPublicKeyInfo from the command above>";
+  keepAliveExtensionId = "<32-character a-p ID from the command above>";
+}
+```
+
+One key serves every app. The apps never coexist in a profile, so a shared ID
+cannot collide, and one entry in `ExtensionSettings` covers all of them.
+
+- [ ] **Step 2: Check the transcribed ID against the key**
+
+A wrong ID here fails silently: the extension loads under its real ID, the
+policy allowlists a different one, and the keep-alive is blocked with no error
+anywhere in the Nix build. Recompute it in a derivation rather than trusting the
+paste. Create `modules/browsers/webapps/keepalive-id-check.nix`:
+
+```nix
+/*
+  Check: the keep-alive extension ID matches its public key.
+
+  _keepalive-key.nix carries both a base64 DER public key and the extension ID
+  Chromium derives from it. Nix cannot decode base64, so the ID is transcribed
+  by hand and a typo would be invisible: the extension would load under its real
+  ID while ExtensionSettings allowlists a different one, and the keep-alive
+  would be blocked with nothing in the build to say so.
+*/
+{ ... }:
+{
+  perSystem =
+    { pkgs, ... }:
+    {
+      checks."browsers/webapps-keepalive-id" =
+        let
+          inherit (import ./_keepalive-key.nix) publicKey keepAliveExtensionId;
+        in
+        pkgs.runCommand "webapps-keepalive-id-check"
+          {
+            nativeBuildInputs = [ pkgs.coreutils ];
+            inherit publicKey keepAliveExtensionId;
+          }
+          ''
+            computed="$(printf '%s' "$publicKey" | base64 -d \
+              | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')"
+
+            if [ "$computed" != "$keepAliveExtensionId" ]; then
+              echo "browsers/webapps-keepalive-id: _keepalive-key.nix says the ID is" >&2
+              echo "  $keepAliveExtensionId" >&2
+              echo "but the public key derives" >&2
+              echo "  $computed" >&2
+              exit 1
+            fi
+            touch "$out"
+          '';
+    };
+}
+```
+
+Prove it can fail before trusting a pass:
+
+```bash
+nix build "path:.#checks.x86_64-linux.\"browsers/webapps-keepalive-id\"" --accept-flake-config --no-link \
+  && echo ID-MATCHES
+sed -i 's/keepAliveExtensionId = "\(.\)/keepAliveExtensionId = "z\1/' modules/browsers/webapps/_keepalive-key.nix
+nix build "path:.#checks.x86_64-linux.\"browsers/webapps-keepalive-id\"" --accept-flake-config 2>&1 \
+  | rg -q 'but the public key derives' && echo ID-CHECK-REACHABLE
+sed -i 's/keepAliveExtensionId = "z/keepAliveExtensionId = "/' modules/browsers/webapps/_keepalive-key.nix
+nix build "path:.#checks.x86_64-linux.\"browsers/webapps-keepalive-id\"" --accept-flake-config --no-link
+```
+
+Expected: `ID-MATCHES`, then `ID-CHECK-REACHABLE`, then a clean exit 0.
+
+- [ ] **Step 3: Write the extension builder**
 
 Create `modules/browsers/webapps/_reload-extension.nix`:
 
@@ -1378,6 +1757,12 @@ Create `modules/browsers/webapps/_reload-extension.nix`:
   Each app loads its own copy: --load-extension applies to a browser instance,
   and every app is its own instance under its own --user-data-dir, so the
   interval is baked in at build time instead of being read from storage.
+
+  The manifest key pins the extension ID. Without it the ID is a hash of the
+  store path, so it would change on every rebuild: unlistable in the
+  ExtensionSettings policy that blocks everything unnamed, and a fresh orphaned
+  registration in every persistent profile each time. One key serves every app;
+  the apps never share a profile, so a shared ID cannot collide.
 */
 { lib, runCommand }:
 {
@@ -1385,11 +1770,17 @@ Create `modules/browsers/webapps/_reload-extension.nix`:
   appName,
   intervalMinutes,
 }:
+let
+  inherit (import ./_keepalive-key.nix) publicKey;
+in
 assert lib.assertMsg (intervalMinutes >= 1)
   "webapps: reload.intervalMinutes for '${key}' must be at least 1; Chromium floors chrome.alarms periods at 0.5 minutes.";
 runCommand "webapp-reload-${key}"
   {
-    passthru = { inherit key intervalMinutes; };
+    passthru = {
+      inherit key intervalMinutes;
+      inherit (import ./_keepalive-key.nix) keepAliveExtensionId;
+    };
     meta.description = "Keep-alive reload extension for the ${appName} web app";
   }
   ''
@@ -1401,6 +1792,7 @@ runCommand "webapp-reload-${key}"
       "name": "${appName} keep-alive",
       "version": "1.0.0",
       "description": "Reloads ${appName} every ${toString intervalMinutes} minutes while it is not in use.",
+      "key": "${publicKey}",
       "permissions": ["alarms", "tabs"],
       "background": { "service_worker": "service-worker.js" }
     }
@@ -1443,7 +1835,7 @@ runCommand "webapp-reload-${key}"
   ''
 ```
 
-- [ ] **Step 2: Build one and inspect it**
+- [ ] **Step 4: Build one and inspect it**
 
 ```bash
 nix eval --impure --raw --expr '
@@ -1454,9 +1846,24 @@ nix eval --impure --raw --expr '
 ' | xargs -I{} sh -c 'jq . {}/manifest.json && head -5 {}/service-worker.js'
 ```
 
-Expected: valid JSON with `manifest_version: 3` and `permissions: ["alarms","tabs"]`, and a service worker whose `PERIOD_MINUTES` is `20`.
+Expected: valid JSON with `manifest_version: 3`, `permissions: ["alarms","tabs"]` and a `key` matching `publicKey` in `_keepalive-key.nix`, and a service worker whose `PERIOD_MINUTES` is `20`.
 
-- [ ] **Step 3: Verify the interval assertion fires**
+The heredoc is quoted (`<<'MANIFEST'`), so `${publicKey}` is interpolated by Nix
+before the shell ever sees it. Confirm the rendered key is the base64 blob and
+not the literal string `${publicKey}`:
+
+```bash
+nix eval --impure --raw --expr '
+  let pkgs = import <nixpkgs> {}; in
+  (import ./modules/browsers/webapps/_reload-extension.nix {
+    inherit (pkgs) lib runCommand;
+  }) { key = "teams"; appName = "Microsoft Teams"; intervalMinutes = 20; }
+' | xargs -I{} jq -r '.key' {}/manifest.json | head -c 32
+```
+
+Expected: a base64 prefix, conventionally starting `MIIBIjANBgkqhkiG9w0B`.
+
+- [ ] **Step 5: Verify the interval assertion fires**
 
 ```bash
 nix eval --impure --raw --expr '
@@ -1469,17 +1876,25 @@ nix eval --impure --raw --expr '
 
 Expected: `ASSERT-OK`.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add modules/browsers/webapps/_reload-extension.nix
+git add modules/browsers/webapps/_keepalive-key.nix \
+  modules/browsers/webapps/keepalive-id-check.nix \
+  modules/browsers/webapps/_reload-extension.nix
 git commit -m "feat(webapps): generate a per-app MV3 keep-alive extension
 
 chrome.alarms wakes the service worker after Chromium idles it, which is what keeps the timer running while the window
 sits iconified in the tray. The reload is skipped while the window has focus so it never lands mid-input;
 getLastFocused throwing is the no-window case and falls through to reload deliberately.
 
-Validation: nix eval building the extension for teams, asserting the manifest shape and the baked interval"
+The manifest carries a committed public key so the extension ID stops being a hash of the store path. Without it the
+ID moves on every rebuild: ExtensionSettings has no stable ID to allowlist, and every app profile accumulates one
+orphaned registration per rebuild. Nix cannot decode base64, so the ID is transcribed and
+checks.\"browsers/webapps-keepalive-id\" recomputes it from the key rather than trusting the paste.
+
+Validation: nix eval building the extension for teams, asserting the manifest shape and the baked interval;
+nix build path:.#checks.x86_64-linux.\"browsers/webapps-keepalive-id\", proven reachable by corrupting the ID"
 ```
 
 ### Task 12: Build the launchers and desktop entries
@@ -1497,9 +1912,11 @@ Create `modules/browsers/webapps/home.nix`:
   Web apps: launchers, per-app profiles and tray integration
   Description: Builds one launcher per web app declared in programs.webapps
   (NixOS scope, ./apps.nix) and registers a desktop entry for it. Each launcher
-  runs the browser against its own --user-data-dir, which is what keeps cookies,
-  storage and extensions separate between apps and keeps a session usable across
-  launches.
+  runs the browser against its own --user-data-dir, which is what keeps cookies
+  and storage separate between apps and keeps a session usable across launches.
+  Extensions are not separated this way: ExtensionSettings is browser-wide, so
+  every profile gets the same force-installed set and only interaction is scoped
+  per origin. See ./nixos.nix.
 
   Tray-enabled apps launch through kdocker rather than the browser directly, so
   closing the window iconifies to the tray instead of exiting. The instance
@@ -1576,20 +1993,27 @@ Create `modules/browsers/webapps/home.nix`:
               ''"$(cat ${lib.escapeShellArg config.sops.secrets."webapps/${key}/url".path})"''
             else
               lib.escapeShellArg app.url;
+
+          # Assembled as a list rather than backslash-continued lines. An
+          # lib.optionalString inside a continued argument list renders an empty
+          # line when the option is off, which terminates the command there and
+          # leaves the rest as a second command starting with a flag. shellcheck
+          # rejects that as SC2215 and writeShellApplication fails to build.
+          args = [
+            "--user-data-dir=${lib.escapeShellArg profileDir}"
+            "--class=${lib.escapeShellArg "WebApp-${key}"}"
+          ]
+          ++ lib.optional (
+            reloadExtension != null
+          ) "--load-extension=${lib.escapeShellArg "${reloadExtension}"}"
+          ++ [ "--app=${urlExpr}" ];
         in
         pkgs.writeShellApplication {
           name = "webapp-${key}";
           runtimeInputs = [ osCfg.package ] ++ lib.optional (app.urlSecret != null) pkgs.coreutils;
           text = ''
             install -d -m 700 ${lib.escapeShellArg profileDir}
-            exec ${browser} \
-              --user-data-dir=${lib.escapeShellArg profileDir} \
-              --class=${lib.escapeShellArg "WebApp-${key}"} \
-              ${lib.optionalString (
-                reloadExtension != null
-              ) "--load-extension=${lib.escapeShellArg "${reloadExtension}"} \\"}
-              --app=${urlExpr} \
-              "$@"
+            exec ${browser} ${lib.concatStringsSep " " args} "$@"
           '';
         };
 
@@ -1600,6 +2024,19 @@ Create `modules/browsers/webapps/home.nix`:
         key: app: browserLauncher:
         let
           icon = resolveTrayIcon app;
+
+          # Same list-not-continuation reason as mkBrowserLauncher above. Every
+          # icon default is null, so the empty case is the common one here:
+          # tray.icon, defaultTrayIcon and defaultIcon all default to null.
+          args = lib.optional (icon != null) "-i ${lib.escapeShellArg "${icon}"}"
+          ++ [
+            "-z"
+            "-q"
+            "-l"
+            "-d"
+            "30"
+            (lib.getExe browserLauncher)
+          ];
         in
         pkgs.writeShellApplication {
           name = "webapp-${key}-tray";
@@ -1608,13 +2045,7 @@ Create `modules/browsers/webapps/home.nix`:
             browserLauncher
           ];
           text = ''
-            exec kdocker \
-              ${lib.optionalString (icon != null) "-i ${lib.escapeShellArg "${icon}"} \\"}
-              -z \
-              -q \
-              -l \
-              -d 30 \
-              ${lib.getExe browserLauncher}
+            exec kdocker ${lib.concatStringsSep " " args}
           '';
         };
 
@@ -1701,7 +2132,7 @@ In `modules/hosts/common/home-manager-apps.nix`, add `"webapps"` to `sharedBrows
   ];
 ```
 
-- [ ] **Step 3: Verify the launcher text**
+- [ ] **Step 3: Verify the launchers exist**
 
 ```bash
 nix fmt
@@ -1712,7 +2143,43 @@ nix eval --raw "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.ho
 
 Expected: one `webapp-<key>` per catalog app, plus `webapp-outlook-tray` and `webapp-teams-tray`.
 
-- [ ] **Step 4: Commit**
+- [ ] **Step 4: Build the launchers and read one**
+
+Step 3 proves nothing about the launcher body. `writeShellApplication` runs
+`shellcheck` at build time, so a malformed command is a build failure, not an
+eval failure, and eval-only validation cannot see it. This is the step that
+would have caught the empty-`optionalString` line-continuation bug: it hits
+every app without `reload.enable` and both tray wrappers, which is most of the
+catalog.
+
+```bash
+nix build "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
+  --accept-flake-config --no-link
+```
+
+Expected: exit 0. A `SC2215: This flag is used as a command name` failure means
+an argument list rendered empty somewhere and the command terminated early.
+
+Then read the two shapes that differ, the no-reload app and a tray wrapper:
+
+```bash
+outdir="$(nix eval --raw --accept-flake-config \
+  "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
+  --apply 'ps: (builtins.head (builtins.filter (p: p.name == "webapp-word") ps)).outPath')"
+cat "$outdir/bin/webapp-word"
+
+traydir="$(nix eval --raw --accept-flake-config \
+  "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
+  --apply 'ps: (builtins.head (builtins.filter (p: p.name == "webapp-teams-tray") ps)).outPath')"
+cat "$traydir/bin/webapp-teams-tray"
+```
+
+Expected: `webapp-word` is a single `exec` line carrying `--user-data-dir`,
+`--class` and `--app` with no `--load-extension` and no blank continuation;
+`webapp-teams-tray` is a single `exec kdocker` line with `-z -q -l -d 30` and no
+`-i` (every icon default is null until one is set).
+
+- [ ] **Step 5: Commit**
 
 ```bash
 git add modules/browsers/webapps/home.nix modules/hosts/common/home-manager-apps.nix
@@ -1723,7 +2190,12 @@ configured. Tray apps go through a kdocker wrapper rather than kdocker flags inl
 browser arguments are never re-parsed by kdocker's own option handling. A secret start URL is read from the decrypted
 file at launch instead of being baked into the launcher.
 
-Validation: nix eval of home.packages, asserting one launcher per catalog app plus the two tray wrappers"
+Both commands are assembled as argument lists rather than backslash-continued lines. An lib.optionalString inside a
+continuation renders a whitespace-only line when the option is off, which ends the command there and leaves the rest
+as a second command starting with a flag; shellcheck rejects that as SC2215 and writeShellApplication fails to build.
+
+Validation: nix build of home.packages, which runs shellcheck over every launcher; webapp-word and webapp-teams-tray
+read back to confirm the no-extension and no-icon shapes"
 ```
 
 ### Task 13: Wire the hosts-common baseline
@@ -1736,7 +2208,14 @@ Validation: nix eval of home.packages, asserting one launcher per catalog app pl
 
 - [ ] **Step 1: Write the baseline toggle**
 
-Create `modules/browsers/webapps/enable.nix`. It uses the shared-host-module pattern from CLAUDE.md rather than the flat app catalog, because `programs.webapps.enable` is not a `<name>.extended.enable` entry and the catalog's duplicate-override check keys on that shape:
+Create `modules/browsers/webapps/enable.nix`. It uses the shared-host-module pattern from CLAUDE.md rather than the flat app catalog, because `programs.webapps.enable` is not a `<name>.extended.enable` entry and the catalog's duplicate-override check keys on that shape.
+
+This is the other half of the `nixos.nix` naming decision from Task 9.
+`modules/meta/hooks/apps-catalog-sync.nix` reads
+`modules/browsers/*/apps.nix` as the catalog and requires each hit to have a
+`<dir>.extended.enable` line in `modules/hosts/common/apps-enable.nix`. Staying
+out of the catalog and naming the module file `apps.nix` are mutually exclusive;
+this plan stays out of the catalog.
 
 `secretsRoot` is already a NixOS-scope module argument: `modules/configurations/nixos.nix:42` passes it, and `modules/hosts/common/duplicati.nix:9`, `fonts.nix:8` and `usbguard.nix:6` already consume it that way. No change to `modules/configurations/nixos.nix` is needed.
 
@@ -1786,11 +2265,16 @@ Expected: `1 insertion(+)`, and the list now opens with `"brave-origin"` followe
 
 ```bash
 nix fmt
+nix develop path:. -c pre-commit run --all-files --hook-stage manual apps-catalog-sync
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
 ```
 
-Expected: both succeed.
+Expected: all three succeed. The catalog hook runs here rather than only in
+Task 17 because this is the task that decides `programs.webapps` stays out of
+`modules/hosts/common/apps-enable.nix`; if it reports `webapps` missing from the
+catalog, a file under `modules/browsers/webapps/` was named `apps.nix` and needs
+renaming, not a catalog entry.
 
 - [ ] **Step 4: Commit**
 
@@ -1833,7 +2317,11 @@ Create `modules/browsers/webapps/policy-check.nix`:
     silently loses one file's value.
   - That no app is granted a capability it did not declare. The fixture alone
     would not catch a generator that leaked every origin into every allowlist,
-    because the fixture would simply be regenerated with the bug in it.
+    because the fixture would simply be regenerated with the bug in it. This is
+    the one thing here that deliberately does NOT reuse ./_check-apps.nix's
+    generator output; recomputing the expectation from the catalog is the whole
+    point, and sharing code with the generator would make the check assert that
+    the generator agrees with itself.
 */
 { lib, ... }:
 {
@@ -1842,38 +2330,11 @@ Create `modules/browsers/webapps/policy-check.nix`:
     {
       checks."browsers/webapps-policy" =
         let
-          catalog = import ./_catalog.nix;
-
-          # The submodule defaults the module system would apply, restated here
-          # so the generator can be called without evaluating a whole host.
-          withDefaults = lib.mapAttrs (key: app: {
-            inherit key;
-            url = app.url or null;
-            originSecret = app.originSecret or null;
-            permissions = {
-              microphone = false;
-              camera = false;
-              notifications = false;
-              clipboard = false;
-              screenCapture = false;
-              sensors = false;
-              windowManagement = false;
-              localFonts = false;
-            }
-            // (app.permissions or { });
-            extensions = {
-              enable = [ ];
-              disable = [ ];
-            }
-            // (app.extensions or { });
-          }) catalog;
-
-          policy = import ./_policy.nix {
-            inherit lib;
-            apps = withDefaults;
-            defaultExtensions = [ "aeblfdkhhhdcdjpifhhbdiojplfjncoa" ];
-            originPlaceholder = key: "PLACEHOLDER-${key}";
-          };
+          # The submodule defaults live in ./_check-apps.nix, not here. Four
+          # copies of this shim drifted apart in the first draft of this plan.
+          checkApps = import ./_check-apps.nix { inherit lib; };
+          inherit (checkApps) policy;
+          withDefaults = checkApps.apps;
 
           hardening = (import ../_chromium-hardening.nix).policies;
           overlap = lib.intersectLists (lib.attrNames policy) (lib.attrNames hardening);
@@ -1915,12 +2376,15 @@ Create `modules/browsers/webapps/policy-check.nix`:
           "browsers/webapps-policy: ${toString unexpectedGrants} do not match the origins that declared the matching permission";
         assert lib.assertMsg (policy.AudioCaptureAllowed == false && policy.VideoCaptureAllowed == false && policy.ScreenCaptureAllowed == false)
           "browsers/webapps-policy: capture must be denied by default";
+        # getExe', not getExe: diffutils declares no meta.mainProgram, so
+        # lib.getExe resolves to a bin/diffutils that does not exist. The
+        # package ships diff, cmp, diff3 and sdiff.
         pkgs.runCommand "webapps-policy-check" { } ''
-          if ! ${lib.getExe pkgs.diffutils} -u ${./check-fixtures/policy.json} ${actual}; then
+          if ! ${lib.getExe' pkgs.diffutils "diff"} -u ${./check-fixtures/policy.json} ${actual}; then
             echo "browsers/webapps-policy: generated policy differs from the fixture." >&2
             echo "If the change is intended, refresh it with:" >&2
-            echo "  nix build path:.#checks.\$(nix eval --raw --impure --expr builtins.currentSystem).\"browsers/webapps-policy\"" >&2
-            echo "  cp ${actual} modules/browsers/webapps/check-fixtures/policy.json" >&2
+            echo "  nix eval --impure --json --expr '(import ./modules/browsers/webapps/_check-apps.nix { lib = (import <nixpkgs> {}).lib; }).policy' \\" >&2
+            echo "    | jq -S . > modules/browsers/webapps/check-fixtures/policy.json" >&2
             exit 1
           fi
           touch "$out"
@@ -1931,28 +2395,15 @@ Create `modules/browsers/webapps/policy-check.nix`:
 
 - [ ] **Step 2: Generate the fixture from the current generator**
 
+Same one-liner the check prints on failure and the same one Task 16 Step 3 uses.
+There is one copy of it because there is one copy of the defaults shim.
+
 ```bash
 mkdir -p modules/browsers/webapps/check-fixtures
 nix eval --impure --json --expr '
-  let
+  (import ./modules/browsers/webapps/_check-apps.nix {
     lib = (import <nixpkgs> {}).lib;
-    catalog = import ./modules/browsers/webapps/_catalog.nix;
-    withDefaults = lib.mapAttrs (key: app: {
-      inherit key;
-      url = app.url or null;
-      originSecret = app.originSecret or null;
-      permissions = {
-        microphone = false; camera = false; notifications = false; clipboard = false;
-        screenCapture = false; sensors = false; windowManagement = false; localFonts = false;
-      } // (app.permissions or {});
-      extensions = { enable = []; disable = []; } // (app.extensions or {});
-    }) catalog;
-  in import ./modules/browsers/webapps/_policy.nix {
-    inherit lib;
-    apps = withDefaults;
-    defaultExtensions = [ "aeblfdkhhhdcdjpifhhbdiojplfjncoa" ];
-    originPlaceholder = key: "PLACEHOLDER-${key}";
-  }' | jq -S . > modules/browsers/webapps/check-fixtures/policy.json
+  }).policy' | jq -S . > modules/browsers/webapps/check-fixtures/policy.json
 ```
 
 - [ ] **Step 3: Read the fixture before trusting it**
@@ -1965,9 +2416,19 @@ jq '{
   denied: [.AudioCaptureAllowed, .VideoCaptureAllowed, .ScreenCaptureAllowed],
   extensions: (.ExtensionSettings | keys)
 }' modules/browsers/webapps/check-fixtures/policy.json
+
+keepalive_id="$(nix eval --impure --raw --expr \
+  '(import ./modules/browsers/webapps/_keepalive-key.nix).keepAliveExtensionId')"
+jq --arg id "$keepalive_id" '.ExtensionSettings[$id]' \
+  modules/browsers/webapps/check-fixtures/policy.json
 ```
 
-Expected: `camera` and `mic` are `["https://teams.cloud.microsoft"]`; `notifications` holds outlook and teams; `denied` is `[false,false,false]`; `extensions` is `["*","aeblfdkhhhdcdjpifhhbdiojplfjncoa"]`.
+Expected: `camera` and `mic` are `["https://teams.cloud.microsoft"]`;
+`notifications` holds outlook and teams; `denied` is `[false,false,false]`;
+`extensions` is `["*","aeblfdkhhhdcdjpifhhbdiojplfjncoa"]` plus the keep-alive
+ID; and the keep-alive entry is `{"installation_mode":"allowed"}`. A `null`
+there means `_policy.nix` and `_keepalive-key.nix` disagree and the keep-alive
+extension will be blocked at runtime with nothing to show for it.
 
 - [ ] **Step 4: Prove the check fails on a bad policy**
 
@@ -2275,25 +2736,9 @@ The fixture generator substitutes `PLACEHOLDER-dmail` for the secret origin, so 
 ```bash
 cd /home/vx/trees/nixos/feat-chromium-webapps
 nix eval --impure --json --expr '
-  let
+  (import ./modules/browsers/webapps/_check-apps.nix {
     lib = (import <nixpkgs> {}).lib;
-    catalog = import ./modules/browsers/webapps/_catalog.nix;
-    withDefaults = lib.mapAttrs (key: app: {
-      inherit key;
-      url = app.url or null;
-      originSecret = app.originSecret or null;
-      permissions = {
-        microphone = false; camera = false; notifications = false; clipboard = false;
-        screenCapture = false; sensors = false; windowManagement = false; localFonts = false;
-      } // (app.permissions or {});
-      extensions = { enable = []; disable = []; } // (app.extensions or {});
-    }) catalog;
-  in import ./modules/browsers/webapps/_policy.nix {
-    inherit lib;
-    apps = withDefaults;
-    defaultExtensions = [ "aeblfdkhhhdcdjpifhhbdiojplfjncoa" ];
-    originPlaceholder = key: "PLACEHOLDER-${key}";
-  }' | jq -S . > modules/browsers/webapps/check-fixtures/policy.json
+  }).policy' | jq -S . > modules/browsers/webapps/check-fixtures/policy.json
 ```
 
 - [ ] **Step 4: Confirm no real host leaked into the fixture**
@@ -2342,8 +2787,38 @@ Create `docs/reference/webapps.md`:
 
 `programs.webapps` installs websites as standalone apps in `brave-origin`. Each
 app runs as its own browser instance under its own `--user-data-dir`, so no two
-apps share cookies, storage or extensions, and a session survives across
-launches.
+apps share cookies or storage, and a session survives across launches.
+
+Extensions are not isolated that way. `ExtensionSettings` is a managed policy
+and managed policy is browser-wide, so every profile gets the same
+force-installed set; what is scoped per app is interaction, through
+`runtime_blocked_hosts` and `runtime_allowed_hosts`. See
+[Scope](#scope-the-policy-is-browser-wide).
+
+## Scope: the policy is browser-wide
+
+Chromium applies a managed policy directory per browser, not per profile and not
+per `--user-data-dir`. Everything `programs.webapps` writes to
+`/etc/brave/policies/managed/webapps.json` therefore also binds the
+`brave-origin` instance used for general browsing.
+
+What that means in practice:
+
+- **Mic, camera and screen share are denied everywhere by default, with no
+  prompt.** Only origins listed in the matching `*AllowedUrls` policy can use
+  them, and today that is `teams.cloud.microsoft` alone. A video call or a
+  screen share on any other site fails in `brave-origin`. Granting one means
+  adding that origin to an app entry in `_catalog.nix`.
+- **Extension installs are blocked in the daily-driver profile too**, and
+  `defaultExtensions` (1Password) is force-installed there.
+- `URLAllowlist` is additive: it exempts entries from `URLBlocklist` and
+  restricts nothing on its own. Listing the app origins does not narrow general
+  browsing.
+
+This is deliberate hardening, not an oversight. If the capture denial gets in
+the way, the two ways out are to move general browsing to `brave` and leave
+`brave-origin` to the web apps, or to drop the capture denies from
+`modules/browsers/webapps/_policy.nix` and go back to per-site prompts.
 
 ## Adding an app
 
@@ -2367,14 +2842,17 @@ Refresh the policy fixture afterwards, or `checks."browsers/webapps-policy"`
 fails with a diff:
 
 ```sh
-nix build 'path:.#checks.x86_64-linux."browsers/webapps-policy"' --accept-flake-config
+nix eval --impure --json --expr \
+  '(import ./modules/browsers/webapps/_check-apps.nix { lib = (import <nixpkgs> {}).lib; }).policy' \
+  | jq -S . > modules/browsers/webapps/check-fixtures/policy.json
 ```
 
-The failure message prints the exact `cp` command to refresh the fixture.
+The check prints that same command when it fails.
 
 ## Permissions
 
-Everything is denied by default and granted per origin. Available toggles:
+Everything is denied browser-wide and granted per origin, with the browser-wide
+half applying to all browsing and not just the apps. Available toggles:
 
 | Toggle             | Policy                           |
 | ------------------ | -------------------------------- |
@@ -2402,8 +2880,22 @@ matching allowlist, so it cannot be granted per app; it stays blocked by
 - `extensions.enable = [ "<id>" ]` force-installs an extension and blocks it
   everywhere except the origins that asked for it.
 
+Note what `extensions.enable` does not do. `ExtensionSettings` is browser-wide,
+so an extension one app asks for is installed in every profile, including the
+daily driver. Only interaction is scoped. Read it as "install this everywhere,
+let it run here".
+
 Extensions come from the Chrome Web Store so their IDs stay correct, which is
 what 1Password's native messaging to the desktop app validates.
+
+The generated keep-alive extension is the exception: it is loaded from the store
+with `--load-extension`, and its ID is pinned by a committed public key in
+`modules/browsers/webapps/_keepalive-key.nix` so `ExtensionSettings` has a
+stable ID to allow. Without that pin the ID would be a hash of the store path,
+changing on every rebuild, and the extension would be blocked by the
+`"*" = blocked` default. `checks."browsers/webapps-keepalive-id"` recomputes the
+ID from the key, because Nix cannot decode base64 and the value is transcribed
+by hand.
 
 ## Tray and backgrounding
 
@@ -2435,8 +2927,8 @@ Two files in `/etc/brave/policies/managed/`:
 
 - `extended.json` from `modules/browsers/brave-origin/apps.nix`, the shared
   hardened set.
-- `webapps.json` from `modules/browsers/webapps/apps.nix`, rendered by sops-nix,
-  holding the per-origin allowlists and `ExtensionSettings`.
+- `webapps.json` from `modules/browsers/webapps/nixos.nix`, rendered by
+  sops-nix, holding the per-origin allowlists and `ExtensionSettings`.
 
 Their key sets must stay disjoint. Chromium's config-dir loader lets one file
 win a repeated key outright rather than merging it, so a key in both silently
@@ -2453,7 +2945,7 @@ In `docs/architecture/04-home-manager.md`, the browser-modules paragraph was alr
 rg -n 'webapps' docs/architecture/04-home-manager.md
 ```
 
-Expected: the sentence names `modules/browsers/webapps/home.nix` and `modules/browsers/webapps/apps.nix`.
+Expected: the sentence names `modules/browsers/webapps/home.nix` and `modules/browsers/webapps/nixos.nix`.
 
 - [ ] **Step 3: Regenerate managed artifacts**
 
@@ -2488,18 +2980,32 @@ gh pr create --title "feat(browsers): declarative Chromium web apps on brave-ori
 
 Replaces the removed firefoxpwa subsystem with `programs.webapps`, a declarative Chromium web-app module.
 
-- Each app is its own browser instance under its own `--user-data-dir`: no shared cookies, storage or extensions, and
-  a session that survives across launches. This is the isolation the firefoxpwa installer never configured.
-- Permissions are denied globally and granted per origin from the app definition, so a conferencing app gets mic and
-  camera while everything else stays blocked.
+- Each app is its own browser instance under its own `--user-data-dir`: no shared cookies or storage, and a session
+  that survives across launches. This is the isolation the firefoxpwa installer never configured.
 - `tray.enable` launches through kdocker so the window iconifies to the tray instead of exiting, keeping service
   workers, timers and notifications alive. Icon defaults are overridable per app.
 - `reload.enable` loads a generated MV3 extension that reloads on a timer, skipping the reload while the window has
-  focus.
+  focus. Its ID is pinned by a committed public key so `ExtensionSettings` can allow it.
 - brave-origin gains the shared hardened policy set it was running without.
 
 Adds DMail plus the Microsoft 365 suite including Teams, which the firefoxpwa catalog excluded only because
 `teams.cloud.microsoft` serves Gecko a `/v2/unsupported-browser` redirect.
+
+## Scope of the policy
+
+Read this before switching. The permission policy is **browser-wide, not app-scoped**. Chromium applies a managed
+directory per browser, so `/etc/brave/policies/managed/webapps.json` binds every `brave-origin` instance including
+the daily driver:
+
+- Mic, camera and screen capture become hard denials with no prompt for all browsing. The only exception is
+  `teams.cloud.microsoft`. Video calls and screen shares on any other site fail in `brave-origin`.
+- Extension installs are blocked in the daily-driver profile, and 1Password is force-installed there.
+- Extensions are not isolated per app either: `extensions.enable` installs everywhere and scopes only interaction,
+  through `runtime_blocked_hosts` / `runtime_allowed_hosts`.
+- `URLAllowlist` is additive and restricts nothing on its own.
+
+Intentional hardening, recorded rather than discovered later. `docs/reference/webapps.md` documents the two ways out
+if it gets in the way.
 
 Plan: `docs/drafts/chromium-webapps-plan.md`. Operator docs: `docs/reference/webapps.md`.
 
@@ -2507,11 +3013,18 @@ Plan: `docs/drafts/chromium-webapps-plan.md`. Operator docs: `docs/reference/web
 
 - `nix flake check path:. --accept-flake-config --no-build --offline`
 - `nix build path:.#nixosConfigurations.{tpnix,system76}.config.system.build.toplevel`
+- `nix build path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages`: builds every launcher, so
+  `shellcheck` runs over each one. Eval alone does not reach the launcher body.
 - `checks."browsers/webapps-policy"`: generated policy against a fixture, recomputed grants against the catalog, and
   the disjoint-key invariant against `_chromium-hardening.nix`. Drift proven detected by planting an extra origin in
   `VideoCaptureAllowedUrls`.
+- `checks."browsers/webapps-keepalive-id"`: recomputes the keep-alive extension ID from its committed public key.
+  Proven reachable by corrupting the transcribed ID.
 - `checks."browsers/webapps-module-eval"`: forces the Home Manager module's `mkIf`-guarded output, which CI would
   otherwise never evaluate. Assertions proven reachable by inverting the tray expectation.
+- Manual, on a real `brave-origin`: `--load-extension` against an
+  `ExtensionSettings."*" = blocked` policy, to establish whether the keep-alive extension needs the allowlist entry
+  (Task 10 Step 0).
 EOF
 )"
 ```
@@ -2532,9 +3045,60 @@ Expected: two files; no key appears in both listings.
 
 - [ ] **Step 2: Confirm the policy actually applied**
 
-Launch any web app, open a new tab to `brave://policy`, and confirm `AudioCaptureAllowed`, `VideoCaptureAllowedUrls`, `NotificationsAllowedForUrls` and `ExtensionSettings` are listed with status OK and no conflict warnings.
+Launch any web app, open a new tab to `brave://policy`, and confirm `AudioCaptureAllowed`, `VideoCaptureAllowedUrls`, `ScreenCaptureAllowedByOrigins`, `NotificationsAllowedForUrls`, `URLAllowlist` and `ExtensionSettings` are listed with status OK and no conflict warnings.
 
-- [ ] **Step 3: Confirm isolation**
+`ScreenCaptureAllowedByOrigins` gets particular attention: it is in the Chromium
+registry, but Brave has removed and renamed capture policies before. A status of
+"unknown policy" there means screen sharing is denied for Teams too, with the
+allowlist inert.
+
+- [ ] **Step 3: Confirm the keep-alive extension actually loaded**
+
+Nothing before this proves it. The policy blocks every extension not named, the
+generated one is loaded with `--load-extension`, and a blocked load is silent
+outside `brave://extensions`.
+
+In a keep-alive app (Teams or Outlook), open `brave://extensions`, enable
+developer mode, and confirm:
+
+- an entry named `<App> keep-alive` is present and enabled, not greyed out or
+  labelled "Blocked by administrator";
+- its ID matches `keepAliveExtensionId` in
+  `modules/browsers/webapps/_keepalive-key.nix`;
+- `brave://serviceworker-internals` lists a running service worker for it.
+
+Compare the two IDs directly:
+
+```bash
+nix eval --raw --impure --expr \
+  '(import /home/vx/nixos/modules/browsers/webapps/_keepalive-key.nix).keepAliveExtensionId'
+jq -r '.ExtensionSettings | keys[]' /etc/brave/policies/managed/webapps.json
+```
+
+Expected: the first value appears in the second list.
+
+If the extension is missing, re-read Task 10 Step 0: either the allowlist entry
+is absent from `webapps.json`, or the ID in the policy does not match the ID
+Chromium derived. Both are visible by diffing `brave://extensions` against
+`jq '.ExtensionSettings | keys' /etc/brave/policies/managed/webapps.json`.
+
+- [ ] **Step 4: Confirm the ID is stable across a rebuild**
+
+The pinned manifest key exists so a rebuild does not orphan the extension in
+every profile. Verify it once:
+
+```bash
+before="$(ls -1 "${XDG_DATA_HOME:-$HOME/.local/share}/webapps/teams/Extensions" 2>/dev/null)"
+# rebuild and switch, then:
+after="$(ls -1 "${XDG_DATA_HOME:-$HOME/.local/share}/webapps/teams/Extensions" 2>/dev/null)"
+diff <(printf '%s\n' "$before") <(printf '%s\n' "$after")
+```
+
+Expected: no new directory. A second extension ID appearing after a rebuild
+means the manifest `key` did not take effect and the profile will accumulate one
+orphan per rebuild.
+
+- [ ] **Step 5: Confirm isolation**
 
 ```bash
 ls -la "${XDG_DATA_HOME:-$HOME/.local/share}/webapps"
@@ -2542,7 +3106,7 @@ ls -la "${XDG_DATA_HOME:-$HOME/.local/share}/webapps"
 
 Expected: one 0700 directory per app. Sign in to two different apps and confirm neither sees the other's session.
 
-- [ ] **Step 4: Confirm the tray and keep-alive**
+- [ ] **Step 6: Confirm the tray and keep-alive**
 
 Launch Teams, confirm a tray icon appears in i3bar, close the window and confirm it iconifies rather than exiting, then confirm the process survives:
 
@@ -2552,7 +3116,7 @@ pgrep -af 'user-data-dir.*webapps/teams'
 
 Leave it iconified for longer than `reload.intervalMinutes` and confirm the session is still authenticated on restore.
 
-- [ ] **Step 5: Confirm notifications**
+- [ ] **Step 7: Confirm notifications**
 
 Trigger a notification from Outlook or Teams and confirm dunst renders it. Check attribution:
 
@@ -2560,10 +3124,23 @@ Trigger a notification from Outlook or Teams and confirm dunst renders it. Check
 dunstctl history | jq -r '.data[0][] | {appname, summary}' 2>/dev/null | head
 ```
 
-- [ ] **Step 6: Record any deviation**
+- [ ] **Step 8: Confirm what the browser-wide policy cost**
+
+The denials in `webapps.json` apply to general browsing, so check the daily
+driver rather than assuming. In a plain `brave-origin` window (no
+`--user-data-dir`), open any site that asks for the camera or the microphone.
+
+Expected: denied with no prompt. That is the documented behavior, not a bug. If
+it is not acceptable in practice, the follow-up is one of the two options in
+`docs/reference/webapps.md`; record which one was chosen and open an issue.
+
+- [ ] **Step 9: Record any deviation**
 
 If a Microsoft origin redirects out of its own host, or Visio and Clipchamp now resolve on Chromium, update
 `modules/browsers/webapps/_catalog.nix` and refresh the policy fixture in a follow-up.
+
+Update the two open questions in "Facts still to verify before implementing"
+with what Steps 2 and 3 found, so the next reader is not re-testing them.
 
 ______________________________________________________________________
 
@@ -2585,10 +3162,20 @@ ______________________________________________________________________
 
 **Known gaps, stated rather than hidden.**
 
+- **The permission policy is browser-wide, not app-scoped.** Chromium applies a managed directory per browser, so `webapps.json` binds the daily-driver `brave-origin` too: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 18 Step 8. The escape hatches are a `brave` / `brave-origin` split or dropping the capture denies, both follow-ups.
+- **Extensions are not isolated per app.** `--user-data-dir` separates cookies and storage; `ExtensionSettings` is managed policy and therefore browser-wide. `extensions.enable` installs an extension everywhere and scopes only interaction. The phrase "no two apps share cookies, storage or extensions" was wrong and is corrected everywhere it appeared.
 - Geolocation cannot be granted per app. Chromium has no allowlist counterpart to `GeolocationBlockedForUrls`. Documented in `docs/reference/webapps.md` and omitted from the submodule rather than silently accepted and ignored.
 - kdocker is X11 only. This matches the current i3 and lightdm setup (`modules/apps/i3wm/nixos.nix:75`) but would need replacing under Wayland.
 - Each running app is a separate browser instance, roughly 250-400 MB baseline. Same cost firefoxpwa would have had with per-site profiles, but it bounds how many apps are worth leaving resident.
 - `--load-extension` availability depends on the build not being Google-branded and on Enhanced Safe Browsing being off. Both hold for brave-origin under the hardened set (`SafeBrowsingProtectionLevel = 1`), but switching `programs.webapps.package` to Chrome would silently disable the keep-alive extension. Task 9's `package` option documents the constraint; consider an assertion if a second browser is ever supported.
-- Visio and Clipchamp are excluded pending a Chromium re-test (Task 18 Step 6).
+- Visio and Clipchamp are excluded pending a Chromium re-test (Task 18 Step 9).
+- Two facts are assumed rather than proven: that `ExtensionSettings` gates `--load-extension` (Task 10 Step 0) and that Brave honors `ScreenCaptureAllowedByOrigins` (Task 18 Step 2). Both have a named step and neither changes the plan's shape.
+- `_check-apps.nix` restates the submodule defaults from `nixos.nix` and the default of `defaultExtensions`. Nothing enforces that they agree, so a new option default added to `nixos.nix` alone makes the fixture describe a policy the hosts do not get. The file header says so; a check that compares the two is a reasonable follow-up.
 
-**Type consistency.** `key`, `name`, `url`, `urlSecret`, `originSecret`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. The `originPlaceholder` argument has the same `key -> string` signature at both call sites (`apps.nix` and the two checks).
+**Where validation would have missed a real failure.** Three cases the first draft of this plan would have passed:
+
+- Task 12's launcher validated by `nix eval` on package names. `writeShellApplication` runs `shellcheck` at build time, so a malformed command body is a build failure that eval never reaches. An `lib.optionalString` inside a backslash-continued argument list rendered a whitespace-only line for every app without `reload.enable` and both tray wrappers, terminating the command early. Now validated with `nix build` plus reading back the two shapes that differ (Task 12 Step 4).
+- `lib.getExe pkgs.diffutils` in Task 14 pointed at a `bin/diffutils` that does not exist, so the policy check would have failed on its own tooling. Now `lib.getExe' pkgs.diffutils "diff"`.
+- `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 17 with `webapps` reported missing from `apps-enable.nix`, which Task 13 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 3 runs the hook rather than deferring it to Task 17.
+
+**Type consistency.** `key`, `name`, `url`, `urlSecret`, `originSecret`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `nixos.nix`, `_check-apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. The `originPlaceholder` argument has the same `key -> string` signature at both call sites (`nixos.nix` and `_check-apps.nix`). `keepAliveExtensionId` is a plain `str` at its three call sites (`nixos.nix`, `_check-apps.nix`, `keepalive-id-check.nix`) and is the value `_reload-extension.nix` bakes into the manifest through `publicKey`.
