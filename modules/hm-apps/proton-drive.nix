@@ -278,7 +278,7 @@ _: {
           type = lib.types.listOf lib.types.str;
           default = [ ];
           example = [ "--bwlimit=2M" ];
-          description = "Extra arguments appended to every rclone invocation.";
+          description = "Extra arguments appended to every rclone sync and bisync invocation, not to the down-direction emptiness probe.";
         };
       };
 
