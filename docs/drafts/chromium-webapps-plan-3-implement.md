@@ -163,7 +163,9 @@ ______________________________________________________________________
 - `modules/browsers/brave-origin/apps.nix`: gain `enableManagedPolicies` / `managedPolicies`, write `/etc/brave/policies/managed/extended.json`
 - `modules/hosts/common/home-manager-apps.nix`: add `"webapps"` to `sharedBrowserNames`
 - `modules/meta/cache-roots.nix`: add `"brave-origin"`
-- `docs/architecture/04-home-manager.md`, `docs/reference/local-mirrors.md` is untouched; `README.md` is regenerated
+- `docs/architecture/04-home-manager.md`: add the webapps worked example to the browser-modules paragraph, which
+  phase 2 left without one because the files did not exist yet
+- `docs/reference/local-mirrors.md` is untouched; `README.md` is regenerated
 
 ______________________________________________________________________
 
@@ -2602,13 +2604,24 @@ Inspect what actually applied with `brave://policy`.
 
 - [ ] **Step 2: Update the architecture doc**
 
-In `docs/architecture/04-home-manager.md`, the browser-modules paragraph was already rewritten in phase 2 Task 5 Step 1 to cite webapps. Confirm it reads correctly now that both files exist:
+Phase 2 Task 5 Step 1 dropped the firefoxpwa worked example from the browser-modules paragraph without replacing it,
+because the replacement names files that did not exist yet. They exist now, so this is the PR that adds the citation.
+
+In `docs/architecture/04-home-manager.md`, extend the sentence beginning "A sibling file can extend the same
+`browsers.<name>` key" so the paragraph ends:
+
+```markdown
+A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/webapps/home.nix` owns the per-app launchers and data directories, and `modules/browsers/webapps/nixos.nix` owns the NixOS-scope managed policy that the same app catalog drives.
+```
+
+Confirm both cited files are in the tree before staging the doc change:
 
 ```bash
 rg -n 'webapps' docs/architecture/04-home-manager.md
+ls modules/browsers/webapps/home.nix modules/browsers/webapps/nixos.nix
 ```
 
-Expected: the sentence names `modules/browsers/webapps/home.nix` and `modules/browsers/webapps/nixos.nix`.
+Expected: the sentence names both files, and both exist.
 
 - [ ] **Step 3: Regenerate managed artifacts**
 

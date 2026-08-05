@@ -302,11 +302,17 @@ Validation: nix flake check path:. --accept-flake-config --no-build --offline"
 
 - [ ] **Step 1: Rewrite the browser-modules paragraph**
 
-In `docs/architecture/04-home-manager.md`, the sentence beginning "A sibling file can extend the same `browsers.<name>` key" cites firefoxpwa as its worked example. Replace the firefoxpwa clause so the paragraph ends:
+In `docs/architecture/04-home-manager.md`, the sentence beginning "A sibling file can extend the same `browsers.<name>` key" cites firefoxpwa as its worked example. Drop the firefoxpwa clause so the paragraph ends:
 
 ```markdown
-A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/webapps/home.nix` owns the per-app launchers and data directories, and `modules/browsers/webapps/nixos.nix` owns the NixOS-scope managed policy that the same app catalog drives.
+A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above.
 ```
+
+Do not substitute the webapps files here. This phase is deletions and unwirings only, and
+`modules/browsers/webapps/home.nix` and `modules/browsers/webapps/nixos.nix` do not exist until phase 3 Tasks 12 and
+9\. Naming them now would ship architecture documentation citing files that are not in the tree, and it would stay
+that way for as long as phase 3 takes, or permanently if phase 3 is abandoned. Phase 3 Task 17 Step 2 adds the
+replacement example in the same PR that creates the files.
 
 - [ ] **Step 2: Update the cache coverage reference**
 
