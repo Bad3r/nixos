@@ -166,7 +166,7 @@ _: {
                 exit 1
               fi
               if [ "$force" -ne 1 ]; then
-                local_entries=$(find "$local_path" -mindepth 1 -maxdepth 1 -print -quit)
+                local_entries=$(find -H "$local_path" -mindepth 1 -maxdepth 1 -print -quit)
                 if [ -z "$local_entries" ]; then
                   echo "proton-drive-sync: '$local_path' is empty; refusing to mirror an empty local onto '$remote' (unmounted or relocated data?). Re-run with --force-resync to confirm this is intentional." >&2
                   exit 1
