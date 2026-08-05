@@ -65,13 +65,16 @@ in
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
           # The pinned llm-agents package wraps bin/claude before this hook and
-          # still exports the removed legacy name. Strip it from that inner
-          # wrapper before adding the shared binary environment flags.
+          # can export both retired and shared binary names. Strip those names
+          # from the inner wrapper before adding the shared flags.
           if grep -q '^export DISABLE_NON_ESSENTIAL_MODEL_CALLS=' "$out/bin/claude"; then
             sed -i \
               '/^export DISABLE_NON_ESSENTIAL_MODEL_CALLS=/c\unset DISABLE_NON_ESSENTIAL_MODEL_CALLS' \
               "$out/bin/claude"
           fi
+          for name in ${lib.escapeShellArgs (lib.attrNames claudeEnv.binary)}; do
+            sed -i "/^export $name=/d" "$out/bin/claude"
+          done
           wrapProgram $out/bin/claude \
             ${binaryEnvFlags}
         '';
