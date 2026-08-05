@@ -567,11 +567,13 @@ Create `modules/browsers/webapps/nixos.nix`:
       one managed directory per browser and brave shares brave-origin's, so this
       file also binds general browsing in either Brave-family build, not just
       the web apps. See "Consequences of a browser-wide policy" in the plan.
-    * The whole file is rendered by sops-nix so an app whose origin is a secret
-      never has that origin written to the Nix store. Chromium's config-dir
-      loader lets one file win a repeated key outright instead of merging, so
-      splitting this across a store file and a secret file would silently drop
-      entries; it stays one file.
+    * The file is written whole, never split. Chromium's config-dir loader lets
+      one file win a repeated key outright instead of merging, so splitting this
+      across a store file and a secret file would silently drop entries. When an
+      app's origin is a secret and the secrets file is present, sops-nix renders
+      the whole file so that origin never reaches the Nix store; with no secret
+      origin the same policy goes straight into environment.etc and the module
+      carries no sops dependency.
 
   Geolocation is deliberately absent from the permission submodule: Chromium
   ships GeolocationBlockedForUrls but no matching allowlist, so it cannot be
@@ -2909,8 +2911,11 @@ Two files in `/etc/brave/policies/managed/`:
 
 - `extended.json` from `modules/browsers/brave-origin/apps.nix`, the shared
   hardened set.
-- `webapps.json` from `modules/browsers/webapps/nixos.nix`, rendered by
-  sops-nix, holding the per-origin allowlists and `ExtensionSettings`.
+- `webapps.json` from `modules/browsers/webapps/nixos.nix`, holding the
+  per-origin allowlists and `ExtensionSettings`. Rendered by sops-nix when an
+  app's origin is a secret and the secrets file is present, and written
+  straight into `environment.etc` otherwise, as "Secret start URLs" above
+  describes.
 
 Their key sets must stay disjoint. Chromium's config-dir loader lets one file
 win a repeated key outright rather than merging it, so a key in both silently
