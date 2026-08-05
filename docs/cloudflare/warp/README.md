@@ -37,8 +37,10 @@ is enabled it:
    module can override it when required. The WARP module does not add a second
    owner for this setting.
 5. Adds a best-effort `cloudflare-warp-connect` oneshot that waits for the daemon
-   and runs `warp-cli connect` on boot when managed enrollment is available. Without
-   the secret, it logs the UN-ENROLLED state and exits without connecting.
+   and runs `warp-cli connect` on boot only after the current WARP registration
+   matches the managed organization. Without the secret, it logs the UN-ENROLLED
+   state and exits without connecting; a missing or mismatched runtime registration
+   is also fail-closed.
 
 When the wrapper is disabled, it emits a tmpfiles removal rule for the
 wrapper-owned `/var/lib/cloudflare-warp/mdm.xml`. The next NixOS activation
@@ -78,7 +80,9 @@ declarations that would otherwise fail activation on an un-decryptable payload.
 - `mdm.xml` is written to `/var/lib/cloudflare-warp/mdm.xml` as `0600 root:root`.
 - Disabling the wrapper removes the runtime `mdm.xml` during the next NixOS
   activation, so the cleartext service-token cache does not remain after a
-  de-enrollment switch.
+  disable switch. This local cleanup does not delete the device registration; use
+  `warp-cli registration delete` and remove the device from the dashboard when
+  full Zero Trust de-enrollment is intended.
 - `secrets/` is a git submodule; the encrypted payload is committed there, the
   Nix changes in the main repository.
 

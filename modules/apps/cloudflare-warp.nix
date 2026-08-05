@@ -16,7 +16,7 @@
     serviceMode: mdm.xml service_mode (warp | tunnelonly | 1dot1 | proxy | postureonly).
     autoConnect: mdm.xml auto_connect minutes (0-1440); 0 keeps the client off after a manual disconnect.
     switchLocked: mdm.xml switch_locked; when true the user cannot disconnect.
-    connectOnBoot: run a best-effort oneshot `warp-cli connect` after the daemon starts when enrolled.
+    connectOnBoot: run a best-effort oneshot that verifies managed registration before connecting.
 
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
@@ -52,6 +52,25 @@ let
       unenrolledGuard = lib.optionalString (!enrolling) ''
         echo "<4>cloudflare-warp-connect: device is UN-ENROLLED (no managed mdm.xml); not connecting. Create secrets/cloudflare-warp.yaml to enroll."
         exit 0
+      '';
+
+      managedRegistrationSetup = lib.optionalString enrolling ''
+        managed_org="$(cat ${config.sops.secrets."cloudflare-warp/organization".path})"
+
+        refresh_registration() {
+          if registration="$(timeout 5s warp-cli --accept-tos registration organization 2>&1)"; then
+            if [ "$registration" = "$managed_org" ]; then
+              managed_registration=1
+              echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
+            else
+              managed_registration=""
+              echo "<3>cloudflare-warp-connect: managed Zero Trust registration unavailable"
+            fi
+          else
+            managed_registration=""
+            echo "<3>cloudflare-warp-connect: registration check failed: ''${registration:-no response}"
+          fi
+        }
       '';
 
       # Linux mdm.xml is a bare <dict> plist fragment (no XML declaration, no
@@ -281,8 +300,11 @@ let
                 };
                 script = ''
                   ${unenrolledGuard}
-                  # The IPC socket can answer before mdm.xml service-token registration
-                  # completes, so poll status during the bounded readiness window.
+                  managed_org=""
+                  managed_registration=""
+                  ${managedRegistrationSetup}
+                  # The daemon IPC socket and mdm.xml registration can settle at
+                  # different times, so poll both during the bounded readiness window.
                   connected=""
                   connect_requested=""
                   status=""
@@ -300,21 +322,37 @@ let
                     case "$status" in
                       *Disconnected* | *"status unavailable"*) ;;
                       *Connected*)
-                        connected=1
+                        if [ -n "$managed_org" ] && [ -n "$managed_registration" ]; then
+                          connected=1
+                        else
+                          echo "<3>cloudflare-warp-connect: connected without managed Zero Trust registration; disconnecting"
+                          if disconnect_output="$(timeout 5s warp-cli disconnect 2>&1)"; then
+                            echo "cloudflare-warp-connect: disconnected unmanaged tunnel"
+                          else
+                            echo "<3>cloudflare-warp-connect: failed to disconnect unmanaged tunnel: ''${disconnect_output:-no response}"
+                          fi
+                        fi
                         ;;
                     esac
                   }
 
+                  ${lib.optionalString enrolling "refresh_registration"}
                   refresh_status
 
                   while [ -z "$connected" ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
                     attempt=$((attempt + 1))
-                    if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
-                      connect_requested=1
-                      echo "cloudflare-warp-connect: connect requested"
+                    ${lib.optionalString enrolling "refresh_registration"}
+                    if [ -n "$managed_org" ] && [ -n "$managed_registration" ]; then
+                      if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
+                        connect_requested=1
+                        echo "cloudflare-warp-connect: connect requested"
+                      else
+                        echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
+                      fi
                     else
-                      echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
+                      echo "<3>cloudflare-warp-connect: managed enrollment is not ready; not connecting"
                     fi
+                    ${lib.optionalString enrolling "refresh_registration"}
                     refresh_status
                     if [ -z "$connected" ]; then
                       sleep 1

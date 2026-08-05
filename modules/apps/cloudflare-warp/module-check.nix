@@ -88,13 +88,24 @@
               "apps/cloudflare-warp-module-eval: enrolled branch must declare organization secret";
             assert lib.assertMsg (builtins.hasAttr "cloudflare-warp-mdm" enrolled.config.sops.templates)
               "apps/cloudflare-warp-module-eval: enrolled branch must declare mdm template";
+            assert lib.assertMsg (
+              !lib.hasInfix "UN-ENROLLED" enrolled.config.systemd.services.cloudflare-warp-connect.script
+            ) "apps/cloudflare-warp-module-eval: enrolled connect script must not carry the un-enrolled guard";
+            assert lib.assertMsg
+              (lib.hasInfix "warp-cli --accept-tos registration organization" enrolled.config.systemd.services.cloudflare-warp-connect.script)
+              "apps/cloudflare-warp-module-eval: enrolled connect script must verify managed registration";
             assert
+              let
+                connectScript = enrolled.config.systemd.services.cloudflare-warp-connect.script;
+                parts = lib.splitString "warp-cli --accept-tos connect" connectScript;
+                beforeConnect = lib.head parts;
+              in
               lib.assertMsg
                 (
-                  !lib.hasInfix "UN-ENROLLED"
-                    enrolled.config.systemd.services.cloudflare-warp-connect.script
+                  lib.length parts > 1
+                  && lib.hasInfix "if [ -n \"$managed_org\" ] && [ -n \"$managed_registration\" ]; then" beforeConnect
                 )
-                "apps/cloudflare-warp-module-eval: enrolled connect script must not carry the un-enrolled guard";
+                "apps/cloudflare-warp-module-eval: enrolled connect script must gate connect on managed enrollment";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
