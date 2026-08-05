@@ -296,6 +296,21 @@ mkSiteInstaller {
       exit 1
     fi
 
+    # A rename changes the launcher name while this installer's records keep
+    # their fixed dmail-* paths, so the lookup above misses the site it already
+    # installed and this branch would register a second one under the new name
+    # while overwriting the only records of the first, leaving the original app
+    # and its .desktop entry with nothing pointing at them. Unlike the m365
+    # installer, whose records are keyed by the entry's slug, there is not even
+    # a missing record here to refuse on. Told apart from the documented
+    # uninstall, which leaves the records behind but takes the site with it, by
+    # the site still being there.
+    if [ -r "$ulid_file" ] \
+      && jq -e --arg u "$(<"$ulid_file")" '.sites[$u]' "$config_file" >/dev/null 2>&1; then
+      echo "firefoxpwa-dmail: '$app_name' is a new name for the site this unit installed as $(<"$ulid_file"); uninstall that site so this unit can reinstall it under the new name" >&2
+      exit 1
+    fi
+
     # A data: manifest keeps the install self-contained: firefoxpwa does not
     # have to fetch or parse a manifest from the target site.
     #

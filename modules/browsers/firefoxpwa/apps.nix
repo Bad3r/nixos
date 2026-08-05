@@ -69,6 +69,11 @@ let
             installer finds the site it installed by matching this against
             `.sites.<ulid>.config.name`. Declared rather than fixed in
             ./dmail.nix so it takes part in the collision check above.
+
+            Editing it is not a rename. The installer no longer finds the site
+            it installed under the old name, so it refuses the entry until that
+            site is removed with `firefoxpwa site uninstall`, which destroys its
+            PWA profile and session state.
           '';
         };
 

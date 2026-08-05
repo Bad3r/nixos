@@ -191,15 +191,23 @@
       # through unread.
       pinnedXdgDataHome = "${secretDir}/xdg-pinned";
 
-      installer = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
-        firefoxpwa = stub;
-        urlPath = "${secretDir}/url";
-        xdgDataHome = pinnedXdgDataHome;
-        inherit dataDir;
-        # Exercises the retry loop's control flow without three real 5-second
-        # sleeps per check run.
-        retryDelay = 0;
-      };
+      mkInstaller =
+        appName:
+        (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
+          firefoxpwa = stub;
+          urlPath = "${secretDir}/url";
+          xdgDataHome = pinnedXdgDataHome;
+          inherit dataDir appName;
+          # Exercises the retry loop's control flow without three real 5-second
+          # sleeps per check run.
+          retryDelay = 0;
+        };
+
+      installer = mkInstaller "DMail";
+      # programs.firefoxpwa.dmail.name edited on a host that already installed
+      # the site: the records keep their fixed dmail-* paths, so the lookup
+      # misses and nothing but the guard stops a second site being registered.
+      renamed = mkInstaller "Work Mail";
     in
     {
       checks."browsers/firefoxpwa-dmail" =
@@ -241,6 +249,7 @@
             install -d "$HOME" "$XDG_DATA_HOME" "$secret_dir"
 
             installer=${lib.getExe installer}
+            renamed=${lib.getExe renamed}
             failures=0
 
             reset() {
@@ -261,8 +270,10 @@
             # compound inherits that, so the FAIL branch below still reports the
             # mismatch and the assertions after it still run.
             expect() {
-              local label="$1" want_rc="$2" want_text="$3" out rc=0 ok=1
-              out=$("$installer" 2>&1) || rc=$?
+              # Fourth argument, defaulting to the DMail installer: a variant
+              # built with another launcher name drives the same assertions.
+              local label="$1" want_rc="$2" want_text="$3" runner="''${4:-$installer}" out rc=0 ok=1
+              out=$("$runner" 2>&1) || rc=$?
               case "$out" in
                 *"$want_text"*) [ "$rc" = "$want_rc" ] && ok=0 ;;
               esac
@@ -921,6 +932,22 @@
             else
               echo "PASS  marker write leaves no temporary"
             fi
+
+            echo
+            echo "-- renaming the site is refused rather than orphaning it --"
+            reset
+            set_url 'https://mail.example.com/a'
+            "$installer" >/dev/null
+            expect "rename refused" 1 "is a new name for the site this unit installed" "$renamed"
+            assert_equal "no second site registered under the new name" \
+              "$(jq -r '(.sites // {}) | length' "$config_file")" 1
+            assert_equal "the ulid record still names the original site" \
+              "$(cat "$data_dir/dmail-applied-ulid")" "01STUB"
+            # An uninstall leaves the same record but takes the site, and that
+            # case must still install: the guard is on the site being there.
+            jq 'del(.sites["01STUB"])' "$config_file" >"$config_file.next"
+            mv "$config_file.next" "$config_file"
+            expect "an uninstalled site is reinstalled under the new name" 0 "installed" "$renamed"
 
             echo
             echo "-- the installer is built through the shared site installer --"
