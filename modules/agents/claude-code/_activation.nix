@@ -56,7 +56,8 @@ in
       | ($existing * $nix)
       | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
       | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
-      | .env = (($existing.env // {}) + ($nix.env // {}))' \
+      | .env = (($existing.env // {}) + ($nix.env // {}))
+      | .env |= del(.DISABLE_NON_ESSENTIAL_MODEL_CALLS)' \
       "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
       echo "ERROR: jq failed to merge Claude Code settings" >&2
       exit 1
@@ -82,7 +83,8 @@ in
       '. as $existing
       | $nixConfig[0] as $nix
       | ($existing * $nix)
-      | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))' \
+      | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))
+      | del(.autocheckpointingEnabled)' \
       "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
       echo "ERROR: jq failed to merge config" >&2
       exit 1
