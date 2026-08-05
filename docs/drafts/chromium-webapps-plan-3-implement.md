@@ -931,9 +931,11 @@ EOF
 #     outright instead of merging, as this plan relies on elsewhere.
 #   * While the file is in place, "*" = blocked binds the daily-driver
 #     brave-origin too: 1Password stops being force-installed in the main
-#     profile and every other extension is refused there. Left behind, that
-#     persists until the next nixos-rebuild switch, so the cleanup runs from a
-#     trap rather than from the last line of the block.
+#     profile and every other extension is refused there. Nothing removes it
+#     later. setup-etc.pl only deletes dangling symlinks into /etc/static and
+#     files it recorded in /etc/.clean, and this is neither, so a
+#     nixos-rebuild switch leaves it in place indefinitely. The cleanup runs
+#     from a trap, and the ls after the subshell is what shows the trap fired.
 (
   trap 'sudo rm -f /etc/brave/policies/managed/zz-probe.json' EXIT INT TERM
   sudo install -D -m 0444 "$tmp/pol/probe.json" /etc/brave/policies/managed/zz-probe.json
@@ -943,6 +945,18 @@ EOF
   # In the running instance, open brave://extensions and brave://policy, then
   # close the window to reach the cleanup.
 )
+
+# Confirm the probe is gone rather than assuming the trap ran. A SIGKILL, a
+# closed terminal or a reboot skips it, and the daily driver keeps
+# "*" = blocked until someone notices.
+ls /etc/brave/policies/managed/
+```
+
+Expected: `extended.json` only, or nothing at all if Task 8 has not switched
+yet. If `zz-probe.json` is still listed, remove it now:
+
+```bash
+sudo rm -f /etc/brave/policies/managed/zz-probe.json
 ```
 
 Record the result here before continuing:
