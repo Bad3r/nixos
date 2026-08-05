@@ -161,25 +161,49 @@ _: {
       cfg = config.services.protonDriveSync;
       rclonePackage = lib.attrByPath [ "programs" "rclone" "package" ] pkgs.rclone config;
 
-      # run_bisync reads the run's own stderr to detect a safety abort, so an
-      # extraArg that moves or reshapes that record disables the latch without
-      # any other symptom: --log-file and --syslog write elsewhere
-      # (rclone fs/log/log.go), a --log-level under ERROR drops it,
+      # extraArgs is appended last on every invocation and rclone's parser takes
+      # the last occurrence of a flag, so an extraArg silently replaces the same
+      # flag this module passes (verified against rclone 1.74.4:
+      # `--max-delete=25 --max-delete=0` refuses the deletes). Two classes are
+      # refused, both because the override is invisible in the sync's own output.
+      #
+      # Log routing, because run_bisync reads the run's own stderr to detect a
+      # safety abort: --log-file and --syslog write elsewhere
+      # (rclone fs/log/log.go), a --log-level under ERROR drops the record,
       # --log-format nolevel and --use-json-log strip the level prefix, and
       # --log-systemd does both (fs/log/systemd_unix.go startSystemdLog sets a
       # journald output and logFormatNoLevel). Auto-detection of a journal
       # stream is not a hole: run_bisync pipes rclone into tee, and
       # journal.StderrIsJournalStream stats fd 2, which is that pipe.
-      logRoutingFlags = [
+      #
+      # Safety and mode, because each defeats a flag this module passes to hold
+      # deletions back or to keep the baseline honest: --force skips both bisync
+      # safety checks outright (cmd/bisync/operations.go guards each with
+      # `if !opt.Force`), --max-delete replaces the cap, --conflict-loser=delete
+      # drops the losing copy of every conflict, --dry-run leaves --resync
+      # writing only `-dry` listings while the branch still records a baseline,
+      # and --resync / --resync-mode turn a scheduled fire into a superset merge.
+      rejectedFlags = [
+        "--conflict-loser"
+        "--dry-run"
+        "--force"
         "--log-file"
         "--log-format"
         "--log-level"
         "--log-systemd"
+        "--max-delete"
+        "--resync"
+        "--resync-mode"
         "--syslog"
         "--use-json-log"
       ];
-      logRoutingArgs = lib.filter (
-        arg: lib.any (flag: arg == flag || lib.hasPrefix "${flag}=" arg) logRoutingFlags
+      # Short options cluster, so they cannot be matched flag by flag: `-nv` is
+      # --dry-run plus --verbose, and bisync gives --resync the shorthand `-1`.
+      # Every rejected flag has a long form, so require it rather than parse
+      # clusters here.
+      isShortOption = arg: builtins.match "-[^-].*" arg != null;
+      rejectedArgs = lib.filter (
+        arg: isShortOption arg || lib.any (flag: arg == flag || lib.hasPrefix "${flag}=" arg) rejectedFlags
       ) cfg.extraArgs;
 
       syncScript = pkgs.writeShellApplication {
@@ -448,13 +472,25 @@ _: {
           example = [ "--bwlimit=2M" ];
           description = ''
             Extra arguments appended to every rclone sync and bisync
-            invocation, not to the down-direction emptiness probe. Arguments
-            that redirect or reshape rclone's log output (`--log-file`,
-            `--log-format`, `--log-level`, `--log-systemd`, `--syslog`,
-            `--use-json-log`) are rejected: safety-abort detection reads the
-            run's own stderr. The equivalent `RCLONE_<FLAG>` environment
-            variables cannot be rejected at eval, so the script clears the whole
-            `RCLONE_` namespace before invoking rclone.
+            invocation, not to the down-direction emptiness probe. Because they
+            are appended last, they override the flags proton-drive-sync passes
+            itself, so two classes are rejected at evaluation.
+
+            Arguments that redirect or reshape rclone's log output
+            (`--log-file`, `--log-format`, `--log-level`, `--log-systemd`,
+            `--syslog`, `--use-json-log`): safety-abort detection reads the
+            run's own stderr.
+
+            Arguments that override a safety flag or the sync mode
+            (`--conflict-loser`, `--dry-run`, `--force`, `--max-delete`,
+            `--resync`, `--resync-mode`): each defeats the deletion cap, the
+            bisync safety checks, or the baseline the tuple marker records.
+
+            Short options are rejected wholesale because they cluster (`-nv` is
+            `--dry-run` plus `--verbose`); use the long form. The equivalent
+            `RCLONE_<FLAG>` environment variables cannot be rejected at
+            evaluation, so the script clears the whole `RCLONE_` namespace
+            before invoking rclone.
           '';
         };
       };
@@ -466,8 +502,8 @@ _: {
         (lib.mkIf protondriveReady {
           assertions = [
             {
-              assertion = logRoutingArgs == [ ];
-              message = "services.protonDriveSync.extraArgs must not redirect or reshape rclone's log output, but carries ${lib.concatStringsSep " " logRoutingArgs}. proton-drive-sync detects rclone's bisync safety abort by matching its ERROR record on the run's stderr; these flags send that record to a file, syslog or the journal, drop it below the ERROR threshold, or strip the level prefix, leaving the abort unlatched and the timer repeating the same aborted run every ${cfg.interval}.";
+              assertion = rejectedArgs == [ ];
+              message = "services.protonDriveSync.extraArgs is appended last on every rclone invocation, so it overrides the flags proton-drive-sync passes itself, but carries ${lib.concatStringsSep " " rejectedArgs}. Refused: ${lib.concatStringsSep " " rejectedFlags}, and every short option, because they cluster (-nv is --dry-run) and each rejected flag has a long form. The log-routing ones send rclone's ERROR record to a file, syslog or the journal, drop it below the ERROR threshold, or strip the level prefix, leaving the bisync safety abort unlatched and the timer repeating the same aborted run every ${cfg.interval}. The rest defeat the deletion cap, the safety checks, or the baseline the tuple marker records.";
             }
           ];
 

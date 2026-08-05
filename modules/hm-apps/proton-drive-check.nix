@@ -191,6 +191,49 @@
             };
           };
 
+          # extraArgs is appended last, so --dry-run wins over nothing the
+          # script passes and makes --resync record a baseline with only `-dry`
+          # listings behind it: the same unlatchable repeat RCLONE_DRY_RUN
+          # produced before the namespace sweep, by the stronger surface.
+          dryRunHm = mkHm {
+            extraArgs = [ "--dry-run" ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
+          # --max-delete replaces the cap rather than tightening it, verified
+          # against rclone: `--max-delete=25 --max-delete=0` takes the 0.
+          maxDeleteHm = mkHm {
+            extraArgs = [ "--max-delete=0" ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
+          # -nv is --dry-run plus --verbose, which no per-flag match catches.
+          clusteredShortHm = mkHm {
+            extraArgs = [ "-nv" ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
+          # The tuning knobs the option exists for must survive all of it.
+          tuningHm = mkHm {
+            extraArgs = [
+              "--bwlimit=2M"
+              "--transfers=2"
+            ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
           syncScript = lib.findFirst (
             drv: (drv.name or "") == "proton-drive-sync"
           ) null hm.config.home.packages;
@@ -341,6 +384,17 @@
         assert lib.assertMsg (
           !(builtins.tryEval logSystemdHm.config.home.packages).success
         ) "hm-apps/proton-drive-sync: --log-systemd in extraArgs must fail an assertion";
+        assert lib.assertMsg (
+          !(builtins.tryEval dryRunHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: --dry-run in extraArgs must fail an assertion";
+        assert lib.assertMsg (
+          !(builtins.tryEval maxDeleteHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: --max-delete in extraArgs must fail an assertion";
+        assert lib.assertMsg (
+          !(builtins.tryEval clusteredShortHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: a clustered short option in extraArgs must fail an assertion";
+        assert lib.assertMsg (installsScript tuningHm)
+          "hm-apps/proton-drive-sync: long-form tuning arguments must still be accepted";
         builtins.deepSeq units drive;
     };
 }
