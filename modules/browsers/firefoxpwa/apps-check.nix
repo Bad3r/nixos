@@ -59,8 +59,11 @@
       # The url type rejects by throwing rather than by failing an assertion, so
       # the two need different observations. Forced through the app list, since
       # a type only applies when its value is forced.
-      accepts =
-        url:
+      acceptsApp =
+        {
+          key,
+          url,
+        }:
         (builtins.tryEval (
           builtins.deepSeq
             (evalWith {
@@ -69,7 +72,7 @@
                 enable = true;
                 apps = [
                   {
-                    key = "probe";
+                    inherit key;
                     name = "Probe";
                     inherit url;
                   }
@@ -78,6 +81,12 @@
             }).programs.firefoxpwa.m365.apps
             true
         )).success;
+      accepts =
+        url:
+        acceptsApp {
+          key = "probe";
+          inherit url;
+        };
       failsWith = evaled: fragment: lib.any (a: lib.hasInfix fragment a.message) (failures evaled);
 
       # The launcher name is the idempotency key in a config.json every site
@@ -192,6 +201,12 @@
         assert lib.assertMsg (
           !accepts "word.cloud.microsoft"
         ) "browsers/firefoxpwa-apps-eval: a scheme-less start URL must be rejected";
+        assert lib.assertMsg (
+          !acceptsApp {
+            key = "Word_1";
+            url = "https://probe.example/";
+          }
+        ) "browsers/firefoxpwa-apps-eval: a key outside the path-safe alphabet must be rejected";
         pkgs.runCommand "firefoxpwa-apps-eval" { } ''
           echo "the firefoxpwa option module's assertions evaluate and fire" >"$out"
         '';
