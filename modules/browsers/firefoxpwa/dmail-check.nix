@@ -229,6 +229,7 @@
               pkgs.jq
               pkgs.coreutils
               pkgs.gnugrep
+              pkgs.gnused
             ];
           }
           ''

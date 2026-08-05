@@ -291,6 +291,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
               pkgs.jq
               pkgs.coreutils
               pkgs.gnugrep
+              pkgs.gnused
             ];
           }
           ''
