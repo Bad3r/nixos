@@ -67,6 +67,10 @@ in
           # The pinned llm-agents package wraps bin/claude before this hook and
           # can export both retired and shared binary names. Strip those names
           # from the inner wrapper before adding the shared flags.
+          if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
+            echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
+            exit 1
+          fi
           ${lib.optionalString (claudeEnv.retired != [ ]) ''
             for name in ${lib.escapeShellArgs claudeEnv.retired}; do
               sed -i "/^export $name=/c\unset $name" "$out/bin/claude"
@@ -75,13 +79,9 @@ in
           for name in ${lib.escapeShellArgs (lib.attrNames claudeEnv.binary)}; do
             sed -i "/^export $name=/d" "$out/bin/claude"
           done
-          if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
-            echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
-            exit 1
-          fi
           for name in ${lib.escapeShellArgs (lib.attrNames claudeEnv.binary)}; do
-            if grep -qE "^export $name=" "$out/bin/claude"; then
-              echo "claude-code: inner wrapper still exports $name after strip; the pinned llm-agents wrapper shape changed" >&2
+            if grep -qF "$name" "$out/bin/claude"; then
+              echo "claude-code: inner wrapper still references $name after strip; the pinned llm-agents wrapper shape changed" >&2
               exit 1
             fi
           done
