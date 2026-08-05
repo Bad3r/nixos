@@ -276,32 +276,61 @@ let
               script = ''
                 ${unenrolledGuard}
                 # The IPC socket can answer before mdm.xml service-token registration
-                # completes, so retry connect during the bounded readiness window.
+                # completes, so poll status during the bounded readiness window.
                 connected=""
+                connect_requested=""
+                status=""
                 attempt=0
                 deadline=$((SECONDS + 120))
-                while [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
-                  attempt=$((attempt + 1))
-                  if timeout 5s warp-cli status >/dev/null 2>&1 \
-                    && timeout 5s warp-cli --accept-tos connect; then
+
+                if status="$(timeout 5s warp-cli status 2>&1)"; then
+                  status="''${status:-status unavailable}"
+                else
+                  echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
+                  status="''${status:-status unavailable}"
+                fi
+                echo "cloudflare-warp-connect: $status"
+                case "$status" in
+                  *Disconnected* | *"status unavailable"*) ;;
+                  *Connected*)
                     connected=1
+                    ;;
+                esac
+
+                while [ -z "$connected" ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
+                  attempt=$((attempt + 1))
+                  if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
+                    connect_requested=1
                     echo "cloudflare-warp-connect: connect requested"
-                    break
+                  else
+                    echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
                   fi
-                  sleep 1
+                  if status="$(timeout 5s warp-cli status 2>&1)"; then
+                    status="''${status:-status unavailable}"
+                  else
+                    echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
+                    status="''${status:-status unavailable}"
+                  fi
+                  echo "cloudflare-warp-connect: $status"
+                  case "$status" in
+                    *Disconnected* | *"status unavailable"*) ;;
+                    *Connected*)
+                      connected=1
+                      ;;
+                  esac
+                  if [ -z "$connected" ]; then
+                    sleep 1
+                  fi
                 done
                 # Best-effort: log the outcome and exit 0 so a user who legitimately
                 # keeps WARP off does not leave the unit failed.
                 if [ -z "$connected" ]; then
-                  echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
+                  if [ -z "$connect_requested" ]; then
+                    echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
+                  else
+                    echo "<3>cloudflare-warp-connect: tunnel is not connected after $attempt attempts"
+                  fi
                 fi
-                status="$(timeout 5s warp-cli status 2>&1)" || status="status unavailable"
-                echo "cloudflare-warp-connect: $status"
-                case "$status" in
-                  *Disconnected* | *"status unavailable"*)
-                    echo "<3>cloudflare-warp-connect: tunnel is not connected"
-                    ;;
-                esac
               '';
             };
           })
