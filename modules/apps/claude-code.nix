@@ -73,7 +73,21 @@ in
           )
         ) claudeEnv.legacyEnvValues
       );
-      legacyEnvNames = builtins.attrNames claudeEnv.legacyEnvValues;
+      legacyEnvCleanup = lib.concatStringsSep "\n" (
+        lib.mapAttrsToList (
+          name: value:
+          let
+            assignment = "export ${name}=${lib.escapeShellArg value}";
+          in
+          ''
+            sed -i "/^${assignment}$/d" "$out/bin/claude"
+            if grep -qFx ${lib.escapeShellArg assignment} "$out/bin/claude"; then
+              echo "claude-code: inner wrapper still assigns legacy value ${assignment} after strip; the pinned llm-agents wrapper shape changed" >&2
+              exit 1
+            fi
+          ''
+        ) claudeEnv.legacyEnvValues
+      );
       binaryNames = lib.attrNames claudeEnv.binary;
 
       wrappedPackage = basePackage.overrideAttrs (old: {
@@ -83,7 +97,8 @@ in
           # owned by this module from the inner wrapper before applying shared
           # flags. Permanent retired assignments fail closed because an outer
           # unset cannot override an inner export. Legacy assignments are
-          # removed so the conditional outer run can preserve a user value.
+          # removed only for their exact value so a documented replacement
+          # value can survive the conditional outer run.
           if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
             echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1
@@ -97,17 +112,7 @@ in
               fi
             done
           ''}
-          ${lib.optionalString (legacyEnvNames != [ ]) ''
-            for name in ${lib.escapeShellArgs legacyEnvNames}; do
-              sed -i "/^export $name=/d" "$out/bin/claude"
-            done
-            for name in ${lib.escapeShellArgs legacyEnvNames}; do
-              if grep -qF "$name=" "$out/bin/claude"; then
-                echo "claude-code: inner wrapper still assigns legacy name $name after strip; the pinned llm-agents wrapper shape changed" >&2
-                exit 1
-              fi
-            done
-          ''}
+          ${legacyEnvCleanup}
           ${lib.optionalString (binaryNames != [ ]) ''
             for name in ${lib.escapeShellArgs binaryNames}; do
               sed -i "/^export $name=/d" "$out/bin/claude"

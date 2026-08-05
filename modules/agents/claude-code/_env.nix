@@ -74,9 +74,15 @@ let
   legacyEnvValues = {
     CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
   };
-  retiredButLive = builtins.filter (
-    name: builtins.hasAttr name (binary // bashRuntime // modelRouting // shellOnly)
-  ) retired;
+  activeEnv = binary // bashRuntime // modelRouting // shellOnly;
+  retiredButLive = builtins.filter (name: builtins.hasAttr name activeEnv) retired;
+  # A legacy name may be active with a replacement value, but an active value
+  # equal to its legacy value would be removed by every migration consumer.
+  legacyEnvValueConflicts = builtins.filter (
+    name:
+    builtins.hasAttr name activeEnv
+    && builtins.getAttr name activeEnv == builtins.getAttr name legacyEnvValues
+  ) (builtins.attrNames legacyEnvValues);
 
   # === Catalog: every documented Claude Code environment variable ===========
   # Entries marked ACTIVE are already set in a group above. Entries marked
@@ -1274,6 +1280,9 @@ in
 assert
   retiredButLive == [ ]
   || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " retiredButLive} are both retired and live; remove the name from retired or its live group";
+assert
+  legacyEnvValueConflicts == [ ]
+  || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " legacyEnvValueConflicts} are live with their legacy value; remove the name from its live group or update legacyEnvValues";
 {
   inherit binary legacyEnvValues retired;
   settings = binary // bashRuntime // modelRouting;
