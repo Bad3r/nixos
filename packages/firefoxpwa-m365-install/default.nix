@@ -36,6 +36,7 @@
 }:
 let
   mkSiteInstaller = callPackage ../firefoxpwa-site-installer { };
+  refusalExitStatus = 78;
 in
 {
   firefoxpwa,
@@ -49,6 +50,7 @@ in
 mkSiteInstaller {
   name = "firefoxpwa-install-m365";
   inherit dataDir xdgDataHome;
+  passthru = { inherit refusalExitStatus; };
   runtimeInputs = [
     firefoxpwa
     jq
@@ -337,12 +339,13 @@ mkSiteInstaller {
 
     if [ "$failed" -ne 0 ]; then
       echo "firefoxpwa-m365: $failed of ${toString (builtins.length apps)} web apps could not be installed" >&2
-      # 78 is EX_CONFIG: a refusal needs user action and must remain visible in
-      # the journal, but it must not consume the service's restart burst before
+      # EX_CONFIG is the refusal status: a refusal needs user action and must
+      # remain visible in the journal, but it must not trigger an automatic
+      # restart before
       # the user can fix the entry and switch again. Retryable faults keep the
       # ordinary failure status so systemd reruns them with its bounded policy.
       if [ "$retryable" -eq 0 ]; then
-        exit 78
+        exit ${toString refusalExitStatus}
       fi
       exit 1
     fi

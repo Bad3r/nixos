@@ -179,6 +179,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
           # 5-second sleeps per entry.
           retryDelay = 0;
         };
+      inherit (mkInstaller [ ]) refusalExitStatus;
 
       declared = mkInstaller [
         {
@@ -448,7 +449,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
 
             echo
             echo "-- an entry moved across origins is refused, the rest are not --"
-            expect "cross-origin move" "$cross_origin" 78 "uninstall the site so this unit can reinstall it at the new origin"
+            expect "cross-origin move" "$cross_origin" ${toString refusalExitStatus} "uninstall the site so this unit can reinstall it at the new origin"
             assert_equal "no site added for the new origin" "$(site_count)" 2
             assert_equal "alpha still points at the installed origin" \
               "$(start_url_of Alpha)" "https://alpha.example/"
@@ -459,7 +460,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             echo "-- renaming an entry is refused rather than orphaning its site --"
             reset
             "$declared" >/dev/null
-            expect "rename refused" "$renamed" 78 "is a new name for the site this unit installed"
+            expect "rename refused" "$renamed" ${toString refusalExitStatus} "is a new name for the site this unit installed"
             assert_equal "no second site registered under the new name" "$(site_count)" 2
             assert_equal "the ulid record still names the original site" \
               "$(cat "$data_dir/m365-alpha-applied-ulid")" "01STUB0"
@@ -476,7 +477,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
 
             reset
             "$declared" >/dev/null
-            expect "rename still refused after the reset" "$renamed" 78 "is a new name for the site this unit installed"
+            expect "rename still refused after the reset" "$renamed" ${toString refusalExitStatus} "is a new name for the site this unit installed"
             # An uninstall leaves the same stale record but takes the site, and
             # that case must still reinstall: the guard is on the site being
             # there, not on the record existing.
@@ -491,7 +492,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             # Documented on the option as destructive: the remedy the message
             # names destroys a working PWA profile, so what must not happen is
             # the installer deciding that for itself.
-            expect "key edit refused" "$rekeyed" 78 "nothing records the origin it was installed at"
+            expect "key edit refused" "$rekeyed" ${toString refusalExitStatus} "nothing records the origin it was installed at"
             assert_equal "no site added under the new slug" "$(site_count)" 2
             assert_equal "the old slug's records are left for the user to clear" \
               "$(cat "$data_dir/m365-alpha-applied-ulid")" "01STUB0"
@@ -505,12 +506,12 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             echo
             echo "-- a start URL with credentials is refused before any site lookup --"
             reset
-            expect "credentials refused" "$credentials" 78 "embeds credentials"
+            expect "credentials refused" "$credentials" ${toString refusalExitStatus} "embeds credentials"
             assert_equal "only the other entry was installed" "$(site_count)" 1
             assert_equal "beta installed anyway" "$(cat "$data_dir/m365-beta-applied-url")" "https://beta.example/"
-            # A retryable fault must outrank a permanent refusal: 78 is a
-            # successful exit for the user service, so the wrong precedence
-            # would leave the transient fault with no rerun.
+            # A retryable fault must outrank a permanent refusal: the refusal
+            # is a successful exit for the user service, so the wrong
+            # precedence would leave the transient fault with no rerun.
             reset
             export STUB_FAIL_NAME=Beta STUB_FAIL_BEFORE_REGISTER=1
             expect "a retryable fault outranks a permanent refusal" "$credentials" 1 "failed after 3 attempts"
@@ -527,7 +528,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             jq '.sites["01STUB0"].config.manifest_url = "https://alpha.example/manifest.json"' \
               "$config_file" >"$config_file.next"
             mv "$config_file.next" "$config_file"
-            expect "foreign site refused" "$declared" 78 "is not the site this unit installed"
+            expect "foreign site refused" "$declared" ${toString refusalExitStatus} "is not the site this unit installed"
             assert_equal "no second Alpha registered" "$(site_count)" 2
 
             echo

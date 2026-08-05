@@ -30,10 +30,12 @@
   dataDir,
   xdgDataHome,
   runtimeInputs ? [ ],
+  passthru ? { },
   text,
 }:
 writeShellApplication {
   inherit name;
+  inherit passthru;
   runtimeInputs = runtimeInputs ++ [
     coreutils
     util-linux

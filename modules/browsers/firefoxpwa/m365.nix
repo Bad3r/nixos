@@ -64,6 +64,7 @@ _: {
         xdgDataHome = config.xdg.dataHome;
         inherit dataDir apps;
       };
+      refusalExitStatus = toString installScript.refusalExitStatus;
     in
     {
       config = lib.mkMerge [
@@ -112,8 +113,8 @@ _: {
               # still count toward the five-start budget above. Filesystem,
               # firefoxpwa and timeout faults retain status 1 and the bounded
               # retry.
-              SuccessExitStatus = "78";
-              RestartPreventExitStatus = "78";
+              SuccessExitStatus = refusalExitStatus;
+              RestartPreventExitStatus = refusalExitStatus;
               # Past the default 90s, which a legitimate wait can exceed: the
               # installer holds the shared site lock for its whole run, and the
               # queued unit is the one that pays. Being killed there costs the
