@@ -222,6 +222,18 @@
             };
           };
 
+          # The command line is the sole authority for a backend option
+          # (fs/configmap.go ConfigMap puts set flag values at PriorityNormal
+          # and the config file at PriorityConfig), so this beats the stanza's
+          # enable_caching = false as well as the flag in common.
+          enableCachingHm = mkHm {
+            extraArgs = [ "--protondrive-enable-caching=true" ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
           # The tuning knobs the option exists for must survive all of it.
           tuningHm = mkHm {
             extraArgs = [
@@ -393,6 +405,9 @@
         assert lib.assertMsg (
           !(builtins.tryEval clusteredShortHm.config.home.packages).success
         ) "hm-apps/proton-drive-sync: a clustered short option in extraArgs must fail an assertion";
+        assert lib.assertMsg (
+          !(builtins.tryEval enableCachingHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: --protondrive-enable-caching in extraArgs must fail an assertion";
         assert lib.assertMsg (installsScript tuningHm)
           "hm-apps/proton-drive-sync: long-form tuning arguments must still be accepted";
         builtins.deepSeq units drive;

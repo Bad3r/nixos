@@ -183,6 +183,14 @@ _: {
       # drops the losing copy of every conflict, --dry-run leaves --resync
       # writing only `-dry` listings while the branch still records a baseline,
       # and --resync / --resync-mode turn a scheduled fire into a superset merge.
+      #
+      # --protondrive-enable-caching belongs to the same class, and the command
+      # line is its sole authority rather than a reinforcement: fs/configmap.go
+      # ConfigMap registers set flag values at PriorityNormal and the config
+      # file at PriorityConfig, so an extraArg beats both the flag in common and
+      # the enable_caching = false the rclone module writes into the stanza.
+      # Caching stays off because Proton's change-event system is unimplemented,
+      # so a stale metadata cache feeds bisync's delta computation directly.
       rejectedFlags = [
         "--conflict-loser"
         "--dry-run"
@@ -192,6 +200,7 @@ _: {
         "--log-level"
         "--log-systemd"
         "--max-delete"
+        "--protondrive-enable-caching"
         "--resync"
         "--resync-mode"
         "--syslog"
@@ -483,8 +492,9 @@ _: {
 
             Arguments that override a safety flag or the sync mode
             (`--conflict-loser`, `--dry-run`, `--force`, `--max-delete`,
-            `--resync`, `--resync-mode`): each defeats the deletion cap, the
-            bisync safety checks, or the baseline the tuple marker records.
+            `--protondrive-enable-caching`, `--resync`, `--resync-mode`): each
+            defeats the deletion cap, the bisync safety checks, the baseline the
+            tuple marker records, or the caching-off the Beta backend requires.
 
             Short options are rejected wholesale because they cluster (`-nv` is
             `--dry-run` plus `--verbose`); use the long form. The equivalent
