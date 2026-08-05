@@ -344,6 +344,25 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
               fi
             }
 
+            # A rerun that changed nothing prints nothing, so silence is the
+            # observable. expect with an empty fragment pins only the exit
+            # status, which a run that calls site update on every entry also
+            # satisfies: without the installer's no-op fast path the rerun still
+            # exits 0 with the same site count, and every other assertion in
+            # this check requires "refreshing start URL" rather than forbidding
+            # it, so nothing would notice.
+            expect_silent() {
+                local label="$1" installer="$2" out rc=0
+                out=$("$installer" 2>&1) || rc=$?
+                if [ "$rc" = 0 ] && [ -z "$out" ]; then
+                  echo "PASS  $label"
+                else
+                  echo "FAIL  $label (rc=$rc, expected 0 and no output)"
+                  printf '%s\n' "$out" | sed 's/^/      /'
+                  failures=$((failures + 1))
+                fi
+            }
+
             assert_equal() {
               if [ "$2" = "$3" ]; then
                 echo "PASS  $1"
@@ -399,7 +418,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
 
             echo
             echo "-- rerunning the same generation changes nothing --"
-            expect "idempotent rerun" "$declared" 0 ""
+            expect_silent "idempotent rerun" "$declared"
             assert_equal "no duplicate sites" "$(site_count)" 2
 
             echo
@@ -573,7 +592,7 @@ assert lib.assertMsg (lib.all (app: builtins.match "[a-z0-9][a-z0-9-]*" app.key 
             expect "catalog install" "$shipped" 0 "installed 'Word'"
             assert_equal "every catalog entry installed" \
               "$(site_count)" ${toString (builtins.length catalog)}
-            expect "catalog rerun" "$shipped" 0 ""
+            expect_silent "catalog rerun" "$shipped"
             assert_equal "catalog rerun adds nothing" \
               "$(site_count)" ${toString (builtins.length catalog)}
 
