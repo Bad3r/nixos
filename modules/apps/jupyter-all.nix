@@ -62,6 +62,17 @@ let
           echo "no kernelspecs left to export from $wrapperData" >&2
           exit 1
         fi
+
+        for spec in "$out"/share/jupyter/kernels/*/kernel.json; do
+          argv0=$(jq -r '.argv[0]' "$spec")
+          case "$argv0" in
+            ${builtins.storeDir}/*) ;;
+            *)
+              echo "$spec has argv[0] '$argv0', not a store path: it would resolve through PATH outside the wrapper" >&2
+              exit 1
+              ;;
+          esac
+        done
       '';
 
   JupyterAllModule =
