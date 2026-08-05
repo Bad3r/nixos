@@ -22,6 +22,17 @@
   claudeJsonConfigFile,
 }:
 let
+  claudeEnv = import ./_env.nix;
+  claudeDefaults = import ./_default-settings.nix;
+  retiredEnvJq = lib.optionalString (claudeEnv.retired != [ ]) (
+    " | " + lib.concatMapStringsSep " | " (name: "del(.env[${builtins.toJSON name}])") claudeEnv.retired
+  );
+  retiredJsonJq = lib.optionalString (claudeDefaults.retired.claudeJson != [ ]) (
+    " | "
+    + lib.concatMapStringsSep " | " (
+      name: "del(.[${builtins.toJSON name}])"
+    ) claudeDefaults.retired.claudeJson
+  );
   bunInstallEnabled = lib.attrByPath [
     "programs"
     "claude-code"
@@ -56,8 +67,7 @@ in
       | ($existing * $nix)
       | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
       | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
-      | .env = (($existing.env // {}) + ($nix.env // {}))
-      | .env |= del(.DISABLE_NON_ESSENTIAL_MODEL_CALLS)' \
+      | .env = (($existing.env // {}) + ($nix.env // {}))${retiredEnvJq}' \
       "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
       echo "ERROR: jq failed to merge Claude Code settings" >&2
       exit 1
@@ -84,7 +94,7 @@ in
       | $nixConfig[0] as $nix
       | ($existing * $nix)
       | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))
-      | del(.autocheckpointingEnabled)' \
+      ${retiredJsonJq}' \
       "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
       echo "ERROR: jq failed to merge config" >&2
       exit 1

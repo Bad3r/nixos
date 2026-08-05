@@ -64,6 +64,10 @@ let
     USE_BUILTIN_RIPGREP = "0";
   };
 
+  # Names removed from managed settings. These stay out of `settings` and
+  # `all`; activation deletes them from existing files.
+  retired = [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
+
   # === Catalog: every documented Claude Code environment variable ===========
   # Entries marked ACTIVE are already set in a group above.
 
@@ -1165,7 +1169,7 @@ let
 
 in
 {
-  inherit binary;
+  inherit binary retired;
   settings = binary // bashRuntime // modelRouting;
   all = binary // bashRuntime // modelRouting // shellOnly;
 }

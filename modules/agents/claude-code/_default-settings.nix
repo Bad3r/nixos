@@ -200,8 +200,9 @@ assert
 
   # === Undocumented settings.json keys (2.1.222 binary schema) ==============
   # Present in the binary's settings schema but absent from the published settings
-  # docs. Descriptions are the schema's own .describe() text. Uncomment inside
-  # claudeSettingsBase to activate; leaving a key out keeps Claude's default.
+  # docs. Descriptions are the schema's own .describe() text. Activate a key by
+  # moving the line into claudeSettingsBase above; leaving it here keeps Claude's
+  # default.
   #   Enable background memory consolidation (auto-dream). When set, overrides
   #   the server-side default.
   #   autoDreamEnabled = true;  # [boolean]
@@ -298,7 +299,8 @@ assert
   # === Documented settings.json keys not set above (2.1.222 schema) =========
   # Every remaining top-level key in the binary's settings schema. Descriptions
   # are the schema's own .describe() text, falling back to the published docs.
-  # Uncomment inside claudeSettingsBase to activate; omitting keeps the default.
+  # Activate a key by moving the line into claudeSettingsBase above; omitting
+  # keeps the default.
   #   Advisor model for the server-side advisor tool.
   #   advisorModel = "";                                # [string]
   #
@@ -841,6 +843,11 @@ assert
   #   On native Windows the flag has no effect.
   #   wslInheritsWindowsSettings = true;                # [boolean]
   #
+
+  # Keys retired from existing ~/.claude.json files.
+  retired = {
+    claudeJson = [ "autocheckpointingEnabled" ];
+  };
 
   # UI preferences for ~/.claude.json (merged with existing config in _settings.nix)
   claudeJsonConfigBase = {
