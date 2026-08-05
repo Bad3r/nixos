@@ -62,33 +62,41 @@ let
             description = "Credential source for the Proton Drive rclone remote.";
           };
 
+          # No defaults here: this module is shared by every host, and a
+          # non-empty default would make every host with protonDrive.enable
+          # and the default authSource shell out to `op read` against one
+          # specific person's vault. The owning host/user sets these (see
+          # modules/hosts/common/rclone-protondrive-1password.nix), matching
+          # the secretsRoot-gated pattern the sops authSource branch above
+          # already uses for the same reason.
           onePassword = {
             usernameRef = lib.mkOption {
               type = lib.types.str;
-              default = "op://Personal/wi7bkkt6pkphzioobyl2ddpkka/username";
+              default = "";
               description = "1Password secret reference for the Proton username.";
             };
 
             passwordRef = lib.mkOption {
               type = lib.types.str;
-              default = "op://Personal/wi7bkkt6pkphzioobyl2ddpkka/password";
+              default = "";
               description = "1Password secret reference for the Proton login password.";
             };
 
             otpRef = lib.mkOption {
               type = lib.types.str;
-              default = "op://Personal/wi7bkkt6pkphzioobyl2ddpkka/one-time password";
+              default = "";
               description = ''
-                1Password secret reference for the OTP field. The reference must
-                return the otpauth:// URI, without the ?attribute=otp query, so
-                the stable seed can be extracted and rclone can generate codes.
+                1Password secret reference for the OTP field, or "" if the
+                account has no 2FA enabled. The reference must return the
+                otpauth:// URI, without the ?attribute=otp query, so the
+                stable seed can be extracted and rclone can generate codes.
               '';
             };
 
             mailboxPasswordRef = lib.mkOption {
               type = lib.types.str;
-              default = "op://Personal/zgofe2wyj3j27vetjth7qr4hs4/password";
-              description = "1Password secret reference for the Proton mailbox password.";
+              default = "";
+              description = "1Password secret reference for the Proton mailbox password, or \"\" on a single-password account.";
             };
           };
         };
