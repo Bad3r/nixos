@@ -94,7 +94,7 @@ _: {
               # 5 * (TimeoutStartSec + RestartSec), so a run killed at the
               # 900-second timeout still counts toward the burst rather than
               # landing alone in a shorter sliding window.
-              StartLimitIntervalSec = 5400;
+              StartLimitIntervalSec = 10800;
               StartLimitBurst = 5;
             };
             Service = {
@@ -105,7 +105,10 @@ _: {
               # this is what makes a failed one reachable again, since nothing
               # else reruns the unit while the app table is unchanged.
               Restart = "on-failure";
-              RestartSec = 120;
+              # Pace fast failures across the start window too: the counter
+              # counts starts, so the five automatic attempts must not all
+              # consume the budget before a corrective switch can be made.
+              RestartSec = 1080;
               # The installer returns EX_CONFIG (78) for a permanent refusal
               # that needs user action. Treating it as successful prevents
               # Restart=on-failure from burning the retry window automatically

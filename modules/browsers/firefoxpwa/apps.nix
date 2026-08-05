@@ -143,7 +143,10 @@ let
               counts each start, including corrective switches, within its
               bounded five-start window, so the refusal remains visible while
               leaving room to fix the entry without an immediate rate-limit
-              lockout. The remaining entries are still installed, so one
+              lockout. The status is for the whole run: if another entry has a
+              retryable fault, the run exits 1 instead, the unit restarts on
+              its bounded schedule, and the refusal is logged again on each
+              restart. The remaining entries are still installed, so one
               refusal does not hold up the rest of the suite.
 
               Renaming an entry while keeping its `key` is refused on the same
