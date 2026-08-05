@@ -2686,8 +2686,16 @@ allowlists would miss those, and they are where a per-app extension puts an app'
 nix fmt
 nix flake check path:. --accept-flake-config --no-build --offline
 git add modules/browsers/webapps/_catalog.nix modules/browsers/webapps/check-fixtures/policy.json
+
 git -C secrets add gecko.yaml
+git -C secrets commit -m "feat(gecko): add gecko_work_bookmark_origin_1 for programs.webapps"
+git -C secrets push
 git add secrets
+
+# The gitlink has to have moved, and the revision it names has to be on the remote.
+git diff --cached --submodule=short -- secrets
+git -C secrets status --short --branch | head -1
+
 git commit -m "feat(webapps): install DMail with a secret start URL
 
 gecko_work_bookmark_url_1 already held the URL; gecko_work_bookmark_origin_1 is new because Chromium content-setting
@@ -2696,6 +2704,19 @@ The launcher reads the URL at runtime and the policy carries only the origin, so
 
 Validation: nix flake check path:. --accept-flake-config --no-build --offline; fixture confirmed placeholder-only"
 ```
+
+`secrets/` is a git submodule (`.gitmodules`), so `git -C secrets add` stages inside it and `git add secrets` records
+that submodule's HEAD as a gitlink. With no commit in the submodule, HEAD has not moved and the superproject commit
+names the pre-edit revision: `gecko_work_bookmark_origin_1` never leaves this working tree. Pushing is part of the
+same step because `flake.nix` sets `self.submodules = true`, so every evaluation outside this tree fetches
+`secrets/` at the recorded revision and fails with `Cannot find Git revision` until it is on the remote.
+
+The `nix flake check` above cannot catch either omission: it reads the working tree, where the key is present and
+decryptable, so it passes whether or not the submodule was committed. The two commands after `git add secrets` are
+what catch it. `git diff --cached --submodule=short -- secrets` must print a `-Subproject commit` / `+Subproject commit` pair; empty output means the gitlink did not move. The `status --branch` line must not report `ahead`, which
+would mean the commit exists locally but not on the remote. Without both, the failure surfaces at the next clean
+checkout or in CI, where `nixos.nix` resolves `originSecret` against a `gecko.yaml` that lacks the key: sops-nix
+cannot render `webapps-policy`, and DMail's launcher opens a URL the policy grants nothing to.
 
 ### Task 17: Document the module and open the PR
 
@@ -3191,7 +3212,7 @@ ______________________________________________________________________
 - Two facts are assumed rather than proven: that `ExtensionSettings` gates `--load-extension` (Task 10 Step 0) and that Brave enforces `ScreenCaptureAllowedByOrigins` rather than merely recognizing the key (Task 18 Step 2). Every policy name the plan writes is confirmed present in the pinned `brave-origin` build's string table, so neither open question is about a removed or renamed policy. Both have a named step and neither changes the plan's shape.
 - `_check-apps.nix` restates the submodule defaults from `nixos.nix` and the default of `defaultExtensions`. Nothing enforces that they agree, so a new option default added to `nixos.nix` alone makes the fixture describe a policy the hosts do not get. The file header says so; a check that compares the two is a reasonable follow-up.
 
-**Where validation would have missed a real failure.** Six cases earlier drafts of this series would have passed:
+**Where validation would have missed a real failure.** Seven cases earlier drafts of this series would have passed:
 
 - Task 12's launcher validated by `nix eval` on package names. `writeShellApplication` runs `shellcheck` at build time, so a malformed command body is a build failure that eval never reaches. An `lib.optionalString` inside a backslash-continued argument list rendered a whitespace-only line for every app without `reload.enable` and both tray wrappers, terminating the command early. Now validated with `nix build` plus reading back the two shapes that differ (Task 12 Step 5), after Task 12 Step 3 turns the module on so the build has launchers to check at all.
 - `lib.getExe pkgs.diffutils` in Task 14 pointed at a `bin/diffutils` that does not exist, so the policy check would have failed on its own tooling. Now `lib.getExe' pkgs.diffutils "diff"`.
@@ -3199,5 +3220,6 @@ ______________________________________________________________________
 - Task 15's module check asserted the right things about the wrong behavior. It confirmed that a missing `gecko.yaml` warns and declares no sops secret, both of which held while the guard was also deleting the launchers, desktop entries and policy entries for the seven apps that never needed the secrets submodule. An assertion that a guard's failure path is quiet says nothing about how much it took down; the check now names what has to survive it.
 - Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created two steps earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds.
 - Task 14's `policy-check.nix` derived its independent expectation with `lib.splitString "/" app.url` and no secret branch. Every app in the catalog at that point has a literal `url`, so Task 14 passes; Task 16 adds DMail with `url = null` and `originSecret` set, and the check aborts with `cannot coerce null to a string` as soon as `lib.sort` forces the element. The failure would have surfaced two tasks after the file that caused it. `originOf` now takes the `originSecret` branch, reusing only `_check-apps.nix`'s placeholder constant.
+- Task 16 staged the new secret with `git -C secrets add` and `git add secrets` and no commit inside the submodule, so the gitlink never moved and the superproject recorded the pre-edit revision. Its `nix flake check` reads the working tree, where the key is present, so the step passed while the key stayed local. `self.submodules = true` means the failure lands on the next clean checkout or in CI, one task before the PR opens. The submodule commit and push are part of the step now, with a `git diff --cached --submodule=short` and a `status --branch` line to prove both happened.
 
 **Type consistency.** `key`, `name`, `url`, `urlSecret`, `originSecret`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `nixos.nix`, `_check-apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. Both `originOf` implementations, the generator's in `_policy.nix` and the independent one in `policy-check.nix`, branch on `originSecret` before reading `url`, so an app with a secret origin never reaches `lib.splitString` with a `null`. The `originPlaceholder` argument has the same `key -> string` signature at both call sites (`nixos.nix` and `_check-apps.nix`). `keepAliveExtensionId` is a plain `str` at its three call sites (`nixos.nix`, `_check-apps.nix`, `keepalive-id-check.nix`) and is the value `_reload-extension.nix` bakes into the manifest through `publicKey`.
