@@ -148,6 +148,19 @@
             && hm.config.systemd.user.services.firefoxpwa-m365.Service.RestartPreventExitStatus == "78"
           )
           "browsers/firefoxpwa-module-eval: a permanent m365 refusal must exit EX_CONFIG 78, which no installer fault produces";
+        # Keep the retry window long enough for every bounded attempt to count
+        # toward StartLimitBurst. Otherwise a timeout can land alone in the
+        # sliding window and the unit retries for the rest of the session.
+        assert
+          let
+            m365Unit = hm.config.systemd.user.services.firefoxpwa-m365;
+          in
+          lib.assertMsg
+            (
+              m365Unit.Unit.StartLimitIntervalSec
+              >= m365Unit.Unit.StartLimitBurst * (m365Unit.Service.TimeoutStartSec + m365Unit.Service.RestartSec)
+            )
+            "browsers/firefoxpwa-module-eval: StartLimitIntervalSec must cover StartLimitBurst * (TimeoutStartSec + RestartSec)";
         builtins.deepSeq {
           # The whole unit, not selected attributes: a removed binding in its
           # Unit or Install blocks must fail this check too.
