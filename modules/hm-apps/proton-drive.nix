@@ -183,6 +183,11 @@ _: {
       # drops the losing copy of every conflict, --dry-run leaves --resync
       # writing only `-dry` listings while the branch still records a baseline,
       # and --resync / --resync-mode turn a scheduled fire into a superset merge.
+      # --ignore-errors lifts the one guard --max-delete cannot express: rclone
+      # withholds destination deletes from a run that hit errors
+      # (fs/sync/sync.go returns fs.ErrorNotDeleting under
+      # `if accounting.Stats(ctx).Errored() && !s.ci.IgnoreErrors`), so against a
+      # Beta backend a partial listing failure would delete rather than abort.
       #
       # --protondrive-enable-caching belongs to the same class, and the command
       # line is its sole authority rather than a reinforcement: fs/configmap.go
@@ -195,6 +200,7 @@ _: {
         "--conflict-loser"
         "--dry-run"
         "--force"
+        "--ignore-errors"
         "--log-file"
         "--log-format"
         "--log-level"
@@ -491,10 +497,12 @@ _: {
             run's own stderr.
 
             Arguments that override a safety flag or the sync mode
-            (`--conflict-loser`, `--dry-run`, `--force`, `--max-delete`,
-            `--protondrive-enable-caching`, `--resync`, `--resync-mode`): each
-            defeats the deletion cap, the bisync safety checks, the baseline the
-            tuple marker records, or the caching-off the Beta backend requires.
+            (`--conflict-loser`, `--dry-run`, `--force`, `--ignore-errors`,
+            `--max-delete`, `--protondrive-enable-caching`, `--resync`,
+            `--resync-mode`): each defeats the deletion cap, the withholding of
+            deletes from an errored run, the bisync safety checks, the baseline
+            the tuple marker records, or the caching-off the Beta backend
+            requires.
 
             Short options are rejected wholesale because they cluster (`-nv` is
             `--dry-run` plus `--verbose`); use the long form. The equivalent

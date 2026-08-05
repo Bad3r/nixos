@@ -222,6 +222,17 @@
             };
           };
 
+          # rclone withholds destination deletes from a run that hit errors;
+          # this is the flag that turns that off, and --max-delete cannot
+          # express it because the deletes are within the cap.
+          ignoreErrorsHm = mkHm {
+            extraArgs = [ "--ignore-errors" ];
+            protonDrive = {
+              enable = true;
+              authSource = "sops";
+            };
+          };
+
           # The command line is the sole authority for a backend option
           # (fs/configmap.go ConfigMap puts set flag values at PriorityNormal
           # and the config file at PriorityConfig), so this beats the stanza's
@@ -338,6 +349,21 @@
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--force must release the latch"
                 grep -q -- '--force' "$PROTON_DRIVE_STUB_CALLS" || fail "--force must reach rclone"
 
+                # rejectedFlags refuses these in extraArgs on the premise that
+                # the module passes its own value and an extraArg would replace
+                # it. Deleting one from the invocation leaves that guard
+                # forbidding an override of a flag that is no longer there, and
+                # every other case here green. This is the first run that
+                # reaches rclone by the normal bisync path.
+                last_call=$(tail -n1 "$PROTON_DRIVE_STUB_CALLS")
+                for flag in --max-delete=25 --resilient --conflict-resolve=newer \
+                  --protondrive-enable-caching=false --config; do
+                  case "$last_call" in
+                    *"$flag"*) ;;
+                    *) fail "a normal bisync run must pass $flag" ;;
+                  esac
+                done
+
                 # A transient backend failure must keep retrying on the timer;
                 # latching it would strand the sync until a human runs --force.
                 rc=0
@@ -369,6 +395,38 @@
                 PROTON_DRIVE_STUB_EXIT=0 "$sync" --resync
                 [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--resync must release the latch"
                 [ "$(marker_count 'initialized-*')" -eq 1 ] || fail "--resync must keep the baseline marker"
+
+                # Every case above runs the default bisync direction, so
+                # sync_one_way, which is where the one-way branches clear the
+                # baseline and latch on rclone's exit 7, had never executed.
+                # The direction is part of the tuple key, so these markers are
+                # the up tuple's own and the bisync ones stay put.
+                PROTON_DRIVE_DIRECTION=up PROTON_DRIVE_STUB_EXIT=0 "$sync" --resync
+                [ "$(marker_count 'initialized-*')" -eq 2 ] ||
+                  fail "up --resync must write its own baseline marker"
+
+                rc=0
+                PROTON_DRIVE_DIRECTION=up PROTON_DRIVE_STUB_EXIT=7 "$sync" || rc=$?
+                [ "$rc" -eq 7 ] || fail "a fatal one-way abort must propagate rclone's exit 7"
+                [ "$(marker_count 'initialized-*')" -eq 1 ] ||
+                  fail "a fatal one-way abort must clear its own baseline marker"
+                [ "$(marker_count 'aborted-*')" -eq 1 ] || fail "a fatal one-way abort must latch the tuple"
+
+                # The latch withholds the cap-free --resync that would otherwise
+                # follow a fatal abort; only --force-resync bypasses it.
+                rc=0
+                PROTON_DRIVE_DIRECTION=up PROTON_DRIVE_STUB_EXIT=0 "$sync" --resync || rc=$?
+                [ "$rc" -eq 0 ] || fail "up --resync after a fatal abort must succeed (exit $rc)"
+                case "$(tail -n1 "$PROTON_DRIVE_STUB_CALLS")" in
+                  *--max-delete=25*) ;;
+                  *) fail "--resync after a fatal one-way abort must retain the deletion cap" ;;
+                esac
+
+                PROTON_DRIVE_DIRECTION=up PROTON_DRIVE_STUB_EXIT=0 "$sync" --force-resync
+                case "$(tail -n1 "$PROTON_DRIVE_STUB_CALLS")" in
+                  *--max-delete*) fail "--force-resync must bypass the deletion cap" ;;
+                  *) ;;
+                esac
 
                 touch "$out"
               '';
@@ -408,6 +466,9 @@
         assert lib.assertMsg (
           !(builtins.tryEval enableCachingHm.config.home.packages).success
         ) "hm-apps/proton-drive-sync: --protondrive-enable-caching in extraArgs must fail an assertion";
+        assert lib.assertMsg (
+          !(builtins.tryEval ignoreErrorsHm.config.home.packages).success
+        ) "hm-apps/proton-drive-sync: --ignore-errors in extraArgs must fail an assertion";
         assert lib.assertMsg (installsScript tuningHm)
           "hm-apps/proton-drive-sync: long-form tuning arguments must still be accepted";
         builtins.deepSeq units drive;
