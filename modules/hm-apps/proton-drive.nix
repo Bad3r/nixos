@@ -79,7 +79,10 @@
       PROTON_DRIVE_REMOTE=protondrive:Folder proton-drive-sync
       PROTON_DRIVE_DIRECTION=up proton-drive-sync
     These values are part of the baseline tuple, so changing one requires
-    another explicit --resync.
+    another explicit --resync. The timer unit clears all three
+    (UnsetEnvironment=), so they affect interactive runs only: a scheduled fire
+    always syncs the configured direction, path and remote, whatever the user
+    manager's environment holds.
 
     proton-drive-sync            # run the configured sync immediately
     proton-drive-sync --resync   # establish (or rebuild) a nonempty baseline
@@ -226,8 +229,10 @@ _: {
       # Short options cluster, so they cannot be matched flag by flag: `-nv` is
       # --dry-run plus --verbose, and bisync gives --resync the shorthand `-1`.
       # Every rejected flag has a long form, so require it rather than parse
-      # clusters here.
-      isShortOption = arg: builtins.match "-[^-].*" arg != null;
+      # clusters here. The first character must be an option character, not just
+      # a non-dash: an rclone exclude rule is written `- *.partial`, which is a
+      # value rather than a flag and has no long form to demand.
+      isShortOption = arg: builtins.match "-[A-Za-z0-9].*" arg != null;
       rejectedArgs = lib.filter (
         arg: isShortOption arg || lib.any (flag: arg == flag || lib.hasPrefix "${flag}=" arg) rejectedFlags
       ) cfg.extraArgs;

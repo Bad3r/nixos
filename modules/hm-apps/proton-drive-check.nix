@@ -265,11 +265,18 @@
             };
           };
 
-          # The tuning knobs the option exists for must survive all of it.
+          # The tuning knobs the option exists for must survive all of it. An
+          # rclone exclude rule is a value beginning with a dash, so a
+          # short-option test written as "not a dash" rejects half of a filter
+          # pair and accepts the other half.
           tuningHm = mkHm {
             extraArgs = [
               "--bwlimit=2M"
               "--transfers=2"
+              "--filter"
+              "- *.partial"
+              "--filter"
+              "+ *.txt"
             ];
             protonDrive = {
               enable = true;
