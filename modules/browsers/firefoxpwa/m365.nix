@@ -105,9 +105,11 @@ _: {
               # this is what makes a failed one reachable again, since nothing
               # else reruns the unit while the app table is unchanged.
               Restart = "on-failure";
-              # Pace fast failures across the start window too: the counter
-              # counts starts, so the five automatic attempts must not all
-              # consume the budget before a corrective switch can be made.
+              # Pace the automatic retries across the start window rather than
+              # burning the whole budget in minutes. Restart=on-failure retries
+              # until the burst is spent, so a corrective switch after
+              # start-limit-hit needs `systemctl --user reset-failed
+              # firefoxpwa-m365` first, as documented in apps.nix.
               RestartSec = 1080;
               # The installer returns EX_CONFIG (78) for a permanent refusal
               # that needs user action. Treating it as successful prevents
