@@ -268,6 +268,12 @@
                 [ "$rc" -ne 0 ] || fail "an all-files-changed abort must fail the run"
                 [ "$(marker_count 'aborted-*')" -eq 1 ] || fail "an all-files-changed abort must latch the tuple"
 
+                # The other release the refusal message advertises, on a
+                # different branch than --force.
+                RCLONE_STUB_EXIT=0 "$sync" --resync
+                [ "$(marker_count 'aborted-*')" -eq 0 ] || fail "--resync must release the latch"
+                [ "$(marker_count 'initialized-*')" -eq 1 ] || fail "--resync must keep the baseline marker"
+
                 touch "$out"
               '';
         in
