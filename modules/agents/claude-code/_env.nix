@@ -29,7 +29,6 @@ let
   binary = {
     DISABLE_AUTOUPDATER = "1";
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
-    CLAUDE_CODE_ENABLE_TELEMETRY = "0";
     DISABLE_ERROR_REPORTING = "1";
     DISABLE_TELEMETRY = "1";
     DISABLE_INSTALLATION_CHECKS = "1";
@@ -250,7 +249,7 @@ let
   # it again.
   # CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "";   # ACTIVE above
   # Set to 1 to enable OpenTelemetry data collection for metrics and logging. [1 or unset]
-  # CLAUDE_CODE_ENABLE_TELEMETRY = "1";   # ACTIVE above
+  # CLAUDE_CODE_ENABLE_TELEMETRY = "1";
   # Maximum length of content-bearing OpenTelemetry attributes (model
   # responses, tool content, system prompts, raw API bodies), including the
   # truncation marker, in UTF-16 code units (default: 61440, or 60 KB).
