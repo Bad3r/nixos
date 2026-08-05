@@ -180,10 +180,13 @@ let
                   };
                   url = lib.mkOption {
                     # Constrained to a scheme the installer can parse an origin
-                    # from: a scheme-less or misspelled entry is otherwise
-                    # accepted here and only surfaces as a refusal in a user
-                    # unit's journal after a switch.
-                    type = lib.types.strMatching "https?://[^[:space:]]+";
+                    # from, and to an authority without userinfo: both are
+                    # otherwise accepted here and surface only as a refusal in a
+                    # user unit's journal after a switch. Unlike the DMail URL,
+                    # which is a rotating secret nothing can check at eval, these
+                    # are static strings. `@` is excluded from the authority
+                    # only, so a path or query may still carry one.
+                    type = lib.types.strMatching "https?://[^[:space:]/?#@]+([/?#][^[:space:]]*)?";
                     description = ''
                       Start URL. The installed manifest scope is its origin, so
                       same-origin navigation stays inside the app and anything

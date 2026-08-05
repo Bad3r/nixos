@@ -55,6 +55,29 @@
         }).config;
 
       failures = evaled: lib.filter (a: !a.assertion) evaled.assertions;
+
+      # The url type rejects by throwing rather than by failing an assertion, so
+      # the two need different observations. Forced through the app list, since
+      # a type only applies when its value is forced.
+      accepts =
+        url:
+        (builtins.tryEval (
+          builtins.deepSeq
+            (evalWith {
+              extended.enable = true;
+              m365 = {
+                enable = true;
+                apps = [
+                  {
+                    key = "probe";
+                    name = "Probe";
+                    inherit url;
+                  }
+                ];
+              };
+            }).programs.firefoxpwa.m365.apps
+            true
+        )).success;
       failsWith = evaled: fragment: lib.any (a: lib.hasInfix fragment a.message) (failures evaled);
 
       # The launcher name is the idempotency key in a config.json every site
@@ -132,6 +155,19 @@
           "browsers/firefoxpwa-apps-eval: two m365 entries sharing a key must fail an assertion";
         assert lib.assertMsg (lib.elem "DMail" shipped.programs.firefoxpwa.siteNames)
           "browsers/firefoxpwa-apps-eval: an enabled site must register its launcher name";
+        assert lib.assertMsg (accepts "https://word.cloud.microsoft/")
+          "browsers/firefoxpwa-apps-eval: a plain https start URL must be accepted";
+        assert lib.assertMsg (accepts "https://word.cloud.microsoft/a/b?q=1@2")
+          "browsers/firefoxpwa-apps-eval: an @ outside the authority must be accepted";
+        # Refused at runtime by the installer because the scope derived from it
+        # drops the userinfo and could then never contain the start URL. These
+        # are static strings, so the refusal belongs at eval.
+        assert lib.assertMsg (
+          !accepts "https://user:pass@word.cloud.microsoft/"
+        ) "browsers/firefoxpwa-apps-eval: a start URL embedding credentials must be rejected";
+        assert lib.assertMsg (
+          !accepts "word.cloud.microsoft"
+        ) "browsers/firefoxpwa-apps-eval: a scheme-less start URL must be rejected";
         pkgs.runCommand "firefoxpwa-apps-eval" { } ''
           echo "the firefoxpwa option module's assertions evaluate and fire" >"$out"
         '';
