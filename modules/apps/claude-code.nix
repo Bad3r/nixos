@@ -67,13 +67,11 @@ in
           # The pinned llm-agents package wraps bin/claude before this hook and
           # still exports the removed legacy name. Strip it from that inner
           # wrapper before adding the shared binary environment flags.
-          if ! grep -q '^export DISABLE_NON_ESSENTIAL_MODEL_CALLS=' "$out/bin/claude"; then
-            echo "error: pinned claude-code wrapper no longer exports the removed legacy name" >&2
-            exit 1
+          if grep -q '^export DISABLE_NON_ESSENTIAL_MODEL_CALLS=' "$out/bin/claude"; then
+            sed -i \
+              '/^export DISABLE_NON_ESSENTIAL_MODEL_CALLS=/c\unset DISABLE_NON_ESSENTIAL_MODEL_CALLS' \
+              "$out/bin/claude"
           fi
-          sed -i \
-            '/^export DISABLE_NON_ESSENTIAL_MODEL_CALLS=/c\unset DISABLE_NON_ESSENTIAL_MODEL_CALLS' \
-            "$out/bin/claude"
           wrapProgram $out/bin/claude \
             ${binaryEnvFlags}
         '';
