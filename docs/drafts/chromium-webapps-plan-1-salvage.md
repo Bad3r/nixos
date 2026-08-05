@@ -61,11 +61,18 @@ git worktree add "$HOME/trees/nixos/fix-build-time-shell" -b "fix/build-time-she
 
 ```bash
 cd /home/vx/trees/nixos/feat-firefoxpwa-m365
-git log --oneline --format='%h %s' main..HEAD -- \
+git log --oneline --format='%h %s' origin/main..HEAD -- \
   tests/prune-old-stashes/run.sh modules/meta/build-time-shell.nix modules/meta/hooks/statix.nix
 ```
 
 Expected: commit hashes touching only those three paths. Record them as `$COMPGEN_SHA` and `$STATIX_SHA`.
+
+`origin/main`, matching Step 1 and Step 6. Step 1's `git fetch origin main` updates `origin/main` and not local
+`main`, and refs are shared across worktrees, so a stale local `main` here lists commits that are already merged
+alongside the ones to rescue. `modules/meta/hooks/statix.nix` and `tests/prune-old-stashes/run.sh` both exist on
+`main` today, so a merged commit touching either satisfies the expectation above, the wrong `$STATIX_SHA` gets
+recorded, and Step 3 cherry-picks a commit that is already an ancestor of the branch.
+`modules/meta/build-time-shell.nix` is new, so it cannot produce that.
 
 - [ ] **Step 3: Cherry-pick them onto the clean branch**
 
