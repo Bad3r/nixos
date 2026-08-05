@@ -22,6 +22,15 @@ _: {
       gdriveSecretContents = if gdriveSecretExists then builtins.readFile gdriveSecretFile else "";
       gdriveTokenExists = lib.hasInfix "GDRIVE_TOKEN=" gdriveSecretContents;
       gdriveReady = gdriveSecretExists && repoSecretsEnabled && gdriveEnvPath != null;
+      protondriveSecretFile = secretsRoot + "/rclone_protondrive.env";
+      protondriveSecretExists = builtins.pathExists protondriveSecretFile;
+      protondriveEnvPath = lib.attrByPath [
+        "sops"
+        "secrets"
+        "rclone/protondrive-env"
+        "path"
+      ] null osConfig;
+      protondriveReady = protondriveSecretExists && repoSecretsEnabled && protondriveEnvPath != null;
       r2SecretFile = secretsRoot + "/r2.yaml";
       r2SecretExists = builtins.pathExists r2SecretFile;
       r2SecretsEnabled = lib.attrByPath [ "home" "r2Secrets" "enable" ] false config;
@@ -70,6 +79,8 @@ _: {
               }
               gdriveEnabled=${lib.boolToString gdriveReady}
               gdriveEnvPath=${lib.escapeShellArg (if gdriveReady then gdriveEnvPath else "")}
+              protondriveEnabled=${lib.boolToString protondriveReady}
+              protondriveEnvPath=${lib.escapeShellArg (if protondriveReady then protondriveEnvPath else "")}
 
               run mkdir -p "$renderedDir"
               chmod 700 "$renderedDir"
@@ -124,6 +135,79 @@ _: {
                 fi
               fi
 
+              if [ "$protondriveEnabled" = true ]; then
+                # Mirror the gdrive guard: the sops secret may be unmaterialized
+                # on a first activation, so skip with a warning instead of letting
+                # `. "$protondriveEnvPath"` abort the whole home-manager activation
+                # under set -eu.
+                if [ ! -r "$protondriveEnvPath" ]; then
+                  echo "rclone protondrive env file is missing or unreadable at $protondriveEnvPath; skipping protondrive remote refresh for this activation" >&2
+                  # Carry the previously rendered [protondrive] stanza forward so a
+                  # transiently unreadable secret does not drop a working remote.
+                  if [ -r "$renderedConfig" ]; then
+                    prevProton="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^\[protondrive\]$/p; /^\[/!p; }' "$renderedConfig")"
+                    if [ -n "$prevProton" ]; then
+                      printf '\n%s\n' "$prevProton" >> "$tmpConfig"
+                      echo "rclone protondrive remote preserved from the previous rendered config" >&2
+                    fi
+                  fi
+                else
+                  unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
+                  . "$protondriveEnvPath"
+
+                  # A readable but malformed secret is an explicit configuration
+                  # error. Do not preserve stale credentials for invalid input.
+                  if [ -z "''${PROTONDRIVE_USERNAME:-}" ] || [ -z "''${PROTONDRIVE_PASSWORD:-}" ]; then
+                    echo "rclone protondrive env file is missing PROTONDRIVE_USERNAME or PROTONDRIVE_PASSWORD: $protondriveEnvPath" >&2
+                    exit 1
+                  fi
+
+                  # The protondrive backend persists reusable login credentials
+                  # in the remote stanza after authentication. Preserve only
+                  # those backend-owned keys when every SOPS-sourced credential
+                  # that feeds login is unchanged.
+                  prevProtonSession=""
+                  prevProtonCreds=""
+                  currentProtonCreds="$(printf '%s\n%s' "$PROTONDRIVE_USERNAME" "$PROTONDRIVE_PASSWORD")"
+                  if [ -n "''${PROTONDRIVE_OTP_SECRET_KEY:-}" ]; then
+                    currentProtonCreds="$(printf '%s\n%s' "$currentProtonCreds" "$PROTONDRIVE_OTP_SECRET_KEY")"
+                  fi
+                  if [ -n "''${PROTONDRIVE_MAILBOX_PASSWORD:-}" ]; then
+                    currentProtonCreds="$(printf '%s\n%s' "$currentProtonCreds" "$PROTONDRIVE_MAILBOX_PASSWORD")"
+                  fi
+                  if [ -r "$renderedConfig" ]; then
+                    prevProtonCreds="$(sed -n '/^\[protondrive\]$/,/^\[/{ s/^username *= *//p; s/^password *= *//p; s/^otp_secret_key *= *//p; s/^mailbox_password *= *//p; }' "$renderedConfig")"
+                    if [ "$prevProtonCreds" = "$currentProtonCreds" ]; then
+                      prevProtonSession="$(sed -n '/^\[protondrive\]$/,/^\[/{ /^client_uid *=/p; /^client_access_token *=/p; /^client_refresh_token *=/p; /^client_salted_key_pass *=/p; }' "$renderedConfig")"
+                    fi
+                  fi
+
+                  # password/otp_secret_key/mailbox_password must already be rclone-obscured
+                  # in the secret (run `rclone obscure <value>`); the backend reveals them.
+                  # enable_caching is forced off: required for `rclone mount` (Proton's
+                  # change-event system is unimplemented, so a metadata cache goes stale)
+                  # and harmless for bisync.
+                  {
+                    printf '\n[protondrive]\n'
+                    printf 'type = protondrive\n'
+                    printf 'username = %s\n' "$PROTONDRIVE_USERNAME"
+                    printf 'password = %s\n' "$PROTONDRIVE_PASSWORD"
+                    if [ -n "''${PROTONDRIVE_OTP_SECRET_KEY:-}" ]; then
+                      printf 'otp_secret_key = %s\n' "$PROTONDRIVE_OTP_SECRET_KEY"
+                    fi
+                    if [ -n "''${PROTONDRIVE_MAILBOX_PASSWORD:-}" ]; then
+                      printf 'mailbox_password = %s\n' "$PROTONDRIVE_MAILBOX_PASSWORD"
+                    fi
+                    if [ -n "$prevProtonSession" ]; then
+                      printf '%s\n' "$prevProtonSession"
+                    fi
+                    printf 'enable_caching = false\n'
+                  } >> "$tmpConfig"
+                fi
+                unset PROTONDRIVE_USERNAME PROTONDRIVE_PASSWORD PROTONDRIVE_OTP_SECRET_KEY PROTONDRIVE_MAILBOX_PASSWORD
+                unset prevProtonSession prevProtonCreds currentProtonCreds
+              fi
+
               chmod 600 "$tmpConfig"
               run mv "$tmpConfig" "$renderedConfig"
             '';
@@ -153,6 +237,18 @@ _: {
           (lib.mkIf (gdriveSecretExists && !gdriveTokenExists) {
             warnings = [
               "rclone gdrive credentials were loaded from ${toString gdriveSecretFile}, but no GDRIVE_TOKEN was found. Obtain a Drive token with a temporary rclone config or `rclone authorize drive <client_id> <client_secret>`, then store the resulting JSON as GDRIVE_TOKEN in ${toString gdriveSecretFile}."
+            ];
+          })
+
+          (lib.mkIf (protondriveSecretExists && (!repoSecretsEnabled)) {
+            warnings = [
+              "programs.rclone.extended.enable is true and ${toString protondriveSecretFile} exists, but security.repoSecrets.enable is false on this host; skipping protondrive remote setup. Manage ~/.config/rclone/rclone.conf manually or enable repo secrets after SOPS decryption is configured."
+            ];
+          })
+
+          (lib.mkIf (protondriveSecretExists && repoSecretsEnabled && protondriveEnvPath == null) {
+            warnings = [
+              "programs.rclone.extended.enable is true and ${toString protondriveSecretFile} exists, but no system-side rclone/protondrive-env secret path was declared in osConfig; skipping protondrive remote setup."
             ];
           })
         ]
