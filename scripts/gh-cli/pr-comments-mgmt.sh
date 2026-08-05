@@ -870,15 +870,19 @@ _format_array() {
   #          delimiters and should prefer `full` instead.
   # The first arg is the kind ("threads", "reviews", "comments") and
   # selects per-verb templates for text/full/tsv/body.
+  # An arm per VALID_FORMATS entry, and no catch-all rendering: a value added
+  # to that array is documented and accepted the moment it is added, so a
+  # `*) jq '.'` default would ship it as a silent alias for json.
   local kind="$1"
   case "${OUTPUT_FORMAT}" in
+  json) jq '.' ;;
   ndjson) jq -c '.[]' ;;
   ids) jq -r '.[].id // empty' ;;
   text) _format_text "${kind}" ;;
   full) _format_full "${kind}" ;;
   tsv) _format_tsv "${kind}" ;;
   body) _format_body "${kind}" ;;
-  *) jq '.' ;;
+  *) die 1 "_format_array: unhandled --format '${OUTPUT_FORMAT}'" ;;
   esac
 }
 
