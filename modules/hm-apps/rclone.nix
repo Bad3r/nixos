@@ -231,22 +231,37 @@ _: {
                         *)
                           # 1Password stores the one-time password field
                           # verbatim, which is commonly the bare base32 seed
-                          # rather than an otpauth:// URI. Digits 2-7 are base32,
-                          # so a rendered code passes a bare character test; the
-                          # length floor is what separates the two (RFC 4226 R6
-                          # puts the shared secret at 128 bits, and no TOTP seed
-                          # is under the 16 characters of an 80-bit one).
-                          protondriveOtpSeed="$(printf '%s' "$protondriveOtpUri" | tr -d ' ' | sed -n '/^[A-Za-z2-7]\{16,\}=*$/p')"
+                          # rather than an otpauth:// URI.
+                          protondriveOtpSeed="$protondriveOtpUri"
                           ;;
                       esac
+                      # Validate whichever arm produced it: an otpauth:// URI
+                      # built with ?attribute=otp carries a rendered code in
+                      # secret= just as a bare field can hold one. Digits 2-7 are
+                      # base32, so a code passes a bare character test and the
+                      # length floor is what separates the two (RFC 4226 R6 puts
+                      # the shared secret at 128 bits, and no TOTP seed is under
+                      # the 16 characters of an 80-bit one).
+                      protondriveOtpSeed="$(printf '%s' "$protondriveOtpSeed" | tr -d ' ' | sed -n '/^[A-Za-z2-7]\{16,\}=*$/p')"
                       if [ -z "$protondriveOtpSeed" ]; then
-                        echo "rclone protondrive 1Password OTP reference returned neither an otpauth:// URI with a secret= parameter nor a bare base32 seed; it must hold the stable TOTP seed, not the rendered six-digit code" >&2
+                        echo "rclone protondrive 1Password OTP reference did not yield a base32 TOTP seed of at least 16 characters, from either an otpauth:// secret= parameter or a bare field value; it must hold the stable seed, not the rendered six-digit code" >&2
                         protondriveCredentialsState=invalid
                       fi
                     fi
 
                     if [ -z "$protondriveUsernameRaw" ] || [ -z "$protondrivePasswordRaw" ]; then
                       echo "rclone protondrive 1Password references returned an empty username or password" >&2
+                      protondriveCredentialsState=invalid
+                    fi
+
+                    # A configured ref that reads back empty is a configuration
+                    # error, not an opt-out: opting out is an empty ref, which
+                    # never reaches op read. Rendering the stanza without
+                    # mailbox_password instead would authenticate and then fail
+                    # to decrypt, which is the silent outcome the OTP arm above
+                    # already treats as fatal.
+                    if [ -n "$protondriveMailboxPasswordRef" ] && [ -z "$protondriveMailboxPasswordRaw" ]; then
+                      echo "rclone protondrive 1Password mailbox-password reference returned an empty value; clear mailboxPasswordRef to opt out of a two-password account instead of pointing it at a blank field" >&2
                       protondriveCredentialsState=invalid
                     fi
 

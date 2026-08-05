@@ -32,11 +32,15 @@
        authorizes that call by its onepassword-cli group. usernameRef and
        passwordRef are mandatory; otpRef and mailboxPasswordRef may be left ""
        (only if 2FA is enabled / only on two-password accounts, same as the
-       SOPS fields above). The OTP reference must return the stable seed,
-       either as an otpauth:// URI carrying `secret=` or as the bare base32
-       seed 1Password stores when the operator pastes one; the module extracts
-       and obscures it. Omit `?attribute=otp`: it renders the changing
-       six-digit code, which the module rejects rather than storing.
+       SOPS fields above). Leaving a ref empty is how an account opts out, so a
+       ref that is set must resolve to a non-empty value; a blank field fails
+       activation rather than rendering a remote that cannot work. The OTP
+       reference must return the stable seed, either as an otpauth:// URI
+       carrying `secret=` or as the bare base32 seed 1Password stores when the
+       operator pastes one; the module extracts and obscures it, and requires
+       at least the 16 base32 characters of an 80-bit seed. Omit
+       `?attribute=otp` in either shape: it renders the changing six-digit
+       code, which the module rejects rather than storing.
        Proton passkeys remain browser-only because the rclone backend logs in
        through the Proton API with username, password, mailbox password, and 2FA.
 
