@@ -2924,14 +2924,29 @@ Inspect what actually applied with `brave://policy`.
 Phase 2 Task 5 Step 1 dropped the firefoxpwa worked example from the browser-modules paragraph without replacing it,
 because the replacement names files that did not exist yet. They exist now, so this is the PR that adds the citation.
 
-In `docs/architecture/04-home-manager.md`, extend the sentence beginning "A sibling file can extend the same
-`browsers.<name>` key" so the paragraph ends:
+In `docs/architecture/04-home-manager.md`, leave the sentence beginning "A sibling file can extend the same
+`browsers.<name>` key" as phase 2 left it and add a second sentence after it, so the paragraph ends:
 
 ```markdown
-A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/webapps/home.nix` owns the per-app launchers and data directories, and `modules/browsers/webapps/nixos.nix` owns the NixOS-scope managed policy that the same app catalog drives.
+A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above. A browser directory can also span both scopes: `modules/browsers/webapps/home.nix` registers `browsers.webapps` here for the per-app launchers and data directories, while `modules/browsers/webapps/nixos.nix` registers `flake.nixosModules.browsers.webapps` for the managed policy, and one app catalog drives both.
 ```
 
-Confirm both cited files are in the tree before staging the doc change:
+The two files are not an instance of the sibling-merge the first sentence describes, which is why they are a separate
+sentence. That paragraph is about `flake.homeManagerModules.browsers.<name>`, and the example it lost was two Home
+Manager files (`firefoxpwa/home.nix` and `firefoxpwa/dmail.nix`) layering onto one key. `webapps` has a single Home
+Manager file; its second file registers a NixOS module under a different namespace in a different scope. Attaching it
+to the sibling-merge clause would document the two-context confusion the rest of this doc set exists to prevent, and
+the removal leaves no browser with two Home Manager files on one key, so the first sentence keeps its generic form
+with no worked example.
+
+Confirm the namespaces the sentence claims, not just that the files exist:
+
+```bash
+rg -n 'flake\.homeManagerModules\.browsers\.webapps' modules/browsers/webapps/home.nix
+rg -n 'flake\.nixosModules\.browsers\.webapps' modules/browsers/webapps/nixos.nix
+```
+
+Expected: one hit each. A hit in the wrong file means the sentence describes a registration that is not there.
 
 ```bash
 rg -n 'webapps' docs/architecture/04-home-manager.md
@@ -3234,7 +3249,7 @@ ______________________________________________________________________
 - Two facts are assumed rather than proven: that `ExtensionSettings` gates `--load-extension` (Task 10 Step 0) and that Brave enforces `ScreenCaptureAllowedByOrigins` rather than merely recognizing the key (Task 18 Step 2). Every policy name the plan writes is confirmed present in the pinned `brave-origin` build's string table, so neither open question is about a removed or renamed policy. Both have a named step and neither changes the plan's shape.
 - `_check-apps.nix` restates the submodule defaults from `nixos.nix` and the default of `defaultExtensions`. Nothing enforces that they agree, so a new option default added to `nixos.nix` alone makes the fixture describe a policy the hosts do not get. The file header says so; a check that compares the two is a reasonable follow-up.
 
-**Where validation would have missed a real failure.** Seven cases earlier drafts of this series would have passed:
+**Where validation would have missed a real failure.** Eight cases earlier drafts of this series would have passed:
 
 - Task 12's launcher validated by `nix eval` on package names. `writeShellApplication` runs `shellcheck` at build time, so a malformed command body is a build failure that eval never reaches. An `lib.optionalString` inside a backslash-continued argument list rendered a whitespace-only line for every app without `reload.enable` and both tray wrappers, terminating the command early. Now validated with `nix build` plus reading back the two shapes that differ (Task 12 Step 5), after Task 12 Step 3 turns the module on so the build has launchers to check at all.
 - `lib.getExe pkgs.diffutils` in Task 14 pointed at a `bin/diffutils` that does not exist, so the policy check would have failed on its own tooling. Now `lib.getExe' pkgs.diffutils "diff"`.
@@ -3242,6 +3257,7 @@ ______________________________________________________________________
 - Task 15's module check asserted the right things about the wrong behavior. It confirmed that a missing `gecko.yaml` warns and declares no sops secret, both of which held while the guard was also deleting the launchers, desktop entries and policy entries for the seven apps that never needed the secrets submodule. An assertion that a guard's failure path is quiet says nothing about how much it took down; the check now names what has to survive it.
 - Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created two steps earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds.
 - Task 14's `policy-check.nix` derived its independent expectation with `lib.splitString "/" app.url` and no secret branch. Every app in the catalog at that point has a literal `url`, so Task 14 passes; Task 16 adds DMail with `url = null` and `originSecret` set, and the check aborts with `cannot coerce null to a string` as soon as `lib.sort` forces the element. The failure would have surfaced two tasks after the file that caused it. `originOf` now takes the `originSecret` branch, reusing only `_check-apps.nix`'s placeholder constant.
+- Task 17 Step 2 verified its architecture-doc sentence with `rg -n 'webapps'` and an `ls` of both files. Both pass on a sentence that names the wrong namespace, which the sentence did: it presented `webapps/home.nix` and `webapps/nixos.nix` as two siblings extending one `flake.homeManagerModules.browsers.<name>` key, while `nixos.nix` registers `flake.nixosModules.browsers.webapps` in the other scope. A check that a name appears cannot check what the name says. The step now greps each file for the namespace the sentence attributes to it.
 - Task 16 staged the new secret with `git -C secrets add` and `git add secrets` and no commit inside the submodule, so the gitlink never moved and the superproject recorded the pre-edit revision. Its `nix flake check` reads the working tree, where the key is present, so the step passed while the key stayed local. `self.submodules = true` means the failure lands on the next clean checkout or in CI, one task before the PR opens. The submodule commit and push are part of the step now, with a `git diff --cached --submodule=short` for the gitlink and an `ls-remote` comparison for the push. The first attempt at that second check read `git status --short --branch` for an `ahead` field, which is itself an instance of this same pattern: `git submodule update` leaves the submodule on a detached HEAD, where the line reads `## HEAD (no branch)` and carries no `ahead` field, so the check passed exactly when the push had not happened.
 
 **Type consistency.** `key`, `name`, `url`, `urlSecret`, `originSecret`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `nixos.nix`, `_check-apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. Both `originOf` implementations, the generator's in `_policy.nix` and the independent one in `policy-check.nix`, branch on `originSecret` before reading `url`, so an app with a secret origin never reaches `lib.splitString` with a `null`. The `originPlaceholder` argument has the same `key -> string` signature at both call sites (`nixos.nix` and `_check-apps.nix`). `keepAliveExtensionId` is a plain `str` at its three call sites (`nixos.nix`, `_check-apps.nix`, `keepalive-id-check.nix`) and is the value `_reload-extension.nix` bakes into the manifest through `publicKey`.
