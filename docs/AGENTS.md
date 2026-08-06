@@ -18,7 +18,7 @@ adding, removing, or moving documentation pages. Use clear, repo-relative links
 (for example `../architecture/README.md`) and keep host/user assumptions aligned
 to the per-host model under `modules/<host>/` and the `vx` user model. To
 enumerate the active hosts, run
-`nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames`.
+`nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`.
 
 Use lowercase directory names for provider and product folders. Cloudflare docs
 belong under `cloudflare/`, including Containers material under
@@ -28,12 +28,16 @@ root-level `nixos-manual/` tree.
 
 ## Build, Test, and Development Commands
 
-Run commands from repo root (`/home/vx/nixos`):
+Run commands from the root of the checkout the work is in. The root `AGENTS.md`
+branch workflow puts that in a linked worktree, so these carry the explicit
+`path:.` installable; dropping it gives the primary-checkout form.
 
-- `nix develop`: enter the dev shell with formatter and validation tools.
-- `nix fmt`: apply repository formatting rules.
-- `nix develop -c pre-commit run --all-files --hook-stage manual`: run all hooks.
-- `nix flake check --accept-flake-config --no-build --offline`: validate flake/module health without building.
+- `nix develop path:.`: enter the dev shell with formatter and validation tools.
+- `nix run path:.#formatter.x86_64-linux -- .`: apply repository formatting
+  rules. `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so it
+  cannot be pointed at a linked worktree; use `-- <file>` for a targeted run.
+- `nix develop path:. -c pre-commit run --all-files --hook-stage manual`: run all hooks.
+- `nix flake check path:. --accept-flake-config --no-build --offline`: validate flake/module health without building.
 
 Use `rg -C 5 'pattern' docs/` to find and update related content before writing new docs.
 
@@ -42,7 +46,7 @@ Use `rg -C 5 'pattern' docs/` to find and update related content before writing 
 Use concise Markdown with descriptive headings (`##`, `###`) and short paragraphs. Keep examples executable and explicit:
 
 ```bash
-nix develop -c pre-commit run --all-files --hook-stage manual
+nix develop path:. -c pre-commit run --all-files --hook-stage manual
 ```
 
 Prefer lowercase, hyphenated filenames (for example `module-discovery.md`). Use backticks for commands, paths, options, and identifiers.

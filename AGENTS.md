@@ -167,6 +167,15 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
     worktrees (`nix develop path:.`, `nix flake check path:.`); Lix cannot
     fetch a clean linked worktree as a `git+file` flake because `.git` is a
     file there, not a directory
+  - Exception: `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so
+    it cannot be pointed at `path:.`; run
+    `nix run path:.#formatter.x86_64-linux -- .` (or `-- <file>`) instead
+  - Exception: `nix flake update` reads positional arguments as input names and
+    rejects a relative ref in `--flake`; run
+    `nix flake update --flake "path:$PWD"`
+  - Note: a dirty worktree hides all of this, because Lix copies the working
+    tree instead of fetching the revision, so the same command passes with
+    uncommitted changes present and exits 1 on a clean tree
 - PR
   - Command: `gh pr create --title "<type>(scope): summary" --body "..."` (Assign labels)
 - Cleanup after merge
@@ -193,47 +202,55 @@ PR body should include:
 
 ### Development Environment
 
+Commands here and in the two sections below are written for a linked worktree,
+since that is where the branch workflow above puts the work; dropping `path:.`
+gives the primary-checkout form.
+
 - Start work
-  - Command: `nix develop`
-  - Preconditions: Clean tree; network available for substituters.
+  - Command: `nix develop path:.`
+  - Preconditions: Network available for substituters.
   - Post-check: Dev tools available (`treefmt`, `pre-commit`, etc.).
 - Format sources
-  - Command: `nix fmt`
-  - Preconditions: Run at repo root.
+  - Command: `nix run path:.#formatter.x86_64-linux -- .`, or `-- <file>` for a
+    targeted run
+  - Preconditions: Run at repo root. `nix fmt` is the primary-checkout form and
+    is the one command `path:.` cannot fix, per the exception above.
   - Post-check: No remaining formatting diffs in `git status`.
 - Run hooks
-  - Command: `nix develop -c pre-commit run --all-files --hook-stage manual`
+  - Command: `nix develop path:. -c pre-commit run --all-files --hook-stage manual`
   - Preconditions: Dev shell ready; workspace writable.
   - Post-check: Exit code 0; review reported TODOs/failures.
 - Generate artifacts
-  - Command: `nix develop --accept-flake-config -c write-files --offline`
+  - Command: `nix develop path:. --accept-flake-config -c write-files --offline`
   - Preconditions: Dev shell ready; managed files may update.
   - Post-check: Review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`, `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`, `.sops.yaml`, `README.md`.
 
 ### Validation and Builds
 
 - Verify flake health
-  - Command: `nix flake check --accept-flake-config --no-build --offline`
+  - Command: `nix flake check path:. --accept-flake-config --no-build --offline`
   - Preconditions: Dev shell recommended.
   - Post-check: Exit code 0; resolve reported failures.
 - Build host
-  - Command: `nix build .#nixosConfigurations.$HOSTNAME.config.system.build.toplevel`
+  - Command: `nix build "path:.#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`
   - Post-check: Build completes; capture resulting store path.
 - Update inputs
-  - Command: `nix flake metadata --refresh && nix flake update && nix fmt flake.lock`
+  - Command: `nix flake metadata --refresh path:. && nix flake update --flake "path:$PWD" && nix run path:.#formatter.x86_64-linux -- flake.lock`
+  - Why: the two exceptions above. Written bare, the chain short-circuits on
+    `nix flake metadata` in a linked worktree and never reaches the formatter.
 
 ### GitHub Actions (Local)
 
 - List jobs
-  - Command: `nix develop -c gh-actions-list`
+  - Command: `nix develop path:. -c gh-actions-list`
   - Preconditions: Dev shell ready
   - Post-check: Lists available workflow jobs
 - Run jobs
-  - Command: `nix develop -c gh-actions-run`
+  - Command: `nix develop path:. -c gh-actions-run`
   - Preconditions: Dev shell ready
   - Post-check: Runs actions locally via `act`
 - Dry run
-  - Command: `nix develop -c gh-actions-run -n`
+  - Command: `nix develop path:. -c gh-actions-run -n`
   - Preconditions: Dev shell ready
   - Post-check: Shows planned execution
 
@@ -244,7 +261,7 @@ PR body should include:
 - Missing reference
   - Resolution: Ensure that the file is tracked by git.
 - Explore config in repl
-  - Resolution: `nix develop --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
+  - Resolution: `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 
 ## Coding Style and Verification
 
@@ -253,7 +270,7 @@ PR body should include:
 - Imports
   - Guidance: Expose modules through namespace exports; avoid literal path imports.
 - Validation
-  - Guidance: Keep `nix flake check --accept-flake-config --no-build --offline` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules.
+  - Guidance: Keep `nix flake check path:. --accept-flake-config --no-build --offline` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules.
 
 **Skip `nix flake check` after value-level edits**: For nix flakes, skip `nix flake check` after value-level edits to existing lists or attrsets (adding strings, toggling booleans, scalar changes). Reserve it for structural changes: new modules, options, imports, let-binding refactors, argument-shape changes. `treefmt` plus a parse pass is sufficient during iteration.
 
