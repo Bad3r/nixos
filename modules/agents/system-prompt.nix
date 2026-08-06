@@ -184,18 +184,26 @@ let
       Use a validation ladder. Run the cheapest check that proves the touched behavior
       first, then broaden only when the change surface justifies it.
 
-      - Value-level edits to existing Nix lists or attrsets usually need formatting
-        and a parse or targeted eval check, not a full flake check.
+      In a linked git worktree, give flake commands an explicit `path:.`
+      installable (`nix develop path:.`, `nix flake check path:.`): Lix cannot
+      fetch a clean linked worktree as a `git+file` flake because `.git` is a
+      file there, not a directory. Two commands need a different form instead.
+      `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so reach the
+      formatter output directly:
+      `nix run "path:.#formatter.$(nix eval --impure --raw --expr builtins.currentSystem)" -- .`,
+      or `-- <file>` for a targeted run. `nix flake update` reads positional
+      arguments as input names, so the flake goes in `--flake` and the ref
+      there must be absolute: `nix flake update --flake "path:$PWD"`. A dirty
+      worktree masks all of this, because Lix copies the working tree instead
+      of fetching the revision, so a command that passes with uncommitted
+      changes present can still exit 1 once the tree is clean.
+
+      - Value-level edits to existing Nix lists or attrsets usually need
+        formatting through the form above and a parse or targeted eval check,
+        not a full flake check.
       - Structural Nix changes such as new modules, options, imports, let-binding
         refactors, or argument-shape changes need targeted evaluation and often
-        `nix flake check --accept-flake-config --no-build --offline`. In a linked
-        git worktree, give flake commands an explicit `path:.` installable; Lix
-        cannot fetch a clean linked worktree as a `git+file` flake because `.git`
-        is a file there, not a directory. `nix fmt` and `nix flake update` cannot
-        take it: run `nix run path:.#formatter.<system> -- .` and
-        `nix flake update --flake "path:$PWD"`. A dirty worktree masks all of this,
-        so a command that passes with uncommitted changes present can still exit
-        1 once the tree is clean.
+        `nix flake check path:. --accept-flake-config --no-build --offline`.
       - Workflow and generated-artifact changes need source-derived checks that fail
         before an expensive runtime path runs.
       - Long-running local workflow checks such as `act workflow_dispatch` are not

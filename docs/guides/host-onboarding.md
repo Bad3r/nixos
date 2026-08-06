@@ -212,7 +212,7 @@ runner disk.
 ## 8. Validation ladder
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
 ./build.sh --host <host> --boot   # on the target machine

@@ -62,6 +62,12 @@ in
         pathsToLink = [ "/bin" ];
       };
 
+      # `formatter.<system>` is reachable only by naming the system, and
+      # `nix fmt` hardcodes the `.` installable in lix/nix/fmt.cc, so neither
+      # works from a linked worktree without spelling x86_64-linux into every
+      # doc. As a package it is `nix run path:.#treefmt -- .` on any system.
+      packages.treefmt = config.treefmt.build.wrapper;
+
       formatter = lib.mkIf (system == "x86_64-linux") config.treefmt.build.wrapper;
 
       treefmt = {

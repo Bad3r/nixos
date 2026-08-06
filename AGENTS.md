@@ -168,11 +168,13 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
     fetch a clean linked worktree as a `git+file` flake because `.git` is a
     file there, not a directory
   - Exception: `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so
-    it cannot be pointed at `path:.`; run
-    `nix run path:.#formatter.x86_64-linux -- .` (or `-- <file>`) instead
-  - Exception: `nix flake update` reads positional arguments as input names and
-    rejects a relative ref in `--flake`; run
-    `nix flake update --flake "path:$PWD"`
+    it cannot be pointed at `path:.`; the formatter is also a package, so run
+    `nix run path:.#treefmt -- .` (or `-- <file>`) instead
+  - Exception: `nix flake update` reads positional arguments as input names, so
+    the flake goes in `--flake`, and the ref there must be absolute; run
+    `nix flake update --flake "path:$PWD"`. `path:.` fetches fine and throws
+    only when it writes `flake.lock` back, through Lix's `getAbsPath`
+    (`lix/libfetchers/path.cc`), so a no-op update can look like it works
   - Note: a dirty worktree hides all of this, because Lix copies the working
     tree instead of fetching the revision, so the same command passes with
     uncommitted changes present and exits 1 on a clean tree
@@ -211,8 +213,7 @@ gives the primary-checkout form.
   - Preconditions: Network available for substituters.
   - Post-check: Dev tools available (`treefmt`, `pre-commit`, etc.).
 - Format sources
-  - Command: `nix run path:.#formatter.x86_64-linux -- .`, or `-- <file>` for a
-    targeted run
+  - Command: `nix run path:.#treefmt -- .`, or `-- <file>` for a targeted run
   - Preconditions: Run at repo root. `nix fmt` is the primary-checkout form and
     is the one command `path:.` cannot fix, per the exception above.
   - Post-check: No remaining formatting diffs in `git status`.
@@ -235,7 +236,7 @@ gives the primary-checkout form.
   - Command: `nix build "path:.#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`
   - Post-check: Build completes; capture resulting store path.
 - Update inputs
-  - Command: `nix flake metadata --refresh path:. && nix flake update --flake "path:$PWD" && nix run path:.#formatter.x86_64-linux -- flake.lock`
+  - Command: `nix flake metadata --refresh path:. && nix flake update --flake "path:$PWD" && nix run path:.#treefmt -- flake.lock`
   - Why: the two exceptions above. Written bare, the chain short-circuits on
     `nix flake metadata` in a linked worktree and never reaches the formatter.
 

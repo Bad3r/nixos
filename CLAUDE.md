@@ -168,12 +168,16 @@ them:
 
 - `nix fmt`. Lix hardcodes the `.` installable in `lix/nix/fmt.cc`, so
   `nix fmt path:.` passes `path:.` to treefmt as a path argument and still
-  resolves `.` as the flake. Run `nix run path:.#formatter.x86_64-linux -- .`
-  instead, or `-- <file>` for a targeted run.
+  resolves `.` as the flake. The formatter is also a package, so run
+  `nix run path:.#treefmt -- .` instead, or `-- <file>` for a targeted run.
 - `nix flake update`. It reads positional arguments as input names, so the
-  flake goes in `--flake`, and a relative ref is rejected there
-  (`cannot fetch input 'path:.' because it uses a relative path`). Run
-  `nix flake update --flake "path:$PWD"`.
+  flake goes in `--flake`, and the ref there must be absolute:
+  `nix flake update --flake "path:$PWD"`. `path:.` fetches fine, but writing
+  `flake.lock` back goes through Lix's `getAbsPath`
+  (`lix/libfetchers/path.cc`), which throws
+  `cannot fetch input 'path:.' because it uses a relative path`. An update
+  that resolves to no lock change never writes and so never throws, which is
+  why the relative form can look like it works.
 
 A dirty worktree hides all of this, because Lix copies the working tree instead
 of fetching the revision, so a command that happens to run with uncommitted
@@ -229,12 +233,12 @@ Post-check: dev tools such as `treefmt` and `pre-commit` are available.
 Format sources:
 
 ```sh
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 ```
 
 Preconditions: run at repo root. `nix fmt` is the primary-checkout form; it is
-the one command `path:.` cannot fix, so a linked worktree needs the `nix run`
-form above, or `-- <file>` for a targeted run.
+the one command `path:.` cannot fix, so a linked worktree goes through the
+package instead, or `-- <file>` for a targeted run.
 Post-check: no remaining formatting diffs in `git status`.
 
 Run hooks:
@@ -263,8 +267,8 @@ worktree, since that is where the branch workflow above puts the work; the plain
 `.` forms work in the primary checkout as well.
 
 - Value-level edits to existing lists or attrsets:
-  `nix run path:.#formatter.x86_64-linux -- .` plus a parse or targeted eval
-  check. Skip `nix flake check` during iteration.
+  `nix run path:.#treefmt -- .` plus a parse or targeted eval check. Skip
+  `nix flake check` during iteration.
 - Structural changes such as new modules, options, imports, let-binding
   refactors, or argument-shape changes:
   `nix flake check path:. --accept-flake-config --no-build --offline`.
@@ -276,7 +280,7 @@ worktree, since that is where the branch workflow above puts the work; the plain
   resolves its own `path:` ref.
 - Input updates: `nix flake metadata --refresh path:.`, then
   `nix flake update --flake "path:$PWD"`, then
-  `nix run path:.#formatter.x86_64-linux -- flake.lock`. See the worktree note
+  `nix run path:.#treefmt -- flake.lock`. See the worktree note
   above for why the last two are not `path:.`.
 
 ## GitHub Actions Local Workflow

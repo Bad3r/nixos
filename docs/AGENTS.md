@@ -33,11 +33,16 @@ branch workflow puts that in a linked worktree, so these carry the explicit
 `path:.` installable; dropping it gives the primary-checkout form.
 
 - `nix develop path:.`: enter the dev shell with formatter and validation tools.
-- `nix run path:.#formatter.x86_64-linux -- .`: apply repository formatting
-  rules. `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so it
-  cannot be pointed at a linked worktree; use `-- <file>` for a targeted run.
+- `nix run path:.#treefmt -- .`: apply repository formatting rules. `nix fmt`
+  hardcodes the `.` installable in `lix/nix/fmt.cc`, so it cannot be pointed at
+  a linked worktree; the formatter is also a package, and `-- <file>` gives a
+  targeted run.
 - `nix develop path:. -c pre-commit run --all-files --hook-stage manual`: run all hooks.
 - `nix flake check path:. --accept-flake-config --no-build --offline`: validate flake/module health without building.
+- `nix flake update --flake "path:$PWD"`: refresh `flake.lock`. Positional
+  arguments are input names, so the flake goes in `--flake`, and the ref there
+  must be absolute. This and `nix fmt` are the two commands a plain `path:.`
+  does not fix; the root `AGENTS.md` and `CLAUDE.md` carry the mechanism.
 
 Use `rg -C 5 'pattern' docs/` to find and update related content before writing new docs.
 

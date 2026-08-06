@@ -34,11 +34,13 @@ It refuses to run on a dirty worktree by default; use `--allow-dirty` to overrid
 
 **Development commands:**
 
-| Command                                                         | Description     |
-| --------------------------------------------------------------- | --------------- |
-| `nix develop`                                                   | Enter dev shell |
-| `nix fmt`                                                       | Format files    |
-| `nix develop -c pre-commit run --all-files --hook-stage manual` | Run all hooks   |
+| Command                                                               | Description     |
+| --------------------------------------------------------------------- | --------------- |
+| `nix develop path:.`                                                  | Enter dev shell |
+| `nix run path:.#treefmt -- .`                                          | Format files    |
+| `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run all hooks   |
+
+These carry the explicit `path:.` installable because the branch workflow in [`AGENTS.md`](AGENTS.md) puts the work in a linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not a directory. Dropping `path:.` gives the primary-checkout form, where `nix fmt` also works; it is the one command `path:.` cannot fix, because Lix hardcodes the `.` installable in `lix/nix/fmt.cc`.
 
 ## Home Manager Package Pattern
 
@@ -65,7 +67,7 @@ These root inputs pin shared dependencies used through `.follows` declarations. 
 
 ## Generated Files
 
-The following files are defined in Nix and generated via [mightyiam/files](https://github.com/mightyiam/files) using `nix develop -c write-files`:
+The following files are defined in Nix and generated via [mightyiam/files](https://github.com/mightyiam/files) using `nix develop path:. -c write-files` (drop `path:.` in the primary checkout):
 
 - `.actrc`
 - `.githooks/post-checkout`

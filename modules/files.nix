@@ -49,7 +49,7 @@
           ''
             ## Generated Files
 
-            The following files are defined in Nix and generated via [mightyiam/files](https://github.com/mightyiam/files) using `nix develop -c write-files`:
+            The following files are defined in Nix and generated via [mightyiam/files](https://github.com/mightyiam/files) using `nix develop path:. -c write-files` (drop `path:.` in the primary checkout):
           ''
         ] sortedList;
         joined = lib.concatLines withHeader;

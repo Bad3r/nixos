@@ -7,7 +7,7 @@ Quick reference for validation, troubleshooting, tooling, and terminology.
 Run the following before every push:
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh
 nix develop path:. -c pre-commit run --all-files --hook-stage manual
 nix run path:.#generation-manager -- score   # target: 20/20
@@ -19,15 +19,17 @@ branch workflow in `AGENTS.md` puts the work in a linked worktree, where Lix
 cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not
 a directory. Dropping `path:.` gives the primary-checkout form. `nix fmt` is the
 one command `path:.` cannot fix, because Lix hardcodes the `.` installable in
-`lix/nix/fmt.cc`; use the `nix run` form above, or `-- <file>` for a targeted
-run. A dirty worktree masks the failure, so a command that passes with
-uncommitted changes present can still exit 1 once the tree is clean.
+`lix/nix/fmt.cc`; the formatter is also a package, so use the `nix run` form
+above, or `-- <file>` for a targeted run. A dirty worktree masks all of this,
+because Lix copies the working tree instead of fetching the revision, so a
+command that passes with uncommitted changes present can still exit 1 once the
+tree is clean.
 
 ### Individual Commands
 
 | Command                                                                | Purpose                                                            |
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `nix run path:.#formatter.x86_64-linux -- .`                           | Format all Nix files                                               |
+| `nix run path:.#treefmt -- .`                                          | Format all Nix files                                               |
 | `nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh`    | Sync shared git hooks and absolute config for all linked worktrees |
 | `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, gitleaks)          |
 | `nix run path:.#generation-manager -- score`                           | Evaluate Dendritic pattern compliance                              |
