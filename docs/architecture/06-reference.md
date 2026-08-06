@@ -7,60 +7,69 @@ Quick reference for validation, troubleshooting, tooling, and terminology.
 Run the following before every push:
 
 ```bash
-nix fmt
-nix develop -c bash scripts/hooks/sync-pre-commit-hooks.sh
-nix develop -c pre-commit run --all-files --hook-stage manual
-nix run .#generation-manager -- score   # target: 20/20
-nix flake check --accept-flake-config --no-build --offline
+nix run path:.#formatter.x86_64-linux -- .
+nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh
+nix develop path:. -c pre-commit run --all-files --hook-stage manual
+nix run path:.#generation-manager -- score   # target: 20/20
+nix flake check path:. --accept-flake-config --no-build --offline
 ```
+
+Commands on this page carry the explicit `path:.` installable because the
+branch workflow in `AGENTS.md` puts the work in a linked worktree, where Lix
+cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not
+a directory. Dropping `path:.` gives the primary-checkout form. `nix fmt` is the
+one command `path:.` cannot fix, because Lix hardcodes the `.` installable in
+`lix/nix/fmt.cc`; use the `nix run` form above, or `-- <file>` for a targeted
+run. A dirty worktree masks the failure, so a command that passes with
+uncommitted changes present can still exit 1 once the tree is clean.
 
 ### Individual Commands
 
-| Command                                                         | Purpose                                                            |
-| --------------------------------------------------------------- | ------------------------------------------------------------------ |
-| `nix fmt`                                                       | Format all Nix files                                               |
-| `nix develop -c bash scripts/hooks/sync-pre-commit-hooks.sh`    | Sync shared git hooks and absolute config for all linked worktrees |
-| `nix develop -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, gitleaks)          |
-| `nix run .#generation-manager -- score`                         | Evaluate Dendritic pattern compliance                              |
-| `nix flake check --accept-flake-config`                         | Full flake validation (with builds/checks)                         |
-| `nix flake check --accept-flake-config --no-build --offline`    | Fast offline evaluation-only check                                 |
+| Command                                                                | Purpose                                                            |
+| ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
+| `nix run path:.#formatter.x86_64-linux -- .`                           | Format all Nix files                                               |
+| `nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh`    | Sync shared git hooks and absolute config for all linked worktrees |
+| `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, gitleaks)          |
+| `nix run path:.#generation-manager -- score`                           | Evaluate Dendritic pattern compliance                              |
+| `nix flake check path:. --accept-flake-config`                         | Full flake validation (with builds/checks)                         |
+| `nix flake check path:. --accept-flake-config --no-build --offline`    | Fast offline evaluation-only check                                 |
 
 ### Build Commands
 
-| Command                                                                                  | Purpose                                               |
-| ---------------------------------------------------------------------------------------- | ----------------------------------------------------- |
-| `nix build .#nixosConfigurations.<host>.config.system.build.toplevel`                    | Build any host closure (substitute `<host>`)          |
-| `nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames` | List the host names available in the current checkout |
-| `./build.sh`                                                                             | Full validation + deployment                          |
-| `./build.sh --host <name>`                                                               | Target a specific host                                |
-| `./build.sh --skip-all`                                                                  | Skip validation (emergency only)                      |
+| Command                                                                                         | Purpose                                               |
+| ----------------------------------------------------------------------------------------------- | ----------------------------------------------------- |
+| `nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"`                    | Build any host closure (substitute `<host>`)          |
+| `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames` | List the host names available in the current checkout |
+| `./build.sh`                                                                                    | Full validation + deployment                          |
+| `./build.sh --host <name>`                                                                      | Target a specific host                                |
+| `./build.sh --skip-all`                                                                         | Skip validation (emergency only)                      |
 
 ## Troubleshooting
 
-| Scenario                                                | Resolution                                                                                                                                                             |
-| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Git hooks fail in a new worktree                        | Run `nix develop` (auto-sync runs in shellHook) or run `nix develop -c bash scripts/hooks/sync-pre-commit-hooks.sh` manually                                           |
-| Commit fails with `hooks were refreshed; retry commit.` | The `pre-commit-config-sync` hook resynced generated hook state after a hook source change; rerun the same `git commit`                                                |
-| Missing app reference                                   | Use `config.flake.lib.nixos.hasApp "name"` or `nix eval --json .#nixosModules.apps --apply builtins.attrNames`                                                         |
-| Helper assertion failures                               | Run `nix flake check --accept-flake-config` and inspect `checks.<system>.helpers-exist`                                                                                |
-| Managed file drift                                      | Run `nix develop -c write-files` then `git diff`                                                                                                                       |
-| Unfree package blocked                                  | Add to the flake-parts `nixpkgs.allowedUnfreePackages` option from any module (declared in `modules/meta/nixpkgs-allowed-unfree.nix`); no NixOS-scope allowlist exists |
-| "Cannot coerce null to string"                          | See [Two-Context Problem](02-module-authoring.md#the-two-context-problem)                                                                                              |
+| Scenario                                                | Resolution                                                                                                                                                                                                                                   |
+| ------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Git hooks fail in a new worktree                        | Run `nix develop path:.` (auto-sync runs in shellHook) or run `nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh` manually. The bare form is what fails here: a clean linked worktree is not fetchable as a `git+file` flake |
+| Commit fails with `hooks were refreshed; retry commit.` | The `pre-commit-config-sync` hook resynced generated hook state after a hook source change; rerun the same `git commit`                                                                                                                      |
+| Missing app reference                                   | Use `config.flake.lib.nixos.hasApp "name"` or `nix eval --json "path:.#nixosModules.apps" --apply builtins.attrNames`                                                                                                                        |
+| Helper assertion failures                               | Run `nix flake check path:. --accept-flake-config` and inspect `checks.<system>.helpers-exist`                                                                                                                                               |
+| Managed file drift                                      | Run `nix develop path:. -c write-files` then `git diff`                                                                                                                                                                                      |
+| Unfree package blocked                                  | Add to the flake-parts `nixpkgs.allowedUnfreePackages` option from any module (declared in `modules/meta/nixpkgs-allowed-unfree.nix`); no NixOS-scope allowlist exists                                                                       |
+| "Cannot coerce null to string"                          | See [Two-Context Problem](02-module-authoring.md#the-two-context-problem)                                                                                                                                                                    |
 
 ## Introspection
 
 ```bash
 # Show high-level flake outputs
-nix flake show --accept-flake-config --all-systems
+nix flake show path:. --accept-flake-config --all-systems
 
 # Inspect aggregator keys
-nix eval --accept-flake-config --json .#nixosModules --apply builtins.attrNames
-nix eval --accept-flake-config --json .#homeManagerModules --apply builtins.attrNames
-nix eval --accept-flake-config --json .#homeManagerModules.apps --apply builtins.attrNames
+nix eval --accept-flake-config --json "path:.#nixosModules" --apply builtins.attrNames
+nix eval --accept-flake-config --json "path:.#homeManagerModules" --apply builtins.attrNames
+nix eval --accept-flake-config --json "path:.#homeManagerModules.apps" --apply builtins.attrNames
 
 # Evaluate specific host options (substitute the host name)
-nix eval .#nixosConfigurations.<host>.config.boot.loader
-nix eval .#nixosConfigurations.<host>.config.system.build.toplevel
+nix eval "path:.#nixosConfigurations.<host>.config.boot.loader"
+nix eval "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
 ```
 
 ## External Tooling
@@ -70,12 +79,12 @@ nix eval .#nixosConfigurations.<host>.config.system.build.toplevel
 | Context7 MCP               | Documentation lookups    | Configured via `flake.lib.agents.mcp`       |
 | DeepWiki MCP               | GitHub repo exploration  | Pass `owner/repo` to the DeepWiki MCP tools |
 | `nix-index` / `nix-locate` | Find packaged binaries   | `nix-locate 'bin/act'`                      |
-| `write-files`              | Regenerate managed files | `nix develop -c write-files`                |
-| `gh-actions-run`           | Local GitHub Actions     | `nix develop -c gh-actions-run -n`          |
+| `write-files`              | Regenerate managed files | `nix develop path:. -c write-files`         |
+| `gh-actions-run`           | Local GitHub Actions     | `nix develop path:. -c gh-actions-run -n`   |
 
 ## Dev Shell Helpers
 
-Available after `nix develop`:
+Available after `nix develop path:.`:
 
 | Command                    | Purpose                                |
 | -------------------------- | -------------------------------------- |
