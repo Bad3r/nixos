@@ -2862,9 +2862,10 @@ git diff --stat modules/browsers/webapps/check-fixtures/policy.json
 ```
 
 Expected: `PLACEHOLDER-dmail` in `NotificationsAllowedForUrls` and `URLAllowlist`, and the second command printing
-only the fixed non-origin constants: `*://*/*`, `force_installed`, `blocked`, `allowed`, the
-`blocked_install_message` text, and the `clients2.google.com` update URL. Anything else is the leak. Stop and fix the
-generator before committing.
+only the fixed non-origin constants: `force_installed`, `blocked`, `allowed`, the `blocked_install_message` text,
+and the `clients2.google.com` update URL. Anything else is the leak. Stop and fix the generator before committing.
+`*://*/*` is not among them: it comes from `perAppEntries.runtime_blocked_hosts`, and `perAppIds` is empty because
+no catalog app sets `extensions.enable`. It appears the first time one does.
 
 `[.. | strings]` walks the whole document, so it also reaches origins buried in
 `ExtensionSettings.<id>.runtime_blocked_hosts` and `runtime_allowed_hosts`. A filter that read only the top-level
@@ -3400,8 +3401,12 @@ Leave it iconified for longer than `reload.intervalMinutes` and confirm the sess
 Trigger a notification from Outlook or Teams and confirm dunst renders it. Check attribution:
 
 ```bash
-dunstctl history | jq -r '.data[0][] | {appname, summary}' 2>/dev/null | head
+dunstctl history | jq -r '.data[0][] | {appname, summary}' | head
 ```
+
+Expected: an entry whose `appname` names the app that fired it. No `2>/dev/null`
+here: a `jq` parse error and an empty history both print nothing, and this step
+exists to tell them apart. If `jq` errors, read the raw `dunstctl history`.
 
 - [ ] **Step 8: Confirm what the browser-wide policy cost**
 
