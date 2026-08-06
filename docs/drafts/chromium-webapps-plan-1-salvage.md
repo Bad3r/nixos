@@ -89,9 +89,9 @@ Expected: one line, `<sha> modules/browsers/firefoxpwa/m365-check.nix`, from the
 in PR 2 and Step 3 drops it. Any other line is a commit that would drag firefoxpwa content onto a branch meant to
 contain none; read it before continuing.
 
-`origin/main`, matching Step 1 and Step 6. Step 1's `git fetch origin main` updates `origin/main` and not local
-`main`, and refs are shared across worktrees, so a stale local `main` here lists commits that are already merged
-alongside the ones to rescue. `modules/meta/hooks/statix.nix` and `tests/prune-old-stashes/run.sh` both exist on
+The range that feeds both commands resolves against `origin/main`, matching Step 1 and Step 6. Step 1's
+`git fetch origin main` updates `origin/main` and not local `main`, and refs are shared across worktrees, so a
+stale local `main` here lists commits that are already merged alongside the ones to rescue. `modules/meta/hooks/statix.nix` and `tests/prune-old-stashes/run.sh` both exist on
 `main` today, so a merged commit touching either satisfies the expectation above and Step 3 cherry-picks a commit
 that is already an ancestor of the branch. `modules/meta/build-time-shell.nix` is new, so it cannot produce that.
 
@@ -150,14 +150,20 @@ Step 3's `git cherry-pick` already committed every rescued change, and its confl
 `git cherry-pick --continue`, which commits too. Without collapsing them first there is nothing left to commit here:
 `git add` stages nothing, `git commit` exits 1 with `nothing added to commit`, and because this block is pasted
 rather than run under `set -e` the `git push` and `gh pr create` below still run, publishing #435's original messages
-instead of the one written here. `git reset --soft origin/main` puts every picked change plus Step 5's formatter run
-back in the index as one staged change. `m365-check.nix` is absent from `origin/main`, so Step 3's `git rm -f`
-resolution contributes nothing.
+instead of the one written here.
+
+The reset is mixed, not `--soft`. Both produce the same commit from a correct Step 3, since `git add` stages working
+tree content either way and so carries Step 5's formatter run in with the picks. They differ in what happens when
+Step 3 was not correct: `--soft` keeps whatever the picks left in the index, so a path outside the three rides along
+whether or not it is named below, while a mixed reset makes the explicit `git add` the only thing that stages
+anything. Step 2's filter reports such a path; this makes the commit refuse to carry it. `m365-check.nix` is absent
+from `origin/main`, so the branch never holds it once Step 3's `git rm -f` has run.
 
 ```bash
 cd "$HOME/trees/nixos/fix-build-time-shell"
-git reset --soft origin/main
+git reset origin/main
 git add tests/prune-old-stashes/run.sh modules/meta/build-time-shell.nix modules/meta/hooks/statix.nix
+git status --short          # confirm nothing outside the three paths is left over
 git commit -m "fix(checks): stop trusting compgen in build-time shell text
 
 The bash a runCommand builder runs is built without programmable completion, so \`compgen -G\` resolves to no command
