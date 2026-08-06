@@ -8,7 +8,17 @@ PROG_NAME="${0##*/}"
 QUIET=false
 REASON="OUTDATED"
 
+# Set by `--json`; only meaningful alongside -h/--help, where it swaps the
+# rendered help text for the JSON document it is rendered from.
+HELP_JSON=false
+
+# Accepted values for the options that take one. The parser validates against
+# these arrays and the help document grafts both its `{a|b}` display text and
+# its choices list from them, so a value is added in exactly one place.
 readonly VALID_REASONS=("OUTDATED" "RESOLVED" "OFF_TOPIC" "SPAM" "ABUSE" "DUPLICATE")
+readonly VALID_FORMATS=("json" "ndjson" "ids" "text" "full" "tsv" "body")
+readonly VALID_SORTS=("newest" "oldest")
+readonly VALID_MINIMIZED=("true" "false")
 
 # Per-subcommand allowlist of long-flag short names (without the leading
 # `--`). Every subcommand must register here; `_assert_flags_for` consults
@@ -102,326 +112,471 @@ die() {
   exit "${code}"
 }
 
+_write_help() {
+  # Args: <payload> [status]
+  # Reading help through a pager or `head` closes stdout early. Callers that
+  # ignore SIGPIPE (Nix builders do) turn that into a write error instead of
+  # the usual signal death, and the ERR trap would dress it up as a fatal
+  # record. Only a pipe or socket can break that way, so those end the run
+  # quietly; every other write failure still reports.
+  #
+  # <status> is what a truncated write exits with. It must match the status the
+  # caller would have exited with had the write completed: `usage >&2` on a
+  # usage error puts this function's fd 1 on stderr, so a broken stderr pipe
+  # reaches the same branch as `--help | head` and would otherwise report the
+  # usage error as success.
+  local payload="$1" status="${2:-0}" rc=0
+  printf '%s\n' "${payload}" 2>/dev/null || rc=$?
+  if ((rc == 0)); then
+    return 0
+  fi
+  if [[ -p /dev/stdout || -S /dev/stdout ]]; then
+    exit "${status}"
+  fi
+  die 1 "failed to write help to stdout"
+}
+
+_one_of() {
+  # Args: <candidate> <accepted>...
+  local candidate="$1" accepted
+  shift
+  for accepted in "$@"; do
+    if [[ ${candidate} == "${accepted}" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+_json_array() {
+  # Args: <element>...
+  printf '%s\n' "$@" | jq -Rn '[inputs]'
+}
+
+_subcommand_flags_json() {
+  # {"<subcommand>": ["--<flag>", ...]} derived from SUBCOMMAND_FLAGS, so the
+  # documented per-subcommand option sets are the enforced ones. Names carry
+  # the leading `--` that SUBCOMMAND_FLAGS omits, so they join directly against
+  # `.options[].flags[].name` without a prefix rule the document does not state.
+  # Sorted by key because associative-array iteration order is unspecified.
+  local name
+  for name in "${!SUBCOMMAND_FLAGS[@]}"; do
+    printf '%s\t%s\n' "${name}" "${SUBCOMMAND_FLAGS[${name}]}"
+  done | jq -Rn '
+    [inputs | split("\t") | {key: .[0], value: (.[1] | split(" ") | map("--" + .))}]
+    | sort_by(.key)
+    | from_entries
+  '
+}
+
+_option_choices_json() {
+  # {"--<flag>": ["<value>", ...]} for the options the parser validates against
+  # a VALID_* array.
+  jq -n \
+    --argjson reason "$(_json_array "${VALID_REASONS[@]}")" \
+    --argjson format "$(_json_array "${VALID_FORMATS[@]}")" \
+    --argjson sort "$(_json_array "${VALID_SORTS[@]}")" \
+    --argjson minimized "$(_json_array "${VALID_MINIMIZED[@]}")" \
+    '{"--reason": $reason, "--format": $format, "--sort": $sort, "--minimized": $minimized}'
+}
+
+usage_json() {
+  # The help document, and the only source of help content: `usage` renders
+  # this same JSON as text, so this function serves both `--help --json` and
+  # the internal text path. Per-subcommand option sets and every accepted-value
+  # list are grafted in from the tables the parser enforces rather than
+  # restated, so SPEC below carries no value a case arm could drift from.
+  #
+  # Buffered rather than piped straight out, so a reader that leaves early
+  # cannot kill jq mid-write: see _write_help.
+  local subcommand_flags option_choices doc
+  subcommand_flags=$(_subcommand_flags_json)
+  option_choices=$(_option_choices_json)
+  doc=$(
+    jq --argjson subcommandFlags "${subcommand_flags}" --argjson optionChoices "${option_choices}" '
+    (.subcommandGroups[].subcommands[]) |= (. + {allowedOptions: $subcommandFlags[.name]})
+    | (.options[] | select($optionChoices[.flags[0].name])) |= (
+        $optionChoices[.flags[0].name] as $values
+        | .choices = $values
+        | .flags[0].argument = "{" + ($values | join("|")) + "}"
+      )
+  ' <<'SPEC'
+{
+  "name": "pr-comments-mgmt.sh",
+  "summary": "GitHub PR review-thread and PR-write CLI.",
+  "description": [
+    "Wraps `gh api graphql` and `gh pr {edit,comment,review,view}` so triage workflows can stay on one CLI surface with one output convention. All mutation results and per-action progress are NDJSON on stderr; structured payloads land on stdout."
+  ],
+  "subcommandGroups": [
+    {
+      "title": "Read subcommands",
+      "subcommands": [
+        {
+          "name": "list-threads",
+          "usage": "list-threads",
+          "description": [
+            "Paginated review threads (with inner comment pagination merged). Per thread: id, isResolved, isOutdated, isCollapsed, path, line, startLine, diffSide, startDiffSide, subjectType, resolvedBy, viewerCan{Resolve,Unresolve,Reply} and the comment nodes. Default output: JSON array."
+          ]
+        },
+        {
+          "name": "list-reviews",
+          "usage": "list-reviews",
+          "description": [
+            "Paginated reviews (state, body, author, submittedAt, url, commit). Default output: JSON array."
+          ]
+        },
+        {
+          "name": "list-comments",
+          "usage": "list-comments",
+          "description": [
+            "Paginated issue-level (top-level) PR conversation comments. Per comment: id, databaseId, author, body, createdAt, updatedAt, url, isMinimized, minimizedReason, viewerCan{Minimize,Update,Delete}. Default output: JSON array."
+          ]
+        },
+        {
+          "name": "get-thread",
+          "usage": "get-thread <thread-id>",
+          "description": [
+            "Single review thread, same shape as one element of list-threads."
+          ]
+        },
+        {
+          "name": "get-comment",
+          "usage": "get-comment <ref>",
+          "description": [
+            "Single comment (top-level or inline review). <ref> accepts a GraphQL node id, a numeric REST databaseId, a URL fragment (e.g. `discussion_r3315576613` / `r3315576613` for an inline review comment, `issuecomment-1234567` for a top-level one), or a full comment URL. Owner/repo comes from the URL when supplied; otherwise --pr (or the current-branch PR) resolves it. Output matches the list-comments shape for top-level comments; review comments add path, line, diffHunk, replyTo, etc.",
+            "LEFT/RIGHT is a thread property in GraphQL, so read it from list-threads/get-thread (diffSide, startDiffSide). To get there from a comment id: list-threads merges inner comment pagination, so every comment appears under .comments.nodes[].id; find its thread with `list-threads | jq 'map(select(.comments.nodes[].id == \"<comment-node-id>\"))'`."
+          ]
+        },
+        {
+          "name": "current-pr",
+          "usage": "current-pr",
+          "description": [
+            "PR view as JSON. Fields: id, number, title, body, state, url, headRefName, baseRefName, author, isDraft, mergeable, mergeStateStatus, and labels flattened to a name array."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "Thread mutation subcommands (bulk; positional ids or stdin)",
+      "subcommands": [
+        {
+          "name": "resolve",
+          "usage": "resolve <thread-id>...",
+          "description": ["Close one or more review threads."]
+        },
+        {
+          "name": "unresolve",
+          "usage": "unresolve <thread-id>...",
+          "description": ["Reopen one or more review threads."]
+        },
+        {
+          "name": "hide-comment",
+          "usage": "hide-comment <comment-node-id>...",
+          "description": ["Minimize comments via the active --reason classifier."]
+        },
+        {
+          "name": "unhide-comment",
+          "usage": "unhide-comment <comment-node-id>...",
+          "description": ["Unminimize comments."]
+        },
+        {
+          "name": "hide-thread",
+          "usage": "hide-thread <thread-id>...",
+          "description": ["Minimize every visible comment in the thread then resolve it."]
+        },
+        {
+          "name": "reply",
+          "usage": "reply <thread-id> [body|--body|--body-file FILE]",
+          "description": [
+            "Post a threaded reply via addPullRequestReviewThreadReply. Body must be non-empty."
+          ]
+        },
+        {
+          "name": "dismiss-review",
+          "usage": "dismiss-review <review-node-id>... --body|--body-file FILE",
+          "description": [
+            "Dismiss one or more PR reviews via dismissPullRequestReview. Only APPROVED and CHANGES_REQUESTED reviews are dismissable; COMMENTED and PENDING reviews are rejected by GitHub at runtime even though the input type accepts any review id. Message is required and shared across all ids. Irreversible (no undismiss mutation in the public API)."
+          ]
+        }
+      ]
+    },
+    {
+      "title": "PR write subcommands",
+      "subcommands": [
+        {
+          "name": "set-title",
+          "usage": "set-title <text>",
+          "description": ["Edit PR title."]
+        },
+        {
+          "name": "set-body",
+          "usage": "set-body [body|--body|--body-file FILE]",
+          "description": [
+            "Edit PR body. Body must be non-empty (use the GitHub UI or `gh pr edit --body ''` to clear)."
+          ]
+        },
+        {
+          "name": "add-label",
+          "usage": "add-label <name>...",
+          "description": ["Bulk add labels (positional or stdin)."]
+        },
+        {
+          "name": "remove-label",
+          "usage": "remove-label <name>...",
+          "description": ["Bulk remove labels (positional or stdin)."]
+        },
+        {
+          "name": "set-labels",
+          "usage": "set-labels <name>...",
+          "description": [
+            "Set the PR's labels to exactly the supplied set (computes add/remove diff)."
+          ]
+        },
+        {
+          "name": "comment",
+          "usage": "comment [body|--body|--body-file FILE]",
+          "description": [
+            "Post an issue-level (top-level) PR conversation comment. Body must be non-empty. (Distinct from review's --comment event flag below.)"
+          ]
+        },
+        {
+          "name": "review",
+          "usage": "review --approve|--request-changes|--comment [--body|--body-file FILE]",
+          "description": [
+            "Submit a PR review. --approve permits an empty body; the others require a non-empty body. Note: the --comment flag here selects the review event \"COMMENT\" and is unrelated to the standalone `comment` subcommand."
+          ]
+        }
+      ]
+    }
+  ],
+  "options": [
+    {
+      "flags": [{ "name": "--pr", "argument": "<number|owner/repo#number>" }],
+      "description": [
+        "Target a specific PR. With a bare number, the current repo is used. When omitted, the current branch's open PR is used."
+      ]
+    },
+    {
+      "flags": [{ "name": "--reason" }],
+      "default": "OUTDATED",
+      "description": [
+        "Classifier for hide-comment and hide-thread (default: OUTDATED)."
+      ]
+    },
+    {
+      "flags": [{ "name": "--format" }],
+      "default": "json",
+      "description": [
+        "Output format for list-threads, list-reviews, and list-comments (default: json). `ids` emits one `.id` per line; `text` emits a one-line summary per item, prefixed with `<id>\\t` so `cut -f1` extracts the id; `full` emits a header (`=== <id> ... ===`) plus body block per item; `tsv` emits one tab-separated record per item with per-verb columns (no header, pipe to `column -t` for visual columns or `cut -f<n>` / `awk -F'\\t'` downstream); `body` emits the raw `.body` per item (opener body for threads), no headers or separators, best paired with `--limit=1`, since multi-item runs concatenate without delimiters (use `full` for multi-item dumps).",
+        "text/full/body are not stable contracts; downstream parsers should use ndjson or tsv.",
+        "tsv columns:",
+        {
+          "indent": 2,
+          "text": "reviews: id, submittedAt, author, state, body_len, url"
+        },
+        {
+          "indent": 2,
+          "text": "comments: id, createdAt, author, isMinimized, minimizedReason, body_len, url"
+        },
+        {
+          "indent": 2,
+          "text": "threads: id, isResolved, isOutdated, path, line, first_author, comments, visible_comments"
+        },
+        {
+          "indent": 2,
+          "text": "(visible_comments is the count of comments where isMinimized is false, i.e., current state, not action history.)"
+        }
+      ]
+    },
+    {
+      "flags": [{ "name": "--sort" }],
+      "description": [
+        "Sort list-* output by the natural per-item timestamp (submittedAt for reviews, createdAt for comments and the thread's first comment). `newest` places null timestamps (PENDING reviews) at the tail, so `--sort newest --limit N` never surfaces a pending review while any submitted review exists."
+      ]
+    },
+    {
+      "flags": [{ "name": "--limit", "argument": "N" }],
+      "description": [
+        "Keep the first N items. Without --sort, items are kept in cursor-pagination order (typically oldest-first as returned by GitHub). Pair with `--sort newest --limit 5` for the five most recent items."
+      ]
+    },
+    {
+      "flags": [{ "name": "--unresolved" }],
+      "description": ["list-threads filter: keep threads with isResolved == false."]
+    },
+    {
+      "flags": [{ "name": "--outdated" }],
+      "description": ["list-threads filter: keep threads with isOutdated == true."]
+    },
+    {
+      "flags": [{ "name": "--author", "argument": "<login>" }],
+      "description": [
+        "list-threads filter: keep threads whose first comment was authored by <login>. list-comments and list-reviews filter: keep items authored by <login>."
+      ]
+    },
+    {
+      "flags": [{ "name": "--path", "argument": "<glob>" }],
+      "description": [
+        "list-threads filter: keep threads whose path matches the glob. Wildcards: `*` (within a path segment), `?` (one non-`/` char), `**` (zero or more directory levels via `**/`, one or more trailing levels via `/**`). Backslash escapes (e.g., `\\*` for a literal star) are not supported; review-thread paths realistically never contain glob meta-characters."
+      ]
+    },
+    {
+      "flags": [{ "name": "--minimized" }],
+      "description": [
+        "list-threads filter: keep threads where every comment is minimized (true) or where at least one comment is not (false). list-comments filter: keep comments where isMinimized matches the value."
+      ]
+    },
+    {
+      "flags": [{ "name": "--superseded" }],
+      "description": [
+        "list-comments and list-reviews filter: keep items where some other item by the same author has a strictly later timestamp (createdAt for comments, submittedAt for reviews). Equivalently: drop the most recent item per author and keep the rest. Tied timestamps: both retained. PENDING reviews (submittedAt == null) are excluded from both sides of the comparison. Runs after --author/--minimized so `--minimized=false --superseded` reads as \"from what is still visible, drop the newest per author and keep the rest.\""
+      ]
+    },
+    {
+      "flags": [{ "name": "--similar-prefix", "argument": "N" }],
+      "description": [
+        "Modifier on --superseded (list-comments, list-reviews): tightens the supersession check to also require shared first N bytes of `.body` between the candidate and its newer same-author item. Useful for status-update authors whose round-N comments share a common title prefix but who also post substantive one-off comments. Standalone use (without --superseded) is rejected."
+      ]
+    },
+    {
+      "flags": [
+        { "name": "--body", "argument": "<text>" },
+        { "name": "--body-file", "argument": "<path|->" }
+      ],
+      "description": [
+        "Body source for reply, set-body, comment, and review. `-` means stdin."
+      ]
+    },
+    {
+      "flags": [
+        { "name": "--approve" },
+        { "name": "--request-changes" },
+        { "name": "--comment" }
+      ],
+      "description": ["Review event flag (review only)."]
+    },
+    {
+      "flags": [{ "name": "--quiet" }],
+      "description": [
+        "Suppress per-action progress lines (the bulk summary is still emitted)."
+      ]
+    },
+    {
+      "flags": [{ "name": "-h" }, { "name": "--help" }],
+      "description": ["Show this message."]
+    },
+    {
+      "flags": [{ "name": "--json" }],
+      "description": [
+        "Only with -h/--help: emit this help as a JSON document on stdout instead of rendered text, for tooling that needs the subcommand, flag, and example inventory. Rejected on its own; `--format json` is the flag for subcommand output."
+      ]
+    }
+  ],
+  "notes": [
+    "Bulk verbs (resolve, unresolve, hide-comment, unhide-comment, hide-thread, dismiss-review, add-label, remove-label) accept ids or names on stdin when no positional arguments are given (one per line, blank and `# ...` lines ignored), and emit a final summary record `{\"verb\":...,\"ok\":N,\"failed\":M}` on stderr."
+  ],
+  "exitCodes": [
+    { "code": 0, "meaning": "success" },
+    { "code": 1, "meaning": "user error (bad args, missing prerequisites)" },
+    { "code": 2, "meaning": "API error (one or more bulk-verb actions failed)" }
+  ],
+  "examples": [
+    "pr-comments-mgmt.sh resolve PRRT_kwDOPeLwm85_EPVC",
+    "pr-comments-mgmt.sh hide-thread --reason OUTDATED PRRT_kwDOPeLwm85_EQHI",
+    "pr-comments-mgmt.sh list-threads --format=ndjson --unresolved",
+    "pr-comments-mgmt.sh --pr 123 list-threads --author Bad3r --path '*.sh'",
+    "pr-comments-mgmt.sh --pr owner/repo#123 list-reviews",
+    "pr-comments-mgmt.sh --pr 149 list-comments \\\n  --minimized=false --format=ids \\\n  | pr-comments-mgmt.sh hide-comment --pr 149 --reason RESOLVED",
+    "pr-comments-mgmt.sh --pr 149 list-comments \\\n  --superseded --author claude --minimized=false --format=ids \\\n  | pr-comments-mgmt.sh hide-comment --pr 149 --reason OUTDATED",
+    "pr-comments-mgmt.sh --pr 149 list-comments \\\n  --superseded --author claude --similar-prefix 30 \\\n  --minimized=false --format=ids \\\n  | pr-comments-mgmt.sh hide-comment --pr 149 --reason OUTDATED",
+    "pr-comments-mgmt.sh --pr 149 list-reviews \\\n  --superseded --author claude --format=ids \\\n  | pr-comments-mgmt.sh dismiss-review --pr 149 \\\n      --body 'superseded by newer review iteration'",
+    "pr-comments-mgmt.sh --pr 149 list-reviews --format=ndjson \\\n  | jq -r 'select(.state == \"CHANGES_REQUESTED\") | .id' \\\n  | pr-comments-mgmt.sh dismiss-review --pr 149 \\\n      --body 'addressed in commit abc1234; dismissing stale review'",
+    "pr-comments-mgmt.sh --pr 149 list-reviews \\\n  --sort=newest --limit=1 --format=full",
+    "pr-comments-mgmt.sh --pr 149 list-reviews \\\n  --sort=newest --limit=5 --format=text",
+    "pr-comments-mgmt.sh --pr 149 list-comments \\\n  --sort=newest --limit=3 --format=full",
+    "pr-comments-mgmt.sh --pr 149 list-threads --format=tsv \\\n  | awk -F'\\t' -v OFS='\\t' \\\n      'BEGIN{print \"id\",\"resolved\",\"outdated\",\"path\",\"line\",\"author\",\"comments\",\"visible\"} 1' \\\n  | column -t -s $'\\t'",
+    "pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC",
+    "pr-comments-mgmt.sh get-comment IC_kwDOPeLwm88AAAABBCSK6A",
+    "pr-comments-mgmt.sh get-comment 'https://github.com/Bad3r/nixos/pull/278#discussion_r3315576613'",
+    "pr-comments-mgmt.sh --pr Bad3r/nixos#278 get-comment r3315576613",
+    "pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'",
+    "pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'",
+    "pr-comments-mgmt.sh --pr 149 comment --body-file response.md",
+    "pr-comments-mgmt.sh --pr 149 review --comment --body 'LGTM'",
+    "pr-comments-mgmt.sh list-threads --format=ndjson --unresolved \\\n  | jq -r '.id' | pr-comments-mgmt.sh resolve"
+  ]
+}
+SPEC
+  )
+  _write_help "${doc}"
+}
+
 usage() {
-  cat <<'USAGE'
-pr-comments-mgmt.sh: GitHub PR review-thread and PR-write CLI.
+  # Args: [status]
+  # Text rendering of usage_json. Definition bodies start at column 44 and
+  # wrap at 79; a term too wide for that gutter takes its own line. <status> is
+  # threaded to _write_help so a caller printing usage before a nonzero exit
+  # keeps that status when the reader closes the stream early.
+  local text status="${1:-0}"
+  text=$(usage_json | jq -r '
+    def width: 79;
+    def spaces($n): if $n <= 0 then "" else (" " * $n) end;
+    def pad($n): if length >= $n then . else . + spaces($n - length) end;
+    def wrap($limit):
+      [splits(" +")]
+      | map(select(. != ""))
+      | reduce .[] as $word ([];
+          if length == 0 then [$word]
+          elif ((.[-1] | length) + 1 + ($word | length)) <= $limit
+          then .[0:-1] + [.[-1] + " " + $word]
+          else . + [$word]
+          end);
+    def blocklines($col):
+      (. // [])
+      | map(if type == "string" then {indent: 0, text: .} else . end)
+      | map(. as $item | ($item.text | wrap(width - $col - $item.indent)
+                          | map(spaces($item.indent) + .)))
+      | add // [];
+    def entry($term; $col):
+      blocklines($col) as $lines
+      | if ($lines | length) == 0 then ["  " + $term]
+        elif ($term | length) <= ($col - 3)
+        then ["  " + ($term | pad($col - 2)) + $lines[0]]
+             + ($lines[1:] | map(spaces($col) + .))
+        else ["  " + $term] + ($lines | map(spaces($col) + .))
+        end;
+    def term:
+      .flags
+      | map(.name + (if has("argument") then " " + .argument else "" end))
+      | join(", ");
+    # Paragraph join: one blank line between elements. Definition bodies use
+    # `add` instead, so their elements stay one continuous indented block.
+    def paragraphs:
+      (. // [])
+      | map(wrap(width))
+      | reduce .[] as $block ([]; if length == 0 then $block else . + [""] + $block end);
 
-Wraps `gh api graphql` and `gh pr {edit,comment,review,view}` so triage
-workflows can stay on one CLI surface with one output convention. All
-mutation results and per-action progress are NDJSON on stderr; structured
-payloads land on stdout.
-
-Read subcommands:
-  list-threads                             Paginated review threads (with
-                                           inner comment pagination merged).
-                                           Per thread: id, isResolved,
-                                           isOutdated, isCollapsed, path,
-                                           line, startLine, diffSide,
-                                           startDiffSide,
-                                           subjectType, resolvedBy,
-                                           viewerCan{Resolve,Unresolve,Reply}
-                                           and the comment nodes.
-                                           Default output: JSON array.
-  list-reviews                             Paginated reviews (state, body,
-                                           author, submittedAt, url, commit).
-                                           Default output: JSON array.
-  list-comments                            Paginated issue-level (top-level)
-                                           PR conversation comments. Per
-                                           comment: id, databaseId, author,
-                                           body, createdAt, updatedAt, url,
-                                           isMinimized, minimizedReason,
-                                           viewerCan{Minimize,Update,Delete}.
-                                           Default output: JSON array.
-  get-thread <thread-id>                   Single review thread, same shape
-                                           as one element of list-threads.
-  get-comment <ref>                        Single comment (top-level or inline
-                                           review). <ref> accepts a GraphQL
-                                           node id, a numeric REST databaseId,
-                                           a URL fragment (e.g.
-                                           `discussion_r3315576613` /
-                                           `r3315576613` for an inline review
-                                           comment, `issuecomment-1234567`
-                                           for a top-level one), or a full
-                                           comment URL. Owner/repo comes from
-                                           the URL when supplied; otherwise
-                                           --pr (or the current-branch PR)
-                                           resolves it. Output matches the
-                                           list-comments shape for top-level
-                                           comments; review comments add
-                                           path, line, diffHunk, replyTo,
-                                           etc. LEFT/RIGHT is a thread
-                                           property in GraphQL, so read it
-                                           from list-threads/get-thread
-                                           (diffSide, startDiffSide). To get
-                                           there from a comment id:
-                                           list-threads merges inner comment
-                                           pagination, so every comment
-                                           appears under
-                                           .comments.nodes[].id; find its
-                                           thread with `list-threads | jq
-                                           'map(select(.comments.nodes[].id
-                                           == "<comment-node-id>"))'`.
-  current-pr                               PR view as JSON. Fields:
-                                           id, number, title, body, state,
-                                           url, headRefName, baseRefName,
-                                           author, isDraft, mergeable,
-                                           mergeStateStatus, and labels
-                                           flattened to a name array.
-
-Thread mutation subcommands (bulk; positional ids or stdin):
-  resolve <thread-id>...                   Close one or more review threads.
-  unresolve <thread-id>...                 Reopen one or more review threads.
-  hide-comment <comment-node-id>...        Minimize comments via the active
-                                           --reason classifier.
-  unhide-comment <comment-node-id>...      Unminimize comments.
-  hide-thread <thread-id>...               Minimize every visible comment in
-                                           the thread then resolve it.
-  reply <thread-id> [body|--body|--body-file FILE]
-                                           Post a threaded reply via
-                                           addPullRequestReviewThreadReply.
-                                           Body must be non-empty.
-  dismiss-review <review-node-id>... --body|--body-file FILE
-                                           Dismiss one or more PR reviews
-                                           via dismissPullRequestReview.
-                                           Only APPROVED and
-                                           CHANGES_REQUESTED reviews are
-                                           dismissable; COMMENTED and
-                                           PENDING reviews are rejected
-                                           by GitHub at runtime even
-                                           though the input type accepts
-                                           any review id. Message is
-                                           required and shared across
-                                           all ids. Irreversible (no
-                                           undismiss mutation in the
-                                           public API).
-
-PR write subcommands:
-  set-title <text>                         Edit PR title.
-  set-body [body|--body|--body-file FILE]  Edit PR body. Body must be
-                                           non-empty (use the GitHub UI
-                                           or `gh pr edit --body ''` to
-                                           clear).
-  add-label <name>...                      Bulk add labels (positional or
-                                           stdin).
-  remove-label <name>...                   Bulk remove labels (positional or
-                                           stdin).
-  set-labels <name>...                     Set the PR's labels to exactly
-                                           the supplied set (computes
-                                           add/remove diff).
-  comment [body|--body|--body-file FILE]   Post an issue-level (top-level)
-                                           PR conversation comment. Body
-                                           must be non-empty. (Distinct
-                                           from review's --comment event
-                                           flag below.)
-  review --approve|--request-changes|--comment [--body|--body-file FILE]
-                                           Submit a PR review. --approve
-                                           permits an empty body; the
-                                           others require a non-empty body.
-                                           Note: the --comment flag here
-                                           selects the review event
-                                           "COMMENT" and is unrelated to
-                                           the standalone `comment`
-                                           subcommand.
-
-Options:
-  --pr <number|owner/repo#number>          Target a specific PR. With a bare
-                                           number, the current repo is used.
-                                           When omitted, the current branch's
-                                           open PR is used.
-  --reason {OUTDATED|RESOLVED|OFF_TOPIC|SPAM|ABUSE|DUPLICATE}
-                                           Classifier for hide-comment and
-                                           hide-thread (default: OUTDATED).
-  --format json|ndjson|ids|text|full|tsv|body
-                                           Output format for list-threads,
-                                           list-reviews, and list-comments
-                                           (default: json). `ids` emits
-                                           one `.id` per line; `text`
-                                           emits a one-line summary per
-                                           item, prefixed with `<id>\t`
-                                           so `cut -f1` extracts the id;
-                                           `full` emits a header
-                                           (`=== <id> ... ===`) plus
-                                           body block per item;
-                                           `tsv` emits one tab-separated
-                                           record per item with per-verb
-                                           columns (no header — pipe to
-                                           `column -t` for visual
-                                           columns or `cut -f<n>` /
-                                           `awk -F'\t'` downstream);
-                                           `body` emits the raw `.body`
-                                           per item (opener body for
-                                           threads), no headers or
-                                           separators — best paired with
-                                           `--limit=1`, since multi-item
-                                           runs concatenate without
-                                           delimiters (use `full` for
-                                           multi-item dumps).
-                                           text/full/body are not stable
-                                           contracts; downstream
-                                           parsers should use ndjson
-                                           or tsv.
-                                           tsv columns:
-                                             reviews:  id, submittedAt,
-                                             author, state, body_len,
-                                             url
-                                             comments: id, createdAt,
-                                             author, isMinimized,
-                                             minimizedReason, body_len,
-                                             url
-                                             threads:  id, isResolved,
-                                             isOutdated, path, line,
-                                             first_author, comments,
-                                             visible_comments
-                                             (visible_comments is the
-                                             count of comments where
-                                             isMinimized is false, i.e.,
-                                             current state, not action
-                                             history.)
-  --sort newest|oldest                     Sort list-* output by the natural
-                                           per-item timestamp
-                                           (submittedAt for reviews,
-                                           createdAt for comments and the
-                                           thread's first comment).
-                                           `newest` places null timestamps
-                                           (PENDING reviews) at the tail,
-                                           so `--sort newest --limit N`
-                                           never surfaces a pending
-                                           review while any submitted
-                                           review exists.
-  --limit N                                Keep the first N items. Without
-                                           --sort, items are kept in
-                                           cursor-pagination order
-                                           (typically oldest-first as
-                                           returned by GitHub). Pair with
-                                           `--sort newest --limit 5` for
-                                           the five most recent items.
-  --unresolved                             list-threads filter: keep
-                                           threads with isResolved == false.
-  --outdated                               list-threads filter: keep
-                                           threads with isOutdated == true.
-  --author <login>                         list-threads filter: keep threads
-                                           whose first comment was authored
-                                           by <login>. list-comments and
-                                           list-reviews filter: keep items
-                                           authored by <login>.
-  --path <glob>                            list-threads filter: keep threads
-                                           whose path matches the glob.
-                                           Wildcards: `*` (within a path
-                                           segment), `?` (one non-`/`
-                                           char), `**` (zero or more
-                                           directory levels via `**/`,
-                                           one or more trailing levels
-                                           via `/**`). Backslash escapes
-                                           (e.g., `\*` for a literal
-                                           star) are not supported;
-                                           review-thread paths
-                                           realistically never contain
-                                           glob meta-characters.
-  --minimized true|false                   list-threads filter: keep threads
-                                           where every comment is minimized
-                                           (true) or where at least one
-                                           comment is not (false).
-                                           list-comments filter: keep
-                                           comments where isMinimized
-                                           matches the value.
-  --superseded                             list-comments and list-reviews
-                                           filter: keep items where some
-                                           other item by the same author
-                                           has a strictly later timestamp
-                                           (createdAt for comments,
-                                           submittedAt for reviews).
-                                           Equivalently: drop the most
-                                           recent item per author and keep
-                                           the rest. Tied timestamps:
-                                           both retained. PENDING reviews
-                                           (submittedAt == null) are
-                                           excluded from both sides of
-                                           the comparison. Runs after
-                                           --author/--minimized so
-                                           `--minimized=false --superseded`
-                                           reads as "from what is still
-                                           visible, drop the newest per
-                                           author and keep the rest."
-  --similar-prefix N                       Modifier on --superseded
-                                           (list-comments, list-reviews):
-                                           tightens the supersession
-                                           check to also require shared
-                                           first N bytes of `.body`
-                                           between the candidate and its
-                                           newer same-author item.
-                                           Useful for status-update
-                                           authors whose round-N
-                                           comments share a common
-                                           title prefix but who also
-                                           post substantive one-off
-                                           comments. Standalone use
-                                           (without --superseded) is
-                                           rejected.
-  --body <text>, --body-file <path|->      Body source for reply, set-body,
-                                           comment, and review. `-` means
-                                           stdin.
-  --approve, --request-changes, --comment  Review event flag (review only).
-  --quiet                                  Suppress per-action progress
-                                           lines (the bulk summary is still
-                                           emitted).
-  -h, --help                               Show this message.
-
-Bulk verbs (resolve, unresolve, hide-comment, unhide-comment, hide-thread,
-dismiss-review, add-label, remove-label) accept ids or names on stdin when
-no positional arguments are given (one per line, blank and `# ...` lines
-ignored), and emit a final summary record `{"verb":...,"ok":N,"failed":M}`
-on stderr.
-
-Exit codes:
-  0   success
-  1   user error (bad args, missing prerequisites)
-  2   API error (one or more bulk-verb actions failed)
-
-Examples:
-  pr-comments-mgmt.sh resolve PRRT_kwDOPeLwm85_EPVC
-  pr-comments-mgmt.sh hide-thread --reason OUTDATED PRRT_kwDOPeLwm85_EQHI
-  pr-comments-mgmt.sh list-threads --format=ndjson --unresolved
-  pr-comments-mgmt.sh --pr 123 list-threads --author Bad3r --path '*.sh'
-  pr-comments-mgmt.sh --pr owner/repo#123 list-reviews
-  pr-comments-mgmt.sh --pr 149 list-comments \
-    --minimized=false --format=ids \
-    | pr-comments-mgmt.sh hide-comment --pr 149 --reason RESOLVED
-  pr-comments-mgmt.sh --pr 149 list-comments \
-    --superseded --author claude --minimized=false --format=ids \
-    | pr-comments-mgmt.sh hide-comment --pr 149 --reason OUTDATED
-  pr-comments-mgmt.sh --pr 149 list-comments \
-    --superseded --author claude --similar-prefix 30 \
-    --minimized=false --format=ids \
-    | pr-comments-mgmt.sh hide-comment --pr 149 --reason OUTDATED
-  pr-comments-mgmt.sh --pr 149 list-reviews \
-    --superseded --author claude --format=ids \
-    | pr-comments-mgmt.sh dismiss-review --pr 149 \
-        --body 'superseded by newer review iteration'
-  pr-comments-mgmt.sh --pr 149 list-reviews --format=ndjson \
-    | jq -r 'select(.state == "CHANGES_REQUESTED") | .id' \
-    | pr-comments-mgmt.sh dismiss-review --pr 149 \
-        --body 'addressed in commit abc1234; dismissing stale review'
-  pr-comments-mgmt.sh --pr 149 list-reviews \
-    --sort=newest --limit=1 --format=full
-  pr-comments-mgmt.sh --pr 149 list-reviews \
-    --sort=newest --limit=5 --format=text
-  pr-comments-mgmt.sh --pr 149 list-comments \
-    --sort=newest --limit=3 --format=full
-  pr-comments-mgmt.sh --pr 149 list-threads --format=tsv \
-    | awk -F'\t' -v OFS='\t' \
-        'BEGIN{print "id","resolved","outdated","path","line","author","comments","visible"} 1' \
-    | column -t -s $'\t'
-  pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC
-  pr-comments-mgmt.sh get-comment IC_kwDOPeLwm88AAAABBCSK6A
-  pr-comments-mgmt.sh get-comment 'https://github.com/Bad3r/nixos/pull/278#discussion_r3315576613'
-  pr-comments-mgmt.sh --pr Bad3r/nixos#278 get-comment r3315576613
-  pr-comments-mgmt.sh reply PRRT_kwDOPeLwm85_EPVC --body 'ack'
-  pr-comments-mgmt.sh --pr 149 set-labels 'type(enhancement)' 'area(scripts)'
-  pr-comments-mgmt.sh --pr 149 comment --body-file response.md
-  pr-comments-mgmt.sh --pr 149 review --comment --body 'LGTM'
-  pr-comments-mgmt.sh list-threads --format=ndjson --unresolved \
-    | jq -r '.id' | pr-comments-mgmt.sh resolve
-USAGE
+    [.name + ": " + .summary, ""]
+    + (.description | paragraphs)
+    + [""]
+    + (.subcommandGroups
+       | map([.title + ":"]
+             + (.subcommands | map(. as $s | ($s.description | entry($s.usage; 43))) | add // [])
+             + [""])
+       | add // [])
+    + ["Options:"]
+    + (.options | map(. as $o | ($o.description | entry(($o | term); 43))) | add // [])
+    + [""]
+    + (.notes | paragraphs)
+    + [""]
+    + ["Exit codes:"]
+    + (.exitCodes | map(. as $e | ([$e.meaning] | entry(($e.code | tostring); 6))) | add // [])
+    + [""]
+    + ["Examples:"]
+    + (.examples | map(. / "\n" | map("  " + .)) | add // [])
+    | join("\n")
+  ')
+  _write_help "${text}" "${status}"
 }
 
 require_cmd() {
@@ -443,15 +598,6 @@ _gh_run() {
     err "gh ${1:-?}: ${_stderr}"
   fi
   return "${_rc}"
-}
-
-valid_reason() {
-  local candidate="$1"
-  local r
-  for r in "${VALID_REASONS[@]}"; do
-    [[ ${candidate} == "${r}" ]] && return 0
-  done
-  return 1
 }
 
 _assert_flags_for() {
@@ -724,15 +870,19 @@ _format_array() {
   #          delimiters and should prefer `full` instead.
   # The first arg is the kind ("threads", "reviews", "comments") and
   # selects per-verb templates for text/full/tsv/body.
+  # An arm per VALID_FORMATS entry, and no catch-all rendering: a value added
+  # to that array is documented and accepted the moment it is added, so a
+  # `*) jq '.'` default would ship it as a silent alias for json.
   local kind="$1"
   case "${OUTPUT_FORMAT}" in
+  json) jq '.' ;;
   ndjson) jq -c '.[]' ;;
   ids) jq -r '.[].id // empty' ;;
   text) _format_text "${kind}" ;;
   full) _format_full "${kind}" ;;
   tsv) _format_tsv "${kind}" ;;
   body) _format_body "${kind}" ;;
-  *) jq '.' ;;
+  *) die 1 "_format_array: unhandled --format '${OUTPUT_FORMAT}'" ;;
   esac
 }
 
@@ -1792,14 +1942,27 @@ current_pr() {
 }
 
 main() {
-  require_cmd gh
-
   local positional=()
   while (($# > 0)); do
     case "$1" in
     -h | --help)
-      usage
+      # --json may sit on either side of the help flag, so the tail is
+      # scanned here instead of letting the loop reach it.
+      shift
+      local arg
+      for arg in "$@"; do
+        if [[ ${arg} == "--" ]]; then
+          break
+        elif [[ ${arg} == "--json" ]]; then
+          HELP_JSON=true
+        fi
+      done
+      if [[ ${HELP_JSON} == true ]]; then usage_json; else usage; fi
       exit 0
+      ;;
+    --json)
+      HELP_JSON=true
+      shift
       ;;
     --quiet)
       QUIET=true
@@ -1808,14 +1971,14 @@ main() {
       ;;
     --reason)
       [[ -n ${2:-} ]] || die 1 "--reason requires a value"
-      valid_reason "$2" || die 1 "--reason must be one of: ${VALID_REASONS[*]}"
+      _one_of "$2" "${VALID_REASONS[@]}" || die 1 "--reason must be one of: ${VALID_REASONS[*]}"
       REASON="$2"
       SET_FLAGS+=(reason)
       shift 2
       ;;
     --reason=*)
       local rv="${1#--reason=}"
-      valid_reason "${rv}" || die 1 "--reason must be one of: ${VALID_REASONS[*]}"
+      _one_of "${rv}" "${VALID_REASONS[@]}" || die 1 "--reason must be one of: ${VALID_REASONS[*]}"
       REASON="${rv}"
       SET_FLAGS+=(reason)
       shift
@@ -1857,37 +2020,29 @@ main() {
       ;;
     --format)
       [[ -n ${2:-} ]] || die 1 "--format requires a value"
-      case "$2" in
-      json | ndjson | ids | text | full | tsv | body) OUTPUT_FORMAT="$2" ;;
-      *) die 1 "--format must be one of: json, ndjson, ids, text, full, tsv, body" ;;
-      esac
+      _one_of "$2" "${VALID_FORMATS[@]}" || die 1 "--format must be one of: ${VALID_FORMATS[*]}"
+      OUTPUT_FORMAT="$2"
       SET_FLAGS+=(format)
       shift 2
       ;;
     --format=*)
       local fv="${1#--format=}"
-      case "${fv}" in
-      json | ndjson | ids | text | full | tsv | body) OUTPUT_FORMAT="${fv}" ;;
-      *) die 1 "--format must be one of: json, ndjson, ids, text, full, tsv, body" ;;
-      esac
+      _one_of "${fv}" "${VALID_FORMATS[@]}" || die 1 "--format must be one of: ${VALID_FORMATS[*]}"
+      OUTPUT_FORMAT="${fv}"
       SET_FLAGS+=(format)
       shift
       ;;
     --sort)
       [[ -n ${2:-} ]] || die 1 "--sort requires a value"
-      case "$2" in
-      newest | oldest) SORT_ORDER="$2" ;;
-      *) die 1 "--sort must be one of: newest, oldest" ;;
-      esac
+      _one_of "$2" "${VALID_SORTS[@]}" || die 1 "--sort must be one of: ${VALID_SORTS[*]}"
+      SORT_ORDER="$2"
       SET_FLAGS+=(sort)
       shift 2
       ;;
     --sort=*)
       local sv="${1#--sort=}"
-      case "${sv}" in
-      newest | oldest) SORT_ORDER="${sv}" ;;
-      *) die 1 "--sort must be one of: newest, oldest" ;;
-      esac
+      _one_of "${sv}" "${VALID_SORTS[@]}" || die 1 "--sort must be one of: ${VALID_SORTS[*]}"
+      SORT_ORDER="${sv}"
       SET_FLAGS+=(sort)
       shift
       ;;
@@ -1938,20 +2093,16 @@ main() {
       shift
       ;;
     --minimized)
-      [[ -n ${2:-} ]] || die 1 "--minimized requires a value (true|false)"
-      case "$2" in
-      true | false) FILTER_MINIMIZED="$2" ;;
-      *) die 1 "--minimized must be one of: true, false" ;;
-      esac
+      [[ -n ${2:-} ]] || die 1 "--minimized requires a value (${VALID_MINIMIZED[*]})"
+      _one_of "$2" "${VALID_MINIMIZED[@]}" || die 1 "--minimized must be one of: ${VALID_MINIMIZED[*]}"
+      FILTER_MINIMIZED="$2"
       SET_FLAGS+=(minimized)
       shift 2
       ;;
     --minimized=*)
       local mv="${1#--minimized=}"
-      case "${mv}" in
-      true | false) FILTER_MINIMIZED="${mv}" ;;
-      *) die 1 "--minimized must be one of: true, false" ;;
-      esac
+      _one_of "${mv}" "${VALID_MINIMIZED[@]}" || die 1 "--minimized must be one of: ${VALID_MINIMIZED[*]}"
+      FILTER_MINIMIZED="${mv}"
       SET_FLAGS+=(minimized)
       shift
       ;;
@@ -2000,8 +2151,14 @@ main() {
     esac
   done
 
+  [[ ${HELP_JSON} == false ]] ||
+    die 1 "--json is only supported with -h/--help; use --format json for subcommand output"
+
+  # After the help paths, so the help document stays readable without gh.
+  require_cmd gh
+
   ((${#positional[@]} > 0)) || {
-    usage >&2
+    usage 1 >&2
     exit 1
   }
 

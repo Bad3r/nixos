@@ -337,6 +337,12 @@ Reference list trees shipped by the entries above (resolve with `nix eval --raw 
   - Docs.: <https://www.ltrace.org/>
   - Desc.: Library call tracer.
   - Stat.: Maintained (latest release 2025-09-16).
+- patchelf
+  - run..: `patchelf --print-interpreter --print-rpath --print-needed $binary`
+  - Repo.: <https://github.com/NixOS/patchelf>
+  - Docs.: <https://github.com/NixOS/patchelf#readme>
+  - Desc.: Rewrites the ELF interpreter, RPATH/RUNPATH, and DT_NEEDED records of prebuilt binaries so foreign or stripped samples load under a chosen loader and library set; nixpkgs pins this attribute to the 0.15.x stdenv series while `patchelfUnstable` carries the newer snapshot.
+  - Stat.: Maintained (latest release 0.19.1, 2026-07-06).
 - strace
   - run..: `strace $binary`
   - Repo.: <https://github.com/strace/strace>

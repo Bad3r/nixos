@@ -10,6 +10,15 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
 - `duplicati/` and `duplicati-r2-repair.sh`: Duplicati R2 restore and repair
   operators.
 - `gh-cli/`: GitHub CLI wrappers. Keep output parseable and non-interactive.
+  `pr-comments-mgmt.sh` renders its help from the JSON document it emits for
+  `--help --json`; edit that document rather than any prose copy of it. The
+  per-subcommand option sets and every accepted-value list are grafted into
+  that document from `SUBCOMMAND_FLAGS` and the `VALID_*` arrays the parser
+  validates against, so adding a value to the array both documents it and makes
+  the parser accept it. A new `--format` value needs one more edit: an arm in
+  `_format_array` plus its per-kind templates, without which the value would be
+  a silent alias for `json`. `tests/pr-comments-mgmt/run.sh` fails on a value
+  that has no arm, and covers help rendering and argument parsing.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
 - `updater/`: shared Python library for package updater scripts. Reuse these
   helpers instead of duplicating HTTP, hash, Nix, npm, or version parsing logic.

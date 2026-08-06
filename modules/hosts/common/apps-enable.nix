@@ -337,6 +337,7 @@ let
       pandoc.extended.enable = lib.mkOverride 1100 true;
       parted.extended.enable = lib.mkOverride 1100 true;
       patch.extended.enable = lib.mkOverride 1100 true;
+      patchelf.extended.enable = lib.mkOverride 1100 true;
       path.extended.enable = lib.mkOverride 1100 true;
       pciutils.extended.enable = lib.mkOverride 1100 true;
       picom.extended.enable = lib.mkOverride 1100 true;
@@ -368,6 +369,7 @@ let
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;
       rclone.extended.enable = lib.mkOverride 1100 true;
+      rclone.extended.protonDrive.enable = lib.mkOverride 1100 true;
       readpdf.extended.enable = lib.mkOverride 1100 true;
       remmina.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
