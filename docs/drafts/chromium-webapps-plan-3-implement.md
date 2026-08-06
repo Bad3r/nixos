@@ -72,7 +72,8 @@ Accepted, with these effects stated rather than discovered later:
   hard denials with no prompt for all browsing. Only the origins listed in the
   matching `*AllowedUrls` policy, which today means `teams.cloud.microsoft`
   alone, can use mic, camera or screen share. A video call or screen share on
-  any other site fails silently in `brave-origin`.
+  any other site fails silently in whichever Brave-family build the host
+  installs.
 - `ExtensionSettings."*" = blocked` blocks manual extension installs in the
   daily-driver profile, and force-installs `defaultExtensions` (1Password)
   there too.
@@ -2959,8 +2960,9 @@ What that means in practice:
 - **Mic, camera and screen share are denied everywhere by default, with no
   prompt.** Only origins listed in the matching `*AllowedUrls` policy can use
   them, and today that is `teams.cloud.microsoft` alone. A video call or a
-  screen share on any other site fails in `brave-origin`. Granting one means
-  adding that origin to an app entry in `_catalog.nix`.
+  screen share on any other site fails in whichever Brave-family build the host
+  installs. Granting one means adding that origin to an app entry in
+  `_catalog.nix`.
 - **Extension installs are blocked in the daily-driver profile too**, and
   `defaultExtensions` (1Password) is force-installed there.
 - `URLAllowlist` is additive: it exempts entries from `URLBlocklist` and
