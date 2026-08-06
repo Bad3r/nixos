@@ -3068,8 +3068,8 @@ let it run here".
 Extensions come from the Chrome Web Store so their IDs stay correct, which is
 what 1Password's native messaging to the desktop app validates.
 
-The generated keep-alive extension is the exception: it is loaded from the store
-with `--load-extension`, and its ID is pinned by a committed public key in
+The generated keep-alive extension is the exception: it is loaded from the Nix
+store with `--load-extension`, and its ID is pinned by a committed public key in
 `modules/browsers/webapps/_keepalive-key.nix` so `ExtensionSettings` has a
 stable ID to allow. Without that pin the ID would be a hash of the store path,
 changing on every rebuild, and the extension would be blocked by the
