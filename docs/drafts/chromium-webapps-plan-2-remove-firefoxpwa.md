@@ -210,14 +210,17 @@ nix-instantiate --parse modules/browsers/_gecko-extension-data.nix \
 Expected: exit 0. That is what this task can prove on its own. A leftover reference in these five files surfaces at
 Task 4 Step 8 as an undefined-variable error.
 
-Tasks 2 and 3 therefore do not evaluate standalone, which this series treats as a defect elsewhere: Task 10 Step 4
-exists so that every phase 3 commit evaluates from a clean checkout. The alternative is to unwire first and delete
-last, which is achievable here, `modules/browsers/firefoxpwa/` reads none of the gecko bindings Task 3 removes, so the
-order 3, 4, 2 would leave every commit evaluating. It is not taken because the removal is one atomic `rip` whose
-recoverability the baseline sweep in Task 2 Step 2 is written against, and because renumbering the phase would
-invalidate the cross-references the other two plan files and the PR body make to these task numbers. The cost is
-bounded and stated: two commits in this phase evaluate only as part of the sequence, and the phase does not merge
-until Task 4 Step 8 passes.
+Tasks 2 and 3 therefore do not evaluate standalone, which this series treats as a cost to bound rather than accept
+silently: Task 10 Step 4 commits `_keepalive-key.nix` with `_check-apps.nix` so that commit evaluates from a clean
+checkout. Phase 3 does not clear the bar everywhere either, and says so at Task 9 Step 3, where `nixos.nix` imports
+two files Task 10 adds. The alternative here is to unwire first and delete last, which is achievable,
+`modules/browsers/firefoxpwa/` reads none of the gecko bindings Task 3 removes, so the order 3, 4, 2 would leave
+every commit evaluating. It is not taken because the removal is one atomic `rip` whose recoverability the baseline
+sweep in Task 2 Step 2 is written against, and because renumbering the phase would invalidate the cross-references
+phase 3 makes to these task numbers, in Task 13, in its `docs/reference/webapps.md` block and in its self-review.
+Phase 1 makes none, and neither does any generated PR body. The cost is bounded and stated: two
+commits in this phase evaluate only as part of the sequence, and the phase does not merge until Task 4 Step 8
+passes.
 
 - [ ] **Step 6: Commit**
 
