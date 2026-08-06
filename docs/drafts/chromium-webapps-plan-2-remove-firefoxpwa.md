@@ -61,6 +61,7 @@ ______________________________________________________________________
 - `modules/meta/cache-roots.nix:52`: drop `"firefoxpwa"`
 - `.github/workflows/update-flake.yml:88-92`: drop the pin sync step
 - `pyproject.toml`: drop the script references
+- `modules/hm-apps/proton-drive-check.nix`: drop the `modules/browsers/firefoxpwa/module-check.nix` citation from the header comment
 - `docs/architecture/04-home-manager.md:94`, `docs/reference/binary-cache-coverage.md:73,159`
 
 ______________________________________________________________________
@@ -313,10 +314,14 @@ comm -23 <(cut -d: -f1 /tmp/firefoxpwa-before.txt | sort -u) \
   <(cut -d: -f1 /tmp/firefoxpwa-after.txt | sort -u)
 ```
 
-Expected: the first command prints only `docs/architecture/04-home-manager.md` and
-`docs/reference/binary-cache-coverage.md`, handled in Task 5. The `comm` prints every other file the baseline held,
-which is the checklist Task 2 Step 2 recorded: a file listed there and absent from this output is one the removal
-missed.
+Expected: the first command prints only `docs/architecture/04-home-manager.md`,
+`docs/reference/binary-cache-coverage.md` and `modules/hm-apps/proton-drive-check.nix`, all three handled in Task 5.
+The `comm` prints every other file the baseline held, which is the checklist Task 2 Step 2 recorded: a file listed
+there and absent from this output is one the removal missed.
+
+`modules/hm-apps/proton-drive-check.nix` is in that list rather than in this task because its only match is a prose
+citation inside a header comment. It is not host wiring, it does not affect evaluation, and folding it into this
+task's `refactor(hosts)!` commit would misstate that commit's scope.
 
 - [ ] **Step 8: Validate and commit**
 
@@ -342,6 +347,8 @@ Validation: nix flake check path:. --accept-flake-config --no-build --offline"
 
 - Modify: `docs/reference/binary-cache-coverage.md:73,159`
 
+- Modify: `modules/hm-apps/proton-drive-check.nix`
+
 - Regenerate: `README.md`
 
 - [ ] **Step 1: Rewrite the browser-modules paragraph**
@@ -362,7 +369,29 @@ replacement example in the same PR that creates the files.
 
 In `docs/reference/binary-cache-coverage.md`, change the parenthetical on line 73 from `(firefoxpwa policy injection, john patches)` to `(john patches)`, and delete the `| firefoxpwa | system76, tpnix |` table row.
 
-- [ ] **Step 3: Regenerate managed artifacts**
+- [ ] **Step 3: Drop the module-check cross-reference**
+
+`modules/hm-apps/proton-drive-check.nix` names the file Task 2 deleted, in the header sentence that describes how the
+check is built:
+
+```
+  Builds a standalone Home Manager configuration the way
+  modules/browsers/firefoxpwa/module-check.nix does, with osConfig stubbed to
+  make the remote ready and secretsRoot pointed at an in-repo fixture, then
+```
+
+Drop the comparison clause so the sentence stands on its own:
+
+```
+  Builds a standalone Home Manager configuration with osConfig stubbed to make
+  the remote ready and secretsRoot pointed at an in-repo fixture, then
+```
+
+Do not repoint it at `modules/browsers/webapps/module-check.nix`. That file does not exist until phase 3 Task 15, so
+naming it here is the same defect Step 1 avoids in `04-home-manager.md`. The clause only recorded design lineage; the
+sentence still describes the mechanism correctly without it.
+
+- [ ] **Step 4: Regenerate managed artifacts**
 
 ```bash
 nix develop path:. --accept-flake-config -c write-files --offline
@@ -371,7 +400,7 @@ git diff --stat
 
 Expected: a `README.md` diff only if firefoxpwa appeared in generated output. Review it before staging.
 
-- [ ] **Step 4: Confirm the reference set is empty**
+- [ ] **Step 5: Confirm the reference set is empty**
 
 ```bash
 rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
@@ -382,7 +411,7 @@ Expected: no output. The `docs/drafts` exclusion is what makes that reachable: t
 the repo and name firefoxpwa throughout, and `docs/index.md` links each of them by name. Both exclusions are
 explained at Task 2 Step 2.
 
-- [ ] **Step 5: Validate the host closure still builds**
+- [ ] **Step 6: Validate the host closure still builds**
 
 ```bash
 nix flake check path:. --accept-flake-config --no-build --offline
@@ -391,11 +420,16 @@ nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-l
 
 Expected: both succeed.
 
-- [ ] **Step 6: Commit and open the PR**
+- [ ] **Step 7: Commit and open the PR**
 
 ```bash
-git add docs/architecture/04-home-manager.md docs/reference/binary-cache-coverage.md README.md
+git add docs/architecture/04-home-manager.md docs/reference/binary-cache-coverage.md \
+  modules/hm-apps/proton-drive-check.nix README.md
 git commit -m "docs(browsers): retire the firefoxpwa references
+
+Drops the worked example from the browser-modules paragraph, the policy-injection parenthetical and cache-root row
+from the coverage reference, and the modules/browsers/firefoxpwa/module-check.nix citation from
+proton-drive-check.nix's header. None is repointed at the webapps files, which do not exist until phase 3.
 
 Validation: nix flake check path:. --accept-flake-config --no-build --offline;
 nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel"
