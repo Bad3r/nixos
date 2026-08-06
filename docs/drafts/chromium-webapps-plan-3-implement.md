@@ -95,7 +95,7 @@ follow-ups, not part of this plan.
 
 - `brave-origin` binary contains the string `/etc/brave/policies`. The binary is under `brave-origin-nightly/`, which is the channel the package ships (`packages/brave-origin/default.nix`), not `brave-origin/`. Reproduce: `strings -a "$(nix build --impure --no-link --print-out-paths --expr 'with import <nixpkgs> {}; brave-origin')/opt/brave.com/brave-origin-nightly/brave" | rg '^/etc/brave'`
 
-- `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available.
+- `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available. Reproduce against the pinned build: `B="$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.system76.pkgs.brave-origin")/opt/brave.com/brave-origin-nightly/brave"; strings -a "$B" | rg -x 'load-extension|disable-extensions-except'; strings -a "$B" | rg -i 'via the command line is not supported'`. Expected: both switches present, and no output from the second probe, because the branding-gated refusal message is compiled out of a build where `GOOGLE_CHROME_BRANDING` is unset. That settles the branding half. The Enhanced Safe Browsing half is a runtime check no string probe can reach, so Task 18 Step 3 is where it is confirmed on a real host; if it fails there, the fallback is `ExtensionSettings` with a `file://` update URL rather than a command-line load, and Task 10's extension design changes with it.
 
 - Policy names and types confirmed against the Chromium policy registry: `AudioCaptureAllowed` (bool), `VideoCaptureAllowed` (bool), `ScreenCaptureAllowed` (bool), `DefaultNotificationsSetting` (int), `DefaultClipboardSetting` (int), `DefaultSensorsSetting` (int), `DefaultWindowManagementSetting` (int), `DefaultLocalFontsSetting` (int), `ExtensionSettings` (dict), `BackgroundModeEnabled` (bool).
 
@@ -260,7 +260,7 @@ HEADER
   printf '  };\n}\n'
 } > modules/browsers/_chromium-hardening.nix
 
-nix run path:.#formatter.x86_64-linux -- modules/browsers/_chromium-hardening.nix
+nix run path:.#treefmt -- modules/browsers/_chromium-hardening.nix
 ```
 
 Confirm the boundaries were right before continuing:
@@ -311,7 +311,7 @@ exactly the failure `git stash` could not produce. The `git diff --stat` below
 only catches that if the operator reaches it.
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-after.json
 
@@ -480,7 +480,7 @@ parses as nothing and the browser applies no policy at all, with no eval error. 
 - [ ] **Step 4: Verify the policy file lands**
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix eval --raw "path:.#nixosConfigurations.tpnix.config.environment.etc.\"brave/policies/managed/extended.json\".text" \
   --accept-flake-config | jq -r 'keys | length'
 
@@ -2157,7 +2157,7 @@ in
 - [ ] **Step 4: Verify the launchers exist**
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix eval --raw "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
   --accept-flake-config --apply 'ps: builtins.concatStringsSep "\n" (map (p: p.name) ps)' \
   | rg '^webapp-'
@@ -2288,7 +2288,7 @@ which is the state this step exists to prevent.
 - [ ] **Step 2: Validate the full configuration evaluates**
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix develop path:. -c pre-commit run --all-files --hook-stage manual apps-catalog-sync
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
@@ -2874,7 +2874,7 @@ allowlists would miss those, and they are where a per-app extension puts an app'
 - [ ] **Step 5: Validate and commit**
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 git add modules/browsers/webapps/_catalog.nix modules/browsers/webapps/check-fixtures/policy.json
 
@@ -3191,7 +3191,7 @@ git diff --stat
 - [ ] **Step 4: Full validation**
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix develop path:. -c pre-commit run --all-files --hook-stage manual
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
@@ -3468,7 +3468,7 @@ ______________________________________________________________________
 - `lib.getExe pkgs.diffutils` in Task 14 pointed at a `bin/diffutils` that does not exist, so the policy check would have failed on its own tooling. Now `lib.getExe' pkgs.diffutils "diff"`.
 - `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 17 with `webapps` reported missing from `apps-enable.nix`, which Task 12 Step 3 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 2 runs the hook rather than deferring it to Task 17.
 - Task 15's module check asserted the right things about the wrong behavior. It confirmed that a missing `gecko.yaml` warns and declares no sops secret, both of which held while the guard was also deleting the launchers, desktop entries and policy entries for the eight apps that never needed the secrets submodule. An assertion that a guard's failure path is quiet says nothing about how much it took down; the check now names what has to survive it.
-- Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created one step earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds. Exclusions are only half of it. Phase 2's sweeps also stated which files would still match, and `modules/hm-apps/proton-drive-check.nix` matched from a header comment that no task's **Files:** block listed, so Task 4 Step 7 named two survivors where three existed and Task 5's "no output" was unreachable for a reason no exclusion addresses. A sweep that predicts its own residue has to have that prediction derived from the task list, not written alongside it.
+- Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created one step earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds. Exclusions are only half of it, and in the compgen case they were the wrong half: the first fix excluded `modules/meta/build-time-shell.nix` by path and still printed hits from a pre-existing `modules/hm-apps/proton-drive.nix` comment, so Phase 1 Task 1 Step 4 now runs the detector's own command-position predicate instead of a bare string search. A predicate copied from the check it verifies cannot drift from it, which no list of path exclusions can promise. Phase 2's sweeps also stated which files would still match, and `modules/hm-apps/proton-drive-check.nix` matched from a header comment that no task's **Files:** block listed, so Task 4 Step 7 named two survivors where three existed and Task 5's "no output" was unreachable for a reason no exclusion addresses. A sweep that predicts its own residue has to have that prediction derived from the task list, not written alongside it.
 - Task 14's `policy-check.nix` derived its independent expectation with `lib.splitString "/" app.url` and no secret branch. Every app in the catalog at that point has a literal `url`, so Task 14 passes; Task 16 adds DMail with `url = null` and `originSecret` set, and the check aborts with `cannot coerce null to a string` as soon as `lib.sort` forces the element. The failure would have surfaced two tasks after the file that caused it. `originOf` now takes the `originSecret` branch, reusing only `_check-apps.nix`'s placeholder constant.
 - Task 17 Step 2 verified its architecture-doc sentence with `rg -n 'webapps'` and an `ls` of both files. Both pass on a sentence that names the wrong namespace, which the sentence did: it presented `webapps/home.nix` and `webapps/nixos.nix` as two siblings extending one `flake.homeManagerModules.browsers.<name>` key, while `nixos.nix` registers `flake.nixosModules.browsers.webapps` in the other scope. A check that a name appears cannot check what the name says. The step now greps each file for the namespace the sentence attributes to it.
 - Task 9's `policyFile` collision assertion named one writer of a shared file when two exist, and the same narrowing had already been made once in this series for the same reason. `modules/browsers/brave/apps.nix` writes `/etc/brave/policies/managed/extended.json` under `programs.brave.extended.enable && programs.brave.extended.enableManagedPolicies`, which is exactly the conjunction Task 8 Step 3's assertion was widened to; Task 9's assertion still read `brave-origin` alone. `brave` enabled with `brave-origin` disabled, plus `policyFile` set to the `extended.json` name, put two owners on one entry with the assertion silent, while the option description claimed the name was refused. Task 8's assertion does not cover the gap either: it sits inside `config = lib.mkIf cfg.enable` in `brave-origin/apps.nix`, so with `brave-origin.extended.enable = false` that module contributes no `assertions` definition at all. The predicate now disjoins both Brave-family writers. Its message also claimed the sops branch fails silently, which is wrong: `environment.etc.<name>.source` is `types.path`, `etc.nix` derives `source` from `text` through `mkDerivedConfig` at the defining priority, and `mergeEqualOption` aborts on two definitions at equal priority. Only the two-`text` branch is silent.

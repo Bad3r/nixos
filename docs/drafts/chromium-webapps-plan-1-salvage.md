@@ -34,7 +34,7 @@ ______________________________________________________________________
 ### PR 1: salvage (files modified)
 
 - `tests/prune-old-stashes/run.sh`: replace `compgen` guard with `declare -F`
-- `modules/meta/hooks/statix.nix`: whole-tree branch when invoked with no arguments
+- `modules/meta/hooks/statix.nix`: add `checks.statix-tree`, which runs `hook-statix` with no arguments, plus the header comment and the widened `perSystem` arguments it needs. The no-argument whole-tree branch inside `hook-statix` is already on `main` (commit `66ac9bac`, an unrelated lefthook migration); what is missing there is a caller that reaches unstaged files in CI.
 
 ______________________________________________________________________
 
@@ -125,20 +125,26 @@ touch three files and none of them should conflict on a branch cut from `origin/
 ```bash
 cd "$HOME/trees/nixos/fix-build-time-shell"
 rg -n 'declare -F' tests/prune-old-stashes/run.sh
-rg -n 'compgen' tests/ modules/ packages/ -g '!modules/meta/build-time-shell.nix'
+rg -n -e '^[[:space:]]*!?[[:space:]]*compgen\b|\$\(!?[[:space:]]*compgen\b|(if|elif|while|until|then|else|do|;|&&|\|\|?|\{|\(|\))[[:space:]]+!?[[:space:]]*compgen\b' \
+  tests/ modules/ packages/
 ```
 
 Expected: `declare -F` present in the test runner; no output from the second command.
 
-`modules/meta/build-time-shell.nix` is excluded because it is the check created in Step 3, so it necessarily carries
-the literal string it scans for. Without the exclusion the sweep always prints hits and the pass condition has to be
-judged by eye.
+The second command is the detector's own predicate from `modules/meta/build-time-shell.nix`, not a bare
+`rg -n 'compgen'`, so the sweep and the check cannot report different things. A bare string search has no pass
+condition here: `modules/meta/build-time-shell.nix` carries the literal it scans for, its planted-lint fixtures pass
+`compgen` to `printf` as an argument, and `modules/hm-apps/proton-drive.nix` has carried a comment naming the builtin
+since before this branch existed. Excluding paths one at a time hides real reintroductions in whatever file is
+excluded next; matching a command position instead reports the one thing that matters. Verified both ways: on `main`
+the predicate matches exactly `tests/prune-old-stashes/run.sh`, the site Step 3 replaces, and on the rescued branch it
+matches nothing.
 
 - [ ] **Step 5: Run the checks**
 
 ```bash
 cd "$HOME/trees/nixos/fix-build-time-shell"
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 ```
 
@@ -175,7 +181,7 @@ command position, including negated and compound positions, and it no longer rea
 statix reached only staged files, so checks.statix-tree runs hook-statix with no arguments, skipping the vendored
 docs/nixos-manual mirror, and plants a lint so a clean \$out cannot mean a run that walked nothing.
 
-Validation: nix run path:.#formatter.x86_64-linux -- .;
+Validation: nix run path:.#treefmt -- .;
 nix flake check path:. --accept-flake-config --no-build --offline"
 git push -u origin fix/build-time-shell
 gh pr create --title "fix(checks): stop trusting compgen in build-time shell text" --body "$(cat <<'EOF'

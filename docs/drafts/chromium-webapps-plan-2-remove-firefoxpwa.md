@@ -202,7 +202,7 @@ full check at its Step 8. Running it here reports Task 4's outstanding work as a
 operator into the `_gecko-*.nix` files for an error that is not there.
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix-instantiate --parse modules/browsers/_gecko-extension-data.nix \
   modules/browsers/_gecko-extensions.nix modules/browsers/_gecko-mk-profile.nix \
   modules/browsers/firefox/home.nix modules/browsers/librewolf/home.nix > /dev/null
@@ -218,8 +218,9 @@ two files Task 10 adds. The alternative here is to unwire first and delete last,
 `modules/browsers/firefoxpwa/` reads none of the gecko bindings Task 3 removes, so the order 3, 4, 2 would leave
 every commit evaluating. It is not taken because the removal is one atomic `rip` whose recoverability the baseline
 sweep in Task 2 Step 2 is written against, and because renumbering the phase would invalidate the cross-references
-phase 3 makes to these task numbers, in Task 13, in its `docs/reference/webapps.md` block and in its self-review.
-Phase 1 makes none, and neither does any generated PR body. The cost is bounded and stated: two
+phase 3 makes to these task numbers, in Task 17 Step 2 and in its self-review. Those are the only two;
+`rg -n 'Phase 2 Task' docs/drafts/chromium-webapps-plan-3-implement.md` finds nothing in Task 13 or in the
+`docs/reference/webapps.md` block. Phase 1 makes none, and neither does any generated PR body. The cost is bounded and stated: two
 commits in this phase evaluate only as part of the sequence, and the phase does not merge until Task 4 Step 8
 passes.
 
@@ -326,7 +327,7 @@ task's `refactor(hosts)!` commit would misstate that commit's scope.
 - [ ] **Step 8: Validate and commit**
 
 ```bash
-nix run path:.#formatter.x86_64-linux -- .
+nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 git add modules/hosts/common/home-manager-apps.nix modules/hosts/common/apps-enable.nix \
   modules/tpnix/apps-enable.nix modules/meta/cache-roots.nix .github/workflows/update-flake.yml pyproject.toml
