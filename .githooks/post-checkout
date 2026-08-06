@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Managed by Nix. Edit modules/development/git-hooks-post-checkout.nix
-# then run `nix develop -c write-files` to refresh.
+# then run `nix develop path:. -c write-files` to refresh. This hook fires
+# on `git worktree add`, and a clean linked worktree is not fetchable as a
+# git+file flake, so the bare form fails exactly where this text is read.
 #
 # post-checkout args: $1=prev_head $2=new_head $3=flag (1=branch, 0=file)
 # Fires on `git checkout <branch>` and on `git worktree add`.
