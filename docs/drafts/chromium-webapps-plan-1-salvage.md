@@ -27,17 +27,22 @@ ______________________________________________________________________
 
 ## File Structure
 
+### PR 1: salvage (files created)
+
+- `modules/meta/build-time-shell.nix`: flake check banning `compgen` at a command position in build-time shell
+
 ### PR 1: salvage (files modified)
 
 - `tests/prune-old-stashes/run.sh`: replace `compgen` guard with `declare -F`
-- `modules/meta/build-time-shell.nix`: new flake check banning `compgen` at a command position in build-time shell
 - `modules/meta/hooks/statix.nix`: whole-tree branch when invoked with no arguments
 
 ______________________________________________________________________
 
 ## Tasks
 
-The branch is at `/home/vx/trees/nixos/feat-firefoxpwa-m365`. Its commits 2 and 3 fix repo-wide defects that have nothing to do with firefoxpwa. They must land before the removal so main stops carrying a check that reports a pass while verifying nothing.
+The branch is at `/home/vx/trees/nixos/feat-firefoxpwa-m365`. Twelve of its commits fix repo-wide defects that have nothing to do with firefoxpwa. They must land before the removal so main stops carrying a check that reports a pass while verifying nothing.
+
+The count is not stated in the cherry-pick command below, and Step 2 reads it from the branch rather than from this file. The branch kept growing after the first draft of this plan named two commits: the compgen detector alone gained four follow-ups that widen what it catches, and one of them fixes the detector reading `grep` exit 2 as a clean tree. A rescue pinned to a number goes stale the next time the branch moves.
 
 ### Task 1: Rescue the compgen and statix fixes onto a clean branch
 
@@ -57,28 +62,44 @@ git fetch origin main
 git worktree add "$HOME/trees/nixos/fix-build-time-shell" -b "fix/build-time-shell" origin/main
 ```
 
-- [ ] **Step 2: Identify the two commits to cherry-pick**
+- [ ] **Step 2: Identify every commit to cherry-pick**
 
 ```bash
 cd /home/vx/trees/nixos/feat-firefoxpwa-m365
-git log --oneline --format='%h %s' origin/main..HEAD -- \
-  tests/prune-old-stashes/run.sh modules/meta/build-time-shell.nix modules/meta/hooks/statix.nix
+git log --reverse --oneline --format='%h %s' origin/main..HEAD -- \
+  tests/prune-old-stashes/run.sh modules/meta/build-time-shell.nix modules/meta/hooks/statix.nix \
+  | tee /tmp/rescue-shas.txt
 ```
 
-Expected: commit hashes touching only those three paths. Record them as `$COMPGEN_SHA` and `$STATIX_SHA`.
+Expected: every commit touching those three paths, oldest first, twelve at the time of writing. `--reverse` matters:
+`git log` prints newest first and `git cherry-pick` replays in the order given, so the default order applies the
+follow-up fixes before the commits they fix and conflicts on nearly every one.
+
+Confirm none of them carries unrelated content before replaying:
+
+```bash
+cut -d' ' -f1 /tmp/rescue-shas.txt | while read -r sha; do
+  git show --format='' --name-only "$sha" | rg -v '^$' \
+    | rg -v '^(tests/prune-old-stashes/run.sh|modules/meta/build-time-shell.nix|modules/meta/hooks/statix.nix)$' \
+    | sed "s|^|$sha |"
+done
+```
+
+Expected: one line, `<sha> modules/browsers/firefoxpwa/m365-check.nix`, from the first commit. That path is deleted
+in PR 2 and Step 3 drops it. Any other line is a commit that would drag firefoxpwa content onto a branch meant to
+contain none; read it before continuing.
 
 `origin/main`, matching Step 1 and Step 6. Step 1's `git fetch origin main` updates `origin/main` and not local
 `main`, and refs are shared across worktrees, so a stale local `main` here lists commits that are already merged
 alongside the ones to rescue. `modules/meta/hooks/statix.nix` and `tests/prune-old-stashes/run.sh` both exist on
-`main` today, so a merged commit touching either satisfies the expectation above, the wrong `$STATIX_SHA` gets
-recorded, and Step 3 cherry-picks a commit that is already an ancestor of the branch.
-`modules/meta/build-time-shell.nix` is new, so it cannot produce that.
+`main` today, so a merged commit touching either satisfies the expectation above and Step 3 cherry-picks a commit
+that is already an ancestor of the branch. `modules/meta/build-time-shell.nix` is new, so it cannot produce that.
 
 - [ ] **Step 3: Cherry-pick them onto the clean branch**
 
 ```bash
 cd "$HOME/trees/nixos/fix-build-time-shell"
-git cherry-pick "$COMPGEN_SHA" "$STATIX_SHA"
+git cherry-pick $(cut -d' ' -f1 /tmp/rescue-shas.txt | tr '\n' ' ')
 ```
 
 Only if the cherry-pick stops on a conflict in `modules/browsers/firefoxpwa/m365-check.nix`, drop that path: it is
@@ -96,8 +117,8 @@ this task exists to rescue, and a trailing `|| true` hides that it happened. `gi
 own: it leaves the file in the working tree as untracked, and without `--continue` the cherry-pick is never
 finished, so Step 5 would run against a tree still mid-conflict.
 
-If any path other than `m365-check.nix` conflicts, stop and resolve it by reading the hunk. The two commits touch
-three files and none of them should conflict on a branch cut from `origin/main`.
+If any path other than `m365-check.nix` conflicts, stop and resolve it by reading the hunk. The rescued commits
+touch three files and none of them should conflict on a branch cut from `origin/main` when replayed oldest first.
 
 - [ ] **Step 4: Verify the compgen fix actually detects what it claims**
 
@@ -125,12 +146,13 @@ Expected: exit 0.
 
 - [ ] **Step 6: Commit and open the PR**
 
-Step 3's `git cherry-pick` already committed both changes, and its conflict path ends in `git cherry-pick --continue`,
-which commits too. Without collapsing them first there is nothing left to commit here: `git add` stages nothing,
-`git commit` exits 1 with `nothing added to commit`, and because this block is pasted rather than run under `set -e`
-the `git push` and `gh pr create` below still run, publishing #435's two original messages instead of the one written
-here. `git reset --soft origin/main` puts both picked changes plus Step 5's formatter run back in the index as one
-staged change. `m365-check.nix` is absent from `origin/main`, so Step 3's `git rm -f` resolution contributes nothing.
+Step 3's `git cherry-pick` already committed every rescued change, and its conflict path ends in
+`git cherry-pick --continue`, which commits too. Without collapsing them first there is nothing left to commit here:
+`git add` stages nothing, `git commit` exits 1 with `nothing added to commit`, and because this block is pasted
+rather than run under `set -e` the `git push` and `gh pr create` below still run, publishing #435's original messages
+instead of the one written here. `git reset --soft origin/main` puts every picked change plus Step 5's formatter run
+back in the index as one staged change. `m365-check.nix` is absent from `origin/main`, so Step 3's `git rm -f`
+resolution contributes nothing.
 
 ```bash
 cd "$HOME/trees/nixos/fix-build-time-shell"
@@ -143,7 +165,9 @@ and a condition context turns that into false rather than an error. Every leftov
 reported a pass while checking nothing. tests/prune-old-stashes/run.sh used the same builtin for its
 defined-but-never-ran guard and passes today only because modules/meta/script-tests.nix puts pkgs.bash on PATH.
 Replaced with \`declare -F\`, and checks.build-time-shell now scans modules/, packages/ and tests/ for the builtin at a
-command position. statix reached only staged files, so checks.statix-tree runs hook-statix with no arguments.
+command position, including negated and compound positions, and it no longer reads grep exit 2 as a clean tree.
+statix reached only staged files, so checks.statix-tree runs hook-statix with no arguments, skipping the vendored
+docs/nixos-manual mirror, and plants a lint so a clean \$out cannot mean a run that walked nothing.
 
 Validation: nix run path:.#formatter.x86_64-linux -- .;
 nix flake check path:. --accept-flake-config --no-build --offline"
@@ -153,8 +177,10 @@ gh pr create --title "fix(checks): stop trusting compgen in build-time shell tex
 
 - `compgen -G` is unavailable in `runCommand` bash, so every leftover-temporary assertion using it passed without
   checking anything. Replaced with `declare -F`.
-- `checks.build-time-shell` scans `modules/`, `packages/` and `tests/` for the builtin at a command position.
-- `checks.statix-tree` runs `hook-statix` with no arguments so lints in unstaged files are reachable in CI.
+- `checks.build-time-shell` scans `modules/`, `packages/` and `tests/` for the builtin at a command position, plain,
+  negated and compound, and treats `grep` exit 2 as an error rather than a clean tree.
+- `checks.statix-tree` runs `hook-statix` with no arguments so lints in unstaged files are reachable in CI, skipping
+  the vendored `docs/nixos-manual` mirror.
 
 Rescued from #435, which is being closed unmerged.
 
