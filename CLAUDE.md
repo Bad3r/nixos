@@ -213,29 +213,34 @@ include:
 
 ## Development Commands
 
+As in `## Validation` below, these are written for a linked worktree, since that
+is where the branch workflow above puts the work; dropping `path:.` gives the
+primary-checkout form.
+
 Start the development environment:
 
 ```sh
-nix develop
+nix develop path:.
 ```
 
-Preconditions: clean tree and network access for substituters.
+Preconditions: network access for substituters.
 Post-check: dev tools such as `treefmt` and `pre-commit` are available.
 
 Format sources:
 
 ```sh
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 ```
 
-Preconditions: run at repo root, in the primary checkout. In a linked worktree
-use `nix run path:.#formatter.x86_64-linux -- .` instead.
+Preconditions: run at repo root. `nix fmt` is the primary-checkout form; it is
+the one command `path:.` cannot fix, so a linked worktree needs the `nix run`
+form above, or `-- <file>` for a targeted run.
 Post-check: no remaining formatting diffs in `git status`.
 
 Run hooks:
 
 ```sh
-nix develop -c pre-commit run --all-files --hook-stage manual
+nix develop path:. -c pre-commit run --all-files --hook-stage manual
 ```
 
 Preconditions: dev shell ready and workspace writable.
@@ -244,7 +249,7 @@ Post-check: exit code 0. Review reported TODOs and failures.
 Generate managed artifacts:
 
 ```sh
-nix develop --accept-flake-config -c write-files --offline
+nix develop path:. --accept-flake-config -c write-files --offline
 ```
 
 Post-check: review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`,
@@ -279,19 +284,19 @@ worktree, since that is where the branch workflow above puts the work; the plain
 List jobs:
 
 ```sh
-nix develop -c gh-actions-list
+nix develop path:. -c gh-actions-list
 ```
 
 Run jobs locally through `act`:
 
 ```sh
-nix develop -c gh-actions-run
+nix develop path:. -c gh-actions-run
 ```
 
 Dry run:
 
 ```sh
-nix develop -c gh-actions-run -n
+nix develop path:. -c gh-actions-run -n
 ```
 
 Reserve expensive local workflow runs for changes that affect workflow paths or
@@ -340,5 +345,5 @@ sops.secrets."context7/api-key" = {
 - Missing reference:
   Ensure the file is tracked by git.
 - Need to explore config:
-  Run `nix develop --accept-flake-config -c nix repl --expr 'import ./.'`, then
-  inspect config module imports.
+  Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
+  then inspect config module imports.
