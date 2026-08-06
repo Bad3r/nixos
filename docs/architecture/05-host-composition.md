@@ -3,7 +3,7 @@
 This document explains how host configurations are assembled from modules. Each host lives in its own `modules/<host>/` directory and feeds the `configurations.nixos.<host>` aggregator. To enumerate the active hosts at any time:
 
 ```bash
-nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames
+nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames
 ```
 
 ## Host Definition Pattern
@@ -196,12 +196,12 @@ For integration-specific details of the external R2 module chain, see [`../r2-cl
 After host-level changes, build every affected host closure and run flake-level checks. Substitute the host name(s) you actually touched:
 
 ```bash
-nix build .#nixosConfigurations.<host>.config.system.build.toplevel
-nix flake check --accept-flake-config --no-build --offline
-nix run .#generation-manager -- score   # target: 20/20
+nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
+nix flake check path:. --accept-flake-config --no-build --offline
+nix run path:.#generation-manager -- score   # target: 20/20
 ```
 
-Use `nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames` to enumerate the host names available in the current checkout.
+Use `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames` to enumerate the host names available in the current checkout.
 
 ## Next Steps
 
