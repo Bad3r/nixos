@@ -11,7 +11,9 @@ This repository stores the personal access token used by `act` in `secrets/act.y
 ## Host Setup (one-time)
 
 1. Install the canonical Age host key at `/var/lib/sops-nix/key.txt` if it is not already present (see `docs/sops/README.md`).
-2. Ensure the host key is listed in `modules/security/sops-policy.nix` (it is named `host_pub_key` by default). Run `nix develop -c write-files` to refresh `.sops.yaml`.
+2. Ensure the host key is listed in `modules/security/sops-policy.nix` (it is named `host_pub_key` by default). Run `nix develop path:. -c write-files` to refresh `.sops.yaml`.
+
+Commands on this page carry the explicit `path:.` installable because the branch workflow in `AGENTS.md` puts the work in a linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not a directory. Dropping `path:.` gives the primary-checkout form.
 
 ## Adding or Rotating the Token
 
@@ -26,7 +28,7 @@ sops secrets/act.yaml
 After committing the encrypted file, rebuild and deploy with the approved helpers:
 
 ```bash
-nix build .#nixosConfigurations.system76.config.system.build.toplevel
+nix build "path:.#nixosConfigurations.system76.config.system.build.toplevel"
 ./build.sh --host system76 --boot
 ```
 
@@ -44,14 +46,14 @@ sudo grep -q '^GITHUB_TOKEN=' /etc/act/secrets.env
 Run GitHub Actions locally:
 
 ```bash
-nix develop -c gh-actions-run -n     # dry run to verify configuration
-nix develop -c gh-actions-run        # full run (requires Docker)
+nix develop path:. -c gh-actions-run -n     # dry run to verify configuration
+nix develop path:. -c gh-actions-run        # full run (requires Docker)
 ```
 
 Pass a different secret file if needed:
 
 ```bash
-ACT_SECRETS_FILE=$PWD/tmp/secrets.env nix develop -c gh-actions-run
+ACT_SECRETS_FILE=$PWD/tmp/secrets.env nix develop path:. -c gh-actions-run
 ```
 
 ## Security Notes

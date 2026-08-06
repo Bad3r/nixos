@@ -83,7 +83,7 @@ no file remains encrypted to the retired key.
    matching `hostPubKey` literal in
    `modules/security/sops-cleartext-check.nix` with the printed public key,
    then regenerate `.sops.yaml` with
-   `nix develop --accept-flake-config -c write-files --offline`.
+   `nix develop path:. --accept-flake-config -c write-files --offline`.
 3. Run `sops updatekeys` for every encrypted file under `secrets/`. Until this
    finishes, `secrets-no-cleartext` intentionally reports existing payloads as
    cleartext because their metadata still names the retired recipient.
@@ -101,7 +101,7 @@ hardware-backed SSH keys can coexist without breaking SOPS.
 
 ## Adding a New Secret
 
-1. Confirm the recipient exists in `.sops.yaml` (regenerate via `nix develop -c write-files` if you just edited the policy module).
+1. Confirm the recipient exists in `.sops.yaml` (regenerate via `nix develop path:. -c write-files` if you just edited the policy module).
 2. Create or edit the encrypted file under `secrets/`:
    ```bash
    sops secrets/<service>.yaml
@@ -183,7 +183,7 @@ hardware-backed SSH keys can coexist without breaking SOPS.
 - Encrypted file: `secrets/act.yaml` with field `github_token`.
 - Declaration lives in `modules/security/secrets.nix` (`sops.secrets."act/github_token"`).
 - Template renders `/etc/act/secrets.env` and the dev-shell helper `gh-actions-run` automatically picks it up unless `ACT_SECRETS_FILE` overrides the path.
-- Rotate with `sops secrets/act.yaml`, build via `nix build .#nixosConfigurations.system76.config.system.build.toplevel`, and deploy with `./build.sh --host system76 --boot` (or the approved helper for your host).
+- Rotate with `sops secrets/act.yaml`, build via `nix build "path:.#nixosConfigurations.system76.config.system.build.toplevel"`, and deploy with `./build.sh --host system76 --boot` (or the approved helper for your host).
 
 ## Working With `r2.yaml`
 
@@ -297,15 +297,15 @@ The key insight: always use `sops -e -i` (in-place) for the final encryption ste
 
 ## Common Issues
 
-| Symptom                               | Fix                                                                                                                                                                                 |
-| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `no secret material for ...`          | Check that the encrypted file exists. Declarations are guarded with `pathExists`.                                                                                                   |
-| `Unknown recipient` while editing     | Regenerate `.sops.yaml` (`nix develop -c write-files`) or add the key to `modules/security/sops-policy.nix`.                                                                        |
-| `Permission denied` reading secret    | Adjust the `owner`/`group` fields in the module; sops-nix enforces them strictly.                                                                                                   |
-| `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (rerun `./build.sh --host <host> --boot` or the approved deployment helper after updating secrets).                                            |
-| `no matching creation rules found`    | The file path is outside `secrets/`, or `.sops.yaml` is stale. Regenerate the policy with `nix develop -c write-files`; paths under `secrets/` are covered regardless of extension. |
-| `sops metadata not found`             | The file is plaintext or corrupted. Re-encrypt with `sops -e -i <file>` if plaintext, or restore from backup if corrupted.                                                          |
-| File truncated to 0 bytes             | Shell redirect (`>`) truncated before command ran. Restore from backup and use `sops -e -i` (in-place) instead of redirects.                                                        |
+| Symptom                               | Fix                                                                                                                                                                                        |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `no secret material for ...`          | Check that the encrypted file exists. Declarations are guarded with `pathExists`.                                                                                                          |
+| `Unknown recipient` while editing     | Regenerate `.sops.yaml` (`nix develop path:. -c write-files`) or add the key to `modules/security/sops-policy.nix`.                                                                        |
+| `Permission denied` reading secret    | Adjust the `owner`/`group` fields in the module; sops-nix enforces them strictly.                                                                                                          |
+| `act` complaining about missing token | Ensure `/etc/act/secrets.env` exists (rerun `./build.sh --host <host> --boot` or the approved deployment helper after updating secrets).                                                   |
+| `no matching creation rules found`    | The file path is outside `secrets/`, or `.sops.yaml` is stale. Regenerate the policy with `nix develop path:. -c write-files`; paths under `secrets/` are covered regardless of extension. |
+| `sops metadata not found`             | The file is plaintext or corrupted. Re-encrypt with `sops -e -i <file>` if plaintext, or restore from backup if corrupted.                                                                 |
+| File truncated to 0 bytes             | Shell redirect (`>`) truncated before command ran. Restore from backup and use `sops -e -i` (in-place) instead of redirects.                                                               |
 
 ## Validation Commands
 
