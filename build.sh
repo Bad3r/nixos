@@ -230,6 +230,12 @@ if [[ ! -d ${FLAKE_DIR} ]]; then
   exit 1
 fi
 
+# Absolute from here on. A relative -p argument would reach Lix as
+# `path:relative/dir`, and its path fetcher throws
+# "cannot fetch input ... because it uses a relative path" when it writes
+# flake.lock back.
+FLAKE_DIR="$(cd "${FLAKE_DIR}" && pwd -P)"
+
 if [[ ! -f "${FLAKE_DIR}/flake.nix" ]]; then
   error_msg "flake.nix not found in ${FLAKE_DIR}"
   exit 1
@@ -351,9 +357,15 @@ configure_nix_config() {
 }
 
 resolve_installable() {
-  # When allow-dirty is enabled, force a path flake reference so untracked
-  # files are included in evaluation/build (git+file ignores untracked files).
-  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+  # Two cases need a path: reference rather than the git+file one Lix infers
+  # from a bare directory. With allow-dirty, so untracked files reach
+  # evaluation at all (git+file ignores them). In a linked worktree, because
+  # .git is a file there and Lix reads it as a directory:
+  #   error: opening file '<dir>/.git/config': Not a directory
+  # Elsewhere the bare form stays, since path: dumps the tree unfiltered:
+  # a primary checkout would copy all of .git into the store, and self.rev
+  # would go missing along with system.configurationRevision.
+  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" || -f "${FLAKE_DIR}/.git" ]]; then
     printf "path:%s" "${FLAKE_DIR}"
   else
     printf "%s" "${FLAKE_DIR}"
@@ -402,7 +414,7 @@ sync_pre_commit_hooks() {
   status_msg "${YELLOW}" "Synchronizing pre-commit hooks for worktree compatibility..."
   (
     cd "${FLAKE_DIR}"
-    nix develop "${BUILD_FLAGS[@]}" -c bash "${sync_script}"
+    nix develop "$(resolve_installable)" "${BUILD_FLAGS[@]}" -c bash "${sync_script}"
   )
 }
 
@@ -434,10 +446,13 @@ check_reboot_needed() {
 }
 
 run_flake_update() {
+  local installable
+  installable="$(resolve_installable)"
   status_msg "${YELLOW}" "Refreshing flake metadata..."
-  nix flake metadata "${FLAKE_DIR}" --refresh "${BUILD_FLAGS[@]}"
+  nix flake metadata "${installable}" --refresh "${BUILD_FLAGS[@]}"
   status_msg "${YELLOW}" "Updating flake inputs..."
-  nix flake update --flake "${FLAKE_DIR}" "${BUILD_FLAGS[@]}"
+  # The flake goes in --flake: positional arguments here are input names.
+  nix flake update --flake "${installable}" "${BUILD_FLAGS[@]}"
 }
 
 resolve_nh_command() {
@@ -504,7 +519,7 @@ main() {
     status_msg "${YELLOW}" "Running pre-commit hooks..."
     (
       cd "${FLAKE_DIR}"
-      nix develop "${BUILD_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
+      nix develop "$(resolve_installable)" "${BUILD_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
     )
   else
     status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
@@ -523,7 +538,7 @@ main() {
 
   if [[ ${SKIP_CHECK} == "false" ]]; then
     status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
-    nix flake check "${FLAKE_DIR}" --no-build "${BUILD_FLAGS[@]}"
+    nix flake check "$(resolve_installable)" --no-build "${BUILD_FLAGS[@]}"
   else
     status_msg "${YELLOW}" "Skipping flake check (--skip-check flag used)..."
   fi
