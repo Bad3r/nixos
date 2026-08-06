@@ -835,8 +835,9 @@ Create `modules/browsers/webapps/nixos.nix`:
           description = ''
             Path under /etc for the generated web app policy. Must sit in the same
             managed directory the browser reads. An assertion refuses the
-            brave-origin extended.json name, because two owners of one
-            environment.etc entry fail silently rather than at evaluation.
+            extended.json name any Brave-family module writes, because two text
+            owners of one environment.etc entry concatenate into an unparsable
+            file instead of conflicting.
           '';
         };
 
@@ -986,18 +987,28 @@ Create `modules/browsers/webapps/nixos.nix`:
               }
               {
                 assertion =
-                  !(
-                    config.programs."brave-origin".extended.enable
-                    && config.programs."brave-origin".extended.enableManagedPolicies
-                    && cfg.policyFile == "brave/policies/managed/extended.json"
+                  cfg.policyFile != "brave/policies/managed/extended.json"
+                  || !(
+                    (
+                      config.programs."brave-origin".extended.enable
+                      && config.programs."brave-origin".extended.enableManagedPolicies
+                    )
+                    || (
+                      config.programs.brave.extended.enable
+                      && config.programs.brave.extended.enableManagedPolicies
+                    )
                   );
                 message = ''
-                  programs.webapps.policyFile names the same /etc entry programs.brave-origin.extended
-                  writes. environment.etc.<name>.text is nullOr lines and merges by concatenation, so two
-                  owners leave one file holding two JSON documents and no policy at all; and when a secret
-                  origin routes this file through sops, the explicit source definition here wins over the
-                  one derived from brave-origin's text and drops the hardened set instead. Neither fails
-                  at evaluation. Use a different file name in the same managed directory.
+                  programs.webapps.policyFile names the /etc entry a Brave-family module writes.
+                  programs.brave.extended and programs.brave-origin.extended each write
+                  /etc/brave/policies/managed/extended.json under their own enable plus
+                  enableManagedPolicies, so either one alone is a second owner.
+                  environment.etc.<name>.text is nullOr lines and merges by concatenation, so two text
+                  owners leave one file holding two JSON documents and no policy at all, with no
+                  evaluation error. The sops branch below defines source instead, which collides at equal
+                  priority with the source etc.nix derives from the other module's text and aborts
+                  pointing at environment.etc rather than at this option. Use a different file name in
+                  the same managed directory.
                 '';
               }
             ];
@@ -3426,7 +3437,7 @@ ______________________________________________________________________
 - Two facts are assumed rather than proven: that `ExtensionSettings` gates `--load-extension` (Task 10 Step 0) and that Brave enforces `ScreenCaptureAllowedByOrigins` rather than merely recognizing the key (Task 18 Step 2). Every policy name the plan writes is confirmed present in the pinned `brave-origin` build's string table, so neither open question is about a removed or renamed policy. Both have a named step and neither changes the plan's shape.
 - `_check-apps.nix` restates the submodule defaults from `nixos.nix` and the default of `defaultExtensions`. Nothing enforces that they agree, so a new option default added to `nixos.nix` alone makes the fixture describe a policy the hosts do not get. The file header says so; a check that compares the two is a reasonable follow-up.
 
-**Where validation would have missed a real failure.** Eight cases earlier drafts of this series would have passed:
+**Where validation would have missed a real failure.** Nine cases earlier drafts of this series would have passed:
 
 - Task 12's launcher validated by `nix eval` on package names. `writeShellApplication` runs `shellcheck` at build time, so a malformed command body is a build failure that eval never reaches. An `lib.optionalString` inside a backslash-continued argument list rendered a whitespace-only line for every app without `reload.enable` and both tray wrappers, terminating the command early. Now validated with `nix build` plus reading back the two shapes that differ (Task 12 Step 5), after Task 12 Step 3 turns the module on so the build has launchers to check at all.
 - `lib.getExe pkgs.diffutils` in Task 14 pointed at a `bin/diffutils` that does not exist, so the policy check would have failed on its own tooling. Now `lib.getExe' pkgs.diffutils "diff"`.
@@ -3435,6 +3446,7 @@ ______________________________________________________________________
 - Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created two steps earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds.
 - Task 14's `policy-check.nix` derived its independent expectation with `lib.splitString "/" app.url` and no secret branch. Every app in the catalog at that point has a literal `url`, so Task 14 passes; Task 16 adds DMail with `url = null` and `originSecret` set, and the check aborts with `cannot coerce null to a string` as soon as `lib.sort` forces the element. The failure would have surfaced two tasks after the file that caused it. `originOf` now takes the `originSecret` branch, reusing only `_check-apps.nix`'s placeholder constant.
 - Task 17 Step 2 verified its architecture-doc sentence with `rg -n 'webapps'` and an `ls` of both files. Both pass on a sentence that names the wrong namespace, which the sentence did: it presented `webapps/home.nix` and `webapps/nixos.nix` as two siblings extending one `flake.homeManagerModules.browsers.<name>` key, while `nixos.nix` registers `flake.nixosModules.browsers.webapps` in the other scope. A check that a name appears cannot check what the name says. The step now greps each file for the namespace the sentence attributes to it.
+- Task 9's `policyFile` collision assertion named one writer of a shared file when two exist, and the same narrowing had already been made once in this series for the same reason. `modules/browsers/brave/apps.nix` writes `/etc/brave/policies/managed/extended.json` under `programs.brave.extended.enable && programs.brave.extended.enableManagedPolicies`, which is exactly the conjunction Task 8 Step 3's assertion was widened to; Task 9's assertion still read `brave-origin` alone. `brave` enabled with `brave-origin` disabled, plus `policyFile` set to the `extended.json` name, put two owners on one entry with the assertion silent, while the option description claimed the name was refused. Task 8's assertion does not cover the gap either: it sits inside `config = lib.mkIf cfg.enable` in `brave-origin/apps.nix`, so with `brave-origin.extended.enable = false` that module contributes no `assertions` definition at all. The predicate now disjoins both Brave-family writers. Its message also claimed the sops branch fails silently, which is wrong: `environment.etc.<name>.source` is `types.path`, `etc.nix` derives `source` from `text` through `mkDerivedConfig` at the defining priority, and `mergeEqualOption` aborts on two definitions at equal priority. Only the two-`text` branch is silent.
 - Task 16 staged the new secret with `git -C secrets add` and `git add secrets` and no commit inside the submodule, so the gitlink never moved and the superproject recorded the pre-edit revision. Its `nix flake check` reads the working tree, where the key is present, so the step passed while the key stayed local. `self.submodules = true` means the failure lands on the next clean checkout or in CI, one task before the PR opens. The submodule commit and push are part of the step now, with a `git diff --cached --submodule=short` for the gitlink and an `ls-remote` comparison for the push. The first attempt at that second check read `git status --short --branch` for an `ahead` field, which is itself an instance of this same pattern: `git submodule update` leaves the submodule on a detached HEAD, where the line reads `## HEAD (no branch)` and carries no `ahead` field, so the check passed exactly when the push had not happened.
 
 **Type consistency.** `key`, `name`, `url`, `urlSecret`, `originSecret`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `nixos.nix`, `_check-apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. Both `originOf` implementations, the generator's in `_policy.nix` and the independent one in `policy-check.nix`, branch on `originSecret` before reading `url`, so an app with a secret origin never reaches `lib.splitString` with a `null`. The `originPlaceholder` argument has the same `key -> string` signature at both call sites (`nixos.nix` and `_check-apps.nix`). `keepAliveExtensionId` is a plain `str` at its three call sites (`nixos.nix`, `_check-apps.nix`, `keepalive-id-check.nix`) and is the value `_reload-extension.nix` bakes into the manifest through `publicKey`.
