@@ -163,6 +163,15 @@ In a linked worktree, give flake commands an explicit `path:.` installable
 Lix cannot fetch a clean linked worktree as a `git+file` flake because `.git`
 is a file there, not a directory. The repo hooks already do this.
 
+`nix fmt` is the one command that cannot be fixed that way. Lix hardcodes the
+`.` installable in `lix/nix/fmt.cc`, so `nix fmt path:.` passes `path:.` to
+treefmt as a path argument and still resolves `.` as the flake. Run
+`nix run path:.#formatter.x86_64-linux -- .` instead, or
+`-- <file>` for a targeted run. A dirty worktree hides the failure, because Lix
+copies the working tree instead of fetching the revision, so a block that
+happens to run with uncommitted changes present works and the same block run on
+a clean tree exits 1.
+
 Work in that tree, then create a PR:
 
 ```sh
@@ -212,7 +221,8 @@ Format sources:
 nix fmt
 ```
 
-Preconditions: run at repo root.
+Preconditions: run at repo root, in the primary checkout. In a linked worktree
+use `nix run path:.#formatter.x86_64-linux -- .` instead.
 Post-check: no remaining formatting diffs in `git status`.
 
 Run hooks:
