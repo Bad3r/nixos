@@ -322,7 +322,9 @@
           pkgs
           osConfig
           config
+          claudeEnv
           ;
+        claudeDefaults = defaults;
         inherit (settings) claudeSettingsFile claudeJsonConfigFile;
       };
 
