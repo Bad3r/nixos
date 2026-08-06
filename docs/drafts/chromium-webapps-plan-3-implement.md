@@ -101,12 +101,14 @@ follow-ups, not part of this plan.
 
 - Allowlist policies that exist: `AudioCaptureAllowedUrls`, `VideoCaptureAllowedUrls`, `NotificationsAllowedForUrls`, `ClipboardAllowedForUrls`, `ScreenCaptureAllowedByOrigins`, `SensorsAllowedForUrls`, `WindowManagementAllowedForUrls`, `LocalFontsAllowedForUrls`.
 
-- **Every policy name this plan writes is registered in the build the repo pins.** Each of the names in the two bullets above, plus `URLAllowlist` and `SafeBrowsingProtectionLevel`, appears as an exact standalone string in the `brave-origin` binary's string table. This is what rules out a removed or renamed key. It is a property of whatever version `packages/brave-origin/default.nix` currently pins, so re-run it after a bump rather than trusting this line:
+- **Every policy name this plan writes is registered in the build the repo pins.** All twenty names, the ten and eight in the two bullets above plus `URLAllowlist` and `SafeBrowsingProtectionLevel`, appear as an exact standalone string in the `brave-origin` binary's string table. This is what rules out a removed or renamed key. It is a property of whatever version `packages/brave-origin/default.nix` currently pins, so re-run it after a bump rather than trusting this line:
 
   ```bash
   bin="$(nix build --impure --no-link --print-out-paths --expr 'with import <nixpkgs> {}; brave-origin')/opt/brave.com/brave-origin-nightly/brave"
   strings -a "$bin" > /tmp/brave-strings.txt
   for p in AudioCaptureAllowed VideoCaptureAllowed ScreenCaptureAllowed \
+    DefaultNotificationsSetting DefaultClipboardSetting DefaultSensorsSetting \
+    DefaultWindowManagementSetting DefaultLocalFontsSetting \
     AudioCaptureAllowedUrls VideoCaptureAllowedUrls ScreenCaptureAllowedByOrigins \
     NotificationsAllowedForUrls ClipboardAllowedForUrls SensorsAllowedForUrls \
     WindowManagementAllowedForUrls LocalFontsAllowedForUrls URLAllowlist \
