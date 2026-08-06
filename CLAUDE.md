@@ -163,14 +163,21 @@ In a linked worktree, give flake commands an explicit `path:.` installable
 Lix cannot fetch a clean linked worktree as a `git+file` flake because `.git`
 is a file there, not a directory. The repo hooks already do this.
 
-`nix fmt` is the one command that cannot be fixed that way. Lix hardcodes the
-`.` installable in `lix/nix/fmt.cc`, so `nix fmt path:.` passes `path:.` to
-treefmt as a path argument and still resolves `.` as the flake. Run
-`nix run path:.#formatter.x86_64-linux -- .` instead, or
-`-- <file>` for a targeted run. A dirty worktree hides the failure, because Lix
-copies the working tree instead of fetching the revision, so a block that
-happens to run with uncommitted changes present works and the same block run on
-a clean tree exits 1.
+Two commands take a different form, because appending `path:.` does not fix
+them:
+
+- `nix fmt`. Lix hardcodes the `.` installable in `lix/nix/fmt.cc`, so
+  `nix fmt path:.` passes `path:.` to treefmt as a path argument and still
+  resolves `.` as the flake. Run `nix run path:.#formatter.x86_64-linux -- .`
+  instead, or `-- <file>` for a targeted run.
+- `nix flake update`. It reads positional arguments as input names, so the
+  flake goes in `--flake`, and a relative ref is rejected there
+  (`cannot fetch input 'path:.' because it uses a relative path`). Run
+  `nix flake update --flake "path:$PWD"`.
+
+A dirty worktree hides all of this, because Lix copies the working tree instead
+of fetching the revision, so a command that happens to run with uncommitted
+changes present works and the same command run on a clean tree exits 1.
 
 Work in that tree, then create a PR:
 
@@ -246,20 +253,26 @@ Post-check: review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`,
 
 ## Validation
 
-Use these repo-specific validation defaults:
+Use these repo-specific validation defaults. Commands are written for a linked
+worktree, since that is where the branch workflow above puts the work; the plain
+`.` forms work in the primary checkout as well.
 
-- Value-level edits to existing lists or attrsets: `nix fmt` plus a parse or
-  targeted eval check. Skip `nix flake check` during iteration.
+- Value-level edits to existing lists or attrsets:
+  `nix run path:.#formatter.x86_64-linux -- .` plus a parse or targeted eval
+  check. Skip `nix flake check` during iteration.
 - Structural changes such as new modules, options, imports, let-binding
   refactors, or argument-shape changes:
-  `nix flake check --accept-flake-config --no-build --offline`.
+  `nix flake check path:. --accept-flake-config --no-build --offline`.
 - Host closure changes:
-  `nix build ".#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`.
+  `nix build "path:.#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`.
 - Overlay or override changes that can affect binary-cache coverage:
   `scripts/cache-coverage.sh --host $HOSTNAME` (evaluation plus narinfo
-  probes, no builds; see `docs/reference/cache-coverage.md`).
-- Input updates:
-  `nix flake metadata --refresh`, `nix flake update`, then `nix fmt flake.lock`.
+  probes, no builds; see `docs/reference/cache-coverage.md`). The script
+  resolves its own `path:` ref.
+- Input updates: `nix flake metadata --refresh path:.`, then
+  `nix flake update --flake "path:$PWD"`, then
+  `nix run path:.#formatter.x86_64-linux -- flake.lock`. See the worktree note
+  above for why the last two are not `path:.`.
 
 ## GitHub Actions Local Workflow
 

@@ -167,6 +167,15 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
     worktrees (`nix develop path:.`, `nix flake check path:.`); Lix cannot
     fetch a clean linked worktree as a `git+file` flake because `.git` is a
     file there, not a directory
+  - Exception: `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so
+    it cannot be pointed at `path:.`; run
+    `nix run path:.#formatter.x86_64-linux -- .` (or `-- <file>`) instead
+  - Exception: `nix flake update` reads positional arguments as input names and
+    rejects a relative ref in `--flake`; run
+    `nix flake update --flake "path:$PWD"`
+  - Note: a dirty worktree hides all of this, because Lix copies the working
+    tree instead of fetching the revision, so the same command passes with
+    uncommitted changes present and exits 1 on a clean tree
 - PR
   - Command: `gh pr create --title "<type>(scope): summary" --body "..."` (Assign labels)
 - Cleanup after merge
@@ -198,8 +207,9 @@ PR body should include:
   - Preconditions: Clean tree; network available for substituters.
   - Post-check: Dev tools available (`treefmt`, `pre-commit`, etc.).
 - Format sources
-  - Command: `nix fmt`
-  - Preconditions: Run at repo root.
+  - Command: `nix fmt`, or `nix run path:.#formatter.x86_64-linux -- .` in a
+    linked worktree
+  - Preconditions: Run at repo root; the plain form needs the primary checkout.
   - Post-check: No remaining formatting diffs in `git status`.
 - Run hooks
   - Command: `nix develop -c pre-commit run --all-files --hook-stage manual`
@@ -213,14 +223,16 @@ PR body should include:
 ### Validation and Builds
 
 - Verify flake health
-  - Command: `nix flake check --accept-flake-config --no-build --offline`
+  - Command: `nix flake check path:. --accept-flake-config --no-build --offline`
   - Preconditions: Dev shell recommended.
   - Post-check: Exit code 0; resolve reported failures.
 - Build host
-  - Command: `nix build .#nixosConfigurations.$HOSTNAME.config.system.build.toplevel`
+  - Command: `nix build "path:.#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`
   - Post-check: Build completes; capture resulting store path.
 - Update inputs
-  - Command: `nix flake metadata --refresh && nix flake update && nix fmt flake.lock`
+  - Command: `nix flake metadata --refresh path:. && nix flake update --flake "path:$PWD" && nix run path:.#formatter.x86_64-linux -- flake.lock`
+  - Why: the two exceptions above. Written bare, the chain short-circuits on
+    `nix flake metadata` in a linked worktree and never reaches the formatter.
 
 ### GitHub Actions (Local)
 
