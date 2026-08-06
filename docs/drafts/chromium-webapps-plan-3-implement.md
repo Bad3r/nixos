@@ -46,18 +46,25 @@ applies a managed directory per browser, not per profile or per
 which is exactly what Task 8 Step 3's assertion exists to guard. So everything
 in that file binds `brave` as well as the `brave-origin` instance used for
 general browsing on each host that enables webapps, whichever of the two is the
-daily driver. Task 13 turns `programs.webapps.enable` on for every common host
-regardless of which Brave-family build that host installs.
+daily driver. `modules/browsers/webapps/enable.nix`, created in Task 12 Step 3,
+turns `programs.webapps.enable` on for every common host regardless of which
+Brave-family build that host installs.
 
 Today `modules/hosts/common/apps-enable.nix` sets `brave.extended.enable` to
-`false`, so the `brave` half is latent. It stops being latent in either shape
-Task 8's assertion leaves open: `brave` enabled with its own
-`enableManagedPolicies` off, or `brave` enabled with
-`brave-origin.extended.enableManagedPolicies` off. Either way one module owns
-`extended.json` and neither of them touches `webapps.json`, so a host in either
-shape takes the promptless capture denial in `brave` too. That is why Task 18
-Step 8 reads whichever Brave-family builds the host installs rather than
-`brave-origin` alone.
+`false`, so the `brave` half is latent. Flipping that one line ends the latency
+in every configuration that still evaluates: `brave` is installed under
+`programs.brave.extended.enable` alone, and neither module's
+`enableManagedPolicies` governs `webapps.json`, since those toggles decide only
+who writes `extended.json`. Task 8 Step 3's assertion narrows the space by
+exactly one shape, both browsers enabled with both `enableManagedPolicies` on,
+which is the pair that would write `extended.json` twice. It permits every other
+combination, and where `brave-origin.extended.enable` is false it is absent
+rather than satisfied: it lives inside `config = lib.mkIf cfg.enable` in
+`brave-origin/apps.nix`, so that module contributes no `assertions` definition
+at all and nothing refuses `brave` running alone. Every shape that evaluates
+takes the promptless capture denial in `brave` too. That is why Task 18 Step 8
+reads whichever Brave-family builds the host installs rather than `brave-origin`
+alone.
 
 Accepted, with these effects stated rather than discovered later:
 
@@ -509,9 +516,10 @@ The NixOS-scope file is `nixos.nix`, not `apps.nix`.
 `modules/meta/hooks/apps-catalog-sync.nix` globs
 `modules/browsers/*/apps.nix` and requires each hit to carry a
 `<dir>.extended.enable` line in `modules/hosts/common/apps-enable.nix`;
-`programs.webapps.enable` is deliberately not that shape (see Task 13), so an
-`apps.nix` here would fail `pre-commit run --all-files --hook-stage manual` in
-Task 17. `modules/apps/i3wm/nixos.nix` is the existing precedent for the name.
+`programs.webapps.enable` is deliberately not that shape (see Task 12 Step 3),
+so an `apps.nix` here would fail
+`pre-commit run --all-files --hook-stage manual` in Task 17.
+`modules/apps/i3wm/nixos.nix` is the existing precedent for the name.
 
 - [ ] **Step 1: Write the catalog**
 
@@ -2033,7 +2041,7 @@ Create `modules/browsers/webapps/home.nix`:
           # only on `xdg.desktopEntries != { }`, and xdg.dataHome is given its
           # default in the !enable branches too, so dataRoot resolves either
           # way. Turning it on would export XDG_*_HOME into every session on
-          # every host Task 13 enables, from the web-app launcher module.
+          # every host enable.nix turns on, from the web-app launcher module.
           xdg.desktopEntries = lib.mapAttrs (key: app: {
             inherit (app) name categories;
             exec = "${lib.getExe launchers.${key}.entry} %U";
@@ -3441,7 +3449,7 @@ ______________________________________________________________________
 
 - Task 12's launcher validated by `nix eval` on package names. `writeShellApplication` runs `shellcheck` at build time, so a malformed command body is a build failure that eval never reaches. An `lib.optionalString` inside a backslash-continued argument list rendered a whitespace-only line for every app without `reload.enable` and both tray wrappers, terminating the command early. Now validated with `nix build` plus reading back the two shapes that differ (Task 12 Step 5), after Task 12 Step 3 turns the module on so the build has launchers to check at all.
 - `lib.getExe pkgs.diffutils` in Task 14 pointed at a `bin/diffutils` that does not exist, so the policy check would have failed on its own tooling. Now `lib.getExe' pkgs.diffutils "diff"`.
-- `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 17 with `webapps` reported missing from `apps-enable.nix`, which Task 13 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 2 runs the hook rather than deferring it to Task 17.
+- `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 17 with `webapps` reported missing from `apps-enable.nix`, which Task 12 Step 3 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 2 runs the hook rather than deferring it to Task 17.
 - Task 15's module check asserted the right things about the wrong behavior. It confirmed that a missing `gecko.yaml` warns and declares no sops secret, both of which held while the guard was also deleting the launchers, desktop entries and policy entries for the seven apps that never needed the secrets submodule. An assertion that a guard's failure path is quiet says nothing about how much it took down; the check now names what has to survive it.
 - Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created two steps earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds.
 - Task 14's `policy-check.nix` derived its independent expectation with `lib.splitString "/" app.url` and no secret branch. Every app in the catalog at that point has a literal `url`, so Task 14 passes; Task 16 adds DMail with `url = null` and `originSecret` set, and the check aborts with `cannot coerce null to a string` as soon as `lib.sort` forces the element. The failure would have surfaced two tasks after the file that caused it. `originOf` now takes the `originSecret` branch, reusing only `_check-apps.nix`'s placeholder constant.
