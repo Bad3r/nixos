@@ -188,7 +188,14 @@ let
         and a parse or targeted eval check, not a full flake check.
       - Structural Nix changes such as new modules, options, imports, let-binding
         refactors, or argument-shape changes need targeted evaluation and often
-        `nix flake check --accept-flake-config --no-build --offline`.
+        `nix flake check --accept-flake-config --no-build --offline`. In a linked
+        git worktree, give flake commands an explicit `path:.` installable; Lix
+        cannot fetch a clean linked worktree as a `git+file` flake because `.git`
+        is a file there, not a directory. `nix fmt` and `nix flake update` cannot
+        take it: run `nix run path:.#formatter.<system> -- .` and
+        `nix flake update --flake "path:$PWD"`. A dirty worktree masks all of this,
+        so a command that passes with uncommitted changes present can still exit
+        1 once the tree is clean.
       - Workflow and generated-artifact changes need source-derived checks that fail
         before an expensive runtime path runs.
       - Long-running local workflow checks such as `act workflow_dispatch` are not
