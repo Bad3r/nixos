@@ -70,7 +70,7 @@ Validate the exact entrypoint changed before broader hooks:
 - `shellcheck scripts/<file>.sh`
 - `uv run ruff check scripts/<file>.py scripts/updater`
 - `uv run pyright scripts/<file>.py`
-- `nix develop -c pre-commit run --files scripts/<file>`
+- `nix develop path:. -c pre-commit run --files scripts/<file>`
 
 For argument parsing changes, also run the script's `--help` path and one
 failure path that should report a useful error.
