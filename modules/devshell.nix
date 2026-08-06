@@ -126,10 +126,19 @@
           );
 
         shellHook = ''
-          # Use repo-local treefmt cache.
-          treefmt_cache="$PWD/.git/treefmt-cache/cache"
-          mkdir -p "$treefmt_cache" 2>/dev/null || true
-          export TREEFMT_CACHE_DB="$treefmt_cache/eval-cache"
+          # Repo-local treefmt cache, resolved through git rather than
+          # "$PWD/.git": in a linked worktree .git is a file, so mkdir -p
+          # fails with "Not a directory" and the cache lands inside a file.
+          # --absolute-git-dir gives the per-worktree dir, which git removes
+          # along with the worktree.
+          if treefmt_git_dir="$(git rev-parse --absolute-git-dir 2>/dev/null)"; then
+            treefmt_cache="$treefmt_git_dir/treefmt-cache/cache"
+            if mkdir -p "$treefmt_cache"; then
+              export TREEFMT_CACHE_DB="$treefmt_cache/eval-cache"
+            else
+              printf '%s\n' "devshell: cannot create $treefmt_cache; treefmt runs uncached." >&2
+            fi
+          fi
 
           ${config.pre-commit.shellHook}
 
