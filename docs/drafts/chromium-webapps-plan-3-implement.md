@@ -909,7 +909,10 @@ Create `modules/browsers/webapps/nixos.nix`:
           # Dropping the whole file instead would take the literal-URL apps'
           # grants with it, leaving them under _chromium-hardening.nix's
           # Default*Setting = 2 blocks with no allowlist to open them: Outlook
-          # and Teams would lose notifications, Teams mic and camera.
+          # and Teams would lose notifications. Capture is the other direction,
+          # per the !usesSops branch below: the hardening set carries no capture
+          # key, so dropping the file un-denies mic and camera rather than
+          # blocking them.
           policyApps =
             if usesSops then cfg.apps else lib.filterAttrs (_: app: app.originSecret == null) cfg.apps;
 
@@ -1446,7 +1449,7 @@ nix eval --impure --json --expr '
   }).policy' | jq -S .
 ```
 
-Expected: `AudioCaptureAllowedUrls` and `VideoCaptureAllowedUrls` each contain exactly `https://teams.cloud.microsoft`; `NotificationsAllowedForUrls` contains `https://outlook.cloud.microsoft` and `https://teams.cloud.microsoft`; every other allowlist is `[]`; no origin carries a trailing path; `ExtensionSettings` holds `*`, the 1Password ID and the keep-alive ID.
+Expected: `AudioCaptureAllowedUrls`, `VideoCaptureAllowedUrls` and `ScreenCaptureAllowedByOrigins` each contain exactly `https://teams.cloud.microsoft`, since `teams` is the only catalog entry granting any of the three; `NotificationsAllowedForUrls` contains `https://outlook.cloud.microsoft` and `https://teams.cloud.microsoft`; the remaining four (`ClipboardAllowedForUrls`, `SensorsAllowedForUrls`, `WindowManagementAllowedForUrls`, `LocalFontsAllowedForUrls`) are `[]`; no origin carries a trailing path; `ExtensionSettings` holds `*`, the 1Password ID and the keep-alive ID.
 
 This step reads `_keepalive-key.nix`, so Task 11 Step 1 has to have run. A
 stubbed placeholder value passes this step and then silently allowlists the
