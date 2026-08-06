@@ -201,7 +201,7 @@ full check at its Step 8. Running it here reports Task 4's outstanding work as a
 operator into the `_gecko-*.nix` files for an error that is not there.
 
 ```bash
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix-instantiate --parse modules/browsers/_gecko-extension-data.nix \
   modules/browsers/_gecko-extensions.nix modules/browsers/_gecko-mk-profile.nix \
   modules/browsers/firefox/home.nix modules/browsers/librewolf/home.nix > /dev/null
@@ -318,7 +318,7 @@ missed.
 - [ ] **Step 8: Validate and commit**
 
 ```bash
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 git add modules/hosts/common/home-manager-apps.nix modules/hosts/common/apps-enable.nix \
   modules/tpnix/apps-enable.nix modules/meta/cache-roots.nix .github/workflows/update-flake.yml pyproject.toml

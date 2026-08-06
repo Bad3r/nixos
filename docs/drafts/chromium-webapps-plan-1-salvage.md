@@ -117,7 +117,7 @@ judged by eye.
 
 ```bash
 cd "$HOME/trees/nixos/fix-build-time-shell"
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 ```
 
@@ -129,7 +129,7 @@ Step 3's `git cherry-pick` already committed both changes, and its conflict path
 which commits too. Without collapsing them first there is nothing left to commit here: `git add` stages nothing,
 `git commit` exits 1 with `nothing added to commit`, and because this block is pasted rather than run under `set -e`
 the `git push` and `gh pr create` below still run, publishing #435's two original messages instead of the one written
-here. `git reset --soft origin/main` puts both picked changes plus Step 5's `nix fmt` result back in the index as one
+here. `git reset --soft origin/main` puts both picked changes plus Step 5's formatter run back in the index as one
 staged change. `m365-check.nix` is absent from `origin/main`, so Step 3's `git rm -f` resolution contributes nothing.
 
 ```bash
@@ -145,7 +145,8 @@ defined-but-never-ran guard and passes today only because modules/meta/script-te
 Replaced with \`declare -F\`, and checks.build-time-shell now scans modules/, packages/ and tests/ for the builtin at a
 command position. statix reached only staged files, so checks.statix-tree runs hook-statix with no arguments.
 
-Validation: nix fmt; nix flake check path:. --accept-flake-config --no-build --offline"
+Validation: nix run path:.#formatter.x86_64-linux -- .;
+nix flake check path:. --accept-flake-config --no-build --offline"
 git push -u origin fix/build-time-shell
 gh pr create --title "fix(checks): stop trusting compgen in build-time shell text" --body "$(cat <<'EOF'
 ## Summary

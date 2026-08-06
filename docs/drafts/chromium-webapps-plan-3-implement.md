@@ -250,7 +250,7 @@ HEADER
   printf '  };\n}\n'
 } > modules/browsers/_chromium-hardening.nix
 
-nix fmt modules/browsers/_chromium-hardening.nix
+nix run path:.#formatter.x86_64-linux -- modules/browsers/_chromium-hardening.nix
 ```
 
 Confirm the boundaries were right before continuing:
@@ -272,7 +272,7 @@ Expected: the first policy line is `BraveAIChatEnabled = false;`, then `COUNT-MA
 The count is derived from the source range on both sides rather than compared against a figure written here. That
 figure was "roughly 80"; the range actually holds 99 assignments, so an operator taking it seriously would have
 stopped at a correct extraction. Every `=` in the range is a one-line assignment and no value contains a second `=`,
-so the count survives `nix fmt`.
+so the count survives the formatter.
 
 - [ ] **Step 3: Point brave at the shared file**
 
@@ -301,7 +301,7 @@ exactly the failure `git stash` could not produce. The `git diff --stat` below
 only catches that if the operator reaches it.
 
 ```bash
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-after.json
 
@@ -470,7 +470,7 @@ parses as nothing and the browser applies no policy at all, with no eval error. 
 - [ ] **Step 4: Verify the policy file lands**
 
 ```bash
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix eval --raw "path:.#nixosConfigurations.tpnix.config.environment.etc.\"brave/policies/managed/extended.json\".text" \
   --accept-flake-config | jq -r 'keys | length'
 
@@ -2138,7 +2138,7 @@ in
 - [ ] **Step 4: Verify the launchers exist**
 
 ```bash
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix eval --raw "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
   --accept-flake-config --apply 'ps: builtins.concatStringsSep "\n" (map (p: p.name) ps)' \
   | rg '^webapp-'
@@ -2269,7 +2269,7 @@ which is the state this step exists to prevent.
 - [ ] **Step 2: Validate the full configuration evaluates**
 
 ```bash
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix develop path:. -c pre-commit run --all-files --hook-stage manual apps-catalog-sync
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
@@ -2854,7 +2854,7 @@ allowlists would miss those, and they are where a per-app extension puts an app'
 - [ ] **Step 5: Validate and commit**
 
 ```bash
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 git add modules/browsers/webapps/_catalog.nix modules/browsers/webapps/check-fixtures/policy.json
 
@@ -3170,7 +3170,7 @@ git diff --stat
 - [ ] **Step 4: Full validation**
 
 ```bash
-nix fmt
+nix run path:.#formatter.x86_64-linux -- .
 nix develop path:. -c pre-commit run --all-files --hook-stage manual
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
