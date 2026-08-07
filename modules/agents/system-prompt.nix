@@ -187,21 +187,25 @@ let
       In a linked git worktree, give flake commands an explicit `path:.`
       installable (`nix develop path:.`, `nix flake check path:.`): Lix cannot
       fetch a clean linked worktree as a `git+file` flake because `.git` is a
-      file there, not a directory. Two commands need a different form instead.
+      file there, not a directory. Two cases need a different form instead.
       `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so reach the
       formatter output directly:
       `nix run "path:.#formatter.$(nix eval --impure --raw --expr builtins.currentSystem)" -- .`,
-      or `-- <file>` for a targeted run. `nix flake update` reads positional
-      arguments as input names, so the flake goes in `--flake` and the ref
-      there must be absolute: `nix flake update --flake "path:$PWD"`. A dirty
-      worktree masks all of this, because Lix copies the working tree instead
-      of fetching the revision, so a command that passes with uncommitted
-      changes present can still exit 1 once the tree is clean.
+      or `-- <file>` for a targeted run. Anything that writes `flake.lock` back
+      needs an absolute ref, because the write goes through Lix's `getAbsPath`
+      and `path:.` throws `cannot fetch input 'path:.' because it uses a
+      relative path`: that covers `nix flake metadata --refresh "path:$PWD"`,
+      which locks the flake, and `nix flake update --flake "path:$PWD"`, which
+      additionally reads positional arguments as input names. A run that
+      changes no lock entry never writes and so never throws. A dirty worktree
+      masks all of this, because Lix copies the working tree instead of
+      fetching the revision, so a command that passes with uncommitted changes
+      present can still exit 1 once the tree is clean.
 
       - Value-level edits to existing Nix lists or attrsets usually need `nix fmt`
         and a parse or targeted eval check, not a full flake check. In a linked
-        worktree `nix fmt` is one of the two commands `path:.` cannot fix, so
-        reach the formatter through the form above instead.
+        worktree `nix fmt` is one of the cases `path:.` cannot fix, so reach
+        the formatter through the form above instead.
       - Structural Nix changes such as new modules, options, imports, let-binding
         refactors, or argument-shape changes need targeted evaluation and often
         `nix flake check --accept-flake-config --no-build --offline`, with the

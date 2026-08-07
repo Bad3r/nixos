@@ -163,21 +163,23 @@ In a linked worktree, give flake commands an explicit `path:.` installable
 Lix cannot fetch a clean linked worktree as a `git+file` flake because `.git`
 is a file there, not a directory. The repo hooks already do this.
 
-Two commands take a different form, because appending `path:.` does not fix
+Two cases take a different form, because appending `path:.` does not fix
 them:
 
 - `nix fmt`. Lix hardcodes the `.` installable in `lix/nix/fmt.cc`, so
   `nix fmt path:.` passes `path:.` to treefmt as a path argument and still
   resolves `.` as the flake. The formatter is also a package, so run
   `nix run path:.#treefmt -- .` instead, or `-- <file>` for a targeted run.
-- `nix flake update`. It reads positional arguments as input names, so the
-  flake goes in `--flake`, and the ref there must be absolute:
-  `nix flake update --flake "path:$PWD"`. `path:.` fetches fine, but writing
-  `flake.lock` back goes through Lix's `getAbsPath`
-  (`lix/libfetchers/path.cc`), which throws
-  `cannot fetch input 'path:.' because it uses a relative path`. An update
-  that resolves to no lock change never writes and so never throws, which is
-  why the relative form can look like it works.
+- Anything that writes `flake.lock` back. That write goes through Lix's
+  `getAbsPath` (`lix/libfetchers/path.cc`), which throws
+  `cannot fetch input 'path:.' because it uses a relative path`, so the ref
+  must be absolute. This covers `nix flake metadata --refresh "path:$PWD"`,
+  which locks the flake, as well as `nix flake update --flake "path:$PWD"`;
+  `nix flake update` also reads positional arguments as input names, which is
+  why the flake goes in `--flake` there. A run that resolves to no lock change
+  never writes and so never throws, which is why the relative form can look
+  like it works. It fails exactly when the lock is out of sync, which is the
+  state the input-update ladder is run in.
 
 A dirty worktree hides all of this, because Lix copies the working tree instead
 of fetching the revision, so a command that happens to run with uncommitted
@@ -278,10 +280,10 @@ worktree, since that is where the branch workflow above puts the work; the plain
   `scripts/cache-coverage.sh --host $HOSTNAME` (evaluation plus narinfo
   probes, no builds; see `docs/reference/cache-coverage.md`). The script
   resolves its own `path:` ref.
-- Input updates: `nix flake metadata --refresh path:.`, then
+- Input updates: `nix flake metadata --refresh "path:$PWD"`, then
   `nix flake update --flake "path:$PWD"`. See the worktree note above for why
-  the second is not `path:.`. `flake.lock` is excluded from treefmt, so there
-  is no formatting rung after it.
+  neither is `path:.`: both write `flake.lock` back. `flake.lock` is excluded
+  from treefmt, so there is no formatting rung after it.
 
 ## GitHub Actions Local Workflow
 

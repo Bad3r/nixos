@@ -39,10 +39,13 @@ branch workflow puts that in a linked worktree, so these carry the explicit
   targeted run.
 - `nix develop path:. -c pre-commit run --all-files --hook-stage manual`: run all hooks.
 - `nix flake check path:. --accept-flake-config --no-build --offline`: validate flake/module health without building.
+- `nix flake metadata --refresh "path:$PWD"`: inspect inputs. It locks the
+  flake, so it writes `flake.lock` back when the lock is out of sync.
 - `nix flake update --flake "path:$PWD"`: refresh `flake.lock`. Positional
   arguments are input names, so the flake goes in `--flake`, and the ref there
-  must be absolute. This and `nix fmt` are the two commands a plain `path:.`
-  does not fix; the root `AGENTS.md` and `CLAUDE.md` carry the mechanism.
+  must be absolute. Every lock write needs the absolute ref, and `nix fmt`
+  needs the package form; those are the cases a plain `path:.` does not fix.
+  The root `AGENTS.md` and `CLAUDE.md` carry the mechanism.
 
 Use `rg -C 5 'pattern' docs/` to find and update related content before writing new docs.
 

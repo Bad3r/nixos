@@ -170,11 +170,13 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
   - Exception: `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so
     it cannot be pointed at `path:.`; the formatter is also a package, so run
     `nix run path:.#treefmt -- .` (or `-- <file>`) instead
-  - Exception: `nix flake update` reads positional arguments as input names, so
-    the flake goes in `--flake`, and the ref there must be absolute; run
-    `nix flake update --flake "path:$PWD"`. `path:.` fetches fine and throws
-    only when it writes `flake.lock` back, through Lix's `getAbsPath`
-    (`lix/libfetchers/path.cc`), so a no-op update can look like it works
+  - Exception: anything that writes `flake.lock` back needs an absolute ref,
+    because the write goes through Lix's `getAbsPath`
+    (`lix/libfetchers/path.cc`); run `nix flake metadata --refresh "path:$PWD"`
+    and `nix flake update --flake "path:$PWD"`. `nix flake update` also reads
+    positional arguments as input names, which is why the flake goes in
+    `--flake` there. `path:.` fetches fine and throws only on the write, so a
+    run that changes no lock entry can look like it works
   - Note: a dirty worktree hides all of this, because Lix copies the working
     tree instead of fetching the revision, so the same command passes with
     uncommitted changes present and exits 1 on a clean tree
@@ -236,11 +238,12 @@ gives the primary-checkout form.
   - Command: `nix build "path:.#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`
   - Post-check: Build completes; capture resulting store path.
 - Update inputs
-  - Command: `nix flake metadata --refresh path:. && nix flake update --flake "path:$PWD"`
-  - Why: the `nix flake update` exception above. Written bare, the chain
-    short-circuits on `nix flake metadata` in a linked worktree and never
-    reaches the update. No formatting rung follows: `treefmt` excludes
-    `*.lock`, so it emits zero files for `flake.lock`.
+  - Command: `nix flake metadata --refresh "path:$PWD" && nix flake update --flake "path:$PWD"`
+  - Why: the lock-writing exception above, which both links hit. Written bare,
+    or with `path:.` on the first link, the chain dies on `nix flake metadata`
+    in a linked worktree and never reaches the update. No formatting rung
+    follows: `treefmt` excludes `*.lock`, so it emits zero files for
+    `flake.lock`.
 
 ### GitHub Actions (Local)
 
