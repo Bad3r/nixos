@@ -66,6 +66,19 @@ let
                     2>/dev/null || true
                 )"
 
+                # The bare ref cannot fetch a clean linked worktree, which is
+                # where the branch workflow puts every change, so completion
+                # would silently fall back to the local hostname there. Retried
+                # rather than used outright: path: on a primary checkout copies
+                # the whole .git into the store.
+                if [[ -z "''${host_output}" ]]; then
+                  host_output="$(
+                    nix eval --raw "path:''${flake_dir}#nixosConfigurations" \
+                      --apply 'attrs: builtins.concatStringsSep "\n" (builtins.attrNames attrs)' \
+                      2>/dev/null || true
+                  )"
+                fi
+
                 if [[ -n "''${host_output}" ]]; then
                   while IFS= read -r host; do
                     [[ -n "''${host}" ]] && hosts+=("''${host}")
