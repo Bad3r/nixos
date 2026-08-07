@@ -279,9 +279,9 @@ worktree, since that is where the branch workflow above puts the work; the plain
   probes, no builds; see `docs/reference/cache-coverage.md`). The script
   resolves its own `path:` ref.
 - Input updates: `nix flake metadata --refresh path:.`, then
-  `nix flake update --flake "path:$PWD"`, then
-  `nix run path:.#treefmt -- flake.lock`. See the worktree note
-  above for why the last two are not `path:.`.
+  `nix flake update --flake "path:$PWD"`. See the worktree note above for why
+  the second is not `path:.`. `flake.lock` is excluded from treefmt, so there
+  is no formatting rung after it.
 
 ## GitHub Actions Local Workflow
 

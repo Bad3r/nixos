@@ -236,9 +236,11 @@ gives the primary-checkout form.
   - Command: `nix build "path:.#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`
   - Post-check: Build completes; capture resulting store path.
 - Update inputs
-  - Command: `nix flake metadata --refresh path:. && nix flake update --flake "path:$PWD" && nix run path:.#treefmt -- flake.lock`
-  - Why: the two exceptions above. Written bare, the chain short-circuits on
-    `nix flake metadata` in a linked worktree and never reaches the formatter.
+  - Command: `nix flake metadata --refresh path:. && nix flake update --flake "path:$PWD"`
+  - Why: the `nix flake update` exception above. Written bare, the chain
+    short-circuits on `nix flake metadata` in a linked worktree and never
+    reaches the update. No formatting rung follows: `treefmt` excludes
+    `*.lock`, so it emits zero files for `flake.lock`.
 
 ### GitHub Actions (Local)
 
