@@ -198,12 +198,14 @@ let
       of fetching the revision, so a command that passes with uncommitted
       changes present can still exit 1 once the tree is clean.
 
-      - Value-level edits to existing Nix lists or attrsets usually need
-        formatting through the form above and a parse or targeted eval check,
-        not a full flake check.
+      - Value-level edits to existing Nix lists or attrsets usually need `nix fmt`
+        and a parse or targeted eval check, not a full flake check. In a linked
+        worktree `nix fmt` is one of the two commands `path:.` cannot fix, so
+        reach the formatter through the form above instead.
       - Structural Nix changes such as new modules, options, imports, let-binding
         refactors, or argument-shape changes need targeted evaluation and often
-        `nix flake check path:. --accept-flake-config --no-build --offline`.
+        `nix flake check --accept-flake-config --no-build --offline`, with the
+        `path:.` installable added in a linked worktree per the note above.
       - Workflow and generated-artifact changes need source-derived checks that fail
         before an expensive runtime path runs.
       - Long-running local workflow checks such as `act workflow_dispatch` are not
