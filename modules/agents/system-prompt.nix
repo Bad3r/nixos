@@ -202,6 +202,16 @@ let
       fetching the revision, so a command that passes with uncommitted changes
       present can still exit 1 once the tree is clean.
 
+      `path:.` is not free. It copies the tree unfiltered, so `.gitignore` stops
+      protecting anything: private keys, `.env` files and decrypted secrets land
+      world-readable in the store, along with whole submodule working trees, and
+      on a primary checkout the entire `.git` directory. Check
+      `git status --porcelain --ignored=matching` and
+      `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`
+      before reaching for it, since the superproject form stops at a gitlink.
+      It also drops `self.rev` and `self.dirtyRev`, so a flake deriving a
+      revision stamp from them evaluates differently.
+
       - Value-level edits to existing Nix lists or attrsets usually need `nix fmt`
         and a parse or targeted eval check, not a full flake check. In a linked
         worktree `nix fmt` is one of the cases `path:.` cannot fix, so reach
