@@ -68,17 +68,26 @@ let
 
                 # The bare ref cannot fetch a clean linked worktree, which is
                 # where the branch workflow puts every change, so completion
-                # would silently fall back to the local hostname there. Gated on
-                # the linked-worktree marker rather than on empty output alone:
-                # .git is a file there and a directory in a primary checkout,
-                # where path: would copy the whole .git and every .gitignore'd
-                # file into the store on a Tab press.
+                # would silently fall back to the local hostname there. Retried
+                # through the primary checkout backing the worktree rather than
+                # path: on the worktree itself: path: copies the tree
+                # unfiltered, so a Tab press would put the ignored set build.sh
+                # refuses to copy (.env, *.key, id_*, secrets/decrypted_*) into
+                # the world-readable store, with no notice and no override. The
+                # primary checkout shares the object store and fetches as
+                # git+file, which filters ignored files. Host names differing
+                # between branches only costs the hostname fallback below.
                 if [[ -z "''${host_output}" && -f "''${flake_dir}/.git" ]]; then
-                  host_output="$(
-                    nix eval --raw "path:''${flake_dir}#nixosConfigurations" \
-                      --apply 'attrs: builtins.concatStringsSep "\n" (builtins.attrNames attrs)' \
-                      2>/dev/null || true
-                  )"
+                  local main_checkout
+                  main_checkout="$(git -C "''${flake_dir}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+                  main_checkout="''${main_checkout:h}"
+                  if [[ -n "''${main_checkout}" && -f "''${main_checkout}/flake.nix" ]]; then
+                    host_output="$(
+                      nix eval --raw "''${main_checkout}#nixosConfigurations" \
+                        --apply 'attrs: builtins.concatStringsSep "\n" (builtins.attrNames attrs)' \
+                        2>/dev/null || true
+                    )"
+                  fi
                 fi
 
                 if [[ -n "''${host_output}" ]]; then
