@@ -130,6 +130,13 @@ announce_path_ref() {
       "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
     status_msg "${YELLOW}" \
       "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store, and in a primary checkout under --allow-dirty that includes the whole .git directory. Secrets-block matches outside a submodule, and every ignored file under a submodule, abort the build instead; see --allow-secret-copy."
+  elif [[ ${CACHE_COVERAGE} == "true" ]]; then
+    # Not the branch above with a different reason string: the build keeps the
+    # bare ref here, so self.rev survives and only the coverage probe copies.
+    # cache-coverage.sh hardcodes path: with no --allow-dirty gate, so a clean
+    # primary checkout hands it .git as well.
+    status_msg "${YELLOW}" \
+      "The build keeps the bare ${FLAKE_DIR} ref, so system.configurationRevision is unaffected, but --cache-coverage runs scripts/cache-coverage.sh, which hardcodes path:${FLAKE_DIR}. That copy is unfiltered: .gitignore'd paths and the whole .git directory of a primary checkout reach the store. The same secrets-block abort applies; see --allow-secret-copy."
   fi
 }
 
@@ -288,10 +295,17 @@ ensure_no_ignored_secrets() {
     return 0
   fi
 
+  # An empty PATH_REF_REASON here means the gate above let the run through on
+  # CACHE_COVERAGE alone, so resolve_installable returned the bare ref and
+  # naming path: would blame a reference this run never uses.
+  local copier="path:${FLAKE_DIR}"
+  if [[ -z ${PATH_REF_REASON} ]]; then
+    copier="scripts/cache-coverage.sh, which --cache-coverage runs against a hardcoded path:${FLAKE_DIR},"
+  fi
   # The two sets differ, so the heading names both: a submodule hit is any
   # ignored file, not a secrets-block match, since decrypted_* and *.dec.*
   # match none of the superproject patterns.
-  error_msg "Ignored files that path:${FLAKE_DIR} would copy into the world-readable store. Paths outside a submodule matched the .gitignore secrets block; paths under a submodule are every ignored file there, because submodule ignore rules do not match the superproject patterns."
+  error_msg "Ignored files that ${copier} would copy into the world-readable store. Paths outside a submodule matched the .gitignore secrets block; paths under a submodule are every ignored file there, because submodule ignore rules do not match the superproject patterns."
   # Report the truncation. The next line asks for all of them to be moved, so a
   # silent cap reads as a complete list and sends the operator back into the
   # same abort with no idea how much is left.
