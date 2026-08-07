@@ -189,14 +189,26 @@ ignored_secret_paths() {
   # (**/decrypted_*, *.dec.*), and those names match none of the superproject
   # patterns above, so every ignored file found there is reported rather than
   # only secrets-block matches.
-  local sub subfile submodules
+  # Both git calls below fail closed. Swallowing their status would leave the
+  # submodule list empty while secrets/ is still on disk for path: to copy, so
+  # a pruned gitdir or an unreadable index would reproduce the exact hole this
+  # pass was added to close.
+  local sub subfile submodules subhits
   # shellcheck disable=SC2016 # git submodule foreach expands $displaypath itself
-  submodules="$(git -C "${FLAKE_DIR}" submodule --quiet foreach --recursive 'printf "%s\n" "$displaypath"' 2>/dev/null || true)"
+  if ! submodules="$(git -C "${FLAKE_DIR}" submodule --quiet foreach --recursive 'printf "%s\n" "$displaypath"')"; then
+    error_msg "Enumerating submodules of ${FLAKE_DIR} failed, so the secrets guard cannot scan them; path: copies submodule working trees whole."
+    return 1
+  fi
   while IFS= read -r sub; do
     [[ -n ${sub} ]] || continue
-    while IFS= read -r -d '' subfile; do
+    if ! subhits="$(git -C "${FLAKE_DIR}/${sub}" ls-files --others --ignored --exclude-standard)"; then
+      error_msg "Listing ignored files in submodule ${sub} failed, so the secrets guard cannot scan it; path: copies its working tree whole."
+      return 1
+    fi
+    while IFS= read -r subfile; do
+      [[ -n ${subfile} ]] || continue
       printf '%s\n' "${sub}/${subfile}"
-    done < <(git -C "${FLAKE_DIR}/${sub}" ls-files --others --ignored --exclude-standard -z)
+    done <<<"${subhits}"
   done <<<"${submodules}"
 }
 
@@ -207,8 +219,16 @@ ensure_no_ignored_secrets() {
   if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
     return 0
   fi
-  # Also fail closed: a missing .gitignore means the patterns this guard needs
-  # are gone, not that there is nothing to protect.
+  # Gated like ensure_clean_git_tree. Without this, -p pointed at a flake that
+  # is not a git worktree reaches the missing-.gitignore abort below and is told
+  # to run write-files, which does not own that directory. No git worktree means
+  # no ignore set, so there is nothing for path: to smuggle past .gitignore.
+  if ! command -v git >/dev/null 2>&1 || ! git -C "${FLAKE_DIR}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    status_msg "${YELLOW}" "${FLAKE_DIR} is not a git worktree; nothing defines an ignore set, so the secrets scan does not run."
+    return 0
+  fi
+  # Fail closed inside a worktree: a missing .gitignore means the patterns this
+  # guard needs are gone, not that there is nothing to protect.
   if [[ ! -f "${FLAKE_DIR}/.gitignore" ]]; then
     error_msg "${FLAKE_DIR}/.gitignore is missing, so the secrets guard cannot run. Restore it with write-files, or pass --allow-secret-copy to build anyway."
     exit 1
@@ -225,7 +245,10 @@ ensure_no_ignored_secrets() {
     return 0
   fi
 
-  error_msg "Ignored files matching the .gitignore secrets block would be copied into the world-readable store by path:${FLAKE_DIR}."
+  # The two sets differ, so the heading names both: a submodule hit is any
+  # ignored file, not a secrets-block match, since decrypted_* and *.dec.*
+  # match none of the superproject patterns.
+  error_msg "Ignored files that path:${FLAKE_DIR} would copy into the world-readable store. Paths outside a submodule matched the .gitignore secrets block; paths under a submodule are every ignored file there, because submodule ignore rules do not match the superproject patterns."
   printf '%s\n' "${hits}" | sed -n '1,50p' >&2
   printf "Move them outside the worktree, or pass --allow-secret-copy (ALLOW_SECRET_COPY=1) to override.\n" >&2
   exit 1
