@@ -96,6 +96,20 @@ Expected: one line, `<sha> modules/browsers/firefoxpwa/m365-check.nix`, from the
 in PR 2 and Step 3 drops it. Any other line is a commit that would drag firefoxpwa content onto a branch meant to
 contain none; read it before continuing.
 
+That first commit modifies `m365-check.nix` rather than adding it: the add sits in an earlier commit that touches
+none of the three rescue paths, so the filter above correctly leaves it out of the range. Replaying a modify onto a
+branch that never received the add is a modify/delete conflict, which is why Step 3 stops there and only there.
+Confirm it against the object database before running the pick, without touching the index or the working tree:
+
+```bash
+first_sha="$(head -n1 /tmp/rescue-shas.txt | cut -d' ' -f1)"
+git merge-tree --merge-base="$first_sha^" "$base_sha" "$first_sha" \
+  | rg '^CONFLICT'
+```
+
+Expected: `CONFLICT (modify/delete): modules/browsers/firefoxpwa/m365-check.nix deleted in ... and modified in ...`.
+No output means the conflict Step 3 resolves is gone, so read Step 3's removal before running it.
+
 The range that feeds both commands resolves against the saved starting SHA, matching Step 1 and Step 6. Step 1's
 `git fetch origin main` updates `origin/main` and not local `main`, and refs are shared across worktrees, so a later
 fetch cannot change the base used by this rescue. A stale local `main` here lists commits that are already merged
