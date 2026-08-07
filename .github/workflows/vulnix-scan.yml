@@ -1,0 +1,166 @@
+---
+name: Vulnix Scan
+"on":
+  schedule:
+    - cron: "0 3 * * 1" # Weekly on Monday at 3 AM UTC
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - ".github/workflows/vulnix-scan.yml"
+      - "vulnix-whitelist.toml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      # One job at a time: concurrent cold NVD downloads starve each other
+      # against nvd.nist.gov rate limiting, and a sequential job restores
+      # the previous job's saved NVD cache instead of downloading again.
+      max-parallel: 1
+      matrix:
+        host:
+          - system76
+          - tpnix
+    env:
+      HOST: ${{ matrix.host }}
+      REPORT: vulnix-report-${{ matrix.host }}.json
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v31
+        with:
+          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
+          github_access_token: ${{ secrets.GITHUB_TOKEN }}
+          extra_nix_config: |
+            experimental-features = nix-command flakes pipe-operators
+            abort-on-warn = false
+            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prefer HTTPS for GitHub
+        run: |
+          URL="https://github.com/"
+          git config --global --add url."$URL".insteadOf git@github.com:
+          git config --global --add url."$URL".insteadOf ssh://git@github.com/
+
+      # Restore/save are split so the NVD database persists even when the
+      # scan fails; vulnix commits per archive, so partial downloads survive.
+      - name: Restore NVD cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/vulnix
+          key: vulnix-nvd-${{ github.run_id }}-${{ matrix.host }}
+          restore-keys: |
+            vulnix-nvd-
+
+      # "path:." bypasses the git fetcher: flake.nix sets
+      # self.submodules = true, which would make any git-based self fetch
+      # pull the private secrets submodule that CI cannot read. Secret
+      # files are then absent, so the per-file pathExists guards evaluate
+      # the secretless configuration and warn about disabled services.
+      - name: Evaluate host toplevel derivation
+        id: eval
+        run: |
+          drv=$(nix path-info --derivation --accept-flake-config \
+            "path:.#nixosConfigurations.${HOST}.config.system.build.toplevel")
+          echo "Toplevel derivation: $drv"
+          echo "drv=$drv" >> "$GITHUB_OUTPUT"
+
+      - name: Scan derivation closure with vulnix
+        id: scan
+        env:
+          DRV: ${{ steps.eval.outputs.drv }}
+        run: |
+          # vulnix exit codes: 0 = clean, 1 = only whitelisted findings,
+          # 2 = unwhitelisted findings. Unhandled errors (for example NVD
+          # download timeouts) can also exit 1 or 2 without producing any
+          # JSON, so a valid report is required before trusting the code.
+          rc=0
+          for attempt in 1 2; do
+            rm -f "$REPORT"
+            set +e
+            nix run --inputs-from "path:." --accept-flake-config \
+              nixpkgs#vulnix -- \
+              --json --show-whitelisted -w vulnix-whitelist.toml "$DRV" \
+              > "$REPORT"
+            rc=$?
+            set -e
+            if jq -e 'type == "array"' "$REPORT" > /dev/null 2>&1; then
+              break
+            fi
+            echo "vulnix attempt ${attempt} produced no JSON report" \
+              "(exit ${rc})" >&2
+            if [ "$attempt" -eq 2 ]; then
+              echo "vulnix failed twice; see errors above" >&2
+              exit 1
+            fi
+          done
+          echo "rc=${rc}" >> "$GITHUB_OUTPUT"
+          jq . "$REPORT"
+
+      - name: Write scan summary
+        run: |
+          unwhitelisted=$(
+            jq '[.[] | select(.affected_by | length > 0)] | length' "$REPORT"
+          )
+          whitelisted=$(
+            jq '[.[] | select(.affected_by | length == 0)] | length' "$REPORT"
+          )
+          {
+            echo "## Vulnix scan: ${HOST}"
+            echo ""
+            echo "- Packages with unwhitelisted CVEs: ${unwhitelisted}"
+            echo "- Packages with only whitelisted CVEs: ${whitelisted}"
+            if [ "$unwhitelisted" -gt 0 ]; then
+              echo ""
+              echo "| Package | CVE | CVSSv3 |"
+              echo "| --- | --- | --- |"
+              jq -r '
+                .[]
+                | select(.affected_by | length > 0)
+                | . as $pkg
+                | "| \($pkg.name) | "
+                  + ($pkg.affected_by
+                    | map("[\(.)](https://nvd.nist.gov/vuln/detail/\(.))")
+                    | join("<br>"))
+                  + " | "
+                  + ($pkg.affected_by
+                    | map(($pkg.cvssv3_basescore[.] // "-") | tostring)
+                    | join("<br>"))
+                  + " |"
+              ' "$REPORT"
+              echo ""
+              echo "Fix by updating the affected input, or record accepted"
+              echo "risk in vulnix-whitelist.toml with a comment and cve list."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload scan report
+        uses: actions/upload-artifact@v4
+        with:
+          name: vulnix-report-${{ matrix.host }}
+          path: vulnix-report-${{ matrix.host }}.json
+
+      - name: Save NVD cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/vulnix
+          key: vulnix-nvd-${{ github.run_id }}-${{ matrix.host }}
+
+      - name: Fail on unwhitelisted findings
+        if: steps.scan.outputs.rc == '2'
+        run: |
+          echo "Unwhitelisted CVEs found in the ${HOST} closure." >&2
+          echo "Review the scan summary and uploaded report." >&2
+          exit 1
