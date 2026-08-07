@@ -156,13 +156,29 @@ ignored_secret_paths() {
     in_block { print }
   ' "${FLAKE_DIR}/.gitignore")
 
-  # Fail closed. The parser keys on a heading and a terminating blank line that
-  # both live in modules/development/gitignore.nix; regenerating that file with
-  # a renamed heading or a reordered block would otherwise leave deny empty and
-  # wave every secret through in silence. managed-files-drift cannot see it,
-  # because .gitignore would still match its source.
-  if [[ ${#deny[@]} -eq 0 ]]; then
-    error_msg "No patterns parsed from the '# Secrets safety (defense-in-depth)' block of ${FLAKE_DIR}/.gitignore; the secrets guard cannot run. Realign this parser with modules/development/gitignore.nix, or pass --allow-secret-copy to build anyway."
+  # Fail closed on a partial parse, not just an empty one. The block ends at the
+  # first blank line, so one inserted mid-block (the natural spot is before the
+  # "# Common SSH/private key patterns" comment) leaves deny non-empty while
+  # dropping id_*, and a count check cannot see that. managed-files-drift cannot
+  # either, since .gitignore would still match its source. The minimum set is
+  # named here rather than parsed: a legitimate change to the block then fires
+  # loudly instead of thinning the deny list in silence.
+  local want have
+  local -a missing=()
+  for want in '*.agekey' '*.key' '*.pem' '*.p12' '*.pfx' '.env' '.env.*' 'id_*'; do
+    have=0
+    for line in "${deny[@]}"; do
+      if [[ ${line} == "${want}" ]]; then
+        have=1
+        break
+      fi
+    done
+    if [[ ${have} -eq 0 ]]; then
+      missing+=("${want}")
+    fi
+  done
+  if [[ ${#deny[@]} -eq 0 || ${#missing[@]} -gt 0 ]]; then
+    error_msg "The '# Secrets safety (defense-in-depth)' block of ${FLAKE_DIR}/.gitignore did not yield the expected patterns (missing: ${missing[*]:-every pattern}); the secrets guard cannot run. Realign this parser with modules/development/gitignore.nix, or pass --allow-secret-copy to build anyway."
     return 1
   fi
 
