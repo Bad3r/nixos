@@ -278,8 +278,12 @@ gives the primary-checkout form.
     `*.key`, `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`) protects
     nothing under `path:.`; those files are copied into the world-readable
     store. `git status --short` does not report ignored files, so use
-    `git status --porcelain --ignored=matching`. `./build.sh` aborts on a
-    secrets-block match, but a bare `nix` command run by hand does not.
+    `git status --porcelain --ignored=matching`, then
+    `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`:
+    the superproject form stops at the `secrets/` gitlink, so it misses the
+    decrypted SOPS output that submodule ignores through its own `.gitignore`.
+    `./build.sh` runs both sweeps and aborts, but a bare `nix` command run by
+    hand does not.
 - Explore config in repl
   - Resolution: `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 

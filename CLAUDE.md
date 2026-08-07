@@ -361,10 +361,13 @@ sops.secrets."context7/api-key" = {
   `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`) protects nothing: those
   files are copied into the world-readable store. `git status --short` does
   not surface them, since ignored files are not reported; use
-  `git status --porcelain --ignored=matching`. `./build.sh` aborts on a
-  secrets-block match before it builds, overridable with
-  `--allow-secret-copy`, but a bare `nix` command run by hand has no such
-  guard.
+  `git status --porcelain --ignored=matching`, then
+  `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`,
+  because the superproject form stops at the `secrets/` gitlink and so misses
+  the decrypted SOPS output that submodule ignores through its own
+  `.gitignore`. `./build.sh` runs both sweeps and aborts before it builds,
+  overridable with `--allow-secret-copy`, but a bare `nix` command run by hand
+  has no such guard.
 - Need to explore config:
   Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
   then inspect config module imports.
