@@ -292,7 +292,15 @@ ensure_no_ignored_secrets() {
   # ignored file, not a secrets-block match, since decrypted_* and *.dec.*
   # match none of the superproject patterns.
   error_msg "Ignored files that path:${FLAKE_DIR} would copy into the world-readable store. Paths outside a submodule matched the .gitignore secrets block; paths under a submodule are every ignored file there, because submodule ignore rules do not match the superproject patterns."
+  # Report the truncation. The next line asks for all of them to be moved, so a
+  # silent cap reads as a complete list and sends the operator back into the
+  # same abort with no idea how much is left.
+  local hit_count
+  hit_count="$(printf '%s\n' "${hits}" | wc -l)"
   printf '%s\n' "${hits}" | sed -n '1,50p' >&2
+  if [[ ${hit_count} -gt 50 ]]; then
+    printf '... and %d more not shown.\n' "$((hit_count - 50))" >&2
+  fi
   printf "Move them outside the worktree, or pass --allow-secret-copy (ALLOW_SECRET_COPY=1) to override.\n" >&2
   exit 1
 }
