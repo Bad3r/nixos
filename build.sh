@@ -129,7 +129,7 @@ announce_path_ref() {
     status_msg "${YELLOW}" \
       "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
     status_msg "${YELLOW}" \
-      "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store. Secrets-block matches outside a submodule, and every ignored file under a submodule, abort the build instead; see --allow-secret-copy."
+      "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store, and in a primary checkout under --allow-dirty that includes the whole .git directory. Secrets-block matches outside a submodule, and every ignored file under a submodule, abort the build instead; see --allow-secret-copy."
   fi
 }
 
@@ -239,7 +239,10 @@ ignored_secret_paths() {
 }
 
 ensure_no_ignored_secrets() {
-  if [[ -z ${PATH_REF_REASON} ]]; then
+  # scripts/cache-coverage.sh hardcodes FLAKE_REF="path:${FLAKE_DIR}" with no
+  # bare-ref branch, so --cache-coverage reaches the same unfiltered copy even
+  # where resolve_installable chose the bare form and PATH_REF_REASON is empty.
+  if [[ -z ${PATH_REF_REASON} && ${CACHE_COVERAGE} != "true" ]]; then
     return 0
   fi
   if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
