@@ -241,6 +241,24 @@ if [[ ! -f "${FLAKE_DIR}/flake.nix" ]]; then
   exit 1
 fi
 
+# Announce the path: reference once, here rather than in resolve_installable:
+# every call site is a command substitution, so a subshell there could neither
+# print once nor carry a guard back. Both reasons cost the same stamp, so this
+# does not fire on the linked-worktree case alone.
+if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+  PATH_REF_REASON="allow-dirty"
+elif [[ -f "${FLAKE_DIR}/.git" ]]; then
+  PATH_REF_REASON="linked worktree"
+else
+  PATH_REF_REASON=""
+fi
+readonly PATH_REF_REASON
+
+if [[ -n ${PATH_REF_REASON} ]]; then
+  status_msg "${YELLOW}" \
+    "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
+fi
+
 # Configure build settings
 # Bootstrap substituters for first builds, before the host substituter
 # configuration from modules/hosts/common/nix-substituters.nix is active.
