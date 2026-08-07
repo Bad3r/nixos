@@ -16,6 +16,7 @@ TARGET_HOST="$(hostname)"
 OFFLINE=false
 VERBOSE=false
 ALLOW_DIRTY=${ALLOW_DIRTY:-false}
+ALLOW_SECRET_COPY=${ALLOW_SECRET_COPY:-false}
 AUTO_UPDATE=false
 SKIP_HOOKS=false
 SKIP_CHECK=false
@@ -55,6 +56,7 @@ Options:
   -v, --verbose          Enable verbose output
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
+      --allow-secret-copy Build even when ignored files matching the .gitignore secrets block are present
       --update           Run 'nix flake metadata --refresh' and 'nix flake update' before building
       --skip-hooks       Skip the pre-commit validation
       --skip-check       Skip the 'nix flake check' validation step
@@ -126,7 +128,78 @@ announce_path_ref() {
   if [[ -n ${PATH_REF_REASON} ]]; then
     status_msg "${YELLOW}" \
       "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
+    status_msg "${YELLOW}" \
+      "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store. Secrets-block matches abort the build instead; see --allow-secret-copy."
   fi
+}
+
+# The bare `.` form fetches through git, so .gitignore kept ignored files out of
+# the store. path: dumps the tree, so the secrets block stops protecting
+# anything exactly when resolve_installable switches refs. ensure_clean_git_tree
+# cannot cover this: its ls-files pass carries --exclude-standard, and --update
+# skips it outright.
+ignored_secret_paths() {
+  local -a deny=() allow=()
+  local line
+  while IFS= read -r line; do
+    if [[ ${line} == '!'* ]]; then
+      allow+=("${line#!}")
+    else
+      deny+=("${line}")
+    fi
+    # Patterns are read from .gitignore rather than restated here: that file is
+    # generated from modules/files.nix, so a second copy would drift unseen.
+  done < <(awk '
+    /^# Secrets safety \(defense-in-depth\)/ { in_block = 1; next }
+    in_block && /^#/ { next }
+    in_block && /^[[:space:]]*$/ { exit }
+    in_block { print }
+  ' "${FLAKE_DIR}/.gitignore")
+
+  if [[ ${#deny[@]} -eq 0 ]]; then
+    return 0
+  fi
+
+  local file base pattern
+  while IFS= read -r -d '' file; do
+    base="${file##*/}"
+    for pattern in "${allow[@]}"; do
+      # shellcheck disable=SC2053 # unquoted RHS on purpose: these are globs
+      if [[ ${base} == ${pattern} ]]; then
+        continue 2
+      fi
+    done
+    for pattern in "${deny[@]}"; do
+      # shellcheck disable=SC2053
+      if [[ ${base} == ${pattern} ]]; then
+        printf '%s\n' "${file}"
+        continue 2
+      fi
+    done
+  done < <(git -C "${FLAKE_DIR}" ls-files --others --ignored --exclude-standard -z)
+}
+
+ensure_no_ignored_secrets() {
+  if [[ -z ${PATH_REF_REASON} ]]; then
+    return 0
+  fi
+  if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
+    return 0
+  fi
+  if [[ ! -f "${FLAKE_DIR}/.gitignore" ]]; then
+    return 0
+  fi
+
+  local hits
+  hits="$(ignored_secret_paths)"
+  if [[ -z ${hits} ]]; then
+    return 0
+  fi
+
+  error_msg "Ignored files matching the .gitignore secrets block would be copied into the world-readable store by path:${FLAKE_DIR}."
+  printf '%s\n' "${hits}" | sed -n '1,50p' >&2
+  printf "Move them outside the worktree, or pass --allow-secret-copy (ALLOW_SECRET_COPY=1) to override.\n" >&2
+  exit 1
 }
 
 # Parse command-line arguments
@@ -162,6 +235,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --allow-dirty)
     ALLOW_DIRTY=true
+    shift
+    ;;
+  --allow-secret-copy)
+    ALLOW_SECRET_COPY=true
     shift
     ;;
   --update)
@@ -525,6 +602,9 @@ run_firmware_updates() {
 main() {
   setup_logging
   announce_path_ref
+  # Outside the AUTO_UPDATE branch below, unlike ensure_clean_git_tree: an
+  # update run reaches the same store copy through the same path: ref.
+  ensure_no_ignored_secrets
   configure_nix_config
   configure_build_flags
 

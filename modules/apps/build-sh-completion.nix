@@ -91,6 +91,7 @@ let
                   '(-v --verbose)'{-v,--verbose}'[enable verbose output]' \
                   '--boot[install as next-boot generation]' \
                   '--allow-dirty[allow running with a dirty git worktree]' \
+                  '--allow-secret-copy[build despite ignored files matching the .gitignore secrets block]' \
                   '--update[run flake metadata refresh and update before building]' \
                   '--skip-hooks[skip pre-commit validation]' \
                   '--skip-check[skip nix flake check validation]' \
