@@ -156,8 +156,14 @@ ignored_secret_paths() {
     in_block { print }
   ' "${FLAKE_DIR}/.gitignore")
 
+  # Fail closed. The parser keys on a heading and a terminating blank line that
+  # both live in modules/development/gitignore.nix; regenerating that file with
+  # a renamed heading or a reordered block would otherwise leave deny empty and
+  # wave every secret through in silence. managed-files-drift cannot see it,
+  # because .gitignore would still match its source.
   if [[ ${#deny[@]} -eq 0 ]]; then
-    return 0
+    error_msg "No patterns parsed from the '# Secrets safety (defense-in-depth)' block of ${FLAKE_DIR}/.gitignore; the secrets guard cannot run. Realign this parser with modules/development/gitignore.nix, or pass --allow-secret-copy to build anyway."
+    return 1
   fi
 
   local file base pattern
@@ -177,6 +183,21 @@ ignored_secret_paths() {
       fi
     done
   done < <(git -C "${FLAKE_DIR}" ls-files --others --ignored --exclude-standard -z)
+
+  # ls-files stops at a gitlink, but path: copies submodule working trees whole.
+  # secrets/ ignores decrypted SOPS output through its own .gitignore
+  # (**/decrypted_*, *.dec.*), and those names match none of the superproject
+  # patterns above, so every ignored file found there is reported rather than
+  # only secrets-block matches.
+  local sub subfile submodules
+  # shellcheck disable=SC2016 # git submodule foreach expands $displaypath itself
+  submodules="$(git -C "${FLAKE_DIR}" submodule --quiet foreach --recursive 'printf "%s\n" "$displaypath"' 2>/dev/null || true)"
+  while IFS= read -r sub; do
+    [[ -n ${sub} ]] || continue
+    while IFS= read -r -d '' subfile; do
+      printf '%s\n' "${sub}/${subfile}"
+    done < <(git -C "${FLAKE_DIR}/${sub}" ls-files --others --ignored --exclude-standard -z)
+  done <<<"${submodules}"
 }
 
 ensure_no_ignored_secrets() {
@@ -186,12 +207,20 @@ ensure_no_ignored_secrets() {
   if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
     return 0
   fi
+  # Also fail closed: a missing .gitignore means the patterns this guard needs
+  # are gone, not that there is nothing to protect.
   if [[ ! -f "${FLAKE_DIR}/.gitignore" ]]; then
-    return 0
+    error_msg "${FLAKE_DIR}/.gitignore is missing, so the secrets guard cannot run. Restore it with write-files, or pass --allow-secret-copy to build anyway."
+    exit 1
   fi
 
+  # `if !` keeps set -e suspended, so a parser failure reports itself instead of
+  # reaching trap_error as a bare "Command 'return 1' failed".
   local hits
-  hits="$(ignored_secret_paths)"
+  if ! hits="$(ignored_secret_paths)"; then
+    printf "Refusing to build with the secrets guard inoperative.\n" >&2
+    exit 1
+  fi
   if [[ -z ${hits} ]]; then
     return 0
   fi
