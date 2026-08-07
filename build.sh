@@ -189,7 +189,7 @@ ignored_secret_paths() {
   # newline splits into two lines that match no pattern.
   local scan
   scan="$(mktemp)"
-  local file base pattern
+  local file base pattern rest
   if ! git -C "${FLAKE_DIR}" ls-files --others --ignored --exclude-standard -z >"${scan}"; then
     rm -f "${scan}"
     error_msg "Listing ignored files in ${FLAKE_DIR} failed, so the secrets guard cannot scan it; path: copies the tree unfiltered."
@@ -203,12 +203,20 @@ ignored_secret_paths() {
         continue 2
       fi
     done
-    for pattern in "${deny[@]}"; do
-      # shellcheck disable=SC2053
-      if [[ ${base} == ${pattern} ]]; then
-        printf '%s\n' "${file}"
-        continue 2
-      fi
+    # Every path component, not just the basename. ls-files reports the files
+    # inside an ignored directory rather than the directory itself, so
+    # id_backup/ or .env.d/ is copied whole while none of its children match.
+    rest="${file}"
+    while :; do
+      for pattern in "${deny[@]}"; do
+        # shellcheck disable=SC2053
+        if [[ ${rest##*/} == ${pattern} ]]; then
+          printf '%s\n' "${file}"
+          continue 3
+        fi
+      done
+      [[ ${rest} == */* ]] || break
+      rest="${rest%/*}"
     done
   done <"${scan}"
 
