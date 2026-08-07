@@ -68,10 +68,12 @@ let
 
                 # The bare ref cannot fetch a clean linked worktree, which is
                 # where the branch workflow puts every change, so completion
-                # would silently fall back to the local hostname there. Retried
-                # rather than used outright: path: on a primary checkout copies
-                # the whole .git into the store.
-                if [[ -z "''${host_output}" ]]; then
+                # would silently fall back to the local hostname there. Gated on
+                # the linked-worktree marker rather than on empty output alone:
+                # .git is a file there and a directory in a primary checkout,
+                # where path: would copy the whole .git and every .gitignore'd
+                # file into the store on a Tab press.
+                if [[ -z "''${host_output}" && -f "''${flake_dir}/.git" ]]; then
                   host_output="$(
                     nix eval --raw "path:''${flake_dir}#nixosConfigurations" \
                       --apply 'attrs: builtins.concatStringsSep "\n" (builtins.attrNames attrs)' \
