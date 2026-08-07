@@ -355,6 +355,15 @@ sops.secrets."context7/api-key" = {
   it. The hazard there runs the other way: a check that passes locally on
   `path:.` fails in CI, which fetches the pushed revision. Run
   `git status --short` before trusting a `path:.` pass.
+- Ignored files under `path:.`:
+  Unfiltered also means the `.gitignore` secrets block (`*.agekey`, `*.key`,
+  `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`) protects nothing: those
+  files are copied into the world-readable store. `git status --short` does
+  not surface them, since ignored files are not reported; use
+  `git status --porcelain --ignored=matching`. `./build.sh` aborts on a
+  secrets-block match before it builds, overridable with
+  `--allow-secret-copy`, but a bare `nix` command run by hand has no such
+  guard.
 - Need to explore config:
   Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
   then inspect config module imports.

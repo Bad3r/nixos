@@ -271,6 +271,15 @@ gives the primary-checkout form.
     an untracked module and evaluates it; there the hazard runs the other way,
     and a check passing locally fails in CI on the pushed revision. Run
     `git status --short` before trusting a `path:.` pass.
+- Ignored files under `path:.`
+  - Resolution: keep secrets out of the worktree, or pass
+    `--allow-secret-copy` to `./build.sh` knowingly.
+  - Why: unfiltered also means the `.gitignore` secrets block (`*.agekey`,
+    `*.key`, `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`) protects
+    nothing under `path:.`; those files are copied into the world-readable
+    store. `git status --short` does not report ignored files, so use
+    `git status --porcelain --ignored=matching`. `./build.sh` aborts on a
+    secrets-block match, but a bare `nix` command run by hand does not.
 - Explore config in repl
   - Resolution: `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 
