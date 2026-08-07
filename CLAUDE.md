@@ -347,7 +347,12 @@ sops.secrets."context7/api-key" = {
   `modules/meta/nixpkgs-allowed-unfree.nix`). There is no NixOS-scope
   allowlist option; host-level `nixpkgs.allowedUnfreePackages` fails eval.
 - Missing reference:
-  Ensure the file is tracked by git.
+  Ensure the file is tracked by git. That fixes it only under the bare `.`
+  form, whose `git+file` fetcher cannot see untracked files. `path:.` dumps
+  the directory unfiltered, so it discovers an untracked module and evaluates
+  it. The hazard there runs the other way: a check that passes locally on
+  `path:.` fails in CI, which fetches the pushed revision. Run
+  `git status --short` before trusting a `path:.` pass.
 - Need to explore config:
   Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
   then inspect config module imports.

@@ -263,6 +263,11 @@ gives the primary-checkout form.
   - Resolution: Add package to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`.
 - Missing reference
   - Resolution: Ensure that the file is tracked by git.
+  - Scope: only under the bare `.` form, whose `git+file` fetcher cannot see
+    untracked files. `path:.` dumps the directory unfiltered, so it discovers
+    an untracked module and evaluates it; there the hazard runs the other way,
+    and a check passing locally fails in CI on the pushed revision. Run
+    `git status --short` before trusting a `path:.` pass.
 - Explore config in repl
   - Resolution: `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 
