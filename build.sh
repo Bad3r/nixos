@@ -122,6 +122,13 @@ setup_logging() {
   status_msg "${GREEN}" "Logging to: ${LOG_FILE}"
 }
 
+announce_path_ref() {
+  if [[ -n ${PATH_REF_REASON} ]]; then
+    status_msg "${YELLOW}" \
+      "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
+  fi
+}
+
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -241,10 +248,10 @@ if [[ ! -f "${FLAKE_DIR}/flake.nix" ]]; then
   exit 1
 fi
 
-# Announce the path: reference once, here rather than in resolve_installable:
-# every call site is a command substitution, so a subshell there could neither
-# print once nor carry a guard back. Both reasons cost the same stamp, so this
-# does not fire on the linked-worktree case alone.
+# Resolved here, where FLAKE_DIR and ALLOW_DIRTY are final, but announced from
+# main() after setup_logging: the notice explains a missing
+# system.configurationRevision, so it has to reach the log the reader consults.
+# Both reasons cost the same stamp, so this does not track the worktree alone.
 if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
   PATH_REF_REASON="allow-dirty"
 elif [[ -f "${FLAKE_DIR}/.git" ]]; then
@@ -253,11 +260,6 @@ else
   PATH_REF_REASON=""
 fi
 readonly PATH_REF_REASON
-
-if [[ -n ${PATH_REF_REASON} ]]; then
-  status_msg "${YELLOW}" \
-    "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
-fi
 
 # Configure build settings
 # Bootstrap substituters for first builds, before the host substituter
@@ -522,6 +524,7 @@ run_firmware_updates() {
 
 main() {
   setup_logging
+  announce_path_ref
   configure_nix_config
   configure_build_flags
 
