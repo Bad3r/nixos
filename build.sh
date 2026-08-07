@@ -237,11 +237,17 @@ ensure_no_ignored_secrets() {
     status_msg "${YELLOW}" "${FLAKE_DIR} is not a git worktree; nothing defines an ignore set, so the secrets scan does not run."
     return 0
   fi
-  # Fail closed inside a worktree: a missing .gitignore means the patterns this
-  # guard needs are gone, not that there is nothing to protect.
+  # Fail closed only on drift, which is tracked-but-absent: that is the state
+  # modules/development/gitignore.nix can produce here. A foreign flake reached
+  # through -p may simply never have had a .gitignore, and telling its operator
+  # to run write-files names a file this repo does not generate there.
   if [[ ! -f "${FLAKE_DIR}/.gitignore" ]]; then
-    error_msg "${FLAKE_DIR}/.gitignore is missing, so the secrets guard cannot run. Restore it with write-files, or pass --allow-secret-copy to build anyway."
-    exit 1
+    if git -C "${FLAKE_DIR}" ls-files --error-unmatch -- .gitignore >/dev/null 2>&1; then
+      error_msg "${FLAKE_DIR}/.gitignore is tracked but absent from the worktree, so the secrets guard cannot run. Restore it with write-files, or pass --allow-secret-copy to build anyway."
+      exit 1
+    fi
+    status_msg "${YELLOW}" "${FLAKE_DIR} has no .gitignore, so no secrets block defines patterns there; the secrets scan does not run."
+    return 0
   fi
 
   # `if !` keeps set -e suspended, so a parser failure reports itself instead of
