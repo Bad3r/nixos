@@ -80,7 +80,12 @@ let
                 if [[ -z "''${host_output}" && -f "''${flake_dir}/.git" ]]; then
                   local main_checkout
                   main_checkout="$(git -C "''${flake_dir}" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
-                  main_checkout="''${main_checkout:h}"
+                  # :h is dirname, so it turns an empty value into ".", which
+                  # would then resolve hosts from the completion shell's cwd
+                  # instead of the -p directory that was asked for.
+                  if [[ -n "''${main_checkout}" ]]; then
+                    main_checkout="''${main_checkout:h}"
+                  fi
                   if [[ -n "''${main_checkout}" && -f "''${main_checkout}/flake.nix" ]]; then
                     host_output="$(
                       nix eval --raw "''${main_checkout}#nixosConfigurations" \
