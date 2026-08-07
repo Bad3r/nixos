@@ -247,7 +247,6 @@ cd "$HOME/trees/nixos/feat-chromium-webapps"
   The leading underscore keeps this file out of module auto-discovery.
 
   Notes:
-    * Brave policy keys were checked against Brave policy_templates.zip VERSION 147.1.91.88.
     * Per-origin allowlists are NOT here. modules/browsers/webapps/_policy.nix owns
       those and writes a separate file; the key sets must stay disjoint because
       Chromium's config-dir loader lets one file win a repeated key outright
@@ -1177,7 +1176,8 @@ EOF
 #     managedDefaultSearchProvider and carries no ExtensionSettings key, and
 #     webapps.json does not reach the host until the post-merge switch. The
 #     prefix is insurance against a file added later, not a dependency, so a
-#     probe that fails to block is not a merge conflict.
+#     probe that fails to block is not a merge conflict. `mktemp` gives each
+#     probe a unique target and cannot overwrite an existing operator policy.
 #   * While the file is in place, "*" = blocked binds the daily-driver
 #     brave-origin too: 1Password stops being force-installed in the main
 #     profile and every other extension is refused there. Nothing removes it
@@ -1185,9 +1185,11 @@ EOF
 #     files it recorded in /etc/.clean, and this is neither, so a
 #     nixos-rebuild switch leaves it in place indefinitely. The cleanup runs
 #     from a trap, and the ls after the subshell is what shows the trap fired.
+probe_policy="$(sudo mktemp --tmpdir=/etc/brave/policies/managed 'zz-probe.XXXXXX.json')"
+printf 'Probe policy: %s\n' "$probe_policy"
 (
-  trap 'sudo rm -f /etc/brave/policies/managed/zz-probe.json' EXIT INT TERM
-  sudo install -D -m 0444 "$tmp/pol/probe.json" /etc/brave/policies/managed/zz-probe.json
+  trap 'sudo rm -f -- "$probe_policy"' EXIT INT TERM
+  sudo install -m 0444 "$tmp/pol/probe.json" "$probe_policy"
 
   brave-origin --user-data-dir="$tmp/profile" --load-extension="$tmp/ext" \
     --no-first-run about:blank
@@ -1202,11 +1204,9 @@ ls /etc/brave/policies/managed/
 ```
 
 Expected: `extended.json` only, or nothing at all if Task 8 has not switched
-yet. If `zz-probe.json` is still listed, remove it now:
-
-```bash
-sudo rm -f /etc/brave/policies/managed/zz-probe.json
-```
+yet. If the exact path printed as `$probe_policy` is still listed after an
+abnormal stop, inspect it before removing it. Do not use a wildcard or guessed
+path, because an operator-managed policy must never be deleted by cleanup.
 
 Record the result here before continuing:
 
@@ -1530,21 +1530,32 @@ trash-cli backed (`modules/apps/rip.nix`), so the key would sit in
 `~/.local/share/Trash` indefinitely. It stays in a shell variable instead.
 
 ```bash
-priv="$(openssl genrsa 2048 2>/dev/null)"
+(
+  set -euo pipefail
 
-pubkey="$(printf '%s' "$priv" | openssl rsa -pubout -outform DER 2>/dev/null | base64 -w0)"
+  priv="$(openssl genrsa 2048)"
 
-# Chromium's ID: first 128 bits of SHA-256 over the DER public key, each hex
-# nibble mapped 0-9a-f to a-p.
-extid="$(printf '%s' "$priv" | openssl rsa -pubout -outform DER 2>/dev/null \
-  | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')"
+  pubkey="$(printf '%s' "$priv" | openssl rsa -pubout -outform DER | base64 -w0)"
 
-unset priv
+  decoded_bytes="$(printf '%s' "$pubkey" | base64 -d | wc -c)"
+  if [ "$decoded_bytes" -eq 0 ]; then
+    echo "decoded public-key DER is empty" >&2
+    exit 1
+  fi
 
-printf 'publicKey  = %s\nextensionId = %s\n' "$pubkey" "$extid"
+  # Chromium's ID: first 128 bits of SHA-256 over the DER public key, each hex
+  # nibble mapped 0-9a-f to a-p.
+  extid="$(printf '%s' "$pubkey" | base64 -d \
+    | sha256sum | cut -c1-32 | tr '0-9a-f' 'a-p')"
+
+  unset priv
+
+  printf 'publicKey  = %s\nextensionId = %s\n' "$pubkey" "$extid"
+)
 ```
 
-Create `modules/browsers/webapps/_keepalive-key.nix` with those two values:
+Only after the subshell exits successfully, create
+`modules/browsers/webapps/_keepalive-key.nix` with those two values:
 
 ```nix
 /*
