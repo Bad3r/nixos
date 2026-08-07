@@ -129,7 +129,7 @@ announce_path_ref() {
     status_msg "${YELLOW}" \
       "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
     status_msg "${YELLOW}" \
-      "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store. Secrets-block matches abort the build instead; see --allow-secret-copy."
+      "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store. Secrets-block matches outside a submodule, and every ignored file under a submodule, abort the build instead; see --allow-secret-copy."
   fi
 }
 
@@ -166,7 +166,19 @@ ignored_secret_paths() {
     return 1
   fi
 
+  # Every git call below fails closed. A scan that errors reads as "no ignored
+  # files" otherwise, which is the same silent pass the parser branch above
+  # refuses. Output goes through a temp file rather than command substitution so
+  # -z survives: substitution strips NUL, and without it a path containing a
+  # newline splits into two lines that match no pattern.
+  local scan
+  scan="$(mktemp)"
   local file base pattern
+  if ! git -C "${FLAKE_DIR}" ls-files --others --ignored --exclude-standard -z >"${scan}"; then
+    rm -f "${scan}"
+    error_msg "Listing ignored files in ${FLAKE_DIR} failed, so the secrets guard cannot scan it; path: copies the tree unfiltered."
+    return 1
+  fi
   while IFS= read -r -d '' file; do
     base="${file##*/}"
     for pattern in "${allow[@]}"; do
@@ -182,34 +194,32 @@ ignored_secret_paths() {
         continue 2
       fi
     done
-  done < <(git -C "${FLAKE_DIR}" ls-files --others --ignored --exclude-standard -z)
+  done <"${scan}"
 
   # ls-files stops at a gitlink, but path: copies submodule working trees whole.
   # secrets/ ignores decrypted SOPS output through its own .gitignore
   # (**/decrypted_*, *.dec.*), and those names match none of the superproject
   # patterns above, so every ignored file found there is reported rather than
   # only secrets-block matches.
-  # Both git calls below fail closed. Swallowing their status would leave the
-  # submodule list empty while secrets/ is still on disk for path: to copy, so
-  # a pruned gitdir or an unreadable index would reproduce the exact hole this
-  # pass was added to close.
-  local sub subfile submodules subhits
+  local sub subfile submodules
   # shellcheck disable=SC2016 # git submodule foreach expands $displaypath itself
   if ! submodules="$(git -C "${FLAKE_DIR}" submodule --quiet foreach --recursive 'printf "%s\n" "$displaypath"')"; then
+    rm -f "${scan}"
     error_msg "Enumerating submodules of ${FLAKE_DIR} failed, so the secrets guard cannot scan them; path: copies submodule working trees whole."
     return 1
   fi
   while IFS= read -r sub; do
     [[ -n ${sub} ]] || continue
-    if ! subhits="$(git -C "${FLAKE_DIR}/${sub}" ls-files --others --ignored --exclude-standard)"; then
+    if ! git -C "${FLAKE_DIR}/${sub}" ls-files --others --ignored --exclude-standard -z >"${scan}"; then
+      rm -f "${scan}"
       error_msg "Listing ignored files in submodule ${sub} failed, so the secrets guard cannot scan it; path: copies its working tree whole."
       return 1
     fi
-    while IFS= read -r subfile; do
-      [[ -n ${subfile} ]] || continue
+    while IFS= read -r -d '' subfile; do
       printf '%s\n' "${sub}/${subfile}"
-    done <<<"${subhits}"
+    done <"${scan}"
   done <<<"${submodules}"
+  rm -f "${scan}"
 }
 
 ensure_no_ignored_secrets() {
