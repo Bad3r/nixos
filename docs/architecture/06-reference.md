@@ -17,10 +17,13 @@ nix flake check path:. --accept-flake-config --no-build --offline
 Commands on this page carry the explicit `path:.` installable because the
 branch workflow in `AGENTS.md` puts the work in a linked worktree, where Lix
 cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not
-a directory. Dropping `path:.` gives the primary-checkout form. `nix fmt` is the
-one command `path:.` cannot fix, because Lix hardcodes the `.` installable in
-`lix/nix/fmt.cc`; the formatter is also a package, so use the `nix run` form
-above, or `-- <file>` for a targeted run. A dirty worktree masks all of this,
+a directory. Dropping `path:.` gives the primary-checkout form. Two cases
+`path:.` cannot fix: `nix fmt`, because Lix hardcodes the `.` installable in
+`lix/nix/fmt.cc`, so use the `nix run` form above or `-- <file>` for a targeted
+run; and any command that writes `flake.lock` back, including
+`nix flake metadata --refresh` and `nix flake update`, because the write goes
+through Lix's `getAbsPath` and needs an absolute ref such as `"path:$PWD"`.
+A dirty worktree masks all of this,
 because Lix copies the working tree instead of fetching the revision, so a
 command that passes with uncommitted changes present can still exit 1 once the
 tree is clean.

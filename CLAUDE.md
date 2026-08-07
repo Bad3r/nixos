@@ -239,8 +239,9 @@ nix run path:.#treefmt -- .
 ```
 
 Preconditions: run at repo root. `nix fmt` is the primary-checkout form; it is
-the one command `path:.` cannot fix, so a linked worktree goes through the
-package instead, or `-- <file>` for a targeted run.
+one of the two cases `path:.` cannot fix, the other being any command that
+writes `flake.lock` back, so a linked worktree goes through the package
+instead, or `-- <file>` for a targeted run.
 Post-check: no remaining formatting diffs in `git status`.
 
 Run hooks:

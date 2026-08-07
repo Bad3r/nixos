@@ -217,7 +217,7 @@ gives the primary-checkout form.
 - Format sources
   - Command: `nix run path:.#treefmt -- .`, or `-- <file>` for a targeted run
   - Preconditions: Run at repo root. `nix fmt` is the primary-checkout form and
-    is the one command `path:.` cannot fix, per the exception above.
+    is one of the two cases `path:.` cannot fix, per the exceptions above.
   - Post-check: No remaining formatting diffs in `git status`.
 - Run hooks
   - Command: `nix develop path:. -c pre-commit run --all-files --hook-stage manual`

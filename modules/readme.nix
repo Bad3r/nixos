@@ -73,7 +73,7 @@
           | `nix run path:.#treefmt -- .`                                          | Format files    |
           | `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run all hooks   |
 
-          These carry the explicit `path:.` installable because the branch workflow in [`AGENTS.md`](AGENTS.md) puts the work in a linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not a directory. Dropping `path:.` gives the primary-checkout form, where `nix fmt` also works; it is the one command `path:.` cannot fix, because Lix hardcodes the `.` installable in `lix/nix/fmt.cc`.
+          These carry the explicit `path:.` installable because the branch workflow in [`AGENTS.md`](AGENTS.md) puts the work in a linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not a directory. Dropping `path:.` gives the primary-checkout form, where `nix fmt` also works. Two cases `path:.` cannot fix: `nix fmt`, because Lix hardcodes the `.` installable in `lix/nix/fmt.cc`; and any command that writes `flake.lock` back, such as `nix flake metadata --refresh` and `nix flake update`, which need an absolute ref like `"path:$PWD"`.
 
         '';
 
