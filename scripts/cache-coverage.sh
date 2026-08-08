@@ -33,7 +33,19 @@
 # environment error.
 set -Eeu -o pipefail
 
+# The flake wrapper in modules/packages/cache-coverage.nix composes the library
+# into this text, where no sibling file exists to source; from a checkout it is
+# resolved against this script rather than FLAKE_DIR, which --flake-dir can
+# point at another tree.
+if ! declare -F secrets_guard_enforce >/dev/null 2>&1; then
+  # SC1091 is disabled for the composed text, where the file is absent by
+  # design; a checkout still gets the cross-file check through source-path.
+  # shellcheck source-path=SCRIPTDIR source=lib/secrets-guard.sh disable=SC1091
+  source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/secrets-guard.sh"
+fi
+
 FLAKE_DIR=""
+ALLOW_SECRET_COPY=${ALLOW_SECRET_COPY:-false}
 HOSTS=()
 ALLOWLIST=""
 MAX_COUNT=0
@@ -67,6 +79,10 @@ Options:
       --max-size SIZE   Allowed total stock nar size of unexpected-local
                         entries, bytes or iec like 50M (default: 0)
   -v, --verbose         Also list every substitutable derivation
+      --allow-secret-copy
+                        Report even when ignored files matching the .gitignore
+                        secrets block would be copied into the store by the
+                        path: ref this script evaluates (ALLOW_SECRET_COPY=1)
   -h, --help            Show this help
 
 Exit: 0 within thresholds, 1 over thresholds, 2 usage/environment error.
@@ -132,6 +148,10 @@ while [[ $# -gt 0 ]]; do
     VERBOSE=true
     shift
     ;;
+  --allow-secret-copy)
+    ALLOW_SECRET_COPY=true
+    shift
+    ;;
   -h | --help)
     usage
     exit 0
@@ -170,6 +190,21 @@ fi
 # there), and path: also includes a dirty tree, which is exactly what a
 # pre-switch report should measure.
 FLAKE_REF="path:${FLAKE_DIR}"
+
+# Unconditional, unlike build.sh, which only reaches path: for some run shapes:
+# there is no bare-ref branch above, so every run of this script makes the
+# unfiltered copy. Exit 2 rather than 1, since neither outcome is a coverage
+# result.
+SECRETS_GUARD_RC=0
+secrets_guard_enforce "${FLAKE_DIR}" "${FLAKE_REF}" || SECRETS_GUARD_RC=$?
+if [[ ${SECRETS_GUARD_RC} -ne 0 ]]; then
+  if [[ ${SECRETS_GUARD_RC} -eq 2 ]]; then
+    err "refusing to evaluate with the secrets guard inoperative"
+  else
+    err "refusing to evaluate ${FLAKE_REF} with ignored files present"
+  fi
+  exit 2
+fi
 
 TMPDIR_ROOT="$(mktemp -d -t cache-coverage.XXXXXX)"
 trap 'rm -rf "${TMPDIR_ROOT}"' EXIT
