@@ -48,8 +48,18 @@ than fetching it through git, so those two cases run the secrets guard in
 `scripts/lib/secrets-guard.sh` first and abort when an ignored file matching the
 `.gitignore` secrets block would be copied, in the tree or in a submodule
 working tree. Pass `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) to report
-anyway. A primary checkout on the default path copies nothing and has nothing to
-override.
+anyway. A primary checkout on the default path evaluates the bare ref, so it
+copies nothing and has nothing to override.
+
+The guard covers the reference this script evaluates, not the one that delivered
+the script. `nix run path:.#cache-coverage` is therefore unguarded by
+construction: Lix copies the tree unfiltered while resolving that installable,
+before the wrapper's first statement, and in a primary checkout the script then
+keeps the bare ref and does not scan at all. Reproduced with a probe `.env` in a
+worktree whose `git status --short` was empty: `nix flake metadata path:.`
+reports a store source containing it at `-r--r--r-- root root`. Reach for
+`scripts/cache-coverage.sh` from the checkout, or `./build.sh --cache-coverage`,
+whenever the sweeps above report anything.
 
 ## Method
 

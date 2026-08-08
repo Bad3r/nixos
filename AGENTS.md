@@ -284,11 +284,13 @@ gives the primary-checkout form.
     the superproject form stops at the `secrets/` gitlink, so it misses the
     decrypted SOPS output that submodule ignores through its own `.gitignore`.
     `./build.sh` and `scripts/cache-coverage.sh` run both sweeps and abort,
-    through the guard they share in `scripts/lib/secrets-guard.sh`, which the
-    flake app `nix run path:.#cache-coverage` is built from as well. Both reach
-    it on the same two conditions that select the `path:` ref, a linked
-    worktree and `--allow-dirty`; a primary checkout on the default path keeps
-    the bare ref and copies nothing. A bare `nix` command run by hand does not.
+    through the guard they share in `scripts/lib/secrets-guard.sh`, on the same
+    two conditions that select the `path:` ref: a linked worktree and
+    `--allow-dirty`. A primary checkout on the default path keeps the bare ref
+    and copies nothing. The guard covers the ref a script evaluates, not the
+    one that delivered it, so `nix run path:.#cache-coverage` is unguarded by
+    construction (Lix copies while resolving the installable, before the
+    wrapper runs), as is any other bare `nix` command run by hand.
 - Explore config in repl
   - Resolution: `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 

@@ -25,7 +25,9 @@ _: {
         # The secrets guard is prepended rather than left to the script's
         # source line: nothing sits beside the script here, and this route
         # reaches the same unfiltered path: ref the guard exists to catch
-        # whenever the script resolves one.
+        # whenever the script resolves one. It cannot cover the installable the
+        # operator typed: `nix run path:.#cache-coverage` has Lix copy the tree
+        # to build this wrapper, before its first statement.
         # The script skips its own source when the functions are already
         # defined, so the checkout and the wrapper run identical logic.
         text =

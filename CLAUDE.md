@@ -370,13 +370,14 @@ sops.secrets."context7/api-key" = {
   the decrypted SOPS output that submodule ignores through its own
   `.gitignore`. `./build.sh` and `scripts/cache-coverage.sh` run both sweeps
   and abort before evaluating, through the guard they share in
-  `scripts/lib/secrets-guard.sh`; that covers the flake app
-  (`nix run path:.#cache-coverage`) too, since it is built from the same
-  script. Both reach the guard on the same two conditions that select the
-  `path:` ref, a linked worktree and `--allow-dirty`, so a primary checkout on
-  the default path never makes the copy in the first place.
-  `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) overrides either. A bare `nix`
-  command run by hand has no such guard.
+  `scripts/lib/secrets-guard.sh`, on the same two conditions that select the
+  `path:` ref: a linked worktree and `--allow-dirty`. A primary checkout on the
+  default path never makes the copy in the first place. `--allow-secret-copy`
+  (`ALLOW_SECRET_COPY=1`) overrides either. The guard covers the ref a script
+  evaluates, not the one that delivered it, so any `path:.` installable typed by
+  hand copies first: `nix run path:.#cache-coverage` is unguarded by
+  construction even though the app is built from the guarded script, and so is
+  every other bare `nix` command.
 - Need to explore config:
   Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
   then inspect config module imports.
