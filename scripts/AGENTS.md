@@ -20,6 +20,18 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   a silent alias for `json`. `tests/pr-comments-mgmt/run.sh` fails on a value
   that has no arm, and covers help rendering and argument parsing.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
+- `lib/`: sourced by `build.sh` and `cache-coverage.sh`, never executed. These
+  carry no shebang and define functions only, because
+  `modules/packages/cache-coverage.nix` prepends their text to the wrapper it
+  builds, where no sibling file exists to source; a new one needs a `readFile`
+  line there as well as a source line in each script. `secrets-guard.sh` decides
+  whether a `path:` reference may copy the tree, and `flake-ref.sh` decides
+  whether a tree gets that reference at all, so the second gates the first and
+  they stay apart. Branch coverage lives in `tests/secrets-guard/run.sh`, which
+  sources the subject rather than running it; the wrapper's `runtimeInputs` are
+  covered separately, under a scrubbed `PATH`, by the
+  `script-tests-cache-coverage-wrapper-inputs` check, since no suite exercises
+  them.
 - `updater/`: shared Python library for package updater scripts. Reuse these
   helpers instead of duplicating HTTP, hash, Nix, npm, or version parsing logic.
   Nix invocations must use spellings Lix implements: `nix hash to-sri`, not the

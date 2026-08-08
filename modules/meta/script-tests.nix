@@ -61,6 +61,19 @@ let
       ];
       extraInputs = _: [ ];
     };
+    secrets-guard = {
+      dir = ../../tests/secrets-guard;
+      subjects = [
+        {
+          src = ../../scripts/lib/secrets-guard.sh;
+          dest = "scripts/lib/secrets-guard.sh";
+        }
+      ];
+      extraInputs = pkgs: [
+        pkgs.gnugrep
+        pkgs.gawk
+      ];
+    };
     pr-comments-mgmt = {
       dir = ../../tests/pr-comments-mgmt;
       subjects = [
