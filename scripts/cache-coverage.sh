@@ -182,6 +182,15 @@ done
 if [[ -z ${FLAKE_DIR} ]]; then
   FLAKE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
+[[ -d ${FLAKE_DIR} ]] || {
+  err "flake directory not found: ${FLAKE_DIR}"
+  exit 2
+}
+# Absolute from here on, as build.sh resolves -p before selecting a reference.
+# A relative --flake-dir with no slash is a directory to this script and an
+# indirect flakeref to Lix, which resolves `nixos#...` as `flake:nixos` and
+# fails in the registries; the unconditional path: form never exposed that.
+FLAKE_DIR="$(cd "${FLAKE_DIR}" && pwd -P)"
 [[ -f "${FLAKE_DIR}/flake.nix" ]] || {
   err "flake.nix not found in ${FLAKE_DIR}"
   exit 2
