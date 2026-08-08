@@ -84,9 +84,9 @@ Options:
                         which git+file cannot see (ALLOW_DIRTY=1). A linked
                         worktree takes that reference either way
       --allow-secret-copy
-                        Report even when untracked files matching the .gitignore
-                        secrets block would be copied into the store by a
-                        path: ref (ALLOW_SECRET_COPY=1)
+                        Report even when the secrets guard flags an untracked
+                        path a path: ref would copy into the store
+                        (ALLOW_SECRET_COPY=1)
   -h, --help            Show this help
 
 Exit: 0 within thresholds, 1 over thresholds, 2 usage/environment error.
@@ -213,8 +213,8 @@ fi
 if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" || -f "${FLAKE_DIR}/.git" ]]; then
   FLAKE_REF="path:${FLAKE_DIR}"
   # build.sh says this through announce_path_ref; a direct run had no notice at
-  # all, and the guard below is silent unless a path matches the secrets block,
-  # so the ordinary case disclosed the tree with nothing said about it.
+  # all, and the guard below is silent unless it flags a path, so the ordinary
+  # case disclosed the tree with nothing said about it.
   GIT_DIR_NOTE=""
   if [[ -d "${FLAKE_DIR}/.git" ]]; then
     GIT_DIR_NOTE=", and the whole .git directory of this primary checkout"
@@ -235,7 +235,7 @@ if [[ ${FLAKE_REF} == path:* ]]; then
     if [[ ${SECRETS_GUARD_RC} -eq 2 ]]; then
       err "refusing to evaluate with the secrets guard inoperative"
     else
-      err "refusing to evaluate ${FLAKE_REF} with untracked files matching the secrets block present"
+      err "refusing to evaluate ${FLAKE_REF} with untracked paths the secrets guard flagged"
     fi
     exit 2
   fi

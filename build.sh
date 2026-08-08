@@ -66,7 +66,7 @@ Options:
   -v, --verbose          Enable verbose output
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
-      --allow-secret-copy Build even when untracked files matching the .gitignore secrets block are present
+      --allow-secret-copy Build even when the secrets guard flags an untracked path
       --update           Run 'nix flake metadata --refresh' and 'nix flake update' before building
       --skip-hooks       Skip the pre-commit validation
       --skip-check       Skip the 'nix flake check' validation step
@@ -139,7 +139,7 @@ announce_path_ref() {
     status_msg "${YELLOW}" \
       "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
     status_msg "${YELLOW}" \
-      "path: also dumps the tree unfiltered, so every untracked path is copied into the store whether .gitignore'd (.direnv/, tmp/, *.log) or not, which under --allow-dirty is whatever is uncommitted, plus the whole .git directory in a primary checkout. Untracked paths matching the secrets block abort the build instead, in this tree and in submodule working trees alike; see --allow-secret-copy."
+      "path: also dumps the tree unfiltered, so every untracked path is copied into the store whether .gitignore'd (.direnv/, tmp/, *.log) or not, which under --allow-dirty is whatever is uncommitted, plus the whole .git directory in a primary checkout. Untracked paths matching the secrets block abort the build instead, as does a nested repository the scan cannot open, in this tree and in submodule working trees alike; see --allow-secret-copy."
   fi
 }
 
