@@ -86,13 +86,15 @@ _: {
       # Common SSH/private key patterns (allow public keys)
       id_*
       !id_*.pub
-      # Mirrors secrets/.gitignore (**/decrypted_*, *.dec.*). Git will not apply
-      # these across the gitlink, so they change nothing for the submodule
-      # itself; scripts/lib/secrets-guard.sh parses this block for its deny list
-      # and matches it against submodule paths too, which is what stops that
-      # scan from having to report every ignored file it finds there.
-      decrypted_*
-      *.dec.*
+      # Mirrors secrets/.gitignore (**/decrypted_*, *.dec.*) so
+      # scripts/lib/secrets-guard.sh, which parses this block for its deny list,
+      # recognises them in the submodule working trees path: copies whole.
+      # Anchored under the gitlink, which git never descends into, so they stay
+      # inert for git: unanchored they would also match at the superproject
+      # root, where a stray cleartext file is untracked today and therefore
+      # caught by git status and by ensure_clean_git_tree.
+      secrets/**/decrypted_*
+      secrets/**/*.dec.*
 
     '';
   };

@@ -63,10 +63,23 @@ secrets_guard_tracked() {
 secrets_guard_paths() {
   local dir="$1"
   local -a deny=() allow=()
-  local line
+  local line negated
   while IFS= read -r line; do
+    negated=0
     if [[ ${line} == '!'* ]]; then
-      allow+=("${line#!}")
+      negated=1
+      line="${line#!}"
+    fi
+    # Reduced to the last component, because these are matched per path
+    # component below rather than as git ignore rules. A directory prefix in the
+    # block is there to stop git applying a pattern outside the tree it belongs
+    # to (secrets/**/decrypted_* is inert for git, which never descends into the
+    # gitlink), and dropping it here is what still lets the scan recognise the
+    # name wherever path: copies it from. The negation is stripped first, since
+    # it precedes the prefix rather than the name.
+    line="${line##*/}"
+    if [[ ${negated} -eq 1 ]]; then
+      allow+=("${line}")
     else
       deny+=("${line}")
     fi
