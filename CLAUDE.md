@@ -361,8 +361,13 @@ sops.secrets."context7/api-key" = {
 - Ignored files under `path:.`:
   Unfiltered also means the `.gitignore` secrets block (`*.agekey`, `*.key`,
   `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`, plus `decrypted_*` and
-  `*.dec.*` anchored under `secrets/`) protects nothing: those files are copied
-  into the world-readable store. `git status --short` does
+  `*.dec.*`) protects nothing: those files are copied
+  into the world-readable store. The last two carry a `secrets/` prefix in the
+  block so git applies them only under the gitlink, which leaves a stray copy
+  at the superproject root untracked and visible instead of ignored; the guard
+  matches both names anywhere it scans, so the anchor scopes git's ignore rule
+  and not the guard, and `git check-ignore` does not confirm such a hit.
+  `git status --short` does
   not surface them, since ignored files are not reported; use
   `git status --porcelain --ignored=matching`, then
   `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`,

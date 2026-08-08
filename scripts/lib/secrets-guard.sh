@@ -75,8 +75,10 @@ secrets_guard_paths() {
     # block is there to stop git applying a pattern outside the tree it belongs
     # to (secrets/**/decrypted_* is inert for git, which never descends into the
     # gitlink), and dropping it here is what still lets the scan recognise the
-    # name wherever path: copies it from. The negation is stripped first, since
-    # it precedes the prefix rather than the name.
+    # name wherever path: copies it from, a bare decrypted_* at the superproject
+    # root included: the anchor scopes git's ignore rule, not this scan, so
+    # git check-ignore does not confirm that hit. The negation is stripped
+    # first, since it precedes the prefix rather than the name.
     line="${line##*/}"
     if [[ ${negated} -eq 1 ]]; then
       allow+=("${line}")
@@ -268,6 +270,10 @@ secrets_guard_enforce() {
   fi
 
   secrets_guard_error "Untracked paths that ${copier} would copy into the world-readable store, which the git+file fetcher would have left behind, either matching the .gitignore secrets block or impossible to scan. Submodule working trees are scanned too, with the same patterns, since path: copies them whole."
+  # git check-ignore is the obvious way to confirm a hit, and it disagrees for
+  # any pattern the block anchors to a subdirectory, so say why before the list
+  # rather than let the operator read the disagreement as a false positive.
+  printf 'A pattern the block anchors to a subdirectory is matched by name here, so git check-ignore will not confirm every hit: the anchor scopes git ignore rules, not this scan.\n' >&2
   # Name the second basis once rather than per entry, and only when the list
   # holds one: an operator who reads every hit as a pattern match goes looking
   # for the pattern a directory name never matched.

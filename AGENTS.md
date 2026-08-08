@@ -277,8 +277,14 @@ gives the primary-checkout form.
     knowingly.
   - Why: unfiltered also means the `.gitignore` secrets block (`*.agekey`,
     `*.key`, `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`, plus
-    `decrypted_*` and `*.dec.*` anchored under `secrets/`) protects nothing
-    under `path:.`; those files are copied into the world-readable store. `git status --short` does not report ignored files, so use
+    `decrypted_*` and `*.dec.*`) protects nothing
+    under `path:.`; those files are copied into the world-readable store. The
+    last two carry a `secrets/` prefix in the block so git applies them only
+    under the gitlink, which leaves a stray copy at the superproject root
+    untracked and visible instead of ignored; the guard matches both names
+    anywhere it scans, so the anchor scopes git's ignore rule and not the
+    guard, and `git check-ignore` does not confirm such a hit.
+    `git status --short` does not report ignored files, so use
     `git status --porcelain --ignored=matching`, then
     `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`:
     the superproject form stops at the `secrets/` gitlink, so it misses the

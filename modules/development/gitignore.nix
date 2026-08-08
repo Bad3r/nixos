@@ -92,7 +92,9 @@ _: {
       # Anchored under the gitlink, which git never descends into, so they stay
       # inert for git: unanchored they would also match at the superproject
       # root, where a stray cleartext file is untracked today and therefore
-      # caught by git status and by ensure_clean_git_tree.
+      # caught by git status and by ensure_clean_git_tree. The guard reduces
+      # every pattern to its last component, so it denies both names at any
+      # depth anyway; the anchor scopes git's rule, not that scan.
       secrets/**/decrypted_*
       secrets/**/*.dec.*
 
