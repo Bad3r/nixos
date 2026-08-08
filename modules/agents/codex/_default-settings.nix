@@ -33,7 +33,6 @@
     runtime_metrics = false;
     memories = false;
     chronicle = false;
-    child_agents_md = false;
     apply_patch_streaming_events = false;
     exec_permission_approvals = false;
     hooks = true;
@@ -70,7 +69,6 @@
     fast_mode = true;
     realtime_conversation = false;
     prevent_idle_sleep = false;
-    responses_websocket_response_processed = false;
     remote_compaction_v2 = false;
     workspace_dependencies = true;
   };

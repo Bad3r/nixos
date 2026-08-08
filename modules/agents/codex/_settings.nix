@@ -94,7 +94,6 @@ let
 
     # Feature flags
     features = {
-      child_agents_md = true;
       default_mode_request_user_input = true;
       enable_request_compression = false;
       memories = true;
