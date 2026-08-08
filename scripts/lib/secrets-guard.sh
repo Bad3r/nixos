@@ -82,7 +82,29 @@ secrets_guard_paths() {
   local dir="$1"
   local -a deny=() allow=()
   local line negated
+  # Read through a variable rather than a process substitution, which discards
+  # awk's status: an unreadable .gitignore printed nothing, deny came back empty
+  # and the minimum-set check below blamed the block, which is the same wrong
+  # cause a3849cc1 preflighted awk to prevent and 62887039 split out of grep.
+  # secrets_guard_enforce now gates this on grep reading the same file, so the
+  # production route needs the mode to change in between; the suite's scan()
+  # helper calls this directly, and that is the entry point covered here.
+  local block awk_rc=0
+  block="$(awk '
+    /^# Secrets safety \(defense-in-depth\)/ { in_block = 1; next }
+    in_block && /^#/ { next }
+    in_block && /^[[:space:]]*$/ { exit }
+    in_block { print }
+  ' "${dir}/.gitignore")" || awk_rc=$?
+  if [[ ${awk_rc} -ne 0 ]]; then
+    secrets_guard_error "Reading ${dir}/.gitignore failed (awk exit ${awk_rc}), so the secrets guard could not parse the secrets block rather than finding it changed. Fix its permissions, or pass --allow-secret-copy to continue anyway."
+    return 1
+  fi
   while IFS= read -r line; do
+    # An empty block reaches the herestring as one empty line, where the process
+    # substitution gave no iterations; awk never prints one, since a blank line
+    # inside the block ends it.
+    [[ -n ${line} ]] || continue
     negated=0
     if [[ ${line} == '!'* ]]; then
       negated=1
@@ -105,12 +127,7 @@ secrets_guard_paths() {
     fi
     # Patterns are read from .gitignore rather than restated here: that file is
     # generated from modules/files.nix, so a second copy would drift unseen.
-  done < <(awk '
-    /^# Secrets safety \(defense-in-depth\)/ { in_block = 1; next }
-    in_block && /^#/ { next }
-    in_block && /^[[:space:]]*$/ { exit }
-    in_block { print }
-  ' "${dir}/.gitignore")
+  done <<<"${block}"
 
   # Fail closed on a partial parse, not just an empty one. The block ends at the
   # first blank line, so one inserted mid-block (the natural spot is before the

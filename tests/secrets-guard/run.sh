@@ -222,6 +222,27 @@ test_parser_fails_closed_on_blank_line_mid_block() {
   pass
 }
 
+# A process substitution discards awk's status, so an unreadable .gitignore
+# printed nothing and the minimum-set check below blamed the block, which is the
+# wrong cause the awk preflight exists to prevent. secrets_guard_enforce gates
+# this on grep reading the same file now, so the production route needs the mode
+# to change in between; this entry point is the one the suite itself uses.
+test_parser_splits_an_unreadable_gitignore_from_a_changed_block() {
+  local repo
+  repo="$(make_repo parser-unreadable)"
+  : >"${repo}/probe.pem"
+  chmod 000 "${repo}/.gitignore"
+
+  scan "${repo}"
+  [[ ${scan_rc} -eq 1 ]] || fail "unreadable block: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
+  grep -q '^Error: Reading .*\.gitignore failed (awk exit' "${tmpdir}/scan.err" ||
+    fail "unreadable block: the abort did not name the read" "${tmpdir}/scan.err"
+  ! grep -q 'did not yield the expected patterns' "${tmpdir}/scan.err" ||
+    fail "unreadable block: blamed a block it never read" "${tmpdir}/scan.err"
+  [[ ${#hits[@]} -eq 0 ]] || fail "unreadable block: reported hits from an unparsed block"
+  pass
+}
+
 # --- secrets_guard_tracked -------------------------------------------------
 
 # Three answers, not two. Collapsing 128 into "not tracked" reads a broken
@@ -813,6 +834,7 @@ test_enforce_splits_a_missing_gitignore_by_tracked_state() {
 
 test_parser_fails_closed_on_renamed_heading
 test_parser_fails_closed_on_blank_line_mid_block
+test_parser_splits_an_unreadable_gitignore_from_a_changed_block
 test_tracked_splits_three_ways
 test_scan_matches_deny_patterns_and_honours_the_allow_entry
 test_scan_walks_every_path_component
