@@ -146,7 +146,7 @@ secrets_guard_paths() {
   # happened, which is the same misattribution the preflight was added to stop.
   local scan
   if ! scan="$(mktemp)"; then
-    secrets_guard_error "Creating a temporary file for the scan of ${dir} failed (TMPDIR=${TMPDIR:-/tmp}), so the secrets guard cannot run; the untracked listing below has not started."
+    secrets_guard_error "Creating a temporary file for the scan of ${dir} failed (TMPDIR=${TMPDIR:-/tmp}), so the secrets guard cannot run and the untracked listing below never started. Point TMPDIR at a writable filesystem, or pass --allow-secret-copy to continue anyway."
     return 1
   fi
   local file
@@ -311,7 +311,7 @@ secrets_guard_enforce() {
   # assignment could not surface as an ERR trap either.
   local hits_file
   if ! hits_file="$(mktemp)"; then
-    secrets_guard_error "Creating a temporary file for the hit list failed (TMPDIR=${TMPDIR:-/tmp}), so the secrets guard cannot run."
+    secrets_guard_error "Creating a temporary file for the hit list failed (TMPDIR=${TMPDIR:-/tmp}), so the secrets guard cannot run. Point TMPDIR at a writable filesystem, or pass --allow-secret-copy to continue anyway."
     return 2
   fi
   if ! secrets_guard_paths "${dir}" >"${hits_file}"; then
