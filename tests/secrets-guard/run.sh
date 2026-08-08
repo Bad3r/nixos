@@ -147,6 +147,42 @@ assert_no_hit() {
   ! has_hit "${want}" || fail "${label}: unexpected hit for ${want}"
 }
 
+# A mktemp that hands back a write-only path on its Nth call and an ordinary one
+# otherwise, so the write that follows still succeeds and only the read back
+# fails. Call 1 is the hit list in secrets_guard_enforce, call 2 the scan file in
+# secrets_guard_paths, which is what lets one stub reach either read.
+#
+# The stub resolves every tool by absolute path: PATH holds only the symlinks
+# below while it runs, so a bare chmod or wc in here would be reported as the
+# guard's own failure rather than the fixture's.
+make_unreadable_mktemp_stub() {
+  local stub="$1"
+  local nth="$2"
+  local tool
+
+  mkdir -p "${stub}"
+  for tool in git grep awk rm; do
+    ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+  done
+  {
+    printf '%s\n' '#!/bin/sh'
+    printf 'real_mktemp="%s"\n' "$(type -P mktemp)"
+    printf 'real_chmod="%s"\n' "$(type -P chmod)"
+    printf 'real_wc="%s"\n' "$(type -P wc)"
+    printf 'counter="%s"\n' "${stub}/calls"
+    printf 'nth="%s"\n' "${nth}"
+    cat <<'STUB'
+p="$("${real_mktemp}" "$@")"
+printf 'x' >>"${counter}"
+if [ "$("${real_wc}" -c <"${counter}")" -eq "${nth}" ]; then
+  "${real_chmod}" 200 "${p}"
+fi
+printf '%s\n' "${p}"
+STUB
+  } >"${stub}/mktemp"
+  chmod +x "${stub}/mktemp"
+}
+
 # --- the .gitignore parser -------------------------------------------------
 
 # The minimum set is named in the guard rather than counted, because a block
@@ -359,6 +395,72 @@ test_scan_fails_closed_on_a_failing_mktemp() {
   pass
 }
 
+# printf was the one write the scan never checked, and it fails open in the
+# direction that matters: a full filesystem under the caller's redirect lost the
+# hit, the loop carried on, and the function returned 0 for a tree it had found a
+# secret in. /dev/full is the lever, since printf is a builtin and no PATH stub
+# can reach it. Called directly rather than through scan(), which writes to a
+# file that works.
+test_scan_fails_closed_on_an_unwritable_hit_list() {
+  local repo rc
+  repo="$(make_repo scan-write)"
+  : >"${repo}/id_ed25519"
+
+  rc=0
+  secrets_guard_paths "${repo}" >/dev/full 2>"${tmpdir}/scan.err" || rc=$?
+  [[ ${rc} -eq 1 ]] || fail "unwritable hit list: expected rc 1, got ${rc}" "${tmpdir}/scan.err"
+  grep -q '^Error: Writing the hit list' "${tmpdir}/scan.err" ||
+    fail "unwritable hit list: the abort did not name the write" "${tmpdir}/scan.err"
+  pass
+}
+
+# The submodule pass has its own printf and its own message, so a case whose only
+# hit is at the top level never reaches it.
+test_scan_fails_closed_on_an_unwritable_submodule_hit() {
+  local repo source rc
+  repo="$(make_repo scan-write-submodule)"
+  source="${tmpdir}/scan-write-submodule-source"
+  init_repo "${source}"
+  printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
+  printf '%s\n' 'submodule' >"${source}/README.md"
+  git -C "${source}" add .gitignore README.md
+  git -C "${source}" commit -q -m "initial submodule"
+
+  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" secrets
+  git -C "${repo}" commit -q -m "add submodule"
+  # The only hit is inside the submodule, so the top-level loop writes nothing
+  # and the failure can only come from the second printf.
+  : >"${repo}/secrets/decrypted_probe.yaml"
+
+  rc=0
+  secrets_guard_paths "${repo}" >/dev/full 2>"${tmpdir}/scan.err" || rc=$?
+  [[ ${rc} -eq 1 ]] || fail "unwritable submodule hit: expected rc 1, got ${rc}" "${tmpdir}/scan.err"
+  grep -q 'Writing the hit list for submodule secrets' "${tmpdir}/scan.err" ||
+    fail "unwritable submodule hit: the abort did not name the submodule" "${tmpdir}/scan.err"
+  pass
+}
+
+# A redirect that cannot open its file skips the loop rather than failing it, so
+# an unreadable listing classified nothing and still fell through to return 0.
+# The scan file is the second mktemp, and git writes it before the loop reads it.
+test_scan_fails_closed_on_an_unreadable_listing() {
+  local repo stub
+  repo="$(make_repo scan-read)"
+  : >"${repo}/id_ed25519"
+
+  stub="${tmpdir}/stub-unreadable-scan"
+  make_unreadable_mktemp_stub "${stub}" 2
+
+  PATH="${stub}" enforce "${repo}"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "unreadable listing: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q '^Error: Reading the untracked listing' "${tmpdir}/enforce.err" ||
+    fail "unreadable listing: the abort did not name the read" "${tmpdir}/enforce.err"
+  ! grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
+    fail "unreadable listing: reported a hit it never classified" "${tmpdir}/enforce.err"
+  pass
+}
+
 # --- secrets_guard_enforce -------------------------------------------------
 
 test_enforce_returns_zero_on_a_clean_tree() {
@@ -568,6 +670,42 @@ test_enforce_fails_closed_on_a_failing_mktemp() {
   pass
 }
 
+# Read side of the same round trip, and the last consumer of that file with no
+# status read. secrets_guard_paths has already returned by then, so a redirect
+# that cannot open the file leaves hit_list at zero length and the clean-tree
+# check below reads that as a clear tree for a scan that found a secret.
+test_enforce_fails_closed_on_an_unreadable_hit_list() {
+  local repo stub
+  repo="$(make_repo enforce-read)"
+  : >"${repo}/id_ed25519"
+
+  stub="${tmpdir}/stub-unreadable-hits"
+  make_unreadable_mktemp_stub "${stub}" 1
+
+  PATH="${stub}" enforce "${repo}"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "unreadable hit list: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q '^Error: Reading the hit list back' "${tmpdir}/enforce.err" ||
+    fail "unreadable hit list: the abort did not name the read" "${tmpdir}/enforce.err"
+  ! grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
+    fail "unreadable hit list: reported a hit it could not read" "${tmpdir}/enforce.err"
+  pass
+}
+
+# An empty but readable hit list is the clean tree, which the read check has to
+# keep telling apart from one it could not open: mapfile is status 0 for the
+# first and nonzero for the second.
+test_enforce_keeps_the_empty_hit_list_a_clean_tree() {
+  local repo
+  repo="$(make_repo enforce-empty-hits)"
+  : >"${repo}/notes.md"
+
+  enforce "${repo}"
+  [[ ${enforce_rc} -eq 0 ]] ||
+    fail "empty hit list: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  pass
+}
+
 # rev-parse answers 128 for a repository git declines to open as well as for a
 # directory that is not one, and collapsing both to the skip was a fail-open:
 # flake_path_ref_reason selects path: off the .git file alone, so a linked
@@ -642,6 +780,9 @@ test_scan_leaves_a_plain_untracked_directory_alone
 test_scan_round_trips_a_path_holding_a_newline
 test_scan_covers_submodule_working_trees
 test_scan_fails_closed_on_a_failing_mktemp
+test_scan_fails_closed_on_an_unwritable_hit_list
+test_scan_fails_closed_on_an_unwritable_submodule_hit
+test_scan_fails_closed_on_an_unreadable_listing
 test_enforce_returns_zero_on_a_clean_tree
 test_enforce_reports_a_hit_and_names_the_copier
 test_enforce_keeps_stdout_clear
@@ -651,6 +792,8 @@ test_enforce_skips_a_tree_that_does_not_own_the_generator
 test_enforce_fails_closed_on_a_missing_external
 test_scan_survives_a_failing_cleanup
 test_enforce_fails_closed_on_a_failing_mktemp
+test_enforce_fails_closed_on_an_unreadable_hit_list
+test_enforce_keeps_the_empty_hit_list_a_clean_tree
 test_enforce_fails_closed_on_an_unopenable_repository
 test_enforce_splits_a_missing_gitignore_by_tracked_state
 

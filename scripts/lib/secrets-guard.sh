@@ -65,6 +65,19 @@ secrets_guard_tracked() {
   return "${rc}"
 }
 
+# Every hit goes through here, because a hit that cannot be written is a hit the
+# caller never sees, and an empty list reads as a clear tree. The destination is
+# this function's stdout, which the caller owns and this one never created, so
+# the remedy names no path of its own; TMPDIR is only where the one production
+# caller happens to put it.
+secrets_guard_emit() {
+  local path="$1"
+  local where="$2"
+  printf '%s\0' "${path}" && return 0
+  secrets_guard_error "Writing the hit list for ${where} failed, so the secrets guard found a path it cannot report and cannot certify the tree. Free space wherever its output is being written, commonly TMPDIR, or pass --allow-secret-copy to continue anyway."
+  return 1
+}
+
 secrets_guard_paths() {
   local dir="$1"
   local -a deny=() allow=()
@@ -161,11 +174,33 @@ secrets_guard_paths() {
   # clone parks its .env in the store while the deny list only ever sees the
   # directory name. Nothing inside was classified, so the boundary is the hit;
   # --allow-secret-copy is the way past a scratch tree that holds no secret.
+  #
+  # The read is checked as well as the write. A redirect that cannot open the
+  # file skips the loop entirely rather than failing it, so an unreadable scan
+  # would classify nothing and still fall through to the return 0 below. An
+  # empty but readable file is status 0, which is the clean tree this has to
+  # keep telling apart.
+  # Both statuses leave the loop in a variable rather than aborting inside it,
+  # so the one cleanup stays outside the redirect that is reading the file it
+  # removes. break leaves the loop status 0, which keeps the two apart.
+  local read_rc=0 emit_rc=0
   while IFS= read -r -d '' file; do
     if [[ ${file} == */ ]] || secrets_guard_is_hit "${file}"; then
-      printf '%s\0' "${file}"
+      if ! secrets_guard_emit "${file}" "${dir}"; then
+        emit_rc=1
+        break
+      fi
     fi
-  done <"${scan}"
+  done <"${scan}" || read_rc=$?
+  if [[ ${emit_rc} -ne 0 ]]; then
+    rm -f "${scan}"
+    return 1
+  fi
+  if [[ ${read_rc} -ne 0 ]]; then
+    rm -f "${scan}"
+    secrets_guard_error "Reading the untracked listing of ${dir} back failed, so the secrets guard classified none of what it listed. Check the filesystem holding TMPDIR, or pass --allow-secret-copy to continue anyway."
+    return 1
+  fi
 
   # ls-files stops at a gitlink, but path: copies submodule working trees whole.
   # secrets/ keeps decrypted SOPS output out of its own history through
@@ -189,11 +224,31 @@ secrets_guard_paths() {
     # The same boundary one level down: a stray repository nested in the
     # submodule's own untracked tree stops ls-files there too. foreach walks
     # registered submodules, so this pass reaches those and not these.
+    read_rc=0
+    emit_rc=0
     while IFS= read -r -d '' subfile; do
       if [[ ${subfile} == */ ]] || secrets_guard_is_hit "${sub}/${subfile}"; then
-        printf '%s\0' "${sub}/${subfile}"
+        if ! secrets_guard_emit "${sub}/${subfile}" "submodule ${sub} of ${dir}"; then
+          emit_rc=1
+          break
+        fi
       fi
-    done <"${scan}"
+    done <"${scan}" || read_rc=$?
+    if [[ ${emit_rc} -ne 0 ]]; then
+      rm -f "${scan}"
+      return 1
+    fi
+    # No case in tests/secrets-guard/run.sh covers this one, and dropping it is
+    # the single mutation the suite does not catch. Both passes read the one
+    # ${scan} file, so any lever that makes it unreadable stops the top-level
+    # read first; only something changing it between the passes reaches here,
+    # which is the same race that put the check on the read above. It stays
+    # because a per-submodule temp file would reopen the hole in silence.
+    if [[ ${read_rc} -ne 0 ]]; then
+      rm -f "${scan}"
+      secrets_guard_error "Reading the untracked listing of submodule ${sub} back failed, so the secrets guard classified none of what it listed there. Check the filesystem holding TMPDIR, or pass --allow-secret-copy to continue anyway."
+      return 1
+    fi
   done <<<"${submodules}"
   rm -f "${scan}"
   # Explicit, because the cleanup above would otherwise be this function's exit
@@ -318,8 +373,18 @@ secrets_guard_enforce() {
     rm -f "${hits_file}"
     return 2
   fi
+  # Read side of the same round trip, and the last consumer of that file with no
+  # status read. secrets_guard_paths has already returned by here, so its 0 says
+  # the scan completed and not that the file it wrote is still readable: a
+  # redirect that cannot open it leaves hit_list at its initialised zero length,
+  # which the check below reads as a clear tree. An empty but readable file is
+  # status 0, so the legitimate clean tree still passes through here.
   local -a hit_list=()
-  mapfile -d '' -t hit_list <"${hits_file}"
+  if ! mapfile -d '' -t hit_list <"${hits_file}"; then
+    rm -f "${hits_file}"
+    secrets_guard_error "Reading the hit list back from ${hits_file} failed, so the secrets guard cannot report what ${copier} would copy. Check the filesystem holding TMPDIR, or pass --allow-secret-copy to continue anyway."
+    return 2
+  fi
   rm -f "${hits_file}"
   if [[ ${#hit_list[@]} -eq 0 ]]; then
     return 0
