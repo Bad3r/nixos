@@ -423,33 +423,32 @@ test_enforce_skips_a_tree_that_does_not_own_the_generator() {
   pass
 }
 
-# Neither external reports itself usefully from where it runs, which is why both
-# are preflighted rather than left to fail in place. grep not found returns 127,
-# which negates to true and skips the discriminator; a missing awk empties the
-# deny list, and the parser then reports .gitignore drift that has not happened,
-# sending the operator to realign an intact generator. No caller covers every
-# route: build.sh has no required-tool loop and a checkout run has no
-# runtimeInputs.
+# Not one of these reports itself usefully from where it runs, which is why they
+# are gated ahead of everything rather than left to fail in place. git shared a
+# condition with the not-a-worktree skip and returned 0, so the copy went ahead
+# unguarded on a tree full of secrets. grep not found returns 127, which negates
+# to true and skips the discriminator. A missing awk empties the deny list and
+# the parser reports .gitignore drift that has not happened. mktemp leaves the
+# temp paths empty, surfacing as a redirect error against a git call that never
+# ran. rm closed secrets_guard_paths, so its 127 became that function's status.
+# No caller covers every route: build.sh has no required-tool loop and a checkout
+# run has no runtimeInputs.
 test_enforce_fails_closed_on_a_missing_external() {
   local repo stub missing tool
 
   repo="$(make_repo enforce-tools)"
   : >"${repo}/id_ed25519"
 
-  # The control: with both present this tree aborts on the hit, so an rc 2 below
-  # is the missing tool rather than the fixture.
+  # The control: with all five present this tree aborts on the hit, so an rc 2
+  # below is the missing tool rather than the fixture.
   enforce "${repo}"
   [[ ${enforce_rc} -eq 1 ]] || fail "tool control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
 
   # One stub per case, holding every tool the run needs except the one under
-  # test. Dropping awk still has to clear the grep check, which is what proves
-  # each is tested separately rather than both by the first miss, and mktemp and
-  # rm are there so a guard without this preflight reaches the parser and
-  # misattributes rather than dying earlier on a tool the fixture withheld: that
-  # is the failure being regressed against. Assigning PATH clears bash's hashed
-  # command table, and the assignment is scoped to the call, so the suite's own
-  # grep still resolves afterwards.
-  for missing in grep awk; do
+  # test, so each is reached on its own rather than reported by an earlier miss.
+  # Assigning PATH clears bash's hashed command table, and the assignment is
+  # scoped to the call, so the suite's own grep still resolves afterwards.
+  for missing in git grep awk mktemp rm; do
     stub="${tmpdir}/stub-no-${missing}"
     mkdir -p "${stub}"
     for tool in git grep awk mktemp rm; do
@@ -463,8 +462,15 @@ test_enforce_fails_closed_on_a_missing_external() {
       fail "missing ${missing}: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
     grep -q "^Error: ${missing} was not found" "${tmpdir}/enforce.err" ||
       fail "missing ${missing}: the abort did not name it" "${tmpdir}/enforce.err"
+    # The three ways the old code misread a missing tool: .gitignore drift for
+    # awk, a git call that never ran for mktemp, and a worktree reported as none
+    # for git, which was the fail-open.
     ! grep -q 'did not yield the expected patterns' "${tmpdir}/enforce.err" ||
       fail "missing ${missing}: blamed the .gitignore block instead" "${tmpdir}/enforce.err"
+    ! grep -q 'Listing untracked files' "${tmpdir}/enforce.err" ||
+      fail "missing ${missing}: blamed a git call that never ran" "${tmpdir}/enforce.err"
+    ! grep -q 'is not a git worktree' "${tmpdir}/enforce.err" ||
+      fail "missing ${missing}: skipped a real worktree instead of failing closed" "${tmpdir}/enforce.err"
   done
   pass
 }
