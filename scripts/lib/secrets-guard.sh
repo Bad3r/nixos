@@ -159,6 +159,16 @@ secrets_guard_enforce() {
     secrets_guard_notice "${dir} has no .gitignore, so no secrets block defines patterns there; the secrets scan does not run."
     return 0
   fi
+  # The same discriminator one level down. The block is this repo's convention,
+  # emitted by modules/development/gitignore.nix, and practically every other
+  # repository has a .gitignore without it; aborting there would name a module
+  # that tree does not contain. A renamed or thinned heading in a tree that does
+  # own the generator still fails closed in the parser.
+  if ! grep -qxF '# Secrets safety (defense-in-depth)' "${dir}/.gitignore" &&
+    ! git -C "${dir}" ls-files --error-unmatch -- modules/development/gitignore.nix >/dev/null 2>&1; then
+    secrets_guard_notice "${dir}/.gitignore has no secrets block and the tree does not own modules/development/gitignore.nix, so it is not generated from this repo; the secrets scan does not run."
+    return 0
+  fi
 
   # `if !` keeps set -e suspended, so a parser failure reports itself instead of
   # reaching an ERR trap as a bare "Command 'return 1' failed".
