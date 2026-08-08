@@ -100,7 +100,6 @@
   model_provider = "openai";
   model_providers = { };
   # model_reasoning_effort = null;
-  # Disabled because gpt-5.4-spark returns 400 unsupported_parameter for `reasoning.summary`.
   # model_reasoning_summary = "auto";
   # model_supports_reasoning_summaries = null;
   model_verbosity = "medium";
