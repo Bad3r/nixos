@@ -26,12 +26,12 @@
     shell_snapshot = true;
     code_mode = false;
     code_mode_only = false;
+    code_mode_host = true;
     terminal_resize_reflow = true;
     standalone_web_search = false;
     runtime_metrics = false;
     memories = false;
     chronicle = false;
-    child_agents_md = false;
     apply_patch_streaming_events = false;
     exec_permission_approvals = false;
     hooks = true;
@@ -68,7 +68,6 @@
     fast_mode = true;
     realtime_conversation = false;
     prevent_idle_sleep = false;
-    responses_websocket_response_processed = false;
     remote_compaction_v2 = false;
     workspace_dependencies = true;
   };
@@ -101,7 +100,6 @@
   model_provider = "openai";
   model_providers = { };
   # model_reasoning_effort = null;
-  # Disabled because gpt-5.4-spark returns 400 unsupported_parameter for `reasoning.summary`.
   # model_reasoning_summary = "auto";
   # model_supports_reasoning_summaries = null;
   model_verbosity = "medium";
