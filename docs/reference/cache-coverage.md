@@ -56,14 +56,23 @@ reaches the block, while `path:` copies the directory whole. Pass
 anyway. A primary checkout on the default path evaluates the bare ref, so it
 copies nothing and has nothing to override.
 
-A guard hit aborts, and so does a guard that cannot run: any of `git`, `grep`,
-`awk`, `mktemp` and `rm` missing from `PATH`, a `mktemp` present that fails
-anyway on a read-only `TMPDIR` or a full filesystem, a hit list the guard cannot
-write or read back for the same reasons, a `.gitignore` tracked but absent or
-present and unreadable, a secrets block that no longer yields its patterns or
-that holds an entry reducing to no name to match, a flake directory that is a
-subdirectory of a worktree whose root `.gitignore` carries the block, a worktree
-root or flake directory that cannot be resolved to an absolute path, and
+A guard hit aborts, and so does a guard that cannot run. The second is grouped
+by cause rather than listed per branch, because the guard splits a new one out
+whenever a call turns out to answer three ways, and a per-branch list here goes
+stale on the commit that does it. A tool it cannot reach: any of `git`, `grep`,
+`awk`, `mktemp` and `rm` missing from `PATH`. A temporary file it cannot get,
+write or read back: `mktemp` failing on a read-only `TMPDIR` or a full
+filesystem, and either the untracked listing or the hit list going unreadable
+afterwards. A `git` call that fails outright rather than answering: listing
+untracked files in the tree or in a submodule, enumerating the submodules,
+resolving the worktree root, or deciding whether `.gitignore` or
+`modules/development/gitignore.nix` is tracked. An ignore set it cannot read as
+written: a `.gitignore` tracked but absent, one present and unreadable in the
+flake directory or at the worktree root, a secrets block that no longer yields
+its patterns, and a block entry reducing to no name to match. A directory it
+cannot take as given: a flake directory that will not resolve to an absolute
+path, one that is a
+subdirectory of a worktree whose root `.gitignore` carries the block, and
 a directory carrying a `.git` marker git will not open as a repository. Both
 exit 2, naming
 which of the two they were. A missing `git` is in that list rather than in the
