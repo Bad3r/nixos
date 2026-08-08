@@ -94,7 +94,10 @@ let
 
     # Feature flags
     features = {
-      child_agents_md = true;
+      # Spawns bin/codex-code-mode-host, installed by ./_packaged-codex.nix.
+      # Pinned here rather than inherited from the upstream default mirrored in
+      # ./_default-settings.nix, so a defaults resync cannot silently drop it.
+      code_mode_host = true;
       default_mode_request_user_input = true;
       enable_request_compression = false;
       memories = true;
@@ -119,7 +122,7 @@ let
         filesystem = {
           ":minimal" = "read";
           ":tmpdir" = "write";
-          ":project_roots" = {
+          ":workspace_roots" = {
             "." = "write";
           };
           "/nix/var/nix" = "read";
