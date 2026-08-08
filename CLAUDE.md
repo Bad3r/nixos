@@ -280,7 +280,8 @@ worktree, since that is where the branch workflow above puts the work; the plain
 - Overlay or override changes that can affect binary-cache coverage:
   `scripts/cache-coverage.sh --host $HOSTNAME` (evaluation plus narinfo
   probes, no builds; see `docs/reference/cache-coverage.md`). The script
-  resolves its own `path:` ref.
+  resolves its own `path:` ref, and runs the shared secrets guard before
+  evaluating it.
 - Input updates: `nix flake metadata --refresh "path:$PWD"`, then
   `nix flake update --flake "path:$PWD"`. See the worktree note above for why
   neither is `path:.`: both write `flake.lock` back. `flake.lock` is excluded
@@ -365,9 +366,12 @@ sops.secrets."context7/api-key" = {
   `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`,
   because the superproject form stops at the `secrets/` gitlink and so misses
   the decrypted SOPS output that submodule ignores through its own
-  `.gitignore`. `./build.sh` runs both sweeps and aborts before it builds,
-  overridable with `--allow-secret-copy`, but a bare `nix` command run by hand
-  has no such guard.
+  `.gitignore`. `./build.sh` and `scripts/cache-coverage.sh` run both sweeps
+  and abort before evaluating, through the guard they share in
+  `scripts/lib/secrets-guard.sh`; that covers the flake app
+  (`nix run path:.#cache-coverage`) too, since it is built from the same
+  script. `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) overrides either. A
+  bare `nix` command run by hand has no such guard.
 - Need to explore config:
   Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
   then inspect config module imports.

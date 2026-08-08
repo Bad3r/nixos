@@ -273,7 +273,8 @@ gives the primary-checkout form.
     `git status --short` before trusting a `path:.` pass.
 - Ignored files under `path:.`
   - Resolution: keep secrets out of the worktree, or pass
-    `--allow-secret-copy` to `./build.sh` knowingly.
+    `--allow-secret-copy` to `./build.sh` or `scripts/cache-coverage.sh`
+    knowingly.
   - Why: unfiltered also means the `.gitignore` secrets block (`*.agekey`,
     `*.key`, `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`) protects
     nothing under `path:.`; those files are copied into the world-readable
@@ -282,8 +283,10 @@ gives the primary-checkout form.
     `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`:
     the superproject form stops at the `secrets/` gitlink, so it misses the
     decrypted SOPS output that submodule ignores through its own `.gitignore`.
-    `./build.sh` runs both sweeps and aborts, but a bare `nix` command run by
-    hand does not.
+    `./build.sh` and `scripts/cache-coverage.sh` run both sweeps and abort,
+    through the guard they share in `scripts/lib/secrets-guard.sh`, which the
+    flake app `nix run path:.#cache-coverage` is built from as well. A bare
+    `nix` command run by hand does not.
 - Explore config in repl
   - Resolution: `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 

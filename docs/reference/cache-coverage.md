@@ -37,6 +37,13 @@ Gate a deploy on the report:
 ./build.sh --cache-coverage
 ```
 
+Every form above evaluates a `path:` ref, which dumps the tree unfiltered into
+the world-readable store rather than fetching it through git. All three
+therefore run the secrets guard in `scripts/lib/secrets-guard.sh` first and
+abort when an ignored file matching the `.gitignore` secrets block, or any
+ignored file under a submodule, would be copied. Pass `--allow-secret-copy`
+(`ALLOW_SECRET_COPY=1`) to report anyway.
+
 ## Method
 
 1. The host toplevel derivation is instantiated
