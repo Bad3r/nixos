@@ -619,7 +619,15 @@ main() {
 
   if [[ ${CACHE_COVERAGE} == "true" ]]; then
     status_msg "${YELLOW}" "Checking cache coverage for '${TARGET_HOST}' (narinfo probes, no builds)..."
-    "${FLAKE_DIR}/scripts/cache-coverage.sh" --flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}"
+    # cache-coverage.sh runs the guard unconditionally, so the override has to
+    # travel with it. ALLOW_SECRET_COPY is not exported: the environment
+    # spelling is inherited, the flag spelling would not be, and the two
+    # documented forms of one override would abort differently here.
+    local -a coverage_args=(--flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}")
+    if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
+      coverage_args+=(--allow-secret-copy)
+    fi
+    "${FLAKE_DIR}/scripts/cache-coverage.sh" "${coverage_args[@]}"
   fi
 
   status_msg "${GREEN}" "Validation completed successfully!"
