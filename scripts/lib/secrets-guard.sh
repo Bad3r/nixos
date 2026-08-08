@@ -385,15 +385,30 @@ secrets_guard_enforce() {
     return 2
   fi
   if [[ ${resolved} != "${toplevel}" && -f "${toplevel}/.gitignore" ]]; then
-    local root_heading_rc=0
-    grep -qxF '# Secrets safety (defense-in-depth)' "${toplevel}/.gitignore" || root_heading_rc=$?
-    if [[ ${root_heading_rc} -gt 1 ]]; then
-      secrets_guard_error "Reading ${toplevel}/.gitignore failed (grep exit ${root_heading_rc}), so the secrets guard cannot tell whether the root of ${dir}'s worktree defines a secrets block for it. Fix its permissions, or pass --allow-secret-copy to continue anyway."
-      return 2
+    # The subdirectory's own block is asked about first, because it is the file
+    # the reads below would resolve to and it defines exactly the patterns the
+    # scan needs. Aborting there would refuse a directory the guard can answer
+    # for, and send its operator to a root whose tree path:${dir} does not copy.
+    local dir_heading_rc=1
+    if [[ -f "${dir}/.gitignore" ]]; then
+      dir_heading_rc=0
+      grep -qxF '# Secrets safety (defense-in-depth)' "${dir}/.gitignore" || dir_heading_rc=$?
+      if [[ ${dir_heading_rc} -gt 1 ]]; then
+        secrets_guard_error "Reading ${dir}/.gitignore failed (grep exit ${dir_heading_rc}), so the secrets guard cannot tell whether it defines a secrets block of its own. Fix its permissions, or pass --allow-secret-copy to continue anyway."
+        return 2
+      fi
     fi
-    if [[ ${root_heading_rc} -eq 0 ]]; then
-      secrets_guard_error "${dir} is a subdirectory of the worktree at ${toplevel}, whose .gitignore carries the secrets block that covers what path:${dir} would copy, and this guard reads ${dir}/.gitignore only. Point the flake directory at ${toplevel}, or pass --allow-secret-copy to continue anyway."
-      return 2
+    if [[ ${dir_heading_rc} -ne 0 ]]; then
+      local root_heading_rc=0
+      grep -qxF '# Secrets safety (defense-in-depth)' "${toplevel}/.gitignore" || root_heading_rc=$?
+      if [[ ${root_heading_rc} -gt 1 ]]; then
+        secrets_guard_error "Reading ${toplevel}/.gitignore failed (grep exit ${root_heading_rc}), so the secrets guard cannot tell whether the root of ${dir}'s worktree defines a secrets block for it. Fix its permissions, or pass --allow-secret-copy to continue anyway."
+        return 2
+      fi
+      if [[ ${root_heading_rc} -eq 0 ]]; then
+        secrets_guard_error "${dir} is a subdirectory of the worktree at ${toplevel}, whose .gitignore carries the secrets block that covers what path:${dir} would copy, and this guard reads ${dir}/.gitignore only. Point the flake directory at ${toplevel}, or pass --allow-secret-copy to continue anyway."
+        return 2
+      fi
     fi
   fi
   # Fail closed only on drift, which is tracked-but-absent: that is the state

@@ -898,6 +898,31 @@ test_enforce_splits_a_missing_gitignore_by_tracked_state() {
   pass
 }
 
+# The subdirectory that defines its own block is the one the abort must not
+# take: the reads below it resolve to that file, so the guard can answer, and
+# sending its operator to the root would measure a tree path:${dir} never
+# copies. Reached through enforce, since the scan-level case cannot see the
+# branch that decides whether the scan runs at all.
+test_enforce_scans_a_subdirectory_carrying_its_own_block() {
+  local repo
+  repo="$(make_repo enforce-subdir-own-block)"
+  mkdir -p "${repo}/sub"
+  write_secrets_block "${repo}/sub"
+  : >"${repo}/sub/flake.nix"
+  git -C "${repo}" add sub/.gitignore sub/flake.nix
+  git -C "${repo}" commit -q -m "a subdirectory with its own block"
+  : >"${repo}/sub/id_ed25519"
+
+  enforce "${repo}/sub"
+  [[ ${enforce_rc} -eq 1 ]] ||
+    fail "subdirectory with its own block: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  ! grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
+    fail "subdirectory with its own block: refused a directory it can answer for" "${tmpdir}/enforce.err"
+  grep -q 'id_ed25519' "${tmpdir}/enforce.err" ||
+    fail "subdirectory with its own block: did not report the probe" "${tmpdir}/enforce.err"
+  pass
+}
+
 # rev-parse says yes from any subdirectory, while every .gitignore read here is
 # ${dir}/.gitignore, so a flake one level down from a root carrying the block
 # found no file and took the skip above while path: copied its untracked probes.
@@ -977,6 +1002,7 @@ test_enforce_keeps_the_empty_hit_list_a_clean_tree
 test_enforce_fails_closed_on_an_unopenable_repository
 test_enforce_splits_a_missing_gitignore_by_tracked_state
 test_enforce_fails_closed_in_a_subdirectory_of_a_block_carrying_tree
+test_enforce_scans_a_subdirectory_carrying_its_own_block
 test_enforce_skips_a_subdirectory_of_a_tree_without_the_block
 
 # Asserted, not merely reported. The invocation list above is hand-maintained,
