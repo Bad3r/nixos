@@ -61,16 +61,19 @@ required service mode:
 - `modules/system76/cloudflare-warp.nix` sets `enable = true` directly; system76
   has runtime SOPS decryption.
 - `modules/tpnix/cloudflare-warp.nix` sets `enable = sopsRuntimeReady`, gating on
-  `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady` (`modules/tpnix/policy.nix`) like
-  the other tpnix sops consumers (`duplicati.nix`, `printing.nix`, `fonts.nix`).
+  `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady` (`modules/tpnix/policy.nix`).
   The flag is currently `true` (repo-managed sops landed for tpnix in PR #305), so
-  the wrapper behaves like system76's: un-enrolled degraded mode with no
-  connect-on-boot action until `secrets/cloudflare-warp.yaml` is committed, then
-  non-interactive enrollment.
+  the wrapper behaves like system76's: `warp-cli` on `PATH` and no daemon until
+  `secrets/cloudflare-warp.yaml` is committed, then non-interactive enrollment.
   The gate remains a kill switch: if tpnix ever loses its runtime decryption key,
   flipping the flag back to `false` drops the `cloudflare-warp/*` secret
   declarations and removes the previously rendered runtime `mdm.xml` on the next
   activation, avoiding a stranded service-token cache.
+
+Until the secret exists, `enable = true` installs the client only. `warp-svc`
+holds `CAP_NET_ADMIN` and an open UDP port while serving nothing but consumer
+WARP without `mdm.xml`, so the wrapper does not start it and emits a build
+warning instead.
 
 A SOPS-ready host enables directly:
 
@@ -89,7 +92,7 @@ _: {
 ```
 
 tpnix keeps `enable` gated on `sopsRuntimeReady` as a kill switch. The flag is
-currently `true`, so tpnix behaves like a SOPS-ready host; if the tpnix
+currently `true`, so tpnix behaves like a SOPS-ready host. If the tpnix
 decryption key is ever lost, flipping the flag back to `false` in
 `modules/tpnix/policy.nix` drops the `cloudflare-warp/*` secret declarations and
 the mdm template with it, and the disabled wrapper removes the previously
@@ -128,5 +131,15 @@ connection, and coexistence with Tailscale and DNS.
 ## 5. Commit
 
 The encrypted secret is committed inside the submodule; the Nix changes in the
-main repository. Keep them as separate commits, then update the submodule pointer
-in the main repo.
+main repository. Keep them as separate commits.
+
+```bash
+git -C secrets commit -m "feat(cloudflare-warp): add Zero Trust service token"
+git -C secrets push                      # required before the pointer bump
+git add secrets && git commit -m "chore(secrets): bump pointer for cloudflare-warp"
+```
+
+Push the submodule before bumping the pointer. `flake.nix` sets
+`self.submodules = true`, so the main repo pins `secrets/` by commit rev: a local
+`nix build` still succeeds against the working tree, but `nix flake check` and CI
+fail with `Cannot find Git revision` while the pinned rev exists only locally.

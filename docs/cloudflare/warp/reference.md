@@ -4,7 +4,7 @@
 
 | Option          | Type       | Default                                              | Description                                                                                                                                                         |
 | --------------- | ---------- | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enable`        | bool       | `false`                                              | Run `warp-svc` and enroll into Zero Trust.                                                                                                                          |
+| `enable`        | bool       | `false`                                              | Install the client; `warp-svc` and Zero Trust enrollment activate only with `secrets/cloudflare-warp.yaml`.                                                         |
 | `package`       | package    | `pkgs.cloudflare-warp.override { headless = true; }` | WARP package; headless ships `warp-cli`/`warp-svc`/`warp-dex`/`warp-diag`.                                                                                          |
 | `serviceMode`   | enum       | `"warp"`                                             | `mdm.xml` `service_mode`: `warp`, `tunnelonly`, `1dot1`, `proxy`, `postureonly`.                                                                                    |
 | `autoConnect`   | int 0-1440 | `0`                                                  | `mdm.xml` `auto_connect` minutes before reconnect after a manual disconnect.                                                                                        |
@@ -78,6 +78,6 @@ code:
   so the team name never enters the Nix store or git history.
 - There is no per-host `organization` option; a host enrolls by providing the
   secret (and, where enablement is gated on `sopsRuntimeReady` such as tpnix, once
-  that flag is `true`). On an enabled host without the secret, `warp-svc` runs
-  un-enrolled, warns, and leaves the connect-on-boot unit disconnected; a host
-  still gated by `sopsRuntimeReady` stays off entirely.
+  that flag is `true`). On an enabled host without the secret, the wrapper warns,
+  installs `warp-cli`, and declares neither `warp-svc` nor the connect-on-boot
+  unit; a host still gated by `sopsRuntimeReady` stays off entirely.

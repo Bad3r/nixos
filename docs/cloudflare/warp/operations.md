@@ -20,19 +20,28 @@ connect request and polls `warp-cli status` on every attempt. Only a confirmed
 match permits `warp-cli connect`. A confirmed mismatch, which is what a consumer
 or still-unregistered device reports, disconnects an already connected tunnel and
 logs at error priority. A registration check that does not answer within its
-five-second cap leaves an existing tunnel up and retries, because an unanswered
-check is not evidence of an unmanaged tunnel. An empty or unreadable
+five-second cap leaves an existing tunnel up, because an unanswered check is not
+evidence of an unmanaged tunnel; after three such observations on a live tunnel
+the loop stops, since nothing is left to request. An empty or unreadable
 organization secret cannot change while the unit runs, so the oneshot reports the
 current status once and exits instead of retrying a decision that can never open.
 The loop makes up to 30 attempts bounded by a 120-second deadline, with each
 `warp-cli` call capped at five seconds. The retry window plus bounded registration/status checks remains
 inside the unit's explicit `TimeoutStartSec=180`. The oneshot is best-effort: it
-exits 0 and reaches `active (exited)` even when no request succeeds, logging
-`connect never succeeded`, or when requests succeed but the final status remains
-disconnected, logging `tunnel is not connected after <n> attempts`; use
-`warp-cli registration organization` and `warp-cli status` rather than the unit
-state to confirm the managed tunnel is up.
-Without the sops secret, it logs UN-ENROLLED at warning priority and exits without connecting.
+exits 0 and reaches `active (exited)` in every outcome, so read the final log
+line rather than the unit state:
+
+| Final line                                              | Meaning                                                      |
+| ------------------------------------------------------- | ------------------------------------------------------------ |
+| (none)                                                  | Managed tunnel verified and up                               |
+| `tunnel is up but its registration went unverified`     | Tunnel left connected; the registration check never answered |
+| `daemon is registered outside the managed organization` | Live registration belongs to another tenant                  |
+| `tunnel is not connected after <n> attempts`            | Connect was requested and refused                            |
+| `connect never succeeded (daemon unreachable ...)`      | The daemon never answered                                    |
+
+Use `warp-cli registration organization` and `warp-cli status` to confirm the
+managed tunnel is up. Without the sops secret the daemon and this unit do not
+exist; only `warp-cli` is installed.
 
 Confirm WARP is carrying traffic:
 
@@ -58,12 +67,16 @@ curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E '^warp='   # warp=on
 
 ## Reapplying managed config
 
-The `cloudflare-warp.service` carries a `restartTriggers` hash of the non-secret
-mdm fields (`serviceMode`, `autoConnect`, `switchLocked`). Changing any of them
-and rebuilding restarts `warp-svc`, which re-reads `mdm.xml`. The team name
-(`organization`) and the service token live in the sops secret; rotating either
-re-renders the `cloudflare-warp-mdm` template, whose `restartUnits` restarts
-`warp-svc` on the next activation.
+The `cloudflare-warp-mdm` template's `restartUnits` is the single restart owner
+for `warp-svc`. sops compares the rendered template between generations, so both
+a changed mdm field (`serviceMode`, `autoConnect`, `switchLocked`) and a rotated
+team name or service token restart the daemon on the next activation, which
+re-reads `mdm.xml`. The unit carries no `restartTriggers` hash of its own: a
+second owner restarts `warp-svc` twice for one activation on hosts running
+`sops.useSystemdActivation`, dropping the tunnel twice.
+
+Each restart of `warp-svc` also re-runs `cloudflare-warp-connect` through
+`BindsTo=`/`Upholds=`, so the tunnel comes back without a manual step.
 
 ## Disable managed WARP
 
@@ -100,7 +113,7 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
   registration check itself does not answer, the tunnel is left up and the unit
   logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty
-  or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`, then `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. The `<4>` UN-ENROLLED notice is visible to the
+  or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`, then `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. Those `<4>` notices are visible to
   `journalctl -u cloudflare-warp-connect -p warning`. Inspect the daemon logs and rerun:
 
   `systemctl restart cloudflare-warp-connect.service`
