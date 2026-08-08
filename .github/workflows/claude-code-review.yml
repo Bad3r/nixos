@@ -72,14 +72,14 @@ jobs:
             - Testing and documentation gaps count only when substantive: new public API without docs, new branching logic without tests, new failure mode without coverage. Otherwise skip.
             - Do not restate the issue title in the body. Do not append a closing line summarizing the comment.
 
-            Output format:
-            - Inline comments for line-specific findings. Prefix with the bracketed tag.
+            Output:
+            - Return up to 8 candidate findings as a JSON array, each `{"file": "...", "line": <int or null>, "summary": "...", "failure_scenario": "concrete inputs/state that trigger it and the wrong output/crash"}`
+            - Rank most-severe first.
+            - If you find fewer than 8 real issues, return fewer — do not pad with speculative or trivial items. If nothing is found, post a single top-level comment containing exactly: "No issues found."
+            - Post inline comments for line-specific findings. Prefix with the bracketed tag.
             - Top-level comments only for cross-cutting findings that span multiple files or hunks.
             - Be terse. One finding per comment. No preamble. No sign-off.
             - When proposing a fix, embed a ```suggestion``` block with the exact replacement code only. No commentary inside the block. Preserve the exact leading whitespace of the replaced lines (spaces vs tabs, number of spaces). Do not introduce or remove outer indentation levels unless that is the actual fix.
-            - Keep each finding's line range as short as possible: pick the smallest subrange that pinpoints the problem.
-
-            If nothing actionable is found, post a single top-level comment containing exactly: "No issues found." Do not pad.
 
           claude_args: |
             --model claude-opus-5
