@@ -128,6 +128,8 @@
               "r2-bisync-workspace".serviceConfig = {
                 User = username;
                 Group = group;
+                # base unit sets TimeoutStartUSec=infinity; bound above bisync's own --max-lock=15m
+                TimeoutStartSec = "20m";
               };
               "r2-mount-fonts".serviceConfig = {
                 User = username;
@@ -136,6 +138,8 @@
               "r2-bisync-fonts".serviceConfig = {
                 User = username;
                 Group = group;
+                # base unit sets TimeoutStartUSec=infinity; bound above bisync's own --max-lock=15m
+                TimeoutStartSec = "20m";
               };
               "r2-mount-docs".serviceConfig = {
                 User = username;
@@ -144,6 +148,8 @@
               "r2-bisync-docs".serviceConfig = {
                 User = username;
                 Group = group;
+                # base unit sets TimeoutStartUSec=infinity; bound above bisync's own --max-lock=15m
+                TimeoutStartSec = "20m";
               };
               "r2-restic-backup".serviceConfig = {
                 User = username;
