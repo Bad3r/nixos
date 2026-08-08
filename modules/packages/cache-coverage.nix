@@ -21,16 +21,18 @@ _: {
           pkgs.gnugrep
           pkgs.coreutils
         ];
-        # The secrets guard is prepended rather than left to the script's
-        # source line: nothing sits beside the script here, and this route
-        # reaches the same unfiltered path: ref the guard exists to catch
-        # whenever the script resolves one. It cannot cover the installable the
-        # operator typed: `nix run path:.#cache-coverage` has Lix copy the tree
-        # to build this wrapper, before its first statement.
-        # The script skips its own source when the functions are already
-        # defined, so the checkout and the wrapper run identical logic.
+        # Both libraries are prepended rather than left to the script's source
+        # lines: nothing sits beside the script here, and this route reaches the
+        # same unfiltered path: ref the guard exists to catch whenever the
+        # script resolves one. It cannot cover the installable the operator
+        # typed: `nix run path:.#cache-coverage` has Lix copy the tree to build
+        # this wrapper, before its first statement.
+        # The script skips each source when the functions are already defined,
+        # so the checkout and the wrapper run identical logic.
         text =
           builtins.readFile ../../scripts/lib/secrets-guard.sh
+          + "\n"
+          + builtins.readFile ../../scripts/lib/flake-ref.sh
           + "\n"
           + builtins.readFile ../../scripts/cache-coverage.sh;
       };

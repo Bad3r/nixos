@@ -33,15 +33,19 @@
 # environment error.
 set -Eeu -o pipefail
 
-# The flake wrapper in modules/packages/cache-coverage.nix composes the library
-# into this text, where no sibling file exists to source; from a checkout it is
-# resolved against this script rather than FLAKE_DIR, which --flake-dir can
-# point at another tree.
+# The flake wrapper in modules/packages/cache-coverage.nix composes both
+# libraries into this text, where no sibling file exists to source; from a
+# checkout they are resolved against this script rather than FLAKE_DIR, which
+# --flake-dir can point at another tree.
 if ! declare -F secrets_guard_enforce >/dev/null 2>&1; then
   # SC1091 is disabled for the composed text, where the file is absent by
   # design; a checkout still gets the cross-file check through source-path.
   # shellcheck source-path=SCRIPTDIR source=lib/secrets-guard.sh disable=SC1091
   source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/secrets-guard.sh"
+fi
+if ! declare -F flake_path_ref_reason >/dev/null 2>&1; then
+  # shellcheck source-path=SCRIPTDIR source=lib/flake-ref.sh disable=SC1091
+  source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/flake-ref.sh"
 fi
 
 FLAKE_DIR=""
@@ -203,24 +207,22 @@ if [[ -z ${ALLOWLIST} ]]; then
   ALLOWLIST="${FLAKE_DIR}/scripts/cache-coverage-allowlist.txt"
 fi
 
-# The same two cases build.sh's resolve_installable takes path: for, so the
-# report measures the tree the build would build. A linked worktree cannot be
-# fetched as a git+file flake (.git is a file there), and --allow-dirty asks for
-# untracked files, which git+file does not see. Elsewhere the bare ref stays:
-# path: would dump the tree unfiltered, copying every untracked path and a
-# primary checkout's whole .git directory into the world-readable store for a
-# report that builds nothing.
-if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" || -f "${FLAKE_DIR}/.git" ]]; then
+# The reference build.sh's resolve_installable would take, through the predicate
+# both read, so the report measures the tree the build would build rather than a
+# tree that agrees with it only while two hand-kept copies happen to match.
+PATH_REF_REASON="$(flake_path_ref_reason "${FLAKE_DIR}" "${ALLOW_DIRTY}")"
+if [[ -n ${PATH_REF_REASON} ]]; then
   FLAKE_REF="path:${FLAKE_DIR}"
-  # build.sh says this through announce_path_ref; a direct run had no notice at
-  # all, and the guard below is silent unless it flags a path, so the ordinary
-  # case disclosed the tree with nothing said about it.
+  # build.sh says this through announce_path_ref, naming the reason the same
+  # way; a direct run had no notice at all, and the guard below is silent unless
+  # it flags a path, so the ordinary case disclosed the tree with nothing said
+  # about it.
   GIT_DIR_NOTE=""
   if [[ -d "${FLAKE_DIR}/.git" ]]; then
     GIT_DIR_NOTE=", and the whole .git directory of this primary checkout"
   fi
-  printf 'cache-coverage: using %s, which copies the tree unfiltered into the world-readable store: every untracked path, .gitignored or not%s.\n' \
-    "${FLAKE_REF}" "${GIT_DIR_NOTE}" >&2
+  printf 'cache-coverage: using %s (%s), which copies the tree unfiltered into the world-readable store: every untracked path, .gitignored or not%s.\n' \
+    "${FLAKE_REF}" "${PATH_REF_REASON}" "${GIT_DIR_NOTE}" >&2
 else
   FLAKE_REF="${FLAKE_DIR}"
 fi

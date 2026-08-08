@@ -58,8 +58,12 @@ copies nothing and has nothing to override.
 
 Only guard hits abort, so the run announces the rest on stderr: a
 `path:` reference copies every untracked path whatever its ignore status, and in
-a primary checkout under `--allow-dirty` the whole `.git` directory with it.
-`build.sh` says the same through `announce_path_ref`.
+a primary checkout under `--allow-dirty` the whole `.git` directory with it. The
+notice names which of the two conditions selected the reference, since one is
+asked for and the other comes with the worktree. `build.sh` says the same
+through `announce_path_ref`, off the same predicate in
+`scripts/lib/flake-ref.sh`: a report that resolved a different reference than
+the build would measure a different tree.
 
 The guard covers the reference this script evaluates, not the one that delivered
 the script. `nix run path:.#cache-coverage` is therefore unguarded by

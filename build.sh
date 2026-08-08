@@ -11,7 +11,7 @@
 set -Eeu -o pipefail
 
 # Resolved against this script, not FLAKE_DIR: -p can point the build at another
-# flake, and the guard shared with scripts/cache-coverage.sh ships with the
+# flake, and the libraries shared with scripts/cache-coverage.sh ship with the
 # script rather than with the tree being built.
 # SC1091 is disabled the way scripts/cache-coverage.sh disables it: the hook
 # passes only the staged files, so staging this one without the library leaves
@@ -19,6 +19,8 @@ set -Eeu -o pipefail
 # the cross-file check.
 # shellcheck source-path=SCRIPTDIR source=scripts/lib/secrets-guard.sh disable=SC1091
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/lib/secrets-guard.sh"
+# shellcheck source-path=SCRIPTDIR source=scripts/lib/flake-ref.sh disable=SC1091
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/lib/flake-ref.sh"
 
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
@@ -288,13 +290,10 @@ fi
 # main() after setup_logging: the notice explains a missing
 # system.configurationRevision, so it has to reach the log the reader consults.
 # Both reasons cost the same stamp, so this does not track the worktree alone.
-if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
-  PATH_REF_REASON="allow-dirty"
-elif [[ -f "${FLAKE_DIR}/.git" ]]; then
-  PATH_REF_REASON="linked worktree"
-else
-  PATH_REF_REASON=""
-fi
+# resolve_installable and ensure_no_ignored_secrets read this rather than
+# repeating the test, so the reference and the gate on the guard that protects
+# it cannot be edited apart.
+PATH_REF_REASON="$(flake_path_ref_reason "${FLAKE_DIR}" "${ALLOW_DIRTY}")"
 readonly PATH_REF_REASON
 
 # Configure build settings
@@ -413,15 +412,13 @@ configure_nix_config() {
 }
 
 resolve_installable() {
-  # Two cases need a path: reference rather than the git+file one Lix infers
-  # from a bare directory. With allow-dirty, so untracked files reach
-  # evaluation at all (git+file ignores them). In a linked worktree, because
-  # .git is a file there and Lix reads it as a directory:
-  #   error: opening file '<dir>/.git/config': Not a directory
-  # Elsewhere the bare form stays, since path: dumps the tree unfiltered:
-  # a primary checkout would copy all of .git into the store, and self.rev
-  # would go missing along with system.configurationRevision.
-  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" || -f "${FLAKE_DIR}/.git" ]]; then
+  # PATH_REF_REASON is non-empty for exactly the cases that need a path:
+  # reference rather than the git+file one Lix infers from a bare directory;
+  # scripts/lib/flake-ref.sh carries which ones and why. Reading it rather than
+  # repeating the test is what keeps this in step with ensure_no_ignored_secrets,
+  # which skips the guard on the same value: a reference that took path: while
+  # that gate read empty would copy unguarded.
+  if [[ -n ${PATH_REF_REASON} ]]; then
     printf "path:%s" "${FLAKE_DIR}"
   else
     printf "%s" "${FLAKE_DIR}"
