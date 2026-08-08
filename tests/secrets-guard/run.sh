@@ -475,6 +475,38 @@ test_enforce_fails_closed_on_a_missing_external() {
   pass
 }
 
+# rm -f closed secrets_guard_paths, so its status was the scan's status: a
+# cleanup that failed discarded a completed hit list and the caller reported the
+# guard inoperative. Leaving a temp file behind is not a reason to stop reporting
+# secrets, so the scan returns success explicitly.
+test_scan_survives_a_failing_cleanup() {
+  local repo stub tool
+
+  repo="$(make_repo enforce-cleanup)"
+  : >"${repo}/id_ed25519"
+
+  # A real rm that reports failure, so the temp files still go and only the exit
+  # status is under test.
+  stub="${tmpdir}/stub-failing-rm"
+  mkdir -p "${stub}"
+  for tool in git grep awk mktemp; do
+    ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+  done
+  {
+    printf '%s\n' '#!/bin/sh'
+    printf '%s "$@"\n' "$(type -P rm)"
+    printf '%s\n' 'exit 1'
+  } >"${stub}/rm"
+  chmod +x "${stub}/rm"
+
+  PATH="${stub}" enforce "${repo}"
+  [[ ${enforce_rc} -eq 1 ]] ||
+    fail "failing cleanup: expected the hit at rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q '^id_ed25519$' "${tmpdir}/enforce.err" ||
+    fail "failing cleanup: the hit list was discarded" "${tmpdir}/enforce.err"
+  pass
+}
+
 # Tracked but absent is the state the generator can produce, so it fails closed
 # where a tree that simply never had one is skipped.
 test_enforce_splits_a_missing_gitignore_by_tracked_state() {
@@ -515,6 +547,7 @@ test_enforce_honours_the_override
 test_enforce_fails_closed_when_the_generator_is_tracked
 test_enforce_skips_a_tree_that_does_not_own_the_generator
 test_enforce_fails_closed_on_a_missing_external
+test_scan_survives_a_failing_cleanup
 test_enforce_splits_a_missing_gitignore_by_tracked_state
 
 printf '%d passed\n' "${tests_passed}"

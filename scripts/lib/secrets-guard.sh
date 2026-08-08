@@ -187,6 +187,11 @@ secrets_guard_paths() {
     done <"${scan}"
   done <<<"${submodules}"
   rm -f "${scan}"
+  # Explicit, because the cleanup above would otherwise be this function's exit
+  # status: a failed rm made a completed scan read as one that could not run,
+  # and the caller threw away the hit list it had already written. Leaving a
+  # temp file behind is not a reason to stop reporting secrets.
+  return 0
 }
 
 # Returns 0 when the tree is clear or the scan does not apply, 1 when ignored
