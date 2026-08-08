@@ -615,7 +615,14 @@ main() {
     if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
       coverage_args+=(--allow-secret-copy)
     fi
-    "${FLAKE_DIR}/scripts/cache-coverage.sh" "${coverage_args[@]}"
+    # Resolved against this script for the reason the library sources are, and
+    # now that it has to be: the child is only interchangeable with its
+    # siblings, and -p at a worktree parked on a revision without these two
+    # flags reaches "unknown option" and exit 2, after every validation step has
+    # passed and immediately before deploy. Which tree the report measures is
+    # carried by --flake-dir below, not by where the script is read from, and
+    # the child's allowlist default is derived from that argument too.
+    "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/cache-coverage.sh" "${coverage_args[@]}"
   fi
 
   status_msg "${GREEN}" "Validation completed successfully!"
