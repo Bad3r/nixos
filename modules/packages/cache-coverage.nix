@@ -14,6 +14,12 @@ _: {
           pkgs.jq
           pkgs.gitMinimal
           pkgs.gawk
+          # The prepended guard is the only user of these two: grep decides
+          # whether the scan applies at all, sed prints the hit list.
+          # writeShellApplication only prepends runtimeInputs, so without them
+          # both resolve from whatever PATH the caller happens to have.
+          pkgs.gnugrep
+          pkgs.gnused
           pkgs.coreutils
         ];
         # The secrets guard is prepended rather than left to the script's
