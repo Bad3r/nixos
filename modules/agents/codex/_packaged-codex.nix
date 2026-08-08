@@ -34,19 +34,10 @@ pkgs.runCommandLocal "${pname}-packaged-${version}"
     cp -L ${codexPkg}/bin/.codex-wrapped $out/bin/.codex-wrapped
     chmod +w $out/bin/.codex-wrapped
 
-    # Standalone host for the code-mode tool surface. The models in use
-    # (gpt-5.6-luna, gpt-5.6-sol) are tool_mode = code_mode_only, so every tool
-    # call fails closed when this binary is absent.
-    # Symlinked, not copied: code_mode_host_program_from_exe only checks
-    # is_file(), which follows symlinks (upstream test
-    # code_mode_host_program_accepts_symlinks_to_files), and this binary never
-    # resolves its own current_exe (codex-rs/code-mode-host has no
-    # codex-install-context dependency), so unlike .codex-wrapped it needs no
-    # canonicalisation inside $out. Upstream codex is already in
-    # environment.systemPackages fleet-wide, so this avoids duplicating 65 MiB.
-    # ln -s accepts a missing target and nix does not validate symlinks, so an
-    # upstream rename would build green and only surface as the runtime
-    # "host executable was not found" path. Assert the target instead.
+    # Unlike .codex-wrapped, the host never resolves its own current_exe, and
+    # code_mode_host_program_from_exe accepts a symlink (is_file follows it), so
+    # it need not be copied into $out. Guarded because ln -s takes a missing
+    # target, deferring the failure to the first code_mode_only session.
     if [ ! -x ${codexPkg}/bin/codex-code-mode-host ]; then
       echo "codex-packaged: ${codexPkg}/bin/codex-code-mode-host is missing or not executable" >&2
       exit 1
