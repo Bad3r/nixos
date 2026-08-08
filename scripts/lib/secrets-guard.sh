@@ -10,8 +10,13 @@
 # Colours are read from the caller when it defines them, so build.sh keeps its
 # formatting and a caller without a palette gets the same text unstyled.
 
+# Both diagnostics go to stderr, unlike the status_msg/error_msg pair in build.sh
+# they otherwise mirror: cache-coverage.sh writes its report to stdout, and the
+# skip notices all fire before the report header, so a stdout notice lands inside
+# a redirected report. build.sh loses nothing, since setup_logging merges stderr
+# into stdout before the tee.
 secrets_guard_notice() {
-  printf '%b==> %b%s%b\n' "${YELLOW:-}" "${NC:-}" "$1" "${NC:-}"
+  printf '%b==> %b%s%b\n' "${YELLOW:-}" "${NC:-}" "$1" "${NC:-}" >&2
 }
 
 secrets_guard_error() {
