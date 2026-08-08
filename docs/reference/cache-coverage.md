@@ -60,7 +60,11 @@ A guard hit aborts, and so does a guard that cannot run. The second is grouped
 by cause rather than listed per branch, because the guard splits a new one out
 whenever a call turns out to answer three ways, and a per-branch list here goes
 stale on the commit that does it. A tool it cannot reach: any of `git`, `grep`,
-`awk`, `mktemp` and `rm` missing from `PATH`. A temporary file it cannot get,
+`awk`, `mktemp` and `rm` missing from `PATH`, though this script's own
+required-tool loop catches `git` and `awk` first and exits 2 with
+`required tool not found`, so only `grep`, `mktemp` and `rm` reach the guard's
+own message here; all five reach it from `build.sh`, which has no such loop. A
+temporary file it cannot get,
 write or read back: `mktemp` failing on a read-only `TMPDIR` or a full
 filesystem, and either the untracked listing or the hit list going unreadable
 afterwards. A `git` call that fails outright rather than answering: listing
