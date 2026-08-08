@@ -14,9 +14,27 @@ _: {
           pkgs.jq
           pkgs.gitMinimal
           pkgs.gawk
+          # The prepended guard is the only user of grep, which decides whether
+          # the scan applies at all. writeShellApplication only prepends
+          # runtimeInputs, so without it that resolves from whatever PATH the
+          # caller happens to have.
+          pkgs.gnugrep
           pkgs.coreutils
         ];
-        text = builtins.readFile ../../scripts/cache-coverage.sh;
+        # Both libraries are prepended rather than left to the script's source
+        # lines: nothing sits beside the script here, and this route reaches the
+        # same unfiltered path: ref the guard exists to catch whenever the
+        # script resolves one. It cannot cover the installable the operator
+        # typed: `nix run path:.#cache-coverage` has Lix copy the tree to build
+        # this wrapper, before its first statement.
+        # The script skips each source when the functions are already defined,
+        # so the checkout and the wrapper run identical logic.
+        text =
+          builtins.readFile ../../scripts/lib/secrets-guard.sh
+          + "\n"
+          + builtins.readFile ../../scripts/lib/flake-ref.sh
+          + "\n"
+          + builtins.readFile ../../scripts/cache-coverage.sh;
       };
     };
 }

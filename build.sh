@@ -10,12 +10,25 @@
 ## management declarative in NixOS modules.
 set -Eeu -o pipefail
 
+# Resolved against this script, not FLAKE_DIR: -p can point the build at another
+# flake, and the libraries shared with scripts/cache-coverage.sh ship with the
+# script rather than with the tree being built.
+# SC1091 is disabled the way scripts/cache-coverage.sh disables it: the hook
+# passes only the staged files, so staging this one without the library leaves
+# the source unfollowable. source-path still gives a run that names both files
+# the cross-file check.
+# shellcheck source-path=SCRIPTDIR source=scripts/lib/secrets-guard.sh disable=SC1091
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/lib/secrets-guard.sh"
+# shellcheck source-path=SCRIPTDIR source=scripts/lib/flake-ref.sh disable=SC1091
+source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/lib/flake-ref.sh"
+
 # Initialize variables with defaults
 FLAKE_DIR="${PWD}"
 TARGET_HOST="$(hostname)"
 OFFLINE=false
 VERBOSE=false
 ALLOW_DIRTY=${ALLOW_DIRTY:-false}
+ALLOW_SECRET_COPY=${ALLOW_SECRET_COPY:-false}
 AUTO_UPDATE=false
 SKIP_HOOKS=false
 SKIP_CHECK=false
@@ -55,6 +68,7 @@ Options:
   -v, --verbose          Enable verbose output
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
+      --allow-secret-copy Build even when the secrets guard flags an untracked path
       --update           Run 'nix flake metadata --refresh' and 'nix flake update' before building
       --skip-hooks       Skip the pre-commit validation
       --skip-check       Skip the 'nix flake check' validation step
@@ -122,6 +136,33 @@ setup_logging() {
   status_msg "${GREEN}" "Logging to: ${LOG_FILE}"
 }
 
+announce_path_ref() {
+  if [[ -n ${PATH_REF_REASON} ]]; then
+    status_msg "${YELLOW}" \
+      "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
+    status_msg "${YELLOW}" \
+      "path: also dumps the tree unfiltered, so every untracked path is copied into the store whether .gitignore'd (.direnv/, tmp/, *.log) or not, which under --allow-dirty is whatever is uncommitted, plus the whole .git directory in a primary checkout. Untracked paths matching the secrets block abort the build instead, as does a nested repository the scan cannot open, in this tree and in submodule working trees alike; see --allow-secret-copy."
+  fi
+}
+
+ensure_no_ignored_secrets() {
+  # scripts/cache-coverage.sh takes the reference resolve_installable would, so
+  # --cache-coverage no longer reaches a path: ref of its own and this gate is
+  # the only one either route needs.
+  if [[ -z ${PATH_REF_REASON} ]]; then
+    return 0
+  fi
+  local rc=0
+  secrets_guard_enforce "${FLAKE_DIR}" "path:${FLAKE_DIR}" || rc=$?
+  if [[ ${rc} -eq 2 ]]; then
+    printf "Refusing to build with the secrets guard inoperative.\n" >&2
+    exit 1
+  fi
+  if [[ ${rc} -ne 0 ]]; then
+    exit 1
+  fi
+}
+
 # Parse command-line arguments
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -155,6 +196,10 @@ while [[ $# -gt 0 ]]; do
     ;;
   --allow-dirty)
     ALLOW_DIRTY=true
+    shift
+    ;;
+  --allow-secret-copy)
+    ALLOW_SECRET_COPY=true
     shift
     ;;
   --update)
@@ -230,10 +275,26 @@ if [[ ! -d ${FLAKE_DIR} ]]; then
   exit 1
 fi
 
+# Absolute from here on. A relative -p argument would reach Lix as
+# `path:relative/dir`, and its path fetcher throws
+# "cannot fetch input ... because it uses a relative path" when it writes
+# flake.lock back.
+FLAKE_DIR="$(cd "${FLAKE_DIR}" && pwd -P)"
+
 if [[ ! -f "${FLAKE_DIR}/flake.nix" ]]; then
   error_msg "flake.nix not found in ${FLAKE_DIR}"
   exit 1
 fi
+
+# Resolved here, where FLAKE_DIR and ALLOW_DIRTY are final, but announced from
+# main() after setup_logging: the notice explains a missing
+# system.configurationRevision, so it has to reach the log the reader consults.
+# Both reasons cost the same stamp, so this does not track the worktree alone.
+# resolve_installable and ensure_no_ignored_secrets read this rather than
+# repeating the test, so the reference and the gate on the guard that protects
+# it cannot be edited apart.
+PATH_REF_REASON="$(flake_path_ref_reason "${FLAKE_DIR}" "${ALLOW_DIRTY}")"
+readonly PATH_REF_REASON
 
 # Configure build settings
 # Bootstrap substituters for first builds, before the host substituter
@@ -351,9 +412,13 @@ configure_nix_config() {
 }
 
 resolve_installable() {
-  # When allow-dirty is enabled, force a path flake reference so untracked
-  # files are included in evaluation/build (git+file ignores untracked files).
-  if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+  # PATH_REF_REASON is non-empty for exactly the cases that need a path:
+  # reference rather than the git+file one Lix infers from a bare directory;
+  # scripts/lib/flake-ref.sh carries which ones and why. Reading it rather than
+  # repeating the test is what keeps this in step with ensure_no_ignored_secrets,
+  # which skips the guard on the same value: a reference that took path: while
+  # that gate read empty would copy unguarded.
+  if [[ -n ${PATH_REF_REASON} ]]; then
     printf "path:%s" "${FLAKE_DIR}"
   else
     printf "%s" "${FLAKE_DIR}"
@@ -402,7 +467,7 @@ sync_pre_commit_hooks() {
   status_msg "${YELLOW}" "Synchronizing pre-commit hooks for worktree compatibility..."
   (
     cd "${FLAKE_DIR}"
-    nix develop "${BUILD_FLAGS[@]}" -c bash "${sync_script}"
+    nix develop "$(resolve_installable)" "${BUILD_FLAGS[@]}" -c bash "${sync_script}"
   )
 }
 
@@ -434,10 +499,13 @@ check_reboot_needed() {
 }
 
 run_flake_update() {
+  local installable
+  installable="$(resolve_installable)"
   status_msg "${YELLOW}" "Refreshing flake metadata..."
-  nix flake metadata "${FLAKE_DIR}" --refresh "${BUILD_FLAGS[@]}"
+  nix flake metadata "${installable}" --refresh "${BUILD_FLAGS[@]}"
   status_msg "${YELLOW}" "Updating flake inputs..."
-  nix flake update --flake "${FLAKE_DIR}" "${BUILD_FLAGS[@]}"
+  # The flake goes in --flake: positional arguments here are input names.
+  nix flake update --flake "${installable}" "${BUILD_FLAGS[@]}"
 }
 
 resolve_nh_command() {
@@ -489,6 +557,10 @@ run_firmware_updates() {
 
 main() {
   setup_logging
+  announce_path_ref
+  # Outside the AUTO_UPDATE branch below, unlike ensure_clean_git_tree: an
+  # update run reaches the same store copy through the same path: ref.
+  ensure_no_ignored_secrets
   configure_nix_config
   configure_build_flags
 
@@ -504,7 +576,7 @@ main() {
     status_msg "${YELLOW}" "Running pre-commit hooks..."
     (
       cd "${FLAKE_DIR}"
-      nix develop "${BUILD_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
+      nix develop "$(resolve_installable)" "${BUILD_FLAGS[@]}" -c pre-commit run --all-files --hook-stage manual
     )
   else
     status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
@@ -523,14 +595,27 @@ main() {
 
   if [[ ${SKIP_CHECK} == "false" ]]; then
     status_msg "${YELLOW}" "Validating flake (evaluation + invariants)..."
-    nix flake check "${FLAKE_DIR}" --no-build "${BUILD_FLAGS[@]}"
+    nix flake check "$(resolve_installable)" --no-build "${BUILD_FLAGS[@]}"
   else
     status_msg "${YELLOW}" "Skipping flake check (--skip-check flag used)..."
   fi
 
   if [[ ${CACHE_COVERAGE} == "true" ]]; then
     status_msg "${YELLOW}" "Checking cache coverage for '${TARGET_HOST}' (narinfo probes, no builds)..."
-    "${FLAKE_DIR}/scripts/cache-coverage.sh" --flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}"
+    # Both flags have to travel with the invocation. Neither variable is
+    # exported: the environment spelling is inherited, the flag spelling would
+    # not be, and the two documented forms of one override would then behave
+    # differently. --allow-dirty additionally decides which reference the child
+    # resolves, so without it the report would measure a different tree than
+    # the build.
+    local -a coverage_args=(--flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}")
+    if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+      coverage_args+=(--allow-dirty)
+    fi
+    if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
+      coverage_args+=(--allow-secret-copy)
+    fi
+    "${FLAKE_DIR}/scripts/cache-coverage.sh" "${coverage_args[@]}"
   fi
 
   status_msg "${GREEN}" "Validation completed successfully!"

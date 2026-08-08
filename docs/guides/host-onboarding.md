@@ -203,7 +203,7 @@ backup timer.
 
 No workflow edits are needed: `.github/workflows/check.yml` and
 `.github/workflows/update-flake.yml` derive the host list from
-`nix eval .#nixosConfigurations --apply builtins.attrNames`, so the new host
+`nix eval "path:.#nixosConfigurations" --apply builtins.attrNames`, so the new host
 is dry-run built on every compliance run and fully built in the nightly
 update gate. Budget for the added nightly build time: update-flake builds
 each host closure sequentially with garbage collection in between to respect
@@ -212,11 +212,11 @@ runner disk.
 ## 8. Validation ladder
 
 ```bash
-nix fmt
-nix flake check --accept-flake-config --no-build --offline
-nix build ".#nixosConfigurations.<host>.config.system.build.toplevel"
+nix run path:.#treefmt -- .
+nix flake check path:. --accept-flake-config --no-build --offline
+nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
 ./build.sh --host <host> --boot   # on the target machine
-nix run .#generation-manager -- score   # target: 20/20
+nix run path:.#generation-manager -- score   # target: 20/20
 ```
 
 Run the first two before every push; the closure build proves the host

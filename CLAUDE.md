@@ -163,6 +163,28 @@ In a linked worktree, give flake commands an explicit `path:.` installable
 Lix cannot fetch a clean linked worktree as a `git+file` flake because `.git`
 is a file there, not a directory. The repo hooks already do this.
 
+Two cases take a different form, because appending `path:.` does not fix
+them:
+
+- `nix fmt`. Lix hardcodes the `.` installable in `lix/nix/fmt.cc`, so
+  `nix fmt path:.` passes `path:.` to treefmt as a path argument and still
+  resolves `.` as the flake. The formatter is also a package, so run
+  `nix run path:.#treefmt -- .` instead, or `-- <file>` for a targeted run.
+- Anything that writes `flake.lock` back. That write goes through Lix's
+  `getAbsPath` (`lix/libfetchers/path.cc`), which throws
+  `cannot fetch input 'path:.' because it uses a relative path`, so the ref
+  must be absolute. This covers `nix flake metadata --refresh "path:$PWD"`,
+  which locks the flake, as well as `nix flake update --flake "path:$PWD"`;
+  `nix flake update` also reads positional arguments as input names, which is
+  why the flake goes in `--flake` there. A run that resolves to no lock change
+  never writes and so never throws, which is why the relative form can look
+  like it works. It fails exactly when the lock is out of sync, which is the
+  state the input-update ladder is run in.
+
+A dirty worktree hides all of this, because Lix copies the working tree instead
+of fetching the revision, so a command that happens to run with uncommitted
+changes present works and the same command run on a clean tree exits 1.
+
 Work in that tree, then create a PR:
 
 ```sh
@@ -197,28 +219,35 @@ include:
 
 ## Development Commands
 
+As in `## Validation` below, these are written for a linked worktree, since that
+is where the branch workflow above puts the work; dropping `path:.` gives the
+primary-checkout form.
+
 Start the development environment:
 
 ```sh
-nix develop
+nix develop path:.
 ```
 
-Preconditions: clean tree and network access for substituters.
+Preconditions: network access for substituters.
 Post-check: dev tools such as `treefmt` and `pre-commit` are available.
 
 Format sources:
 
 ```sh
-nix fmt
+nix run path:.#treefmt -- .
 ```
 
-Preconditions: run at repo root.
+Preconditions: run at repo root. `nix fmt` is the primary-checkout form; it is
+one of the two cases `path:.` cannot fix, the other being any command that
+writes `flake.lock` back, so a linked worktree goes through the package
+instead, or `-- <file>` for a targeted run.
 Post-check: no remaining formatting diffs in `git status`.
 
 Run hooks:
 
 ```sh
-nix develop -c pre-commit run --all-files --hook-stage manual
+nix develop path:. -c pre-commit run --all-files --hook-stage manual
 ```
 
 Preconditions: dev shell ready and workspace writable.
@@ -227,7 +256,7 @@ Post-check: exit code 0. Review reported TODOs and failures.
 Generate managed artifacts:
 
 ```sh
-nix develop --accept-flake-config -c write-files --offline
+nix develop path:. --accept-flake-config -c write-files --offline
 ```
 
 Post-check: review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`,
@@ -236,39 +265,47 @@ Post-check: review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`,
 
 ## Validation
 
-Use these repo-specific validation defaults:
+Use these repo-specific validation defaults. Commands are written for a linked
+worktree, since that is where the branch workflow above puts the work; the plain
+`.` forms work in the primary checkout as well.
 
-- Value-level edits to existing lists or attrsets: `nix fmt` plus a parse or
-  targeted eval check. Skip `nix flake check` during iteration.
+- Value-level edits to existing lists or attrsets:
+  `nix run path:.#treefmt -- .` plus a parse or targeted eval check. Skip
+  `nix flake check` during iteration.
 - Structural changes such as new modules, options, imports, let-binding
   refactors, or argument-shape changes:
-  `nix flake check --accept-flake-config --no-build --offline`.
+  `nix flake check path:. --accept-flake-config --no-build --offline`.
 - Host closure changes:
-  `nix build ".#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`.
+  `nix build "path:.#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`.
 - Overlay or override changes that can affect binary-cache coverage:
   `scripts/cache-coverage.sh --host $HOSTNAME` (evaluation plus narinfo
-  probes, no builds; see `docs/reference/cache-coverage.md`).
-- Input updates:
-  `nix flake metadata --refresh`, `nix flake update`, then `nix fmt flake.lock`.
+  probes, no builds; see `docs/reference/cache-coverage.md`). The script
+  resolves its own reference the way `build.sh` does, so a linked worktree and
+  `--allow-dirty` get `path:` and run the shared secrets guard first, while a
+  primary checkout keeps the bare ref and copies nothing.
+- Input updates: `nix flake metadata --refresh "path:$PWD"`, then
+  `nix flake update --flake "path:$PWD"`. See the worktree note above for why
+  neither is `path:.`: both write `flake.lock` back. `flake.lock` is excluded
+  from treefmt, so there is no formatting rung after it.
 
 ## GitHub Actions Local Workflow
 
 List jobs:
 
 ```sh
-nix develop -c gh-actions-list
+nix develop path:. -c gh-actions-list
 ```
 
 Run jobs locally through `act`:
 
 ```sh
-nix develop -c gh-actions-run
+nix develop path:. -c gh-actions-run
 ```
 
 Dry run:
 
 ```sh
-nix develop -c gh-actions-run -n
+nix develop path:. -c gh-actions-run -n
 ```
 
 Reserve expensive local workflow runs for changes that affect workflow paths or
@@ -315,7 +352,42 @@ sops.secrets."context7/api-key" = {
   `modules/meta/nixpkgs-allowed-unfree.nix`). There is no NixOS-scope
   allowlist option; host-level `nixpkgs.allowedUnfreePackages` fails eval.
 - Missing reference:
-  Ensure the file is tracked by git.
+  Ensure the file is tracked by git. That fixes it only under the bare `.`
+  form, whose `git+file` fetcher cannot see untracked files. `path:.` dumps
+  the directory unfiltered, so it discovers an untracked module and evaluates
+  it. The hazard there runs the other way: a check that passes locally on
+  `path:.` fails in CI, which fetches the pushed revision. Run
+  `git status --short` before trusting a `path:.` pass.
+- Ignored files under `path:.`:
+  Unfiltered also means the `.gitignore` secrets block (`*.agekey`, `*.key`,
+  `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`, plus `decrypted_*` and
+  `*.dec.*`) protects nothing: those files are copied
+  into the world-readable store. The last two carry a `secrets/` prefix in the
+  block so git applies them only under the gitlink, which leaves a stray copy
+  at the superproject root untracked and visible instead of ignored; the guard
+  matches both names anywhere it scans, so the anchor scopes git's ignore rule
+  and not the guard, and `git check-ignore` does not confirm such a hit.
+  `git status --short` does
+  not surface them, since ignored files are not reported; use
+  `git status --porcelain --ignored=matching`, then
+  `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`,
+  because the superproject form stops at the `secrets/` gitlink and so misses
+  the decrypted SOPS output that submodule ignores through its own
+  `.gitignore`. `./build.sh` and `scripts/cache-coverage.sh` run both sweeps
+  and abort before evaluating, through the guard they share in
+  `scripts/lib/secrets-guard.sh`, on the same two conditions that select the
+  `path:` ref: a linked worktree and `--allow-dirty`. That guard matches the
+  block against every untracked path rather than the ignored subset, since
+  `git+file` carries only the tracked tree and `path:` copies the rest. An
+  untracked directory that is itself a git repository is a hit on its name
+  alone: `ls-files` stops at that boundary and never opens it, so nothing
+  inside reaches the block, while `path:` copies it whole. A primary checkout on the
+  default path never makes the copy in the first place. `--allow-secret-copy`
+  (`ALLOW_SECRET_COPY=1`) overrides either. The guard covers the ref a script
+  evaluates, not the one that delivered it, so any `path:.` installable typed by
+  hand copies first: `nix run path:.#cache-coverage` is unguarded by
+  construction even though the app is built from the guarded script, and so is
+  every other bare `nix` command.
 - Need to explore config:
-  Run `nix develop --accept-flake-config -c nix repl --expr 'import ./.'`, then
-  inspect config module imports.
+  Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
+  then inspect config module imports.

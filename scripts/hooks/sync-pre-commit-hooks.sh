@@ -47,7 +47,7 @@ rewrite_hook_script() {
         print "elif [[ -f \"${FALLBACK_CONFIG}\" ]]; then"
         print "  HOOK_CONFIG=\"${FALLBACK_CONFIG}\""
         print "else"
-        print "  printf '\''%s\\n'\'' \"pre-commit hook: missing .pre-commit-config.yaml; run '\''nix develop'\'' in this worktree.\" >&2"
+        print "  printf '\''%s\\n'\'' \"pre-commit hook: missing .pre-commit-config.yaml; run '\''nix develop path:.'\'' in this worktree ('\''nix develop'\'' in the primary checkout).\" >&2"
         print "  exit 1"
         print "fi"
         print "ARGS=(hook-impl --config=\"${HOOK_CONFIG}\" --hook-type=" hook_type ")"
@@ -100,7 +100,7 @@ main() {
   cd "${repo_root}"
 
   if [[ ! -e ${config_file} ]]; then
-    error_msg "${config_file} is missing. Run 'nix develop' to generate it, then retry."
+    error_msg "${config_file} is missing. Run 'nix develop path:.' to generate it ('nix develop' in the primary checkout), then retry."
     exit 1
   fi
 

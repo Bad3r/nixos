@@ -33,7 +33,24 @@
 # environment error.
 set -Eeu -o pipefail
 
+# The flake wrapper in modules/packages/cache-coverage.nix composes both
+# libraries into this text, where no sibling file exists to source; from a
+# checkout they are resolved against this script rather than FLAKE_DIR, which
+# --flake-dir can point at another tree.
+if ! declare -F secrets_guard_enforce >/dev/null 2>&1; then
+  # SC1091 is disabled for the composed text, where the file is absent by
+  # design; a checkout still gets the cross-file check through source-path.
+  # shellcheck source-path=SCRIPTDIR source=lib/secrets-guard.sh disable=SC1091
+  source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/secrets-guard.sh"
+fi
+if ! declare -F flake_path_ref_reason >/dev/null 2>&1; then
+  # shellcheck source-path=SCRIPTDIR source=lib/flake-ref.sh disable=SC1091
+  source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/lib/flake-ref.sh"
+fi
+
 FLAKE_DIR=""
+ALLOW_DIRTY=${ALLOW_DIRTY:-false}
+ALLOW_SECRET_COPY=${ALLOW_SECRET_COPY:-false}
 HOSTS=()
 ALLOWLIST=""
 MAX_COUNT=0
@@ -67,6 +84,13 @@ Options:
       --max-size SIZE   Allowed total stock nar size of unexpected-local
                         entries, bytes or iec like 50M (default: 0)
   -v, --verbose         Also list every substitutable derivation
+      --allow-dirty     Evaluate path:PATH so untracked files are measured,
+                        which git+file cannot see (ALLOW_DIRTY=1). A linked
+                        worktree takes that reference either way
+      --allow-secret-copy
+                        Report even when the secrets guard flags an untracked
+                        path a path: ref would copy into the store
+                        (ALLOW_SECRET_COPY=1)
   -h, --help            Show this help
 
 Exit: 0 within thresholds, 1 over thresholds, 2 usage/environment error.
@@ -132,6 +156,14 @@ while [[ $# -gt 0 ]]; do
     VERBOSE=true
     shift
     ;;
+  --allow-dirty)
+    ALLOW_DIRTY=true
+    shift
+    ;;
+  --allow-secret-copy)
+    ALLOW_SECRET_COPY=true
+    shift
+    ;;
   -h | --help)
     usage
     exit 0
@@ -154,6 +186,15 @@ done
 if [[ -z ${FLAKE_DIR} ]]; then
   FLAKE_DIR="$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
 fi
+[[ -d ${FLAKE_DIR} ]] || {
+  err "flake directory not found: ${FLAKE_DIR}"
+  exit 2
+}
+# Absolute from here on, as build.sh resolves -p before selecting a reference.
+# A relative --flake-dir with no slash is a directory to this script and an
+# indirect flakeref to Lix, which resolves `nixos#...` as `flake:nixos` and
+# fails in the registries; the unconditional path: form never exposed that.
+FLAKE_DIR="$(cd "${FLAKE_DIR}" && pwd -P)"
 [[ -f "${FLAKE_DIR}/flake.nix" ]] || {
   err "flake.nix not found in ${FLAKE_DIR}"
   exit 2
@@ -166,10 +207,41 @@ if [[ -z ${ALLOWLIST} ]]; then
   ALLOWLIST="${FLAKE_DIR}/scripts/cache-coverage-allowlist.txt"
 fi
 
-# Linked worktrees cannot be fetched as git+file flakes (.git is a file
-# there), and path: also includes a dirty tree, which is exactly what a
-# pre-switch report should measure.
-FLAKE_REF="path:${FLAKE_DIR}"
+# The reference build.sh's resolve_installable would take, through the predicate
+# both read, so the report measures the tree the build would build rather than a
+# tree that agrees with it only while two hand-kept copies happen to match.
+PATH_REF_REASON="$(flake_path_ref_reason "${FLAKE_DIR}" "${ALLOW_DIRTY}")"
+if [[ -n ${PATH_REF_REASON} ]]; then
+  FLAKE_REF="path:${FLAKE_DIR}"
+  # build.sh says this through announce_path_ref, naming the reason the same
+  # way; a direct run had no notice at all, and the guard below is silent unless
+  # it flags a path, so the ordinary case disclosed the tree with nothing said
+  # about it.
+  GIT_DIR_NOTE=""
+  if [[ -d "${FLAKE_DIR}/.git" ]]; then
+    GIT_DIR_NOTE=", and the whole .git directory of this primary checkout"
+  fi
+  printf 'cache-coverage: using %s (%s), which copies the tree unfiltered into the world-readable store: every untracked path, .gitignored or not%s.\n' \
+    "${FLAKE_REF}" "${PATH_REF_REASON}" "${GIT_DIR_NOTE}" >&2
+else
+  FLAKE_REF="${FLAKE_DIR}"
+fi
+
+# Only the path: ref makes the copy the guard exists to catch; the bare ref
+# fetches through git, which carries the tracked tree alone. Exit 2 rather than
+# 1, since neither outcome is a coverage result.
+if [[ ${FLAKE_REF} == path:* ]]; then
+  SECRETS_GUARD_RC=0
+  secrets_guard_enforce "${FLAKE_DIR}" "${FLAKE_REF}" || SECRETS_GUARD_RC=$?
+  if [[ ${SECRETS_GUARD_RC} -ne 0 ]]; then
+    if [[ ${SECRETS_GUARD_RC} -eq 2 ]]; then
+      err "refusing to evaluate with the secrets guard inoperative"
+    else
+      err "refusing to evaluate ${FLAKE_REF} with untracked paths the secrets guard flagged"
+    fi
+    exit 2
+  fi
+fi
 
 TMPDIR_ROOT="$(mktemp -d -t cache-coverage.XXXXXX)"
 trap 'rm -rf "${TMPDIR_ROOT}"' EXIT

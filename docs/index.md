@@ -81,6 +81,12 @@
 
 - [drafts/android-emulator-network-plan.md](drafts/android-emulator-network-plan.md)
   - Draft plan for Android emulator network interception setup with mitmproxy, KVM acceleration, and CA management.
+- [drafts/chromium-webapps-plan-1-salvage.md](drafts/chromium-webapps-plan-1-salvage.md)
+  - Phase 1 of the Chromium web-app migration: rescue the compgen and statix fixes stranded in PR #435, then close it.
+- [drafts/chromium-webapps-plan-2-remove-firefoxpwa.md](drafts/chromium-webapps-plan-2-remove-firefoxpwa.md)
+  - Phase 2 of the Chromium web-app migration: delete the Firefox PWA subsystem and unwire every reference to it.
+- [drafts/chromium-webapps-plan-3-implement.md](drafts/chromium-webapps-plan-3-implement.md)
+  - Phase 3 of the Chromium web-app migration: the `programs.webapps` module on brave-origin, plus the decisions table, the verified facts, and the self-review for the series.
 - [drafts/duplicati-r2-readonly-mount-investigation.md](drafts/duplicati-r2-readonly-mount-investigation.md)
   - Investigation into a read-only mount for encrypted R2 backup archives (issue #204).
 - [drafts/tpnix-cryptographic-identity-bootstrap-plan.md](drafts/tpnix-cryptographic-identity-bootstrap-plan.md)

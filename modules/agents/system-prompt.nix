@@ -184,11 +184,45 @@ let
       Use a validation ladder. Run the cheapest check that proves the touched behavior
       first, then broaden only when the change surface justifies it.
 
-      - Value-level edits to existing Nix lists or attrsets usually need formatting
-        and a parse or targeted eval check, not a full flake check.
+      In a linked git worktree, give flake commands an explicit `path:.`
+      installable (`nix develop path:.`, `nix flake check path:.`): Lix cannot
+      fetch a clean linked worktree as a `git+file` flake because `.git` is a
+      file there, not a directory. Two cases need a different form instead.
+      `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so reach the
+      formatter output directly:
+      `nix run "path:.#formatter.$(nix eval --impure --raw --expr builtins.currentSystem)" -- .`,
+      or `-- <file>` for a targeted run. Anything that writes `flake.lock` back
+      needs an absolute ref, because the write goes through Lix's `getAbsPath`
+      and `path:.` throws `cannot fetch input 'path:.' because it uses a
+      relative path`: that covers `nix flake metadata --refresh "path:$PWD"`,
+      which locks the flake, and `nix flake update --flake "path:$PWD"`, which
+      additionally reads positional arguments as input names. A run that
+      changes no lock entry never writes and so never throws. A dirty worktree
+      masks all of this, because Lix copies the working tree instead of
+      fetching the revision, so a command that passes with uncommitted changes
+      present can still exit 1 once the tree is clean.
+
+      `path:.` is not free. It copies the tree unfiltered, so `.gitignore` stops
+      protecting anything: private keys, `.env` files and decrypted secrets land
+      world-readable in the store, along with whole submodule working trees, and
+      on a primary checkout the entire `.git` directory. Check
+      `git status --porcelain --ignored=matching` and
+      `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`
+      before reaching for it, since the superproject form stops at a gitlink.
+      Neither sweep opens an untracked directory that is itself a git
+      repository, such as a scratch clone: it is reported as one entry and
+      copied whole, so its contents are never listed.
+      It also drops `self.rev` and `self.dirtyRev`, so a flake deriving a
+      revision stamp from them evaluates differently.
+
+      - Value-level edits to existing Nix lists or attrsets usually need `nix fmt`
+        and a parse or targeted eval check, not a full flake check. In a linked
+        worktree `nix fmt` is one of the cases `path:.` cannot fix, so reach
+        the formatter through the form above instead.
       - Structural Nix changes such as new modules, options, imports, let-binding
         refactors, or argument-shape changes need targeted evaluation and often
-        `nix flake check --accept-flake-config --no-build --offline`.
+        `nix flake check --accept-flake-config --no-build --offline`, with the
+        `path:.` installable added in a linked worktree per the note above.
       - Workflow and generated-artifact changes need source-derived checks that fail
         before an expensive runtime path runs.
       - Long-running local workflow checks such as `act workflow_dispatch` are not

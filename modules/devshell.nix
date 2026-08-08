@@ -125,12 +125,11 @@
             ++ config.pre-commit.settings.enabledPackages
           );
 
+        # No treefmt cache wiring here: treefmt reads no TREEFMT_* variable and
+        # derives its own db as xdg.CacheFile("treefmt/eval-cache/" +
+        # sha256(treeRoot) + ".db") (walk/cache/cache.go Path), so every tree
+        # root is already isolated and a worktree cannot reach another's cache.
         shellHook = ''
-          # Use repo-local treefmt cache.
-          treefmt_cache="$PWD/.git/treefmt-cache/cache"
-          mkdir -p "$treefmt_cache" 2>/dev/null || true
-          export TREEFMT_CACHE_DB="$treefmt_cache/eval-cache"
-
           ${config.pre-commit.shellHook}
 
           repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"

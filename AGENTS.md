@@ -167,6 +167,19 @@ Rule: Use a dedicated worktree and PR for changes. Do not commit directly to `ma
     worktrees (`nix develop path:.`, `nix flake check path:.`); Lix cannot
     fetch a clean linked worktree as a `git+file` flake because `.git` is a
     file there, not a directory
+  - Exception: `nix fmt` hardcodes the `.` installable in `lix/nix/fmt.cc`, so
+    it cannot be pointed at `path:.`; the formatter is also a package, so run
+    `nix run path:.#treefmt -- .` (or `-- <file>`) instead
+  - Exception: anything that writes `flake.lock` back needs an absolute ref,
+    because the write goes through Lix's `getAbsPath`
+    (`lix/libfetchers/path.cc`); run `nix flake metadata --refresh "path:$PWD"`
+    and `nix flake update --flake "path:$PWD"`. `nix flake update` also reads
+    positional arguments as input names, which is why the flake goes in
+    `--flake` there. `path:.` fetches fine and throws only on the write, so a
+    run that changes no lock entry can look like it works
+  - Note: a dirty worktree hides all of this, because Lix copies the working
+    tree instead of fetching the revision, so the same command passes with
+    uncommitted changes present and exits 1 on a clean tree
 - PR
   - Command: `gh pr create --title "<type>(scope): summary" --body "..."` (Assign labels)
 - Cleanup after merge
@@ -193,47 +206,57 @@ PR body should include:
 
 ### Development Environment
 
+Commands here and in the two sections below are written for a linked worktree,
+since that is where the branch workflow above puts the work; dropping `path:.`
+gives the primary-checkout form.
+
 - Start work
-  - Command: `nix develop`
-  - Preconditions: Clean tree; network available for substituters.
+  - Command: `nix develop path:.`
+  - Preconditions: Network available for substituters.
   - Post-check: Dev tools available (`treefmt`, `pre-commit`, etc.).
 - Format sources
-  - Command: `nix fmt`
-  - Preconditions: Run at repo root.
+  - Command: `nix run path:.#treefmt -- .`, or `-- <file>` for a targeted run
+  - Preconditions: Run at repo root. `nix fmt` is the primary-checkout form and
+    is one of the two cases `path:.` cannot fix, per the exceptions above.
   - Post-check: No remaining formatting diffs in `git status`.
 - Run hooks
-  - Command: `nix develop -c pre-commit run --all-files --hook-stage manual`
+  - Command: `nix develop path:. -c pre-commit run --all-files --hook-stage manual`
   - Preconditions: Dev shell ready; workspace writable.
   - Post-check: Exit code 0; review reported TODOs/failures.
 - Generate artifacts
-  - Command: `nix develop --accept-flake-config -c write-files --offline`
+  - Command: `nix develop path:. --accept-flake-config -c write-files --offline`
   - Preconditions: Dev shell ready; managed files may update.
   - Post-check: Review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`, `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`, `.sops.yaml`, `README.md`.
 
 ### Validation and Builds
 
 - Verify flake health
-  - Command: `nix flake check --accept-flake-config --no-build --offline`
+  - Command: `nix flake check path:. --accept-flake-config --no-build --offline`
   - Preconditions: Dev shell recommended.
   - Post-check: Exit code 0; resolve reported failures.
 - Build host
-  - Command: `nix build .#nixosConfigurations.$HOSTNAME.config.system.build.toplevel`
+  - Command: `nix build "path:.#nixosConfigurations.$HOSTNAME.config.system.build.toplevel"`
   - Post-check: Build completes; capture resulting store path.
 - Update inputs
-  - Command: `nix flake metadata --refresh && nix flake update && nix fmt flake.lock`
+  - Command: `nix flake metadata --refresh "path:$PWD" && nix flake update --flake "path:$PWD"`
+  - Why: the lock-writing exception above, which both links hit. Written bare,
+    or with `path:.` on the first link, the chain dies on `nix flake metadata`
+    in a linked worktree and never reaches the update. No formatting rung
+    follows: `treefmt` excludes `*.lock`, so it emits zero files for
+    `flake.lock`.
 
 ### GitHub Actions (Local)
 
 - List jobs
-  - Command: `nix develop -c gh-actions-list`
+  - Command: `nix develop path:. -c gh-actions-list`
   - Preconditions: Dev shell ready
   - Post-check: Lists available workflow jobs
 - Run jobs
-  - Command: `nix develop -c gh-actions-run`
+  - Command: `nix develop path:. -c gh-actions-run`
   - Preconditions: Dev shell ready
   - Post-check: Runs actions locally via `act`
 - Dry run
-  - Command: `nix develop -c gh-actions-run -n`
+  - Command: `nix develop path:. -c gh-actions-run -n`
   - Preconditions: Dev shell ready
   - Post-check: Shows planned execution
 
@@ -243,8 +266,43 @@ PR body should include:
   - Resolution: Add package to `config.nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`.
 - Missing reference
   - Resolution: Ensure that the file is tracked by git.
+  - Scope: only under the bare `.` form, whose `git+file` fetcher cannot see
+    untracked files. `path:.` dumps the directory unfiltered, so it discovers
+    an untracked module and evaluates it; there the hazard runs the other way,
+    and a check passing locally fails in CI on the pushed revision. Run
+    `git status --short` before trusting a `path:.` pass.
+- Ignored files under `path:.`
+  - Resolution: keep secrets out of the worktree, or pass
+    `--allow-secret-copy` to `./build.sh` or `scripts/cache-coverage.sh`
+    knowingly.
+  - Why: unfiltered also means the `.gitignore` secrets block (`*.agekey`,
+    `*.key`, `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`, plus
+    `decrypted_*` and `*.dec.*`) protects nothing
+    under `path:.`; those files are copied into the world-readable store. The
+    last two carry a `secrets/` prefix in the block so git applies them only
+    under the gitlink, which leaves a stray copy at the superproject root
+    untracked and visible instead of ignored; the guard matches both names
+    anywhere it scans, so the anchor scopes git's ignore rule and not the
+    guard, and `git check-ignore` does not confirm such a hit.
+    `git status --short` does not report ignored files, so use
+    `git status --porcelain --ignored=matching`, then
+    `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`:
+    the superproject form stops at the `secrets/` gitlink, so it misses the
+    decrypted SOPS output that submodule ignores through its own `.gitignore`.
+    `./build.sh` and `scripts/cache-coverage.sh` run both sweeps and abort,
+    through the guard they share in `scripts/lib/secrets-guard.sh`, on the same
+    two conditions that select the `path:` ref: a linked worktree and
+    `--allow-dirty`. The guard matches the block against every untracked path,
+    not the ignored subset, since `git+file` carries only the tracked tree. An
+    untracked directory that is itself a git repository is a hit on its name
+    alone: `ls-files` stops at that boundary and never opens it, so nothing
+    inside reaches the block, while `path:` copies it whole. A primary checkout on the default path keeps the bare ref
+    and copies nothing. The guard covers the ref a script evaluates, not the
+    one that delivered it, so `nix run path:.#cache-coverage` is unguarded by
+    construction (Lix copies while resolving the installable, before the
+    wrapper runs), as is any other bare `nix` command run by hand.
 - Explore config in repl
-  - Resolution: `nix develop --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
+  - Resolution: `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 
 ## Coding Style and Verification
 
@@ -253,7 +311,7 @@ PR body should include:
 - Imports
   - Guidance: Expose modules through namespace exports; avoid literal path imports.
 - Validation
-  - Guidance: Keep `nix flake check --accept-flake-config --no-build --offline` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules.
+  - Guidance: Keep `nix flake check path:. --accept-flake-config --no-build --offline` passing. Build host closures before PRs. Use targeted `nix eval`/`nix run` checks when changing modules.
 
 **Skip `nix flake check` after value-level edits**: For nix flakes, skip `nix flake check` after value-level edits to existing lists or attrsets (adding strings, toggling booleans, scalar changes). Reserve it for structural changes: new modules, options, imports, let-binding refactors, argument-shape changes. `treefmt` plus a parse pass is sufficient during iteration.
 
