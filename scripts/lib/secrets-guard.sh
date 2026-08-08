@@ -127,9 +127,10 @@ secrets_guard_paths() {
   #
   # Every git call below fails closed. A scan that errors reads as "nothing to
   # copy" otherwise, which is the same silent pass the parser branch above
-  # refuses. Output goes through a temp file rather than command substitution so
-  # -z survives: substitution strips NUL, and without it a path containing a
-  # newline splits into two lines that match no pattern.
+  # refuses. Input and output are both NUL delimited and both go through files
+  # rather than command substitution, which strips NUL: a path containing a
+  # newline would otherwise match no pattern on the way in, and be reported as
+  # two paths that do not exist on the way out.
   local scan
   scan="$(mktemp)"
   local file
@@ -140,7 +141,7 @@ secrets_guard_paths() {
   fi
   while IFS= read -r -d '' file; do
     if secrets_guard_is_hit "${file}"; then
-      printf '%s\n' "${file}"
+      printf '%s\0' "${file}"
     fi
   done <"${scan}"
 
@@ -165,7 +166,7 @@ secrets_guard_paths() {
     fi
     while IFS= read -r -d '' subfile; do
       if secrets_guard_is_hit "${sub}/${subfile}"; then
-        printf '%s\n' "${sub}/${subfile}"
+        printf '%s\0' "${sub}/${subfile}"
       fi
     done <"${scan}"
   done <<<"${submodules}"
@@ -210,18 +211,14 @@ secrets_guard_enforce() {
     secrets_guard_notice "${dir} has no .gitignore, so no secrets block defines patterns there; the secrets scan does not run."
     return 0
   fi
-  # grep and sed are the only externals here whose absence is silent rather than
-  # loud. A grep that is not found returns 127, which negates to true and skips
-  # the scan below in any tree that does not track the generator; a sed that is
-  # not found prints the abort with no list of what to move. awk, mktemp and the
-  # git calls in secrets_guard_paths all fail closed on their own.
-  local tool
-  for tool in grep sed; do
-    if ! command -v "${tool}" >/dev/null 2>&1; then
-      secrets_guard_error "${tool} was not found, so the secrets guard cannot run. Put it on PATH, or pass --allow-secret-copy to continue anyway."
-      return 2
-    fi
-  done
+  # grep is the one external here whose absence is silent rather than loud: not
+  # found returns 127, which negates to true and skips the scan below in any
+  # tree that does not track the generator. awk, mktemp and the git calls in
+  # secrets_guard_paths all fail closed on their own.
+  if ! command -v grep >/dev/null 2>&1; then
+    secrets_guard_error "grep was not found, so the secrets guard cannot run. Put it on PATH, or pass --allow-secret-copy to continue anyway."
+    return 2
+  fi
 
   # The same discriminator one level down. The block is this repo's convention,
   # emitted by modules/development/gitignore.nix, and practically every other
@@ -245,12 +242,19 @@ secrets_guard_enforce() {
   fi
 
   # `if !` keeps set -e suspended, so a parser failure reports itself instead of
-  # reaching an ERR trap as a bare "Command 'return 1' failed".
-  local hits
-  if ! hits="$(secrets_guard_paths "${dir}")"; then
+  # reaching an ERR trap as a bare "Command 'return 1' failed". The hits land in
+  # a file rather than a command substitution, which cannot carry the NUL that
+  # keeps one path per element.
+  local hits_file
+  hits_file="$(mktemp)"
+  if ! secrets_guard_paths "${dir}" >"${hits_file}"; then
+    rm -f "${hits_file}"
     return 2
   fi
-  if [[ -z ${hits} ]]; then
+  local -a hit_list=()
+  mapfile -d '' -t hit_list <"${hits_file}"
+  rm -f "${hits_file}"
+  if [[ ${#hit_list[@]} -eq 0 ]]; then
     return 0
   fi
 
@@ -258,11 +262,9 @@ secrets_guard_enforce() {
   # Report the truncation. The next line asks for all of them to be moved, so a
   # silent cap reads as a complete list and sends the operator back into the
   # same abort with no idea how much is left.
-  local hit_count
-  hit_count="$(printf '%s\n' "${hits}" | wc -l)"
-  printf '%s\n' "${hits}" | sed -n '1,50p' >&2
-  if [[ ${hit_count} -gt 50 ]]; then
-    printf '... and %d more not shown.\n' "$((hit_count - 50))" >&2
+  printf '%s\n' "${hit_list[@]:0:50}" >&2
+  if [[ ${#hit_list[@]} -gt 50 ]]; then
+    printf '... and %d more not shown.\n' "$((${#hit_list[@]} - 50))" >&2
   fi
   printf "Move them outside the worktree, or pass --allow-secret-copy (ALLOW_SECRET_COPY=1) to override.\n" >&2
   return 1

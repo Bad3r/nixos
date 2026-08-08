@@ -84,7 +84,7 @@ Options:
                         which git+file cannot see (ALLOW_DIRTY=1). A linked
                         worktree takes that reference either way
       --allow-secret-copy
-                        Report even when ignored files matching the .gitignore
+                        Report even when untracked files matching the .gitignore
                         secrets block would be copied into the store by a
                         path: ref (ALLOW_SECRET_COPY=1)
   -h, --help            Show this help

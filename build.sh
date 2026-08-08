@@ -66,7 +66,7 @@ Options:
   -v, --verbose          Enable verbose output
       --boot             Install as next-boot generation (do not activate now)
       --allow-dirty      Allow running with a dirty git worktree (not recommended)
-      --allow-secret-copy Build even when ignored files matching the .gitignore secrets block are present
+      --allow-secret-copy Build even when untracked files matching the .gitignore secrets block are present
       --update           Run 'nix flake metadata --refresh' and 'nix flake update' before building
       --skip-hooks       Skip the pre-commit validation
       --skip-check       Skip the 'nix flake check' validation step
