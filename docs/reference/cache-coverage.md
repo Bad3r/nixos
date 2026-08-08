@@ -59,9 +59,10 @@ copies nothing and has nothing to override.
 A guard hit aborts, and so does a guard that cannot run: any of `git`, `grep`,
 `awk`, `mktemp` and `rm` missing from `PATH`, a `mktemp` present that fails
 anyway on a read-only `TMPDIR` or a full filesystem, a hit list the guard cannot
-write or read back for the same reasons, a `.gitignore` tracked but absent, a
-secrets block that no longer yields its patterns, and a directory carrying a
-`.git` marker git will not open as a repository. Both exit 2, naming
+write or read back for the same reasons, a `.gitignore` tracked but absent or
+present and unreadable, a secrets block that no longer yields its patterns, and
+a directory carrying a `.git` marker git will not open as a repository. Both
+exit 2, naming
 which of the two they were. A missing `git` is in that list rather than in the
 skip below it, because the reference is chosen without consulting git:
 `--allow-dirty` selects `path:` from the flag alone, so a tree whose ignore set

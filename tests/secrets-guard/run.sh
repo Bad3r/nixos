@@ -539,6 +539,44 @@ test_enforce_fails_closed_when_the_generator_is_tracked() {
   pass
 }
 
+# grep answers 0 match, 1 no match and 2 could not read, and -f is true for a
+# file the process cannot open, so folding 2 into "no heading" was wrong both
+# ways. A foreign tree took the skip and returned 0 with path: already selected,
+# which is the fail-open, and a tree owning the generator reached the parser,
+# which blamed drift in a block awk could not read either.
+test_enforce_splits_an_unreadable_gitignore_from_a_missing_block() {
+  local repo foreign
+
+  repo="$(make_repo enforce-unreadable)"
+  mkdir -p "${repo}/modules/development"
+  : >"${repo}/modules/development/gitignore.nix"
+  git -C "${repo}" add modules/development/gitignore.nix
+  git -C "${repo}" commit -q -m "add the generator"
+  : >"${repo}/id_ed25519"
+  chmod 000 "${repo}/.gitignore"
+
+  enforce "${repo}"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "unreadable gitignore: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q '^Error: Reading .*\.gitignore failed' "${tmpdir}/enforce.err" ||
+    fail "unreadable gitignore: the abort did not name the read" "${tmpdir}/enforce.err"
+  ! grep -q 'did not yield the expected patterns' "${tmpdir}/enforce.err" ||
+    fail "unreadable gitignore: blamed the block it never read" "${tmpdir}/enforce.err"
+
+  # The same file, in a tree that does not own the generator, is where the old
+  # collapse returned 0 and copied the probe unscanned.
+  foreign="$(make_repo enforce-unreadable-foreign)"
+  : >"${foreign}/id_ed25519"
+  chmod 000 "${foreign}/.gitignore"
+
+  enforce "${foreign}"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "unreadable gitignore, foreign tree: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  ! grep -q 'does not own modules/development/gitignore.nix' "${tmpdir}/enforce.err" ||
+    fail "unreadable gitignore, foreign tree: skipped a file it could not read" "${tmpdir}/enforce.err"
+  pass
+}
+
 # The same shape without the generator is an ordinary repository whose
 # .gitignore was never emitted from here, so aborting would name a module it
 # does not contain.
@@ -789,6 +827,7 @@ test_enforce_keeps_stdout_clear
 test_enforce_honours_the_override
 test_enforce_fails_closed_when_the_generator_is_tracked
 test_enforce_skips_a_tree_that_does_not_own_the_generator
+test_enforce_splits_an_unreadable_gitignore_from_a_missing_block
 test_enforce_fails_closed_on_a_missing_external
 test_scan_survives_a_failing_cleanup
 test_enforce_fails_closed_on_a_failing_mktemp

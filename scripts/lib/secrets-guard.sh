@@ -339,7 +339,18 @@ secrets_guard_enforce() {
   # repository has a .gitignore without it; aborting there would name a module
   # that tree does not contain. A renamed or thinned heading in a tree that does
   # own the generator still fails closed in the parser.
-  if ! grep -qxF '# Secrets safety (defense-in-depth)' "${dir}/.gitignore"; then
+  # grep answers three ways as well: 0 match, 1 no match, 2 could not read it.
+  # The -f above is true for a file the process cannot open, so folding 2 into
+  # "no heading" sends a foreign tree to the skip below and returns 0 with path:
+  # already selected, and sends a tree that owns the generator to the parser,
+  # which then reports drift in a block it never managed to read.
+  local heading_rc=0
+  grep -qxF '# Secrets safety (defense-in-depth)' "${dir}/.gitignore" || heading_rc=$?
+  if [[ ${heading_rc} -gt 1 ]]; then
+    secrets_guard_error "Reading ${dir}/.gitignore failed (grep exit ${heading_rc}), so the secrets guard cannot tell a missing secrets block from a file it could not read. Fix its permissions, or pass --allow-secret-copy to continue anyway."
+    return 2
+  fi
+  if [[ ${heading_rc} -eq 1 ]]; then
     # Reached only when the heading is already missing, which is the drift case
     # that has to fail closed, so a git failure here cannot be read as "foreign
     # tree". A tracked generator falls through to the parser, which aborts.
