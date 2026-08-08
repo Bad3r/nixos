@@ -226,6 +226,67 @@ in
             fi
             touch "$out"
           '';
+      # The minimum set named in secrets_guard_paths is the guard's coupling to
+      # modules/development/gitignore.nix, and every other fixture that reaches
+      # the parser is a hand-written copy of the block, so the suite passes
+      # whatever the generator emits. Dropping or renaming one pattern there
+      # leaves managed-files-synced green, since .gitignore still matches its
+      # source, and leaves the suite green on its own copy; the guard then trips
+      # the minimum-set branch on every real run and the documented way past it
+      # turns the control off. This reads the committed file the guard actually
+      # parses, which managed-files-synced already pins to the generator.
+      gitignoreContractCheck =
+        pkgs.runCommand "script-tests-secrets-guard-gitignore-contract"
+          {
+            nativeBuildInputs = with pkgs; [
+              bash
+              coreutils
+              git
+              gnugrep
+              gawk
+            ];
+          }
+          ''
+            export HOME="$PWD/home"
+            mkdir -p "$HOME" repo
+            git -C repo init -q -b main
+            git -C repo config user.email contract@example.invalid
+            git -C repo config user.name "gitignore contract"
+            cp ${../../.gitignore} repo/.gitignore
+            git -C repo add .gitignore
+            git -C repo commit -q -m "the committed .gitignore"
+
+            # One untracked probe per required pattern, plus the public key the
+            # block negates: presence in the deny list is what the parser
+            # asserts, and these assert the patterns still match something.
+            touch repo/probe.agekey repo/probe.key repo/probe.pem \
+              repo/probe.p12 repo/probe.pfx repo/.env repo/.env.local \
+              repo/id_probe repo/id_probe.pub \
+              repo/decrypted_probe.yaml repo/probe.dec.txt
+
+            source ${../../scripts/lib/secrets-guard.sh}
+            rc=0
+            secrets_guard_paths repo >hits.bin 2>err.log || rc=$?
+            if [ "$rc" -ne 0 ]; then
+              echo "the guard could not parse the committed .gitignore (rc $rc); its minimum set and modules/development/gitignore.nix have diverged" >&2
+              cat err.log >&2
+              exit 1
+            fi
+            tr '\0' '\n' <hits.bin >hits.txt
+            for probe in probe.agekey probe.key probe.pem probe.p12 probe.pfx \
+              .env .env.local id_probe decrypted_probe.yaml probe.dec.txt; do
+              if ! grep -qxF "$probe" hits.txt; then
+                echo "the block no longer matches $probe, so a pattern the guard requires has changed meaning" >&2
+                cat hits.txt >&2
+                exit 1
+              fi
+            done
+            if grep -qxF id_probe.pub hits.txt; then
+              echo "the block's !id_*.pub negation no longer applies" >&2
+              exit 1
+            fi
+            touch "$out"
+          '';
     in
     {
       # The suites run the scripts directly with inputs supplied by this module,
@@ -237,6 +298,7 @@ in
       checks = {
         script-tests-prune-old-stashes-wrapper-inputs = wrapperInputsCheck;
         script-tests-cache-coverage-wrapper-inputs = cacheCoverageWrapperInputsCheck;
+        script-tests-secrets-guard-gitignore-contract = gitignoreContractCheck;
       }
       // lib.mapAttrs' (
         name: suite:
