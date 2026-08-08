@@ -866,6 +866,52 @@ test_enforce_splits_a_missing_gitignore_by_tracked_state() {
   pass
 }
 
+# rev-parse says yes from any subdirectory, while every .gitignore read here is
+# ${dir}/.gitignore, so a flake one level down from a root carrying the block
+# found no file and took the skip above while path: copied its untracked probes.
+# The abort is the only outcome that reads the tree correctly: the block is real
+# and it is not the one this call can reach.
+test_enforce_fails_closed_in_a_subdirectory_of_a_block_carrying_tree() {
+  local repo
+  repo="$(make_repo enforce-subdir)"
+  mkdir -p "${repo}/sub"
+  : >"${repo}/sub/flake.nix"
+  git -C "${repo}" add sub/flake.nix
+  git -C "${repo}" commit -q -m "a flake in a subdirectory"
+  : >"${repo}/sub/.env"
+  : >"${repo}/sub/id_ed25519"
+
+  enforce "${repo}/sub"
+  [[ ${enforce_rc} -eq 2 ]] || fail "subdirectory: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
+    fail "subdirectory: the abort did not name the root" "${tmpdir}/enforce.err"
+  ! grep -q 'has no .gitignore' "${tmpdir}/enforce.err" ||
+    fail "subdirectory: skipped a tree whose block covers it" "${tmpdir}/enforce.err"
+  pass
+}
+
+# Only a root that carries the block aborts. Every other repository has a
+# .gitignore without one, and a flake in a subdirectory of one is the case the
+# discriminators below the branch were written for, so it still skips rather
+# than turning that skip into a refusal.
+test_enforce_skips_a_subdirectory_of_a_tree_without_the_block() {
+  local repo
+  repo="${tmpdir}/enforce-subdir-foreign"
+  init_repo "${repo}"
+  mkdir -p "${repo}/pkgs/foo"
+  printf '%s\n' node_modules dist >"${repo}/.gitignore"
+  : >"${repo}/pkgs/foo/flake.nix"
+  git -C "${repo}" add .gitignore pkgs/foo/flake.nix
+  git -C "${repo}" commit -q -m "initial commit"
+  : >"${repo}/pkgs/foo/.env"
+
+  enforce "${repo}/pkgs/foo"
+  [[ ${enforce_rc} -eq 0 ]] || fail "foreign subdirectory: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  ! grep -q 'is a subdirectory of the worktree at' "${tmpdir}/enforce.err" ||
+    fail "foreign subdirectory: aborted a tree that never had the block" "${tmpdir}/enforce.err"
+  pass
+}
+
 test_parser_fails_closed_on_renamed_heading
 test_parser_fails_closed_on_blank_line_mid_block
 test_parser_splits_an_unreadable_gitignore_from_a_changed_block
@@ -897,6 +943,8 @@ test_enforce_fails_closed_on_an_unreadable_hit_list
 test_enforce_keeps_the_empty_hit_list_a_clean_tree
 test_enforce_fails_closed_on_an_unopenable_repository
 test_enforce_splits_a_missing_gitignore_by_tracked_state
+test_enforce_fails_closed_in_a_subdirectory_of_a_block_carrying_tree
+test_enforce_skips_a_subdirectory_of_a_tree_without_the_block
 
 # Asserted, not merely reported. The invocation list above is hand-maintained,
 # so a dropped line, or a case that returns before its pass, would otherwise cut

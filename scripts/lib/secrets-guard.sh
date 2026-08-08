@@ -349,6 +349,43 @@ secrets_guard_enforce() {
     secrets_guard_notice "${dir} is not a git worktree; nothing defines an ignore set, so the secrets scan does not run."
     return 0
   fi
+  # rev-parse answers yes from any subdirectory of a worktree, while every
+  # .gitignore this file reads is ${dir}/.gitignore. A flake one level down from
+  # a root that carries the block therefore found no file, took the "never had
+  # one" skip below and returned 0 while path: copied its untracked .env and
+  # id_* into the store, with a notice saying the tree defines no patterns for
+  # them when it defines them one directory up.
+  #
+  # Only the case where that block exists aborts. A foreign flake in a
+  # subdirectory of any other repository still reaches the discriminators below
+  # and skips, for the reason they were written: the block is this repo's
+  # convention, and aborting a tree that never had one names a module it does
+  # not contain. A subdirectory carrying its own block also falls through, since
+  # the reads below then resolve to the file that does define its ignore set.
+  #
+  # pwd -P because rev-parse resolves symlinks and the comparison has to. Both
+  # callers already absolutise the same way, so this only covers a third one.
+  local toplevel resolved
+  if ! toplevel="$(git -C "${dir}" rev-parse --show-toplevel 2>/dev/null)"; then
+    secrets_guard_error "Resolving the worktree root of ${dir} failed, so the secrets guard cannot tell it from a subdirectory whose ignore set lives above it. Repair the repository, or pass --allow-secret-copy to continue anyway."
+    return 2
+  fi
+  if ! resolved="$(cd "${dir}" 2>/dev/null && pwd -P)"; then
+    secrets_guard_error "Resolving ${dir} to an absolute path failed, so the secrets guard cannot tell it from a subdirectory whose ignore set lives above it. Check that it is a readable directory, or pass --allow-secret-copy to continue anyway."
+    return 2
+  fi
+  if [[ ${resolved} != "${toplevel}" && -f "${toplevel}/.gitignore" ]]; then
+    local root_heading_rc=0
+    grep -qxF '# Secrets safety (defense-in-depth)' "${toplevel}/.gitignore" || root_heading_rc=$?
+    if [[ ${root_heading_rc} -gt 1 ]]; then
+      secrets_guard_error "Reading ${toplevel}/.gitignore failed (grep exit ${root_heading_rc}), so the secrets guard cannot tell whether the root of ${dir}'s worktree defines a secrets block for it. Fix its permissions, or pass --allow-secret-copy to continue anyway."
+      return 2
+    fi
+    if [[ ${root_heading_rc} -eq 0 ]]; then
+      secrets_guard_error "${dir} is a subdirectory of the worktree at ${toplevel}, whose .gitignore carries the secrets block that covers what path:${dir} would copy, and this guard reads ${dir}/.gitignore only. Point the flake directory at ${toplevel}, or pass --allow-secret-copy to continue anyway."
+      return 2
+    fi
+  fi
   # Fail closed only on drift, which is tracked-but-absent: that is the state
   # modules/development/gitignore.nix can produce here. A foreign flake reached
   # through --flake-dir may simply never have had a .gitignore, and telling its
