@@ -159,6 +159,19 @@ secrets_guard_enforce() {
     secrets_guard_notice "${dir} has no .gitignore, so no secrets block defines patterns there; the secrets scan does not run."
     return 0
   fi
+  # grep and sed are the only externals here whose absence is silent rather than
+  # loud. A grep that is not found returns 127, which negates to true and skips
+  # the scan below in any tree that does not track the generator; a sed that is
+  # not found prints the abort with no list of what to move. awk, mktemp and the
+  # git calls in secrets_guard_paths all fail closed on their own.
+  local tool
+  for tool in grep sed; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      secrets_guard_error "${tool} was not found, so the secrets guard cannot run. Put it on PATH, or pass --allow-secret-copy to continue anyway."
+      return 2
+    fi
+  done
+
   # The same discriminator one level down. The block is this repo's convention,
   # emitted by modules/development/gitignore.nix, and practically every other
   # repository has a .gitignore without it; aborting there would name a module
