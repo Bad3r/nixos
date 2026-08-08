@@ -274,11 +274,15 @@ secrets_guard_enforce() {
   # any pattern the block anchors to a subdirectory, so say why before the list
   # rather than let the operator read the disagreement as a false positive.
   printf 'A pattern the block anchors to a subdirectory is matched by name here, so git check-ignore will not confirm every hit: the anchor scopes git ignore rules, not this scan.\n' >&2
-  # Name the second basis once rather than per entry, and only when the list
-  # holds one: an operator who reads every hit as a pattern match goes looking
-  # for the pattern a directory name never matched.
+  # One binding for the cap, since the notice below and the tally both describe
+  # the slice that gets printed rather than everything that was found.
+  local shown=50
+  # Name the second basis once rather than per entry, and only when the printed
+  # slice holds one: an operator who reads every hit as a pattern match goes
+  # looking for the pattern a directory name never matched, and a marker
+  # explained past the cap appears nowhere in the output at all.
   local hit
-  for hit in "${hit_list[@]}"; do
+  for hit in "${hit_list[@]:0:shown}"; do
     if [[ ${hit} == */ ]]; then
       printf 'A trailing slash marks an untracked directory that is itself a git repository. ls-files stops at one, so nothing inside it was compared against the block, while path: copies it whole.\n' >&2
       break
@@ -287,9 +291,12 @@ secrets_guard_enforce() {
   # Report the truncation. The next line asks for all of them to be moved, so a
   # silent cap reads as a complete list and sends the operator back into the
   # same abort with no idea how much is left.
-  printf '%s\n' "${hit_list[@]:0:50}" >&2
-  if [[ ${#hit_list[@]} -gt 50 ]]; then
-    printf '... and %d more not shown.\n' "$((${#hit_list[@]} - 50))" >&2
+  # %q, not %s: the list is NUL delimited so a path holding a newline stays one
+  # element, and %s would split it back into two lines here, moving the
+  # ambiguity from the tally to the listing. Ordinary paths render unchanged.
+  printf '%q\n' "${hit_list[@]:0:shown}" >&2
+  if [[ ${#hit_list[@]} -gt ${shown} ]]; then
+    printf '... and %d more not shown.\n' "$((${#hit_list[@]} - shown))" >&2
   fi
   printf "Move them outside the worktree, or pass --allow-secret-copy (ALLOW_SECRET_COPY=1) to override.\n" >&2
   return 1
