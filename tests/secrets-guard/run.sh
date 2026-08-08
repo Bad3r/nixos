@@ -39,9 +39,13 @@ export GIT_CONFIG_SYSTEM=/dev/null
 export GIT_TERMINAL_PROMPT=0
 
 tests_passed=0
+tests_ran=()
 
 pass() {
   tests_passed=$((tests_passed + 1))
+  # The caller's name, so the tail of this file can assert that every case
+  # defined here actually ran rather than trusting the invocation list.
+  tests_ran+=("${FUNCNAME[1]}")
 }
 
 fail() {
@@ -835,5 +839,35 @@ test_enforce_fails_closed_on_an_unreadable_hit_list
 test_enforce_keeps_the_empty_hit_list_a_clean_tree
 test_enforce_fails_closed_on_an_unopenable_repository
 test_enforce_splits_a_missing_gitignore_by_tracked_state
+
+# Asserted, not merely reported. The invocation list above is hand-maintained,
+# so a dropped line, or a case that returns before its pass, would otherwise cut
+# coverage of a security control while the suite still exits 0 and prints a
+# smaller number that nothing compares against: the same shape as the subject,
+# where a scan that stopped running looks exactly like one that found nothing.
+#
+# Derived from what is defined rather than compared against a count written by
+# hand, since that count would have to be corrected by the very edit that forgot
+# the invocation. declare -F is read with bash's own word splitting so this adds
+# no external the suite does not already need.
+missing=()
+while IFS= read -r line; do
+  fn="${line##* }"
+  [[ ${fn} == test_* ]] || continue
+  ran=0
+  for name in "${tests_ran[@]}"; do
+    if [[ ${name} == "${fn}" ]]; then
+      ran=1
+      break
+    fi
+  done
+  [[ ${ran} -eq 1 ]] || missing+=("${fn}")
+done < <(declare -F)
+
+if [[ ${#missing[@]} -gt 0 ]]; then
+  printf 'run.sh: defined but never reached pass: %s\n' "${missing[*]}" >&2
+  printf 'run.sh: add it to the invocation list above, or delete it.\n' >&2
+  exit 1
+fi
 
 printf '%d passed\n' "${tests_passed}"
