@@ -138,8 +138,16 @@ secrets_guard_paths() {
   # rather than command substitution, which strips NUL: a path containing a
   # newline would otherwise match no pattern on the way in, and be reported as
   # two paths that do not exist on the way out.
+  # Checked, because the preflight proves mktemp is present and not that it
+  # works: a read-only or missing TMPDIR, or a full filesystem, leaves scan
+  # empty, and the ls-files redirect below then fails before git runs at all.
+  # That reported "Listing untracked files failed", naming a call that never
+  # happened, which is the same misattribution the preflight was added to stop.
   local scan
-  scan="$(mktemp)"
+  if ! scan="$(mktemp)"; then
+    secrets_guard_error "Creating a temporary file for the scan of ${dir} failed (TMPDIR=${TMPDIR:-/tmp}), so the secrets guard cannot run; the untracked listing below has not started."
+    return 1
+  fi
   local file
   if ! git -C "${dir}" ls-files --others -z >"${scan}"; then
     rm -f "${scan}"
@@ -220,6 +228,10 @@ secrets_guard_enforce() {
   # leaves the temp paths empty, and the failure then surfaces as a redirect
   # error against a git call that never ran. rm closes secrets_guard_paths, so
   # its 127 became that function's status and discarded a completed hit list.
+  #
+  # command -v answers presence, not operability, so it is the floor and not the
+  # whole check: each mktemp call tests its own status as well, since a present
+  # one still fails on a read-only TMPDIR and lands in the same two places.
   local tool
   for tool in git grep awk mktemp rm; do
     if ! command -v "${tool}" >/dev/null 2>&1; then
@@ -278,8 +290,16 @@ secrets_guard_enforce() {
   # reaching an ERR trap as a bare "Command 'return 1' failed". The hits land in
   # a file rather than a command substitution, which cannot carry the NUL that
   # keeps one path per element.
+  # Same check as the scan's own mktemp, and this one had no message at all: an
+  # empty hits_file made the call below fail on its redirect, which `if !`
+  # inverted into the abort, so the run returned 2 having printed nothing the
+  # guard wrote. Both callers suspend errexit around this function, so the empty
+  # assignment could not surface as an ERR trap either.
   local hits_file
-  hits_file="$(mktemp)"
+  if ! hits_file="$(mktemp)"; then
+    secrets_guard_error "Creating a temporary file for the hit list failed (TMPDIR=${TMPDIR:-/tmp}), so the secrets guard cannot run."
+    return 2
+  fi
   if ! secrets_guard_paths "${dir}" >"${hits_file}"; then
     rm -f "${hits_file}"
     return 2

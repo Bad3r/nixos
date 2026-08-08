@@ -329,6 +329,36 @@ test_scan_covers_submodule_working_trees() {
   pass
 }
 
+# The preflight proves mktemp is present, not that it works, so a read-only
+# TMPDIR still emptied scan and the ls-files redirect failed before git ran. The
+# abort then blamed the listing, which is the misattribution the preflight
+# exists to prevent. Driven through secrets_guard_paths directly: enforce's own
+# mktemp fails first and this call site is never reached through it.
+test_scan_fails_closed_on_a_failing_mktemp() {
+  local repo stub tool
+  repo="$(make_repo scan-mktemp)"
+  : >"${repo}/id_ed25519"
+
+  stub="${tmpdir}/stub-failing-mktemp-scan"
+  mkdir -p "${stub}"
+  for tool in git grep awk rm; do
+    ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+  done
+  # Present for command -v and creating nothing, unlike the failing rm below,
+  # which delegates first: here the missing file is the point.
+  printf '%s\n' '#!/bin/sh' 'exit 1' >"${stub}/mktemp"
+  chmod +x "${stub}/mktemp"
+
+  PATH="${stub}" scan "${repo}"
+  [[ ${scan_rc} -eq 1 ]] ||
+    fail "failing mktemp: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
+  grep -q '^Error: Creating a temporary file for the scan' "${tmpdir}/scan.err" ||
+    fail "failing mktemp: the abort did not name the temp file" "${tmpdir}/scan.err"
+  ! grep -q 'Listing untracked files' "${tmpdir}/scan.err" ||
+    fail "failing mktemp: blamed a git call that never ran" "${tmpdir}/scan.err"
+  pass
+}
+
 # --- secrets_guard_enforce -------------------------------------------------
 
 test_enforce_returns_zero_on_a_clean_tree() {
@@ -507,6 +537,37 @@ test_scan_survives_a_failing_cleanup() {
   pass
 }
 
+# The hit-list mktemp had no message of its own: an empty hits_file made the
+# call below it fail on its redirect, `if !` inverted that into the abort, and
+# the run returned 2 having printed nothing the guard wrote. Both callers
+# suspend errexit around this function, so no ERR trap covered it either.
+test_enforce_fails_closed_on_a_failing_mktemp() {
+  local repo stub tool
+  repo="$(make_repo enforce-mktemp)"
+  : >"${repo}/id_ed25519"
+
+  # The control: with a working mktemp this tree aborts on the hit, so the rc 2
+  # below is the temp file rather than the fixture.
+  enforce "${repo}"
+  [[ ${enforce_rc} -eq 1 ]] ||
+    fail "mktemp control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+
+  stub="${tmpdir}/stub-failing-mktemp-enforce"
+  mkdir -p "${stub}"
+  for tool in git grep awk rm; do
+    ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+  done
+  printf '%s\n' '#!/bin/sh' 'exit 1' >"${stub}/mktemp"
+  chmod +x "${stub}/mktemp"
+
+  PATH="${stub}" enforce "${repo}"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "failing mktemp: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q '^Error: Creating a temporary file for the hit list' "${tmpdir}/enforce.err" ||
+    fail "failing mktemp: the abort printed no cause" "${tmpdir}/enforce.err"
+  pass
+}
+
 # Tracked but absent is the state the generator can produce, so it fails closed
 # where a tree that simply never had one is skipped.
 test_enforce_splits_a_missing_gitignore_by_tracked_state() {
@@ -540,6 +601,7 @@ test_scan_reports_a_nested_repository_boundary
 test_scan_leaves_a_plain_untracked_directory_alone
 test_scan_round_trips_a_path_holding_a_newline
 test_scan_covers_submodule_working_trees
+test_scan_fails_closed_on_a_failing_mktemp
 test_enforce_returns_zero_on_a_clean_tree
 test_enforce_reports_a_hit_and_names_the_copier
 test_enforce_keeps_stdout_clear
@@ -548,6 +610,7 @@ test_enforce_fails_closed_when_the_generator_is_tracked
 test_enforce_skips_a_tree_that_does_not_own_the_generator
 test_enforce_fails_closed_on_a_missing_external
 test_scan_survives_a_failing_cleanup
+test_enforce_fails_closed_on_a_failing_mktemp
 test_enforce_splits_a_missing_gitignore_by_tracked_state
 
 printf '%d passed\n' "${tests_passed}"
