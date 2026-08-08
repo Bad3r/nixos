@@ -26,6 +26,8 @@
     shell_snapshot = true;
     code_mode = false;
     code_mode_only = false;
+    # Spawns $out/bin/codex-code-mode-host, installed by ./_packaged-codex.nix.
+    code_mode_host = true;
     terminal_resize_reflow = true;
     standalone_web_search = false;
     runtime_metrics = false;

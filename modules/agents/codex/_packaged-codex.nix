@@ -10,6 +10,9 @@ in
 # Invariants required by codex-rs/install-context/src/lib.rs:
 #   * $out/bin must be the parent of the resolved exe (canonicalised).
 #   * $out/codex-package.json must be a regular file (contents not parsed).
+#   * $out/bin/codex-code-mode-host must exist: with a package layout present,
+#     code_mode_host_program() resolves the host only from package_layout.bin_dir,
+#     never from PATH.
 # `codex-path/` and `codex-resources/` are intentionally omitted so codex falls
 # back to PATH-managed tools instead of package-local resources.
 pkgs.runCommandLocal "${pname}-packaged-${version}"
@@ -30,6 +33,13 @@ pkgs.runCommandLocal "${pname}-packaged-${version}"
     # at upstream's store path, which has no metadata file).
     cp -L ${codexPkg}/bin/.codex-wrapped $out/bin/.codex-wrapped
     chmod +w $out/bin/.codex-wrapped
+
+    # Standalone host for the code-mode tool surface. Copied rather than
+    # symlinked so the closure keeps a single 0.5 GiB codex copy; the models in
+    # use (gpt-5.6-luna, gpt-5.6-sol) are tool_mode = code_mode_only, so every
+    # tool call fails closed when this binary is absent.
+    cp -L ${codexPkg}/bin/codex-code-mode-host $out/bin/codex-code-mode-host
+    chmod +x $out/bin/codex-code-mode-host
 
     # New trampoline preserves the bubblewrap PATH prepend that upstream's
     # wrapProgram adds, so the default Linux sandbox keeps finding bwrap.
