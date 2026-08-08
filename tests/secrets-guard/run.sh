@@ -568,6 +568,46 @@ test_enforce_fails_closed_on_a_failing_mktemp() {
   pass
 }
 
+# rev-parse answers 128 for a repository git declines to open as well as for a
+# directory that is not one, and collapsing both to the skip was a fail-open:
+# flake_path_ref_reason selects path: off the .git file alone, so a linked
+# worktree that outlived its gitdir was copied unscanned and told it was not a
+# worktree. A dangling .git symlink is the same marker, which -e alone drops.
+test_enforce_fails_closed_on_an_unopenable_repository() {
+  local repo wt dangling
+  repo="$(make_repo enforce-unopenable)"
+  wt="${tmpdir}/enforce-unopenable-wt"
+  git -C "${repo}" worktree add -q -b probe "${wt}"
+  : >"${wt}/id_ed25519"
+
+  # The control: while the gitdir is intact this is a worktree and the probe is
+  # a hit, so the rc below is the severed gitdir rather than the fixture.
+  enforce "${wt}"
+  [[ ${enforce_rc} -eq 1 ]] ||
+    fail "unopenable control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+
+  # What a moved or deleted owning checkout leaves behind, and what
+  # prune-stale-worktrees.sh reports as broken-gitdir rather than removing.
+  rm -r "${repo}/.git/worktrees"
+  [[ -f "${wt}/.git" ]] || fail "unopenable: the fixture lost its .git file"
+
+  enforce "${wt}"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "unopenable: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q 'carries a .git marker' "${tmpdir}/enforce.err" ||
+    fail "unopenable: the abort did not name the marker" "${tmpdir}/enforce.err"
+  ! grep -q 'is not a git worktree' "${tmpdir}/enforce.err" ||
+    fail "unopenable: skipped a broken repository as a foreign tree" "${tmpdir}/enforce.err"
+
+  dangling="${tmpdir}/enforce-unopenable-symlink"
+  mkdir -p "${dangling}"
+  ln -s "${tmpdir}/gitdir-that-is-gone" "${dangling}/.git"
+  enforce "${dangling}"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "dangling .git: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  pass
+}
+
 # Tracked but absent is the state the generator can produce, so it fails closed
 # where a tree that simply never had one is skipped.
 test_enforce_splits_a_missing_gitignore_by_tracked_state() {
@@ -611,6 +651,7 @@ test_enforce_skips_a_tree_that_does_not_own_the_generator
 test_enforce_fails_closed_on_a_missing_external
 test_scan_survives_a_failing_cleanup
 test_enforce_fails_closed_on_a_failing_mktemp
+test_enforce_fails_closed_on_an_unopenable_repository
 test_enforce_splits_a_missing_gitignore_by_tracked_state
 
 printf '%d passed\n' "${tests_passed}"

@@ -138,6 +138,7 @@ secrets_guard_paths() {
   # rather than command substitution, which strips NUL: a path containing a
   # newline would otherwise match no pattern on the way in, and be reported as
   # two paths that do not exist on the way out.
+  #
   # Checked, because the preflight proves mktemp is present and not that it
   # works: a read-only or missing TMPDIR, or a full filesystem, leaves scan
   # empty, and the ls-files redirect below then fails before git runs at all.
@@ -244,6 +245,19 @@ secrets_guard_enforce() {
   # which does not own that directory. No git worktree means no ignore set, so
   # there is nothing for path: to smuggle past .gitignore.
   if ! git -C "${dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    # rev-parse answers 128 for a repository git declines to open as well as for
+    # a directory that is not one, and only the second has no ignore set to
+    # smuggle anything past. A .git marker separates them, and it is the marker
+    # flake_path_ref_reason selects path: on, so reading both as "not a worktree"
+    # disables the guard on exactly the reference that makes the copy: a linked
+    # worktree outlives the gitdir its .git file points at. -L keeps a dangling
+    # symlink in the marker class, which -e alone drops. Dubious ownership
+    # arrives here on a tree git reads perfectly well, so safe.directory is named
+    # beside the other two remedies.
+    if [[ -e "${dir}/.git" || -L "${dir}/.git" ]]; then
+      secrets_guard_error "${dir} carries a .git marker but git will not open it as a repository, so the secrets guard cannot read what path: would add over the tracked tree. Repair the repository, add it to safe.directory when the tree belongs to another user, or pass --allow-secret-copy to continue anyway."
+      return 2
+    fi
     secrets_guard_notice "${dir} is not a git worktree; nothing defines an ignore set, so the secrets scan does not run."
     return 0
   fi

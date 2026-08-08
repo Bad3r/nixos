@@ -59,11 +59,18 @@ copies nothing and has nothing to override.
 A guard hit aborts, and so does a guard that cannot run: any of `git`, `grep`,
 `awk`, `mktemp` and `rm` missing from `PATH`, a `mktemp` present that fails
 anyway on a read-only `TMPDIR` or a full filesystem, a `.gitignore` tracked but
-absent, a secrets block that no longer yields its patterns. Both exit 2, naming
+absent, a secrets block that no longer yields its patterns, and a directory
+carrying a `.git` marker git will not open as a repository. Both exit 2, naming
 which of the two they were. A missing `git` is in that list rather than in the
 skip below it, because the reference is chosen without consulting git:
 `--allow-dirty` selects `path:` from the flag alone, so a tree whose ignore set
-could not be read is still copied. Everything else the guard has
+could not be read is still copied. The unopenable `.git` is there for the same
+reason, and it is what separates the two answers `git rev-parse` gives at exit
+128: a linked worktree outliving the gitdir its `.git` file names still selects
+`path:` off that file, so reading it as a foreign directory would skip the scan
+on the one reference that makes the copy. Dubious ownership arrives the same way
+on a tree git reads perfectly well, which is why the abort offers
+`safe.directory` beside repairing the repository. Everything else the guard has
 to say is a stderr notice that
 aborts nothing: a
 `path:` reference copies every untracked path whatever its ignore status, and in
