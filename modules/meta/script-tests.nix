@@ -12,6 +12,13 @@ _:
 let
   # Each suite resolves its subject relative to its own directory, so `dest` is
   # the path under the build root that the harness expects to find.
+  #
+  # extraInputs declares every external the harness or its subjects invoke past
+  # the bash/coreutils/git floor below. stdenv puts gnused, gnugrep and gawk on
+  # PATH regardless, so an omission of those three passes here and fails only
+  # wherever the script runs without them; util-linux and jq are the ones that
+  # break the check itself. Declaring all of them keeps the list a readable
+  # inventory of what a suite needs rather than of what stdenv forgot.
   suites = {
     prune-old-stashes = {
       dir = ../../tests/prune-old-stashes;
@@ -49,7 +56,7 @@ let
           dest = "scripts/git-worktree-remove-safe.sh";
         }
       ];
-      extraInputs = _: [ ];
+      extraInputs = pkgs: [ pkgs.gnused ];
     };
     run-packages-updaters = {
       dir = ../../tests/run-packages-updaters;
@@ -72,6 +79,7 @@ let
       extraInputs = pkgs: [
         pkgs.gnugrep
         pkgs.gawk
+        pkgs.gnused
       ];
     };
     pr-comments-mgmt = {
