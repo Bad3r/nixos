@@ -45,7 +45,12 @@ branch workflow puts that in a linked worktree, so these carry the explicit
   arguments are input names, so the flake goes in `--flake`, and the ref there
   must be absolute. Every lock write needs the absolute ref, and `nix fmt`
   needs the package form; those are the cases a plain `path:.` does not fix.
-  The root `AGENTS.md` and `CLAUDE.md` carry the mechanism.
+  The root `AGENTS.md` and `CLAUDE.md` carry the mechanism, and their
+  "Ignored files under `path:.`" rows carry the cost: `path:` copies every
+  untracked path into the world-readable store, secrets included, and none of
+  the commands here run through the guard in `scripts/lib/secrets-guard.sh`.
+  Sweep first with the two `git status --porcelain --ignored=matching` runs
+  those rows give; the superproject one alone stops at the `secrets/` gitlink.
 
 Use `rg -C 5 'pattern' docs/` to find and update related content before writing new docs.
 
