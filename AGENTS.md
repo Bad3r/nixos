@@ -276,9 +276,9 @@ gives the primary-checkout form.
     `--allow-secret-copy` to `./build.sh` or `scripts/cache-coverage.sh`
     knowingly.
   - Why: unfiltered also means the `.gitignore` secrets block (`*.agekey`,
-    `*.key`, `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`) protects
-    nothing under `path:.`; those files are copied into the world-readable
-    store. `git status --short` does not report ignored files, so use
+    `*.key`, `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`,
+    `decrypted_*`, `*.dec.*`) protects nothing under `path:.`; those files are
+    copied into the world-readable store. `git status --short` does not report ignored files, so use
     `git status --porcelain --ignored=matching`, then
     `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`:
     the superproject form stops at the `secrets/` gitlink, so it misses the

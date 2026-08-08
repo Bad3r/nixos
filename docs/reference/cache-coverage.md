@@ -40,8 +40,8 @@ Gate a deploy on the report:
 Every form above evaluates a `path:` ref, which dumps the tree unfiltered into
 the world-readable store rather than fetching it through git. All three
 therefore run the secrets guard in `scripts/lib/secrets-guard.sh` first and
-abort when an ignored file matching the `.gitignore` secrets block, or any
-ignored file under a submodule, would be copied. Pass `--allow-secret-copy`
+abort when an ignored file matching the `.gitignore` secrets block would be
+copied, in the tree or in a submodule working tree. Pass `--allow-secret-copy`
 (`ALLOW_SECRET_COPY=1`) to report anyway.
 
 ## Method

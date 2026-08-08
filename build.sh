@@ -139,7 +139,7 @@ announce_path_ref() {
     status_msg "${YELLOW}" \
       "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
     status_msg "${YELLOW}" \
-      "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store, and in a primary checkout under --allow-dirty that includes the whole .git directory. Secrets-block matches outside a submodule, and every ignored file under a submodule, abort the build instead; see --allow-secret-copy."
+      "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store, and in a primary checkout under --allow-dirty that includes the whole .git directory. Secrets-block matches abort the build instead, in this tree and in submodule working trees alike; see --allow-secret-copy."
   elif [[ ${CACHE_COVERAGE} == "true" ]]; then
     # Not the branch above with a different reason string: the build keeps the
     # bare ref here, so self.rev survives and only the coverage probe copies.

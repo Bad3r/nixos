@@ -86,10 +86,14 @@ _: {
       # Common SSH/private key patterns (allow public keys)
       id_*
       !id_*.pub
+      # Mirrors secrets/.gitignore (**/decrypted_*, *.dec.*). Git will not apply
+      # these across the gitlink, so they change nothing for the submodule
+      # itself; scripts/lib/secrets-guard.sh parses this block for its deny list
+      # and matches it against submodule paths too, which is what stops that
+      # scan from having to report every ignored file it finds there.
+      decrypted_*
+      *.dec.*
 
-      # Decrypted SOPS outputs under secrets/ are ignored by that submodule's
-      # own .gitignore (**/decrypted_*, *.dec.*); superproject rules do not
-      # apply to a gitlink, so there is nothing to declare here.
     '';
   };
 }

@@ -18,6 +18,35 @@ secrets_guard_error() {
   printf '%bError:%b %s\n' "${RED:-}" "${NC:-}" "$1" >&2
 }
 
+# Reads the deny and allow arrays of secrets_guard_paths, which is the only
+# caller: bash scopes locals dynamically, so both scans classify through one
+# copy of the rules rather than two that can drift apart.
+secrets_guard_is_hit() {
+  local file="$1"
+  local pattern rest
+  for pattern in "${allow[@]}"; do
+    # shellcheck disable=SC2053 # unquoted RHS on purpose: these are globs
+    if [[ ${file##*/} == ${pattern} ]]; then
+      return 1
+    fi
+  done
+  # Every path component, not just the basename. ls-files reports the files
+  # inside an ignored directory rather than the directory itself, so
+  # id_backup/ or .env.d/ is copied whole while none of its children match.
+  rest="${file}"
+  while :; do
+    for pattern in "${deny[@]}"; do
+      # shellcheck disable=SC2053
+      if [[ ${rest##*/} == ${pattern} ]]; then
+        return 0
+      fi
+    done
+    [[ ${rest} == */* ]] || break
+    rest="${rest%/*}"
+  done
+  return 1
+}
+
 secrets_guard_paths() {
   local dir="$1"
   local -a deny=() allow=()
@@ -46,7 +75,7 @@ secrets_guard_paths() {
   # loudly instead of thinning the deny list in silence.
   local want have
   local -a missing=()
-  for want in '*.agekey' '*.key' '*.pem' '*.p12' '*.pfx' '.env' '.env.*' 'id_*'; do
+  for want in '*.agekey' '*.key' '*.pem' '*.p12' '*.pfx' '.env' '.env.*' 'id_*' 'decrypted_*' '*.dec.*'; do
     have=0
     for line in "${deny[@]}"; do
       if [[ ${line} == "${want}" ]]; then
@@ -70,42 +99,23 @@ secrets_guard_paths() {
   # newline splits into two lines that match no pattern.
   local scan
   scan="$(mktemp)"
-  local file base pattern rest
+  local file
   if ! git -C "${dir}" ls-files --others --ignored --exclude-standard -z >"${scan}"; then
     rm -f "${scan}"
     secrets_guard_error "Listing ignored files in ${dir} failed, so the secrets guard cannot scan it; path: copies the tree unfiltered."
     return 1
   fi
   while IFS= read -r -d '' file; do
-    base="${file##*/}"
-    for pattern in "${allow[@]}"; do
-      # shellcheck disable=SC2053 # unquoted RHS on purpose: these are globs
-      if [[ ${base} == ${pattern} ]]; then
-        continue 2
-      fi
-    done
-    # Every path component, not just the basename. ls-files reports the files
-    # inside an ignored directory rather than the directory itself, so
-    # id_backup/ or .env.d/ is copied whole while none of its children match.
-    rest="${file}"
-    while :; do
-      for pattern in "${deny[@]}"; do
-        # shellcheck disable=SC2053
-        if [[ ${rest##*/} == ${pattern} ]]; then
-          printf '%s\n' "${file}"
-          continue 3
-        fi
-      done
-      [[ ${rest} == */* ]] || break
-      rest="${rest%/*}"
-    done
+    if secrets_guard_is_hit "${file}"; then
+      printf '%s\n' "${file}"
+    fi
   done <"${scan}"
 
   # ls-files stops at a gitlink, but path: copies submodule working trees whole.
   # secrets/ ignores decrypted SOPS output through its own .gitignore
-  # (**/decrypted_*, *.dec.*), and those names match none of the superproject
-  # patterns above, so every ignored file found there is reported rather than
-  # only secrets-block matches.
+  # (**/decrypted_*, *.dec.*), which the secrets block mirrors so this pass can
+  # classify with the same rules; without them it would have to report every
+  # ignored file it finds here, including build output and editor leftovers.
   local sub subfile submodules
   # shellcheck disable=SC2016 # git submodule foreach expands $displaypath itself
   if ! submodules="$(git -C "${dir}" submodule --quiet foreach --recursive 'printf "%s\n" "$displaypath"')"; then
@@ -121,7 +131,9 @@ secrets_guard_paths() {
       return 1
     fi
     while IFS= read -r -d '' subfile; do
-      printf '%s\n' "${sub}/${subfile}"
+      if secrets_guard_is_hit "${sub}/${subfile}"; then
+        printf '%s\n' "${sub}/${subfile}"
+      fi
     done <"${scan}"
   done <<<"${submodules}"
   rm -f "${scan}"
@@ -193,10 +205,7 @@ secrets_guard_enforce() {
     return 0
   fi
 
-  # The two sets differ, so the heading names both: a submodule hit is any
-  # ignored file, not a secrets-block match, since decrypted_* and *.dec.*
-  # match none of the superproject patterns.
-  secrets_guard_error "Ignored files that ${copier} would copy into the world-readable store. Paths outside a submodule matched the .gitignore secrets block; paths under a submodule are every ignored file there, because submodule ignore rules do not match the superproject patterns."
+  secrets_guard_error "Ignored files matching the .gitignore secrets block that ${copier} would copy into the world-readable store. Submodule working trees are scanned too, with the same patterns, since path: copies them whole."
   # Report the truncation. The next line asks for all of them to be moved, so a
   # silent cap reads as a complete list and sends the operator back into the
   # same abort with no idea how much is left.

@@ -359,8 +359,9 @@ sops.secrets."context7/api-key" = {
   `git status --short` before trusting a `path:.` pass.
 - Ignored files under `path:.`:
   Unfiltered also means the `.gitignore` secrets block (`*.agekey`, `*.key`,
-  `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`) protects nothing: those
-  files are copied into the world-readable store. `git status --short` does
+  `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`, `decrypted_*`,
+  `*.dec.*`) protects nothing: those files are copied into the world-readable
+  store. `git status --short` does
   not surface them, since ignored files are not reported; use
   `git status --porcelain --ignored=matching`, then
   `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`,
