@@ -1,38 +1,76 @@
 /*
   Package: cloudflare-warp
-  Variant: headless (warp-cli + warp-svc; no GUI taskbar, no XDG autostart)
-  Description: Cloudflare WARP client delivering encrypted consumer VPN and Zero Trust connectivity.
+  Variant: headless (warp-cli + warp-svc + warp-dex + warp-diag; no GUI taskbar)
+  Description: Cloudflare WARP client delivering encrypted VPN and Zero Trust connectivity.
   Homepage: https://developers.cloudflare.com/warp-client/
-  Documentation: https://developers.cloudflare.com/warp-client/get-started/linux/
+  Documentation: https://developers.cloudflare.com/cloudflare-one/connections/connect-devices/warp/
   Repository: https://github.com/cloudflare/warp
 
   Summary:
-    * Secures device traffic using WireGuard-based tunnels through Cloudflare's global edge network.
-    * Integrates with Cloudflare Zero Trust policies for split tunneling, device posture, and secure web gateway enforcement.
+    * Drives upstream services.cloudflare-warp to run warp-svc and enroll the device into
+      Cloudflare Zero Trust non-interactively via a service token in managed (mdm.xml) mode.
+    * Renders /var/lib/cloudflare-warp/mdm.xml from sops-backed credentials, store-safe.
 
   Options:
-    --accept-tos: Accept Cloudflare's Terms of Service non-interactively when registering with `warp-cli register --accept-tos`.
-    --warp: Select the full WARP mode using `warp-cli mode --warp` instead of the default Gateway-only mode.
-    --add --ip <cidr>: Extend split tunneling by combining `warp-cli split-tunnel --add --ip <cidr>`.
+    enable: Run warp-svc; managed Zero Trust enrollment activates when secrets/cloudflare-warp.yaml exists.
+    serviceMode: mdm.xml service_mode (warp | tunnelonly | 1dot1 | proxy | postureonly).
+    autoConnect: mdm.xml auto_connect minutes (0-1440); 0 keeps the client off after a manual disconnect.
+    switchLocked: mdm.xml switch_locked; when true the user cannot disconnect.
+
+  Notes:
+    * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
+    * Secrets (organization/auth_client_id/auth_client_secret) live in secrets/cloudflare-warp.yaml (sops).
+    * Relies on the hosts-common vpn-defaults owner for networking.firewall.checkReversePath;
+      the WARP interface trips strict rp_filter when that shared baseline is overridden.
 */
-_:
+{ config, ... }:
 let
+  inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   CloudflareWarpModule =
     {
       config,
       lib,
       pkgs,
+      secretsRoot,
       ...
     }:
     let
-      cfg = config.programs."cloudflare-warp".extended;
+      cfg = config.programs.cloudflare-warp.extended;
+      rootDir = config.services.cloudflare-warp.rootDir;
+      secretsFile = secretsRoot + "/cloudflare-warp.yaml";
+      haveSecrets = builtins.pathExists secretsFile;
+      enrolling = haveSecrets;
+      # Gate the sops-install-secrets.service dependency on
+      # sops.useSystemdActivation: the unit only exists in that mode (issue #37);
+      # activation-script hosts decrypt before any unit ordering, so this is [].
+      installSecretsDeps = sopsInstallSecretsDeps config;
+
+      # Linux mdm.xml is a bare <dict> plist fragment (no XML declaration, no
+      # <plist> wrapper). Secret values are injected through sops placeholders so
+      # the rendered file never enters the Nix store.
+      mdmContent = ''
+        <dict>
+          <key>organization</key>
+          <string>${config.sops.placeholder."cloudflare-warp/organization"}</string>
+          <key>auth_client_id</key>
+          <string>${config.sops.placeholder."cloudflare-warp/auth_client_id"}</string>
+          <key>auth_client_secret</key>
+          <string>${config.sops.placeholder."cloudflare-warp/auth_client_secret"}</string>
+          <key>service_mode</key>
+          <string>${cfg.serviceMode}</string>
+          <key>auto_connect</key>
+          <integer>${toString cfg.autoConnect}</integer>
+          <key>switch_locked</key>
+          ${if cfg.switchLocked then "<true/>" else "<false/>"}
+        </dict>
+      '';
     in
     {
       options.programs.cloudflare-warp.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable cloudflare-warp.";
+          description = "Whether to run warp-svc and enroll into Cloudflare Zero Trust.";
         };
 
         package = lib.mkOption {
@@ -40,19 +78,176 @@ let
           default = pkgs.cloudflare-warp.override { headless = true; };
           defaultText = lib.literalExpression "pkgs.cloudflare-warp.override { headless = true; }";
           description = ''
-            Cloudflare WARP package. Defaults to the headless build, which
-            ships `warp-cli`, `warp-svc`, `warp-dex`, and `warp-diag` and
-            omits the GUI taskbar,
-            `etc/xdg/autostart/com.cloudflare.WarpTaskbar.desktop`, and the
-            `share/systemd/user/warp-taskbar.service` user unit. Set to
-            `pkgs.cloudflare-warp` to install the GUI variant.
+            Cloudflare WARP package. Defaults to the headless build, which ships
+            warp-cli, warp-svc, warp-dex, and warp-diag and omits the GUI taskbar.
           '';
+        };
+
+        serviceMode = lib.mkOption {
+          type = lib.types.enum [
+            "warp"
+            "tunnelonly"
+            "1dot1"
+            "proxy"
+            "postureonly"
+          ];
+          default = "warp";
+          description = ''
+            mdm.xml service_mode. "warp" is Full / Gateway with WARP (full tunnel
+            plus Gateway DNS/HTTP filtering).
+          '';
+        };
+
+        autoConnect = lib.mkOption {
+          type = lib.types.ints.between 0 1440;
+          default = 0;
+          description = ''
+            mdm.xml auto_connect: minutes before the client reconnects after a manual
+            disconnect. 0 keeps it off until the user reconnects.
+          '';
+        };
+
+        switchLocked = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "mdm.xml switch_locked; when true the user cannot disconnect WARP.";
+        };
+
+        openFirewall = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = "Open the WARP UDP port in the firewall.";
+        };
+
+        udpPort = lib.mkOption {
+          type = lib.types.port;
+          default = 2408;
+          description = "WARP UDP port to open when openFirewall is true.";
         };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
-      };
+      config = lib.mkMerge [
+        # Remove the wrapper-owned managed file when the wrapper is disabled.
+        # Leave an independently configured upstream service's state untouched.
+        (lib.mkIf (!cfg.enable && !config.services.cloudflare-warp.enable) {
+          systemd.tmpfiles.rules = [ "r ${rootDir}/mdm.xml" ];
+        })
+        (lib.mkIf cfg.enable (
+          lib.mkMerge [
+            {
+              services.cloudflare-warp = {
+                enable = true;
+                inherit (cfg) package udpPort openFirewall;
+              };
+
+              warnings =
+                lib.optional
+                  (
+                    (config.services.dnscrypt-proxy.enable || config.networking.networkmanager.dns == "dnsmasq")
+                    && builtins.elem cfg.serviceMode [
+                      "warp"
+                      "1dot1"
+                    ]
+                  )
+                  ''
+                    programs.cloudflare-warp.extended.serviceMode "${cfg.serviceMode}" takes over DNS,
+                    but a local resolver is bound to 127.0.0.1:53 (dnscrypt-proxy or NetworkManager
+                    dnsmasq). Use serviceMode "tunnelonly"/"proxy" or disable the local resolver.
+                  ''
+                ++ lib.optional (!haveSecrets) ''
+                  programs.cloudflare-warp.extended: secrets/cloudflare-warp.yaml is missing; running warp-svc
+                  WITHOUT managed enrollment (degraded). Create the sops secret (see
+                  docs/cloudflare/warp/deployment.md) and rebuild.
+                ''
+                ++
+                  lib.optional
+                    (
+                      config.networking.firewall.enable
+                      && builtins.elem config.networking.firewall.checkReversePath [
+                        true
+                        "strict"
+                      ]
+                    )
+                    ''
+                      programs.cloudflare-warp.extended is enabled but
+                      networking.firewall.checkReversePath is strict; the CloudflareWARP
+                      interface routes asymmetrically, so return traffic is dropped. Import
+                      the hosts-common vpn-defaults baseline (shareCommon = true) or set
+                      networking.firewall.checkReversePath = "loose" on this host.
+                    '';
+            }
+
+            # When not enrolling (the sops secret is absent),
+            # remove any mdm.xml left by a previous enrollment. mdm.xml is
+            # authoritative for service_mode and caches the service token, so a stale
+            # file would keep warp-svc in managed mode instead of degrading to the
+            # un-enrolled daemon. rootDir is the upstream StateDirectory.
+            (lib.mkIf (!enrolling) {
+              systemd.services.cloudflare-warp.serviceConfig.ExecStartPre = [
+                "${pkgs.coreutils}/bin/rm -f ${rootDir}/mdm.xml"
+              ];
+            })
+
+            (lib.mkIf enrolling {
+              sops = {
+                secrets = {
+                  "cloudflare-warp/organization" = {
+                    sopsFile = secretsFile;
+                    key = "organization";
+                    mode = "0400";
+                  };
+                  "cloudflare-warp/auth_client_id" = {
+                    sopsFile = secretsFile;
+                    key = "auth_client_id";
+                    mode = "0400";
+                  };
+                  "cloudflare-warp/auth_client_secret" = {
+                    sopsFile = secretsFile;
+                    key = "auth_client_secret";
+                    mode = "0400";
+                  };
+                };
+                templates."cloudflare-warp-mdm" = {
+                  content = mdmContent;
+                  mode = "0600";
+                  # restartTriggers below only hash non-secret fields. Rotating
+                  # auth_client_id/auth_client_secret re-renders this template but
+                  # would not restart warp-svc, so the daemon would keep the old
+                  # token until reboot. Restart on rotation (matches the repo
+                  # pattern in usbguard.nix and duplicati-r2.nix).
+                  restartUnits = [ "cloudflare-warp.service" ];
+                };
+              };
+
+              # Install the rendered mdm.xml into rootDir right before warp-svc starts.
+              # rootDir already exists from the upstream tmpfiles rule, and the sops
+              # template is rendered during activation (before multi-user.target).
+              systemd.services.cloudflare-warp = {
+                # Order warp-svc after sops installs the secret/template so the
+                # ExecStartPre install of mdm.xml sees the rendered file. No-op on
+                # activation-script hosts (installSecretsDeps = []).
+                after = installSecretsDeps;
+                requires = installSecretsDeps;
+                serviceConfig.ExecStartPre = [
+                  "${pkgs.coreutils}/bin/install -D -m0600 -o root -g root ${
+                    config.sops.templates."cloudflare-warp-mdm".path
+                  } ${rootDir}/mdm.xml"
+                ];
+                # Re-apply managed config when any non-secret mdm field changes.
+                restartTriggers = [
+                  (builtins.toJSON {
+                    inherit (cfg)
+                      serviceMode
+                      autoConnect
+                      switchLocked
+                      ;
+                  })
+                ];
+              };
+            })
+          ]
+        ))
+      ];
     };
 in
 {
