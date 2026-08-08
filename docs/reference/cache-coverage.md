@@ -49,11 +49,14 @@ than fetching it through git, so those two cases run the secrets guard in
 the `.gitignore` secrets block would be copied, in the tree or in a submodule
 working tree. The whole untracked set is scanned, ignored or not, because that
 is what `path:` adds over the `git+file` fetcher, which carries only the tracked
-tree. Pass `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) to report
+tree. An untracked directory that is itself a git repository aborts on its name
+alone: `ls-files` reports that boundary and never opens it, so nothing inside
+reaches the block, while `path:` copies the directory whole. Pass
+`--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) to report
 anyway. A primary checkout on the default path evaluates the bare ref, so it
 copies nothing and has nothing to override.
 
-Only secrets-block matches abort, so the run announces the rest on stderr: a
+Only guard hits abort, so the run announces the rest on stderr: a
 `path:` reference copies every untracked path whatever its ignore status, and in
 a primary checkout under `--allow-dirty` the whole `.git` directory with it.
 `build.sh` says the same through `announce_path_ref`.

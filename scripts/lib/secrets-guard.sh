@@ -139,8 +139,14 @@ secrets_guard_paths() {
     secrets_guard_error "Listing untracked files in ${dir} failed, so the secrets guard cannot scan it; path: copies the tree unfiltered."
     return 1
   fi
+  # A trailing slash is ls-files declining to descend into an untracked
+  # directory that is itself a git repository, which it reports once and never
+  # opens. path: has no such boundary and copies the whole thing, so a scratch
+  # clone parks its .env in the store while the deny list only ever sees the
+  # directory name. Nothing inside was classified, so the boundary is the hit;
+  # --allow-secret-copy is the way past a scratch tree that holds no secret.
   while IFS= read -r -d '' file; do
-    if secrets_guard_is_hit "${file}"; then
+    if [[ ${file} == */ ]] || secrets_guard_is_hit "${file}"; then
       printf '%s\0' "${file}"
     fi
   done <"${scan}"
@@ -164,8 +170,11 @@ secrets_guard_paths() {
       secrets_guard_error "Listing untracked files in submodule ${sub} failed, so the secrets guard cannot scan it; path: copies its working tree whole."
       return 1
     fi
+    # The same boundary one level down: a stray repository nested in the
+    # submodule's own untracked tree stops ls-files there too. foreach walks
+    # registered submodules, so this pass reaches those and not these.
     while IFS= read -r -d '' subfile; do
-      if secrets_guard_is_hit "${sub}/${subfile}"; then
+      if [[ ${subfile} == */ ]] || secrets_guard_is_hit "${sub}/${subfile}"; then
         printf '%s\0' "${sub}/${subfile}"
       fi
     done <"${scan}"
@@ -258,7 +267,17 @@ secrets_guard_enforce() {
     return 0
   fi
 
-  secrets_guard_error "Untracked files matching the .gitignore secrets block that ${copier} would copy into the world-readable store, which the git+file fetcher would have left behind. Submodule working trees are scanned too, with the same patterns, since path: copies them whole."
+  secrets_guard_error "Untracked paths that ${copier} would copy into the world-readable store, which the git+file fetcher would have left behind, either matching the .gitignore secrets block or impossible to scan. Submodule working trees are scanned too, with the same patterns, since path: copies them whole."
+  # Name the second basis once rather than per entry, and only when the list
+  # holds one: an operator who reads every hit as a pattern match goes looking
+  # for the pattern a directory name never matched.
+  local hit
+  for hit in "${hit_list[@]}"; do
+    if [[ ${hit} == */ ]]; then
+      printf 'A trailing slash marks an untracked directory that is itself a git repository. ls-files stops at one, so nothing inside it was compared against the block, while path: copies it whole.\n' >&2
+      break
+    fi
+  done
   # Report the truncation. The next line asks for all of them to be moved, so a
   # silent cap reads as a complete list and sends the operator back into the
   # same abort with no idea how much is left.

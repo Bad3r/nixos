@@ -287,7 +287,10 @@ gives the primary-checkout form.
     through the guard they share in `scripts/lib/secrets-guard.sh`, on the same
     two conditions that select the `path:` ref: a linked worktree and
     `--allow-dirty`. The guard matches the block against every untracked path,
-    not the ignored subset, since `git+file` carries only the tracked tree. A primary checkout on the default path keeps the bare ref
+    not the ignored subset, since `git+file` carries only the tracked tree. An
+    untracked directory that is itself a git repository is a hit on its name
+    alone: `ls-files` stops at that boundary and never opens it, so nothing
+    inside reaches the block, while `path:` copies it whole. A primary checkout on the default path keeps the bare ref
     and copies nothing. The guard covers the ref a script evaluates, not the
     one that delivered it, so `nix run path:.#cache-coverage` is unguarded by
     construction (Lix copies while resolving the installable, before the

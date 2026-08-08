@@ -209,6 +209,9 @@ let
       `git status --porcelain --ignored=matching` and
       `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`
       before reaching for it, since the superproject form stops at a gitlink.
+      Neither sweep opens an untracked directory that is itself a git
+      repository, such as a scratch clone: it is reported as one entry and
+      copied whole, so its contents are never listed.
       It also drops `self.rev` and `self.dirtyRev`, so a flake deriving a
       revision stamp from them evaluates differently.
 
