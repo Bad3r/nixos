@@ -62,7 +62,8 @@ anyway on a read-only `TMPDIR` or a full filesystem, a hit list the guard cannot
 write or read back for the same reasons, a `.gitignore` tracked but absent or
 present and unreadable, a secrets block that no longer yields its patterns or
 that holds an entry reducing to no name to match, a flake directory that is a
-subdirectory of a worktree whose root `.gitignore` carries the block, and
+subdirectory of a worktree whose root `.gitignore` carries the block, a worktree
+root or flake directory that cannot be resolved to an absolute path, and
 a directory carrying a `.git` marker git will not open as a repository. Both
 exit 2, naming
 which of the two they were. A missing `git` is in that list rather than in the
