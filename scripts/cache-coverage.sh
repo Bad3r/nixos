@@ -242,7 +242,12 @@ fi
 # Only the path: ref makes the copy the guard exists to catch; the bare ref
 # fetches through git, which carries the tracked tree alone. Exit 2 rather than
 # 1, since neither outcome is a coverage result.
-if [[ ${FLAKE_REF} == path:* ]]; then
+#
+# Gated on the reason rather than on the shape of FLAKE_REF, which is the same
+# value one derivation further on: build.sh's ensure_no_ignored_secrets reads
+# the reason too, and 85dacbe2 put the predicate in one place precisely because
+# two spellings of "does the guard apply" drifted apart once already.
+if [[ -n ${PATH_REF_REASON} ]]; then
   SECRETS_GUARD_RC=0
   secrets_guard_enforce "${FLAKE_DIR}" "${FLAKE_REF}" || SECRETS_GUARD_RC=$?
   if [[ ${SECRETS_GUARD_RC} -ne 0 ]]; then
