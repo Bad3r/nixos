@@ -279,7 +279,18 @@ fi
 # `path:relative/dir`, and its path fetcher throws
 # "cannot fetch input ... because it uses a relative path" when it writes
 # flake.lock back.
-FLAKE_DIR="$(cd "${FLAKE_DIR}" && pwd -P)"
+# Checked for the reason scripts/cache-coverage.sh checks its own: a directory
+# at mode 444 stats as one and cannot be entered, and the bare form reached the
+# ERR trap as "Command '...' failed with exit code 1" plus a call stack, which
+# names bash rather than the argument that cannot be used.
+# Through a second name for the reason scripts/cache-coverage.sh uses one: a
+# failing command substitution has already emptied the variable it assigns, so
+# the message named a blank path.
+RESOLVED_FLAKE_DIR="$(cd "${FLAKE_DIR}" && pwd -P)" || {
+  error_msg "cannot enter configuration directory to resolve it: ${FLAKE_DIR}"
+  exit 1
+}
+FLAKE_DIR="${RESOLVED_FLAKE_DIR}"
 
 if [[ ! -f "${FLAKE_DIR}/flake.nix" ]]; then
   error_msg "flake.nix not found in ${FLAKE_DIR}"

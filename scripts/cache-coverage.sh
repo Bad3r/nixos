@@ -194,7 +194,19 @@ fi
 # A relative --flake-dir with no slash is a directory to this script and an
 # indirect flakeref to Lix, which resolves `nixos#...` as `flake:nixos` and
 # fails in the registries; the unconditional path: form never exposed that.
-FLAKE_DIR="$(cd "${FLAKE_DIR}" && pwd -P)"
+# Checked, because -d above answers stat and this needs search: a directory at
+# mode 444 stats as one and cannot be entered, so the bare form died on bash's
+# own "cd: Permission denied" at exit 1, the code the header reserves for
+# unexpected-local over threshold. A caller telling the two apart read an
+# environment error as a coverage failure.
+# Through a second name, because a failing command substitution has already
+# emptied the variable it assigns by the time the || branch runs, so naming
+# ${FLAKE_DIR} there reported the path as blank.
+resolved_flake_dir="$(cd "${FLAKE_DIR}" && pwd -P)" || {
+  err "cannot enter flake directory to resolve it: ${FLAKE_DIR}"
+  exit 2
+}
+FLAKE_DIR="${resolved_flake_dir}"
 [[ -f "${FLAKE_DIR}/flake.nix" ]] || {
   err "flake.nix not found in ${FLAKE_DIR}"
   exit 2
