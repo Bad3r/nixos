@@ -227,14 +227,21 @@ secrets_guard_enforce() {
     secrets_guard_notice "${dir} has no .gitignore, so no secrets block defines patterns there; the secrets scan does not run."
     return 0
   fi
-  # grep is the one external here whose absence is silent rather than loud: not
-  # found returns 127, which negates to true and skips the scan below in any
-  # tree that does not track the generator. awk, mktemp and the git calls in
-  # secrets_guard_paths all fail closed on their own.
-  if ! command -v grep >/dev/null 2>&1; then
-    secrets_guard_error "grep was not found, so the secrets guard cannot run. Put it on PATH, or pass --allow-secret-copy to continue anyway."
-    return 2
-  fi
+  # The two externals whose absence is silent or misattributed rather than loud.
+  # grep not found returns 127, which negates to true and skips the scan below in
+  # any tree that does not track the generator. awk builds the deny list, so a
+  # missing one empties it and reports .gitignore drift that has not happened,
+  # sending the operator to realign a generator that is intact. mktemp and the
+  # git calls in secrets_guard_paths fail closed with their own message. Named
+  # here rather than left to a caller loop: build.sh has none, and a direct
+  # checkout run has no runtimeInputs either.
+  local tool
+  for tool in grep awk; do
+    if ! command -v "${tool}" >/dev/null 2>&1; then
+      secrets_guard_error "${tool} was not found, so the secrets guard cannot run. Put it on PATH, or pass --allow-secret-copy to continue anyway."
+      return 2
+    fi
+  done
 
   # The same discriminator one level down. The block is this repo's convention,
   # emitted by modules/development/gitignore.nix, and practically every other

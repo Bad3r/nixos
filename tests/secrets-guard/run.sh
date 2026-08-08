@@ -423,6 +423,52 @@ test_enforce_skips_a_tree_that_does_not_own_the_generator() {
   pass
 }
 
+# Neither external reports itself usefully from where it runs, which is why both
+# are preflighted rather than left to fail in place. grep not found returns 127,
+# which negates to true and skips the discriminator; a missing awk empties the
+# deny list, and the parser then reports .gitignore drift that has not happened,
+# sending the operator to realign an intact generator. No caller covers every
+# route: build.sh has no required-tool loop and a checkout run has no
+# runtimeInputs.
+test_enforce_fails_closed_on_a_missing_external() {
+  local repo stub missing tool
+
+  repo="$(make_repo enforce-tools)"
+  : >"${repo}/id_ed25519"
+
+  # The control: with both present this tree aborts on the hit, so an rc 2 below
+  # is the missing tool rather than the fixture.
+  enforce "${repo}"
+  [[ ${enforce_rc} -eq 1 ]] || fail "tool control: expected rc 1, got ${enforce_rc}" "${tmpdir}/enforce.err"
+
+  # One stub per case, holding every tool the run needs except the one under
+  # test. Dropping awk still has to clear the grep check, which is what proves
+  # each is tested separately rather than both by the first miss, and mktemp and
+  # rm are there so a guard without this preflight reaches the parser and
+  # misattributes rather than dying earlier on a tool the fixture withheld: that
+  # is the failure being regressed against. Assigning PATH clears bash's hashed
+  # command table, and the assignment is scoped to the call, so the suite's own
+  # grep still resolves afterwards.
+  for missing in grep awk; do
+    stub="${tmpdir}/stub-no-${missing}"
+    mkdir -p "${stub}"
+    for tool in git grep awk mktemp rm; do
+      if [[ ${tool} != "${missing}" ]]; then
+        ln -sf "$(type -P "${tool}")" "${stub}/${tool}"
+      fi
+    done
+
+    PATH="${stub}" enforce "${repo}"
+    [[ ${enforce_rc} -eq 2 ]] ||
+      fail "missing ${missing}: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+    grep -q "^Error: ${missing} was not found" "${tmpdir}/enforce.err" ||
+      fail "missing ${missing}: the abort did not name it" "${tmpdir}/enforce.err"
+    ! grep -q 'did not yield the expected patterns' "${tmpdir}/enforce.err" ||
+      fail "missing ${missing}: blamed the .gitignore block instead" "${tmpdir}/enforce.err"
+  done
+  pass
+}
+
 # Tracked but absent is the state the generator can produce, so it fails closed
 # where a tree that simply never had one is skipped.
 test_enforce_splits_a_missing_gitignore_by_tracked_state() {
@@ -462,6 +508,7 @@ test_enforce_keeps_stdout_clear
 test_enforce_honours_the_override
 test_enforce_fails_closed_when_the_generator_is_tracked
 test_enforce_skips_a_tree_that_does_not_own_the_generator
+test_enforce_fails_closed_on_a_missing_external
 test_enforce_splits_a_missing_gitignore_by_tracked_state
 
 printf '%d passed\n' "${tests_passed}"
