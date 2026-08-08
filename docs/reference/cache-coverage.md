@@ -56,10 +56,14 @@ reaches the block, while `path:` copies the directory whole. Pass
 anyway. A primary checkout on the default path evaluates the bare ref, so it
 copies nothing and has nothing to override.
 
-A guard hit aborts, and so does a guard that cannot run: a missing `grep` or
-`awk`, a `.gitignore` tracked but absent, a secrets block that no longer yields
-its patterns. Both exit 2, naming which of the two they were. Everything else
-the guard has to say is a stderr notice that aborts nothing: a
+A guard hit aborts, and so does a guard that cannot run: any of `git`, `grep`,
+`awk`, `mktemp` and `rm` missing from `PATH`, a `.gitignore` tracked but absent,
+a secrets block that no longer yields its patterns. Both exit 2, naming which of
+the two they were. A missing `git` is in that list rather than in the skip below
+it, because the reference is chosen without consulting git: `--allow-dirty`
+selects `path:` from the flag alone, so a tree whose ignore set could not be read
+is still copied. Everything else the guard has to say is a stderr notice that
+aborts nothing: a
 `path:` reference copies every untracked path whatever its ignore status, and in
 a primary checkout under `--allow-dirty` the whole `.git` directory with it. The
 notice names which of the two conditions selected the reference, since one is
