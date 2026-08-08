@@ -53,6 +53,11 @@ tree. Pass `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) to report
 anyway. A primary checkout on the default path evaluates the bare ref, so it
 copies nothing and has nothing to override.
 
+Only secrets-block matches abort, so the run announces the rest on stderr: a
+`path:` reference copies every untracked path whatever its ignore status, and in
+a primary checkout under `--allow-dirty` the whole `.git` directory with it.
+`build.sh` says the same through `announce_path_ref`.
+
 The guard covers the reference this script evaluates, not the one that delivered
 the script. `nix run path:.#cache-coverage` is therefore unguarded by
 construction: Lix copies the tree unfiltered while resolving that installable,

@@ -207,18 +207,27 @@ fi
 # report measures the tree the build would build. A linked worktree cannot be
 # fetched as a git+file flake (.git is a file there), and --allow-dirty asks for
 # untracked files, which git+file does not see. Elsewhere the bare ref stays:
-# path: would dump the tree unfiltered, copying .gitignore'd paths and a primary
-# checkout's whole .git directory into the world-readable store for a report
-# that builds nothing.
+# path: would dump the tree unfiltered, copying every untracked path and a
+# primary checkout's whole .git directory into the world-readable store for a
+# report that builds nothing.
 if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" || -f "${FLAKE_DIR}/.git" ]]; then
   FLAKE_REF="path:${FLAKE_DIR}"
+  # build.sh says this through announce_path_ref; a direct run had no notice at
+  # all, and the guard below is silent unless a path matches the secrets block,
+  # so the ordinary case disclosed the tree with nothing said about it.
+  GIT_DIR_NOTE=""
+  if [[ -d "${FLAKE_DIR}/.git" ]]; then
+    GIT_DIR_NOTE=", and the whole .git directory of this primary checkout"
+  fi
+  printf 'cache-coverage: using %s, which copies the tree unfiltered into the world-readable store: every untracked path, .gitignored or not%s.\n' \
+    "${FLAKE_REF}" "${GIT_DIR_NOTE}" >&2
 else
   FLAKE_REF="${FLAKE_DIR}"
 fi
 
 # Only the path: ref makes the copy the guard exists to catch; the bare ref
-# fetches through git, which filters the ignored set. Exit 2 rather than 1,
-# since neither outcome is a coverage result.
+# fetches through git, which carries the tracked tree alone. Exit 2 rather than
+# 1, since neither outcome is a coverage result.
 if [[ ${FLAKE_REF} == path:* ]]; then
   SECRETS_GUARD_RC=0
   secrets_guard_enforce "${FLAKE_DIR}" "${FLAKE_REF}" || SECRETS_GUARD_RC=$?
@@ -226,7 +235,7 @@ if [[ ${FLAKE_REF} == path:* ]]; then
     if [[ ${SECRETS_GUARD_RC} -eq 2 ]]; then
       err "refusing to evaluate with the secrets guard inoperative"
     else
-      err "refusing to evaluate ${FLAKE_REF} with ignored files present"
+      err "refusing to evaluate ${FLAKE_REF} with untracked files matching the secrets block present"
     fi
     exit 2
   fi
