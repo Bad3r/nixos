@@ -83,36 +83,64 @@
             secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
             enable = false;
           };
+          enrolledConnectScript = enrolled.config.systemd.services.cloudflare-warp-connect.script;
           enrolledAttrs =
             assert lib.assertMsg (builtins.hasAttr "cloudflare-warp/organization" enrolled.config.sops.secrets)
               "apps/cloudflare-warp-module-eval: enrolled branch must declare organization secret";
             assert lib.assertMsg (builtins.hasAttr "cloudflare-warp-mdm" enrolled.config.sops.templates)
               "apps/cloudflare-warp-module-eval: enrolled branch must declare mdm template";
             assert lib.assertMsg (
-              !lib.hasInfix "UN-ENROLLED" enrolled.config.systemd.services.cloudflare-warp-connect.script
+              !lib.hasInfix "UN-ENROLLED" enrolledConnectScript
             ) "apps/cloudflare-warp-module-eval: enrolled connect script must not carry the un-enrolled guard";
             assert lib.assertMsg
-              (lib.hasInfix "warp-cli --accept-tos registration organization" enrolled.config.systemd.services.cloudflare-warp-connect.script)
+              (lib.hasInfix "warp-cli --accept-tos registration organization" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must verify managed registration";
             assert lib.assertMsg
-              (lib.hasInfix "managed organization secret unavailable; cannot verify registration" enrolled.config.systemd.services.cloudflare-warp-connect.script)
+              (lib.hasInfix "managed organization secret unavailable; cannot verify registration" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must reject an empty managed organization";
             assert
               let
-                connectScript = enrolled.config.systemd.services.cloudflare-warp-connect.script;
-                parts = lib.splitString "warp-cli --accept-tos connect" connectScript;
+                parts = lib.splitString "warp-cli --accept-tos connect" enrolledConnectScript;
                 beforeConnect = lib.head parts;
               in
               lib.assertMsg
                 (
                   lib.length parts > 1
-                  && lib.hasInfix "if [ -n \"$managed_org\" ] && [ -n \"$managed_registration\" ]; then" beforeConnect
+                  && lib.hasInfix "if [ \"$registration_state\" = \"confirmed\" ]; then" beforeConnect
                 )
-                "apps/cloudflare-warp-module-eval: enrolled connect script must gate connect on managed enrollment";
+                "apps/cloudflare-warp-module-eval: enrolled connect script must gate connect on a confirmed registration";
+            # An unanswered registration check must not be treated as an
+            # unmanaged tunnel, so the disconnect belongs to the mismatch branch
+            # alone.
+            assert
+              let
+                beforeDisconnect = lib.head (lib.splitString "warp-cli disconnect" enrolledConnectScript);
+              in
+              lib.assertMsg
+                (
+                  lib.hasInfix "mismatch)" beforeDisconnect && !lib.hasInfix "could not be verified" beforeDisconnect
+                )
+                "apps/cloudflare-warp-module-eval: enrolled connect script must disconnect only on a confirmed registration mismatch";
+            # One definition plus two call sites: once before the loop and once
+            # per attempt. warp-cli connect does not change the registration
+            # organization, so a second per-attempt check only spends IPC budget.
+            assert lib.assertMsg
+              (lib.length (lib.splitString "refresh_registration" enrolledConnectScript) == 4)
+              "apps/cloudflare-warp-module-eval: enrolled connect script must refresh the registration once per attempt";
+            assert
+              let
+                beforeLoop = lib.head (lib.splitString "while [ -z \"$connected\" ]" enrolledConnectScript);
+              in
+              lib.assertMsg
+                (
+                  lib.hasInfix "managed organization secret unavailable; not connecting" beforeLoop
+                  && lib.hasInfix "exit 0" beforeLoop
+                )
+                "apps/cloudflare-warp-module-eval: enrolled connect script must exit before the retry loop when the managed organization is empty";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
-              connectScript = enrolled.config.systemd.services.cloudflare-warp-connect.script;
+              connectScript = enrolledConnectScript;
               restartTriggers = enrolled.config.systemd.services.cloudflare-warp.restartTriggers;
             };
           unenrolledAttrs =

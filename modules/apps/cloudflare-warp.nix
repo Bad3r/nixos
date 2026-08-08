@@ -64,24 +64,39 @@ let
           echo "<3>cloudflare-warp-connect: managed organization secret unavailable; cannot verify registration"
         fi
 
+        # registration_state is tri-state: confirmed (the daemon reported the
+        # managed team), mismatch (it reported another team or none, which is
+        # what an unmanaged/consumer registration returns), unknown (the check
+        # itself did not answer). Only a mismatch is evidence of an unmanaged
+        # tunnel; a timed-out or failed check must not tear a tunnel down.
         refresh_registration() {
           if [ -z "$managed_org" ]; then
-            managed_registration=""
+            registration_state="unknown"
             return
           fi
           if registration="$(timeout 5s warp-cli --accept-tos registration organization 2>&1)"; then
             if [ "$registration" = "$managed_org" ]; then
-              managed_registration=1
+              registration_state="confirmed"
               echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
             else
-              managed_registration=""
+              registration_state="mismatch"
               echo "<3>cloudflare-warp-connect: managed Zero Trust registration unavailable"
             fi
           else
-            managed_registration=""
+            registration_state="unknown"
             echo "<3>cloudflare-warp-connect: registration check failed: ''${registration:-no response}"
           fi
         }
+      '';
+
+      # managed_org is read once during setup, so an empty value keeps the
+      # connect gate shut for every attempt. Exit instead of polling a decision
+      # that cannot change before the deadline.
+      managedOrgGuard = lib.optionalString enrolling ''
+        if [ -z "$managed_org" ]; then
+          echo "<3>cloudflare-warp-connect: managed organization secret unavailable; not connecting"
+          exit 0
+        fi
       '';
 
       # Linux mdm.xml is a bare <dict> plist fragment (no XML declaration, no
@@ -312,7 +327,7 @@ let
                 script = ''
                   ${unenrolledGuard}
                   managed_org=""
-                  managed_registration=""
+                  registration_state="unknown"
                   ${managedRegistrationSetup}
                   # The daemon IPC socket and mdm.xml registration can settle at
                   # different times, so poll both during the bounded readiness window.
@@ -333,27 +348,34 @@ let
                     case "$status" in
                       *Disconnected* | *"status unavailable"*) ;;
                       *Connected*)
-                        if [ -n "$managed_org" ] && [ -n "$managed_registration" ]; then
-                          connected=1
-                        else
-                          echo "<3>cloudflare-warp-connect: connected without managed Zero Trust registration; disconnecting"
-                          if disconnect_output="$(timeout 5s warp-cli disconnect 2>&1)"; then
-                            echo "cloudflare-warp-connect: disconnected unmanaged tunnel"
-                          else
-                            echo "<3>cloudflare-warp-connect: failed to disconnect unmanaged tunnel: ''${disconnect_output:-no response}"
-                          fi
-                        fi
+                        case "$registration_state" in
+                          confirmed)
+                            connected=1
+                            ;;
+                          mismatch)
+                            echo "<3>cloudflare-warp-connect: connected without managed Zero Trust registration; disconnecting"
+                            if disconnect_output="$(timeout 5s warp-cli disconnect 2>&1)"; then
+                              echo "cloudflare-warp-connect: disconnected unmanaged tunnel"
+                            else
+                              echo "<3>cloudflare-warp-connect: failed to disconnect unmanaged tunnel: ''${disconnect_output:-no response}"
+                            fi
+                            ;;
+                          *)
+                            echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"
+                            ;;
+                        esac
                         ;;
                     esac
                   }
 
                   ${lib.optionalString enrolling "refresh_registration"}
                   refresh_status
+                  ${managedOrgGuard}
 
                   while [ -z "$connected" ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
                     attempt=$((attempt + 1))
                     ${lib.optionalString enrolling "refresh_registration"}
-                    if [ -n "$managed_org" ] && [ -n "$managed_registration" ]; then
+                    if [ "$registration_state" = "confirmed" ]; then
                       if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
                         connect_requested=1
                         echo "cloudflare-warp-connect: connect requested"
@@ -363,7 +385,6 @@ let
                     else
                       echo "<3>cloudflare-warp-connect: managed enrollment is not ready; not connecting"
                     fi
-                    ${lib.optionalString enrolling "refresh_registration"}
                     refresh_status
                     if [ -z "$connected" ]; then
                       sleep 1
