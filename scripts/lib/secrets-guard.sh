@@ -249,6 +249,16 @@ secrets_guard_paths() {
   fi
   while IFS= read -r sub; do
     [[ -n ${sub} ]] || continue
+    # The two scans are not scoped alike. ls-files above is confined to ${dir},
+    # while foreach walks the whole superproject and reports what sits outside
+    # it as ../<path>, which reaching a subdirectory needs only the root
+    # .gitignore to lack the block while ${dir}/.gitignore carries it. Those
+    # trees are not copied by path:${dir}, so scanning them can only abort on a
+    # file this reference never discloses, with --allow-secret-copy the sole way
+    # past. A submodule under ${dir} keeps a forward path and is still scanned.
+    if [[ ${sub} == ../* ]]; then
+      continue
+    fi
     if ! git -C "${dir}/${sub}" ls-files --others -z >"${scan}"; then
       rm -f "${scan}"
       secrets_guard_error "Listing untracked files in submodule ${sub} failed, so the secrets guard cannot scan it; path: copies its working tree whole."

@@ -424,6 +424,38 @@ test_scan_covers_submodule_working_trees() {
   pass
 }
 
+# ls-files is confined to ${dir}, foreach is not: from a subdirectory it walks
+# the whole superproject and reports what sits outside as ../<path>. Scanning
+# those can only abort on a file path:${dir} never copies, and the enforce-level
+# subdirectory abort does not cover it, since that one needs the root .gitignore
+# to carry the block while this needs it not to. One submodule each side of the
+# boundary, because dropping the outside one must not drop the inside one.
+test_scan_skips_submodules_outside_the_scanned_directory() {
+  local repo source
+  repo="$(make_repo submodule-outside)"
+  source="${tmpdir}/submodule-outside-source"
+  init_repo "${source}"
+  printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
+  printf '%s\n' 'submodule' >"${source}/README.md"
+  git -C "${source}" add .gitignore README.md
+  git -C "${source}" commit -q -m "initial submodule"
+
+  mkdir -p "${repo}/sub"
+  write_secrets_block "${repo}/sub"
+  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" secrets
+  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" sub/inner
+  git -C "${repo}" add sub/.gitignore
+  git -C "${repo}" commit -q -m "a submodule each side of sub/"
+  : >"${repo}/secrets/decrypted_outside.yaml"
+  : >"${repo}/sub/inner/decrypted_inside.yaml"
+
+  scan "${repo}/sub"
+  [[ ${scan_rc} -eq 0 ]] || fail "submodule outside: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+  assert_no_hit ../secrets/decrypted_outside.yaml "submodule outside"
+  assert_hit inner/decrypted_inside.yaml "submodule outside"
+  pass
+}
+
 # The preflight proves mktemp is present, not that it works, so a read-only
 # TMPDIR still emptied scan and the ls-files redirect failed before git ran. The
 # abort then blamed the listing, which is the misattribution the preflight
@@ -925,6 +957,7 @@ test_scan_reports_a_nested_repository_boundary
 test_scan_leaves_a_plain_untracked_directory_alone
 test_scan_round_trips_a_path_holding_a_newline
 test_scan_covers_submodule_working_trees
+test_scan_skips_submodules_outside_the_scanned_directory
 test_scan_fails_closed_on_a_failing_mktemp
 test_scan_fails_closed_on_an_unwritable_hit_list
 test_scan_fails_closed_on_an_unwritable_submodule_hit
