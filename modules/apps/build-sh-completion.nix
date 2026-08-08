@@ -59,6 +59,14 @@ let
                 if [[ -z "''${flake_dir}" ]]; then
                   flake_dir="."
                 fi
+                # Absolute before it reaches Lix, as build.sh resolves -p and
+                # scripts/cache-coverage.sh resolves --flake-dir. A relative
+                # value with no slash is a directory to the -f test below and an
+                # indirect flakeref to Lix, so `-p nixos` is looked up as
+                # flake:nixos in the registries: it fails into the hostname
+                # fallback this retry exists to avoid, or offers the hosts of
+                # whatever flake that registry entry names.
+                flake_dir="''${flake_dir:A}"
 
                 host_output="$(
                   nix eval --raw "''${flake_dir}#nixosConfigurations" \
