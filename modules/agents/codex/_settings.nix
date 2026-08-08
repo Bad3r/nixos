@@ -119,7 +119,7 @@ let
         filesystem = {
           ":minimal" = "read";
           ":tmpdir" = "write";
-          ":project_roots" = {
+          ":workspace_roots" = {
             "." = "write";
           };
           "/nix/var/nix" = "read";
