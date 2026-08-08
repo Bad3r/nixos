@@ -60,7 +60,8 @@ A guard hit aborts, and so does a guard that cannot run: any of `git`, `grep`,
 `awk`, `mktemp` and `rm` missing from `PATH`, a `mktemp` present that fails
 anyway on a read-only `TMPDIR` or a full filesystem, a hit list the guard cannot
 write or read back for the same reasons, a `.gitignore` tracked but absent or
-present and unreadable, a secrets block that no longer yields its patterns, and
+present and unreadable, a secrets block that no longer yields its patterns or
+that holds an entry reducing to no name to match, and
 a directory carrying a `.git` marker git will not open as a repository. Both
 exit 2, naming
 which of the two they were. A missing `git` is in that list rather than in the
