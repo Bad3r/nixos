@@ -68,6 +68,18 @@ let
       ];
       extraInputs = _: [ ];
     };
+    flake-ref = {
+      dir = ../../tests/flake-ref;
+      subjects = [
+        {
+          src = ../../scripts/lib/flake-ref.sh;
+          dest = "scripts/lib/flake-ref.sh";
+        }
+      ];
+      # The subject runs no external at all, and the suite reaches git only to
+      # let `git worktree add` produce the marker its branch turns on.
+      extraInputs = _: [ ];
+    };
     secrets-guard = {
       dir = ../../tests/secrets-guard;
       subjects = [

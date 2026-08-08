@@ -27,8 +27,10 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   line there as well as a source line in each script. `secrets-guard.sh` decides
   whether a `path:` reference may copy the tree, and `flake-ref.sh` decides
   whether a tree gets that reference at all, so the second gates the first and
-  they stay apart. Branch coverage lives in `tests/secrets-guard/run.sh`, which
-  sources the subject rather than running it; the wrapper's `runtimeInputs` are
+  they stay apart. Each has its own suite, `tests/secrets-guard/run.sh` and
+  `tests/flake-ref/run.sh`, both sourcing the subject rather than running it: a
+  gate that stops selecting `path:` disables the scan behind it silently, so
+  neither stands in for the other. The wrapper's `runtimeInputs` are
   covered separately, under a scrubbed `PATH`, by the
   `script-tests-cache-coverage-wrapper-inputs` check, since no suite exercises
   them.
