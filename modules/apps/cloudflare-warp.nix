@@ -12,7 +12,7 @@
     * Renders /var/lib/cloudflare-warp/mdm.xml from sops-backed credentials, store-safe.
 
   Options:
-    enable: Run warp-svc; managed Zero Trust enrollment activates when secrets/cloudflare-warp.yaml exists.
+    enable: Install warp-cli; warp-svc runs only once secrets/cloudflare-warp.yaml supplies credentials.
     serviceMode: mdm.xml service_mode (warp | tunnelonly | 1dot1 | proxy | postureonly).
     autoConnect: mdm.xml auto_connect minutes (0-1440); 0 keeps the client off after a manual disconnect.
     switchLocked: mdm.xml switch_locked; when true the user cannot disconnect.
@@ -21,6 +21,8 @@
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
     * Secrets (organization/auth_client_id/auth_client_secret) live in secrets/cloudflare-warp.yaml (sops).
+    * Without those credentials warp-svc would hold CAP_NET_ADMIN and an open UDP port while
+      serving only consumer WARP, so an un-enrolled host installs the CLI and no daemon.
     * Relies on the hosts-common vpn-defaults owner for networking.firewall.checkReversePath;
       the WARP interface trips strict rp_filter when that shared baseline is overridden.
     * Pairs with per-host enablement in modules/tpnix/cloudflare-warp.nix and modules/system76/cloudflare-warp.nix.
@@ -40,64 +42,15 @@ let
       cfg = config.programs.cloudflare-warp.extended;
       rootDir = config.services.cloudflare-warp.rootDir;
       secretsFile = secretsRoot + "/cloudflare-warp.yaml";
-      haveSecrets = builtins.pathExists secretsFile;
-      enrolling = haveSecrets;
+      enrolling = builtins.pathExists secretsFile;
+      # Managed enrollment is the only configuration that starts warp-svc.
+      managed = cfg.enable && enrolling;
       # Gate the sops-install-secrets.service dependency on
       # sops.useSystemdActivation: the unit only exists in that mode (issue #37);
       # activation-script hosts decrypt before any unit ordering, so this is [].
       installSecretsDeps = sopsInstallSecretsDeps config;
 
-      # Logged by the connect-on-boot oneshot when the device has no managed
-      # mdm.xml. The guard prevents an absent secret from selecting consumer WARP.
-      unenrolledGuard = lib.optionalString (!enrolling) ''
-        echo "<4>cloudflare-warp-connect: device is UN-ENROLLED (no managed mdm.xml); not connecting. Create secrets/cloudflare-warp.yaml to enroll."
-        exit 0
-      '';
-
-      managedRegistrationSetup = lib.optionalString enrolling ''
-        if managed_org="$(cat ${
-          config.sops.secrets."cloudflare-warp/organization".path
-        } 2>/dev/null)" && [ -n "$managed_org" ]; then
-          :
-        else
-          managed_org=""
-          echo "<3>cloudflare-warp-connect: managed organization secret unavailable; cannot verify registration"
-        fi
-
-        # registration_state is tri-state: confirmed (the daemon reported the
-        # managed team), mismatch (it reported another team or none, which is
-        # what an unmanaged/consumer registration returns), unknown (the check
-        # itself did not answer). Only a mismatch is evidence of an unmanaged
-        # tunnel; a timed-out or failed check must not tear a tunnel down.
-        refresh_registration() {
-          if [ -z "$managed_org" ]; then
-            registration_state="unknown"
-            return
-          fi
-          if registration="$(timeout 5s warp-cli --accept-tos registration organization 2>&1)"; then
-            if [ "$registration" = "$managed_org" ]; then
-              registration_state="confirmed"
-              echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
-            else
-              registration_state="mismatch"
-              echo "<3>cloudflare-warp-connect: managed Zero Trust registration unavailable"
-            fi
-          else
-            registration_state="unknown"
-            echo "<3>cloudflare-warp-connect: registration check failed: ''${registration:-no response}"
-          fi
-        }
-      '';
-
-      # managed_org is read once during setup, so an empty value keeps the
-      # connect gate shut for every attempt. Exit instead of polling a decision
-      # that cannot change before the deadline.
-      managedOrgGuard = lib.optionalString enrolling ''
-        if [ -z "$managed_org" ]; then
-          echo "<3>cloudflare-warp-connect: managed organization secret unavailable; not connecting"
-          exit 0
-        fi
-      '';
+      mdmTemplate = config.sops.templates."cloudflare-warp-mdm".path;
 
       # Linux mdm.xml is a bare <dict> plist fragment (no XML declaration, no
       # <plist> wrapper). Secret values are injected through sops placeholders so
@@ -118,13 +71,145 @@ let
           ${if cfg.switchLocked then "<true/>" else "<false/>"}
         </dict>
       '';
+
+      connectScript = ''
+        managed_org=""
+        registration_state="unknown"
+        connected=""
+        connect_requested=""
+        unverified=0
+        status=""
+        attempt=0
+        deadline=$((SECONDS + 120))
+
+        if managed_org="$(cat ${
+          config.sops.secrets."cloudflare-warp/organization".path
+        } 2>/dev/null)" && [ -n "$managed_org" ]; then
+          managed_org="''${managed_org//[[:space:]]/}"
+        else
+          managed_org=""
+          echo "<3>cloudflare-warp-connect: managed organization secret unavailable; cannot verify registration"
+        fi
+
+        # registration_state is tri-state: confirmed (the daemon reported the
+        # managed team), mismatch (it reported another team or none, which is
+        # what an unmanaged/consumer registration returns), unknown (the check
+        # itself did not answer). Only a mismatch is evidence of an unmanaged
+        # tunnel; a timed-out or failed check must not tear a tunnel down.
+        refresh_registration() {
+          if [ -z "$managed_org" ]; then
+            registration_state="unknown"
+            return
+          fi
+          # Read stdout alone: a banner or notice on stderr would fail the exact
+          # comparison below and report a correctly enrolled device as unmanaged.
+          registration=""
+          registration_status=0
+          registration="$(timeout 5s warp-cli --accept-tos registration organization 2>/dev/null)" ||
+            registration_status=$?
+          if [ "$registration_status" -ne 0 ]; then
+            registration_state="unknown"
+            echo "<3>cloudflare-warp-connect: registration check failed (exit $registration_status)"
+            return
+          fi
+          registration="''${registration//[[:space:]]/}"
+          if [ "$registration" = "$managed_org" ]; then
+            registration_state="confirmed"
+            echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
+          else
+            registration_state="mismatch"
+            echo "<3>cloudflare-warp-connect: managed Zero Trust registration unavailable"
+          fi
+        }
+
+        refresh_status() {
+          if status="$(timeout 5s warp-cli status 2>&1)"; then
+            status="''${status:-status unavailable}"
+          else
+            echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
+            status="''${status:-status unavailable}"
+          fi
+          echo "cloudflare-warp-connect: $status"
+          case "$status" in
+            *Disconnected* | *"status unavailable"*) ;;
+            *Connected*)
+              case "$registration_state" in
+                confirmed)
+                  connected=1
+                  ;;
+                mismatch)
+                  echo "<3>cloudflare-warp-connect: connected without managed Zero Trust registration; disconnecting"
+                  if disconnect_output="$(timeout 5s warp-cli disconnect 2>&1)"; then
+                    echo "cloudflare-warp-connect: disconnected unmanaged tunnel"
+                  else
+                    echo "<3>cloudflare-warp-connect: failed to disconnect unmanaged tunnel: ''${disconnect_output:-no response}"
+                  fi
+                  ;;
+                *)
+                  echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"
+                  unverified=$((unverified + 1))
+                  ;;
+              esac
+              ;;
+          esac
+        }
+
+        # managed_org is read once above, so an empty value keeps the connect gate
+        # shut for every attempt. Exit instead of polling a decision that cannot
+        # change before the deadline.
+        if [ -z "$managed_org" ]; then
+          echo "<3>cloudflare-warp-connect: managed organization secret unavailable; not connecting"
+          exit 0
+        fi
+
+        # The daemon IPC socket and mdm.xml registration can settle at different
+        # times, so poll both during the bounded readiness window. Two terminal
+        # states end the run: a verified managed tunnel, and a live tunnel whose
+        # registration went unanswered three times, where nothing is left to
+        # request and the tunnel stays up.
+        while [ -z "$connected" ] && [ "$unverified" -lt 3 ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
+          attempt=$((attempt + 1))
+          refresh_registration
+          refresh_status
+          if [ -n "$connected" ] || [ "$unverified" -ge 3 ]; then
+            break
+          fi
+          if [ "$registration_state" = "confirmed" ]; then
+            if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
+              connect_requested=1
+              echo "cloudflare-warp-connect: connect requested"
+            else
+              echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
+            fi
+          else
+            echo "<3>cloudflare-warp-connect: managed enrollment is not ready; not connecting"
+          fi
+          sleep 1
+        done
+        # Best-effort: name the state that ended the run and exit 0 so a user who
+        # legitimately keeps WARP off does not leave the unit failed.
+        if [ -z "$connected" ]; then
+          if [ "$unverified" -gt 0 ]; then
+            echo "<4>cloudflare-warp-connect: tunnel is up but its registration went unverified in $attempt attempts; left it connected"
+          elif [ "$registration_state" = "mismatch" ]; then
+            echo "<3>cloudflare-warp-connect: daemon is registered outside the managed organization after $attempt attempts"
+          elif [ -n "$connect_requested" ]; then
+            echo "<3>cloudflare-warp-connect: tunnel is not connected after $attempt attempts"
+          else
+            echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
+          fi
+        fi
+      '';
     in
     {
       options.programs.cloudflare-warp.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to run warp-svc and enroll into Cloudflare Zero Trust.";
+          description = ''
+            Whether to install the WARP client. warp-svc and Zero Trust
+            enrollment activate only when secrets/cloudflare-warp.yaml exists.
+          '';
         };
 
         package = lib.mkOption {
@@ -187,12 +272,29 @@ let
       };
 
       config = lib.mkMerge [
-        # Remove the wrapper-owned managed file when the wrapper is disabled.
+        # Remove the wrapper-owned managed file whenever this host is not running
+        # managed WARP. mdm.xml is authoritative for service_mode and caches the
+        # service token, so a stale file would keep warp-svc in managed mode.
         # Leave an independently configured upstream service's state untouched.
-        (lib.mkIf (!cfg.enable && !config.services.cloudflare-warp.enable) {
+        (lib.mkIf (!managed && !config.services.cloudflare-warp.enable) {
           systemd.tmpfiles.rules = [ "r ${rootDir}/mdm.xml" ];
         })
-        (lib.mkIf cfg.enable (
+
+        # No managed credentials: ship the CLI (warp-cli, warp-diag) without the
+        # privileged daemon.
+        (lib.mkIf (cfg.enable && !enrolling) {
+          environment.systemPackages = [ cfg.package ];
+
+          warnings = [
+            ''
+              programs.cloudflare-warp.extended: secrets/cloudflare-warp.yaml is missing, so warp-svc
+              is NOT started and only warp-cli is installed. Create the sops secret (see
+              docs/cloudflare/warp/deployment.md) and rebuild to enroll.
+            ''
+          ];
+        })
+
+        (lib.mkIf managed (
           lib.mkMerge [
             {
               services.cloudflare-warp = {
@@ -214,11 +316,6 @@ let
                     but a local resolver is bound to 127.0.0.1:53 (dnscrypt-proxy or NetworkManager
                     dnsmasq). Use serviceMode "tunnelonly"/"proxy" or disable the local resolver.
                   ''
-                ++ lib.optional (!haveSecrets) ''
-                  programs.cloudflare-warp.extended: secrets/cloudflare-warp.yaml is missing; running warp-svc
-                  WITHOUT managed enrollment (degraded). Create the sops secret (see
-                  docs/cloudflare/warp/deployment.md) and rebuild.
-                ''
                 ++
                   lib.optional
                     (
@@ -235,20 +332,7 @@ let
                       the hosts-common vpn-defaults baseline (shareCommon = true) or set
                       networking.firewall.checkReversePath = "loose" on this host.
                     '';
-            }
 
-            # When not enrolling (the sops secret is absent),
-            # remove any mdm.xml left by a previous enrollment. mdm.xml is
-            # authoritative for service_mode and caches the service token, so a stale
-            # file would keep warp-svc in managed mode instead of degrading to the
-            # un-enrolled daemon. rootDir is the upstream StateDirectory.
-            (lib.mkIf (!enrolling) {
-              systemd.services.cloudflare-warp.serviceConfig.ExecStartPre = [
-                "${pkgs.coreutils}/bin/rm -f ${rootDir}/mdm.xml"
-              ];
-            })
-
-            (lib.mkIf enrolling {
               sops = {
                 secrets = {
                   "cloudflare-warp/organization" = {
@@ -270,11 +354,12 @@ let
                 templates."cloudflare-warp-mdm" = {
                   content = mdmContent;
                   mode = "0600";
-                  # restartTriggers below only hash non-secret fields. Rotating
-                  # auth_client_id/auth_client_secret re-renders this template but
-                  # would not restart warp-svc, so the daemon would keep the old
-                  # token until reboot. Restart on rotation (matches the repo
-                  # pattern in usbguard.nix and duplicati-r2.nix).
+                  # Sole restart owner for this unit: sops compares the rendered
+                  # template between generations, so both a rotated service token
+                  # and a changed service_mode/auto_connect/switch_locked land
+                  # here. A second restartTriggers hash on the unit would restart
+                  # warp-svc twice for one activation under
+                  # sops.useSystemdActivation.
                   restartUnits = [ "cloudflare-warp.service" ];
                 };
               };
@@ -289,30 +374,31 @@ let
                 after = installSecretsDeps;
                 requires = installSecretsDeps;
                 serviceConfig.ExecStartPre = [
-                  "${pkgs.coreutils}/bin/install -D -m0600 -o root -g root ${
-                    config.sops.templates."cloudflare-warp-mdm".path
-                  } ${rootDir}/mdm.xml"
-                ];
-                # Re-apply managed config when any non-secret mdm field changes.
-                restartTriggers = [
-                  (builtins.toJSON {
-                    inherit (cfg)
-                      serviceMode
-                      autoConnect
-                      switchLocked
-                      ;
-                  })
+                  # Credentials are substituted after evaluation, so no Nix-side
+                  # quoting can escape them. An XML metacharacter in one would
+                  # otherwise leave warp-svc reading a truncated mdm.xml and
+                  # falling back to unmanaged mode; refuse to start instead.
+                  "${pkgs.libxml2.bin}/bin/xmllint --noout ${mdmTemplate}"
+                  "${pkgs.coreutils}/bin/install -D -m0600 -o root -g root ${mdmTemplate} ${rootDir}/mdm.xml"
                 ];
               };
-            })
+            }
 
             (lib.mkIf cfg.connectOnBoot {
+              # Upholds restarts the oneshot whenever warp-svc is active and the
+              # oneshot is not. Restart=always respawns warp-svc without an
+              # explicit restart job, which BindsTo alone would only propagate as
+              # a stop, leaving the host untunneled until the next rebuild.
+              systemd.services.cloudflare-warp.upholds = [ "cloudflare-warp-connect.service" ];
+
               systemd.services.cloudflare-warp-connect = {
                 description = "Cloudflare WARP connect on boot";
                 after = [ "cloudflare-warp.service" ];
-                requires = [ "cloudflare-warp.service" ];
-                partOf = [ "cloudflare-warp.service" ];
+                bindsTo = [ "cloudflare-warp.service" ];
                 wantedBy = [ "multi-user.target" ];
+                # This script fails closed around a registration check, so hold it
+                # to shellcheck plus errexit/nounset/pipefail.
+                enableStrictShellChecks = true;
                 path = [
                   pkgs.coreutils
                   cfg.package
@@ -324,82 +410,7 @@ let
                   # unit timeout covers the status queries and shell overhead.
                   TimeoutStartSec = 180;
                 };
-                script = ''
-                  ${unenrolledGuard}
-                  managed_org=""
-                  registration_state="unknown"
-                  ${managedRegistrationSetup}
-                  # The daemon IPC socket and mdm.xml registration can settle at
-                  # different times, so poll both during the bounded readiness window.
-                  connected=""
-                  connect_requested=""
-                  status=""
-                  attempt=0
-                  deadline=$((SECONDS + 120))
-
-                  refresh_status() {
-                    if status="$(timeout 5s warp-cli status 2>&1)"; then
-                      status="''${status:-status unavailable}"
-                    else
-                      echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
-                      status="''${status:-status unavailable}"
-                    fi
-                    echo "cloudflare-warp-connect: $status"
-                    case "$status" in
-                      *Disconnected* | *"status unavailable"*) ;;
-                      *Connected*)
-                        case "$registration_state" in
-                          confirmed)
-                            connected=1
-                            ;;
-                          mismatch)
-                            echo "<3>cloudflare-warp-connect: connected without managed Zero Trust registration; disconnecting"
-                            if disconnect_output="$(timeout 5s warp-cli disconnect 2>&1)"; then
-                              echo "cloudflare-warp-connect: disconnected unmanaged tunnel"
-                            else
-                              echo "<3>cloudflare-warp-connect: failed to disconnect unmanaged tunnel: ''${disconnect_output:-no response}"
-                            fi
-                            ;;
-                          *)
-                            echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"
-                            ;;
-                        esac
-                        ;;
-                    esac
-                  }
-
-                  ${lib.optionalString enrolling "refresh_registration"}
-                  refresh_status
-                  ${managedOrgGuard}
-
-                  while [ -z "$connected" ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
-                    attempt=$((attempt + 1))
-                    ${lib.optionalString enrolling "refresh_registration"}
-                    if [ "$registration_state" = "confirmed" ]; then
-                      if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
-                        connect_requested=1
-                        echo "cloudflare-warp-connect: connect requested"
-                      else
-                        echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
-                      fi
-                    else
-                      echo "<3>cloudflare-warp-connect: managed enrollment is not ready; not connecting"
-                    fi
-                    refresh_status
-                    if [ -z "$connected" ]; then
-                      sleep 1
-                    fi
-                  done
-                  # Best-effort: log the outcome and exit 0 so a user who legitimately
-                  # keeps WARP off does not leave the unit failed.
-                  if [ -z "$connected" ]; then
-                    if [ -z "$connect_requested" ]; then
-                      echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
-                    else
-                      echo "<3>cloudflare-warp-connect: tunnel is not connected after $attempt attempts"
-                    fi
-                  fi
-                '';
+                script = connectScript;
               };
             })
           ]
