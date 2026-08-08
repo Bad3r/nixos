@@ -34,12 +34,17 @@ pkgs.runCommandLocal "${pname}-packaged-${version}"
     cp -L ${codexPkg}/bin/.codex-wrapped $out/bin/.codex-wrapped
     chmod +w $out/bin/.codex-wrapped
 
-    # Standalone host for the code-mode tool surface. Copied rather than
-    # symlinked so the closure keeps a single 0.5 GiB codex copy; the models in
-    # use (gpt-5.6-luna, gpt-5.6-sol) are tool_mode = code_mode_only, so every
-    # tool call fails closed when this binary is absent.
-    cp -L ${codexPkg}/bin/codex-code-mode-host $out/bin/codex-code-mode-host
-    chmod +x $out/bin/codex-code-mode-host
+    # Standalone host for the code-mode tool surface. The models in use
+    # (gpt-5.6-luna, gpt-5.6-sol) are tool_mode = code_mode_only, so every tool
+    # call fails closed when this binary is absent.
+    # Symlinked, not copied: code_mode_host_program_from_exe only checks
+    # is_file(), which follows symlinks (upstream test
+    # code_mode_host_program_accepts_symlinks_to_files), and this binary never
+    # resolves its own current_exe (codex-rs/code-mode-host has no
+    # codex-install-context dependency), so unlike .codex-wrapped it needs no
+    # canonicalisation inside $out. Upstream codex is already in
+    # environment.systemPackages fleet-wide, so this avoids duplicating 65 MiB.
+    ln -s ${codexPkg}/bin/codex-code-mode-host $out/bin/codex-code-mode-host
 
     # New trampoline preserves the bubblewrap PATH prepend that upstream's
     # wrapProgram adds, so the default Linux sandbox keeps finding bwrap.
