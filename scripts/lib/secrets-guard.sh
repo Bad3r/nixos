@@ -47,6 +47,19 @@ secrets_guard_is_hit() {
   return 1
 }
 
+# git ls-files --error-unmatch answers three ways, not two: 0 tracked, 1 not
+# tracked, 128 a git failure such as an unreadable index, a pruned gitdir or a
+# broken object store. Collapsing that to a boolean reads a broken repository as
+# a foreign tree and skips the scan, which is the fail-open every other git call
+# here refuses; the raw status goes back so each caller can split it.
+secrets_guard_tracked() {
+  local dir="$1"
+  local path="$2"
+  local rc=0
+  git -C "${dir}" ls-files --error-unmatch -- "${path}" >/dev/null 2>&1 || rc=$?
+  return "${rc}"
+}
+
 secrets_guard_paths() {
   local dir="$1"
   local -a deny=() allow=()
@@ -164,7 +177,13 @@ secrets_guard_enforce() {
   # through --flake-dir may simply never have had a .gitignore, and telling its
   # operator to run write-files names a file this repo does not generate there.
   if [[ ! -f "${dir}/.gitignore" ]]; then
-    if git -C "${dir}" ls-files --error-unmatch -- .gitignore >/dev/null 2>&1; then
+    local gitignore_rc=0
+    secrets_guard_tracked "${dir}" .gitignore || gitignore_rc=$?
+    if [[ ${gitignore_rc} -gt 1 ]]; then
+      secrets_guard_error "Checking whether ${dir} tracks .gitignore failed (git exit ${gitignore_rc}), so the secrets guard cannot tell drift from a tree that never had one."
+      return 2
+    fi
+    if [[ ${gitignore_rc} -eq 0 ]]; then
       secrets_guard_error "${dir}/.gitignore is tracked but absent from the worktree, so the secrets guard cannot run. Restore it with write-files, or pass --allow-secret-copy to continue anyway."
       return 2
     fi
@@ -189,10 +208,20 @@ secrets_guard_enforce() {
   # repository has a .gitignore without it; aborting there would name a module
   # that tree does not contain. A renamed or thinned heading in a tree that does
   # own the generator still fails closed in the parser.
-  if ! grep -qxF '# Secrets safety (defense-in-depth)' "${dir}/.gitignore" &&
-    ! git -C "${dir}" ls-files --error-unmatch -- modules/development/gitignore.nix >/dev/null 2>&1; then
-    secrets_guard_notice "${dir}/.gitignore has no secrets block and the tree does not own modules/development/gitignore.nix, so it is not generated from this repo; the secrets scan does not run."
-    return 0
+  if ! grep -qxF '# Secrets safety (defense-in-depth)' "${dir}/.gitignore"; then
+    # Reached only when the heading is already missing, which is the drift case
+    # that has to fail closed, so a git failure here cannot be read as "foreign
+    # tree". A tracked generator falls through to the parser, which aborts.
+    local generator_rc=0
+    secrets_guard_tracked "${dir}" modules/development/gitignore.nix || generator_rc=$?
+    if [[ ${generator_rc} -gt 1 ]]; then
+      secrets_guard_error "Checking whether ${dir} tracks modules/development/gitignore.nix failed (git exit ${generator_rc}), so the secrets guard cannot tell drift from a foreign tree."
+      return 2
+    fi
+    if [[ ${generator_rc} -eq 1 ]]; then
+      secrets_guard_notice "${dir}/.gitignore has no secrets block and the tree does not own modules/development/gitignore.nix, so it is not generated from this repo; the secrets scan does not run."
+      return 0
+    fi
   fi
 
   # `if !` keeps set -e suspended, so a parser failure reports itself instead of
