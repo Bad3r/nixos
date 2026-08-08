@@ -243,6 +243,40 @@ test_parser_splits_an_unreadable_gitignore_from_a_changed_block() {
   pass
 }
 
+# A directory-only rule is all prefix, so reducing it to its last component
+# leaves nothing behind and deny gains a pattern that matches no path component.
+# The minimum-set check cannot see that: the ten names it asserts are all still
+# there, and this entry is an addition rather than one of them going missing.
+test_parser_enforces_a_directory_only_pattern() {
+  local repo
+  repo="$(make_repo parser-dir-pattern)"
+  sed -i 's/^# Common SSH\/private key patterns (allow public keys)$/secrets\/keys\/\n&/' "${repo}/.gitignore"
+  mkdir -p "${repo}/secrets/keys"
+  : >"${repo}/secrets/keys/payload.bin"
+
+  scan "${repo}"
+  [[ ${scan_rc} -eq 0 ]] || fail "directory-only pattern: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+  assert_hit secrets/keys/payload.bin "directory-only pattern"
+  pass
+}
+
+# What the trailing-slash strip cannot rescue aborts instead of being skipped.
+# Dropping it quietly is the same silent thinning the case above covers, one
+# entry shape further out.
+test_parser_fails_closed_on_a_pattern_with_no_name() {
+  local repo
+  repo="$(make_repo parser-nameless)"
+  sed -i 's/^# Common SSH\/private key patterns (allow public keys)$/foo\/\/\n&/' "${repo}/.gitignore"
+  : >"${repo}/probe.pem"
+
+  scan "${repo}"
+  [[ ${scan_rc} -eq 1 ]] || fail "nameless pattern: expected rc 1, got ${scan_rc}" "${tmpdir}/scan.err"
+  grep -q "holds 'foo//', which reduces to no name" "${tmpdir}/scan.err" ||
+    fail "nameless pattern: the abort did not quote the entry" "${tmpdir}/scan.err"
+  [[ ${#hits[@]} -eq 0 ]] || fail "nameless pattern: reported hits from a block it refused"
+  pass
+}
+
 # --- secrets_guard_tracked -------------------------------------------------
 
 # Three answers, not two. Collapsing 128 into "not tracked" reads a broken
@@ -835,6 +869,8 @@ test_enforce_splits_a_missing_gitignore_by_tracked_state() {
 test_parser_fails_closed_on_renamed_heading
 test_parser_fails_closed_on_blank_line_mid_block
 test_parser_splits_an_unreadable_gitignore_from_a_changed_block
+test_parser_enforces_a_directory_only_pattern
+test_parser_fails_closed_on_a_pattern_with_no_name
 test_tracked_splits_three_ways
 test_scan_matches_deny_patterns_and_honours_the_allow_entry
 test_scan_walks_every_path_component

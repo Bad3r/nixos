@@ -81,7 +81,7 @@ secrets_guard_emit() {
 secrets_guard_paths() {
   local dir="$1"
   local -a deny=() allow=()
-  local line negated
+  local line raw negated
   # Read through a variable rather than a process substitution, which discards
   # awk's status: an unreadable .gitignore printed nothing, deny came back empty
   # and the minimum-set check below blamed the block, which is the same wrong
@@ -105,6 +105,7 @@ secrets_guard_paths() {
     # substitution gave no iterations; awk never prints one, since a blank line
     # inside the block ends it.
     [[ -n ${line} ]] || continue
+    raw="${line}"
     negated=0
     if [[ ${line} == '!'* ]]; then
       negated=1
@@ -119,7 +120,22 @@ secrets_guard_paths() {
     # root included: the anchor scopes git's ignore rule, not this scan, so
     # git check-ignore does not confirm that hit. The negation is stripped
     # first, since it precedes the prefix rather than the name.
+    #
+    # The trailing slash goes before that reduction, not with it: a
+    # directory-only rule such as secrets/keys/ is all prefix, so */ consumes
+    # the whole entry and deny gains an empty pattern, which matches no path
+    # component and is therefore inert. The minimum-set check below cannot see
+    # it, since a new rule adds an entry rather than removing one of the ten it
+    # names, so this is the thinning-in-silence that check exists to refuse.
+    line="${line%/}"
     line="${line##*/}"
+    # Whatever still reduces to nothing (a bare / or a doubled foo//) aborts
+    # rather than being skipped: a block entry dropped quietly is the same
+    # silent thinning, and no pattern this generator emits reaches here.
+    if [[ -z ${line} ]]; then
+      secrets_guard_error "The '# Secrets safety (defense-in-depth)' block of ${dir}/.gitignore holds '${raw}', which reduces to no name to match, so the secrets guard would enforce a thinner block than the file declares. Give that entry a name in modules/development/gitignore.nix, or pass --allow-secret-copy to continue anyway."
+      return 1
+    fi
     if [[ ${negated} -eq 1 ]]; then
       allow+=("${line}")
     else
