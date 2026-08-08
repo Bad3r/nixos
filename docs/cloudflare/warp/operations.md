@@ -14,13 +14,18 @@ warp-cli registration organization                # expected: <team>
 warp-cli status                                   # Connected
 ```
 
-For an enrolled host, the `cloudflare-warp-connect` oneshot issues
-verifies `warp-cli registration organization` against the managed team before
-each connect request and polls `warp-cli status` on every attempt. A missing or
-mismatched registration prevents `warp-cli connect`; an already connected
-unmanaged tunnel is disconnected and logged at error priority. The loop makes up
-to 30 attempts bounded by a 120-second deadline, with each `warp-cli` call capped
-at five seconds. The retry window plus bounded registration/status checks remains
+For an enrolled host, the `cloudflare-warp-connect` oneshot verifies
+`warp-cli registration organization` against the managed team before each
+connect request and polls `warp-cli status` on every attempt. Only a confirmed
+match permits `warp-cli connect`. A confirmed mismatch, which is what a consumer
+or still-unregistered device reports, disconnects an already connected tunnel and
+logs at error priority. A registration check that does not answer within its
+five-second cap leaves an existing tunnel up and retries, because an unanswered
+check is not evidence of an unmanaged tunnel. An empty or unreadable
+organization secret cannot change while the unit runs, so the oneshot reports the
+current status once and exits instead of retrying a decision that can never open.
+The loop makes up to 30 attempts bounded by a 120-second deadline, with each
+`warp-cli` call capped at five seconds. The retry window plus bounded registration/status checks remains
 inside the unit's explicit `TimeoutStartSec=180`. The oneshot is best-effort: it
 exits 0 and reaches `active (exited)` even when no request succeeds, logging
 `connect never succeeded`, or when requests succeed but the final status remains
@@ -91,9 +96,11 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   succeeds, managed registration is unavailable, or requests succeed while the
   status remains disconnected, the `<3>` prefix makes `connect never succeeded`,
   `managed enrollment is not ready`, or `tunnel is not connected after <n> attempts` visible to
-  `journalctl -u cloudflare-warp-connect -p err`. If an existing tunnel has no matching
-  managed registration, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. An empty
-  or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`. The `<4>` UN-ENROLLED notice is visible to the
+  `journalctl -u cloudflare-warp-connect -p err`. If an existing tunnel is confirmed to carry a
+  registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
+  registration check itself does not answer, the tunnel is left up and the unit
+  logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty
+  or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`, then `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. The `<4>` UN-ENROLLED notice is visible to the
   `journalctl -u cloudflare-warp-connect -p warning`. Inspect the daemon logs and rerun:
 
   `systemctl restart cloudflare-warp-connect.service`
