@@ -366,12 +366,16 @@ secrets_guard_enforce() {
   # id_* into the store, with a notice saying the tree defines no patterns for
   # them when it defines them one directory up.
   #
-  # Only the case where that block exists aborts. A foreign flake in a
-  # subdirectory of any other repository still reaches the discriminators below
-  # and skips, for the reason they were written: the block is this repo's
-  # convention, and aborting a tree that never had one names a module it does
-  # not contain. A subdirectory carrying its own block also falls through, since
-  # the reads below then resolve to the file that does define its ignore set.
+  # A subdirectory carrying its own block falls through, since the reads below
+  # then resolve to the file that does define its ignore set. Everything else
+  # one level down takes its ignore set from the root, so the root is what gets
+  # classified, with the same three questions the discriminators below ask of
+  # ${dir}: those resolve their pathspecs against ${dir}, which one level down
+  # asks about sub/.gitignore and sub/modules/development/gitignore.nix, so
+  # every drift state above returned "foreign tree" and skipped. Only a root
+  # that is genuinely foreign, no block and no generator, still skips: the block
+  # is this repo's convention, and aborting a tree that never had one names a
+  # module it does not contain.
   #
   # pwd -P because rev-parse resolves symlinks and the comparison has to. Both
   # callers already absolutise the same way, so this only covers a third one.
@@ -384,7 +388,7 @@ secrets_guard_enforce() {
     secrets_guard_error "Resolving ${dir} to an absolute path failed, so the secrets guard cannot tell it from a subdirectory whose ignore set lives above it. Check that it is a readable directory, or pass --allow-secret-copy to continue anyway."
     return 2
   fi
-  if [[ ${resolved} != "${toplevel}" && -f "${toplevel}/.gitignore" ]]; then
+  if [[ ${resolved} != "${toplevel}" ]]; then
     # The subdirectory's own block is asked about first, because it is the file
     # the reads below would resolve to and it defines exactly the patterns the
     # scan needs. Aborting there would refuse a directory the guard can answer
@@ -399,15 +403,45 @@ secrets_guard_enforce() {
       fi
     fi
     if [[ ${dir_heading_rc} -ne 0 ]]; then
-      local root_heading_rc=0
-      grep -qxF '# Secrets safety (defense-in-depth)' "${toplevel}/.gitignore" || root_heading_rc=$?
-      if [[ ${root_heading_rc} -gt 1 ]]; then
-        secrets_guard_error "Reading ${toplevel}/.gitignore failed (grep exit ${root_heading_rc}), so the secrets guard cannot tell whether the root of ${dir}'s worktree defines a secrets block for it. Fix its permissions, or pass --allow-secret-copy to continue anyway."
-        return 2
-      fi
-      if [[ ${root_heading_rc} -eq 0 ]]; then
-        secrets_guard_error "${dir} is a subdirectory of the worktree at ${toplevel}, whose .gitignore carries the secrets block that covers what path:${dir} would copy, and this guard reads ${dir}/.gitignore only. Point the flake directory at ${toplevel}, or pass --allow-secret-copy to continue anyway."
-        return 2
+      if [[ -f "${toplevel}/.gitignore" ]]; then
+        local root_heading_rc=0
+        grep -qxF '# Secrets safety (defense-in-depth)' "${toplevel}/.gitignore" || root_heading_rc=$?
+        if [[ ${root_heading_rc} -gt 1 ]]; then
+          secrets_guard_error "Reading ${toplevel}/.gitignore failed (grep exit ${root_heading_rc}), so the secrets guard cannot tell whether the root of ${dir}'s worktree defines a secrets block for it. Fix its permissions, or pass --allow-secret-copy to continue anyway."
+          return 2
+        fi
+        if [[ ${root_heading_rc} -eq 0 ]]; then
+          secrets_guard_error "${dir} is a subdirectory of the worktree at ${toplevel}, whose .gitignore carries the secrets block that covers what path:${dir} would copy, and this guard reads ${dir}/.gitignore only. Point the flake directory at ${toplevel}, or pass --allow-secret-copy to continue anyway."
+          return 2
+        fi
+        # No heading at the root either. Drift there is a block that covered
+        # ${dir} and stopped, so the generator decides, and it is asked of the
+        # root: ${dir} never tracks modules/development/gitignore.nix, which is
+        # what read every drift above as a foreign tree.
+        local root_generator_rc=0
+        secrets_guard_tracked "${toplevel}" modules/development/gitignore.nix || root_generator_rc=$?
+        if [[ ${root_generator_rc} -gt 1 ]]; then
+          secrets_guard_error "Checking whether the worktree root ${toplevel} tracks modules/development/gitignore.nix failed (git exit ${root_generator_rc}), so the secrets guard cannot tell drift above ${dir} from a foreign tree."
+          return 2
+        fi
+        if [[ ${root_generator_rc} -eq 0 ]]; then
+          secrets_guard_error "${toplevel}/.gitignore has no secrets block while that tree owns modules/development/gitignore.nix, and ${dir} is a subdirectory of it, so the ignore set covering what path:${dir} would copy has drifted away. Realign that generator and run write-files, or pass --allow-secret-copy to continue anyway."
+          return 2
+        fi
+      else
+        # Absent at the root. Tracked-but-absent is the state the generator
+        # produces, and it is the drift the branch below aborts on one directory
+        # up; a root that never had one is the foreign tree that still skips.
+        local root_gitignore_rc=0
+        secrets_guard_tracked "${toplevel}" .gitignore || root_gitignore_rc=$?
+        if [[ ${root_gitignore_rc} -gt 1 ]]; then
+          secrets_guard_error "Checking whether the worktree root ${toplevel} tracks .gitignore failed (git exit ${root_gitignore_rc}), so the secrets guard cannot tell drift above ${dir} from a tree that never had one."
+          return 2
+        fi
+        if [[ ${root_gitignore_rc} -eq 0 ]]; then
+          secrets_guard_error "${toplevel}/.gitignore is tracked but absent from the worktree and ${dir} is a subdirectory of it, so the secrets guard cannot read the ignore set that covers what path:${dir} would copy. Restore it with write-files, or pass --allow-secret-copy to continue anyway."
+          return 2
+        fi
       fi
     fi
   fi

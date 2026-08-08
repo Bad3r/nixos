@@ -898,6 +898,39 @@ test_enforce_splits_a_missing_gitignore_by_tracked_state() {
   pass
 }
 
+# Every discriminator below the subdirectory branch resolves its pathspec
+# against ${dir}, so one level down they asked about sub/.gitignore and
+# sub/modules/development/gitignore.nix, which are never tracked, and each drift
+# state at the root read as a foreign tree and skipped. Both states abort from
+# the root itself, so the two answers have to agree; the probe is what the skip
+# would have let path: copy.
+test_enforce_fails_closed_on_drift_above_a_subdirectory() {
+  local repo
+  repo="$(make_repo enforce-subdir-drift)"
+  mkdir -p "${repo}/modules/development" "${repo}/sub"
+  : >"${repo}/modules/development/gitignore.nix"
+  : >"${repo}/sub/flake.nix"
+  git -C "${repo}" add modules/development/gitignore.nix sub/flake.nix
+  git -C "${repo}" commit -q -m "the generator and a subdirectory flake"
+  : >"${repo}/sub/id_ed25519"
+
+  sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
+  enforce "${repo}/sub"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "renamed heading above: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q 'has no secrets block while that tree owns' "${tmpdir}/enforce.err" ||
+    fail "renamed heading above: the abort did not name the generator" "${tmpdir}/enforce.err"
+
+  git -C "${repo}" checkout -q -- .gitignore
+  rm "${repo}/.gitignore"
+  enforce "${repo}/sub"
+  [[ ${enforce_rc} -eq 2 ]] ||
+    fail "tracked but absent above: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
+  grep -q 'is tracked but absent from the worktree and' "${tmpdir}/enforce.err" ||
+    fail "tracked but absent above: the abort did not name the root" "${tmpdir}/enforce.err"
+  pass
+}
+
 # The subdirectory that defines its own block is the one the abort must not
 # take: the reads below it resolve to that file, so the guard can answer, and
 # sending its operator to the root would measure a tree path:${dir} never
@@ -1003,6 +1036,7 @@ test_enforce_fails_closed_on_an_unopenable_repository
 test_enforce_splits_a_missing_gitignore_by_tracked_state
 test_enforce_fails_closed_in_a_subdirectory_of_a_block_carrying_tree
 test_enforce_scans_a_subdirectory_carrying_its_own_block
+test_enforce_fails_closed_on_drift_above_a_subdirectory
 test_enforce_skips_a_subdirectory_of_a_tree_without_the_block
 
 # Asserted, not merely reported. The invocation list above is hand-maintained,

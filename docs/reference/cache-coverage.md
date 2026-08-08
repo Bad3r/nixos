@@ -72,8 +72,8 @@ flake directory or at the worktree root, a secrets block that no longer yields
 its patterns, and a block entry reducing to no name to match. A directory it
 cannot take as given: a flake directory that will not resolve to an absolute
 path, one that is a
-subdirectory of a worktree whose root `.gitignore` carries the block while it
-defines none of its own, and
+subdirectory that defines no block of its own under a worktree root that
+carries one or has drifted from one, and
 a directory carrying a `.git` marker git will not open as a repository. Both
 exit 2, naming
 which of the two they were. A missing `git` is in that list rather than in the
