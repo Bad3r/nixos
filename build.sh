@@ -13,7 +13,11 @@ set -Eeu -o pipefail
 # Resolved against this script, not FLAKE_DIR: -p can point the build at another
 # flake, and the guard shared with scripts/cache-coverage.sh ships with the
 # script rather than with the tree being built.
-# shellcheck source-path=SCRIPTDIR source=scripts/lib/secrets-guard.sh
+# SC1091 is disabled the way scripts/cache-coverage.sh disables it: the hook
+# passes only the staged files, so staging this one without the library leaves
+# the source unfollowable. source-path still gives a run that names both files
+# the cross-file check.
+# shellcheck source-path=SCRIPTDIR source=scripts/lib/secrets-guard.sh disable=SC1091
 source "$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/lib/secrets-guard.sh"
 
 # Initialize variables with defaults
