@@ -25,12 +25,15 @@ is enabled it:
    `CAP_NET_ADMIN` and opens the WARP UDP port (2408 by default).
 2. Declares three sops secrets (`organization`, `auth_client_id`,
    `auth_client_secret`) from `secrets/cloudflare-warp.yaml`, guarded by
-   `builtins.pathExists` so a missing secret warns and runs `warp-svc`
-   un-enrolled instead of failing evaluation. The connect-on-boot unit logs an
-   UN-ENROLLED notice and remains disconnected until the secret is available.
+   `builtins.pathExists` so a missing secret warns instead of failing
+   evaluation. Without it the host installs `warp-cli` alone: an unmanaged
+   `warp-svc` would hold `CAP_NET_ADMIN` and an open UDP port while serving only
+   consumer WARP, so neither the daemon nor the connect-on-boot unit exists.
 3. Renders `/var/lib/cloudflare-warp/mdm.xml` from non-secret options plus sops
-   placeholders, and installs it (mode 0600, root) via an `ExecStartPre` right
-   before `warp-svc` starts.
+   placeholders, parses the rendered fragment with `xmllint`, and installs it
+   (mode 0600, root) via `ExecStartPre` right before `warp-svc` starts. A
+   credential carrying an XML metacharacter fails the unit instead of silently
+   degrading the daemon to unmanaged mode.
 4. Leaves `networking.firewall.checkReversePath` to the shared
    `hosts-common` `vpn-defaults` owner. Hosts using this repository's common
    baseline receive `loose` for asymmetric VPN routing, and a host firewall
@@ -38,9 +41,10 @@ is enabled it:
    owner for this setting.
 5. Adds a best-effort `cloudflare-warp-connect` oneshot that waits for the daemon
    and runs `warp-cli connect` on boot only after the current WARP registration
-   matches the managed organization. Without the secret, it logs the UN-ENROLLED
-   state and exits without connecting; a missing or mismatched runtime registration
-   is also fail-closed.
+   matches the managed organization; a missing or mismatched runtime registration
+   is fail-closed. The oneshot is bound to `warp-svc` and upheld by it, so an
+   unexpected daemon respawn (`Restart=always`) re-runs the connect logic rather
+   than leaving the host untunneled until the next rebuild.
 
 When the wrapper is disabled, it emits a tmpfiles removal rule for the
 wrapper-owned `/var/lib/cloudflare-warp/mdm.xml`. The next NixOS activation
@@ -65,11 +69,11 @@ The common baseline (`modules/hosts/common/apps-enable.nix`) defaults the app
 OFF; enrollment is a deliberate per-host opt-in. `system76` enables the wrapper
 directly. `tpnix` gates `enable` on `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`
 (currently `true` since repo-managed sops landed for tpnix in PR #305,
-`modules/tpnix/policy.nix`), like its other sops consumers, so both hosts run
-the wrapper un-enrolled and disconnected until `secrets/cloudflare-warp.yaml` is
-committed. The gate remains a kill switch: if tpnix ever loses its runtime key,
-flipping the flag back to `false` also drops the `cloudflare-warp/*` secret
-declarations that would otherwise fail activation on an un-decryptable payload.
+`modules/tpnix/policy.nix`), so both hosts ship `warp-cli` and no daemon until
+`secrets/cloudflare-warp.yaml` is committed. The gate remains a kill switch: if
+tpnix ever loses its runtime key, flipping the flag back to `false` also drops
+the `cloudflare-warp/*` secret declarations that would otherwise fail activation
+on an un-decryptable payload.
 
 ## Security model
 
