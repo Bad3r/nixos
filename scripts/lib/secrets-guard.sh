@@ -118,17 +118,24 @@ secrets_guard_paths() {
     return 1
   fi
 
-  # Every git call below fails closed. A scan that errors reads as "no ignored
-  # files" otherwise, which is the same silent pass the parser branch above
+  # --others with no exclude option is every untracked path, ignored or not,
+  # which is exactly what path: adds over the git+file fetcher: that one carries
+  # the tracked tree and nothing else. Restricting this to the ignored subset
+  # missed anything the secrets block does not name, and the block cannot name a
+  # secret whose pattern belongs to another tree, such as the decrypted SOPS
+  # output secrets/ ignores through its own .gitignore.
+  #
+  # Every git call below fails closed. A scan that errors reads as "nothing to
+  # copy" otherwise, which is the same silent pass the parser branch above
   # refuses. Output goes through a temp file rather than command substitution so
   # -z survives: substitution strips NUL, and without it a path containing a
   # newline splits into two lines that match no pattern.
   local scan
   scan="$(mktemp)"
   local file
-  if ! git -C "${dir}" ls-files --others --ignored --exclude-standard -z >"${scan}"; then
+  if ! git -C "${dir}" ls-files --others -z >"${scan}"; then
     rm -f "${scan}"
-    secrets_guard_error "Listing ignored files in ${dir} failed, so the secrets guard cannot scan it; path: copies the tree unfiltered."
+    secrets_guard_error "Listing untracked files in ${dir} failed, so the secrets guard cannot scan it; path: copies the tree unfiltered."
     return 1
   fi
   while IFS= read -r -d '' file; do
@@ -138,10 +145,10 @@ secrets_guard_paths() {
   done <"${scan}"
 
   # ls-files stops at a gitlink, but path: copies submodule working trees whole.
-  # secrets/ ignores decrypted SOPS output through its own .gitignore
-  # (**/decrypted_*, *.dec.*), which the secrets block mirrors so this pass can
+  # secrets/ keeps decrypted SOPS output out of its own history through
+  # **/decrypted_* and *.dec.*, which the secrets block mirrors so this pass can
   # classify with the same rules; without them it would have to report every
-  # ignored file it finds here, including build output and editor leftovers.
+  # untracked file it finds here, including build output and editor leftovers.
   local sub subfile submodules
   # shellcheck disable=SC2016 # git submodule foreach expands $displaypath itself
   if ! submodules="$(git -C "${dir}" submodule --quiet foreach --recursive 'printf "%s\n" "$displaypath"')"; then
@@ -151,9 +158,9 @@ secrets_guard_paths() {
   fi
   while IFS= read -r sub; do
     [[ -n ${sub} ]] || continue
-    if ! git -C "${dir}/${sub}" ls-files --others --ignored --exclude-standard -z >"${scan}"; then
+    if ! git -C "${dir}/${sub}" ls-files --others -z >"${scan}"; then
       rm -f "${scan}"
-      secrets_guard_error "Listing ignored files in submodule ${sub} failed, so the secrets guard cannot scan it; path: copies its working tree whole."
+      secrets_guard_error "Listing untracked files in submodule ${sub} failed, so the secrets guard cannot scan it; path: copies its working tree whole."
       return 1
     fi
     while IFS= read -r -d '' subfile; do
@@ -247,7 +254,7 @@ secrets_guard_enforce() {
     return 0
   fi
 
-  secrets_guard_error "Ignored files matching the .gitignore secrets block that ${copier} would copy into the world-readable store. Submodule working trees are scanned too, with the same patterns, since path: copies them whole."
+  secrets_guard_error "Untracked files matching the .gitignore secrets block that ${copier} would copy into the world-readable store, which the git+file fetcher would have left behind. Submodule working trees are scanned too, with the same patterns, since path: copies them whole."
   # Report the truncation. The next line asks for all of them to be moved, so a
   # silent cap reads as a complete list and sends the operator back into the
   # same abort with no idea how much is left.

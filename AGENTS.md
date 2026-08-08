@@ -286,7 +286,8 @@ gives the primary-checkout form.
     `./build.sh` and `scripts/cache-coverage.sh` run both sweeps and abort,
     through the guard they share in `scripts/lib/secrets-guard.sh`, on the same
     two conditions that select the `path:` ref: a linked worktree and
-    `--allow-dirty`. A primary checkout on the default path keeps the bare ref
+    `--allow-dirty`. The guard matches the block against every untracked path,
+    not the ignored subset, since `git+file` carries only the tracked tree. A primary checkout on the default path keeps the bare ref
     and copies nothing. The guard covers the ref a script evaluates, not the
     one that delivered it, so `nix run path:.#cache-coverage` is unguarded by
     construction (Lix copies while resolving the installable, before the

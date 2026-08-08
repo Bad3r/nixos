@@ -45,9 +45,11 @@ build.
 
 A `path:` ref dumps the tree unfiltered into the world-readable store rather
 than fetching it through git, so those two cases run the secrets guard in
-`scripts/lib/secrets-guard.sh` first and abort when an ignored file matching the
-`.gitignore` secrets block would be copied, in the tree or in a submodule
-working tree. Pass `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) to report
+`scripts/lib/secrets-guard.sh` first and abort when an untracked file matching
+the `.gitignore` secrets block would be copied, in the tree or in a submodule
+working tree. The whole untracked set is scanned, ignored or not, because that
+is what `path:` adds over the `git+file` fetcher, which carries only the tracked
+tree. Pass `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) to report
 anyway. A primary checkout on the default path evaluates the bare ref, so it
 copies nothing and has nothing to override.
 

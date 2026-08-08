@@ -371,7 +371,9 @@ sops.secrets."context7/api-key" = {
   `.gitignore`. `./build.sh` and `scripts/cache-coverage.sh` run both sweeps
   and abort before evaluating, through the guard they share in
   `scripts/lib/secrets-guard.sh`, on the same two conditions that select the
-  `path:` ref: a linked worktree and `--allow-dirty`. A primary checkout on the
+  `path:` ref: a linked worktree and `--allow-dirty`. That guard matches the
+  block against every untracked path rather than the ignored subset, since
+  `git+file` carries only the tracked tree and `path:` copies the rest. A primary checkout on the
   default path never makes the copy in the first place. `--allow-secret-copy`
   (`ALLOW_SECRET_COPY=1`) overrides either. The guard covers the ref a script
   evaluates, not the one that delivered it, so any `path:.` installable typed by
