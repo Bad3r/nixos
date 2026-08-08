@@ -15,6 +15,12 @@ Technical documentation for Cloudflare's developer platform services.
 | [ACME DNS-01](./acme-cloudflare-sample.md)          | Configure ACME certificates with DNS-01 |
 | [Cloudflare Tunnel](./cloudflared-tunnel-sample.md) | Configure `cloudflared` ingress locally |
 
+## Zero Trust
+
+| Topic           | Purpose                                           |
+| --------------- | ------------------------------------------------- |
+| [WARP](./warp/) | Declarative WARP / Zero Trust enrollment on NixOS |
+
 ## Planned Documentation
 
 - Workers
