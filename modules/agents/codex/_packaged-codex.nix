@@ -44,6 +44,13 @@ pkgs.runCommandLocal "${pname}-packaged-${version}"
     # codex-install-context dependency), so unlike .codex-wrapped it needs no
     # canonicalisation inside $out. Upstream codex is already in
     # environment.systemPackages fleet-wide, so this avoids duplicating 65 MiB.
+    # ln -s accepts a missing target and nix does not validate symlinks, so an
+    # upstream rename would build green and only surface as the runtime
+    # "host executable was not found" path. Assert the target instead.
+    if [ ! -x ${codexPkg}/bin/codex-code-mode-host ]; then
+      echo "codex-packaged: ${codexPkg}/bin/codex-code-mode-host is missing or not executable" >&2
+      exit 1
+    fi
     ln -s ${codexPkg}/bin/codex-code-mode-host $out/bin/codex-code-mode-host
 
     # New trampoline preserves the bubblewrap PATH prepend that upstream's
