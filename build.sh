@@ -140,32 +140,18 @@ announce_path_ref() {
       "Using path:${FLAKE_DIR} (${PATH_REF_REASON}); self.rev is unset there, so system.configurationRevision is dropped and nixos-version --json reports no revision."
     status_msg "${YELLOW}" \
       "path: also dumps the tree unfiltered, so .gitignore'd paths (.direnv/, tmp/, *.log) are copied into the store, and in a primary checkout under --allow-dirty that includes the whole .git directory. Secrets-block matches abort the build instead, in this tree and in submodule working trees alike; see --allow-secret-copy."
-  elif [[ ${CACHE_COVERAGE} == "true" ]]; then
-    # Not the branch above with a different reason string: the build keeps the
-    # bare ref here, so self.rev survives and only the coverage probe copies.
-    # cache-coverage.sh hardcodes path: with no --allow-dirty gate, so a clean
-    # primary checkout hands it .git as well.
-    status_msg "${YELLOW}" \
-      "The build keeps the bare ${FLAKE_DIR} ref, so system.configurationRevision is unaffected, but --cache-coverage runs scripts/cache-coverage.sh, which hardcodes path:${FLAKE_DIR}. That copy is unfiltered: .gitignore'd paths and the whole .git directory of a primary checkout reach the store. The same secrets-block abort applies; see --allow-secret-copy."
   fi
 }
 
 ensure_no_ignored_secrets() {
-  # scripts/cache-coverage.sh hardcodes FLAKE_REF="path:${FLAKE_DIR}" with no
-  # bare-ref branch, so --cache-coverage reaches the same unfiltered copy even
-  # where resolve_installable chose the bare form and PATH_REF_REASON is empty.
-  if [[ -z ${PATH_REF_REASON} && ${CACHE_COVERAGE} != "true" ]]; then
+  # scripts/cache-coverage.sh takes the reference resolve_installable would, so
+  # --cache-coverage no longer reaches a path: ref of its own and this gate is
+  # the only one either route needs.
+  if [[ -z ${PATH_REF_REASON} ]]; then
     return 0
   fi
-  # An empty PATH_REF_REASON here means the gate above let the run through on
-  # CACHE_COVERAGE alone, so resolve_installable returned the bare ref and
-  # naming path: would blame a reference this run never uses.
-  local copier="path:${FLAKE_DIR}"
-  if [[ -z ${PATH_REF_REASON} ]]; then
-    copier="scripts/cache-coverage.sh, which --cache-coverage runs against a hardcoded path:${FLAKE_DIR},"
-  fi
   local rc=0
-  secrets_guard_enforce "${FLAKE_DIR}" "${copier}" || rc=$?
+  secrets_guard_enforce "${FLAKE_DIR}" "path:${FLAKE_DIR}" || rc=$?
   if [[ ${rc} -eq 2 ]]; then
     printf "Refusing to build with the secrets guard inoperative.\n" >&2
     exit 1
@@ -619,11 +605,16 @@ main() {
 
   if [[ ${CACHE_COVERAGE} == "true" ]]; then
     status_msg "${YELLOW}" "Checking cache coverage for '${TARGET_HOST}' (narinfo probes, no builds)..."
-    # cache-coverage.sh runs the guard unconditionally, so the override has to
-    # travel with it. ALLOW_SECRET_COPY is not exported: the environment
-    # spelling is inherited, the flag spelling would not be, and the two
-    # documented forms of one override would abort differently here.
+    # Both flags have to travel with the invocation. Neither variable is
+    # exported: the environment spelling is inherited, the flag spelling would
+    # not be, and the two documented forms of one override would then behave
+    # differently. --allow-dirty additionally decides which reference the child
+    # resolves, so without it the report would measure a different tree than
+    # the build.
     local -a coverage_args=(--flake-dir "${FLAKE_DIR}" --host "${TARGET_HOST}")
+    if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
+      coverage_args+=(--allow-dirty)
+    fi
     if [[ ${ALLOW_SECRET_COPY} == "true" || ${ALLOW_SECRET_COPY} == "1" ]]; then
       coverage_args+=(--allow-secret-copy)
     fi

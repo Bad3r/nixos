@@ -285,8 +285,10 @@ gives the primary-checkout form.
     decrypted SOPS output that submodule ignores through its own `.gitignore`.
     `./build.sh` and `scripts/cache-coverage.sh` run both sweeps and abort,
     through the guard they share in `scripts/lib/secrets-guard.sh`, which the
-    flake app `nix run path:.#cache-coverage` is built from as well. A bare
-    `nix` command run by hand does not.
+    flake app `nix run path:.#cache-coverage` is built from as well. Both reach
+    it on the same two conditions that select the `path:` ref, a linked
+    worktree and `--allow-dirty`; a primary checkout on the default path keeps
+    the bare ref and copies nothing. A bare `nix` command run by hand does not.
 - Explore config in repl
   - Resolution: `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'` then inspect config module imports.
 

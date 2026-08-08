@@ -3,9 +3,9 @@
 #
 # The bare `.` form fetches through git, so .gitignore kept ignored files out of
 # the store. path: dumps the tree, so the secrets block stops protecting
-# anything the moment a caller switches refs. Both callers reach that copy:
-# build.sh through resolve_installable, cache-coverage.sh through a hardcoded
-# FLAKE_REF, so the scan lives here rather than in either one.
+# anything the moment a caller switches refs. Both callers reach that copy on
+# the same two conditions, a linked worktree and --allow-dirty, so the scan
+# lives here rather than in either one.
 #
 # Colours are read from the caller when it defines them, so build.sh keeps its
 # formatting and a caller without a palette gets the same text unstyled.

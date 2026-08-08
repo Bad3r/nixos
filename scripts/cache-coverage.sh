@@ -45,6 +45,7 @@ if ! declare -F secrets_guard_enforce >/dev/null 2>&1; then
 fi
 
 FLAKE_DIR=""
+ALLOW_DIRTY=${ALLOW_DIRTY:-false}
 ALLOW_SECRET_COPY=${ALLOW_SECRET_COPY:-false}
 HOSTS=()
 ALLOWLIST=""
@@ -79,10 +80,13 @@ Options:
       --max-size SIZE   Allowed total stock nar size of unexpected-local
                         entries, bytes or iec like 50M (default: 0)
   -v, --verbose         Also list every substitutable derivation
+      --allow-dirty     Evaluate path:PATH so untracked files are measured,
+                        which git+file cannot see (ALLOW_DIRTY=1). A linked
+                        worktree takes that reference either way
       --allow-secret-copy
                         Report even when ignored files matching the .gitignore
-                        secrets block would be copied into the store by the
-                        path: ref this script evaluates (ALLOW_SECRET_COPY=1)
+                        secrets block would be copied into the store by a
+                        path: ref (ALLOW_SECRET_COPY=1)
   -h, --help            Show this help
 
 Exit: 0 within thresholds, 1 over thresholds, 2 usage/environment error.
@@ -148,6 +152,10 @@ while [[ $# -gt 0 ]]; do
     VERBOSE=true
     shift
     ;;
+  --allow-dirty)
+    ALLOW_DIRTY=true
+    shift
+    ;;
   --allow-secret-copy)
     ALLOW_SECRET_COPY=true
     shift
@@ -186,24 +194,33 @@ if [[ -z ${ALLOWLIST} ]]; then
   ALLOWLIST="${FLAKE_DIR}/scripts/cache-coverage-allowlist.txt"
 fi
 
-# Linked worktrees cannot be fetched as git+file flakes (.git is a file
-# there), and path: also includes a dirty tree, which is exactly what a
-# pre-switch report should measure.
-FLAKE_REF="path:${FLAKE_DIR}"
+# The same two cases build.sh's resolve_installable takes path: for, so the
+# report measures the tree the build would build. A linked worktree cannot be
+# fetched as a git+file flake (.git is a file there), and --allow-dirty asks for
+# untracked files, which git+file does not see. Elsewhere the bare ref stays:
+# path: would dump the tree unfiltered, copying .gitignore'd paths and a primary
+# checkout's whole .git directory into the world-readable store for a report
+# that builds nothing.
+if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" || -f "${FLAKE_DIR}/.git" ]]; then
+  FLAKE_REF="path:${FLAKE_DIR}"
+else
+  FLAKE_REF="${FLAKE_DIR}"
+fi
 
-# Unconditional, unlike build.sh, which only reaches path: for some run shapes:
-# there is no bare-ref branch above, so every run of this script makes the
-# unfiltered copy. Exit 2 rather than 1, since neither outcome is a coverage
-# result.
-SECRETS_GUARD_RC=0
-secrets_guard_enforce "${FLAKE_DIR}" "${FLAKE_REF}" || SECRETS_GUARD_RC=$?
-if [[ ${SECRETS_GUARD_RC} -ne 0 ]]; then
-  if [[ ${SECRETS_GUARD_RC} -eq 2 ]]; then
-    err "refusing to evaluate with the secrets guard inoperative"
-  else
-    err "refusing to evaluate ${FLAKE_REF} with ignored files present"
+# Only the path: ref makes the copy the guard exists to catch; the bare ref
+# fetches through git, which filters the ignored set. Exit 2 rather than 1,
+# since neither outcome is a coverage result.
+if [[ ${FLAKE_REF} == path:* ]]; then
+  SECRETS_GUARD_RC=0
+  secrets_guard_enforce "${FLAKE_DIR}" "${FLAKE_REF}" || SECRETS_GUARD_RC=$?
+  if [[ ${SECRETS_GUARD_RC} -ne 0 ]]; then
+    if [[ ${SECRETS_GUARD_RC} -eq 2 ]]; then
+      err "refusing to evaluate with the secrets guard inoperative"
+    else
+      err "refusing to evaluate ${FLAKE_REF} with ignored files present"
+    fi
+    exit 2
   fi
-  exit 2
 fi
 
 TMPDIR_ROOT="$(mktemp -d -t cache-coverage.XXXXXX)"

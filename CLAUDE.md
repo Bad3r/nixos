@@ -280,8 +280,9 @@ worktree, since that is where the branch workflow above puts the work; the plain
 - Overlay or override changes that can affect binary-cache coverage:
   `scripts/cache-coverage.sh --host $HOSTNAME` (evaluation plus narinfo
   probes, no builds; see `docs/reference/cache-coverage.md`). The script
-  resolves its own `path:` ref, and runs the shared secrets guard before
-  evaluating it.
+  resolves its own reference the way `build.sh` does, so a linked worktree and
+  `--allow-dirty` get `path:` and run the shared secrets guard first, while a
+  primary checkout keeps the bare ref and copies nothing.
 - Input updates: `nix flake metadata --refresh "path:$PWD"`, then
   `nix flake update --flake "path:$PWD"`. See the worktree note above for why
   neither is `path:.`: both write `flake.lock` back. `flake.lock` is excluded
@@ -371,8 +372,11 @@ sops.secrets."context7/api-key" = {
   and abort before evaluating, through the guard they share in
   `scripts/lib/secrets-guard.sh`; that covers the flake app
   (`nix run path:.#cache-coverage`) too, since it is built from the same
-  script. `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) overrides either. A
-  bare `nix` command run by hand has no such guard.
+  script. Both reach the guard on the same two conditions that select the
+  `path:` ref, a linked worktree and `--allow-dirty`, so a primary checkout on
+  the default path never makes the copy in the first place.
+  `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) overrides either. A bare `nix`
+  command run by hand has no such guard.
 - Need to explore config:
   Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
   then inspect config module imports.

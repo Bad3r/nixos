@@ -37,12 +37,19 @@ Gate a deploy on the report:
 ./build.sh --cache-coverage
 ```
 
-Every form above evaluates a `path:` ref, which dumps the tree unfiltered into
-the world-readable store rather than fetching it through git. All three
-therefore run the secrets guard in `scripts/lib/secrets-guard.sh` first and
-abort when an ignored file matching the `.gitignore` secrets block would be
-copied, in the tree or in a submodule working tree. Pass `--allow-secret-copy`
-(`ALLOW_SECRET_COPY=1`) to report anyway.
+Every form above resolves its reference the way `build.sh` does: `path:` in a
+linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake,
+or under `--allow-dirty`, which is what makes untracked files visible at all;
+the bare ref everywhere else. That keeps the report on the tree the build would
+build.
+
+A `path:` ref dumps the tree unfiltered into the world-readable store rather
+than fetching it through git, so those two cases run the secrets guard in
+`scripts/lib/secrets-guard.sh` first and abort when an ignored file matching the
+`.gitignore` secrets block would be copied, in the tree or in a submodule
+working tree. Pass `--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) to report
+anyway. A primary checkout on the default path copies nothing and has nothing to
+override.
 
 ## Method
 
