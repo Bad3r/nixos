@@ -104,6 +104,8 @@ let
   # are silently inert in private windows. Setting the key at all also removes
   # the per-addon "Run in Private Windows" toggle from about:addons, so keep the
   # list to add-ons whose absence in a private window is itself the hazard.
+  # Both the regular-browser policy in _gecko-extensions.nix and the PWA runtime
+  # policy below derive from this list, so every id here must belong in both.
   privateBrowsingExtensionIds = [
     onePassword
     ublockOrigin
@@ -126,9 +128,7 @@ let
   # scoped to Home Manager profiles, and PWA profile ULIDs are generated at
   # runtime, so per-profile seeding is not reliable.
   firefoxpwaRuntimePolicies = {
-    ExtensionSettings = {
-      "${ublockOrigin}" = mkPrivateBrowsingPolicy ublockOrigin;
-      "${onePassword}" = mkPrivateBrowsingPolicy onePassword;
+    ExtensionSettings = lib.genAttrs privateBrowsingExtensionIds mkPrivateBrowsingPolicy // {
       "${tridactyl}" = mkNormalInstalledPolicy tridactyl;
       "${tabReloader}" = mkNormalInstalledPolicy tabReloader;
     };
