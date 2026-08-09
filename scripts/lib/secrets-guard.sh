@@ -240,14 +240,33 @@ secrets_guard_paths() {
   # **/decrypted_* and *.dec.*, which the secrets block mirrors so this pass can
   # classify with the same rules; without them it would have to report every
   # untracked file it finds here, including build output and editor leftovers.
+  #
+  # NUL delimited and through a file, for the reason the two scans are: a
+  # newline-separated command substitution splits one submodule into two names
+  # that do not exist, and unlike the file-path case that fails open. A
+  # `path = "lib\nkeys"` in .gitmodules is refused by `git submodule add` and
+  # accepted from the file, and git config hands the embedded newline straight
+  # to foreach; the halves then land on an ordinary untracked lib/ that lists
+  # clean, so no abort fires and the real working tree, which path: copies
+  # whole, is never scanned.
   local sub subfile submodules
-  # shellcheck disable=SC2016 # git submodule foreach expands $displaypath itself
-  if ! submodules="$(git -C "${dir}" submodule --quiet foreach --recursive 'printf "%s\n" "$displaypath"')"; then
+  if ! submodules="$(mktemp)"; then
+    secrets_guard_error "Creating a temporary file for the submodule list of ${dir} failed (TMPDIR=${TMPDIR:-/tmp}), so the secrets guard cannot scan submodules and the enumeration below never started. Point TMPDIR at a writable filesystem, or pass --allow-secret-copy to continue anyway."
     rm -f "${scan}"
+    return 1
+  fi
+  # shellcheck disable=SC2016 # git submodule foreach expands $displaypath itself
+  if ! git -C "${dir}" submodule --quiet foreach --recursive 'printf "%s\0" "$displaypath"' >"${submodules}"; then
+    rm -f "${scan}" "${submodules}"
     secrets_guard_error "Enumerating submodules of ${dir} failed, so the secrets guard cannot scan them; path: copies submodule working trees whole."
     return 1
   fi
-  while IFS= read -r sub; do
+  # sub_fail rather than a cleanup inside the loop, for the reason the ${scan}
+  # reads use one: the redirect below is reading the file the cleanup removes.
+  # break leaves the loop status 0, which keeps a reported failure apart from a
+  # read that stopped on its own.
+  local sub_read_rc=0 sub_fail=0
+  while IFS= read -r -d '' sub; do
     [[ -n ${sub} ]] || continue
     # The two scans are not scoped alike. ls-files above is confined to ${dir},
     # while foreach walks the whole superproject and reports what sits outside
@@ -260,9 +279,9 @@ secrets_guard_paths() {
       continue
     fi
     if ! git -C "${dir}/${sub}" ls-files --others -z >"${scan}"; then
-      rm -f "${scan}"
       secrets_guard_error "Listing untracked files in submodule ${sub} failed, so the secrets guard cannot scan it; path: copies its working tree whole."
-      return 1
+      sub_fail=1
+      break
     fi
     # The same boundary one level down: a stray repository nested in the
     # submodule's own untracked tree stops ls-files there too. foreach walks
@@ -278,8 +297,8 @@ secrets_guard_paths() {
       fi
     done <"${scan}" || read_rc=$?
     if [[ ${emit_rc} -ne 0 ]]; then
-      rm -f "${scan}"
-      return 1
+      sub_fail=1
+      break
     fi
     # No case in tests/secrets-guard/run.sh covers this one, and dropping it is
     # the single mutation the suite does not catch. Both passes read the one
@@ -288,12 +307,21 @@ secrets_guard_paths() {
     # which is the same race that put the check on the read above. It stays
     # because a per-submodule temp file would reopen the hole in silence.
     if [[ ${read_rc} -ne 0 ]]; then
-      rm -f "${scan}"
       secrets_guard_error "Reading the untracked listing of submodule ${sub} back failed, so the secrets guard classified none of what it listed there. Check the filesystem holding TMPDIR, or pass --allow-secret-copy to continue anyway."
-      return 1
+      sub_fail=1
+      break
     fi
-  done <<<"${submodules}"
-  rm -f "${scan}"
+  done <"${submodules}" || sub_read_rc=$?
+  if [[ ${sub_fail} -ne 0 ]]; then
+    rm -f "${scan}" "${submodules}"
+    return 1
+  fi
+  if [[ ${sub_read_rc} -ne 0 ]]; then
+    rm -f "${scan}" "${submodules}"
+    secrets_guard_error "Reading the submodule list of ${dir} back failed, so the secrets guard scanned none of what it enumerated. Check the filesystem holding TMPDIR, or pass --allow-secret-copy to continue anyway."
+    return 1
+  fi
+  rm -f "${scan}" "${submodules}"
   # Explicit, because the cleanup above would otherwise be this function's exit
   # status: a failed rm made a completed scan read as one that could not run,
   # and the caller threw away the hit list it had already written. Leaving a

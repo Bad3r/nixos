@@ -424,6 +424,45 @@ test_scan_covers_submodule_working_trees() {
   pass
 }
 
+# The enumeration was the one input here that was not NUL delimited, so a
+# submodule path holding a newline split into two names. `git submodule add`
+# refuses one, and a hand-written .gitmodules is accepted, after which the
+# halves land on whatever they happen to name: an ordinary untracked lib/ lists
+# clean, nothing aborts, and the working tree path: copies whole is never
+# scanned. Unlike the file-path case, that failed open.
+test_scan_round_trips_a_submodule_path_holding_a_newline() {
+  local repo source sub
+  repo="$(make_repo submodule-newline)"
+  source="${tmpdir}/submodule-newline-source"
+  init_repo "${source}"
+  printf '%s\n' 'decrypted_*' >"${source}/.gitignore"
+  printf '%s\n' 'submodule' >"${source}/README.md"
+  git -C "${source}" add .gitignore README.md
+  git -C "${source}" commit -q -m "initial submodule"
+
+  # Added under an ordinary name and relocated, since submodule add refuses the
+  # newline outright ("invalid key (newline)") while git mv rewrites .gitmodules
+  # through git config quoting, which hands the real newline back to foreach.
+  sub="$(printf 'lib\nkeys')"
+  git -C "${repo}" -c protocol.file.allow=always submodule add -q "${source}" placeholder
+  git -C "${repo}" commit -q -m "add submodule"
+  git -C "${repo}" mv placeholder "${sub}"
+  git -C "${repo}" commit -q -m "a submodule path holding a newline"
+
+  # Both halves the split lands on, as ordinary untracked directories that list
+  # clean: with either missing the old code aborted on a submodule that is not
+  # there, which is closed rather than open and hides what this covers.
+  mkdir -p "${repo}/lib" "${repo}/keys"
+  : >"${repo}/lib/notes.txt"
+  : >"${repo}/keys/notes.txt"
+  : >"${repo}/${sub}/decrypted_probe.yaml"
+
+  scan "${repo}"
+  [[ ${scan_rc} -eq 0 ]] || fail "submodule newline: scan failed with ${scan_rc}" "${tmpdir}/scan.err"
+  assert_hit "${sub}/decrypted_probe.yaml" "submodule newline"
+  pass
+}
+
 # ls-files is confined to ${dir}, foreach is not: from a subdirectory it walks
 # the whole superproject and reports what sits outside as ../<path>. Scanning
 # those can only abort on a file path:${dir} never copies, and the enforce-level
@@ -1015,6 +1054,7 @@ test_scan_reports_a_nested_repository_boundary
 test_scan_leaves_a_plain_untracked_directory_alone
 test_scan_round_trips_a_path_holding_a_newline
 test_scan_covers_submodule_working_trees
+test_scan_round_trips_a_submodule_path_holding_a_newline
 test_scan_skips_submodules_outside_the_scanned_directory
 test_scan_fails_closed_on_a_failing_mktemp
 test_scan_fails_closed_on_an_unwritable_hit_list

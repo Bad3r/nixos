@@ -66,8 +66,8 @@ required-tool loop catches `git` and `awk` first and exits 2 with
 own message here; all five reach it from `build.sh`, which has no such loop. A
 temporary file it cannot get,
 write or read back: `mktemp` failing on a read-only `TMPDIR` or a full
-filesystem, and either the untracked listing or the hit list going unreadable
-afterwards. A `git` call that fails outright rather than answering: listing
+filesystem, and any of the files it stages there, the untracked listing, the
+submodule list and the hit list, going unreadable afterwards. A `git` call that fails outright rather than answering: listing
 untracked files in the tree or in a submodule, enumerating the submodules,
 resolving the worktree root, or deciding whether `.gitignore` or
 `modules/development/gitignore.nix` is tracked. An ignore set it cannot read as
