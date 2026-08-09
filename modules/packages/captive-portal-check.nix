@@ -30,7 +30,9 @@
       checks."packages/captive-portal-runtime" =
         let
           # Answers `debug prefs` from the environment and records every state
-          # change, so a scenario can assert on what the run did to DNS.
+          # change, so a scenario can assert on what the run did to DNS. TS_SET_RC
+          # is the refusal tailscaled returns to a caller that is neither root nor
+          # its operator user, which `debug prefs` still answers for.
           tailscaleStub = pkgs.writeShellScriptBin "tailscale" ''
             if [ "$*" = "debug prefs" ]; then
               printf '{"CorpDNS":%s,"WantRunning":%s}\n' \
@@ -38,6 +40,7 @@
               exit 0
             fi
             printf 'tailscale %s\n' "$*" >>"$CP_LOG"
+            exit "''${TS_SET_RC-0}"
           '';
 
           nmcliStub = pkgs.writeShellScriptBin "nmcli" ''
@@ -372,6 +375,33 @@
               rc=$(run --restore)
               [ "$rc" -eq 0 ] || fail "--restore must succeed for a saved false (exit $rc)"
               ! restored || fail "a saved CorpDNS false must not be turned on"
+            )
+
+            # Nothing declared an operator user for tailscaled, so the release is
+            # refused. `debug prefs` answers anyway, so the run had already
+            # written a snapshot of a state it then failed to leave.
+            (
+              reset
+              rc=$(TS_SET_RC=1 run --no-open)
+              [ "$rc" -eq 4 ] || fail "a refused release must exit 4 (exit $rc)"
+              grep -q 'operator' "$work/err" ||
+                fail "a refused release must name the operator pref"
+              [ ! -e "$state" ] ||
+                fail "a release that changed nothing must not leave a snapshot to replay"
+              [ ! -s "$work/out" ] || fail "a refused release must print no URL"
+            )
+
+            # The mirror image: --restore is refused, DNS stays released, and the
+            # snapshot is the only record of what to put back.
+            (
+              reset
+              mkdir -p "$(dirname "$state")"
+              printf 'true\ttrue\n' >"$state"
+              rc=$(TS_SET_RC=1 run --restore)
+              [ "$rc" -eq 4 ] || fail "a refused restore must exit 4 (exit $rc)"
+              [ -s "$state" ] || fail "a refused restore must keep the snapshot for a retry"
+              grep -q 'captive-portal --restore' "$work/err" ||
+                fail "a refused restore must say how to retry"
             )
 
             # A docked laptop holds two links, and only one can be behind the

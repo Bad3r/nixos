@@ -18,6 +18,7 @@ device=""
 open_browser=1
 stop_tailscale=0
 dns_released=0
+prefs_snapshot_created=0
 
 state_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/captive-portal"
 state_file="$state_dir/tailscale-prefs"
@@ -70,7 +71,12 @@ Exit status:
   1  no portal: this network answers the probes normally
   2  invalid usage
   3  the probes were inconclusive; a gateway guess is printed, never opened
-  4  the network could not be inspected, or Tailscale prefs could not be read
+  4  the network could not be inspected, or Tailscale state could not be read
+     or changed
+
+Changing DNS needs write access to tailscaled, which answers only root and the
+Unix user named by its operator pref. --probe reads the access point's resolver
+directly and needs neither.
 EOF
 }
 
@@ -262,6 +268,24 @@ save_prefs() {
   tmp="$(mktemp "$state_file.XXXXXX")"
   printf '%s\n' "$prefs" >"$tmp"
   mv "$tmp" "$state_file"
+  prefs_snapshot_created=1
+}
+
+# tailscaled answers `debug prefs` for anyone but takes a state change only from
+# root and from the Unix user named by its operator pref, so reading the prefs
+# proves nothing about being allowed to change them. Every caller below acts on
+# the refusal itself rather than second-guessing that rule.
+denied() {
+  note "tailscaled refused the change: it accepts one only from root or its operator user"
+  note "run this under sudo, or set programs.tailscale.extended.operator to $(id -un)"
+}
+
+drop_dns() {
+  if [ "$stop_tailscale" -eq 1 ]; then
+    tailscale down
+  else
+    tailscale set --accept-dns=false
+  fi
 }
 
 release_dns() {
@@ -269,10 +293,15 @@ release_dns() {
     exit 4
   fi
   dns_released=1
-  if [ "$stop_tailscale" -eq 1 ]; then
-    tailscale down
-  else
-    tailscale set --accept-dns=false
+  if ! drop_dns; then
+    # Nothing was released, so the reminders must not fire and the snapshot this
+    # run took must not outlive it and be replayed as a state the host never left.
+    dns_released=0
+    denied
+    if [ "$prefs_snapshot_created" -eq 1 ]; then
+      rm -f "$state_file"
+    fi
+    exit 4
   fi
   # dnsmasq holds the tailnet upstreams and any cached SERVFAIL until NM re-applies DNS.
   nmcli general reload dns-full
@@ -294,6 +323,18 @@ show_resolvers() {
   fi
 }
 
+apply_saved_prefs() {
+  local corp_dns="$1" want_running="$2"
+  # `tailscale up` resets every pref it is not passed, so reach for it only when
+  # --down stopped a node that had been running.
+  if [ "$want_running" = "true" ] && [ "$(tailscale debug prefs | jq -r '.WantRunning')" = "false" ]; then
+    tailscale up || return 1
+  fi
+  if [ "$corp_dns" = "true" ]; then
+    tailscale set --accept-dns=true || return 1
+  fi
+}
+
 restore_dns() {
   local corp_dns=true want_running=true saved_corp="" saved_want=""
   # An unreadable or truncated state file must not abort the run and must not
@@ -302,13 +343,12 @@ restore_dns() {
     case "$saved_corp" in true | false) corp_dns="$saved_corp" ;; esac
     case "$saved_want" in true | false) want_running="$saved_want" ;; esac
   fi
-  # `tailscale up` resets every pref it is not passed, so reach for it only when
-  # --down stopped a node that had been running.
-  if [ "$want_running" = "true" ] && [ "$(tailscale debug prefs | jq -r '.WantRunning')" = "false" ]; then
-    tailscale up
-  fi
-  if [ "$corp_dns" = "true" ]; then
-    tailscale set --accept-dns=true
+  if ! apply_saved_prefs "$corp_dns" "$want_running"; then
+    denied
+    # The snapshot is what a later run replays, so a refusal keeps it: dropping
+    # it here would turn a retryable failure into a permanently released host.
+    note "DNS is still released; rerun once that is fixed: captive-portal --restore"
+    exit 4
   fi
   rm -f "$state_file"
   nmcli general reload dns-full

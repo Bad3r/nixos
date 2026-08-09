@@ -373,16 +373,32 @@ the portal URL even while Tailscale still owns DNS. Add `--down` to stop
 Tailscale entirely instead of only releasing DNS, and `--no-open` to print the
 URL rather than launch a browser.
 
+Releasing and restoring DNS writes to tailscaled, which takes a state change only
+from root and from the Unix user named by its operator pref. Reading is not
+gated the same way, so `tailscale debug prefs` answering is no evidence that
+`tailscale set` will. `programs.tailscale.extended.operator` declares that user,
+defaults to `flake.lib.meta.owner.username`, and reaches the daemon through
+`services.tailscale.extraSetFlags`, which nixpkgs replays from a root oneshot on
+every boot. Confirm it landed:
+
+```bash
+tailscale debug prefs | jq -r .OperatorUser
+```
+
+An empty answer means only root can change DNS: the helper stops with status 4
+before it changes anything rather than stranding a half-finished release, and
+`sudo` is the workaround until the next switch applies the pref.
+
 Only the portal URL goes to stdout; every diagnostic goes to stderr, and the
 exit status names the outcome, so a wrapper can act on it:
 
-| Status | Meaning                                                        |
-| ------ | -------------------------------------------------------------- |
-| 0      | a portal was found and its URL was printed                     |
-| 1      | no portal: this network answers the probes normally            |
-| 2      | invalid usage                                                  |
-| 3      | probes inconclusive; a gateway guess is printed, never opened  |
-| 4      | the network could not be inspected, or prefs could not be read |
+| Status | Meaning                                                                             |
+| ------ | ----------------------------------------------------------------------------------- |
+| 0      | a portal was found and its URL was printed                                          |
+| 1      | no portal: this network answers the probes normally                                 |
+| 2      | invalid usage                                                                       |
+| 3      | probes inconclusive; a gateway guess is printed, never opened                       |
+| 4      | the network could not be inspected, or Tailscale state could not be read or changed |
 
 Status 3 is a guess, not a detection. The address printed is the network's
 gateway, which on a network that merely blocks the probe hosts is the local
@@ -416,9 +432,12 @@ dig +short "@$resolver" A detectportal.firefox.com
 curl -sSI http://detectportal.firefox.com/success.txt | head -5
 ```
 
-The device is discovered rather than named because the two hosts name it
+The device is discovered rather than named because each host names it
 differently: `modules/tpnix/networking.nix` pins tpnix's wireless NIC to
 `wifi0`, while system76 keeps the kernel's `wlan0`.
+
+Both `tailscale set` calls need the same write access as the helper: run them as
+the operator user, or under `sudo`.
 
 A private address in the `dig` answer, or a `Location:` header pointing off
 site, is the portal. Open that URL, sign in, then run:
