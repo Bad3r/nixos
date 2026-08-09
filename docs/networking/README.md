@@ -293,3 +293,90 @@ NetworkManager or `.link` policy.
 Changing a MAC address reduces one identifier exposed to a local network. It
 does not prevent tracking through Wi-Fi network names, IP-level identifiers,
 browser fingerprints, or account activity.
+
+# Sign in to a captive portal
+
+Hotel, airport, and campus networks hold a new client in a walled garden until
+it authenticates. The sign-in page is discovered through DNS: the access point's
+resolver answers every name with an address it controls, and the first
+plain-HTTP request lands on the portal. Hosts in this repository never receive
+that answer, so the portal stays invisible.
+
+## Why the portal never appears
+
+Three modules compose into a resolver path that skips the access point:
+
+1. `modules/hosts/common/networking.nix` enables NetworkManager.
+2. `modules/hosts/common/private-dns-hosts.nix` selects `dns=dnsmasq`, so
+   NetworkManager runs dnsmasq on `127.0.0.1` and forwards to the resolver DHCP
+   supplied.
+3. `modules/apps/tailscale.nix` runs tailscaled, which by default accepts the
+   tailnet's DNS configuration.
+
+tailscaled registers its own resolvconf entry and that entry supersedes
+NetworkManager's, so `/etc/resolv.conf` carries only `100.100.100.100` and the
+dnsmasq at `127.0.0.1` is shadowed. Verify both facts:
+
+```bash
+resolvconf -l | grep -E 'resolv.conf from|nameserver'
+grep '^nameserver' /etc/resolv.conf
+```
+
+`resolvconf -l` lists NetworkManager's `nameserver 127.0.0.1`, while
+`/etc/resolv.conf` carries only the Tailscale addresses.
+
+`tailscale dns status` then shows where those queries go. With MagicDNS and
+split DNS both off, the tailnet pushes global resolvers such as `194.242.2.2`
+and `1.1.1.1`, so `100.100.100.100` forwards everything to the public internet.
+A portal drops those upstreams before authentication, so queries time out rather
+than being hijacked: nothing resolves, no redirect fires, and NetworkManager's
+connectivity check reports `limited` instead of `portal`.
+
+## Use the captive-portal helper
+
+`captive-portal` (`packages/captive-portal`, enabled from
+`modules/hosts/common/apps-enable.nix`) drives the whole sequence:
+
+```bash
+captive-portal --probe    # report portal state and URL, change nothing
+captive-portal            # release DNS, locate the portal, open it
+captive-portal --restore  # return DNS to Tailscale after signing in
+```
+
+`--probe` queries the access point's resolver directly with `dig`, so it reports
+the portal URL even while Tailscale still owns `/etc/resolv.conf`. Add `--down`
+to stop Tailscale entirely instead of only releasing DNS, and `--no-open` to
+print the URL rather than launch a browser.
+
+The helper saves `CorpDNS` and `WantRunning` under `$XDG_RUNTIME_DIR` before
+changing anything, and `--restore` replays exactly those values.
+
+## Sign in by hand
+
+```bash
+tailscale set --accept-dns=false
+nmcli general reload dns-full
+resolver=$(nmcli -t -f IP4.DNS device show wifi0 | sed 's/^IP4\.DNS\[[0-9]*\]://' | head -1)
+dig +short "@$resolver" A detectportal.firefox.com
+curl -sSI http://detectportal.firefox.com/success.txt | head -5
+```
+
+A private address in the `dig` answer, or a `Location:` header pointing off
+site, is the portal. Open that URL, sign in, then run:
+
+```bash
+tailscale set --accept-dns=true
+nmcli general reload dns-full
+```
+
+## Two portal traps specific to these hosts
+
+LibreWolf is the default browser and ships with
+`network.captive-portal-service.enabled` false, so it never raises a "Log in to
+network" bar. Open the portal URL directly, and use a private window: portals
+reject cached HSTS upgrades and stale cookies from an earlier session.
+
+Portals bind an authenticated session to a MAC address. The shared baseline sets
+`wifi.macAddress = "stable"`, which is deterministic per connection profile, so
+reconnecting keeps the session. Deleting and re-creating the profile re-keys the
+address and forces a fresh sign-in. See the MAC address policy section above.
