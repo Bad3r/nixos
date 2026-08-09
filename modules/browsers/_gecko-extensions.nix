@@ -8,8 +8,8 @@
   lib,
   pkgs,
   # Whether the host enables programs.firefoxpwa.extended. Gates the firefoxpwa
-  # management extension so it is only force-installed where the native
-  # connector and CLI also exist (see firefox.nix/librewolf.nix).
+  # management extension so it is only installed where the native connector and
+  # CLI also exist (see firefox.nix/librewolf.nix).
   firefoxpwaEnabled ? false,
   firefoxpwaPackage ? null,
 }:
@@ -18,7 +18,6 @@ let
   inherit (geckoExtensionData)
     toWidgetId
     ublockOrigin
-    ublockOriginInstallUrl
     onePassword
     cookieAutoDelete
     darkreader
@@ -35,7 +34,9 @@ let
     firefoxpwaExt
     mkFirefoxpwaInstallUrl
     policyExtensionIds
+    privateBrowsingExtensionIds
     mkNormalInstalledPolicy
+    mkPrivateBrowsingPolicy
     ;
 
   stylixEnabled = config.stylix.enable or false;
@@ -352,21 +353,18 @@ let
 
   extensionSettings =
     (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy)
-    // {
-      "${ublockOrigin}" = {
-        installation_mode = "force_installed";
-        install_url = ublockOriginInstallUrl;
-        private_browsing = true;
-      };
-      "${onePassword}".private_browsing = true;
-    }
+    # Whole-attrset override, not a nested `.private_browsing` assignment: `//`
+    # is shallow, so the nested form would drop installation_mode/install_url
+    # and leave these two add-ons uninstalled.
+    // (lib.genAttrs privateBrowsingExtensionIds mkPrivateBrowsingPolicy)
     # The firefoxpwa management extension is only useful when the host enables
     # firefoxpwa: the native connector and `firefoxpwa` CLI are gated on the same
-    # option. Force-installing it on an opt-out host would leave a non-removable
-    # add-on stuck in a "connector not installed" state.
+    # option, so an opt-out host gets no policy entry at all and cannot end up
+    # with a policy-installed add-on stuck in a "connector not installed" state.
+    # normal_installed still blocks uninstall here; it only adds Disable back.
     // lib.optionalAttrs firefoxpwaEnabled {
       "${firefoxpwaExt}" = {
-        installation_mode = "force_installed";
+        installation_mode = "normal_installed";
         install_url = mkFirefoxpwaInstallUrl (
           firefoxpwaPackage.version
             or (throw "firefoxpwaPackage.version is required when firefoxpwaEnabled is true")
