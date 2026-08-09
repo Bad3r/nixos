@@ -37,8 +37,10 @@ is from 2018.
 
 The [Cuckoo3 rewrite](https://github.com/cert-ee/cuckoo3) is the successor line
 listed in the table above. Its `main` branch last advanced on 2025-12-18, and
-the only newer commits sit on unmerged dependabot branches, so confirm both its
-activity and its production-readiness statement before treating it as a
+the only newer commits sit on unmerged dependabot branches. Its
+[README](https://github.com/cert-ee/cuckoo3/blob/main/README.md) carries the
+production-readiness statement recorded in the table above: "This is not a
+production ready solution just yet." Re-check both before treating it as a
 migration target.
 
 ## Use CAPE for a self-hosted Cuckoo-style platform
@@ -50,8 +52,9 @@ collection, PCAP, screenshots, memory dumps, automated unpacking, YARA
 classification, and malware configuration extraction.
 
 CAPE does not publish normal GitHub Release objects. Its [tags page](https://github.com/kevoreilly/CAPEv2/tags)
-reports that there are no releases. Treat the repository as a rolling
-development stream:
+reports that there are no releases, so the activity recorded in the table above
+comes from its [commit history](https://github.com/kevoreilly/CAPEv2/commits)
+instead. Treat the repository as a rolling development stream:
 
 - Review changes before updating because there is no formal upstream release
   boundary to provide that review point.
@@ -193,8 +196,10 @@ Apply these to every detonation option above, self-hosted or hosted:
 
 - Never expose production credentials, tokens, SSH agents, or mounted shares to
   an analysis environment.
-- Keep samples and results encrypted or password-protected at rest, and move
-  them only through the analysis pipeline.
+- Keep every copy of a sample or result that you hold encrypted or
+  password-protected at rest, and move it only through the analysis pipeline. On
+  a hosted service the vendor's copy is outside that control and is governed by
+  the disclosure requirement below instead.
 - Record the analysis platform version with each report so results stay
   reproducible.
 - Treat a benign verdict as unproven rather than clean. Samples fingerprint the
