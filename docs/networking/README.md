@@ -304,18 +304,30 @@ that answer, so the portal stays invisible.
 
 ## Why the portal never appears
 
-Three modules compose into a resolver path that skips the access point:
+Three modules compose into a resolver path that skips the access point, and the
+middle one applies to one host today:
 
-1. `modules/hosts/common/networking.nix` enables NetworkManager.
-2. `modules/hosts/common/private-dns-hosts.nix` selects `dns=dnsmasq`, so
-   NetworkManager runs dnsmasq on `127.0.0.1` and forwards to the resolver DHCP
-   supplied.
+1. `modules/hosts/common/networking.nix` enables NetworkManager everywhere.
+2. `modules/hosts/common/private-dns-hosts.nix` selects `dns=dnsmasq` and turns
+   `services.resolved` off, but only for hosts that declare
+   `privateDnsHostsSecretKeys` in the registry. tpnix is the only one, so tpnix
+   forwards through dnsmasq on `127.0.0.1` while system76 keeps
+   systemd-resolved and `dns=systemd-resolved`.
 3. `modules/apps/tailscale.nix` runs tailscaled, which by default accepts the
    tailnet's DNS configuration.
 
-tailscaled registers its own resolvconf entry and that entry supersedes
-NetworkManager's, so `/etc/resolv.conf` carries only `100.100.100.100` and the
-dnsmasq at `127.0.0.1` is shadowed. Verify both facts:
+Which of the two local resolvers a host runs decides what the evidence looks
+like, so establish that first:
+
+```bash
+readlink -f /etc/resolv.conf
+```
+
+A path under `/run/systemd/resolve/` is the systemd-resolved host.
+
+On the dnsmasq host, tailscaled registers its own resolvconf entry, that entry
+supersedes NetworkManager's, and `/etc/resolv.conf` ends up carrying only
+`100.100.100.100`, so the dnsmasq at `127.0.0.1` is shadowed. Verify both facts:
 
 ```bash
 resolvconf -l | grep -E 'resolv.conf from|nameserver'
@@ -324,6 +336,19 @@ grep '^nameserver' /etc/resolv.conf
 
 `resolvconf -l` lists NetworkManager's `nameserver 127.0.0.1`, while
 `/etc/resolv.conf` carries only the Tailscale addresses.
+
+On the systemd-resolved host none of that shows: `/etc/resolv.conf` is a static
+symlink to the `127.0.0.53` stub, and it reads the same before and after
+anything below changes DNS. tailscaled hands its configuration to resolved
+instead, so read it there:
+
+```bash
+resolvectl status
+resolvectl dns
+```
+
+The tailnet resolvers appear against the `tailscale0` link, together with the
+`~.` routing domain that claims every query.
 
 `tailscale dns status` then shows where those queries go. With MagicDNS and
 split DNS both off, the tailnet pushes global resolvers such as `194.242.2.2`
@@ -344,22 +369,55 @@ captive-portal --restore  # return DNS to Tailscale after signing in
 ```
 
 `--probe` queries the access point's resolver directly with `dig`, so it reports
-the portal URL even while Tailscale still owns `/etc/resolv.conf`. Add `--down`
-to stop Tailscale entirely instead of only releasing DNS, and `--no-open` to
-print the URL rather than launch a browser.
+the portal URL even while Tailscale still owns DNS. Add `--down` to stop
+Tailscale entirely instead of only releasing DNS, and `--no-open` to print the
+URL rather than launch a browser.
+
+Only the portal URL goes to stdout; every diagnostic goes to stderr, and the
+exit status names the outcome, so a wrapper can act on it:
+
+| Status | Meaning                                                         |
+| ------ | --------------------------------------------------------------- |
+| 0      | a portal was found and its URL was printed                      |
+| 1      | no portal: this network answers the probes normally             |
+| 2      | invalid usage                                                   |
+| 3      | probes inconclusive; a gateway guess is printed when one exists |
+| 4      | the network could not be inspected, or prefs could not be read  |
+
+Status 3 is a guess, not a detection. The address printed is the network's
+gateway, which on a network that merely blocks the probe hosts is the local
+router rather than a portal.
+
+```bash
+if url=$(captive-portal --probe); then
+  echo "sign in at $url"
+fi
+```
 
 The helper saves `CorpDNS` and `WantRunning` under `$XDG_RUNTIME_DIR` before
-changing anything, and `--restore` replays exactly those values.
+changing anything, and `--restore` replays exactly those values. The snapshot is
+taken once and kept until `--restore` consumes it, so retrying after a failed
+sign-in still restores the state the first run found. A run that finds nothing
+to sign in to restores DNS before it exits; only a run that found a portal
+leaves DNS released, because signing in needs it. An interrupted run cannot
+restore, so it prints the `--restore` reminder instead of leaving DNS released
+in silence.
 
 ## Sign in by hand
 
 ```bash
 tailscale set --accept-dns=false
 nmcli general reload dns-full
-resolver=$(nmcli -t -f IP4.DNS device show wifi0 | sed 's/^IP4\.DNS\[[0-9]*\]://' | head -1)
+device=$(nmcli -t -f DEVICE,TYPE,STATE device status |
+  awk -F: '$3 == "connected" && $2 == "wifi" { print $1; exit }')
+resolver=$(nmcli -t -f IP4.DNS device show "$device" | sed 's/^IP4\.DNS\[[0-9]*\]://' | head -1)
 dig +short "@$resolver" A detectportal.firefox.com
 curl -sSI http://detectportal.firefox.com/success.txt | head -5
 ```
+
+The device is discovered rather than named because the two hosts name it
+differently: `modules/tpnix/networking.nix` pins tpnix's wireless NIC to
+`wifi0`, while system76 keeps the kernel's `wlan0`.
 
 A private address in the `dig` answer, or a `Location:` header pointing off
 site, is the portal. Open that URL, sign in, then run:
