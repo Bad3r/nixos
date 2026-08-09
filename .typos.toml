@@ -42,4 +42,5 @@ extend-exclude = [
   ".lsp/**",
   "**/.lsp/**",
   "modules/apps/doom-emacs-doomdir/init.el",
+  "docs/csec/nist-glossary-export.json",
 ]
