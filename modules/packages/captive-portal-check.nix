@@ -264,6 +264,20 @@
               [ ! -e "$state" ] || fail "a completed restore must consume the snapshot"
             )
 
+            # The gateway fallback is the lowest-confidence outcome and must
+            # report itself as one: probe_portal's own inconclusive return has
+            # to reach the caller as status 3 rather than 2, which is usage.
+            (
+              reset
+              export DIG_FIREFOX="" DIG_APPLE="" DIG_GSTATIC=""
+              rc=$(run --probe)
+              [ "$rc" -eq 3 ] || fail "a gateway guess must exit 3, not the usage status (exit $rc)"
+              [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
+                fail "the gateway guess must be printed as a URL"
+              grep -q 'no portal confirmed' "$work/err" ||
+                fail "a guess must not be worded like a detection"
+            )
+
             # An on-link default route has no via, and reading the third field
             # produced http://wifi0 as the portal URL.
             (

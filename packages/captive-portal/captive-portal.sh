@@ -158,8 +158,9 @@ is_private_v4() {
 
 # A portal that hijacks DNS answers public names with an address it controls, and
 # one that intercepts HTTP replaces the probe payload or 302s away from it. Both
-# reveal the sign-in URL. Exit 0 prints the portal URL, 1 means the network came
-# back clean, 2 means every probe was inconclusive and prints a gateway guess.
+# reveal the sign-in URL. The return values are the script's own exit statuses:
+# 0 prints the portal URL, 1 means the network came back clean, 3 means every
+# probe was inconclusive and prints a gateway guess when there is one.
 probe_portal() {
   local resolver="$1" gateway="$2"
   local hosts urls expects i host url expect answer status redirect found
@@ -235,7 +236,7 @@ probe_portal() {
   if [ -n "$gateway" ]; then
     printf 'http://%s\n' "$gateway"
   fi
-  return 2
+  return 3
 }
 
 # The snapshot must survive a retry: a second login run after a failed sign-in
@@ -365,7 +366,7 @@ case "$probe_status" in
   fi
   exit 1
   ;;
-2)
+3)
   if [ -z "$portal" ]; then
     note "probes inconclusive and no gateway to fall back on"
     # Nothing was found and nothing more will be tried, so the release must not
