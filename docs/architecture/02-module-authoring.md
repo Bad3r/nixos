@@ -247,14 +247,14 @@ in
 
 ```bash
 # List module namespaces
-nix eval --accept-flake-config --json .#nixosModules --apply builtins.attrNames
-nix eval --accept-flake-config --json .#homeManagerModules.apps --apply builtins.attrNames
+nix eval --accept-flake-config --json "path:.#nixosModules" --apply builtins.attrNames
+nix eval --accept-flake-config --json "path:.#homeManagerModules.apps" --apply builtins.attrNames
 
 # Evaluate a specific host option (substitute the host name)
-nix eval .#nixosConfigurations.<host>.config.boot.loader
+nix eval "path:.#nixosConfigurations.<host>.config.boot.loader"
 
 # List the hosts available in the current checkout
-nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames
+nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames
 ```
 
 ## Next Steps

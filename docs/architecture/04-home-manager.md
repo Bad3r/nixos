@@ -156,13 +156,13 @@ Home Manager runs as a NixOS module per host (no standalone HM configuration). T
 
 ```bash
 # Evaluate a host's HM users tree
-nix eval .#nixosConfigurations.<host>.config.home-manager.users.vx.home.packages --apply builtins.length
+nix eval "path:.#nixosConfigurations.<host>.config.home-manager.users.vx.home.packages" --apply builtins.length
 
 # Build the host closure (HM activation runs on switch)
-nix build .#nixosConfigurations.<host>.config.system.build.toplevel
+nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
 
 # List the hosts available in the current checkout
-nix eval --accept-flake-config --json .#nixosConfigurations --apply builtins.attrNames
+nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames
 ```
 
 For NixOS-managed Home Manager, inspect the active generation through

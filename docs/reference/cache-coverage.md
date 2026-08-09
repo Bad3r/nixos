@@ -37,6 +37,79 @@ Gate a deploy on the report:
 ./build.sh --cache-coverage
 ```
 
+Every form above resolves its reference the way `build.sh` does: `path:` in a
+linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake,
+or under `--allow-dirty`, which is what makes untracked files visible at all;
+the bare ref everywhere else. That keeps the report on the tree the build would
+build.
+
+A `path:` ref dumps the tree unfiltered into the world-readable store rather
+than fetching it through git, so those two cases run the secrets guard in
+`scripts/lib/secrets-guard.sh` first and abort when an untracked file matching
+the `.gitignore` secrets block would be copied, in the tree or in a submodule
+working tree. The whole untracked set is scanned, ignored or not, because that
+is what `path:` adds over the `git+file` fetcher, which carries only the tracked
+tree. An untracked directory that is itself a git repository aborts on its name
+alone: `ls-files` reports that boundary and never opens it, so nothing inside
+reaches the block, while `path:` copies the directory whole. Pass
+`--allow-secret-copy` (`ALLOW_SECRET_COPY=1`) to report
+anyway. A primary checkout on the default path evaluates the bare ref, so it
+copies nothing and has nothing to override.
+
+A guard hit aborts, and so does a guard that cannot run. The second is grouped
+by cause rather than listed per branch, because the guard splits a new one out
+whenever a call turns out to answer three ways, and a per-branch list here goes
+stale on the commit that does it. A tool it cannot reach: any of `git`, `grep`,
+`awk`, `mktemp` and `rm` missing from `PATH`, though this script's own
+required-tool loop catches `git` and `awk` first and exits 2 with
+`required tool not found`, so only `grep`, `mktemp` and `rm` reach the guard's
+own message here; all five reach it from `build.sh`, which has no such loop. A
+temporary file it cannot get,
+write or read back: `mktemp` failing on a read-only `TMPDIR` or a full
+filesystem, and any of the files it stages there, the untracked listing, the
+submodule list and the hit list, going unreadable afterwards. A `git` call that fails outright rather than answering: listing
+untracked files in the tree or in a submodule, enumerating the submodules,
+resolving the worktree root, or deciding whether `.gitignore` or
+`modules/development/gitignore.nix` is tracked. An ignore set it cannot read as
+written: a `.gitignore` tracked but absent, one present and unreadable in the
+flake directory or at the worktree root, a secrets block that no longer yields
+its patterns, and a block entry reducing to no name to match. A directory it
+cannot take as given: a flake directory that will not resolve to an absolute
+path, one that is a
+subdirectory that defines no block of its own under a worktree root that
+carries one or has drifted from one, and
+a directory carrying a `.git` marker git will not open as a repository. Both
+exit 2, naming
+which of the two they were. A missing `git` is in that list rather than in the
+skip below it, because the reference is chosen without consulting git:
+`--allow-dirty` selects `path:` from the flag alone, so a tree whose ignore set
+could not be read is still copied. The unopenable `.git` is there for the same
+reason, and it is what separates the two answers `git rev-parse` gives at exit
+128: a linked worktree outliving the gitdir its `.git` file names still selects
+`path:` off that file, so reading it as a foreign directory would skip the scan
+on the one reference that makes the copy. Dubious ownership arrives the same way
+on a tree git reads perfectly well, which is why the abort offers
+`safe.directory` beside repairing the repository. Everything else the guard has
+to say is a stderr notice that
+aborts nothing: a
+`path:` reference copies every untracked path whatever its ignore status, and in
+a primary checkout under `--allow-dirty` the whole `.git` directory with it. The
+notice names which of the two conditions selected the reference, since one is
+asked for and the other comes with the worktree. `build.sh` says the same
+through `announce_path_ref`, off the same predicate in
+`scripts/lib/flake-ref.sh`: a report that resolved a different reference than
+the build would measure a different tree.
+
+The guard covers the reference this script evaluates, not the one that delivered
+the script. `nix run path:.#cache-coverage` is therefore unguarded by
+construction: Lix copies the tree unfiltered while resolving that installable,
+before the wrapper's first statement, and in a primary checkout the script then
+keeps the bare ref and does not scan at all. Reproduced with a probe `.env` in a
+worktree whose `git status --short` was empty: `nix flake metadata path:.`
+reports a store source containing it at `-r--r--r-- root root`. Reach for
+`scripts/cache-coverage.sh` from the checkout, or `./build.sh --cache-coverage`,
+whenever the sweeps above report anything.
+
 ## Method
 
 1. The host toplevel derivation is instantiated

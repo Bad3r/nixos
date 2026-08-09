@@ -20,6 +20,25 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   a silent alias for `json`. `tests/pr-comments-mgmt/run.sh` fails on a value
   that has no arm, and covers help rendering and argument parsing.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
+- `lib/`: sourced by `build.sh` and `cache-coverage.sh`, never executed. These
+  carry no shebang and define functions only, because
+  `modules/packages/cache-coverage.nix` prepends their text to the wrapper it
+  builds, where no sibling file exists to source; a new one needs a `readFile`
+  line there as well as a source line in each script. `secrets-guard.sh` decides
+  whether a `path:` reference may copy the tree, and `flake-ref.sh` decides
+  whether a tree gets that reference at all, so the second gates the first and
+  they stay apart. Each has its own suite, `tests/secrets-guard/run.sh` and
+  `tests/flake-ref/run.sh`, both sourcing the subject rather than running it: a
+  gate that stops selecting `path:` disables the scan behind it silently, so
+  neither stands in for the other. The wrapper's `runtimeInputs` are
+  covered separately, under a scrubbed `PATH`, by the
+  `script-tests-cache-coverage-wrapper-inputs` check, since no suite exercises
+  them. Both suites write their own copy of the `.gitignore` secrets block, so
+  the ten patterns `secrets_guard_paths` requires are pinned to
+  `modules/development/gitignore.nix` by a third check,
+  `script-tests-secrets-guard-gitignore-contract`, which runs that parser over
+  the committed file: a generator edit that drops one otherwise leaves every
+  gate green and takes the guard down on the next real run.
 - `updater/`: shared Python library for package updater scripts. Reuse these
   helpers instead of duplicating HTTP, hash, Nix, npm, or version parsing logic.
   Nix invocations must use spellings Lix implements: `nix hash to-sri`, not the
@@ -70,7 +89,7 @@ Validate the exact entrypoint changed before broader hooks:
 - `shellcheck scripts/<file>.sh`
 - `uv run ruff check scripts/<file>.py scripts/updater`
 - `uv run pyright scripts/<file>.py`
-- `nix develop -c pre-commit run --files scripts/<file>`
+- `nix develop path:. -c pre-commit run --files scripts/<file>`
 
 For argument parsing changes, also run the script's `--help` path and one
 failure path that should report a useful error.
