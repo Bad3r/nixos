@@ -25,7 +25,7 @@ commercial terms, and API limits.
 | Assemblyline 4                       | Triage and orchestration               | Stable 4.7.4.stable6 and active 4.7.5 development line                                                | SOC-scale file triage around analysis services   |
 | PANDA                                | Whole-system research                  | Active QEMU record/replay and plugin platform                                                         | Custom instrumentation and replay research       |
 | ANY.RUN                              | Hosted interactive sandbox             | Active commercial SaaS with free public-oriented and paid private plans                               | Fast analyst-driven investigation                |
-| Joe Sandbox Cloud                    | Hosted deep-analysis service           | Active commercial SaaS, with Cloud v44.0.0 documented in 2026                                         | Managed cross-platform analysis and rich reports |
+| Joe Sandbox Cloud                    | Hosted deep-analysis service           | Active commercial SaaS; Cloud upgraded to v44 Smoke Quartz in 2026-01                                 | Managed cross-platform analysis and rich reports |
 | Sandboxie-Plus, bubblewrap, Firejail | Local application or process isolation | Active projects, but not malware detonation platforms                                                 | Additional local containment                     |
 
 ## Retire the original Cuckoo from new deployments
@@ -58,8 +58,8 @@ development stream:
 - Review changes before updating because there is no formal upstream release
   boundary to provide that review point.
 
-The guest, network, and versioning controls that CAPE shares with every other
-option are listed under [Apply containment requirements to every option](#apply-containment-requirements-to-every-option).
+The guest, network, and versioning controls that CAPE shares with the other
+self-hosted options are listed under [Apply containment requirements to every option](#apply-containment-requirements-to-every-option).
 
 The [CAPE installation documentation](https://capev2.readthedocs.io/en/latest/)
 uses a Linux host with KVM and Windows analysis guests as its reference model.
@@ -93,7 +93,11 @@ volumes.
 Assemblyline's [deployment documentation](https://cybercentrecanada.github.io/assemblyline4_docs/installation/deployment/)
 treats Cuckoo and CAPE as external sandbox infrastructure. The practical
 architecture is therefore Assemblyline for intake and triage, with CAPE or
-another detonation backend for dynamic execution.
+another detonation backend for dynamic execution. The version line recorded in
+the table above comes from the
+[Assemblyline release index](https://github.com/CybercentreCanada/assemblyline/releases),
+where the `stable` tags carry the supported line and the `dev` tags carry the
+development line.
 
 ## Use PANDA for research instrumentation
 
@@ -142,7 +146,11 @@ and Linux. Its current feature set includes live interaction, hypervisor-based
 inspection, execution graphs, network analysis, behavior and YARA signatures,
 configuration extraction, PCAP, screenshots, memory dumps, ATT&CK context, and
 structured report exports. See the [Joe Sandbox technology overview](https://www.joesecurity.org/index.php/joe-sandbox-technology)
-and the [Cloud product page](https://joesecurity.org/joe-sandbox-cloud).
+and the [Cloud product page](https://joesecurity.org/joe-sandbox-cloud). The
+release line recorded in the table above is
+[Joe Sandbox v44 Smoke Quartz](https://www.joesecurity.org/blog/4986670706879863609),
+published 2026-01-19, which states that the Cloud Basic, Pro, and OEM servers
+were upgraded to it.
 
 The free [Cloud Basic](https://www.joesecurity.org/joe-sandbox-cloud#subscriptions)
 tier is intended for evaluation, has limited analysis capacity and output, and
@@ -176,47 +184,55 @@ malware-detonation environment:
 > destruction, and credential theft.
 
 These requirements are prerequisites for detonating live samples, not follow-up
-work. Apply them to every detonation option above, self-hosted or hosted. The
-local isolation tools in the previous section are out of scope because they are
-not detonation platforms:
+work. The local isolation tools in the previous section are out of scope because
+they are not detonation platforms.
+
+Apply these to every detonation option above, self-hosted or hosted:
+
+- Never expose production credentials, tokens, SSH agents, or mounted shares to
+  an analysis environment.
+- Keep samples and results encrypted or password-protected at rest, and move
+  them only through the analysis pipeline.
+- Record the analysis platform version with each report so results stay
+  reproducible.
+- Confirm task visibility before uploading to a hosted service. The ANY.RUN and
+  Joe Sandbox sections above record which tiers expose samples and results.
+
+Apply these to the self-hosted options as well. On a hosted service the
+hypervisor, guest, and network belong to the vendor, so these are contract and
+vendor-review questions rather than controls you configure:
 
 - Place detonation hosts on a dedicated network segment with no route to
   production, management, or backup networks.
 - Default-deny guest egress. Provide internet access only through a simulated
   or brokered path that is logged and rate-limited.
-- Never domain-join an analysis guest, and never expose production credentials,
-  tokens, SSH agents, or mounted shares to it.
+- Never domain-join an analysis guest.
 - Disable shared folders, clipboard sharing, and drag-and-drop between guest and
   host.
 - Restrict hypervisor console and orchestration API access to the analysis
   team, separately from the analyst path used to read results.
 - Pin a reviewed commit or release and version the host software, guest image,
-  monitor, and analysis policy as one tested unit. Record that version with each
-  report so results stay reproducible.
+  monitor, and analysis policy as one tested unit.
 - Reset every guest to a known-good snapshot after each analysis, and treat the
   guest disk as tainted until the revert completes.
-- Keep samples and results encrypted or password-protected at rest, and move
-  them only through the analysis pipeline.
-- Confirm task visibility before uploading to a hosted service. The ANY.RUN and
-  Joe Sandbox sections above record which tiers expose samples and results.
 
 ## Choose a deployment path
 
 Meet the containment requirements above before detonating a live sample on any
 of these paths.
 
-1. Use CAPE with KVM and disposable Windows guests for a self-hosted Cuckoo-style
-   analysis service.
-2. Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
-   scoring, enrichment, and analyst queue management.
-3. Use DRAKVUF when agentless virtual-machine introspection is more important
-   than deployment simplicity.
-4. Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
-   and rapid onboarding outweigh self-hosting and data-residency requirements.
-5. Use PANDA when deterministic replay or custom whole-system instrumentation is
-   the primary research requirement.
-6. Use bubblewrap, Firejail, or Sandboxie-Plus only as an additional isolation
-   layer for local tools and applications.
+- Use CAPE with KVM and disposable Windows guests for a self-hosted Cuckoo-style
+  analysis service.
+- Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
+  scoring, enrichment, and analyst queue management.
+- Use DRAKVUF when agentless virtual-machine introspection is more important
+  than deployment simplicity.
+- Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
+  and rapid onboarding outweigh self-hosting and data-residency requirements.
+- Use PANDA when deterministic replay or custom whole-system instrumentation is
+  the primary research requirement.
+- Use bubblewrap, Firejail, or Sandboxie-Plus only as an additional isolation
+  layer for local tools and applications.
 
 ## References
 
