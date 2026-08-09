@@ -99,10 +99,11 @@
           }
         ];
 
-        # tpnix intentionally runs the TPACPI fan at full speed.
+        # Delegate fan control to the ThinkPad firmware.
         levels = [
           [
-            "level full-speed"
+            "level auto"
+            #  "level full-speed" # foce full speed
             0
             32767
           ]
