@@ -44,6 +44,12 @@ in
       # Keep Arabic out of automatic translation prompts.
       "browser.translations.neverTranslateLanguages" = "ar";
 
+      # Home Manager drops `extensions.packages` XPIs straight into
+      # <profile>/extensions, which XPIDatabase treats as a foreignInstall at
+      # SCOPE_PROFILE; the default 15 masks that scope and would install them
+      # disabled with no diagnostic. Policy-installed add-ons never take that
+      # path and are unaffected either way.
+      "extensions.autoDisableScopes" = 0;
       "extensions.pictureinpicture.enable_picture_in_picture_overrides" = true;
       "extensions.webcompat.perform_injections" = true;
 
