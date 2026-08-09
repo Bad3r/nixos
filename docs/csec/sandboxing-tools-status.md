@@ -196,9 +196,8 @@ they are not detonation platforms.
 
 Apply these to every detonation option above, self-hosted or hosted:
 
-- Never expose production credentials, tokens, SSH agents, or mounted shares to
-  an analysis guest. The detonation host itself carries only the append-only
-  collector credential and the read-only gold-image mount required below.
+- Never expose credentials, tokens, SSH agents, or mounted shares belonging to
+  any system outside the analysis environment to an analysis guest.
 - Keep every copy of a sample or result that you hold encrypted or
   password-protected at rest, and move it only through the analysis pipeline.
   Store samples in a password-protected archive or under a defanged extension so
@@ -229,8 +228,9 @@ vendor-review questions rather than controls you configure:
   production or backup networks. Give the guests no route off that segment
   except the brokered egress path below, and isolate them from each other and
   from every host interface on that segment except the analysis framework's own
-  control and result channel, so a self-propagating sample cannot reach a
-  concurrent analysis or any other service on the hypervisor. Reach the host's
+  control and result channel and the egress broker's segment-side interface, so
+  a self-propagating sample cannot reach a concurrent analysis or any other
+  service on the hypervisor. Reach the host's
   own management interface only through a separate restricted administrative
   path.
 - Expose submission and result interfaces to analysts, and to an orchestrator
@@ -242,7 +242,15 @@ vendor-review questions rather than controls you configure:
   or brokered path that is logged and rate-limited. Run that broker on the
   segment boundary rather than on the detonation host, which carries no other
   workload, so the guests reach it as the one permitted route off the segment
-  and not through a host interface.
+  and not through a detonation-host interface. Hold the broker host to the same
+  requirements as the detonation host, dedicated, patched as a security
+  boundary, logs shipped off-host under append-only credentials, and rebuilt
+  from known-good media when an escape is suspected, because it is the only
+  self-hosted component every sample is permitted to reach.
+- Keep production credentials, tokens, SSH agents, and mounted shares off the
+  detonation and broker hosts. Both carry only what their own analysis role
+  needs, such as the framework's own service credentials, the append-only
+  collector credential, and the read-only gold-image mount.
 - Never domain-join an analysis guest.
 - Disable shared folders, clipboard sharing, and drag-and-drop between guest and
   host.
@@ -260,13 +268,13 @@ vendor-review questions rather than controls you configure:
   snapshot revert does not restore a host the sample reached.
 - Ship hypervisor and host logs off the detonation host, and egress-broker logs
   off whichever host runs the broker, as they are written, and review them for
-  host-level compromise. A sample that reaches
-  the host can edit any log it can still write to, so nothing held on the host
-  can raise the suspicion the rebuild above depends on. Carry that shipping on
-  the restricted administrative path rather than the detonation segment, give
-  the host append-only credentials to the collector, and allow the host no
-  access to the collector beyond appending, so it cannot rewrite or delete what
-  it already sent.
+  host-level compromise. A sample that reaches either host can edit any log it
+  can still write to, so nothing held on that host can raise the suspicion the
+  rebuild above depends on. Carry that shipping on the restricted administrative
+  path rather than the detonation segment, give each shipping host its own
+  append-only credentials to the collector, and allow neither host any access to
+  the collector beyond appending, so it cannot rewrite or delete what it already
+  sent.
 - Keep the gold images that those reverts and rebuilds restore from outside the
   detonation host's write path, serve them read-only to the host over the
   restricted administrative path rather than the detonation segment, and verify
