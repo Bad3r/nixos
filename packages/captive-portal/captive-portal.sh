@@ -22,6 +22,7 @@ state_file="$state_dir/tailscale-prefs"
 
 body_file=""
 
+# shellcheck disable=SC2329  # invoked through the traps below
 cleanup() {
   if [ -n "$body_file" ]; then
     rm -f "$body_file"
@@ -32,11 +33,13 @@ trap cleanup EXIT
 # Probing three canaries takes up to ~24s, so a Ctrl-C inside that window is
 # likely. Bash's default disposition would drop the user back to the shell with
 # Tailscale DNS still off and nothing on screen saying so.
+# shellcheck disable=SC2329  # invoked through the INT and TERM traps below
 on_signal() {
   trap - INT TERM
   cleanup
   if [ "$dns_released" -eq 1 ]; then
-    printf '\ncaptive-portal: interrupted with DNS still released; run: captive-portal --restore\n' >&2
+    printf '\n' >&2
+    note "interrupted with DNS still released; run: captive-portal --restore"
   fi
   kill -s "$1" "$$"
 }
@@ -57,17 +60,34 @@ Options:
   --device DEV  Device to inspect (default: first connected wifi/ethernet).
   --no-open     Print the portal URL instead of launching a browser.
   --down        Stop Tailscale entirely rather than only releasing DNS.
+
+Only the portal URL goes to stdout; everything else is written to stderr.
+
+Exit status:
+  0  a portal was found and its URL was printed
+  1  no portal: this network answers the probes normally
+  2  invalid usage
+  3  the probes were inconclusive; a gateway guess is printed when one exists
+  4  the network could not be inspected, or Tailscale prefs could not be read
 EOF
+}
+
+note() {
+  printf 'captive-portal: %s\n' "$*" >&2
 }
 
 while [ "$#" -gt 0 ]; do
   case "$1" in
   --device)
     device="${2:-}"
-    [ -n "$device" ] || {
-      echo "captive-portal: --device needs a value" >&2
+    # `--device --probe` used to consume the flag as a device name and then run
+    # in login mode, releasing real DNS for a request that asked to change none.
+    case "$device" in
+    "" | -*)
+      echo "captive-portal: --device needs a device name, got '${device:-}'" >&2
       exit 2
-    }
+      ;;
+    esac
     shift 2
     ;;
   --probe)
@@ -231,7 +251,7 @@ save_prefs() {
   if ! prefs="$(tailscale debug prefs |
     jq -er '[.CorpDNS, .WantRunning] |
       if all(type == "boolean") then @tsv else error("CorpDNS/WantRunning missing") end')"; then
-    echo "captive-portal: cannot read Tailscale prefs; leaving DNS untouched" >&2
+    note "cannot read Tailscale prefs; leaving DNS untouched"
     return 1
   fi
   # Write through a temporary so a failed read never leaves a truncated file
@@ -242,7 +262,9 @@ save_prefs() {
 }
 
 release_dns() {
-  save_prefs
+  if ! save_prefs; then
+    exit 4
+  fi
   dns_released=1
   if [ "$stop_tailscale" -eq 1 ]; then
     tailscale down
@@ -260,12 +282,12 @@ show_resolvers() {
   local lines
   lines="$(grep '^nameserver' /etc/resolv.conf || true)"
   if [ -z "$lines" ]; then
-    echo "captive-portal: /etc/resolv.conf carries no nameserver line" >&2
+    note "/etc/resolv.conf carries no nameserver line"
     return 0
   fi
   printf '%s\n' "$lines" >&2
   if ! printf '%s\n' "$lines" | grep -qvE '^nameserver[[:space:]]+127\.'; then
-    echo "captive-portal: that is a local stub; its upstream is the active connection's DNS" >&2
+    note "that is a local stub; its upstream is the active connection's DNS"
   fi
 }
 
@@ -288,7 +310,7 @@ restore_dns() {
   rm -f "$state_file"
   nmcli general reload dns-full
   dns_released=0
-  echo "captive-portal: DNS returned to Tailscale"
+  note "DNS returned to Tailscale"
   show_resolvers
 }
 
@@ -303,29 +325,29 @@ if [ -z "$device" ]; then
   device="$(printf '%s\n' "$candidates" | head -1 | cut -d: -f2)"
 fi
 if [ -z "$device" ]; then
-  echo "captive-portal: no connected wifi or ethernet device" >&2
-  exit 1
+  note "no connected wifi or ethernet device"
+  exit 4
 fi
 
 # Only one of several connected devices can be behind the portal, and nothing
 # here can tell which, so name the ones that were passed over.
 others="$(printf '%s\n' "$candidates" | tail -n +2 | cut -d: -f2 | paste -sd' ' - || true)"
 if [ -n "$others" ]; then
-  echo "captive-portal: also connected: $others; pass --device to inspect one of those" >&2
+  note "also connected: $others; pass --device to inspect one of those"
 fi
 
 resolver="$(device_dns "$device" | head -1)"
 gateway="$(device_gateway "$device")"
 if [ -z "$resolver" ]; then
-  echo "captive-portal: $device has no DHCP-provided resolver; is the lease up?" >&2
-  exit 1
+  note "$device has no DHCP-provided resolver; is the lease up?"
+  exit 4
 fi
 
-echo "captive-portal: device $device, access-point resolver $resolver, gateway ${gateway:-unknown}"
+note "device $device, access-point resolver $resolver, gateway ${gateway:-unknown}"
 
 if [ "$mode" = login ]; then
   release_dns
-  echo "captive-portal: system resolvers now:"
+  note "system resolvers now:"
   show_resolvers
 fi
 
@@ -333,27 +355,40 @@ portal=""
 probe_status=0
 portal="$(probe_portal "$resolver" "$gateway")" || probe_status=$?
 
+# Every exit from here on is one of the documented statuses, and each one that
+# leaves login mode has to decide what happens to the DNS release.
 case "$probe_status" in
 1)
-  echo "captive-portal: no portal detected; this network answers probes normally"
+  note "no portal detected; this network answers probes normally"
   if [ "$mode" = login ]; then
     restore_dns
   fi
-  exit 0
+  exit 1
   ;;
 2)
   if [ -z "$portal" ]; then
-    echo "captive-portal: probes inconclusive and no gateway to fall back on" >&2
-    exit 1
+    note "probes inconclusive and no gateway to fall back on"
+    # Nothing was found and nothing more will be tried, so the release must not
+    # outlive the run the way it did when this path exited on the spot.
+    if [ "$mode" = login ]; then
+      restore_dns
+    fi
+    exit 3
   fi
-  echo "captive-portal: probes inconclusive; falling back to the gateway"
+  # This is the gateway, not a portal anything confirmed: on a network that
+  # merely blocks the canaries it is the user's own router. Say so rather than
+  # reusing the wording of a detection.
+  note "probes inconclusive; no portal confirmed. Trying this network's gateway, which may just be your router:"
   ;;
 esac
 
-echo "captive-portal: portal at $portal"
+if [ "$probe_status" -eq 0 ]; then
+  note "portal at $portal"
+fi
+printf '%s\n' "$portal"
 
 if [ "$mode" = probe ]; then
-  exit 0
+  exit "$probe_status"
 fi
 
 if [ "$open_browser" -eq 1 ]; then
@@ -362,7 +397,7 @@ if [ "$open_browser" -eq 1 ]; then
   xdg-open "$portal" >/dev/null 2>&1 &
 fi
 
-cat <<EOF
+cat >&2 <<EOF
 
 Sign in at the page above, then run:
 
@@ -371,3 +406,5 @@ Sign in at the page above, then run:
 If the page does not load, open it in a private window: portals reject cached
 HSTS upgrades and stale cookies from an earlier session.
 EOF
+
+exit "$probe_status"
