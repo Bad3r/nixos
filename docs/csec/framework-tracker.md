@@ -81,3 +81,4 @@ section rather than adding rows here, because statement ID forms such as `K`,
 - [NICE Framework: Current Versions](https://www.nist.gov/itl/applied-cybersecurity/nice/nice-framework-resource-center/nice-framework-current-versions)
 - [Getting Started with the NICE Framework](https://www.nist.gov/itl/applied-cybersecurity/nice/nice-framework-resource-center/getting-started)
 - [NIST SP 800-181 Rev. 1: Workforce Framework for Cybersecurity](https://csrc.nist.gov/pubs/sp/800/181/r1/final)
+- [NICE Framework Components v2.2.0 element data (JSON)](https://csrc.nist.gov/csrc/media/Projects/cprt/documents/nice/v2-2-0_nf_components.json)

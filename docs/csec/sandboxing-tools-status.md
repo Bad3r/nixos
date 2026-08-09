@@ -247,7 +247,11 @@ vendor-review questions rather than controls you configure:
 - Ship hypervisor, host, and egress-broker logs off the detonation host as they
   are written, and review them for host-level compromise. A sample that reaches
   the host can edit any log it can still write to, so nothing held on the host
-  can raise the suspicion the rebuild above depends on.
+  can raise the suspicion the rebuild above depends on. Give the host
+  append-only credentials to the collector and place the collector where the
+  detonation host cannot reach it to rewrite or delete what it already sent,
+  otherwise shipping moves the logs without moving them out of the sample's
+  reach.
 - Keep the gold images and snapshots that those reverts and rebuilds depend on
   outside the detonation host's write path, and verify them by hash before use.
   A sample that reaches the host can otherwise poison the baseline it is
@@ -261,7 +265,11 @@ of these paths.
 - Use CAPE with KVM and disposable Windows guests for a self-hosted Cuckoo-style
   analysis service.
 - Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
-  scoring, enrichment, and analyst queue management.
+  scoring, enrichment, and analyst queue management. Run it off the detonation
+  host, which is dedicated to analysis, and treat it as the only component that
+  crosses the isolation boundary: it submits into the detonation segment and
+  serves analysts outside it, so allow no inbound path from the guests or the
+  detonation host back to it.
 - Use DRAKVUF when agentless virtual-machine introspection is more important
   than deployment simplicity.
 - Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,

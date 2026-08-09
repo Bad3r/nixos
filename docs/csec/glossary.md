@@ -124,7 +124,7 @@ static, behavioral, and provenance evidence.
 
 ### References
 
-- [NIST SP 800-168, Approximate Matching: Definition and Terminology](https://csrc.nist.gov/files/pubs/sp/800/168/final/docs/sp800_168_draft.pdf)
+- [NIST SP 800-168, Approximate Matching: Definition and Terminology](https://csrc.nist.gov/pubs/sp/800/168/final)
 - [Carnegie Mellon Software Engineering Institute: Fuzzy Hashing Techniques in Applied Malware Analysis](https://insights.sei.cmu.edu/blog/fuzzy-hashing-techniques-in-applied-malware-analysis/)
 
 ## Linked data
