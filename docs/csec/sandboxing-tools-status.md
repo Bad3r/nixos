@@ -35,6 +35,8 @@ archived by its owner on 2021-04-26 and is read-only. Its README states that
 the Cuckoo 2.x line is unmaintained, and the [2.0.6 release](https://github.com/cuckoosandbox/cuckoo/releases/tag/2.0.6)
 is from 2018.
 
+## Treat Cuckoo3 as evaluation-only
+
 The [Cuckoo3 rewrite](https://github.com/cert-ee/cuckoo3) is the successor line
 listed in the table above. Its `main` branch last advanced on 2025-12-18, and
 the only newer commits sit on unmerged dependabot branches. Its
@@ -99,8 +101,8 @@ architecture is therefore Assemblyline for intake and triage, with CAPE or
 another detonation backend for dynamic execution. The version line recorded in
 the table above comes from the
 [Assemblyline release index](https://github.com/CybercentreCanada/assemblyline/releases),
-where the `stable` tags carry the supported line and the `dev` tags carry the
-development line.
+where `v4.7.4.stable6` was published on 2026-07-16 as the latest `stable` tag
+and the `dev` tags carry the development line.
 
 ## Use PANDA for research instrumentation
 
@@ -242,6 +244,10 @@ vendor-review questions rather than controls you configure:
   patch it as a security boundary rather than on a general server schedule.
 - Rebuild the host from known-good media when an escape is suspected. A guest
   snapshot revert does not restore a host the sample reached.
+- Ship hypervisor, host, and egress-broker logs off the detonation host as they
+  are written, and review them for host-level compromise. A sample that reaches
+  the host can edit any log it can still write to, so nothing held on the host
+  can raise the suspicion the rebuild above depends on.
 - Keep the gold images and snapshots that those reverts and rebuilds depend on
   outside the detonation host's write path, and verify them by hash before use.
   A sample that reaches the host can otherwise poison the baseline it is
