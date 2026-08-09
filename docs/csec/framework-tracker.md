@@ -23,6 +23,10 @@ reproducible when a framework changes.
 
 ## Tracking fields
 
+These values apply to the `Status` column of the element tables below. The
+`Review status` column in the framework inventory is separate and records
+whether that framework version is still current.
+
 - `Not started`: no evidence or mapping has been recorded.
 - `In progress`: evidence collection, practice, or mapping is underway.
 - `Demonstrated`: evidence is linked and the element has been reviewed.

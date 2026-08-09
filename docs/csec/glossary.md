@@ -3,7 +3,8 @@
 This glossary defines acronyms and concepts used in the repository's
 cybersecurity and software engineering documentation. Keep entries in
 alphabetical order by term and use the same fields for each entry: definition,
-example, security note, and references.
+example, security note, and references. Add every new entry to the `Contents`
+list below, which is maintained by hand.
 
 ## Contents
 
