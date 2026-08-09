@@ -359,8 +359,9 @@ let
     // (lib.genAttrs privateBrowsingExtensionIds mkPrivateBrowsingPolicy)
     # The firefoxpwa management extension is only useful when the host enables
     # firefoxpwa: the native connector and `firefoxpwa` CLI are gated on the same
-    # option. Keep it user-disableable so an opt-out host cannot leave a mandatory
-    # add-on stuck in a "connector not installed" state.
+    # option, so an opt-out host gets no policy entry at all and cannot end up
+    # with a policy-installed add-on stuck in a "connector not installed" state.
+    # normal_installed still blocks uninstall here; it only adds Disable back.
     // lib.optionalAttrs firefoxpwaEnabled {
       "${firefoxpwaExt}" = {
         installation_mode = "normal_installed";
