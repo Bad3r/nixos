@@ -1,13 +1,15 @@
 # shellcheck shell=bash
 # Reach a captive portal from a host that resolves through Tailscale.
 #
-# With --accept-dns=true tailscaled registers a resolvconf entry that supersedes
-# NetworkManager's, so the dnsmasq at 127.0.0.1 is shadowed and every query goes
-# to the tailnet's global resolvers. A portal drops those upstreams
+# With --accept-dns=true tailscaled takes resolution away from whichever local
+# resolver the host runs: it registers a resolvconf entry that supersedes
+# NetworkManager's dnsmasq at 127.0.0.1, or hands its configuration to
+# systemd-resolved where that owns /etc/resolv.conf instead. Either way every
+# query goes to the tailnet's global resolvers. A portal drops those upstreams
 # until you authenticate and answers only on its own DHCP-advertised resolver, so
 # the DNS hijack that produces the sign-in page never runs and nothing surfaces
-# the portal. This releases DNS back to dnsmasq, finds the portal through the
-# access point's own resolver, and opens it.
+# the portal. This releases DNS back to the local resolver, finds the portal
+# through the access point's own resolver, and opens it.
 
 set -euo pipefail
 
