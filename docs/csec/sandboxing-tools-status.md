@@ -149,7 +149,7 @@ analysis, phishing and email workflows, or commercial integrations matter more
 than owning the sandbox infrastructure. It remains a hosted commercial
 alternative, not an open-source replacement for CAPE or DRAKVUF.
 
-## local isolation tools
+## Add local isolation as a supplementary layer
 
 These projects are useful as additional containment layers for ordinary
 applications and local analysis helpers, but they do not provide a full
