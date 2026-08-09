@@ -15,9 +15,23 @@ mode=login
 device=""
 open_browser=1
 stop_tailscale=0
+dns_released=0
 
 state_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/captive-portal"
 state_file="$state_dir/tailscale-prefs"
+
+# Probing three canaries takes up to ~24s, so a Ctrl-C inside that window is
+# likely. Bash's default disposition would drop the user back to the shell with
+# Tailscale DNS still off and nothing on screen saying so.
+on_signal() {
+  trap - INT TERM
+  if [ "$dns_released" -eq 1 ]; then
+    printf '\ncaptive-portal: interrupted with DNS still released; run: captive-portal --restore\n' >&2
+  fi
+  kill -s "$1" "$$"
+}
+trap 'on_signal INT' INT
+trap 'on_signal TERM' TERM
 
 usage() {
   cat <<'EOF'
@@ -165,13 +179,32 @@ probe_portal() {
   return 2
 }
 
+# The snapshot must survive a retry: a second login run after a failed sign-in
+# would otherwise record the already-released prefs as the originals, and
+# --restore would then replay --accept-dns=false as if that were the user's
+# state. The first snapshot of a session wins until --restore consumes it.
 save_prefs() {
+  local prefs tmp
   mkdir -p "$state_dir"
-  tailscale debug prefs | jq -r '[.CorpDNS, .WantRunning] | @tsv' >"$state_file"
+  if [ -s "$state_file" ]; then
+    return 0
+  fi
+  if ! prefs="$(tailscale debug prefs |
+    jq -er '[.CorpDNS, .WantRunning] |
+      if all(type == "boolean") then @tsv else error("CorpDNS/WantRunning missing") end')"; then
+    echo "captive-portal: cannot read Tailscale prefs; leaving DNS untouched" >&2
+    return 1
+  fi
+  # Write through a temporary so a failed read never leaves a truncated file
+  # that --restore would later parse as "DNS was already off".
+  tmp="$(mktemp "$state_file.XXXXXX")"
+  printf '%s\n' "$prefs" >"$tmp"
+  mv "$tmp" "$state_file"
 }
 
 release_dns() {
   save_prefs
+  dns_released=1
   if [ "$stop_tailscale" -eq 1 ]; then
     tailscale down
   else
@@ -181,10 +214,29 @@ release_dns() {
   nmcli general reload dns-full
 }
 
+# /etc/resolv.conf legitimately carries no nameserver before a portal hands out
+# a lease, and on a systemd-resolved host it only ever carries the 127.0.0.53
+# stub, so neither case may abort the run or masquerade as the whole story.
+show_resolvers() {
+  local lines
+  lines="$(grep '^nameserver' /etc/resolv.conf || true)"
+  if [ -z "$lines" ]; then
+    echo "captive-portal: /etc/resolv.conf carries no nameserver line" >&2
+    return 0
+  fi
+  printf '%s\n' "$lines" >&2
+  if ! printf '%s\n' "$lines" | grep -qvE '^nameserver[[:space:]]+127\.'; then
+    echo "captive-portal: that is a local stub; its upstream is the active connection's DNS" >&2
+  fi
+}
+
 restore_dns() {
-  local corp_dns=true want_running=true
-  if [ -f "$state_file" ]; then
-    read -r corp_dns want_running <"$state_file"
+  local corp_dns=true want_running=true saved_corp="" saved_want=""
+  # An unreadable or truncated state file must not abort the run and must not
+  # decide that DNS stays off: both fields fall back to restoring Tailscale.
+  if [ -s "$state_file" ] && read -r saved_corp saved_want <"$state_file"; then
+    case "$saved_corp" in true | false) corp_dns="$saved_corp" ;; esac
+    case "$saved_want" in true | false) want_running="$saved_want" ;; esac
   fi
   # `tailscale up` resets every pref it is not passed, so reach for it only when
   # --down stopped a node that had been running.
@@ -196,8 +248,9 @@ restore_dns() {
   fi
   rm -f "$state_file"
   nmcli general reload dns-full
+  dns_released=0
   echo "captive-portal: DNS returned to Tailscale"
-  grep '^nameserver' /etc/resolv.conf
+  show_resolvers
 }
 
 if [ "$mode" = restore ]; then
@@ -223,7 +276,7 @@ echo "captive-portal: device $device, access-point resolver $resolver, gateway $
 if [ "$mode" = login ]; then
   release_dns
   echo "captive-portal: system resolvers now:"
-  grep '^nameserver' /etc/resolv.conf
+  show_resolvers
 fi
 
 portal=""
