@@ -72,7 +72,28 @@ conclusion more reliable.
 
 ## Dwell time
 
-Dwell time is the time elapsed between an adversary's breach of the corporate environment and the breach's detection.
+### Definition
+
+Dwell time is the interval between an adversary's initial compromise of an
+environment and the detection of that compromise.
+
+### Example
+
+An intrusion that begins with a phishing-delivered implant on 2026-03-01 and is
+detected by an endpoint alert on 2026-04-12 has a dwell time of 42 days.
+
+### Security note
+
+Dwell time is measured from the earliest compromise that forensic evidence can
+establish, not from the first alert. Log retention bounds how far back that
+reconstruction reaches, so an intrusion that outlives the retention window is
+reported with a dwell time biased low. Record the evidence window alongside the
+figure, and treat published cross-organization medians as context rather than a
+target.
+
+### References
+
+- [M-Trends 2026](https://cloud.google.com/blog/topics/threat-intelligence/m-trends-2026/)
 
 ## Fuzzy hashing
 
@@ -191,6 +212,25 @@ Threat hunting is the human-driven activity of proactively and iteratively
 searching through the organization's environment (network, endpoints, and
 applications) for signs of compromise to shorten the dwell time and minimize
 the breach impact for the organization.
+
+### Example
+
+An analyst hypothesizes that an adversary is using scheduled tasks for
+persistence, queries endpoint telemetry for task creations that launch encoded
+interpreters, and reviews the results against the host baseline instead of
+waiting for an alert to fire.
+
+### Security note
+
+A hunt that finds nothing is not evidence of a clean environment. It bounds only
+what the queried telemetry could have shown, so record the hypothesis, the data
+sources searched, and their retention window to keep a negative result
+interpretable later. Promote a confirmed hunt finding into a durable detection
+rather than leaving it as a one-off investigation.
+
+### References
+
+- [NIST SP 800-53 Rev. 5, control RA-10: Threat Hunting](https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final)
 
 ## TOFU (trust on first use)
 
