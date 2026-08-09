@@ -197,9 +197,12 @@ Apply these to every detonation option above, self-hosted or hosted:
 - Never expose production credentials, tokens, SSH agents, or mounted shares to
   an analysis environment.
 - Keep every copy of a sample or result that you hold encrypted or
-  password-protected at rest, and move it only through the analysis pipeline. On
-  a hosted service the vendor's copy is outside that control and is governed by
-  the disclosure requirement below instead.
+  password-protected at rest, and move it only through the analysis pipeline.
+  Store samples in a password-protected archive or under a defanged extension so
+  an accidental open cannot execute them and an endpoint scan cannot quarantine
+  them; disk encryption alone prevents neither. On a hosted service the vendor's
+  copy is outside that control and is governed by the disclosure requirement
+  below instead.
 - Record the analysis platform version with each report so results stay
   reproducible.
 - Treat a benign verdict as unproven rather than clean. Samples fingerprint the
@@ -218,7 +221,9 @@ vendor-review questions rather than controls you configure:
 
 - Place detonation hosts on a dedicated network segment with no route to
   production or backup networks. Give the guests no route off that segment
-  except the brokered egress path below. Reach the host's own management
+  except the brokered egress path below, and isolate them from each other and
+  from the host's interfaces on that segment so a self-propagating sample cannot
+  reach a concurrent analysis or the hypervisor. Reach the host's own management
   interface only through a separate restricted administrative path.
 - Default-deny guest egress. Provide internet access only through a simulated
   or brokered path that is logged and rate-limited.
@@ -229,12 +234,18 @@ vendor-review questions rather than controls you configure:
   team, separately from the analyst path used to read results.
 - Pin a reviewed commit or release and version the host software, guest image,
   monitor, and analysis policy as one tested unit.
-- Reset every guest to a known-good snapshot after each analysis, and treat the
-  guest disk as tainted until the revert completes.
+- Reset every guest to a known-good snapshot immediately before each analysis as
+  well as after it, and treat the guest disk as tainted until the revert
+  completes. A run that ends before its post-analysis revert must not leave a
+  tainted guest available to the next submission.
 - Dedicate the hypervisor host to analysis. Run no other workload on it, and
   patch it as a security boundary rather than on a general server schedule.
 - Rebuild the host from known-good media when an escape is suspected. A guest
   snapshot revert does not restore a host the sample reached.
+- Keep the gold images and snapshots that those reverts and rebuilds depend on
+  outside the detonation host's write path, and verify them by hash before use.
+  A sample that reaches the host can otherwise poison the baseline it is
+  restored from.
 
 ## Choose a deployment path
 
