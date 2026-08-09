@@ -197,7 +197,8 @@ they are not detonation platforms.
 Apply these to every detonation option above, self-hosted or hosted:
 
 - Never expose production credentials, tokens, SSH agents, or mounted shares to
-  an analysis environment.
+  an analysis guest. The detonation host itself carries only the append-only
+  collector credential and the read-only gold-image mount required below.
 - Keep every copy of a sample or result that you hold encrypted or
   password-protected at rest, and move it only through the analysis pipeline.
   Store samples in a password-protected archive or under a defanged extension so
@@ -238,7 +239,10 @@ vendor-review questions rather than controls you configure:
   the web UI and API of a self-hosted deployment unreachable, and the operator
   recovers access by routing production into the detonation segment.
 - Default-deny guest egress. Provide internet access only through a simulated
-  or brokered path that is logged and rate-limited.
+  or brokered path that is logged and rate-limited. Run that broker on the
+  segment boundary rather than on the detonation host, which carries no other
+  workload, so the guests reach it as the one permitted route off the segment
+  and not through a host interface.
 - Never domain-join an analysis guest.
 - Disable shared folders, clipboard sharing, and drag-and-drop between guest and
   host.
@@ -254,8 +258,9 @@ vendor-review questions rather than controls you configure:
   patch it as a security boundary rather than on a general server schedule.
 - Rebuild the host from known-good media when an escape is suspected. A guest
   snapshot revert does not restore a host the sample reached.
-- Ship hypervisor, host, and egress-broker logs off the detonation host as they
-  are written, and review them for host-level compromise. A sample that reaches
+- Ship hypervisor and host logs off the detonation host, and egress-broker logs
+  off whichever host runs the broker, as they are written, and review them for
+  host-level compromise. A sample that reaches
   the host can edit any log it can still write to, so nothing held on the host
   can raise the suspicion the rebuild above depends on. Carry that shipping on
   the restricted administrative path rather than the detonation segment, give
@@ -280,11 +285,12 @@ of these paths.
 - Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
   scoring, enrichment, and analyst queue management. Run it on a separate host,
   because the detonation host is dedicated to analysis, and treat it as the only
-  service placed across the isolation boundary: it submits into the detonation
-  segment and serves analysts outside it, so allow no inbound path from the
-  guests or the detonation host back to it. Analysts still reach the detonation
-  host's own submission and result interfaces on the inbound path required
-  above, not through Assemblyline.
+  service that submits into the detonation segment from outside: it serves
+  analysts outside the segment, so allow no inbound path from the guests or the
+  detonation host back to it. Analysts still reach the detonation host's own
+  submission and result interfaces on the inbound path required above, not
+  through Assemblyline, and the egress broker remains the guests' only outbound
+  crossing.
 - Use DRAKVUF when agentless virtual-machine introspection is more important
   than deployment simplicity.
 - Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
