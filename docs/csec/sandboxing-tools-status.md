@@ -211,6 +211,9 @@ Apply these to every detonation option above, self-hosted or hosted:
   hypervisor, monitor, guest artifacts, and interaction timing to suppress their
   behavior, so record which evasion checks the platform applied alongside the
   verdict. See [MITRE ATT&CK T1497](https://attack.mitre.org/techniques/T1497/).
+
+Apply these to the hosted options as well:
+
 - Confirm task visibility before uploading to a hosted service. The ANY.RUN and
   Joe Sandbox sections above record which tiers expose samples and results.
 - Treat any upload to a hosted service as disclosure to the vendor, including on
@@ -224,9 +227,11 @@ vendor-review questions rather than controls you configure:
 - Place detonation hosts on a dedicated network segment with no route to
   production or backup networks. Give the guests no route off that segment
   except the brokered egress path below, and isolate them from each other and
-  from the host's interfaces on that segment so a self-propagating sample cannot
-  reach a concurrent analysis or the hypervisor. Reach the host's own management
-  interface only through a separate restricted administrative path.
+  from every host interface on that segment except the analysis framework's own
+  control and result channel, so a self-propagating sample cannot reach a
+  concurrent analysis or any other service on the hypervisor. Reach the host's
+  own management interface only through a separate restricted administrative
+  path.
 - Default-deny guest egress. Provide internet access only through a simulated
   or brokered path that is logged and rate-limited.
 - Never domain-join an analysis guest.
@@ -247,11 +252,11 @@ vendor-review questions rather than controls you configure:
 - Ship hypervisor, host, and egress-broker logs off the detonation host as they
   are written, and review them for host-level compromise. A sample that reaches
   the host can edit any log it can still write to, so nothing held on the host
-  can raise the suspicion the rebuild above depends on. Give the host
-  append-only credentials to the collector and place the collector where the
-  detonation host cannot reach it to rewrite or delete what it already sent,
-  otherwise shipping moves the logs without moving them out of the sample's
-  reach.
+  can raise the suspicion the rebuild above depends on. Carry that shipping on
+  the restricted administrative path rather than the detonation segment, give
+  the host append-only credentials to the collector, and allow the host no
+  access to the collector beyond appending, so it cannot rewrite or delete what
+  it already sent.
 - Keep the gold images and snapshots that those reverts and rebuilds depend on
   outside the detonation host's write path, and verify them by hash before use.
   A sample that reaches the host can otherwise poison the baseline it is

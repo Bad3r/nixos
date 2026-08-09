@@ -23,16 +23,17 @@ reproducible when a framework changes.
 
 ## Tracking fields
 
-These values apply to the `Status` column of the element tables below. The
-`Review status` column in the framework inventory is separate and records
-whether that framework version is still current: `Active` when the recorded
-source version is the current published one, `Superseded` when a newer version
-exists, and `Withdrawn` when the framework is no longer maintained.
+These values apply to the `Status` column of the element tables below.
 
 - `Not started`: no evidence or mapping has been recorded.
 - `In progress`: evidence collection, practice, or mapping is underway.
 - `Demonstrated`: evidence is linked and the element has been reviewed.
 - `Needs review`: the source, evidence, or mapping needs to be revisited.
+
+The `Review status` column in the framework inventory is separate and records
+whether that framework version is still current: `Active` when the recorded
+source version is the current published one, `Superseded` when a newer version
+exists, and `Withdrawn` when the framework is no longer maintained.
 
 For each element, add evidence or a mapping such as a report, lab, work
 sample, process, tool, certification, related competency area, or work role.
