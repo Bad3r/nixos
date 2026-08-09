@@ -23,7 +23,7 @@ commercial terms, and API limits.
 | CAPE                                 | Self-hosted VM detonation              | Active rolling development through August 2026; no formal GitHub releases                             | Current Cuckoo-style Windows analysis            |
 | DRAKVUF                              | Agentless VMI                          | Active engine and automated builds through August 2026                                                | Stealthier, agentless behavioral analysis        |
 | Assemblyline 4                       | Triage and orchestration               | Stable 4.7.4.stable6 and active 4.7.5 development line                                                | SOC-scale file triage around analysis services   |
-| PANDA                                | Whole-system research                  | Active QEMU record/replay and plugin platform                                                         | Custom instrumentation and replay research       |
+| PANDA                                | Whole-system research                  | Active QEMU record/replay and plugin platform; tagged releases through June 2026                      | Custom instrumentation and replay research       |
 | ANY.RUN                              | Hosted interactive sandbox             | Active commercial SaaS with free public-oriented and paid private plans                               | Fast analyst-driven investigation                |
 | Joe Sandbox Cloud                    | Hosted deep-analysis service           | Active commercial SaaS; Cloud upgraded to v44 Smoke Quartz in 2026-01                                 | Managed cross-platform analysis and rich reports |
 | Sandboxie-Plus, bubblewrap, Firejail | Local application or process isolation | Active projects, but not malware detonation platforms                                                 | Additional local containment                     |
@@ -53,10 +53,10 @@ CAPE does not publish normal GitHub Release objects. Its [tags page](https://git
 reports that there are no releases. Treat the repository as a rolling
 development stream:
 
-- Pin a reviewed commit instead of tracking `master` directly, because there is
-  no release tag to pin.
 - Review changes before updating because there is no formal upstream release
   boundary to provide that review point.
+- The baseline requirement to pin a reviewed commit or release resolves to a
+  commit here, since there is no release tag to pin.
 
 The guest, network, and versioning controls that CAPE shares with the other
 self-hosted options are listed under [Apply containment requirements to every detonation option](#apply-containment-requirements-to-every-detonation-option).
@@ -105,7 +105,9 @@ development line.
 platform built on QEMU. Its record/replay model and plugin architecture make it
 valuable for deterministic experiments, custom instrumentation, reverse
 engineering research, and studies that need visibility unavailable in a normal
-detonation workflow.
+detonation workflow. The currency recorded in the table above comes from its
+[release index](https://github.com/panda-re/panda/releases), where `v1.8.85` was
+tagged on 2026-06-09.
 
 PANDA is not a turnkey malware-analysis service. Use it beside CAPE or DRAKVUF
 when research instrumentation is required, rather than replacing the
@@ -210,9 +212,9 @@ hypervisor, guest, and network belong to the vendor, so these are contract and
 vendor-review questions rather than controls you configure:
 
 - Place detonation hosts on a dedicated network segment with no route to
-  production or backup networks, and give the guests no route off that segment.
-  Reach the host's own management interface only through a separate restricted
-  administrative path.
+  production or backup networks. Give the guests no route off that segment
+  except the brokered egress path below. Reach the host's own management
+  interface only through a separate restricted administrative path.
 - Default-deny guest egress. Provide internet access only through a simulated
   or brokered path that is logged and rate-limited.
 - Never domain-join an analysis guest.
