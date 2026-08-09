@@ -34,7 +34,9 @@ let
     firefoxpwaExt
     mkFirefoxpwaInstallUrl
     policyExtensionIds
+    privateBrowsingExtensionIds
     mkNormalInstalledPolicy
+    mkPrivateBrowsingPolicy
     ;
 
   stylixEnabled = config.stylix.enable or false;
@@ -351,9 +353,13 @@ let
 
   extensionSettings =
     (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy)
+    # Whole-attrset override, not a nested `.private_browsing` assignment: `//`
+    # is shallow, so the nested form would drop installation_mode/install_url
+    # and leave these two add-ons uninstalled.
+    // (lib.genAttrs privateBrowsingExtensionIds mkPrivateBrowsingPolicy)
     # The firefoxpwa management extension is only useful when the host enables
     # firefoxpwa: the native connector and `firefoxpwa` CLI are gated on the same
-    # option. Keep it user-removable so an opt-out host cannot leave a mandatory
+    # option. Keep it user-disableable so an opt-out host cannot leave a mandatory
     # add-on stuck in a "connector not installed" state.
     // lib.optionalAttrs firefoxpwaEnabled {
       "${firefoxpwaExt}" = {

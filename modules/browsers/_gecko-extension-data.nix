@@ -42,7 +42,7 @@ let
   webArchives = "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}";
 
   # PWAsForFirefox management extension. Installed on the regular gecko browsers
-  # so PWAs can be installed and managed from the browser, but user-removable.
+  # so PWAs can be installed and managed from the browser, but user-disableable.
   # The native connector is wired in modules/browsers/{firefox,librewolf}/home.nix.
   firefoxpwaExt = "firefoxpwa@filips.si";
 
@@ -66,7 +66,7 @@ let
       throw "firefoxpwa management-extension pin is stale: pinned for connector ${firefoxpwaExtensionPin.packageVersion} but pkgs.firefoxpwa is ${version}. Refresh modules/browsers/_firefoxpwa-extension-pin.json with scripts/update-firefoxpwa-extension.py (or run the update-firefoxpwa-extension workflow).";
 
   # Tab Reloader (page auto refresh). Installed only into the firefoxpwa runtime
-  # profiles via firefoxpwaRuntimePolicies (normal_installed, user-removable),
+  # profiles via firefoxpwaRuntimePolicies (normal_installed, user-disableable),
   # never the regular browsers; periodic reloads keep authenticated PWA sessions
   # alive past idle timeouts.
   tabReloader = "jid0-bnmfwWw2w2w4e4edvcdDbnMhdVg@jetpack";
@@ -84,19 +84,41 @@ let
     svgGobbler
     tabStash
     tridactyl
+    ublockOrigin
     violentmonkey
     wappalyzer
     webArchives
   ];
 
+  # Gecko disallows `uninstall-extension:<id>` for normal_installed just as it
+  # does for force_installed, so about:addons keeps Remove greyed out; the only
+  # permission normal_installed adds back is Disable. Dropping an add-on from
+  # the policy set is the only way to make it truly removable.
   mkNormalInstalledPolicy = extension: {
     installation_mode = "normal_installed";
     install_url = mkAmoInstallUrl extension;
   };
 
+  # Firefox grants private-window access to a non-privileged add-on only when
+  # policy asks for it, so without this the ad blocker and the password manager
+  # are silently inert in private windows. Setting the key at all also removes
+  # the per-addon "Run in Private Windows" toggle from about:addons, so keep the
+  # list to add-ons whose absence in a private window is itself the hazard.
+  privateBrowsingExtensionIds = [
+    onePassword
+    ublockOrigin
+  ];
+
+  mkPrivateBrowsingPolicy =
+    extension:
+    mkNormalInstalledPolicy extension
+    // {
+      private_browsing = true;
+    };
+
   # Enterprise policy applied to the firefoxpwa runtime (every PWA profile) by
   # modules/custom-overlays/firefoxpwa.nix. The declared add-ons are installed
-  # as user-removable defaults; 1Password reaches its desktop app through the
+  # as user-disableable defaults; 1Password reaches its desktop app through the
   # native-messaging host the firefox module already drops in
   # ~/.mozilla/native-messaging-hosts, which the runtime reads
   # (XRE_USER_NATIVE_MANIFESTS is the hardcoded legacy path).
@@ -105,8 +127,8 @@ let
   # runtime, so per-profile seeding is not reliable.
   firefoxpwaRuntimePolicies = {
     ExtensionSettings = {
-      "${ublockOrigin}" = mkNormalInstalledPolicy ublockOrigin;
-      "${onePassword}" = mkNormalInstalledPolicy onePassword;
+      "${ublockOrigin}" = mkPrivateBrowsingPolicy ublockOrigin;
+      "${onePassword}" = mkPrivateBrowsingPolicy onePassword;
       "${tridactyl}" = mkNormalInstalledPolicy tridactyl;
       "${tabReloader}" = mkNormalInstalledPolicy tabReloader;
     };
@@ -135,7 +157,9 @@ in
     firefoxpwaExt
     mkFirefoxpwaInstallUrl
     policyExtensionIds
+    privateBrowsingExtensionIds
     mkNormalInstalledPolicy
+    mkPrivateBrowsingPolicy
     firefoxpwaRuntimePolicies
     ;
 }
