@@ -246,8 +246,8 @@ vendor-review questions rather than controls you configure:
   team, separately from the analyst path used to read results.
 - Pin a reviewed commit or release and version the host software, guest image,
   monitor, and analysis policy as one tested unit.
-- Reset every guest to a known-good snapshot immediately before each analysis as
-  well as after it, and treat the guest disk as tainted until the revert
+- Reset every guest to the read-only gold image immediately before each analysis
+  as well as after it, and treat the guest disk as tainted until the revert
   completes. A run that ends before its post-analysis revert must not leave a
   tainted guest available to the next submission.
 - Dedicate the hypervisor host to analysis. Run no other workload on it, and
@@ -263,8 +263,9 @@ vendor-review questions rather than controls you configure:
   access to the collector beyond appending, so it cannot rewrite or delete what
   it already sent.
 - Keep the gold images that those reverts and rebuilds restore from outside the
-  detonation host's write path, serve them read-only, and verify them by hash
-  before use. Revert by discarding the guest's writable overlay and recreating
+  detonation host's write path, serve them read-only to the host over the
+  restricted administrative path rather than the detonation segment, and verify
+  them by hash before use. Revert by discarding the guest's writable overlay and recreating
   it from that image rather than from a snapshot the host can write, because a
   sample that reaches the host can otherwise poison the baseline it is restored
   from.
@@ -279,9 +280,11 @@ of these paths.
 - Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
   scoring, enrichment, and analyst queue management. Run it on a separate host,
   because the detonation host is dedicated to analysis, and treat it as the only
-  component that crosses the isolation boundary: it submits into the detonation
+  service placed across the isolation boundary: it submits into the detonation
   segment and serves analysts outside it, so allow no inbound path from the
-  guests or the detonation host back to it.
+  guests or the detonation host back to it. Analysts still reach the detonation
+  host's own submission and result interfaces on the inbound path required
+  above, not through Assemblyline.
 - Use DRAKVUF when agentless virtual-machine introspection is more important
   than deployment simplicity.
 - Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,

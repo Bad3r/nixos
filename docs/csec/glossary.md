@@ -268,6 +268,6 @@ before accepting a replacement key.
 
 ### References
 
-- [RFC 4253, section 8: Diffie-Hellman key exchange](https://datatracker.ietf.org/doc/html/rfc4253#section-8)
+- [RFC 4251, section 4.1: Host Keys](https://datatracker.ietf.org/doc/html/rfc4251#section-4.1)
 - [OpenSSH `ssh(1)` manual, verifying host keys](https://man.openbsd.org/ssh#VERIFYING_HOST_KEYS)
 - [OpenSSH `ssh_config(5)` manual, `StrictHostKeyChecking`](https://man.openbsd.org/ssh_config#StrictHostKeyChecking)
