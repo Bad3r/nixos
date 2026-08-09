@@ -195,6 +195,10 @@ Apply these to every detonation option above, self-hosted or hosted:
   them only through the analysis pipeline.
 - Record the analysis platform version with each report so results stay
   reproducible.
+- Treat a benign verdict as unproven rather than clean. Samples fingerprint the
+  hypervisor, monitor, guest artifacts, and interaction timing to suppress their
+  behavior, so record which evasion checks the platform applied alongside the
+  verdict. See [MITRE ATT&CK T1497](https://attack.mitre.org/techniques/T1497/).
 - Confirm task visibility before uploading to a hosted service. The ANY.RUN and
   Joe Sandbox sections above record which tiers expose samples and results.
 - Treat any upload to a hosted service as disclosure to the vendor, including on
@@ -206,7 +210,9 @@ hypervisor, guest, and network belong to the vendor, so these are contract and
 vendor-review questions rather than controls you configure:
 
 - Place detonation hosts on a dedicated network segment with no route to
-  production, management, or backup networks.
+  production or backup networks, and give the guests no route off that segment.
+  Reach the host's own management interface only through a separate restricted
+  administrative path.
 - Default-deny guest egress. Provide internet access only through a simulated
   or brokered path that is logged and rate-limited.
 - Never domain-join an analysis guest.
@@ -235,7 +241,8 @@ of these paths.
 - Use DRAKVUF when agentless virtual-machine introspection is more important
   than deployment simplicity.
 - Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
-  and rapid onboarding outweigh self-hosting and data-residency requirements.
+  and rapid onboarding outweigh self-hosting, and the vendor's retention and
+  data-residency terms are acceptable for the sample's classification.
 - Use PANDA when deterministic replay or custom whole-system instrumentation is
   the primary research requirement.
 - Use bubblewrap, Firejail, or Sandboxie-Plus only as an additional isolation

@@ -41,6 +41,11 @@ overall proficiency.
 
 ## Initial NICE Framework elements
 
+The tables below record elements from the NICE Framework Components version
+named in the inventory above. Give each additional framework its own element
+section rather than adding rows here, because statement ID forms such as `K`,
+`S`, and `T` are not unique across frameworks.
+
 ### Knowledge
 
 | ID      | Statement                                                          | Status      | Evidence or mapping | Last reviewed |
