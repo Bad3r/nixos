@@ -288,6 +288,15 @@ drop_dns() {
   fi
 }
 
+# dnsmasq holds the tailnet upstreams and any cached SERVFAIL until NM re-applies
+# DNS. A reload that fails leaves stale resolvers behind rather than a wrong
+# Tailscale state, so it is reported and the run carries on.
+reload_nm_dns() {
+  if ! nmcli general reload dns-full; then
+    note "NetworkManager did not reload DNS; run: nmcli general reload dns-full"
+  fi
+}
+
 release_dns() {
   if ! save_prefs; then
     exit 4
@@ -303,8 +312,7 @@ release_dns() {
     fi
     exit 4
   fi
-  # dnsmasq holds the tailnet upstreams and any cached SERVFAIL until NM re-applies DNS.
-  nmcli general reload dns-full
+  reload_nm_dns
 }
 
 # /etc/resolv.conf legitimately carries no nameserver before a portal hands out
@@ -325,20 +333,26 @@ show_resolvers() {
 
 apply_saved_prefs() {
   local corp_dns="$1" want_running="$2"
-  # `tailscale up` resets every pref it is not passed, so reach for it only when
-  # --down stopped a node that had been running.
-  if [ "$want_running" = "true" ] && [ "$(tailscale debug prefs | jq -r '.WantRunning')" = "false" ]; then
-    tailscale up || return 1
-  fi
+  # DNS is what the run took away, so it goes back first. Ordering the run state
+  # ahead of it let a refused `up` keep the resolvers off a host that could have
+  # had them back.
   if [ "$corp_dns" = "true" ]; then
     tailscale set --accept-dns=true || return 1
+  fi
+  # A flagless `tailscale up` on a node that is still logged in edits WantRunning
+  # alone, so it cannot clobber the prefs this two-field snapshot does not carry.
+  # It runs only when the snapshot says --down stopped a node that had been up.
+  if [ "$want_running" = "true" ] && [ "$(tailscale debug prefs | jq -r '.WantRunning')" = "false" ]; then
+    tailscale up || return 1
   fi
 }
 
 restore_dns() {
-  local corp_dns=true want_running=true saved_corp="" saved_want=""
+  local corp_dns=true want_running=false saved_corp="" saved_want=""
   # An unreadable or truncated state file must not abort the run and must not
-  # decide that DNS stays off: both fields fall back to restoring Tailscale.
+  # decide that DNS stays off, so CorpDNS falls back to restoring Tailscale DNS.
+  # WantRunning gets no such fallback: with no snapshot there is no evidence the
+  # node was ever up, and starting one the user stopped is not a restore.
   if [ -s "$state_file" ] && read -r saved_corp saved_want <"$state_file"; then
     case "$saved_corp" in true | false) corp_dns="$saved_corp" ;; esac
     case "$saved_want" in true | false) want_running="$saved_want" ;; esac
@@ -351,7 +365,7 @@ restore_dns() {
     exit 4
   fi
   rm -f "$state_file"
-  nmcli general reload dns-full
+  reload_nm_dns
   dns_released=0
   note "DNS returned to Tailscale"
   show_resolvers

@@ -420,6 +420,13 @@ leaves DNS released, because signing in needs it. An interrupted run cannot
 restore, so it prints the `--restore` reminder instead of leaving DNS released
 in silence.
 
+`$XDG_RUNTIME_DIR` is cleared at the last logout, so a `--restore` run after a
+reboot finds no snapshot. That run re-enables tailnet DNS, which is the safe
+direction, and leaves the run state alone: nothing recorded that the node was
+up, and starting one that was stopped on purpose is not a restore. DNS goes back
+before the run state for the same reason, so a node that refuses to come back up
+still gets its resolvers.
+
 ## Sign in by hand
 
 ```bash
