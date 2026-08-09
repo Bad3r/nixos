@@ -25,7 +25,10 @@ let
 
         _build_sh_hosts() {
           local flake_dir=""
-          local i word host_output
+          # host included: zsh runs a completion function in the interactive
+          # shell rather than a subshell, so the read loop below assigned into
+          # whatever the operator had under that name.
+          local i word host host_output
           local -a hosts
 
           for (( i = 1; i <= CURRENT; i++ )); do
