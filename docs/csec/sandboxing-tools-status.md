@@ -47,14 +47,13 @@ CAPE does not publish normal GitHub Release objects. Its [tags page](https://git
 reports that there are no releases. Treat the repository as a rolling
 development stream:
 
-- Pin a reviewed commit instead of tracking `master` directly.
-- Version the host software, guest image, monitor, and analysis policy as one
-  tested unit.
-- Maintain disposable Windows guests and reset them after every analysis.
-- Keep the guest network, management network, and analyst access paths
-  separate.
+- Pin a reviewed commit instead of tracking `master` directly, because there is
+  no release tag to pin.
 - Review changes before updating because there is no formal upstream release
   boundary to provide that review point.
+
+The guest, network, and versioning controls that CAPE shares with every other
+option are listed under [Apply containment requirements to every option](#apply-containment-requirements-to-every-option).
 
 The [CAPE installation documentation](https://capev2.readthedocs.io/en/latest/)
 uses a Linux host with KVM and Windows analysis guests as its reference model.
@@ -139,7 +138,7 @@ configuration extraction, PCAP, screenshots, memory dumps, ATT&CK context, and
 structured report exports. See the [Joe Sandbox technology overview](https://www.joesecurity.org/index.php/joe-sandbox-technology)
 and the [Cloud product page](https://joesecurity.org/joe-sandbox-cloud).
 
-The free [Cloud Basic](https://www.joesandbox.com)
+The free [Cloud Basic](https://www.joesecurity.org/joe-sandbox-cloud#subscriptions)
 tier is intended for evaluation, has limited analysis capacity and output, and
 makes samples and results public. Paid Cloud Light, Cloud Pro, and Cloud
 Enterprise tiers provide private analysis, with higher tiers adding API,
@@ -184,3 +183,31 @@ malware-detonation environment:
 > **Warning:** A sandbox result is not evidence that the host is safe. Treat
 > every sample as hostile and design for an escape attempt, network abuse, data
 > destruction, and credential theft.
+
+Apply these requirements to every option above, self-hosted or hosted:
+
+- Place detonation hosts on a dedicated network segment with no route to
+  production, management, or backup networks.
+- Default-deny guest egress. Provide internet access only through a simulated
+  or brokered path that is logged and rate-limited.
+- Never domain-join an analysis guest, and never expose production credentials,
+  tokens, SSH agents, or mounted shares to it.
+- Disable shared folders, clipboard sharing, and drag-and-drop between guest and
+  host.
+- Restrict hypervisor console and orchestration API access to the analysis
+  team, separately from the analyst path used to read results.
+- Pin a reviewed commit or release and version the host software, guest image,
+  monitor, and analysis policy as one tested unit. Record that version with each
+  report so results stay reproducible.
+- Reset every guest to a known-good snapshot after each analysis, and treat the
+  guest disk as tainted until the revert completes.
+- Keep samples and results encrypted or password-protected at rest, and move
+  them only through the analysis pipeline.
+- Confirm task visibility before uploading to a hosted service. The ANY.RUN and
+  Joe Sandbox sections above record which tiers expose samples and results.
+
+## References
+
+- [NIST SP 800-83 Rev. 1: Guide to Malware Incident Prevention and Handling for Desktops and Laptops](https://csrc.nist.gov/pubs/sp/800/83/r1/final)
+- [NIST SP 800-125: Guide to Security for Full Virtualization Technologies](https://csrc.nist.gov/pubs/sp/800/125/final)
+- [MITRE ATT&CK T1497: Virtualization/Sandbox Evasion](https://attack.mitre.org/techniques/T1497/)
