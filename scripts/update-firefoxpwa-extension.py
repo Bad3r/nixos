@@ -8,7 +8,7 @@ is not in the nixpkgs `firefoxpwa` output and is absent from upstream GitHub
 release assets), and AMO download URLs require a per-version opaque file id that
 cannot be derived from the version string. This script resolves that id from the
 AMO API and writes it to `modules/browsers/_firefoxpwa-extension-pin.json`, which the
-gecko extension policy reads to force-install the extension.
+gecko extension policy reads to install the extension.
 
 The connector (native messaging host) and extension stay protocol-compatible as
 long as they share a major version: the upstream `checkNativeStatus` treats a

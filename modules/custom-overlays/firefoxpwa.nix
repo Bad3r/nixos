@@ -10,7 +10,9 @@
 
   This overlay injects that policy file into the unwrapped package. The policy
   installs uBlock Origin, 1Password, Tridactyl, and the Tab Reloader keep-alive
-  extension as user-removable defaults in every PWA profile.
+  extension as user-disableable defaults in every PWA profile. uBlock and
+  1Password additionally carry `private_browsing = true` so they stay active in
+  private windows.
   nixpkgs builds `firefoxpwa = wrapFirefox firefoxpwa-unwrapped { }`, so
   overriding only the unwrapped package lets the package-set fixpoint rebuild the
   wrapped `firefoxpwa` around the patched runtime, with no manual re-wrap. The

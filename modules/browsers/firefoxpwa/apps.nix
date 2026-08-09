@@ -10,7 +10,7 @@
     * The companion extension and native-messaging connector are wired into the
       gecko browsers in modules/browsers/{firefox,librewolf}/home.nix.
     * Extensions for the isolated PWA runtime profiles are installed as
-      user-removable defaults through a policy file injected by
+      user-disableable defaults through a policy file injected by
       modules/custom-overlays/firefoxpwa.nix.
 */
 _:
