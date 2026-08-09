@@ -235,7 +235,10 @@ vendor-review questions rather than controls you configure:
   path.
 - Expose submission and result interfaces to analysts, and to an orchestrator
   such as Assemblyline, only on a separate inbound path that terminates on the
-  detonation host and reaches no guest. Without it the segment rule above leaves
+  detonation host and reaches no guest. Allow connections inbound only on it, so
+  the host accepts on that path and never initiates over it, matching the
+  direction constraint the Assemblyline placement below states. Without it the
+  segment rule above leaves
   the web UI and API of a self-hosted deployment unreachable, and the operator
   recovers access by routing production into the detonation segment.
 - Default-deny guest egress. Provide internet access only through a simulated
@@ -248,9 +251,10 @@ vendor-review questions rather than controls you configure:
   from known-good media when an escape is suspected, because it is the only
   self-hosted component every sample is permitted to reach.
 - Keep production credentials, tokens, SSH agents, and mounted shares off the
-  detonation and broker hosts. Both carry only what their own analysis role
-  needs, such as the framework's own service credentials, the append-only
-  collector credential, and the read-only gold-image mount.
+  detonation and broker hosts. Each carries only what its own role needs: the
+  detonation host the analysis framework's service credentials, its append-only
+  collector credential, and the read-only gold-image mount; the broker host its
+  own append-only collector credential and nothing else.
 - Never domain-join an analysis guest.
 - Disable shared folders, clipboard sharing, and drag-and-drop between guest and
   host.
@@ -274,7 +278,9 @@ vendor-review questions rather than controls you configure:
   path rather than the detonation segment, give each shipping host its own
   append-only credentials to the collector, and allow neither host any access to
   the collector beyond appending, so it cannot rewrite or delete what it already
-  sent.
+  sent. Reach only the collector from the broker host on that path: give it no
+  route to the hypervisor console, the orchestration API, or the gold-image
+  store, because it is the one self-hosted component every sample may reach.
 - Keep the gold images that those reverts and rebuilds restore from outside the
   detonation host's write path, serve them read-only to the host over the
   restricted administrative path rather than the detonation segment, and verify
@@ -295,10 +301,11 @@ of these paths.
   because the detonation host is dedicated to analysis, and treat it as the only
   service that submits into the detonation segment from outside: it serves
   analysts outside the segment, so allow no inbound path from the guests or the
-  detonation host back to it. Analysts still reach the detonation host's own
-  submission and result interfaces on the inbound path required above, not
-  through Assemblyline, and the egress broker remains the guests' only outbound
-  crossing.
+  detonation host back to it. Make Assemblyline the analyst-facing surface in
+  this deployment and restrict the detonation host's own submission and result
+  interfaces on the inbound path above to Assemblyline and the analysis team, so
+  the composition adds no second analyst crossing. The egress broker remains the
+  guests' only outbound crossing.
 - Use DRAKVUF when agentless virtual-machine introspection is more important
   than deployment simplicity.
 - Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
