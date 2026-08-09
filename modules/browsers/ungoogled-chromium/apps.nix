@@ -88,14 +88,14 @@ let
           default = false;
           description = ''
             Whether to load the Chromium Web Store extension. ungoogled-chromium
-            strips the Web Store install API, so this loader is the only
-            one-click in-browser installer; it also carries the
-            `--extension-mime-request-handling=always-prompt-for-install` flag
-            that CRX downloads need. With it off, an extension the user removes
-            from the `normal_installed` managed policy in
-            `modules/browsers/_chromium-policies.nix` is recovered by enabling
-            this option or by dropping the CRX onto `chrome://extensions` with
-            Developer Mode on.
+            strips the Web Store install API, so this loader and the
+            `--extension-mime-request-handling=always-prompt-for-install` flag it
+            carries are the only in-browser route for installing extensions
+            beyond the managed policy set. The policy extensions in
+            `modules/browsers/_chromium-policies.nix` do not depend on it:
+            `normal_installed` blocks uninstall exactly as `force_installed`
+            does, so those are disable and re-enable only, from
+            `chrome://extensions`.
           '';
         };
 
