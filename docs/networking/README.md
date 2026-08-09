@@ -376,17 +376,18 @@ URL rather than launch a browser.
 Only the portal URL goes to stdout; every diagnostic goes to stderr, and the
 exit status names the outcome, so a wrapper can act on it:
 
-| Status | Meaning                                                         |
-| ------ | --------------------------------------------------------------- |
-| 0      | a portal was found and its URL was printed                      |
-| 1      | no portal: this network answers the probes normally             |
-| 2      | invalid usage                                                   |
-| 3      | probes inconclusive; a gateway guess is printed when one exists |
-| 4      | the network could not be inspected, or prefs could not be read  |
+| Status | Meaning                                                        |
+| ------ | -------------------------------------------------------------- |
+| 0      | a portal was found and its URL was printed                     |
+| 1      | no portal: this network answers the probes normally            |
+| 2      | invalid usage                                                  |
+| 3      | probes inconclusive; a gateway guess is printed, never opened  |
+| 4      | the network could not be inspected, or prefs could not be read |
 
 Status 3 is a guess, not a detection. The address printed is the network's
 gateway, which on a network that merely blocks the probe hosts is the local
-router rather than a portal.
+router rather than a portal, so it is only printed: the browser is launched for
+a confirmed portal and nothing else.
 
 ```bash
 if url=$(captive-portal --probe); then

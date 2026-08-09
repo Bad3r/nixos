@@ -69,7 +69,7 @@ Exit status:
   0  a portal was found and its URL was printed
   1  no portal: this network answers the probes normally
   2  invalid usage
-  3  the probes were inconclusive; a gateway guess is printed when one exists
+  3  the probes were inconclusive; a gateway guess is printed, never opened
   4  the network could not be inspected, or Tailscale prefs could not be read
 EOF
 }
@@ -381,7 +381,7 @@ case "$probe_status" in
   # This is the gateway, not a portal anything confirmed: on a network that
   # merely blocks the canaries it is the user's own router. Say so rather than
   # reusing the wording of a detection.
-  note "probes inconclusive; no portal confirmed. Trying this network's gateway, which may just be your router:"
+  note "probes inconclusive; no portal confirmed. This network's gateway, which may just be your router:"
   ;;
 esac
 
@@ -394,13 +394,16 @@ if [ "$mode" = probe ]; then
   exit "$probe_status"
 fi
 
-if [ "$open_browser" -eq 1 ]; then
+# Only a confirmed detection earns a browser. The gateway guess is as likely to
+# be the user's own router, and opening that unasked is worse than printing it.
+if [ "$open_browser" -eq 1 ] && [ "$probe_status" -eq 0 ]; then
   # LibreWolf ships network.captive-portal-service.enabled=false, so it never
   # raises a sign-in bar on its own; open the URL directly instead.
   xdg-open "$portal" >/dev/null 2>&1 &
 fi
 
-cat >&2 <<EOF
+if [ "$probe_status" -eq 0 ]; then
+  cat >&2 <<'EOF'
 
 Sign in at the page above, then run:
 
@@ -409,5 +412,15 @@ Sign in at the page above, then run:
 If the page does not load, open it in a private window: portals reject cached
 HSTS upgrades and stale cookies from an earlier session.
 EOF
+else
+  cat >&2 <<'EOF'
+
+Nothing was confirmed as a portal, so the address above was not opened. Try it
+by hand if you want, in a private window: portals reject cached HSTS upgrades
+and stale cookies from an earlier session. DNS stays released until you run:
+
+  captive-portal --restore
+EOF
+fi
 
 exit "$probe_status"

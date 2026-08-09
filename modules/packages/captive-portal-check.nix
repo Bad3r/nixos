@@ -278,6 +278,43 @@
                 fail "a guess must not be worded like a detection"
             )
 
+            # A guess is printed, not launched: opening the user's own router
+            # unasked is worse than showing the address. The guess runs first and
+            # the confirmed detection second, so the wait for the detection's
+            # xdg-open is also the settle time the guess had to produce one; the
+            # script backgrounds that call, so nothing can be asserted the
+            # instant it exits.
+            (
+              reset
+              guess_log="$work/log-guess"
+              open_log="$work/log-open"
+              : >"$guess_log"
+              : >"$open_log"
+
+              CP_LOG="$guess_log" DIG_FIREFOX="" DIG_APPLE="" DIG_GSTATIC="" \
+                "$portal" >"$work/out" 2>"$work/err" && rc=0 || rc=$?
+              [ "$rc" -eq 3 ] || fail "the gateway guess must exit 3 in login mode (exit $rc)"
+              grep -q 'was not opened' "$work/err" ||
+                fail "the guess must say it was not opened"
+
+              rm -f "$state"
+              CP_LOG="$open_log" AP_STATUS=200 \
+                AP_BODY='<html><a href="http://portal.lan/login">x</a></html>' \
+                "$portal" >"$work/out" 2>"$work/err" && rc=0 || rc=$?
+              [ "$rc" -eq 0 ] || fail "a confirmed portal must exit 0 in login mode (exit $rc)"
+              waited=0
+              until grep -q '^xdg-open ' "$open_log"; do
+                waited=$((waited + 1))
+                [ "$waited" -le 100 ] || fail "a confirmed portal must be opened in a browser"
+                sleep 0.1
+              done
+              grep -qxF 'xdg-open http://portal.lan/login' "$open_log" ||
+                fail "the browser must be handed the portal URL"
+
+              ! grep -q '^xdg-open ' "$guess_log" ||
+                fail "a gateway guess must not be opened in a browser"
+            )
+
             # An on-link default route has no via, and reading the third field
             # produced http://wifi0 as the portal URL.
             (
