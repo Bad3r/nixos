@@ -44,9 +44,6 @@ in
       # Keep Arabic out of automatic translation prompts.
       "browser.translations.neverTranslateLanguages" = "ar";
 
-      # Pre-enable extensions delivered through the Nix scope (default 15 would
-      # leave system-scope XPIs installed-but-disabled on first launch).
-      "extensions.autoDisableScopes" = 0;
       "extensions.pictureinpicture.enable_picture_in_picture_overrides" = true;
       "extensions.webcompat.perform_injections" = true;
 

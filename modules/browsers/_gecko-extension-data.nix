@@ -24,7 +24,6 @@ let
     "${lib.stringAsChars sanitizeChar (lib.toLower extension)}-browser-action";
 
   ublockOrigin = "uBlock0@raymondhill.net";
-  ublockOriginInstallUrl = mkAmoInstallUrl ublockOrigin;
   onePassword = "{d634138d-c276-4fc8-924b-40a0ea21d284}";
 
   arabicDictionary = "ar@dictionaries.addons.mozilla.org";
@@ -42,8 +41,8 @@ let
   wappalyzer = "wappalyzer@crunchlabz.com";
   webArchives = "{d07ccf11-c0cd-4938-a265-2a4d6ad01189}";
 
-  # PWAsForFirefox management extension. Force-installed on the regular gecko
-  # browsers, like uBlock, so PWAs can be installed and managed from the browser.
+  # PWAsForFirefox management extension. Installed on the regular gecko browsers
+  # so PWAs can be installed and managed from the browser, but user-removable.
   # The native connector is wired in modules/browsers/{firefox,librewolf}/home.nix.
   firefoxpwaExt = "firefoxpwa@filips.si";
 
@@ -96,27 +95,18 @@ let
   };
 
   # Enterprise policy applied to the firefoxpwa runtime (every PWA profile) by
-  # modules/custom-overlays/firefoxpwa.nix. uBlock and 1Password are
-  # force-installed so the ad blocker and password manager are always present in
-  # PWAs; 1Password reaches its desktop app through the native-messaging host the
-  # firefox module already drops in ~/.mozilla/native-messaging-hosts, which the
-  # runtime reads (XRE_USER_NATIVE_MANIFESTS is the hardcoded legacy path).
-  # Tridactyl and Tab Reloader are normal_installed: present but user-removable.
+  # modules/custom-overlays/firefoxpwa.nix. The declared add-ons are installed
+  # as user-removable defaults; 1Password reaches its desktop app through the
+  # native-messaging host the firefox module already drops in
+  # ~/.mozilla/native-messaging-hosts, which the runtime reads
+  # (XRE_USER_NATIVE_MANIFESTS is the hardcoded legacy path).
   # uBlock here keeps default settings: the medium-mode extensionStorage below is
   # scoped to Home Manager profiles, and PWA profile ULIDs are generated at
   # runtime, so per-profile seeding is not reliable.
   firefoxpwaRuntimePolicies = {
     ExtensionSettings = {
-      "${ublockOrigin}" = {
-        installation_mode = "force_installed";
-        install_url = ublockOriginInstallUrl;
-        private_browsing = true;
-      };
-      "${onePassword}" = {
-        installation_mode = "force_installed";
-        install_url = mkAmoInstallUrl onePassword;
-        private_browsing = true;
-      };
+      "${ublockOrigin}" = mkNormalInstalledPolicy ublockOrigin;
+      "${onePassword}" = mkNormalInstalledPolicy onePassword;
       "${tridactyl}" = mkNormalInstalledPolicy tridactyl;
       "${tabReloader}" = mkNormalInstalledPolicy tabReloader;
     };
@@ -129,7 +119,6 @@ in
   inherit
     toWidgetId
     ublockOrigin
-    ublockOriginInstallUrl
     onePassword
     cookieAutoDelete
     darkreader

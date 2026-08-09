@@ -6,7 +6,7 @@
   Repository: https://github.com/ungoogled-software/ungoogled-chromium
 
   Summary:
-    * Reuses the wrapped package so the default Chromium Web Store extension is available in HM-managed profiles too.
+    * Reuses the wrapped package so an explicitly enabled Chromium Web Store extension is available in HM-managed profiles too.
 */
 
 _: {

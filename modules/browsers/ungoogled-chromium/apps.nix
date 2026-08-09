@@ -85,9 +85,9 @@ let
 
         enableWebStoreExtension = lib.mkOption {
           type = lib.types.bool;
-          default = true;
+          default = false;
           description = ''
-            Whether to load the Chromium Web Store extension by default.
+            Whether to load the Chromium Web Store extension.
           '';
         };
 
