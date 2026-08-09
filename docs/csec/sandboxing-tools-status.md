@@ -232,6 +232,11 @@ vendor-review questions rather than controls you configure:
   concurrent analysis or any other service on the hypervisor. Reach the host's
   own management interface only through a separate restricted administrative
   path.
+- Expose submission and result interfaces to analysts, and to an orchestrator
+  such as Assemblyline, only on a separate inbound path that terminates on the
+  detonation host and reaches no guest. Without it the segment rule above leaves
+  the web UI and API of a self-hosted deployment unreachable, and the operator
+  recovers access by routing production into the detonation segment.
 - Default-deny guest egress. Provide internet access only through a simulated
   or brokered path that is logged and rate-limited.
 - Never domain-join an analysis guest.
@@ -257,10 +262,12 @@ vendor-review questions rather than controls you configure:
   the host append-only credentials to the collector, and allow the host no
   access to the collector beyond appending, so it cannot rewrite or delete what
   it already sent.
-- Keep the gold images and snapshots that those reverts and rebuilds depend on
-  outside the detonation host's write path, and verify them by hash before use.
-  A sample that reaches the host can otherwise poison the baseline it is
-  restored from.
+- Keep the gold images that those reverts and rebuilds restore from outside the
+  detonation host's write path, serve them read-only, and verify them by hash
+  before use. Revert by discarding the guest's writable overlay and recreating
+  it from that image rather than from a snapshot the host can write, because a
+  sample that reaches the host can otherwise poison the baseline it is restored
+  from.
 
 ## Choose a deployment path
 
@@ -270,11 +277,11 @@ of these paths.
 - Use CAPE with KVM and disposable Windows guests for a self-hosted Cuckoo-style
   analysis service.
 - Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
-  scoring, enrichment, and analyst queue management. Run it off the detonation
-  host, which is dedicated to analysis, and treat it as the only component that
-  crosses the isolation boundary: it submits into the detonation segment and
-  serves analysts outside it, so allow no inbound path from the guests or the
-  detonation host back to it.
+  scoring, enrichment, and analyst queue management. Run it on a separate host,
+  because the detonation host is dedicated to analysis, and treat it as the only
+  component that crosses the isolation boundary: it submits into the detonation
+  segment and serves analysts outside it, so allow no inbound path from the
+  guests or the detonation host back to it.
 - Use DRAKVUF when agentless virtual-machine introspection is more important
   than deployment simplicity.
 - Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
