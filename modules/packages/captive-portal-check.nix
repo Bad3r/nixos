@@ -19,9 +19,11 @@
   fails to resolve.
 
   /etc/resolv.conf does not exist in the sandbox, which is also what a portal
-  that hands out no lease produces. The login scenarios below therefore cover the
-  unguarded `grep '^nameserver' /etc/resolv.conf` that used to abort the run
-  between releasing DNS and probing for the portal.
+  that hands out no lease produces, so every scenario reaching show_resolvers
+  crosses the `grep '^nameserver' /etc/resolv.conf` that used to abort the run
+  between releasing DNS and probing for the portal. One scenario asserts the
+  message it prints instead, so the guard has a test that names it rather than
+  only an environment that happens to exercise it.
 */
 {
   perSystem =
@@ -30,9 +32,11 @@
       checks."packages/captive-portal-runtime" =
         let
           # Answers `debug prefs` from the environment and records every state
-          # change, so a scenario can assert on what the run did to DNS. TS_SET_RC
-          # is the refusal tailscaled returns to a caller that is neither root nor
-          # its operator user, which `debug prefs` still answers for.
+          # change, so a scenario can assert on what the run did to DNS.
+          # TS_FAIL_STATE names the subcommands that refuse, which is what
+          # tailscaled returns to a caller that is neither root nor its operator
+          # user, and it is per-subcommand because a failing `up` must not be
+          # allowed to look like a failing `set`.
           tailscaleStub = pkgs.writeShellScriptBin "tailscale" ''
             if [ "$*" = "debug prefs" ]; then
               printf '{"CorpDNS":%s,"WantRunning":%s}\n' \
@@ -40,7 +44,9 @@
               exit 0
             fi
             printf 'tailscale %s\n' "$*" >>"$CP_LOG"
-            exit "''${TS_SET_RC-0}"
+            case " ''${TS_FAIL_STATE-} " in
+            *" $1 "*) exit 1 ;;
+            esac
           '';
 
           nmcliStub = pkgs.writeShellScriptBin "nmcli" ''
@@ -382,7 +388,7 @@
             # written a snapshot of a state it then failed to leave.
             (
               reset
-              rc=$(TS_SET_RC=1 run --no-open)
+              rc=$(TS_FAIL_STATE=set run --no-open)
               [ "$rc" -eq 4 ] || fail "a refused release must exit 4 (exit $rc)"
               grep -q 'operator' "$work/err" ||
                 fail "a refused release must name the operator pref"
@@ -397,11 +403,91 @@
               reset
               mkdir -p "$(dirname "$state")"
               printf 'true\ttrue\n' >"$state"
-              rc=$(TS_SET_RC=1 run --restore)
+              rc=$(TS_FAIL_STATE=set run --restore)
               [ "$rc" -eq 4 ] || fail "a refused restore must exit 4 (exit $rc)"
               [ -s "$state" ] || fail "a refused restore must keep the snapshot for a retry"
               grep -q 'captive-portal --restore' "$work/err" ||
                 fail "a refused restore must say how to retry"
+            )
+
+            # `tailscale up` used to run first and gate the DNS restore, so a node
+            # that would not come back up kept its resolvers off for no reason.
+            (
+              reset
+              mkdir -p "$(dirname "$state")"
+              printf 'true\ttrue\n' >"$state"
+              rc=$(TS_WANT_RUNNING=false TS_FAIL_STATE=up run --restore)
+              [ "$rc" -eq 4 ] || fail "a refused up must still exit 4 (exit $rc)"
+              restored || fail "a refused up must not keep DNS from Tailscale"
+              [ -s "$state" ] || fail "an incomplete restore must keep the snapshot"
+            )
+
+            # Absence of a snapshot is not evidence the node was ever up: the
+            # WantRunning default started a node the user had stopped on purpose.
+            (
+              reset
+              rc=$(TS_WANT_RUNNING=false run --restore)
+              [ "$rc" -eq 0 ] || fail "--restore without a snapshot must succeed (exit $rc)"
+              restored || fail "--restore without a snapshot must still hand DNS back"
+              ! grep -qxF 'tailscale up' "$work/log" ||
+                fail "--restore must not start a node no snapshot says was running"
+            )
+
+            # The --down half of the retry contract: the second run must not
+            # record the WantRunning it just set, or --restore leaves the node down.
+            (
+              reset
+              export AP_STATUS=200 AP_BODY='<html><a href="http://portal.lan/">x</a></html>'
+              rc=$(run --no-open --down)
+              [ "$rc" -eq 0 ] || fail "a detected portal must exit 0 under --down (exit $rc)"
+              grep -qxF 'tailscale down' "$work/log" || fail "--down must stop Tailscale"
+
+              rc=$(TS_WANT_RUNNING=false run --no-open --down)
+              [ "$rc" -eq 0 ] || fail "a retry under --down must still report the portal (exit $rc)"
+              [ "$(cat "$state")" = "$(printf 'true\ttrue')" ] ||
+                fail "a retry must not record the WantRunning the first run set"
+
+              : >"$work/log"
+              rc=$(TS_WANT_RUNNING=false run --restore)
+              [ "$rc" -eq 0 ] || fail "--restore after --down must succeed (exit $rc)"
+              grep -qxF 'tailscale up' "$work/log" ||
+                fail "--restore must start the node --down stopped"
+            )
+
+            # A portal that redirects rather than serving its page inline. Neither
+            # 30x path had a scenario, so the branch that reads Location was free
+            # to break silently.
+            (
+              reset
+              export FF_STATUS=302 FF_REDIRECT=http://portal.lan/welcome
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a 302 to the portal must exit 0 (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/welcome" ] ||
+                fail "the redirect target must be the portal URL"
+            )
+
+            # A 30x with no Location is no answer at all: the canary falls through
+            # to the hijack check rather than counting as a detection.
+            (
+              reset
+              export DIG_FIREFOX=192.168.1.99
+              export FF_STATUS=302 FF_REDIRECT=""
+              export AP_STATUS=000 GS_STATUS=000
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a private answer behind a bare 30x is a hijack (exit $rc)"
+              [ "$(cat "$work/out")" = "http://192.168.1.99" ] ||
+                fail "the hijacked address must be the portal URL"
+            )
+
+            # /etc/resolv.conf does not exist in the sandbox, which is also what a
+            # portal that hands out no lease produces. The unguarded grep aborted
+            # the run there; the message is what proves the guard is still in place.
+            (
+              reset
+              rc=$(run --restore)
+              [ "$rc" -eq 0 ] || fail "--restore must survive a missing resolv.conf (exit $rc)"
+              grep -q 'carries no nameserver line' "$work/err" ||
+                fail "a resolv.conf with no nameserver must be reported, not fatal"
             )
 
             # A docked laptop holds two links, and only one can be behind the
