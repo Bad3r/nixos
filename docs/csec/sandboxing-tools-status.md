@@ -59,7 +59,7 @@ development stream:
   boundary to provide that review point.
 
 The guest, network, and versioning controls that CAPE shares with the other
-self-hosted options are listed under [Apply containment requirements to every option](#apply-containment-requirements-to-every-option).
+self-hosted options are listed under [Apply containment requirements to every detonation option](#apply-containment-requirements-to-every-detonation-option).
 
 The [CAPE installation documentation](https://capev2.readthedocs.io/en/latest/)
 uses a Linux host with KVM and Windows analysis guests as its reference model.
@@ -177,7 +177,7 @@ malware-detonation environment:
   provides Linux namespace and seccomp-based application confinement. It is a
   local process-isolation helper, not a hypervisor boundary.
 
-## Apply containment requirements to every option
+## Apply containment requirements to every detonation option
 
 > **Warning:** A sandbox result is not evidence that the host is safe. Treat
 > every sample as hostile and design for an escape attempt, network abuse, data
@@ -197,6 +197,9 @@ Apply these to every detonation option above, self-hosted or hosted:
   reproducible.
 - Confirm task visibility before uploading to a hosted service. The ANY.RUN and
   Joe Sandbox sections above record which tiers expose samples and results.
+- Treat any upload to a hosted service as disclosure to the vendor, including on
+  a private tier. Check retention, deletion, and data-residency terms against
+  the sample's classification before submitting an internal artifact.
 
 Apply these to the self-hosted options as well. On a hosted service the
 hypervisor, guest, and network belong to the vendor, so these are contract and
@@ -215,6 +218,10 @@ vendor-review questions rather than controls you configure:
   monitor, and analysis policy as one tested unit.
 - Reset every guest to a known-good snapshot after each analysis, and treat the
   guest disk as tainted until the revert completes.
+- Dedicate the hypervisor host to analysis. Run no other workload on it, and
+  patch it as a security boundary rather than on a general server schedule.
+- Rebuild the host from known-good media when an escape is suspected. A guest
+  snapshot revert does not restore a host the sample reached.
 
 ## Choose a deployment path
 

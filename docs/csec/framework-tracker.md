@@ -25,7 +25,9 @@ reproducible when a framework changes.
 
 These values apply to the `Status` column of the element tables below. The
 `Review status` column in the framework inventory is separate and records
-whether that framework version is still current.
+whether that framework version is still current: `Active` when the recorded
+source version is the current published one, `Superseded` when a newer version
+exists, and `Withdrawn` when the framework is no longer maintained.
 
 - `Not started`: no evidence or mapping has been recorded.
 - `In progress`: evidence collection, practice, or mapping is underway.
