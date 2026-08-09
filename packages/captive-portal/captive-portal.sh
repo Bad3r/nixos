@@ -20,11 +20,21 @@ dns_released=0
 state_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/captive-portal"
 state_file="$state_dir/tailscale-prefs"
 
+body_file=""
+
+cleanup() {
+  if [ -n "$body_file" ]; then
+    rm -f "$body_file"
+  fi
+}
+trap cleanup EXIT
+
 # Probing three canaries takes up to ~24s, so a Ctrl-C inside that window is
 # likely. Bash's default disposition would drop the user back to the shell with
 # Tailscale DNS still off and nothing on screen saying so.
 on_signal() {
   trap - INT TERM
+  cleanup
   if [ "$dns_released" -eq 1 ]; then
     printf '\ncaptive-portal: interrupted with DNS still released; run: captive-portal --restore\n' >&2
   fi
@@ -88,9 +98,15 @@ while [ "$#" -gt 0 ]; do
   esac
 done
 
-pick_device() {
+# Portals live on the wireless hop, so a docked laptop holding both links must
+# not have the choice decided by nmcli's listing order. Sorting the wifi-first
+# key makes the pick reproducible, and the caller reports the runners-up.
+candidate_devices() {
   nmcli -t -f DEVICE,TYPE,STATE device status |
-    awk -F: '$3 == "connected" && ($2 == "wifi" || $2 == "ethernet") { print $1; exit }'
+    awk -F: '$3 == "connected" && ($2 == "wifi" || $2 == "ethernet") {
+      print ($2 == "wifi" ? 0 : 1) ":" $1
+    }' |
+    sort
 }
 
 device_dns() {
@@ -99,14 +115,23 @@ device_dns() {
     grep -E '^[0-9]+(\.[0-9]+){3}$' || true
 }
 
+# An on-link default route ("default dev wlan0 scope link", which tethered and
+# point-to-point links produce) carries no via, and $3 is then the device name:
+# taking it verbatim yielded a portal URL of http://wlan0.
 device_gateway() {
-  ip -4 route show default dev "$1" | awk '{ print $3; exit }'
+  ip -4 route show default dev "$1" |
+    awk '{ for (i = 1; i < NF; i++) if ($i == "via") { print $(i + 1); exit } }' |
+    grep -E '^[0-9]+(\.[0-9]+){3}$' || true
 }
 
 is_private_v4() {
   case "$1" in
   10.* | 192.168.* | 127.*) return 0 ;;
   172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) return 0 ;;
+  # A portal answers from whatever space it sits in: 169.254.0.0/16 when it
+  # never issued a lease, and 100.64.0.0/10 on carrier and guest networks.
+  169.254.*) return 0 ;;
+  100.6[4-9].* | 100.[7-9][0-9].* | 100.1[01][0-9].* | 100.12[0-7].*) return 0 ;;
   *) return 1 ;;
   esac
 }
@@ -117,8 +142,8 @@ is_private_v4() {
 # back clean, 2 means every probe was inconclusive and prints a gateway guess.
 probe_portal() {
   local resolver="$1" gateway="$2"
-  local hosts urls expects i host url expect answer status redirect body found
-  local clean=0
+  local hosts urls expects i host url expect answer status redirect found
+  local clean=0 host_clean=0
 
   hosts=(detectportal.firefox.com captive.apple.com connectivity-check.gstatic.com)
   urls=(
@@ -127,6 +152,8 @@ probe_portal() {
     http://connectivity-check.gstatic.com/generate_204
   )
   expects=(success Success "")
+
+  body_file="$(mktemp)"
 
   for i in "${!hosts[@]}"; do
     host="${hosts[$i]}"
@@ -137,33 +164,45 @@ probe_portal() {
       grep -E '^[0-9]+(\.[0-9]+){3}$' | tail -1 || true)"
     [ -n "$answer" ] || continue
 
-    body="$(mktemp)"
+    host_clean=0
     status=000
     redirect=""
     read -r status redirect <<<"$(
-      curl -sS -m 6 -o "$body" -w '%{http_code} %{redirect_url}' \
+      curl -sS -m 6 -o "$body_file" -w '%{http_code} %{redirect_url}' \
         --resolve "$host:80:$answer" "$url" 2>/dev/null || echo '000 '
     )"
 
     case "$status" in
     30*)
-      [ -n "$redirect" ] && {
+      if [ -n "$redirect" ]; then
         printf '%s\n' "$redirect"
-        rm -f "$body"
-        return 0
-      }
-      ;;
-    200 | 204)
-      if [ -n "$expect" ] && ! grep -qF "$expect" "$body"; then
-        found="$(grep -oiE 'https?://[^"'"'"'<>[:space:]]+' "$body" | head -1 || true)"
-        printf '%s\n' "${found:-http://$answer}"
-        rm -f "$body"
         return 0
       fi
-      clean=1
+      ;;
+    204)
+      # 204 is body-less by definition, so there is nothing left to match.
+      host_clean=1
+      ;;
+    200)
+      # generate_204 carries no expected string because the status is the whole
+      # answer: a 200 there is already the portal serving its page inline,
+      # which is how an intercepting proxy replies when it does not redirect.
+      if [ -n "$expect" ] && grep -qF "$expect" "$body_file"; then
+        host_clean=1
+      else
+        found="$(grep -oiE 'https?://[^"'"'"'<>[:space:]]+' "$body_file" | head -1 || true)"
+        printf '%s\n' "${found:-http://$answer}"
+        return 0
+      fi
       ;;
     esac
-    rm -f "$body"
+
+    if [ "$host_clean" -eq 1 ]; then
+      # This canary answered as specified, so the address it resolved to is not
+      # a hijack however private it looks, and the check below must not run.
+      clean=1
+      continue
+    fi
 
     # The probe host answered with an address on this LAN: a DNS hijack.
     if is_private_v4 "$answer"; then
@@ -258,10 +297,21 @@ if [ "$mode" = restore ]; then
   exit 0
 fi
 
-[ -n "$device" ] || device="$(pick_device)"
+candidates=""
+if [ -z "$device" ]; then
+  candidates="$(candidate_devices)"
+  device="$(printf '%s\n' "$candidates" | head -1 | cut -d: -f2)"
+fi
 if [ -z "$device" ]; then
   echo "captive-portal: no connected wifi or ethernet device" >&2
   exit 1
+fi
+
+# Only one of several connected devices can be behind the portal, and nothing
+# here can tell which, so name the ones that were passed over.
+others="$(printf '%s\n' "$candidates" | tail -n +2 | cut -d: -f2 | paste -sd' ' - || true)"
+if [ -n "$others" ]; then
+  echo "captive-portal: also connected: $others; pass --device to inspect one of those" >&2
 fi
 
 resolver="$(device_dns "$device" | head -1)"
