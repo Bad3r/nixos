@@ -87,7 +87,15 @@ let
           type = lib.types.bool;
           default = false;
           description = ''
-            Whether to load the Chromium Web Store extension.
+            Whether to load the Chromium Web Store extension. ungoogled-chromium
+            strips the Web Store install API, so this loader is the only
+            one-click in-browser installer; it also carries the
+            `--extension-mime-request-handling=always-prompt-for-install` flag
+            that CRX downloads need. With it off, an extension the user removes
+            from the `normal_installed` managed policy in
+            `modules/browsers/_chromium-policies.nix` is recovered by enabling
+            this option or by dropping the CRX onto `chrome://extensions` with
+            Developer Mode on.
           '';
         };
 
