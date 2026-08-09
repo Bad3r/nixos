@@ -157,7 +157,7 @@ malware-detonation environment:
 
 - [`Sandboxie-Plus`](https://github.com/sandboxie-plus/Sandboxie/releases)
   provides Windows application isolation.
-- [`bubblewrap`](https://github.com/containers/bubblewrap/releases/tag/0.11.2)
+- [`bubblewrap`](https://github.com/containers/bubblewrap/releases/tag/v0.11.2)
   provides unprivileged Linux namespace isolation.
 - [`Firejail`](https://github.com/netblue30/firejail/releases/tag/0.9.80)
   provides Linux namespace and seccomp-based application confinement. It is a
