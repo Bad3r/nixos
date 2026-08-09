@@ -157,26 +157,11 @@ malware-detonation environment:
 
 - [`Sandboxie-Plus`](https://github.com/sandboxie-plus/Sandboxie/releases)
   provides Windows application isolation.
-- [`bubblewrap`](https://github.com/containers/bubblewrap/releases/tag/v0.11.2)
+- [`bubblewrap`](https://github.com/containers/bubblewrap/releases)
   provides unprivileged Linux namespace isolation.
-- [`Firejail`](https://github.com/netblue30/firejail/releases/tag/0.9.80)
+- [`Firejail`](https://github.com/netblue30/firejail/releases)
   provides Linux namespace and seccomp-based application confinement. It is a
   local process-isolation helper, not a hypervisor boundary.
-
-## Choose a deployment path
-
-1. Use CAPE with KVM and disposable Windows guests for a self-hosted Cuckoo-style
-   analysis service.
-2. Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
-   scoring, enrichment, and analyst queue management.
-3. Use DRAKVUF when agentless virtual-machine introspection is more important
-   than deployment simplicity.
-4. Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
-   and rapid onboarding outweigh self-hosting and data-residency requirements.
-5. Use PANDA when deterministic replay or custom whole-system instrumentation is
-   the primary research requirement.
-6. Use bubblewrap, Firejail, or Sandboxie-Plus only as an additional isolation
-   layer for local tools and applications.
 
 ## Apply containment requirements to every option
 
@@ -184,7 +169,8 @@ malware-detonation environment:
 > every sample as hostile and design for an escape attempt, network abuse, data
 > destruction, and credential theft.
 
-Apply these requirements to every option above, self-hosted or hosted:
+These requirements are prerequisites for detonating live samples, not follow-up
+work. Apply them to every option above, self-hosted or hosted:
 
 - Place detonation hosts on a dedicated network segment with no route to
   production, management, or backup networks.
@@ -205,6 +191,24 @@ Apply these requirements to every option above, self-hosted or hosted:
   them only through the analysis pipeline.
 - Confirm task visibility before uploading to a hosted service. The ANY.RUN and
   Joe Sandbox sections above record which tiers expose samples and results.
+
+## Choose a deployment path
+
+Meet the containment requirements above before detonating a live sample on any
+of these paths.
+
+1. Use CAPE with KVM and disposable Windows guests for a self-hosted Cuckoo-style
+   analysis service.
+2. Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
+   scoring, enrichment, and analyst queue management.
+3. Use DRAKVUF when agentless virtual-machine introspection is more important
+   than deployment simplicity.
+4. Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
+   and rapid onboarding outweigh self-hosting and data-residency requirements.
+5. Use PANDA when deterministic replay or custom whole-system instrumentation is
+   the primary research requirement.
+6. Use bubblewrap, Firejail, or Sandboxie-Plus only as an additional isolation
+   layer for local tools and applications.
 
 ## References
 
