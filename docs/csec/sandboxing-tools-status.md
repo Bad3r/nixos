@@ -35,6 +35,12 @@ archived by its owner on 2021-04-26 and is read-only. Its README states that
 the Cuckoo 2.x line is unmaintained, and the [2.0.6 release](https://github.com/cuckoosandbox/cuckoo/releases/tag/2.0.6)
 is from 2018.
 
+The [Cuckoo3 rewrite](https://github.com/cert-ee/cuckoo3) is the successor line
+listed in the table above. Its `main` branch last advanced on 2025-12-18, and
+the only newer commits sit on unmerged dependabot branches, so confirm both its
+activity and its production-readiness statement before treating it as a
+migration target.
+
 ## Use CAPE for a self-hosted Cuckoo-style platform
 
 [`CAPEv2`](https://github.com/kevoreilly/CAPEv2) is the strongest current
@@ -170,7 +176,9 @@ malware-detonation environment:
 > destruction, and credential theft.
 
 These requirements are prerequisites for detonating live samples, not follow-up
-work. Apply them to every option above, self-hosted or hosted:
+work. Apply them to every detonation option above, self-hosted or hosted. The
+local isolation tools in the previous section are out of scope because they are
+not detonation platforms:
 
 - Place detonation hosts on a dedicated network segment with no route to
   production, management, or backup networks.
