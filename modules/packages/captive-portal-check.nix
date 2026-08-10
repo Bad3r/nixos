@@ -62,9 +62,16 @@
             esac
           '';
 
+          # NM_FAIL is a status rather than a flag because the guard's wording
+          # depends on which one nmcli returned, and an empty NM_DEVICES cannot
+          # stand in for it: that already means "nmcli answered, nothing is
+          # connected", which is the case the failure has to be told apart from.
           nmcliStub = pkgs.writeShellScriptBin "nmcli" ''
             case "$*" in
             *"DEVICE,TYPE,STATE device status")
+              if [ -n "''${NM_FAIL-}" ]; then
+                exit "$NM_FAIL"
+              fi
               printf '%b\n' "''${NM_DEVICES-wifi0:wifi:connected}"
               ;;
             *"IP4.DNS device show"*)
@@ -632,6 +639,56 @@
               [ "$rc" -eq 0 ] || fail "--restore must survive a missing resolv.conf (exit $rc)"
               grep -q 'carries no nameserver line' "$work/err" ||
                 fail "a resolv.conf with no nameserver must be reported, not fatal"
+            )
+
+            # nmcli's own exit codes are not this script's. Under pipefail the
+            # unguarded assignment ended the run with nmcli's 8 and no output at
+            # all: no note, no usage, nothing, past a table that stops at 4.
+            (
+              reset
+              rc=$(NM_FAIL=8 run --probe)
+              [ "$rc" -eq 4 ] || fail "a failed device listing must exit 4, not leak nmcli's status (exit $rc)"
+              grep -q '^captive-portal: NetworkManager is not running' "$work/err" ||
+                fail "nmcli's exit 8 must be reported as the daemon being down"
+              ! released || fail "a run that could not list devices must not release DNS"
+            )
+
+            # Any other nmcli failure is named by its status rather than guessed
+            # at, and must not read as the daemon being down.
+            (
+              reset
+              rc=$(NM_FAIL=2 run --probe)
+              [ "$rc" -eq 4 ] || fail "an unknown nmcli failure must exit 4 (exit $rc)"
+              grep -q '^captive-portal: nmcli could not list devices (exit 2)' "$work/err" ||
+                fail "an unknown nmcli failure must name its status"
+            )
+
+            # The companion: nmcli answers and nothing is connected. That is the
+            # case the two above have to stay distinguishable from.
+            (
+              reset
+              export NM_DEVICES=""
+              rc=$(run --probe)
+              [ "$rc" -eq 4 ] || fail "zero connected devices must exit 4 (exit $rc)"
+              grep -qxF 'captive-portal: no connected wifi or ethernet device' "$work/err" ||
+                fail "an empty device list must keep its own wording"
+            )
+
+            # The restore worked and then the run crashed on the cleanup: rm's
+            # status 1 is this script's "no portal", reported for a --restore
+            # that had already handed DNS back.
+            (
+              reset
+              runtime="$work/denied-unlink"
+              mkdir -p "$runtime/captive-portal"
+              printf 'true\ttrue\n' >"$runtime/captive-portal/tailscale-prefs"
+              chmod 555 "$runtime/captive-portal"
+              rc=$(XDG_RUNTIME_DIR="$runtime" run --restore)
+              chmod 755 "$runtime/captive-portal"
+              [ "$rc" -eq 0 ] || fail "a snapshot that cannot be unlinked must not fail the restore (exit $rc)"
+              restored || fail "the restore itself must still happen"
+              grep -q '^captive-portal: could not remove' "$work/err" ||
+                fail "a snapshot left behind must be reported, since the next run replays it"
             )
 
             # A docked laptop holds two links, and only one can be behind the

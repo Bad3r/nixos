@@ -19,6 +19,7 @@ open_browser=1
 stop_tailscale=0
 dns_released=0
 prefs_snapshot_created=0
+nmcli_status=0
 
 # sudo-rs enforces env_reset with no opt-out and modules/hosts/common/sudo.nix
 # keeps only SSH_AUTH_SOCK, so XDG_RUNTIME_DIR is gone under sudo. Falling back
@@ -438,7 +439,14 @@ restore_dns() {
     note "start it with 'tailscale up', or rerun once that is fixed: captive-portal --restore"
     exit 4
   fi
-  rm -f "$state_file"
+  # save_prefs keeps the first snapshot of a session, so one left behind here is
+  # replayed by the next run as prefs the host may no longer hold. The restore
+  # itself succeeded, so this is reported the way a failed reload is: unguarded,
+  # it crashed the run with rm's status 1, which for this script means "no
+  # portal", after the restore it is reporting had already worked.
+  if ! rm -f "$state_file"; then
+    note "could not remove $state_file; delete it, or the next run will replay it"
+  fi
   note "DNS returned to Tailscale"
   show_resolvers
 }
@@ -450,11 +458,18 @@ fi
 
 candidates=""
 if [ -z "$device" ]; then
-  candidates="$(candidate_devices)"
+  candidates="$(candidate_devices)" || nmcli_status=$?
   device="$(printf '%s\n' "$candidates" | head -1 | cut -d: -f2)"
 fi
 if [ -z "$device" ]; then
-  note "no connected wifi or ethernet device"
+  # nmcli's exit codes are not this script's. Unguarded, and under pipefail, the
+  # assignment above ended the run with nmcli's own 8 and printed nothing at
+  # all, past a status table that stops at 4 and past this guard.
+  case "$nmcli_status" in
+  0) note "no connected wifi or ethernet device" ;;
+  8) note "NetworkManager is not running, so nmcli could not list devices" ;;
+  *) note "nmcli could not list devices (exit $nmcli_status)" ;;
+  esac
   exit 4
 fi
 
