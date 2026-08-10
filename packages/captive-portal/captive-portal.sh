@@ -274,8 +274,15 @@ hand_state_to_invoker() {
 # --restore would then replay --accept-dns=false as if that were the user's
 # state. The first snapshot of a session wins until --restore consumes it.
 save_prefs() {
-  local prefs tmp
-  mkdir -p "$state_dir"
+  local prefs tmp=""
+  # Every step is checked because `if ! save_prefs` is the only call site, and
+  # that suspends errexit for the whole body: an unchecked failure fell through
+  # to the trailing assignment and reported success, so the run went on to
+  # release DNS with nothing recorded to put back.
+  if ! mkdir -p "$state_dir"; then
+    note "cannot create $state_dir; leaving DNS untouched"
+    return 1
+  fi
   if [ -s "$state_file" ]; then
     return 0
   fi
@@ -287,9 +294,15 @@ save_prefs() {
   fi
   # Write through a temporary so a failed read never leaves a truncated file
   # that --restore would later parse as "DNS was already off".
-  tmp="$(mktemp "$state_file.XXXXXX")"
-  printf '%s\n' "$prefs" >"$tmp"
-  mv "$tmp" "$state_file"
+  if ! tmp="$(mktemp "$state_file.XXXXXX")" ||
+    ! printf '%s\n' "$prefs" >"$tmp" ||
+    ! mv "$tmp" "$state_file"; then
+    if [ -n "$tmp" ]; then
+      rm -f "$tmp"
+    fi
+    note "cannot write $state_file; leaving DNS untouched"
+    return 1
+  fi
   hand_state_to_invoker
   prefs_snapshot_created=1
 }
@@ -357,8 +370,17 @@ show_resolvers() {
 # The two halves fail for unrelated reasons and need unrelated remedies, so they
 # report separately: 1 is the DNS write, which is the call the operator pref
 # gates, and 2 is the run state, which is only ever reached once DNS is back.
+
+# `debug prefs` answering is no promise the field is there, and jq's -e turns an
+# absent or non-boolean one into a nonzero status rather than an empty string.
+read_want_running() {
+  tailscale debug prefs |
+    jq -er 'if (.WantRunning | type) == "boolean" then (.WantRunning | tostring)
+            else error("WantRunning missing") end'
+}
+
 apply_saved_prefs() {
-  local corp_dns="$1" want_running="$2"
+  local corp_dns="$1" want_running="$2" live_running=""
   # DNS is what the run took away, so it goes back first. Ordering the run state
   # ahead of it let a refused `up` keep the resolvers off a host that could have
   # had them back.
@@ -371,8 +393,18 @@ apply_saved_prefs() {
   # when no flag is set, skipping the pref diff that produces `flag --ssh is not
   # specified but it is set in prefs`. It runs only when the snapshot says --down
   # stopped a node that had been up.
-  if [ "$want_running" = "true" ] && [ "$(tailscale debug prefs | jq -r '.WantRunning')" = "false" ]; then
-    tailscale up || return 2
+  if [ "$want_running" = "true" ]; then
+    # A failed read used to land here as an empty string, compare unequal to
+    # false, and skip the restart the snapshot had just asked for without saying
+    # anything. Not knowing the run state is a reason to stop, not to guess.
+    if ! live_running="$(read_want_running)"; then
+      note "cannot read Tailscale prefs, so whether the node needs starting is unknown"
+      return 2
+    fi
+    if [ "$live_running" = "false" ] && ! tailscale up; then
+      note "tailscaled refused 'tailscale up'"
+      return 2
+    fi
   fi
 }
 
@@ -399,10 +431,11 @@ restore_dns() {
   reload_nm_dns
   dns_released=0
   if [ "$rc" -ne 0 ]; then
-    # Not the operator wall: that gate had already passed the DNS write above.
+    # Not the operator wall: that gate had already passed the DNS write above,
+    # and apply_saved_prefs has already named which half of the run state failed.
     # The snapshot stays because it is the only record that this node was up.
-    note "DNS returned to Tailscale, but 'tailscale up' failed and the node is still stopped"
-    note "start it by hand, or rerun once that is fixed: captive-portal --restore"
+    note "DNS returned to Tailscale, but the node's run state was not restored"
+    note "start it with 'tailscale up', or rerun once that is fixed: captive-portal --restore"
     exit 4
   fi
   rm -f "$state_file"

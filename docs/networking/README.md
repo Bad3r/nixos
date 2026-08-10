@@ -420,7 +420,9 @@ fi
 ```
 
 The helper saves `CorpDNS` and `WantRunning` under `$XDG_RUNTIME_DIR` before
-changing anything, and `--restore` replays exactly those values. The snapshot is
+changing anything, and `--restore` replays exactly those values. A snapshot it
+cannot write stops the run with status 4 before any DNS change: releasing DNS
+with no record of what to put back is the one state this helper must not leave. The snapshot is
 taken once and kept until `--restore` consumes it, so retrying after a failed
 sign-in still restores the state the first run found. A run that finds nothing
 to sign in to restores DNS before it exits; only a run that found a portal
@@ -433,9 +435,11 @@ reboot finds no snapshot. That run re-enables tailnet DNS, which is the safe
 direction, and leaves the run state alone: nothing recorded that the node was
 up, and starting one that was stopped on purpose is not a restore. DNS goes back
 before the run state for the same reason, so a node that refuses to come back up
-still gets its resolvers. That run reports the stopped node rather than the
-operator pref, which the DNS write it just completed had already cleared, and it
-exits 4 keeping the snapshot so `--restore` can be retried once the node starts.
+still gets its resolvers. That run reports the run state rather than the operator
+pref, which the DNS write it just completed had already cleared, and it exits 4
+keeping the snapshot so `--restore` can be retried. An unreadable
+`tailscale debug prefs` ends the same way rather than assuming the node is
+already running, because a read that failed is not an answer.
 
 ## Sign in by hand
 

@@ -46,6 +46,12 @@
           # allowed to look like a failing `set`.
           tailscaleStub = pkgs.writeShellScriptBin "tailscale" ''
             if [ "$*" = "debug prefs" ]; then
+              # TS_PREFS_FAIL is the read half of TS_FAIL_STATE: tailscaled
+              # answering is not guaranteed either, and a reader that treated a
+              # failed read as an answer decided the run silently.
+              if [ -n "''${TS_PREFS_FAIL-}" ]; then
+                exit 1
+              fi
               printf '{"CorpDNS":%s,"WantRunning":%s}\n' \
                 "''${TS_CORP_DNS-true}" "''${TS_WANT_RUNNING-true}"
               exit 0
@@ -490,6 +496,57 @@
                 fail "a refused up must not report DNS it just handed back as released"
               grep -qxF 'nmcli general reload dns-full' "$work/log" ||
                 fail "a restored resolver still needs the NetworkManager reload"
+            )
+
+            # The run state was read straight into a comparison, so a failed read
+            # became an empty string, compared unequal to false, and skipped the
+            # restart the snapshot had asked for without a word.
+            (
+              reset
+              mkdir -p "$(dirname "$state")"
+              printf 'true\ttrue\n' >"$state"
+              rc=$(TS_PREFS_FAIL=1 run --restore)
+              [ "$rc" -eq 4 ] || fail "an unreadable prefs read must exit 4 (exit $rc)"
+              restored || fail "an unreadable prefs read must not keep DNS from Tailscale"
+              [ -s "$state" ] || fail "an incomplete restore must keep the snapshot"
+              ! grep -qxF 'tailscale up' "$work/log" ||
+                fail "an unknown run state must not be guessed at"
+              grep -q 'whether the node needs starting is unknown' "$work/err" ||
+                fail "an unreadable prefs read must say so"
+            )
+
+            # save_prefs ran with errexit suspended, because `if ! save_prefs` is
+            # its only caller, and ended in an assignment, so mkdir, mktemp, the
+            # write and the mv could all fail while the function still reported
+            # success and the run released DNS with nothing recorded. Both shapes
+            # reach it: the directory that cannot be created, and the one that
+            # exists and cannot be written.
+            (
+              reset
+              runtime="$work/denied-create"
+              mkdir -p "$runtime"
+              chmod 500 "$runtime"
+              rc=$(XDG_RUNTIME_DIR="$runtime" run --no-open)
+              chmod 700 "$runtime"
+              [ "$rc" -eq 4 ] || fail "a state directory that cannot be created must exit 4 (exit $rc)"
+              ! released || fail "a run that cannot record the prefs must not release DNS"
+              # The script's own prefix, because mkdir's stderr says "cannot
+              # create directory" too and matching that passed with no guard.
+              grep -q '^captive-portal: cannot create' "$work/err" ||
+                fail "the run must say the state directory could not be created"
+            )
+
+            (
+              reset
+              runtime="$work/denied-write"
+              mkdir -p "$runtime/captive-portal"
+              chmod 500 "$runtime/captive-portal"
+              rc=$(XDG_RUNTIME_DIR="$runtime" run --no-open)
+              chmod 700 "$runtime/captive-portal"
+              [ "$rc" -eq 4 ] || fail "a state directory that cannot be written must exit 4 (exit $rc)"
+              ! released || fail "a run that cannot record the prefs must not release DNS"
+              grep -q '^captive-portal: cannot write' "$work/err" ||
+                fail "the run must say the snapshot could not be written"
             )
 
             # Absence of a snapshot is not evidence the node was ever up: the
