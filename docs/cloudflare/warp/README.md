@@ -33,7 +33,9 @@ is enabled it:
    placeholders, parses the rendered fragment with `xmllint`, and installs it
    (mode 0600, root) via `ExecStartPre` right before `warp-svc` starts. A
    credential carrying an XML metacharacter fails the unit instead of silently
-   degrading the daemon to unmanaged mode.
+   degrading the daemon to unmanaged mode. xmllint's stderr is dropped and
+   replaced with a fixed message: it reports a parse error by echoing the
+   offending source line, which would put the credential in the journal.
 4. Leaves `networking.firewall.checkReversePath` to the shared
    `hosts-common` `vpn-defaults` owner. Hosts using this repository's common
    baseline receive `loose` for asymmetric VPN routing, and a host firewall
