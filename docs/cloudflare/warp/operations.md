@@ -114,7 +114,11 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   registration check itself does not answer, the tunnel is left up and the unit
   logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty
   or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`, then `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. Those `<4>` notices are visible to
-  `journalctl -u cloudflare-warp-connect -p warning`. Inspect the daemon logs and rerun:
+  `journalctl -u cloudflare-warp-connect -p warning`. A registration query that does
+  not answer logs `registration check failed (exit <n>)`; exit 124 is the five-second
+  `timeout` firing on a busy `warp-svc`, and any other code is warp-cli's own, whose
+  stderr is left unredirected and lands in the journal beside it at info priority.
+  Inspect the daemon logs and rerun:
 
   `systemctl restart cloudflare-warp-connect.service`
 
