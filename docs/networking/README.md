@@ -429,10 +429,11 @@ exit status names the outcome, so a wrapper can act on it:
 | 0      | a portal was found and its URL was printed                                          |
 | 1      | no portal: this network answers the probes normally                                 |
 | 2      | invalid usage                                                                       |
-| 3      | probes inconclusive; a gateway guess is printed, never opened                       |
+| 3      | probes inconclusive; a gateway guess is printed if there is one, never opened       |
 | 4      | the network could not be inspected, or Tailscale state could not be read or changed |
 
-Status 3 is a guess, not a detection. The address printed is the network's
+Status 3 is a guess, not a detection, and prints nothing if the network gave no
+default route to guess from. When one is printed, the address is the network's
 gateway, which on a network that merely blocks the probe hosts is the local
 router rather than a portal, so it is only printed: the browser is launched for
 a confirmed portal and nothing else.

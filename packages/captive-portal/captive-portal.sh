@@ -87,7 +87,8 @@ Exit status:
   0  a portal was found and its URL was printed
   1  no portal: this network answers the probes normally
   2  invalid usage
-  3  the probes were inconclusive; a gateway guess is printed, never opened
+  3  the probes were inconclusive; a gateway guess is printed if there is one,
+     and never opened
   4  the network could not be inspected, or Tailscale state could not be read
      or changed
 
