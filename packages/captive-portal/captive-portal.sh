@@ -456,8 +456,16 @@ save_prefs() {
 # proves nothing about being allowed to change them. Every caller below acts on
 # the refusal itself rather than second-guessing that rule.
 denied() {
-  note "tailscaled refused the change: it accepts one only from root or its operator user"
-  note "run this under sudo, or set programs.tailscale.extended.operator to $(id -un)"
+  # Both callers reach this on any nonzero exit, and the commonest one is not a
+  # refusal at all: with tailscaled stopped, `tailscale set` fails with `failed
+  # to connect to local tailscaled`, and stating the operator wall as fact sent
+  # the user to change a pref that was already right. tailscale's own error is
+  # not redirected, so it is on screen directly above these lines.
+  note "tailscaled did not apply the change; its own error is above"
+  # id -un is root inside sudo, so the workaround used to advise setting the
+  # operator to root, which is the one user that never needs it.
+  note "if it refused, it takes a change only from root or its operator user: run"
+  note "this under sudo, or set programs.tailscale.extended.operator to ${SUDO_USER:-$(id -un)}"
 }
 
 drop_dns() {

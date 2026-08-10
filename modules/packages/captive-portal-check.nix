@@ -810,9 +810,24 @@
               [ "$rc" -eq 4 ] || fail "a refused release must exit 4 (exit $rc)"
               grep -q 'operator' "$work/err" ||
                 fail "a refused release must name the operator pref"
+              # Both callers reach this on any nonzero exit, and a stopped
+              # tailscaled is the commoner one, so the wall is offered as the
+              # explanation rather than asserted as the fact.
+              grep -q 'tailscaled did not apply the change' "$work/err" ||
+                fail "a failed change must not be reported as a refusal outright"
               [ ! -e "$state" ] ||
                 fail "a release that changed nothing must not leave a snapshot to replay"
               [ ! -s "$work/out" ] || fail "a refused release must print no URL"
+            )
+
+            # id -un is root inside sudo, so the advice named the one user that
+            # never needs the pref.
+            (
+              reset
+              rc=$(SUDO_USER=someone TS_FAIL_STATE=set run --no-open)
+              [ "$rc" -eq 4 ] || fail "a refused release under sudo must exit 4 (exit $rc)"
+              grep -q 'operator to someone' "$work/err" ||
+                fail "under sudo the advice must name the invoking user"
             )
 
             # The mirror image: --restore is refused, DNS stays released, and the
