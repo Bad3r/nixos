@@ -119,7 +119,7 @@ let
           # name the failure in the journal next to the exit code.
           registration=""
           registration_status=0
-          registration="$(timeout 5s warp-cli --accept-tos registration organization)" ||
+          registration="$(timeout -k 1s 5s warp-cli --accept-tos registration organization)" ||
             registration_status=$?
           if [ "$registration_status" -ne 0 ]; then
             registration_state="unknown"
@@ -137,11 +137,14 @@ let
         }
 
         refresh_status() {
-          if status="$(timeout 5s warp-cli --accept-tos status 2>&1)"; then
+          if status="$(timeout -k 1s 5s warp-cli --accept-tos status 2>&1)"; then
             status="''${status:-status unavailable}"
           else
-            echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
-            status="''${status:-status unavailable}"
+            echo "<4>cloudflare-warp-connect: status command failed: ''${status:-no response}"
+            # The raw text is echoed above, so drop it rather than letting a
+            # failed query's error string reach the globs below as if it were a
+            # tunnel state.
+            status="status unavailable"
           fi
           echo "cloudflare-warp-connect: $status"
           case "$status" in
@@ -153,7 +156,7 @@ let
                   ;;
                 mismatch)
                   echo "<3>cloudflare-warp-connect: connected without managed Zero Trust registration; disconnecting"
-                  if disconnect_output="$(timeout 5s warp-cli --accept-tos disconnect 2>&1)"; then
+                  if disconnect_output="$(timeout -k 1s 5s warp-cli --accept-tos disconnect 2>&1)"; then
                     echo "cloudflare-warp-connect: disconnected unmanaged tunnel"
                   else
                     echo "<3>cloudflare-warp-connect: failed to disconnect unmanaged tunnel: ''${disconnect_output:-no response}"
@@ -192,11 +195,11 @@ let
             break
           fi
           if [ "$registration_state" = "confirmed" ]; then
-            if request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"; then
+            if request_output="$(timeout -k 1s 5s warp-cli --accept-tos connect 2>&1)"; then
               connect_requested=1
               echo "cloudflare-warp-connect: connect requested"
             else
-              echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
+              echo "<4>cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
             fi
           else
             echo "<4>cloudflare-warp-connect: managed enrollment is not ready; not connecting"

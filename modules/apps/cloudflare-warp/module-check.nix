@@ -255,10 +255,10 @@
             # warp-cli's own reason for a failed check from the journal.
             assert lib.assertMsg
               (lib.all (call: lib.hasInfix call enrolledConnectScript) [
-                ''registration="$(timeout 5s warp-cli --accept-tos registration organization)"''
-                ''status="$(timeout 5s warp-cli --accept-tos status 2>&1)"''
-                ''disconnect_output="$(timeout 5s warp-cli --accept-tos disconnect 2>&1)"''
-                ''request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"''
+                ''registration="$(timeout -k 1s 5s warp-cli --accept-tos registration organization)"''
+                ''status="$(timeout -k 1s 5s warp-cli --accept-tos status 2>&1)"''
+                ''disconnect_output="$(timeout -k 1s 5s warp-cli --accept-tos disconnect 2>&1)"''
+                ''request_output="$(timeout -k 1s 5s warp-cli --accept-tos connect 2>&1)"''
               ])
               "apps/cloudflare-warp-module-eval: every warp-cli call must pass --accept-tos with its bounded timeout and redirect";
             assert lib.assertMsg
@@ -274,6 +274,8 @@
                   "registration check failed"
                   "managed Zero Trust registration unavailable"
                   "managed enrollment is not ready; not connecting"
+                  "status command failed"
+                  "connect request failed"
                 ]
                 && lib.all (msg: lib.hasInfix "<3>cloudflare-warp-connect: ${msg}" enrolledConnectScript) [
                   "managed organization secret unavailable"
@@ -451,6 +453,17 @@
             assert lib.assertMsg (
               !disabled.config.services.cloudflare-warp.enable
             ) "apps/cloudflare-warp-module-eval: disabled branch must not enable upstream WARP";
+            # The documented job of the kill switch is to stop declaring secrets
+            # the host can no longer decrypt, which is not the same property as
+            # keeping warp-svc down. Moving the sops block to `mkIf enrolling`
+            # would leave every other assertion here green while a host that lost
+            # its runtime key fails activation on the payload.
+            assert lib.assertMsg
+              (
+                !builtins.hasAttr "cloudflare-warp/organization" disabled.config.sops.secrets
+                && !builtins.hasAttr "cloudflare-warp-mdm" disabled.config.sops.templates
+              )
+              "apps/cloudflare-warp-module-eval: disabled branch must declare no sops secrets and no mdm template";
             assert lib.assertMsg (
               !(hasWarpCli disabled)
             ) "apps/cloudflare-warp-module-eval: disabled branch must not install warp-cli";
