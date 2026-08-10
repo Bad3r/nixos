@@ -252,7 +252,19 @@ probe_portal() {
       if [ -n "$expect" ] && grep -qF "$expect" "$body_file"; then
         host_clean=1
       else
-        found="$(grep -oiE 'https?://[^"'"'"'<>[:space:]]+' "$body_file" | head -1 || true)"
+        # The first absolute URL in a page is usually not the sign-in target. An
+        # intercepted page served as XHTML opens with the w3.org DTD in its
+        # DOCTYPE, and a CDN script tag sits above the form on plenty of others,
+        # so matching anywhere in the body opened w3.org or googleapis while the
+        # form went unseen. Only what a link, form or meta refresh points at
+        # counts, and w3.org is dropped even there, because a "Valid XHTML"
+        # badge is the one href some portal pages carry besides a relative form.
+        # Finding nothing is the good outcome then: the caller falls back to the
+        # address that answered the hijacked lookup, which is at least the host
+        # serving the page.
+        found="$(grep -oiE '(href|action|url)=["'"'"']?https?://[^"'"'"'<>[:space:]]+' "$body_file" |
+          grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
+          grep -viE '^https?://[^/]*\.w3\.org/' | head -1 || true)"
         printf '%s\n' "${found:-http://$answer}"
         return 0
       fi

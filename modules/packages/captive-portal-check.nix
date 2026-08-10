@@ -274,6 +274,33 @@
                 fail "the inline portal page must yield its own sign-in URL"
             )
 
+            # The sign-in URL is not simply the first one in the page. An
+            # intercepted page served as XHTML opens with the w3.org DTD in its
+            # DOCTYPE, and a CDN script tag sits above the form, so matching
+            # anywhere in the body launched a browser at w3.org.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7/jquery.min.js"></script></head><body><form action="http://portal.lan/login"></form></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "an intercepted XHTML page is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/login" ] ||
+                fail "the form target must beat the DTD and the CDN, got '$(cat "$work/out")'"
+            )
+
+            # When the only absolute URL a link points at is a validator badge,
+            # finding nothing is the better answer: the address that answered the
+            # hijacked lookup is at least the host serving the page.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><body><form action="/login"></form><a href="http://validator.w3.org/check?uri=referer">Valid</a></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a relative form target is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "with no usable link the canary's own address must be the URL"
+            )
+
             # A canary that answered correctly from a private address. The
             # hijack check used to run anyway and overrule the payload that had
             # just proved there was no interception.
