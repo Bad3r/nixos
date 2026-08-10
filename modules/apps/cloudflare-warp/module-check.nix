@@ -284,6 +284,13 @@
                 ''request_output="$(timeout -k 1s 5s warp-cli --accept-tos connect 2>&1)"''
               ])
               "apps/cloudflare-warp-module-eval: every warp-cli call must pass --accept-tos with its bounded timeout and redirect";
+            # Every other anchor for this path matches diagnostic text, so
+            # pointing the read at a path that does not exist at runtime would
+            # take the empty-organization exit on every boot with the check
+            # green. Match the live sops attribute so it cannot drift.
+            assert lib.assertMsg
+              (lib.hasInfix "cat ${enrolled.config.sops.secrets."cloudflare-warp/organization".path}" enrolledConnectScript)
+              "apps/cloudflare-warp-module-eval: enrolled connect script must read the managed organization from its sops secret";
             assert lib.assertMsg
               (lib.hasInfix "managed organization secret unavailable; cannot verify registration" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must reject an empty managed organization";
@@ -299,6 +306,7 @@
                   "managed enrollment is not ready; not connecting"
                   "status command failed"
                   "connect request failed"
+                  "registration check returned no organization"
                   "connected while the managed registration could not be verified"
                   "tunnel is up but its registration went unverified"
                 ]
@@ -438,6 +446,9 @@
                   # first live tunnel this run never confirmed, which is a
                   # consumer-WARP tunnel reported as a healthy managed one.
                   lib.hasInfix ''confirmed_once=""'' initBlock
+                  # mismatch is the state that disconnects, so an empty answer
+                  # must route to unknown once this run confirmed, not to it.
+                  && lib.hasInfix ''elif [ -z "$registration" ] && [ -n "$confirmed_once" ]; then'' confirmedArm
                   && !lib.hasInfix "confirmed_once=1" initBlock
                   && lib.hasInfix "confirmed_once=1" confirmedArm
                   # Suppression direction: the guard must actually skip the count.
