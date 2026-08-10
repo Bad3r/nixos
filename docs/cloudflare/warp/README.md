@@ -99,5 +99,5 @@ on an un-decryptable payload.
 - [Get started on Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)
 - [Deploy the client headless on Linux](https://developers.cloudflare.com/cloudflare-one/tutorials/deploy-client-headless-linux/)
 - [Managed deployment parameters](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/warp/deployment/mdm-deployment/parameters/)
-- [Service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-auth/service-tokens/)
+- [Service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/)
 - [NixOS option `services.cloudflare-warp`](https://search.nixos.org/options?query=services.cloudflare-warp)
