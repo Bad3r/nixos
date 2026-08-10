@@ -256,9 +256,7 @@ vendor-review questions rather than controls you configure:
   or brokered path that is logged and rate-limited. Run that broker on the
   segment boundary rather than on the detonation host, which carries no other
   workload, so the guests reach it as the one permitted route off the segment
-  and not through a detonation-host interface. Dedicate the broker host to its
-  brokered-egress role, because it is the only self-hosted component every
-  sample is permitted to reach.
+  and not through a detonation-host interface.
 - Keep production credentials, tokens, SSH agents, and mounted shares belonging
   to systems outside the analysis environment off the detonation and broker
   hosts and every Assemblyline deployment node. Give each only role-required
@@ -290,31 +288,32 @@ vendor-review questions rather than controls you configure:
   compromise. A guest snapshot revert does not restore a host the sample
   reached.
 - Ship hypervisor and host logs off the detonation host, egress-broker logs off
-  whichever host runs the broker, and Assemblyline deployment-node logs off
-  their nodes as they are written. Review all of them for host-level compromise.
-  A compromised boundary host can edit any log it can still write to, so nothing
-  held on that host can raise the suspicion the rebuild above depends on. Carry
-  that shipping on the restricted administrative path rather than the detonation
-  segment, give each shipping host its own append-only credentials to the
-  collector, and allow no shipping host access to the collector beyond
-  appending, so it cannot rewrite or delete what it already sent. Reach only the
-  collector and approved update mirror from the broker host on that path: give
-  it no route to the hypervisor console, the orchestration API, or the gold-image
-  store, because it is the one self-hosted component every sample may reach.
-- Keep guest gold images outside the detonation host's write path. Keep
+  the broker host, and Assemblyline deployment-node logs off their nodes as they
+  are written. Review all of them for host-level compromise. A compromised
+  boundary host can edit any log it can still write to, so nothing held on that
+  host can raise the suspicion the rebuild above depends on. Carry that shipping
+  on the restricted administrative path rather than the detonation segment, give
+  each shipping host its own append-only credentials to the collector, and allow
+  no shipping host access to the collector beyond appending, so it cannot rewrite
+  or delete what it already sent. Reach only the collector and approved update
+  mirror from the broker host on that path: give it no route to the hypervisor
+  console, the orchestration API, or the gold-image store, because it is the one
+  self-hosted component every sample may reach.
+- Keep guest gold images outside the detonation host's write path, and keep
   known-good rebuild media outside the write path of the detonation host, broker
-  host, or Assemblyline deployment node it rebuilds. Serve a gold image and its
-  authenticated manifest read-only to the detonation host over the restricted
-  administrative path rather than the detonation segment. Pair every gold image
-  and rebuild medium with an authenticated manifest from a separately
-  administered recovery authority that binds the exact media version to a
-  cryptographic digest, rather than a locally recorded hash. For every restore
-  or rebuild, verify the relevant media against that manifest. Deliver rebuild
-  media and its manifest for any of those systems only through a separate
-  recovery procedure, not a runtime route of the system being rebuilt. Revert by
-  discarding the guest's writable overlay and recreating it from that image
-  rather than from a snapshot the host can write, because a sample that reaches
-  the host can otherwise poison the baseline it is restored from.
+  host, or Assemblyline deployment node it rebuilds.
+- Serve a gold image and its authenticated manifest read-only to the detonation
+  host over the restricted administrative path rather than the detonation
+  segment. Deliver rebuild media and its manifest for any of those systems only
+  through a separate recovery procedure, not a runtime route of the system being
+  rebuilt.
+- Pair every gold image and rebuild medium with an authenticated manifest from a
+  separately administered recovery authority that binds the exact media version
+  to a cryptographic digest, rather than a locally recorded hash, and verify the
+  relevant media against that manifest for every restore or rebuild.
+- Revert by discarding the guest's writable overlay and recreating it from the
+  gold image rather than from a snapshot the host can write, because a sample
+  that reaches the host can otherwise poison the baseline it is restored from.
 
 ## Choose a deployment path
 
@@ -325,15 +324,14 @@ of these paths.
   analysis service.
 - Put Assemblyline in front of CAPE when the workflow needs large-scale intake,
   scoring, enrichment, and analyst queue management. Run it on a separate host,
-  because the detonation host is dedicated to analysis, and treat it as the only
-  service that submits into the detonation segment from outside: it serves
-  analysts outside the segment, so allow no inbound path from the guests or the
-  detonation host back to it. Make Assemblyline the analyst-facing surface in
-  this deployment and restrict the detonation host's own submission and result
-  interfaces on the inbound path above to Assemblyline and the operators who
-  administer the deployment, so analysts reach results only through Assemblyline
-  and the composition adds no second analyst crossing. The egress broker remains
-  the guests' only outbound crossing.
+  because the detonation host is dedicated to analysis, and make it the
+  analyst-facing surface of the deployment. Analysts reach results only through
+  Assemblyline, and the detonation host's own submission and result interfaces
+  on the designated inbound path stay restricted to Assemblyline and the
+  operators who administer the deployment. The Assemblyline containment
+  requirement above governs the rest of its boundary: it submits to the
+  detonation host on that inbound path without attaching to the detonation
+  segment. The egress broker remains the guests' only outbound crossing.
 - Use DRAKVUF when agentless virtual-machine introspection is more important
   than deployment simplicity.
 - Use ANY.RUN or Joe Sandbox when a managed service, live analyst interaction,
