@@ -310,6 +310,43 @@
                 fail "the form target must beat the DTD and the CDN, got '$(cat "$work/out")'"
             )
 
+            # A portal page most often parks the address that was originally
+            # asked for in a query parameter, and an unanchored `url=` matched
+            # that as readily as a meta refresh: the canary's own URL was printed
+            # as the portal while the form two elements later went unseen.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><body><p>You are being redirected to the sign-in page. This notice is padded so the page is the size a real interception page is, rather than short enough to pass for a canary payload.</p><a href="/login?url=http://detectportal.firefox.com/success.txt">continue</a><form action="http://portal.lan/auth"></form></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "an interception page with a query parameter is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/auth" ] ||
+                fail "a url= query parameter must not beat the form target, got '$(cat "$work/out")'"
+            )
+
+            # The badge filter needed the leading dot optional and the trailing
+            # slash relaxed: w3.org without a www, and www.w3.org without a path,
+            # both walked past the pattern that exists to drop them.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><body><form action="/login"></form><a href="http://w3.org/TR/xhtml1">Valid</a><p>Padded past the bound the clean test applies, so this page is judged as the interception page it is meant to stand for.</p></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a badge-only page is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "w3.org without a www must not be the portal URL, got '$(cat "$work/out")'"
+            )
+
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><body><form action="/login"></form><a href="http://www.w3.org">Valid</a><p>Padded past the bound the clean test applies, so this page is judged as the interception page it is meant to stand for.</p></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a badge-only page with no path is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "w3.org with no trailing slash must not be the portal URL, got '$(cat "$work/out")'"
+            )
+
             # When the only absolute URL a link points at is a validator badge,
             # finding nothing is the better answer: the address that answered the
             # hijacked lookup is at least the host serving the page.

@@ -293,9 +293,16 @@ probe_portal() {
         # Finding nothing is the good outcome then: the caller falls back to the
         # address that answered the hijacked lookup, which is at least the host
         # serving the page.
-        found="$(grep -oiE '(href|action|url)=["'"'"']?https?://[^"'"'"'<>[:space:]]+' "$body_file" |
+        # `url=` is anchored on `;` or whitespace so it still catches a meta
+        # refresh's `content="0; url=..."` and no longer catches `?url=` or
+        # `&url=`, which is where a portal page most often parks the address that
+        # was originally asked for: the canary's own URL was printed as the
+        # portal, and on a proxy portal that is a public host. The w3.org
+        # pattern needs the leading dot optional and the trailing slash relaxed,
+        # or `http://w3.org/TR/...` and `http://www.w3.org` walk past it.
+        found="$(grep -oiE '((href|action)=|[;[:space:]]url=)["'"'"']?https?://[^"'"'"'<>[:space:]]+' "$body_file" |
           grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
-          grep -viE '^https?://[^/]*\.w3\.org/' | head -1 || true)"
+          grep -viE '^https?://([^/]*\.)?w3\.org([/:?]|$)' | head -1 || true)"
         printf '%s\n' "${found:-http://$answer}"
         return 0
       fi
