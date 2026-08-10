@@ -246,10 +246,19 @@ probe_portal() {
 
     case "$status" in
     30*)
-      if [ -n "$redirect" ]; then
+      # This value is whatever an untrusted network put in Location, and it ends
+      # up at xdg-open. curl builds %{redirect_url} through FOLLOW_FAKE, which
+      # skips the protocol check it applies when -L actually follows the hop, so
+      # `Location: file:///home/user/.ssh/id_ed25519` arrives here intact, as
+      # does any scheme with a desktop handler. Only the two the body-extraction
+      # path already restricts itself to count; anything else is no answer and
+      # falls through to the hijack check below.
+      case "$redirect" in
+      http://* | https://*)
         printf '%s\n' "$redirect"
         return 0
-      fi
+        ;;
+      esac
       ;;
     204)
       # 204 is body-less by definition, so there is nothing left to match.

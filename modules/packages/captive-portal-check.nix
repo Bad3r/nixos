@@ -371,6 +371,31 @@
               )
             done
 
+            # Location is whatever an untrusted network put there, and it reaches
+            # xdg-open. curl hands back a file:// target verbatim, so the run
+            # printed it as the portal and opened it.
+            (
+              reset
+              export FF_STATUS=302 FF_REDIRECT='file:///etc/shadow'
+              export AP_STATUS=000 GS_STATUS=000
+              rc=$(run --probe)
+              [ "$rc" -eq 3 ] || fail "a non-http redirect target is no answer (exit $rc)"
+              [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
+                fail "a file:// Location must never be printed as the portal, got '$(cat "$work/out")'"
+            )
+
+            # And the same target must not reach the browser in login mode, which
+            # is the path that opens a confirmed detection.
+            (
+              reset
+              export FF_STATUS=302 FF_REDIRECT='file:///etc/shadow'
+              export AP_STATUS=000 GS_STATUS=000
+              rc=$(run)
+              [ "$rc" -eq 3 ] || fail "a non-http redirect must not confirm a portal (exit $rc)"
+              ! grep -q 'xdg-open' "$work/log" ||
+                fail "nothing a network chose the scheme of may be handed to xdg-open"
+            )
+
             # Login mode on a network that turns out to be clean: the release is
             # undone before the run exits, and the snapshot is consumed.
             (
