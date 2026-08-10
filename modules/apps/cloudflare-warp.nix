@@ -117,10 +117,6 @@ let
         # confirmed. <3> is reserved for a state the run cannot recover from and
         # for enforcement, so `journalctl -p err` stays quiet on a good boot.
         refresh_registration() {
-          if [ -z "$managed_org" ]; then
-            registration_state="unknown"
-            return
-          fi
           # Command substitution captures stdout alone, so the exact comparison
           # below cannot see a banner; leave stderr unredirected and let warp-cli
           # name the failure in the journal next to the exit code.
