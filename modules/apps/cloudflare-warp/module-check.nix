@@ -493,6 +493,11 @@
                   # The condition alone is not enough: reverting the body to
                   # mismatch just moves the first occurrence inside this arm.
                   && lib.hasInfix ''registration_state="unknown"'' emptyAnswerArm
+                  # empty_answers is the only thing that closes the window, so
+                  # deleting its increment, or seeding it past the bound, would
+                  # make the branch permanent or dead respectively.
+                  && lib.hasInfix "empty_answers=0" initBlock
+                  && lib.hasInfix "empty_answers=$((empty_answers + 1))" emptyAnswerArm
                   && !lib.hasInfix "confirmed_once=1" initBlock
                   && lib.hasInfix "confirmed_once=1" confirmedArm
                   # A held empty answer must not also burn the unverified
