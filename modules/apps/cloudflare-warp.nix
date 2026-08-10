@@ -101,11 +101,12 @@ let
             registration_state="unknown"
             return
           fi
-          # Read stdout alone: a banner or notice on stderr would fail the exact
-          # comparison below and report a correctly enrolled device as unmanaged.
+          # Command substitution captures stdout alone, so the exact comparison
+          # below cannot see a banner; leave stderr unredirected and let warp-cli
+          # name the failure in the journal next to the exit code.
           registration=""
           registration_status=0
-          registration="$(timeout 5s warp-cli --accept-tos registration organization 2>/dev/null)" ||
+          registration="$(timeout 5s warp-cli --accept-tos registration organization)" ||
             registration_status=$?
           if [ "$registration_status" -ne 0 ]; then
             registration_state="unknown"

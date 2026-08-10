@@ -117,6 +117,12 @@
             assert lib.assertMsg
               (lib.hasInfix "warp-cli --accept-tos registration organization" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must verify managed registration";
+            # The capture is compared for exact equality, so 2>&1 would report an
+            # enrolled device as unmanaged, and 2>/dev/null would drop warp-cli's
+            # own reason for a failed check from the journal.
+            assert lib.assertMsg
+              (lib.hasInfix ''registration="$(timeout 5s warp-cli --accept-tos registration organization)"'' enrolledConnectScript)
+              "apps/cloudflare-warp-module-eval: the registration capture must leave stderr unredirected";
             assert lib.assertMsg
               (lib.hasInfix "managed organization secret unavailable; cannot verify registration" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must reject an empty managed organization";
