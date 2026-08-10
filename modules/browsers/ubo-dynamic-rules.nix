@@ -3,7 +3,8 @@
 
   The browser profile and this evaluation check import the same private helper
   directly. The check keeps malformed rules from being silently discarded by
-  uBO and keeps every supported type/action live.
+  uBO, pins the behavior-critical seed rows, and keeps every supported
+  type/action live.
 */
 { lib, ... }:
 let
@@ -77,14 +78,28 @@ let
     "* * 3p-script noop extra"
   ];
 
+  # Pin the rows that establish medium mode and the Turnstile exception.
+  requiredSeedRules = [
+    "* * 3p-script block"
+    "* * 3p-frame block"
+    "* challenges.cloudflare.com * noop"
+  ];
+
   failedValidCases = lib.filter (case: !(evalRules case.rules).success) validCases;
   acceptedInvalidRules = lib.filter (rule: (evalRules [ rule ]).success) invalidRules;
+  missingSeedRules = lib.filter (
+    rule: !(lib.elem rule ublockOriginMediumModeRules)
+  ) requiredSeedRules;
 in
 {
   perSystem =
     { pkgs, ... }:
     {
       checks."browsers/ubo-dynamic-rules" =
+        assert lib.assertMsg (missingSeedRules == [ ]) (
+          "browsers/ubo-dynamic-rules: seed is missing required rules: "
+          + lib.concatStringsSep "; " missingSeedRules
+        );
         assert lib.assertMsg (failedValidCases == [ ]) (
           "browsers/ubo-dynamic-rules: valid fixtures failed: "
           + lib.concatStringsSep ", " (map (case: case.name) failedValidCases)
