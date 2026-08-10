@@ -188,16 +188,26 @@ let
           sleep 1
         done
         # Best-effort: name the state that ended the run and exit 0 so a user who
-        # legitimately keeps WARP off does not leave the unit failed.
+        # legitimately keeps WARP off does not leave the unit failed. unverified
+        # is cumulative and never reset, so it cannot gate this report: one early
+        # unanswered check on a leftover tunnel would outrank whatever the run
+        # actually ended on. Branch on the live registration_state and status.
         if [ -z "$connected" ]; then
-          if [ "$unverified" -gt 0 ]; then
-            echo "<4>cloudflare-warp-connect: tunnel is up but its registration went unverified in $attempt attempts; left it connected"
-          elif [ "$registration_state" = "mismatch" ]; then
+          if [ "$registration_state" = "mismatch" ]; then
             echo "<3>cloudflare-warp-connect: daemon is registered outside the managed organization after $attempt attempts"
-          elif [ -n "$connect_requested" ]; then
-            echo "<3>cloudflare-warp-connect: tunnel is not connected after $attempt attempts"
           else
-            echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
+            case "$status" in
+              *Connected*)
+                echo "<4>cloudflare-warp-connect: tunnel is up but its registration went unverified in $attempt attempts; left it connected"
+                ;;
+              *)
+                if [ -n "$connect_requested" ]; then
+                  echo "<3>cloudflare-warp-connect: tunnel is not connected after $attempt attempts"
+                else
+                  echo "<3>cloudflare-warp-connect: connect never succeeded (daemon unreachable or registration incomplete)"
+                fi
+                ;;
+            esac
           fi
         fi
       '';

@@ -190,6 +190,21 @@
                   && !lib.hasInfix "could not be verified" beforeDisconnect
                 )
                 "apps/cloudflare-warp-module-eval: enrolled connect script must disconnect only on a confirmed registration mismatch";
+            # unverified is never reset, so testing it in the terminal report
+            # would let one early unanswered check on a leftover tunnel outrank
+            # a live mismatch, or claim a tunnel is up after it was torn down.
+            assert
+              let
+                parts = lib.splitString "if [ -z \"$connected\" ]; then" enrolledConnectScript;
+                terminalReport = lib.last parts;
+              in
+              lib.assertMsg
+                (
+                  lib.length parts > 1
+                  && lib.hasInfix "if [ \"$registration_state\" = \"mismatch\" ]; then" terminalReport
+                  && !lib.hasInfix "\"$unverified\"" terminalReport
+                )
+                "apps/cloudflare-warp-module-eval: the terminal report must branch on the live registration and status, not the cumulative unverified counter";
             # One definition plus one call site at the top of each attempt.
             # warp-cli connect does not change the registration organization, so
             # a second check per attempt only spends IPC budget.
