@@ -27,16 +27,20 @@ Neither an unanswered check nor an answer naming no organization is treated as a
 mismatch while the daemon may still be settling: an enrolled daemon returns an
 empty answer transiently before it has loaded its registration, so the first three
 successful empty answers are held, as is any empty answer once this run has already
-read the managed organization. A failed check cannot resolve that hold, so it stays
-in place until a later successful response confirms or mismatches. This prevents an
+read the managed organization, while no conclusive mismatch remains. A failed check
+cannot resolve that hold, so it stays in place until a later successful response
+confirms or mismatches. This prevents an
 interleaved timeout from spending the unverified budget before a fourth empty answer
 can disconnect a consumer tunnel. Both are missing information rather than evidence
 of a re-registration. An answer naming a different team is a mismatch immediately
-and still disconnects. A later unanswered check cannot refute a mismatch already
-observed in this run, so its non-identifying classification remains available to
-the terminal diagnostic until a managed confirmation replaces it. That retained
-classification also prevents an earlier confirmation from treating a later
-`Connected` status as verified. It never itself triggers a disconnect. An empty,
+and still disconnects. A retained mismatch also prevents a later empty answer from
+reopening the hold, so a live foreign tunnel stays on the mismatch/disconnect path.
+A later unanswered check cannot refute a mismatch already observed in this run, so
+its non-identifying classification remains available to the terminal diagnostic
+until a managed confirmation replaces it. That retained classification also prevents
+an earlier confirmation from treating a later `Connected` status as verified or a
+later empty answer from reopening the readiness hold. It never turns a failed query
+into disconnect evidence. An empty,
 unreadable, or whitespace-only organization secret cannot change while the unit
 runs, so the oneshot reports the current status once and exits instead of
 retrying a decision that can never open.
@@ -62,9 +66,10 @@ on, including an unverified line only when the last status query still read
 `Connected`. A conclusive mismatch remains the exception: a later unanswered
 check cannot prove the earlier mismatch resolved, so that diagnostic survives
 until a successful managed confirmation clears it. The retained classification is
-not disconnect evidence after the live state became unknown. It does prevent an
-earlier confirmation from accepting a later connected tunnel as managed until a
-successful managed confirmation clears the mismatch.
+not disconnect evidence after the live state became unknown. It prevents an earlier
+confirmation from accepting a later connected tunnel as managed and a later empty
+answer from reopening the readiness hold until a successful managed confirmation
+clears the mismatch.
 
 Use `warp-cli registration organization` and `warp-cli status` to confirm the
 managed tunnel is up. Without the sops secret the daemon and this unit do not
@@ -159,9 +164,11 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   different times, so a healthy boot emits several of these before the run ends confirmed and
   connected. An answer naming no organization logs
   `registration check returned no organization; not treating it as a mismatch yet` at `<4>` rather
-  than counting as a mismatch, both for the first empty answers of a warm-up and, once this run has
-  confirmed the managed organization, for every later one, so that line covers a warm-up state and a
-  suppressed teardown alike. A failed registration check does not clear that hold:
+  than counting as a mismatch during the first empty answers of a warm-up or, once this run has
+  confirmed the managed organization, during a later empty answer while no conclusive mismatch
+  remains. That line covers a warm-up state and a suppressed teardown alike. A retained mismatch
+  prevents a later empty answer from reopening the hold, so a connected tunnel returns to mismatch
+  handling and cleanup is attempted. A failed registration check does not clear that hold:
   it has no organization result to settle, so a later empty response can still
   reach mismatch and disconnect a consumer tunnel. A tunnel found up during the
   hold logs `tunnel is up while the registration is still settling` at `<4>`,
