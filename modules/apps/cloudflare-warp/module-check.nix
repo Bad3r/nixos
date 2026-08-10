@@ -24,6 +24,8 @@
           # read back through the flake.lib option merge returns a merged wrapper
           # whose functionArgs are empty, so the module system cannot inject pkgs.
           warpModule = nixosAppHelpers.getApp "cloudflare-warp";
+          # Keep fixture roots as paths. sopsFile uses their store context, and
+          # interpolation would materialize a separate store root.
           mkNixos =
             {
               secretsRoot,
@@ -31,6 +33,9 @@
               extraSettings ? { },
               extraConfig ? { },
             }:
+            assert lib.assertMsg (
+              builtins.typeOf secretsRoot == "path"
+            ) "apps/cloudflare-warp-module-eval: fixture secretsRoot must remain a path";
             inputs.nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";
               modules = [
@@ -78,7 +83,7 @@
             };
           };
           unenrolled = mkNixos {
-            secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
+            secretsRoot = ./cloudflare-warp-check-fixtures/missing;
           };
           # enable = false with the secret present is the tpnix kill switch, and
           # the only fixture where cfg.enable is the sole thing holding the
@@ -93,7 +98,7 @@
           # !enrolling` conjunction unexercised: dropping cfg.enable from it
           # would install warp-cli on a host that disabled the module.
           disabledNoSecret = mkNixos {
-            secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
+            secretsRoot = ./cloudflare-warp-check-fixtures/missing;
             enable = false;
           };
           # Both managed-branch warnings are conditional and CI has no secrets
