@@ -1021,6 +1021,25 @@
                 fail "nothing may be written through the symlink into $target"
             )
 
+            # save_prefs refuses to write through a symlinked state directory;
+            # restore_dns reads and unlinks through the same path and needs the
+            # identical guard, on the half that most often runs as root.
+            (
+              reset
+              runtime="$work/restore-symlink"
+              target="$work/restore-symlink-target"
+              mkdir -p "$runtime" "$target"
+              ln -s "$target" "$runtime/captive-portal"
+              printf 'true\ttrue\n' >"$target/tailscale-prefs"
+              rc=$(XDG_RUNTIME_DIR="$runtime" run --restore)
+              [ "$rc" -eq 4 ] || fail "a symlinked state directory must refuse --restore (exit $rc)"
+              grep -q '^captive-portal: cannot use .*: it is a symlink' "$work/err" ||
+                fail "the run must say the state directory is a symlink"
+              ! restored || fail "a snapshot behind the symlink must not be read and replayed"
+              [ -e "$target/tailscale-prefs" ] ||
+                fail "nothing may be unlinked through the symlink from $target"
+            )
+
             # Absence of a snapshot is not evidence the node was ever up: the
             # WantRunning default started a node the user had stopped on purpose.
             (

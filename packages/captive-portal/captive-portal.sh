@@ -600,6 +600,13 @@ apply_saved_prefs() {
 
 restore_dns() {
   local corp_dns=true want_running=false saved_corp="" saved_want="" rc=0 dns_outcome=""
+  # save_prefs refuses to write through a symlinked state_dir; this half reads
+  # and unlinks through the same path, and under sudo that read and that rm run
+  # as root against a name the invoking user owns.
+  if [ -L "$state_dir" ]; then
+    note "cannot use $state_dir: it is a symlink; no snapshot will be read or removed through it"
+    exit 4
+  fi
   # An unreadable or truncated state file must not abort the run and must not
   # decide that DNS stays off, so CorpDNS falls back to restoring Tailscale DNS.
   # WantRunning gets no such fallback: with no snapshot there is no evidence the
