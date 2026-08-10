@@ -88,6 +88,14 @@
             secretsRoot = ./cloudflare-warp-check-fixtures;
             enable = false;
           };
+          # enable = false with no secret either. `disabled` above has the
+          # payload, so it leaves the CLI-only branch's own `cfg.enable &&
+          # !enrolling` conjunction unexercised: dropping cfg.enable from it
+          # would install warp-cli on a host that disabled the module.
+          disabledNoSecret = mkNixos {
+            secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
+            enable = false;
+          };
           # Both managed-branch warnings are conditional and CI has no secrets
           # submodule, so nothing else in this repo ever reaches their
           # predicates. One fixture per trigger keeps the option paths behind
@@ -527,6 +535,18 @@
               tmpfilesRules = unenrolled.config.systemd.tmpfiles.rules;
               warnings = unenrolled.config.warnings;
             };
+          disabledNoSecretAttrs =
+            assert lib.assertMsg (!disabledNoSecret.config.services.cloudflare-warp.enable)
+              "apps/cloudflare-warp-module-eval: disabled branch without a secret must not enable upstream WARP";
+            assert lib.assertMsg (
+              !(hasWarpCli disabledNoSecret)
+            ) "apps/cloudflare-warp-module-eval: disabled branch without a secret must not install warp-cli";
+            assert lib.assertMsg (
+              disabledNoSecret.config.warnings == [ ]
+            ) "apps/cloudflare-warp-module-eval: a disabled host must not warn about the missing secret";
+            {
+              warnings = disabledNoSecret.config.warnings;
+            };
           disabledAttrs =
             assert lib.assertMsg (
               !disabled.config.services.cloudflare-warp.enable
@@ -558,6 +578,7 @@
               enrolledAttrs
               unenrolledAttrs
               disabledAttrs
+              disabledNoSecretAttrs
               warningsAttrs
               connectOffAttrs
               ;
