@@ -167,6 +167,8 @@
   - Reference catalog of pentesting tools available via `nix run`/`nix shell` that complement the active toolkit, grouped by AD, recon, web testing, credential attacks, wireless, RE, forensics, stego, SAST, cloud, and pivoting.
 - [csec/additional-tools-runtime-status.md](csec/additional-tools-runtime-status.md)
   - Smoke-test report for the additional-tools reference; records which entries launched cleanly on the active flake pin and which failed with build, attribute, or invocation issues.
+- [csec/protocol-aware-firewall.md](csec/protocol-aware-firewall.md)
+  - Packet-signature and conntrack-mark techniques for detecting and blocking application protocol mismatches on a firewall port, with iptables and nftables examples.
 
 ## RDP
 
