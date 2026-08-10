@@ -529,6 +529,11 @@
                 );
                 guarded = lib.last (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript);
                 counted = lib.head (lib.splitString "unverified=$((unverified + 1))" guarded);
+                heldEmptyAndUnverifiedArms = lib.head (
+                  lib.splitString "unverified=$((unverified + 1))" (
+                    lib.last (lib.splitString ''elif [ -n "$held_empty" ]; then'' guarded)
+                  )
+                );
               in
               lib.assertMsg
                 (
@@ -575,8 +580,12 @@
                   # Suppression direction: the guard must actually skip the count.
                   && lib.length (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript) == 2
                   && lib.hasInfix "else" counted
+                  # Neither unverified path can complete successfully. A held
+                  # empty answer defers teardown while registration settles; it
+                  # is not confirmation of a managed tunnel.
+                  && !lib.hasInfix "connected=1" heldEmptyAndUnverifiedArms
                 )
-                "apps/cloudflare-warp-module-eval: readiness flags must start empty, stay in their state arms, preserve an empty-answer hold across failed checks, and gate unverified count";
+                "apps/cloudflare-warp-module-eval: readiness flags must start empty, stay in their state arms, preserve an empty-answer hold across failed checks, and never accept an unverified tunnel";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
