@@ -19,8 +19,8 @@ let
       type = builtins.elemAt parts 2;
       action = builtins.elemAt parts 3;
       # Keep the seed in uBO's normalized ASCII hostname shape. Match labels
-      # individually because uBO stores empty or hyphen-edged labels but they
-      # can never match a normalized request hostname. The wildcard, internal
+      # individually because uBO stores empty or hyphen-edged labels, which are
+      # not valid normalized request hostnames. The wildcard, internal
       # pseudo-host, and bracketed IPv6 forms are intentional.
       hostLabel = "[0-9a-z_]([0-9a-z_-]*[0-9a-z_])?";
       isHost =
