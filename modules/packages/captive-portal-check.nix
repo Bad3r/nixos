@@ -118,6 +118,7 @@
             url=""
             noproxy=""
             maxsize=""
+            resolve=""
             while [ "$#" -gt 0 ]; do
               case "$1" in
               -o)
@@ -130,6 +131,10 @@
                 ;;
               --max-filesize)
                 maxsize="$2"
+                shift 2
+                ;;
+              --resolve)
+                resolve="$2"
                 shift 2
                 ;;
               http://*)
@@ -155,6 +160,23 @@
               echo "curl stub: the probe must bound the body with --max-filesize" >&2
               exit 1
             fi
+            # And the flag the whole classification rests on. This stub answers
+            # from the URL alone, so deleting --resolve would leave every
+            # scenario green while production sent each canary through the
+            # system resolver instead of the address dig just got from the
+            # access point: $answer would stop describing what curl reached, and
+            # the hijack arm and both sinkhole guards would stop meaning
+            # anything. The host is checked too, not just the shape, so a
+            # triplet pointing at the wrong host is caught along with a missing one.
+            expected_host="''${url#http://}"
+            expected_host="''${expected_host%%/*}"
+            case "$resolve" in
+            "$expected_host:80:"*) ;;
+            *)
+              echo "curl stub: the probe must pin $expected_host with --resolve, got '$resolve'" >&2
+              exit 1
+              ;;
+            esac
             case "$url" in
             *success.txt)
               status="''${FF_STATUS-200}"
