@@ -267,7 +267,11 @@ vendor-review questions rather than controls you configure:
   completes. A run that ends before its post-analysis revert must not leave a
   tainted guest available to the next submission.
 - Dedicate the hypervisor host to analysis. Run no other workload on it, and
-  patch it as a security boundary rather than on a general server schedule.
+  patch it and the broker host as security boundaries rather than on a general
+  server schedule. Fetch their updates only from an approved mirror on the
+  restricted administrative path, with host-initiated access limited to the
+  package-update service and repository-signature verification, so maintenance
+  does not require guest egress or a production-network route.
 - Rebuild the host from known-good media when an escape is suspected. A guest
   snapshot revert does not restore a host the sample reached.
 - Ship hypervisor and host logs off the detonation host, and egress-broker logs
@@ -278,16 +282,21 @@ vendor-review questions rather than controls you configure:
   path rather than the detonation segment, give each shipping host its own
   append-only credentials to the collector, and allow neither host any access to
   the collector beyond appending, so it cannot rewrite or delete what it already
-  sent. Reach only the collector from the broker host on that path: give it no
-  route to the hypervisor console, the orchestration API, or the gold-image
-  store, because it is the one self-hosted component every sample may reach.
-- Keep the gold images that those reverts and rebuilds restore from outside the
-  detonation host's write path, serve them read-only to the host over the
-  restricted administrative path rather than the detonation segment, and verify
-  them by hash before use. Revert by discarding the guest's writable overlay and recreating
-  it from that image rather than from a snapshot the host can write, because a
-  sample that reaches the host can otherwise poison the baseline it is restored
-  from.
+  sent. Reach only the collector and approved update mirror from the broker host
+  on that path: give it no route to the hypervisor console, the orchestration
+  API, or the gold-image store, because it is the one self-hosted component
+  every sample may reach.
+- Keep the gold images used for guest reverts and the known-good rebuild media
+  for both hosts outside each host's write path. Serve a gold image read-only to
+  the detonation host over the restricted administrative path rather than the
+  detonation segment. For every restore or rebuild, verify the exact media
+  version against an authenticated manifest from a separately administered
+  recovery authority that binds it to a cryptographic digest, rather than a
+  locally recorded hash. Deliver broker rebuild media only through a separate
+  recovery procedure, not a broker runtime route. Revert by discarding the
+  guest's writable overlay and recreating it from that image rather than from a
+  snapshot the host can write, because a sample that reaches the host can
+  otherwise poison the baseline it is restored from.
 
 ## Choose a deployment path
 
