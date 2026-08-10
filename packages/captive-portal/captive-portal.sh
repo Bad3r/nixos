@@ -73,6 +73,8 @@ Usage:
   captive-portal --restore
       Return DNS to Tailscale after signing in.
 
+--probe and --restore name the run's whole purpose, so they cannot be combined.
+
 Options:
   --device DEV  Device to inspect (default: first connected wifi/ethernet).
   --no-open     Print the portal URL instead of launching a browser.
@@ -112,12 +114,19 @@ while [ "$#" -gt 0 ]; do
     esac
     shift 2
     ;;
-  --probe)
-    mode=probe
-    shift
-    ;;
-  --restore)
-    mode=restore
+  --probe | --restore)
+    # mode was last-wins, so `--probe --restore` ran restore: it set
+    # --accept-dns=true, could start the node, and unlinked the snapshot, on an
+    # invocation that named the subcommand documented as changing nothing. Same
+    # shape as `--device --probe` above, and the same answer: refuse the input
+    # rather than pick one of the two silently. A repeat of the same one is not
+    # a conflict.
+    requested="${1#--}"
+    if [ "$mode" != login ] && [ "$mode" != "$requested" ]; then
+      echo "captive-portal: --probe and --restore cannot be combined" >&2
+      exit 2
+    fi
+    mode="$requested"
     shift
     ;;
   --no-open)

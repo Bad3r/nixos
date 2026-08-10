@@ -260,6 +260,27 @@
               ! released || fail "--device --probe must not touch DNS"
             )
 
+            # mode was last-wins, so the second of these decided it: --probe
+            # --restore ran restore and changed the state the named subcommand
+            # promises not to. Both orders, because either could be the slip.
+            for combo in "--probe --restore" "--restore --probe"; do
+              (
+                reset
+                # shellcheck disable=SC2086  # the pair is the input under test
+                rc=$(run $combo)
+                [ "$rc" -eq 2 ] || fail "'$combo' must be rejected as usage (exit $rc)"
+                ! restored || fail "'$combo' must not touch DNS"
+                [ ! -s "$work/out" ] || fail "'$combo' must print no URL"
+              )
+            done
+
+            # Repeating one is a slip, not a conflict, and must still run.
+            (
+              reset
+              rc=$(run --probe --probe)
+              [ "$rc" -eq 1 ] || fail "a repeated --probe must still probe (exit $rc)"
+            )
+
             # A clean network, and the run that must leave it alone: probe mode
             # touches no DNS, and stdout stays empty so a caller reading it gets
             # a URL only when there is one.
