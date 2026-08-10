@@ -32,7 +32,10 @@ in place until a later successful response confirms or mismatches. This prevents
 interleaved timeout from spending the unverified budget before a fourth empty answer
 can disconnect a consumer tunnel. Both are missing information rather than evidence
 of a re-registration. An answer naming a different team is a mismatch immediately
-and still disconnects. An empty, unreadable, or
+and still disconnects. A later unanswered check cannot refute a mismatch already
+observed in this run, so its non-identifying classification remains available to
+the terminal diagnostic until a managed confirmation replaces it. That retained
+classification never triggers a disconnect. An empty, unreadable, or
 whitespace-only organization secret cannot change while the unit runs, so the oneshot reports the
 current status once and exits instead of retrying a decision that can never open.
 The loop makes up to 30 attempts bounded by a 120-second deadline, with each
@@ -46,17 +49,18 @@ line rather than the unit state:
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | (none)                                                    | Managed tunnel verified and up                                                      |
 | `tunnel is up but its registration went unverified`       | Tunnel left connected; managed registration remained unverified                     |
-| `daemon reports no Zero Trust registration`               | No Teams registration; enrollment incomplete or rejected                            |
-| `daemon is registered outside the managed organization`   | Live registration belongs to another tenant                                         |
+| `daemon reports no Zero Trust registration`               | Last conclusive registration showed no Teams registration                           |
+| `daemon is registered outside the managed organization`   | Last conclusive registration belonged to another tenant                             |
 | `tunnel is not connected after <n> attempts`              | Connect was accepted, but the tunnel never read `Connected` in the window           |
 | `connect never succeeded (daemon unreachable ...)`        | No connect ever succeeded: never requested, or refused on every attempt             |
 | `managed organization secret unavailable; not connecting` | Secret missing, unreadable, or whitespace-only; the run exits before the retry loop |
 
-The rows are mutually exclusive and reflect the state the run ended on, not
-anything observed along the way: a confirmed mismatch is reported ahead of the
-others, and the unverified line requires the last status query to have still
-read `Connected`. An earlier attempt that could not verify a tunnel therefore
-does not colour the final line once the run ends somewhere else.
+The rows are mutually exclusive. They normally reflect the state the run ended
+on, including an unverified line only when the last status query still read
+`Connected`. A conclusive mismatch remains the exception: a later unanswered
+check cannot prove the earlier mismatch resolved, so that diagnostic survives
+until a successful managed confirmation clears it. The retained classification is
+terminal-only. It cannot trigger a disconnect after the live state became unknown.
 
 Use `warp-cli registration organization` and `warp-cli status` to confirm the
 managed tunnel is up. Without the sops secret the daemon and this unit do not
