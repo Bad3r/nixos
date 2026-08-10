@@ -39,6 +39,12 @@ line rather than the unit state:
 | `tunnel is not connected after <n> attempts`            | Connect was requested and refused                            |
 | `connect never succeeded (daemon unreachable ...)`      | The daemon never answered                                    |
 
+The rows are mutually exclusive and reflect the state the run ended on, not
+anything observed along the way: a confirmed mismatch is reported ahead of the
+others, and the unverified line requires the last status query to have still
+read `Connected`. An earlier attempt that could not verify a tunnel therefore
+does not colour the final line once the run ends somewhere else.
+
 Use `warp-cli registration organization` and `warp-cli status` to confirm the
 managed tunnel is up. Without the sops secret the daemon and this unit do not
 exist; only `warp-cli` is installed.
