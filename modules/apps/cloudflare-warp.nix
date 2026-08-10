@@ -82,12 +82,14 @@ let
         attempt=0
         deadline=$((SECONDS + 120))
 
-        if managed_org="$(cat ${
-          config.sops.secrets."cloudflare-warp/organization".path
-        } 2>/dev/null)" && [ -n "$managed_org" ]; then
+        # Strip before testing. A secret holding only spaces survives a raw -n
+        # test and then strips to empty, which would skip this diagnostic and
+        # leave the journal blaming the connect gate instead of the secret.
+        # The assignment binds even when cat fails, so this is nounset-safe.
+        if managed_org="$(cat ${config.sops.secrets."cloudflare-warp/organization".path} 2>/dev/null)"; then
           managed_org="''${managed_org//[[:space:]]/}"
-        else
-          managed_org=""
+        fi
+        if [ -z "$managed_org" ]; then
           echo "<3>cloudflare-warp-connect: managed organization secret unavailable; cannot verify registration"
         fi
 
@@ -418,10 +420,14 @@ let
             }
 
             (lib.mkIf cfg.connectOnBoot {
-              # Upholds restarts the oneshot whenever warp-svc is active and the
-              # oneshot is not. Restart=always respawns warp-svc without an
-              # explicit restart job, which BindsTo alone would only propagate as
-              # a stop, leaving the host untunneled until the next rebuild.
+              # Two triggers, two mechanisms. An explicit restart, which is what
+              # sops issues for restartUnits (try-restart), reaches the oneshot
+              # through BindsTo alone. An unexpected warp-svc exit does not:
+              # BindsTo stops the oneshot the instant warp-svc goes inactive,
+              # ahead of the restart-dependency propagation for that same event,
+              # so the propagated job lands on an already-stopped unit. Upholds
+              # is what starts it again, and PartOf would not help, since BindsTo
+              # wins that race whether or not PartOf is also present.
               systemd.services.cloudflare-warp.upholds = [ "cloudflare-warp-connect.service" ];
 
               systemd.services.cloudflare-warp-connect = {

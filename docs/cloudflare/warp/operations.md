@@ -82,8 +82,11 @@ re-reads `mdm.xml`. The unit carries no `restartTriggers` hash of its own: a
 second owner restarts `warp-svc` twice for one activation on hosts running
 `sops.useSystemdActivation`, dropping the tunnel twice.
 
-Each restart of `warp-svc` also re-runs `cloudflare-warp-connect` through
-`BindsTo=`/`Upholds=`, so the tunnel comes back without a manual step.
+Each restart of `warp-svc` also re-runs `cloudflare-warp-connect`, so the tunnel
+comes back without a manual step. An explicit restart, which is what sops issues
+when the rendered `mdm.xml` changes, reaches the oneshot through `BindsTo=`; an
+unexpected `warp-svc` exit reaches it through `Upholds=`, because `BindsTo=`
+stops the oneshot before the restart can propagate to it.
 
 ## Disable managed WARP
 
