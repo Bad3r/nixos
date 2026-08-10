@@ -252,6 +252,22 @@
               builtins.elem "network-online.target" enrolledConnect.after
               && builtins.elem "network-online.target" enrolledConnect.wants
             ) "apps/cloudflare-warp-module-eval: the connect oneshot must wait for network-online.target";
+            # sopsInstallSecretsDeps is [] unless sops.useSystemdActivation, so
+            # this is the only fixture that can reach the ordering warp-svc's
+            # ExecStartPre depends on. Without it warp-svc can start before the
+            # template is rendered and xmllint fails the unit on a missing file.
+            assert
+              let
+                systemdActivation = mkNixos {
+                  secretsRoot = ./cloudflare-warp-check-fixtures;
+                  extraConfig.sops.useSystemdActivation = true;
+                };
+                warpSvc = systemdActivation.config.systemd.services.cloudflare-warp;
+              in
+              lib.assertMsg (
+                builtins.elem "sops-install-secrets.service" warpSvc.after
+                && builtins.elem "sops-install-secrets.service" warpSvc.requires
+              ) "apps/cloudflare-warp-module-eval: warp-svc must order after sops-install-secrets.service";
             assert lib.assertMsg enrolledConnect.enableStrictShellChecks
               "apps/cloudflare-warp-module-eval: connect script must be shellcheck-gated";
             # The exit-0-everywhere design holds only while the unit outlives the
@@ -445,6 +461,13 @@
                     lib.last (lib.splitString ''registration_state="confirmed"'' enrolledConnectScript)
                   )
                 );
+                emptyAnswerArm = lib.head (
+                  lib.splitString ''registration_state="mismatch"'' (
+                    lib.last (
+                      lib.splitString ''elif [ -z "$registration" ] && [ -n "$confirmed_once" ]; then'' enrolledConnectScript
+                    )
+                  )
+                );
                 guarded = lib.last (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript);
                 counted = lib.head (lib.splitString "unverified=$((unverified + 1))" guarded);
               in
@@ -457,13 +480,16 @@
                   # mismatch is the state that disconnects, so an empty answer
                   # must route to unknown once this run confirmed, not to it.
                   && lib.hasInfix ''elif [ -z "$registration" ] && [ -n "$confirmed_once" ]; then'' confirmedArm
+                  # The condition alone is not enough: reverting the body to
+                  # mismatch just moves the first occurrence inside this arm.
+                  && lib.hasInfix ''registration_state="unknown"'' emptyAnswerArm
                   && !lib.hasInfix "confirmed_once=1" initBlock
                   && lib.hasInfix "confirmed_once=1" confirmedArm
                   # Suppression direction: the guard must actually skip the count.
                   && lib.length (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript) == 2
                   && lib.hasInfix "else" counted
                 )
-                "apps/cloudflare-warp-module-eval: confirmed_once must start empty, be set only where the registration is confirmed, and gate the unverified count";
+                "apps/cloudflare-warp-module-eval: confirmed_once must start empty, be set only where the registration is confirmed, route an empty answer to unknown, and gate the unverified count";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
@@ -541,8 +567,11 @@
             assert lib.assertMsg (
               !(hasWarpCli disabledNoSecret)
             ) "apps/cloudflare-warp-module-eval: disabled branch without a secret must not install warp-cli";
+            # Match this module's own text rather than the whole list: any
+            # unrelated deprecation warning from a future input bump would
+            # otherwise fail here and point the reader at this module.
             assert lib.assertMsg (
-              disabledNoSecret.config.warnings == [ ]
+              !lib.any (lib.hasInfix "secrets/cloudflare-warp.yaml is missing") disabledNoSecret.config.warnings
             ) "apps/cloudflare-warp-module-eval: a disabled host must not warn about the missing secret";
             {
               warnings = disabledNoSecret.config.warnings;
