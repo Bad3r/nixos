@@ -640,6 +640,28 @@
               "apps/cloudflare-warp-module-eval: dnscrypt-proxy under a DNS-owning service mode must warn";
             assert lib.assertMsg (!lib.any (lib.hasInfix "takes over DNS") staleDns.config.warnings)
               "apps/cloudflare-warp-module-eval: a stale networkmanager.dns without NetworkManager must not warn";
+            # Default positives cover warp. Pin the excluded tunnelonly and
+            # included 1dot1 cases with real resolvers on both mode-gate sides.
+            assert
+              let
+                resolverUnderTunnelonly = mkNixos {
+                  secretsRoot = ./cloudflare-warp-check-fixtures;
+                  extraSettings.serviceMode = "tunnelonly";
+                  extraConfig.services.dnscrypt-proxy.enable = true;
+                };
+              in
+              lib.assertMsg (
+                !lib.any (lib.hasInfix "takes over DNS") resolverUnderTunnelonly.config.warnings
+              ) "apps/cloudflare-warp-module-eval: a local resolver under a non-DNS service mode must not warn";
+            assert
+              let
+                resolverUnderOneDotOne = mkNixos {
+                  secretsRoot = ./cloudflare-warp-check-fixtures;
+                  extraSettings.serviceMode = "1dot1";
+                  extraConfig.services.dnscrypt-proxy.enable = true;
+                };
+              in
+              lib.assertMsg (lib.any (lib.hasInfix "takes over DNS") resolverUnderOneDotOne.config.warnings) "apps/cloudflare-warp-module-eval: a local resolver under 1dot1 must warn";
             assert lib.assertMsg
               (lib.any (lib.hasInfix "checkReversePath is strict") strictRpFilter.config.warnings)
               "apps/cloudflare-warp-module-eval: a strict checkReversePath must warn";
