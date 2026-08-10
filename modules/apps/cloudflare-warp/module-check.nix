@@ -105,6 +105,12 @@
             secretsRoot = ./cloudflare-warp-check-fixtures;
             extraConfig.networking.firewall.checkReversePath = "strict";
           };
+          # connectOnBoot = false is its own mkIf branch that no other fixture
+          # reaches, and the Upholds edge lives inside it.
+          connectOff = mkNixos {
+            secretsRoot = ./cloudflare-warp-check-fixtures;
+            extraSettings.connectOnBoot = false;
+          };
           hasWarpCli =
             system:
             lib.any (
@@ -239,6 +245,22 @@
                   && !lib.hasInfix "\"$unverified\"" terminalReport
                 )
                 "apps/cloudflare-warp-module-eval: the terminal report must branch on the live registration and status, not the cumulative unverified counter";
+            # The assertion above still passes if the two mismatch sub-cases
+            # collapse back into one line, and they carry different remediation:
+            # an empty answer is an enrollment that never completed.
+            assert
+              let
+                parts = lib.splitString "if [ \"$registration_state\" = \"mismatch\" ]; then" enrolledConnectScript;
+                mismatchReport = lib.last parts;
+              in
+              lib.assertMsg
+                (
+                  lib.length parts > 1
+                  && lib.hasInfix "if [ -z \"$registration\" ]; then" mismatchReport
+                  && lib.hasInfix "daemon reports no Zero Trust registration" mismatchReport
+                  && lib.hasInfix "daemon is registered outside the managed organization" mismatchReport
+                )
+                "apps/cloudflare-warp-module-eval: the terminal mismatch report must separate an empty registration from a foreign tenant";
             # One definition plus one call site at the top of each attempt.
             # warp-cli connect does not change the registration organization, so
             # a second check per attempt only spends IPC budget.
@@ -257,6 +279,17 @@
                   && lib.hasInfix "exit 0" beforeLoop
                 )
                 "apps/cloudflare-warp-module-eval: enrolled connect script must exit before the retry loop when the managed organization is empty";
+            # That exit path skips the loop, so it is the only place a status
+            # line can come from; without it the journal has no record of the
+            # tunnel for this outcome.
+            assert
+              let
+                guarded = lib.last (lib.splitString ''if [ -z "$managed_org" ]; then'' enrolledConnectScript);
+                beforeExit = lib.head (
+                  lib.splitString "managed organization secret unavailable; not connecting" guarded
+                );
+              in
+              lib.assertMsg (lib.hasInfix "refresh_status" beforeExit) "apps/cloudflare-warp-module-eval: enrolled connect script must report status before exiting on an empty managed organization";
             # A live tunnel whose registration never answered is terminal: the
             # loop has nothing left to request and must not spend its full budget.
             assert lib.assertMsg
@@ -291,6 +324,18 @@
               dnsConflict = dnsConflict.config.warnings;
               staleDns = staleDns.config.warnings;
               strictRpFilter = strictRpFilter.config.warnings;
+            };
+          connectOffAttrs =
+            assert lib.assertMsg (
+              !builtins.hasAttr "cloudflare-warp-connect" connectOff.config.systemd.services
+            ) "apps/cloudflare-warp-module-eval: connectOnBoot = false must not declare the connect oneshot";
+            # Upholds is a Wants-strength edge, so a dangling target is inert
+            # rather than fatal, which is exactly why nothing else would catch
+            # it being hoisted out of the connectOnBoot branch.
+            assert lib.assertMsg (connectOff.config.systemd.services.cloudflare-warp.upholds == [ ])
+              "apps/cloudflare-warp-module-eval: connectOnBoot = false must not uphold an undeclared connect oneshot";
+            {
+              upholds = connectOff.config.systemd.services.cloudflare-warp.upholds;
             };
           unenrolledAttrs =
             assert lib.assertMsg (
@@ -334,6 +379,7 @@
               unenrolledAttrs
               disabledAttrs
               warningsAttrs
+              connectOffAttrs
               ;
           }
           (
