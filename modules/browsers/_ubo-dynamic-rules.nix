@@ -6,11 +6,6 @@
 */
 { lib }:
 let
-  # Matches the ASCII characters uBO permits in a hostname after its optional
-  # punycode conversion. Seed rules use the resulting ASCII form so the
-  # wildcard is valid only as the complete hostname.
-  allowedHostnameCharacters = lib.stringToCharacters "0123456789abcdefghijklmnopqrstuvwxyz_.[]:%-";
-
   mediumModeRuleError =
     rule:
     let
@@ -22,13 +17,13 @@ let
       des = builtins.elemAt parts 1;
       type = builtins.elemAt parts 2;
       action = builtins.elemAt parts 3;
+      # Keep the seed in uBO's normalized ASCII hostname shape. The wildcard,
+      # internal pseudo-host, and bracketed IPv6 forms are intentional.
       isHost =
         host:
         host == "*"
-        || (
-          host != ""
-          && lib.all (char: builtins.elem char allowedHostnameCharacters) (lib.stringToCharacters host)
-        );
+        || builtins.match "[[][0-9a-f:]+[]]" host != null
+        || builtins.match "[0-9a-z_]([0-9a-z_.-]*[0-9a-z_])?" host != null;
     in
     if builtins.length parts != 4 then
       "expected 4 space-separated fields"
