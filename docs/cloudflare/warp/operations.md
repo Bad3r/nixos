@@ -128,9 +128,15 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   five-second cap, and the oneshot has an explicit 180-second start timeout. The
   final `warp-cli status` and managed-registration checks are logged; if no request
   succeeds, managed registration is unavailable, or requests succeed while the
-  status remains disconnected, the `<3>` prefix makes `connect never succeeded`,
-  `managed enrollment is not ready`, or `tunnel is not connected after <n> attempts` visible to
-  `journalctl -u cloudflare-warp-connect -p err`. If an existing tunnel is confirmed to carry a
+  status remains disconnected, the `<3>` prefix makes `connect never succeeded`
+  or `tunnel is not connected after <n> attempts` visible to
+  `journalctl -u cloudflare-warp-connect -p err`. Each attempt that has not yet confirmed the
+  managed registration instead logs `registration check failed (exit <n>)`,
+  `managed Zero Trust registration unavailable`, or `managed enrollment is not ready; not connecting`
+  at `<4>`: the daemon IPC socket and the managed registration settle at different times, so a
+  healthy boot emits several of these before the run ends confirmed and connected. `-p err`
+  therefore stays quiet through a normal warm-up, and `-p warning` shows the attempts.
+  If an existing tunnel is confirmed to carry a
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
   registration check itself does not answer, the tunnel is left up and the unit
   logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty

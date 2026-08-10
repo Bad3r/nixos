@@ -143,6 +143,26 @@
             # which every command in the cheatsheet and operations runbook assumes.
             assert lib.assertMsg (hasWarpCli enrolled)
               "apps/cloudflare-warp-module-eval: enrolled branch must still install warp-cli";
+            # The credential fields go through config.sops.placeholder so the
+            # plaintext never enters the store. Assert against that same live
+            # attribute, not a hand-typed token, so swapping it for
+            # sops.secrets.<x>.path or dropping a key/string pair fails here
+            # instead of shipping an mdm.xml with no credentials in it.
+            assert
+              let
+                rendered = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
+                placeholderOf = name: enrolled.config.sops.placeholder."cloudflare-warp/${name}";
+              in
+              lib.assertMsg
+                (lib.all
+                  (name: lib.hasInfix "<key>${name}</key>\n  <string>${placeholderOf name}</string>" rendered)
+                  [
+                    "organization"
+                    "auth_client_id"
+                    "auth_client_secret"
+                  ]
+                )
+                "apps/cloudflare-warp-module-eval: mdm.xml must render the three credentials as sops placeholders";
             # mdm.xml is authoritative for service_mode and the module never calls
             # `warp-cli mode`, so a wrong field here is silent at runtime. Assert
             # against mdmVariant's non-default values: the enrolled fixture's are
@@ -184,6 +204,21 @@
                   && lib.hasInfix "exit 1" mdmValidation
                 )
                 "apps/cloudflare-warp-module-eval: enrolled branch must parse the rendered mdm.xml before installing it, without leaking xmllint's stderr";
+            # Only the xmllint guard above is pinned, so the step that actually
+            # writes mdm.xml into rootDir could be deleted with the check green,
+            # leaving warp-svc up on consumer WARP. lib.any over the list rather
+            # than lib.last: a third entry is a harmless change that should not
+            # break this, and xmllint is already pinned at lib.head.
+            assert lib.assertMsg
+              (lib.any (
+                step:
+                lib.hasInfix "/bin/install" step
+                && lib.hasInfix "-m0600" step
+                && lib.hasInfix "-o root" step
+                && lib.hasInfix "-g root" step
+                && lib.hasInfix "/var/lib/cloudflare-warp/mdm.xml" step
+              ) enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre)
+              "apps/cloudflare-warp-module-eval: enrolled branch must install the rendered mdm.xml into rootDir mode 0600 root:root";
             # partOf stays empty on purpose. BindsTo already carries an explicit
             # restart through to the oneshot, and on an unexpected warp-svc exit
             # BindsTo stops the oneshot before any restart-dependency
@@ -196,6 +231,12 @@
                 && enrolled.config.systemd.services.cloudflare-warp.upholds == [ "cloudflare-warp-connect.service" ]
               )
               "apps/cloudflare-warp-module-eval: connect oneshot must re-run after an unexpected warp-svc restart";
+            # nixpkgs only warns when after carries network-online.target without
+            # a matching wants, and abort-on-warn is off, so pin both halves.
+            assert lib.assertMsg (
+              builtins.elem "network-online.target" enrolledConnect.after
+              && builtins.elem "network-online.target" enrolledConnect.wants
+            ) "apps/cloudflare-warp-module-eval: the connect oneshot must wait for network-online.target";
             assert lib.assertMsg enrolledConnect.enableStrictShellChecks
               "apps/cloudflare-warp-module-eval: connect script must be shellcheck-gated";
             assert lib.assertMsg
@@ -210,6 +251,26 @@
             assert lib.assertMsg
               (lib.hasInfix "managed organization secret unavailable; cannot verify registration" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must reject an empty managed organization";
+            # A healthy boot passes through the per-attempt states on its way to
+            # confirmed, so logging them at <3> would make `journalctl -p err`
+            # report every good boot as broken. Reserve <3> for states the run
+            # cannot recover from and for enforcement.
+            assert lib.assertMsg
+              (
+                lib.all (msg: lib.hasInfix "<4>cloudflare-warp-connect: ${msg}" enrolledConnectScript) [
+                  "registration check failed"
+                  "managed Zero Trust registration unavailable"
+                  "managed enrollment is not ready; not connecting"
+                ]
+                && lib.all (msg: lib.hasInfix "<3>cloudflare-warp-connect: ${msg}" enrolledConnectScript) [
+                  "managed organization secret unavailable"
+                  "connected without managed Zero Trust registration; disconnecting"
+                  "failed to disconnect unmanaged tunnel"
+                  "daemon reports no Zero Trust registration"
+                  "daemon is registered outside the managed organization"
+                ]
+              )
+              "apps/cloudflare-warp-module-eval: per-attempt states must log at <4> and unrecoverable or enforcement states at <3>";
             assert
               let
                 parts = lib.splitString "warp-cli --accept-tos connect" enrolledConnectScript;

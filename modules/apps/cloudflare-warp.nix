@@ -98,6 +98,12 @@ let
         # what an unmanaged/consumer registration returns), unknown (the check
         # itself did not answer). Only a mismatch is evidence of an unmanaged
         # tunnel; a timed-out or failed check must not tear a tunnel down.
+        #
+        # Per-attempt states log at <4>. Upstream runs warp-svc as Type=simple,
+        # so the IPC socket and the managed registration both settle after the
+        # unit starts and a healthy boot passes through these on its way to
+        # confirmed. <3> is reserved for a state the run cannot recover from and
+        # for enforcement, so `journalctl -p err` stays quiet on a good boot.
         refresh_registration() {
           if [ -z "$managed_org" ]; then
             registration_state="unknown"
@@ -112,7 +118,7 @@ let
             registration_status=$?
           if [ "$registration_status" -ne 0 ]; then
             registration_state="unknown"
-            echo "<3>cloudflare-warp-connect: registration check failed (exit $registration_status)"
+            echo "<4>cloudflare-warp-connect: registration check failed (exit $registration_status)"
             return
           fi
           registration="''${registration//[[:space:]]/}"
@@ -121,7 +127,7 @@ let
             echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
           else
             registration_state="mismatch"
-            echo "<3>cloudflare-warp-connect: managed Zero Trust registration unavailable"
+            echo "<4>cloudflare-warp-connect: managed Zero Trust registration unavailable"
           fi
         }
 
@@ -188,7 +194,7 @@ let
               echo "cloudflare-warp-connect: connect request failed: ''${request_output:-no response}"
             fi
           else
-            echo "<3>cloudflare-warp-connect: managed enrollment is not ready; not connecting"
+            echo "<4>cloudflare-warp-connect: managed enrollment is not ready; not connecting"
           fi
           sleep 1
         done
@@ -432,7 +438,16 @@ let
 
               systemd.services.cloudflare-warp-connect = {
                 description = "Cloudflare WARP connect on boot";
-                after = [ "cloudflare-warp.service" ];
+                # Upstream orders warp-svc on network.target alone, which says
+                # nothing about an associated link, and 25.05 decoupled
+                # multi-user.target from network-online.target. Without this the
+                # whole retry budget can burn before Wi-Fi associates, and
+                # auto_connect = 0 means nothing reconnects afterwards.
+                after = [
+                  "cloudflare-warp.service"
+                  "network-online.target"
+                ];
+                wants = [ "network-online.target" ];
                 bindsTo = [ "cloudflare-warp.service" ];
                 wantedBy = [ "multi-user.target" ];
                 # This script fails closed around a registration check, so hold it
