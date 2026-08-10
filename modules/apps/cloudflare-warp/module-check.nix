@@ -63,8 +63,8 @@
               ];
               specialArgs = { inherit secretsRoot; };
             };
-          # Non-default port and firewall choice: both option defaults match
-          # upstream's, so only diverging values prove the wrapper forwards them.
+          # The non-default port and false firewall arm cover diverging values.
+          # mdmVariant retains the default firewall arm below.
           enrolled = mkNixos {
             secretsRoot = ./cloudflare-warp-check-fixtures;
             extraSettings = {
@@ -74,6 +74,7 @@
           };
           # Every mdm field the enrolled fixture renders sits at its option
           # default, so only diverging values prove the template forwards them.
+          # It also retains the default UDP/firewall values to cover the true arm.
           mdmVariant = mkNixos {
             secretsRoot = ./cloudflare-warp-check-fixtures;
             extraSettings = {
@@ -162,6 +163,12 @@
               && !enrolledWarp.openFirewall
               && !(builtins.elem 24080 enrolled.config.networking.firewall.allowedUDPPorts)
             ) "apps/cloudflare-warp-module-eval: enrolled branch must forward udpPort and openFirewall";
+            # The false arm cannot distinguish forwarding from a hardcoded false.
+            # mdmVariant holds the true default used by managed host configurations.
+            assert lib.assertMsg (
+              mdmVariant.config.services.cloudflare-warp.openFirewall
+              && builtins.elem 2408 mdmVariant.config.networking.firewall.allowedUDPPorts
+            ) "apps/cloudflare-warp-module-eval: openFirewall = true must open udpPort";
             # The managed branch sets no environment.systemPackages of its own;
             # warp-cli reaches PATH only through upstream services.cloudflare-warp,
             # which every command in the cheatsheet and operations runbook assumes.
