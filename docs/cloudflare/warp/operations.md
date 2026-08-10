@@ -22,10 +22,12 @@ or still-unregistered device reports, disconnects an already connected tunnel an
 logs at error priority. A registration check that does not answer within its
 five-second cap leaves an existing tunnel up, because an unanswered check is not
 evidence of an unmanaged tunnel; after three such observations on a live tunnel
-the loop stops, since nothing is left to request. An unanswered check does not
-count against a run that already read the managed organization, because that
-value cannot change mid-run and the read is what allowed connect in the first
-place. An empty or unreadable
+the loop stops, since nothing is left to request. Neither an unanswered check nor an
+answer naming no organization counts against a run that already read the managed
+organization: that value cannot change mid-run, so both are missing information
+rather than evidence of a re-registration, and the read is what allowed connect
+in the first place. An answer naming a different team is still a mismatch and
+still disconnects. An empty or unreadable
 organization secret cannot change while the unit runs, so the oneshot reports the
 current status once and exits instead of retrying a decision that can never open.
 The loop makes up to 30 attempts bounded by a 120-second deadline, with each

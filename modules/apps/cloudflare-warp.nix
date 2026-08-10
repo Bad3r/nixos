@@ -134,6 +134,14 @@ let
             registration_state="confirmed"
             confirmed_once=1
             echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
+          elif [ -z "$registration" ] && [ -n "$confirmed_once" ]; then
+            # An empty answer names no organization, so like a failed check it is
+            # missing information rather than evidence of a re-registration. The
+            # organization cannot change mid-run, and mismatch is the state that
+            # disconnects, so this must not tear down the tunnel that this run's
+            # own confirmation allowed. A non-empty foreign team still does.
+            registration_state="unknown"
+            echo "<4>cloudflare-warp-connect: registration check returned no organization; keeping this run's confirmation"
           else
             registration_state="mismatch"
             echo "<4>cloudflare-warp-connect: managed Zero Trust registration unavailable"
