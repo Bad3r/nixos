@@ -77,8 +77,17 @@
           # Both managed-branch warnings are conditional and CI has no secrets
           # submodule, so nothing else in this repo ever reaches their
           # predicates. One fixture per trigger keeps the option paths behind
-          # them (networkmanager.dns, firewall.checkReversePath) honest.
+          # them (networkmanager.enable/dns, firewall.checkReversePath) honest.
           dnsConflict = mkNixos {
+            secretsRoot = ./cloudflare-warp-check-fixtures;
+            extraConfig.networking.networkmanager = {
+              enable = true;
+              dns = "dnsmasq";
+            };
+          };
+          # dns survives in the option even where NetworkManager never runs, so
+          # this fixture pins the half of the predicate that must stay silent.
+          staleDns = mkNixos {
             secretsRoot = ./cloudflare-warp-check-fixtures;
             extraConfig.networking.networkmanager.dns = "dnsmasq";
           };
@@ -213,11 +222,14 @@
             ) "apps/cloudflare-warp-module-eval: a managed host on the vpn-defaults baseline must not warn";
             assert lib.assertMsg (lib.any (lib.hasInfix "takes over DNS") dnsConflict.config.warnings)
               "apps/cloudflare-warp-module-eval: a local resolver under a DNS-owning service mode must warn";
+            assert lib.assertMsg (!lib.any (lib.hasInfix "takes over DNS") staleDns.config.warnings)
+              "apps/cloudflare-warp-module-eval: a stale networkmanager.dns without NetworkManager must not warn";
             assert lib.assertMsg
               (lib.any (lib.hasInfix "checkReversePath is strict") strictRpFilter.config.warnings)
               "apps/cloudflare-warp-module-eval: a strict checkReversePath must warn";
             {
               dnsConflict = dnsConflict.config.warnings;
+              staleDns = staleDns.config.warnings;
               strictRpFilter = strictRpFilter.config.warnings;
             };
           unenrolledAttrs =
