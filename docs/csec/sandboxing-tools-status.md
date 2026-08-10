@@ -228,11 +228,11 @@ vendor-review questions rather than controls you configure:
   production or backup networks. Give the guests no route off that segment
   except the brokered egress path below, and isolate them from each other and
   from every host interface on that segment except the analysis framework's own
-  control and result channel and the egress broker's segment-side interface, so
-  a self-propagating sample cannot reach a concurrent analysis or any other
-  service on the hypervisor. Reach the host's
-  own management interface only through a separate restricted administrative
-  path.
+  control and result channel and the brokered-egress listener on its approved
+  ports at the broker's segment-side interface, so a self-propagating sample
+  cannot reach a concurrent analysis or any other service on either host. Reach
+  the management interfaces of the detonation and broker hosts only through a
+  separate restricted administrative path, never from the detonation segment.
 - Expose submission and result interfaces to analysts, and to an orchestrator
   such as Assemblyline, only on a separate inbound path that terminates on the
   detonation host and reaches no guest. Allow connections inbound only on it, so
@@ -241,6 +241,15 @@ vendor-review questions rather than controls you configure:
   segment rule above leaves
   the web UI and API of a self-hosted deployment unreachable, and the operator
   recovers access by routing production into the detonation segment.
+- Treat every Assemblyline deployment node as an analyst-and-orchestrator
+  security boundary. Dedicate each node to that role, keep its management and
+  maintenance on a restricted administrative path apart from the detonation
+  segment, and patch it through the approved update mirror on that path with
+  host-initiated access limited to the package-update service. Ship each node's
+  logs off-host as they are written using its own append-only collector
+  credentials. Its only detonation-segment connection is the designated
+  submission and result control path: it must not accept guest-originated or
+  detonation-host-initiated connections.
 - Default-deny guest egress. Provide internet access only through a simulated
   or brokered path that is logged and rate-limited. Run that broker on the
   segment boundary rather than on the detonation host, which carries no other
@@ -250,11 +259,13 @@ vendor-review questions rather than controls you configure:
   boundary, logs shipped off-host under append-only credentials, and rebuilt
   from known-good media when an escape is suspected, because it is the only
   self-hosted component every sample is permitted to reach.
-- Keep production credentials, tokens, SSH agents, and mounted shares off the
-  detonation and broker hosts. Each carries only what its own role needs: the
-  detonation host the analysis framework's service credentials, its append-only
-  collector credential, and the read-only gold-image mount; the broker host its
-  own append-only collector credential and nothing else.
+- Keep production credentials, tokens, SSH agents, and mounted shares belonging
+  to systems outside the analysis environment off the detonation and broker
+  hosts and every Assemblyline deployment node. Give each only role-required
+  credentials and public trust anchors for update and recovery verification. The
+  detonation host alone receives read-only guest gold-image access; the broker
+  has no runtime access to it. Scope Assemblyline credentials to the analyst,
+  submission, or result-retrieval function each node provides.
 - Never domain-join an analysis guest.
 - Disable shared folders, clipboard sharing, and drag-and-drop between guest and
   host.
@@ -286,17 +297,19 @@ vendor-review questions rather than controls you configure:
   on that path: give it no route to the hypervisor console, the orchestration
   API, or the gold-image store, because it is the one self-hosted component
   every sample may reach.
-- Keep the gold images used for guest reverts and the known-good rebuild media
-  for both hosts outside each host's write path. Serve a gold image read-only to
-  the detonation host over the restricted administrative path rather than the
-  detonation segment. For every restore or rebuild, verify the exact media
-  version against an authenticated manifest from a separately administered
-  recovery authority that binds it to a cryptographic digest, rather than a
-  locally recorded hash. Deliver broker rebuild media only through a separate
-  recovery procedure, not a broker runtime route. Revert by discarding the
-  guest's writable overlay and recreating it from that image rather than from a
-  snapshot the host can write, because a sample that reaches the host can
-  otherwise poison the baseline it is restored from.
+- Keep guest gold images outside the detonation host's write path. Keep
+  known-good rebuild media outside the write path of the detonation host, broker
+  host, or Assemblyline deployment node it rebuilds. Serve a gold image
+  read-only to the detonation host over the restricted administrative path
+  rather than the detonation segment. For every restore or rebuild, verify the
+  exact media version against an authenticated manifest from a separately
+  administered recovery authority that binds it to a cryptographic digest,
+  rather than a locally recorded hash. Deliver rebuild media for any of those
+  systems only through a separate recovery procedure, not a runtime route of
+  the system being rebuilt. Revert by discarding the guest's writable overlay
+  and recreating it from that image rather than from a snapshot the host can
+  write, because a sample that reaches the host can otherwise poison the
+  baseline it is restored from.
 
 ## Choose a deployment path
 
