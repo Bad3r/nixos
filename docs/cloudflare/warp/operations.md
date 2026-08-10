@@ -39,7 +39,7 @@ line rather than the unit state:
 | `daemon reports no Zero Trust registration`               | No Teams registration; enrollment incomplete or rejected                            |
 | `daemon is registered outside the managed organization`   | Live registration belongs to another tenant                                         |
 | `tunnel is not connected after <n> attempts`              | Connect was requested and refused                                                   |
-| `connect never succeeded (daemon unreachable ...)`        | The daemon never answered                                                           |
+| `connect never succeeded (daemon unreachable ...)`        | Registration never confirmed, so connect was never requested                        |
 | `managed organization secret unavailable; not connecting` | Secret missing, unreadable, or whitespace-only; the run exits before the retry loop |
 
 The rows are mutually exclusive and reflect the state the run ended on, not
