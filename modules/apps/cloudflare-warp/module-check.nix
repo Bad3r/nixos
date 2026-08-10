@@ -67,6 +67,16 @@
               openFirewall = false;
             };
           };
+          # Every mdm field the enrolled fixture renders sits at its option
+          # default, so only diverging values prove the template forwards them.
+          mdmVariant = mkNixos {
+            secretsRoot = ./cloudflare-warp-check-fixtures;
+            extraSettings = {
+              serviceMode = "tunnelonly";
+              autoConnect = 42;
+              switchLocked = true;
+            };
+          };
           unenrolled = mkNixos {
             secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
           };
@@ -118,6 +128,30 @@
               && !enrolledWarp.openFirewall
               && !(builtins.elem 24080 enrolled.config.networking.firewall.allowedUDPPorts)
             ) "apps/cloudflare-warp-module-eval: enrolled branch must forward udpPort and openFirewall";
+            # The managed branch sets no environment.systemPackages of its own;
+            # warp-cli reaches PATH only through upstream services.cloudflare-warp,
+            # which every command in the cheatsheet and operations runbook assumes.
+            assert lib.assertMsg (hasWarpCli enrolled)
+              "apps/cloudflare-warp-module-eval: enrolled branch must still install warp-cli";
+            # mdm.xml is authoritative for service_mode and the module never calls
+            # `warp-cli mode`, so a wrong field here is silent at runtime. Assert
+            # against mdmVariant's non-default values: the enrolled fixture's are
+            # all option defaults, so it would pass even against hardcoded output.
+            assert
+              let
+                rendered = mdmVariant.config.sops.templates."cloudflare-warp-mdm".content;
+              in
+              lib.assertMsg
+                (
+                  lib.hasInfix "<key>service_mode</key>\n  <string>tunnelonly</string>" rendered
+                  && lib.hasInfix "<key>auto_connect</key>\n  <integer>42</integer>" rendered
+                  && lib.hasInfix "<key>switch_locked</key>\n  <true/>" rendered
+                )
+                "apps/cloudflare-warp-module-eval: mdm.xml must render serviceMode, autoConnect, and switchLocked";
+            # switchLocked renders through a Nix `if`, so pin both arms.
+            assert lib.assertMsg (lib.hasInfix "<key>switch_locked</key>\n  <false/>"
+              enrolled.config.sops.templates."cloudflare-warp-mdm".content
+            ) "apps/cloudflare-warp-module-eval: switchLocked false must render <false/>";
             # sops compares the rendered template between generations, so it
             # already covers every mdm field. A second restart owner on the unit
             # restarts warp-svc twice for one activation.
@@ -236,6 +270,7 @@
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
               connectScript = enrolledConnectScript;
               warnings = enrolled.config.warnings;
+              variantTemplateContent = mdmVariant.config.sops.templates."cloudflare-warp-mdm".content;
             };
           # Forcing the managed branch's warnings list forces both lib.optional
           # predicates, so a renamed option path there fails the check instead of
