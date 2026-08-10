@@ -200,6 +200,10 @@ let
                     # empty_answers accounts for it. Counting it here too would
                     # pre-empt the mismatch that tears down a consumer tunnel.
                     echo "<4>cloudflare-warp-connect: tunnel is up while the registration is still settling"
+                  elif [ -n "$mismatch_kind" ]; then
+                    # The retained classification is not current disconnect evidence, but a fresh
+                    # response can retry cleanup. Do not spend the ordinary unverified budget here.
+                    echo "<4>cloudflare-warp-connect: tunnel is up after a conclusive registration mismatch; waiting for a fresh registration check before retrying cleanup"
                   else
                     echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"
                     unverified=$((unverified + 1))
@@ -223,9 +227,10 @@ let
 
         # The daemon IPC socket and mdm.xml registration can settle at different
         # times, so poll both during the bounded readiness window. A verified
-        # managed tunnel ends early. Without a pending empty-answer hold, three
-        # unanswered checks against a live tunnel also end the run. A hold stays
-        # until a successful registration response resolves it, or a bound ends it.
+        # managed tunnel ends early. With neither a pending empty-answer hold nor
+        # a retained mismatch, three unanswered checks against a live tunnel end
+        # the run. A hold needs a successful response to resolve, while a retained
+        # mismatch needs fresh evidence before cleanup can safely retry.
         while [ -z "$connected" ] && [ "$unverified" -lt 3 ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
           attempt=$((attempt + 1))
           refresh_registration
@@ -249,9 +254,9 @@ let
         # legitimately keeps WARP off does not leave the unit failed. unverified
         # is cumulative and never reset, so it cannot gate this report: one early
         # unanswered check on a leftover tunnel would outrank whatever the run
-        # actually ended on. A failed later check cannot refute mismatch_kind.
-        # It blocks stale acceptance and reopening a readiness hold, but never
-        # turns a failed query into teardown evidence.
+        # actually ended on. A failed later check cannot refute mismatch_kind. It
+        # preserves the bounded retry opportunity for fresh cleanup evidence, but
+        # never turns a failed query into teardown evidence.
         if [ -z "$connected" ]; then
           if [ "$registration_state" = "mismatch" ] || [ -n "$mismatch_kind" ]; then
             # Both sub-cases are a mismatch, but they send the operator to

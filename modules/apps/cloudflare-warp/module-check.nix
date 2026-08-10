@@ -358,6 +358,7 @@
                   "connect request failed"
                   "registration check returned no organization; not treating it as a mismatch yet"
                   "tunnel is up while the registration is still settling"
+                  "tunnel is up after a conclusive registration mismatch; waiting for a fresh registration check before retrying cleanup"
                   "connected while the managed registration could not be verified"
                   "tunnel is up but its registration went unverified"
                 ]
@@ -463,6 +464,14 @@
                 confirmedOnceArm = lib.head (
                   lib.splitString ''elif [ -n "$held_empty" ]; then'' (lib.last confirmedOnceParts)
                 );
+                heldEmptyParts = lib.splitString ''elif [ -n "$held_empty" ]; then'' refreshStatusBlock;
+                heldEmptyArm = lib.head (
+                  lib.splitString ''elif [ -n "$mismatch_kind" ]; then'' (lib.last heldEmptyParts)
+                );
+                retainedMismatchParts = lib.splitString ''elif [ -n "$mismatch_kind" ]; then'' refreshStatusBlock;
+                retainedMismatchArm = lib.head (lib.splitString "else" (lib.last retainedMismatchParts));
+                ordinaryUnknownParts = lib.splitString ''echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"'' refreshStatusBlock;
+                ordinaryUnknownArm = lib.last ordinaryUnknownParts;
                 disconnectParts = lib.splitString "warp-cli --accept-tos disconnect" enrolledConnectScript;
                 mismatchDisconnectArm = lib.last (lib.splitString "mismatch)" (lib.head disconnectParts));
               in
@@ -474,6 +483,9 @@
                   && lib.length mismatchParts == 2
                   && lib.length failedCheckParts == 2
                   && lib.length confirmedOnceParts == 2
+                  && lib.length heldEmptyParts == 2
+                  && lib.length retainedMismatchParts == 2
+                  && lib.length ordinaryUnknownParts == 2
                   && lib.length disconnectParts == 2
                   && lib.hasInfix ''mismatch_kind=""'' initBlock
                   && lib.hasInfix ''mismatch_kind=""'' confirmedArm
@@ -482,9 +494,16 @@
                   && lib.hasInfix ''mismatch_kind="foreign"'' mismatchArm
                   && lib.hasInfix ''mismatch_kind="empty"'' mismatchArm
                   && lib.hasInfix "connected=1" confirmedOnceArm
+                  && lib.hasInfix "tunnel is up while the registration is still settling" heldEmptyArm
+                  && lib.hasInfix "tunnel is up after a conclusive registration mismatch" retainedMismatchArm
+                  && !lib.hasInfix "unverified=" retainedMismatchArm
+                  && !lib.hasInfix "connected=1" retainedMismatchArm
+                  && !lib.hasInfix ''registration_state="mismatch"'' retainedMismatchArm
+                  && !lib.hasInfix "warp-cli --accept-tos disconnect" retainedMismatchArm
+                  && lib.hasInfix "unverified=$((unverified + 1))" ordinaryUnknownArm
                   && !lib.hasInfix "mismatch_kind" mismatchDisconnectArm
                 )
-                "apps/cloudflare-warp-module-eval: a mismatch classification must block stale acceptance until a managed confirmation clears it without driving disconnect";
+                "apps/cloudflare-warp-module-eval: a mismatch classification must block stale acceptance, preserve fresh cleanup retries, and never drive disconnect itself";
             # One call site at the top of each attempt. warp-cli connect does not
             # change the registration organization, so a second check per attempt
             # only spends IPC budget. Scoped to the loop body: a whole-script
@@ -522,14 +541,14 @@
                 );
               in
               lib.assertMsg (lib.hasInfix "refresh_status" beforeExit) "apps/cloudflare-warp-module-eval: enrolled connect script must report status before exiting on an empty managed organization";
-            # A live tunnel whose registration never answered is terminal: the
-            # loop has nothing left to request and must not spend its full budget.
+            # A live tunnel without a held readiness response or retained cleanup
+            # classification is terminal: the loop has nothing left to request.
             assert lib.assertMsg
               (
                 lib.hasInfix "unverified=$((unverified + 1))" enrolledConnectScript
                 && lib.hasInfix "[ \"$unverified\" -lt 3 ]" enrolledConnectScript
               )
-              "apps/cloudflare-warp-module-eval: enrolled connect script must stop retrying once the tunnel is up and unverifiable";
+              "apps/cloudflare-warp-module-eval: enrolled connect script must stop retrying once an ordinary live tunnel is unverifiable";
             # The counter must not run against a run that already read the
             # managed organization: the value cannot change mid-run, and that
             # read is what allowed connect, so counting it would end a healthy
@@ -606,8 +625,8 @@
                   # readiness window closes, so the mismatch that tears down a
                   # registration-less tunnel could never fire.
                   && lib.hasInfix ''elif [ -n "$held_empty" ]; then'' counted
-                  # A retained mismatch must block stale confirmation from bypassing
-                  # the count, while a clean confirmation still suppresses it.
+                  # A clean confirmation, held empty answer, or retained mismatch
+                  # each suppresses the ordinary count for distinct reasons.
                   &&
                     lib.length (
                       lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then'' enrolledConnectScript
