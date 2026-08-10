@@ -82,6 +82,14 @@
               fi
               printf '%b\n' "''${NM_DNS-IP4.DNS[1]:192.168.1.1}"
               ;;
+            *"general reload"*)
+              printf 'nmcli %s\n' "$*" >>"$CP_LOG"
+              # A reload can be refused by polkit for a caller outside the
+              # networkmanager group, or fail while NetworkManager restarts.
+              if [ -n "''${NM_RELOAD_FAIL-}" ]; then
+                exit "$NM_RELOAD_FAIL"
+              fi
+              ;;
             *)
               printf 'nmcli %s\n' "$*" >>"$CP_LOG"
               ;;
@@ -329,6 +337,20 @@
               [ "$rc" -eq 0 ] || fail "a marker inside an interception page must not clear the canary (exit $rc)"
               [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
                 fail "the answering address must be the portal URL, got '$(cat "$work/out")'"
+            )
+
+            # The reload is the one failure the run is meant to survive rather
+            # than stop for: the release already happened, so a stale resolver is
+            # reported and the run carries on. Nothing pinned either half, so a
+            # future bare call, which errexit would abort on right after DNS was
+            # released, would have passed.
+            (
+              reset
+              rc=$(NM_RELOAD_FAIL=1 run --no-open)
+              [ "$rc" -eq 1 ] || fail "a failed DNS reload must not stop the run (exit $rc)"
+              restored || fail "a failed reload must not keep a clean network from its restore"
+              grep -q 'nmcli general reload dns-full' "$work/err" ||
+                fail "a failed reload must print the command to finish it by hand"
             )
 
             # A canary that answered correctly from a private address. The
