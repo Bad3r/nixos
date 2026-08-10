@@ -338,7 +338,7 @@
             # URL is the second half: the address itself has to be what comes
             # back, not a gateway guess that happens to share the exit status.
             for hijack in \
-              10.0.0.1 127.0.0.1 192.168.1.7 \
+              10.0.0.1 192.168.1.7 \
               172.16.0.1 172.20.0.1 172.31.0.1 \
               169.254.7.7 \
               100.64.0.1 100.99.0.1 100.100.64.9 100.127.0.1; do
@@ -355,16 +355,21 @@
 
             # The mirror image. Reaching the hijack check is not the same as
             # being a hijack: a canary that never answered, from an address that
-            # is nobody's LAN, has to end in the gateway guess instead.
-            (
-              reset
-              export DIG_FIREFOX=203.0.113.50
-              export FF_STATUS=000 AP_STATUS=000 GS_STATUS=000
-              rc=$(run --probe)
-              [ "$rc" -eq 3 ] || fail "a public address must not be reported as a hijack (exit $rc)"
-              [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
-                fail "a public address must fall back to the gateway guess"
-            )
+            # is nobody's LAN, has to end in the gateway guess instead. 127.0.0.1
+            # belongs here rather than in the loop above, because it is this
+            # machine: a resolver sinkholing a blocklisted canary there had the
+            # run report the user's own host as the portal and open it.
+            for miss in 203.0.113.50 127.0.0.1; do
+              (
+                reset
+                export DIG_FIREFOX="$miss"
+                export FF_STATUS=000 AP_STATUS=000 GS_STATUS=000
+                rc=$(run --probe)
+                [ "$rc" -eq 3 ] || fail "$miss must not be reported as a hijack (exit $rc)"
+                [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
+                  fail "$miss must fall back to the gateway guess, got '$(cat "$work/out")'"
+              )
+            done
 
             # Login mode on a network that turns out to be clean: the release is
             # undone before the run exits, and the snapshot is consumed.

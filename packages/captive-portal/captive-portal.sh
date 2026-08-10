@@ -173,9 +173,14 @@ device_gateway() {
     grep -E '^[0-9]+(\.[0-9]+){3}$' || true
 }
 
+# Loopback is deliberately absent: 127.0.0.0/8 is this machine, not somewhere a
+# portal can sit. A resolver that sinkholes blocklisted names to 127.0.0.1, which
+# is what dnsmasq `address=/host/127.0.0.1` and OpenWrt's simple-adblock do,
+# answers a canary that way, and counting it as a hijack pointed the sign-in
+# instructions and xdg-open at the user's own machine.
 is_private_v4() {
   case "$1" in
-  10.* | 192.168.* | 127.*) return 0 ;;
+  10.* | 192.168.*) return 0 ;;
   172.1[6-9].* | 172.2[0-9].* | 172.3[01].*) return 0 ;;
   # A portal answers from whatever space it sits in: 169.254.0.0/16 when it
   # never issued a lease, and 100.64.0.0/10 on carrier and guest networks.
