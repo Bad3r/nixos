@@ -210,6 +210,17 @@ is_private_v4() {
   esac
 }
 
+# Location and an extracted link are chosen by the network the same way the
+# canary's DNS answer is, so both need the exclusion the sinkholed-canary
+# guard already applies to $answer: 127.0.0.0/8 and 0.0.0.0 are this machine,
+# not somewhere a portal can sit, and neither is localhost or ::1.
+is_loopback_host() {
+  case "${1#*//}" in
+  127.* | 0.0.0.0 | 0.0.0.0[:/?#]* | localhost | localhost[:/?#]* | \[::1\]*) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
 # Pull the first absolute URL the named attributes point at out of $body_file.
 #
 # The names are anchored on line start, `;`, or whitespace, so each is the whole
@@ -323,8 +334,10 @@ probe_portal() {
       # falls through to the hijack check below.
       case "$redirect" in
       http://* | https://*)
-        printf '%s\n' "$redirect"
-        return 0
+        if ! is_loopback_host "$redirect"; then
+          printf '%s\n' "$redirect"
+          return 0
+        fi
         ;;
       esac
       ;;
@@ -374,6 +387,11 @@ probe_portal() {
         fi
         if [ -z "$found" ]; then
           found="$(extract_url 'href')"
+        fi
+        # An extracted link is as network-chosen as Location; the same guard
+        # applies, falling back the same way finding nothing already does.
+        if [ -n "$found" ] && is_loopback_host "$found"; then
+          found=""
         fi
         printf '%s\n' "${found:-http://$answer}"
         return 0

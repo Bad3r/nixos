@@ -685,6 +685,35 @@
                 fail "nothing a network chose the scheme of may be handed to xdg-open"
             )
 
+            # Location is as network-chosen as the canary's DNS answer, and a
+            # sinkholed resolver or a filtering proxy in front of it can point
+            # it at this machine as readily as at itself. The scheme check above
+            # let all four of these through before the host was also checked.
+            for loopback in 'http://127.0.0.1/' 'http://0.0.0.0:8080/' 'http://localhost/admin' 'http://[::1]/'; do
+              (
+                reset
+                export FF_STATUS=302 FF_REDIRECT="$loopback"
+                export AP_STATUS=000 GS_STATUS=000
+                rc=$(run --probe)
+                [ "$rc" -eq 3 ] || fail "a Location naming this machine ($loopback) is no answer (exit $rc)"
+                [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
+                  fail "$loopback must never be printed as the portal, got '$(cat "$work/out")'"
+              )
+            done
+
+            # The same gap on the other site: extract_url constrains the scheme
+            # and nothing else, so a portal page can point its own submit target
+            # at this machine too.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><body><form action="http://127.0.0.1/pwn"></form></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "an intercepted canary must still exit 0 (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "a form target naming this machine must fall back to the answering address, got '$(cat "$work/out")'"
+            )
+
             # Login mode on a network that turns out to be clean: the release is
             # undone before the run exits, and the snapshot is consumed.
             (
