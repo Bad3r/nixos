@@ -614,6 +614,21 @@
                 fail "a stylesheet href must not beat the form target, got '$(cat "$work/out")'"
             )
 
+            # A relative action is at least as common as an absolute one, and
+            # then tier 1 finds nothing: the stylesheet reaches tier 3 with no
+            # form target left to beat it. The answering address is at least
+            # the host serving the page, the same fallback a page with no
+            # usable link at all already gets.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><head><link rel="stylesheet" href="http://cdn.example.com/style.css"></head><body><form action="/login"></form></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "an intercepted canary must still exit 0 (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "a stylesheet href must not beat a relative form target, got '$(cat "$work/out")'"
+            )
+
             # HTML requires a literal & in an attribute value to be written
             # &amp;, and a WISPr redirect carries several parameters, so the raw
             # value was opened with amp; glued to every one after the first and

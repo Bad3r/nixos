@@ -236,6 +236,12 @@ is_loopback_host() {
 # needs the leading dot optional and the trailing slash relaxed, or
 # `http://w3.org/TR/...` and `http://www.w3.org` walk past it.
 #
+# A relative form action is at least as common as an absolute one, and then
+# tier 1 and tier 2 find nothing and tier 3 takes the first absolute href on
+# the page: a stylesheet or script sitting ahead of the form in `<head>` is
+# never a sign-in target in any tier, so it is filtered here rather than only
+# where tier 3 reads it.
+#
 # HTML requires a literal `&` in an attribute value to be written `&amp;`, and a
 # WISPr redirect carries several parameters, so the raw value would be opened
 # with `amp;` glued to every parameter after the first and the sign-in would
@@ -244,6 +250,7 @@ extract_url() {
   grep -oiE '(^|[;[:space:]])('"$1"')=["'"'"']?https?://[^"'"'"'<>[:space:]]+' "$body_file" |
     grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
     grep -viE '^https?://([^/]*\.)?w3\.org([/:?]|$)' |
+    grep -viE '\.(css|js|mjs|png|jpe?g|gif|svg|ico|woff2?|ttf|eot)([?#]|$)' |
     head -1 |
     sed 's/&amp;/\&/g' || true
 }
