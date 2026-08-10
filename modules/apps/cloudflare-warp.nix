@@ -15,7 +15,8 @@
     enable: Install warp-cli; warp-svc runs only once secrets/cloudflare-warp.yaml supplies credentials.
     serviceMode: mdm.xml service_mode (warp | tunnelonly | 1dot1 | proxy | postureonly).
     autoConnect: mdm.xml auto_connect minutes (0-1440); 0 keeps the client off after a manual disconnect.
-    switchLocked: mdm.xml switch_locked; when true the user cannot disconnect.
+    switchLocked: mdm.xml switch_locked; when true the user cannot disconnect, which also blocks
+      this module's own teardown of a mismatched tunnel.
     connectOnBoot: run a best-effort oneshot that verifies managed registration before connecting.
 
   Notes:
@@ -24,7 +25,8 @@
     * Without those credentials warp-svc would hold CAP_NET_ADMIN and an open UDP port while
       serving only consumer WARP, so an un-enrolled host installs the CLI and no daemon.
     * Relies on the hosts-common vpn-defaults owner for networking.firewall.checkReversePath;
-      the WARP interface trips strict rp_filter when that shared baseline is overridden.
+      the WARP interface trips strict rp_filter when that shared baseline is overridden, except
+      under serviceMode postureonly, which carries no traffic.
     * Pairs with per-host enablement in modules/tpnix/cloudflare-warp.nix and modules/system76/cloudflare-warp.nix.
 */
 { config, ... }:
@@ -82,6 +84,7 @@ let
         registration=""
         connected=""
         connect_requested=""
+        confirmed_once=""
         unverified=0
         status=""
         attempt=0
@@ -129,6 +132,7 @@ let
           registration="''${registration//[[:space:]]/}"
           if [ "$registration" = "$managed_org" ]; then
             registration_state="confirmed"
+            confirmed_once=1
             echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
           else
             registration_state="mismatch"
@@ -163,8 +167,18 @@ let
                   fi
                   ;;
                 *)
-                  echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"
-                  unverified=$((unverified + 1))
+                  # An unanswered check does not un-confirm a registration this
+                  # run already read. The organization cannot change mid-run, and
+                  # that confirmation is what allowed connect to run at all, so
+                  # counting it as unverified would end a healthy run early and
+                  # then misreport it.
+                  if [ -n "$confirmed_once" ]; then
+                    echo "cloudflare-warp-connect: tunnel is up on a registration this run already confirmed"
+                    connected=1
+                  else
+                    echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"
+                    unverified=$((unverified + 1))
+                  fi
                   ;;
               esac
               ;;
@@ -286,7 +300,12 @@ let
         switchLocked = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "mdm.xml switch_locked; when true the user cannot disconnect WARP.";
+          description = ''
+            mdm.xml switch_locked; when true the user cannot disconnect WARP.
+            That also blocks this module's own fail-closed teardown, since
+            `warp-cli disconnect` is a local disconnect: a confirmed registration
+            mismatch on a live tunnel can then only be reported, not enforced.
+          '';
         };
 
         connectOnBoot = lib.mkOption {
@@ -363,6 +382,9 @@ let
                   lib.optional
                     (
                       config.networking.firewall.enable
+                      # postureonly carries no traffic, so there is no
+                      # CloudflareWARP interface for strict rp_filter to affect.
+                      && cfg.serviceMode != "postureonly"
                       && builtins.elem config.networking.firewall.checkReversePath [
                         true
                         "strict"

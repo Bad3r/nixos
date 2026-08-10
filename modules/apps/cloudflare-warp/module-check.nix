@@ -109,6 +109,13 @@
             secretsRoot = ./cloudflare-warp-check-fixtures;
             extraConfig.networking.firewall.checkReversePath = "strict";
           };
+          # postureonly carries no traffic, so it holds the half of the rp_filter
+          # predicate that must stay silent.
+          posturePlusStrict = mkNixos {
+            secretsRoot = ./cloudflare-warp-check-fixtures;
+            extraSettings.serviceMode = "postureonly";
+            extraConfig.networking.firewall.checkReversePath = "strict";
+          };
           # connectOnBoot = false is its own mkIf branch that no other fixture
           # reaches, and the Upholds edge lives inside it.
           connectOff = mkNixos {
@@ -410,6 +417,22 @@
                 && lib.hasInfix "[ \"$unverified\" -lt 3 ]" enrolledConnectScript
               )
               "apps/cloudflare-warp-module-eval: enrolled connect script must stop retrying once the tunnel is up and unverifiable";
+            # The counter must not run against a run that already read the
+            # managed organization: the value cannot change mid-run, and that
+            # read is what allowed connect, so counting it would end a healthy
+            # run early and then report it as never verified.
+            assert
+              let
+                guarded = lib.last (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript);
+                counted = lib.head (lib.splitString "unverified=$((unverified + 1))" guarded);
+              in
+              lib.assertMsg
+                (
+                  lib.hasInfix "confirmed_once=1" enrolledConnectScript
+                  && lib.length (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript) == 2
+                  && lib.hasInfix "else" counted
+                )
+                "apps/cloudflare-warp-module-eval: an unanswered check must not count as unverified once this run confirmed the registration";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
@@ -432,10 +455,14 @@
             assert lib.assertMsg
               (lib.any (lib.hasInfix "checkReversePath is strict") strictRpFilter.config.warnings)
               "apps/cloudflare-warp-module-eval: a strict checkReversePath must warn";
+            assert lib.assertMsg
+              (!lib.any (lib.hasInfix "checkReversePath is strict") posturePlusStrict.config.warnings)
+              "apps/cloudflare-warp-module-eval: postureonly carries no traffic, so a strict checkReversePath must not warn";
             {
               dnsConflict = dnsConflict.config.warnings;
               staleDns = staleDns.config.warnings;
               strictRpFilter = strictRpFilter.config.warnings;
+              posturePlusStrict = posturePlusStrict.config.warnings;
             };
           connectOffAttrs =
             assert lib.assertMsg (
