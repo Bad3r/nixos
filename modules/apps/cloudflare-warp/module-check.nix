@@ -125,11 +125,21 @@
               enrolled.config.sops.templates."cloudflare-warp-mdm".restartUnits == [ "cloudflare-warp.service" ]
               && enrolled.config.systemd.services.cloudflare-warp.restartTriggers == [ ]
             ) "apps/cloudflare-warp-module-eval: the mdm template must be the only restart owner of warp-svc";
-            assert lib.assertMsg
-              (lib.hasInfix "xmllint --noout" (
-                lib.head enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre
-              ))
-              "apps/cloudflare-warp-module-eval: enrolled branch must parse the rendered mdm.xml before installing it";
+            # xmllint echoes the offending source line, which is the credential,
+            # so the guard has to stay fail-closed without reaching the journal:
+            # suppressing stderr without `exit 1` would install a malformed
+            # mdm.xml and drop warp-svc back to unmanaged mode silently.
+            assert
+              let
+                mdmValidation = lib.head enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
+              in
+              lib.assertMsg
+                (
+                  lib.hasInfix "xmllint --noout" mdmValidation
+                  && lib.hasInfix "2>/dev/null" mdmValidation
+                  && lib.hasInfix "exit 1" mdmValidation
+                )
+                "apps/cloudflare-warp-module-eval: enrolled branch must parse the rendered mdm.xml before installing it, without leaking xmllint's stderr";
             # Restart=always respawns warp-svc without an explicit restart job,
             # which PartOf does not propagate; Upholds re-runs the oneshot.
             assert lib.assertMsg

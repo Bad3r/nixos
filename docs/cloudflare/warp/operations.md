@@ -96,6 +96,17 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   device-enrollment permission. Add a Service Auth rule referencing the token
   (Deployment, step 3). Collect a diagnostics bundle: `sudo warp-diag`.
 
+- **`warp-svc` refuses to start after a credential rotation.** The first
+  `ExecStartPre` runs `xmllint --noout` over the rendered template, and
+  `cloudflare-warp.service` fails with
+  `cloudflare-warp: rendered mdm.xml is not well-formed; a credential likely contains an XML metacharacter`.
+  One of `organization`, `auth_client_id`, or `auth_client_secret` contains a
+  bare `&`, `<`, or an unterminated entity. xmllint's own diagnostic is
+  discarded rather than logged, because it reports a parse error by echoing the
+  offending source line, which is the credential itself. Re-issue the service
+  token, or `sops secrets/cloudflare-warp.yaml` and check the three values, then
+  rebuild. Compare against the decrypted payload rather than the journal.
+
 - **mdm.xml missing at boot (race).** `mdm.xml` is installed by an `ExecStartPre`
   that copies the sops-rendered template. Ordering is wired into the module:
   `cloudflare-warp.service` carries `after`/`requires` on the sops secret-install

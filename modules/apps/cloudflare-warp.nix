@@ -385,7 +385,13 @@ let
                   # quoting can escape them. An XML metacharacter in one would
                   # otherwise leave warp-svc reading a truncated mdm.xml and
                   # falling back to unmanaged mode; refuse to start instead.
-                  "${pkgs.libxml2.bin}/bin/xmllint --noout ${mdmTemplate}"
+                  #
+                  # xmllint reports a parse error by echoing the offending source
+                  # line, which here is the credential, and an unescaped `<` puts
+                  # a fragment of it in the message text too. StandardError is
+                  # unset, so that would reach the persistent journal. Drop its
+                  # stderr and name the condition instead.
+                  "${pkgs.runtimeShell} -c '${pkgs.libxml2.bin}/bin/xmllint --noout ${mdmTemplate} 2>/dev/null || { echo \"cloudflare-warp: rendered mdm.xml is not well-formed; a credential likely contains an XML metacharacter\" >&2; exit 1; }'"
                   "${pkgs.coreutils}/bin/install -D -m0600 -o root -g root ${mdmTemplate} ${rootDir}/mdm.xml"
                 ];
               };
