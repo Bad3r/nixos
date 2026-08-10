@@ -1,21 +1,14 @@
 /*
   Check: uBlock Origin dynamic-filtering rules.
 
-  The browser profile imports the private helper directly, while this module
-  exports the same validator and rule list through the existing private
-  `flake.lib.nixos` namespace. The evaluation check keeps malformed rules from
-  being silently discarded by uBO and keeps every supported type/action live.
+  The browser profile and this evaluation check import the same private helper
+  directly. The check keeps malformed rules from being silently discarded by
+  uBO and keeps every supported type/action live.
 */
-{ config, lib, ... }:
+{ lib, ... }:
 let
   uboDynamicRules = import ./_ubo-dynamic-rules.nix { inherit lib; };
-  exportedRules = config.flake.lib.nixos._uboDynamicRules or null;
-  rules =
-    if exportedRules == null then
-      throw "browsers/ubo-dynamic-rules: private uBO rule helper was not exported"
-    else
-      exportedRules;
-  inherit (rules)
+  inherit (uboDynamicRules)
     checkedMediumModeRules
     ublockOriginMediumModeRules
     ;
@@ -77,8 +70,6 @@ let
   acceptedInvalidRules = lib.filter (rule: (evalRules [ rule ]).success) invalidRules;
 in
 {
-  flake.lib.nixos._uboDynamicRules = uboDynamicRules;
-
   perSystem =
     { pkgs, ... }:
     {
