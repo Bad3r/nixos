@@ -318,6 +318,16 @@
             assert lib.assertMsg
               (lib.hasInfix "managed organization secret unavailable; cannot verify registration" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must reject an empty managed organization";
+            # The message alone does not prove ordering: a raw -n test before the
+            # strip would still contain that string, so a secret holding only
+            # spaces would skip the diagnostic. Anchor on the strip site.
+            assert
+              let
+                parts = lib.splitString "managed_org//[[:space:]]/" enrolledConnectScript;
+                beforeStrip = lib.head parts;
+              in
+              lib.assertMsg (lib.length parts > 1 && !lib.hasInfix ''"$managed_org"'' beforeStrip)
+                "apps/cloudflare-warp-module-eval: the managed organization must be stripped before any emptiness test runs on it";
             # A healthy boot passes through the per-attempt states on its way to
             # confirmed, so logging them at <3> would make `journalctl -p err`
             # report every good boot as broken. Reserve <3> for states the run
