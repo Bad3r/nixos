@@ -3,9 +3,10 @@
 
   CI intentionally has no secrets submodule, so normal host evaluation only
   takes the un-enrolled branch. Use an in-repo non-secret fixture to force the
-  managed branch and deep-force the template, secret-backed ExecStartPre, and
-  connect script. A missing fixture path keeps the un-enrolled assertions in
-  the same check.
+  managed branch and deep-force the template, secret-backed ExecStartPre,
+  connect script, and warnings. A missing fixture path keeps the un-enrolled
+  assertions in the same check, and one fixture per managed-branch warning
+  trigger proves each fires with its own text.
 */
 {
   lib,
@@ -28,6 +29,7 @@
               secretsRoot,
               enable ? true,
               extraSettings ? { },
+              extraConfig ? { },
             }:
             inputs.nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";
@@ -36,7 +38,10 @@
                 warpModule
                 {
                   nixpkgs.config.allowUnfree = true;
-                  networking.firewall.checkReversePath = "loose";
+                  # Models a host on the hosts-common vpn-defaults baseline.
+                  # mkDefault so a fixture can force the strict rp_filter the
+                  # managed branch warns about.
+                  networking.firewall.checkReversePath = lib.mkDefault "loose";
                   programs.cloudflare-warp.extended = {
                     inherit enable;
                     serviceMode = "warp";
@@ -49,6 +54,7 @@
                   sops.age.keyFile = "/dev/null";
                   system.stateVersion = "26.05";
                 }
+                extraConfig
               ];
               specialArgs = { inherit secretsRoot; };
             };
@@ -67,6 +73,18 @@
           disabled = mkNixos {
             secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
             enable = false;
+          };
+          # Both managed-branch warnings are conditional and CI has no secrets
+          # submodule, so nothing else in this repo ever reaches their
+          # predicates. One fixture per trigger keeps the option paths behind
+          # them (networkmanager.dns, firewall.checkReversePath) honest.
+          dnsConflict = mkNixos {
+            secretsRoot = ./cloudflare-warp-check-fixtures;
+            extraConfig.networking.networkmanager.dns = "dnsmasq";
+          };
+          strictRpFilter = mkNixos {
+            secretsRoot = ./cloudflare-warp-check-fixtures;
+            extraConfig.networking.firewall.checkReversePath = "strict";
           };
           hasWarpCli =
             system:
@@ -183,6 +201,24 @@
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
               connectScript = enrolledConnectScript;
+              warnings = enrolled.config.warnings;
+            };
+          # Forcing the managed branch's warnings list forces both lib.optional
+          # predicates, so a renamed option path there fails the check instead of
+          # an operator's rebuild once the sops payload lands.
+          warningsAttrs =
+            assert lib.assertMsg (
+              !lib.any (lib.hasInfix "takes over DNS") enrolled.config.warnings
+              && !lib.any (lib.hasInfix "checkReversePath is strict") enrolled.config.warnings
+            ) "apps/cloudflare-warp-module-eval: a managed host on the vpn-defaults baseline must not warn";
+            assert lib.assertMsg (lib.any (lib.hasInfix "takes over DNS") dnsConflict.config.warnings)
+              "apps/cloudflare-warp-module-eval: a local resolver under a DNS-owning service mode must warn";
+            assert lib.assertMsg
+              (lib.any (lib.hasInfix "checkReversePath is strict") strictRpFilter.config.warnings)
+              "apps/cloudflare-warp-module-eval: a strict checkReversePath must warn";
+            {
+              dnsConflict = dnsConflict.config.warnings;
+              strictRpFilter = strictRpFilter.config.warnings;
             };
           unenrolledAttrs =
             assert lib.assertMsg (
@@ -221,7 +257,12 @@
         in
         builtins.deepSeq
           {
-            inherit enrolledAttrs unenrolledAttrs disabledAttrs;
+            inherit
+              enrolledAttrs
+              unenrolledAttrs
+              disabledAttrs
+              warningsAttrs
+              ;
           }
           (
             pkgs.runCommandLocal "cloudflare-warp-module-eval-ok" { } ''
