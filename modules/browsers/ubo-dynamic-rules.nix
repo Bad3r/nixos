@@ -3,7 +3,7 @@
 
   The browser profile and this evaluation check import the same private helper
   directly. The check keeps malformed rules from being silently discarded by
-  uBO, pins the behavior-critical seed rows, and keeps every supported
+  uBO, pins behavior-critical rows after validation, and keeps every supported
   type/action live.
 */
 { lib, ... }:
@@ -87,9 +87,10 @@ let
 
   failedValidCases = lib.filter (case: !(evalRules case.rules).success) validCases;
   acceptedInvalidRules = lib.filter (rule: (evalRules [ rule ]).success) invalidRules;
-  missingSeedRules = lib.filter (
-    rule: !(lib.elem rule ublockOriginMediumModeRules)
-  ) requiredSeedRules;
+  # Check the list consumed by the browser profile, not only the raw producer,
+  # so a validator regression cannot silently erase the guarded payload.
+  checkedSeedRules = checkedMediumModeRules ublockOriginMediumModeRules;
+  missingSeedRules = lib.filter (rule: !(lib.elem rule checkedSeedRules)) requiredSeedRules;
 in
 {
   perSystem =
