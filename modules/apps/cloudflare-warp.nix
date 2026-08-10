@@ -78,9 +78,9 @@ let
       connectScript = ''
         managed_org=""
         registration_state="unknown"
-        # The terminal report can run after an early return, so keep its state
-        # nounset-safe. registration is volatile; mismatch_kind keeps only its
-        # last conclusive empty-or-foreign classification, not the organization.
+        # The terminal report and stale-confirmation guard can run after an
+        # early return, so keep their state nounset-safe. mismatch_kind keeps
+        # only its last conclusive empty-or-foreign classification.
         registration=""
         mismatch_kind=""
         connected=""
@@ -129,7 +129,7 @@ let
             registration_status=$?
           if [ "$registration_status" -ne 0 ]; then
             # A failed query cannot resolve a prior empty answer or refute a
-            # conclusive mismatch. The latter remains terminal-only evidence.
+            # conclusive mismatch. The latter blocks stale acceptance only.
             registration_state="unknown"
             echo "<4>cloudflare-warp-connect: registration check failed (exit $registration_status)"
             return
@@ -192,12 +192,11 @@ let
                   fi
                   ;;
                 *)
-                  # An unanswered check does not un-confirm a registration this
-                  # run already read. The organization cannot change mid-run, and
-                  # that confirmation is what allowed connect to run at all, so
-                  # counting it as unverified would end a healthy run early and
-                  # then misreport it.
-                  if [ -n "$confirmed_once" ]; then
+                  # An unanswered check does not negate this run's managed
+                  # confirmation unless a later successful probe found a
+                  # mismatch. That retained mismatch blocks stale acceptance but
+                  # never drives this branch's disconnect enforcement.
+                  if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then
                     echo "cloudflare-warp-connect: tunnel is up on a registration this run already confirmed"
                     connected=1
                   elif [ -n "$held_empty" ]; then
@@ -255,8 +254,8 @@ let
         # legitimately keeps WARP off does not leave the unit failed. unverified
         # is cumulative and never reset, so it cannot gate this report: one early
         # unanswered check on a leftover tunnel would outrank whatever the run
-        # actually ended on. A failed later check cannot refute mismatch_kind;
-        # refresh_status never reads it, so it is diagnostic evidence only.
+        # actually ended on. A failed later check cannot refute mismatch_kind.
+        # refresh_status uses it only to block stale acceptance, never teardown.
         if [ -z "$connected" ]; then
           if [ "$registration_state" = "mismatch" ] || [ -n "$mismatch_kind" ]; then
             # Both sub-cases are a mismatch, but they send the operator to

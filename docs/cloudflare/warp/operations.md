@@ -35,9 +35,11 @@ of a re-registration. An answer naming a different team is a mismatch immediatel
 and still disconnects. A later unanswered check cannot refute a mismatch already
 observed in this run, so its non-identifying classification remains available to
 the terminal diagnostic until a managed confirmation replaces it. That retained
-classification never triggers a disconnect. An empty, unreadable, or
-whitespace-only organization secret cannot change while the unit runs, so the oneshot reports the
-current status once and exits instead of retrying a decision that can never open.
+classification also prevents an earlier confirmation from treating a later
+`Connected` status as verified. It never itself triggers a disconnect. An empty,
+unreadable, or whitespace-only organization secret cannot change while the unit
+runs, so the oneshot reports the current status once and exits instead of
+retrying a decision that can never open.
 The loop makes up to 30 attempts bounded by a 120-second deadline, with each
 `warp-cli` call capped at five seconds and killed one second later if it ignores
 the term signal, so no call can outlast its cap. The retry window plus bounded registration/status checks remains
@@ -60,7 +62,9 @@ on, including an unverified line only when the last status query still read
 `Connected`. A conclusive mismatch remains the exception: a later unanswered
 check cannot prove the earlier mismatch resolved, so that diagnostic survives
 until a successful managed confirmation clears it. The retained classification is
-terminal-only. It cannot trigger a disconnect after the live state became unknown.
+not disconnect evidence after the live state became unknown. It does prevent an
+earlier confirmation from accepting a later connected tunnel as managed until a
+successful managed confirmation clears the mismatch.
 
 Use `warp-cli registration organization` and `warp-cli status` to confirm the
 managed tunnel is up. Without the sops secret the daemon and this unit do not
