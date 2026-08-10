@@ -331,6 +331,9 @@ show_resolvers() {
   fi
 }
 
+# The two halves fail for unrelated reasons and need unrelated remedies, so they
+# report separately: 1 is the DNS write, which is the call the operator pref
+# gates, and 2 is the run state, which is only ever reached once DNS is back.
 apply_saved_prefs() {
   local corp_dns="$1" want_running="$2"
   # DNS is what the run took away, so it goes back first. Ordering the run state
@@ -340,15 +343,18 @@ apply_saved_prefs() {
     tailscale set --accept-dns=true || return 1
   fi
   # A flagless `tailscale up` on a node that is still logged in edits WantRunning
-  # alone, so it cannot clobber the prefs this two-field snapshot does not carry.
-  # It runs only when the snapshot says --down stopped a node that had been up.
+  # alone, so it cannot clobber the prefs this two-field snapshot does not carry:
+  # checkForAccidentalSettingReverts in cmd/tailscale/cli/up.go returns simpleUp
+  # when no flag is set, skipping the pref diff that produces `flag --ssh is not
+  # specified but it is set in prefs`. It runs only when the snapshot says --down
+  # stopped a node that had been up.
   if [ "$want_running" = "true" ] && [ "$(tailscale debug prefs | jq -r '.WantRunning')" = "false" ]; then
-    tailscale up || return 1
+    tailscale up || return 2
   fi
 }
 
 restore_dns() {
-  local corp_dns=true want_running=false saved_corp="" saved_want=""
+  local corp_dns=true want_running=false saved_corp="" saved_want="" rc=0
   # An unreadable or truncated state file must not abort the run and must not
   # decide that DNS stays off, so CorpDNS falls back to restoring Tailscale DNS.
   # WantRunning gets no such fallback: with no snapshot there is no evidence the
@@ -357,16 +363,26 @@ restore_dns() {
     case "$saved_corp" in true | false) corp_dns="$saved_corp" ;; esac
     case "$saved_want" in true | false) want_running="$saved_want" ;; esac
   fi
-  if ! apply_saved_prefs "$corp_dns" "$want_running"; then
+  apply_saved_prefs "$corp_dns" "$want_running" || rc=$?
+  if [ "$rc" -eq 1 ]; then
     denied
     # The snapshot is what a later run replays, so a refusal keeps it: dropping
     # it here would turn a retryable failure into a permanently released host.
     note "DNS is still released; rerun once that is fixed: captive-portal --restore"
     exit 4
   fi
-  rm -f "$state_file"
+  # DNS is back from here on, whatever became of the run state, so the reload it
+  # needs still has to run and the interrupt reminder has to stand down.
   reload_nm_dns
   dns_released=0
+  if [ "$rc" -ne 0 ]; then
+    # Not the operator wall: that gate had already passed the DNS write above.
+    # The snapshot stays because it is the only record that this node was up.
+    note "DNS returned to Tailscale, but 'tailscale up' failed and the node is still stopped"
+    note "start it by hand, or rerun once that is fixed: captive-portal --restore"
+    exit 4
+  fi
+  rm -f "$state_file"
   note "DNS returned to Tailscale"
   show_resolvers
 }

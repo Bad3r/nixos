@@ -425,7 +425,9 @@ reboot finds no snapshot. That run re-enables tailnet DNS, which is the safe
 direction, and leaves the run state alone: nothing recorded that the node was
 up, and starting one that was stopped on purpose is not a restore. DNS goes back
 before the run state for the same reason, so a node that refuses to come back up
-still gets its resolvers.
+still gets its resolvers. That run reports the stopped node rather than the
+operator pref, which the DNS write it just completed had already cleared, and it
+exits 4 keeping the snapshot so `--restore` can be retried once the node starts.
 
 ## Sign in by hand
 

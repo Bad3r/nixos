@@ -412,6 +412,10 @@
 
             # `tailscale up` used to run first and gate the DNS restore, so a node
             # that would not come back up kept its resolvers off for no reason.
+            # It no longer does, so the rest of the restore must not behave as if
+            # it had: the failure is reported as its own, not as the operator wall
+            # the DNS write had already cleared, and the reload that finishes the
+            # DNS half still runs even though the run exits nonzero.
             (
               reset
               mkdir -p "$(dirname "$state")"
@@ -420,6 +424,12 @@
               [ "$rc" -eq 4 ] || fail "a refused up must still exit 4 (exit $rc)"
               restored || fail "a refused up must not keep DNS from Tailscale"
               [ -s "$state" ] || fail "an incomplete restore must keep the snapshot"
+              ! grep -q 'operator' "$work/err" ||
+                fail "a refused up is not the operator wall and must not name it"
+              ! grep -q 'DNS is still released' "$work/err" ||
+                fail "a refused up must not report DNS it just handed back as released"
+              grep -qxF 'nmcli general reload dns-full' "$work/log" ||
+                fail "a restored resolver still needs the NetworkManager reload"
             )
 
             # Absence of a snapshot is not evidence the node was ever up: the
