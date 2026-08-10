@@ -59,6 +59,8 @@ let
     "no-large-media: * * noop"
     "github%2ecom * 3p-script noop"
     "github.com. * 3p-script noop"
+    "github.com *\n3p-script noop"
+    "github.com *\r3p-script noop"
     "Login.Okta.com * 3p-script noop"
     "* * unknown-type noop"
     "* * * permit"

@@ -9,9 +9,10 @@ let
   mediumModeRuleError =
     rule:
     let
-      # uBO trims each line and splits on runs of whitespace before validating
-      # it, so normalize common line whitespace before dropping empty fields.
-      normalizedRule = lib.replaceStrings [ "\t" "\n" "\r" ] [ " " " " " " ] rule;
+      # uBO trims each line and splits on runs of intra-line whitespace before
+      # validating it. Tabs separate fields; line breaks separate records.
+      hasLineBreak = lib.hasInfix "\n" rule || lib.hasInfix "\r" rule;
+      normalizedRule = lib.replaceStrings [ "\t" ] [ " " ] rule;
       parts = lib.filter (part: part != "") (lib.splitString " " normalizedRule);
       src = builtins.elemAt parts 0;
       des = builtins.elemAt parts 1;
@@ -25,7 +26,9 @@ let
         || builtins.match "[[][0-9a-f:]+[]]" host != null
         || builtins.match "[0-9a-z_]([0-9a-z_.-]*[0-9a-z_])?" host != null;
     in
-    if builtins.length parts != 4 then
+    if hasLineBreak then
+      "contains a line break, which uBO reads as two separate rules"
+    else if builtins.length parts != 4 then
       "expected 4 space-separated fields"
     else if
       !builtins.elem type [
