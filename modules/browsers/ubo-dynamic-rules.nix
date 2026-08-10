@@ -3,8 +3,8 @@
 
   The browser profile and this evaluation check import the same private helper
   directly. The check keeps malformed rules from being silently discarded by
-  uBO, pins behavior-critical rows after validation, and keeps every supported
-  type/action live.
+  uBO, pins behavior-critical rows after validation, rejects duplicate cells,
+  and keeps every supported type/action live.
 */
 { lib, ... }:
 let
@@ -91,6 +91,20 @@ let
   # so a validator regression cannot silently erase the guarded payload.
   checkedSeedRules = checkedMediumModeRules ublockOriginMediumModeRules;
   missingSeedRules = lib.filter (rule: !(lib.elem rule checkedSeedRules)) requiredSeedRules;
+  # uBO's setCell overwrites earlier rows for the same source, destination, and
+  # type, so reject duplicate cells in the checked payload.
+  ruleCell =
+    rule:
+    lib.concatStringsSep " " (
+      lib.take 3 (
+        lib.filter (part: part != "") (lib.splitString " " (lib.replaceStrings [ "\t" ] [ " " ] rule))
+      )
+    );
+  duplicateCells =
+    let
+      cells = map ruleCell checkedSeedRules;
+    in
+    lib.unique (lib.filter (cell: lib.count (candidate: candidate == cell) cells > 1) cells);
 in
 {
   perSystem =
@@ -108,6 +122,10 @@ in
         assert lib.assertMsg (acceptedInvalidRules == [ ]) (
           "browsers/ubo-dynamic-rules: invalid fixtures accepted: "
           + lib.concatStringsSep "; " acceptedInvalidRules
+        );
+        assert lib.assertMsg (duplicateCells == [ ]) (
+          "browsers/ubo-dynamic-rules: seed defines the same cell more than once: "
+          + lib.concatStringsSep "; " duplicateCells
         );
         pkgs.runCommand "ubo-dynamic-rules-check" { } "touch $out";
     };
