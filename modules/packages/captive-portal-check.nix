@@ -254,18 +254,46 @@
               [ "$rc" -eq 1 ] || fail "a correct answer from a private address is not a hijack (exit $rc)"
             )
 
-            # 100.64.0.0/10 and 169.254.0.0/16 are where a portal answers on
-            # carrier and lease-less networks, and neither counted as private.
-            for hijack in 100.100.64.9 169.254.7.7; do
+            # One address per arm of is_private_v4, including each alternative of
+            # the 100.64.0.0/10 pattern, which is where a portal answers on
+            # carrier networks, and 169.254.0.0/16, which is where it answers
+            # before it has issued a lease.
+            #
+            # All three canaries are forced to 000 so no arm of probe_portal's
+            # case matches and the hijack check is what decides. A 200 whose body
+            # misses its expected string returns from that arm before reaching
+            # is_private_v4, so the earlier form of this loop passed unchanged
+            # with those ranges deleted from is_private_v4 outright. Asserting the
+            # URL is the second half: the address itself has to be what comes
+            # back, not a gateway guess that happens to share the exit status.
+            for hijack in \
+              10.0.0.1 127.0.0.1 192.168.1.7 \
+              172.16.0.1 172.20.0.1 172.31.0.1 \
+              169.254.7.7 \
+              100.64.0.1 100.99.0.1 100.100.64.9 100.127.0.1; do
               (
                 reset
                 export DIG_FIREFOX="$hijack"
-                export FF_STATUS=200 FF_BODY='<html>portal</html>'
-                export AP_STATUS=000 GS_STATUS=000
+                export FF_STATUS=000 AP_STATUS=000 GS_STATUS=000
                 rc=$(run --probe)
                 [ "$rc" -eq 0 ] || fail "an answer in $hijack's range is a hijack (exit $rc)"
+                [ "$(cat "$work/out")" = "http://$hijack" ] ||
+                  fail "the hijacked address must be the portal URL, got '$(cat "$work/out")'"
               )
             done
+
+            # The mirror image. Reaching the hijack check is not the same as
+            # being a hijack: a canary that never answered, from an address that
+            # is nobody's LAN, has to end in the gateway guess instead.
+            (
+              reset
+              export DIG_FIREFOX=203.0.113.50
+              export FF_STATUS=000 AP_STATUS=000 GS_STATUS=000
+              rc=$(run --probe)
+              [ "$rc" -eq 3 ] || fail "a public address must not be reported as a hijack (exit $rc)"
+              [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
+                fail "a public address must fall back to the gateway guess"
+            )
 
             # Login mode on a network that turns out to be clean: the release is
             # undone before the run exits, and the snapshot is consumed.
