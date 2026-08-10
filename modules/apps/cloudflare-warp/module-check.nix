@@ -292,6 +292,7 @@
                   "managed enrollment is not ready; not connecting"
                   "status command failed"
                   "connect request failed"
+                  "connected while the managed registration could not be verified"
                   "tunnel is up but its registration went unverified"
                 ]
                 && lib.all (msg: lib.hasInfix "<3>cloudflare-warp-connect: ${msg}" enrolledConnectScript) [
@@ -464,6 +465,13 @@
             assert lib.assertMsg
               (builtins.elem "r /var/lib/cloudflare-warp/mdm.xml" unenrolled.config.systemd.tmpfiles.rules)
               "apps/cloudflare-warp-module-eval: un-enrolled branch must remove a stale managed mdm.xml";
+            # The build warning is the only signal that an enabled host installs
+            # warp-cli with no daemon behind it, which is the state both hosts
+            # are in until the sops payload lands. warp-cli on PATH otherwise
+            # makes an un-enrolled host look enrolled.
+            assert lib.assertMsg
+              (lib.any (lib.hasInfix "secrets/cloudflare-warp.yaml is missing") unenrolled.config.warnings)
+              "apps/cloudflare-warp-module-eval: un-enrolled branch must warn that warp-svc is not started";
             {
               tmpfilesRules = unenrolled.config.systemd.tmpfiles.rules;
               warnings = unenrolled.config.warnings;

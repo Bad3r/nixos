@@ -38,8 +38,8 @@ line rather than the unit state:
 | `tunnel is up but its registration went unverified`       | Tunnel left connected; the registration check never answered                        |
 | `daemon reports no Zero Trust registration`               | No Teams registration; enrollment incomplete or rejected                            |
 | `daemon is registered outside the managed organization`   | Live registration belongs to another tenant                                         |
-| `tunnel is not connected after <n> attempts`              | Connect was requested and refused                                                   |
-| `connect never succeeded (daemon unreachable ...)`        | Registration never confirmed, so connect was never requested                        |
+| `tunnel is not connected after <n> attempts`              | Connect was accepted, but the tunnel never read `Connected` in the window           |
+| `connect never succeeded (daemon unreachable ...)`        | No connect ever succeeded: never requested, or refused on every attempt             |
 | `managed organization secret unavailable; not connecting` | Secret missing, unreadable, or whitespace-only; the run exits before the retry loop |
 
 The rows are mutually exclusive and reflect the state the run ended on, not
