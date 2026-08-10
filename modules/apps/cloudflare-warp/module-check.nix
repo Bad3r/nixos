@@ -328,10 +328,10 @@
               in
               lib.assertMsg (lib.length parts > 1 && !lib.hasInfix ''"$managed_org"'' beforeStrip)
                 "apps/cloudflare-warp-module-eval: the managed organization must be stripped before any emptiness test runs on it";
-            # A healthy boot passes through the per-attempt states on its way to
-            # confirmed, so logging them at <3> would make `journalctl -p err`
-            # report every good boot as broken. Reserve <3> for states the run
-            # cannot recover from and for enforcement.
+            # Recoverable diagnostics include the normal readiness states, so
+            # logging them at <3> would make `journalctl -p err` report a good
+            # boot as broken. Reserve <3> for states the run cannot recover from
+            # and for enforcement.
             assert lib.assertMsg
               (
                 lib.all (msg: lib.hasInfix "<4>cloudflare-warp-connect: ${msg}" enrolledConnectScript) [
@@ -341,6 +341,7 @@
                   "status command failed"
                   "connect request failed"
                   "registration check returned no organization; not treating it as a mismatch yet"
+                  "tunnel is up while the registration is still settling"
                   "connected while the managed registration could not be verified"
                   "tunnel is up but its registration went unverified"
                 ]
@@ -355,7 +356,7 @@
                   "connect never succeeded"
                 ]
               )
-              "apps/cloudflare-warp-module-eval: per-attempt states must log at <4> and unrecoverable or enforcement states at <3>";
+              "apps/cloudflare-warp-module-eval: recoverable states must log at <4> and unrecoverable or enforcement states at <3>";
             assert
               let
                 parts = lib.splitString "warp-cli --accept-tos connect" enrolledConnectScript;

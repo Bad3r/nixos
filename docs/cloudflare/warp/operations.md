@@ -149,8 +149,8 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   `registration check returned no organization; not treating it as a mismatch yet` at `<4>` rather
   than counting as a mismatch, both for the first empty answers of a warm-up and, once this run has
   confirmed the managed organization, for every later one, so that line covers a warm-up state and a
-  suppressed teardown alike. `-p err` therefore stays quiet through a normal warm-up, and `-p warning` shows the
-  attempts.
+  suppressed teardown alike. A tunnel found up during that hold logs `tunnel is up while the registration is still settling` at `<4>`, recording that teardown is deferred rather than that registration was verified.
+  `-p err` therefore stays quiet through a normal warm-up, and `-p warning` shows the attempts.
   If an existing tunnel is confirmed to carry a
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
   registration check itself does not answer, the tunnel is left up and the unit
