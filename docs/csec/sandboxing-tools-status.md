@@ -225,23 +225,27 @@ hypervisor, guest, and network belong to the vendor, so these are contract and
 vendor-review questions rather than controls you configure:
 
 - Place detonation hosts on a dedicated network segment with no route to
-  production or backup networks. Give the guests no route off that segment
-  except the brokered egress path below, and isolate them from each other and
-  from every host interface on that segment except the analysis framework's own
-  control and result channel on its approved ports and the brokered-egress
-  listener on its approved ports at the broker's segment-side interface, so a
-  self-propagating sample
-  cannot reach a concurrent analysis or any other service on either host. Reach
-  the management interfaces of the detonation and broker hosts only through a
-  separate restricted administrative path, never from the detonation segment.
+  production or backup networks.
+- Give the guests no route off that segment except the brokered egress path
+  below.
+- Isolate the guests from each other so a self-propagating sample cannot reach
+  a concurrent analysis.
+- Block every host interface on that segment from the guests except two: the
+  analysis framework's own control and result channel on its approved ports,
+  and the brokered-egress listener on its approved ports at the broker's
+  segment-side interface. No other service on either host is reachable from a
+  guest.
+- Reach the management interfaces of the detonation and broker hosts only
+  through a separate restricted administrative path, never from the
+  detonation segment.
 - Expose submission and result interfaces to analysts, and to an orchestrator
   such as Assemblyline, only on a separate inbound path that terminates on the
   detonation host and reaches no guest. Allow connections inbound only on it, so
   the host accepts on that path and never initiates over it, matching the
   direction constraint the Assemblyline placement below states. Without it the
-  segment rule above leaves
-  the web UI and API of a self-hosted deployment unreachable, and the operator
-  recovers access by routing production into the detonation segment.
+  segment rules above leave the web UI and API of a self-hosted deployment
+  unreachable, and the operator recovers access by routing production into
+  the detonation segment.
 - Treat every Assemblyline deployment node as an analyst-and-orchestrator
   security boundary. Dedicate each node to that role, keep its management and
   maintenance on a restricted administrative path apart from the detonation
@@ -284,13 +288,11 @@ vendor-review questions rather than controls you configure:
   access limited to the package-update service and repository-signature
   verification, so maintenance does not require guest egress or a
   production-network route.
-- Rebuild the detonation host from known-good media when an escape is suspected
-  or its off-host logs or another incident signal indicates host-level
-  compromise. Rebuild the broker host from known-good media when an escape is
-  suspected or its off-host logs or another incident signal indicates host-level
-  compromise. Rebuild an Assemblyline deployment node from known-good media when
-  its off-host logs or another incident signal indicates host-level compromise.
-  A guest snapshot revert does not restore a host the sample reached.
+- Rebuild any boundary host from known-good media when its off-host logs or
+  another incident signal indicates host-level compromise. Rebuild the
+  detonation host and the broker host additionally when an escape is
+  suspected, because both sit on the guest-reachable path. A guest snapshot
+  revert does not restore a host the sample reached.
 - Ship hypervisor and host logs off the detonation host, egress-broker logs off
   the broker host, and Assemblyline deployment-node logs off their nodes as they
   are written. Review all of them for host-level compromise. A compromised
@@ -301,9 +303,13 @@ vendor-review questions rather than controls you configure:
   no shipping host access to the collector beyond appending, so it cannot rewrite
   or delete what it already sent.
 - On the restricted administrative path, the broker host reaches only the log
-  collector and the approved update mirror stated above. Give it no route to the
-  hypervisor console, the orchestration API, or the gold-image store, because it
-  is the one self-hosted component every sample may reach.
+  collector and the approved update mirror stated above. Give it no route to
+  the hypervisor console, the orchestration API, or the gold-image store,
+  because it is the one self-hosted component every sample may reach. Bound
+  the detonation host and each Assemblyline deployment node the same way:
+  neither reaches another boundary host's management interface on that path,
+  and the detonation host's only further reach is the read-only gold-image
+  access already granted above.
 - Keep guest gold images outside the detonation host's write path, and keep
   known-good rebuild media outside the write path of the detonation host, broker
   host, or Assemblyline deployment node it rebuilds.
@@ -312,10 +318,14 @@ vendor-review questions rather than controls you configure:
   segment. Deliver rebuild media and its manifest for any of those systems only
   through a separate recovery procedure, not a runtime route of the system being
   rebuilt.
-- Pair every gold image and rebuild medium with an authenticated manifest from a
-  separately administered recovery authority that binds the exact media version
-  to a cryptographic digest, rather than a locally recorded hash, and verify the
-  relevant media against that manifest for every restore or rebuild.
+- Pair every gold image and rebuild medium with an authenticated manifest from
+  a separately administered recovery authority that binds the exact media
+  version to a cryptographic digest, rather than a locally recorded hash.
+  Before trusting any digest in it, verify the manifest's signature against
+  the recovery-verification trust anchor granted above; only then verify the
+  relevant media against that manifest, for every restore or rebuild. A store
+  that serves the image and its manifest together can otherwise ship a
+  matched, poisoned pair.
 - Revert by discarding the guest's writable overlay and recreating it from the
   gold image rather than from a snapshot the host can write, because a sample
   that reaches the host can otherwise poison the baseline it is restored from.
@@ -323,7 +333,10 @@ vendor-review questions rather than controls you configure:
 ## Choose a deployment path
 
 Meet the containment requirements above before detonating a live sample on any
-of these paths.
+of these paths. For a self-hosted path they are not host-local settings: they
+add dedicated hosts, network paths, and administered services well beyond the
+detonation host itself. Budget for that infrastructure before choosing a
+self-hosted path over a hosted one, which shifts it to the vendor instead.
 
 - Use CAPE with KVM and disposable Windows guests for a self-hosted Cuckoo-style
   analysis service.
