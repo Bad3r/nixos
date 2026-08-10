@@ -242,6 +242,21 @@
             assert lib.assertMsg
               (lib.hasInfix "warp-cli --accept-tos registration organization" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must verify managed registration";
+            # --accept-tos is a global warp-cli option, not a per-subcommand one,
+            # so every call carries it. Leaving it off disconnect in particular
+            # would make the fail-closed teardown the one call that can be
+            # refused, downgrading enforcement to a log line.
+            assert lib.assertMsg (
+              lib.all (sub: lib.hasInfix "warp-cli --accept-tos ${sub}" enrolledConnectScript) [
+                "registration organization"
+                "status"
+                "disconnect"
+                "connect"
+              ]
+              && !lib.hasInfix "warp-cli status" enrolledConnectScript
+              && !lib.hasInfix "warp-cli disconnect" enrolledConnectScript
+              && !lib.hasInfix "warp-cli connect" enrolledConnectScript
+            ) "apps/cloudflare-warp-module-eval: every warp-cli call must pass --accept-tos";
             # The capture is compared for exact equality, so 2>&1 would report an
             # enrolled device as unmanaged, and 2>/dev/null would drop warp-cli's
             # own reason for a failed check from the journal.
@@ -288,7 +303,7 @@
             # into a whole-script search that always passes.
             assert
               let
-                parts = lib.splitString "warp-cli disconnect" enrolledConnectScript;
+                parts = lib.splitString "warp-cli --accept-tos disconnect" enrolledConnectScript;
                 beforeDisconnect = lib.head parts;
               in
               lib.assertMsg

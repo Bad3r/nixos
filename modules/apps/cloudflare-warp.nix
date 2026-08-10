@@ -132,7 +132,7 @@ let
         }
 
         refresh_status() {
-          if status="$(timeout 5s warp-cli status 2>&1)"; then
+          if status="$(timeout 5s warp-cli --accept-tos status 2>&1)"; then
             status="''${status:-status unavailable}"
           else
             echo "cloudflare-warp-connect: status command failed: ''${status:-no response}"
@@ -148,7 +148,7 @@ let
                   ;;
                 mismatch)
                   echo "<3>cloudflare-warp-connect: connected without managed Zero Trust registration; disconnecting"
-                  if disconnect_output="$(timeout 5s warp-cli disconnect 2>&1)"; then
+                  if disconnect_output="$(timeout 5s warp-cli --accept-tos disconnect 2>&1)"; then
                     echo "cloudflare-warp-connect: disconnected unmanaged tunnel"
                   else
                     echo "<3>cloudflare-warp-connect: failed to disconnect unmanaged tunnel: ''${disconnect_output:-no response}"
