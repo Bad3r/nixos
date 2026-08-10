@@ -936,6 +936,28 @@
                 fail "the run must say the snapshot could not be written"
             )
 
+            # A symlink at the state directory's name is the documented `sudo
+            # captive-portal` path (docs/networking/README.md), not a contrived
+            # one: 23f44cd put that path inside a tree the invoking user under
+            # sudo already owns, and hand_state_to_invoker's chown follows
+            # whatever mktemp/mv just wrote through it. Refusing before either
+            # runs keeps a planted link from moving the snapshot, and root's
+            # chown, into a directory that was never meant to receive them.
+            (
+              reset
+              runtime="$work/denied-symlink"
+              target="$work/symlink-target"
+              mkdir -p "$runtime" "$target"
+              ln -s "$target" "$runtime/captive-portal"
+              rc=$(XDG_RUNTIME_DIR="$runtime" run --no-open)
+              [ "$rc" -eq 4 ] || fail "a symlinked state directory must exit 4 (exit $rc)"
+              ! released || fail "a run that refuses a symlinked state directory must not release DNS"
+              grep -q '^captive-portal: cannot use .*: it is a symlink' "$work/err" ||
+                fail "the run must say the state directory is a symlink"
+              [ -z "$(ls -A "$target")" ] ||
+                fail "nothing may be written through the symlink into $target"
+            )
+
             # Absence of a snapshot is not evidence the node was ever up: the
             # WantRunning default started a node the user had stopped on purpose.
             (

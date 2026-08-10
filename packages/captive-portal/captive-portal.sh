@@ -427,6 +427,14 @@ save_prefs() {
     note "cannot create $state_dir; leaving DNS untouched"
     return 1
   fi
+  # Under sudo, state_dir sits inside a tree the invoking user owns (23f44cd),
+  # and mkdir -p above is a silent no-op if it is already a symlink to a real
+  # directory. mktemp and mv would then write through it, and chown in
+  # hand_state_to_invoker follows it too, handing that target's ownership away.
+  if [ -L "$state_dir" ]; then
+    note "cannot use $state_dir: it is a symlink; leaving DNS untouched"
+    return 1
+  fi
   if [ -s "$state_file" ]; then
     return 0
   fi
