@@ -239,6 +239,22 @@
             ) "apps/cloudflare-warp-module-eval: the connect oneshot must wait for network-online.target";
             assert lib.assertMsg enrolledConnect.enableStrictShellChecks
               "apps/cloudflare-warp-module-eval: connect script must be shellcheck-gated";
+            # The exit-0-everywhere design holds only while the unit outlives the
+            # retry window and warp-cli is on its PATH. DefaultTimeoutStartSec is
+            # 90s, under the script's 120s deadline, so dropping the explicit
+            # value SIGTERMs a run that reaches that deadline into `failed`, which
+            # Upholds then restarts in a loop. Dropping cfg.package turns every
+            # call into exit 127 while the unit still reports active (exited).
+            assert lib.assertMsg
+              (
+                # `or`: a deleted setting must reach the message below rather
+                # than aborting with a bare "attribute missing".
+                (enrolledConnect.serviceConfig.TimeoutStartSec or null) == 180
+                && (enrolledConnect.serviceConfig.RemainAfterExit or false)
+                && lib.hasInfix "deadline=$((SECONDS + 120))" enrolledConnectScript
+                && lib.any (entry: lib.hasInfix "cloudflare-warp" (toString entry)) enrolledConnect.path
+              )
+              "apps/cloudflare-warp-module-eval: the connect oneshot must outlive its retry deadline and carry warp-cli on PATH";
             assert lib.assertMsg
               (lib.hasInfix "warp-cli --accept-tos registration organization" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must verify managed registration";
