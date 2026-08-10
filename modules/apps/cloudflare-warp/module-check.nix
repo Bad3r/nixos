@@ -378,13 +378,11 @@
               let
                 parts = lib.splitString "warp-cli --accept-tos connect" enrolledConnectScript;
                 beforeConnect = lib.head parts;
+                connectGate = ''if [ "$registration_state" = "confirmed" ] || { [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; }; then'';
+                gateParts = lib.splitString connectGate beforeConnect;
               in
-              lib.assertMsg
-                (
-                  lib.length parts > 1
-                  && lib.hasInfix "if [ \"$registration_state\" = \"confirmed\" ]; then" beforeConnect
-                )
-                "apps/cloudflare-warp-module-eval: enrolled connect script must gate connect on a confirmed registration";
+              lib.assertMsg (lib.length parts == 2 && lib.length gateParts == 2)
+                "apps/cloudflare-warp-module-eval: enrolled connect script must gate connect on a current or uncontradicted same-run managed confirmation";
             # An unanswered registration check must not be treated as an
             # unmanaged tunnel, so the disconnect belongs to the mismatch branch
             # alone. The length guard keeps a renamed marker from degrading this

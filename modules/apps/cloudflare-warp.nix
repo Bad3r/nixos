@@ -17,8 +17,10 @@
     autoConnect: mdm.xml auto_connect minutes (0-1440); 0 keeps the client off after a manual disconnect.
     switchLocked: mdm.xml switch_locked; when true the user cannot disconnect, which also blocks
       this module's own teardown of a mismatched tunnel.
-    connectOnBoot: run a best-effort oneshot that verifies managed registration before connecting.
-      Runs once per boot with no retry timer, so a manual disconnect is never undone.
+    connectOnBoot: run a best-effort oneshot that requires an initial managed-registration
+      confirmation before connecting. Later unanswered or empty checks retain it only until a
+      successful mismatch is observed. Runs once per boot with no retry timer, so a manual
+      disconnect is never undone.
 
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
@@ -238,7 +240,9 @@ let
           if [ -n "$connected" ] || [ "$unverified" -ge 3 ]; then
             break
           fi
-          if [ "$registration_state" = "confirmed" ]; then
+          # A same-run confirmation survives an unanswered or empty probe until a successful
+          # mismatch refutes it, so a transient IPC failure cannot spend the connect window.
+          if [ "$registration_state" = "confirmed" ] || { [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; }; then
             if request_output="$(timeout -k 1s 5s warp-cli --accept-tos connect 2>&1)"; then
               connect_requested=1
               echo "cloudflare-warp-connect: connect requested"
@@ -345,9 +349,12 @@ let
           default = true;
           description = ''
             Run a best-effort oneshot `warp-cli connect` after the daemon starts.
-            It runs once per boot and is not re-armed by a timer: an enrollment
-            slower than its retry window needs a manual unit restart, which is
-            the tradeoff for never reconnecting a tunnel the user disconnected.
+            It requires an initial managed-registration confirmation. Later
+            unanswered or empty probes may retry only within the same run and
+            only until a successful mismatch is observed. It runs once per boot
+            and is not re-armed by a timer: an enrollment slower than its retry
+            window needs a manual unit restart, which is the tradeoff for never
+            reconnecting a tunnel the user disconnected.
           '';
         };
 
