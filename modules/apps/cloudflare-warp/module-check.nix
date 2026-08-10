@@ -246,23 +246,21 @@
             # so every call carries it. Leaving it off disconnect in particular
             # would make the fail-closed teardown the one call that can be
             # refused, downgrading enforcement to a log line.
-            assert lib.assertMsg (
-              lib.all (sub: lib.hasInfix "warp-cli --accept-tos ${sub}" enrolledConnectScript) [
-                "registration organization"
-                "status"
-                "disconnect"
-                "connect"
-              ]
-              && !lib.hasInfix "warp-cli status" enrolledConnectScript
-              && !lib.hasInfix "warp-cli disconnect" enrolledConnectScript
-              && !lib.hasInfix "warp-cli connect" enrolledConnectScript
-            ) "apps/cloudflare-warp-module-eval: every warp-cli call must pass --accept-tos";
-            # The capture is compared for exact equality, so 2>&1 would report an
-            # enrolled device as unmanaged, and 2>/dev/null would drop warp-cli's
-            # own reason for a failed check from the journal.
+            # Match whole call sites, not the flag or the subcommand alone: a
+            # substring search hits prose too, and a comment naming a call would
+            # then fail an assertion whose message explains none of that. These
+            # also pin each call's timeout and redirect shape. The registration
+            # capture in particular is compared for exact equality, so 2>&1 would
+            # report an enrolled device as unmanaged, while 2>/dev/null would drop
+            # warp-cli's own reason for a failed check from the journal.
             assert lib.assertMsg
-              (lib.hasInfix ''registration="$(timeout 5s warp-cli --accept-tos registration organization)"'' enrolledConnectScript)
-              "apps/cloudflare-warp-module-eval: the registration capture must leave stderr unredirected";
+              (lib.all (call: lib.hasInfix call enrolledConnectScript) [
+                ''registration="$(timeout 5s warp-cli --accept-tos registration organization)"''
+                ''status="$(timeout 5s warp-cli --accept-tos status 2>&1)"''
+                ''disconnect_output="$(timeout 5s warp-cli --accept-tos disconnect 2>&1)"''
+                ''request_output="$(timeout 5s warp-cli --accept-tos connect 2>&1)"''
+              ])
+              "apps/cloudflare-warp-module-eval: every warp-cli call must pass --accept-tos with its bounded timeout and redirect";
             assert lib.assertMsg
               (lib.hasInfix "managed organization secret unavailable; cannot verify registration" enrolledConnectScript)
               "apps/cloudflare-warp-module-eval: enrolled connect script must reject an empty managed organization";
