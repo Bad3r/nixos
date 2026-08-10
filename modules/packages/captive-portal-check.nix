@@ -322,6 +322,35 @@
                 fail "the form target must beat the DTD and the CDN, got '$(cat "$work/out")'"
             )
 
+            # The same hole on the other two attribute names: unanchored,
+            # `data-href=` and `?href=` both match, and grep -o emits in
+            # positional order, so whatever sits ahead of the form wins.
+            for decoy in \
+              '<div data-href="http://ads.example/x"></div>' \
+              '<a href="/login?href=http://tracker.example/beacon">go</a>'; do
+              (
+                reset
+                export FF_STATUS=200
+                export FF_BODY="<html><body>$decoy<form action=\"http://portal.lan/auth\"></form><p>Padded past the bound the clean test applies, so this page is judged as the interception page it stands for.</p></body></html>"
+                rc=$(run --probe)
+                [ "$rc" -eq 0 ] || fail "a page carrying a decoy is still a portal (exit $rc)"
+                [ "$(cat "$work/out")" = "http://portal.lan/auth" ] ||
+                  fail "a decoy must not beat the form target, got '$(cat "$work/out")'"
+              )
+            done
+
+            # formaction is a real submit-button attribute, and anchoring the
+            # names would drop it, its `action` being preceded by `m`.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><body><button formaction="http://portal.lan/submit">Go</button><p>Padded past the bound the clean test applies, so this page is judged as the interception page it stands for.</p></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a formaction page is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/submit" ] ||
+                fail "formaction must still name the portal, got '$(cat "$work/out")'"
+            )
+
             # A portal page most often parks the address that was originally
             # asked for in a query parameter, and an unanchored `url=` matched
             # that as readily as a meta refresh: the canary's own URL was printed
