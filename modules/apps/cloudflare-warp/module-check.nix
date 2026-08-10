@@ -423,16 +423,28 @@
             # run early and then report it as never verified.
             assert
               let
+                initBlock = lib.head (lib.splitString "refresh_registration() {" enrolledConnectScript);
+                confirmedArm = lib.head (
+                  lib.splitString ''registration_state="mismatch"'' (
+                    lib.last (lib.splitString ''registration_state="confirmed"'' enrolledConnectScript)
+                  )
+                );
                 guarded = lib.last (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript);
                 counted = lib.head (lib.splitString "unverified=$((unverified + 1))" guarded);
               in
               lib.assertMsg
                 (
-                  lib.hasInfix "confirmed_once=1" enrolledConnectScript
+                  # Fail-open direction: seeding the flag truthy would accept the
+                  # first live tunnel this run never confirmed, which is a
+                  # consumer-WARP tunnel reported as a healthy managed one.
+                  lib.hasInfix ''confirmed_once=""'' initBlock
+                  && !lib.hasInfix "confirmed_once=1" initBlock
+                  && lib.hasInfix "confirmed_once=1" confirmedArm
+                  # Suppression direction: the guard must actually skip the count.
                   && lib.length (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript) == 2
                   && lib.hasInfix "else" counted
                 )
-                "apps/cloudflare-warp-module-eval: an unanswered check must not count as unverified once this run confirmed the registration";
+                "apps/cloudflare-warp-module-eval: confirmed_once must start empty, be set only where the registration is confirmed, and gate the unverified count";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
