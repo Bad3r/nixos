@@ -18,6 +18,7 @@
     switchLocked: mdm.xml switch_locked; when true the user cannot disconnect, which also blocks
       this module's own teardown of a mismatched tunnel.
     connectOnBoot: run a best-effort oneshot that verifies managed registration before connecting.
+      Runs once per boot with no retry timer, so a manual disconnect is never undone.
 
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
@@ -324,7 +325,12 @@ let
         connectOnBoot = lib.mkOption {
           type = lib.types.bool;
           default = true;
-          description = "Run a best-effort oneshot `warp-cli connect` after the daemon starts.";
+          description = ''
+            Run a best-effort oneshot `warp-cli connect` after the daemon starts.
+            It runs once per boot and is not re-armed by a timer: an enrollment
+            slower than its retry window needs a manual unit restart, which is
+            the tradeoff for never reconnecting a tunnel the user disconnected.
+          '';
         };
 
         openFirewall = lib.mkOption {
