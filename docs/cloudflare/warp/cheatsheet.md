@@ -11,10 +11,10 @@ are available on enrolled hosts.
 systemctl status cloudflare-warp.service
 systemctl status cloudflare-warp-connect.service
 ls -l /var/lib/cloudflare-warp/mdm.xml
-warp-cli registration show
-warp-cli status
-warp-cli settings
-warp-cli tunnel stats
+warp-cli --accept-tos registration show
+warp-cli --accept-tos status
+warp-cli --accept-tos settings
+warp-cli --accept-tos tunnel stats
 curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E '^warp='
 ```
 
@@ -29,7 +29,7 @@ check.
 ```bash
 warp-cli --accept-tos connect
 warp-cli --accept-tos disconnect
-warp-cli status
+warp-cli --accept-tos status
 ```
 
 `disconnect` is temporary when the managed `mdm.xml` allows it. If
@@ -38,9 +38,9 @@ warp-cli status
 ## Inspect managed settings
 
 ```bash
-warp-cli settings
-warp-cli registration show
-warp-cli tunnel stats
+warp-cli --accept-tos settings
+warp-cli --accept-tos registration show
+warp-cli --accept-tos tunnel stats
 ```
 
 `mdm.xml` is authoritative for `service_mode`. Do not use `warp-cli mode` for

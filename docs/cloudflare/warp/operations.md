@@ -9,9 +9,9 @@ Runtime verification, coexistence checks, and troubleshooting after
 systemctl status cloudflare-warp.service          # warp-svc running
 systemctl status cloudflare-warp-connect.service  # oneshot lifecycle (active/exited)
 ls -l /var/lib/cloudflare-warp/mdm.xml            # 0600 root:root, present
-warp-cli registration show                        # registration details
-warp-cli registration organization                # expected: <team>
-warp-cli status                                   # Connected
+warp-cli --accept-tos registration show           # registration details
+warp-cli --accept-tos registration organization   # expected: <team>
+warp-cli --accept-tos status                      # Connected
 ```
 
 For an enrolled host, the `cloudflare-warp-connect` oneshot verifies
@@ -102,7 +102,7 @@ the wrapper is disabled, its tmpfiles rule removes the wrapper-owned
 `/var/lib/cloudflare-warp/mdm.xml` during the next NixOS activation, clearing the
 runtime managed configuration and cached service token. This local cleanup does
 not delete the device registration from the Zero Trust tenant. If full
-de-enrollment is intended, run `sudo warp-cli registration delete` while the
+de-enrollment is intended, run `sudo warp-cli --accept-tos registration delete` while the
 daemon is still enabled and remove the device from Team & Resources > Devices
 before disabling the module. Re-enabling the wrapper recreates `mdm.xml` from the
 encrypted sops secret before `warp-svc` starts and can enroll the device again.
@@ -142,9 +142,13 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   managed registration instead logs `registration check failed (exit <n>)`,
   `managed Zero Trust registration unavailable`, or `managed enrollment is not ready; not connecting`
   at `<4>`, as do `status command failed` and `connect request failed`, which carry the daemon's
-  own reason for refusing a call: the daemon IPC socket and the managed registration settle at different times, so a
-  healthy boot emits several of these before the run ends confirmed and connected. `-p err`
-  therefore stays quiet through a normal warm-up, and `-p warning` shows the attempts.
+  own reason for refusing a call: the daemon IPC socket and the managed registration settle at
+  different times, so a healthy boot emits several of these before the run ends confirmed and
+  connected. Once a run has confirmed the managed organization, a later answer naming none logs
+  `registration check returned no organization; keeping this run's confirmation` at `<4>` rather
+  than counting as a mismatch, so that line records a suppressed teardown rather than a warm-up
+  state. `-p err` therefore stays quiet through a normal warm-up, and `-p warning` shows the
+  attempts.
   If an existing tunnel is confirmed to carry a
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
   registration check itself does not answer, the tunnel is left up and the unit
