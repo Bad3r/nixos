@@ -386,8 +386,12 @@ release_dns() {
     # run took must not outlive it and be replayed as a state the host never left.
     dns_released=0
     denied
-    if [ "$prefs_snapshot_created" -eq 1 ]; then
-      rm -f "$state_file"
+    # Guarded for the same reason as the unlink in restore_dns: a bare rm that
+    # fails exits 1, which this script documents as "no portal", and errexit
+    # would end the run there rather than at the exit 4 below, reporting a
+    # tailscaled refusal as a clean network.
+    if [ "$prefs_snapshot_created" -eq 1 ] && ! rm -f "$state_file"; then
+      note "could not remove $state_file; delete it, or the next run will replay it"
     fi
     exit 4
   fi
