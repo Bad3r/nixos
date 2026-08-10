@@ -135,7 +135,9 @@ let
             return
           fi
           registration="''${registration//[[:space:]]/}"
-          if [ "$registration" = "$managed_org" ]; then
+          # Confirmation requires a configured organization. Two empty values
+          # must never authorize consumer WARP.
+          if [ -n "$managed_org" ] && [ "$registration" = "$managed_org" ]; then
             registration_state="confirmed"
             confirmed_once=1
             mismatch_kind=""
