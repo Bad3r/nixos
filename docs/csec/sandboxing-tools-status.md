@@ -245,7 +245,10 @@ vendor-review questions rather than controls you configure:
   direction constraint the Assemblyline placement below states. Without it the
   segment rules above leave the web UI and API of a self-hosted deployment
   unreachable, and the operator recovers access by routing production into
-  the detonation segment.
+  the detonation segment. Treat each system that directly retrieves or processes
+  result data from the detonation host on this path as a result-consumer security
+  boundary. Apply the credential, logging, recovery-media, and recovery controls
+  below to it.
 - Treat every Assemblyline deployment node as an analyst-and-orchestrator
   security boundary. Dedicate each node to that role, keep its management and
   maintenance on a restricted administrative path apart from the detonation
@@ -265,11 +268,11 @@ vendor-review questions rather than controls you configure:
   path that cannot route to or through production or backup networks.
 - Keep production credentials, tokens, SSH agents, and mounted shares belonging
   to systems outside the analysis environment off the detonation and broker
-  hosts and every Assemblyline deployment node. Give each only role-required
-  credentials and public trust anchors for update and recovery verification. The
-  detonation host alone receives read-only guest gold-image access; the broker
-  has no runtime access to it. Scope Assemblyline credentials to the analyst,
-  submission, or result-retrieval function each node provides.
+  hosts and every result consumer. Give each only role-required credentials and
+  public trust anchors for update and recovery verification. The detonation host
+  alone receives read-only guest gold-image access; the broker has no runtime
+  access to it. Scope each result consumer's credentials to the analyst,
+  submission, or result-retrieval function it provides.
 - Never domain-join an analysis guest.
 - Disable shared folders, clipboard sharing, and drag-and-drop between guest and
   host.
@@ -288,57 +291,64 @@ vendor-review questions rather than controls you configure:
   access limited to the package-update service and repository-signature
   verification, so maintenance does not require guest egress or a
   production-network route.
-- Rebuild any boundary host from known-good media when its off-host logs or
-  another incident signal indicates host-level compromise. Rebuild the
-  detonation host and the broker host additionally when an escape is
-  suspected, because both sit on the guest-reachable path. On that same signal,
-  isolate the designated submission-and-result path. Before reconnecting the
-  recovered detonation host to it, rebuild every Assemblyline deployment node
-  that retrieved or processed result data from that detonation host since its
-  last known-good rebuild. A compromised detonation host can return
-  attacker-controlled result data over an Assemblyline-initiated connection even
-  though it cannot initiate a new connection. A guest snapshot revert does not
-  restore a host the sample reached.
 - Ship hypervisor and host logs off the detonation host, egress-broker logs off
-  the broker host, and Assemblyline deployment-node logs off their nodes as they
-  are written. Record on the append-only collector which detonation host
-  supplied result data to each Assemblyline deployment node. If that record
-  cannot identify every node exposed after a suspected escape, rebuild every
-  Assemblyline deployment node before reconnecting the recovered detonation host.
-  Configure the collector to alert on boundary-host signals that indicate
-  host-level compromise, and require acknowledgement and escalation within 15
-  minutes. Use those signals to trigger the rebuild requirement above. A
-  compromised boundary host can edit any log it can still write to, so nothing
-  held on that host can raise the suspicion the rebuild above depends on. Carry
-  that shipping on the restricted administrative path rather than the detonation
-  segment, give each shipping host its own append-only credentials to the
-  collector, and allow no shipping host access to the collector beyond appending,
-  so it cannot rewrite or delete what it already sent.
+  the broker host, and result-consumer logs off each result consumer as they are
+  written. A compromised boundary system can edit any log it can still write, so
+  nothing held on that system can raise the suspicion the recovery policy depends
+  on.
+- Carry that shipping on the restricted administrative path rather than the
+  detonation segment. Give each shipping system its own append-only credentials
+  to the collector, and allow no shipping system access to the collector beyond
+  appending, so it cannot rewrite or delete what it already sent.
+- Configure the collector to alert on boundary-host and result-consumer signals
+  that indicate host-level compromise, and require acknowledgement and escalation
+  within 15 minutes. Use those signals to trigger the rebuild requirements below.
+- Record on the append-only collector which detonation host supplied result data
+  to each result consumer.
+- Rebuild any boundary host or result consumer from known-good media when its
+  off-host logs or another incident signal indicates host-level compromise.
+  Rebuild the detonation host and the broker host additionally when an escape is
+  suspected, because both sit on the guest-reachable path. A guest snapshot
+  revert does not restore a host the sample reached.
+- Whenever a detonation-host compromise is indicated or an escape is suspected,
+  isolate the designated submission-and-result path. Before reconnecting the
+  recovered detonation host to it, rebuild every result consumer that retrieved
+  or processed result data directly from that detonation host over the designated
+  inbound path since its last known-good rebuild. If the collector record cannot
+  identify every result consumer exposed after either condition, rebuild every
+  result consumer before reconnecting the recovered detonation host. A compromised
+  detonation host can return attacker-controlled result data in response to a
+  result-consumer-initiated connection even though it cannot initiate a new
+  connection.
 - On the restricted administrative path, the broker host reaches only the log
   collector and the approved update mirror stated above. Give it no route to
   the hypervisor console, the orchestration API, or the gold-image store,
-  because it is the one self-hosted component every sample may reach. Bound
-  the detonation host and each Assemblyline deployment node the same way:
+  because it is the one self-hosted component every sample may reach. Apply the
+  same restriction to the detonation host and each result consumer:
   neither reaches another boundary host's management interface on that path,
   and the detonation host's only further reach is the read-only gold-image
   access already granted above.
 - Keep guest gold images outside the detonation host's write path, and keep
-  known-good rebuild media outside the write path of the detonation host, broker
-  host, or Assemblyline deployment node it rebuilds.
+  known-good rebuild media outside the write path of the boundary host or result
+  consumer being rebuilt.
 - Serve a gold image and its authenticated manifest read-only to the detonation
   host over the restricted administrative path rather than the detonation
-  segment. Deliver rebuild media and its manifest for any of those systems only
-  through a separate recovery procedure, not a runtime route of the system being
-  rebuilt.
+  segment. Deliver rebuild media and its manifest for every boundary host and
+  result consumer only through a separate recovery procedure, not a runtime route
+  of the system being rebuilt.
 - Pair every gold image and rebuild medium with an authenticated manifest from
   a separately administered recovery authority that binds the exact media
   identity, version, and cryptographic digest, rather than a locally recorded
-  hash. Keep each medium's expected approved release with the pinned tested unit,
-  outside the delivery store's control. For every restore or rebuild, verify the
-  manifest's signature against the recovery-verification trust anchor granted
-  above, require its signed media identity and version to match that expected
-  release, and only then verify the relevant media against its digest. Reject a
-  validly signed manifest for any older or otherwise unexpected release.
+  hash. The recovery authority maintains each medium's expected approved release
+  as protected recovery configuration for the pinned tested unit. Keep that record
+  outside the delivery store's control and outside the write path of every system
+  it restores or rebuilds. For every restore or rebuild, the separate recovery
+  procedure uses the recovery authority's protected trust anchor and
+  expected-release record to verify the manifest's signature, require its signed
+  media identity and version to match that expected release, and only then verify
+  the relevant media against its digest. Reject and stop if either protected
+  recovery record is unavailable, the signature fails, or the release is older or
+  otherwise unexpected.
 - Revert by discarding the guest's writable overlay and recreating it from the
   gold image rather than from a snapshot the host can write, because a sample
   that reaches the host can otherwise poison the baseline it is restored from.
