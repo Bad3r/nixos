@@ -21,8 +21,9 @@ match permits `warp-cli connect`. A confirmed mismatch, which is what a consumer
 or still-unregistered device reports, disconnects an already connected tunnel and
 logs at error priority. A registration check that does not answer within its
 five-second cap leaves an existing tunnel up, because an unanswered check is not
-evidence of an unmanaged tunnel. With no pending empty-answer hold, three such
-observations on a live tunnel end the loop, since nothing is left to request.
+evidence of an unmanaged tunnel. With neither a pending empty-answer hold nor
+a retained conclusive mismatch, three such observations on a live tunnel end
+the loop, since nothing is left to request.
 Neither an unanswered check nor an answer naming no organization is treated as a
 mismatch while the daemon may still be settling: an enrolled daemon returns an
 empty answer transiently before it has loaded its registration, so the first three
@@ -34,13 +35,14 @@ interleaved timeout from spending the unverified budget before a fourth empty an
 can disconnect a consumer tunnel. Both are missing information rather than evidence
 of a re-registration. An answer naming a different team is a mismatch immediately
 and still disconnects. A retained mismatch also prevents a later empty answer from
-reopening the hold, so a live foreign tunnel stays on the mismatch/disconnect path.
+reopening the hold, so a fresh successful empty or foreign answer re-enters cleanup.
 A later unanswered check cannot refute a mismatch already observed in this run, so
 its non-identifying classification remains available to the terminal diagnostic
 until a managed confirmation replaces it. That retained classification also prevents
 an earlier confirmation from treating a later `Connected` status as verified or a
 later empty answer from reopening the readiness hold. It never turns a failed query
-into disconnect evidence. An empty,
+into disconnect evidence. Instead, it preserves the remaining attempt and deadline
+budget for a fresh registration result to retry cleanup. An empty,
 unreadable, or whitespace-only organization secret cannot change while the unit
 runs, so the oneshot reports the current status once and exits instead of
 retrying a decision that can never open.
@@ -69,7 +71,9 @@ until a successful managed confirmation clears it. The retained classification i
 not disconnect evidence after the live state became unknown. It prevents an earlier
 confirmation from accepting a later connected tunnel as managed and a later empty
 answer from reopening the readiness hold until a successful managed confirmation
-clears the mismatch.
+clears the mismatch. It also leaves `unverified` unchanged, so the bounded loop can
+obtain a fresh result and retry cleanup without letting the unanswered probe itself
+select disconnect.
 
 Use `warp-cli --accept-tos registration organization` and
 `warp-cli --accept-tos status` to confirm the managed tunnel is up. Without the
@@ -178,8 +182,12 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   `-p err` therefore stays quiet through a normal warm-up, and `-p warning` shows the attempts.
   If an existing tunnel is confirmed to carry a
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
-  registration check itself does not answer with no active empty-answer hold, the
-  tunnel is left up and the unit logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty,
+  registration check itself does not answer with no active empty-answer hold or
+  retained mismatch, the tunnel is left up and the unit logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning
+  priority. After a conclusive mismatch and an unsuccessful cleanup, a later failed
+  registration check instead logs `tunnel is up after a conclusive registration mismatch; waiting for a fresh registration check before retrying cleanup` and keeps
+  the existing attempt and deadline budget for a fresh result. It does not disconnect
+  on the failed check. An empty,
   unreadable, or whitespace-only organization secret logs `managed organization secret unavailable; cannot verify registration`, queries the daemon once so the tunnel's state is on record, then logs `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. Both of those are `<3>` lines, visible to
   `journalctl -u cloudflare-warp-connect -p err`. A registration query that does
   not answer logs `registration check failed (exit <n>)`; exit 124 is the five-second
