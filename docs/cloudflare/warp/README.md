@@ -87,7 +87,7 @@ on an un-decryptable payload.
 - Disabling the wrapper removes the runtime `mdm.xml` during the next NixOS
   activation, so the cleartext service-token cache does not remain after a
   disable switch. This local cleanup does not delete the device registration; use
-  `warp-cli registration delete` and remove the device from the dashboard when
+  `warp-cli --accept-tos registration delete` and remove the device from the dashboard when
   full Zero Trust de-enrollment is intended.
 - `secrets/` is a git submodule; the encrypted payload is committed there, the
   Nix changes in the main repository.
