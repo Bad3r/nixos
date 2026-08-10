@@ -71,9 +71,9 @@ confirmation from accepting a later connected tunnel as managed and a later empt
 answer from reopening the readiness hold until a successful managed confirmation
 clears the mismatch.
 
-Use `warp-cli registration organization` and `warp-cli status` to confirm the
-managed tunnel is up. Without the sops secret the daemon and this unit do not
-exist; only `warp-cli` is installed.
+Use `warp-cli --accept-tos registration organization` and
+`warp-cli --accept-tos status` to confirm the managed tunnel is up. Without the
+sops secret the daemon and this unit do not exist; only `warp-cli` is installed.
 
 Confirm WARP is carrying traffic:
 
