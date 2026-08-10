@@ -245,11 +245,15 @@ probe_portal() {
       # 204 is body-less by definition, so there is nothing left to match.
       host_clean=1
       ;;
-    200)
+    200 | 511)
       # generate_204 carries no expected string because the status is the whole
       # answer: a 200 there is already the portal serving its page inline,
       # which is how an intercepting proxy replies when it does not redirect.
-      if [ -n "$expect" ] && grep -qF "$expect" "$body_file"; then
+      # 511 is RFC 6585's status for this and reaches the same branch, because a
+      # proxy portal that leaves DNS alone answers on the canary's real public
+      # address and the status is then the only tell. It is never clean, however
+      # its body reads, so only a 200 can clear a canary.
+      if [ "$status" = 200 ] && [ -n "$expect" ] && grep -qF "$expect" "$body_file"; then
         host_clean=1
       else
         # The first absolute URL in a page is usually not the sign-in target. An

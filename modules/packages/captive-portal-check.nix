@@ -696,6 +696,34 @@
                 fail "the hijacked address must still be the portal URL"
             )
 
+            # RFC 6585's status for exactly this: a proxy portal that intercepts
+            # HTTP without touching DNS, so the canary resolves to its real
+            # public address and the status is the only tell. No arm matched it,
+            # so all three canaries fell through and the run printed the gateway
+            # as an unconfirmed guess while the body it had just fetched carried
+            # the sign-in link.
+            (
+              reset
+              export FF_STATUS=511 FF_BODY='<html><a href="http://portal.lan/login">Sign in</a></html>'
+              export AP_STATUS=511 GS_STATUS=511
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a 511 is a portal by definition (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/login" ] ||
+                fail "the 511 body's sign-in link must be the portal URL"
+            )
+
+            # A 511 is never clean, however its body happens to read: only a 200
+            # can clear a canary by carrying what that canary was told to expect.
+            (
+              reset
+              export FF_STATUS=511 FF_BODY=success
+              export AP_STATUS=000 GS_STATUS=000
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a 511 whose body reads clean is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "a 511 with no link must fall back to the answering address"
+            )
+
             # A 30x with no Location is no answer at all: the canary falls through
             # to the hijack check rather than counting as a detection.
             (

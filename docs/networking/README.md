@@ -373,6 +373,15 @@ the portal URL even while Tailscale still owns DNS. Add `--down` to stop
 Tailscale entirely instead of only releasing DNS, and `--no-open` to print the
 URL rather than launch a browser.
 
+A portal counts as confirmed on any of four answers to the probe hosts: a
+redirect, a page served in place of the expected payload, RFC 6585's
+`511 Network Authentication Required`, or a canary resolving to an address on
+this LAN. The last is the DNS hijack; the first three also catch a proxy that
+intercepts HTTP and leaves DNS alone, which is what guest networks that hand out
+a real upstream resolver and enforce at the gateway do. The sign-in URL is taken
+from what a link, form, or meta refresh in the page points at, falling back to
+the address the canary resolved to.
+
 Releasing and restoring DNS writes to tailscaled, which takes a state change only
 from root and from the Unix user named by its operator pref. Reading is not
 gated the same way, so `tailscale debug prefs` answering is no evidence that
