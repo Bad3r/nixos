@@ -63,5 +63,5 @@ DNS setup problems from tunnel problems.
 ## References
 
 - [Troubleshooting WARP](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/warp/troubleshooting/)
-- [WARP diagnostic logs](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/warp/troubleshooting/warp-diag/)
+- [WARP client documentation](https://developers.cloudflare.com/warp-client/)
 - [Firewall and network ports](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/warp/deployment/firewall/)
