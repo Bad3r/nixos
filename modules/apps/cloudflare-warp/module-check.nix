@@ -495,6 +495,11 @@
                   && lib.hasInfix ''registration_state="unknown"'' emptyAnswerArm
                   && !lib.hasInfix "confirmed_once=1" initBlock
                   && lib.hasInfix "confirmed_once=1" confirmedArm
+                  # A held empty answer must not also burn the unverified
+                  # budget: the loop would then break on the same attempt the
+                  # readiness window closes, so the mismatch that tears down a
+                  # registration-less tunnel could never fire.
+                  && lib.hasInfix ''elif [ -n "$held_empty" ]; then'' counted
                   # Suppression direction: the guard must actually skip the count.
                   && lib.length (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript) == 2
                   && lib.hasInfix "else" counted
