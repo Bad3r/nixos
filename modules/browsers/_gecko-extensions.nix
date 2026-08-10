@@ -15,6 +15,11 @@
 }:
 let
   geckoExtensionData = import ./_gecko-extension-data.nix { inherit lib; };
+  uboDynamicRules = import ./_ubo-dynamic-rules.nix { inherit lib; };
+  inherit (uboDynamicRules)
+    checkedMediumModeRules
+    ublockOriginMediumModeRules
+    ;
   inherit (geckoExtensionData)
     toWidgetId
     ublockOrigin
@@ -245,171 +250,6 @@ let
       lastUpdated = nixpkgsReviewGhaScript.updatedAt;
     };
   };
-
-  # uBO drops a dynamic rule it cannot parse without any diagnostic
-  # (`validateRuleParts` in its dynamic-net-filtering.js), so a malformed entry
-  # silently stops filtering rather than failing. Reject those shapes at eval.
-  mediumModeRuleError =
-    rule:
-    let
-      parts = lib.splitString " " rule;
-      des = builtins.elemAt parts 1;
-      type = builtins.elemAt parts 2;
-      action = builtins.elemAt parts 3;
-    in
-    if builtins.length parts != 4 then
-      "expected 4 space-separated fields"
-    else if
-      !builtins.elem type [
-        "*"
-        "3p"
-        "image"
-        "inline-script"
-        "1p-script"
-        "3p-script"
-        "3p-frame"
-      ]
-    then
-      "unknown type ${type}"
-    else if
-      !builtins.elem action [
-        "block"
-        "allow"
-        "noop"
-      ]
-    then
-      "unknown action ${action}"
-    else if lib.hasInfix "/" des then
-      "destination ${des} carries a path; dynamic host rules match hostnames only"
-    else if des != "*" && type != "*" then
-      "destination ${des} is named, which uBO accepts only with type *, not ${type}"
-    else
-      null;
-
-  checkedMediumModeRules =
-    rules:
-    let
-      errors = lib.concatMap (
-        rule: lib.optional (mediumModeRuleError rule != null) "${rule} (${mediumModeRuleError rule})"
-      ) rules;
-    in
-    lib.throwIf (
-      errors != [ ]
-    ) "unusable uBO dynamic filtering rules: ${lib.concatStringsSep "; " errors}" rules;
-
-  # uBO "medium mode": block third-party scripts and frames by default.
-  # Commonly-used sites are pre-whitelisted; other sites need interactive
-  # whitelisting via the uBO popup (per-site 3p-script/3p-frame => noop).
-  # See https://github.com/gorhill/uBlock/wiki/Blocking-mode:-medium-mode.
-  ublockOriginMediumModeRules = [
-    "behind-the-scene * * noop"
-    "* * 3p-script block"
-    "* * 3p-frame block"
-
-    # Trusted destinations: allowed on every site. uBO evaluates a named
-    # destination before the blanket 3p-script/3p-frame rows above, and
-    # `validateRuleParts` discards a named destination paired with anything
-    # narrower than type `*`, so each entry covers script and frame together
-    # and matches on hostname alone, never a request path.
-
-    # Cloudflare Turnstile: /turnstile/v0/api.js plus the widget iframe.
-    "* challenges.cloudflare.com * noop"
-
-    # Trusted sites: allow 3p scripts and frames.
-    # Source-host match covers all subdomains.
-
-    # Dev hosting & code collaboration
-    "github.com * 3p-script noop"
-    "github.com * 3p-frame noop"
-    "github.dev * 3p-script noop"
-    "github.dev * 3p-frame noop"
-    "gitlab.com * 3p-script noop"
-    "gitlab.com * 3p-frame noop"
-    "bitbucket.org * 3p-script noop"
-    "bitbucket.org * 3p-frame noop"
-    "codeberg.org * 3p-script noop"
-    "codeberg.org * 3p-frame noop"
-
-    # Package registries & developer docs
-    "hub.docker.com * 3p-script noop"
-    "hub.docker.com * 3p-frame noop"
-    "developer.mozilla.org * 3p-script noop"
-    "developer.mozilla.org * 3p-frame noop"
-    "developers.google.com * 3p-script noop"
-    "developers.google.com * 3p-frame noop"
-    "nixos.org * 3p-script noop"
-    "nixos.org * 3p-frame noop"
-    "formulae.brew.sh * 3p-script noop"
-    "formulae.brew.sh * 3p-frame noop"
-
-    # Q&A and knowledge
-    "stackoverflow.com * 3p-script noop"
-    "stackoverflow.com * 3p-frame noop"
-    "stackexchange.com * 3p-script noop"
-    "stackexchange.com * 3p-frame noop"
-    "superuser.com * 3p-script noop"
-    "superuser.com * 3p-frame noop"
-    "askubuntu.com * 3p-script noop"
-    "askubuntu.com * 3p-frame noop"
-    "serverfault.com * 3p-script noop"
-    "serverfault.com * 3p-frame noop"
-
-    # Google productivity
-    "docs.google.com * 3p-script noop"
-    "docs.google.com * 3p-frame noop"
-    "drive.google.com * 3p-script noop"
-    "drive.google.com * 3p-frame noop"
-    "mail.google.com * 3p-script noop"
-    "mail.google.com * 3p-frame noop"
-    "accounts.google.com * 3p-script noop"
-    "accounts.google.com * 3p-frame noop"
-    "myaccount.google.com * 3p-script noop"
-    "myaccount.google.com * 3p-frame noop"
-
-    # Microsoft 365
-    "teams.cloud.microsoft * 3p-script noop"
-    "teams.cloud.microsoft * 3p-frame noop"
-    "login.microsoftonline.com * 3p-script noop"
-    "login.microsoftonline.com * 3p-frame noop"
-    "login.live.com * 3p-script noop"
-    "login.live.com * 3p-frame noop"
-    "login.microsoft.com * 3p-script noop"
-    "login.microsoft.com * 3p-frame noop"
-
-    # Cloud consoles
-    "cloud.google.com * 3p-script noop"
-    "cloud.google.com * 3p-frame noop"
-
-    # AI tools
-    "chatgpt.com * 3p-script noop"
-    "chatgpt.com * 3p-frame noop"
-    "auth.openai.com * 3p-script noop"
-    "auth.openai.com * 3p-frame noop"
-    "claude.ai * 3p-script noop"
-    "claude.ai * 3p-frame noop"
-    "gemini.google.com * 3p-script noop"
-    "gemini.google.com * 3p-frame noop"
-    "notebooklm.google.com * 3p-script noop"
-    "notebooklm.google.com * 3p-frame noop"
-    "codeassist.google * 3p-script noop"
-    "codeassist.google * 3p-frame noop"
-    "codeassist.google.com * 3p-script noop"
-    "codeassist.google.com * 3p-frame noop"
-    "aistudio.google.com * 3p-script noop"
-    "aistudio.google.com * 3p-frame noop"
-
-    # Proton web properties
-    "proton.me * 3p-script noop"
-    "proton.me * 3p-frame noop"
-
-    # Mozilla / extensions
-    "addons.mozilla.org * 3p-script noop"
-    "addons.mozilla.org * 3p-frame noop"
-
-    # Raindrop.io
-    "app.raindrop.io * 3p-script noop"
-    "app.raindrop.io * 3p-frame noop"
-  ];
 
   extensionSettings =
     (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy)
