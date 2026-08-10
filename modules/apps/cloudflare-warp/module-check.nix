@@ -499,8 +499,18 @@
                   # make the branch permanent or dead respectively.
                   && lib.hasInfix "empty_answers=0" initBlock
                   && lib.hasInfix "empty_answers=$((empty_answers + 1))" emptyAnswerArm
+                  # held_empty must start clear and be produced by the empty-answer
+                  # branch. A truthy seed suppresses accounting in unrelated unknown
+                  # states, while deleting the producer makes mismatch unreachable.
+                  && lib.hasInfix ''held_empty=""'' initBlock
+                  && lib.hasInfix "held_empty=1" emptyAnswerArm
+                  && !lib.hasInfix "held_empty=1" initBlock
                   && !lib.hasInfix "confirmed_once=1" initBlock
                   && lib.hasInfix "confirmed_once=1" confirmedArm
+                  # confirmedArm reaches mismatch and therefore spans the empty-answer
+                  # arm. The positive check alone would accept a relocated flag and
+                  # report a live consumer-WARP tunnel as confirmed.
+                  && !lib.hasInfix "confirmed_once=1" emptyAnswerArm
                   # A held empty answer must not also burn the unverified
                   # budget: the loop would then break on the same attempt the
                   # readiness window closes, so the mismatch that tears down a
@@ -510,7 +520,7 @@
                   && lib.length (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript) == 2
                   && lib.hasInfix "else" counted
                 )
-                "apps/cloudflare-warp-module-eval: confirmed_once must start empty, be set only where the registration is confirmed, route an empty answer to unknown, and gate the unverified count";
+                "apps/cloudflare-warp-module-eval: readiness flags must start empty, remain in their state arms, route empty answers to unknown, and gate the unverified count";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
