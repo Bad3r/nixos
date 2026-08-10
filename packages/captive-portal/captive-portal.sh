@@ -559,7 +559,16 @@ probe_status=0
 # it, so a body_file created inside was invisible to cleanup and every run left
 # the page it had fetched behind. Created in the shell that owns the trap, the
 # sweep already written above covers it on every exit and on a signal.
-body_file="$(mktemp)"
+if ! body_file="$(mktemp)"; then
+  # Unguarded, mktemp's own 1 came back as this script's "no portal", from a
+  # point login mode has already released DNS: errexit killed the run with
+  # mktemp's error the only thing on screen, no reminder, and no restore.
+  note "could not create a scratch file for the probe payload"
+  if [ "$mode" = login ]; then
+    restore_dns
+  fi
+  exit 4
+fi
 portal="$(probe_portal "$resolver" "$gateway")" || probe_status=$?
 
 # Every exit from here on is one of the documented statuses, and each one that

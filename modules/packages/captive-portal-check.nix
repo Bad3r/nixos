@@ -724,6 +724,24 @@
                 fail "a 511 with no link must fall back to the answering address"
             )
 
+            # The scratch file for the probe payload is created after login mode
+            # has already released DNS. Unguarded, mktemp's own 1 came back as
+            # this script's "no portal", with nothing on screen saying so and the
+            # release left standing.
+            (
+              reset
+              tmp_denied="$work/denied-tmp"
+              mkdir -p "$tmp_denied"
+              chmod 500 "$tmp_denied"
+              rc=$(TMPDIR="$tmp_denied" run --no-open)
+              chmod 700 "$tmp_denied"
+              [ "$rc" -eq 4 ] || fail "a scratch file that cannot be created must exit 4 (exit $rc)"
+              released || fail "login mode releases DNS before the probe runs"
+              restored || fail "a failed scratch file must not strand the release"
+              grep -q '^captive-portal: could not create a scratch file' "$work/err" ||
+                fail "the run must say the scratch file could not be created"
+            )
+
             # A 30x with no Location is no answer at all: the canary falls through
             # to the hijack check rather than counting as a detection.
             (
