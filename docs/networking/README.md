@@ -373,6 +373,10 @@ the portal URL even while Tailscale still owns DNS. Add `--down` to stop
 Tailscale entirely instead of only releasing DNS, and `--no-open` to print the
 URL rather than launch a browser.
 
+`--probe` and `--restore` each name the whole purpose of a run, so they cannot be
+combined, and `--down` belongs to a login run, the only one that stops anything.
+Either pairing exits 2 rather than silently dropping one of the two.
+
 A portal counts as confirmed on any of four answers to the probe hosts: a
 redirect, a page served in place of the expected payload, RFC 6585's
 `511 Network Authentication Required`, or a canary resolving to an address on
