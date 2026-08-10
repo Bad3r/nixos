@@ -292,6 +292,7 @@
                   "managed enrollment is not ready; not connecting"
                   "status command failed"
                   "connect request failed"
+                  "tunnel is up but its registration went unverified"
                 ]
                 && lib.all (msg: lib.hasInfix "<3>cloudflare-warp-connect: ${msg}" enrolledConnectScript) [
                   "managed organization secret unavailable"
@@ -299,6 +300,8 @@
                   "failed to disconnect unmanaged tunnel"
                   "daemon reports no Zero Trust registration"
                   "daemon is registered outside the managed organization"
+                  "tunnel is not connected after"
+                  "connect never succeeded"
                 ]
               )
               "apps/cloudflare-warp-module-eval: per-attempt states must log at <4> and unrecoverable or enforcement states at <3>";
