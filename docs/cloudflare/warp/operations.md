@@ -31,14 +31,15 @@ inside the unit's explicit `TimeoutStartSec=180`. The oneshot is best-effort: it
 exits 0 and reaches `active (exited)` in every outcome, so read the final log
 line rather than the unit state:
 
-| Final line                                              | Meaning                                                      |
-| ------------------------------------------------------- | ------------------------------------------------------------ |
-| (none)                                                  | Managed tunnel verified and up                               |
-| `tunnel is up but its registration went unverified`     | Tunnel left connected; the registration check never answered |
-| `daemon reports no Zero Trust registration`             | No Teams registration; enrollment incomplete or rejected     |
-| `daemon is registered outside the managed organization` | Live registration belongs to another tenant                  |
-| `tunnel is not connected after <n> attempts`            | Connect was requested and refused                            |
-| `connect never succeeded (daemon unreachable ...)`      | The daemon never answered                                    |
+| Final line                                                | Meaning                                                                             |
+| --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| (none)                                                    | Managed tunnel verified and up                                                      |
+| `tunnel is up but its registration went unverified`       | Tunnel left connected; the registration check never answered                        |
+| `daemon reports no Zero Trust registration`               | No Teams registration; enrollment incomplete or rejected                            |
+| `daemon is registered outside the managed organization`   | Live registration belongs to another tenant                                         |
+| `tunnel is not connected after <n> attempts`              | Connect was requested and refused                                                   |
+| `connect never succeeded (daemon unreachable ...)`        | The daemon never answered                                                           |
+| `managed organization secret unavailable; not connecting` | Secret missing, unreadable, or whitespace-only; the run exits before the retry loop |
 
 The rows are mutually exclusive and reflect the state the run ended on, not
 anything observed along the way: a confirmed mismatch is reported ahead of the

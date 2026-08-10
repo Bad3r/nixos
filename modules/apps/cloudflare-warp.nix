@@ -75,6 +75,11 @@ let
       connectScript = ''
         managed_org=""
         registration_state="unknown"
+        # Read by the terminal report. refresh_registration assigns it, but only
+        # past an early return, so initialise it here rather than relying on the
+        # loop body always running: under nounset an unset read aborts the unit
+        # on the one path whose job is to explain what went wrong.
+        registration=""
         connected=""
         connect_requested=""
         unverified=0
