@@ -18,9 +18,10 @@
     switchLocked: mdm.xml switch_locked; when true the user cannot disconnect, which also blocks
       this module's own teardown of a mismatched tunnel.
     connectOnBoot: run a best-effort oneshot that requires an initial managed-registration
-      confirmation before connecting. Later unanswered or empty checks retain it only until a
-      successful mismatch is observed. Runs once per boot with no retry timer, so a manual
-      disconnect is never undone.
+      confirmation before connecting. A later unanswered check may reuse it only while no
+      successful empty response is held and no mismatch is retained. Empty responses use a
+      bounded readiness window. Runs once per boot with no retry timer, so a manual disconnect
+      is never undone.
 
   Notes:
     * service_mode is authoritative via mdm.xml; the module never calls `warp-cli mode`.
@@ -141,14 +142,14 @@ let
             registration_state="confirmed"
             confirmed_once=1
             mismatch_kind=""
+            # A fresh confirmation resolves the prior empty-response readiness window.
+            empty_answers=0
             held_empty=""
             echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
-          elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then
-            # An empty answer is missing readiness information until this run
-            # observes a conclusive mismatch. An enrolled daemon can return it
-            # transiently before loading its registration, including after a
-            # restart against a healthy tunnel, so hold teardown only while no
-            # mismatch remains. A foreign team stays a mismatch immediately.
+          elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && [ "$empty_answers" -lt 3 ]; then
+            # An enrolled daemon can return an empty result while loading its
+            # registration. Hold only the bounded window after startup or a
+            # fresh confirmation. A foreign team remains a mismatch immediately.
             empty_answers=$((empty_answers + 1))
             registration_state="unknown"
             held_empty=1
@@ -193,9 +194,9 @@ let
                 *)
                   # An unanswered check does not negate this run's managed
                   # confirmation unless a later successful probe found a
-                  # mismatch. That retained mismatch blocks stale acceptance but
-                  # never drives this branch's disconnect enforcement.
-                  if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then
+                  # mismatch or opened an empty-response hold. Those states block
+                  # stale acceptance but never drive this branch's enforcement.
+                  if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ] && [ -z "$held_empty" ]; then
                     echo "cloudflare-warp-connect: tunnel is up on a registration this run already confirmed"
                     connected=1
                   elif [ -n "$held_empty" ]; then
@@ -242,9 +243,9 @@ let
           if [ -n "$connected" ] || [ "$unverified" -ge 3 ]; then
             break
           fi
-          # A same-run confirmation survives an unanswered or empty probe until a successful
-          # mismatch refutes it, so a transient IPC failure cannot spend the connect window.
-          if [ "$registration_state" = "confirmed" ] || { [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; }; then
+          # A same-run confirmation survives an unanswered probe. A successful
+          # empty response must finish its bounded readiness window instead.
+          if [ "$registration_state" = "confirmed" ] || { [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ] && [ -z "$held_empty" ]; }; then
             if request_output="$(timeout -k 1s 5s warp-cli --accept-tos connect 2>&1)"; then
               connect_requested=1
               echo "cloudflare-warp-connect: connect requested"
@@ -351,12 +352,13 @@ let
           default = true;
           description = ''
             Run a best-effort oneshot `warp-cli connect` after the daemon starts.
-            It requires an initial managed-registration confirmation. Later
-            unanswered or empty probes may retry only within the same run and
-            only until a successful mismatch is observed. It runs once per boot
-            and is not re-armed by a timer: an enrollment slower than its retry
-            window needs a manual unit restart, which is the tradeoff for never
-            reconnecting a tunnel the user disconnected.
+            It requires an initial managed-registration confirmation. A later
+            unanswered probe may retry only within the same run and only while
+            no successful empty response is held and no mismatch is retained.
+            Successful empty responses use a bounded readiness window. It runs
+            once per boot and is not re-armed by a timer: an enrollment slower
+            than its retry window needs a manual unit restart, which is the
+            tradeoff for never reconnecting a tunnel the user disconnected.
           '';
         };
 
