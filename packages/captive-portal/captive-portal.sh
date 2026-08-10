@@ -229,7 +229,12 @@ probe_portal() {
     # http://000. A transfer that failed is not an answer, so whatever it managed
     # to print is dropped and status stays 000, which no arm below matches and
     # which falls through to the hijack check the way a silent drop does.
-    if write_out="$(curl -sS -m 6 -o "$body_file" -w '%{http_code} %{redirect_url}' \
+    # --noproxy '*' because --resolve is the whole basis of the classification
+    # here: it is what makes a status and a body attributable to the address the
+    # access point's resolver handed back. An inherited http_proxy sends the
+    # request to the proxy instead, --resolve never applies, and every canary is
+    # then graded on what the proxy answered while dig stays honest.
+    if write_out="$(curl -sS -m 6 --noproxy '*' -o "$body_file" -w '%{http_code} %{redirect_url}' \
       --resolve "$host:80:$answer" "$url" 2>/dev/null)"; then
       read -r status redirect <<<"$write_out"
     fi

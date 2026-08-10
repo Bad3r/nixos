@@ -108,10 +108,15 @@
           curlStub = pkgs.writeShellScriptBin "curl" ''
             out=""
             url=""
+            noproxy=""
             while [ "$#" -gt 0 ]; do
               case "$1" in
               -o)
                 out="$2"
+                shift 2
+                ;;
+              --noproxy)
+                noproxy="$2"
                 shift 2
                 ;;
               http://*)
@@ -121,6 +126,15 @@
               *) shift ;;
               esac
             done
+            # --resolve is what makes a status attributable to the address the
+            # access point's resolver returned, and an inherited http_proxy
+            # silently sends the request somewhere else instead. Nothing this
+            # stub can answer would reveal that, so the contract is asserted
+            # here: every scenario fails the moment the probe stops pinning it.
+            if [ "$noproxy" != "*" ]; then
+              echo "curl stub: the probe must pass --noproxy '*'" >&2
+              exit 1
+            fi
             case "$url" in
             *success.txt)
               status="''${FF_STATUS-200}"
