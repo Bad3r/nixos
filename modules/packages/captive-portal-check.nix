@@ -121,22 +121,34 @@
               status="''${FF_STATUS-200}"
               body="''${FF_BODY-success}"
               redirect="''${FF_REDIRECT-}"
+              abort="''${FF_ABORT-}"
               ;;
             *hotspot-detect.html)
               status="''${AP_STATUS-200}"
               body="''${AP_BODY-<HTML><BODY>Success</BODY></HTML>}"
               redirect="''${AP_REDIRECT-}"
+              abort="''${AP_ABORT-}"
               ;;
             *generate_204)
               status="''${GS_STATUS-204}"
               body="''${GS_BODY-}"
               redirect="''${GS_REDIRECT-}"
+              abort="''${GS_ABORT-}"
               ;;
             *)
               echo "curl stub: unexpected url: $url" >&2
               exit 1
               ;;
             esac
+            # The third shape, between "answered" and "never connected": the
+            # response line arrived and -m then fired. Real curl writes the -w
+            # output, with no terminator, leaves -o untouched, and exits 28.
+            # Per-canary like the vars above, because the loop calls curl once per
+            # canary and one flag for all three could not place the failure.
+            if [ -n "$abort" ]; then
+              printf '%s %s' "$status" "$redirect"
+              exit 28
+            fi
             [ "$status" = 000 ] && exit 7
             printf '%s' "$body" >"$out"
             printf '%s %s' "$status" "$redirect"
@@ -615,6 +627,34 @@
               [ "$rc" -eq 0 ] || fail "a 302 to the portal must exit 0 (exit $rc)"
               [ "$(cat "$work/out")" = "http://portal.lan/welcome" ] ||
                 fail "the redirect target must be the portal URL"
+            )
+
+            # A transfer that died after the response line. curl had already
+            # written its unterminated -w output, so `|| echo '000 '` landed on
+            # that same line: `read` took curl's http_code as the status and the
+            # fallback's own text as the redirect, and the 30x arm printed
+            # http://portal.lan/welcome000 as the portal. Nothing a failed
+            # transfer printed may decide the run.
+            (
+              reset
+              export FF_STATUS=302 FF_REDIRECT=http://portal.lan/welcome FF_ABORT=1
+              rc=$(run --probe)
+              [ "$rc" -eq 1 ] || fail "an aborted canary must not decide the run (exit $rc)"
+              [ ! -s "$work/out" ] ||
+                fail "an aborted transfer must print no URL, got '$(cat "$work/out")'"
+            )
+
+            # Dropping what it printed is not the same as dropping the canary: the
+            # DNS answer stands, and an answer on this LAN is the hijack the probe
+            # exists to find, so the fall-through has to reach that check.
+            (
+              reset
+              export DIG_FIREFOX=192.168.1.42 FF_ABORT=1
+              export AP_STATUS=000 GS_STATUS=000
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "an aborted canary must still reach the hijack check (exit $rc)"
+              [ "$(cat "$work/out")" = "http://192.168.1.42" ] ||
+                fail "the hijacked address must still be the portal URL"
             )
 
             # A 30x with no Location is no answer at all: the canary falls through

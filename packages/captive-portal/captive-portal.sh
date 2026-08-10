@@ -185,7 +185,7 @@ is_private_v4() {
 # payload lands in $body_file, which the caller owns; see the call site.
 probe_portal() {
   local resolver="$1" gateway="$2"
-  local hosts urls expects i host url expect answer status redirect found
+  local hosts urls expects i host url expect answer status redirect found write_out
   local clean=0 host_clean=0
 
   hosts=(detectportal.firefox.com captive.apple.com connectivity-check.gstatic.com)
@@ -208,10 +208,23 @@ probe_portal() {
     host_clean=0
     status=000
     redirect=""
-    read -r status redirect <<<"$(
-      curl -sS -m 6 -o "$body_file" -w '%{http_code} %{redirect_url}' \
-        --resolve "$host:80:$answer" "$url" 2>/dev/null || echo '000 '
-    )"
+    # curl truncates -o for any transfer that completes, empty body included, but
+    # writes nothing at all when one dies before the first body byte. Clearing it
+    # here keeps a canary from being classified against the page the last one
+    # fetched, without resting that on curl's file handling.
+    : >"$body_file"
+    # curl writes its -w line and only then exits nonzero, and that line carries
+    # no terminator, so `|| echo '000 '` used to concatenate onto it rather than
+    # replace it: `read` took curl's own http_code as the status and the
+    # fallback's text as the redirect. A 302 whose body never arrived was
+    # reported as a portal at http://<target>000, and one with no Location at
+    # http://000. A transfer that failed is not an answer, so whatever it managed
+    # to print is dropped and status stays 000, which no arm below matches and
+    # which falls through to the hijack check the way a silent drop does.
+    if write_out="$(curl -sS -m 6 -o "$body_file" -w '%{http_code} %{redirect_url}' \
+      --resolve "$host:80:$answer" "$url" 2>/dev/null)"; then
+      read -r status redirect <<<"$write_out"
+    fi
 
     case "$status" in
     30*)
