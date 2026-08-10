@@ -149,7 +149,7 @@
 
             echo "" >&2
             echo "Managed files out of sync with Nix definitions." >&2
-            echo "Run: nix develop path:. -c write-files" >&2
+            echo "Run: nix develop path:. -c write-files --offline --no-build" >&2
             echo "     (drop path:. in the primary checkout)" >&2
             echo "Then stage updates and commit normally." >&2
             exit 1
