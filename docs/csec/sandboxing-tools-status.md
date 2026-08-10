@@ -291,17 +291,29 @@ vendor-review questions rather than controls you configure:
 - Rebuild any boundary host from known-good media when its off-host logs or
   another incident signal indicates host-level compromise. Rebuild the
   detonation host and the broker host additionally when an escape is
-  suspected, because both sit on the guest-reachable path. A guest snapshot
-  revert does not restore a host the sample reached.
+  suspected, because both sit on the guest-reachable path. On that same signal,
+  isolate the designated submission-and-result path. Before reconnecting the
+  recovered detonation host to it, rebuild every Assemblyline deployment node
+  that retrieved or processed result data from that detonation host since its
+  last known-good rebuild. A compromised detonation host can return
+  attacker-controlled result data over an Assemblyline-initiated connection even
+  though it cannot initiate a new connection. A guest snapshot revert does not
+  restore a host the sample reached.
 - Ship hypervisor and host logs off the detonation host, egress-broker logs off
   the broker host, and Assemblyline deployment-node logs off their nodes as they
-  are written. Review all of them for host-level compromise. A compromised
-  boundary host can edit any log it can still write to, so nothing held on that
-  host can raise the suspicion the rebuild above depends on. Carry that shipping
-  on the restricted administrative path rather than the detonation segment, give
-  each shipping host its own append-only credentials to the collector, and allow
-  no shipping host access to the collector beyond appending, so it cannot rewrite
-  or delete what it already sent.
+  are written. Record on the append-only collector which detonation host
+  supplied result data to each Assemblyline deployment node. If that record
+  cannot identify every node exposed after a suspected escape, rebuild every
+  Assemblyline deployment node before reconnecting the recovered detonation host.
+  Configure the collector to alert on boundary-host signals that indicate
+  host-level compromise, and require acknowledgement and escalation within 15
+  minutes. Use those signals to trigger the rebuild requirement above. A
+  compromised boundary host can edit any log it can still write to, so nothing
+  held on that host can raise the suspicion the rebuild above depends on. Carry
+  that shipping on the restricted administrative path rather than the detonation
+  segment, give each shipping host its own append-only credentials to the
+  collector, and allow no shipping host access to the collector beyond appending,
+  so it cannot rewrite or delete what it already sent.
 - On the restricted administrative path, the broker host reaches only the log
   collector and the approved update mirror stated above. Give it no route to
   the hypervisor console, the orchestration API, or the gold-image store,
@@ -320,12 +332,13 @@ vendor-review questions rather than controls you configure:
   rebuilt.
 - Pair every gold image and rebuild medium with an authenticated manifest from
   a separately administered recovery authority that binds the exact media
-  version to a cryptographic digest, rather than a locally recorded hash.
-  Before trusting any digest in it, verify the manifest's signature against
-  the recovery-verification trust anchor granted above; only then verify the
-  relevant media against that manifest, for every restore or rebuild. A store
-  that serves the image and its manifest together can otherwise ship a
-  matched, poisoned pair.
+  identity, version, and cryptographic digest, rather than a locally recorded
+  hash. Keep each medium's expected approved release with the pinned tested unit,
+  outside the delivery store's control. For every restore or rebuild, verify the
+  manifest's signature against the recovery-verification trust anchor granted
+  above, require its signed media identity and version to match that expected
+  release, and only then verify the relevant media against its digest. Reject a
+  validly signed manifest for any older or otherwise unexpected release.
 - Revert by discarding the guest's writable overlay and recreating it from the
   gold image rather than from a snapshot the host can write, because a sample
   that reaches the host can otherwise poison the baseline it is restored from.
