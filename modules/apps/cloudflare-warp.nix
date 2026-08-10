@@ -306,7 +306,13 @@ let
               warnings =
                 lib.optional
                   (
-                    (config.services.dnscrypt-proxy.enable || config.networking.networkmanager.dns == "dnsmasq")
+                    (
+                      config.services.dnscrypt-proxy.enable
+                      # networkmanager.dns is declared unconditionally and only
+                      # reaches NetworkManager.conf under mkIf enable, so a stale
+                      # value on a systemd-networkd host binds nothing.
+                      || (config.networking.networkmanager.enable && config.networking.networkmanager.dns == "dnsmasq")
+                    )
                     && builtins.elem cfg.serviceMode [
                       "warp"
                       "1dot1"
