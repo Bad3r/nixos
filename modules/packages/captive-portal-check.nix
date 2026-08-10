@@ -539,6 +539,20 @@
                 fail "a stylesheet href must not beat the form target, got '$(cat "$work/out")'"
             )
 
+            # HTML requires a literal & in an attribute value to be written
+            # &amp;, and a WISPr redirect carries several parameters, so the raw
+            # value was opened with amp; glued to every one after the first and
+            # the sign-in could not complete.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><head><meta http-equiv="refresh" content="0; url=http://1.1.1.1:3990/login?res=notyet&amp;uamip=192.168.1.1&amp;uamport=3990"></head><body><p>Padded past the bound the clean test applies, so this page is judged as the interception page it stands for.</p></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a WISPr refresh is a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://1.1.1.1:3990/login?res=notyet&uamip=192.168.1.1&uamport=3990" ] ||
+                fail "the sign-in URL must be entity-decoded, got '$(cat "$work/out")'"
+            )
+
             # The mirror image. Reaching the hijack check is not the same as
             # being a hijack: a canary that never answered, from an address that
             # is nobody's LAN, has to end in the gateway guess instead. 127.0.0.1

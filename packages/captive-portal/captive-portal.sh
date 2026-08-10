@@ -224,11 +224,17 @@ is_private_v4() {
 # one absolute link some portal pages carry beside a relative form. The pattern
 # needs the leading dot optional and the trailing slash relaxed, or
 # `http://w3.org/TR/...` and `http://www.w3.org` walk past it.
+#
+# HTML requires a literal `&` in an attribute value to be written `&amp;`, and a
+# WISPr redirect carries several parameters, so the raw value would be opened
+# with `amp;` glued to every parameter after the first and the sign-in would
+# never complete.
 extract_url() {
   grep -oiE '(^|[;[:space:]])('"$1"')=["'"'"']?https?://[^"'"'"'<>[:space:]]+' "$body_file" |
     grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
     grep -viE '^https?://([^/]*\.)?w3\.org([/:?]|$)' |
-    head -1 || true
+    head -1 |
+    sed 's/&amp;/\&/g' || true
 }
 
 # A portal that hijacks DNS answers public names with an address it controls, and
