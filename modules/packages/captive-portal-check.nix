@@ -462,6 +462,23 @@
               [ "$rc" -eq 0 ] || fail "--restore after --down must succeed (exit $rc)"
               grep -qxF 'tailscale up' "$work/log" ||
                 fail "--restore must start the node --down stopped"
+              # The pair to the refused-up scenario: where that one proves DNS
+              # goes back even when the node does not, this one proves a
+              # succeeding `up` still leaves the DNS half and the snapshot done.
+              restored || fail "--restore must hand DNS back when --down stopped the node"
+              [ ! -e "$state" ] || fail "a completed restore must consume the snapshot"
+            )
+
+            # --down on a network that turns out clean. Stopping the node is the
+            # whole of what --down changes: adding an accept-dns release on top
+            # would be a second undo for --restore to get wrong.
+            (
+              reset
+              rc=$(run --no-open --down)
+              [ "$rc" -eq 1 ] || fail "--down on a clean network must exit 1 (exit $rc)"
+              grep -qxF 'tailscale down' "$work/log" ||
+                fail "--down must stop the node rather than release DNS"
+              ! released || fail "--down must not also set accept-dns=false"
             )
 
             # A portal that redirects rather than serving its page inline. Neither
