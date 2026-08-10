@@ -261,12 +261,20 @@
                   && lib.hasInfix "daemon is registered outside the managed organization" mismatchReport
                 )
                 "apps/cloudflare-warp-module-eval: the terminal mismatch report must separate an empty registration from a foreign tenant";
-            # One definition plus one call site at the top of each attempt.
-            # warp-cli connect does not change the registration organization, so
-            # a second check per attempt only spends IPC budget.
-            assert lib.assertMsg
-              (lib.length (lib.splitString "refresh_registration" enrolledConnectScript) == 3)
-              "apps/cloudflare-warp-module-eval: enrolled connect script must refresh the registration once per attempt";
+            # One call site at the top of each attempt. warp-cli connect does not
+            # change the registration organization, so a second check per attempt
+            # only spends IPC budget. Scoped to the loop body: a whole-script
+            # count also matches the definition and any comment naming it.
+            assert
+              let
+                loopBody = lib.head (
+                  lib.splitString ''if [ -n "$connected" ]'' (
+                    lib.last (lib.splitString ''while [ -z "$connected" ]'' enrolledConnectScript)
+                  )
+                );
+              in
+              lib.assertMsg (lib.length (lib.splitString "refresh_registration" loopBody) == 2)
+                "apps/cloudflare-warp-module-eval: enrolled connect script must refresh the registration once per attempt";
             assert
               let
                 parts = lib.splitString "while [ -z \"$connected\" ]" enrolledConnectScript;
