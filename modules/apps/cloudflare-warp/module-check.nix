@@ -184,8 +184,11 @@
                   && lib.hasInfix "exit 1" mdmValidation
                 )
                 "apps/cloudflare-warp-module-eval: enrolled branch must parse the rendered mdm.xml before installing it, without leaking xmllint's stderr";
-            # Restart=always respawns warp-svc without an explicit restart job,
-            # which PartOf does not propagate; Upholds re-runs the oneshot.
+            # partOf stays empty on purpose. BindsTo already carries an explicit
+            # restart through to the oneshot, and on an unexpected warp-svc exit
+            # BindsTo stops the oneshot before any restart-dependency
+            # propagation can reach it, so PartOf would add nothing that Upholds
+            # is not already doing.
             assert lib.assertMsg
               (
                 enrolledConnect.bindsTo == [ "cloudflare-warp.service" ]
