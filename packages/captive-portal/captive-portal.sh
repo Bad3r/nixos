@@ -73,7 +73,8 @@ Usage:
   captive-portal --restore
       Return DNS to Tailscale after signing in.
 
---probe and --restore name the run's whole purpose, so they cannot be combined.
+--probe and --restore name the run's whole purpose, so they cannot be combined,
+and --down belongs to a login run, which is the only one that stops anything.
 
 Options:
   --device DEV  Device to inspect (default: first connected wifi/ethernet).
@@ -148,6 +149,16 @@ while [ "$#" -gt 0 ]; do
     ;;
   esac
 done
+
+# --down is read only by drop_dns, which only a login run reaches, so the other
+# two subcommands accepted a flag naming a state change and then made none: the
+# run reported success with the node still up and nothing on screen to say the
+# flag had been dropped. Same answer as --probe with --restore. The check sits
+# after the loop because --down can precede the subcommand.
+if [ "$stop_tailscale" -eq 1 ] && [ "$mode" != login ]; then
+  echo "captive-portal: --down applies to a login run, not --$mode" >&2
+  exit 2
+fi
 
 # Portals live on the wireless hop, so a docked laptop holding both links must
 # not have the choice decided by nmcli's listing order. Sorting the wifi-first

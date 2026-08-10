@@ -274,6 +274,22 @@
               )
             done
 
+            # --down is read only on a login run, so the other two accepted a
+            # flag naming a state change and made none: exit 0 with the node
+            # still up and nothing saying the flag was dropped. Both orders,
+            # since --down can precede the subcommand.
+            for combo in "--probe --down" "--down --probe" "--restore --down" "--down --restore"; do
+              (
+                reset
+                # shellcheck disable=SC2086  # the pair is the input under test
+                rc=$(run $combo)
+                [ "$rc" -eq 2 ] || fail "'$combo' must be rejected as usage (exit $rc)"
+                ! grep -qxF 'tailscale down' "$work/log" ||
+                  fail "'$combo' must not stop the node"
+                ! restored || fail "'$combo' must not touch DNS"
+              )
+            done
+
             # Repeating one is a slip, not a conflict, and must still run.
             (
               reset
