@@ -117,6 +117,7 @@
             out=""
             url=""
             noproxy=""
+            maxsize=""
             while [ "$#" -gt 0 ]; do
               case "$1" in
               -o)
@@ -125,6 +126,10 @@
                 ;;
               --noproxy)
                 noproxy="$2"
+                shift 2
+                ;;
+              --max-filesize)
+                maxsize="$2"
                 shift 2
                 ;;
               http://*)
@@ -141,6 +146,13 @@
             # here: every scenario fails the moment the probe stops pinning it.
             if [ "$noproxy" != "*" ]; then
               echo "curl stub: the probe must pass --noproxy '*'" >&2
+              exit 1
+            fi
+            # Same shape, for the same reason: -m caps time and not bytes, and
+            # nothing this stub can answer would show an unbounded body filling
+            # a disk-backed /tmp.
+            if [ -z "$maxsize" ]; then
+              echo "curl stub: the probe must bound the body with --max-filesize" >&2
               exit 1
             fi
             case "$url" in

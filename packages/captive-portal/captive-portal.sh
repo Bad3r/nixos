@@ -239,7 +239,16 @@ probe_portal() {
     # access point's resolver handed back. An inherited http_proxy sends the
     # request to the proxy instead, --resolve never applies, and every canary is
     # then graded on what the proxy answered while dig stays honest.
-    if write_out="$(curl -sS -m 6 --noproxy '*' -o "$body_file" -w '%{http_code} %{redirect_url}' \
+    # --max-filesize because -m caps time and not bytes, and this body is the one
+    # value from the network with no ceiling otherwise: /tmp is disk-backed here
+    # (modules/hosts/common/tmp.nix), so a hostile portal could fill the root
+    # filesystem with whatever it pushes in six seconds across three canaries,
+    # and wc and grep then read all of it. curl exits 63 on the cap, verified
+    # against 8.21.0 both with a Content-Length and mid-transfer without one, so
+    # this composes with the classification: the guard below fails, status stays
+    # 000, and the canary falls through like any other failed transfer.
+    if write_out="$(curl -sS -m 6 --max-filesize 1048576 --noproxy '*' -o "$body_file" \
+      -w '%{http_code} %{redirect_url}' \
       --resolve "$host:80:$answer" "$url" 2>/dev/null)"; then
       read -r status redirect <<<"$write_out"
     fi
