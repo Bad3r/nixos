@@ -48,6 +48,13 @@ let
       name = "uBO whitespace normalization";
       rules = [ "  *  challenges.cloudflare.com   *  noop  " ];
     }
+    {
+      name = "bracketed IPv6 host slots";
+      rules = [
+        "[2606:4700:4700::1111] * 3p-script noop"
+        "* [2606:4700:4700::1111] * noop"
+      ];
+    }
   ];
 
   invalidRules = [
