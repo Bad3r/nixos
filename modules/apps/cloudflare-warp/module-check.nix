@@ -296,7 +296,8 @@
                   "tunnel is up but its registration went unverified"
                 ]
                 && lib.all (msg: lib.hasInfix "<3>cloudflare-warp-connect: ${msg}" enrolledConnectScript) [
-                  "managed organization secret unavailable"
+                  "managed organization secret unavailable; cannot verify registration"
+                  "managed organization secret unavailable; not connecting"
                   "connected without managed Zero Trust registration; disconnecting"
                   "failed to disconnect unmanaged tunnel"
                   "daemon reports no Zero Trust registration"
