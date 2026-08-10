@@ -245,18 +245,18 @@ vendor-review questions rather than controls you configure:
   security boundary. Dedicate each node to that role, keep its management and
   maintenance on a restricted administrative path apart from the detonation
   segment, and patch it through the approved update mirror on that path with
-  host-initiated access limited to the package-update service. Ship each node's
-  logs off-host as they are written using its own append-only collector
-  credentials. Its only connection toward the detonation deployment is the
-  designated inbound submission and result path above, which terminates on the
-  detonation host and reaches no guest. It must not attach to the detonation
-  segment or accept guest-originated or detonation-host-initiated new
-  connections.
+  host-initiated access limited to the package-update service. Its only
+  connection toward the detonation deployment is the designated inbound
+  submission and result path above, which terminates on the detonation host and
+  reaches no guest. It must not attach to the detonation segment or accept
+  guest-originated or detonation-host-initiated new connections.
 - Default-deny guest egress. Provide internet access only through a simulated
   or brokered path that is logged and rate-limited. Run that broker on the
   segment boundary rather than on the detonation host, which carries no other
   workload, so the guests reach it as the one permitted route off the segment
-  and not through a detonation-host interface.
+  and not through a detonation-host interface. Allow only guest-initiated flows
+  and their stateful replies across the broker, and accept no unsolicited inbound
+  connection on its untrusted-side interface.
 - Keep production credentials, tokens, SSH agents, and mounted shares belonging
   to systems outside the analysis environment off the detonation and broker
   hosts and every Assemblyline deployment node. Give each only role-required
@@ -282,11 +282,12 @@ vendor-review questions rather than controls you configure:
   access limited to the package-update service and repository-signature
   verification, so maintenance does not require guest egress or a
   production-network route.
-- Rebuild the detonation host or broker host from known-good media when an
-  escape is suspected. Rebuild an Assemblyline deployment node from known-good
-  media when its off-host logs or another incident signal indicates host-level
-  compromise. A guest snapshot revert does not restore a host the sample
-  reached.
+- Rebuild the detonation host from known-good media when an escape is suspected.
+  Rebuild the broker host from known-good media when an escape is suspected or
+  its off-host logs or another incident signal indicates host-level compromise.
+  Rebuild an Assemblyline deployment node from known-good media when its
+  off-host logs or another incident signal indicates host-level compromise. A
+  guest snapshot revert does not restore a host the sample reached.
 - Ship hypervisor and host logs off the detonation host, egress-broker logs off
   the broker host, and Assemblyline deployment-node logs off their nodes as they
   are written. Review all of them for host-level compromise. A compromised
