@@ -180,7 +180,8 @@ is_private_v4() {
 # one that intercepts HTTP replaces the probe payload or 302s away from it. Both
 # reveal the sign-in URL. The return values are the script's own exit statuses:
 # 0 prints the portal URL, 1 means the network came back clean, 3 means every
-# probe was inconclusive and prints a gateway guess when there is one.
+# probe was inconclusive and prints a gateway guess when there is one. Each
+# payload lands in $body_file, which the caller owns; see the call site.
 probe_portal() {
   local resolver="$1" gateway="$2"
   local hosts urls expects i host url expect answer status redirect found
@@ -193,8 +194,6 @@ probe_portal() {
     http://connectivity-check.gstatic.com/generate_204
   )
   expects=(success Success "")
-
-  body_file="$(mktemp)"
 
   for i in "${!hosts[@]}"; do
     host="${hosts[$i]}"
@@ -450,6 +449,13 @@ fi
 
 portal=""
 probe_status=0
+# The scratch file is created here rather than in probe_portal because the
+# function only ever runs inside a command substitution: bash does not fire the
+# parent's EXIT trap in that subshell, and an assignment made there cannot escape
+# it, so a body_file created inside was invisible to cleanup and every run left
+# the page it had fetched behind. Created in the shell that owns the trap, the
+# sweep already written above covers it on every exit and on a signal.
+body_file="$(mktemp)"
 portal="$(probe_portal "$resolver" "$gateway")" || probe_status=$?
 
 # Every exit from here on is one of the documented statuses, and each one that

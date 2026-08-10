@@ -207,6 +207,18 @@
               ! released || fail "--probe must not release DNS"
             )
 
+            # The page a probe downloads used to outlive the run: probe_portal is
+            # called in a command substitution, so the body_file it created there
+            # never reached the parent's cleanup and nothing ever removed it.
+            (
+              reset
+              rm -f "$TMPDIR"/tmp.*
+              rc=$(run --probe)
+              [ "$rc" -eq 1 ] || fail "a clean network must exit 1 from --probe (exit $rc)"
+              leaked="$(find "$TMPDIR" -maxdepth 1 -name 'tmp.*' -print -quit)"
+              [ -z "$leaked" ] || fail "the probe body must not outlive the run ($leaked)"
+            )
+
             # The URL is the whole of stdout: every diagnostic goes to stderr.
             (
               reset
