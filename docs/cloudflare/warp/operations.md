@@ -35,6 +35,7 @@ line rather than the unit state:
 | ------------------------------------------------------- | ------------------------------------------------------------ |
 | (none)                                                  | Managed tunnel verified and up                               |
 | `tunnel is up but its registration went unverified`     | Tunnel left connected; the registration check never answered |
+| `daemon reports no Zero Trust registration`             | No Teams registration; enrollment incomplete or rejected     |
 | `daemon is registered outside the managed organization` | Live registration belongs to another tenant                  |
 | `tunnel is not connected after <n> attempts`            | Connect was requested and refused                            |
 | `connect never succeeded (daemon unreachable ...)`      | The daemon never answered                                    |
@@ -130,8 +131,8 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
   registration check itself does not answer, the tunnel is left up and the unit
   logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty
-  or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`, then `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. Those `<4>` notices are visible to
-  `journalctl -u cloudflare-warp-connect -p warning`. A registration query that does
+  or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`, queries the daemon once so the tunnel's state is on record, then logs `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. Both of those are `<3>` lines, visible to
+  `journalctl -u cloudflare-warp-connect -p err`. A registration query that does
   not answer logs `registration check failed (exit <n>)`; exit 124 is the five-second
   `timeout` firing on a busy `warp-svc`, and any other code is warp-cli's own, whose
   stderr is left unredirected and lands in the journal beside it at info priority.

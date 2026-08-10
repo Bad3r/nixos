@@ -157,8 +157,11 @@ let
 
         # managed_org is read once above, so an empty value keeps the connect gate
         # shut for every attempt. Exit instead of polling a decision that cannot
-        # change before the deadline.
+        # change before the deadline. registration_state is still "unknown" here,
+        # so refresh_status can only report the tunnel; its connect and
+        # disconnect arms are unreachable.
         if [ -z "$managed_org" ]; then
+          refresh_status
           echo "<3>cloudflare-warp-connect: managed organization secret unavailable; not connecting"
           exit 0
         fi
@@ -194,7 +197,14 @@ let
         # actually ended on. Branch on the live registration_state and status.
         if [ -z "$connected" ]; then
           if [ "$registration_state" = "mismatch" ]; then
-            echo "<3>cloudflare-warp-connect: daemon is registered outside the managed organization after $attempt attempts"
+            # Both sub-cases are a mismatch, but they send the operator to
+            # different places: an empty answer is an enrollment that never
+            # completed, not a tenant to hunt for in the dashboard.
+            if [ -z "$registration" ]; then
+              echo "<3>cloudflare-warp-connect: daemon reports no Zero Trust registration after $attempt attempts"
+            else
+              echo "<3>cloudflare-warp-connect: daemon is registered outside the managed organization after $attempt attempts"
+            fi
           else
             case "$status" in
               *Connected*)
