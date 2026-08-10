@@ -42,11 +42,12 @@ is enabled it:
    module can override it when required. The WARP module does not add a second
    owner for this setting.
 5. Adds a best-effort `cloudflare-warp-connect` oneshot that waits for the daemon
-   and runs `warp-cli connect` on boot only after the current WARP registration
-   matches the managed organization; a missing or mismatched runtime registration
-   is fail-closed. The oneshot is bound to `warp-svc` and upheld by it, so an
-   unexpected daemon respawn (`Restart=always`) re-runs the connect logic rather
-   than leaving the host untunneled until the next rebuild.
+   and requires a current WARP registration match before its first `warp-cli connect`. A later unanswered or empty registration response can reuse that
+   same-run confirmation for a retry only until a successful check finds a
+   mismatch; an unconfirmed or mismatched registration is fail-closed. The oneshot
+   is bound to `warp-svc` and upheld by it, so an unexpected daemon respawn
+   (`Restart=always`) re-runs the connect logic rather than leaving the host
+   untunneled until the next rebuild.
 
 When the wrapper is disabled, it emits a tmpfiles removal rule for the
 wrapper-owned `/var/lib/cloudflare-warp/mdm.xml`. The next NixOS activation
