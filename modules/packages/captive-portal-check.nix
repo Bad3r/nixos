@@ -75,6 +75,11 @@
               printf '%b\n' "''${NM_DEVICES-wifi0:wifi:connected}"
               ;;
             *"IP4.DNS device show"*)
+              # 10 is nmcli's "device does not exist", which is a different
+              # answer from a device that exists and has no DNS (NM_DNS="").
+              if [ -n "''${NM_SHOW_FAIL-}" ]; then
+                exit "$NM_SHOW_FAIL"
+              fi
               printf '%b\n' "''${NM_DNS-IP4.DNS[1]:192.168.1.1}"
               ;;
             *)
@@ -736,6 +741,29 @@
               restored || fail "the restore itself must still happen"
               grep -q '^captive-portal: could not remove' "$work/err" ||
                 fail "a snapshot left behind must be reported, since the next run replays it"
+            )
+
+            # A --device name nmcli does not know reached the resolver guard as
+            # "no resolver", so the run sent the user to check a DHCP lease for
+            # an interface that is not there. The hosts disagree on the wireless
+            # NIC's name, so that is the typo --device invites.
+            (
+              reset
+              rc=$(NM_SHOW_FAIL=10 run --probe --device wlan0)
+              [ "$rc" -eq 4 ] || fail "an unknown device must exit 4 (exit $rc)"
+              grep -q '^captive-portal: nmcli knows no device named wlan0' "$work/err" ||
+                fail "an unknown device must be named as unknown, not as leaseless"
+            )
+
+            # The companion, which the wording above has to stay distinct from:
+            # the device is real and simply has no resolver yet.
+            (
+              reset
+              export NM_DNS=""
+              rc=$(run --probe)
+              [ "$rc" -eq 4 ] || fail "a device with no resolver must exit 4 (exit $rc)"
+              grep -q 'is the lease up' "$work/err" ||
+                fail "a device that exists but has no resolver must keep its own wording"
             )
 
             # A docked laptop holds two links, and only one can be behind the

@@ -20,6 +20,7 @@ stop_tailscale=0
 dns_released=0
 prefs_snapshot_created=0
 nmcli_status=0
+dns_status=0
 
 # sudo-rs enforces env_reset with no opt-out and modules/hosts/common/sudo.nix
 # keeps only SSH_AUTH_SOCK, so XDG_RUNTIME_DIR is gone under sudo. Falling back
@@ -150,8 +151,15 @@ candidate_devices() {
     sort
 }
 
+# nmcli runs on its own because the trailing `|| true` has to stay: grep exits 1
+# on a device that simply has no DNS, which is not a failure. That `|| true`
+# swallowed the whole pipeline though, and pipefail would hand back grep's 1
+# ahead of nmcli's own status anyway, so "no device by that name" (exit 10)
+# arrived at the caller as "no resolver".
 device_dns() {
-  nmcli -t -f IP4.DNS device show "$1" |
+  local raw
+  raw="$(nmcli -t -f IP4.DNS device show "$1")" || return "$?"
+  printf '%s\n' "$raw" |
     sed 's/^IP4\.DNS\[[0-9]*\]:*//' |
     grep -E '^[0-9]+(\.[0-9]+){3}$' || true
 }
@@ -503,10 +511,19 @@ if [ -n "$others" ]; then
   note "also connected: $others; pass --device to inspect one of those"
 fi
 
-resolver="$(device_dns "$device" | head -1)"
+resolver="$(device_dns "$device" | head -1)" || dns_status=$?
 gateway="$(device_gateway "$device")"
 if [ -z "$resolver" ]; then
-  note "$device has no DHCP-provided resolver; is the lease up?"
+  # --device is checked for shape and never for existence, and the hosts do not
+  # agree on what the wireless NIC is called (modules/tpnix/networking.nix pins
+  # wifi0 where system76 keeps wlan0), so a name from the wrong host is the typo
+  # the flag invites. Sending that to check a DHCP lease names an interface that
+  # is not there.
+  case "$dns_status" in
+  0) note "$device has no DHCP-provided resolver; is the lease up?" ;;
+  10) note "nmcli knows no device named $device; pick one from: nmcli -t -f DEVICE device status" ;;
+  *) note "nmcli could not read the DNS of $device (exit $dns_status)" ;;
+  esac
   exit 4
 fi
 
