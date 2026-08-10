@@ -246,6 +246,57 @@ let
     };
   };
 
+  # uBO drops a dynamic rule it cannot parse without any diagnostic
+  # (`validateRuleParts` in its dynamic-net-filtering.js), so a malformed entry
+  # silently stops filtering rather than failing. Reject those shapes at eval.
+  mediumModeRuleError =
+    rule:
+    let
+      parts = lib.splitString " " rule;
+      des = builtins.elemAt parts 1;
+      type = builtins.elemAt parts 2;
+      action = builtins.elemAt parts 3;
+    in
+    if builtins.length parts != 4 then
+      "expected 4 space-separated fields"
+    else if
+      !builtins.elem type [
+        "*"
+        "3p"
+        "image"
+        "inline-script"
+        "1p-script"
+        "3p-script"
+        "3p-frame"
+      ]
+    then
+      "unknown type ${type}"
+    else if
+      !builtins.elem action [
+        "block"
+        "allow"
+        "noop"
+      ]
+    then
+      "unknown action ${action}"
+    else if lib.hasInfix "/" des then
+      "destination ${des} carries a path; dynamic host rules match hostnames only"
+    else if des != "*" && type != "*" then
+      "destination ${des} is named, which uBO accepts only with type *, not ${type}"
+    else
+      null;
+
+  checkedMediumModeRules =
+    rules:
+    let
+      errors = lib.concatMap (
+        rule: lib.optional (mediumModeRuleError rule != null) "${rule} (${mediumModeRuleError rule})"
+      ) rules;
+    in
+    lib.throwIf (
+      errors != [ ]
+    ) "unusable uBO dynamic filtering rules: ${lib.concatStringsSep "; " errors}" rules;
+
   # uBO "medium mode": block third-party scripts and frames by default.
   # Commonly-used sites are pre-whitelisted; other sites need interactive
   # whitelisting via the uBO popup (per-site 3p-script/3p-frame => noop).
@@ -254,6 +305,15 @@ let
     "behind-the-scene * * noop"
     "* * 3p-script block"
     "* * 3p-frame block"
+
+    # Trusted destinations: allowed on every site. uBO evaluates a named
+    # destination before the blanket 3p-script/3p-frame rows above, and
+    # `validateRuleParts` discards a named destination paired with anything
+    # narrower than type `*`, so each entry covers script and frame together
+    # and matches on hostname alone, never a request path.
+
+    # Cloudflare Turnstile: /turnstile/v0/api.js plus the widget iframe.
+    "* challenges.cloudflare.com * noop"
 
     # Trusted sites: allow 3p scripts and frames.
     # Source-host match covers all subdomains.
@@ -440,7 +500,9 @@ in
         "no-large-media: behind-the-scene false"
       ];
 
-      dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
+      dynamicFilteringString = builtins.concatStringsSep "\n" (
+        checkedMediumModeRules ublockOriginMediumModeRules
+      );
 
       netWhitelist = [
         "chrome-extension-scheme"
