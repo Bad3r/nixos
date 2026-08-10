@@ -37,6 +37,7 @@ let
     "echo"
     "fd"
     "find"
+    "gh"
     "git"
     "grep"
     "head"
@@ -108,6 +109,8 @@ let
     "git push --mirror"
     "git push --delete"
     "git push --prune"
+    "gh repo delete"
+    "gh pr close --delete-branch"
   ]
   ++ stashHelperAsk
   ++ [
