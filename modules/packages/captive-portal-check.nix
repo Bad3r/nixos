@@ -553,6 +553,20 @@
                 fail "the sign-in URL must be entity-decoded, got '$(cat "$work/out")'"
             )
 
+            # 204 is the whole answer only for the canary that expects no
+            # payload. Clearing any canary on it let a filter that answers a
+            # blocklisted name with an empty 204 read as a clean network, which
+            # is the direction that hands DNS back on a network with a portal.
+            (
+              reset
+              export FF_STATUS=204 FF_BODY=""
+              export AP_STATUS=000 GS_STATUS=000
+              rc=$(run --probe)
+              [ "$rc" -eq 3 ] || fail "a 204 for a canary expecting a payload must not clear it (exit $rc)"
+              [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
+                fail "nothing answered, so the gateway guess is the only URL, got '$(cat "$work/out")'"
+            )
+
             # The mirror image. Reaching the hijack check is not the same as
             # being a hijack: a canary that never answered, from an address that
             # is nobody's LAN, has to end in the gateway guess instead. 127.0.0.1

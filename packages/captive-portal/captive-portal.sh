@@ -329,8 +329,16 @@ probe_portal() {
       esac
       ;;
     204)
-      # 204 is body-less by definition, so there is nothing left to match.
-      host_clean=1
+      # 204 is the whole answer for generate_204, which is why that canary is the
+      # one carrying no expected string. A canary that was told to expect a
+      # payload has served none of it here, so it clears nothing: a filter that
+      # answers a blocklisted or intercepted name with an empty 204, which
+      # AdGuard Home's HTTP filtering and proxies that suppress connectivity
+      # checks both do, would otherwise read as a clean network. Same rule as the
+      # arm below, where only the marker a canary was told to expect clears it.
+      if [ -z "$expect" ]; then
+        host_clean=1
+      fi
       ;;
     200 | 511)
       # generate_204 carries no expected string because the status is the whole
