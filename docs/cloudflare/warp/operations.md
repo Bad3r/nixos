@@ -17,27 +17,29 @@ warp-cli --accept-tos status                      # Connected
 For an enrolled host, the `cloudflare-warp-connect` oneshot verifies
 `warp-cli registration organization` against the managed team before its first
 connect request and polls `warp-cli status` on every attempt. The first request
-requires a confirmed match. Within the same run, a later unanswered or empty
-registration response can retry a connection from that confirmation only while no
-later successful check has recorded a mismatch. A confirmed mismatch, which is what
-a consumer or still-unregistered device reports, disconnects an already connected
-tunnel and logs at error priority. A registration check that does not answer within
-its five-second cap leaves an existing tunnel up, because an unanswered check is not
-evidence of an unmanaged tunnel. With neither a pending empty-answer hold nor a
-retained conclusive mismatch, three such observations on a live tunnel end the loop,
-since nothing is left to request.
-Neither an unanswered check nor an answer naming no organization is treated as a
-mismatch while the daemon may still be settling: an enrolled daemon returns an
-empty answer transiently before it has loaded its registration, so the first three
-successful empty answers are held, as is any empty answer once this run has already
-read the managed organization, while no conclusive mismatch remains. A failed check
-cannot resolve that hold, so it stays in place until a later successful response
-confirms or mismatches. This prevents an
-interleaved timeout from spending the unverified budget before a fourth empty answer
-can disconnect a consumer tunnel. Both are missing information rather than evidence
-of a re-registration. An answer naming a different team is a mismatch immediately
-and still disconnects. A retained mismatch also prevents a later empty answer from
-reopening the hold, so a fresh successful empty or foreign answer re-enters cleanup.
+requires a confirmed match. Within the same run, a later unanswered registration
+response may retry a connection from that confirmation only while no successful
+empty response is held and no later successful check has recorded a mismatch. A
+successful empty response cannot verify a connected tunnel or authorize another
+connect request. A confirmed mismatch, which is what a consumer or still-unregistered
+device reports, disconnects an already connected tunnel and logs at error priority.
+A registration check that does not answer within its five-second cap leaves an
+existing tunnel up, because an unanswered check is not evidence of an unmanaged
+tunnel. With neither a pending empty-answer hold nor a retained conclusive mismatch,
+three such observations on a live tunnel end the loop, since nothing is left to
+request.
+Neither an unanswered check nor the first three successful answers naming no
+organization is treated as a mismatch while the daemon may still be settling: an
+enrolled daemon returns an empty answer transiently before it has loaded its
+registration. A fresh managed confirmation resets that readiness window, so the
+first three successful empty answers after startup or that confirmation are held.
+A failed check cannot resolve that hold, so it stays in place until a later successful
+response confirms or mismatches. This prevents an interleaved timeout from spending
+the unverified budget before a fourth empty answer can disconnect a consumer tunnel.
+Both are missing information rather than evidence of a re-registration. An answer
+naming a different team is a mismatch immediately and still disconnects. A retained
+mismatch also prevents a later empty answer from reopening the hold, so a fresh
+successful empty or foreign answer re-enters cleanup.
 A later unanswered check cannot refute a mismatch already observed in this run, so
 its non-identifying classification remains available to the terminal diagnostic
 until a managed confirmation replaces it. That retained classification also prevents
@@ -163,23 +165,25 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   status remains disconnected, the `<3>` prefix makes `connect never succeeded`
   or `tunnel is not connected after <n> attempts` visible to
   `journalctl -u cloudflare-warp-connect -p err`. Each attempt with neither a
-  fresh confirmation nor a same-run confirmation uncontradicted by a later
-  successful mismatch instead logs `registration check failed (exit <n>)`,
+  fresh confirmation nor an unanswered probe after a same-run confirmation with
+  no pending empty-answer hold or retained mismatch instead logs
+  `registration check failed (exit <n>)`,
   `managed Zero Trust registration unavailable`, or `managed enrollment is not ready; not connecting`
   at `<4>`, as do `status command failed` and `connect request failed`, which carry the daemon's
   own reason for refusing a call: the daemon IPC socket and the managed registration settle at
   different times, so a healthy boot emits several of these before the run ends confirmed and
   connected. An answer naming no organization logs
   `registration check returned no organization; not treating it as a mismatch yet` at `<4>` rather
-  than counting as a mismatch during the first empty answers of a warm-up or, once this run has
-  confirmed the managed organization, during a later empty answer while no conclusive mismatch
-  remains. That line covers a warm-up state and a suppressed teardown alike. A retained mismatch
-  prevents a later empty answer from reopening the hold, so a connected tunnel returns to mismatch
-  handling and cleanup is attempted. A failed registration check does not clear
-  either preserved state: a prior confirmation can retry a refused connection if
-  no mismatch is retained, while a prior mismatch keeps its attempt and deadline
-  budget for a fresh response to retry cleanup. A later empty response can still
-  reach mismatch and disconnect a consumer tunnel. A tunnel found up during the
+  than counting as a mismatch during the first three successful empty answers
+  after startup or a fresh confirmation. A fresh confirmation resets that
+  readiness window. A retained mismatch prevents a later empty answer from
+  reopening the hold, so a connected tunnel returns to mismatch handling and
+  cleanup is attempted. A failed registration check does not clear either
+  preserved state: an unanswered probe can retry a refused connection after a
+  prior confirmation only when no empty-response hold or mismatch is retained,
+  while a prior mismatch keeps its attempt and deadline budget for a fresh response
+  to retry cleanup. A fourth successful empty response reaches mismatch and can
+  disconnect a consumer tunnel. A tunnel found up during the
   hold logs `tunnel is up while the registration is still settling` at `<4>`,
   recording that teardown is deferred rather than that registration was verified.
   If the daemon remains unavailable after an empty answer, the existing 30-attempt

@@ -363,8 +363,9 @@
                   && lib.length confirmationGuardParts == 2
                   && lib.hasInfix ''registration_state="confirmed"'' confirmationArm
                   && lib.hasInfix "confirmed_once=1" confirmationArm
+                  && lib.hasInfix "empty_answers=0" confirmationArm
                 )
-                "apps/cloudflare-warp-module-eval: managed confirmation must require a nonempty configured organization";
+                "apps/cloudflare-warp-module-eval: managed confirmation must require a nonempty configured organization and reset the empty-response window";
             # Recoverable diagnostics include the normal readiness states, so
             # logging them at <3> would make `journalctl -p err` report a good
             # boot as broken. Reserve <3> for states the run cannot recover from
@@ -399,11 +400,11 @@
               let
                 parts = lib.splitString "warp-cli --accept-tos connect" enrolledConnectScript;
                 beforeConnect = lib.head parts;
-                connectGate = ''if [ "$registration_state" = "confirmed" ] || { [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; }; then'';
+                connectGate = ''if [ "$registration_state" = "confirmed" ] || { [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ] && [ -z "$held_empty" ]; }; then'';
                 gateParts = lib.splitString connectGate beforeConnect;
               in
               lib.assertMsg (lib.length parts == 2 && lib.length gateParts == 2)
-                "apps/cloudflare-warp-module-eval: enrolled connect script must gate connect on a current or uncontradicted same-run managed confirmation";
+                "apps/cloudflare-warp-module-eval: enrolled connect script must gate connect on a current confirmation or an unanswered same-run confirmation";
             # An unanswered registration check must not be treated as an
             # unmanaged tunnel, so the disconnect belongs to the mismatch branch
             # alone. The length guard keeps a renamed marker from degrading this
@@ -466,7 +467,7 @@
                 confirmationGuardParts = lib.splitString confirmationGuard registrationBlock;
                 confirmedParts = lib.splitString ''registration_state="confirmed"'' registrationBlock;
                 confirmedArm = lib.head (lib.splitString ''elif [ -z "$registration" ]'' (lib.last confirmedParts));
-                emptyAnswerParts = lib.splitString ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' registrationBlock;
+                emptyAnswerParts = lib.splitString ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && [ "$empty_answers" -lt 3 ]; then'' registrationBlock;
                 emptyAnswerArm = lib.head (
                   lib.splitString ''registration_state="mismatch"'' (lib.last emptyAnswerParts)
                 );
@@ -479,7 +480,7 @@
                     lib.last (lib.splitString "refresh_status() {" enrolledConnectScript)
                   )
                 );
-                confirmedOnceParts = lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then'' refreshStatusBlock;
+                confirmedOnceParts = lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ] && [ -z "$held_empty" ]; then'' refreshStatusBlock;
                 confirmedOnceArm = lib.head (
                   lib.splitString ''elif [ -n "$held_empty" ]; then'' (lib.last confirmedOnceParts)
                 );
@@ -569,10 +570,10 @@
                 && lib.hasInfix "[ \"$unverified\" -lt 3 ]" enrolledConnectScript
               )
               "apps/cloudflare-warp-module-eval: enrolled connect script must stop retrying once an ordinary live tunnel is unverifiable";
-            # The counter must not run against a run that already read the
-            # managed organization: the value cannot change mid-run, and that
-            # read is what allowed connect, so counting it would end a healthy
-            # run early and then report it as never verified.
+            # A fresh confirmation resets the empty-response window. Every
+            # successful empty response then consumes that bounded window, while
+            # an unanswered query preserves a prior confirmation when no hold is
+            # pending.
             assert
               let
                 initBlock = lib.head (lib.splitString "refresh_registration() {" enrolledConnectScript);
@@ -584,7 +585,7 @@
                 emptyAnswerArm = lib.head (
                   lib.splitString ''registration_state="mismatch"'' (
                     lib.last (
-                      lib.splitString ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' enrolledConnectScript
+                      lib.splitString ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && [ "$empty_answers" -lt 3 ]; then'' enrolledConnectScript
                     )
                   )
                 );
@@ -593,7 +594,7 @@
                 confirmationGuardParts = lib.splitString confirmationGuard enrolledConnectScript;
                 failedCheckRegion = lib.head (lib.splitString confirmationGuard (lib.last failedCheckParts));
                 guarded = lib.last (
-                  lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then'' enrolledConnectScript
+                  lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ] && [ -z "$held_empty" ]; then'' enrolledConnectScript
                 );
                 counted = lib.head (lib.splitString "unverified=$((unverified + 1))" guarded);
                 heldEmptyAndUnverifiedArms = lib.head (
@@ -608,10 +609,10 @@
                   # first live tunnel this run never confirmed, which is a
                   # consumer-WARP tunnel reported as a healthy managed one.
                   lib.hasInfix ''confirmed_once=""'' initBlock
-                  # mismatch is the state that disconnects, so an empty answer
-                  # routes to unknown after confirmation only while no retained
-                  # mismatch keeps it on the enforcement path.
-                  && lib.hasInfix ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' confirmedArm
+                  # mismatch is the state that disconnects, so every successful
+                  # empty answer consumes the bounded readiness window unless a
+                  # retained mismatch keeps it on the enforcement path.
+                  && lib.hasInfix ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && [ "$empty_answers" -lt 3 ]; then'' confirmedArm
                   # The condition alone is not enough: reverting the body to
                   # mismatch just moves the first occurrence inside this arm.
                   && lib.hasInfix ''registration_state="unknown"'' emptyAnswerArm
@@ -619,6 +620,7 @@
                   # deleting its increment, or seeding it past the bound, would
                   # make the branch permanent or dead respectively.
                   && lib.hasInfix "empty_answers=0" initBlock
+                  && lib.hasInfix "empty_answers=0" confirmedArm
                   && lib.hasInfix "empty_answers=$((empty_answers + 1))" emptyAnswerArm
                   # held_empty must start clear and be produced by the empty-answer
                   # branch. A truthy seed suppresses accounting in unrelated unknown
@@ -646,11 +648,12 @@
                   # readiness window closes, so the mismatch that tears down a
                   # registration-less tunnel could never fire.
                   && lib.hasInfix ''elif [ -n "$held_empty" ]; then'' counted
-                  # A clean confirmation, held empty answer, or retained mismatch
-                  # each suppresses the ordinary count for distinct reasons.
+                  # A same-run confirmation after an unanswered check, held empty
+                  # answer, or retained mismatch each suppresses the ordinary
+                  # count for distinct reasons.
                   &&
                     lib.length (
-                      lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then'' enrolledConnectScript
+                      lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ] && [ -z "$held_empty" ]; then'' enrolledConnectScript
                     ) == 2
                   && lib.hasInfix "else" counted
                   # Neither unverified path can complete successfully. A held
