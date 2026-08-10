@@ -386,7 +386,8 @@
                 "apps/cloudflare-warp-module-eval: enrolled connect script must disconnect only on a confirmed registration mismatch";
             # unverified is never reset, so testing it in the terminal report
             # would let one early unanswered check on a leftover tunnel outrank
-            # a live mismatch, or claim a tunnel is up after it was torn down.
+            # a conclusive mismatch, or claim a tunnel is up after it was torn
+            # down.
             assert
               let
                 parts = lib.splitString "if [ -z \"$connected\" ]; then" enrolledConnectScript;
@@ -395,26 +396,69 @@
               lib.assertMsg
                 (
                   lib.length parts > 1
-                  && lib.hasInfix "if [ \"$registration_state\" = \"mismatch\" ]; then" terminalReport
+                  && lib.hasInfix "if [ \"$registration_state\" = \"mismatch\" ] || [ -n \"$mismatch_kind\" ]; then" terminalReport
                   && !lib.hasInfix "\"$unverified\"" terminalReport
                 )
-                "apps/cloudflare-warp-module-eval: the terminal report must branch on the live registration and status, not the cumulative unverified counter";
+                "apps/cloudflare-warp-module-eval: the terminal report must retain a conclusive mismatch without using the cumulative unverified counter";
             # The assertion above still passes if the two mismatch sub-cases
             # collapse back into one line, and they carry different remediation:
             # an empty answer is an enrollment that never completed.
             assert
               let
-                parts = lib.splitString "if [ \"$registration_state\" = \"mismatch\" ]; then" enrolledConnectScript;
+                parts = lib.splitString ''if [ "$registration_state" = "mismatch" ] || [ -n "$mismatch_kind" ]; then'' enrolledConnectScript;
                 mismatchReport = lib.last parts;
               in
               lib.assertMsg
                 (
                   lib.length parts > 1
-                  && lib.hasInfix "if [ -z \"$registration\" ]; then" mismatchReport
+                  && lib.hasInfix "if [ \"$mismatch_kind\" = \"empty\" ]; then" mismatchReport
+                  && !lib.hasInfix "\"$registration\"" mismatchReport
                   && lib.hasInfix "daemon reports no Zero Trust registration" mismatchReport
                   && lib.hasInfix "daemon is registered outside the managed organization" mismatchReport
                 )
-                "apps/cloudflare-warp-module-eval: the terminal mismatch report must separate an empty registration from a foreign tenant";
+                "apps/cloudflare-warp-module-eval: the terminal mismatch report must use retained classification to separate an empty registration from a foreign tenant";
+            # A later failed query clears the volatile registration result. It
+            # cannot erase a conclusive mismatch diagnostic, but this marker
+            # must not enter refresh_status and become stale disconnect evidence.
+            assert
+              let
+                registrationParts = lib.splitString "refresh_registration() {" enrolledConnectScript;
+                registrationBlock = lib.head (lib.splitString "refresh_status() {" (lib.last registrationParts));
+                initBlock = lib.head registrationParts;
+                confirmedParts = lib.splitString ''registration_state="confirmed"'' registrationBlock;
+                confirmedArm = lib.head (lib.splitString ''elif [ -z "$registration" ]'' (lib.last confirmedParts));
+                emptyAnswerParts = lib.splitString ''elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' registrationBlock;
+                emptyAnswerArm = lib.head (
+                  lib.splitString ''registration_state="mismatch"'' (lib.last emptyAnswerParts)
+                );
+                mismatchParts = lib.splitString ''registration_state="mismatch"'' registrationBlock;
+                mismatchArm = lib.head (lib.splitString "refresh_status() {" (lib.last mismatchParts));
+                failedCheckParts = lib.splitString ''if [ "$registration_status" -ne 0 ]; then'' registrationBlock;
+                failedCheckRegion = lib.head (
+                  lib.splitString ''if [ "$registration" = "$managed_org" ]; then'' (lib.last failedCheckParts)
+                );
+                refreshStatusBlock = lib.head (
+                  lib.splitString ''if [ -z "$managed_org" ]; then'' (
+                    lib.last (lib.splitString "refresh_status() {" enrolledConnectScript)
+                  )
+                );
+              in
+              lib.assertMsg
+                (
+                  lib.length registrationParts == 2
+                  && lib.length confirmedParts == 2
+                  && lib.length emptyAnswerParts == 2
+                  && lib.length mismatchParts == 2
+                  && lib.length failedCheckParts == 2
+                  && lib.hasInfix ''mismatch_kind=""'' initBlock
+                  && lib.hasInfix ''mismatch_kind=""'' confirmedArm
+                  && !lib.hasInfix "mismatch_kind=" failedCheckRegion
+                  && !lib.hasInfix "mismatch_kind=" emptyAnswerArm
+                  && lib.hasInfix ''mismatch_kind="foreign"'' mismatchArm
+                  && lib.hasInfix ''mismatch_kind="empty"'' mismatchArm
+                  && !lib.hasInfix "mismatch_kind" refreshStatusBlock
+                )
+                "apps/cloudflare-warp-module-eval: a mismatch classification must persist only for terminal diagnosis until a managed confirmation clears it";
             # One call site at the top of each attempt. warp-cli connect does not
             # change the registration organization, so a second check per attempt
             # only spends IPC budget. Scoped to the loop body: a whole-script

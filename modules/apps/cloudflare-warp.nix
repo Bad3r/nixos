@@ -78,11 +78,11 @@ let
       connectScript = ''
         managed_org=""
         registration_state="unknown"
-        # Read by the terminal report. refresh_registration assigns it, but only
-        # past an early return, so initialise it here rather than relying on the
-        # loop body always running: under nounset an unset read aborts the unit
-        # on the one path whose job is to explain what went wrong.
+        # The terminal report can run after an early return, so keep its state
+        # nounset-safe. registration is volatile; mismatch_kind keeps only its
+        # last conclusive empty-or-foreign classification, not the organization.
         registration=""
+        mismatch_kind=""
         connected=""
         connect_requested=""
         confirmed_once=""
@@ -128,9 +128,8 @@ let
           registration="$(timeout -k 1s 5s warp-cli --accept-tos registration organization)" ||
             registration_status=$?
           if [ "$registration_status" -ne 0 ]; then
-            # A failed query cannot resolve a prior empty answer. Preserve that
-            # hold until a successful response confirms or mismatches, so an
-            # interleaved timeout cannot spend the unverified budget first.
+            # A failed query cannot resolve a prior empty answer or refute a
+            # conclusive mismatch. The latter remains terminal-only evidence.
             registration_state="unknown"
             echo "<4>cloudflare-warp-connect: registration check failed (exit $registration_status)"
             return
@@ -139,6 +138,7 @@ let
           if [ "$registration" = "$managed_org" ]; then
             registration_state="confirmed"
             confirmed_once=1
+            mismatch_kind=""
             held_empty=""
             echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
           elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then
@@ -156,6 +156,10 @@ let
             echo "<4>cloudflare-warp-connect: registration check returned no organization; not treating it as a mismatch yet"
           else
             registration_state="mismatch"
+            mismatch_kind="foreign"
+            if [ -z "$registration" ]; then
+              mismatch_kind="empty"
+            fi
             held_empty=""
             echo "<4>cloudflare-warp-connect: managed Zero Trust registration unavailable"
           fi
@@ -247,17 +251,18 @@ let
           fi
           sleep 1
         done
-        # Best-effort: name the state that ended the run and exit 0 so a user who
+        # Best-effort: name the terminal state and exit 0 so a user who
         # legitimately keeps WARP off does not leave the unit failed. unverified
         # is cumulative and never reset, so it cannot gate this report: one early
         # unanswered check on a leftover tunnel would outrank whatever the run
-        # actually ended on. Branch on the live registration_state and status.
+        # actually ended on. A failed later check cannot refute mismatch_kind;
+        # refresh_status never reads it, so it is diagnostic evidence only.
         if [ -z "$connected" ]; then
-          if [ "$registration_state" = "mismatch" ]; then
+          if [ "$registration_state" = "mismatch" ] || [ -n "$mismatch_kind" ]; then
             # Both sub-cases are a mismatch, but they send the operator to
             # different places: an empty answer is an enrollment that never
             # completed, not a tenant to hunt for in the dashboard.
-            if [ -z "$registration" ]; then
+            if [ "$mismatch_kind" = "empty" ]; then
               echo "<3>cloudflare-warp-connect: daemon reports no Zero Trust registration after $attempt attempts"
             else
               echo "<3>cloudflare-warp-connect: daemon is registered outside the managed organization after $attempt attempts"
