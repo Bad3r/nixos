@@ -479,6 +479,10 @@
                     )
                   )
                 );
+                failedCheckParts = lib.splitString ''if [ "$registration_status" -ne 0 ]; then'' enrolledConnectScript;
+                failedCheckRegion = lib.head (
+                  lib.splitString ''if [ "$registration" = "$managed_org" ]; then'' (lib.last failedCheckParts)
+                );
                 guarded = lib.last (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript);
                 counted = lib.head (lib.splitString "unverified=$((unverified + 1))" guarded);
               in
@@ -505,6 +509,14 @@
                   && lib.hasInfix ''held_empty=""'' initBlock
                   && lib.hasInfix "held_empty=1" emptyAnswerArm
                   && !lib.hasInfix "held_empty=1" initBlock
+                  # A failed check has no organization result, so it must preserve
+                  # an existing hold without creating one or advancing the window.
+                  && lib.length failedCheckParts == 2
+                  && lib.hasInfix ''registration_state="unknown"'' failedCheckRegion
+                  && lib.hasInfix "registration check failed" failedCheckRegion
+                  && lib.hasInfix "return" failedCheckRegion
+                  && !lib.hasInfix "held_empty=" failedCheckRegion
+                  && !lib.hasInfix "empty_answers=" failedCheckRegion
                   && !lib.hasInfix "confirmed_once=1" initBlock
                   && lib.hasInfix "confirmed_once=1" confirmedArm
                   # confirmedArm reaches mismatch and therefore spans the empty-answer
@@ -520,7 +532,7 @@
                   && lib.length (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript) == 2
                   && lib.hasInfix "else" counted
                 )
-                "apps/cloudflare-warp-module-eval: readiness flags must start empty, remain in their state arms, route empty answers to unknown, and gate the unverified count";
+                "apps/cloudflare-warp-module-eval: readiness flags must start empty, stay in their state arms, preserve an empty-answer hold across failed checks, and gate unverified count";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;

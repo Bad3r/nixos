@@ -128,8 +128,10 @@ let
           registration="$(timeout -k 1s 5s warp-cli --accept-tos registration organization)" ||
             registration_status=$?
           if [ "$registration_status" -ne 0 ]; then
+            # A failed query cannot resolve a prior empty answer. Preserve that
+            # hold until a successful response confirms or mismatches, so an
+            # interleaved timeout cannot spend the unverified budget first.
             registration_state="unknown"
-            held_empty=""
             echo "<4>cloudflare-warp-connect: registration check failed (exit $registration_status)"
             return
           fi
@@ -195,10 +197,10 @@ let
                     echo "cloudflare-warp-connect: tunnel is up on a registration this run already confirmed"
                     connected=1
                   elif [ -n "$held_empty" ]; then
-                    # Deliberately held, and already counted by empty_answers.
-                    # Counting it here too would break the loop on the same
-                    # attempt the readiness window closes, so the mismatch that
-                    # tears down a registration-less tunnel would never fire.
+                    # A successful empty answer opened this hold. A later failed
+                    # query has no organization result to resolve it, so only
+                    # empty_answers accounts for it. Counting it here too would
+                    # pre-empt the mismatch that tears down a consumer tunnel.
                     echo "<4>cloudflare-warp-connect: tunnel is up while the registration is still settling"
                   else
                     echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"
@@ -222,10 +224,10 @@ let
         fi
 
         # The daemon IPC socket and mdm.xml registration can settle at different
-        # times, so poll both during the bounded readiness window. Two terminal
-        # states end the run: a verified managed tunnel, and a live tunnel whose
-        # registration went unanswered three times, where nothing is left to
-        # request and the tunnel stays up.
+        # times, so poll both during the bounded readiness window. A verified
+        # managed tunnel ends early. Without a pending empty-answer hold, three
+        # unanswered checks against a live tunnel also end the run. A hold stays
+        # until a successful registration response resolves it, or a bound ends it.
         while [ -z "$connected" ] && [ "$unverified" -lt 3 ] && [ "$attempt" -lt 30 ] && [ "$SECONDS" -lt "$deadline" ]; do
           attempt=$((attempt + 1))
           refresh_registration
