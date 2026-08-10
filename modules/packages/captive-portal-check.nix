@@ -466,6 +466,13 @@
               rc=$(run --restore)
               [ "$rc" -eq 0 ] || fail "--restore must succeed for a saved false (exit $rc)"
               ! restored || fail "a saved CorpDNS false must not be turned on"
+              # The branch was pinned and the message was not, so it drifted:
+              # this run reported DNS as handed back on the one path that
+              # deliberately does not hand it back.
+              ! grep -q 'DNS returned to Tailscale' "$work/err" ||
+                fail "a saved CorpDNS false must not be reported as DNS handed back"
+              grep -q 'so it was left off' "$work/err" ||
+                fail "a saved CorpDNS false must say DNS was left off"
             )
 
             # Nothing declared an operator user for tailscaled, so the release is

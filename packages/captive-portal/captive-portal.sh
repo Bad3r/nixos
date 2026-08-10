@@ -423,7 +423,7 @@ apply_saved_prefs() {
 }
 
 restore_dns() {
-  local corp_dns=true want_running=false saved_corp="" saved_want="" rc=0
+  local corp_dns=true want_running=false saved_corp="" saved_want="" rc=0 dns_outcome=""
   # An unreadable or truncated state file must not abort the run and must not
   # decide that DNS stays off, so CorpDNS falls back to restoring Tailscale DNS.
   # WantRunning gets no such fallback: with no snapshot there is no evidence the
@@ -440,16 +440,26 @@ restore_dns() {
     note "DNS is still released; rerun once that is fixed: captive-portal --restore"
     exit 4
   fi
-  # DNS is back from here on, whatever became of the run state, so the reload it
-  # needs still has to run and the interrupt reminder has to stand down.
+  # The DNS half is settled from here on, whether that meant handing it back or
+  # leaving it as the snapshot found it, so the reload it needs still has to run
+  # and the interrupt reminder has to stand down.
   reload_nm_dns
   dns_released=0
+  # apply_saved_prefs skips the DNS write for a saved false, correctly, since
+  # that was the host's state. Reporting it as handed back anyway told the user
+  # the release was undone on the one run where it deliberately was not, and this
+  # is the line they read to decide exactly that.
+  if [ "$corp_dns" = "true" ]; then
+    dns_outcome="DNS returned to Tailscale"
+  else
+    dns_outcome="the snapshot recorded Tailscale DNS as already off, so it was left off"
+  fi
   if [ "$rc" -ne 0 ]; then
     # Not the operator wall: that gate had already passed the DNS write above,
     # and apply_saved_prefs has already named which half of the run state failed.
     # The snapshot stays because it is the only record that this node was up.
-    note "DNS returned to Tailscale, but the node's run state was not restored"
-    note "start it with 'tailscale up', or rerun once that is fixed: captive-portal --restore"
+    note "$dns_outcome"
+    note "the node's run state was not restored; start it with 'tailscale up', or rerun: captive-portal --restore"
     exit 4
   fi
   # save_prefs keeps the first snapshot of a session, so one left behind here is
@@ -460,7 +470,7 @@ restore_dns() {
   if ! rm -f "$state_file"; then
     note "could not remove $state_file; delete it, or the next run will replay it"
   fi
-  note "DNS returned to Tailscale"
+  note "$dns_outcome"
   show_resolvers
 }
 
