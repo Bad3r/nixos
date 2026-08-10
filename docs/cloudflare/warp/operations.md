@@ -165,7 +165,14 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
 
   `systemctl restart cloudflare-warp-connect.service`
 
-  after enrollment is ready.
+  after enrollment is ready. The oneshot runs once per boot and does not retry
+  after its 120-second window closes: it exits 0, `RemainAfterExit` leaves it
+  `active (exited)`, and `autoConnect = 0` means `warp-svc` never self-connects.
+  A first enrollment slower than that window, behind a captive portal or on a
+  slow first token exchange, therefore ends on `connect never succeeded` and the
+  host stays untunneled until this restart or the next boot. There is
+  deliberately no retry timer: one would also reconnect a tunnel the user had
+  disconnected on purpose, which is what `autoConnect = 0` exists to prevent.
 
 - **No connectivity with strict rp_filter.** The shared `hosts-common`
   `vpn-defaults` module sets `networking.firewall.checkReversePath = "loose"`
