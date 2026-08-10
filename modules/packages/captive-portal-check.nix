@@ -45,6 +45,18 @@
           # user, and it is per-subcommand because a failing `up` must not be
           # allowed to look like a failing `set`.
           tailscaleStub = pkgs.writeShellScriptBin "tailscale" ''
+            # TS_PREFS_STATE, when set, makes `debug prefs` answer from what
+            # up/down/set did earlier in the same run rather than from a static
+            # env var. Without it no scenario can express the transition --down
+            # depends on: stop the node, find the network clean, start it again,
+            # all inside one invocation. Scenarios that leave it unset behave
+            # exactly as before.
+            prefs="''${TS_PREFS_STATE-}"
+            corp="''${TS_CORP_DNS-true}"
+            want="''${TS_WANT_RUNNING-true}"
+            if [ -n "$prefs" ] && [ -s "$prefs" ]; then
+              read -r corp want <"$prefs"
+            fi
             if [ "$*" = "debug prefs" ]; then
               # TS_PREFS_FAIL is the read half of TS_FAIL_STATE: tailscaled
               # answering is not guaranteed either, and a reader that treated a
@@ -52,14 +64,22 @@
               if [ -n "''${TS_PREFS_FAIL-}" ]; then
                 exit 1
               fi
-              printf '{"CorpDNS":%s,"WantRunning":%s}\n' \
-                "''${TS_CORP_DNS-true}" "''${TS_WANT_RUNNING-true}"
+              printf '{"CorpDNS":%s,"WantRunning":%s}\n' "$corp" "$want"
               exit 0
             fi
             printf 'tailscale %s\n' "$*" >>"$CP_LOG"
             case " ''${TS_FAIL_STATE-} " in
             *" $1 "*) exit 1 ;;
             esac
+            case "$*" in
+            "down") want=false ;;
+            "up") want=true ;;
+            "set --accept-dns=false") corp=false ;;
+            "set --accept-dns=true") corp=true ;;
+            esac
+            if [ -n "$prefs" ]; then
+              printf '%s %s\n' "$corp" "$want" >"$prefs"
+            fi
           '';
 
           # NM_FAIL is a status rather than a flag because the guard's wording
@@ -255,7 +275,7 @@
             }
 
             reset() {
-              rm -f "$state" "$work/log"
+              rm -f "$state" "$work/log" "$work/prefs"
               : >"$work/log"
             }
 
@@ -953,16 +973,25 @@
               [ ! -e "$state" ] || fail "a completed restore must consume the snapshot"
             )
 
-            # --down on a network that turns out clean. Stopping the node is the
-            # whole of what --down changes: adding an accept-dns release on top
-            # would be a second undo for --restore to get wrong.
+            # --down on a network that turns out clean, which is the one run
+            # that stops the node and has to start it again inside the same
+            # invocation. TS_PREFS_STATE is what makes that expressible: the
+            # `debug prefs` read in apply_saved_prefs sees what `tailscale down`
+            # did a moment earlier rather than a static env var, which is what a
+            # real tailscaled would answer. Without it the `up` was skipped and
+            # nothing noticed, so breaking that branch left the node stopped and
+            # the run still reported exit 1.
             (
               reset
-              rc=$(run --no-open --down)
+              rc=$(TS_PREFS_STATE="$work/prefs" run --no-open --down)
               [ "$rc" -eq 1 ] || fail "--down on a clean network must exit 1 (exit $rc)"
               grep -qxF 'tailscale down' "$work/log" ||
                 fail "--down must stop the node rather than release DNS"
               ! released || fail "--down must not also set accept-dns=false"
+              grep -qxF 'tailscale up' "$work/log" ||
+                fail "a clean network must start the node --down stopped"
+              restored || fail "the release must be undone alongside the restart"
+              [ ! -e "$state" ] || fail "a completed restore must consume the snapshot"
             )
 
             # A portal that redirects rather than serving its page inline. Neither
