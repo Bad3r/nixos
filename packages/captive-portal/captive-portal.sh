@@ -20,7 +20,19 @@ stop_tailscale=0
 dns_released=0
 prefs_snapshot_created=0
 
-state_dir="${XDG_RUNTIME_DIR:-/run/user/$(id -u)}/captive-portal"
+# sudo-rs enforces env_reset with no opt-out and modules/hosts/common/sudo.nix
+# keeps only SSH_AUTH_SOCK, so XDG_RUNTIME_DIR is gone under sudo. Falling back
+# to root's own /run/user/0 there put a `sudo captive-portal` snapshot somewhere
+# a later plain --restore never looked, and that run then treated a released host
+# as one that had never been touched. SUDO_UID survives the reset, so both sides
+# name one directory. It is trusted only where logind has already made that
+# directory: inventing a runtime root for a user with no session is not a job
+# this script should take on, and a user with no session has no browser either.
+runtime_dir="${XDG_RUNTIME_DIR:-}"
+if [ -z "$runtime_dir" ] && [ -n "${SUDO_UID:-}" ] && [ -d "/run/user/$SUDO_UID" ]; then
+  runtime_dir="/run/user/$SUDO_UID"
+fi
+state_dir="${runtime_dir:-/run/user/$(id -u)}/captive-portal"
 state_file="$state_dir/tailscale-prefs"
 
 body_file=""
@@ -247,6 +259,17 @@ probe_portal() {
   return 3
 }
 
+# Root wrote the snapshot into the invoking user's runtime directory, so it has
+# to change hands with it: a plain --restore can read a root-owned snapshot but
+# not unlink it, and rm -f reports that EACCES rather than swallowing it.
+hand_state_to_invoker() {
+  if [ "$(id -u)" -ne 0 ] || [ -z "${SUDO_UID:-}" ]; then
+    return 0
+  fi
+  chown "$SUDO_UID:${SUDO_GID:-$SUDO_UID}" "$state_dir" "$state_file" ||
+    note "the snapshot stays owned by root; run the restore under sudo too: sudo captive-portal --restore"
+}
+
 # The snapshot must survive a retry: a second login run after a failed sign-in
 # would otherwise record the already-released prefs as the originals, and
 # --restore would then replay --accept-dns=false as if that were the user's
@@ -268,6 +291,7 @@ save_prefs() {
   tmp="$(mktemp "$state_file.XXXXXX")"
   printf '%s\n' "$prefs" >"$tmp"
   mv "$tmp" "$state_file"
+  hand_state_to_invoker
   prefs_snapshot_created=1
 }
 

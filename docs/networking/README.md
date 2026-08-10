@@ -387,7 +387,15 @@ tailscale debug prefs | jq -r .OperatorUser
 
 An empty answer means only root can change DNS: the helper stops with status 4
 before it changes anything rather than stranding a half-finished release, and
-`sudo` is the workaround until the next switch applies the pref.
+`sudo` is the workaround until the next switch applies the pref. One thing still
+changes under it. `sudo-rs` enforces `env_reset` with no opt-out and
+`modules/hosts/common/sudo.nix` keeps only `SSH_AUTH_SOCK`, so root inherits no
+`DISPLAY`, no Wayland socket and no session bus: the backgrounded `xdg-open`
+cannot reach your browser and fails silently. Pass `--no-open` and open the URL
+yourself, which is printed either way. The snapshot does follow you: the same
+reset drops `XDG_RUNTIME_DIR`, so the helper falls back to `SUDO_UID`'s runtime
+directory rather than root's, and a plain `captive-portal --restore` afterwards
+finds what the `sudo` run saved.
 
 Only the portal URL goes to stdout; every diagnostic goes to stderr, and the
 exit status names the outcome, so a wrapper can act on it:

@@ -24,6 +24,13 @@
   between releasing DNS and probing for the portal. One scenario asserts the
   message it prints instead, so the guard has a test that names it rather than
   only an environment that happens to exercise it.
+
+  Two branches stay out of reach here. The builder is uid 1000 and /run is not
+  writable, so neither the SUDO_UID fallback for the state directory nor the
+  chown that hands the snapshot back to the invoking user can run: both need a
+  root process and a /run/user/<uid> that logind made. What is asserted is the
+  precedence between them, that an explicit XDG_RUNTIME_DIR still outranks
+  SUDO_UID, which is the half a regression would reach every ordinary run.
 */
 {
   perSystem =
@@ -355,6 +362,19 @@
               rc=$(TS_CORP_DNS=false run --restore)
               [ "$rc" -eq 0 ] || fail "--restore must succeed after a retry (exit $rc)"
               restored || fail "--restore after a retry must hand DNS back"
+            )
+
+            # SUDO_UID names the state directory only because the sudo env reset
+            # took XDG_RUNTIME_DIR away with it. A runtime directory the caller
+            # set is the caller's answer and has to outrank it, or a `sudo -E`
+            # run would write where the session that exported it never looks.
+            (
+              reset
+              export SUDO_UID=12345 SUDO_GID=12345
+              export AP_STATUS=200 AP_BODY='<html><a href="http://portal.lan/">x</a></html>'
+              rc=$(run --no-open)
+              [ "$rc" -eq 0 ] || fail "SUDO_UID must not change a detected portal (exit $rc)"
+              [ -s "$state" ] || fail "an explicit XDG_RUNTIME_DIR must outrank SUDO_UID"
             )
 
             # A snapshot truncated by a failed `tailscale debug prefs` used to
