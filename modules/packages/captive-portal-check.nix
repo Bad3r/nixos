@@ -982,10 +982,10 @@
                 fail "a 511 with no link must fall back to the answering address"
             )
 
-            # The scratch file for the probe payload is created after login mode
-            # has already released DNS. Unguarded, mktemp's own 1 came back as
-            # this script's "no portal", with nothing on screen saying so and the
-            # release left standing.
+            # The scratch file is created before the release, so a full or
+            # read-only TMPDIR cannot reach a point where DNS has been handed
+            # over: mktemp's own 1, which this script documents as "no portal",
+            # used to end the run there with the release standing.
             (
               reset
               tmp_denied="$work/denied-tmp"
@@ -994,8 +994,7 @@
               rc=$(TMPDIR="$tmp_denied" run --no-open)
               chmod 700 "$tmp_denied"
               [ "$rc" -eq 4 ] || fail "a scratch file that cannot be created must exit 4 (exit $rc)"
-              released || fail "login mode releases DNS before the probe runs"
-              restored || fail "a failed scratch file must not strand the release"
+              ! released || fail "a run that cannot even hold the payload must not release DNS"
               grep -q '^captive-portal: could not create a scratch file' "$work/err" ||
                 fail "the run must say the scratch file could not be created"
             )

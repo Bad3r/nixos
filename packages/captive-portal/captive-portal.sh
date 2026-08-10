@@ -649,12 +649,6 @@ fi
 
 note "device $device, access-point resolver $resolver, gateway ${gateway:-unknown}"
 
-if [ "$mode" = login ]; then
-  release_dns
-  note "system resolvers now:"
-  show_resolvers
-fi
-
 portal=""
 probe_status=0
 # The scratch file is created here rather than in probe_portal because the
@@ -663,16 +657,22 @@ probe_status=0
 # it, so a body_file created inside was invisible to cleanup and every run left
 # the page it had fetched behind. Created in the shell that owns the trap, the
 # sweep already written above covers it on every exit and on a signal.
+#
+# It is created before the release rather than after, so mktemp's own 1, which
+# this script documents as "no portal", cannot reach a point where DNS has
+# already been handed back to the local resolver. Nothing between here and the
+# probe needs the release, so there is nothing to undo on this path.
 if ! body_file="$(mktemp)"; then
-  # Unguarded, mktemp's own 1 came back as this script's "no portal", from a
-  # point login mode has already released DNS: errexit killed the run with
-  # mktemp's error the only thing on screen, no reminder, and no restore.
   note "could not create a scratch file for the probe payload"
-  if [ "$mode" = login ]; then
-    restore_dns
-  fi
   exit 4
 fi
+
+if [ "$mode" = login ]; then
+  release_dns
+  note "system resolvers now:"
+  show_resolvers
+fi
+
 portal="$(probe_portal "$resolver" "$gateway")" || probe_status=$?
 
 # Every exit from here on is one of the documented statuses, and each one that
