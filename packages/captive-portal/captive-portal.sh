@@ -210,6 +210,27 @@ is_private_v4() {
   esac
 }
 
+# Pull the first absolute URL the named attributes point at out of $body_file.
+#
+# The names are anchored on line start, `;`, or whitespace, so each is the whole
+# attribute rather than the tail of a longer one or a fragment of a query
+# string: unanchored, `data-href=` and `?href=` matched, and a tracker URL ahead
+# of the form won. The anchor still admits `<form action=`, `<a href=`, an
+# attribute at the start of a wrapped line, and a meta refresh's
+# `content="0; url=..."` with or without the space. `formaction` has to be named
+# wherever it is wanted, its `action` being preceded by `m`.
+#
+# w3.org is dropped even from a real href, because a "Valid XHTML" badge is the
+# one absolute link some portal pages carry beside a relative form. The pattern
+# needs the leading dot optional and the trailing slash relaxed, or
+# `http://w3.org/TR/...` and `http://www.w3.org` walk past it.
+extract_url() {
+  grep -oiE '(^|[;[:space:]])('"$1"')=["'"'"']?https?://[^"'"'"'<>[:space:]]+' "$body_file" |
+    grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
+    grep -viE '^https?://([^/]*\.)?w3\.org([/:?]|$)' |
+    head -1 || true
+}
+
 # A portal that hijacks DNS answers public names with an address it controls, and
 # one that intercepts HTTP replaces the probe payload or 302s away from it. Both
 # reveal the sign-in URL. The return values are the script's own exit statuses:
@@ -324,30 +345,16 @@ probe_portal() {
         [ "$(wc -c <"$body_file")" -le 256 ] && grep -qF "$expect" "$body_file"; then
         host_clean=1
       else
-        # The first absolute URL in a page is usually not the sign-in target. An
-        # intercepted page served as XHTML opens with the w3.org DTD in its
-        # DOCTYPE, and a CDN script tag sits above the form on plenty of others,
-        # so matching anywhere in the body opened w3.org or googleapis while the
-        # form went unseen. Only what a link, form or meta refresh points at
-        # counts, and w3.org is dropped even there, because a "Valid XHTML"
-        # badge is the one href some portal pages carry besides a relative form.
-        # Finding nothing is the good outcome then: the caller falls back to the
-        # address that answered the hijacked lookup, which is at least the host
-        # serving the page.
-        # Every attribute name is anchored on line start, `;`, or whitespace, so
-        # each is the whole attribute rather than the tail of a longer one or a
-        # fragment of a query string: unanchored, `data-href=` and `?href=` both
-        # matched, and since grep -o emits in positional order a tracker URL
-        # ahead of the form won. The anchor still admits `<form action=`,
-        # `<a href=`, an attribute at the start of a wrapped line, and a meta
-        # refresh's `content="0; url=..."` with or without the space.
-        # `formaction` is named because anchoring would otherwise drop it, its
-        # `action` being preceded by `m`. The w3.org pattern needs the leading
-        # dot optional and the trailing slash relaxed, or `http://w3.org/TR/...`
-        # and `http://www.w3.org` walk past it.
-        found="$(grep -oiE '(^|[;[:space:]])(formaction|href|action|url)=["'"'"']?https?://[^"'"'"'<>[:space:]]+' "$body_file" |
-          grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
-          grep -viE '^https?://([^/]*\.)?w3\.org([/:?]|$)' | head -1 || true)"
+        # A submit target outranks any other link on the page. One pass over all
+        # four attribute names cannot tell a stylesheet or preconnect hint in
+        # <head> from the sign-in link, and grep -o emits in positional order, so
+        # a CDN <link href> ahead of the form won. Finding nothing in either tier
+        # is the good outcome: the caller falls back to the address that answered
+        # the hijacked lookup, which is at least the host serving the page.
+        found="$(extract_url 'formaction|action')"
+        if [ -z "$found" ]; then
+          found="$(extract_url 'href|url')"
+        fi
         printf '%s\n' "${found:-http://$answer}"
         return 0
       fi

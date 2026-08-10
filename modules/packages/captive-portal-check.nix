@@ -526,6 +526,19 @@
               )
             done
 
+            # A stylesheet or preconnect hint reached through a real href sits
+            # ahead of the form in <head> on plenty of portal pages, and one pass
+            # over every attribute name cannot tell it from the sign-in link.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><head><link rel="stylesheet" href="http://cdn.example.com/style.css"></head><body><form action="http://portal.lan/login"></form><p>Padded past the bound the clean test applies, so this page is judged as the interception page it stands for.</p></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a page with a stylesheet ahead of the form is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/login" ] ||
+                fail "a stylesheet href must not beat the form target, got '$(cat "$work/out")'"
+            )
+
             # The mirror image. Reaching the hijack check is not the same as
             # being a hijack: a canary that never answered, from an address that
             # is nobody's LAN, has to end in the gateway guess instead. 127.0.0.1
