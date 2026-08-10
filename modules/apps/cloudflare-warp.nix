@@ -78,9 +78,10 @@ let
       connectScript = ''
         managed_org=""
         registration_state="unknown"
-        # The terminal report and stale-confirmation guard can run after an
-        # early return, so keep their state nounset-safe. mismatch_kind keeps
-        # only its last conclusive empty-or-foreign classification.
+        # The terminal report, stale-confirmation guard, and readiness gate can
+        # run after an early return, so keep their state nounset-safe.
+        # mismatch_kind keeps only its last conclusive empty-or-foreign
+        # classification.
         registration=""
         mismatch_kind=""
         connected=""
@@ -129,7 +130,8 @@ let
             registration_status=$?
           if [ "$registration_status" -ne 0 ]; then
             # A failed query cannot resolve a prior empty answer or refute a
-            # conclusive mismatch. The latter blocks stale acceptance only.
+            # conclusive mismatch. The latter blocks stale acceptance and a
+            # later empty answer reopening the readiness hold.
             registration_state="unknown"
             echo "<4>cloudflare-warp-connect: registration check failed (exit $registration_status)"
             return
@@ -141,15 +143,12 @@ let
             mismatch_kind=""
             held_empty=""
             echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
-          elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then
-            # An empty answer names no organization, so like a failed check it is
-            # missing information rather than evidence of a re-registration, and
-            # mismatch is the state that disconnects. An enrolled daemon also
-            # returns it transiently before it has loaded its registration, which
-            # a restart of this unit against a healthy tunnel hits on attempt 1,
-            # so hold the teardown through the readiness window as well as when
-            # this run already read its own organization. A non-empty foreign
-            # team is a mismatch immediately.
+          elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then
+            # An empty answer is missing readiness information until this run
+            # observes a conclusive mismatch. An enrolled daemon can return it
+            # transiently before loading its registration, including after a
+            # restart against a healthy tunnel, so hold teardown only while no
+            # mismatch remains. A foreign team stays a mismatch immediately.
             empty_answers=$((empty_answers + 1))
             registration_state="unknown"
             held_empty=1
@@ -255,7 +254,8 @@ let
         # is cumulative and never reset, so it cannot gate this report: one early
         # unanswered check on a leftover tunnel would outrank whatever the run
         # actually ended on. A failed later check cannot refute mismatch_kind.
-        # refresh_status uses it only to block stale acceptance, never teardown.
+        # It blocks stale acceptance and reopening a readiness hold, but never
+        # turns a failed query into teardown evidence.
         if [ -z "$connected" ]; then
           if [ "$registration_state" = "mismatch" ] || [ -n "$mismatch_kind" ]; then
             # Both sub-cases are a mismatch, but they send the operator to

@@ -428,7 +428,8 @@
                 "apps/cloudflare-warp-module-eval: the terminal mismatch report must use retained classification to separate an empty registration from a foreign tenant";
             # A later failed query clears the volatile registration result. It
             # cannot erase a conclusive mismatch, which blocks stale confirmed_once
-            # acceptance but must not enter the live mismatch/disconnect arm.
+            # acceptance and readiness holds but must not enter the live
+            # mismatch/disconnect arm.
             assert
               let
                 registrationParts = lib.splitString "refresh_registration() {" enrolledConnectScript;
@@ -436,7 +437,7 @@
                 initBlock = lib.head registrationParts;
                 confirmedParts = lib.splitString ''registration_state="confirmed"'' registrationBlock;
                 confirmedArm = lib.head (lib.splitString ''elif [ -z "$registration" ]'' (lib.last confirmedParts));
-                emptyAnswerParts = lib.splitString ''elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' registrationBlock;
+                emptyAnswerParts = lib.splitString ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' registrationBlock;
                 emptyAnswerArm = lib.head (
                   lib.splitString ''registration_state="mismatch"'' (lib.last emptyAnswerParts)
                 );
@@ -537,7 +538,7 @@
                 emptyAnswerArm = lib.head (
                   lib.splitString ''registration_state="mismatch"'' (
                     lib.last (
-                      lib.splitString ''elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' enrolledConnectScript
+                      lib.splitString ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' enrolledConnectScript
                     )
                   )
                 );
@@ -562,8 +563,9 @@
                   # consumer-WARP tunnel reported as a healthy managed one.
                   lib.hasInfix ''confirmed_once=""'' initBlock
                   # mismatch is the state that disconnects, so an empty answer
-                  # must route to unknown once this run confirmed, not to it.
-                  && lib.hasInfix ''elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' confirmedArm
+                  # routes to unknown after confirmation only while no retained
+                  # mismatch keeps it on the enforcement path.
+                  && lib.hasInfix ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' confirmedArm
                   # The condition alone is not enough: reverting the body to
                   # mismatch just moves the first occurrence inside this arm.
                   && lib.hasInfix ''registration_state="unknown"'' emptyAnswerArm
@@ -609,7 +611,7 @@
                   # is not confirmation of a managed tunnel.
                   && !lib.hasInfix "connected=1" heldEmptyAndUnverifiedArms
                 )
-                "apps/cloudflare-warp-module-eval: readiness flags must start empty, stay in their state arms, preserve an empty-answer hold across failed checks, and never accept an unverified tunnel";
+                "apps/cloudflare-warp-module-eval: readiness flags must start empty, stay in their state arms, preserve an empty-answer hold only without a retained mismatch, and never accept an unverified tunnel";
             {
               execStartPre = enrolled.config.systemd.services.cloudflare-warp.serviceConfig.ExecStartPre;
               templateContent = enrolled.config.sops.templates."cloudflare-warp-mdm".content;
