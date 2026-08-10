@@ -228,8 +228,9 @@ vendor-review questions rather than controls you configure:
   production or backup networks. Give the guests no route off that segment
   except the brokered egress path below, and isolate them from each other and
   from every host interface on that segment except the analysis framework's own
-  control and result channel and the brokered-egress listener on its approved
-  ports at the broker's segment-side interface, so a self-propagating sample
+  control and result channel on its approved ports and the brokered-egress
+  listener on its approved ports at the broker's segment-side interface, so a
+  self-propagating sample
   cannot reach a concurrent analysis or any other service on either host. Reach
   the management interfaces of the detonation and broker hosts only through a
   separate restricted administrative path, never from the detonation segment.
@@ -256,7 +257,8 @@ vendor-review questions rather than controls you configure:
   workload, so the guests reach it as the one permitted route off the segment
   and not through a detonation-host interface. Allow only guest-initiated flows
   and their stateful replies across the broker, and accept no unsolicited inbound
-  connection on its untrusted-side interface.
+  connection on its untrusted-side interface. Give that interface an internet
+  path that cannot route to or through production or backup networks.
 - Keep production credentials, tokens, SSH agents, and mounted shares belonging
   to systems outside the analysis environment off the detonation and broker
   hosts and every Assemblyline deployment node. Give each only role-required
@@ -282,12 +284,13 @@ vendor-review questions rather than controls you configure:
   access limited to the package-update service and repository-signature
   verification, so maintenance does not require guest egress or a
   production-network route.
-- Rebuild the detonation host from known-good media when an escape is suspected.
-  Rebuild the broker host from known-good media when an escape is suspected or
+- Rebuild the detonation host from known-good media when an escape is suspected
+  or its off-host logs or another incident signal indicates host-level
+  compromise. Rebuild the broker host from known-good media when an escape is
+  suspected or its off-host logs or another incident signal indicates host-level
+  compromise. Rebuild an Assemblyline deployment node from known-good media when
   its off-host logs or another incident signal indicates host-level compromise.
-  Rebuild an Assemblyline deployment node from known-good media when its
-  off-host logs or another incident signal indicates host-level compromise. A
-  guest snapshot revert does not restore a host the sample reached.
+  A guest snapshot revert does not restore a host the sample reached.
 - Ship hypervisor and host logs off the detonation host, egress-broker logs off
   the broker host, and Assemblyline deployment-node logs off their nodes as they
   are written. Review all of them for host-level compromise. A compromised
@@ -296,10 +299,11 @@ vendor-review questions rather than controls you configure:
   on the restricted administrative path rather than the detonation segment, give
   each shipping host its own append-only credentials to the collector, and allow
   no shipping host access to the collector beyond appending, so it cannot rewrite
-  or delete what it already sent. Reach only the collector and approved update
-  mirror from the broker host on that path: give it no route to the hypervisor
-  console, the orchestration API, or the gold-image store, because it is the one
-  self-hosted component every sample may reach.
+  or delete what it already sent.
+- On the restricted administrative path, the broker host reaches only the log
+  collector and the approved update mirror stated above. Give it no route to the
+  hypervisor console, the orchestration API, or the gold-image store, because it
+  is the one self-hosted component every sample may reach.
 - Keep guest gold images outside the detonation host's write path, and keep
   known-good rebuild media outside the write path of the detonation host, broker
   host, or Assemblyline deployment node it rebuilds.
