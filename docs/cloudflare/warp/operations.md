@@ -145,10 +145,11 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   at `<4>`, as do `status command failed` and `connect request failed`, which carry the daemon's
   own reason for refusing a call: the daemon IPC socket and the managed registration settle at
   different times, so a healthy boot emits several of these before the run ends confirmed and
-  connected. Once a run has confirmed the managed organization, a later answer naming none logs
+  connected. An answer naming no organization logs
   `registration check returned no organization; not treating it as a mismatch yet` at `<4>` rather
-  than counting as a mismatch, so that line records a suppressed teardown rather than a warm-up
-  state. `-p err` therefore stays quiet through a normal warm-up, and `-p warning` shows the
+  than counting as a mismatch, both for the first empty answers of a warm-up and, once this run has
+  confirmed the managed organization, for every later one, so that line covers a warm-up state and a
+  suppressed teardown alike. `-p err` therefore stays quiet through a normal warm-up, and `-p warning` shows the
   attempts.
   If an existing tunnel is confirmed to carry a
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
