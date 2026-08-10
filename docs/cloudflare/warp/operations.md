@@ -21,14 +21,18 @@ match permits `warp-cli connect`. A confirmed mismatch, which is what a consumer
 or still-unregistered device reports, disconnects an already connected tunnel and
 logs at error priority. A registration check that does not answer within its
 five-second cap leaves an existing tunnel up, because an unanswered check is not
-evidence of an unmanaged tunnel; after three such observations on a live tunnel
-the loop stops, since nothing is left to request. Neither an unanswered check nor an
-answer naming no organization is treated as a mismatch while the daemon may still
-be settling: an enrolled daemon returns an empty answer transiently before it has
-loaded its registration, so the first three are held, as is any empty answer once
-this run has already read the managed organization. Both are missing information
-rather than evidence of a re-registration. An answer naming a different team is a
-mismatch immediately and still disconnects. An empty, unreadable, or
+evidence of an unmanaged tunnel. With no pending empty-answer hold, three such
+observations on a live tunnel end the loop, since nothing is left to request.
+Neither an unanswered check nor an answer naming no organization is treated as a
+mismatch while the daemon may still be settling: an enrolled daemon returns an
+empty answer transiently before it has loaded its registration, so the first three
+successful empty answers are held, as is any empty answer once this run has already
+read the managed organization. A failed check cannot resolve that hold, so it stays
+in place until a later successful response confirms or mismatches. This prevents an
+interleaved timeout from spending the unverified budget before a fourth empty answer
+can disconnect a consumer tunnel. Both are missing information rather than evidence
+of a re-registration. An answer naming a different team is a mismatch immediately
+and still disconnects. An empty, unreadable, or
 whitespace-only organization secret cannot change while the unit runs, so the oneshot reports the
 current status once and exits instead of retrying a decision that can never open.
 The loop makes up to 30 attempts bounded by a 120-second deadline, with each
@@ -41,7 +45,7 @@ line rather than the unit state:
 | Final line                                                | Meaning                                                                             |
 | --------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | (none)                                                    | Managed tunnel verified and up                                                      |
-| `tunnel is up but its registration went unverified`       | Tunnel left connected; the registration check never answered                        |
+| `tunnel is up but its registration went unverified`       | Tunnel left connected; managed registration remained unverified                     |
 | `daemon reports no Zero Trust registration`               | No Teams registration; enrollment incomplete or rejected                            |
 | `daemon is registered outside the managed organization`   | Live registration belongs to another tenant                                         |
 | `tunnel is not connected after <n> attempts`              | Connect was accepted, but the tunnel never read `Connected` in the window           |
@@ -149,12 +153,18 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   `registration check returned no organization; not treating it as a mismatch yet` at `<4>` rather
   than counting as a mismatch, both for the first empty answers of a warm-up and, once this run has
   confirmed the managed organization, for every later one, so that line covers a warm-up state and a
-  suppressed teardown alike. A tunnel found up during that hold logs `tunnel is up while the registration is still settling` at `<4>`, recording that teardown is deferred rather than that registration was verified.
+  suppressed teardown alike. A failed registration check does not clear that hold:
+  it has no organization result to settle, so a later empty response can still
+  reach mismatch and disconnect a consumer tunnel. A tunnel found up during the
+  hold logs `tunnel is up while the registration is still settling` at `<4>`,
+  recording that teardown is deferred rather than that registration was verified.
+  If the daemon remains unavailable after an empty answer, the existing 30-attempt
+  or 120-second bound ends the best-effort unit instead.
   `-p err` therefore stays quiet through a normal warm-up, and `-p warning` shows the attempts.
   If an existing tunnel is confirmed to carry a
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
-  registration check itself does not answer, the tunnel is left up and the unit
-  logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty,
+  registration check itself does not answer with no active empty-answer hold, the
+  tunnel is left up and the unit logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty,
   unreadable, or whitespace-only organization secret logs `managed organization secret unavailable; cannot verify registration`, queries the daemon once so the tunnel's state is on record, then logs `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. Both of those are `<3>` lines, visible to
   `journalctl -u cloudflare-warp-connect -p err`. A registration query that does
   not answer logs `registration check failed (exit <n>)`; exit 124 is the five-second
