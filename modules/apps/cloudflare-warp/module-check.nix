@@ -5,8 +5,8 @@
   takes the un-enrolled branch. Use an in-repo non-secret fixture to force the
   managed branch and deep-force the template, secret-backed ExecStartPre,
   connect script, and warnings. A missing fixture path keeps the un-enrolled
-  assertions in the same check, and one fixture per managed-branch warning
-  trigger proves each fires with its own text.
+  assertions in the same check. Separate fixtures for independently configurable
+  managed-branch warning predicates prove each fires with its own text.
 */
 {
   lib,
@@ -98,8 +98,12 @@
           };
           # Both managed-branch warnings are conditional and CI has no secrets
           # submodule, so nothing else in this repo ever reaches their
-          # predicates. One fixture per trigger keeps the option paths behind
-          # them (networkmanager.enable/dns, firewall.checkReversePath) honest.
+          # predicates. Separate fixtures keep each independently configurable
+          # arm honest instead of letting one positive DNS arm mask another.
+          dnscryptConflict = mkNixos {
+            secretsRoot = ./cloudflare-warp-check-fixtures;
+            extraConfig.services.dnscrypt-proxy.enable = true;
+          };
           dnsConflict = mkNixos {
             secretsRoot = ./cloudflare-warp-check-fixtures;
             extraConfig.networking.networkmanager = {
@@ -603,6 +607,8 @@
             ) "apps/cloudflare-warp-module-eval: a managed host on the vpn-defaults baseline must not warn";
             assert lib.assertMsg (lib.any (lib.hasInfix "takes over DNS") dnsConflict.config.warnings)
               "apps/cloudflare-warp-module-eval: a local resolver under a DNS-owning service mode must warn";
+            assert lib.assertMsg (lib.any (lib.hasInfix "takes over DNS") dnscryptConflict.config.warnings)
+              "apps/cloudflare-warp-module-eval: dnscrypt-proxy under a DNS-owning service mode must warn";
             assert lib.assertMsg (!lib.any (lib.hasInfix "takes over DNS") staleDns.config.warnings)
               "apps/cloudflare-warp-module-eval: a stale networkmanager.dns without NetworkManager must not warn";
             assert lib.assertMsg
@@ -612,6 +618,7 @@
               (!lib.any (lib.hasInfix "checkReversePath is strict") posturePlusStrict.config.warnings)
               "apps/cloudflare-warp-module-eval: postureonly carries no traffic, so a strict checkReversePath must not warn";
             {
+              dnscryptConflict = dnscryptConflict.config.warnings;
               dnsConflict = dnsConflict.config.warnings;
               staleDns = staleDns.config.warnings;
               strictRpFilter = strictRpFilter.config.warnings;
