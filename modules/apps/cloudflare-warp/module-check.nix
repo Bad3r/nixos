@@ -340,7 +340,7 @@
                   "managed enrollment is not ready; not connecting"
                   "status command failed"
                   "connect request failed"
-                  "registration check returned no organization"
+                  "registration check returned no organization; not treating it as a mismatch yet"
                   "connected while the managed registration could not be verified"
                   "tunnel is up but its registration went unverified"
                 ]
@@ -474,7 +474,7 @@
                 emptyAnswerArm = lib.head (
                   lib.splitString ''registration_state="mismatch"'' (
                     lib.last (
-                      lib.splitString ''elif [ -z "$registration" ] && [ -n "$confirmed_once" ]; then'' enrolledConnectScript
+                      lib.splitString ''elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' enrolledConnectScript
                     )
                   )
                 );
@@ -489,7 +489,7 @@
                   lib.hasInfix ''confirmed_once=""'' initBlock
                   # mismatch is the state that disconnects, so an empty answer
                   # must route to unknown once this run confirmed, not to it.
-                  && lib.hasInfix ''elif [ -z "$registration" ] && [ -n "$confirmed_once" ]; then'' confirmedArm
+                  && lib.hasInfix ''elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' confirmedArm
                   # The condition alone is not enough: reverting the body to
                   # mismatch just moves the first occurrence inside this arm.
                   && lib.hasInfix ''registration_state="unknown"'' emptyAnswerArm

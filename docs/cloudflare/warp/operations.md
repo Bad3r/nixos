@@ -23,11 +23,12 @@ logs at error priority. A registration check that does not answer within its
 five-second cap leaves an existing tunnel up, because an unanswered check is not
 evidence of an unmanaged tunnel; after three such observations on a live tunnel
 the loop stops, since nothing is left to request. Neither an unanswered check nor an
-answer naming no organization counts against a run that already read the managed
-organization: that value cannot change mid-run, so both are missing information
-rather than evidence of a re-registration, and the read is what allowed connect
-in the first place. An answer naming a different team is still a mismatch and
-still disconnects. An empty, unreadable, or
+answer naming no organization is treated as a mismatch while the daemon may still
+be settling: an enrolled daemon returns an empty answer transiently before it has
+loaded its registration, so the first three are held, as is any empty answer once
+this run has already read the managed organization. Both are missing information
+rather than evidence of a re-registration. An answer naming a different team is a
+mismatch immediately and still disconnects. An empty, unreadable, or
 whitespace-only organization secret cannot change while the unit runs, so the oneshot reports the
 current status once and exits instead of retrying a decision that can never open.
 The loop makes up to 30 attempts bounded by a 120-second deadline, with each
@@ -145,7 +146,7 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   own reason for refusing a call: the daemon IPC socket and the managed registration settle at
   different times, so a healthy boot emits several of these before the run ends confirmed and
   connected. Once a run has confirmed the managed organization, a later answer naming none logs
-  `registration check returned no organization; keeping this run's confirmation` at `<4>` rather
+  `registration check returned no organization; not treating it as a mismatch yet` at `<4>` rather
   than counting as a mismatch, so that line records a suppressed teardown rather than a warm-up
   state. `-p err` therefore stays quiet through a normal warm-up, and `-p warning` shows the
   attempts.

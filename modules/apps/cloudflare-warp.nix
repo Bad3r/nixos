@@ -85,6 +85,7 @@ let
         connected=""
         connect_requested=""
         confirmed_once=""
+        empty_answers=0
         unverified=0
         status=""
         attempt=0
@@ -134,14 +135,18 @@ let
             registration_state="confirmed"
             confirmed_once=1
             echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
-          elif [ -z "$registration" ] && [ -n "$confirmed_once" ]; then
+          elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then
             # An empty answer names no organization, so like a failed check it is
-            # missing information rather than evidence of a re-registration. The
-            # organization cannot change mid-run, and mismatch is the state that
-            # disconnects, so this must not tear down the tunnel that this run's
-            # own confirmation allowed. A non-empty foreign team still does.
+            # missing information rather than evidence of a re-registration, and
+            # mismatch is the state that disconnects. An enrolled daemon also
+            # returns it transiently before it has loaded its registration, which
+            # a restart of this unit against a healthy tunnel hits on attempt 1,
+            # so hold the teardown through the readiness window as well as when
+            # this run already read its own organization. A non-empty foreign
+            # team is a mismatch immediately.
+            empty_answers=$((empty_answers + 1))
             registration_state="unknown"
-            echo "<4>cloudflare-warp-connect: registration check returned no organization; keeping this run's confirmation"
+            echo "<4>cloudflare-warp-connect: registration check returned no organization; not treating it as a mismatch yet"
           else
             registration_state="mismatch"
             echo "<4>cloudflare-warp-connect: managed Zero Trust registration unavailable"
