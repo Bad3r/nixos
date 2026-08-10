@@ -27,8 +27,8 @@ answer naming no organization counts against a run that already read the managed
 organization: that value cannot change mid-run, so both are missing information
 rather than evidence of a re-registration, and the read is what allowed connect
 in the first place. An answer naming a different team is still a mismatch and
-still disconnects. An empty or unreadable
-organization secret cannot change while the unit runs, so the oneshot reports the
+still disconnects. An empty, unreadable, or
+whitespace-only organization secret cannot change while the unit runs, so the oneshot reports the
 current status once and exits instead of retrying a decision that can never open.
 The loop makes up to 30 attempts bounded by a 120-second deadline, with each
 `warp-cli` call capped at five seconds and killed one second later if it ignores
@@ -152,8 +152,8 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   If an existing tunnel is confirmed to carry a
   registration other than the managed one, the unit logs `connected without managed Zero Trust registration; disconnecting`; a failed cleanup logs `failed to disconnect unmanaged tunnel`. When the
   registration check itself does not answer, the tunnel is left up and the unit
-  logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty
-  or unreadable organization secret logs `managed organization secret unavailable; cannot verify registration`, queries the daemon once so the tunnel's state is on record, then logs `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. Both of those are `<3>` lines, visible to
+  logs `connected while the managed registration could not be verified; leaving the tunnel up` at warning priority. An empty,
+  unreadable, or whitespace-only organization secret logs `managed organization secret unavailable; cannot verify registration`, queries the daemon once so the tunnel's state is on record, then logs `managed organization secret unavailable; not connecting` before the unit exits without entering the retry loop. Both of those are `<3>` lines, visible to
   `journalctl -u cloudflare-warp-connect -p err`. A registration query that does
   not answer logs `registration check failed (exit <n>)`; exit 124 is the five-second
   `timeout` firing on a busy `warp-svc` and 137 is the `-k 1s` SIGKILL for a call that
