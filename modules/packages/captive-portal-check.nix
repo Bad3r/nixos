@@ -124,6 +124,25 @@
 
           digStub = pkgs.writeShellScriptBin "dig" ''
             host="''${!#}"
+            resolver=""
+            for arg in "$@"; do
+              case "$arg" in
+              @*) resolver="''${arg#@}" ;;
+              esac
+            done
+            # @resolver is to dig what --resolve is to curl: it is what makes an
+            # answer the access point's rather than the one Tailscale still owns.
+            # This stub answers from the host name alone, so dropping the flag
+            # would leave every scenario green while --probe queried
+            # 100.100.100.100 and $answer stopped describing what the access
+            # point returned.
+            case "$resolver" in
+            "''${DIG_RESOLVER-192.168.1.1}") ;;
+            *)
+              echo "dig stub: the probe must query the access-point resolver via @''${DIG_RESOLVER-192.168.1.1}, got '$resolver'" >&2
+              exit 1
+              ;;
+            esac
             case "$host" in
             detectportal.firefox.com) printf '%s\n' "''${DIG_FIREFOX-203.0.113.10}" ;;
             captive.apple.com) printf '%s\n' "''${DIG_APPLE-203.0.113.11}" ;;
