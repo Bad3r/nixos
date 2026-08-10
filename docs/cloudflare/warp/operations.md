@@ -26,7 +26,8 @@ the loop stops, since nothing is left to request. An empty or unreadable
 organization secret cannot change while the unit runs, so the oneshot reports the
 current status once and exits instead of retrying a decision that can never open.
 The loop makes up to 30 attempts bounded by a 120-second deadline, with each
-`warp-cli` call capped at five seconds. The retry window plus bounded registration/status checks remains
+`warp-cli` call capped at five seconds and killed one second later if it ignores
+the term signal, so no call can outlast its cap. The retry window plus bounded registration/status checks remains
 inside the unit's explicit `TimeoutStartSec=180`. The oneshot is best-effort: it
 exits 0 and reaches `active (exited)` in every outcome, so read the final log
 line rather than the unit state:
@@ -126,7 +127,8 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   starts. Activation-script hosts decrypt secrets before any unit ordering. The
   connect oneshot waits for the daemon and makes up to 30 retry attempts within
   a 120-second deadline. Registration, connect, and status calls each have a
-  five-second cap, and the oneshot has an explicit 180-second start timeout. The
+  five-second cap (`timeout -k 1s 5s`, so a call that ignores the term signal is
+  killed rather than left running), and the oneshot has an explicit 180-second start timeout. The
   final `warp-cli status` and managed-registration checks are logged; if no request
   succeeds, managed registration is unavailable, or requests succeed while the
   status remains disconnected, the `<3>` prefix makes `connect never succeeded`
@@ -134,7 +136,8 @@ encrypted sops secret before `warp-svc` starts and can enroll the device again.
   `journalctl -u cloudflare-warp-connect -p err`. Each attempt that has not yet confirmed the
   managed registration instead logs `registration check failed (exit <n>)`,
   `managed Zero Trust registration unavailable`, or `managed enrollment is not ready; not connecting`
-  at `<4>`: the daemon IPC socket and the managed registration settle at different times, so a
+  at `<4>`, as do `status command failed` and `connect request failed`, which carry the daemon's
+  own reason for refusing a call: the daemon IPC socket and the managed registration settle at different times, so a
   healthy boot emits several of these before the run ends confirmed and connected. `-p err`
   therefore stays quiet through a normal warm-up, and `-p warning` shows the attempts.
   If an existing tunnel is confirmed to carry a
