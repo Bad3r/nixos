@@ -238,6 +238,18 @@ probe_portal() {
       grep -E '^[0-9]+(\.[0-9]+){3}$' | tail -1 || true)"
     [ -n "$answer" ] || continue
 
+    # A resolver that sinkholes a blocklisted canary answers 127.0.0.1 or
+    # 0.0.0.0, and curl --resolve sends both to this machine. Pi-hole's default
+    # NULL blocking, AdGuard Home's default and a bare dnsmasq `address=/host/`
+    # all use 0.0.0.0, and the probe hosts sit on telemetry blocklists, so this
+    # is an ordinary network rather than a hostile one. Dropping the canary
+    # before the request is the only place that covers it: with anything
+    # listening on port 80 here the 200 arm grades the user's own page and hands
+    # its links to xdg-open, and it returns before is_private_v4 is consulted.
+    case "$answer" in
+    127.* | 0.0.0.0) continue ;;
+    esac
+
     host_clean=0
     status=000
     redirect=""

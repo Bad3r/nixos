@@ -386,9 +386,11 @@ a real upstream resolver and enforce at the gateway do. The sign-in URL is taken
 from what a link, form, or meta refresh in the page points at, falling back to
 the address the canary resolved to.
 
-Loopback is not one of those addresses. A resolver that sinkholes blocklisted
-names to `127.0.0.1` answers a probe host that way, and that is this machine
-rather than a portal. Nor is a `Location` header trusted for its scheme: only
+A canary that resolves to this machine is dropped before the request goes out. A
+resolver that sinkholes blocklisted names answers `127.0.0.1` or `0.0.0.0`, which
+Pi-hole, AdGuard Home and a bare dnsmasq `address=/host/` all do by default, and
+`curl --resolve` sends either to the local port 80. Whatever answers there is not
+a portal. Nor is a `Location` header trusted for its scheme: only
 `http` and `https` targets are ever printed or opened, since everything here is
 chosen by an untrusted network and reaches `xdg-open`. The probes also pass
 `--noproxy '*'`, because an inherited `http_proxy` would send them somewhere

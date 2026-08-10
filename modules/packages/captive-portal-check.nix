@@ -506,6 +506,26 @@
               )
             done
 
+            # A sinkholed canary is dropped before the request, not judged after
+            # it. Removing 127.* from is_private_v4 only covered the path where
+            # the transfer failed: with something listening on the local port 80
+            # the 200 arm returns before the hijack check is consulted, so the
+            # run graded the user's own page. 0.0.0.0 is the commoner sinkhole
+            # and was never covered at all.
+            for sinkhole in 127.0.0.1 0.0.0.0; do
+              (
+                reset
+                export DIG_FIREFOX="$sinkhole"
+                export FF_STATUS=200
+                export FF_BODY='<html><body><p>A local dashboard listening on port 80, padded past the bound the clean test applies.</p><a href="http://localhost/admin">admin</a></body></html>'
+                export AP_STATUS=000 GS_STATUS=000
+                rc=$(run --probe)
+                [ "$rc" -eq 3 ] || fail "a canary sinkholed to $sinkhole must not be a portal (exit $rc)"
+                [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
+                  fail "$sinkhole must reach the gateway guess, got '$(cat "$work/out")'"
+              )
+            done
+
             # The mirror image. Reaching the hijack check is not the same as
             # being a hijack: a canary that never answered, from an address that
             # is nobody's LAN, has to end in the gateway guess instead. 127.0.0.1
