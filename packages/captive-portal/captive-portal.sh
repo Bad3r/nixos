@@ -359,15 +359,21 @@ probe_portal() {
         [ "$(wc -c <"$body_file")" -le 256 ] && grep -qF "$expect" "$body_file"; then
         host_clean=1
       else
-        # A submit target outranks any other link on the page. One pass over all
-        # four attribute names cannot tell a stylesheet or preconnect hint in
-        # <head> from the sign-in link, and grep -o emits in positional order, so
-        # a CDN <link href> ahead of the form won. Finding nothing in either tier
-        # is the good outcome: the caller falls back to the address that answered
-        # the hijacked lookup, which is at least the host serving the page.
+        # One pass over every attribute name cannot tell a stylesheet or
+        # preconnect hint in <head> from the sign-in link, and grep -o emits in
+        # positional order, so a CDN <link href> ahead of the real target won.
+        # Intent decides instead of position: a submit target first, then a meta
+        # refresh, which is how a WISPr gateway redirects and which since the
+        # anchoring in a5a475b9 is the only place `url=` can appear, and a plain
+        # href last. Finding nothing in any tier is the good outcome: the caller
+        # falls back to the address that answered the hijacked lookup, which is
+        # at least the host serving the page.
         found="$(extract_url 'formaction|action')"
         if [ -z "$found" ]; then
-          found="$(extract_url 'href|url')"
+          found="$(extract_url 'url')"
+        fi
+        if [ -z "$found" ]; then
+          found="$(extract_url 'href')"
         fi
         printf '%s\n' "${found:-http://$answer}"
         return 0

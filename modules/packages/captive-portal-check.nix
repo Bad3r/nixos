@@ -548,6 +548,20 @@
               )
             done
 
+            # The same page shape a WISPr gateway serves: no absolute form
+            # action, a stylesheet in <head>, and the real target in a meta
+            # refresh behind it. Positional order took the stylesheet, so the
+            # refresh needs a tier of its own rather than sharing href's.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><head><link rel="stylesheet" href="http://cdn.example/p.css"><meta http-equiv="refresh" content="0; url=http://portal.lan/login?res=notyet"></head><body><p>Padded past the bound the clean test applies, so this page is judged as the interception page it stands for.</p></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a meta-refresh gateway page is still a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/login?res=notyet" ] ||
+                fail "the refresh target must beat a stylesheet, got '$(cat "$work/out")'"
+            )
+
             # A stylesheet or preconnect hint reached through a real href sits
             # ahead of the form in <head> on plenty of portal pages, and one pass
             # over every attribute name cannot tell it from the sign-in link.
