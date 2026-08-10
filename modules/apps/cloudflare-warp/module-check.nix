@@ -344,6 +344,27 @@
               in
               lib.assertMsg (lib.length parts > 1 && !lib.hasInfix ''"$managed_org"'' beforeStrip)
                 "apps/cloudflare-warp-module-eval: the managed organization must be stripped before any emptiness test runs on it";
+            # The startup check already exits for an empty managed organization,
+            # but the confirmation producer must preserve that constraint if its
+            # caller or control flow changes later.
+            assert
+              let
+                registrationParts = lib.splitString "refresh_registration() {" enrolledConnectScript;
+                registrationBlock = lib.head (lib.splitString "refresh_status() {" (lib.last registrationParts));
+                confirmationGuard = ''if [ -n "$managed_org" ] && [ "$registration" = "$managed_org" ]; then'';
+                confirmationGuardParts = lib.splitString confirmationGuard registrationBlock;
+                confirmationArm = lib.head (
+                  lib.splitString ''elif [ -z "$registration" ]'' (lib.last confirmationGuardParts)
+                );
+              in
+              lib.assertMsg
+                (
+                  lib.length registrationParts == 2
+                  && lib.length confirmationGuardParts == 2
+                  && lib.hasInfix ''registration_state="confirmed"'' confirmationArm
+                  && lib.hasInfix "confirmed_once=1" confirmationArm
+                )
+                "apps/cloudflare-warp-module-eval: managed confirmation must require a nonempty configured organization";
             # Recoverable diagnostics include the normal readiness states, so
             # logging them at <3> would make `journalctl -p err` report a good
             # boot as broken. Reserve <3> for states the run cannot recover from
@@ -441,6 +462,8 @@
                 registrationParts = lib.splitString "refresh_registration() {" enrolledConnectScript;
                 registrationBlock = lib.head (lib.splitString "refresh_status() {" (lib.last registrationParts));
                 initBlock = lib.head registrationParts;
+                confirmationGuard = ''if [ -n "$managed_org" ] && [ "$registration" = "$managed_org" ]; then'';
+                confirmationGuardParts = lib.splitString confirmationGuard registrationBlock;
                 confirmedParts = lib.splitString ''registration_state="confirmed"'' registrationBlock;
                 confirmedArm = lib.head (lib.splitString ''elif [ -z "$registration" ]'' (lib.last confirmedParts));
                 emptyAnswerParts = lib.splitString ''elif [ -z "$registration" ] && [ -z "$mismatch_kind" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then'' registrationBlock;
@@ -450,9 +473,7 @@
                 mismatchParts = lib.splitString ''registration_state="mismatch"'' registrationBlock;
                 mismatchArm = lib.head (lib.splitString "refresh_status() {" (lib.last mismatchParts));
                 failedCheckParts = lib.splitString ''if [ "$registration_status" -ne 0 ]; then'' registrationBlock;
-                failedCheckRegion = lib.head (
-                  lib.splitString ''if [ "$registration" = "$managed_org" ]; then'' (lib.last failedCheckParts)
-                );
+                failedCheckRegion = lib.head (lib.splitString confirmationGuard (lib.last failedCheckParts));
                 refreshStatusBlock = lib.head (
                   lib.splitString ''if [ -z "$managed_org" ]; then'' (
                     lib.last (lib.splitString "refresh_status() {" enrolledConnectScript)
@@ -476,6 +497,7 @@
               lib.assertMsg
                 (
                   lib.length registrationParts == 2
+                  && lib.length confirmationGuardParts == 2
                   && lib.length confirmedParts == 2
                   && lib.length emptyAnswerParts == 2
                   && lib.length mismatchParts == 2
@@ -567,9 +589,9 @@
                   )
                 );
                 failedCheckParts = lib.splitString ''if [ "$registration_status" -ne 0 ]; then'' enrolledConnectScript;
-                failedCheckRegion = lib.head (
-                  lib.splitString ''if [ "$registration" = "$managed_org" ]; then'' (lib.last failedCheckParts)
-                );
+                confirmationGuard = ''if [ -n "$managed_org" ] && [ "$registration" = "$managed_org" ]; then'';
+                confirmationGuardParts = lib.splitString confirmationGuard enrolledConnectScript;
+                failedCheckRegion = lib.head (lib.splitString confirmationGuard (lib.last failedCheckParts));
                 guarded = lib.last (
                   lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then'' enrolledConnectScript
                 );
@@ -607,6 +629,7 @@
                   # A failed check has no organization result, so it must preserve
                   # an existing hold without creating one or advancing the window.
                   && lib.length failedCheckParts == 2
+                  && lib.length confirmationGuardParts == 2
                   && lib.hasInfix ''registration_state="unknown"'' failedCheckRegion
                   && lib.hasInfix "registration check failed" failedCheckRegion
                   && lib.hasInfix "return" failedCheckRegion
