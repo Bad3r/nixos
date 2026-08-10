@@ -252,12 +252,21 @@ is_loopback_host() {
 # never a sign-in target in any tier, so it is filtered here rather than only
 # where tier 3 reads it.
 #
+# A `<link>` element is metadata, never a submit target or a refresh, so its
+# href is stripped before any tier reads the body rather than guessed at by
+# extension: a preconnect hint carries no path at all, and a stylesheet behind
+# a font-service query string carries no dot before its extension, so neither
+# is caught by the filter above. It stays in place for an `<a href>` or
+# `<form action>` pointing at an asset directly, which the strip below does
+# not touch.
+#
 # HTML requires a literal `&` in an attribute value to be written `&amp;`, and a
 # WISPr redirect carries several parameters, so the raw value would be opened
 # with `amp;` glued to every parameter after the first and the sign-in would
 # never complete.
 extract_url() {
-  grep -oiE '(^|[;[:space:]])('"$1"')=["'"'"']?https?://[^"'"'"'<>[:space:]]+' "$body_file" |
+  sed 's/<link[^>]*>//gI' "$body_file" |
+    grep -oiE '(^|[;[:space:]])('"$1"')=["'"'"']?https?://[^"'"'"'<>[:space:]]+' |
     grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
     grep -viE '^https?://([^/]*\.)?w3\.org([/:?]|$)' |
     grep -viE '\.(css|js|mjs|png|jpe?g|gif|svg|ico|woff2?|ttf|eot)([?#]|$)' |

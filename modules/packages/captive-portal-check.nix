@@ -629,6 +629,19 @@
                 fail "a stylesheet href must not beat a relative form target, got '$(cat "$work/out")'"
             )
 
+            # The extension filter only catches an asset URL that carries one.
+            # A preconnect hint has no path at all, which the two commonest
+            # <link> shapes both routinely omit.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><head><link rel="preconnect" href="https://fonts.gstatic.com"></head><body><form action="/login"></form></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "an intercepted canary must still exit 0 (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "a preconnect link must not beat a relative form target, got '$(cat "$work/out")'"
+            )
+
             # HTML requires a literal & in an attribute value to be written
             # &amp;, and a WISPr redirect carries several parameters, so the raw
             # value was opened with amp; glued to every one after the first and
