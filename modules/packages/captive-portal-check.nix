@@ -315,6 +315,22 @@
                 fail "with no usable link the canary's own address must be the URL"
             )
 
+            # The marker turning up somewhere is not the canary answering as
+            # specified. Login pages carry `success:` from a jQuery or
+            # hand-rolled AJAX callback, and the unbounded match cleared the
+            # canary on that, so the run reported no portal and handed DNS back
+            # on a network that had one, which is the state this helper exists
+            # to prevent.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><head><script>$.ajax({url:"/auth",success: function (r) { location.reload(); }});</script></head><body><p>Please sign in to continue. This page is served by the gateway in place of the resource that was asked for, and it runs well past the bound the clean test applies.</p></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a marker inside an interception page must not clear the canary (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "the answering address must be the portal URL, got '$(cat "$work/out")'"
+            )
+
             # A canary that answered correctly from a private address. The
             # hijack check used to run anyway and overrule the payload that had
             # just proved there was no interception.

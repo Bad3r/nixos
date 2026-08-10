@@ -272,7 +272,15 @@ probe_portal() {
       # proxy portal that leaves DNS alone answers on the canary's real public
       # address and the status is then the only tell. It is never clean, however
       # its body reads, so only a 200 can clear a canary.
-      if [ "$status" = 200 ] && [ -n "$expect" ] && grep -qF "$expect" "$body_file"; then
+      # The size bound is what makes the marker mean "this canary answered as
+      # specified" rather than "the word turns up somewhere". The genuine
+      # payloads are 8 and 69 bytes; an interception page is kilobytes, and
+      # login pages routinely carry `success:` from a jQuery or hand-rolled AJAX
+      # callback, which cleared the canary and had the run hand DNS back on a
+      # network that did have a portal. Bounding beats pinning the exact
+      # document, which Apple can change out from under this.
+      if [ "$status" = 200 ] && [ -n "$expect" ] &&
+        [ "$(wc -c <"$body_file")" -le 256 ] && grep -qF "$expect" "$body_file"; then
         host_clean=1
       else
         # The first absolute URL in a page is usually not the sign-in target. An
