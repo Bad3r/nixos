@@ -422,8 +422,8 @@
                 )
                 "apps/cloudflare-warp-module-eval: the terminal mismatch report must use retained classification to separate an empty registration from a foreign tenant";
             # A later failed query clears the volatile registration result. It
-            # cannot erase a conclusive mismatch diagnostic, but this marker
-            # must not enter refresh_status and become stale disconnect evidence.
+            # cannot erase a conclusive mismatch, which blocks stale confirmed_once
+            # acceptance but must not enter the live mismatch/disconnect arm.
             assert
               let
                 registrationParts = lib.splitString "refresh_registration() {" enrolledConnectScript;
@@ -446,6 +446,12 @@
                     lib.last (lib.splitString "refresh_status() {" enrolledConnectScript)
                   )
                 );
+                confirmedOnceParts = lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then'' refreshStatusBlock;
+                confirmedOnceArm = lib.head (
+                  lib.splitString ''elif [ -n "$held_empty" ]; then'' (lib.last confirmedOnceParts)
+                );
+                disconnectParts = lib.splitString "warp-cli --accept-tos disconnect" enrolledConnectScript;
+                mismatchDisconnectArm = lib.last (lib.splitString "mismatch)" (lib.head disconnectParts));
               in
               lib.assertMsg
                 (
@@ -454,15 +460,18 @@
                   && lib.length emptyAnswerParts == 2
                   && lib.length mismatchParts == 2
                   && lib.length failedCheckParts == 2
+                  && lib.length confirmedOnceParts == 2
+                  && lib.length disconnectParts == 2
                   && lib.hasInfix ''mismatch_kind=""'' initBlock
                   && lib.hasInfix ''mismatch_kind=""'' confirmedArm
                   && !lib.hasInfix "mismatch_kind=" failedCheckRegion
                   && !lib.hasInfix "mismatch_kind=" emptyAnswerArm
                   && lib.hasInfix ''mismatch_kind="foreign"'' mismatchArm
                   && lib.hasInfix ''mismatch_kind="empty"'' mismatchArm
-                  && !lib.hasInfix "mismatch_kind" refreshStatusBlock
+                  && lib.hasInfix "connected=1" confirmedOnceArm
+                  && !lib.hasInfix "mismatch_kind" mismatchDisconnectArm
                 )
-                "apps/cloudflare-warp-module-eval: a mismatch classification must persist only for terminal diagnosis until a managed confirmation clears it";
+                "apps/cloudflare-warp-module-eval: a mismatch classification must block stale acceptance until a managed confirmation clears it without driving disconnect";
             # One call site at the top of each attempt. warp-cli connect does not
             # change the registration organization, so a second check per attempt
             # only spends IPC budget. Scoped to the loop body: a whole-script
@@ -531,7 +540,9 @@
                 failedCheckRegion = lib.head (
                   lib.splitString ''if [ "$registration" = "$managed_org" ]; then'' (lib.last failedCheckParts)
                 );
-                guarded = lib.last (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript);
+                guarded = lib.last (
+                  lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then'' enrolledConnectScript
+                );
                 counted = lib.head (lib.splitString "unverified=$((unverified + 1))" guarded);
                 heldEmptyAndUnverifiedArms = lib.head (
                   lib.splitString "unverified=$((unverified + 1))" (
@@ -581,8 +592,12 @@
                   # readiness window closes, so the mismatch that tears down a
                   # registration-less tunnel could never fire.
                   && lib.hasInfix ''elif [ -n "$held_empty" ]; then'' counted
-                  # Suppression direction: the guard must actually skip the count.
-                  && lib.length (lib.splitString ''if [ -n "$confirmed_once" ]; then'' enrolledConnectScript) == 2
+                  # A retained mismatch must block stale confirmation from bypassing
+                  # the count, while a clean confirmation still suppresses it.
+                  &&
+                    lib.length (
+                      lib.splitString ''if [ -n "$confirmed_once" ] && [ -z "$mismatch_kind" ]; then'' enrolledConnectScript
+                    ) == 2
                   && lib.hasInfix "else" counted
                   # Neither unverified path can complete successfully. A held
                   # empty answer defers teardown while registration settles; it
