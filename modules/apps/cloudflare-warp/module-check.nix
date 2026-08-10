@@ -80,8 +80,12 @@
           unenrolled = mkNixos {
             secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
           };
+          # enable = false with the secret present is the tpnix kill switch, and
+          # the only fixture where cfg.enable is the sole thing holding the
+          # managed branch shut. A missing secretsRoot here would leave every
+          # assertion below passing with `managed` gated on enrolling alone.
           disabled = mkNixos {
-            secretsRoot = "${./cloudflare-warp-check-fixtures}/missing";
+            secretsRoot = ./cloudflare-warp-check-fixtures;
             enable = false;
           };
           # Both managed-branch warnings are conditional and CI has no secrets
