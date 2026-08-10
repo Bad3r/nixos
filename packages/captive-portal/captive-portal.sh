@@ -215,9 +215,18 @@ is_private_v4() {
 # canary's DNS answer is, so both need the exclusion the sinkholed-canary
 # guard already applies to $answer: 127.0.0.0/8 and 0.0.0.0 are this machine,
 # not somewhere a portal can sit, and neither is localhost or ::1.
+#
+# Userinfo is part of the authority, so a bare scheme strip left it in place:
+# `http://x@127.0.0.1/` matched no arm and named this machine as surely as the
+# plain form does. The path is stripped first so the trailing character
+# classes below only ever see a bare host or host:port, and `##*@` takes the
+# last `@` rather than the first, matching how a URL parser splits userinfo
+# from host on an authority that carries more than one.
 is_loopback_host() {
-  case "${1#*//}" in
-  127.* | 0.0.0.0 | 0.0.0.0[:/?#]* | localhost | localhost[:/?#]* | \[::1\]*) return 0 ;;
+  local authority="${1#*//}"
+  authority="${authority%%/*}"
+  case "${authority##*@}" in
+  127.* | 0.0.0.0 | 0.0.0.0[:?#]* | localhost | localhost[:?#]* | \[::1\]*) return 0 ;;
   *) return 1 ;;
   esac
 }

@@ -704,7 +704,8 @@
             # sinkholed resolver or a filtering proxy in front of it can point
             # it at this machine as readily as at itself. The scheme check above
             # let all four of these through before the host was also checked.
-            for loopback in 'http://127.0.0.1/' 'http://0.0.0.0:8080/' 'http://localhost/admin' 'http://[::1]/'; do
+            for loopback in 'http://127.0.0.1/' 'http://0.0.0.0:8080/' 'http://localhost/admin' 'http://[::1]/' \
+              'http://x@127.0.0.1/' 'http://a@b@127.0.0.1/'; do
               (
                 reset
                 export FF_STATUS=302 FF_REDIRECT="$loopback"
@@ -727,6 +728,18 @@
               [ "$rc" -eq 0 ] || fail "an intercepted canary must still exit 0 (exit $rc)"
               [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
                 fail "a form target naming this machine must fall back to the answering address, got '$(cat "$work/out")'"
+            )
+
+            # Userinfo is part of the authority on this site too, and a form
+            # target is at least as free to carry one as a Location is.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY='<html><body><form action="http://a@localhost/pwn"></form></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "an intercepted canary must still exit 0 (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "a form target naming this machine through userinfo must fall back to the answering address, got '$(cat "$work/out")'"
             )
 
             # Login mode on a network that turns out to be clean: the release is
