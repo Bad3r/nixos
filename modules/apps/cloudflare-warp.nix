@@ -87,6 +87,7 @@ let
         connect_requested=""
         confirmed_once=""
         empty_answers=0
+        held_empty=""
         unverified=0
         status=""
         attempt=0
@@ -128,6 +129,7 @@ let
             registration_status=$?
           if [ "$registration_status" -ne 0 ]; then
             registration_state="unknown"
+            held_empty=""
             echo "<4>cloudflare-warp-connect: registration check failed (exit $registration_status)"
             return
           fi
@@ -135,6 +137,7 @@ let
           if [ "$registration" = "$managed_org" ]; then
             registration_state="confirmed"
             confirmed_once=1
+            held_empty=""
             echo "cloudflare-warp-connect: managed Zero Trust registration confirmed"
           elif [ -z "$registration" ] && { [ -n "$confirmed_once" ] || [ "$empty_answers" -lt 3 ]; }; then
             # An empty answer names no organization, so like a failed check it is
@@ -147,9 +150,11 @@ let
             # team is a mismatch immediately.
             empty_answers=$((empty_answers + 1))
             registration_state="unknown"
+            held_empty=1
             echo "<4>cloudflare-warp-connect: registration check returned no organization; not treating it as a mismatch yet"
           else
             registration_state="mismatch"
+            held_empty=""
             echo "<4>cloudflare-warp-connect: managed Zero Trust registration unavailable"
           fi
         }
@@ -189,6 +194,12 @@ let
                   if [ -n "$confirmed_once" ]; then
                     echo "cloudflare-warp-connect: tunnel is up on a registration this run already confirmed"
                     connected=1
+                  elif [ -n "$held_empty" ]; then
+                    # Deliberately held, and already counted by empty_answers.
+                    # Counting it here too would break the loop on the same
+                    # attempt the readiness window closes, so the mismatch that
+                    # tears down a registration-less tunnel would never fire.
+                    echo "<4>cloudflare-warp-connect: tunnel is up while the registration is still settling"
                   else
                     echo "<4>cloudflare-warp-connect: connected while the managed registration could not be verified; leaving the tunnel up"
                     unverified=$((unverified + 1))
