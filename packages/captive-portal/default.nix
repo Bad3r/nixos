@@ -40,7 +40,7 @@ writeShellApplication {
   meta = {
     description = "Sign in to a captive portal on a host whose DNS is claimed by Tailscale";
     homepage = "https://github.com/Bad3r/nixos";
-    license = lib.licenses.mit;
+    license = lib.licenses.agpl3Only;
     platforms = lib.platforms.linux;
   };
 }
