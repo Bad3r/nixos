@@ -5,6 +5,53 @@ cybersecurity and software engineering documentation. Keep entries in
 alphabetical order by term and use the same fields for each entry: definition,
 example, security note, and references.
 
+## Contents
+
+- [Masquerading](#masquerading)
+- [TOFU (trust on first use)](#tofu-trust-on-first-use)
+
+## Masquerading
+
+### Definition
+
+Masquerading is an adversary technique that manipulates the name, location,
+metadata, appearance, or other identifying features of an object so that a
+malicious or suspicious artifact appears legitimate or benign to users or
+security tools. MITRE ATT&CK identifies it as technique `T1036` under the
+Stealth tactic.
+
+### Example
+
+Right-to-left override (RTLO or RLO) is sub-technique `T1036.002`. The Unicode
+control character `U+202E` reverses the display order of the text that follows
+it. A filename whose logical name is:
+
+```text
+photo_high_re\u202Egnp.js
+```
+
+may be displayed as `photo_high_resj.png`, causing a JavaScript file to appear
+to have a `.png` extension. The backslash notation above represents the
+non-printing character and is used to keep the example visible in source.
+
+### Security note
+
+Do not determine a file's type from its displayed name alone. Inspect the
+underlying file type, signature, and complete filename, and make Unicode
+formatting controls visible during triage. Detection and prevention controls
+should flag or restrict unexpected `U+202E` characters in filenames, especially
+when the file is downloaded, attached to an email, or about to execute.
+The RTLO sub-technique can be detected by inspecting filenames for the actual
+`U+202E` character and, in logs or serialized telemetry, separately accounting
+for escaped (`\u202E`), labeled (`[U+202E]`), and percent-encoded (`%E2%80%AE`)
+representations. These representations are not interchangeable stored values;
+search each according to the field's encoding.
+
+### References
+
+- [MITRE ATT&CK T1036: Masquerading](https://attack.mitre.org/techniques/T1036/)
+- [MITRE ATT&CK T1036.002: Right-to-Left Override](https://attack.mitre.org/techniques/T1036/002/)
+
 ## TOFU (trust on first use)
 
 ### Definition

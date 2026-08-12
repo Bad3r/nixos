@@ -14,6 +14,11 @@ again when it activates a connection. Only the address settings conflict.
 `linkConfig.Name` does not, and is used below to pin a name on a device whose
 NetworkManager policy stays `"stable"`.
 
+A manual `macchanger` or `ip link set address` run is a third owner, and the
+weakest of the three: NetworkManager replaces the address at the next
+activation, so a manually set one holds only while the device is unmanaged. See
+[Change the address temporarily](#change-the-address-temporarily-with-macchanger).
+
 ## Check the interface and its current address
 
 This repository sets `networking.usePredictableInterfaceNames = false` in
@@ -32,17 +37,31 @@ empty.
 
 ```bash
 nmcli device status
-ip link show
-cat /sys/class/net/wlan0/address   # address currently presented
+ip link show dev wlan0             # presented address, and permaddr when it differs
 ethtool -P wlan0                   # permanent hardware address
 ```
 
-Read both. Once a policy other than `"preserve"` or `"permanent"` is active,
-`/sys/class/net/*/address` reports the address NetworkManager assigned, not the
-factory one, so `ethtool -P` is what identifies the existing DHCP reservation
-or ACL entry you are replacing. NetworkManager exposes only the presented
-address, as `GENERAL.HWADDR` in `nmcli device show`; it has no permanent-address
-field.
+Read both addresses. Once a policy other than `"preserve"` or `"permanent"` is
+active, `/sys/class/net/*/address` reports the address NetworkManager assigned,
+not the factory one, so the permanent address is what identifies the existing
+DHCP reservation or ACL entry you are replacing. Prefer `ip link show`, which
+prints the permanent address as a `permaddr` field whenever it differs from the
+presented one and so gives both in a single line. `ethtool` reaches this
+repository through `flake.homeManagerModules.base` in
+[`modules/networking/networking.nix`](../../modules/networking/networking.nix),
+which puts it on a user profile rather than in `/run/current-system/sw/bin`,
+where `ip` always is.
+
+`nmcli` has no permanent-address field: `nmcli device show` reports only the
+presented address, as `GENERAL.HWADDR`. NetworkManager itself does expose the
+permanent one on D-Bus as `PermHwAddress`, deprecated as of 1.56.0.
+
+Read a Wi-Fi address only while its profile is active. This repository leaves
+`wifi.scan-rand-mac-address` at NetworkManager's default of `yes`, so a
+disconnected Wi-Fi device presents a throwaway scan address that belongs to no
+profile and matches neither the permanent address nor any generated one. See
+[Re-key services](#re-key-services-after-moving-a-host-to-stable) for reading
+one address per profile.
 
 Use the actual interface name in every example below.
 
@@ -196,8 +215,9 @@ The `.link` `MACAddressPolicy` values are `"persistent"`, `"random"`, and
 - `"random"` generates a new random address each time the device appears,
   unless the kernel already assigned a random one. The result always has the
   unicast and locally administered bits set.
-- `"none"` keeps the address the kernel assigned, and is the only policy under
-  which `MACAddress=` applies.
+- `"none"` keeps the address the kernel assigned. `MACAddress=` takes effect
+  only when `MACAddressPolicy=` is unset, empty, or `"none"`, so setting the
+  two together is one of three working forms rather than the required one.
 
 ### Pin an interface name
 
@@ -265,30 +285,48 @@ NetworkManager device is not enough on its own: that deactivates the
 connection but leaves a Wi-Fi interface up so it can keep scanning. Release
 the device from NetworkManager and bring the link down first.
 
+Both ends of the sequence matter. An unmanaged device runs no DHCP client, so
+stopping after `macchanger` leaves a link that has carrier and no address,
+which reads as a dead port rather than as a half-finished command. Handing the
+device back ends that, but it also ends the new address: the profile activates,
+and the `"stable"` baseline above replaces what `macchanger` set. Read the
+result before the final line, not after it.
+
 Resolve the package as your own user and elevate only the binary. Running
 `nix run` under `sudo` re-evaluates the flake against root's registry, store,
 and caches instead:
 
 ```bash
 macchanger=$(nix build --no-link --print-out-paths nixpkgs#macchanger)/bin/macchanger
+netDev=eth0
 
-nmcli device set wlan0 managed no
-sudo ip link set dev wlan0 down
-sudo "$macchanger" -r wlan0   # -r randomizes, -p restores the permanent address
-sudo ip link set dev wlan0 up
+nmcli device set "$netDev" managed no
+sudo ip link set dev "$netDev" down
+sudo "$macchanger" -r "$netDev"   # -r randomizes, -p restores the permanent address
+sudo ip link set dev "$netDev" up
+
+ip link show dev "$netDev"        # verify here: the next line discards this address
+
+nmcli device set "$netDev" managed yes
 ```
 
-Verify the temporary result, then hand the device back to NetworkManager:
+To hold a chosen address on a network rather than observe one for a moment, set
+it on the profile instead of on the link, so NetworkManager applies it at every
+activation:
 
 ```bash
-cat /sys/class/net/wlan0/address
-ip link show dev wlan0
-nmcli device set wlan0 managed yes
+nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address 02:00:00:00:00:01
+nmcli connection up "<profile name>"
+nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address ""   # back to the baseline
 ```
 
-NetworkManager restores its configured address the next time it activates the
-connection, so do not use `macchanger` as a substitute for a declarative
-NetworkManager or `.link` policy.
+That property takes the same special values as the table above, and overrides
+the host-wide default that `networking.networkmanager.ethernet.macAddress`
+writes into `NetworkManager.conf`. Wi-Fi profiles use
+`802-11-wireless.cloned-mac-address`. It is still per-host state rather than
+configuration, so a re-key follows the same rules as
+[Re-key services](#re-key-services-after-moving-a-host-to-stable), and it is
+not a substitute for a declarative NetworkManager or `.link` policy.
 
 Changing a MAC address reduces one identifier exposed to a local network. It
 does not prevent tracking through Wi-Fi network names, IP-level identifiers,
