@@ -90,6 +90,21 @@ extension is a per-user choice and not modeled here.
    minutes", and so on).
 4. Execs `mpv` (optionally with `--shuffle`) on the matching list.
 
+The playlist is emitted in depth-first tree order, which is also the order the
+cache file is stored in. Within a directory, entries sort case-insensitively
+with natural number ordering, so `ep2.mkv` precedes `ep10.mkv`, and a
+directory's contents stay contiguous rather than being split by a sibling file
+that sorts between them. The ordering key is computed under `LC_ALL=C`, so it
+does not shift with the caller's locale. Two constraints follow from the cache
+being a line-based TSV: a filename containing a tab or a newline is not
+representable, and a filename containing a literal `\001` byte can order
+unpredictably. `-s` hands the list to `mpv --shuffle` instead.
+
+`checks."apps/video-cache-tree-order"` in `modules/apps/video-cache.nix` guards
+that ordering. It stubs `ffprobe` and `mpv` through `callPackage`, so it builds
+neither, and it is the only place CI reaches this package's
+`writeShellApplication` shellcheck pass.
+
 The helper is exposed as a custom package via
 `modules/custom-overlays/video-cache.nix` (registering
 `flake.customOverlays.video-cache`) and gated behind the standard
