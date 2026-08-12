@@ -133,6 +133,7 @@ let
       "dragon-drop".extended.enable = lib.mkOverride 1100 true;
       dropbox.extended.enable = lib.mkOverride 1100 true;
       dua.extended.enable = lib.mkOverride 1100 true;
+      duckdb.extended.enable = lib.mkOverride 1100 true;
       duf.extended.enable = lib.mkOverride 1100 true;
       dunst.extended.enable = lib.mkOverride 1100 true;
       "duplicati-r2-tools".extended.enable = lib.mkOverride 1100 false;
