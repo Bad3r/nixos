@@ -8,12 +8,6 @@ Each entry lists a representative run command, upstream repository, official doc
 
 ## Active Directory & Windows
 
-- netexec
-  - run..: `nix run nixpkgs#netexec -- smb $target -u $user -p $pass`
-  - Repo.: <https://github.com/Pennyw0rth/NetExec>
-  - Docs.: <https://www.netexec.wiki/>
-  - Desc.: Maintained CrackMapExec fork for SMB/WinRM/MSSQL/LDAP/SSH/RDP/FTP exploitation and AD enumeration.
-  - Stat.: Maintained (v1.5.1, 2026-02-23).
 - impacket
   - run..: `nix shell nixpkgs#python3Packages.impacket -c secretsdump.py -- $user:$pass@$target`
   - Repo.: <https://github.com/fortra/impacket>
@@ -69,12 +63,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Docs.: <https://github.com/cddmp/enum4linux-ng#readme>
   - Desc.: Modern Python rewrite of enum4linux for SMB/RPC enumeration (shares, users, OS, password policy).
   - Stat.: Maintained (v1.3.10, 2026-02-20).
-- smbmap
-  - run..: `nix run nixpkgs#smbmap -- -H $target -u $user -p $pass`
-  - Repo.: <https://github.com/ShawnDEvans/smbmap>
-  - Docs.: <https://github.com/ShawnDEvans/smbmap#readme>
-  - Desc.: Enumerate SMB shares with permission mapping, recursive listing, and remote command execution.
-  - Stat.: Maintained (v1.10.8, 2026-01-06).
 - adidnsdump
   - run..: `nix run nixpkgs#adidnsdump -- -u 'DOMAIN\user' $dc`
   - Repo.: <https://github.com/dirkjanm/adidnsdump>
@@ -94,7 +82,7 @@ Each entry lists a representative run command, upstream repository, official doc
   - Desc.: Mass DPAPI secret harvester (Wi-Fi keys, browser credentials, vaults, RDP saved sessions) over SMB and RPC.
   - Stat.: Maintenance mode (last release v1.2.0, 2023-12-11; active upstream commits through 2025-03-24).
 - crackmapexec
-  - run..: Not in nixpkgs (project archived; use `netexec` instead).
+  - run..: Not in nixpkgs (project archived; use `nixpkgs#netexec`, whose executable is `nxc`, instead).
   - Repo.: <https://github.com/byt3bl33d3r/CrackMapExec>
   - Docs.: <https://wiki.porchetta.industries/>
   - Desc.: Predecessor to netexec; archived upstream.
@@ -279,12 +267,6 @@ Each entry lists a representative run command, upstream repository, official doc
   - Docs.: <https://www.jetmore.org/john/code/swaks/>
   - Desc.: SMTP transaction tester for VRFY/EXPN/RCPT TO enumeration, relay testing, and TLS/auth probing.
   - Stat.: Maintenance mode (last release v20240103.0, 2024-01-03; mature, occasional patches).
-- samba
-  - run..: `nix shell nixpkgs#samba -c smbclient -- -L $target -U $user`
-  - Repo.: <https://gitlab.com/samba-team/samba>
-  - Docs.: <https://www.samba.org/samba/docs/>
-  - Desc.: Provides `smbclient`, `rpcclient`, `nmblookup`, and `net` for SMB/CIFS share access and MS-RPC enumeration.
-  - Stat.: Maintained (4.24.3, 2026-05-15).
 
 ## Web Application Testing
 

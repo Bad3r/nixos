@@ -282,9 +282,11 @@ let
       mupdf.extended.enable = lib.mkOverride 1100 true;
       mysql.extended.enable = lib.mkOverride 1100 true;
       naabu.extended.enable = lib.mkOverride 1100 true;
+      nbtscan.extended.enable = lib.mkOverride 1100 true;
       nemo.extended.enable = lib.mkOverride 1100 true;
       neovim.extended.enable = lib.mkOverride 1100 true;
       netcat.extended.enable = lib.mkOverride 1100 true;
+      netexec.extended.enable = lib.mkOverride 1100 true;
       "networkmanager-dmenu".extended.enable = lib.mkOverride 1100 true;
       "networkmanager-openvpn".extended.enable = lib.mkOverride 1100 true;
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
@@ -388,6 +390,7 @@ let
       "s-tui".extended.enable = lib.mkOverride 1100 true;
       s5cmd.extended.enable = lib.mkOverride 1100 true;
       "safeguard-rdp".extended.enable = lib.mkOverride 1100 true;
+      samba.extended.enable = lib.mkOverride 1100 true;
       screenkey.extended.enable = lib.mkOverride 1100 true;
       "searchfox-cli".extended.enable = lib.mkOverride 1100 true;
       seclists.extended.enable = lib.mkOverride 1100 true;
@@ -401,6 +404,7 @@ let
       slop.extended.enable = lib.mkOverride 1100 true;
       slidev-cli.extended.enable = lib.mkOverride 1100 true;
       smartmontools.extended.enable = lib.mkOverride 1100 true;
+      smbmap.extended.enable = lib.mkOverride 1100 true;
       snixembed.extended.enable = lib.mkOverride 1100 false;
       socat.extended.enable = lib.mkOverride 1100 true;
       sops.extended.enable = lib.mkOverride 1100 true;
