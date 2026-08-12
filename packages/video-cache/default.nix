@@ -148,9 +148,16 @@ writeShellApplication {
       tmp_file=$(mktemp "$CACHE_DIR/.video-durations.XXXXXX")
       trap 'rm -f -- "$tmp_file"' EXIT
       chmod --reference="$CACHE_FILE" -- "$tmp_file"
-      while IFS=$'\t' read -r duration filepath; do
+      # Preserve the opaque record after its first delimiter so literal tabs
+      # in the filepath survive pruning without reformatting the duration.
+      while IFS= read -r record; do
+        if [[ "$record" != *$'\t'* ]]; then
+          ((removed++)) || true
+          continue
+        fi
+        filepath="''${record#*$'\t'}"
         if [[ -f "$filepath" ]]; then
-          printf '%s\t%s\n' "$duration" "$filepath" >> "$tmp_file"
+          printf '%s\n' "$record" >> "$tmp_file"
         else
           ((removed++)) || true
         fi

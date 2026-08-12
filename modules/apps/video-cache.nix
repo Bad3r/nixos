@@ -52,6 +52,11 @@ in
   perSystem =
     { pkgs, ... }:
     let
+      # The locale assertion needs one archive entry, not the full locale set.
+      checkLocales = pkgs.glibcLocales.override {
+        allLocales = false;
+        locales = [ "en_US.UTF-8/UTF-8" ];
+      };
       # Fixture files are empty, so the real ffprobe reports no duration for any
       # of them and every path lands in the error log instead of the cache,
       # leaving nothing to order.
@@ -101,7 +106,6 @@ in
               coreutils
               diffutils
               glibc.bin
-              glibcLocales
               gnugrep
               gnused
             ];
@@ -123,22 +127,24 @@ in
             long99="Show A/ep''${run99}.mkv"
             long100="Show A/ep''${run100}.mkv"
             tab_name=$'Tab\tName.mp4'
+            leading_tab_name=$'\tleading-tab.mp4'
 
             # Each name isolates one failure mode of a flat path sort: ep2/ep10
             # the numeric one, "Show A" against "Show A.mp4" the
             # directory-versus-sibling one, "The Office" against "the-100.mp4"
             # the case-and-punctuation one, the long runs the natural-number
-            # length boundary, and tab_name the cache record round-trip.
+            # length boundary, and both tab names the cache record round-trip.
             for f in \
               "Alpha.mp4" "Show A.mp4" "the-100.mp4" "zebra.mp4" \
               "Show A/ep2.mkv" "Show A/ep10.mkv" "Show A/extras/bloopers.mkv" \
               "The Office/s01e09.mkv" "The Office/s01e10.mkv" \
               "clips/a.mp4" "clips/b.mp4" "notes.txt" "$long99" "$long100" \
-              "$tab_name"; do
+              "$tab_name" "$leading_tab_name"; do
               : >"$fixture/$f"
             done
 
             printf '%s\n' \
+              "$leading_tab_name" \
               'Alpha.mp4' \
               'clips/a.mp4' \
               'clips/b.mp4' \
@@ -169,7 +175,7 @@ in
             # The ordering is pinned inside the package, not just by this
             # sandbox's unset locale environment.
             (
-              export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive
+              export LOCALE_ARCHIVE=${checkLocales}/lib/locale/locale-archive
               export LC_ALL=en_US.UTF-8
               if [[ "$(locale charmap)" != UTF-8 ]]; then
                 echo "en_US.UTF-8 locale is unavailable in the check environment" >&2
@@ -200,6 +206,7 @@ in
               "$fixture/Show A/extras/bloopers.mkv" \
               "$fixture/clips/a.mp4" \
               "$fixture/$tab_name" \
+              "$fixture/$leading_tab_name" \
               "$fixture/the-100.mp4" \
               >"$cache"
 
@@ -218,6 +225,11 @@ in
             tab_cache_line=$(printf '600\t%s' "$fixture/$tab_name")
             if ! grep -Fqx -- "$tab_cache_line" "$cache"; then
               echo "tab-containing cache record was not preserved" >&2
+              exit 1
+            fi
+            leading_tab_cache_line=$(printf '600\t%s' "$fixture/$leading_tab_name")
+            if ! grep -Fqx -- "$leading_tab_cache_line" "$cache"; then
+              echo "leading-tab cache record was not preserved" >&2
               exit 1
             fi
             for temp_file in "$fixture"/.cache/.video-durations.*; do

@@ -105,8 +105,9 @@ instead.
 
 `checks."apps/video-cache-tree-order"` in `modules/apps/video-cache.nix` guards
 that ordering, the alternate-locale invariant, long numeric runs, literal-tab
-records, cache mode preservation, and cleanup of successful and failed
-replacements. It
+records including a leading tab in the cached path, cache mode preservation,
+and cleanup of successful and failed replacements. The locale assertion uses a
+one-locale glibc archive rather than realizing the full locale set. It
 stubs `ffprobe` and `mpv` through `callPackage`, so it builds neither, and it is
 the only place CI reaches this package's `writeShellApplication` shellcheck
 pass.
