@@ -29,10 +29,14 @@ let
       commonModule =
         config.flake.nixosModules.hosts-common
           or (throw "Host ${hostName} has shareCommon enabled but flake.nixosModules.hosts-common is missing");
+      insecurePackagesModule =
+        config.flake.nixosModules.nixpkgs-allowed-insecure
+          or (throw "Nixpkgs insecure-package policy module is missing");
     in
     inputs.nixpkgs.lib.nixosSystem {
       system = "x86_64-linux";
       modules = [
+        insecurePackagesModule
         {
           _module.args = {
             inherit

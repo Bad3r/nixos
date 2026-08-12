@@ -143,6 +143,11 @@ flake.nixosModules.hosts-common.imports = [
 | `modules/meta/nixpkgs-allowed-unfree.nix`   | Unfree package allowlist                       |
 | `modules/meta/nixpkgs-allowed-insecure.nix` | Aggregates NixOS insecure package allowances   |
 
+`modules/configurations/nixos.nix` imports the named insecure-package module
+before the optional `hosts-common` aggregate, so app modules can use
+`nixpkgs.extraPermittedInsecurePackages` on both common-baseline and deliberate
+`shareCommon = false` hosts.
+
 ## Next Steps
 
 - [Home Manager](04-home-manager.md) -- user-level aggregators
