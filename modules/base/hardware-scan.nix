@@ -28,9 +28,5 @@
 
     # CPU microcode is provided by explicit CPU-family hardware modules.
 
-    # Permit insecure packages that are required but marked as insecure
-    nixpkgs.config.permittedInsecurePackages = [
-      "qtwebengine-5.15.19" # Required by some Qt5 applications, marked insecure in NixOS 25.11
-    ];
   };
 }

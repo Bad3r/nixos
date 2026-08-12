@@ -43,7 +43,7 @@ let
 
         # Ventoy is marked as insecure due to binary blobs
         # Automatically permit the current version from nixpkgs
-        nixpkgs.config.permittedInsecurePackages = [
+        nixpkgs.extraPermittedInsecurePackages = [
           cfg.package.name
         ];
       };

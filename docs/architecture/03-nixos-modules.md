@@ -136,11 +136,12 @@ flake.nixosModules.hosts-common.imports = [
 
 ## System-Level Utilities
 
-| Module                                    | Purpose                                        |
-| ----------------------------------------- | ---------------------------------------------- |
-| `modules/meta/ci.nix`                     | Validates app helper namespace                 |
-| `modules/files.nix`                       | Regenerates managed files (README, .sops.yaml) |
-| `modules/meta/nixpkgs-allowed-unfree.nix` | Unfree package allowlist                       |
+| Module                                      | Purpose                                        |
+| ------------------------------------------- | ---------------------------------------------- |
+| `modules/meta/ci.nix`                       | Validates app helper namespace                 |
+| `modules/files.nix`                         | Regenerates managed files (README, .sops.yaml) |
+| `modules/meta/nixpkgs-allowed-unfree.nix`   | Unfree package allowlist                       |
+| `modules/meta/nixpkgs-allowed-insecure.nix` | Aggregates NixOS insecure package allowances   |
 
 ## Next Steps
 
