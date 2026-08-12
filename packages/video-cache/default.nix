@@ -88,6 +88,10 @@ writeShellApplication {
           echo '               :MAX        upper bound only'
           echo 'DUR inside RANGE: N | Ns | Nm | Nh  (e.g., 60s, 3m, 1h).'
           echo
+          echo 'Order: depth-first tree order. Within a directory, entries sort'
+          echo 'case-insensitively with natural numbers (ep2 before ep10), and'
+          echo 'each directory keeps its contents contiguous. Use -s to randomize.'
+          echo
           echo 'Examples:'
           echo '  video-cache -d 3m          play videos >= 3 min'
           echo '  video-cache -d :30s        play videos <= 30 seconds'
@@ -196,9 +200,35 @@ writeShellApplication {
       fi
     fi
 
-    # Sort cache by filepath (alphabetical)
+    # Tree order: / becomes \001 so a directory's contents stay contiguous and
+    # precede a same-named sibling, each digit run is length-prefixed for
+    # natural order, and LC_ALL=C keeps the result independent of the caller.
     if [[ -s "$CACHE_FILE" ]]; then
-      sort -t$'\t' -k2 -o "$CACHE_FILE" "$CACHE_FILE"
+      sort_tmp=$(mktemp)
+      LC_ALL=C awk -F'\t' '
+        function natnum(n) {
+          sub(/^0+/, "", n)
+          if (n == "") { n = "0" }
+          return sprintf("%02d", length(n)) n
+        }
+        function treekey(p,   out, pre, num) {
+          p = tolower(p)
+          gsub(/\//, "\001", p)
+          out = ""
+          while (match(p, /[0-9]+/)) {
+            pre = substr(p, 1, RSTART - 1)
+            num = substr(p, RSTART, RLENGTH)
+            out = out pre natnum(num)
+            p = substr(p, RSTART + RLENGTH)
+          }
+          return out p
+        }
+        BEGIN { OFS = "\t" }
+        { print treekey($2), $1, $2 }
+      ' "$CACHE_FILE" \
+        | LC_ALL=C sort -t$'\t' -k1,1 -k3,3 \
+        | cut -f2- >"$sort_tmp"
+      mv "$sort_tmp" "$CACHE_FILE"
     fi
 
     # Calculate totals
