@@ -1,6 +1,6 @@
 # mpv
 
-Last Update: 2026-07-05
+Last Update: 2026-08-13
 
 This directory documents how `mpv` is composed and managed in this NixOS
 configuration: the NixOS app module, the Home Manager app module, the XDG

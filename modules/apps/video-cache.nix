@@ -7,6 +7,7 @@
   Summary:
     * Scans directories for video files and caches their durations in TSV format.
     * Supports incremental updates: removes deleted files, adds new ones, skips cached.
+    * Emits matching videos in depth-first tree order with natural numeric sorting.
 
   Options:
     --force: Clear cache and rescan all files.
@@ -99,6 +100,9 @@ in
             nativeBuildInputs = with pkgs; [
               coreutils
               diffutils
+              glibc.bin
+              glibcLocales
+              gnugrep
               gnused
             ];
           }
@@ -112,15 +116,25 @@ in
             fixture="$PWD/fixture"
             mkdir -p "$fixture/Show A/extras" "$fixture/The Office" "$fixture/clips"
 
+            run99=$(printf '%099d' 0)
+            run99=''${run99//0/9}
+            run100=$(printf '%0100d' 0)
+            run100=''${run100//0/9}
+            long99="Show A/ep''${run99}.mkv"
+            long100="Show A/ep''${run100}.mkv"
+            tab_name=$'Tab\tName.mp4'
+
             # Each name isolates one failure mode of a flat path sort: ep2/ep10
             # the numeric one, "Show A" against "Show A.mp4" the
             # directory-versus-sibling one, "The Office" against "the-100.mp4"
-            # the case-and-punctuation one, notes.txt the extension filter.
+            # the case-and-punctuation one, the long runs the natural-number
+            # length boundary, and tab_name the cache record round-trip.
             for f in \
               "Alpha.mp4" "Show A.mp4" "the-100.mp4" "zebra.mp4" \
               "Show A/ep2.mkv" "Show A/ep10.mkv" "Show A/extras/bloopers.mkv" \
               "The Office/s01e09.mkv" "The Office/s01e10.mkv" \
-              "clips/a.mp4" "clips/b.mp4" "notes.txt"; do
+              "clips/a.mp4" "clips/b.mp4" "notes.txt" "$long99" "$long100" \
+              "$tab_name"; do
               : >"$fixture/$f"
             done
 
@@ -130,8 +144,11 @@ in
               'clips/b.mp4' \
               'Show A/ep2.mkv' \
               'Show A/ep10.mkv' \
+              "$long99" \
+              "$long100" \
               'Show A/extras/bloopers.mkv' \
               'Show A.mp4' \
+              "$tab_name" \
               'The Office/s01e09.mkv' \
               'The Office/s01e10.mkv' \
               'the-100.mp4' \
@@ -149,6 +166,22 @@ in
               exit 1
             fi
 
+            # The ordering is pinned inside the package, not just by this
+            # sandbox's unset locale environment.
+            (
+              export LOCALE_ARCHIVE=${pkgs.glibcLocales}/lib/locale/locale-archive
+              export LC_ALL=en_US.UTF-8
+              if [[ "$(locale charmap)" != UTF-8 ]]; then
+                echo "en_US.UTF-8 locale is unavailable in the check environment" >&2
+                exit 1
+              fi
+              playlist >actual-locale
+            )
+            if ! diff -u expected actual-locale; then
+              echo "playlist order depends on the caller's locale" >&2
+              exit 1
+            fi
+
             # 2. An existing cache in arbitrary order must be rewritten, and the
             #    duration filter must not reorder what survives it. Every path
             #    is already cached, so this run reaches no ffprobe.
@@ -156,6 +189,8 @@ in
             printf '600\t%s\n' \
               "$fixture/zebra.mp4" \
               "$fixture/Show A/ep10.mkv" \
+              "$fixture/$long99" \
+              "$fixture/$long100" \
               "$fixture/Alpha.mp4" \
               "$fixture/Show A.mp4" \
               "$fixture/Show A/ep2.mkv" \
@@ -164,22 +199,73 @@ in
               "$fixture/The Office/s01e09.mkv" \
               "$fixture/Show A/extras/bloopers.mkv" \
               "$fixture/clips/a.mp4" \
+              "$fixture/$tab_name" \
               "$fixture/the-100.mp4" \
               >"$cache"
 
-            playlist -d 600 >actual-seeded
+            cache_mode=$(stat -c '%a' "$cache")
+            foreign_tmp="$PWD/foreign-tmp"
+            mkdir -p "$foreign_tmp"
+            TMPDIR="$foreign_tmp" playlist -d 600 >actual-seeded
             if ! diff -u expected actual-seeded; then
               echo "a pre-existing cache was not rewritten into tree order" >&2
               exit 1
             fi
+            if [[ "$(stat -c '%a' "$cache")" != "$cache_mode" ]]; then
+              echo "cache mode changed during replacement" >&2
+              exit 1
+            fi
+            tab_cache_line=$(printf '600\t%s' "$fixture/$tab_name")
+            if ! grep -Fqx -- "$tab_cache_line" "$cache"; then
+              echo "tab-containing cache record was not preserved" >&2
+              exit 1
+            fi
+            for temp_file in "$fixture"/.cache/.video-durations.*; do
+              if [[ -e "$temp_file" ]]; then
+                echo "cache replacement leaked a temporary file" >&2
+                exit 1
+              fi
+            done
+            for temp_file in "$foreign_tmp"/.video-durations.*; do
+              if [[ -e "$temp_file" ]]; then
+                echo "cache replacement ignored its cache-directory template" >&2
+                exit 1
+              fi
+            done
 
-            # 3. The rewrite is a fixpoint: a second pass must not move a line.
+            # 3. The rewrite is a fixpoint: a second pass must not move a line
+            # or make the tab-containing file look new again.
             cp "$cache" pass1.tsv
             playlist >/dev/null
             if ! diff -u pass1.tsv "$cache"; then
               echo "the cache sort is not idempotent" >&2
               exit 1
             fi
+
+            # 4. A failed cache read must leave the original record and remove
+            # the replacement file created before the failure.
+            failure_fixture="$PWD/failure-fixture"
+            mkdir -p "$failure_fixture/.cache"
+            : >"$failure_fixture/failed.mp4"
+            failure_cache="$failure_fixture/.cache/video-durations.tsv"
+            printf '600\t%s\n' "$failure_fixture/failed.mp4" >"$failure_cache"
+            cp "$failure_cache" failure-cache.before
+            chmod 000 "$failure_cache"
+            if "$subject" --path "$failure_fixture" --quiet >failure.out 2>failure.err; then
+              echo "an unreadable cache unexpectedly succeeded" >&2
+              exit 1
+            fi
+            chmod 600 "$failure_cache"
+            if ! cmp -s failure-cache.before "$failure_cache"; then
+              echo "a failed cache update changed the original record" >&2
+              exit 1
+            fi
+            for temp_file in "$failure_fixture"/.cache/.video-durations.*; do
+              if [[ -e "$temp_file" ]]; then
+                echo "failed cache update leaked a temporary file" >&2
+                exit 1
+              fi
+            done
 
             touch "$out"
           '';

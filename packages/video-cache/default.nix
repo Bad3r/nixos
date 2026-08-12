@@ -145,7 +145,9 @@ writeShellApplication {
     # Remove deleted files from cache
     removed=0
     if [[ -s "$CACHE_FILE" ]]; then
-      tmp_file=$(mktemp)
+      tmp_file=$(mktemp "$CACHE_DIR/.video-durations.XXXXXX")
+      trap 'rm -f -- "$tmp_file"' EXIT
+      chmod --reference="$CACHE_FILE" -- "$tmp_file"
       while IFS=$'\t' read -r duration filepath; do
         if [[ -f "$filepath" ]]; then
           printf '%s\t%s\n' "$duration" "$filepath" >> "$tmp_file"
@@ -153,12 +155,15 @@ writeShellApplication {
           ((removed++)) || true
         fi
       done < "$CACHE_FILE"
-      mv "$tmp_file" "$CACHE_FILE"
+      mv -- "$tmp_file" "$CACHE_FILE"
+      trap - EXIT
     fi
 
     # Find new files (not in cache)
     new_files=$(fd -t f '\.(3gp|avi|flv|m4v|mkv|mov|mp4|mpg|webm|wmv)$' -i "$VIDEO_DIR" \
-      | grep -Fxvf <(cut -f2 "$CACHE_FILE") || true)
+      | LC_ALL=C grep -Fxvf <(
+        LC_ALL=C awk -F'\t' 'index($0, "\t") { print substr($0, index($0, "\t") + 1) }' "$CACHE_FILE"
+      ) || true)
 
     added=0
     failed=0
@@ -201,18 +206,25 @@ writeShellApplication {
     fi
 
     # Tree order: / becomes \001 so a directory's contents stay contiguous and
-    # precede a same-named sibling, each digit run is length-prefixed for
-    # natural order, and LC_ALL=C keeps the result independent of the caller.
+    # precede a same-named sibling. The transient key encodes each significant
+    # digit as one zero followed by a NUL terminator, so natural order has no
+    # fixed digit-run ceiling. Literal tabs use \002 in the key; the original
+    # cache record remains opaque after its duration field.
     if [[ -s "$CACHE_FILE" ]]; then
-      sort_tmp=$(mktemp)
+      sort_tmp=$(mktemp "$CACHE_DIR/.video-durations.XXXXXX")
+      trap 'rm -f -- "$sort_tmp"' EXIT
+      chmod --reference="$CACHE_FILE" -- "$sort_tmp"
       LC_ALL=C awk -F'\t' '
-        function natnum(n) {
+        function natnum(n,   out, i) {
           sub(/^0+/, "", n)
           if (n == "") { n = "0" }
-          return sprintf("%02d", length(n)) n
+          out = ""
+          for (i = 1; i <= length(n); i++) { out = out "0" }
+          return out "\000" n
         }
         function treekey(p,   out, pre, num) {
           p = tolower(p)
+          gsub(/\t/, "\002", p)
           gsub(/\//, "\001", p)
           out = ""
           while (match(p, /[0-9]+/)) {
@@ -224,11 +236,16 @@ writeShellApplication {
           return out p
         }
         BEGIN { OFS = "\t" }
-        { print treekey($2), $1, $2 }
+        {
+          record = $0
+          path = substr(record, index(record, "\t") + 1)
+          print treekey(path), record
+        }
       ' "$CACHE_FILE" \
-        | LC_ALL=C sort -t$'\t' -k1,1 -k3,3 \
+        | LC_ALL=C sort -t$'\t' -k1,1 -k3 \
         | cut -f2- >"$sort_tmp"
-      mv "$sort_tmp" "$CACHE_FILE"
+      mv -- "$sort_tmp" "$CACHE_FILE"
+      trap - EXIT
     fi
 
     # Calculate totals
@@ -255,8 +272,11 @@ writeShellApplication {
     # Play matching videos with mpv (bounds are inclusive)
     mapfile -t videos < <(LC_ALL=C awk -F'\t' \
       -v min="$MIN" -v max="$MAX" '
-        (min == "" || ($1+0) >= (min+0)) &&
-        (max == "" || ($1+0) <= (max+0)) { print $2 }
+        {
+          path = substr($0, index($0, "\t") + 1)
+          if ((min == "" || ($1+0) >= (min+0)) &&
+              (max == "" || ($1+0) <= (max+0))) { print path }
+        }
       ' "$CACHE_FILE")
     if [[ "''${#videos[@]}" -eq 0 ]]; then
       echo -e "''${RED}No videos matched.''${NC}" >&2
