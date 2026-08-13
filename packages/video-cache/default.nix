@@ -150,6 +150,8 @@ writeShellApplication {
       chmod --reference="$CACHE_FILE" -- "$tmp_file"
       # Preserve the opaque record after its first delimiter so literal tabs
       # in the filepath survive pruning without reformatting the duration.
+      # Redirect once so large cache rewrites do not reopen the cache filesystem
+      # for every surviving record.
       while IFS= read -r record; do
         if [[ "$record" != *$'\t'* ]]; then
           ((removed++)) || true
@@ -157,11 +159,11 @@ writeShellApplication {
         fi
         filepath="''${record#*$'\t'}"
         if [[ -f "$filepath" ]]; then
-          printf '%s\n' "$record" >> "$tmp_file"
+          printf '%s\n' "$record"
         else
           ((removed++)) || true
         fi
-      done < "$CACHE_FILE"
+      done < "$CACHE_FILE" > "$tmp_file"
       mv -- "$tmp_file" "$CACHE_FILE"
       trap - EXIT
     fi
