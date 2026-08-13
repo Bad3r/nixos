@@ -75,6 +75,12 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://docs.projectdiscovery.io/tools/naabu>
   - Desc.: Fast SYN, CONNECT, and UDP port scanner that streams into httpx/dnsx-style recon pipelines.
   - Stat.: Maintained (latest release v2.6.1, 2026-05-05).
+- nbtscan
+  - run..: `nbtscan -v $target_range`
+  - Repo.: <https://github.com/resurrecting-open-source-projects/nbtscan>
+  - Docs.: <https://github.com/resurrecting-open-source-projects/nbtscan#readme>
+  - Desc.: Sends NetBIOS status queries across an IP range and reports host names, logged-in users, and MAC addresses.
+  - Stat.: Maintenance mode (nixpkgs 1.7.2-unstable-2022-10-29; upstream describes the developers as inactive).
 - nmap
   - run..: `nmap -sV -sC $target`
   - Repo.: <https://github.com/nmap/nmap>
@@ -129,6 +135,27 @@ Each entry below lists a representative invocation, upstream repository, officia
   - Docs.: <https://github.com/rfc1036/whois#readme>
   - Desc.: Domain registration and ownership lookups.
   - Stat.: Maintained (latest release 2026-02-17).
+
+## Active Directory & SMB Enumeration
+
+- netexec
+  - run..: `nxc smb $target -u $user -p $pass`
+  - Repo.: <https://github.com/Pennyw0rth/NetExec>
+  - Docs.: <https://www.netexec.wiki/>
+  - Desc.: Maintained CrackMapExec fork for SMB/WinRM/MSSQL/LDAP/SSH/RDP/FTP/NFS/VNC/WMI enumeration and authenticated testing. The nixpkgs package is `netexec`; the installed executable is `nxc`.
+  - Stat.: Maintained (nixpkgs 1.5.1).
+- samba
+  - run..: `smbclient -L $target -U $user`; `nmblookup -A $target`; `rpcclient $target -U $user`
+  - Repo.: <https://gitlab.com/samba-team/samba>
+  - Docs.: <https://www.samba.org/samba/docs/>
+  - Desc.: SMB/CIFS client suite providing share access through `smbclient`, NetBIOS name and address queries through `nmblookup`, and MS-RPC enumeration through `rpcclient`.
+  - Stat.: Maintained (nixpkgs 4.23.10).
+- smbmap
+  - run..: `smbmap -H $target -u $user -p $pass`
+  - Repo.: <https://github.com/ShawnDEvans/smbmap>
+  - Docs.: <https://github.com/ShawnDEvans/smbmap#readme>
+  - Desc.: Enumerates SMB shares and permissions with recursive listing, file search, transfer, and remote command features.
+  - Stat.: Maintained (nixpkgs 1.10.8).
 
 ## Web Application Testing & Proxies
 
