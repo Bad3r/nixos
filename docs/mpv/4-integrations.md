@@ -106,12 +106,13 @@ instead.
 `checks."apps/video-cache-tree-order"` in `modules/apps/video-cache.nix` guards
 that ordering, the alternate-locale invariant, long numeric runs, literal-tab
 records including a leading tab in the cached path, cache mode preservation,
-and cleanup of successful and failed replacements. Surviving prune records are
-streamed through one cache-local temporary file before replacement. The locale
-assertion uses a one-locale glibc archive rather than realizing the full locale
-set. It stubs `ffprobe` and `mpv` through `callPackage`, so it builds neither,
-and it is the only place CI reaches this package's `writeShellApplication`
-shellcheck pass.
+and cleanup of successful and failed replacements. The check also exercises
+pruning of deleted and malformed records while retaining an unrelated
+literal-tab record. Surviving prune records are streamed through one
+cache-local temporary file before replacement. The locale assertion uses a
+one-locale glibc archive rather than realizing the full locale set. It stubs
+`ffprobe` and `mpv` through `callPackage`, so it builds neither, and it is the
+only place CI reaches this package's `writeShellApplication` shellcheck pass.
 
 The helper is exposed as a custom package via
 `modules/custom-overlays/video-cache.nix` (registering

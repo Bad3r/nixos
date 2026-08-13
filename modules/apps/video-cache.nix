@@ -254,6 +254,27 @@ in
               exit 1
             fi
 
+            # 3b. Exercise both cache-pruning rejection paths. The malformed
+            # record names an existing file so removing the no-tab guard cannot
+            # be masked by the missing-file branch.
+            rm -- "$fixture/clips/b.mp4"
+            malformed_path="$fixture/malformed-no-tab"
+            : >"$malformed_path"
+            printf '%s\n' "$malformed_path" >>"$cache"
+            playlist >/dev/null
+            if grep -Fq -- "$fixture/clips/b.mp4" "$cache"; then
+              echo "a deleted file was not pruned from the cache" >&2
+              exit 1
+            fi
+            if grep -Fqx -- "$malformed_path" "$cache"; then
+              echo "a record without a tab delimiter was not rejected" >&2
+              exit 1
+            fi
+            if ! grep -Fqx -- "$leading_tab_cache_line" "$cache"; then
+              echo "pruning dropped or reprobed an unrelated record" >&2
+              exit 1
+            fi
+
             # 4. A failed cache read must leave the original record and remove
             # the replacement file created before the failure.
             failure_fixture="$PWD/failure-fixture"
