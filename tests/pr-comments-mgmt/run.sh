@@ -163,6 +163,43 @@ format_dispatch_arms() {
   [[ ${found} == true ]] || fail "no OUTPUT_FORMAT dispatch in ${SUT}"
 }
 
+current_pr_view_fields() {
+  # The --json list `current_pr` hands gh, one field per line. Scoped to that
+  # function so another `pr view` cannot join the set. The list sits on the
+  # line after a `--json \` continuation, so both spellings are handled.
+  local line found=false continued=false fields=""
+  while IFS= read -r line; do
+    if [[ ${found} == false ]]; then
+      [[ ${line} == 'current_pr() {'* ]] && found=true
+      continue
+    fi
+    [[ ${line} == '}'* ]] && break
+    if [[ ${continued} == true ]]; then
+      [[ ${line} =~ ^[[:space:]]*([A-Za-z,]+) ]] && fields="${BASH_REMATCH[1]}"
+      break
+    elif [[ ${line} =~ --json[[:space:]]+\\$ ]]; then
+      continued=true
+    elif [[ ${line} =~ --json[[:space:]]+([A-Za-z,]+) ]]; then
+      fields="${BASH_REMATCH[1]}"
+      break
+    fi
+  done <"${SUT}"
+  [[ ${found} == true ]] || fail "no current_pr definition in ${SUT}"
+  [[ -n ${fields} ]] || fail "no --json field list in current_pr"
+  printf '%s\n' "${fields//,/$'\n'}"
+}
+
+current_pr_documented_fields() {
+  # The `Fields:` run out of current-pr's description, one field per line. It
+  # ends at the first period, so prose about those fields can follow.
+  local description
+  description="$("${SUT}" --help --json |
+    jq -r '.subcommandGroups[].subcommands[] | select(.name == "current-pr") | .description[0]')"
+  [[ ${description} =~ Fields:[[:space:]]*([^.]+) ]] ||
+    fail "current-pr's description carries no 'Fields:' list"
+  printf '%s\n' "${BASH_REMATCH[1]//,/$'\n'}" | tr -d ' '
+}
+
 flatten() {
   # Whitespace-normalized help text. The renderer rewraps every paragraph, so a
   # document string only survives into the text as a run of words.
@@ -280,6 +317,18 @@ test_every_documented_format_has_a_renderer() {
     fail "accepted --format values (${accepted}) differ from _format_array arms (${dispatched})"
 }
 
+test_current_pr_documents_its_payload() {
+  # `current-pr` is read for fields the caller then feeds to something else, so
+  # a field dropped from the gh call while the document still advertises it is
+  # a null the caller only discovers at use. The payload itself is past the API
+  # call, so this joins the two lists in the source instead.
+  local documented enforced
+  documented="$(current_pr_documented_fields | sort | tr '\n' ' ')"
+  enforced="$(current_pr_view_fields | sort | tr '\n' ' ')"
+  [[ ${documented} == "${enforced}" ]] ||
+    fail "documented current-pr fields (${documented}) differ from the gh --json list (${enforced})"
+}
+
 test_usage_error_goes_to_stderr() {
   # The output convention is diagnostics on stderr, payloads on stdout: a usage
   # error on stdout corrupts `list-threads --format=ids | ... resolve`. Needs
@@ -352,6 +401,7 @@ tests=(
   test_documented_subcommands_match_the_allowlist
   test_documented_choices_are_the_enforced_ones
   test_every_documented_format_has_a_renderer
+  test_current_pr_documents_its_payload
   test_json_flag_requires_help
   test_help_needs_no_gh
   test_help_tolerates_a_closed_reader
