@@ -45,21 +45,6 @@ _: {
             because renderD numbering follows driver probe order, not the PCI slot.
           '';
         };
-
-        videoDecodeElectronApps = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [
-            "discord"
-            "signal-desktop"
-          ];
-          example = [ "element-desktop" ];
-          description = ''
-            Electron packages wrapped so `videoDecodeDevice` reaches argv. Electron
-            honours no environment variable that injects Chromium switches, so unlike
-            the browsers it cannot pick the node up from `CHROME_EXTRA_FLAGS`. Naming
-            a package here is the only edit needed to cover it.
-          '';
-        };
       };
 
       config = lib.mkMerge [
@@ -100,37 +85,6 @@ _: {
           # iGPU node restores hardware decode. The browsers read this variable
           # themselves, which covers new ones without any per-package wiring.
           environment.sessionVariables.CHROME_EXTRA_FLAGS = lib.mkDefault videoDeviceFlag;
-
-          nixpkgs.overlays = [
-            (
-              final: prev:
-              lib.genAttrs cfg.videoDecodeElectronApps (
-                name:
-                let
-                  base = prev.${name};
-                in
-                # symlinkJoin keeps this a thin wrapper: overriding electron_* instead
-                # would rebuild every dependent from source and still miss the apps
-                # that vendor their own Electron.
-                final.symlinkJoin {
-                  name = "${name}-vaapi-device";
-                  # lib.getName drives the unfree predicate, so the wrapper has to
-                  # keep the wrapped package's pname or the allowlist stops matching.
-                  pname = lib.getName base;
-                  inherit (base) version;
-                  paths = [ base ];
-                  nativeBuildInputs = [ final.makeWrapper ];
-                  meta = base.meta or { };
-                  postBuild = ''
-                    for bin in "$out"/bin/*; do
-                      [ -e "$bin" ] || continue
-                      wrapProgram "$bin" --add-flags ${lib.escapeShellArg videoDeviceFlag}
-                    done
-                  '';
-                }
-              )
-            )
-          ];
         }
 
         (lib.mkIf (cfg.mode == "nvidia-only") {
