@@ -78,6 +78,16 @@ _: {
             probe order, not the PCI slot.
           '';
         };
+
+        chromeExtraFlags = lib.mkOption {
+          type = lib.types.listOf lib.types.str;
+          default = [ ];
+          description = ''
+            Additional flags exported to Chromium browsers through
+            `CHROME_EXTRA_FLAGS`. The required render-node flag is prepended
+            automatically, so adding flags here cannot disable hardware video decode.
+          '';
+        };
       };
 
       config = lib.mkMerge [
@@ -120,7 +130,9 @@ _: {
           # Keep libva on the same Intel node and iHD driver in both modes so non-Chromium
           # VA-API consumers do not fall back to render-node probe order.
           environment.sessionVariables = {
-            CHROME_EXTRA_FLAGS = lib.mkDefault videoDeviceFlag;
+            CHROME_EXTRA_FLAGS = lib.mkDefault (
+              lib.concatStringsSep " " ([ videoDeviceFlag ] ++ cfg.chromeExtraFlags)
+            );
             LIBVA_DRM_DEVICE = lib.mkDefault cfg.videoDecodeDevice;
             LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
           };
