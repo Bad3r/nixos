@@ -19,7 +19,10 @@ flake.lib.nixos.hosts.<host>.shareCommon = true;
 `shareCommon = true` imports the entire `flake.nixosModules.hosts-common`
 aggregate (hostname, boot defaults, networking base, firewall, sops runtime,
 app baseline, state defaults) before the host module, so per-host overrides
-still win. `shareCommon = false` is a deliberate opt-out.
+still win. `shareCommon = false` is a deliberate opt-out. The host constructor
+still imports the Nixpkgs insecure-package policy before this branch, so an
+explicitly imported app module can use
+`nixpkgs.extraPermittedInsecurePackages` without depending on `hosts-common`.
 
 This step cannot be forgotten: `modules/configurations/nixos.nix` aborts
 evaluation for any host under `configurations.nixos` without an explicit

@@ -399,7 +399,7 @@ let
       shfmt.extended.enable = lib.mkOverride 1100 true;
       sidecar.extended.enable = lib.mkOverride 1100 true;
       "signal-desktop".extended.enable = lib.mkOverride 1100 true;
-      simplescreenrecorder.extended.enable = lib.mkOverride 1100 true;
+      simplescreenrecorder.extended.enable = lib.mkOverride 1100 false;
       skim.extended.enable = lib.mkOverride 1100 false;
       slop.extended.enable = lib.mkOverride 1100 true;
       slidev-cli.extended.enable = lib.mkOverride 1100 true;

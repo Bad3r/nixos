@@ -90,6 +90,30 @@ extension is a per-user choice and not modeled here.
    minutes", and so on).
 4. Execs `mpv` (optionally with `--shuffle`) on the matching list.
 
+The playlist is emitted in depth-first tree order, which is also the order the
+cache file is stored in. Within a directory, entries sort case-insensitively
+with natural number ordering, so `ep2.mkv` precedes `ep10.mkv`, and a
+directory's contents stay contiguous rather than being split by a sibling file
+that sorts between them. The ordering key is computed under `LC_ALL=C`, so it
+does not shift with the caller's locale. Numeric runs have no fixed length
+ceiling, and literal tabs are preserved through cache membership, pruning,
+sorting, and playlist extraction. The cache remains line-based, so a filename
+containing a newline is not representable; literal `\001` or `\002` bytes can
+also order unpredictably because the transient key reserves those bytes for
+directory separators and tab encoding. `-s` hands the list to `mpv --shuffle`
+instead.
+
+`checks."apps/video-cache-tree-order"` in `modules/apps/video-cache.nix` guards
+that ordering, the alternate-locale invariant, long numeric runs, literal-tab
+records including a leading tab in the cached path, cache mode preservation,
+and cleanup of successful and failed replacements. The check also exercises
+pruning of deleted and malformed records while retaining an unrelated
+literal-tab record. Surviving prune records are streamed through one
+cache-local temporary file before replacement. The locale assertion uses a
+one-locale glibc archive rather than realizing the full locale set. It stubs
+`ffprobe` and `mpv` through `callPackage`, so it builds neither, and it is the
+only place CI reaches this package's `writeShellApplication` shellcheck pass.
+
 The helper is exposed as a custom package via
 `modules/custom-overlays/video-cache.nix` (registering
 `flake.customOverlays.video-cache`) and gated behind the standard

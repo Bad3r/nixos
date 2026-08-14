@@ -49,6 +49,9 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "discord" ];
+  nixpkgs.allowedUnfreePackages = [
+    "discord"
+    "discord-unwrapped"
+  ];
   flake.nixosModules.apps.discord = DiscordModule;
 }
