@@ -251,7 +251,7 @@ usage_json() {
           "name": "current-pr",
           "usage": "current-pr",
           "description": [
-            "PR view as JSON. Fields: id, number, title, body, state, url, headRefName, baseRefName, author, isDraft, mergeable, mergeStateStatus, and labels flattened to a name array."
+            "PR view as JSON. Fields: id, number, title, body, state, url, headRefName, headRefOid, baseRefName, baseRefOid, author, isDraft, mergeable, mergeStateStatus, labels. Labels are flattened to a name array. The two OIDs bound a diff range without a second API call: baseRefOid is the base branch tip the PR is measured against, headRefOid the PR head, so `git diff --stat <baseRefOid>...<headRefOid>` needs no local checkout state."
           ]
         }
       ]
@@ -1933,7 +1933,7 @@ current_pr() {
 
   local data
   if ! data=$(_gh_run pr view "${PR_NUMBER}" --repo "${PR_OWNER_REPO}" --json \
-    id,number,title,body,state,url,headRefName,baseRefName,author,isDraft,mergeable,mergeStateStatus,labels); then
+    id,number,title,body,state,url,headRefName,headRefOid,baseRefName,baseRefOid,author,isDraft,mergeable,mergeStateStatus,labels); then
     err "current-pr: failed to view ${PR_OWNER_REPO}#${PR_NUMBER}"
     return 2
   fi
