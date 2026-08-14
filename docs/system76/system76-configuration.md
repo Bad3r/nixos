@@ -115,16 +115,27 @@ options.system76.gpu = {
     type = lib.types.enum [ "hybrid-sync" "nvidia-only" ];
     default = "hybrid-sync";
   };
-  # Xorg decimal PCI:bus@domain:device:function form. The domain may be omitted when 0.
-  intelBusId = lib.mkOption { type = lib.types.str; default = "PCI:0:2:0"; };
+  intelBusId = lib.mkOption {
+    type = lib.types.str;
+    default = "PCI:0:2:0";
+    description = ''
+      Intel iGPU address in Xorg's decimal `PCI:bus@domain:device:function` form.
+      Used for PRIME sync in `hybrid-sync` mode and as the source of the
+      `videoDecodeDevice` default in both modes. The domain may be omitted when it is 0.
+    '';
+  };
   nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };
   videoDecodeDevice = lib.mkOption {
     type = lib.types.str;
-    # Derived from intelBusId rather than hardcoded:
+    # Derived from intelBusId rather than hardcoded. For example:
     # PCI:0:2:0 -> /dev/dri/by-path/pci-0000:00:02.0-render.
-    # An optional domain is accepted, for example PCI:2@1:3:4 -> pci-0001:02:03.4.
-    default = "/dev/dri/by-path/pci-${domain}:${bus}:${device}.${function}-render";
+    # PCI:2@1:3:4 -> /dev/dri/by-path/pci-0001:02:03.4-render.
+    defaultText = lib.literalExpression ''"/dev/dri/by-path/pci-<intelBusId as a sysfs address>-render"'';
     example = "/dev/dri/renderD128";
+    description = ''
+      Intel render node offered to VA-API consumers. Override this when the
+      chassis uses a non-standard device path.
+    '';
   };
 };
 

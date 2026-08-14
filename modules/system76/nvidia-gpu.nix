@@ -3,8 +3,23 @@ _: {
     { config, lib, ... }:
     let
       cfg = config.system76.gpu;
-      intelBusParts = lib.splitString ":" (lib.removePrefix "PCI:" cfg.intelBusId);
-      intelBusDomainParts = lib.splitString "@" (lib.elemAt intelBusParts 0);
+      intelBusFields =
+        let
+          matched = builtins.match "PCI:([0-9]{1,3})(@([0-9]{1,10}))?:([0-9]{1,2}):([0-9])" cfg.intelBusId;
+        in
+        if matched == null then
+          throw (
+            "system76.gpu.intelBusId: expected decimal PCI:bus[@domain]:device:function "
+            + "with bus 1-3 digits, optional domain 1-10 digits, device 1-2 digits, "
+            + "and function 1 digit, got '${cfg.intelBusId}'"
+          )
+        else
+          {
+            bus = lib.elemAt matched 0;
+            domain = if lib.elemAt matched 2 == null then "0" else lib.elemAt matched 2;
+            device = lib.elemAt matched 3;
+            function = lib.elemAt matched 4;
+          };
       intelBusHex = part: lib.toLower (lib.toHexString (lib.toIntBase10 part));
       intelBusHexPadded = part: lib.fixedWidthString 2 "0" (intelBusHex part);
       intelDomainHexPadded = part: lib.fixedWidthString 4 "0" (intelBusHex part);
@@ -26,10 +41,15 @@ _: {
           default = "PCI:0:2:0";
           example = "PCI:0:2:0";
           description = ''
-            PCI address for the Intel iGPU when PRIME sync is enabled, in Xorg's
-            decimal `PCI:bus@domain:device:function` form. Determine the slot via
-            `lspci -nn | grep VGA` and convert its hexadecimal components if the
-            default does not match this chassis. The domain may be omitted when it is 0.
+            PCI address for the Intel iGPU, in Xorg's decimal
+            `PCI:bus@domain:device:function` form; the domain may be omitted when it
+            is 0. Used for PRIME sync when `mode = "hybrid-sync"`, and as the source
+            of the `videoDecodeDevice` default in both modes. Unless
+            `videoDecodeDevice` is overridden explicitly, an incorrect value can point
+            the default Chromium and libva routing at the wrong render node and make
+            hardware video decode fall back to software even with PRIME disabled.
+            Determine the slot via `lspci -nn | grep VGA` and convert its hexadecimal
+            components to decimal.
           '';
         };
 
@@ -46,12 +66,8 @@ _: {
         videoDecodeDevice = lib.mkOption {
           type = lib.types.str;
           default =
-            "/dev/dri/by-path/pci-${
-              intelDomainHexPadded (
-                if builtins.length intelBusDomainParts == 2 then lib.elemAt intelBusDomainParts 1 else "0"
-              )
-            }:${intelBusHexPadded (lib.elemAt intelBusDomainParts 0)}"
-            + ":${intelBusHexPadded (lib.elemAt intelBusParts 1)}.${intelBusHex (lib.elemAt intelBusParts 2)}-render";
+            "/dev/dri/by-path/pci-${intelDomainHexPadded intelBusFields.domain}:${intelBusHexPadded intelBusFields.bus}"
+            + ":${intelBusHexPadded intelBusFields.device}.${intelBusHex intelBusFields.function}-render";
           defaultText = lib.literalExpression ''"/dev/dri/by-path/pci-<intelBusId as a sysfs address>-render"'';
           example = "/dev/dri/renderD128";
           description = ''
