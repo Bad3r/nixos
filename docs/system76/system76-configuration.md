@@ -105,8 +105,8 @@ sudo system76-power charge-thresholds --profile full_charge   # 96-100%
 Shared NVIDIA wiring (driver selection, open-module toggle, container
 toolkit, VA-API routing, PRIME) lives in the parameterized
 `flake.nixosModules.nvidia-gpu` module (`modules/hardware/nvidia-gpu.nix`).
-The host file maps the `system76.gpu.mode` enum onto it and keeps the
-chassis-specific libva routing.
+The host file selects the `system76.gpu.mode` value and the module keeps the
+chassis-specific Intel VA-API routing consistent across both modes.
 
 ```nix
 # modules/system76/nvidia-gpu.nix
@@ -115,8 +115,17 @@ options.system76.gpu = {
     type = lib.types.enum [ "hybrid-sync" "nvidia-only" ];
     default = "hybrid-sync";
   };
+  # Xorg decimal PCI:bus@domain:device:function form. The domain may be omitted when 0.
   intelBusId = lib.mkOption { type = lib.types.str; default = "PCI:0:2:0"; };
   nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };
+  videoDecodeDevice = lib.mkOption {
+    type = lib.types.str;
+    # The module derives this by-path default from intelBusId:
+    # PCI:0:2:0 -> /dev/dri/by-path/pci-0000:00:02.0-render.
+    # An optional domain is accepted, for example PCI:2@1:3:4 -> pci-0001:02:03.4.
+    default = "/dev/dri/by-path/pci-0000:00:02.0-render";
+    example = "/dev/dri/renderD128";
+  };
 };
 
 gpu.nvidia = {
@@ -131,9 +140,16 @@ gpu.nvidia = {
   };
 };
 
-# nvidia-only branch: libva uses Intel Quick Sync through the stable iGPU render node.
-environment.sessionVariables.LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
-environment.sessionVariables.LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
+# Chromium matches its VA-API node to the GPU it renders on and rejects nvidia-drm
+# (crbug.com/1492880), so point it at the Intel node in either GPU mode. The browsers
+# read this variable directly; no per-package wiring is needed.
+# libva uses the same Intel Quick Sync node and iHD driver for every VA-API consumer.
+environment.sessionVariables = {
+  CHROME_EXTRA_FLAGS =
+    lib.mkDefault "--hardware-video-device-path=${config.system76.gpu.videoDecodeDevice}";
+  LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
+  LIBVA_DRM_DEVICE = lib.mkDefault config.system76.gpu.videoDecodeDevice;
+};
 ```
 
 ```nix

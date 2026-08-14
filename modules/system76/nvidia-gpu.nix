@@ -3,6 +3,11 @@ _: {
     { config, lib, ... }:
     let
       cfg = config.system76.gpu;
+      intelBusParts = lib.splitString ":" (lib.removePrefix "PCI:" cfg.intelBusId);
+      intelBusDomainParts = lib.splitString "@" (lib.elemAt intelBusParts 0);
+      intelBusHex = part: lib.toLower (lib.toHexString (lib.toIntBase10 part));
+      intelBusHexPadded = part: lib.fixedWidthString 2 "0" (intelBusHex part);
+      intelDomainHexPadded = part: lib.fixedWidthString 4 "0" (intelBusHex part);
       videoDeviceFlag = "--hardware-video-device-path=${cfg.videoDecodeDevice}";
     in
     {
@@ -21,8 +26,10 @@ _: {
           default = "PCI:0:2:0";
           example = "PCI:0:2:0";
           description = ''
-            PCI address for the Intel iGPU when PRIME sync is enabled. Determine via
-            `lspci -nn | grep VGA` if the default does not match this chassis.
+            PCI address for the Intel iGPU when PRIME sync is enabled, in Xorg's
+            decimal `PCI:bus@domain:device:function` form. Determine the slot via
+            `lspci -nn | grep VGA` and convert its hexadecimal components if the
+            default does not match this chassis. The domain may be omitted when it is 0.
           '';
         };
 
@@ -38,11 +45,21 @@ _: {
 
         videoDecodeDevice = lib.mkOption {
           type = lib.types.str;
-          default = "/dev/dri/by-path/pci-0000:00:02.0-render";
+          default =
+            "/dev/dri/by-path/pci-${
+              intelDomainHexPadded (
+                if builtins.length intelBusDomainParts == 2 then lib.elemAt intelBusDomainParts 1 else "0"
+              )
+            }:${intelBusHexPadded (lib.elemAt intelBusDomainParts 0)}"
+            + ":${intelBusHexPadded (lib.elemAt intelBusParts 1)}.${intelBusHex (lib.elemAt intelBusParts 2)}-render";
+          defaultText = lib.literalExpression ''"/dev/dri/by-path/pci-<intelBusId as a sysfs address>-render"'';
           example = "/dev/dri/renderD128";
           description = ''
-            Intel render node offered to VA-API consumers. The by-path form is stable
-            because renderD numbering follows driver probe order, not the PCI slot.
+            Intel render node offered to VA-API consumers. When omitted, the by-path
+            default is derived from the decimal Xorg `PCI:bus@domain:device:function`
+            components (with domain 0 when omitted), converted to the hexadecimal sysfs
+            address. The by-path form is stable because renderD numbering follows driver
+            probe order, not the PCI slot.
           '';
         };
       };
@@ -84,26 +101,14 @@ _: {
           # init finds nothing, and every Chromium app decodes in software. Naming the
           # iGPU node restores hardware decode. The browsers read this variable
           # themselves, which covers new ones without any per-package wiring.
-          environment.sessionVariables.CHROME_EXTRA_FLAGS = lib.mkDefault videoDeviceFlag;
-        }
-
-        (lib.mkIf (cfg.mode == "nvidia-only") {
-          # Only the dGPU drives displays; PRIME stays disabled via gpu.nvidia.prime.
-
-          # Do not blacklist i915: internal HDA/SOF audio on this chassis can
-          # depend on Intel graphics-side plumbing even when NVIDIA renders X11.
-
-          # Route libva to the Intel render node by stable path so it never opens
-          # the NVIDIA DRM device (see the vaapi.backend note above).
-          # VDPAU_DRIVER is intentionally unset: VDPAU is legacy, and pointing it at
-          # nvidia would route back into NVDEC.
-          # sessionVariables (PAM-initialised) so GUI apps launched outside a
-          # shell inherit the iHD routing, not just terminal-spawned ones.
+          # Keep libva on the same Intel node and iHD driver in both modes so non-Chromium
+          # VA-API consumers do not fall back to render-node probe order.
           environment.sessionVariables = {
+            CHROME_EXTRA_FLAGS = lib.mkDefault videoDeviceFlag;
             LIBVA_DRM_DEVICE = lib.mkDefault cfg.videoDecodeDevice;
             LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
           };
-        })
+        }
       ];
     };
 }
