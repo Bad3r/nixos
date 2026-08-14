@@ -120,10 +120,10 @@ options.system76.gpu = {
   nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };
   videoDecodeDevice = lib.mkOption {
     type = lib.types.str;
-    # The module derives this by-path default from intelBusId:
+    # Derived from intelBusId rather than hardcoded:
     # PCI:0:2:0 -> /dev/dri/by-path/pci-0000:00:02.0-render.
     # An optional domain is accepted, for example PCI:2@1:3:4 -> pci-0001:02:03.4.
-    default = "/dev/dri/by-path/pci-0000:00:02.0-render";
+    default = "/dev/dri/by-path/pci-${domain}:${bus}:${device}.${function}-render";
     example = "/dev/dri/renderD128";
   };
 };
