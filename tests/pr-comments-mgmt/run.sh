@@ -175,8 +175,9 @@ current_pr_view_fields() {
     fi
     [[ ${line} == '}'* ]] && break
     if [[ ${continued} == true ]]; then
-      [[ ${line} =~ ^[[:space:]]*([A-Za-z,]+) ]] && fields="${BASH_REMATCH[1]}"
-      break
+      [[ ${line} =~ ^[[:space:]]*([A-Za-z,]+) ]] || break
+      fields+="${BASH_REMATCH[1]}"
+      [[ ${line} =~ \\$ ]] || break
     elif [[ ${line} =~ --json[[:space:]]+\\$ ]]; then
       continued=true
     elif [[ ${line} =~ --json[[:space:]]+([A-Za-z,]+) ]]; then
