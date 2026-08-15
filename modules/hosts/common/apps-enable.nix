@@ -475,6 +475,7 @@ let
       vlc.extended.enable = lib.mkOverride 1100 false;
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       "vt-cli".extended.enable = lib.mkOverride 1100 true;
+      vtracer.extended.enable = lib.mkOverride 1100 true;
       vulnix.extended.enable = lib.mkOverride 1100 true;
       wafw00f.extended.enable = lib.mkOverride 1100 true;
       wakaru.extended.enable = lib.mkOverride 1100 false;
