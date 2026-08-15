@@ -494,6 +494,7 @@ let
       wrangler.extended.enable = lib.mkOverride 1100 true;
       xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
+      xdotool.extended.enable = lib.mkOverride 1100 true;
       "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
       "xfce4-settings".extended.enable = lib.mkOverride 1100 true;
       xh.extended.enable = lib.mkOverride 1100 true;
@@ -501,6 +502,7 @@ let
       xkill.extended.enable = lib.mkOverride 1100 true;
       xnlinkfinder.extended.enable = lib.mkOverride 1100 true;
       xsel.extended.enable = lib.mkOverride 1100 true;
+      xwininfo.extended.enable = lib.mkOverride 1100 true;
       xxd.extended.enable = lib.mkOverride 1100 true;
       xz.extended.enable = lib.mkOverride 1100 true;
       yaak.extended.enable = lib.mkOverride 1100 true;
