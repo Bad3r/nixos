@@ -15,7 +15,9 @@
 # re-evaluating module config.
 { config, lib, ... }:
 let
-  appEnable = { };
+  appEnable = {
+    inkscape = true;
+  };
 
   baseline =
     config.flake.lib.nixos._commonAppsBaseline or {
