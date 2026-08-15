@@ -453,6 +453,7 @@ let
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
       torsocks.extended.enable = lib.mkOverride 1100 true;
       tlsx.extended.enable = lib.mkOverride 1100 true;
+      tsx.extended.enable = lib.mkOverride 1100 true;
       tweakcc.extended.enable = lib.mkOverride 1100 true;
       "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       udiskie.extended.enable = lib.mkOverride 1100 true;
