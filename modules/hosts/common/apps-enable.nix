@@ -46,6 +46,7 @@ let
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
+      autotrace.extended.enable = lib.mkOverride 1100 true;
       assetfinder.extended.enable = lib.mkOverride 1100 true;
       awscli2.extended.enable = lib.mkOverride 1100 true;
       azd.extended.enable = lib.mkOverride 1100 true;
