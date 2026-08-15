@@ -377,6 +377,7 @@ let
       readpdf.extended.enable = lib.mkOverride 1100 true;
       remmina.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
+      resvg.extended.enable = lib.mkOverride 1100 true;
       rg-fzf.extended.enable = lib.mkOverride 1100 true;
       rip.extended.enable = lib.mkOverride 1100 true;
       ripgrep.extended.enable = lib.mkOverride 1100 true;
