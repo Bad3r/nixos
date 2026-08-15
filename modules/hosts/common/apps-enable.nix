@@ -432,6 +432,7 @@ let
       stylua.extended.enable = lib.mkOverride 1100 true;
       subfinder.extended.enable = lib.mkOverride 1100 true;
       subjack.extended.enable = lib.mkOverride 1100 true;
+      svgo.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 false;
       sysstat.extended.enable = lib.mkOverride 1100 true;
       tailscale.extended.enable = lib.mkOverride 1100 true;
