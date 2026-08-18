@@ -30,9 +30,9 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["list-threads"]="quiet pr format sort limit unresolved outdated author path minimized"
   ["list-reviews"]="quiet pr format sort limit author superseded similar-prefix"
   ["list-comments"]="quiet pr format sort limit author minimized superseded similar-prefix"
-  ["current-pr"]="quiet pr"
-  ["get-thread"]="quiet pr"
-  ["get-comment"]="quiet pr"
+  ["current-pr"]="quiet pr format"
+  ["get-thread"]="quiet pr format"
+  ["get-comment"]="quiet pr format"
   ["reply"]="quiet pr body body-file"
   ["unresolve"]="quiet pr"
   ["unhide-comment"]="quiet pr"
@@ -61,12 +61,16 @@ PR_NUMBER=""
 BODY_TEXT=""
 BODY_FILE=""
 
-# Output format for list-* subcommands. One of "json" (default, pretty
+# Output format for every read subcommand. One of "json" (default, pretty
 # array), "ndjson" (one document per line), "ids" (one .id per line),
 # "text" (one short line per item), "full" (header + body block per
 # item), "tsv" (per-kind tab-separated columns), or "body" (raw .body
 # per item, opener body for threads). text/full/tsv/body are dispatched
 # per verb to pick relevant fields.
+#
+# The list-* verbs render through _format_array, the single-object verbs
+# (current-pr, get-thread, get-comment) through _format_object, which keeps
+# json a bare object rather than wrapping it in a one-element array.
 OUTPUT_FORMAT="json"
 
 # list-* filters. Presence is tracked via SET_FLAGS for the boolean
@@ -243,7 +247,7 @@ usage_json() {
           "name": "get-comment",
           "usage": "get-comment <ref>",
           "description": [
-            "Single comment (top-level or inline review). <ref> accepts a GraphQL node id, a numeric REST databaseId, a URL fragment (e.g. `discussion_r3315576613` / `r3315576613` for an inline review comment, `issuecomment-1234567` for a top-level one), or a full comment URL. Owner/repo comes from the URL when supplied; otherwise --pr (or the current-branch PR) resolves it. Output matches the list-comments shape for top-level comments; review comments add path, line, diffHunk, replyTo, etc.",
+            "Single comment (top-level or inline review). <ref> accepts a GraphQL node id, a numeric REST databaseId, a URL fragment (e.g. `discussion_r3315576613` / `r3315576613` for an inline review comment, `issuecomment-1234567` for a top-level one), or a full comment URL. Owner/repo comes from the URL when supplied; otherwise --pr (or the current-branch PR) resolves it. Output matches the list-comments shape for top-level comments; review comments add path, line, diffHunk, replyTo, etc. Non-JSON formats render review comments through a separate `review-comments` kind (adds path, line columns); diffHunk/replyTo/commit stay JSON-only.",
             "LEFT/RIGHT is a thread property in GraphQL, so read it from list-threads/get-thread (diffSide, startDiffSide). To get there from a comment id: list-threads merges inner comment pagination, so every comment appears under .comments.nodes[].id; find its thread with `list-threads | jq 'map(select(.comments.nodes[].id == \"<comment-node-id>\"))'`."
           ]
         },
@@ -367,7 +371,8 @@ usage_json() {
       "flags": [{ "name": "--format" }],
       "default": "json",
       "description": [
-        "Output format for list-threads, list-reviews, and list-comments (default: json). `ids` emits one `.id` per line; `text` emits a one-line summary per item, prefixed with `<id>\\t` so `cut -f1` extracts the id; `full` emits a header (`=== <id> ... ===`) plus body block per item; `tsv` emits one tab-separated record per item with per-verb columns (no header, pipe to `column -t` for visual columns or `cut -f<n>` / `awk -F'\\t'` downstream); `body` emits the raw `.body` per item (opener body for threads), no headers or separators, best paired with `--limit=1`, since multi-item runs concatenate without delimiters (use `full` for multi-item dumps).",
+        "Output format for every read subcommand (default: json). `ids` emits one `.id` per line; `text` emits a one-line summary per item, prefixed with `<id>\\t` so `cut -f1` extracts the id; `full` emits a header (`=== <id> ... ===`) plus body block per item; `tsv` emits one tab-separated record per item with per-verb columns (no header, pipe to `column -t` for visual columns or `cut -f<n>` / `awk -F'\\t'` downstream); `body` emits the raw `.body` per item (opener body only for list-threads; get-thread emits every reply in the chain, undelimited), no headers or separators, best paired with `--limit=1` on the list-* verbs, since multi-item runs concatenate without delimiters (use `full` for multi-item dumps).",
+        "current-pr, get-thread, and get-comment emit exactly one item, so `json` stays a bare object rather than a one-element array (`current-pr | jq -r .number` keeps working) and `ndjson` is that object on one line. text/tsv reuse the per-verb template of the matching list-* verb: get-thread renders as `threads`, get-comment as `comments` (or `review-comments` for an inline review comment, which adds path/line columns). get-thread's full/body render the paginated reply chain through the `review-comments` template (thread path/line grafted onto every comment node) instead of the thread-opener-only `threads` template, so those two show every reply with its anchor, not just the opener; get-comment's full/body follow the same kind as its text/tsv.",
         "text/full/body are not stable contracts; downstream parsers should use ndjson or tsv.",
         "tsv columns:",
         {
@@ -380,7 +385,15 @@ usage_json() {
         },
         {
           "indent": 2,
+          "text": "review-comments: id, createdAt, author, isMinimized, minimizedReason, body_len, url, path, line"
+        },
+        {
+          "indent": 2,
           "text": "threads: id, isResolved, isOutdated, path, line, first_author, comments, visible_comments"
+        },
+        {
+          "indent": 2,
+          "text": "current-pr: id, number, state, isDraft, author, headRefName, baseRefName, headRefOid, baseRefOid, mergeable, mergeStateStatus, labels, body_len, url"
         },
         {
           "indent": 2,
@@ -495,7 +508,10 @@ usage_json() {
     "pr-comments-mgmt.sh --pr 149 list-reviews \\\n  --sort=newest --limit=5 --format=text",
     "pr-comments-mgmt.sh --pr 149 list-comments \\\n  --sort=newest --limit=3 --format=full",
     "pr-comments-mgmt.sh --pr 149 list-threads --format=tsv \\\n  | awk -F'\\t' -v OFS='\\t' \\\n      'BEGIN{print \"id\",\"resolved\",\"outdated\",\"path\",\"line\",\"author\",\"comments\",\"visible\"} 1' \\\n  | column -t -s $'\\t'",
+    "pr-comments-mgmt.sh --pr 149 current-pr --format=body > pr-body.md",
+    "pr-comments-mgmt.sh --pr 149 current-pr --format=tsv \\\n  | column -t -s $'\\t'",
     "pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC",
+    "pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC --format=text",
     "pr-comments-mgmt.sh get-comment IC_kwDOPeLwm88AAAABBCSK6A",
     "pr-comments-mgmt.sh get-comment 'https://github.com/Bad3r/nixos/pull/278#discussion_r3315576613'",
     "pr-comments-mgmt.sh --pr Bad3r/nixos#278 get-comment r3315576613",
@@ -868,8 +884,8 @@ _format_array() {
   #          headers, no separators. Intended for single-item dumps
   #          (`--limit=1`); multi-item runs concatenate without
   #          delimiters and should prefer `full` instead.
-  # The first arg is the kind ("threads", "reviews", "comments") and
-  # selects per-verb templates for text/full/tsv/body.
+  # The first arg is the kind ("threads", "reviews", "comments", "pr")
+  # and selects per-verb templates for text/full/tsv/body.
   # An arm per VALID_FORMATS entry, and no catch-all rendering: a value added
   # to that array is documented and accepted the moment it is added, so a
   # `*) jq '.'` default would ship it as a silent alias for json.
@@ -886,6 +902,46 @@ _format_array() {
   esac
 }
 
+_format_object() {
+  # Filter for the single-object read subcommands (current-pr, get-thread,
+  # get-comment). Reads one JSON object on stdin and emits the same seven
+  # shapes _format_array does, over a set of exactly one item.
+  #
+  # json and ndjson are the only two that cannot delegate: `json` must stay a
+  # bare object, since `current-pr | jq -r .number` is the reason the verb
+  # exists, and `ndjson` is that object on one line. ids/text/tsv wrap the
+  # object and hand it to _format_array, which keeps a thread rendered by
+  # get-thread identical to the same thread rendered by list-threads.
+  #
+  # full/body are the per-body dumps, so for `threads` they route
+  # `.comments.nodes` through the `review-comments` templates instead of
+  # wrapping the thread itself: the latter would render only
+  # `.comments.nodes[0]` (the opener) and silently drop every reply the
+  # paginated fetch already holds. That is also what keeps _format_full's
+  # "use get-thread for the full reply chain" comment true: list-threads
+  # still shows one opener per thread, and get-thread --format=full now shows
+  # the whole chain. The thread's own path/line is grafted onto every node
+  # before rendering (comment nodes carry no path/line of their own; the
+  # query selects those on the thread) so each block still names the file
+  # and line it anchors to, the same anchor list-threads --format=full shows
+  # per thread; `review-comments` is what already renders `[path:line]`.
+  local kind="$1"
+  case "${OUTPUT_FORMAT}" in
+  json) jq '.' ;;
+  ndjson) jq -c '.' ;;
+  ids | text | tsv) jq -c '[.]' | _format_array "${kind}" ;;
+  full | body)
+    if [[ ${kind} == threads ]]; then
+      jq -c '[.path as $p | .line as $l | .comments.nodes[] | . + {path: $p, line: $l}]' |
+        _format_array review-comments
+    else
+      jq -c '[.]' | _format_array "${kind}"
+    fi
+    ;;
+  *) die 1 "_format_object: unhandled --format '${OUTPUT_FORMAT}'" ;;
+  esac
+}
+
 _format_text() {
   # Each line starts with `<id>\t` so `cut -f1` extracts the id and
   # `cut -f2-` extracts the human-readable rest. The text/full shapes
@@ -897,8 +953,14 @@ _format_text() {
   comments)
     jq -r '.[] | "\(.id)\t[\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
     ;;
+  review-comments)
+    jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // .originalLine // "?")] [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
+    ;;
   threads)
-    jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
+    jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // .comments.nodes[0].originalLine // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
+    ;;
+  pr)
+    jq -r '.[] | "\(.id)\t[#\(.number)] \(.author.login // "?") (\(.state)\(if .isDraft then ",DRAFT" else "" end)) \(.title) body=\((.body // "") | length) chars"'
     ;;
   *) die 1 "_format_text: unknown kind '$1'" ;;
   esac
@@ -915,8 +977,14 @@ _format_full() {
   comments)
     jq -r '.[] | "=== \(.id) [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
     ;;
+  review-comments)
+    jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // .originalLine // "?")] [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
+    ;;
   threads)
-    jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
+    jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // .comments.nodes[0].originalLine // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
+    ;;
+  pr)
+    jq -r '.[] | "=== \(.id) [#\(.number)] \(.author.login // "?") (\(.state)\(if .isDraft then ",DRAFT" else "" end)) \(.title) ===\n\(.body // "")\n"'
     ;;
   *) die 1 "_format_full: unknown kind '$1'" ;;
   esac
@@ -935,20 +1003,51 @@ _format_tsv() {
     # id, createdAt, author, isMinimized, minimizedReason, body_len, url
     jq -r '.[] | [.id, .createdAt, .author.login, .isMinimized, (.minimizedReason // ""), ((.body // "") | length), .url] | @tsv'
     ;;
+  review-comments)
+    # id, createdAt, author, isMinimized, minimizedReason, body_len, url, path, line
+    # line falls back to originalLine: GitHub nulls line once a review comment's
+    # diff position goes outdated, which is the common case on a long-lived PR,
+    # while originalLine keeps the position from when the comment was posted.
+    jq -r '.[] | [.id, .createdAt, .author.login, .isMinimized, (.minimizedReason // ""), ((.body // "") | length), .url, (.path // ""), (.line // .originalLine // "")] | @tsv'
+    ;;
   threads)
     # id, isResolved, isOutdated, path, line, first_author, comments,
     # visible_comments — matches the recurring "thread audit" workflow.
     # `visible_comments` is the count of comments with `isMinimized=false`
-    # (current state, not action history).
+    # (current state, not action history). `line` falls back to the opener's
+    # `originalLine` for the same outdated-diff-position reason as
+    # review-comments above.
     jq -r '.[] | [
       .id,
       .isResolved,
       .isOutdated,
       (.path // ""),
-      (.line // ""),
+      (.line // .comments.nodes[0].originalLine // ""),
       (.comments.nodes[0].author.login // ""),
       (.comments.nodes | length),
       (.comments.nodes | map(select(.isMinimized | not)) | length)
+    ] | @tsv'
+    ;;
+  pr)
+    # id, number, state, isDraft, author, headRefName, baseRefName,
+    # headRefOid, baseRefOid, mergeable, mergeStateStatus, labels, body_len,
+    # url. The two OIDs sit adjacent so one `cut` yields the diff range.
+    # Labels are comma-joined into one column to keep the record one line.
+    jq -r '.[] | [
+      .id,
+      .number,
+      .state,
+      .isDraft,
+      (.author.login // ""),
+      .headRefName,
+      .baseRefName,
+      .headRefOid,
+      .baseRefOid,
+      (.mergeable // ""),
+      (.mergeStateStatus // ""),
+      ((.labels // []) | join(",")),
+      ((.body // "") | length),
+      .url
     ] | @tsv'
     ;;
   *) die 1 "_format_tsv: unknown kind '$1'" ;;
@@ -961,7 +1060,7 @@ _format_body() {
   # Best paired with `--limit=1`; multi-item runs concatenate without
   # delimiters, so callers wanting structure should use `full` instead.
   case "$1" in
-  reviews | comments) jq -r '.[] | (.body // "")' ;;
+  reviews | comments | pr | review-comments) jq -r '.[] | (.body // "")' ;;
   threads) jq -r '.[] | (.comments.nodes[0].body // "")' ;;
   *) die 1 "_format_body: unknown kind '$1'" ;;
   esac
@@ -1734,7 +1833,7 @@ query($id: ID!) {
   fi
 
   printf '%s' "${response}" | jq -c '.data.node | del(.__typename)' |
-    _paginate_thread_comments | jq '.'
+    _paginate_thread_comments | _format_object threads
 }
 
 get_comment() {
@@ -1925,7 +2024,16 @@ query($id: ID!) {
     ;;
   esac
 
-  printf '%s' "${response}" | jq '.data.node | del(.__typename)'
+  # kind stays a literal on each branch (not "${typename+...}"-derived) so
+  # tests/pr-comments-mgmt/run.sh's literal call-site scanner keeps covering
+  # both kinds against every per-kind renderer.
+  if [[ ${typename} == PullRequestReviewComment ]]; then
+    printf '%s' "${response}" | jq -c '.data.node | del(.__typename)' |
+      _format_object review-comments
+  else
+    printf '%s' "${response}" | jq -c '.data.node | del(.__typename)' |
+      _format_object comments
+  fi
 }
 
 current_pr() {
@@ -1938,7 +2046,7 @@ current_pr() {
     return 2
   fi
 
-  printf '%s' "${data}" | jq '.labels |= map(.name)'
+  printf '%s' "${data}" | jq -c '.labels |= map(.name)' | _format_object pr
 }
 
 main() {
