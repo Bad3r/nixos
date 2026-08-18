@@ -164,15 +164,14 @@ let
     in
     lib.filter (rule: !(lib.elem (normalizedRule rule) normalizedRules)) requiredSeedRules;
   missingSeedRules = missingSeedRulesIn checkedSeedRules;
-  # Require the replacement to fire so this remains a normalization fixture,
-  # rather than passing against an unchanged copy of the canonical seed.
-  turnstileSeedRule = "* challenges.cloudflare.com * noop";
-  whitespaceVariantSeedRules = map (
-    rule: if rule == turnstileSeedRule then "*\tchallenges.cloudflare.com  * noop" else rule
-  ) checkedSeedRules;
-  normalizedRequiredSeedRules = checkedMediumModeRules whitespaceVariantSeedRules;
+  # Build variants from required rows so this fixture is independent of the
+  # canonical seed spelling and cannot silently no-op or false-fail.
+  whitespaceVariantRequiredRules = map (
+    rule: "\t" + lib.replaceStrings [ " " ] [ "  " ] rule
+  ) requiredSeedRules;
+  normalizedRequiredSeedRules = checkedMediumModeRules whitespaceVariantRequiredRules;
   normalizedRequiredSeedContractWorks =
-    whitespaceVariantSeedRules != checkedSeedRules
+    whitespaceVariantRequiredRules != requiredSeedRules
     && missingSeedRulesIn normalizedRequiredSeedRules == [ ];
   # uBO's setCell overwrites earlier rows for the same source, destination, and
   # type, so reject duplicate cells in the checked payload.
