@@ -903,7 +903,7 @@ _format_object() {
   # get-comment). Reads one JSON object on stdin and emits the same seven
   # shapes _format_array does, over a set of exactly one item.
   #
-  # json and ndjson are the two that cannot delegate: `json` must stay a
+  # json and ndjson are the only two that cannot delegate: `json` must stay a
   # bare object, since `current-pr | jq -r .number` is the reason the verb
   # exists, and `ndjson` is that object on one line. The remaining shapes
   # are already per-item templates, so the object is wrapped and handed to
@@ -913,8 +913,7 @@ _format_object() {
   case "${OUTPUT_FORMAT}" in
   json) jq '.' ;;
   ndjson) jq -c '.' ;;
-  ids) jq -r '.id // empty' ;;
-  text | full | tsv | body) jq -c '[.]' | _format_array "${kind}" ;;
+  ids | text | full | tsv | body) jq -c '[.]' | _format_array "${kind}" ;;
   *) die 1 "_format_object: unhandled --format '${OUTPUT_FORMAT}'" ;;
   esac
 }

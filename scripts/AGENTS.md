@@ -22,7 +22,11 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   silent alias for `json`. `tests/pr-comments-mgmt/run.sh` fails on a value
   that has no arm in either dispatch, on a read subcommand whose allowlist
   omits `--format`, and covers help rendering, argument parsing, and every
-  `current-pr` format against a canned `gh pr view` payload.
+  `current-pr` format against a canned `gh pr view` payload. The fixture keys
+  are checked against `current_pr`'s requested fields, and TSV parity uses
+  `jq split` so empty columns remain observable. `_format_object` keeps `json`
+  and `ndjson` inline for their object shapes and delegates the other formats
+  through `_format_array`.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
 - `lib/`: sourced by `build.sh` and `cache-coverage.sh`, never executed. These
   carry no shebang and define functions only, because

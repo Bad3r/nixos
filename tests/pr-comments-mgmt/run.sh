@@ -434,8 +434,18 @@ test_current_pr_renders_every_format() {
   # The one payload path a stub can serve end to end, so every --format value
   # is rendered here rather than asserted against the dispatch alone.
   local pr=owner/repo#149 id body default_json line_count
+  local fixture_keys requested_fields
   id="$(jq -r '.id' "${PR_VIEW_FIXTURE}")"
   body="$(jq -r '.body' "${PR_VIEW_FIXTURE}")"
+
+  # The stub answers any `pr view` regardless of --json, so this ties the
+  # fixture to the field list current_pr requests. Without it, dropping a
+  # field from that list still renders the fixture's value here and only
+  # turns into an empty live field.
+  fixture_keys="$(jq -r 'keys_unsorted[]' "${PR_VIEW_FIXTURE}" | sort | tr '\n' ' ')"
+  requested_fields="$(current_pr_view_fields | sort | tr '\n' ' ')"
+  [[ ${fixture_keys} == "${requested_fields}" ]] ||
+    fail "fixture keys (${fixture_keys}) differ from current-pr's --json list (${requested_fields})"
 
   # json stays a bare object. `current-pr | jq -r .number` is the reason the
   # verb exists, so the array shape the list-* verbs emit would break callers.
@@ -474,19 +484,20 @@ test_current_pr_renders_every_format() {
   [[ ${LAST_OUT} == *"${body}"* ]] || fail "full dropped the PR body"
 
   # Column count is read off the document, so a column added to the renderer
-  # without a document update (or the reverse) fails here.
-  local expected_columns actual_columns
-  local -a fields
+  # without a document update (or the reverse) fails here. Split through jq:
+  # `IFS=$'\t' read -a` treats tab as IFS whitespace, so a run of tabs would
+  # collapse and an empty column would go uncounted.
+  local expected_columns actual_columns first_column
   assert_pr_view_ok "current-pr --format=tsv" --pr "${pr}" current-pr --format=tsv
   line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
   [[ ${line_count} -eq 1 ]] || fail "tsv emitted ${line_count} lines for one PR"
-  IFS=$'\t' read -r -a fields <<<"${LAST_OUT}"
-  actual_columns="${#fields[@]}"
+  actual_columns="$(printf '%s' "${LAST_OUT}" | jq -R 'split("\t") | length')"
   expected_columns="$(current_pr_tsv_columns | wc -l)"
   [[ ${actual_columns} -eq ${expected_columns} ]] ||
     fail "tsv emitted ${actual_columns} columns, document lists ${expected_columns}"
-  [[ ${fields[0]} == "${id}" ]] ||
-    fail "tsv's first column is '${fields[0]}', expected the id"
+  first_column="$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[0]')"
+  [[ ${first_column} == "${id}" ]] ||
+    fail "tsv's first column is '${first_column}', expected the id"
 }
 
 test_usage_error_goes_to_stderr() {
