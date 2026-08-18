@@ -193,6 +193,21 @@ environment.sessionVariables = {
   LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
   LIBVA_DRM_DEVICE = lib.mkDefault config.system76.gpu.videoDecodeDevice;
 };
+
+# unquotableFlags is a helper from the module's `let` block, like quoteFlag: it
+# filters chromeExtraFlags ++ [ the derived flag ] for entries carrying a quote
+# character, a line break, or a $/@ pam_env expansion character.
+assertions = [
+  {
+    assertion = unquotableFlags == [ ];
+    message =
+      "system76.gpu: entries are quoted into CHROME_EXTRA_FLAGS, so neither "
+      + "chromeExtraFlags nor the flag derived from videoDecodeDevice may contain "
+      + "a quote character, a line break, or a $/@ expansion character. "
+      + "Offending entries: "
+      + lib.concatStringsSep ", " unquotableFlags;
+  }
+];
 ```
 
 ```nix
