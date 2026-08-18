@@ -28,9 +28,12 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   and `ndjson` inline for their object shapes and delegates `ids`/`text`/`tsv`
   to `_format_array` under the caller's own kind. `full`/`body` do the same
   except for `threads`: get-thread already paginated the full reply chain, so
-  those two route `.comments.nodes` through the `comments` kind instead of
-  wrapping the thread object, rather than reproduce the opener-only summary
-  `list-threads` renders. get-comment picks its kind from the GraphQL
+  those two graft the thread's own `path`/`line` onto every comment node (the
+  nodes carry none of their own) and route `.comments.nodes` through the
+  `review-comments` kind instead of wrapping the thread object, rather than
+  reproduce the opener-only summary `list-threads` renders or drop the
+  file/line anchor the per-comment blocks would otherwise carry no trace of.
+  get-comment picks its kind from the GraphQL
   `__typename` it already reads: `comments` for a top-level `IssueComment`,
   `review-comments` for an inline `PullRequestReviewComment` (adds path/line
   columns that `comments` has no room for). Both call sites stay literal

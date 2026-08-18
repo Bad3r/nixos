@@ -770,6 +770,8 @@ test_get_thread_full_and_body_render_every_reply() {
   [[ ${LAST_OUT} == *"opener-body"* ]] || fail "get-thread --format=full dropped the opener: ${LAST_OUT}"
   [[ ${LAST_OUT} == *"first-reply-body"* ]] || fail "get-thread --format=full dropped a reply: ${LAST_OUT}"
   [[ ${LAST_OUT} == *"second-reply-body"* ]] || fail "get-thread --format=full dropped a reply: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"scripts/gh-cli/pr-comments-mgmt.sh:42"* ]] ||
+    fail "get-thread --format=full dropped the thread's path:line anchor: ${LAST_OUT}"
 
   run_with_thread get-thread "${thread_id}" --format=body
   assert_last_ok "get-thread --format=body"
