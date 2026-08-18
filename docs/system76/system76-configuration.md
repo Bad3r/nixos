@@ -178,8 +178,10 @@ gpu.nvidia = {
 # chrome/app/chrome_main_linux.cc), so no per-package wiring is needed. Add Chromium
 # flags through system76.gpu.chromeExtraFlags; the render-node flag is always appended
 # last, and Chromium keeps the last occurrence of a repeated switch. Chromium re-splits
-# the variable on whitespace, so quoteFlag quotes any entry that contains whitespace to
-# keep one list entry as one argument.
+# the variable on whitespace, so quoteFlag single-quotes any entry that contains
+# whitespace to keep one list entry as one argument. The quote is single because
+# sessionVariables render into /etc/pam/environment as NAME DEFAULT="<value>", where a
+# double quote would close the value early.
 # libva uses the same Intel Quick Sync node and iHD driver for every VA-API consumer.
 environment.sessionVariables = {
   CHROME_EXTRA_FLAGS = lib.mkDefault (lib.concatMapStringsSep " " quoteFlag (

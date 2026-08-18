@@ -42,8 +42,12 @@ _: {
       # a quoted whole token and trims the outer quotes, so quoting keeps one list
       # entry as exactly one argument. A quote character inside an entry has no
       # representation, hence the assertion below.
+      # The quote is single, not double: sessionVariables land in /etc/pam/environment
+      # as NAME DEFAULT="<value>", which the generator interpolates unescaped, so a
+      # double quote would close that value early and truncate the line. Chromium's
+      # tokenizer accepts either (set_quote_chars("\"'")), and ' is inert in that file.
       hasQuote = flag: builtins.match ".*[\"'].*" flag != null;
-      quoteFlag = flag: if builtins.match ".*[[:space:]].*" flag == null then flag else ''"${flag}"'';
+      quoteFlag = flag: if builtins.match ".*[[:space:]].*" flag == null then flag else "'${flag}'";
       unquotableFlags = lib.filter hasQuote (cfg.chromeExtraFlags ++ [ videoDeviceFlag ]);
     in
     {
@@ -125,8 +129,9 @@ _: {
           {
             assertion = unquotableFlags == [ ];
             message =
-              "system76.gpu.chromeExtraFlags: entries are quoted into CHROME_EXTRA_FLAGS, "
-              + "so none may contain a quote character. Offending entries: "
+              "system76.gpu: entries are quoted into CHROME_EXTRA_FLAGS, so neither "
+              + "chromeExtraFlags nor the flag derived from videoDecodeDevice may "
+              + "contain a quote character. Offending entries: "
               + lib.concatStringsSep ", " unquotableFlags;
           }
         ];
