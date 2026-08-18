@@ -38,6 +38,13 @@ _: {
         in
         if lib.stringLength hex >= width then hex else lib.fixedWidthString width "0" hex;
       videoDeviceFlag = "--hardware-video-device-path=${cfg.videoDecodeDevice}";
+      # Chromium re-splits CHROME_EXTRA_FLAGS on whitespace, but its tokenizer honours
+      # a quoted whole token and trims the outer quotes, so quoting keeps one list
+      # entry as exactly one argument. A quote character inside an entry has no
+      # representation, hence the assertion below.
+      hasQuote = flag: builtins.match ".*[\"'].*" flag != null;
+      quoteFlag = flag: if builtins.match ".*[[:space:]].*" flag == null then flag else ''"${flag}"'';
+      unquotableFlags = lib.filter hasQuote (cfg.chromeExtraFlags ++ [ videoDeviceFlag ]);
     in
     {
       options.system76.gpu = {
@@ -85,7 +92,7 @@ _: {
             "/dev/dri/by-path/pci-${intelBusPadded 4 intelBusFields.domain}:${intelBusPadded 2 intelBusFields.bus}"
             + ":${intelBusPadded 2 intelBusFields.device}.${toString intelBusFields.function}-render";
           defaultText = lib.literalExpression ''"/dev/dri/by-path/pci-<intelBusId as a sysfs address>-render"'';
-          example = "/dev/dri/renderD128";
+          example = "/dev/dri/by-path/pci-0000:00:02.0-render";
           description = ''
             Intel render node offered to VA-API consumers. When omitted, the by-path
             default is derived from the decimal Xorg `PCI:bus@domain:device:function`
@@ -104,11 +111,26 @@ _: {
             Chromium keeps the last occurrence of a repeated switch, so flags added
             here cannot displace it. Change the render node through
             `videoDecodeDevice` instead.
+
+            One entry is one argument: entries containing whitespace are quoted, since
+            Chromium re-splits the variable on whitespace. An entry containing a quote
+            character cannot be encoded and fails the assertion.
           '';
+          example = [ "--host-resolver-rules=MAP * 127.0.0.1" ];
         };
       };
 
       config = {
+        assertions = [
+          {
+            assertion = unquotableFlags == [ ];
+            message =
+              "system76.gpu.chromeExtraFlags: entries are quoted into CHROME_EXTRA_FLAGS, "
+              + "so none may contain a quote character. Offending entries: "
+              + lib.concatStringsSep ", " unquotableFlags;
+          }
+        ];
+
         # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver.
         # i915 is deliberately absent: internal HDA/SOF audio on this chassis can
         # depend on Intel graphics-side plumbing even when NVIDIA renders X11, and
@@ -159,7 +181,7 @@ _: {
         # inherit this routing too, not just terminal-spawned ones.
         environment.sessionVariables = {
           CHROME_EXTRA_FLAGS = lib.mkDefault (
-            lib.concatStringsSep " " (cfg.chromeExtraFlags ++ [ videoDeviceFlag ])
+            lib.concatMapStringsSep " " quoteFlag (cfg.chromeExtraFlags ++ [ videoDeviceFlag ])
           );
           LIBVA_DRM_DEVICE = lib.mkDefault cfg.videoDecodeDevice;
           LIBVA_DRIVER_NAME = lib.mkDefault "iHD";

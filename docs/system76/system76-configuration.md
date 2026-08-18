@@ -130,11 +130,17 @@ options.system76.gpu = {
   nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };
   videoDecodeDevice = lib.mkOption {
     type = lib.types.str;
-    # Derived from intelBusId rather than hardcoded. For example:
+    # Derived from intelBusId rather than hardcoded, via the intelBusFields and
+    # intelBusPadded helpers at the top of the module. For example:
     # PCI:0:2:0 -> /dev/dri/by-path/pci-0000:00:02.0-render.
     # PCI:2@1:3:4 -> /dev/dri/by-path/pci-0001:02:03.4-render.
+    default =
+      "/dev/dri/by-path/pci-${intelBusPadded 4 intelBusFields.domain}:${intelBusPadded 2 intelBusFields.bus}"
+      + ":${intelBusPadded 2 intelBusFields.device}.${toString intelBusFields.function}-render";
     defaultText = lib.literalExpression ''"/dev/dri/by-path/pci-<intelBusId as a sysfs address>-render"'';
-    example = "/dev/dri/renderD128";
+    # Not a renderD path: renderD numbering follows driver probe order, so it can
+    # move between boots. Override with a by-path node.
+    example = "/dev/dri/by-path/pci-0000:00:02.0-render";
     description = ''
       Intel render node offered to VA-API consumers. Override this when the
       chassis uses a non-standard device path.
@@ -146,8 +152,11 @@ options.system76.gpu = {
     description = ''
       Additional Chromium flags exported through `CHROME_EXTRA_FLAGS`. The derived
       render-node flag is appended last and Chromium keeps the last occurrence of a
-      repeated switch, so flags added here cannot displace it.
+      repeated switch, so flags added here cannot displace it. One entry is one
+      argument: entries containing whitespace are quoted, and an entry containing a
+      quote character cannot be encoded and fails an assertion.
     '';
+    example = [ "--host-resolver-rules=MAP * 127.0.0.1" ];
   };
 };
 
@@ -168,10 +177,12 @@ gpu.nvidia = {
 # binary reads this variable itself (AppendExtraArgumentsToCommandLine in
 # chrome/app/chrome_main_linux.cc), so no per-package wiring is needed. Add Chromium
 # flags through system76.gpu.chromeExtraFlags; the render-node flag is always appended
-# last, and Chromium keeps the last occurrence of a repeated switch.
+# last, and Chromium keeps the last occurrence of a repeated switch. Chromium re-splits
+# the variable on whitespace, so quoteFlag quotes any entry that contains whitespace to
+# keep one list entry as one argument.
 # libva uses the same Intel Quick Sync node and iHD driver for every VA-API consumer.
 environment.sessionVariables = {
-  CHROME_EXTRA_FLAGS = lib.mkDefault (lib.concatStringsSep " " (
+  CHROME_EXTRA_FLAGS = lib.mkDefault (lib.concatMapStringsSep " " quoteFlag (
     config.system76.gpu.chromeExtraFlags
     ++ [ "--hardware-video-device-path=${config.system76.gpu.videoDecodeDevice}" ]
   ));
