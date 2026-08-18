@@ -202,6 +202,53 @@ printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi
   "${REVIEW_COMMENT_FIXTURE}" >"${REVIEW_COMMENT_BIN}/gh"
 chmod +x "${REVIEW_COMMENT_BIN}/gh"
 
+# Same shape as REVIEW_COMMENT_FIXTURE but with `line`/`startLine` null and
+# `originalLine`/`originalStartLine` populated: what GitHub returns once a
+# review comment's diff position goes outdated (position no longer maps to
+# the current diff), the common case for an older inline comment on a
+# long-lived PR.
+OUTDATED_REVIEW_COMMENT_FIXTURE="${tmpdir}/outdated-review-comment.json"
+cat >"${OUTDATED_REVIEW_COMMENT_FIXTURE}" <<'JSON'
+{
+  "data": {
+    "node": {
+      "__typename": "PullRequestReviewComment",
+      "id": "PRRC_test0199",
+      "databaseId": 199,
+      "author": { "login": "claude" },
+      "body": "outdated-review-comment-body",
+      "createdAt": "2026-08-18T00:00:00Z",
+      "updatedAt": "2026-08-18T00:00:00Z",
+      "url": "https://github.com/owner/repo/pull/1#discussion_r199",
+      "path": "scripts/gh-cli/pr-comments-mgmt.sh",
+      "line": null,
+      "originalLine": 99,
+      "startLine": null,
+      "originalStartLine": null,
+      "diffHunk": "@@ -1 +1 @@",
+      "subjectType": "LINE",
+      "isMinimized": false,
+      "minimizedReason": null,
+      "viewerCanMinimize": true,
+      "viewerCanUpdate": false,
+      "viewerCanDelete": false,
+      "pullRequest": { "number": 1, "url": "https://github.com/owner/repo/pull/1" },
+      "commit": { "oid": "3333333333333333333333333333333333333333" },
+      "originalCommit": { "oid": "3333333333333333333333333333333333333333" },
+      "replyTo": null
+    }
+  }
+}
+JSON
+OUTDATED_REVIEW_COMMENT_BIN="${tmpdir}/outdated-review-comment-bin"
+mkdir -p "${OUTDATED_REVIEW_COMMENT_BIN}"
+ln -s "$(command -v jq)" "${OUTDATED_REVIEW_COMMENT_BIN}/jq"
+ln -s "$(command -v cat)" "${OUTDATED_REVIEW_COMMENT_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${OUTDATED_REVIEW_COMMENT_FIXTURE}" >"${OUTDATED_REVIEW_COMMENT_BIN}/gh"
+chmod +x "${OUTDATED_REVIEW_COMMENT_BIN}/gh"
+
 ISSUE_COMMENT_FIXTURE="${tmpdir}/issue-comment.json"
 cat >"${ISSUE_COMMENT_FIXTURE}" <<'JSON'
 {
@@ -279,6 +326,12 @@ run_with_thread() {
 run_with_review_comment() {
   LAST_RC=0
   LAST_OUT="$(PATH="${REVIEW_COMMENT_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_outdated_review_comment() {
+  LAST_RC=0
+  LAST_OUT="$(PATH="${OUTDATED_REVIEW_COMMENT_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
   LAST_ERR="$(<"${tmpdir}/stderr")"
 }
 
@@ -837,6 +890,28 @@ test_get_comment_splits_review_and_issue_comments_by_typename() {
     fail "issue comment body format is '${LAST_OUT}', expected the raw body"
 }
 
+test_get_comment_review_comment_line_falls_back_to_original_line() {
+  # Regression for the PR #464 review round: PullRequestReviewComment.line
+  # (and startLine) null out once the comment's diff position goes outdated,
+  # the common case for an older inline comment on a long-lived PR. Without a
+  # fallback, review-comments' tsv/text/full degrade to the path with an
+  # empty or "?" line exactly when the anchor matters most; originalLine (the
+  # position at comment-creation time) is already selected by the same query.
+  local outdated_id
+
+  outdated_id="$(jq -r '.data.node.id' "${OUTDATED_REVIEW_COMMENT_FIXTURE}")"
+
+  run_with_outdated_review_comment get-comment "${outdated_id}" --format=tsv
+  assert_last_ok "get-comment (outdated review comment) --format=tsv"
+  [[ "$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[8]')" == "99" ]] ||
+    fail "outdated review comment tsv line column did not fall back to originalLine: ${LAST_OUT}"
+
+  run_with_outdated_review_comment get-comment "${outdated_id}" --format=full
+  assert_last_ok "get-comment (outdated review comment) --format=full"
+  [[ ${LAST_OUT} == *"scripts/gh-cli/pr-comments-mgmt.sh:99"* ]] ||
+    fail "outdated review comment full did not fall back to originalLine: ${LAST_OUT}"
+}
+
 test_usage_error_goes_to_stderr() {
   # The output convention is diagnostics on stderr, payloads on stdout: a usage
   # error on stdout corrupts `list-threads --format=ids | ... resolve`. Needs
@@ -915,6 +990,7 @@ tests=(
   test_current_pr_renders_every_format
   test_get_thread_full_and_body_render_every_reply
   test_get_comment_splits_review_and_issue_comments_by_typename
+  test_get_comment_review_comment_line_falls_back_to_original_line
   test_json_flag_requires_help
   test_help_needs_no_gh
   test_help_tolerates_a_closed_reader

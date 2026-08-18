@@ -954,7 +954,7 @@ _format_text() {
     jq -r '.[] | "\(.id)\t[\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
     ;;
   review-comments)
-    jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // "?")] [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
+    jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // .originalLine // "?")] [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
     ;;
   threads)
     jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
@@ -978,7 +978,7 @@ _format_full() {
     jq -r '.[] | "=== \(.id) [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
     ;;
   review-comments)
-    jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // "?")] [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
+    jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // .originalLine // "?")] [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
     ;;
   threads)
     jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
@@ -1005,7 +1005,10 @@ _format_tsv() {
     ;;
   review-comments)
     # id, createdAt, author, isMinimized, minimizedReason, body_len, url, path, line
-    jq -r '.[] | [.id, .createdAt, .author.login, .isMinimized, (.minimizedReason // ""), ((.body // "") | length), .url, (.path // ""), (.line // "")] | @tsv'
+    # line falls back to originalLine: GitHub nulls line once a review comment's
+    # diff position goes outdated, which is the common case on a long-lived PR,
+    # while originalLine keeps the position from when the comment was posted.
+    jq -r '.[] | [.id, .createdAt, .author.login, .isMinimized, (.minimizedReason // ""), ((.body // "") | length), .url, (.path // ""), (.line // .originalLine // "")] | @tsv'
     ;;
   threads)
     # id, isResolved, isOutdated, path, line, first_author, comments,
