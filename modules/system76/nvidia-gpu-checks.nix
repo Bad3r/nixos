@@ -8,7 +8,10 @@
 # eval has ever exercised either branch beyond its default input. This forces both
 # through the already-public option surface via extendModules, the same technique
 # modules/configurations/nixos.nix uses for its fleet-key check, so no source
-# hoist out of the host module's `let` is needed.
+# hoist out of the host module's `let` is needed. The accepted encoding
+# (config.environment.sessionVariables.CHROME_EXTRA_FLAGS) is covered below; see
+# the note before acceptFailures for why the rejected half (config.assertions)
+# is not.
 { config, lib, ... }:
 let
   system76 =
@@ -89,6 +92,25 @@ let
     + chromeExtraFlagsFor case.flags
   ) chromeFailures;
 
+  # The reject half of the encoder (does a bad entry fail the module's assertion)
+  # is deliberately NOT tested here: it would require scanning config.assertions,
+  # a ~2925-entry whole-system list, for this module's own entry, and there is no
+  # safe way to probe an arbitrary unrelated entry in that list. tryEval only
+  # catches AssertionError, i.e. throw/assert (lix/libexpr/primops.cc's
+  # prim_tryEval: `catch (AssertionError & e) { return false; }`), not EvalError
+  # classes like a missing attribute. At least one real entry in this repo's
+  # closure needs the latter: nixos/modules/tasks/filesystems.nix's fileSystems
+  # cycle check has `message = "... ${fileSystems'.cycle} ...";`, safe only once
+  # `assertion` is already known false, and forcing it in the untriggered case
+  # (as any prefix- or content-based scan over the full list must, to rule entries
+  # out) throws "attribute 'cycle' missing" uncaught by tryEval, reproduced
+  # empirically against this exact list. No operand order or per-entry tryEval
+  # wrapping avoids this: both `.assertion` and `.message` can be the unsafe
+  # field, and unsafe-when-forced is exactly the failure mode tryEval cannot
+  # catch. Quote, line-break, and expansion-character rejection remain covered by
+  # nvidia-gpu.nix's own eval-time assertion, which does fail loudly for a real
+  # configuration; what is not safely re-verifiable from here is that the
+  # assertion still fires, independent of re-reading the whole system's list.
   acceptFailures = lib.filterAttrs (
     intelBusId: expected: videoDecodeDeviceFor intelBusId != expected
   ) acceptCases;
