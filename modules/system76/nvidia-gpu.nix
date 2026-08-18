@@ -89,9 +89,9 @@ _: {
           description = ''
             Intel render node offered to VA-API consumers. When omitted, the by-path
             default is derived from the decimal Xorg `PCI:bus@domain:device:function`
-            components (with domain 0 when omitted), converted to the hexadecimal sysfs
-            address. The by-path form is stable because renderD numbering follows driver
-            probe order, not the PCI slot.
+            components (with domain 0 when omitted), formatted as sysfs'
+            `%04x:%02x:%02x.%d` address. The by-path form is stable because renderD
+            numbering follows driver probe order, not the PCI slot.
           '';
         };
 
@@ -108,64 +108,62 @@ _: {
         };
       };
 
-      config = lib.mkMerge [
-        {
-          # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver.
-          # i915 is deliberately absent: internal HDA/SOF audio on this chassis can
-          # depend on Intel graphics-side plumbing even when NVIDIA renders X11, and
-          # the iGPU also backs the only VA-API decode target configured below.
-          boot.blacklistedKernelModules = [ "nouveau" ];
+      config = {
+        # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver.
+        # i915 is deliberately absent: internal HDA/SOF audio on this chassis can
+        # depend on Intel graphics-side plumbing even when NVIDIA renders X11, and
+        # the iGPU also backs the only VA-API decode target configured below.
+        boot.blacklistedKernelModules = [ "nouveau" ];
 
-          boot.kernelParams = [
-            "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
-            "nvidia.NVreg_EnableGpuFirmware=1"
-          ];
+        boot.kernelParams = [
+          "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
+          "nvidia.NVreg_EnableGpuFirmware=1"
+        ];
 
-          gpu.nvidia = {
-            enable = true;
-            # GTX 1070 Max-Q is supported by the 580.xx legacy branch; newer production drivers ignore it.
-            package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
-            # Pascal predates the open kernel modules.
-            open = false;
-            # nvidia-vaapi-driver's VA-API -> NVDEC handoff faults under decode-context
-            # churn on this chassis: switching videos quickly or reloading stalled
-            # SMB/SFTP streams produces an Xid 31 MMU page fault on ENGINE NVDEC,
-            # hanging the dGPU and freezing the session (the dGPU drives the display
-            # in nvidia-only mode). Intel UHD 630 decodes H.264/HEVC/VP9 in hardware;
-            # AV1 falls back to software. mpv is unaffected because hwdec=auto uses
-            # FFmpeg NVCUVID (nvdec), never libva.
-            vaapi.backend = "intel-media";
-            prime = {
-              # PRIME sync keeps the internal panel on the iGPU while NVIDIA renders.
-              enable = cfg.mode == "hybrid-sync";
-              inherit (cfg) intelBusId nvidiaBusId;
-            };
+        gpu.nvidia = {
+          enable = true;
+          # GTX 1070 Max-Q is supported by the 580.xx legacy branch; newer production drivers ignore it.
+          package = config.boot.kernelPackages.nvidiaPackages.legacy_580;
+          # Pascal predates the open kernel modules.
+          open = false;
+          # nvidia-vaapi-driver's VA-API -> NVDEC handoff faults under decode-context
+          # churn on this chassis: switching videos quickly or reloading stalled
+          # SMB/SFTP streams produces an Xid 31 MMU page fault on ENGINE NVDEC,
+          # hanging the dGPU and freezing the session (the dGPU drives the display
+          # in nvidia-only mode). Intel UHD 630 decodes H.264/HEVC/VP9 in hardware;
+          # AV1 falls back to software. mpv is unaffected because hwdec=auto uses
+          # FFmpeg NVCUVID (nvdec), never libva.
+          vaapi.backend = "intel-media";
+          prime = {
+            # PRIME sync keeps the internal panel on the iGPU while NVIDIA renders.
+            enable = cfg.mode == "hybrid-sync";
+            inherit (cfg) intelBusId nvidiaBusId;
           };
+        };
 
-          # Chromium picks a VA-API render node by matching whichever GPU it renders
-          # on, then rejects nvidia-drm outright (crbug.com/1492880). NVIDIA renders in
-          # both modes here, so the match lands on the dGPU, the pre-sandbox VA-API
-          # init finds nothing, and every Chromium app decodes in software. Naming the
-          # iGPU node restores hardware decode. The browser binary reads this variable
-          # itself (AppendExtraArgumentsToCommandLine in chrome/app/chrome_main_linux.cc,
-          # not a launcher script), which covers new ones without per-package wiring.
-          # It appends onto the parsed command line, so it also outranks the wrapper
-          # --add-flags this repo bakes into its Chromium packages. Chromium keeps the
-          # last occurrence of a repeated switch, hence videoDeviceFlag goes last.
-          # Keep libva on the same Intel node and iHD driver in both modes so non-Chromium
-          # VA-API consumers do not fall back to render-node probe order.
-          # VDPAU_DRIVER is intentionally unset: VDPAU is legacy, and pointing it at
-          # nvidia would route back into the NVDEC path that faults above.
-          # sessionVariables is PAM-initialised, so GUI apps launched outside a shell
-          # inherit this routing too, not just terminal-spawned ones.
-          environment.sessionVariables = {
-            CHROME_EXTRA_FLAGS = lib.mkDefault (
-              lib.concatStringsSep " " (cfg.chromeExtraFlags ++ [ videoDeviceFlag ])
-            );
-            LIBVA_DRM_DEVICE = lib.mkDefault cfg.videoDecodeDevice;
-            LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
-          };
-        }
-      ];
+        # Chromium picks a VA-API render node by matching whichever GPU it renders
+        # on, then rejects nvidia-drm outright (crbug.com/1492880). NVIDIA renders in
+        # both modes here, so the match lands on the dGPU, the pre-sandbox VA-API
+        # init finds nothing, and every Chromium app decodes in software. Naming the
+        # iGPU node restores hardware decode. The browser binary reads this variable
+        # itself (AppendExtraArgumentsToCommandLine in chrome/app/chrome_main_linux.cc,
+        # not a launcher script), which covers new ones without per-package wiring.
+        # It appends onto the parsed command line, so it also outranks the wrapper
+        # --add-flags this repo bakes into its Chromium packages. Chromium keeps the
+        # last occurrence of a repeated switch, hence videoDeviceFlag goes last.
+        # Keep libva on the same Intel node and iHD driver in both modes so non-Chromium
+        # VA-API consumers do not fall back to render-node probe order.
+        # VDPAU_DRIVER is intentionally unset: VDPAU is legacy, and pointing it at
+        # nvidia would route back into the NVDEC path that faults above.
+        # sessionVariables is PAM-initialised, so GUI apps launched outside a shell
+        # inherit this routing too, not just terminal-spawned ones.
+        environment.sessionVariables = {
+          CHROME_EXTRA_FLAGS = lib.mkDefault (
+            lib.concatStringsSep " " (cfg.chromeExtraFlags ++ [ videoDeviceFlag ])
+          );
+          LIBVA_DRM_DEVICE = lib.mkDefault cfg.videoDecodeDevice;
+          LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
+        };
+      };
     };
 }
