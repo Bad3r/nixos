@@ -15,10 +15,14 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   per-subcommand option sets and every accepted-value list are grafted into
   that document from `SUBCOMMAND_FLAGS` and the `VALID_*` arrays the parser
   validates against, so adding a value to the array both documents it and makes
-  the parser accept it. A new `--format` value needs one more edit: an arm in
-  `_format_array` plus its per-kind templates, without which the value would be
-  a silent alias for `json`. `tests/pr-comments-mgmt/run.sh` fails on a value
-  that has no arm, and covers help rendering and argument parsing.
+  the parser accept it. A new `--format` value needs one more edit per
+  dispatch: an arm in `_format_array` (the `list-*` verbs) and one in
+  `_format_object` (`current-pr`, `get-thread`, `get-comment`), plus the
+  per-kind templates they delegate to, without which the value would be a
+  silent alias for `json`. `tests/pr-comments-mgmt/run.sh` fails on a value
+  that has no arm in either dispatch, on a read subcommand whose allowlist
+  omits `--format`, and covers help rendering, argument parsing, and every
+  `current-pr` format against a canned `gh pr view` payload.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
 - `lib/`: sourced by `build.sh` and `cache-coverage.sh`, never executed. These
   carry no shebang and define functions only, because

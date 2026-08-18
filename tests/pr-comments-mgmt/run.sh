@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# Covers the help surface only: every other path reaches the GitHub API, so
-# these cases stop at the first argument the parser rejects or at the missing
-# `gh` binary, and never open a socket.
+# Covers the help surface plus the one payload path a stub can serve end to
+# end: `current-pr` reaches GitHub through a single `gh pr view`, so a canned
+# fixture behind a stub `gh` renders every --format for real. Every other case
+# stops at the first argument the parser rejects or at the missing `gh`
+# binary. No case opens a socket.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,6 +41,42 @@ ln -s "$(command -v jq)" "${WITHGH_BIN}/jq"
 printf '#!/bin/sh\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' >"${WITHGH_BIN}/gh"
 chmod +x "${WITHGH_BIN}/gh"
 
+# The same PATH again, with a `gh` that answers `pr view` from a canned payload
+# in gh's own shape (labels as objects, author as a login object). `current-pr`
+# with an explicit --pr makes exactly that one call, so this renders the real
+# payload path without a socket. Every other gh invocation stays an error, so a
+# case that starts calling the API announces itself.
+PR_VIEW_FIXTURE="${tmpdir}/pr-view.json"
+cat >"${PR_VIEW_FIXTURE}" <<'JSON'
+{
+  "id": "PR_kwDOtest0001",
+  "number": 149,
+  "title": "test(pr): canned payload",
+  "body": "first body line\nsecond body line",
+  "state": "OPEN",
+  "url": "https://github.com/owner/repo/pull/149",
+  "headRefName": "topic",
+  "headRefOid": "1111111111111111111111111111111111111111",
+  "baseRefName": "main",
+  "baseRefOid": "2222222222222222222222222222222222222222",
+  "author": { "login": "octocat" },
+  "isDraft": false,
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "CLEAN",
+  "labels": [{ "name": "type(fix)" }, { "name": "area(scripts)" }]
+}
+JSON
+PRVIEW_BIN="${tmpdir}/prview-bin"
+mkdir -p "${PRVIEW_BIN}"
+ln -s "$(command -v jq)" "${PRVIEW_BIN}/jq"
+# The stub itself runs under this PATH, so the one external it uses is linked
+# in alongside jq rather than assumed.
+ln -s "$(command -v cat)" "${PRVIEW_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = pr ] && [ "$2" = view ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${PR_VIEW_FIXTURE}" >"${PRVIEW_BIN}/gh"
+chmod +x "${PRVIEW_BIN}/gh"
+
 LAST_RC=0
 LAST_OUT=""
 LAST_ERR=""
@@ -61,6 +99,25 @@ run_with_gh() {
   LAST_RC=0
   LAST_OUT="$(PATH="${WITHGH_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
   LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_pr_view() {
+  # Same capture against the canned-payload stub. --pr is supplied by the
+  # caller so pr_resolve never calls gh; the run's only invocation is the
+  # `pr view` the stub answers.
+  LAST_RC=0
+  LAST_OUT="$(PATH="${PRVIEW_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+assert_pr_view_ok() {
+  # Args: <what> <arg>...
+  # Runs the SUT against the stub and fails unless it exits 0 quietly.
+  local what="$1"
+  shift
+  run_with_pr_view "$@"
+  [[ ${LAST_RC} -eq 0 ]] || fail "${what} exited ${LAST_RC}: ${LAST_ERR}"
+  [[ -z ${LAST_ERR} ]] || fail "${what} wrote diagnostics: ${LAST_ERR}"
 }
 
 # Inner shell for run_piped_sigpipe_ignored. Single-quoted on purpose: $@ and
@@ -145,22 +202,29 @@ allowlist_keys() {
 }
 
 format_dispatch_arms() {
-  # Labels of the `case "${OUTPUT_FORMAT}"` arms in _format_array, to compare
-  # against the values the parser accepts. The catch-all is skipped: it is the
-  # error arm, not a format.
-  local line found=false
+  # Args: <function-name>
+  # Labels of the `case "${OUTPUT_FORMAT}"` arms in the named function, one per
+  # line, with a multi-label arm (`text | full | ...`) split into its parts.
+  # The catch-all is skipped: it is the error arm, not a format.
+  local fn="$1" line found=false in_case=false arm
   while IFS= read -r line; do
     if [[ ${found} == false ]]; then
+      [[ ${line} == "${fn}() {"* ]] && found=true
+      continue
+    fi
+    if [[ ${in_case} == false ]]; then
       # shellcheck disable=SC2016 # matches that text in the source, not an expansion
-      [[ ${line} == *'case "${OUTPUT_FORMAT}" in'* ]] && found=true
+      [[ ${line} == *'case "${OUTPUT_FORMAT}" in'* ]] && in_case=true
       continue
     fi
     [[ ${line} =~ ^[[:space:]]*esac ]] && break
-    if [[ ${line} =~ ^[[:space:]]*([a-z|]+)\) ]]; then
-      printf '%s\n' "${BASH_REMATCH[1]//|/$'\n'}"
+    if [[ ${line} =~ ^[[:space:]]*([a-z][a-z\|[:space:]]*)\) ]]; then
+      arm="${BASH_REMATCH[1]// /}"
+      printf '%s\n' "${arm//|/$'\n'}"
     fi
   done <"${SUT}"
-  [[ ${found} == true ]] || fail "no OUTPUT_FORMAT dispatch in ${SUT}"
+  [[ ${found} == true ]] || fail "no ${fn} definition in ${SUT}"
+  [[ ${in_case} == true ]] || fail "no OUTPUT_FORMAT dispatch in ${fn}"
 }
 
 current_pr_view_fields() {
@@ -199,6 +263,17 @@ current_pr_documented_fields() {
   [[ ${description} =~ Fields:[[:space:]]*([^.]+) ]] ||
     fail "current-pr's description carries no 'Fields:' list"
   printf '%s\n' "${BASH_REMATCH[1]//,/$'\n'}" | tr -d ' '
+}
+
+current_pr_tsv_columns() {
+  # The `current-pr:` row out of --format's tsv column list, one name per line.
+  local row
+  row="$("${SUT}" --help --json | jq -r '
+    .options[] | select(.flags[0].name == "--format") | .description[]
+    | select(type == "object") | .text | select(startswith("current-pr:"))
+  ')"
+  [[ -n ${row} ]] || fail "--format documents no current-pr tsv columns"
+  printf '%s\n' "${row#current-pr:}" | tr ',' '\n' | tr -d ' '
 }
 
 flatten() {
@@ -305,17 +380,42 @@ test_documented_choices_are_the_enforced_ones() {
 }
 
 test_every_documented_format_has_a_renderer() {
-  # --format values reach _format_array, which is past the API call, so this
-  # joins the accepted set against the dispatch in the source instead. Without
-  # it a value added to VALID_FORMATS is documented and accepted on the spot
-  # while nothing renders it.
-  local accepted dispatched
+  # --format values reach the render dispatch, which is past the API call, so
+  # this joins the accepted set against the dispatch in the source instead.
+  # Without it a value added to VALID_FORMATS is documented and accepted on the
+  # spot while nothing renders it. Both dispatches are checked: the list-* verbs
+  # render through _format_array, the single-object verbs through
+  # _format_object, and a format handled by only one of them is a subcommand
+  # that dies mid-pipe on a documented value.
+  local accepted dispatched fn
   accepted="$("${SUT}" --help --json |
     jq -r '.options[] | select(.flags[0].name == "--format") | .choices[]' | sort | tr '\n' ' ')"
-  dispatched="$(format_dispatch_arms | sort | tr '\n' ' ')"
   [[ -n ${accepted} ]] || fail "--format carries no choices list"
-  [[ ${accepted} == "${dispatched}" ]] ||
-    fail "accepted --format values (${accepted}) differ from _format_array arms (${dispatched})"
+  for fn in _format_array _format_object; do
+    dispatched="$(format_dispatch_arms "${fn}" | sort | tr '\n' ' ')"
+    [[ ${accepted} == "${dispatched}" ]] ||
+      fail "accepted --format values (${accepted}) differ from ${fn} arms (${dispatched})"
+  done
+}
+
+test_every_read_subcommand_accepts_format() {
+  # `--format` is enforced per subcommand out of SUBCOMMAND_FLAGS, which is
+  # what grafts allowedOptions into the document. A read verb missing it is
+  # rejected at the parser ("--format is not applicable") no matter what its
+  # renderer does, which is the shape the single-object verbs shipped in.
+  local json read_count missing
+  json="$("${SUT}" --help --json)"
+  # Counted first: the group is selected by title, so a retitled group would
+  # otherwise leave nothing to check and pass on an empty set.
+  read_count="$(printf '%s' "${json}" |
+    jq '[.subcommandGroups[] | select(.title | test("^Read")) | .subcommands[]] | length')"
+  [[ ${read_count} -gt 0 ]] || fail "the help document has no read-subcommand group"
+  missing="$(printf '%s' "${json}" | jq -r '
+    .subcommandGroups[] | select(.title | test("^Read")) | .subcommands[]
+    | select((.allowedOptions | index("--format")) == null) | .name
+  ' | tr '\n' ' ')"
+  [[ -z ${missing} ]] ||
+    fail "read subcommands missing --format from their allowlist: ${missing}"
 }
 
 test_current_pr_documents_its_payload() {
@@ -328,6 +428,65 @@ test_current_pr_documents_its_payload() {
   enforced="$(current_pr_view_fields | sort | tr '\n' ' ')"
   [[ ${documented} == "${enforced}" ]] ||
     fail "documented current-pr fields (${documented}) differ from the gh --json list (${enforced})"
+}
+
+test_current_pr_renders_every_format() {
+  # The one payload path a stub can serve end to end, so every --format value
+  # is rendered here rather than asserted against the dispatch alone.
+  local pr=owner/repo#149 id body default_json line_count
+  id="$(jq -r '.id' "${PR_VIEW_FIXTURE}")"
+  body="$(jq -r '.body' "${PR_VIEW_FIXTURE}")"
+
+  # json stays a bare object. `current-pr | jq -r .number` is the reason the
+  # verb exists, so the array shape the list-* verbs emit would break callers.
+  assert_pr_view_ok "current-pr --format=json" --pr "${pr}" current-pr --format=json
+  printf '%s' "${LAST_OUT}" | jq -e '
+    type == "object" and .number == 149 and .labels == ["type(fix)", "area(scripts)"]
+  ' >/dev/null || fail "current-pr --format=json is not the flattened PR object: ${LAST_OUT}"
+  default_json="${LAST_OUT}"
+
+  # --format=json names the default; it is not a second mode.
+  assert_pr_view_ok "current-pr (no --format)" --pr "${pr}" current-pr
+  [[ ${LAST_OUT} == "${default_json}" ]] ||
+    fail "current-pr without --format differs from --format=json"
+
+  assert_pr_view_ok "current-pr --format=ndjson" --pr "${pr}" current-pr --format=ndjson
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "ndjson emitted ${line_count} lines for one PR"
+  [[ "$(printf '%s' "${LAST_OUT}" | jq -Sc .)" == "$(printf '%s' "${default_json}" | jq -Sc .)" ]] ||
+    fail "ndjson and json disagree on the document"
+
+  assert_pr_view_ok "current-pr --format=ids" --pr "${pr}" current-pr --format=ids
+  [[ ${LAST_OUT} == "${id}" ]] || fail "ids emitted '${LAST_OUT}', expected '${id}'"
+
+  assert_pr_view_ok "current-pr --format=body" --pr "${pr}" current-pr --format=body
+  [[ ${LAST_OUT} == "${body}" ]] || fail "body emitted '${LAST_OUT}', expected the PR body"
+
+  assert_pr_view_ok "current-pr --format=text" --pr "${pr}" current-pr --format=text
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "text emitted ${line_count} lines for one PR"
+  [[ ${LAST_OUT} == "${id}"$'\t'* ]] ||
+    fail "text is not prefixed with '<id>\\t': ${LAST_OUT}"
+
+  assert_pr_view_ok "current-pr --format=full" --pr "${pr}" current-pr --format=full
+  [[ ${LAST_OUT} == "=== ${id} "* ]] ||
+    fail "full is missing its '=== <id> ...' header: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"${body}"* ]] || fail "full dropped the PR body"
+
+  # Column count is read off the document, so a column added to the renderer
+  # without a document update (or the reverse) fails here.
+  local expected_columns actual_columns
+  local -a fields
+  assert_pr_view_ok "current-pr --format=tsv" --pr "${pr}" current-pr --format=tsv
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "tsv emitted ${line_count} lines for one PR"
+  IFS=$'\t' read -r -a fields <<<"${LAST_OUT}"
+  actual_columns="${#fields[@]}"
+  expected_columns="$(current_pr_tsv_columns | wc -l)"
+  [[ ${actual_columns} -eq ${expected_columns} ]] ||
+    fail "tsv emitted ${actual_columns} columns, document lists ${expected_columns}"
+  [[ ${fields[0]} == "${id}" ]] ||
+    fail "tsv's first column is '${fields[0]}', expected the id"
 }
 
 test_usage_error_goes_to_stderr() {
@@ -402,7 +561,9 @@ tests=(
   test_documented_subcommands_match_the_allowlist
   test_documented_choices_are_the_enforced_ones
   test_every_documented_format_has_a_renderer
+  test_every_read_subcommand_accepts_format
   test_current_pr_documents_its_payload
+  test_current_pr_renders_every_format
   test_json_flag_requires_help
   test_help_needs_no_gh
   test_help_tolerates_a_closed_reader

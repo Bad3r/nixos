@@ -30,9 +30,9 @@ declare -rA SUBCOMMAND_FLAGS=(
   ["list-threads"]="quiet pr format sort limit unresolved outdated author path minimized"
   ["list-reviews"]="quiet pr format sort limit author superseded similar-prefix"
   ["list-comments"]="quiet pr format sort limit author minimized superseded similar-prefix"
-  ["current-pr"]="quiet pr"
-  ["get-thread"]="quiet pr"
-  ["get-comment"]="quiet pr"
+  ["current-pr"]="quiet pr format"
+  ["get-thread"]="quiet pr format"
+  ["get-comment"]="quiet pr format"
   ["reply"]="quiet pr body body-file"
   ["unresolve"]="quiet pr"
   ["unhide-comment"]="quiet pr"
@@ -61,12 +61,16 @@ PR_NUMBER=""
 BODY_TEXT=""
 BODY_FILE=""
 
-# Output format for list-* subcommands. One of "json" (default, pretty
+# Output format for every read subcommand. One of "json" (default, pretty
 # array), "ndjson" (one document per line), "ids" (one .id per line),
 # "text" (one short line per item), "full" (header + body block per
 # item), "tsv" (per-kind tab-separated columns), or "body" (raw .body
 # per item, opener body for threads). text/full/tsv/body are dispatched
 # per verb to pick relevant fields.
+#
+# The list-* verbs render through _format_array, the single-object verbs
+# (current-pr, get-thread, get-comment) through _format_object, which keeps
+# json a bare object rather than wrapping it in a one-element array.
 OUTPUT_FORMAT="json"
 
 # list-* filters. Presence is tracked via SET_FLAGS for the boolean
@@ -367,7 +371,8 @@ usage_json() {
       "flags": [{ "name": "--format" }],
       "default": "json",
       "description": [
-        "Output format for list-threads, list-reviews, and list-comments (default: json). `ids` emits one `.id` per line; `text` emits a one-line summary per item, prefixed with `<id>\\t` so `cut -f1` extracts the id; `full` emits a header (`=== <id> ... ===`) plus body block per item; `tsv` emits one tab-separated record per item with per-verb columns (no header, pipe to `column -t` for visual columns or `cut -f<n>` / `awk -F'\\t'` downstream); `body` emits the raw `.body` per item (opener body for threads), no headers or separators, best paired with `--limit=1`, since multi-item runs concatenate without delimiters (use `full` for multi-item dumps).",
+        "Output format for every read subcommand (default: json). `ids` emits one `.id` per line; `text` emits a one-line summary per item, prefixed with `<id>\\t` so `cut -f1` extracts the id; `full` emits a header (`=== <id> ... ===`) plus body block per item; `tsv` emits one tab-separated record per item with per-verb columns (no header, pipe to `column -t` for visual columns or `cut -f<n>` / `awk -F'\\t'` downstream); `body` emits the raw `.body` per item (opener body for threads), no headers or separators, best paired with `--limit=1` on the list-* verbs, since multi-item runs concatenate without delimiters (use `full` for multi-item dumps).",
+        "current-pr, get-thread, and get-comment emit exactly one item, so `json` stays a bare object rather than a one-element array (`current-pr | jq -r .number` keeps working) and `ndjson` is that object on one line. Their text/full/tsv/body shapes reuse the per-verb template of the matching list-* verb: get-thread renders as `threads`, get-comment as `comments`.",
         "text/full/body are not stable contracts; downstream parsers should use ndjson or tsv.",
         "tsv columns:",
         {
@@ -381,6 +386,10 @@ usage_json() {
         {
           "indent": 2,
           "text": "threads: id, isResolved, isOutdated, path, line, first_author, comments, visible_comments"
+        },
+        {
+          "indent": 2,
+          "text": "current-pr: id, number, state, isDraft, author, headRefName, baseRefName, headRefOid, baseRefOid, mergeable, mergeStateStatus, labels, body_len, url"
         },
         {
           "indent": 2,
@@ -495,7 +504,10 @@ usage_json() {
     "pr-comments-mgmt.sh --pr 149 list-reviews \\\n  --sort=newest --limit=5 --format=text",
     "pr-comments-mgmt.sh --pr 149 list-comments \\\n  --sort=newest --limit=3 --format=full",
     "pr-comments-mgmt.sh --pr 149 list-threads --format=tsv \\\n  | awk -F'\\t' -v OFS='\\t' \\\n      'BEGIN{print \"id\",\"resolved\",\"outdated\",\"path\",\"line\",\"author\",\"comments\",\"visible\"} 1' \\\n  | column -t -s $'\\t'",
+    "pr-comments-mgmt.sh --pr 149 current-pr --format=body > pr-body.md",
+    "pr-comments-mgmt.sh --pr 149 current-pr --format=tsv \\\n  | column -t -s $'\\t'",
     "pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC",
+    "pr-comments-mgmt.sh get-thread PRRT_kwDOPeLwm85_EPVC --format=text",
     "pr-comments-mgmt.sh get-comment IC_kwDOPeLwm88AAAABBCSK6A",
     "pr-comments-mgmt.sh get-comment 'https://github.com/Bad3r/nixos/pull/278#discussion_r3315576613'",
     "pr-comments-mgmt.sh --pr Bad3r/nixos#278 get-comment r3315576613",
@@ -868,8 +880,8 @@ _format_array() {
   #          headers, no separators. Intended for single-item dumps
   #          (`--limit=1`); multi-item runs concatenate without
   #          delimiters and should prefer `full` instead.
-  # The first arg is the kind ("threads", "reviews", "comments") and
-  # selects per-verb templates for text/full/tsv/body.
+  # The first arg is the kind ("threads", "reviews", "comments", "pr")
+  # and selects per-verb templates for text/full/tsv/body.
   # An arm per VALID_FORMATS entry, and no catch-all rendering: a value added
   # to that array is documented and accepted the moment it is added, so a
   # `*) jq '.'` default would ship it as a silent alias for json.
@@ -886,6 +898,27 @@ _format_array() {
   esac
 }
 
+_format_object() {
+  # Filter for the single-object read subcommands (current-pr, get-thread,
+  # get-comment). Reads one JSON object on stdin and emits the same seven
+  # shapes _format_array does, over a set of exactly one item.
+  #
+  # json and ndjson are the two that cannot delegate: `json` must stay a
+  # bare object, since `current-pr | jq -r .number` is the reason the verb
+  # exists, and `ndjson` is that object on one line. The remaining shapes
+  # are already per-item templates, so the object is wrapped and handed to
+  # _format_array, which keeps a thread rendered by get-thread identical to
+  # the same thread rendered by list-threads.
+  local kind="$1"
+  case "${OUTPUT_FORMAT}" in
+  json) jq '.' ;;
+  ndjson) jq -c '.' ;;
+  ids) jq -r '.id // empty' ;;
+  text | full | tsv | body) jq -c '[.]' | _format_array "${kind}" ;;
+  *) die 1 "_format_object: unhandled --format '${OUTPUT_FORMAT}'" ;;
+  esac
+}
+
 _format_text() {
   # Each line starts with `<id>\t` so `cut -f1` extracts the id and
   # `cut -f2-` extracts the human-readable rest. The text/full shapes
@@ -899,6 +932,9 @@ _format_text() {
     ;;
   threads)
     jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
+    ;;
+  pr)
+    jq -r '.[] | "\(.id)\t[#\(.number)] \(.author.login // "?") (\(.state)\(if .isDraft then ",DRAFT" else "" end)) \(.title) body=\((.body // "") | length) chars"'
     ;;
   *) die 1 "_format_text: unknown kind '$1'" ;;
   esac
@@ -917,6 +953,9 @@ _format_full() {
     ;;
   threads)
     jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
+    ;;
+  pr)
+    jq -r '.[] | "=== \(.id) [#\(.number)] \(.author.login // "?") (\(.state)\(if .isDraft then ",DRAFT" else "" end)) \(.title) ===\n\(.body // "")\n"'
     ;;
   *) die 1 "_format_full: unknown kind '$1'" ;;
   esac
@@ -951,6 +990,28 @@ _format_tsv() {
       (.comments.nodes | map(select(.isMinimized | not)) | length)
     ] | @tsv'
     ;;
+  pr)
+    # id, number, state, isDraft, author, headRefName, baseRefName,
+    # headRefOid, baseRefOid, mergeable, mergeStateStatus, labels, body_len,
+    # url. The two OIDs sit adjacent so one `cut` yields the diff range.
+    # Labels are comma-joined into one column to keep the record one line.
+    jq -r '.[] | [
+      .id,
+      .number,
+      .state,
+      .isDraft,
+      (.author.login // ""),
+      .headRefName,
+      .baseRefName,
+      .headRefOid,
+      .baseRefOid,
+      (.mergeable // ""),
+      (.mergeStateStatus // ""),
+      ((.labels // []) | join(",")),
+      ((.body // "") | length),
+      .url
+    ] | @tsv'
+    ;;
   *) die 1 "_format_tsv: unknown kind '$1'" ;;
   esac
 }
@@ -961,7 +1022,7 @@ _format_body() {
   # Best paired with `--limit=1`; multi-item runs concatenate without
   # delimiters, so callers wanting structure should use `full` instead.
   case "$1" in
-  reviews | comments) jq -r '.[] | (.body // "")' ;;
+  reviews | comments | pr) jq -r '.[] | (.body // "")' ;;
   threads) jq -r '.[] | (.comments.nodes[0].body // "")' ;;
   *) die 1 "_format_body: unknown kind '$1'" ;;
   esac
@@ -1734,7 +1795,7 @@ query($id: ID!) {
   fi
 
   printf '%s' "${response}" | jq -c '.data.node | del(.__typename)' |
-    _paginate_thread_comments | jq '.'
+    _paginate_thread_comments | _format_object threads
 }
 
 get_comment() {
@@ -1925,7 +1986,8 @@ query($id: ID!) {
     ;;
   esac
 
-  printf '%s' "${response}" | jq '.data.node | del(.__typename)'
+  printf '%s' "${response}" | jq -c '.data.node | del(.__typename)' |
+    _format_object comments
 }
 
 current_pr() {
@@ -1938,7 +2000,7 @@ current_pr() {
     return 2
   fi
 
-  printf '%s' "${data}" | jq '.labels |= map(.name)'
+  printf '%s' "${data}" | jq -c '.labels |= map(.name)' | _format_object pr
 }
 
 main() {
