@@ -100,6 +100,47 @@ let
     + chromeExtraFlagsFor case.flags
   ) chromeFailures;
 
+  # This PR's central change is moving CHROME_EXTRA_FLAGS/LIBVA_DRM_DEVICE/
+  # LIBVA_DRIVER_NAME out of lib.mkIf (mode == "nvidia-only") so hybrid-sync gets
+  # the same Intel routing. Every case above reads through the unmodified host
+  # config, and modules/system76/hardware-config.nix pins that host to
+  # mode = "nvidia-only", so none of them would notice a future edit that
+  # re-wraps the block in that mkIf: hybrid-sync is the option's own default and
+  # is never otherwise evaluated here.
+  sessionVariablesForMode =
+    mode:
+    let
+      vars =
+        (system76.extendModules { modules = [ { system76.gpu.mode = lib.mkForce mode; } ]; })
+        .config.environment.sessionVariables;
+    in
+    {
+      inherit (vars) CHROME_EXTRA_FLAGS LIBVA_DRM_DEVICE LIBVA_DRIVER_NAME;
+    };
+
+  expectedSessionVariables = {
+    CHROME_EXTRA_FLAGS = defaultRenderFlag;
+    LIBVA_DRM_DEVICE = "/dev/dri/by-path/pci-0000:00:02.0-render";
+    LIBVA_DRIVER_NAME = "iHD";
+  };
+
+  modeFailureLines =
+    lib.concatMap
+      (
+        mode:
+        let
+          vars = sessionVariablesForMode mode;
+          mismatched = lib.filterAttrs (name: expected: vars.${name} != expected) expectedSessionVariables;
+        in
+        lib.mapAttrsToList (
+          name: expected: "  mode ${mode}: ${name} expected ${expected}, got ${vars.${name}}"
+        ) mismatched
+      )
+      [
+        "hybrid-sync"
+        "nvidia-only"
+      ];
+
   # The reject half of the encoder (does a bad entry fail the module's assertion)
   # is deliberately NOT tested here: it would require scanning config.assertions,
   # a ~2925-entry whole-system list, for this module's own entry, and there is no
@@ -136,7 +177,7 @@ let
     intelBusId: "  ${intelBusId}: expected to fail evaluation but succeeded"
   ) rejectFailures;
 
-  failureLines = acceptFailureLines ++ rejectFailureLines ++ chromeFailureLines;
+  failureLines = acceptFailureLines ++ rejectFailureLines ++ chromeFailureLines ++ modeFailureLines;
 in
 {
   perSystem =
@@ -149,12 +190,13 @@ in
         if failureLines != [ ] then
           throw (
             "system76-video-decode-device: system76.gpu derivation regressed "
-            + "(videoDecodeDevice boundary table and/or CHROME_EXTRA_FLAGS encoding):\n"
+            + "(videoDecodeDevice boundary table, CHROME_EXTRA_FLAGS encoding, "
+            + "and/or hybrid-sync/nvidia-only routing parity):\n"
             + lib.concatStringsSep "\n" failureLines
           )
         else
           pkgs.runCommandLocal "system76-video-decode-device-ok" { } ''
-            echo "ok: system76.gpu videoDecodeDevice boundary table and CHROME_EXTRA_FLAGS encoding match" > $out
+            echo "ok: system76.gpu videoDecodeDevice boundary table, CHROME_EXTRA_FLAGS encoding, and mode routing match" > $out
           '';
     };
 }
