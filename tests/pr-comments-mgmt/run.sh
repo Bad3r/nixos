@@ -557,6 +557,32 @@ current_pr_tsv_columns() {
   printf '%s\n' "${row#current-pr:}" | tr ',' '\n' | tr -d ' '
 }
 
+review_comments_tsv_columns() {
+  # The `review-comments:` row out of --format's tsv column list, one name per line.
+  local row
+  row="$("${SUT}" --help --json | jq -r '
+    .options[] | select(.flags[0].name == "--format") | .description[]
+    | select(type == "object") | .text | select(startswith("review-comments:"))
+  ')"
+  [[ -n ${row} ]] || fail "--format documents no review-comments tsv columns"
+  printf '%s\n' "${row#review-comments:}" | tr ',' '\n' | tr -d ' '
+}
+
+comments_tsv_columns() {
+  # The `comments:` row out of --format's tsv column list, one name per line.
+  # startswith("comments:") alone would also match "review-comments:" if jq
+  # scanned substrings, but each --format description entry is matched whole
+  # against the prefix, and "review-comments:" does not start with
+  # "comments:", so the two rows stay distinct.
+  local row
+  row="$("${SUT}" --help --json | jq -r '
+    .options[] | select(.flags[0].name == "--format") | .description[]
+    | select(type == "object") | .text | select(startswith("comments:"))
+  ')"
+  [[ -n ${row} ]] || fail "--format documents no comments tsv columns"
+  printf '%s\n' "${row#comments:}" | tr ',' '\n' | tr -d ' '
+}
+
 flatten() {
   # Whitespace-normalized help text. The renderer rewraps every paragraph, so a
   # document string only survives into the text as a run of words.
@@ -852,16 +878,21 @@ test_get_comment_splits_review_and_issue_comments_by_typename() {
   # columns -- even for an inline PullRequestReviewComment, whose whole reason
   # for a separate GraphQL branch is path/line/diffHunk/replyTo. typename
   # (already read for the earlier type check) now also picks the render kind:
-  # review-comments for a review comment, comments for a top-level one.
-  local review_id issue_id columns
+  # review-comments for a review comment, comments for a top-level one. Column
+  # counts are read off the document (like test_current_pr_renders_every_format
+  # does for current-pr), not hardcoded: a column added to a renderer without a
+  # matching document update, or the reverse, fails here instead of shipping a
+  # column no documented name maps to.
+  local review_id issue_id columns documented
 
   review_id="$(jq -r '.data.node.id' "${REVIEW_COMMENT_FIXTURE}")"
 
   run_with_review_comment get-comment "${review_id}" --format=tsv
   assert_last_ok "get-comment (review comment) --format=tsv"
   columns="$(printf '%s' "${LAST_OUT}" | jq -R 'split("\t") | length')"
-  [[ ${columns} -eq 9 ]] ||
-    fail "review-comments tsv emitted ${columns} columns, expected 9 (comments' 7 plus path, line)"
+  documented="$(review_comments_tsv_columns | wc -l)"
+  [[ ${columns} -eq ${documented} ]] ||
+    fail "review-comments tsv emitted ${columns} columns, document lists ${documented}"
   [[ "$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[7:9] | join(" ")')" == "scripts/gh-cli/pr-comments-mgmt.sh 42" ]] ||
     fail "review-comments tsv columns 8,9 are not path,line: ${LAST_OUT}"
 
@@ -881,8 +912,9 @@ test_get_comment_splits_review_and_issue_comments_by_typename() {
   run_with_issue_comment get-comment "${issue_id}" --format=tsv
   assert_last_ok "get-comment (issue comment) --format=tsv"
   columns="$(printf '%s' "${LAST_OUT}" | jq -R 'split("\t") | length')"
-  [[ ${columns} -eq 7 ]] ||
-    fail "top-level comments tsv emitted ${columns} columns, expected comments' plain 7 (no path/line)"
+  documented="$(comments_tsv_columns | wc -l)"
+  [[ ${columns} -eq ${documented} ]] ||
+    fail "top-level comments tsv emitted ${columns} columns, document lists ${documented}"
 
   run_with_issue_comment get-comment "${issue_id}" --format=body
   assert_last_ok "get-comment (issue comment) --format=body"
