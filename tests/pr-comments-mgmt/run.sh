@@ -227,6 +227,44 @@ format_dispatch_arms() {
   [[ ${in_case} == true ]] || fail "no OUTPUT_FORMAT dispatch in ${fn}"
 }
 
+kind_dispatch_arms() {
+  # Args: <function-name>
+  # Labels of the `case "$1"` arms in a per-kind renderer, one per line. The
+  # catch-all is skipped because it is the error arm, not a template.
+  local fn="$1" line found=false in_case=false arm
+  while IFS= read -r line; do
+    if [[ ${found} == false ]]; then
+      [[ ${line} == "${fn}() {"* ]] && found=true
+      continue
+    fi
+    if [[ ${in_case} == false ]]; then
+      # shellcheck disable=SC2016 # matches that text in the source, not an expansion
+      [[ ${line} == *'case "$1" in'* ]] && in_case=true
+      continue
+    fi
+    [[ ${line} =~ ^[[:space:]]*esac ]] && break
+    if [[ ${line} =~ ^[[:space:]]*([a-z][a-z\|[:space:]]*)\) ]]; then
+      arm="${BASH_REMATCH[1]// /}"
+      printf '%s\n' "${arm//|/$'\n'}"
+    fi
+  done <"${SUT}"
+  [[ ${found} == true ]] || fail "no ${fn} definition in ${SUT}"
+  [[ ${in_case} == true ]] || fail "no kind dispatch in ${fn}"
+}
+
+format_call_kinds() {
+  # Literal kind arguments at production call sites. Dynamic forwarding inside
+  # the dispatch functions is intentionally excluded: the callers are the
+  # ownership boundary that must stay in parity with every per-kind renderer.
+  local line
+  while IFS= read -r line; do
+    [[ ${line} =~ ^[[:space:]]*# ]] && continue
+    if [[ ${line} =~ _format_(array|object)[[:space:]]+([a-z-]+) ]]; then
+      printf '%s\n' "${BASH_REMATCH[2]}"
+    fi
+  done <"${SUT}"
+}
+
 current_pr_view_fields() {
   # The --json list `current_pr` hands gh, one field per line. Scoped to that
   # function so another `pr view` cannot join the set. The list sits on the
@@ -398,6 +436,24 @@ test_every_documented_format_has_a_renderer() {
   done
 }
 
+test_format_call_kinds_have_templates() {
+  # A typo in a literal kind argument reaches the per-kind renderer only for
+  # text/full/tsv/body. JSON and ndjson bypass those templates, so the normal
+  # current-pr fixture would otherwise leave get-thread/get-comment failures
+  # untested. Keep every literal call-site kind in parity with all templates.
+  local call_kinds renderer renderer_kinds kind
+  call_kinds="$(format_call_kinds | sort -u)"
+  [[ -n ${call_kinds} ]] || fail "no literal _format_array/_format_object call-site kinds found"
+  for renderer in _format_text _format_full _format_tsv _format_body; do
+    renderer_kinds="$(kind_dispatch_arms "${renderer}" | sort -u | tr '\n' ' ')"
+    while IFS= read -r kind; do
+      [[ -n ${kind} ]] || continue
+      [[ " ${renderer_kinds} " == *" ${kind} "* ]] ||
+        fail "${renderer} has no template for call-site kind '${kind}'"
+    done <<<"${call_kinds}"
+  done
+}
+
 test_every_read_subcommand_accepts_format() {
   # `--format` is enforced per subcommand out of SUBCOMMAND_FLAGS, which is
   # what grafts allowedOptions into the document. A read verb missing it is
@@ -498,6 +554,15 @@ test_current_pr_renders_every_format() {
   first_column="$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[0]')"
   [[ ${first_column} == "${id}" ]] ||
     fail "tsv's first column is '${first_column}', expected the id"
+
+  # Count alone passes on a reordered row. The OID adjacency is the part
+  # callers script against (`cut -f8,9` is the diff range), so pin those two
+  # positions against the fixture rather than trusting the column total.
+  local oid_columns expected_oids
+  oid_columns="$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t") | .[7:9] | join(" ")')"
+  expected_oids="$(jq -r '[.headRefOid, .baseRefOid] | join(" ")' "${PR_VIEW_FIXTURE}")"
+  [[ ${oid_columns} == "${expected_oids}" ]] ||
+    fail "tsv columns 8,9 are '${oid_columns}', expected head/base OIDs '${expected_oids}'"
 }
 
 test_usage_error_goes_to_stderr() {
@@ -572,6 +637,7 @@ tests=(
   test_documented_subcommands_match_the_allowlist
   test_documented_choices_are_the_enforced_ones
   test_every_documented_format_has_a_renderer
+  test_format_call_kinds_have_templates
   test_every_read_subcommand_accepts_format
   test_current_pr_documents_its_payload
   test_current_pr_renders_every_format

@@ -26,7 +26,9 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   are checked against `current_pr`'s requested fields, and TSV parity uses
   `jq split` so empty columns remain observable. `_format_object` keeps `json`
   and `ndjson` inline for their object shapes and delegates the other formats
-  through `_format_array`.
+  through `_format_array`. The suite also checks literal kind arguments at
+  `_format_array`/`_format_object` call sites against all four per-kind
+  templates, so a non-JSON renderer cannot hide a kind typo.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
 - `lib/`: sourced by `build.sh` and `cache-coverage.sh`, never executed. These
   carry no shebang and define functions only, because
