@@ -957,7 +957,7 @@ _format_text() {
     jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // .originalLine // "?")] [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) body=\((.body // "") | length) chars"'
     ;;
   threads)
-    jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
+    jq -r '.[] | "\(.id)\t[\(.path // "?"):\(.line // .comments.nodes[0].originalLine // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) comments=\(.comments.nodes | length)"'
     ;;
   pr)
     jq -r '.[] | "\(.id)\t[#\(.number)] \(.author.login // "?") (\(.state)\(if .isDraft then ",DRAFT" else "" end)) \(.title) body=\((.body // "") | length) chars"'
@@ -981,7 +981,7 @@ _format_full() {
     jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // .originalLine // "?")] [\(.createdAt)] \(.author.login)\(if .isMinimized then " [minimized:\(.minimizedReason // "?")]" else "" end) ===\n\(.body // "")\n"'
     ;;
   threads)
-    jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
+    jq -r '.[] | "=== \(.id) [\(.path // "?"):\(.line // .comments.nodes[0].originalLine // "?")] \(.comments.nodes[0].author.login // "?") resolved=\(.isResolved) outdated=\(.isOutdated) ===\n\(.comments.nodes[0].body // "")\n"'
     ;;
   pr)
     jq -r '.[] | "=== \(.id) [#\(.number)] \(.author.login // "?") (\(.state)\(if .isDraft then ",DRAFT" else "" end)) \(.title) ===\n\(.body // "")\n"'
@@ -1014,13 +1014,15 @@ _format_tsv() {
     # id, isResolved, isOutdated, path, line, first_author, comments,
     # visible_comments — matches the recurring "thread audit" workflow.
     # `visible_comments` is the count of comments with `isMinimized=false`
-    # (current state, not action history).
+    # (current state, not action history). `line` falls back to the opener's
+    # `originalLine` for the same outdated-diff-position reason as
+    # review-comments above.
     jq -r '.[] | [
       .id,
       .isResolved,
       .isOutdated,
       (.path // ""),
-      (.line // ""),
+      (.line // .comments.nodes[0].originalLine // ""),
       (.comments.nodes[0].author.login // ""),
       (.comments.nodes | length),
       (.comments.nodes | map(select(.isMinimized | not)) | length)
