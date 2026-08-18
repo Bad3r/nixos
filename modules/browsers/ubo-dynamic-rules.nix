@@ -3,8 +3,8 @@
 
   The browser profile and this evaluation check import the same private helper
   directly. The check keeps malformed rules from being silently discarded by
-  uBO, pins behavior-critical rows after validation, rejects duplicate cells,
-  and keeps every supported type/action live.
+  uBO, pins behavior-critical rows after normalized validation, rejects
+  duplicate cells, and keeps every supported type/action live.
 */
 { lib, ... }:
 let
@@ -90,21 +90,26 @@ let
   # Check the list consumed by the browser profile, not only the raw producer,
   # so a validator regression cannot silently erase the guarded payload.
   checkedSeedRules = checkedMediumModeRules ublockOriginMediumModeRules;
-  missingSeedRules = lib.filter (rule: !(lib.elem rule checkedSeedRules)) requiredSeedRules;
+  ruleFields =
+    rule:
+    lib.filter (part: part != "") (lib.splitString " " (lib.replaceStrings [ "\t" ] [ " " ] rule));
+  normalizedRule = rule: lib.concatStringsSep " " (ruleFields rule);
+  missingSeedRules = lib.filter (
+    rule: !(lib.elem (normalizedRule rule) (map normalizedRule checkedSeedRules))
+  ) requiredSeedRules;
   # uBO's setCell overwrites earlier rows for the same source, destination, and
   # type, so reject duplicate cells in the checked payload.
-  ruleCell =
-    rule:
-    lib.concatStringsSep " " (
-      lib.take 3 (
-        lib.filter (part: part != "") (lib.splitString " " (lib.replaceStrings [ "\t" ] [ " " ] rule))
-      )
-    );
-  duplicateCells =
+  ruleCell = rule: lib.concatStringsSep " " (lib.take 3 (ruleFields rule));
+  duplicateCellsIn =
+    rules:
     let
-      cells = map ruleCell checkedSeedRules;
+      cells = map ruleCell rules;
     in
     lib.unique (lib.filter (cell: lib.count (candidate: candidate == cell) cells > 1) cells);
+  duplicateCells = duplicateCellsIn checkedSeedRules;
+  # Exercise the failure path so weakening the count or key projection cannot
+  # leave the seed-only assertion green.
+  duplicateDetectorWorks = duplicateCellsIn (checkedSeedRules ++ [ "* * 3p-script noop" ]) != [ ];
 in
 {
   perSystem =
@@ -127,6 +132,8 @@ in
           "browsers/ubo-dynamic-rules: seed defines the same cell more than once: "
           + lib.concatStringsSep "; " duplicateCells
         );
+        assert lib.assertMsg duplicateDetectorWorks
+          "browsers/ubo-dynamic-rules: duplicate-cell detection no longer reports a duplicated cell";
         pkgs.runCommand "ubo-dynamic-rules-check" { } "touch $out";
     };
 }
