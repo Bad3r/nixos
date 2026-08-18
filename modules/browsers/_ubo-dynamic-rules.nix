@@ -6,8 +6,8 @@
 */
 { lib }:
 let
-  # Keep field normalization shared by validation and the regression checks so
-  # required-row and duplicate-cell projections cannot drift from uBO parsing.
+  # Keep the tab and space field projection shared by validation and regression
+  # checks so required-row and duplicate-cell projections cannot drift.
   ruleFields =
     rule:
     lib.filter (part: part != "") (lib.splitString " " (lib.replaceStrings [ "\t" ] [ " " ] rule));
