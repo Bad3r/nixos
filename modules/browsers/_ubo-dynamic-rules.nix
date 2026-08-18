@@ -1,5 +1,6 @@
 /*
-  Internal: uBlock Origin dynamic-filtering rules and their syntax guard.
+  Internal: uBlock Origin dynamic-filtering rules, hostname switches, and
+  their syntax guards.
 
   Keep this helper independent from module config and packages so the browser
   profile and the flake-level evaluation check consume the same rule set.
@@ -12,6 +13,74 @@ let
     rule:
     lib.filter (part: part != "") (lib.splitString " " (lib.replaceStrings [ "\t" ] [ " " ] rule));
 
+  # Keep the seed in uBO's normalized ASCII hostname shape. Match labels
+  # individually because uBO stores empty or hyphen-edged labels, which are
+  # not valid normalized request hostnames. The wildcard, internal pseudo-host,
+  # and bracketed IPv6 forms are intentional.
+  hostLabel = "[0-9a-z_]([0-9a-z_-]*[0-9a-z_])?";
+  isHost =
+    host:
+    host == "*"
+    || builtins.match "[[][0-9a-f:]+[]]" host != null
+    || builtins.match "${hostLabel}([.]${hostLabel})*" host != null;
+
+  hostnameSwitchError =
+    switchLine:
+    let
+      # uBO trims each line and splits on runs of intra-line whitespace before
+      # validating it. Tabs separate fields; line breaks separate records.
+      hasLineBreak = lib.hasInfix "\n" switchLine || lib.hasInfix "\r" switchLine;
+      parts = ruleFields switchLine;
+      name = builtins.elemAt parts 0;
+      host = builtins.elemAt parts 1;
+      state = builtins.elemAt parts 2;
+    in
+    if hasLineBreak then
+      "contains a line break, which uBO reads as two separate switches"
+    else if builtins.length parts != 3 then
+      # uBO accepts additional fields, but the managed seed has a strict
+      # three-field schema so typos cannot hide in ignored suffixes.
+      "expected 3 whitespace-separated fields"
+    else if
+      !builtins.elem name [
+        "no-strict-blocking:"
+        "no-popups:"
+        "no-cosmetic-filtering:"
+        "no-remote-fonts:"
+        "no-large-media:"
+        "no-csp-reports:"
+        "no-scripting:"
+      ]
+    then
+      "unknown switch ${name}"
+    else if !isHost host then
+      "hostname ${host} is not a valid uBO hostname"
+    else if
+      !builtins.elem state [
+        "true"
+        "false"
+        "on"
+        "off"
+      ]
+    then
+      "unknown state ${state}"
+    else
+      null;
+
+  checkedHostnameSwitches =
+    switches:
+    let
+      errors = lib.concatMap (
+        switchLine:
+        lib.optional (
+          hostnameSwitchError switchLine != null
+        ) "${switchLine} (${hostnameSwitchError switchLine})"
+      ) switches;
+    in
+    lib.throwIf (
+      errors != [ ]
+    ) "unusable uBO hostname switches: ${lib.concatStringsSep "; " errors}" switches;
+
   mediumModeRuleError =
     rule:
     let
@@ -23,16 +92,6 @@ let
       des = builtins.elemAt parts 1;
       type = builtins.elemAt parts 2;
       action = builtins.elemAt parts 3;
-      # Keep the seed in uBO's normalized ASCII hostname shape. Match labels
-      # individually because uBO stores empty or hyphen-edged labels, which are
-      # not valid normalized request hostnames. The wildcard, internal
-      # pseudo-host, and bracketed IPv6 forms are intentional.
-      hostLabel = "[0-9a-z_]([0-9a-z_-]*[0-9a-z_])?";
-      isHost =
-        host:
-        host == "*"
-        || builtins.match "[[][0-9a-f:]+[]]" host != null
-        || builtins.match "${hostLabel}([.]${hostLabel})*" host != null;
     in
     if hasLineBreak then
       "contains a line break, which uBO reads as two separate rules"
@@ -77,6 +136,11 @@ let
     lib.throwIf (
       errors != [ ]
     ) "unusable uBO dynamic filtering rules: ${lib.concatStringsSep "; " errors}" rules;
+
+  ublockOriginHostnameSwitches = [
+    "no-csp-reports: * true"
+    "no-large-media: behind-the-scene false"
+  ];
 
   # uBO "medium mode": block third-party scripts and frames by default.
   # Commonly-used sites are pre-whitelisted; other sites need interactive
@@ -194,9 +258,12 @@ let
 in
 {
   inherit
+    checkedHostnameSwitches
     mediumModeRuleError
+    hostnameSwitchError
     ruleFields
     checkedMediumModeRules
+    ublockOriginHostnameSwitches
     ublockOriginMediumModeRules
     ;
 }

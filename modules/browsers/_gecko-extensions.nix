@@ -17,7 +17,9 @@ let
   geckoExtensionData = import ./_gecko-extension-data.nix { inherit lib; };
   uboDynamicRules = import ./_ubo-dynamic-rules.nix { inherit lib; };
   inherit (uboDynamicRules)
+    checkedHostnameSwitches
     checkedMediumModeRules
+    ublockOriginHostnameSwitches
     ublockOriginMediumModeRules
     ;
   inherit (geckoExtensionData)
@@ -335,10 +337,9 @@ in
       uiAccentCustom0 = ublockOriginAccentColor;
       uiTheme = ublockOriginUiTheme;
 
-      hostnameSwitchesString = builtins.concatStringsSep "\n" [
-        "no-csp-reports: * true"
-        "no-large-media: behind-the-scene false"
-      ];
+      hostnameSwitchesString = builtins.concatStringsSep "\n" (
+        checkedHostnameSwitches ublockOriginHostnameSwitches
+      );
 
       dynamicFilteringString = builtins.concatStringsSep "\n" (
         checkedMediumModeRules ublockOriginMediumModeRules

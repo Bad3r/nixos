@@ -2,21 +2,86 @@
   Check: uBlock Origin dynamic-filtering rules.
 
   The browser profile and this evaluation check import the same private helper
-  directly. The check keeps malformed rules from being silently discarded by
-  uBO, pins behavior-critical rows after normalized validation, rejects
-  duplicate cells, and keeps every supported type/action live.
+  directly. The check keeps malformed dynamic-filter and hostname-switch
+  records from being silently discarded by uBO, pins behavior-critical rows
+  after normalized validation, rejects duplicate cells, and keeps every
+  supported type/action and hostname-switch name/state live.
 */
 { lib, ... }:
 let
   uboDynamicRules = import ./_ubo-dynamic-rules.nix { inherit lib; };
   inherit (uboDynamicRules)
+    checkedHostnameSwitches
     checkedMediumModeRules
+    hostnameSwitchError
     mediumModeRuleError
     ruleFields
+    ublockOriginHostnameSwitches
     ublockOriginMediumModeRules
     ;
 
   evalRules = ruleSet: builtins.tryEval (builtins.deepSeq (checkedMediumModeRules ruleSet) true);
+  evalHostnameSwitches =
+    switchSet: builtins.tryEval (builtins.deepSeq (checkedHostnameSwitches switchSet) true);
+  normalizedRule = rule: lib.concatStringsSep " " (ruleFields rule);
+
+  validHostnameSwitchCases = [
+    {
+      name = "canonical hostname switches";
+      switches = ublockOriginHostnameSwitches;
+    }
+    {
+      name = "all supported hostname switches";
+      switches = [
+        "no-strict-blocking: * true"
+        "no-popups: * false"
+        "no-cosmetic-filtering: * on"
+        "no-remote-fonts: * off"
+        "no-large-media: * true"
+        "no-csp-reports: * false"
+        "no-scripting: * true"
+      ];
+    }
+    {
+      name = "uBO hostname-switch whitespace normalization";
+      switches = [ "\tno-csp-reports:\t*\ttrue" ];
+    }
+  ];
+
+  invalidHostnameSwitches = [
+    {
+      rule = "no-large-media * true";
+      reason = "unknown switch no-large-media";
+    }
+    {
+      rule = "no-larger-media: * true";
+      reason = "unknown switch no-larger-media:";
+    }
+    {
+      rule = "no-csp-reports: Example.COM true";
+      reason = "hostname Example.COM is not a valid uBO hostname";
+    }
+    {
+      rule = "no-csp-reports: *";
+      reason = "expected 3 whitespace-separated fields";
+    }
+    {
+      rule = "no-csp-reports: * maybe";
+      reason = "unknown state maybe";
+    }
+    {
+      rule = "no-csp-reports: * true extra";
+      reason = "expected 3 whitespace-separated fields";
+    }
+    {
+      rule = "no-csp-reports: * true\nno-large-media: * false";
+      reason = "contains a line break, which uBO reads as two separate switches";
+    }
+    {
+      rule = "no-csp-reports: example.com/path true";
+      reason = "hostname example.com/path is not a valid uBO hostname";
+    }
+  ];
 
   validCases = [
     {
@@ -140,6 +205,32 @@ let
     "* challenges.cloudflare.com * noop"
   ];
 
+  failedValidHostnameSwitchCases = lib.filter (
+    case: !(evalHostnameSwitches case.switches).success
+  ) validHostnameSwitchCases;
+  acceptedInvalidHostnameSwitches = lib.filter (
+    fixture: (evalHostnameSwitches [ fixture.rule ]).success
+  ) invalidHostnameSwitches;
+  hostnameSwitchReasonMismatches = lib.filter (
+    fixture: hostnameSwitchError fixture.rule != fixture.reason
+  ) invalidHostnameSwitches;
+  hostnameSwitchReasonMismatchMessage =
+    fixture:
+    let
+      actualReason = hostnameSwitchError fixture.rule;
+    in
+    "${fixture.rule} (expected ${fixture.reason}, got ${
+      if actualReason == null then "no error" else actualReason
+    })";
+  checkedSeedHostnameSwitches = checkedHostnameSwitches ublockOriginHostnameSwitches;
+  requiredSeedHostnameSwitches = [
+    "no-csp-reports: * true"
+    "no-large-media: behind-the-scene false"
+  ];
+  missingSeedHostnameSwitches = lib.filter (
+    switchLine: !(lib.elem (normalizedRule switchLine) (map normalizedRule checkedSeedHostnameSwitches))
+  ) requiredSeedHostnameSwitches;
+
   failedValidCases = lib.filter (case: !(evalRules case.rules).success) validCases;
   acceptedInvalidRules = lib.filter (fixture: (evalRules [ fixture.rule ]).success) invalidRules;
   invalidRuleReasonMismatches = lib.filter (
@@ -156,7 +247,6 @@ let
   # Check the list consumed by the browser profile, not only the raw producer,
   # so a validator regression cannot silently erase the guarded payload.
   checkedSeedRules = checkedMediumModeRules ublockOriginMediumModeRules;
-  normalizedRule = rule: lib.concatStringsSep " " (ruleFields rule);
   missingSeedRulesIn =
     rules:
     let
@@ -192,6 +282,25 @@ in
     { pkgs, ... }:
     {
       checks."browsers/ubo-dynamic-rules" =
+        assert lib.assertMsg (
+          checkedSeedHostnameSwitches == ublockOriginHostnameSwitches
+        ) "browsers/ubo-dynamic-rules: hostname-switch validation no longer returns the seed unchanged";
+        assert lib.assertMsg (missingSeedHostnameSwitches == [ ]) (
+          "browsers/ubo-dynamic-rules: hostname-switch seed is missing required rows: "
+          + lib.concatStringsSep "; " missingSeedHostnameSwitches
+        );
+        assert lib.assertMsg (failedValidHostnameSwitchCases == [ ]) (
+          "browsers/ubo-dynamic-rules: valid hostname-switch fixtures failed: "
+          + lib.concatStringsSep ", " (map (case: case.name) failedValidHostnameSwitchCases)
+        );
+        assert lib.assertMsg (acceptedInvalidHostnameSwitches == [ ]) (
+          "browsers/ubo-dynamic-rules: invalid hostname switches accepted: "
+          + lib.concatStringsSep "; " (map (fixture: fixture.rule) acceptedInvalidHostnameSwitches)
+        );
+        assert lib.assertMsg (hostnameSwitchReasonMismatches == [ ]) (
+          "browsers/ubo-dynamic-rules: hostname-switch fixture reasons changed: "
+          + lib.concatStringsSep "; " (map hostnameSwitchReasonMismatchMessage hostnameSwitchReasonMismatches)
+        );
         assert lib.assertMsg (
           checkedSeedRules == ublockOriginMediumModeRules
         ) "browsers/ubo-dynamic-rules: rule validation no longer returns the seed unchanged";
