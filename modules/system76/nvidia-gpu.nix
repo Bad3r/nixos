@@ -47,8 +47,14 @@ _: {
       # double quote would close that value early and truncate the line. Chromium's
       # tokenizer accepts either (set_quote_chars("\"'")), and ' is inert in that file.
       hasQuote = flag: builtins.match ".*[\"'].*" flag != null;
+      # /etc/pam/environment is line-oriented (one NAME DEFAULT="<value>" record per
+      # variable), so a raw line break inside a value has no representation either:
+      # it would split one record into two and drop everything after it.
+      hasLineBreak = flag: builtins.match ".*[\n\r].*" flag != null;
       quoteFlag = flag: if builtins.match ".*[[:space:]].*" flag == null then flag else "'${flag}'";
-      unquotableFlags = lib.filter hasQuote (cfg.chromeExtraFlags ++ [ videoDeviceFlag ]);
+      unquotableFlags = lib.filter (flag: hasQuote flag || hasLineBreak flag) (
+        cfg.chromeExtraFlags ++ [ videoDeviceFlag ]
+      );
     in
     {
       options.system76.gpu = {
@@ -118,7 +124,7 @@ _: {
 
             One entry is one argument: entries containing whitespace are quoted, since
             Chromium re-splits the variable on whitespace. An entry containing a quote
-            character cannot be encoded and fails the assertion.
+            character or a line break cannot be encoded and fails the assertion.
           '';
           example = [ "--host-resolver-rules=MAP * 127.0.0.1" ];
         };
@@ -131,7 +137,7 @@ _: {
             message =
               "system76.gpu: entries are quoted into CHROME_EXTRA_FLAGS, so neither "
               + "chromeExtraFlags nor the flag derived from videoDecodeDevice may "
-              + "contain a quote character. Offending entries: "
+              + "contain a quote character or a line break. Offending entries: "
               + lib.concatStringsSep ", " unquotableFlags;
           }
         ];

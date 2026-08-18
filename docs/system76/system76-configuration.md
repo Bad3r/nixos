@@ -154,7 +154,7 @@ options.system76.gpu = {
       render-node flag is appended last and Chromium keeps the last occurrence of a
       repeated switch, so flags added here cannot displace it. One entry is one
       argument: entries containing whitespace are quoted, and an entry containing a
-      quote character cannot be encoded and fails an assertion.
+      quote character or a line break cannot be encoded and fails an assertion.
     '';
     example = [ "--host-resolver-rules=MAP * 127.0.0.1" ];
   };
