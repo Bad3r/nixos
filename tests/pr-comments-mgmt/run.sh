@@ -77,6 +77,89 @@ printf '#!/bin/sh\nif [ "$1" = pr ] && [ "$2" = view ]; then exec cat %s; fi\nec
   "${PR_VIEW_FIXTURE}" >"${PRVIEW_BIN}/gh"
 chmod +x "${PRVIEW_BIN}/gh"
 
+# Three more canned-payload stubs, same shape as PRVIEW_BIN but answering
+# `gh api graphql` (what get-thread and get-comment call through
+# graphql_call) instead of `pr view`. Each renders one specific node shape end
+# to end: a review thread with replies (get-thread's silent reply-chain drop
+# under --format=full/body), an inline review comment, and a top-level issue
+# comment (get-comment's typename-keyed comments/review-comments split).
+THREAD_FIXTURE="${tmpdir}/thread.json"
+cat >"${THREAD_FIXTURE}" <<'JSON'
+{
+  "data": {
+    "node": {
+      "__typename": "PullRequestReviewThread",
+      "id": "PRRT_test0001",
+      "isResolved": false,
+      "isOutdated": false,
+      "isCollapsed": false,
+      "path": "scripts/gh-cli/pr-comments-mgmt.sh",
+      "line": 42,
+      "startLine": null,
+      "diffSide": "RIGHT",
+      "startDiffSide": null,
+      "subjectType": "LINE",
+      "resolvedBy": null,
+      "viewerCanResolve": true,
+      "viewerCanUnresolve": false,
+      "viewerCanReply": true,
+      "comments": {
+        "pageInfo": { "hasNextPage": false, "endCursor": "cursor1" },
+        "nodes": [
+          {
+            "id": "PRRC_test0001",
+            "databaseId": 1,
+            "author": { "login": "claude" },
+            "body": "opener-body",
+            "createdAt": "2026-08-18T00:00:00Z",
+            "diffHunk": "@@ -1 +1 @@",
+            "originalLine": 42,
+            "originalStartLine": null,
+            "subjectType": "LINE",
+            "isMinimized": false,
+            "minimizedReason": null
+          },
+          {
+            "id": "PRRC_test0002",
+            "databaseId": 2,
+            "author": { "login": "Bad3r" },
+            "body": "first-reply-body",
+            "createdAt": "2026-08-18T00:01:00Z",
+            "diffHunk": "@@ -1 +1 @@",
+            "originalLine": 42,
+            "originalStartLine": null,
+            "subjectType": "LINE",
+            "isMinimized": false,
+            "minimizedReason": null
+          },
+          {
+            "id": "PRRC_test0003",
+            "databaseId": 3,
+            "author": { "login": "claude" },
+            "body": "second-reply-body",
+            "createdAt": "2026-08-18T00:02:00Z",
+            "diffHunk": "@@ -1 +1 @@",
+            "originalLine": 42,
+            "originalStartLine": null,
+            "subjectType": "LINE",
+            "isMinimized": false,
+            "minimizedReason": null
+          }
+        ]
+      }
+    }
+  }
+}
+JSON
+THREAD_BIN="${tmpdir}/thread-bin"
+mkdir -p "${THREAD_BIN}"
+ln -s "$(command -v jq)" "${THREAD_BIN}/jq"
+ln -s "$(command -v cat)" "${THREAD_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${THREAD_FIXTURE}" >"${THREAD_BIN}/gh"
+chmod +x "${THREAD_BIN}/gh"
+
 LAST_RC=0
 LAST_OUT=""
 LAST_ERR=""
@@ -110,14 +193,32 @@ run_with_pr_view() {
   LAST_ERR="$(<"${tmpdir}/stderr")"
 }
 
+run_with_thread() {
+  # Same capture against the canned review-thread stub. get-thread does not
+  # call pr_resolve for a direct node id, so a bare thread id needs no --pr
+  # and makes exactly the one graphql call the stub answers.
+  LAST_RC=0
+  LAST_OUT="$(PATH="${THREAD_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+assert_last_ok() {
+  # Args: <what>
+  # Fails unless the most recent run_with_* call exited 0 and wrote no
+  # diagnostics. Split out of assert_pr_view_ok so the thread/comment stubs
+  # can reuse the same "exits 0 quietly" check without re-running the call.
+  local what="$1"
+  [[ ${LAST_RC} -eq 0 ]] || fail "${what} exited ${LAST_RC}: ${LAST_ERR}"
+  [[ -z ${LAST_ERR} ]] || fail "${what} wrote diagnostics: ${LAST_ERR}"
+}
+
 assert_pr_view_ok() {
   # Args: <what> <arg>...
   # Runs the SUT against the stub and fails unless it exits 0 quietly.
   local what="$1"
   shift
   run_with_pr_view "$@"
-  [[ ${LAST_RC} -eq 0 ]] || fail "${what} exited ${LAST_RC}: ${LAST_ERR}"
-  [[ -z ${LAST_ERR} ]] || fail "${what} wrote diagnostics: ${LAST_ERR}"
+  assert_last_ok "${what}"
 }
 
 # Inner shell for run_piped_sigpipe_ignored. Single-quoted on purpose: $@ and
@@ -565,6 +666,42 @@ test_current_pr_renders_every_format() {
     fail "tsv columns 8,9 are '${oid_columns}', expected head/base OIDs '${expected_oids}'"
 }
 
+test_get_thread_full_and_body_render_every_reply() {
+  # Regression for the PR #464 review round: routing get-thread through
+  # _format_object used to wrap the whole thread object and hand it to the
+  # `threads` template, which reads only .comments.nodes[0] -- silently
+  # dropping every reply _paginate_thread_comments had just fetched. full and
+  # body must now show all three comments; text and tsv are still the
+  # one-line list-threads-parity summary and must stay that way.
+  local thread_id line_count
+  thread_id="$(jq -r '.data.node.id' "${THREAD_FIXTURE}")"
+
+  run_with_thread get-thread "${thread_id}" --format=full
+  assert_last_ok "get-thread --format=full"
+  [[ ${LAST_OUT} == *"opener-body"* ]] || fail "get-thread --format=full dropped the opener: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"first-reply-body"* ]] || fail "get-thread --format=full dropped a reply: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"second-reply-body"* ]] || fail "get-thread --format=full dropped a reply: ${LAST_OUT}"
+
+  run_with_thread get-thread "${thread_id}" --format=body
+  assert_last_ok "get-thread --format=body"
+  [[ ${LAST_OUT} == *"opener-body"* ]] || fail "get-thread --format=body dropped the opener: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"first-reply-body"* ]] || fail "get-thread --format=body dropped a reply: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"second-reply-body"* ]] || fail "get-thread --format=body dropped a reply: ${LAST_OUT}"
+
+  run_with_thread get-thread "${thread_id}" --format=text
+  assert_last_ok "get-thread --format=text"
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "get-thread --format=text emitted ${line_count} lines, expected the one-opener summary"
+  [[ ${LAST_OUT} == *"comments=3"* ]] || fail "get-thread --format=text lost the comment count: ${LAST_OUT}"
+
+  run_with_thread get-thread "${thread_id}" --format=tsv
+  assert_last_ok "get-thread --format=tsv"
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "get-thread --format=tsv emitted ${line_count} lines, expected the one-opener summary"
+  [[ "$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[6]')" == "3" ]] ||
+    fail "get-thread --format=tsv comments column is not 3: ${LAST_OUT}"
+}
+
 test_usage_error_goes_to_stderr() {
   # The output convention is diagnostics on stderr, payloads on stdout: a usage
   # error on stdout corrupts `list-threads --format=ids | ... resolve`. Needs
@@ -641,6 +778,7 @@ tests=(
   test_every_read_subcommand_accepts_format
   test_current_pr_documents_its_payload
   test_current_pr_renders_every_format
+  test_get_thread_full_and_body_render_every_reply
   test_json_flag_requires_help
   test_help_needs_no_gh
   test_help_tolerates_a_closed_reader

@@ -25,8 +25,12 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   `current-pr` format against a canned `gh pr view` payload. The fixture keys
   are checked against `current_pr`'s requested fields, and TSV parity uses
   `jq split` so empty columns remain observable. `_format_object` keeps `json`
-  and `ndjson` inline for their object shapes and delegates the other formats
-  through `_format_array`. The suite also checks literal kind arguments at
+  and `ndjson` inline for their object shapes and delegates `ids`/`text`/`tsv`
+  to `_format_array` under the caller's own kind. `full`/`body` do the same
+  except for `threads`: get-thread already paginated the full reply chain, so
+  those two route `.comments.nodes` through the `comments` kind instead of
+  wrapping the thread object, rather than reproduce the opener-only summary
+  `list-threads` renders. The suite also checks literal kind arguments at
   `_format_array`/`_format_object` call sites against all four per-kind
   templates, so a non-JSON renderer cannot hide a kind typo.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.

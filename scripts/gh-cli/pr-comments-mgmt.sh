@@ -372,7 +372,7 @@ usage_json() {
       "default": "json",
       "description": [
         "Output format for every read subcommand (default: json). `ids` emits one `.id` per line; `text` emits a one-line summary per item, prefixed with `<id>\\t` so `cut -f1` extracts the id; `full` emits a header (`=== <id> ... ===`) plus body block per item; `tsv` emits one tab-separated record per item with per-verb columns (no header, pipe to `column -t` for visual columns or `cut -f<n>` / `awk -F'\\t'` downstream); `body` emits the raw `.body` per item (opener body for threads), no headers or separators, best paired with `--limit=1` on the list-* verbs, since multi-item runs concatenate without delimiters (use `full` for multi-item dumps).",
-        "current-pr, get-thread, and get-comment emit exactly one item, so `json` stays a bare object rather than a one-element array (`current-pr | jq -r .number` keeps working) and `ndjson` is that object on one line. Their text/full/tsv/body shapes reuse the per-verb template of the matching list-* verb: get-thread renders as `threads`, get-comment as `comments`.",
+        "current-pr, get-thread, and get-comment emit exactly one item, so `json` stays a bare object rather than a one-element array (`current-pr | jq -r .number` keeps working) and `ndjson` is that object on one line. text/tsv reuse the per-verb template of the matching list-* verb: get-thread renders as `threads`, get-comment as `comments`. get-thread's full/body render the paginated reply chain through the `comments` template instead of the thread-opener-only `threads` template, so those two show every reply, not just the opener; get-comment's full/body follow the same kind as its text/tsv.",
         "text/full/body are not stable contracts; downstream parsers should use ndjson or tsv.",
         "tsv columns:",
         {
@@ -905,15 +905,29 @@ _format_object() {
   #
   # json and ndjson are the only two that cannot delegate: `json` must stay a
   # bare object, since `current-pr | jq -r .number` is the reason the verb
-  # exists, and `ndjson` is that object on one line. The remaining shapes
-  # are already per-item templates, so the object is wrapped and handed to
-  # _format_array, which keeps a thread rendered by get-thread identical to
-  # the same thread rendered by list-threads.
+  # exists, and `ndjson` is that object on one line. ids/text/tsv wrap the
+  # object and hand it to _format_array, which keeps a thread rendered by
+  # get-thread identical to the same thread rendered by list-threads.
+  #
+  # full/body are the per-body dumps, so for `threads` they route
+  # `.comments.nodes` through the `comments` templates instead of wrapping
+  # the thread itself: the latter would render only `.comments.nodes[0]`
+  # (the opener) and silently drop every reply the paginated fetch already
+  # holds. That is also what keeps _format_full's "use get-thread for the
+  # full reply chain" comment true: list-threads still shows one opener per
+  # thread, and get-thread --format=full now shows the whole chain.
   local kind="$1"
   case "${OUTPUT_FORMAT}" in
   json) jq '.' ;;
   ndjson) jq -c '.' ;;
-  ids | text | full | tsv | body) jq -c '[.]' | _format_array "${kind}" ;;
+  ids | text | tsv) jq -c '[.]' | _format_array "${kind}" ;;
+  full | body)
+    if [[ ${kind} == threads ]]; then
+      jq -c '.comments.nodes' | _format_array comments
+    else
+      jq -c '[.]' | _format_array "${kind}"
+    fi
+    ;;
   *) die 1 "_format_object: unhandled --format '${OUTPUT_FORMAT}'" ;;
   esac
 }
