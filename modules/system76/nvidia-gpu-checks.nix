@@ -6,12 +6,20 @@
 # the option), and the encoder (dba4c22f double quote, 76a4c847 line break). No
 # host overrides intelBusId or chromeExtraFlags away from their defaults, so no
 # eval has ever exercised either branch beyond its default input. This forces both
-# through the already-public option surface via extendModules, the same technique
-# modules/configurations/nixos.nix uses for its fleet-key check, so no source
-# hoist out of the host module's `let` is needed. The accepted encoding
-# (config.environment.sessionVariables.CHROME_EXTRA_FLAGS) is covered below; see
-# the note before acceptFailures for why the rejected half (config.assertions)
-# is not.
+# through the already-public option surface via extendModules, so no source hoist
+# out of the host module's `let` is needed. This is not the technique
+# modules/configurations/nixos.nix uses for its fleet-key check: that one reads
+# nixos.config.services.openssh.publicKey off an already-constructed
+# nixosConfigurations entry and never calls extendModules, and
+# modules/hosts/common/checks.nix deliberately stays at flake.lib level to avoid
+# the infinite recursion that arises from reading a host module back from a
+# flake-level check. This file is safe from that specific recursion only because
+# it reads config.flake.nixosConfigurations, which this file does not itself
+# contribute to (contrast: hosts-common's hazard is a common module reading back
+# config.configurations.nixos.<host>.module, an option it also writes into). The
+# accepted encoding (config.environment.sessionVariables.CHROME_EXTRA_FLAGS) is
+# covered below; see the note before acceptFailures for why the rejected half
+# (config.assertions) is not.
 { config, lib, ... }:
 let
   system76 =
