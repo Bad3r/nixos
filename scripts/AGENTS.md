@@ -30,9 +30,16 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   except for `threads`: get-thread already paginated the full reply chain, so
   those two route `.comments.nodes` through the `comments` kind instead of
   wrapping the thread object, rather than reproduce the opener-only summary
-  `list-threads` renders. The suite also checks literal kind arguments at
-  `_format_array`/`_format_object` call sites against all four per-kind
-  templates, so a non-JSON renderer cannot hide a kind typo.
+  `list-threads` renders. get-comment picks its kind from the GraphQL
+  `__typename` it already reads: `comments` for a top-level `IssueComment`,
+  `review-comments` for an inline `PullRequestReviewComment` (adds path/line
+  columns that `comments` has no room for). Both call sites stay literal
+  kinds rather than a forwarded `"${kind}"`, on purpose: the suite's
+  literal-kind scanner covers only call sites it can read statically, so a
+  variable there would silently drop the branch from
+  `test_format_call_kinds_have_templates`. The suite also checks literal kind
+  arguments at `_format_array`/`_format_object` call sites against all four
+  per-kind templates, so a non-JSON renderer cannot hide a kind typo.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
 - `lib/`: sourced by `build.sh` and `cache-coverage.sh`, never executed. These
   carry no shebang and define functions only, because

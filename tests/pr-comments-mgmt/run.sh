@@ -160,6 +160,79 @@ printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi
   "${THREAD_FIXTURE}" >"${THREAD_BIN}/gh"
 chmod +x "${THREAD_BIN}/gh"
 
+REVIEW_COMMENT_FIXTURE="${tmpdir}/review-comment.json"
+cat >"${REVIEW_COMMENT_FIXTURE}" <<'JSON'
+{
+  "data": {
+    "node": {
+      "__typename": "PullRequestReviewComment",
+      "id": "PRRC_test0099",
+      "databaseId": 99,
+      "author": { "login": "claude" },
+      "body": "inline-review-comment-body",
+      "createdAt": "2026-08-18T00:00:00Z",
+      "updatedAt": "2026-08-18T00:00:00Z",
+      "url": "https://github.com/owner/repo/pull/1#discussion_r99",
+      "path": "scripts/gh-cli/pr-comments-mgmt.sh",
+      "line": 42,
+      "originalLine": 42,
+      "startLine": null,
+      "originalStartLine": null,
+      "diffHunk": "@@ -1 +1 @@",
+      "subjectType": "LINE",
+      "isMinimized": false,
+      "minimizedReason": null,
+      "viewerCanMinimize": true,
+      "viewerCanUpdate": false,
+      "viewerCanDelete": false,
+      "pullRequest": { "number": 1, "url": "https://github.com/owner/repo/pull/1" },
+      "commit": { "oid": "3333333333333333333333333333333333333333" },
+      "originalCommit": { "oid": "3333333333333333333333333333333333333333" },
+      "replyTo": null
+    }
+  }
+}
+JSON
+REVIEW_COMMENT_BIN="${tmpdir}/review-comment-bin"
+mkdir -p "${REVIEW_COMMENT_BIN}"
+ln -s "$(command -v jq)" "${REVIEW_COMMENT_BIN}/jq"
+ln -s "$(command -v cat)" "${REVIEW_COMMENT_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${REVIEW_COMMENT_FIXTURE}" >"${REVIEW_COMMENT_BIN}/gh"
+chmod +x "${REVIEW_COMMENT_BIN}/gh"
+
+ISSUE_COMMENT_FIXTURE="${tmpdir}/issue-comment.json"
+cat >"${ISSUE_COMMENT_FIXTURE}" <<'JSON'
+{
+  "data": {
+    "node": {
+      "__typename": "IssueComment",
+      "id": "IC_test0099",
+      "databaseId": 199,
+      "author": { "login": "claude" },
+      "body": "top-level-comment-body",
+      "createdAt": "2026-08-18T00:00:00Z",
+      "updatedAt": "2026-08-18T00:00:00Z",
+      "url": "https://github.com/owner/repo/pull/1#issuecomment-199",
+      "isMinimized": false,
+      "minimizedReason": null,
+      "viewerCanMinimize": true,
+      "viewerCanUpdate": false,
+      "viewerCanDelete": false
+    }
+  }
+}
+JSON
+ISSUE_COMMENT_BIN="${tmpdir}/issue-comment-bin"
+mkdir -p "${ISSUE_COMMENT_BIN}"
+ln -s "$(command -v jq)" "${ISSUE_COMMENT_BIN}/jq"
+ln -s "$(command -v cat)" "${ISSUE_COMMENT_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${ISSUE_COMMENT_FIXTURE}" >"${ISSUE_COMMENT_BIN}/gh"
+chmod +x "${ISSUE_COMMENT_BIN}/gh"
+
 LAST_RC=0
 LAST_OUT=""
 LAST_ERR=""
@@ -194,11 +267,24 @@ run_with_pr_view() {
 }
 
 run_with_thread() {
-  # Same capture against the canned review-thread stub. get-thread does not
-  # call pr_resolve for a direct node id, so a bare thread id needs no --pr
-  # and makes exactly the one graphql call the stub answers.
+  # Same capture against the canned review-thread stub. Neither get-thread nor
+  # _get_comment_graphql call pr_resolve for a direct node id, so a bare
+  # thread/comment id needs no --pr and makes exactly the one graphql call the
+  # stub answers.
   LAST_RC=0
   LAST_OUT="$(PATH="${THREAD_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_review_comment() {
+  LAST_RC=0
+  LAST_OUT="$(PATH="${REVIEW_COMMENT_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_issue_comment() {
+  LAST_RC=0
+  LAST_OUT="$(PATH="${ISSUE_COMMENT_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
   LAST_ERR="$(<"${tmpdir}/stderr")"
 }
 
@@ -344,7 +430,10 @@ kind_dispatch_arms() {
       continue
     fi
     [[ ${line} =~ ^[[:space:]]*esac ]] && break
-    if [[ ${line} =~ ^[[:space:]]*([a-z][a-z\|[:space:]]*)\) ]]; then
+    # [a-z-] (hyphen included), matching format_call_kinds' call-site pattern:
+    # a hyphenated kind like review-comments must parse as one arm label, not
+    # stop short at the hyphen and report no match.
+    if [[ ${line} =~ ^[[:space:]]*([a-z][a-z\|[:space:]-]*)\) ]]; then
       arm="${BASH_REMATCH[1]// /}"
       printf '%s\n' "${arm//|/$'\n'}"
     fi
@@ -702,6 +791,50 @@ test_get_thread_full_and_body_render_every_reply() {
     fail "get-thread --format=tsv comments column is not 3: ${LAST_OUT}"
 }
 
+test_get_comment_splits_review_and_issue_comments_by_typename() {
+  # Regression for the PR #464 review round: get-comment always rendered
+  # non-JSON formats through the `comments` template, which has no path/line
+  # columns -- even for an inline PullRequestReviewComment, whose whole reason
+  # for a separate GraphQL branch is path/line/diffHunk/replyTo. typename
+  # (already read for the earlier type check) now also picks the render kind:
+  # review-comments for a review comment, comments for a top-level one.
+  local review_id issue_id columns
+
+  review_id="$(jq -r '.data.node.id' "${REVIEW_COMMENT_FIXTURE}")"
+
+  run_with_review_comment get-comment "${review_id}" --format=tsv
+  assert_last_ok "get-comment (review comment) --format=tsv"
+  columns="$(printf '%s' "${LAST_OUT}" | jq -R 'split("\t") | length')"
+  [[ ${columns} -eq 9 ]] ||
+    fail "review-comments tsv emitted ${columns} columns, expected 9 (comments' 7 plus path, line)"
+  [[ "$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[7:9] | join(" ")')" == "scripts/gh-cli/pr-comments-mgmt.sh 42" ]] ||
+    fail "review-comments tsv columns 8,9 are not path,line: ${LAST_OUT}"
+
+  run_with_review_comment get-comment "${review_id}" --format=full
+  assert_last_ok "get-comment (review comment) --format=full"
+  [[ ${LAST_OUT} == *"scripts/gh-cli/pr-comments-mgmt.sh:42"* ]] ||
+    fail "review-comments full dropped the path:line anchor: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"inline-review-comment-body"* ]] || fail "review-comments full dropped the body: ${LAST_OUT}"
+
+  run_with_review_comment get-comment "${review_id}" --format=body
+  assert_last_ok "get-comment (review comment) --format=body"
+  [[ ${LAST_OUT} == "inline-review-comment-body" ]] ||
+    fail "review comment body format is '${LAST_OUT}', expected the raw body"
+
+  issue_id="$(jq -r '.data.node.id' "${ISSUE_COMMENT_FIXTURE}")"
+
+  run_with_issue_comment get-comment "${issue_id}" --format=tsv
+  assert_last_ok "get-comment (issue comment) --format=tsv"
+  columns="$(printf '%s' "${LAST_OUT}" | jq -R 'split("\t") | length')"
+  [[ ${columns} -eq 7 ]] ||
+    fail "top-level comments tsv emitted ${columns} columns, expected comments' plain 7 (no path/line)"
+
+  run_with_issue_comment get-comment "${issue_id}" --format=body
+  assert_last_ok "get-comment (issue comment) --format=body"
+  [[ ${LAST_OUT} == "top-level-comment-body" ]] ||
+    fail "issue comment body format is '${LAST_OUT}', expected the raw body"
+}
+
 test_usage_error_goes_to_stderr() {
   # The output convention is diagnostics on stderr, payloads on stdout: a usage
   # error on stdout corrupts `list-threads --format=ids | ... resolve`. Needs
@@ -779,6 +912,7 @@ tests=(
   test_current_pr_documents_its_payload
   test_current_pr_renders_every_format
   test_get_thread_full_and_body_render_every_reply
+  test_get_comment_splits_review_and_issue_comments_by_typename
   test_json_flag_requires_help
   test_help_needs_no_gh
   test_help_tolerates_a_closed_reader
