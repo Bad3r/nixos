@@ -1,10 +1,14 @@
-# system76.gpu.intelBusId -> videoDecodeDevice (modules/system76/nvidia-gpu.nix) has
-# regressed twice within this PR on bus/domain bounds alone, with `nix flake check`
-# staying green each time, because no host overrides intelBusId away from its
-# default so no eval ever exercised a boundary value. This forces the boundary
-# table through the already-public option surface via extendModules, the same
-# technique modules/configurations/nixos.nix uses for its fleet-key check, so no
-# source hoist out of the host module's `let` is needed.
+# The two new branches modules/system76/nvidia-gpu.nix added (the intelBusId ->
+# videoDecodeDevice bus/domain arithmetic, and the CHROME_EXTRA_FLAGS quote/append
+# encoder) have each regressed twice within this PR, both times with `nix flake
+# check` staying green: bus/domain bounds (2a28268d, then 5c3cad05 after review
+# found bus > 255 still aborted inside lib.fixedWidthString naming lib instead of
+# the option), and the encoder (dba4c22f double quote, 76a4c847 line break). No
+# host overrides intelBusId or chromeExtraFlags away from their defaults, so no
+# eval has ever exercised either branch beyond its default input. This forces both
+# through the already-public option surface via extendModules, the same technique
+# modules/configurations/nixos.nix uses for its fleet-key check, so no source
+# hoist out of the host module's `let` is needed.
 { config, lib, ... }:
 let
   system76 =
@@ -41,6 +45,50 @@ let
     "PCI:0:2:9"
   ];
 
+  # The CHROME_EXTRA_FLAGS encoder is the other new branch in nvidia-gpu.nix, and it
+  # has corrupted /etc/pam/environment twice in this PR (double quote in dba4c22f,
+  # then an embedded line break in 76a4c847). Reading the rendered variable back
+  # through the same extendModules handle pins the encoding and the append-last
+  # ordering (d6007d14) without forcing config.assertions, which is a whole-system
+  # list and would drag in unrelated modules' entries.
+  chromeExtraFlagsFor =
+    flags:
+    (system76.extendModules { modules = [ { system76.gpu.chromeExtraFlags = flags; } ]; })
+    .config.environment.sessionVariables.CHROME_EXTRA_FLAGS;
+
+  defaultRenderFlag = "--hardware-video-device-path=/dev/dri/by-path/pci-0000:00:02.0-render";
+
+  chromeFlagCases = [
+    {
+      flags = [ ];
+      expected = defaultRenderFlag;
+    }
+    {
+      flags = [ "--ozone-platform-hint=auto" ];
+      expected = "--ozone-platform-hint=auto ${defaultRenderFlag}";
+    }
+    {
+      flags = [ "--host-resolver-rules=MAP * 127.0.0.1" ];
+      expected = "'--host-resolver-rules=MAP * 127.0.0.1' ${defaultRenderFlag}";
+    }
+    {
+      # The derived flag must still win last-occurrence over a same-named
+      # user-supplied entry: the ordering d6007d14 fixed.
+      flags = [ "--hardware-video-device-path=/tmp/other" ];
+      expected = "--hardware-video-device-path=/tmp/other ${defaultRenderFlag}";
+    }
+  ];
+
+  chromeFailures = builtins.filter (
+    case: chromeExtraFlagsFor case.flags != case.expected
+  ) chromeFlagCases;
+
+  chromeFailureLines = map (
+    case:
+    "  chromeExtraFlags ${builtins.toJSON case.flags}: expected ${case.expected}, got "
+    + chromeExtraFlagsFor case.flags
+  ) chromeFailures;
+
   acceptFailures = lib.filterAttrs (
     intelBusId: expected: videoDecodeDeviceFor intelBusId != expected
   ) acceptCases;
@@ -58,7 +106,7 @@ let
     intelBusId: "  ${intelBusId}: expected to fail evaluation but succeeded"
   ) rejectFailures;
 
-  failureLines = acceptFailureLines ++ rejectFailureLines;
+  failureLines = acceptFailureLines ++ rejectFailureLines ++ chromeFailureLines;
 in
 {
   perSystem =
@@ -70,13 +118,13 @@ in
         # CI (same rationale as modules/hosts/common/checks.nix).
         if failureLines != [ ] then
           throw (
-            "system76-video-decode-device: system76.gpu.intelBusId -> videoDecodeDevice "
-            + "boundary table regressed:\n"
+            "system76-video-decode-device: system76.gpu derivation regressed "
+            + "(videoDecodeDevice boundary table and/or CHROME_EXTRA_FLAGS encoding):\n"
             + lib.concatStringsSep "\n" failureLines
           )
         else
           pkgs.runCommandLocal "system76-video-decode-device-ok" { } ''
-            echo "ok: system76.gpu.intelBusId -> videoDecodeDevice boundary table matches" > $out
+            echo "ok: system76.gpu videoDecodeDevice boundary table and CHROME_EXTRA_FLAGS encoding match" > $out
           '';
     };
 }
