@@ -13,9 +13,14 @@ let
 
   videoDecodeDeviceFor =
     intelBusId:
-    builtins.tryEval
-      (system76.extendModules { modules = [ { system76.gpu.intelBusId = intelBusId; } ]; })
-      .config.system76.gpu.videoDecodeDevice;
+    (system76.extendModules { modules = [ { system76.gpu.intelBusId = intelBusId; } ]; })
+    .config.system76.gpu.videoDecodeDevice;
+
+  # tryEval only where a failure is the expected outcome (the reject rows below):
+  # wrapping the accept rows in tryEval would also swallow an unrelated eval error
+  # anywhere in the system76 closure, reporting it as "<eval failure>" and making
+  # the reject rows pass vacuously instead of surfacing the real break.
+  videoDecodeDeviceTryFor = intelBusId: builtins.tryEval (videoDecodeDeviceFor intelBusId);
 
   # Golden values captured from the current, reviewed derivation: the domain-0
   # default, an explicit non-zero domain, a domain widened past 0xffff, and the
@@ -36,23 +41,17 @@ let
     "PCI:0:2:9"
   ];
 
-  acceptResults = lib.mapAttrs (_intelBusId: expected: {
-    inherit expected;
-    actual = videoDecodeDeviceFor _intelBusId;
-  }) acceptCases;
-
   acceptFailures = lib.filterAttrs (
-    _intelBusId: r: !r.actual.success || r.actual.value != r.expected
-  ) acceptResults;
+    intelBusId: expected: videoDecodeDeviceFor intelBusId != expected
+  ) acceptCases;
 
   rejectFailures = builtins.filter (
-    intelBusId: (videoDecodeDeviceFor intelBusId).success
+    intelBusId: (videoDecodeDeviceTryFor intelBusId).success
   ) rejectCases;
 
   acceptFailureLines = lib.mapAttrsToList (
-    intelBusId: r:
-    "  ${intelBusId}: expected ${r.expected}, got "
-    + (if r.actual.success then r.actual.value else "<eval failure>")
+    intelBusId: expected:
+    "  ${intelBusId}: expected ${expected}, got ${videoDecodeDeviceFor intelBusId}"
   ) acceptFailures;
 
   rejectFailureLines = map (
