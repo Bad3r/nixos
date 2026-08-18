@@ -122,6 +122,9 @@ options.system76.gpu = {
       Intel iGPU address in Xorg's decimal `PCI:bus@domain:device:function` form.
       Used for PRIME sync in `hybrid-sync` mode and as the source of the
       `videoDecodeDevice` default in both modes. The domain may be omitted when it is 0.
+      Fields are range-checked against their PCI widths (bus 0-255, device 0-31,
+      function 0-7, any domain); an out-of-range field fails evaluation naming this
+      option rather than aborting inside `lib.fixedWidthString`.
     '';
   };
   nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };

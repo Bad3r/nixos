@@ -5,24 +5,38 @@ _: {
       cfg = config.system76.gpu;
       intelBusFields =
         let
-          matched = builtins.match "PCI:([0-9]{1,3})(@([0-9]{1,10}))?:([0-9]{1,2}):([0-9])" cfg.intelBusId;
+          matched = builtins.match "PCI:([0-9]{1,3})(@([0-9]{1,10}))?:([0-9]{1,2}):([0-7])" cfg.intelBusId;
+          fields =
+            if matched == null then
+              null
+            else
+              {
+                bus = lib.toIntBase10 (lib.elemAt matched 0);
+                domain = if lib.elemAt matched 2 == null then 0 else lib.toIntBase10 (lib.elemAt matched 2);
+                device = lib.toIntBase10 (lib.elemAt matched 3);
+                function = lib.toIntBase10 (lib.elemAt matched 4);
+              };
         in
-        if matched == null then
+        # Check ranges, not just digit counts: a field that parses but overflows its
+        # PCI width would otherwise abort inside lib.fixedWidthString, naming lib
+        # rather than the option that carries the bad value.
+        if fields == null || fields.bus > 255 || fields.device > 31 then
           throw (
             "system76.gpu.intelBusId: expected decimal PCI:bus[@domain]:device:function "
-            + "with bus 1-3 digits, optional domain 1-10 digits, device 1-2 digits, "
-            + "and function 1 digit, got '${cfg.intelBusId}'"
+            + "with bus 0-255, device 0-31, function 0-7, and an optional domain, "
+            + "got '${cfg.intelBusId}'"
           )
         else
-          {
-            bus = lib.elemAt matched 0;
-            domain = if lib.elemAt matched 2 == null then "0" else lib.elemAt matched 2;
-            device = lib.elemAt matched 3;
-            function = lib.elemAt matched 4;
-          };
-      intelBusHex = part: lib.toLower (lib.toHexString (lib.toIntBase10 part));
-      intelBusHexPadded = part: lib.fixedWidthString 2 "0" (intelBusHex part);
-      intelDomainHexPadded = part: lib.fixedWidthString 4 "0" (intelBusHex part);
+          fields;
+      # sysfs names a PCI device "%04x:%02x:%02x.%d". Those widths are minimums, so a
+      # domain above 0xffff widens its field instead of being rejected, and the
+      # function stays decimal.
+      intelBusPadded =
+        width: part:
+        let
+          hex = lib.toLower (lib.toHexString part);
+        in
+        if lib.stringLength hex >= width then hex else lib.fixedWidthString width "0" hex;
       videoDeviceFlag = "--hardware-video-device-path=${cfg.videoDecodeDevice}";
     in
     {
@@ -43,7 +57,9 @@ _: {
           description = ''
             PCI address for the Intel iGPU, in Xorg's decimal
             `PCI:bus@domain:device:function` form; the domain may be omitted when it
-            is 0. Used for PRIME sync when `mode = "hybrid-sync"`, and as the source
+            is 0. Fields are range-checked against their PCI widths: bus 0-255,
+            device 0-31, function 0-7, and any domain. Used for PRIME sync when
+            `mode = "hybrid-sync"`, and as the source
             of the `videoDecodeDevice` default in both modes. Unless
             `videoDecodeDevice` is overridden explicitly, an incorrect value can point
             the default Chromium and libva routing at the wrong render node and make
@@ -66,8 +82,8 @@ _: {
         videoDecodeDevice = lib.mkOption {
           type = lib.types.str;
           default =
-            "/dev/dri/by-path/pci-${intelDomainHexPadded intelBusFields.domain}:${intelBusHexPadded intelBusFields.bus}"
-            + ":${intelBusHexPadded intelBusFields.device}.${intelBusHex intelBusFields.function}-render";
+            "/dev/dri/by-path/pci-${intelBusPadded 4 intelBusFields.domain}:${intelBusPadded 2 intelBusFields.bus}"
+            + ":${intelBusPadded 2 intelBusFields.device}.${toString intelBusFields.function}-render";
           defaultText = lib.literalExpression ''"/dev/dri/by-path/pci-<intelBusId as a sysfs address>-render"'';
           example = "/dev/dri/renderD128";
           description = ''
