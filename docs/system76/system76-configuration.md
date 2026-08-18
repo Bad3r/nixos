@@ -144,8 +144,9 @@ options.system76.gpu = {
     type = lib.types.listOf lib.types.str;
     default = [ ];
     description = ''
-      Additional Chromium flags exported through `CHROME_EXTRA_FLAGS`. The required
-      render-node flag is prepended automatically.
+      Additional Chromium flags exported through `CHROME_EXTRA_FLAGS`. The derived
+      render-node flag is appended last and Chromium keeps the last occurrence of a
+      repeated switch, so flags added here cannot displace it.
     '';
   };
 };
@@ -163,14 +164,16 @@ gpu.nvidia = {
 };
 
 # Chromium matches its VA-API node to the GPU it renders on and rejects nvidia-drm
-# (crbug.com/1492880), so point it at the Intel node in either GPU mode. The browsers
-# read this variable directly; no per-package wiring is needed. Add Chromium flags
-# through system76.gpu.chromeExtraFlags; the render-node flag is always prepended.
+# (crbug.com/1492880), so point it at the Intel node in either GPU mode. The browser
+# binary reads this variable itself (AppendExtraArgumentsToCommandLine in
+# chrome/app/chrome_main_linux.cc), so no per-package wiring is needed. Add Chromium
+# flags through system76.gpu.chromeExtraFlags; the render-node flag is always appended
+# last, and Chromium keeps the last occurrence of a repeated switch.
 # libva uses the same Intel Quick Sync node and iHD driver for every VA-API consumer.
 environment.sessionVariables = {
   CHROME_EXTRA_FLAGS = lib.mkDefault (lib.concatStringsSep " " (
-    [ "--hardware-video-device-path=${config.system76.gpu.videoDecodeDevice}" ]
-    ++ config.system76.gpu.chromeExtraFlags
+    config.system76.gpu.chromeExtraFlags
+    ++ [ "--hardware-video-device-path=${config.system76.gpu.videoDecodeDevice}" ]
   ));
   LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
   LIBVA_DRM_DEVICE = lib.mkDefault config.system76.gpu.videoDecodeDevice;

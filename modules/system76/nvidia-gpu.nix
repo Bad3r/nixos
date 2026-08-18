@@ -100,8 +100,10 @@ _: {
           default = [ ];
           description = ''
             Additional flags exported to Chromium browsers through
-            `CHROME_EXTRA_FLAGS`. The required render-node flag is prepended
-            automatically, so adding flags here cannot disable hardware video decode.
+            `CHROME_EXTRA_FLAGS`. The derived render-node flag is appended last, and
+            Chromium keeps the last occurrence of a repeated switch, so flags added
+            here cannot displace it. Change the render node through
+            `videoDecodeDevice` instead.
           '';
         };
       };
@@ -144,8 +146,12 @@ _: {
           # on, then rejects nvidia-drm outright (crbug.com/1492880). NVIDIA renders in
           # both modes here, so the match lands on the dGPU, the pre-sandbox VA-API
           # init finds nothing, and every Chromium app decodes in software. Naming the
-          # iGPU node restores hardware decode. The browsers read this variable
-          # themselves, which covers new ones without any per-package wiring.
+          # iGPU node restores hardware decode. The browser binary reads this variable
+          # itself (AppendExtraArgumentsToCommandLine in chrome/app/chrome_main_linux.cc,
+          # not a launcher script), which covers new ones without per-package wiring.
+          # It appends onto the parsed command line, so it also outranks the wrapper
+          # --add-flags this repo bakes into its Chromium packages. Chromium keeps the
+          # last occurrence of a repeated switch, hence videoDeviceFlag goes last.
           # Keep libva on the same Intel node and iHD driver in both modes so non-Chromium
           # VA-API consumers do not fall back to render-node probe order.
           # VDPAU_DRIVER is intentionally unset: VDPAU is legacy, and pointing it at
@@ -154,7 +160,7 @@ _: {
           # inherit this routing too, not just terminal-spawned ones.
           environment.sessionVariables = {
             CHROME_EXTRA_FLAGS = lib.mkDefault (
-              lib.concatStringsSep " " ([ videoDeviceFlag ] ++ cfg.chromeExtraFlags)
+              lib.concatStringsSep " " (cfg.chromeExtraFlags ++ [ videoDeviceFlag ])
             );
             LIBVA_DRM_DEVICE = lib.mkDefault cfg.videoDecodeDevice;
             LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
