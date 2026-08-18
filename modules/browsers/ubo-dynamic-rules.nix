@@ -11,6 +11,7 @@ let
   uboDynamicRules = import ./_ubo-dynamic-rules.nix { inherit lib; };
   inherit (uboDynamicRules)
     checkedMediumModeRules
+    mediumModeRuleError
     ruleFields
     ublockOriginMediumModeRules
     ;
@@ -59,24 +60,77 @@ let
     }
   ];
 
+  # Pair each rejected rule with its expected validator branch so an earlier
+  # failure cannot mask a regression in the branch the fixture targets.
   invalidRules = [
-    "* challenges.cloudflare.com 3p-script noop"
-    "* challenges.cloudflare.com/path * noop"
-    "github.com/path * 3p-script noop"
-    "https://github.com * 3p-script noop"
-    "github,com * 3p-script noop"
-    "no-large-media: * * noop"
-    "github%2ecom * 3p-script noop"
-    "github.com. * 3p-script noop"
-    "github..com * 3p-script noop"
-    "github-.com * 3p-script noop"
-    "github.com *\n3p-script noop"
-    "github.com *\r3p-script noop"
-    "Login.Okta.com * 3p-script noop"
-    "* * unknown-type noop"
-    "* * * permit"
-    "* * 3p-script"
-    "* * 3p-script noop extra"
+    {
+      rule = "* challenges.cloudflare.com 3p-script noop";
+      reason = "destination challenges.cloudflare.com is named, which uBO accepts only with type *, not 3p-script";
+    }
+    {
+      rule = "* challenges.cloudflare.com/path * noop";
+      reason = "destination challenges.cloudflare.com/path is not a valid uBO hostname";
+    }
+    {
+      rule = "github.com/path * 3p-script noop";
+      reason = "source github.com/path is not a valid uBO hostname";
+    }
+    {
+      rule = "https://github.com * 3p-script noop";
+      reason = "source https://github.com is not a valid uBO hostname";
+    }
+    {
+      rule = "github,com * 3p-script noop";
+      reason = "source github,com is not a valid uBO hostname";
+    }
+    {
+      rule = "no-large-media: * * noop";
+      reason = "source no-large-media: is not a valid uBO hostname";
+    }
+    {
+      rule = "github%2ecom * 3p-script noop";
+      reason = "source github%2ecom is not a valid uBO hostname";
+    }
+    {
+      rule = "github.com. * 3p-script noop";
+      reason = "source github.com. is not a valid uBO hostname";
+    }
+    {
+      rule = "github..com * 3p-script noop";
+      reason = "source github..com is not a valid uBO hostname";
+    }
+    {
+      rule = "github-.com * 3p-script noop";
+      reason = "source github-.com is not a valid uBO hostname";
+    }
+    {
+      rule = "github.com *\n3p-script noop";
+      reason = "contains a line break, which uBO reads as two separate rules";
+    }
+    {
+      rule = "github.com *\r3p-script noop";
+      reason = "contains a line break, which uBO reads as two separate rules";
+    }
+    {
+      rule = "Login.Okta.com * 3p-script noop";
+      reason = "source Login.Okta.com is not a valid uBO hostname";
+    }
+    {
+      rule = "* * unknown-type noop";
+      reason = "unknown type unknown-type";
+    }
+    {
+      rule = "* * * permit";
+      reason = "unknown action permit";
+    }
+    {
+      rule = "* * 3p-script";
+      reason = "expected 4 space-separated fields";
+    }
+    {
+      rule = "* * 3p-script noop extra";
+      reason = "expected 4 space-separated fields";
+    }
   ];
 
   # Pin the rows that establish medium mode and the Turnstile exception.
@@ -87,7 +141,18 @@ let
   ];
 
   failedValidCases = lib.filter (case: !(evalRules case.rules).success) validCases;
-  acceptedInvalidRules = lib.filter (rule: (evalRules [ rule ]).success) invalidRules;
+  acceptedInvalidRules = lib.filter (fixture: (evalRules [ fixture.rule ]).success) invalidRules;
+  invalidRuleReasonMismatches = lib.filter (
+    fixture: mediumModeRuleError fixture.rule != fixture.reason
+  ) invalidRules;
+  invalidRuleReasonMismatchMessage =
+    fixture:
+    let
+      actualReason = mediumModeRuleError fixture.rule;
+    in
+    "${fixture.rule} (expected ${fixture.reason}, got ${
+      if actualReason == null then "no error" else actualReason
+    })";
   # Check the list consumed by the browser profile, not only the raw producer,
   # so a validator regression cannot silently erase the guarded payload.
   checkedSeedRules = checkedMediumModeRules ublockOriginMediumModeRules;
@@ -140,7 +205,11 @@ in
         );
         assert lib.assertMsg (acceptedInvalidRules == [ ]) (
           "browsers/ubo-dynamic-rules: invalid fixtures accepted: "
-          + lib.concatStringsSep "; " acceptedInvalidRules
+          + lib.concatStringsSep "; " (map (fixture: fixture.rule) acceptedInvalidRules)
+        );
+        assert lib.assertMsg (invalidRuleReasonMismatches == [ ]) (
+          "browsers/ubo-dynamic-rules: invalid fixture reasons changed: "
+          + lib.concatStringsSep "; " (map invalidRuleReasonMismatchMessage invalidRuleReasonMismatches)
         );
         assert lib.assertMsg (duplicateCells == [ ]) (
           "browsers/ubo-dynamic-rules: seed defines the same cell more than once: "
