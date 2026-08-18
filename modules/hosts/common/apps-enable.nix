@@ -46,6 +46,7 @@ let
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
+      autotrace.extended.enable = lib.mkOverride 1100 true;
       assetfinder.extended.enable = lib.mkOverride 1100 true;
       awscli2.extended.enable = lib.mkOverride 1100 true;
       azd.extended.enable = lib.mkOverride 1100 true;
@@ -376,6 +377,7 @@ let
       readpdf.extended.enable = lib.mkOverride 1100 true;
       remmina.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
+      resvg.extended.enable = lib.mkOverride 1100 true;
       rg-fzf.extended.enable = lib.mkOverride 1100 true;
       rip.extended.enable = lib.mkOverride 1100 true;
       ripgrep.extended.enable = lib.mkOverride 1100 true;
@@ -430,6 +432,7 @@ let
       stylua.extended.enable = lib.mkOverride 1100 true;
       subfinder.extended.enable = lib.mkOverride 1100 true;
       subjack.extended.enable = lib.mkOverride 1100 true;
+      svgo.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 false;
       sysstat.extended.enable = lib.mkOverride 1100 true;
       tailscale.extended.enable = lib.mkOverride 1100 true;
@@ -450,6 +453,7 @@ let
       "tor-browser".extended.enable = lib.mkOverride 1100 true;
       torsocks.extended.enable = lib.mkOverride 1100 true;
       tlsx.extended.enable = lib.mkOverride 1100 true;
+      tsx.extended.enable = lib.mkOverride 1100 true;
       tweakcc.extended.enable = lib.mkOverride 1100 true;
       "typescript-language-server".extended.enable = lib.mkOverride 1100 false;
       udiskie.extended.enable = lib.mkOverride 1100 true;
@@ -471,6 +475,7 @@ let
       vlc.extended.enable = lib.mkOverride 1100 false;
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       "vt-cli".extended.enable = lib.mkOverride 1100 true;
+      vtracer.extended.enable = lib.mkOverride 1100 true;
       vulnix.extended.enable = lib.mkOverride 1100 true;
       wafw00f.extended.enable = lib.mkOverride 1100 true;
       wakaru.extended.enable = lib.mkOverride 1100 false;
