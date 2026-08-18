@@ -11,15 +11,12 @@
       fitting.
 
   Options:
-    <input> <output>: Convert a raster input image to an SVG output file.
     -i, --input <input>: Specify the input raster image.
     -o, --output <output>: Specify the output SVG file.
     --preset <preset>: Start from a black-and-white, poster, or photo preset.
-    --clustering <clustering>: Select the region-forming algorithm.
+    --colormode <colormode>: Trace in full color or binary black-and-white.
     --hierarchical <hierarchical>: Select stacked output or a seam-free cutout mosaic.
     -m, --mode <mode>: Select pixel, polygon, or spline curve fitting.
-    --palette <palette>: Constrain output colors to a comma-separated hex palette.
-    --simplify <tolerance>: Simplify curves within the specified pixel tolerance.
 */
 _:
 let
