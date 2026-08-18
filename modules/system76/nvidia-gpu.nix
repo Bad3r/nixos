@@ -92,7 +92,10 @@ _: {
 
       config = lib.mkMerge [
         {
-          # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver
+          # Blacklist nouveau to avoid conflicts with proprietary NVIDIA driver.
+          # i915 is deliberately absent: internal HDA/SOF audio on this chassis can
+          # depend on Intel graphics-side plumbing even when NVIDIA renders X11, and
+          # the iGPU also backs the only VA-API decode target configured below.
           boot.blacklistedKernelModules = [ "nouveau" ];
 
           boot.kernelParams = [
@@ -129,6 +132,10 @@ _: {
           # themselves, which covers new ones without any per-package wiring.
           # Keep libva on the same Intel node and iHD driver in both modes so non-Chromium
           # VA-API consumers do not fall back to render-node probe order.
+          # VDPAU_DRIVER is intentionally unset: VDPAU is legacy, and pointing it at
+          # nvidia would route back into the NVDEC path that faults above.
+          # sessionVariables is PAM-initialised, so GUI apps launched outside a shell
+          # inherit this routing too, not just terminal-spawned ones.
           environment.sessionVariables = {
             CHROME_EXTRA_FLAGS = lib.mkDefault (
               lib.concatStringsSep " " ([ videoDeviceFlag ] ++ cfg.chromeExtraFlags)
