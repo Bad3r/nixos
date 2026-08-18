@@ -6,14 +6,19 @@
 */
 { lib }:
 let
+  # Keep field normalization shared by validation and the regression checks so
+  # required-row and duplicate-cell projections cannot drift from uBO parsing.
+  ruleFields =
+    rule:
+    lib.filter (part: part != "") (lib.splitString " " (lib.replaceStrings [ "\t" ] [ " " ] rule));
+
   mediumModeRuleError =
     rule:
     let
       # uBO trims each line and splits on runs of intra-line whitespace before
       # validating it. Tabs separate fields; line breaks separate records.
       hasLineBreak = lib.hasInfix "\n" rule || lib.hasInfix "\r" rule;
-      normalizedRule = lib.replaceStrings [ "\t" ] [ " " ] rule;
-      parts = lib.filter (part: part != "") (lib.splitString " " normalizedRule);
+      parts = ruleFields rule;
       src = builtins.elemAt parts 0;
       des = builtins.elemAt parts 1;
       type = builtins.elemAt parts 2;
@@ -190,6 +195,7 @@ in
 {
   inherit
     mediumModeRuleError
+    ruleFields
     checkedMediumModeRules
     ublockOriginMediumModeRules
     ;

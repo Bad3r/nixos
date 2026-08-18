@@ -11,6 +11,7 @@ let
   uboDynamicRules = import ./_ubo-dynamic-rules.nix { inherit lib; };
   inherit (uboDynamicRules)
     checkedMediumModeRules
+    ruleFields
     ublockOriginMediumModeRules
     ;
 
@@ -90,9 +91,6 @@ let
   # Check the list consumed by the browser profile, not only the raw producer,
   # so a validator regression cannot silently erase the guarded payload.
   checkedSeedRules = checkedMediumModeRules ublockOriginMediumModeRules;
-  ruleFields =
-    rule:
-    lib.filter (part: part != "") (lib.splitString " " (lib.replaceStrings [ "\t" ] [ " " ] rule));
   normalizedRule = rule: lib.concatStringsSep " " (ruleFields rule);
   missingSeedRulesIn =
     rules:
