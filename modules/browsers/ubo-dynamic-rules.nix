@@ -192,6 +192,9 @@ in
     { pkgs, ... }:
     {
       checks."browsers/ubo-dynamic-rules" =
+        assert lib.assertMsg (
+          checkedSeedRules == ublockOriginMediumModeRules
+        ) "browsers/ubo-dynamic-rules: rule validation no longer returns the seed unchanged";
         assert lib.assertMsg (missingSeedRules == [ ]) (
           "browsers/ubo-dynamic-rules: seed is missing required rules: "
           + lib.concatStringsSep "; " missingSeedRules
