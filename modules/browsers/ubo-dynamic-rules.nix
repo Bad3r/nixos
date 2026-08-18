@@ -94,9 +94,23 @@ let
     rule:
     lib.filter (part: part != "") (lib.splitString " " (lib.replaceStrings [ "\t" ] [ " " ] rule));
   normalizedRule = rule: lib.concatStringsSep " " (ruleFields rule);
-  missingSeedRules = lib.filter (
-    rule: !(lib.elem (normalizedRule rule) (map normalizedRule checkedSeedRules))
-  ) requiredSeedRules;
+  missingSeedRulesIn =
+    rules:
+    let
+      normalizedRules = map normalizedRule rules;
+    in
+    lib.filter (rule: !(lib.elem (normalizedRule rule) normalizedRules)) requiredSeedRules;
+  missingSeedRules = missingSeedRulesIn checkedSeedRules;
+  normalizedRequiredSeedRules = checkedMediumModeRules (
+    map (
+      rule:
+      if rule == "* challenges.cloudflare.com * noop" then
+        "*\tchallenges.cloudflare.com  * noop"
+      else
+        rule
+    ) checkedSeedRules
+  );
+  normalizedRequiredSeedContractWorks = missingSeedRulesIn normalizedRequiredSeedRules == [ ];
   # uBO's setCell overwrites earlier rows for the same source, destination, and
   # type, so reject duplicate cells in the checked payload.
   ruleCell = rule: lib.concatStringsSep " " (lib.take 3 (ruleFields rule));
@@ -120,6 +134,8 @@ in
           "browsers/ubo-dynamic-rules: seed is missing required rules: "
           + lib.concatStringsSep "; " missingSeedRules
         );
+        assert lib.assertMsg normalizedRequiredSeedContractWorks
+          "browsers/ubo-dynamic-rules: normalized required-row comparison rejected an equivalent rule";
         assert lib.assertMsg (failedValidCases == [ ]) (
           "browsers/ubo-dynamic-rules: valid fixtures failed: "
           + lib.concatStringsSep ", " (map (case: case.name) failedValidCases)
