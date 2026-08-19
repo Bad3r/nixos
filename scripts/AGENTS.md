@@ -15,10 +15,34 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   per-subcommand option sets and every accepted-value list are grafted into
   that document from `SUBCOMMAND_FLAGS` and the `VALID_*` arrays the parser
   validates against, so adding a value to the array both documents it and makes
-  the parser accept it. A new `--format` value needs one more edit: an arm in
-  `_format_array` plus its per-kind templates, without which the value would be
-  a silent alias for `json`. `tests/pr-comments-mgmt/run.sh` fails on a value
-  that has no arm, and covers help rendering and argument parsing.
+  the parser accept it. A new `--format` value needs one more edit per
+  dispatch: an arm in `_format_array` (the `list-*` verbs) and one in
+  `_format_object` (`current-pr`, `get-thread`, `get-comment`), plus the
+  per-kind templates they delegate to, without which the value would be a
+  silent alias for `json`. `tests/pr-comments-mgmt/run.sh` fails on a value
+  that has no arm in either dispatch, on a read subcommand whose allowlist
+  omits `--format`, and covers help rendering, argument parsing, and every
+  `current-pr` format against a canned `gh pr view` payload. The fixture keys
+  are checked against `current_pr`'s requested fields, and TSV parity uses
+  `jq split` so empty columns remain observable. `_format_object` keeps `json`
+  and `ndjson` inline for their object shapes and delegates `ids`/`text`/`tsv`
+  to `_format_array` under the caller's own kind. `full`/`body` do the same
+  except for `threads`: get-thread already paginated the full reply chain, so
+  those two graft the thread's own `path`/`line` onto every comment node (the
+  nodes carry none of their own) and route `.comments.nodes` through the
+  `review-comments` kind instead of wrapping the thread object, rather than
+  reproduce the opener-only summary `list-threads` renders or drop the
+  file/line anchor the per-comment blocks would otherwise carry no trace of.
+  get-comment picks its kind from the GraphQL
+  `__typename` it already reads: `comments` for a top-level `IssueComment`,
+  `review-comments` for an inline `PullRequestReviewComment` (adds path/line
+  columns that `comments` has no room for). Both call sites stay literal
+  kinds rather than a forwarded `"${kind}"`, on purpose: the suite's
+  literal-kind scanner covers only call sites it can read statically, so a
+  variable there would silently drop the branch from
+  `test_format_call_kinds_have_templates`. The suite also checks literal kind
+  arguments at `_format_array`/`_format_object` call sites against all four
+  per-kind templates, so a non-JSON renderer cannot hide a kind typo.
 - `hooks/`: generated-hook installation and sync helpers used by the dev shell.
 - `lib/`: sourced by `build.sh` and `cache-coverage.sh`, never executed. These
   carry no shebang and define functions only, because

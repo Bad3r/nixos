@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # shellcheck shell=bash
-# Covers the help surface only: every other path reaches the GitHub API, so
-# these cases stop at the first argument the parser rejects or at the missing
-# `gh` binary, and never open a socket.
+# Covers the help surface plus the one payload path a stub can serve end to
+# end: `current-pr` reaches GitHub through a single `gh pr view`, so a canned
+# fixture behind a stub `gh` renders every --format for real. Every other case
+# stops at the first argument the parser rejects or at the missing `gh`
+# binary. No case opens a socket.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,6 +41,245 @@ ln -s "$(command -v jq)" "${WITHGH_BIN}/jq"
 printf '#!/bin/sh\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' >"${WITHGH_BIN}/gh"
 chmod +x "${WITHGH_BIN}/gh"
 
+# The same PATH again, with a `gh` that answers `pr view` from a canned payload
+# in gh's own shape (labels as objects, author as a login object). `current-pr`
+# with an explicit --pr makes exactly that one call, so this renders the real
+# payload path without a socket. Every other gh invocation stays an error, so a
+# case that starts calling the API announces itself.
+PR_VIEW_FIXTURE="${tmpdir}/pr-view.json"
+cat >"${PR_VIEW_FIXTURE}" <<'JSON'
+{
+  "id": "PR_kwDOtest0001",
+  "number": 149,
+  "title": "test(pr): canned payload",
+  "body": "first body line\nsecond body line",
+  "state": "OPEN",
+  "url": "https://github.com/owner/repo/pull/149",
+  "headRefName": "topic",
+  "headRefOid": "1111111111111111111111111111111111111111",
+  "baseRefName": "main",
+  "baseRefOid": "2222222222222222222222222222222222222222",
+  "author": { "login": "octocat" },
+  "isDraft": false,
+  "mergeable": "MERGEABLE",
+  "mergeStateStatus": "CLEAN",
+  "labels": [{ "name": "type(fix)" }, { "name": "area(scripts)" }]
+}
+JSON
+PRVIEW_BIN="${tmpdir}/prview-bin"
+mkdir -p "${PRVIEW_BIN}"
+ln -s "$(command -v jq)" "${PRVIEW_BIN}/jq"
+# The stub itself runs under this PATH, so the one external it uses is linked
+# in alongside jq rather than assumed.
+ln -s "$(command -v cat)" "${PRVIEW_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = pr ] && [ "$2" = view ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${PR_VIEW_FIXTURE}" >"${PRVIEW_BIN}/gh"
+chmod +x "${PRVIEW_BIN}/gh"
+
+# Three more canned-payload stubs, same shape as PRVIEW_BIN but answering
+# `gh api graphql` (what get-thread and get-comment call through
+# graphql_call) instead of `pr view`. Each renders one specific node shape end
+# to end: a review thread with replies (get-thread's silent reply-chain drop
+# under --format=full/body), an inline review comment, and a top-level issue
+# comment (get-comment's typename-keyed comments/review-comments split).
+THREAD_FIXTURE="${tmpdir}/thread.json"
+cat >"${THREAD_FIXTURE}" <<'JSON'
+{
+  "data": {
+    "node": {
+      "__typename": "PullRequestReviewThread",
+      "id": "PRRT_test0001",
+      "isResolved": false,
+      "isOutdated": false,
+      "isCollapsed": false,
+      "path": "scripts/gh-cli/pr-comments-mgmt.sh",
+      "line": 42,
+      "startLine": null,
+      "diffSide": "RIGHT",
+      "startDiffSide": null,
+      "subjectType": "LINE",
+      "resolvedBy": null,
+      "viewerCanResolve": true,
+      "viewerCanUnresolve": false,
+      "viewerCanReply": true,
+      "comments": {
+        "pageInfo": { "hasNextPage": false, "endCursor": "cursor1" },
+        "nodes": [
+          {
+            "id": "PRRC_test0001",
+            "databaseId": 1,
+            "author": { "login": "claude" },
+            "body": "opener-body",
+            "createdAt": "2026-08-18T00:00:00Z",
+            "diffHunk": "@@ -1 +1 @@",
+            "originalLine": 7,
+            "originalStartLine": null,
+            "subjectType": "LINE",
+            "isMinimized": false,
+            "minimizedReason": null
+          },
+          {
+            "id": "PRRC_test0002",
+            "databaseId": 2,
+            "author": { "login": "Bad3r" },
+            "body": "first-reply-body",
+            "createdAt": "2026-08-18T00:01:00Z",
+            "diffHunk": "@@ -1 +1 @@",
+            "originalLine": 7,
+            "originalStartLine": null,
+            "subjectType": "LINE",
+            "isMinimized": false,
+            "minimizedReason": null
+          },
+          {
+            "id": "PRRC_test0003",
+            "databaseId": 3,
+            "author": { "login": "claude" },
+            "body": "second-reply-body",
+            "createdAt": "2026-08-18T00:02:00Z",
+            "diffHunk": "@@ -1 +1 @@",
+            "originalLine": 7,
+            "originalStartLine": null,
+            "subjectType": "LINE",
+            "isMinimized": false,
+            "minimizedReason": null
+          }
+        ]
+      }
+    }
+  }
+}
+JSON
+THREAD_BIN="${tmpdir}/thread-bin"
+mkdir -p "${THREAD_BIN}"
+ln -s "$(command -v jq)" "${THREAD_BIN}/jq"
+ln -s "$(command -v cat)" "${THREAD_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${THREAD_FIXTURE}" >"${THREAD_BIN}/gh"
+chmod +x "${THREAD_BIN}/gh"
+
+REVIEW_COMMENT_FIXTURE="${tmpdir}/review-comment.json"
+cat >"${REVIEW_COMMENT_FIXTURE}" <<'JSON'
+{
+  "data": {
+    "node": {
+      "__typename": "PullRequestReviewComment",
+      "id": "PRRC_test0099",
+      "databaseId": 99,
+      "author": { "login": "claude" },
+      "body": "inline-review-comment-body",
+      "createdAt": "2026-08-18T00:00:00Z",
+      "updatedAt": "2026-08-18T00:00:00Z",
+      "url": "https://github.com/owner/repo/pull/1#discussion_r99",
+      "path": "scripts/gh-cli/pr-comments-mgmt.sh",
+      "line": 42,
+      "originalLine": 7,
+      "startLine": null,
+      "originalStartLine": null,
+      "diffHunk": "@@ -1 +1 @@",
+      "subjectType": "LINE",
+      "isMinimized": false,
+      "minimizedReason": null,
+      "viewerCanMinimize": true,
+      "viewerCanUpdate": false,
+      "viewerCanDelete": false,
+      "pullRequest": { "number": 1, "url": "https://github.com/owner/repo/pull/1" },
+      "commit": { "oid": "3333333333333333333333333333333333333333" },
+      "originalCommit": { "oid": "3333333333333333333333333333333333333333" },
+      "replyTo": null
+    }
+  }
+}
+JSON
+REVIEW_COMMENT_BIN="${tmpdir}/review-comment-bin"
+mkdir -p "${REVIEW_COMMENT_BIN}"
+ln -s "$(command -v jq)" "${REVIEW_COMMENT_BIN}/jq"
+ln -s "$(command -v cat)" "${REVIEW_COMMENT_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${REVIEW_COMMENT_FIXTURE}" >"${REVIEW_COMMENT_BIN}/gh"
+chmod +x "${REVIEW_COMMENT_BIN}/gh"
+
+# Same shape as REVIEW_COMMENT_FIXTURE but with `line`/`startLine` null and
+# `originalLine`/`originalStartLine` populated: what GitHub returns once a
+# review comment's diff position goes outdated (position no longer maps to
+# the current diff), the common case for an older inline comment on a
+# long-lived PR.
+OUTDATED_REVIEW_COMMENT_FIXTURE="${tmpdir}/outdated-review-comment.json"
+cat >"${OUTDATED_REVIEW_COMMENT_FIXTURE}" <<'JSON'
+{
+  "data": {
+    "node": {
+      "__typename": "PullRequestReviewComment",
+      "id": "PRRC_test0199",
+      "databaseId": 199,
+      "author": { "login": "claude" },
+      "body": "outdated-review-comment-body",
+      "createdAt": "2026-08-18T00:00:00Z",
+      "updatedAt": "2026-08-18T00:00:00Z",
+      "url": "https://github.com/owner/repo/pull/1#discussion_r199",
+      "path": "scripts/gh-cli/pr-comments-mgmt.sh",
+      "line": null,
+      "originalLine": 99,
+      "startLine": null,
+      "originalStartLine": null,
+      "diffHunk": "@@ -1 +1 @@",
+      "subjectType": "LINE",
+      "isMinimized": false,
+      "minimizedReason": null,
+      "viewerCanMinimize": true,
+      "viewerCanUpdate": false,
+      "viewerCanDelete": false,
+      "pullRequest": { "number": 1, "url": "https://github.com/owner/repo/pull/1" },
+      "commit": { "oid": "3333333333333333333333333333333333333333" },
+      "originalCommit": { "oid": "3333333333333333333333333333333333333333" },
+      "replyTo": null
+    }
+  }
+}
+JSON
+OUTDATED_REVIEW_COMMENT_BIN="${tmpdir}/outdated-review-comment-bin"
+mkdir -p "${OUTDATED_REVIEW_COMMENT_BIN}"
+ln -s "$(command -v jq)" "${OUTDATED_REVIEW_COMMENT_BIN}/jq"
+ln -s "$(command -v cat)" "${OUTDATED_REVIEW_COMMENT_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${OUTDATED_REVIEW_COMMENT_FIXTURE}" >"${OUTDATED_REVIEW_COMMENT_BIN}/gh"
+chmod +x "${OUTDATED_REVIEW_COMMENT_BIN}/gh"
+
+ISSUE_COMMENT_FIXTURE="${tmpdir}/issue-comment.json"
+cat >"${ISSUE_COMMENT_FIXTURE}" <<'JSON'
+{
+  "data": {
+    "node": {
+      "__typename": "IssueComment",
+      "id": "IC_test0099",
+      "databaseId": 199,
+      "author": { "login": "claude" },
+      "body": "top-level-comment-body",
+      "createdAt": "2026-08-18T00:00:00Z",
+      "updatedAt": "2026-08-18T00:00:00Z",
+      "url": "https://github.com/owner/repo/pull/1#issuecomment-199",
+      "isMinimized": false,
+      "minimizedReason": null,
+      "viewerCanMinimize": true,
+      "viewerCanUpdate": false,
+      "viewerCanDelete": false
+    }
+  }
+}
+JSON
+ISSUE_COMMENT_BIN="${tmpdir}/issue-comment-bin"
+mkdir -p "${ISSUE_COMMENT_BIN}"
+ln -s "$(command -v jq)" "${ISSUE_COMMENT_BIN}/jq"
+ln -s "$(command -v cat)" "${ISSUE_COMMENT_BIN}/cat"
+# shellcheck disable=SC2016 # $1/$2/$* belong to the stub being written, not here
+printf '#!/bin/sh\nif [ "$1" = api ] && [ "$2" = graphql ]; then exec cat %s; fi\necho "run.sh: unexpected gh invocation: $*" >&2\nexit 97\n' \
+  "${ISSUE_COMMENT_FIXTURE}" >"${ISSUE_COMMENT_BIN}/gh"
+chmod +x "${ISSUE_COMMENT_BIN}/gh"
+
 LAST_RC=0
 LAST_OUT=""
 LAST_ERR=""
@@ -61,6 +302,62 @@ run_with_gh() {
   LAST_RC=0
   LAST_OUT="$(PATH="${WITHGH_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
   LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_pr_view() {
+  # Same capture against the canned-payload stub. --pr is supplied by the
+  # caller so pr_resolve never calls gh; the run's only invocation is the
+  # `pr view` the stub answers.
+  LAST_RC=0
+  LAST_OUT="$(PATH="${PRVIEW_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_thread() {
+  # Same capture against the canned review-thread stub. Neither get-thread nor
+  # _get_comment_graphql call pr_resolve for a direct node id, so a bare
+  # thread/comment id needs no --pr and makes exactly the one graphql call the
+  # stub answers.
+  LAST_RC=0
+  LAST_OUT="$(PATH="${THREAD_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_review_comment() {
+  LAST_RC=0
+  LAST_OUT="$(PATH="${REVIEW_COMMENT_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_outdated_review_comment() {
+  LAST_RC=0
+  LAST_OUT="$(PATH="${OUTDATED_REVIEW_COMMENT_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+run_with_issue_comment() {
+  LAST_RC=0
+  LAST_OUT="$(PATH="${ISSUE_COMMENT_BIN}" "${BASH_BIN}" "${SUT}" "$@" 2>"${tmpdir}/stderr")" || LAST_RC=$?
+  LAST_ERR="$(<"${tmpdir}/stderr")"
+}
+
+assert_last_ok() {
+  # Args: <what>
+  # Fails unless the most recent run_with_* call exited 0 and wrote no
+  # diagnostics. Split out of assert_pr_view_ok so the thread/comment stubs
+  # can reuse the same "exits 0 quietly" check without re-running the call.
+  local what="$1"
+  [[ ${LAST_RC} -eq 0 ]] || fail "${what} exited ${LAST_RC}: ${LAST_ERR}"
+  [[ -z ${LAST_ERR} ]] || fail "${what} wrote diagnostics: ${LAST_ERR}"
+}
+
+assert_pr_view_ok() {
+  # Args: <what> <arg>...
+  # Runs the SUT against the stub and fails unless it exits 0 quietly.
+  local what="$1"
+  shift
+  run_with_pr_view "$@"
+  assert_last_ok "${what}"
 }
 
 # Inner shell for run_piped_sigpipe_ignored. Single-quoted on purpose: $@ and
@@ -145,22 +442,70 @@ allowlist_keys() {
 }
 
 format_dispatch_arms() {
-  # Labels of the `case "${OUTPUT_FORMAT}"` arms in _format_array, to compare
-  # against the values the parser accepts. The catch-all is skipped: it is the
-  # error arm, not a format.
-  local line found=false
+  # Args: <function-name>
+  # Labels of the `case "${OUTPUT_FORMAT}"` arms in the named function, one per
+  # line, with a multi-label arm (`text | full | ...`) split into its parts.
+  # The catch-all is skipped: it is the error arm, not a format.
+  local fn="$1" line found=false in_case=false arm
   while IFS= read -r line; do
     if [[ ${found} == false ]]; then
+      [[ ${line} == "${fn}() {"* ]] && found=true
+      continue
+    fi
+    if [[ ${in_case} == false ]]; then
       # shellcheck disable=SC2016 # matches that text in the source, not an expansion
-      [[ ${line} == *'case "${OUTPUT_FORMAT}" in'* ]] && found=true
+      [[ ${line} == *'case "${OUTPUT_FORMAT}" in'* ]] && in_case=true
       continue
     fi
     [[ ${line} =~ ^[[:space:]]*esac ]] && break
-    if [[ ${line} =~ ^[[:space:]]*([a-z|]+)\) ]]; then
-      printf '%s\n' "${BASH_REMATCH[1]//|/$'\n'}"
+    if [[ ${line} =~ ^[[:space:]]*([a-z][a-z\|[:space:]]*)\) ]]; then
+      arm="${BASH_REMATCH[1]// /}"
+      printf '%s\n' "${arm//|/$'\n'}"
     fi
   done <"${SUT}"
-  [[ ${found} == true ]] || fail "no OUTPUT_FORMAT dispatch in ${SUT}"
+  [[ ${found} == true ]] || fail "no ${fn} definition in ${SUT}"
+  [[ ${in_case} == true ]] || fail "no OUTPUT_FORMAT dispatch in ${fn}"
+}
+
+kind_dispatch_arms() {
+  # Args: <function-name>
+  # Labels of the `case "$1"` arms in a per-kind renderer, one per line. The
+  # catch-all is skipped because it is the error arm, not a template.
+  local fn="$1" line found=false in_case=false arm
+  while IFS= read -r line; do
+    if [[ ${found} == false ]]; then
+      [[ ${line} == "${fn}() {"* ]] && found=true
+      continue
+    fi
+    if [[ ${in_case} == false ]]; then
+      # shellcheck disable=SC2016 # matches that text in the source, not an expansion
+      [[ ${line} == *'case "$1" in'* ]] && in_case=true
+      continue
+    fi
+    [[ ${line} =~ ^[[:space:]]*esac ]] && break
+    # [a-z-] (hyphen included), matching format_call_kinds' call-site pattern:
+    # a hyphenated kind like review-comments must parse as one arm label, not
+    # stop short at the hyphen and report no match.
+    if [[ ${line} =~ ^[[:space:]]*([a-z][a-z\|[:space:]-]*)\) ]]; then
+      arm="${BASH_REMATCH[1]// /}"
+      printf '%s\n' "${arm//|/$'\n'}"
+    fi
+  done <"${SUT}"
+  [[ ${found} == true ]] || fail "no ${fn} definition in ${SUT}"
+  [[ ${in_case} == true ]] || fail "no kind dispatch in ${fn}"
+}
+
+format_call_kinds() {
+  # Literal kind arguments at production call sites. Dynamic forwarding inside
+  # the dispatch functions is intentionally excluded: the callers are the
+  # ownership boundary that must stay in parity with every per-kind renderer.
+  local line
+  while IFS= read -r line; do
+    [[ ${line} =~ ^[[:space:]]*# ]] && continue
+    if [[ ${line} =~ _format_(array|object)[[:space:]]+([a-z-]+) ]]; then
+      printf '%s\n' "${BASH_REMATCH[2]}"
+    fi
+  done <"${SUT}"
 }
 
 current_pr_view_fields() {
@@ -199,6 +544,43 @@ current_pr_documented_fields() {
   [[ ${description} =~ Fields:[[:space:]]*([^.]+) ]] ||
     fail "current-pr's description carries no 'Fields:' list"
   printf '%s\n' "${BASH_REMATCH[1]//,/$'\n'}" | tr -d ' '
+}
+
+current_pr_tsv_columns() {
+  # The `current-pr:` row out of --format's tsv column list, one name per line.
+  local row
+  row="$("${SUT}" --help --json | jq -r '
+    .options[] | select(.flags[0].name == "--format") | .description[]
+    | select(type == "object") | .text | select(startswith("current-pr:"))
+  ')"
+  [[ -n ${row} ]] || fail "--format documents no current-pr tsv columns"
+  printf '%s\n' "${row#current-pr:}" | tr ',' '\n' | tr -d ' '
+}
+
+review_comments_tsv_columns() {
+  # The `review-comments:` row out of --format's tsv column list, one name per line.
+  local row
+  row="$("${SUT}" --help --json | jq -r '
+    .options[] | select(.flags[0].name == "--format") | .description[]
+    | select(type == "object") | .text | select(startswith("review-comments:"))
+  ')"
+  [[ -n ${row} ]] || fail "--format documents no review-comments tsv columns"
+  printf '%s\n' "${row#review-comments:}" | tr ',' '\n' | tr -d ' '
+}
+
+comments_tsv_columns() {
+  # The `comments:` row out of --format's tsv column list, one name per line.
+  # startswith("comments:") alone would also match "review-comments:" if jq
+  # scanned substrings, but each --format description entry is matched whole
+  # against the prefix, and "review-comments:" does not start with
+  # "comments:", so the two rows stay distinct.
+  local row
+  row="$("${SUT}" --help --json | jq -r '
+    .options[] | select(.flags[0].name == "--format") | .description[]
+    | select(type == "object") | .text | select(startswith("comments:"))
+  ')"
+  [[ -n ${row} ]] || fail "--format documents no comments tsv columns"
+  printf '%s\n' "${row#comments:}" | tr ',' '\n' | tr -d ' '
 }
 
 flatten() {
@@ -305,17 +687,60 @@ test_documented_choices_are_the_enforced_ones() {
 }
 
 test_every_documented_format_has_a_renderer() {
-  # --format values reach _format_array, which is past the API call, so this
-  # joins the accepted set against the dispatch in the source instead. Without
-  # it a value added to VALID_FORMATS is documented and accepted on the spot
-  # while nothing renders it.
-  local accepted dispatched
+  # --format values reach the render dispatch, which is past the API call, so
+  # this joins the accepted set against the dispatch in the source instead.
+  # Without it a value added to VALID_FORMATS is documented and accepted on the
+  # spot while nothing renders it. Both dispatches are checked: the list-* verbs
+  # render through _format_array, the single-object verbs through
+  # _format_object, and a format handled by only one of them is a subcommand
+  # that dies mid-pipe on a documented value.
+  local accepted dispatched fn
   accepted="$("${SUT}" --help --json |
     jq -r '.options[] | select(.flags[0].name == "--format") | .choices[]' | sort | tr '\n' ' ')"
-  dispatched="$(format_dispatch_arms | sort | tr '\n' ' ')"
   [[ -n ${accepted} ]] || fail "--format carries no choices list"
-  [[ ${accepted} == "${dispatched}" ]] ||
-    fail "accepted --format values (${accepted}) differ from _format_array arms (${dispatched})"
+  for fn in _format_array _format_object; do
+    dispatched="$(format_dispatch_arms "${fn}" | sort | tr '\n' ' ')"
+    [[ ${accepted} == "${dispatched}" ]] ||
+      fail "accepted --format values (${accepted}) differ from ${fn} arms (${dispatched})"
+  done
+}
+
+test_format_call_kinds_have_templates() {
+  # A typo in a literal kind argument reaches the per-kind renderer only for
+  # text/full/tsv/body. JSON and ndjson bypass those templates, so the normal
+  # current-pr fixture would otherwise leave get-thread/get-comment failures
+  # untested. Keep every literal call-site kind in parity with all templates.
+  local call_kinds renderer renderer_kinds kind
+  call_kinds="$(format_call_kinds | sort -u)"
+  [[ -n ${call_kinds} ]] || fail "no literal _format_array/_format_object call-site kinds found"
+  for renderer in _format_text _format_full _format_tsv _format_body; do
+    renderer_kinds="$(kind_dispatch_arms "${renderer}" | sort -u | tr '\n' ' ')"
+    while IFS= read -r kind; do
+      [[ -n ${kind} ]] || continue
+      [[ " ${renderer_kinds} " == *" ${kind} "* ]] ||
+        fail "${renderer} has no template for call-site kind '${kind}'"
+    done <<<"${call_kinds}"
+  done
+}
+
+test_every_read_subcommand_accepts_format() {
+  # `--format` is enforced per subcommand out of SUBCOMMAND_FLAGS, which is
+  # what grafts allowedOptions into the document. A read verb missing it is
+  # rejected at the parser ("--format is not applicable") no matter what its
+  # renderer does, which is the shape the single-object verbs shipped in.
+  local json read_count missing
+  json="$("${SUT}" --help --json)"
+  # Counted first: the group is selected by title, so a retitled group would
+  # otherwise leave nothing to check and pass on an empty set.
+  read_count="$(printf '%s' "${json}" |
+    jq '[.subcommandGroups[] | select(.title | test("^Read")) | .subcommands[]] | length')"
+  [[ ${read_count} -gt 0 ]] || fail "the help document has no read-subcommand group"
+  missing="$(printf '%s' "${json}" | jq -r '
+    .subcommandGroups[] | select(.title | test("^Read")) | .subcommands[]
+    | select((.allowedOptions | index("--format")) == null) | .name
+  ' | tr '\n' ' ')"
+  [[ -z ${missing} ]] ||
+    fail "read subcommands missing --format from their allowlist: ${missing}"
 }
 
 test_current_pr_documents_its_payload() {
@@ -328,6 +753,195 @@ test_current_pr_documents_its_payload() {
   enforced="$(current_pr_view_fields | sort | tr '\n' ' ')"
   [[ ${documented} == "${enforced}" ]] ||
     fail "documented current-pr fields (${documented}) differ from the gh --json list (${enforced})"
+}
+
+test_current_pr_renders_every_format() {
+  # The one payload path a stub can serve end to end, so every --format value
+  # is rendered here rather than asserted against the dispatch alone.
+  local pr=owner/repo#149 id body default_json line_count
+  local fixture_keys requested_fields
+  id="$(jq -r '.id' "${PR_VIEW_FIXTURE}")"
+  body="$(jq -r '.body' "${PR_VIEW_FIXTURE}")"
+
+  # The stub answers any `pr view` regardless of --json, so this ties the
+  # fixture to the field list current_pr requests. Without it, dropping a
+  # field from that list still renders the fixture's value here and only
+  # turns into an empty live field.
+  fixture_keys="$(jq -r 'keys_unsorted[]' "${PR_VIEW_FIXTURE}" | sort | tr '\n' ' ')"
+  requested_fields="$(current_pr_view_fields | sort | tr '\n' ' ')"
+  [[ ${fixture_keys} == "${requested_fields}" ]] ||
+    fail "fixture keys (${fixture_keys}) differ from current-pr's --json list (${requested_fields})"
+
+  # json stays a bare object. `current-pr | jq -r .number` is the reason the
+  # verb exists, so the array shape the list-* verbs emit would break callers.
+  assert_pr_view_ok "current-pr --format=json" --pr "${pr}" current-pr --format=json
+  printf '%s' "${LAST_OUT}" | jq -e '
+    type == "object" and .number == 149 and .labels == ["type(fix)", "area(scripts)"]
+  ' >/dev/null || fail "current-pr --format=json is not the flattened PR object: ${LAST_OUT}"
+  default_json="${LAST_OUT}"
+
+  # --format=json names the default; it is not a second mode.
+  assert_pr_view_ok "current-pr (no --format)" --pr "${pr}" current-pr
+  [[ ${LAST_OUT} == "${default_json}" ]] ||
+    fail "current-pr without --format differs from --format=json"
+
+  assert_pr_view_ok "current-pr --format=ndjson" --pr "${pr}" current-pr --format=ndjson
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "ndjson emitted ${line_count} lines for one PR"
+  [[ "$(printf '%s' "${LAST_OUT}" | jq -Sc .)" == "$(printf '%s' "${default_json}" | jq -Sc .)" ]] ||
+    fail "ndjson and json disagree on the document"
+
+  assert_pr_view_ok "current-pr --format=ids" --pr "${pr}" current-pr --format=ids
+  [[ ${LAST_OUT} == "${id}" ]] || fail "ids emitted '${LAST_OUT}', expected '${id}'"
+
+  assert_pr_view_ok "current-pr --format=body" --pr "${pr}" current-pr --format=body
+  [[ ${LAST_OUT} == "${body}" ]] || fail "body emitted '${LAST_OUT}', expected the PR body"
+
+  assert_pr_view_ok "current-pr --format=text" --pr "${pr}" current-pr --format=text
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "text emitted ${line_count} lines for one PR"
+  [[ ${LAST_OUT} == "${id}"$'\t'* ]] ||
+    fail "text is not prefixed with '<id>\\t': ${LAST_OUT}"
+
+  assert_pr_view_ok "current-pr --format=full" --pr "${pr}" current-pr --format=full
+  [[ ${LAST_OUT} == "=== ${id} "* ]] ||
+    fail "full is missing its '=== <id> ...' header: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"${body}"* ]] || fail "full dropped the PR body"
+
+  # Column count is read off the document, so a column added to the renderer
+  # without a document update (or the reverse) fails here. Split through jq:
+  # `IFS=$'\t' read -a` treats tab as IFS whitespace, so a run of tabs would
+  # collapse and an empty column would go uncounted.
+  local expected_columns actual_columns first_column
+  assert_pr_view_ok "current-pr --format=tsv" --pr "${pr}" current-pr --format=tsv
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "tsv emitted ${line_count} lines for one PR"
+  actual_columns="$(printf '%s' "${LAST_OUT}" | jq -R 'split("\t") | length')"
+  expected_columns="$(current_pr_tsv_columns | wc -l)"
+  [[ ${actual_columns} -eq ${expected_columns} ]] ||
+    fail "tsv emitted ${actual_columns} columns, document lists ${expected_columns}"
+  first_column="$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[0]')"
+  [[ ${first_column} == "${id}" ]] ||
+    fail "tsv's first column is '${first_column}', expected the id"
+
+  # Count alone passes on a reordered row. The OID adjacency is the part
+  # callers script against (`cut -f8,9` is the diff range), so pin those two
+  # positions against the fixture rather than trusting the column total.
+  local oid_columns expected_oids
+  oid_columns="$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t") | .[7:9] | join(" ")')"
+  expected_oids="$(jq -r '[.headRefOid, .baseRefOid] | join(" ")' "${PR_VIEW_FIXTURE}")"
+  [[ ${oid_columns} == "${expected_oids}" ]] ||
+    fail "tsv columns 8,9 are '${oid_columns}', expected head/base OIDs '${expected_oids}'"
+}
+
+test_get_thread_full_and_body_render_every_reply() {
+  # Regression for the PR #464 review round: routing get-thread through
+  # _format_object used to wrap the whole thread object and hand it to the
+  # `threads` template, which reads only .comments.nodes[0] -- silently
+  # dropping every reply _paginate_thread_comments had just fetched. full and
+  # body must now show all three comments; text and tsv are still the
+  # one-line list-threads-parity summary and must stay that way.
+  local thread_id line_count
+  thread_id="$(jq -r '.data.node.id' "${THREAD_FIXTURE}")"
+
+  run_with_thread get-thread "${thread_id}" --format=full
+  assert_last_ok "get-thread --format=full"
+  [[ ${LAST_OUT} == *"opener-body"* ]] || fail "get-thread --format=full dropped the opener: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"first-reply-body"* ]] || fail "get-thread --format=full dropped a reply: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"second-reply-body"* ]] || fail "get-thread --format=full dropped a reply: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"scripts/gh-cli/pr-comments-mgmt.sh:42"* ]] ||
+    fail "get-thread --format=full dropped the thread's path:line anchor: ${LAST_OUT}"
+
+  run_with_thread get-thread "${thread_id}" --format=body
+  assert_last_ok "get-thread --format=body"
+  [[ ${LAST_OUT} == *"opener-body"* ]] || fail "get-thread --format=body dropped the opener: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"first-reply-body"* ]] || fail "get-thread --format=body dropped a reply: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"second-reply-body"* ]] || fail "get-thread --format=body dropped a reply: ${LAST_OUT}"
+
+  run_with_thread get-thread "${thread_id}" --format=text
+  assert_last_ok "get-thread --format=text"
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "get-thread --format=text emitted ${line_count} lines, expected the one-opener summary"
+  [[ ${LAST_OUT} == *"comments=3"* ]] || fail "get-thread --format=text lost the comment count: ${LAST_OUT}"
+
+  run_with_thread get-thread "${thread_id}" --format=tsv
+  assert_last_ok "get-thread --format=tsv"
+  line_count="$(printf '%s\n' "${LAST_OUT}" | wc -l)"
+  [[ ${line_count} -eq 1 ]] || fail "get-thread --format=tsv emitted ${line_count} lines, expected the one-opener summary"
+  [[ "$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[6]')" == "3" ]] ||
+    fail "get-thread --format=tsv comments column is not 3: ${LAST_OUT}"
+}
+
+test_get_comment_splits_review_and_issue_comments_by_typename() {
+  # Regression for the PR #464 review round: get-comment always rendered
+  # non-JSON formats through the `comments` template, which has no path/line
+  # columns -- even for an inline PullRequestReviewComment, whose whole reason
+  # for a separate GraphQL branch is path/line/diffHunk/replyTo. typename
+  # (already read for the earlier type check) now also picks the render kind:
+  # review-comments for a review comment, comments for a top-level one. Column
+  # counts are read off the document (like test_current_pr_renders_every_format
+  # does for current-pr), not hardcoded: a column added to a renderer without a
+  # matching document update, or the reverse, fails here instead of shipping a
+  # column no documented name maps to.
+  local review_id issue_id columns documented
+
+  review_id="$(jq -r '.data.node.id' "${REVIEW_COMMENT_FIXTURE}")"
+
+  run_with_review_comment get-comment "${review_id}" --format=tsv
+  assert_last_ok "get-comment (review comment) --format=tsv"
+  columns="$(printf '%s' "${LAST_OUT}" | jq -R 'split("\t") | length')"
+  documented="$(review_comments_tsv_columns | wc -l)"
+  [[ ${columns} -eq ${documented} ]] ||
+    fail "review-comments tsv emitted ${columns} columns, document lists ${documented}"
+  [[ "$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[7:9] | join(" ")')" == "scripts/gh-cli/pr-comments-mgmt.sh 42" ]] ||
+    fail "review-comments tsv columns 8,9 are not path,line: ${LAST_OUT}"
+
+  run_with_review_comment get-comment "${review_id}" --format=full
+  assert_last_ok "get-comment (review comment) --format=full"
+  [[ ${LAST_OUT} == *"scripts/gh-cli/pr-comments-mgmt.sh:42"* ]] ||
+    fail "review-comments full dropped the path:line anchor: ${LAST_OUT}"
+  [[ ${LAST_OUT} == *"inline-review-comment-body"* ]] || fail "review-comments full dropped the body: ${LAST_OUT}"
+
+  run_with_review_comment get-comment "${review_id}" --format=body
+  assert_last_ok "get-comment (review comment) --format=body"
+  [[ ${LAST_OUT} == "inline-review-comment-body" ]] ||
+    fail "review comment body format is '${LAST_OUT}', expected the raw body"
+
+  issue_id="$(jq -r '.data.node.id' "${ISSUE_COMMENT_FIXTURE}")"
+
+  run_with_issue_comment get-comment "${issue_id}" --format=tsv
+  assert_last_ok "get-comment (issue comment) --format=tsv"
+  columns="$(printf '%s' "${LAST_OUT}" | jq -R 'split("\t") | length')"
+  documented="$(comments_tsv_columns | wc -l)"
+  [[ ${columns} -eq ${documented} ]] ||
+    fail "top-level comments tsv emitted ${columns} columns, document lists ${documented}"
+
+  run_with_issue_comment get-comment "${issue_id}" --format=body
+  assert_last_ok "get-comment (issue comment) --format=body"
+  [[ ${LAST_OUT} == "top-level-comment-body" ]] ||
+    fail "issue comment body format is '${LAST_OUT}', expected the raw body"
+}
+
+test_get_comment_review_comment_line_falls_back_to_original_line() {
+  # Regression for the PR #464 review round: PullRequestReviewComment.line
+  # (and startLine) null out once the comment's diff position goes outdated,
+  # the common case for an older inline comment on a long-lived PR. Without a
+  # fallback, review-comments' tsv/text/full degrade to the path with an
+  # empty or "?" line exactly when the anchor matters most; originalLine (the
+  # position at comment-creation time) is already selected by the same query.
+  local outdated_id
+
+  outdated_id="$(jq -r '.data.node.id' "${OUTDATED_REVIEW_COMMENT_FIXTURE}")"
+
+  run_with_outdated_review_comment get-comment "${outdated_id}" --format=tsv
+  assert_last_ok "get-comment (outdated review comment) --format=tsv"
+  [[ "$(printf '%s' "${LAST_OUT}" | jq -Rr 'split("\t")[8]')" == "99" ]] ||
+    fail "outdated review comment tsv line column did not fall back to originalLine: ${LAST_OUT}"
+
+  run_with_outdated_review_comment get-comment "${outdated_id}" --format=full
+  assert_last_ok "get-comment (outdated review comment) --format=full"
+  [[ ${LAST_OUT} == *"scripts/gh-cli/pr-comments-mgmt.sh:99"* ]] ||
+    fail "outdated review comment full did not fall back to originalLine: ${LAST_OUT}"
 }
 
 test_usage_error_goes_to_stderr() {
@@ -402,7 +1016,13 @@ tests=(
   test_documented_subcommands_match_the_allowlist
   test_documented_choices_are_the_enforced_ones
   test_every_documented_format_has_a_renderer
+  test_format_call_kinds_have_templates
+  test_every_read_subcommand_accepts_format
   test_current_pr_documents_its_payload
+  test_current_pr_renders_every_format
+  test_get_thread_full_and_body_render_every_reply
+  test_get_comment_splits_review_and_issue_comments_by_typename
+  test_get_comment_review_comment_line_falls_back_to_original_line
   test_json_flag_requires_help
   test_help_needs_no_gh
   test_help_tolerates_a_closed_reader
