@@ -453,7 +453,7 @@ hand_state_to_invoker() {
   if [ "$(id -u)" -ne 0 ] || [ -z "${SUDO_UID:-}" ]; then
     return 0
   fi
-  chown "$SUDO_UID:${SUDO_GID:-$SUDO_UID}" "$state_dir" "$state_file" ||
+  chown -h "$SUDO_UID:${SUDO_GID:-$SUDO_UID}" "$state_dir" "$state_file" ||
     note "the snapshot stays owned by root; run the restore under sudo too: sudo captive-portal --restore"
 }
 
