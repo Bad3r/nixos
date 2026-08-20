@@ -58,9 +58,10 @@ _: {
       # An entry carrying $ or @ is rewritten before any browser sees it.
       hasExpansion = flag: builtins.match ".*[$@].*" flag != null;
       quoteFlag = flag: if builtins.match ".*[[:space:]].*" flag == null then flag else "'${flag}'";
-      unquotableFlags = lib.filter (flag: hasQuote flag || hasLineBreak flag || hasExpansion flag) (
-        cfg.chromeExtraFlags ++ [ videoDeviceFlag ]
-      );
+      unquotableFlags = lib.filter (
+        flag:
+        hasQuote flag || hasLineBreak flag || hasExpansion flag || builtins.match ".*#.*" flag != null
+      ) (cfg.chromeExtraFlags ++ [ videoDeviceFlag ]);
     in
     {
       options.system76.gpu = {
