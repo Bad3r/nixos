@@ -225,8 +225,11 @@ is_private_v4() {
 is_loopback_host() {
   local authority="${1#*//}"
   authority="${authority%%/*}"
-  case "${authority##*@}" in
-  127.* | 0.0.0.0 | 0.0.0.0[:?#]* | localhost | localhost[:?#]* | \[::1\]*) return 0 ;;
+  authority="${authority##*@}"
+  # Host names are case-insensitive, so LOCALHOST names this machine as surely
+  # as localhost does, and [::] reaches it the same way 0.0.0.0 does.
+  case "${authority,,}" in
+  127.* | 0.0.0.0 | 0.0.0.0[:?#]* | localhost | localhost[:?#]* | \[::1\]* | \[::\]*) return 0 ;;
   *) return 1 ;;
   esac
 }
