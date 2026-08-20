@@ -268,7 +268,8 @@ is_loopback_host() {
 # with `amp;` glued to every parameter after the first and the sign-in would
 # never complete.
 extract_url() {
-  sed 's/<link[^>]*>//gI' "$body_file" |
+  tr '\n' ' ' <"$body_file" |
+    sed 's/<link[^>]*>//gI' |
     grep -oiE '(^|[;[:space:]])('"$1"')=["'"'"']?https?://[^"'"'"'<>[:space:]]+' |
     grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
     grep -viE '^https?://([^/]*\.)?w3\.org([/:?]|$)' |
