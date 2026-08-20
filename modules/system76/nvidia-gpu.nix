@@ -56,7 +56,7 @@ _: {
       # nixpkgs' own generator relies on this to make $HOME/$USER work in
       # sessionVariables (nixos/modules/config/system-environment.nix's replaceEnvVars).
       # An entry carrying $ or @ is rewritten before any browser sees it.
-      hasExpansion = flag: builtins.match ".*[$@].*" flag != null;
+      hasExpansion = flag: builtins.match ".*([$@][{]|[$](HOME|USER)).*" flag != null;
       quoteFlag = flag: if builtins.match ".*[[:space:]].*" flag == null then flag else "'${flag}'";
       unquotableFlags = lib.filter (
         flag:
