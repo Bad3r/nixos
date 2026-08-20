@@ -15,6 +15,13 @@
 }:
 let
   geckoExtensionData = import ./_gecko-extension-data.nix { inherit lib; };
+  uboDynamicRules = import ./_ubo-dynamic-rules.nix { inherit lib; };
+  inherit (uboDynamicRules)
+    checkedHostnameSwitches
+    checkedMediumModeRules
+    ublockOriginHostnameSwitches
+    ublockOriginMediumModeRules
+    ;
   inherit (geckoExtensionData)
     toWidgetId
     ublockOrigin
@@ -246,111 +253,6 @@ let
     };
   };
 
-  # uBO "medium mode": block third-party scripts and frames by default.
-  # Commonly-used sites are pre-whitelisted; other sites need interactive
-  # whitelisting via the uBO popup (per-site 3p-script/3p-frame => noop).
-  # See https://github.com/gorhill/uBlock/wiki/Blocking-mode:-medium-mode.
-  ublockOriginMediumModeRules = [
-    "behind-the-scene * * noop"
-    "* * 3p-script block"
-    "* * 3p-frame block"
-
-    # Trusted sites: allow 3p scripts and frames.
-    # Source-host match covers all subdomains.
-
-    # Dev hosting & code collaboration
-    "github.com * 3p-script noop"
-    "github.com * 3p-frame noop"
-    "github.dev * 3p-script noop"
-    "github.dev * 3p-frame noop"
-    "gitlab.com * 3p-script noop"
-    "gitlab.com * 3p-frame noop"
-    "bitbucket.org * 3p-script noop"
-    "bitbucket.org * 3p-frame noop"
-    "codeberg.org * 3p-script noop"
-    "codeberg.org * 3p-frame noop"
-
-    # Package registries & developer docs
-    "hub.docker.com * 3p-script noop"
-    "hub.docker.com * 3p-frame noop"
-    "developer.mozilla.org * 3p-script noop"
-    "developer.mozilla.org * 3p-frame noop"
-    "developers.google.com * 3p-script noop"
-    "developers.google.com * 3p-frame noop"
-    "nixos.org * 3p-script noop"
-    "nixos.org * 3p-frame noop"
-    "formulae.brew.sh * 3p-script noop"
-    "formulae.brew.sh * 3p-frame noop"
-
-    # Q&A and knowledge
-    "stackoverflow.com * 3p-script noop"
-    "stackoverflow.com * 3p-frame noop"
-    "stackexchange.com * 3p-script noop"
-    "stackexchange.com * 3p-frame noop"
-    "superuser.com * 3p-script noop"
-    "superuser.com * 3p-frame noop"
-    "askubuntu.com * 3p-script noop"
-    "askubuntu.com * 3p-frame noop"
-    "serverfault.com * 3p-script noop"
-    "serverfault.com * 3p-frame noop"
-
-    # Google productivity
-    "docs.google.com * 3p-script noop"
-    "docs.google.com * 3p-frame noop"
-    "drive.google.com * 3p-script noop"
-    "drive.google.com * 3p-frame noop"
-    "mail.google.com * 3p-script noop"
-    "mail.google.com * 3p-frame noop"
-    "accounts.google.com * 3p-script noop"
-    "accounts.google.com * 3p-frame noop"
-    "myaccount.google.com * 3p-script noop"
-    "myaccount.google.com * 3p-frame noop"
-
-    # Microsoft 365
-    "teams.cloud.microsoft * 3p-script noop"
-    "teams.cloud.microsoft * 3p-frame noop"
-    "login.microsoftonline.com * 3p-script noop"
-    "login.microsoftonline.com * 3p-frame noop"
-    "login.live.com * 3p-script noop"
-    "login.live.com * 3p-frame noop"
-    "login.microsoft.com * 3p-script noop"
-    "login.microsoft.com * 3p-frame noop"
-
-    # Cloud consoles
-    "cloud.google.com * 3p-script noop"
-    "cloud.google.com * 3p-frame noop"
-
-    # AI tools
-    "chatgpt.com * 3p-script noop"
-    "chatgpt.com * 3p-frame noop"
-    "auth.openai.com * 3p-script noop"
-    "auth.openai.com * 3p-frame noop"
-    "claude.ai * 3p-script noop"
-    "claude.ai * 3p-frame noop"
-    "gemini.google.com * 3p-script noop"
-    "gemini.google.com * 3p-frame noop"
-    "notebooklm.google.com * 3p-script noop"
-    "notebooklm.google.com * 3p-frame noop"
-    "codeassist.google * 3p-script noop"
-    "codeassist.google * 3p-frame noop"
-    "codeassist.google.com * 3p-script noop"
-    "codeassist.google.com * 3p-frame noop"
-    "aistudio.google.com * 3p-script noop"
-    "aistudio.google.com * 3p-frame noop"
-
-    # Proton web properties
-    "proton.me * 3p-script noop"
-    "proton.me * 3p-frame noop"
-
-    # Mozilla / extensions
-    "addons.mozilla.org * 3p-script noop"
-    "addons.mozilla.org * 3p-frame noop"
-
-    # Raindrop.io
-    "app.raindrop.io * 3p-script noop"
-    "app.raindrop.io * 3p-frame noop"
-  ];
-
   extensionSettings =
     (lib.genAttrs policyExtensionIds mkNormalInstalledPolicy)
     # Whole-attrset override, not a nested `.private_browsing` assignment: `//`
@@ -435,12 +337,13 @@ in
       uiAccentCustom0 = ublockOriginAccentColor;
       uiTheme = ublockOriginUiTheme;
 
-      hostnameSwitchesString = builtins.concatStringsSep "\n" [
-        "no-csp-reports: * true"
-        "no-large-media: behind-the-scene false"
-      ];
+      hostnameSwitchesString = builtins.concatStringsSep "\n" (
+        checkedHostnameSwitches ublockOriginHostnameSwitches
+      );
 
-      dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
+      dynamicFilteringString = builtins.concatStringsSep "\n" (
+        checkedMediumModeRules ublockOriginMediumModeRules
+      );
 
       netWhitelist = [
         "chrome-extension-scheme"
