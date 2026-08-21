@@ -282,8 +282,10 @@ Use `macchanger` for a one-off test instead of a persistent configuration.
 Setting a hardware address needs `CAP_NET_ADMIN`, and the kernel rejects the
 change with `EBUSY` while the interface is still running. Disconnecting the
 NetworkManager device is not enough on its own: that deactivates the
-connection but leaves a Wi-Fi interface up so it can keep scanning. Release
-the device from NetworkManager and bring the link down first.
+connection but leaves a Wi-Fi interface up so it can keep scanning. The release
+and link-down steps also apply to Ethernet because the kernel rejects a MAC
+change with `EBUSY` while the interface is running. Release the device from
+NetworkManager and bring the link down first.
 
 Both ends of the sequence matter. An unmanaged device runs no DHCP client, so
 stopping after `macchanger` leaves a link that has carrier and no address,
@@ -317,7 +319,8 @@ activation:
 ```bash
 nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address 02:00:00:00:00:01
 nmcli connection up "<profile name>"
-nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address ""   # back to the baseline
+nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address ""   # clear the profile value
+nmcli connection up "<profile name>"                                            # apply the reset to the device
 ```
 
 That property takes the same special values as the table above, and overrides
