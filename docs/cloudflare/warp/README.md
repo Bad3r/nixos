@@ -1,0 +1,105 @@
+# Cloudflare WARP (Zero Trust)
+
+Declarative Cloudflare WARP enrollment for this NixOS configuration. The
+`programs.cloudflare-warp.extended` module runs the `warp-svc` daemon and enrolls
+a device into the Cloudflare Zero Trust organization non-interactively, using a
+service token delivered through a managed deployment file (`mdm.xml`).
+
+## Documents
+
+| Document                      | Purpose                                                    |
+| ----------------------------- | ---------------------------------------------------------- |
+| [Deployment](./deployment.md) | Operator runbook: dashboard prerequisites, secret, rollout |
+| [Reference](./reference.md)   | Module options, mdm.xml parameters, sops layout            |
+| [Modes](./modes.md)           | WARP mode comparison, DNS tradeoffs, split tunnels         |
+| [Operations](./operations.md) | Runtime verification, coexistence checks, troubleshooting  |
+| [Cheatsheet](./cheatsheet.md) | `warp-cli`, `warp-diag`, and service inspection commands   |
+
+## What the module does
+
+`modules/apps/cloudflare-warp.nix` is a thin wrapper over the upstream
+`services.cloudflare-warp` NixOS service. When `programs.cloudflare-warp.extended`
+is enabled it:
+
+1. Enables `services.cloudflare-warp`, which runs `warp-svc` as root with
+   `CAP_NET_ADMIN` and opens the WARP UDP port (2408 by default).
+2. Declares three sops secrets (`organization`, `auth_client_id`,
+   `auth_client_secret`) from `secrets/cloudflare-warp.yaml`, guarded by
+   `builtins.pathExists` so a missing secret warns instead of failing
+   evaluation. Without it the host installs `warp-cli` alone: an unmanaged
+   `warp-svc` would hold `CAP_NET_ADMIN` and an open UDP port while serving only
+   consumer WARP, so neither the daemon nor the connect-on-boot unit exists.
+3. Renders `/var/lib/cloudflare-warp/mdm.xml` from non-secret options plus sops
+   placeholders, parses the rendered fragment with `xmllint`, and installs it
+   (mode 0600, root) via `ExecStartPre` right before `warp-svc` starts. A
+   credential carrying an XML metacharacter fails the unit instead of silently
+   degrading the daemon to unmanaged mode. xmllint's stderr is dropped and
+   replaced with a fixed message: it reports a parse error by echoing the
+   offending source line, which would put the credential in the journal.
+4. Leaves `networking.firewall.checkReversePath` to the shared
+   `hosts-common` `vpn-defaults` owner. Hosts using this repository's common
+   baseline receive `loose` for asymmetric VPN routing, and a host firewall
+   module can override it when required. The WARP module does not add a second
+   owner for this setting.
+5. Adds a best-effort `cloudflare-warp-connect` oneshot that waits for the daemon
+   and requires a current WARP registration match before its first `warp-cli connect`.
+   A later unanswered response may reuse that same-run confirmation only when no
+   successful empty response is held and no mismatch is retained. A successful
+   empty response starts a bounded readiness window and cannot verify a tunnel or
+   authorize another connect request. An unconfirmed or mismatched registration is
+   fail-closed. The oneshot is bound to `warp-svc` and upheld by it, so an
+   unexpected daemon respawn (`Restart=always`) re-runs the connect logic rather
+   than leaving the host untunneled until the next rebuild.
+
+When the wrapper is disabled, it emits a tmpfiles removal rule for the
+wrapper-owned `/var/lib/cloudflare-warp/mdm.xml`. The next NixOS activation
+removes the runtime managed file instead of leaving the service token on disk.
+
+`service_mode` is authoritative through `mdm.xml`; the module never calls
+`warp-cli mode`, so the managed config and the local client cannot fight.
+
+## Enrolled hosts
+
+| Host       | Service mode         | Enable file                            |
+| ---------- | -------------------- | -------------------------------------- |
+| `tpnix`    | `tunnelonly`         | `modules/tpnix/cloudflare-warp.nix`    |
+| `system76` | `warp` (full tunnel) | `modules/system76/cloudflare-warp.nix` |
+
+`tpnix` uses `tunnelonly` because its private-DNS module selects NetworkManager
+dnsmasq for SignalX host mappings. This keeps those mappings under the host's
+DNS while retaining the WARP tunnel, HTTP filtering, network policies, and
+posture checks. `system76` has no competing local resolver and uses Full mode.
+
+The common baseline (`modules/hosts/common/apps-enable.nix`) defaults the app
+OFF; enrollment is a deliberate per-host opt-in. `system76` enables the wrapper
+directly. `tpnix` gates `enable` on `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`
+(currently `true` since repo-managed sops landed for tpnix in PR #305,
+`modules/tpnix/policy.nix`), so both hosts ship `warp-cli` and no daemon until
+`secrets/cloudflare-warp.yaml` is committed. The gate remains a kill switch: if
+tpnix ever loses its runtime key, flipping the flag back to `false` also drops
+the `cloudflare-warp/*` secret declarations that would otherwise fail activation
+on an un-decryptable payload.
+
+## Security model
+
+- The team name (`organization`) and service-token credentials live only in
+  `secrets/cloudflare-warp.yaml` (sops, age). The rendered `mdm.xml` is produced
+  from sops placeholders, so neither the team name nor the credentials enter the
+  Nix store or git history.
+- `mdm.xml` is written to `/var/lib/cloudflare-warp/mdm.xml` as `0600 root:root`.
+- Disabling the wrapper removes the runtime `mdm.xml` during the next NixOS
+  activation, so the cleartext service-token cache does not remain after a
+  disable switch. This local cleanup does not delete the device registration; use
+  `warp-cli --accept-tos registration delete` and remove the device from the dashboard when
+  full Zero Trust de-enrollment is intended.
+- `secrets/` is a git submodule; the encrypted payload is committed there, the
+  Nix changes in the main repository.
+
+## References
+
+- [WARP client docs](https://developers.cloudflare.com/warp-client/)
+- [Get started on Linux](https://developers.cloudflare.com/warp-client/get-started/linux/)
+- [Deploy the client headless on Linux](https://developers.cloudflare.com/cloudflare-one/tutorials/deploy-client-headless-linux/)
+- [Managed deployment parameters](https://developers.cloudflare.com/cloudflare-one/team-and-resources/devices/warp/deployment/mdm-deployment/parameters/)
+- [Service tokens](https://developers.cloudflare.com/cloudflare-one/access-controls/service-credentials/service-tokens/)
+- [NixOS option `services.cloudflare-warp`](https://search.nixos.org/options?query=services.cloudflare-warp)
