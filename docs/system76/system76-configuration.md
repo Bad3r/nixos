@@ -105,8 +105,8 @@ sudo system76-power charge-thresholds --profile full_charge   # 96-100%
 Shared NVIDIA wiring (driver selection, open-module toggle, container
 toolkit, VA-API routing, PRIME) lives in the parameterized
 `flake.nixosModules.nvidia-gpu` module (`modules/hardware/nvidia-gpu.nix`).
-The host file maps the `system76.gpu.mode` enum onto it and keeps the
-chassis-specific libva routing.
+The host file selects the `system76.gpu.mode` value and the module keeps the
+chassis-specific Intel VA-API routing consistent across both modes.
 
 ```nix
 # modules/system76/nvidia-gpu.nix
@@ -115,8 +115,51 @@ options.system76.gpu = {
     type = lib.types.enum [ "hybrid-sync" "nvidia-only" ];
     default = "hybrid-sync";
   };
-  intelBusId = lib.mkOption { type = lib.types.str; default = "PCI:0:2:0"; };
+  intelBusId = lib.mkOption {
+    type = lib.types.str;
+    default = "PCI:0:2:0";
+    description = ''
+      Intel iGPU address in Xorg's decimal `PCI:bus@domain:device:function` form.
+      Used for PRIME sync in `hybrid-sync` mode and as the source of the
+      `videoDecodeDevice` default in both modes. The domain may be omitted when it is 0.
+      Fields are range-checked against their PCI widths (bus 0-255, device 0-31,
+      function 0-7, any domain); an out-of-range field fails evaluation naming this
+      option rather than aborting inside `lib.fixedWidthString`.
+    '';
+  };
   nvidiaBusId = lib.mkOption { type = lib.types.str; default = "PCI:1:0:0"; };
+  videoDecodeDevice = lib.mkOption {
+    type = lib.types.str;
+    # Derived from intelBusId rather than hardcoded, via the intelBusFields and
+    # intelBusPadded helpers at the top of the module. For example:
+    # PCI:0:2:0 -> /dev/dri/by-path/pci-0000:00:02.0-render.
+    # PCI:2@1:3:4 -> /dev/dri/by-path/pci-0001:02:03.4-render.
+    default =
+      "/dev/dri/by-path/pci-${intelBusPadded 4 intelBusFields.domain}:${intelBusPadded 2 intelBusFields.bus}"
+      + ":${intelBusPadded 2 intelBusFields.device}.${toString intelBusFields.function}-render";
+    defaultText = lib.literalExpression ''"/dev/dri/by-path/pci-<intelBusId as a sysfs address>-render"'';
+    # Not a renderD path: renderD numbering follows driver probe order, so it can
+    # move between boots. Override with a by-path node.
+    example = "/dev/dri/by-path/pci-0000:00:02.0-render";
+    description = ''
+      Intel render node offered to VA-API consumers. Override this when the
+      chassis uses a non-standard device path.
+    '';
+  };
+  chromeExtraFlags = lib.mkOption {
+    type = lib.types.listOf lib.types.str;
+    default = [ ];
+    description = ''
+      Additional Chromium flags exported through `CHROME_EXTRA_FLAGS`. The derived
+      render-node flag is appended last and Chromium keeps the last occurrence of a
+      repeated switch, so flags added here cannot displace it. One entry is one
+      argument: entries containing whitespace are quoted, and an entry containing a
+      quote character, a line break, a `#` (pam_env truncates its conffile line
+      there), or a pam_env expansion (a braced `$`/`@` reference, or a literal
+      `$HOME` or `$USER`) cannot be encoded and fails an assertion.
+    '';
+    example = [ "--host-resolver-rules=MAP * 127.0.0.1" ];
+  };
 };
 
 gpu.nvidia = {
@@ -131,9 +174,43 @@ gpu.nvidia = {
   };
 };
 
-# nvidia-only branch: libva uses Intel Quick Sync through the stable iGPU render node.
-environment.sessionVariables.LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
-environment.sessionVariables.LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
+# Chromium matches its VA-API node to the GPU it renders on and rejects nvidia-drm
+# (crbug.com/1492880), so point it at the Intel node in either GPU mode. The browser
+# binary reads this variable itself (AppendExtraArgumentsToCommandLine in
+# chrome/app/chrome_main_linux.cc), so no per-package wiring is needed. Add Chromium
+# flags through system76.gpu.chromeExtraFlags; the render-node flag is always appended
+# last, and Chromium keeps the last occurrence of a repeated switch. Chromium re-splits
+# the variable on whitespace, so quoteFlag, a helper from the module's `let` block like
+# intelBusFields and intelBusPadded above, single-quotes any entry that contains
+# whitespace to keep one list entry as one argument. The quote is single because
+# sessionVariables render into /etc/pam/environment as NAME DEFAULT="<value>", where a
+# double quote would close the value early.
+# libva uses the same Intel Quick Sync node and iHD driver for every VA-API consumer.
+environment.sessionVariables = {
+  CHROME_EXTRA_FLAGS = lib.mkDefault (lib.concatMapStringsSep " " quoteFlag (
+    config.system76.gpu.chromeExtraFlags
+    ++ [ "--hardware-video-device-path=${config.system76.gpu.videoDecodeDevice}" ]
+  ));
+  LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
+  LIBVA_DRM_DEVICE = lib.mkDefault config.system76.gpu.videoDecodeDevice;
+};
+
+# unquotableFlags is a helper from the module's `let` block, like quoteFlag: it
+# filters chromeExtraFlags ++ [ the derived flag ] for entries carrying a quote
+# character, a line break, a # (pam_env truncates its conffile line there), or a
+# pam_env expansion (a braced $/@ reference, or a literal $HOME/$USER).
+assertions = [
+  {
+    assertion = unquotableFlags == [ ];
+    message =
+      "system76.gpu: entries are quoted into CHROME_EXTRA_FLAGS, so neither "
+      + "chromeExtraFlags nor the flag derived from videoDecodeDevice may contain "
+      + "a quote character, a line break, a #, or a pam_env expansion "
+      + "(a braced $/@ reference, or a literal $HOME or $USER). "
+      + "Offending entries: "
+      + lib.concatStringsSep ", " unquotableFlags;
+  }
+];
 ```
 
 ```nix
