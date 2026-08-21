@@ -17,8 +17,9 @@ example, security note, and references.
 Masquerading is an adversary technique that manipulates the name, location,
 metadata, appearance, or other identifying features of an object so that a
 malicious or suspicious artifact appears legitimate or benign to users or
-security tools. MITRE ATT&CK identifies it as technique `T1036` under the
-Stealth tactic.
+security tools. MITRE ATT&CK identifies it as technique `T1036`; ATT&CK v19 and
+later assign it to the Stealth tactic, while v18 and earlier classified it under
+Defense Evasion.
 
 ### Example
 
@@ -50,6 +51,7 @@ search each according to the field's encoding.
 ### References
 
 - [MITRE ATT&CK T1036: Masquerading](https://attack.mitre.org/techniques/T1036/)
+- [MITRE ATT&CK v18 T1036: Masquerading](https://attack.mitre.org/versions/v18/techniques/T1036/)
 - [MITRE ATT&CK T1036.002: Right-to-Left Override](https://attack.mitre.org/techniques/T1036/002/)
 
 ## TOFU (trust on first use)
