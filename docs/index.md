@@ -161,8 +161,12 @@
 
 - [csec/toolkit.md](csec/toolkit.md)
   - Catalog of cybersecurity-relevant apps managed by this configuration covering recon, web testing, credential attacks, RE, forensics, and dual-use utilities.
+- [csec/sandboxing-tools-status.md](csec/sandboxing-tools-status.md)
+  - Current status and deployment guidance for open-source malware sandboxes, hosted analysis services, and local isolation tools.
 - [csec/glossary.md](csec/glossary.md)
   - Reference glossary for cybersecurity and software-engineering acronyms and concepts.
+- [csec/framework-tracker.md](csec/framework-tracker.md)
+  - Tracker for NICE Task, Knowledge, and Skill elements and future cybersecurity framework mappings.
 - [csec/additional-tools-reference.md](csec/additional-tools-reference.md)
   - Reference catalog of pentesting tools available via `nix run`/`nix shell` that complement the active toolkit, grouped by AD, recon, web testing, credential attacks, wireless, RE, forensics, stego, SAST, cloud, and pivoting.
 - [csec/additional-tools-runtime-status.md](csec/additional-tools-runtime-status.md)
