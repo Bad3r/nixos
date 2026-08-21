@@ -158,6 +158,7 @@
             noproxy=""
             maxsize=""
             resolve=""
+            nul=""
             while [ "$#" -gt 0 ]; do
               case "$1" in
               -o)
@@ -222,6 +223,7 @@
               body="''${FF_BODY-success}"
               redirect="''${FF_REDIRECT-}"
               abort="''${FF_ABORT-}"
+              nul="''${FF_NUL-}"
               ;;
             *hotspot-detect.html)
               status="''${AP_STATUS-200}"
@@ -250,7 +252,13 @@
               exit 28
             fi
             [ "$status" = 000 ] && exit 7
-            printf '%s' "$body" >"$out"
+            # Bash variables cannot carry NUL, so this knob writes one directly
+            # into the response file to exercise the production tr before grep.
+            if [ -n "$nul" ]; then
+              printf '%s\0' "$body" >"$out"
+            else
+              printf '%s' "$body" >"$out"
+            fi
             printf '%s %s' "$status" "$redirect"
           '';
 
@@ -727,6 +735,62 @@
                 fail "nothing a network chose the scheme of may be handed to xdg-open"
             )
 
+            # A NUL in the body must not make GNU grep switch to binary mode and
+            # lose an otherwise valid sign-in target.
+            (
+              reset
+              export FF_STATUS=200 FF_NUL=1
+              export FF_BODY='<html><form action="http://portal.lan/login"></form></html>'
+              export AP_STATUS=000 GS_STATUS=000
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "a NUL-bearing portal body must still classify the portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/login" ] ||
+                fail "a NUL-bearing portal body must preserve the extracted URL"
+            )
+
+            # Control bytes in an extracted target must not reach stdout, the
+            # diagnostics, or the browser command. The URL remains usable only
+            # up to the first control byte after extraction filters it out.
+            (
+              reset
+              control_log="$work/log-control"
+              : >"$control_log"
+              export FF_STATUS=200
+              export FF_BODY=$'<html><form action="http://portal.lan/login\033[2K"></form></html>'
+              export AP_STATUS=000 GS_STATUS=000
+              CP_LOG="$control_log" "$portal" >"$work/out" 2>"$work/err" && rc=0 || rc=$?
+              [ "$rc" -eq 0 ] || fail "a control-bearing extracted target must still classify the portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/login" ] ||
+                fail "control bytes must not reach an extracted portal URL"
+              ! grep -q $'\033' "$work/out" || fail "stdout must not contain control bytes"
+              ! grep -q $'\033' "$work/err" || fail "diagnostics must not contain control bytes"
+              waited=0
+              until grep -q '^xdg-open ' "$control_log"; do
+                waited=$((waited + 1))
+                [ "$waited" -le 100 ] || fail "a confirmed extracted target must be opened in a browser"
+                sleep 0.1
+              done
+              grep -qxF 'xdg-open http://portal.lan/login' "$control_log" ||
+                fail "the browser must receive the control-free extracted URL"
+              ! grep -q $'\033' "$control_log" || fail "the browser command must not contain control bytes"
+            )
+
+            # The same bytes in Location invalidate the redirect rather than
+            # reaching xdg-open through the http(s) scheme arm.
+            (
+              reset
+              export FF_STATUS=302 FF_REDIRECT=$'http://portal.lan/login\033[2K'
+              export AP_STATUS=000 GS_STATUS=000
+              rc=$(run)
+              [ "$rc" -eq 3 ] || fail "a control-bearing redirect must not confirm a portal (exit $rc)"
+              [ "$(cat "$work/out")" = "http://192.168.1.1" ] ||
+                fail "a control-bearing redirect must fall back to the gateway guess"
+              ! grep -q $'\033' "$work/out" || fail "stdout must not contain redirect control bytes"
+              ! grep -q $'\033' "$work/err" || fail "diagnostics must not contain redirect control bytes"
+              ! grep -q '^xdg-open ' "$work/log" ||
+                fail "a control-bearing redirect must not reach xdg-open"
+            )
+
             # Location is as network-chosen as the canary's DNS answer, and a
             # sinkholed resolver or a filtering proxy in front of it can point
             # it at this machine as readily as at itself. The scheme check above
@@ -817,8 +881,10 @@
             (
               reset
               guess_log="$work/log-guess"
+              noopen_log="$work/log-noopen"
               open_log="$work/log-open"
               : >"$guess_log"
+              : >"$noopen_log"
               : >"$open_log"
 
               CP_LOG="$guess_log" DIG_FIREFOX="" DIG_APPLE="" DIG_GSTATIC="" \
@@ -826,6 +892,14 @@
               [ "$rc" -eq 3 ] || fail "the gateway guess must exit 3 in login mode (exit $rc)"
               grep -q 'was not opened' "$work/err" ||
                 fail "the guess must say it was not opened"
+
+              rm -f "$state"
+              CP_LOG="$noopen_log" AP_STATUS=200 \
+                AP_BODY='<html><a href="http://portal.lan/login">x</a></html>' \
+                "$portal" --no-open >"$work/out" 2>"$work/err" && rc=0 || rc=$?
+              [ "$rc" -eq 0 ] || fail "--no-open must not change portal detection (exit $rc)"
+              [ "$(cat "$work/out")" = "http://portal.lan/login" ] ||
+                fail "--no-open must still print the portal URL"
 
               rm -f "$state"
               CP_LOG="$open_log" AP_STATUS=200 \
@@ -843,6 +917,8 @@
 
               ! grep -q '^xdg-open ' "$guess_log" ||
                 fail "a gateway guess must not be opened in a browser"
+              ! grep -q '^xdg-open ' "$noopen_log" ||
+                fail "--no-open must not launch a browser"
             )
 
             # An on-link default route has no via, and reading the third field

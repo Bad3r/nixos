@@ -264,6 +264,11 @@ is_loopback_host() {
 # `<form action>` pointing at an asset directly, which the strip below does
 # not touch.
 #
+# The body is untrusted input and the extracted target is printed raw and passed
+# to xdg-open, so control bytes cannot be allowed into either path. NUL also has
+# to be mapped before grep sees it: GNU grep switches to binary mode and drops
+# its -o output when a NUL remains in the stream.
+#
 # sed works a line at a time, and a hand-written portal page wraps a tag's
 # attributes across lines as often as not, so the body is flattened first: a
 # `<link>` split over two lines would otherwise survive the strip, and a
@@ -276,10 +281,10 @@ is_loopback_host() {
 # with `amp;` glued to every parameter after the first and the sign-in would
 # never complete.
 extract_url() {
-  tr '\n' ' ' <"$body_file" |
+  tr '\n\000' '  ' <"$body_file" |
     sed 's/<link[^>]*>//gI' |
-    grep -oiE '(^|[;[:space:]])('"$1"')=["'"'"']?https?://[^"'"'"'<>[:space:]]+' |
-    grep -oiE 'https?://[^"'"'"'<>[:space:]]+' |
+    grep -oiE '(^|[;[:space:]])('"$1"')=["'"'"']?https?://[^"'"'"'<>[:space:][:cntrl:]]+' |
+    grep -oiE 'https?://[^"'"'"'<>[:space:][:cntrl:]]+' |
     grep -viE '^https?://([^/]*\.)?w3\.org([/:?]|$)' |
     grep -viE '\.(css|js|mjs|png|jpe?g|gif|svg|ico|woff2?|ttf|eot)([?#]|$)' |
     head -1 |
@@ -370,7 +375,10 @@ probe_portal() {
       # does any scheme with a desktop handler. Only the two the body-extraction
       # path already restricts itself to count; anything else is no answer and
       # falls through to the hijack check below.
+      # A Location header can carry terminal control bytes just like a page
+      # attribute, so reject the whole target before the http(s) arm sees it.
       case "$redirect" in
+      *[[:cntrl:]]*) ;;
       http://* | https://*)
         if ! is_loopback_host "$redirect"; then
           printf '%s\n' "$redirect"
