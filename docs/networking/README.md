@@ -14,10 +14,14 @@ again when it activates a connection. Only the address settings conflict.
 `linkConfig.Name` does not, and is used below to pin a name on a device whose
 NetworkManager policy stays `"stable"`.
 
-A manual `macchanger` or `ip link set address` run is a third owner, and the
-weakest of the three: NetworkManager replaces the address at the next
-activation, so a manually set one holds only while the device is unmanaged. See
-[Change the address temporarily](#change-the-address-temporarily-with-macchanger).
+A per-profile `cloned-mac-address` is another NetworkManager owner. Use it when
+one network needs a fixed address; see
+[Set a fixed address on a connection profile](#set-a-fixed-address-on-a-connection-profile).
+
+A manual `macchanger` or `ip link set address` run is a separate owner and the
+weakest: NetworkManager replaces the address at the next activation, so a
+manually set one holds only while the device is unmanaged. See [Change the
+address temporarily](#change-the-address-temporarily-with-macchanger).
 
 ## Check the interface and its current address
 
@@ -107,6 +111,27 @@ than address continuity. It creates a new address on every activation, so it
 breaks captive-portal state, DHCP reservations, and network allowlists
 repeatedly. Use `"stable"` when those services need a predictable address
 without using the permanent hardware address.
+
+## Set a fixed address on a connection profile
+
+To hold a chosen address on a network rather than observe one for a moment, set
+it on the profile instead of on the link, so NetworkManager applies it at every
+activation:
+
+```bash
+nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address 02:00:00:00:00:01
+nmcli connection up "<profile name>"
+nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address ""   # clear the profile value
+nmcli connection up "<profile name>"                                            # apply the reset to the device
+```
+
+That property takes the same special values as the table above, and overrides
+the host-wide default that `networking.networkmanager.ethernet.macAddress`
+writes into `NetworkManager.conf`. Wi-Fi profiles use
+`802-11-wireless.cloned-mac-address`. The profile is per-host state rather than
+declarative repository configuration, so a re-key follows the same rules as
+[Re-key services](#re-key-services-after-moving-a-host-to-stable), and it is
+not a substitute for a declarative NetworkManager or `.link` policy.
 
 ## Re-key services after moving a host to `"stable"`
 
@@ -282,10 +307,11 @@ Use `macchanger` for a one-off test instead of a persistent configuration.
 Setting a hardware address needs `CAP_NET_ADMIN`, and the kernel rejects the
 change with `EBUSY` while the interface is still running. Disconnecting the
 NetworkManager device is not enough on its own: that deactivates the
-connection but leaves a Wi-Fi interface up so it can keep scanning. The release
-and link-down steps also apply to Ethernet because the kernel rejects a MAC
-change with `EBUSY` while the interface is running. Release the device from
-NetworkManager and bring the link down first.
+connection but leaves a Wi-Fi interface up so it can keep scanning. Ethernet
+needs the same two steps for a different reason: a disconnected wired link
+stays `IFF_UP` for carrier detection, and the kernel rejects the change with
+`EBUSY` on any running interface. Release the device from NetworkManager and
+bring the link down first.
 
 Both ends of the sequence matter. An unmanaged device runs no DHCP client, so
 stopping after `macchanger` leaves a link that has carrier and no address,
@@ -311,25 +337,6 @@ ip link show dev "$netDev"        # verify here: the next line discards this add
 
 nmcli device set "$netDev" managed yes
 ```
-
-To hold a chosen address on a network rather than observe one for a moment, set
-it on the profile instead of on the link, so NetworkManager applies it at every
-activation:
-
-```bash
-nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address 02:00:00:00:00:01
-nmcli connection up "<profile name>"
-nmcli connection modify "<profile name>" 802-3-ethernet.cloned-mac-address ""   # clear the profile value
-nmcli connection up "<profile name>"                                            # apply the reset to the device
-```
-
-That property takes the same special values as the table above, and overrides
-the host-wide default that `networking.networkmanager.ethernet.macAddress`
-writes into `NetworkManager.conf`. Wi-Fi profiles use
-`802-11-wireless.cloned-mac-address`. It is still per-host state rather than
-configuration, so a re-key follows the same rules as
-[Re-key services](#re-key-services-after-moving-a-host-to-stable), and it is
-not a substitute for a declarative NetworkManager or `.link` policy.
 
 Changing a MAC address reduces one identifier exposed to a local network. It
 does not prevent tracking through Wi-Fi network names, IP-level identifiers,
