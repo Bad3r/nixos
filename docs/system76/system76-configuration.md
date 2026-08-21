@@ -154,8 +154,9 @@ options.system76.gpu = {
       render-node flag is appended last and Chromium keeps the last occurrence of a
       repeated switch, so flags added here cannot displace it. One entry is one
       argument: entries containing whitespace are quoted, and an entry containing a
-      quote character, a line break, or a `$`/`@` expansion character cannot be
-      encoded and fails an assertion.
+      quote character, a line break, a `#` (pam_env truncates its conffile line
+      there), or a pam_env expansion (a braced `$`/`@` reference, or a literal
+      `$HOME` or `$USER`) cannot be encoded and fails an assertion.
     '';
     example = [ "--host-resolver-rules=MAP * 127.0.0.1" ];
   };
@@ -196,14 +197,16 @@ environment.sessionVariables = {
 
 # unquotableFlags is a helper from the module's `let` block, like quoteFlag: it
 # filters chromeExtraFlags ++ [ the derived flag ] for entries carrying a quote
-# character, a line break, or a $/@ pam_env expansion character.
+# character, a line break, a # (pam_env truncates its conffile line there), or a
+# pam_env expansion (a braced $/@ reference, or a literal $HOME/$USER).
 assertions = [
   {
     assertion = unquotableFlags == [ ];
     message =
       "system76.gpu: entries are quoted into CHROME_EXTRA_FLAGS, so neither "
       + "chromeExtraFlags nor the flag derived from videoDecodeDevice may contain "
-      + "a quote character, a line break, or a $/@ expansion character. "
+      + "a quote character, a line break, a #, or a pam_env expansion "
+      + "(a braced $/@ reference, or a literal $HOME or $USER). "
       + "Offending entries: "
       + lib.concatStringsSep ", " unquotableFlags;
   }

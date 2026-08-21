@@ -90,14 +90,15 @@ let
     }
   ];
 
-  chromeFailures = builtins.filter (
-    case: chromeExtraFlagsFor case.flags != case.expected
-  ) chromeFlagCases;
+  # Reuse each extendModules result for comparison and failure formatting so a
+  # failing case is not evaluated a second time while constructing diagnostics.
+  chromeResults = map (case: case // { actual = chromeExtraFlagsFor case.flags; }) chromeFlagCases;
+
+  chromeFailures = builtins.filter (case: case.actual != case.expected) chromeResults;
 
   chromeFailureLines = map (
     case:
-    "  chromeExtraFlags ${builtins.toJSON case.flags}: expected ${case.expected}, got "
-    + chromeExtraFlagsFor case.flags
+    "  chromeExtraFlags ${builtins.toJSON case.flags}: expected ${case.expected}, got " + case.actual
   ) chromeFailures;
 
   # This PR's central change is moving CHROME_EXTRA_FLAGS/LIBVA_DRM_DEVICE/
@@ -114,9 +115,13 @@ let
         (system76.extendModules { modules = [ { system76.gpu.mode = lib.mkForce mode; } ]; })
         .config.environment.sessionVariables;
     in
-    {
-      inherit (vars) CHROME_EXTRA_FLAGS LIBVA_DRM_DEVICE LIBVA_DRIVER_NAME;
-    };
+    # Preserve the check's own diagnostic when a mode-specific edit removes one
+    # of these variables instead of failing on a raw missing-attribute error.
+    lib.genAttrs [
+      "CHROME_EXTRA_FLAGS"
+      "LIBVA_DRM_DEVICE"
+      "LIBVA_DRIVER_NAME"
+    ] (name: vars.${name} or "<unset>");
 
   expectedSessionVariables = {
     CHROME_EXTRA_FLAGS = defaultRenderFlag;
@@ -160,8 +165,11 @@ let
   # nvidia-gpu.nix's own eval-time assertion, which does fail loudly for a real
   # configuration; what is not safely re-verifiable from here is that the
   # assertion still fires, independent of re-reading the whole system's list.
+  # Reuse each extendModules result for comparison and failure formatting so a
+  # failing case is not evaluated a second time while constructing diagnostics.
+  acceptResults = lib.mapAttrs (intelBusId: _: videoDecodeDeviceFor intelBusId) acceptCases;
   acceptFailures = lib.filterAttrs (
-    intelBusId: expected: videoDecodeDeviceFor intelBusId != expected
+    intelBusId: expected: acceptResults.${intelBusId} != expected
   ) acceptCases;
 
   rejectFailures = builtins.filter (
@@ -169,8 +177,7 @@ let
   ) rejectCases;
 
   acceptFailureLines = lib.mapAttrsToList (
-    intelBusId: expected:
-    "  ${intelBusId}: expected ${expected}, got ${videoDecodeDeviceFor intelBusId}"
+    intelBusId: expected: "  ${intelBusId}: expected ${expected}, got ${acceptResults.${intelBusId}}"
   ) acceptFailures;
 
   rejectFailureLines = map (

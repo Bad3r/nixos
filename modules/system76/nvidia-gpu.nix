@@ -51,16 +51,16 @@ _: {
       # variable), so a raw line break inside a value has no representation either:
       # it would split one record into two and drop everything after it.
       hasLineBreak = flag: builtins.match ".*[\n\r].*" flag != null;
-      # pam_env(8) reads this file as its conffile and expands ${VAR} and @{PAM_ITEM}
-      # inside a DEFAULT= value with no escape for either character (man pam_env.conf);
-      # nixpkgs' own generator relies on this to make $HOME/$USER work in
-      # sessionVariables (nixos/modules/config/system-environment.nix's replaceEnvVars).
-      # An entry carrying $ or @ is rewritten before any browser sees it.
+      # pam_env(8) expands ${VAR} and @{PAM_ITEM} inside DEFAULT= values, and
+      # nixpkgs rewrites literal $HOME/$USER for sessionVariables. Bare $ and @ remain
+      # literal, so only those braced forms and literals are rejected.
       hasExpansion = flag: builtins.match ".*([$@][{]|[$](HOME|USER)).*" flag != null;
       quoteFlag = flag: if builtins.match ".*[[:space:]].*" flag == null then flag else "'${flag}'";
+      # pam_env's conffile parser treats # as a comment, so a # inside an entry
+      # truncates that line and drops the derived flag appended after it.
+      hasComment = flag: builtins.match ".*#.*" flag != null;
       unquotableFlags = lib.filter (
-        flag:
-        hasQuote flag || hasLineBreak flag || hasExpansion flag || builtins.match ".*#.*" flag != null
+        flag: hasQuote flag || hasLineBreak flag || hasExpansion flag || hasComment flag
       ) (cfg.chromeExtraFlags ++ [ videoDeviceFlag ]);
     in
     {
@@ -131,8 +131,9 @@ _: {
 
             One entry is one argument: entries containing whitespace are quoted, since
             Chromium re-splits the variable on whitespace. An entry containing a quote
-            character, a line break, or a `$`/`@` expansion character cannot be encoded
-            and fails the assertion.
+            character, a line break, a `#` (pam_env truncates its conffile line at the
+            first one), or a pam_env expansion (a braced `$`/`@` reference, or a
+            literal `$HOME` or `$USER`) cannot be encoded and fails the assertion.
           '';
           example = [ "--host-resolver-rules=MAP * 127.0.0.1" ];
         };
@@ -145,7 +146,8 @@ _: {
             message =
               "system76.gpu: entries are quoted into CHROME_EXTRA_FLAGS, so neither "
               + "chromeExtraFlags nor the flag derived from videoDecodeDevice may contain "
-              + "a quote character, a line break, or a $/@ expansion character. "
+              + "a quote character, a line break, a #, or a pam_env expansion "
+              + "(a braced $/@ reference, or a literal $HOME or $USER). "
               + "Offending entries: "
               + lib.concatStringsSep ", " unquotableFlags;
           }
