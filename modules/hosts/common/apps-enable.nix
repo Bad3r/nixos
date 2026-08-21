@@ -72,6 +72,7 @@ let
       bzip2.extended.enable = lib.mkOverride 1100 true;
       bzmenu.extended.enable = lib.mkOverride 1100 true;
       cachix.extended.enable = lib.mkOverride 1100 true;
+      "captive-portal".extended.enable = lib.mkOverride 1100 true;
       cargo.extended.enable = lib.mkOverride 1100 true;
       certbot.extended.enable = lib.mkOverride 1100 true;
       cewl.extended.enable = lib.mkOverride 1100 true;

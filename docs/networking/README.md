@@ -293,3 +293,217 @@ NetworkManager or `.link` policy.
 Changing a MAC address reduces one identifier exposed to a local network. It
 does not prevent tracking through Wi-Fi network names, IP-level identifiers,
 browser fingerprints, or account activity.
+
+# Sign in to a captive portal
+
+Hotel, airport, and campus networks hold a new client in a walled garden until
+it authenticates. The sign-in page is discovered through DNS: the access point's
+resolver answers every name with an address it controls, and the first
+plain-HTTP request lands on the portal. Hosts in this repository never receive
+that answer, so the portal stays invisible.
+
+## Why the portal never appears
+
+Three modules compose into a resolver path that skips the access point, and the
+middle one applies to one host today:
+
+1. `modules/hosts/common/networking.nix` enables NetworkManager everywhere.
+2. `modules/hosts/common/private-dns-hosts.nix` selects `dns=dnsmasq` and turns
+   `services.resolved` off, but only for hosts that declare
+   `privateDnsHostsSecretKeys` in the registry. tpnix is the only one, so tpnix
+   forwards through dnsmasq on `127.0.0.1` while system76 keeps
+   systemd-resolved and `dns=systemd-resolved`.
+3. `modules/apps/tailscale.nix` runs tailscaled, which by default accepts the
+   tailnet's DNS configuration.
+
+Which of the two local resolvers a host runs decides what the evidence looks
+like, so establish that first:
+
+```bash
+readlink -f /etc/resolv.conf
+```
+
+A path under `/run/systemd/resolve/` is the systemd-resolved host.
+
+On the dnsmasq host, tailscaled registers its own resolvconf entry, that entry
+supersedes NetworkManager's, and `/etc/resolv.conf` ends up carrying only
+`100.100.100.100`, so the dnsmasq at `127.0.0.1` is shadowed. Verify both facts:
+
+```bash
+resolvconf -l | grep -E 'resolv.conf from|nameserver'
+grep '^nameserver' /etc/resolv.conf
+```
+
+`resolvconf -l` lists NetworkManager's `nameserver 127.0.0.1`, while
+`/etc/resolv.conf` carries only the Tailscale addresses.
+
+On the systemd-resolved host none of that shows: `/etc/resolv.conf` is a static
+symlink to the `127.0.0.53` stub, and it reads the same before and after
+anything below changes DNS. tailscaled hands its configuration to resolved
+instead, so read it there:
+
+```bash
+resolvectl status
+resolvectl dns
+```
+
+The tailnet resolvers appear against the `tailscale0` link, together with the
+`~.` routing domain that claims every query.
+
+`tailscale dns status` then shows where those queries go. With MagicDNS and
+split DNS both off, the tailnet pushes global resolvers such as `194.242.2.2`
+and `1.1.1.1`, so `100.100.100.100` forwards everything to the public internet.
+A portal drops those upstreams before authentication, so queries time out rather
+than being hijacked: nothing resolves, no redirect fires, and NetworkManager's
+connectivity check reports `limited` instead of `portal`.
+
+## Use the captive-portal helper
+
+`captive-portal` (`packages/captive-portal`, enabled from
+`modules/hosts/common/apps-enable.nix`) drives the whole sequence:
+
+```bash
+captive-portal --probe    # report portal state and URL, change nothing
+captive-portal            # release DNS, locate the portal, open it
+captive-portal --restore  # return DNS to Tailscale after signing in
+```
+
+`--probe` queries the access point's resolver directly with `dig`, so it reports
+the portal URL even while Tailscale still owns DNS. Add `--down` to stop
+Tailscale entirely instead of only releasing DNS, and `--no-open` to print the
+URL rather than launch a browser.
+
+`--probe` and `--restore` each name the whole purpose of a run, so they cannot be
+combined, and `--down` belongs to a login run, the only one that stops anything.
+Either pairing exits 2 rather than silently dropping one of the two.
+
+A portal counts as confirmed on any of four answers to the probe hosts: a
+redirect, a page served in place of the expected payload, RFC 6585's
+`511 Network Authentication Required`, or a canary resolving to an address on
+this LAN. The last is the DNS hijack; the first three also catch a proxy that
+intercepts HTTP and leaves DNS alone, which is what guest networks that hand out
+a real upstream resolver and enforce at the gateway do. The sign-in URL is taken
+from what a link, form, or meta refresh in the page points at, falling back to
+the address the canary resolved to.
+
+A canary that resolves to this machine is dropped before the request goes out. A
+resolver that sinkholes blocklisted names answers `127.0.0.1` or `0.0.0.0`, which
+Pi-hole, AdGuard Home and a bare dnsmasq `address=/host/` all do by default, and
+`curl --resolve` sends either to the local port 80. Whatever answers there is not
+a portal. A `Location` header or an extracted link gets the same two checks:
+only `http` and `https` targets are ever printed or opened, one naming this
+machine, `localhost`, or `::1` is dropped the same way, and control bytes are
+excluded from extracted targets, while a `Location` target containing one is
+rejected. Everything here is chosen by an untrusted network and reaches
+`xdg-open`. The probes also pass
+`--noproxy '*'`, because an inherited `http_proxy` would send them somewhere
+other than the address the access point's resolver named, which is the whole
+basis of the classification.
+
+Releasing and restoring DNS writes to tailscaled, which takes a state change only
+from root and from the Unix user named by its operator pref. Reading is not
+gated the same way, so `tailscale debug prefs` answering is no evidence that
+`tailscale set` will. `programs.tailscale.extended.operator` declares that user,
+defaults to `flake.lib.meta.owner.username`, and reaches the daemon through
+`services.tailscale.extraSetFlags`, which nixpkgs replays from a root oneshot on
+every boot. Confirm it landed:
+
+```bash
+tailscale debug prefs | jq -r .OperatorUser
+```
+
+An empty answer means only root can change DNS: the helper stops with status 4
+before it changes anything rather than stranding a half-finished release, and
+`sudo` is the workaround until the next switch applies the pref. One thing still
+changes under it. `sudo-rs` enforces `env_reset` with no opt-out and
+`modules/hosts/common/sudo.nix` keeps only `SSH_AUTH_SOCK`, so root inherits no
+`DISPLAY`, no Wayland socket and no session bus: the backgrounded `xdg-open`
+cannot reach your browser and fails silently. Pass `--no-open` and open the URL
+yourself, which is printed either way. The snapshot does follow you: the same
+reset drops `XDG_RUNTIME_DIR`, so the helper falls back to `SUDO_UID`'s runtime
+directory rather than root's, and a plain `captive-portal --restore` afterwards
+finds what the `sudo` run saved.
+
+Only the portal URL goes to stdout; every diagnostic goes to stderr, and the
+exit status names the outcome, so a wrapper can act on it:
+
+| Status | Meaning                                                                             |
+| ------ | ----------------------------------------------------------------------------------- |
+| 0      | a portal was found and its URL was printed                                          |
+| 1      | no portal: this network answers the probes normally                                 |
+| 2      | invalid usage                                                                       |
+| 3      | probes inconclusive; a gateway guess is printed if there is one, never opened       |
+| 4      | the network could not be inspected, or Tailscale state could not be read or changed |
+
+Status 3 is a guess, not a detection, and prints nothing if the network gave no
+default route to guess from. When one is printed, the address is the network's
+gateway, which on a network that merely blocks the probe hosts is the local
+router rather than a portal, so it is only printed: the browser is launched for
+a confirmed portal and nothing else.
+
+```bash
+if url=$(captive-portal --probe); then
+  echo "sign in at $url"
+fi
+```
+
+The helper saves `CorpDNS` and `WantRunning` under `$XDG_RUNTIME_DIR` before
+changing anything, and `--restore` replays exactly those values. A snapshot it
+cannot write stops the run with status 4 before any DNS change: releasing DNS
+with no record of what to put back is the one state this helper must not leave. The snapshot is
+taken once and kept until `--restore` consumes it, so retrying after a failed
+sign-in still restores the state the first run found. A run that finds nothing
+to sign in to restores DNS before it exits; only a run that found a portal
+leaves DNS released, because signing in needs it. An interrupted run cannot
+restore, so it prints the `--restore` reminder instead of leaving DNS released
+in silence.
+
+`$XDG_RUNTIME_DIR` is cleared at the last logout, so a `--restore` run after a
+reboot finds no snapshot. That run re-enables tailnet DNS, which is the safe
+direction, and leaves the run state alone: nothing recorded that the node was
+up, and starting one that was stopped on purpose is not a restore. DNS goes back
+before the run state for the same reason, so a node that refuses to come back up
+still gets its resolvers. That run reports the run state rather than the operator
+pref, which the DNS write it just completed had already cleared, and it exits 4
+keeping the snapshot so `--restore` can be retried. An unreadable
+`tailscale debug prefs` ends the same way rather than assuming the node is
+already running, because a read that failed is not an answer.
+
+## Sign in by hand
+
+```bash
+tailscale set --accept-dns=false
+nmcli general reload dns-full
+device=$(nmcli -t -f DEVICE,TYPE,STATE device status |
+  awk -F: '$3 == "connected" && $2 == "wifi" { print $1; exit }')
+resolver=$(nmcli -t -f IP4.DNS device show "$device" | sed 's/^IP4\.DNS\[[0-9]*\]://' | head -1)
+dig +short "@$resolver" A detectportal.firefox.com
+curl -sSI http://detectportal.firefox.com/success.txt | head -5
+```
+
+The device is discovered rather than named because each host names it
+differently: `modules/tpnix/networking.nix` pins tpnix's wireless NIC to
+`wifi0`, while system76 keeps the kernel's `wlan0`.
+
+Both `tailscale set` calls need the same write access as the helper: run them as
+the operator user, or under `sudo`.
+
+A private address in the `dig` answer, or a `Location:` header pointing off
+site, is the portal. Open that URL, sign in, then run:
+
+```bash
+tailscale set --accept-dns=true
+nmcli general reload dns-full
+```
+
+## Two portal traps specific to these hosts
+
+LibreWolf is the default browser and ships with
+`network.captive-portal-service.enabled` false, so it never raises a "Log in to
+network" bar. Open the portal URL directly, and use a private window: portals
+reject cached HSTS upgrades and stale cookies from an earlier session.
+
+Portals bind an authenticated session to a MAC address. The shared baseline sets
+`wifi.macAddress = "stable"`, which is deterministic per connection profile, so
+reconnecting keeps the session. Deleting and re-creating the profile re-keys the
+address and forces a fresh sign-in. See the MAC address policy section above.
