@@ -642,6 +642,20 @@
                 fail "a preconnect link must not beat a relative form target, got '$(cat "$work/out")'"
             )
 
+            # sed works a line at a time, so this is the one shape the strip
+            # above cannot catch by itself: a <link> element whose attributes
+            # wrap onto a second line, which hand-written portal markup does
+            # as often as not.
+            (
+              reset
+              export FF_STATUS=200
+              export FF_BODY=$'<html><head><link rel="preconnect"\n      href="https://fonts.gstatic.com"></head><body><form action="/login"></form></body></html>'
+              rc=$(run --probe)
+              [ "$rc" -eq 0 ] || fail "an intercepted canary must still exit 0 (exit $rc)"
+              [ "$(cat "$work/out")" = "http://203.0.113.10" ] ||
+                fail "a link element wrapped across lines must not beat a relative form target, got '$(cat "$work/out")'"
+            )
+
             # HTML requires a literal & in an attribute value to be written
             # &amp;, and a WISPr redirect carries several parameters, so the raw
             # value was opened with amp; glued to every one after the first and
@@ -718,7 +732,7 @@
             # it at this machine as readily as at itself. The scheme check above
             # let all four of these through before the host was also checked.
             for loopback in 'http://127.0.0.1/' 'http://0.0.0.0:8080/' 'http://localhost/admin' 'http://[::1]/' \
-              'http://x@127.0.0.1/' 'http://a@b@127.0.0.1/'; do
+              'http://x@127.0.0.1/' 'http://a@b@127.0.0.1/' 'http://LOCALHOST/' 'http://[::]/'; do
               (
                 reset
                 export FF_STATUS=302 FF_REDIRECT="$loopback"

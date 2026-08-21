@@ -227,7 +227,8 @@ is_loopback_host() {
   authority="${authority%%/*}"
   authority="${authority##*@}"
   # Host names are case-insensitive, so LOCALHOST names this machine as surely
-  # as localhost does, and [::] reaches it the same way 0.0.0.0 does.
+  # as localhost does, and [::], the IPv6 unspecified address, reaches it the
+  # same way 0.0.0.0 does.
   case "${authority,,}" in
   127.* | 0.0.0.0 | 0.0.0.0[:?#]* | localhost | localhost[:?#]* | \[::1\]* | \[::\]*) return 0 ;;
   *) return 1 ;;
@@ -262,6 +263,13 @@ is_loopback_host() {
 # is caught by the filter above. It stays in place for an `<a href>` or
 # `<form action>` pointing at an asset directly, which the strip below does
 # not touch.
+#
+# sed works a line at a time, and a hand-written portal page wraps a tag's
+# attributes across lines as often as not, so the body is flattened first: a
+# `<link>` split over two lines would otherwise survive the strip, and a
+# `(^|[;[:space:]])`-anchored attribute at the start of one of those lines now
+# matches the same way through the whitespace a former newline became, rather
+# than through a line start that only sometimes existed.
 #
 # HTML requires a literal `&` in an attribute value to be written `&amp;`, and a
 # WISPr redirect carries several parameters, so the raw value would be opened
@@ -453,6 +461,13 @@ probe_portal() {
 # Root wrote the snapshot into the invoking user's runtime directory, so it has
 # to change hands with it: a plain --restore can read a root-owned snapshot but
 # not unlink it, and rm -f reports that EACCES rather than swallowing it.
+#
+# -h matters once this has run before: it leaves state_dir owned by SUDO_UID,
+# so a second sudo run's mv onto state_file, followed by this chown, is a
+# window a plain chown would follow straight through a symlink dropped there
+# in between, handing a root-owned target's ownership away the way the guard
+# on state_dir itself already stops mkdir -p and this chown from doing to it.
+# -h is inert for the ordinary directory and file this otherwise sees.
 hand_state_to_invoker() {
   if [ "$(id -u)" -ne 0 ] || [ -z "${SUDO_UID:-}" ]; then
     return 0
