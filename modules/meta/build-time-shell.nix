@@ -56,7 +56,7 @@
             scan() {
               local status=0
               grep -rnE \
-                '^[[:space:]]*!?[[:space:]]*compgen\b|\$\(!?[[:space:]]*compgen\b|(if|elif|while|until|then|else|do|;|&&|\|\|?|\{|\(|\))[[:space:]]+!?[[:space:]]*compgen\b' \
+                '^[[:space:]]*!?[[:space:]]*compgen\b|[$<>]\(!?[[:space:]]*compgen\b|(if|elif|while|until|then|else|do|;|&&|\|\|?|\{|\(|\))[[:space:]]+!?[[:space:]]*compgen\b' \
                 "$@" || status=$?
               # 1 is "matched nothing"; 2 and up mean grep could not read a path
               # it was given, and an empty result from that is indistinguishable
@@ -73,8 +73,9 @@
             mkdir -p "$planted"
             # Assembled rather than written out, so this file is not a hit in its
             # own scan and does not have to exclude itself from it. Every
-            # command-position spelling is planted and counted: a fixture for
-            # one of them proves only the alternative it happens to take.
+            # command-position spelling, including process-substitution
+            # openings, is planted and counted: a fixture for one of them
+            # proves only the alternative it happens to take.
             printf 'if %s -A function; then :; fi\n' compgen >"$planted/plain.sh"
             printf 'if ! %s -A function; then :; fi\n' compgen >"$planted/negated.sh"
             printf 'elif %s -A function; then :; fi\n' compgen >"$planted/elif.sh"
@@ -82,9 +83,10 @@
             printf 'case x in *) %s -A function ;; esac\n' compgen >"$planted/case.sh"
             printf 'if { %s -A function; }; then :; fi\n' compgen >"$planted/group.sh"
             printf '( %s -A function )\n' compgen >"$planted/subshell.sh"
+            printf 'while read -r _; do :; done < <(%s -A function)\n' compgen >"$planted/procsub.sh"
             planted_hits=$(scan "$planted" | wc -l)
-            if [ "$planted_hits" -ne 7 ]; then
-              echo "build-time-shell: the scan reports $planted_hits of 7 planted usages, so the tree scan below would pass regardless" >&2
+            if [ "$planted_hits" -ne 8 ]; then
+              echo "build-time-shell: the scan reports $planted_hits of 8 planted usages, so the tree scan below would pass regardless" >&2
               exit 1
             fi
 
