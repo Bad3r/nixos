@@ -29,6 +29,12 @@
 ;; refresh your font settings. If Emacs still can't find your font, it likely
 ;; wasn't installed correctly. Font issues are rarely Doom issues!
 
+;; MonoLisa v3 ships a monospace (Code) and a proportional (Text) family
+;; through the encrypted-archive font pipeline; pair them so variable-pitch
+;; faces get the proportional cut.
+(setq doom-font (font-spec :family "MonoLisaCode" :size 12)
+      doom-variable-pitch-font (font-spec :family "MonoLisaText" :size 12))
+
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
 ;; `load-theme' function. This is the default:
