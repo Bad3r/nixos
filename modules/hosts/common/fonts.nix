@@ -21,6 +21,10 @@ let
 
   # Symbol and icon fallbacks appended after the primary family; the
   # monospace list prefers the Mono variant so glyphs keep cell width.
+  # Every generic class keeps a real text face ahead of these: the MonoLisa
+  # families only exist once monolisa-fonts.service has installed the archive,
+  # and with an icon-only face next in line `fc-match sans-serif:lang=en`
+  # resolves to Symbols Nerd Font, which carries no Latin coverage.
   symbolFallback = [
     "Symbols Nerd Font"
     "Symbols Nerd Font Mono"
@@ -72,9 +76,21 @@ let
 
             fontconfig = {
               defaultFonts = {
-                serif = [ "MonoLisaText" ] ++ symbolFallback;
-                sansSerif = [ "MonoLisaText" ] ++ symbolFallback;
-                monospace = [ "MonoLisaCode" ] ++ monoSymbolFallback;
+                serif = [
+                  "MonoLisaText"
+                  "Noto Serif"
+                ]
+                ++ symbolFallback;
+                sansSerif = [
+                  "MonoLisaText"
+                  "Noto Sans"
+                ]
+                ++ symbolFallback;
+                monospace = [
+                  "MonoLisaCode"
+                  "Liberation Mono"
+                ]
+                ++ monoSymbolFallback;
                 emoji = [
                   "Noto Color Emoji"
                   "Symbols Nerd Font"
