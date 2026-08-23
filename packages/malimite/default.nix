@@ -75,7 +75,7 @@ stdenv.mkDerivation {
       --add-flags "-Dawt.useSystemAAFontSettings=on" \
       --add-flags "-Dsun.java2d.xrender=true" \
       --add-flags "-Dswing.defaultlaf=com.formdev.flatlaf.FlatDarkLaf" \
-      --add-flags "-Dflatlaf.defaultFont=MonoLisa" \
+      --add-flags "-Dflatlaf.defaultFont=MonoLisaText" \
       --add-flags "-jar $out/share/malimite/${jarName}" \
       --run 'MALIMITE_HOME="$HOME/.local/share/malimite" && \
              mkdir -p "$MALIMITE_HOME" && \
