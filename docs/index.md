@@ -187,6 +187,8 @@
   - Scheduled upstream sync workflow installed in each flake-input fork, its conflict behavior, and the installer for adding new forks.
 - [reference/github-labels.md](reference/github-labels.md)
   - GitHub label taxonomy, application rules, and label-family reference for issues and pull requests.
+- [reference/iphone.md](reference/iphone.md)
+  - iPhone pairing, AFC and PTP file transfer, encrypted backups, and USB tethering through the usbmuxd/libimobiledevice stack.
 - [reference/local-mirrors.md](reference/local-mirrors.md)
   - List of repositories mirrored locally via `git-mirror` for offline access and patching.
 - [reference/mcp-tools.md](reference/mcp-tools.md)
