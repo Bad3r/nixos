@@ -55,15 +55,16 @@ path; use it for browsing, not bulk copies.
 ```sh
 mkdir -p ~/mnt/iphone
 ifuse ~/mnt/iphone
-rsync -av --progress ~/mnt/iphone/DCIM/ ~/Pictures/iphone/
+rsync -av --partial --progress ~/mnt/iphone/DCIM/ ~/Pictures/iphone/
 fusermount3 -u ~/mnt/iphone
 ```
 
 Expectations: AFC is protocol-bound at roughly 2-20 MB/s reads and
 often 1-2 MB/s writes, regardless of USB 2 or USB 3 hardware. Long
 imports can hit an AFC idle disconnect (known upstream
-libimobiledevice issue); remount and rerun rsync, which resumes where
-it stopped.
+libimobiledevice issue); remount and rerun rsync, which resumes the
+interrupted file rather than recopying it. `--partial` is what makes
+that true: without it rsync discards the in-flight temp file.
 
 ### Per-app documents
 
