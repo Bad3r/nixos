@@ -56,7 +56,7 @@ path; use it for browsing, not bulk copies.
 mkdir -p ~/mnt/iphone
 ifuse ~/mnt/iphone
 rsync -av --progress ~/mnt/iphone/DCIM/ ~/Pictures/iphone/
-fusermount -u ~/mnt/iphone
+fusermount3 -u ~/mnt/iphone
 ```
 
 Expectations: AFC is protocol-bound at roughly 2-20 MB/s reads and
