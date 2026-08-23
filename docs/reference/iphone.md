@@ -85,6 +85,13 @@ gphoto2 --new --get-all-files
 Keep the phone unlocked for the whole transfer and accept the
 photo-access prompt. HEIC/HEVC files transfer as-is.
 
+PTP goes through libusb rather than usbmuxd, so it needs libgphoto2's
+own udev rules. `modules/apps/gphoto2.nix` installs them and adds the
+owner to the `camera` group those rules hardcode. Neither `gvfs` nor
+`usbmuxd` supplies them. After the first `nixos-rebuild switch` that
+lands this, log out and back in; until the new group is in the
+session, every `gphoto2` device command fails as an ordinary user.
+
 ### Fast paths over the network
 
 - LocalSend (already enabled) works well for everyday-sized files in
@@ -156,9 +163,17 @@ access point.
   `idevicepair unpair && idevicepair pair`.
 - File manager shows app folders but no `DCIM`: trust is incomplete;
   unlock the phone and re-pair.
-- PTP listing fails after an iOS upgrade: stable libgphoto2 has a
-  known listing regression against iOS 27 betas (fixed upstream in
-  git); use the ifuse `DCIM` path until a release lands.
+- `gphoto2` fails on permissions for an ordinary user: the `camera`
+  group is not in the current session; log out and back in after the
+  rebuild that first installs the libgphoto2 udev rules.
+- `gphoto2` reports it cannot claim the USB device: gvfs's gphoto2
+  volume monitor holds the PTP port on detection, with or without a
+  mount; stop it and rerun the transfer with
+  `systemctl --user stop gvfs-gphoto2-volume-monitor.service`.
+- PTP listing fails after an iOS upgrade: libgphoto2 2.5.34 aborts
+  the folder listing with `GP_ERROR_FILE_EXISTS (-103)` on iOS 27
+  betas, which repeat PTP filenames (upstream libgphoto2 issue 1258,
+  open as of 2026-08); use the ifuse `DCIM` path meanwhile.
 - USBGuard is force-disabled in `modules/hosts/common/usbguard.nix`.
   If it is ever re-enabled, allow the device per
   `docs/usbguard/README.md` before usbmuxd can see it.

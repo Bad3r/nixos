@@ -19,6 +19,8 @@
   Notes:
     * Talks libgphoto2/libusb directly and does not use usbmuxd; the device must stay unlocked during transfers.
     * PTP access to iOS devices is read-only by design; deleting after transfer is the only write operation iOS permits.
+    * Installs libgphoto2's udev rules and adds the owner to the "camera" group they hardcode; neither gvfs nor usbmuxd supplies them, so without both the CLI only works as root. Group membership needs a fresh login.
+    * gvfs runs its own gphoto2 volume monitor against the same libgphoto2; only one process can claim the PTP port, so the monitor has to be stopped before a CLI transfer.
 */
 _:
 let
@@ -26,11 +28,13 @@ let
     {
       config,
       lib,
+      metaOwner,
       pkgs,
       ...
     }:
     let
       cfg = config.programs.gphoto2.extended;
+      owner = metaOwner.username or null;
     in
     {
       options.programs.gphoto2.extended = {
@@ -43,9 +47,30 @@ let
         package = lib.mkPackageOption pkgs "gphoto2" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
-      };
+      config = lib.mkIf cfg.enable (
+        lib.mkMerge [
+          {
+            assertions = [
+              {
+                assertion = owner != null;
+                message = "gphoto2 module: expected metaOwner.username to be defined";
+              }
+            ];
+
+            environment.systemPackages = [ cfg.package ];
+
+            # 40-libgphoto2.rules is generated with `print-camera-list udev-rules
+            # ... group camera` and carries no uaccess tag, so the group and its
+            # membership are both required for non-root PTP access.
+            services.udev.packages = [ pkgs.libgphoto2 ];
+            users.groups.camera = { };
+          }
+
+          (lib.mkIf (owner != null) {
+            users.users.${owner}.extraGroups = lib.mkAfter [ "camera" ];
+          })
+        ]
+      );
     };
 in
 {
