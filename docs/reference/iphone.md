@@ -85,12 +85,15 @@ gphoto2 --new --get-all-files
 Keep the phone unlocked for the whole transfer and accept the
 photo-access prompt. HEIC/HEVC files transfer as-is.
 
-PTP goes through libusb rather than usbmuxd, so it needs libgphoto2's
-own udev rules. `modules/apps/gphoto2.nix` installs them and adds the
-owner to the `camera` group those rules hardcode. Neither `gvfs` nor
-`usbmuxd` supplies them. After the first `nixos-rebuild switch` that
-lands this, log out and back in; until the new group is in the
-session, every `gphoto2` device command fails as an ordinary user.
+PTP goes through libusb rather than usbmuxd. A local seat session
+already reaches the device without any repo change: stock systemd
+`70-uaccess.rules` tags any USB device exposing the PTP interface
+class for `uaccess`, and `73-seat-late.rules` ACLs it to the active
+seat. `modules/apps/gphoto2.nix` installs libgphoto2's own rules on
+top, because they are the only source of the `ID_GPHOTO2` property
+gvfs keys on to offer the camera volume, and they group-gate the
+device to `camera`, which is the path for non-seat access such as
+SSH. That group reaches a session only at login.
 
 ### Fast paths over the network
 
@@ -174,9 +177,10 @@ access point.
   `idevicepair unpair && idevicepair pair`.
 - File manager shows app folders but no `DCIM`: trust is incomplete;
   unlock the phone and re-pair.
-- `gphoto2` fails on permissions for an ordinary user: the `camera`
-  group is not in the current session; log out and back in after the
-  rebuild that first installs the libgphoto2 udev rules.
+- `gphoto2` fails on permissions over SSH or from a unit: `uaccess`
+  ACLs the device to the active local seat only, and non-seat access
+  goes through the `camera` group, which reaches a session at login;
+  log in again after the switch that added it.
 - `gphoto2` reports it cannot claim the USB device: gvfs's gphoto2
   volume monitor holds the PTP port on detection, with or without a
   mount; stop it and rerun the transfer with

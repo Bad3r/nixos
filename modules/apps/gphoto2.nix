@@ -19,7 +19,7 @@
   Notes:
     * Talks libgphoto2/libusb directly and does not use usbmuxd; the device must stay unlocked during transfers.
     * PTP access to iOS devices is read-only by design; deleting after transfer is the only write operation iOS permits.
-    * Installs libgphoto2's udev rules and adds the owner to the "camera" group they hardcode; neither gvfs nor usbmuxd supplies them, so without both the CLI only works as root. Group membership needs a fresh login.
+    * Installs libgphoto2's udev rules, the only source of the ID_GPHOTO2 property gvfs keys on to offer the camera volume, and creates the "camera" group they hardcode. Stock systemd 70-uaccess.rules already ACLs PTP-class devices to the active local seat, so the group grant covers non-seat access such as SSH, and only that path needs a fresh login.
     * gvfs runs its own gphoto2 volume monitor against the same libgphoto2; only one process can claim the PTP port, so the monitor has to be stopped before a CLI transfer.
 */
 _:
@@ -59,9 +59,10 @@ let
 
             environment.systemPackages = [ cfg.package ];
 
-            # 40-libgphoto2.rules is generated with `print-camera-list udev-rules
-            # ... group camera` and carries no uaccess tag, so the group and its
-            # membership are both required for non-root PTP access.
+            # The shipped rules set ID_GPHOTO2, which gvfs keys on to offer the
+            # camera volume, and group-gate the device to "camera". Stock
+            # 70-uaccess.rules already ACLs PTP-class devices to the active
+            # seat, so the group covers non-seat access only.
             services.udev.packages = [ pkgs.libgphoto2 ];
             users.groups.camera = { };
           }
