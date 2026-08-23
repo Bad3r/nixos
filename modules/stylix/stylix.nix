@@ -11,18 +11,23 @@ let
     polarity = lib.mkDefault "dark";
   };
 
-  monoLisaFonts = pkgs: popupSize: {
+  # Shared stylix font set for the NixOS and Home Manager scopes. MonoLisa v3
+  # installs through the hosts-common encrypted-archive pipeline, not a
+  # nixpkgs package, so the package attrs stay empty. Keeping both scopes on
+  # the same set makes stylix's fontconfig defaultFonts injection (mkOrder
+  # 600) agree with the hosts-common lists instead of prepending DejaVu.
+  monoLisaFonts = pkgs: {
     sansSerif = lib.mkDefault {
       package = pkgs.emptyDirectory;
-      name = "MonoLisa";
+      name = "MonoLisaText";
     };
     serif = lib.mkDefault {
       package = pkgs.emptyDirectory;
-      name = "MonoLisa";
+      name = "MonoLisaText";
     };
     monospace = {
       package = pkgs.emptyDirectory;
-      name = "MonoLisa";
+      name = "MonoLisaCode";
     };
     emoji = {
       package = pkgs.noto-fonts-color-emoji;
@@ -31,7 +36,7 @@ let
     sizes = {
       applications = 11;
       desktop = 12;
-      popups = popupSize;
+      popups = 11;
       terminal = 12;
     };
   };
@@ -39,53 +44,62 @@ in
 {
   flake = {
     nixosModules = {
-      base = {
-        imports = [ inputs.stylix.nixosModules.stylix ];
-        stylix = baseTheme // {
-          homeManagerIntegration.autoImport = false;
-          targets = {
-            gnome.enable = false;
-            regreet.enable = false;
-            # Enable Chromium theming (applies to Google Chrome via browser policies)
-            chromium.enable = true;
-            # The NixOS-scope target only enables a nixpkgs overlay that
-            # patches gtksourceview 2/3/4/5 with the generated color scheme.
-            # The hash change forces gtksourceview and every consumer
-            # (planify, inkscape, ...) to rebuild from source on each nixpkgs
-            # bump. The Home Manager target ships the same scheme as
-            # user-scope data files, keeping the theming without rebuilds.
-            gtksourceview.enable = false;
+      base =
+        { pkgs, ... }:
+        {
+          imports = [ inputs.stylix.nixosModules.stylix ];
+          stylix = baseTheme // {
+            fonts = monoLisaFonts pkgs;
+            homeManagerIntegration.autoImport = false;
+            targets = {
+              gnome.enable = false;
+              regreet.enable = false;
+              # Both hosts boot systemd-boot; keep the grub target off so it
+              # can never run grub-mkfont against the empty font packages.
+              grub.enable = false;
+              # Enable Chromium theming (applies to Google Chrome via browser policies)
+              chromium.enable = true;
+              # The NixOS-scope target only enables a nixpkgs overlay that
+              # patches gtksourceview 2/3/4/5 with the generated color scheme.
+              # The hash change forces gtksourceview and every consumer
+              # (planify, inkscape, ...) to rebuild from source on each nixpkgs
+              # bump. The Home Manager target ships the same scheme as
+              # user-scope data files, keeping the theming without rebuilds.
+              gtksourceview.enable = false;
+            };
           };
         };
-      };
 
       # end of nixosModules
     };
 
     homeManagerModules = {
-      base = {
-        imports = [ inputs.stylix.homeModules.stylix ];
-        # Stylix's nixvim home-manager target adds a back-compat setter
-        # `lib.stylix.nixvim.config = ... config.stylix.targets.nixvim.exportedModule`
-        # whose value graph reaches `cfg.enable`, defined as
-        # `config.lib.stylix.mkEnableTargetWith ...`. Evaluating
-        # `home-manager.users.<u>.lib` therefore loops through itself.
-        # Targets under modules/neovim/ (neovim, neovide, nixvim, nvf, vim) are
-        # all unused in this configuration (nixvim theming uses onedark.nvim),
-        # so disabling the whole hm.nix target group is safe and breaks the
-        # cycle without losing functionality.
-        disabledModules = [ "${inputs.stylix}/modules/neovim/hm.nix" ];
-        stylix = baseTheme // {
-          overlays.enable = false;
-          targets = {
-            kde.enable = false;
-            gnome.enable = false;
-            sway.enable = false;
-            river.enable = false;
-            swaylock.enable = false;
+      base =
+        { pkgs, ... }:
+        {
+          imports = [ inputs.stylix.homeModules.stylix ];
+          # Stylix's nixvim home-manager target adds a back-compat setter
+          # `lib.stylix.nixvim.config = ... config.stylix.targets.nixvim.exportedModule`
+          # whose value graph reaches `cfg.enable`, defined as
+          # `config.lib.stylix.mkEnableTargetWith ...`. Evaluating
+          # `home-manager.users.<u>.lib` therefore loops through itself.
+          # Targets under modules/neovim/ (neovim, neovide, nixvim, nvf, vim) are
+          # all unused in this configuration (nixvim theming uses onedark.nvim),
+          # so disabling the whole hm.nix target group is safe and breaks the
+          # cycle without losing functionality.
+          disabledModules = [ "${inputs.stylix}/modules/neovim/hm.nix" ];
+          stylix = baseTheme // {
+            fonts = monoLisaFonts pkgs;
+            overlays.enable = false;
+            targets = {
+              kde.enable = false;
+              gnome.enable = false;
+              sway.enable = false;
+              river.enable = false;
+              swaylock.enable = false;
+            };
           };
         };
-      };
 
       apps.stylix-gui =
         {
@@ -249,9 +263,6 @@ in
           stylix = {
             # Opacity settings for GUI applications
             opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (_n: 1.0);
-
-            # Font configuration for GUI applications
-            fonts = monoLisaFonts pkgs 11;
 
             # Icon theme configuration
             icons = {
