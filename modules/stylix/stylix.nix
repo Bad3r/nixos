@@ -16,6 +16,8 @@ let
   # nixpkgs package, so the package attrs stay empty. Keeping both scopes on
   # the same set makes stylix's fontconfig defaultFonts injection (mkOrder
   # 600) agree with the hosts-common lists instead of prepending DejaVu.
+  # All four families carry the same mkDefault priority as the baseTheme
+  # values, so a host re-picks any one of them without reaching for mkForce.
   monoLisaFonts = pkgs: {
     sansSerif = lib.mkDefault {
       package = pkgs.emptyDirectory;
@@ -25,11 +27,11 @@ let
       package = pkgs.emptyDirectory;
       name = "MonoLisaText";
     };
-    monospace = {
+    monospace = lib.mkDefault {
       package = pkgs.emptyDirectory;
       name = "MonoLisaCode";
     };
-    emoji = {
+    emoji = lib.mkDefault {
       package = pkgs.noto-fonts-color-emoji;
       name = "Noto Color Emoji";
     };
