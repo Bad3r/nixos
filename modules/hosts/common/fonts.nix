@@ -1,7 +1,9 @@
 # Shared font stack plus the MonoLisa secret-font install pipeline. The
-# install path activates only when the encrypted archive exists and the host
-# registry sets sopsRuntimeReady. Hosts append fontconfig rules through the
-# host.fontconfig.extraRules option declared here.
+# encrypted archive ships MonoLisa v3 as two variable families under
+# monolisa/{code,text}: MonoLisaCode (monospace) and MonoLisaText
+# (proportional). The install path activates only when the encrypted archive
+# exists and the host registry sets sopsRuntimeReady. Hosts append fontconfig
+# rules through the host.fontconfig.extraRules option declared here.
 {
   config,
   lib,
@@ -16,6 +18,21 @@ let
   secretRuntimePath = "/run/secrets/fonts/monolisa.archive";
   fontInstallDir = "/var/lib/fonts/monolisa";
   hostsRegistry = config.flake.lib.nixos.hosts or { };
+
+  # Symbol and icon fallbacks appended after the primary family; the
+  # monospace list prefers the Mono variant so glyphs keep cell width.
+  symbolFallback = [
+    "Symbols Nerd Font"
+    "Symbols Nerd Font Mono"
+    "Font Awesome 6 Free"
+    "Font Awesome 6 Brands"
+  ];
+  monoSymbolFallback = [
+    "Symbols Nerd Font Mono"
+    "Symbols Nerd Font"
+    "Font Awesome 6 Free"
+    "Font Awesome 6 Brands"
+  ];
 
   body =
     {
@@ -55,27 +72,9 @@ let
 
             fontconfig = {
               defaultFonts = {
-                serif = [
-                  "MonoLisa"
-                  "Symbols Nerd Font"
-                  "Symbols Nerd Font Mono"
-                  "Font Awesome 6 Free"
-                  "Font Awesome 6 Brands"
-                ];
-                sansSerif = [
-                  "MonoLisa"
-                  "Symbols Nerd Font"
-                  "Symbols Nerd Font Mono"
-                  "Font Awesome 6 Free"
-                  "Font Awesome 6 Brands"
-                ];
-                monospace = [
-                  "MonoLisa"
-                  "Symbols Nerd Font Mono"
-                  "Symbols Nerd Font"
-                  "Font Awesome 6 Free"
-                  "Font Awesome 6 Brands"
-                ];
+                serif = [ "MonoLisaText" ] ++ symbolFallback;
+                sansSerif = [ "MonoLisaText" ] ++ symbolFallback;
+                monospace = [ "MonoLisaCode" ] ++ monoSymbolFallback;
                 emoji = [
                   "Noto Color Emoji"
                   "Symbols Nerd Font"
@@ -110,7 +109,7 @@ let
           ];
 
           systemd.services.monolisa-fonts = {
-            description = "Install MonoLisa fonts from encrypted archive";
+            description = "Install MonoLisa font families from encrypted archive";
             wantedBy = [ "multi-user.target" ];
             after = installSecretsDeps;
             requires = installSecretsDeps;
@@ -139,6 +138,13 @@ let
               trap 'rm -rf "$tmpdir"' EXIT
 
               tar -C "$tmpdir" --strip-components=1 -I zstd -xf "${secretRuntimePath}"
+
+              # Refuse to wipe the installed families for an archive that
+              # extracted without any font payload.
+              if [ -z "$(find "$tmpdir" -type f -name '*.ttf' -print -quit)" ]; then
+                echo "MonoLisa archive extracted with no TTF payload" >&2
+                exit 1
+              fi
 
               install -d -m 0755 "${fontInstallDir}"
               find "${fontInstallDir}" -mindepth 1 -exec rm -rf {} +
