@@ -536,6 +536,7 @@ let
       pcscd.extended.enable = lib.mkOverride 1100 true;
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
       thinkfan.extended.enable = lib.mkOverride 1100 false;
+      usbmuxd.extended.enable = lib.mkOverride 1100 true;
     };
   };
 in
