@@ -130,12 +130,23 @@ sha256sum huge.zip.part-* > SHA256SUMS
 ```sh
 idevicebackup2 encryption on
 idevicebackup2 backup --full ~/backups/iphone
-idevicebackup2 restore --system --settings ~/backups/iphone
 ```
 
 Prefer encrypted backups: they include health and keychain data that
 unencrypted backups omit. The `list` subcommand is broken upstream.
 Full backups of a large phone take hours at AFC-class throughput.
+`backup --full` updates the existing set under `<dir>/<udid>/` in
+place rather than writing a new dated copy.
+
+NOTE: `restore --system --settings` overwrites the phone's current
+system files and settings from this backup and reboots the device
+when done; upstream reboots unless `--no-reboot` is passed. Run it
+only as a deliberate, separate step, never pasted with the backup
+above.
+
+```sh
+idevicebackup2 restore --system --settings ~/backups/iphone
+```
 
 `pymobiledevice3` is the actively developed alternative, including
 selective backups:

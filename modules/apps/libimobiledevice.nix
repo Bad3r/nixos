@@ -13,7 +13,7 @@
     idevicepair pair: Establish trust with a connected device; run again after accepting the on-device dialog.
     ideviceinfo: Print device identity, iOS version, and lockdown properties.
     idevicebackup2 backup --full <dir>: Create a full backup; "encryption on" first enables encrypted backups.
-    idevicebackup2 restore <dir>: Restore a previously created backup.
+    idevicebackup2 restore <dir>: Restore a previously created backup; --system --settings overwrites device settings and reboots unless --no-reboot is passed.
     afcclient: Interactive AFC shell for the media filesystem; --documents <appid> targets an app sandbox.
     idevicesyslog: Stream the device syslog.
 
