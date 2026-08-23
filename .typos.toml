@@ -29,6 +29,7 @@ crypted = "crypted"           # LUKS device mapper name
 wdth = "wdth"                 # CSS font-variation-settings property
 substituters = "substituters" # nix substituters
 ANC = "ANC"                   # Active Noise Cancellation (AirPods)
+udid = "udid"                 # Apple Unique Device Identifier (ifuse -u, idevicepair)
 # Hashes/keys (extend-ignore-re should catch most, but explicit for safety)
 "981DE78A201C2B735FF0B545A3967CCA47D5275F" = "981DE78A201C2B735FF0B545A3967CCA47D5275F"
 
