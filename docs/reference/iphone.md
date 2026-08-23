@@ -87,10 +87,36 @@ photo-access prompt. HEIC/HEVC files transfer as-is.
 
 ### Fast paths over the network
 
-- LocalSend (already enabled) transfers both directions and usually
-  beats USB AFC for large pushes.
+- LocalSend (already enabled) works well for everyday-sized files in
+  both directions, but it has no transfer resume and fails outright
+  on 100 GiB-class archives (observed with a 120 GiB zip). Do not
+  use it for very large files.
 - The iOS Files app has a built-in SMB client (Connect to Server)
   that mounts any LAN SMB share at Wi-Fi speed.
+
+### Very large files (tens of GiB and up)
+
+No iOS transport moves a 100 GiB-class file reliably in one piece:
+LocalSend fails, Files-app SMB copies cannot resume, and iOS
+suspends app-driven transfers when the screen locks. Chunk first;
+then any transport works and every failure is retryable per part:
+
+```sh
+split -b 4G huge.zip huge.zip.part-
+sha256sum huge.zip.part-* > SHA256SUMS
+# after transfer: sha256sum -c SHA256SUMS && cat huge.zip.part-* > huge.zip
+```
+
+- Phone to computer over USB: `ifuse` plus
+  `rsync --partial --progress` resumes across AFC idle disconnects
+  (remount and rerun).
+- Either direction over Wi-Fi: copy the parts through the SMB share
+  with the phone kept awake, or run an SFTP/WebDAV server app on the
+  phone and drive the copy with rclone from the computer, which
+  retries per chunk.
+- Computer to phone over USB is the worst case: AFC writes run at
+  1-2 MB/s, roughly a day for 100 GiB. Prefer a network path in that
+  direction.
 
 ## Backup
 
