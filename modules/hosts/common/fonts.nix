@@ -166,12 +166,16 @@ let
               done
 
               staging="${fontInstallDir}.new"
-              # Roll the rotated tree back before cleaning: a signal landing
-              # between the two mv calls below would otherwise leave the live
-              # path absent with the only copy parked at .old.
+              # Roll the rotated tree back before cleaning, so an interrupted
+              # swap cannot leave the families stranded at .old. The test is
+              # emptiness rather than existence, because the tmpfiles rule above
+              # recreates the live path as an empty directory on every boot, and
+              # the empty live path is cleared first so the mv lands on it
+              # instead of nesting inside it.
               cleanup() {
                 rm -rf "$tmpdir" "$staging"
-                if [ ! -e "${fontInstallDir}" ] && [ -d "${fontInstallDir}.old" ]; then
+                if [ -d "${fontInstallDir}.old" ] && [ -z "$(find "${fontInstallDir}" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+                  rm -rf "${fontInstallDir}"
                   mv "${fontInstallDir}.old" "${fontInstallDir}"
                 fi
                 rm -rf "${fontInstallDir}.old"
