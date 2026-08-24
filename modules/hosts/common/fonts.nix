@@ -155,9 +155,9 @@ let
 
               tar -C "$tmpdir" --strip-components=1 -I zstd -xf "${secretRuntimePath}"
 
-              # Refuse to wipe the installed families unless the archive
-              # carries a payload for each one. A repack missing a single
-              # family would otherwise pass, wipe both, and restore one.
+              # Refuse to install unless the archive carries a payload for each
+              # family. A repack missing one would otherwise swap in a tree
+              # without it and then drop the .old copy that still had it.
               for family in code text; do
                 if [ -z "$(find "$tmpdir/$family" -type f \( -iname '*.ttf' -o -iname '*.otf' \) -print -quit 2>/dev/null)" ]; then
                   echo "MonoLisa archive extracted with no font payload under $family/" >&2
@@ -166,6 +166,7 @@ let
               done
 
               staging="${fontInstallDir}.new"
+              trap 'rm -rf "$tmpdir" "$staging"' EXIT
               rm -rf "$staging"
               install -d -m 0755 "$staging"
               cp -R "$tmpdir"/. "$staging/"
