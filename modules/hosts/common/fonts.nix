@@ -166,7 +166,17 @@ let
               done
 
               staging="${fontInstallDir}.new"
-              trap 'rm -rf "$tmpdir" "$staging"' EXIT
+              # Roll the rotated tree back before cleaning: a signal landing
+              # between the two mv calls below would otherwise leave the live
+              # path absent with the only copy parked at .old.
+              cleanup() {
+                rm -rf "$tmpdir" "$staging"
+                if [ ! -e "${fontInstallDir}" ] && [ -d "${fontInstallDir}.old" ]; then
+                  mv "${fontInstallDir}.old" "${fontInstallDir}"
+                fi
+                rm -rf "${fontInstallDir}.old"
+              }
+              trap cleanup EXIT
               rm -rf "$staging"
               install -d -m 0755 "$staging"
               cp -R "$tmpdir"/. "$staging/"
