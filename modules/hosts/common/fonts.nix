@@ -165,14 +165,18 @@ let
                 fi
               done
 
-              install -d -m 0755 "${fontInstallDir}"
-              find "${fontInstallDir}" -mindepth 1 -exec rm -rf {} +
-
-              cp -R "$tmpdir"/. "${fontInstallDir}/"
-
-              find "${fontInstallDir}" -type d -exec chmod 0755 {} +
-              find "${fontInstallDir}" -type f -exec chmod 0644 {} +
-
+              staging="${fontInstallDir}.new"
+              rm -rf "$staging"
+              install -d -m 0755 "$staging"
+              cp -R "$tmpdir"/. "$staging/"
+              find "$staging" -type d -exec chmod 0755 {} +
+              find "$staging" -type f -exec chmod 0644 {} +
+              rm -rf "${fontInstallDir}.old"
+              if [ -d "${fontInstallDir}" ]; then
+                mv "${fontInstallDir}" "${fontInstallDir}.old"
+              fi
+              mv "$staging" "${fontInstallDir}"
+              rm -rf "${fontInstallDir}.old"
               fc-cache -f "${fontInstallDir}"
             '';
           };
