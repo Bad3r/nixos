@@ -192,6 +192,7 @@ let
       gowitness.extended.enable = lib.mkOverride 1100 true;
       gparted.extended.enable = lib.mkOverride 1100 true;
       "gpg-tui".extended.enable = lib.mkOverride 1100 true;
+      gphoto2.extended.enable = lib.mkOverride 1100 true;
       greenclip.extended.enable = lib.mkOverride 1100 true;
       gwenview.extended.enable = lib.mkOverride 1100 false;
       gzip.extended.enable = lib.mkOverride 1100 true;
@@ -212,6 +213,7 @@ let
       "i3status-rust".extended.enable = lib.mkOverride 1100 true;
       i7z.extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
+      ifuse.extended.enable = lib.mkOverride 1100 true;
       inkscape.extended.enable = lib.mkOverride 1100 false;
       intelephense.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
@@ -238,6 +240,7 @@ let
       lazyjournal.extended.enable = lib.mkOverride 1100 true;
       leiningen.extended.enable = lib.mkOverride 1100 false;
       less.extended.enable = lib.mkOverride 1100 true;
+      libimobiledevice.extended.enable = lib.mkOverride 1100 true;
       libnotify.extended.enable = lib.mkOverride 1100 true;
       librsvg.extended.enable = lib.mkOverride 1100 true;
       libreoffice.extended.enable = lib.mkOverride 1100 true;
@@ -536,6 +539,7 @@ let
       pcscd.extended.enable = lib.mkOverride 1100 true;
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
       thinkfan.extended.enable = lib.mkOverride 1100 false;
+      usbmuxd.extended.enable = lib.mkOverride 1100 true;
     };
   };
 in
