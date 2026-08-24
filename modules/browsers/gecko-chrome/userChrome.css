@@ -1,28 +1,3 @@
-/*
-#Font Settings * {
-	font-family: "MonoLisa Variable" !important;
-	font-variation-settings: "wght" 500 !important;
-	font-feature-settings:
-		"ss01" 1,
-		"ss02" 1,
-		"ss07" 1,
-		"ss08" 1,
-		"ss10" 1,
-		"ss11" 1,
-		"ss15" 1,
-		"ss16" 1,
-		"ss17" 1,
-		"zero" 1,
-		"liga" 1,
-		"calt" 1,
-		"frac" 1,
-		"rlig" 1,
-		"rvrn" 1 !important;
-	line-height: 1.4 !important;
-	font-size: 12px !important;
-}
-*/
-
 /* Hide Tab Toolbar */
 :root {
 	--uc-window-control-width: 0px; /* Space reserved for window controls regular 138px */

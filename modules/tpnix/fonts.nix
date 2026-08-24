@@ -1,6 +1,7 @@
 _: {
   configurations.nixos.tpnix.module = {
-    # Prefer Arabic-capable Noto faces ahead of MonoLisa for Arabic text.
+    # Prefer Arabic-capable Noto faces ahead of the MonoLisa families for
+    # Arabic text.
     host.fontconfig.extraRules = ''
       <match target="pattern">
         <test name="lang" compare="contains">
