@@ -58,6 +58,9 @@ stdenv.mkDerivation {
     # Create wrapper script that sets up writable working directory
     # Malimite needs to write to malimite.properties and expects DecompilerBridge in cwd
     # Always regenerate config from template to ensure Ghidra path is current
+    # No font flag: FlatSystemProperties reads no defaultFont property, so one is
+    # inert, and the decompiler pane is an RSyntaxTextArea, whose UI delegate
+    # discards any look-and-feel font for its own monospaced default.
     makeWrapper ${temurin-bin-21}/bin/java $out/bin/malimite \
       --add-flags "-Xms2G" \
       --add-flags "-Xmx8G" \
@@ -75,7 +78,6 @@ stdenv.mkDerivation {
       --add-flags "-Dawt.useSystemAAFontSettings=on" \
       --add-flags "-Dsun.java2d.xrender=true" \
       --add-flags "-Dswing.defaultlaf=com.formdev.flatlaf.FlatDarkLaf" \
-      --add-flags "-Dflatlaf.defaultFont=MonoLisaText" \
       --add-flags "-jar $out/share/malimite/${jarName}" \
       --run 'MALIMITE_HOME="$HOME/.local/share/malimite" && \
              mkdir -p "$MALIMITE_HOME" && \
