@@ -35,7 +35,7 @@ let
       package = pkgs.noto-fonts-color-emoji;
       name = "Noto Color Emoji";
     };
-    sizes = {
+    sizes = lib.mkDefault {
       applications = 11;
       desktop = 12;
       popups = 11;

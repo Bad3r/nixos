@@ -32,8 +32,8 @@
 ;; MonoLisa v3 ships a monospace (Code) and a proportional (Text) family
 ;; through the encrypted-archive font pipeline; pair them so variable-pitch
 ;; faces get the proportional cut.
-(setq doom-font (font-spec :family "MonoLisaCode" :size 12)
-      doom-variable-pitch-font (font-spec :family "MonoLisaText" :size 12))
+(setq doom-font (font-spec :family "MonoLisaCode" :size 12.0)
+      doom-variable-pitch-font (font-spec :family "MonoLisaText" :size 12.0))
 
 ;; There are two ways to load a theme. Both assume the theme is installed and
 ;; available. You can either set `doom-theme' or manually load a theme with the
