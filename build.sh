@@ -482,30 +482,80 @@ sync_pre_commit_hooks() {
   )
 }
 
-check_reboot_needed() {
-  local booted_system current_system
-  booted_system="$(readlink -f /run/booted-system 2>/dev/null || true)"
-  current_system="$(readlink -f /run/current-system 2>/dev/null || true)"
+# Renders the JSON report from scripts/check-kernel-reboot-required.sh. Reading
+# fields by name is what the JSON default buys over scraping the --text form;
+# jq reaches every host through modules/development/json-tools.nix.
+print_kernel_report_details() {
+  local report="$1"
+  local rendered=""
 
-  if [[ -z ${booted_system} || -z ${current_system} ]]; then
-    status_msg "${YELLOW}" "Unable to resolve /run/booted-system or /run/current-system; skipping reboot check."
+  # In the `if !` condition rather than a process substitution: an unparsable
+  # report fails jq, and from a substitution that reaches the inherited ERR
+  # trap, which prints a stack trace for a case handled two lines below. jq's
+  # own diagnostic still reaches stderr either way.
+  if ! rendered="$(jq -r '
+    if .reboot_required == null then
+      "Reason: " + (.error // "the kernel state could not be read")
+    else
+      "Running:   " + .running_kernel,
+      "Booted:    " + .booted.kernel,
+      "Activated: " + .activated.kernel
+    end' <<<"${report}")" || [[ -z ${rendered} ]]; then
+    # jq is absent, or the report is not the shape this expects. Print what the
+    # script produced rather than nothing, so a broken contract stays visible
+    # instead of reading as a report that simply carried no details.
+    printf "    - report could not be parsed; raw output follows\n"
+    printf '%s\n' "${report}" | sed 's/^/      /'
     return 0
   fi
 
-  if [[ ${booted_system} != "${current_system}" ]]; then
-    printf "\n"
-    status_msg "${YELLOW}" "Reboot recommended to apply changes: booted generation differs from current generation."
-    printf "    - Booted: %s\n" "${booted_system}"
-    printf "    - Current: %s\n" "${current_system}"
-    if command -v notify-send >/dev/null 2>&1; then
-      notify-send \
-        --urgency=normal \
-        --app-name="NixOS Build" \
-        --icon="${HOME}/.local/share/icons/Ant-Dark/apps/scalable/system-reboot.svg" \
-        --category=system \
-        "Reboot Recommended" \
-        "Booted generation differs from current generation." 2>/dev/null || true
-    fi
+  local line
+  while IFS= read -r line; do
+    printf "    - %s\n" "${line}"
+  done <<<"${rendered}"
+}
+
+check_kernel_reboot_required() {
+  # Resolved against this script rather than FLAKE_DIR, the way the libraries
+  # sourced above and scripts/cache-coverage.sh are: -p can point the build at
+  # another flake, while the kernel state reported here is always this host's.
+  local check_script
+  check_script="$(dirname "$(readlink -f "${BASH_SOURCE[0]}")")/scripts/check-kernel-reboot-required.sh"
+
+  if [[ ! -x ${check_script} ]]; then
+    status_msg "${YELLOW}" "Kernel reboot check skipped: ${check_script} is missing or not executable."
+    return 0
+  fi
+
+  # Captured through || so the ERR trap stays out of it: exit 1 is the script's
+  # "reboot required" verdict and exit 2 its "cannot tell", both outcomes of a
+  # switch that already succeeded rather than failures of one. Its stderr is
+  # left attached so an exit 2 names its own cause.
+  local report="" rc=0
+  report="$("${check_script}" --json)" || rc=$?
+
+  printf "\n"
+  case "${rc}" in
+  0)
+    status_msg "${GREEN}" "Kernel reboot required: no"
+    ;;
+  1)
+    status_msg "${RED}" "Kernel reboot required: yes"
+    ;;
+  *)
+    status_msg "${YELLOW}" "Kernel reboot required: unknown"
+    ;;
+  esac
+  print_kernel_report_details "${report}"
+
+  if [[ ${rc} -eq 1 ]] && command -v notify-send >/dev/null 2>&1; then
+    notify-send \
+      --urgency=normal \
+      --app-name="NixOS Build" \
+      --icon="${HOME}/.local/share/icons/Ant-Dark/apps/scalable/system-reboot.svg" \
+      --category=system \
+      "Reboot Required" \
+      "The activated kernel differs from the booted kernel." 2>/dev/null || true
   fi
 }
 
@@ -663,7 +713,7 @@ main() {
       else
         status_msg "${YELLOW}" "Skipping firmware updates (--skip-firmware flag used)..."
       fi
-      check_reboot_needed
+      check_kernel_reboot_required
     else
       status_msg "${GREEN}" "Generation installed. It will become active on next reboot."
     fi

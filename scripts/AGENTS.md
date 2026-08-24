@@ -67,6 +67,18 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   helpers instead of duplicating HTTP, hash, Nix, npm, or version parsing logic.
   Nix invocations must use spellings Lix implements: `nix hash to-sri`, not the
   CppNix-only `nix hash convert`.
+- `check-kernel-reboot-required.sh`: compares the activated and booted kernel
+  images and module trees. `build.sh` runs it after a successful switch and
+  colors one yes/no/unknown line from its exit status (0 none pending, 1 pending,
+  2 could not tell), then renders detail lines out of the default JSON report, so
+  the key names are a contract between the two files rather than presentation.
+  `--text` renders the same data for a human. A run that exits 2 still writes
+  JSON, carrying `reboot_required: null` and `error`, so a caller reading stdout
+  gets the cause instead of an empty document; only an argument error writes
+  usage to stderr alone. `die` is therefore reached from the main shell only:
+  the helpers assign through a caller-named variable rather than stdout,
+  because from a command substitution that exit would end the subshell and the
+  JSON body would land in the variable being assigned.
 - `prune-stale-worktrees.sh`: prunes branches with gone upstreams and their
   worktrees; wrapped by the `worktree-prune` Home Manager timer. Tests live in
   `tests/prune-stale-worktrees/run.sh`; see `docs/reference/worktree-prune.md`.
