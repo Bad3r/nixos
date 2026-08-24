@@ -342,7 +342,9 @@ in
                 );
 
             kitty = {
-              settings.font_size = 12;
+              # Track the shared terminal size so a host re-picking
+              # stylix.fonts.sizes.terminal is not silently overridden here.
+              settings.font_size = config.stylix.fonts.sizes.terminal;
               extraConfig = "modify_font cell_height 100%";
             };
           };
