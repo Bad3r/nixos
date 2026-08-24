@@ -165,6 +165,19 @@ let
                 fi
               done
 
+              # The family strings are the contract between this archive and every
+              # consumer: the generic classes above, the stylix font set, the gecko
+              # profile, and the Doom font-specs. Nothing else checks them, so a
+              # repack whose name tables disagree would drop the whole stack to the
+              # Noto and Liberation fallbacks without failing anything.
+              extractedFamilies="$(find "$tmpdir" -type f \( -iname '*.ttf' -o -iname '*.otf' \) -exec fc-query -f '%{family}\n' {} +)"
+              for wanted in MonoLisaCode MonoLisaText; do
+                if [[ "$extractedFamilies" != *"$wanted"* ]]; then
+                  echo "no extracted face declares the family $wanted" >&2
+                  exit 1
+                fi
+              done
+
               staging="${fontInstallDir}.new"
               # Roll the rotated tree back before cleaning, so an interrupted
               # swap cannot leave the families stranded at .old. The test is
