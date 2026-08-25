@@ -206,8 +206,8 @@ load-bearing ones.
   signing).
 - `modules/services/duplicati-r2.nix`: declarative Duplicati backups to Cloudflare
   R2 with runtime-materialized systemd timers.
-- `modules/stylix/stylix.nix`: central theming (OneDark base16, MonoLisa,
-  GTK/Qt/Firefox/mpv).
+- `modules/stylix/stylix.nix`: central theming (OneDark base16, MonoLisaCode
+  for monospace plus MonoLisaText for UI text, GTK/Qt/Firefox/mpv).
 - `modules/csec/wordlists.nix`: opt-in Kali-style `/usr/share/wordlists` symlinks.
 
 ### AI Agents Configuration

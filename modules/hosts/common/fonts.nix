@@ -1,7 +1,9 @@
 # Shared font stack plus the MonoLisa secret-font install pipeline. The
-# install path activates only when the encrypted archive exists and the host
-# registry sets sopsRuntimeReady. Hosts append fontconfig rules through the
-# host.fontconfig.extraRules option declared here.
+# encrypted archive ships MonoLisa v3 as two variable families under
+# monolisa/{code,text}: MonoLisaCode (monospace) and MonoLisaText
+# (proportional). The install path activates only when the encrypted archive
+# exists and the host registry sets sopsRuntimeReady. Hosts append fontconfig
+# rules through the host.fontconfig.extraRules option declared here.
 {
   config,
   lib,
@@ -16,6 +18,25 @@ let
   secretRuntimePath = "/run/secrets/fonts/monolisa.archive";
   fontInstallDir = "/var/lib/fonts/monolisa";
   hostsRegistry = config.flake.lib.nixos.hosts or { };
+
+  # Symbol and icon fallbacks appended after the primary family; the
+  # monospace list prefers the Mono variant so glyphs keep cell width.
+  # Every generic class keeps a real text face ahead of these: the MonoLisa
+  # families only exist once monolisa-fonts.service has installed the archive,
+  # and with an icon-only face next in line `fc-match sans-serif:lang=en`
+  # resolves to Symbols Nerd Font, which carries no Latin coverage.
+  symbolFallback = [
+    "Symbols Nerd Font"
+    "Symbols Nerd Font Mono"
+    "Font Awesome 6 Free"
+    "Font Awesome 6 Brands"
+  ];
+  monoSymbolFallback = [
+    "Symbols Nerd Font Mono"
+    "Symbols Nerd Font"
+    "Font Awesome 6 Free"
+    "Font Awesome 6 Brands"
+  ];
 
   body =
     {
@@ -56,26 +77,20 @@ let
             fontconfig = {
               defaultFonts = {
                 serif = [
-                  "MonoLisa"
-                  "Symbols Nerd Font"
-                  "Symbols Nerd Font Mono"
-                  "Font Awesome 6 Free"
-                  "Font Awesome 6 Brands"
-                ];
+                  "MonoLisaText"
+                  "Noto Serif"
+                ]
+                ++ symbolFallback;
                 sansSerif = [
-                  "MonoLisa"
-                  "Symbols Nerd Font"
-                  "Symbols Nerd Font Mono"
-                  "Font Awesome 6 Free"
-                  "Font Awesome 6 Brands"
-                ];
+                  "MonoLisaText"
+                  "Noto Sans"
+                ]
+                ++ symbolFallback;
                 monospace = [
-                  "MonoLisa"
-                  "Symbols Nerd Font Mono"
-                  "Symbols Nerd Font"
-                  "Font Awesome 6 Free"
-                  "Font Awesome 6 Brands"
-                ];
+                  "MonoLisaCode"
+                  "Liberation Mono"
+                ]
+                ++ monoSymbolFallback;
                 emoji = [
                   "Noto Color Emoji"
                   "Symbols Nerd Font"
@@ -110,7 +125,7 @@ let
           ];
 
           systemd.services.monolisa-fonts = {
-            description = "Install MonoLisa fonts from encrypted archive";
+            description = "Install MonoLisa font families from encrypted archive";
             wantedBy = [ "multi-user.target" ];
             after = installSecretsDeps;
             requires = installSecretsDeps;
@@ -140,14 +155,56 @@ let
 
               tar -C "$tmpdir" --strip-components=1 -I zstd -xf "${secretRuntimePath}"
 
-              install -d -m 0755 "${fontInstallDir}"
-              find "${fontInstallDir}" -mindepth 1 -exec rm -rf {} +
+              # Refuse to install unless the archive carries a payload for each
+              # family. A repack missing one would otherwise swap in a tree
+              # without it and then drop the .old copy that still had it.
+              for family in code text; do
+                if [ -z "$(find "$tmpdir/$family" -type f \( -iname '*.ttf' -o -iname '*.otf' \) -print -quit 2>/dev/null)" ]; then
+                  echo "MonoLisa archive extracted with no font payload under $family/" >&2
+                  exit 1
+                fi
+              done
 
-              cp -R "$tmpdir"/. "${fontInstallDir}/"
+              # The family strings are the contract between this archive and every
+              # consumer: the generic classes above, the stylix font set, the gecko
+              # profile, and the Doom font-specs. Nothing else checks them, so a
+              # repack whose name tables disagree would drop the whole stack to the
+              # Noto and Liberation fallbacks without failing anything.
+              extractedFamilies="$(find "$tmpdir" -type f \( -iname '*.ttf' -o -iname '*.otf' \) -exec fc-query -f '%{family}\n' {} +)"
+              for wanted in MonoLisaCode MonoLisaText; do
+                if [[ "$extractedFamilies" != *"$wanted"* ]]; then
+                  echo "no extracted face declares the family $wanted" >&2
+                  exit 1
+                fi
+              done
 
-              find "${fontInstallDir}" -type d -exec chmod 0755 {} +
-              find "${fontInstallDir}" -type f -exec chmod 0644 {} +
-
+              staging="${fontInstallDir}.new"
+              # Roll the rotated tree back before cleaning, so an interrupted
+              # swap cannot leave the families stranded at .old. The test is
+              # emptiness rather than existence, because the tmpfiles rule above
+              # recreates the live path as an empty directory on every boot, and
+              # the empty live path is cleared first so the mv lands on it
+              # instead of nesting inside it.
+              cleanup() {
+                rm -rf "$tmpdir" "$staging"
+                if [ -d "${fontInstallDir}.old" ] && [ -z "$(find "${fontInstallDir}" -mindepth 1 -print -quit 2>/dev/null)" ]; then
+                  rm -rf "${fontInstallDir}"
+                  mv "${fontInstallDir}.old" "${fontInstallDir}"
+                fi
+                rm -rf "${fontInstallDir}.old"
+              }
+              trap cleanup EXIT
+              rm -rf "$staging"
+              install -d -m 0755 "$staging"
+              cp -R "$tmpdir"/. "$staging/"
+              find "$staging" -type d -exec chmod 0755 {} +
+              find "$staging" -type f -exec chmod 0644 {} +
+              rm -rf "${fontInstallDir}.old"
+              if [ -d "${fontInstallDir}" ]; then
+                mv "${fontInstallDir}" "${fontInstallDir}.old"
+              fi
+              mv "$staging" "${fontInstallDir}"
+              rm -rf "${fontInstallDir}.old"
               fc-cache -f "${fontInstallDir}"
             '';
           };
