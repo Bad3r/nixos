@@ -15,6 +15,8 @@ modules/
 ├── apps/
 │   ├── jq.nix           ← Imported automatically
 │   └── _experimental.nix ← Ignored (underscore prefix)
+├── songbird/
+│   └── boot.nix         ← Imported automatically (songbird host)
 ├── system76/
 │   └── boot.nix         ← Imported automatically (system76 host)
 ├── tpnix/

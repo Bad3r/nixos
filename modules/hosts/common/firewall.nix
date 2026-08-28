@@ -26,7 +26,7 @@ let
   matches = re: n: lib.match re n != null;
 
   # Pure classifier, exported so modules/hosts/common/firewall-checks.nix can
-  # exercise every branch: both hosts leave firewallDnsInterfaces empty, so
+  # exercise every branch: every host leaves firewallDnsInterfaces empty, so
   # nothing in a host closure reaches these cases.
   classify =
     {

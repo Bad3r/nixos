@@ -24,7 +24,10 @@ let
 
       download-attempts = lib.mkDefault 3;
       connect-timeout = lib.mkDefault 30;
-      max-substitution-jobs = lib.mkDefault 0; # unlimited
+      # max-substitution-jobs has no "auto": each host pins nproc - 1 in its
+      # nix-settings.nix next to max-jobs. Both Lix and CppNix clamp values
+      # below 1 to 1, so 0 would serialize every download rather than lift the
+      # limit; http-connections = 0 is the genuine "no limit" value.
       http-connections = lib.mkDefault 0; # unlimited
       http2 = lib.mkDefault true;
       narinfo-cache-negative-ttl = lib.mkDefault 60;

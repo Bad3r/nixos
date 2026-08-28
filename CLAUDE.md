@@ -115,9 +115,9 @@ relationships.
 ## Ownership Map
 
 - NixOS modules: `modules/`
-  Auto-loaded modules. Per-host logic lives under `modules/system76` and
-  `modules/tpnix`; cross-host shared logic lives under `modules/hosts/common`;
-  other bundles are grouped by domain.
+  Auto-loaded modules. Per-host logic lives under `modules/songbird`,
+  `modules/system76`, and `modules/tpnix`; cross-host shared logic lives under
+  `modules/hosts/common`; other bundles are grouped by domain.
 - Shared derivations: `packages/`
   Common build logic shared between modules.
 - Helper scripts: `scripts/`

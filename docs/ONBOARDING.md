@@ -16,7 +16,7 @@ theming, and a custom `build.sh` validate-and-deploy pipeline.
 | -------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **Languages**  | Nix (primary), Python, Shell, plus JSON / YAML / TOML / SQL / Markdown data                                          |
 | **Frameworks** | flake-parts, import-tree, home-manager, sops-nix, stylix, treefmt-nix, git-hooks.nix, nixos-hardware, GitHub Actions |
-| **Hosts**      | Configured: `system76`, `tpnix`; planned: `songbird`                                                                 |
+| **Hosts**      | Configured: `songbird`, `system76`, `tpnix`                                                                          |
 
 Start with `docs/architecture/README.md` for the 01-06 reading order. This guide
 is the map; that doc set is the detail.
@@ -168,7 +168,7 @@ load-bearing ones.
 
 ### Host Definitions & Baseline
 
-- `modules/hosts/common/registry.nix`: opts `system76` and `tpnix` into the shared
+- `modules/hosts/common/registry.nix`: opts `songbird`, `system76`, and `tpnix` into the shared
   `hosts-common` aggregate via `shareCommon = true`.
 - `modules/hosts/common/apps-base.nix`: auto-imports every app module (disabled
   until enabled).

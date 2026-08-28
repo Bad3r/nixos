@@ -53,21 +53,44 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
 
 Every host follows the same shape: NixOS fragments under `modules/<host>/` extend `configurations.nixos.<host>.module`, while `policy.nix` contributes per-host registry data. Cross-host concerns (imports skeleton, boot, base services, networking base, firewall, fonts, duplicati wiring, sudo, dbus, pipewire, hostname, sops, etc.) live under `modules/hosts/common/`; a host directory carries only hardware truth, chassis-specific modules, and small value files. Notable and divergent files are listed below for the hosts currently in the repo. To audit the current set of files for any host, run `ls modules/<host>/`.
 
-The planned `songbird` managed-workstation footprint is `hardware-config.nix`,
-`host-id.nix`, `state-version.nix`, a GPU module, `support.nix`, and a
-`policy.nix` carrying the registry values the common layer consumes. Every
-host additionally needs an explicit `shareCommon` entry in
-`modules/hosts/common/registry.nix`: the host constructor aborts evaluation
-for hosts without one, so common-baseline participation is always a recorded
-choice (`true` to opt in, `false` to deliberately opt out). The full
-procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
+`songbird` is the managed-workstation instance of that shape:
+`hardware-config.nix`, `host-id.nix`, `state-version.nix`, `nvidia-gpu.nix`,
+`support.nix`, and a `policy.nix` carrying the registry values the common
+layer consumes, plus the same preference files system76 carries (Samba share,
+secret-service backend, mpv backend, app overrides). Every host additionally
+needs an explicit `shareCommon` entry in `modules/hosts/common/registry.nix`:
+the host constructor aborts evaluation for hosts without one, so
+common-baseline participation is always a recorded choice (`true` to opt in,
+`false` to deliberately opt out). The full procedure lives in the
+[host onboarding runbook](../guides/host-onboarding.md).
+
+### songbird (Arrow Lake desktop)
+
+| File                                       | Purpose                                                                                                                                        |
+| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/songbird/imports.nix`             | Host-specific enables only (Steam, rip, language toolchains); the desktop board has no vendor module, so nothing chassis-specific to import    |
+| `modules/songbird/nix-settings.nix`        | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                     |
+| `modules/songbird/networking.nix`          | `.link` units pinning the two onboard NICs to `lan0` (Realtek RTL8126) and `lan1` (Intel I226-V) by PCI path                                   |
+| `modules/songbird/ssh.nix`                 | `services.openssh.enable` override; the host public key pin waits for the first boot to generate the key                                       |
+| `modules/songbird/r2-runtime.nix`          | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                             |
+| `modules/songbird/hardware-config.nix`     | LUKS root and swap on the SN8100, the system76 `/data` LUKS+XFS volume, the NTFS `/shared` drive, firmware, NPU, Thunderbolt (bolt)            |
+| `modules/songbird/host-id.nix`             | `networking.hostId`                                                                                                                            |
+| `modules/songbird/state-version.nix`       | Install-time `system.stateVersion` constant (`26.11`)                                                                                          |
+| `modules/songbird/support.nix`             | `services.fwupd` (LVFS); no vendor daemon on this board                                                                                        |
+| `modules/songbird/nvidia-gpu.nix`          | GPU profile over `flake.nixosModules.nvidia-gpu`: production branch, NVIDIA open kernel modules (Blackwell), NVDEC VA-API, nouveau blacklisted |
+| `modules/songbird/mpv.nix`                 | mpv `gpu-api = "opengl"` override carried over from system76                                                                                   |
+| `modules/songbird/gnome-keyring.nix`       | gnome-keyring force-disabled in favor of the `pass` secret service                                                                             |
+| `modules/songbird/pass-secret-service.nix` | DBus secret-service for `pass`                                                                                                                 |
+| `modules/songbird/apps-enable.nix`         | Per-host overrides over the common app baseline (Inkscape on)                                                                                  |
+| `modules/songbird/policy.nix`              | Registry data under `flake.lib.nixos.hosts.songbird` (readiness gates, per-host values); primary handoff pending the tailnet address           |
+| `modules/songbird/services.nix`            | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT, system76-scheduler)            |
 
 ### system76 (Oryx Pro laptop)
 
 | File                                          | Purpose                                                                                                          |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support) and host-specific enables                    |
-| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                                                               |
+| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                       |
 | `modules/system76/networking.nix`             | `.link` unit pinning the USB ethernet adapter to `lan0` by USB path                                              |
 | `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                    |
 | `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                      |
@@ -89,7 +112,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `modules/tpnix/apps-enable.nix`          | Per-host overrides over the common app baseline                                                                                 |
 | `modules/tpnix/default-apps.nix`         | Per-host overrides for `host.defaults` (audioPlayer, videoPlayer = null)                                                        |
-| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs` and `min-free` overrides                                                                              |
+| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                      |
 | `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                                                                             |
 | `modules/tpnix/fingerprint.nix`          | Fingerprint auth (`services.fprintd`) and PAM service wiring (tpnix-only)                                                       |
 | `modules/tpnix/fonts.nix`                | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                         |
@@ -109,7 +132,7 @@ Cross-host baselines (imports skeleton, boot, base services, networking base, fi
 General Nix daemon and evaluator settings live in `modules/base/nix-settings.nix`.
 The common `nix-substituters` module owns cache topology and download retry
 settings only. Per-host `nix-settings.nix` files stay limited to hardware-tuned
-values such as `max-jobs` and `min-free`.
+values such as `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free`.
 
 ### Host-conditional helpers
 
