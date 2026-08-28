@@ -1,0 +1,156 @@
+# Hardware truth for songbird (Intel Core Ultra 9 285K on an ASUS ROG Maximus
+# Z890 Hero), harvested from `nixos-generate-config` and `lsblk` on the
+# installed disk A rather than copied from the plan in docs/songbird/.
+_: {
+  configurations.nixos.songbird.module =
+    {
+      config,
+      lib,
+      pkgs,
+      metaOwner,
+      ...
+    }:
+    let
+      owner = metaOwner.username;
+      ownerCfg = lib.attrByPath [ "users" "users" owner ] { } config;
+      ownerGroup = ownerCfg.group or owner;
+      ownerUid = ownerCfg.uid or 1000;
+      ownerGid = lib.attrByPath [ "users" "groups" ownerGroup "gid" ] 100 config;
+    in
+    {
+      # Platform configuration (required)
+      nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+
+      hardware = {
+        cpu.intel = {
+          # Arrow Lake-S microcode; nixos-hardware's common-cpu-intel-cpu-only
+          # profile (hosts-common) would only derive this from
+          # enableRedistributableFirmware, so pin it.
+          updateMicrocode = true;
+          # NPU 4 at 0000:00:0b.0 (intel_vpu): firmware plus the Level Zero
+          # driver, as nixos-generate-config reports for this CPU.
+          npu.enable = true;
+        };
+
+        # flake.nixosModules.bluetooth (hosts-common) enables the controller
+        # (btintel over USB); this adds the kernel-side experimental features
+        # system76 also carries for BLE battery reporting.
+        bluetooth.settings.General.KernelExperimental = true;
+
+        # Explicit firmware set, verified against the drivers the stock install
+        # bound: iwlwifi (Intel BE200 Wi-Fi 7, iwlwifi-gl-*), btintel/btusb
+        # (ibt-*), r8169 for the Realtek RTL8126 5 GbE (rtl_nic/rtl8126a-*),
+        # i915 DMC/GuC/HuC for the Xe-LPG iGPU, and the SOF path the Arrow
+        # Lake HDA controller can select (sof-audio-pci-intel-mtl). NVIDIA GSP
+        # firmware ships with the driver package (hardware.nvidia.gsp).
+        firmware = lib.mkAfter [
+          pkgs.linux-firmware
+          pkgs.sof-firmware
+          pkgs.wireless-regdb
+        ];
+      };
+
+      boot = {
+        # The initrd module list from modules/hosts/common/boot.nix (xhci_pci,
+        # ahci, nvme, thunderbolt, usbhid, usb_storage, sd_mod, ...) covers
+        # everything nixos-generate-config reports on this board.
+        initrd.luks.devices = {
+          # Disk A (WD_BLACK SN8100 4TB, M.2_1, 0000:01:00.0): NixOS root.
+          cryptroot = {
+            device = "/dev/disk/by-uuid/655308da-05a9-4989-95d0-7ac3f24a5f57";
+            allowDiscards = true;
+          };
+          # Disk A: 51 GiB swap, also the hibernation image (48 GB RAM).
+          cryptswap = {
+            device = "/dev/disk/by-uuid/d776cdd8-ab0f-4081-abc0-c0e11b1aa6da";
+            allowDiscards = true;
+          };
+          # Samsung 860 PRO 2TB SATA: the LUKS2 + XFS /data volume carried over
+          # from system76 (same header UUID as modules/system76/hardware-config.nix).
+          # Root does not depend on it, so nofail keeps an absent or unopened
+          # drive from dropping the systemd initrd into the emergency shell.
+          data = {
+            device = "/dev/disk/by-uuid/183d1f98-e95d-4d6c-89de-cbed409bd9a0";
+            allowDiscards = true;
+            crypttabExtraOpts = [ "nofail" ];
+          };
+        };
+
+        # Hibernation target: swap inside the cryptswap mapping.
+        resumeDevice = "/dev/mapper/cryptswap";
+
+        supportedFilesystems = [
+          "ntfs"
+          "xfs"
+        ];
+
+        # Loader skeleton comes from modules/hosts/common/boot.nix.
+        loader.systemd-boot.configurationLimit = 5;
+      };
+
+      fileSystems = {
+        "/" = {
+          device = "/dev/mapper/cryptroot";
+          fsType = "ext4";
+        };
+        "/boot" = {
+          device = "/dev/disk/by-uuid/3028-D139";
+          fsType = "vfat";
+          options = [
+            "fmask=0077"
+            "dmask=0077"
+          ];
+        };
+
+        # Encrypted XFS volume from system76 (via /dev/mapper/data).
+        "/data" = {
+          device = "/dev/mapper/data";
+          fsType = "xfs";
+          options = [
+            "noatime"
+            "nofail"
+          ];
+        };
+
+        # WDC PC SN720 1TB (chipset M.2, 0000:82:00.0): plain NTFS volume
+        # labeled "WD 1 TB", the drive shared with the Windows dual boot.
+        # Kernel ntfs3 with windows_names blocks names Windows cannot read;
+        # nofail keeps a dirty (Windows fast-startup) or absent volume from
+        # blocking boot.
+        "/shared" = {
+          device = "/dev/disk/by-uuid/1AE668D2E668B025";
+          fsType = "ntfs3";
+          options = [
+            "uid=${toString ownerUid}"
+            "gid=${toString ownerGid}"
+            "windows_names"
+            "noatime"
+            "nofail"
+          ];
+        };
+      };
+
+      swapDevices = [ { device = "/dev/mapper/cryptswap"; } ];
+
+      # Thunderbolt 4 / USB4 device authorization for the two rear ports
+      # (0000:00:0d.2).
+      services.hardware.bolt.enable = true;
+
+      # Ensure mountpoint exists declaratively
+      systemd.tmpfiles.rules = [
+        "d /data 0755 ${owner} ${ownerGroup} -"
+      ];
+
+      systemd.services."data-ownership" = {
+        description = "Ensure /data ownership matches primary user";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "data.mount" ];
+        requires = [ "data.mount" ];
+        unitConfig.RequiresMountsFor = [ "/data" ];
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
+        };
+      };
+    };
+}

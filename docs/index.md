@@ -56,9 +56,9 @@
 ## Songbird
 
 - [songbird/project-songbird.md](songbird/project-songbird.md)
-  - Hardware plan and assembly notes for the `songbird` workstation host.
+  - Hardware reference, verified inventory, and assembly notes for the `songbird` workstation host.
 - [songbird/nixos-setup.md](songbird/nixos-setup.md)
-  - Decision-complete dual-boot and NixOS install plan for `songbird`.
+  - Dual-boot layout, install record, per-host module map, and remaining integration steps for `songbird`.
 
 ## R2 Cloud
 

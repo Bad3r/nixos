@@ -122,7 +122,7 @@ is `modules/readme.nix`.
 
 - NixOS modules
   - Location: `modules/`
-  - Notes: Auto-loaded. Per-host logic under `modules/system76` and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
+  - Notes: Auto-loaded. Per-host logic under `modules/songbird`, `modules/system76`, and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
 - Shared derivations
   - Location: `packages/`
   - Notes: Common build logic shared between modules.

@@ -6,48 +6,63 @@ migration from system76, the per-host module files, and validation. Hardware
 facts live in [project-songbird.md](project-songbird.md); the generic
 onboarding mechanics live in the
 [Host Onboarding Runbook](../guides/host-onboarding.md). Decisions below were
-locked with the owner on 2026-07-21. The install is gated only by delivery of
-disk A (the SN8100).
+locked with the owner on 2026-07-21.
+
+Status (2026-08-29): Phases N0 and N1 are done. Disk A carries a NixOS
+install (the installer's stock configuration, hostname `nixos`, still boots
+it), and `modules/songbird/` holds the hardware truth harvested from that
+machine, so the host builds from this repository. Where the machine differs
+from the plan, the tables below carry the as-built values and note the plan
+value in place. What remains is Phase N2 (first switch, age key, tailnet,
+host key pin) and the Windows phases N3 to N5.
 
 ## Decision Record
 
-| #   | Decision                                                                                                                                                                                                            |
-| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | Dual boot: NixOS is the daily OS, Windows 11 exists for gaming (and Windows-side local AI).                                                                                                                         |
-| 2   | Disk A (SN8100 4TB, M.2_1) belongs entirely to NixOS: GPT with 1 GiB ESP, LUKS2 ext4 root, 64 GiB LUKS2 swap.                                                                                                       |
-| 3   | Swap is 64 GiB so hibernation stays possible (48 GB RAM) and build/LLM spikes have headroom.                                                                                                                        |
-| 4   | Disk B (2TB NVMe ex system76, M.2_2) belongs entirely to Windows 11 with BitLocker and its own ESP. NixOS never mounts B.                                                                                           |
-| 5   | Disk S (Samsung 850 Pro 4TB SATA ex system76) becomes a shared BitLocker NTFS drive, unlocked on NixOS via `cryptsetup` bitlk and mounted at `/shared`.                                                             |
-| 6   | Each OS keeps its own ESP on its own disk: Windows updates cannot touch the NixOS boot chain.                                                                                                                       |
-| 7   | Default boot is systemd-boot on A. Windows is selected via the firmware boot menu (F8) or a one-shot `efibootmgr --bootnext`.                                                                                       |
-| 8   | No chainloading Windows through systemd-boot: the NixOS `boot.loader.systemd-boot.windows` entries boot via the EDK2 UEFI shell, which disturbs BitLocker's TPM measurements (PCR 4) and provokes recovery prompts. |
-| 9   | Secure Boot stays off (unsigned systemd-boot, fleet standard). BitLocker therefore binds to the non-PCR7 TPM profile; that is expected.                                                                             |
-| 10  | Migration: contents of B (system76 root/home) and S (system76 /data) are copied to A before B is wiped for Windows and S is reformatted.                                                                            |
-| 11  | Migrated data lands in `/data` as a plain directory on A's root filesystem (no separate partition).                                                                                                                 |
-| 12  | `shareCommon = true`: songbird takes the full hosts-common baseline (zen kernel, systemd-boot, i3/X11, PipeWire, sops runtime, app baseline).                                                                       |
-| 13  | GPU wiring via `flake.nixosModules.nvidia-gpu`: `open = true` (mandatory on Blackwell), production driver branch (>= 570 required), `vaapi.backend = "nvidia"` with `"intel-media"` as the documented fallback.     |
-| 14  | songbird becomes the primary fleet endpoint: `primary = true` and a fresh `tailnetIp` move into its `policy.nix`; system76 stays a fleet member on replacement drives without those keys.                           |
-| 15  | `system.stateVersion = "26.05"` (current stable at install time; never bumped afterwards).                                                                                                                          |
-| 16  | Steam stays enabled on the NixOS side too (`programs.steam.extended.enable`), matching system76; Proton covers casual Linux-side gaming.                                                                            |
-| 17  | Windows hibernation and Fast Startup are disabled (`powercfg /h off`); NixOS keeps hibernation. Cross-OS discipline rules in Operating Rules.                                                                       |
-| 18  | Disk A first gets a disposable Windows install (Phase N0) to validate firmware and hardware with vendor tools, then N1 wipes A for the final NixOS install. Final disk roles are unchanged.                         |
+| #   | Decision                                                                                                                                                                                                                                                                                          |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Dual boot: NixOS is the daily OS, Windows 11 exists for gaming (and Windows-side local AI).                                                                                                                                                                                                       |
+| 2   | Disk A (SN8100 4TB, M.2_1) belongs entirely to NixOS: GPT with 1 GiB ESP, LUKS2 ext4 root, LUKS2 swap. As built the swap is 51 GiB (the plan said 64 GiB); it still exceeds the 46 GiB of usable RAM, so hibernation stays possible.                                                              |
+| 3   | Swap is sized for hibernation (48 GB RAM) with headroom for build and LLM spikes.                                                                                                                                                                                                                 |
+| 4   | Disk B (the 2TB NVMe in M.2_2, a TOPMORE TPCIE501) belongs entirely to Windows 11 with BitLocker and its own ESP. NixOS never mounts B.                                                                                                                                                           |
+| 5   | The shared drive is the WDC SN720 1TB (NTFS label `WD 1 TB`) that arrived with the build, mounted on NixOS at `/shared` through the kernel ntfs3 driver with `nofail`. The BitLocker conversion the plan scheduled for a SATA drive is deferred to Phase N5 and targets this one.                 |
+| 6   | Each OS keeps its own ESP on its own disk: Windows updates cannot touch the NixOS boot chain.                                                                                                                                                                                                     |
+| 7   | Default boot is systemd-boot on A. Windows is selected via the firmware boot menu (F8) or a one-shot `efibootmgr --bootnext`.                                                                                                                                                                     |
+| 8   | No chainloading Windows through systemd-boot: the NixOS `boot.loader.systemd-boot.windows` entries boot via the EDK2 UEFI shell, which disturbs BitLocker's TPM measurements (PCR 4) and provokes recovery prompts.                                                                               |
+| 9   | Secure Boot stays off (unsigned systemd-boot, fleet standard). BitLocker therefore binds to the non-PCR7 TPM profile; that is expected.                                                                                                                                                           |
+| 10  | Migration: system76's `/data` volume (Samsung 860 PRO 2TB, LUKS2 + XFS) moved into songbird physically and stays `/data` there, same LUKS header, unlocked in the initrd as on system76. Nothing is copied onto A for it; system76's root and home contents are copied in Phase N3.               |
+| 11  | `/data` is therefore the mounted system76 volume, not a plain directory on A as the plan said.                                                                                                                                                                                                    |
+| 12  | `shareCommon = true`: songbird takes the full hosts-common baseline (zen kernel, systemd-boot, i3/X11, PipeWire, sops runtime, app baseline).                                                                                                                                                     |
+| 13  | GPU wiring via `flake.nixosModules.nvidia-gpu`: `open = true` (NVIDIA's open kernel modules, mandatory on Blackwell), production driver branch (595.x on the pinned nixpkgs; >= 570 required), `nouveau` blacklisted, `vaapi.backend = "nvidia"` with `"intel-media"` as the documented fallback. |
+| 14  | songbird becomes the primary fleet endpoint (`primary = true` and `tailnetIp` in its `policy.nix`) once it has joined the tailnet; until the address exists the keys stay on system76 so the tailscale SSH alias on the other hosts keeps a HostName.                                             |
+| 15  | `system.stateVersion = "26.11"`: disk A was installed from a 26.11pre image with that value, so the plan's `26.05` does not apply. Never bumped afterwards.                                                                                                                                       |
+| 16  | Steam stays enabled on the NixOS side too (`programs.steam.extended.enable`), matching system76; Proton covers casual Linux-side gaming.                                                                                                                                                          |
+| 17  | Windows hibernation and Fast Startup are disabled (`powercfg /h off`); NixOS keeps hibernation. Cross-OS discipline rules in Operating Rules.                                                                                                                                                     |
+| 18  | Disk A first got a disposable Windows install (Phase N0) to validate firmware and hardware with vendor tools, then N1 wiped A for the NixOS install. Both done.                                                                                                                                   |
 
 ## Disk Layout
 
-Disk A, `/dev/disk/by-id/nvme-WD_BLACK_SN8100_4TB_*` (partition with these
-targets; UUIDs are harvested at install):
+Disk A, `/dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489`, as
+built:
 
-| Part | Size          | Type              | Content                            |
-| ---- | ------------- | ----------------- | ---------------------------------- |
-| p1   | 1 GiB         | EF00 (ESP)        | vfat, systemd-boot                 |
-| p2   | rest - 64 GiB | 8309 (Linux LUKS) | LUKS2 -> ext4, NixOS root          |
-| p3   | 64 GiB        | 8309 (Linux LUKS) | LUKS2 -> swap (hibernation resume) |
+| Part | Size    | Type              | Content                                         | UUIDs                                                                                    |
+| ---- | ------- | ----------------- | ----------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| p1   | 1 GiB   | EF00 (ESP)        | vfat, systemd-boot, `/boot`                     | `3028-D139`                                                                              |
+| p2   | 3.6 TiB | 8309 (Linux LUKS) | LUKS2 -> ext4 root (`cryptroot`)                | LUKS `655308da-05a9-4989-95d0-7ac3f24a5f57`, ext4 `11785731-d139-4551-bff4-9e3a0d80c00e` |
+| p3   | 51 GiB  | 8309 (Linux LUKS) | LUKS2 -> swap (`cryptswap`, hibernation resume) | LUKS `d776cdd8-ab0f-4081-abc0-c0e11b1aa6da`, swap `cf9f0148-18a4-4a1b-96ad-8677571fb609` |
 
-Disk B (Windows installer creates its own layout on the empty disk): Windows
-ESP + MSR + C: (BitLocker). NixOS never mounts any of it.
+Disk S (Samsung 860 PRO 2TB, SATA `0000:80:17.0`): a single LUKS2 partition,
+header UUID `183d1f98-e95d-4d6c-89de-cbed409bd9a0`, opened as
+`/dev/mapper/data` and holding the XFS `/data` volume exactly as
+`modules/system76/hardware-config.nix` declares it.
 
-Disk S: single GPT NTFS partition, BitLocker-encrypted, labeled `shared`.
-Mounted by Windows with auto-unlock and by NixOS at `/shared` (bitlk).
+Disk W (WDC PC SN720 1TB, chipset M.2 `0000:82:00.0`): a single NTFS
+partition on an MBR table, filesystem UUID `1AE668D2E668B025`, label
+`WD 1 TB`, mounted at `/shared`.
+
+Disk B (TOPMORE TPCIE501 2TB, M.2_2 `0000:03:00.0`): reserved for Windows;
+the installer creates its own ESP + MSR + C: (BitLocker) there. It currently
+enumerates as controller `nvme2` with no namespace
+([project-songbird.md](project-songbird.md), caveat 10).
 
 Rationale for the split (recorded from the decision discussion): game loading
 is random-read and decompression bound, so Gen5 vs Gen4/Gen3 NVMe is a
@@ -57,13 +72,14 @@ daily. Separate disks also isolate the boot chains completely.
 
 ## Firmware (UEFI) Settings
 
-Set once during Phase 6 of the assembly checklist (BIOS 3202 is already
-flashed in Phase 1), then exercised under the temporary Windows in Phase N0:
+Set during Phase 6 of the assembly checklist and exercised under the
+temporary Windows in Phase N0. BIOS 3305 (2026-07-27) is flashed; the plan
+referenced 3202.
 
 | Setting                       | Value                       | Why                                                              |
 | ----------------------------- | --------------------------- | ---------------------------------------------------------------- |
 | Secure Boot                   | Off                         | systemd-boot is unsigned (fleet standard)                        |
-| TPM (Intel PTT)               | On                          | BitLocker on B and S                                             |
+| TPM (Intel PTT)               | On                          | BitLocker on B and W                                             |
 | Above 4G Decoding + ReBAR     | On                          | RTX 5080 performance; driver expects Resizable BAR               |
 | VT-x and VT-d                 | On                          | kvm-intel (hosts-common), vfio headroom                          |
 | XMP (DDR5-8400)               | On                          | Memtest ladder per assembly checklist: 8400 / 8000 / 7600 / 6400 |
@@ -72,201 +88,166 @@ flashed in Phase 1), then exercised under the temporary Windows in Phase N0:
 
 ## Hardware to NixOS Mapping
 
-What each device needs from the configuration. "hosts-common" means it is
-already covered by the shared baseline and needs no per-host code.
+Verified on the assembled machine on 2026-08-29 (full device table in
+[project-songbird.md](project-songbird.md), Verified Inventory).
+"hosts-common" means the shared baseline already covers it and no per-host
+code is needed.
 
-| Hardware                         | Driver / stack                     | Config source                                                          |
-| -------------------------------- | ---------------------------------- | ---------------------------------------------------------------------- |
-| 285K P/E cores, virtualization   | intel_pstate, kvm-intel, coretemp  | hosts-common (`boot.nix`); microcode via `hardware-config.nix`         |
-| Arrow Lake iGPU (Xe-LPG)         | i915/xe, linux-firmware            | Present for bring-up; VA-API only if `vaapi.backend = "intel-media"`   |
-| RTX 5080 (Blackwell GB203)       | NVIDIA open kernel modules, >= 570 | `modules/songbird/nvidia-gpu.nix` over `flake.nixosModules.nvidia-gpu` |
-| Intel 2.5 GbE                    | igc (in-kernel)                    | Nothing needed; pin its name if it ever serves DNS/DHCP                |
-| Realtek 5 GbE (RTL8126)          | r8169 (in-kernel since 6.8)        | Nothing needed; zen kernel is well past 6.8                            |
-| Wi-Fi 7 module (vendor unlisted) | iwlwifi or mt76 + linux-firmware   | Identify at first boot (`lspci -nn`); in-kernel either way             |
-| Bluetooth 5.4                    | btusb                              | `hardware.bluetooth.enable` in `hardware-config.nix`                   |
-| USB audio codec (SupremeFX)      | PipeWire                           | hosts-common (`pipewire.nix`)                                          |
-| NVMe (A, B) and SATA (S)         | nvme, ahci                         | hosts-common initrd module list already includes both                  |
-| Thunderbolt 4 / USB4             | thunderbolt + bolt                 | `services.hardware.bolt.enable` in `hardware-config.nix`               |
-| Board sensors                    | coretemp, nct6775 family           | Monitoring only; fan control lives in BIOS Q-Fan                       |
-| AIO pump/fans                    | none (plain PWM)                   | No OS dependency by design                                             |
+| Hardware                                                                  | Driver / stack                                              | Config source                                                                                      |
+| ------------------------------------------------------------------------- | ----------------------------------------------------------- | -------------------------------------------------------------------------------------------------- |
+| 285K P/E cores, virtualization                                            | intel_pstate, kvm-intel, coretemp                           | hosts-common (`boot.nix`); microcode via `hardware-config.nix`                                     |
+| Arrow Lake NPU 4 (`0000:00:0b.0`)                                         | intel_vpu, intel-npu-driver firmware                        | `hardware.cpu.intel.npu.enable` in `hardware-config.nix`                                           |
+| Arrow Lake iGPU Xe-LPG (`8086:7d67`, `0000:00:02.0`)                      | i915 (xe also loaded), linux-firmware                       | Present for bring-up; VA-API only if `vaapi.backend = "intel-media"`                               |
+| RTX 5080 (GB203, `10de:2c02`, `0000:02:00.0`)                             | NVIDIA open kernel modules, production branch 595.x         | `modules/songbird/nvidia-gpu.nix` over `flake.nixosModules.nvidia-gpu`; `nouveau` blacklisted      |
+| Realtek RTL8126 5 GbE (`0000:84:00.0`, the wired uplink)                  | r8169 (in-kernel, `rtl8126a` firmware)                      | Pinned to `lan0` in `networking.nix`                                                               |
+| Intel I226-V 2.5 GbE (`0000:85:00.0`)                                     | igc (in-kernel)                                             | Pinned to `lan1` in `networking.nix`                                                               |
+| Intel BE200 Wi-Fi 7 (`8086:272b`, `0000:86:00.0`)                         | iwlwifi + iwlmld, linux-firmware                            | Nothing needed; `wlan0` under `net.ifnames=0`                                                      |
+| Bluetooth 5.4 (Intel, USB `8087:0036`)                                    | btusb + btintel                                             | `flake.nixosModules.bluetooth` (hosts-common); `KernelExperimental` added in `hardware-config.nix` |
+| Audio: SupremeFX USB codec (`0b05:1b7c`), HDA `0000:80:1f.3`, NVIDIA HDMI | snd_usb_audio, snd_hda_intel (SOF path available), PipeWire | hosts-common (`pipewire.nix`); `sof-firmware` in `hardware-config.nix`                             |
+| NVMe (A, B, W) and SATA (S)                                               | nvme, ahci                                                  | hosts-common initrd module list                                                                    |
+| Thunderbolt 4 / USB4 (`0000:00:0d.2`)                                     | thunderbolt + bolt                                          | `services.hardware.bolt.enable` in `hardware-config.nix`                                           |
+| Board sensors                                                             | coretemp, `asus` WMI hwmon, spd5118, nvme                   | Monitoring only; fan control lives in BIOS Q-Fan                                                   |
+| AIO pump/fans                                                             | none (plain PWM)                                            | No OS dependency by design                                                                         |
 
 ## Install Sequence
 
 Runs inside the assembly flow of the build's
 [assembly-checklist.md](https://github.com/Bad3r/project-songbird/blob/main/assembly-checklist.md)
-(OS install is its Phase 6 step). Phases N0-N2 need only disk A; N3-N5 wait
-for the drives pulled from system76. Phase N0 is a disposable Windows install
-for firmware and hardware validation; disk A is wiped for the final NixOS
-install in N1.
+(OS install is its Phase 6 step). Phases N0 and N1 needed only disk A and are
+done; N2 is the first switch from this repository; N3 to N5 cover the drives
+that came from system76 and the Windows install.
 
-### Phase N0: Temporary Windows on disk A for firmware and hardware validation
+### Phase N0: Temporary Windows on disk A (done)
 
-A disposable Windows 11 install on disk A validates firmware settings and the
-hardware with mature vendor tools, and applies any Windows-only firmware
-updates, all inside the components' return windows. At this point only disk A is
-present (B and S are still in system76), so the Windows installer cannot reach
-another disk. Nothing here is preserved: Phase N1 wipes disk A.
+A disposable Windows 11 install on disk A validated the firmware settings and
+the hardware with vendor tools (assembly-checklist Phase 7 load work: memory
+at the laddered XMP profile, 30-minute CPU and GPU loads, SN8100 sustained
+write under the M.2_1 heatsink, displays, USB4, both NICs, Wi-Fi, Bluetooth)
+and applied Windows-only firmware updates. Phase N1 wiped it.
 
-1. Confirm the assembly-checklist Phase 6 firmware settings are applied (Secure
-   Boot off, Intel PTT on, Above 4G Decoding + ReBAR on, VT-x and VT-d on, XMP
-   at the speed the Memtest ladder passed, Fast Boot off). Set the installer USB
-   first in the boot order. If the Windows 11 installer insists on Secure Boot,
-   enable it for N0 only and return it to off before N1.
+### Phase N1: NixOS installation on disk A (done)
 
-2. Install Windows 11 24H2+ to disk A from the installer USB. Let Windows create
-   its own layout; the disk is reused wholesale by N1, so the partitioning here
-   does not matter.
+Disk A was partitioned to the layout above and installed from a NixOS
+26.11pre image with the installer's stock configuration (hostname `nixos`,
+GNOME, `linuxPackages_latest`, `system.stateVersion = "26.11"`). That
+configuration is what boots until Phase N2 switches the host to this
+repository; it is not committed here. For a reinstall, the partition and
+encrypt sequence was:
 
-3. Drivers and firmware: install the Intel chipset, NIC, and NVIDIA GPU drivers,
-   then apply Windows-only firmware updates (the SN8100 on disk A via WD
-   Dashboard, plus any board or GPU vendor utilities). BIOS 3202 is already
-   flashed by FlashBack in assembly Phase 1.
+```sh
+DISK=/dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489
+sgdisk --zap-all "$DISK"
+sgdisk -n1:0:+1GiB  -t1:ef00 -c1:ESP        "$DISK"
+sgdisk -n2:0:-51GiB -t2:8309 -c2:cryptroot  "$DISK"
+sgdisk -n3:0:0      -t3:8309 -c3:cryptswap  "$DISK"
+cryptsetup luksFormat --type luks2 "$DISK-part2"
+cryptsetup luksFormat --type luks2 "$DISK-part3"
+cryptsetup open "$DISK-part2" cryptroot
+cryptsetup open "$DISK-part3" cryptswap
+mkfs.vfat -F32 -n ESP "$DISK-part1"
+mkfs.ext4 -L root /dev/mapper/cryptroot
+mkswap -L swap /dev/mapper/cryptswap
+```
 
-4. Hardware validation (this is the assembly-checklist Phase 7 load work; record
-   the results in that log):
+After a reinstall, re-harvest the UUIDs (`nixos-generate-config --show-hardware-config`,
+`lsblk -o NAME,FSTYPE,UUID`) into `modules/songbird/hardware-config.nix` and
+the hostId (`head -c 8 /etc/machine-id`) into `modules/songbird/host-id.nix`;
+the values there are the current install's.
 
-   - Memory: re-confirm the DDR5-8400 (or laddered) profile is stable under a
-     Windows stress tool.
-   - CPU: 30-minute all-core stress; package temperature in range and no
-     throttling (about 245 W sustained).
-   - GPU: 30-minute sustained 3D load; RTX 5080 clocks and thermals in range,
-     the 0 dB idle fan stop works, no artifacts.
-   - SSD: sustained-write and health check on disk A under the board heatsink;
-     no thermal throttle (100 C firmware limit).
-   - I/O: displays on the card, USB4 and Thunderbolt, both NICs, Wi-Fi, and
-     Bluetooth each enumerate.
+### Phase N2: Fleet integration (first switch from this repository)
 
-5. Decision gate: if any component fails, use its return window before going
-   further. Once the platform is validated, proceed to N1; the temporary Windows
-   is discarded when disk A is repartitioned.
+Run on songbird. Until the `feat/songbird-host` branch merges, run from its
+linked worktree (`~/trees/nixos/feat-songbird-host`); afterwards from the
+canonical `~/nixos` checkout on `main`, which is the path the shared
+`worktree-prune` timer and `programs.nh.flake` expect.
 
-### Phase N1: Final NixOS installation on disk A
+1. Keep the `secrets/` submodule uninitialized until step 3 has installed the
+   age identity: every sops declaration is guarded on the encrypted file
+   existing, so a secretless checkout evaluates and activates cleanly, while a
+   checkout with the payloads present but no key fails activation at the
+   sops-nix step.
 
-Disk A's temporary Windows from Phase N0 is discarded here: the partitioning in
-step 2 zaps the whole disk and gives A its final NixOS layout.
-
-1. Boot the NixOS 26.05 installer USB (prepared in assembly Phase 0). Wired
-   network on either onboard NIC works out of the box.
-
-2. Partition and encrypt (device path via `ls /dev/disk/by-id/`):
-
-   ```sh
-   DISK=/dev/disk/by-id/nvme-WD_BLACK_SN8100_4TB_<serial>
-   sgdisk --zap-all "$DISK"
-   sgdisk -n1:0:+1GiB  -t1:ef00 -c1:ESP        "$DISK"
-   sgdisk -n2:0:-64GiB -t2:8309 -c2:cryptroot  "$DISK"
-   sgdisk -n3:0:0      -t3:8309 -c3:cryptswap  "$DISK"
-   cryptsetup luksFormat --type luks2 "$DISK-part2"
-   cryptsetup luksFormat --type luks2 "$DISK-part3"
-   cryptsetup open "$DISK-part2" cryptroot
-   cryptsetup open "$DISK-part3" cryptswap
-   mkfs.vfat -F32 -n ESP "$DISK-part1"
-   mkfs.ext4 -L nixos /dev/mapper/cryptroot
-   mkswap /dev/mapper/cryptswap
-   mount /dev/mapper/cryptroot /mnt
-   mkdir -p /mnt/boot && mount "$DISK-part1" /mnt/boot
-   swapon /dev/mapper/cryptswap
-   ```
-
-3. Harvest hardware truth: `nixos-generate-config --root /mnt` and copy the
-   UUIDs (LUKS partitions, ext4 root, ESP, swap) into
-   `modules/songbird/hardware-config.nix`. The generated file itself is not
-   committed; this repo's per-host module replaces it.
-
-4. Clone the repo with the secrets submodule. The submodule is private, so
-   the installer session needs the owner's SSH key (from an existing host or
-   the password manager):
+2. Build and stage the first generation, then reboot:
 
    ```sh
-   git clone --recurse-submodules git@github.com:Bad3r/nixos.git
-   cd nixos && git switch -c feat/songbird-host
+   ./build.sh -t songbird --boot
    ```
 
-5. Add the songbird module files (skeletons below), fill the UUID and
-   hostId placeholders, then commit and push the branch. Committing is
-   mandatory (flake evaluation only sees git-tracked files); pushing is too.
-   This installer checkout lives on the live-ISO tmpfs and is discarded at
-   reboot, and `nixos-install` copies only the store closure to `/mnt`, not
-   this working tree, so the branch must reach the remote to survive into
-   Phase N2:
+   `-t songbird` is required for this first run only: `build.sh` defaults the
+   target to `$(hostname)`, which is still `nixos` under the installer's
+   configuration. `--boot` installs the generation for the next reboot
+   instead of switching the running GNOME session live; from a linked
+   worktree the script resolves a `path:` reference and runs the secrets
+   guard on its own. At boot, the initrd asks for the root passphrase and
+   retries it from the kernel keyring for `cryptswap` and `data`; a different
+   `/data` passphrase is prompted for, and an absent or unopened `/data`
+   drive no longer blocks the boot (`nofail`). The `vx` account keeps the
+   password set during the install (`users.mutableUsers` is on, so the
+   initial hash in `modules/meta/owner.nix` is not applied to an existing
+   user).
 
-   ```sh
-   git push -u origin feat/songbird-host
-   ```
-
-6. Install with Lix (the repo's pinned Nix implementation; the ISO's CppNix
-   also works pre-cutover with the same feature set):
-
-   ```sh
-   nix shell nixpkgs#lixPackageSets.latest.lix
-   export NIX_CONFIG='experimental-features = nix-command flakes pipe-operator pipe-operators flake-self-attrs'
-   nixos-install --root /mnt --flake .#songbird --no-root-passwd
-   ```
-
-   The owner account ships with an initial password hash from
-   `modules/meta/owner.nix`; change it at first login.
-
-### Phase N2: Fleet integration
-
-1. Log in and change the owner password (`passwd`). Clone the fleet checkout
-   into the primary user's home and resume the branch pushed in Phase N1;
-   `~/nixos` is the canonical checkout the worktree-prune timer expects on
-   shared hosts, and it is owner-owned because the primary user creates it:
-
-   ```sh
-   git clone --recurse-submodules git@github.com:Bad3r/nixos.git ~/nixos
-   cd ~/nixos && git switch feat/songbird-host
-   ```
-
-2. Provision the canonical age identity (sops), per
+3. Provision the canonical age identity (sops), per
    [SOPS usage](../sops/README.md) Host Preparation: copy from system76 or
    the password manager to `/var/lib/sops-nix/key.txt` (root:root, 0600) and
    `~/.config/sops/age/keys.txt`. Single-recipient design: no `.sops.yaml`
    change, no `sops updatekeys`.
 
-3. Flip `sopsRuntimeReady = true` in `modules/songbird/policy.nix`, rebuild
-   with `./build.sh`, and confirm secret-consuming services activate.
+4. Initialize the secrets submodule (`git submodule update --init --recursive`),
+   flip `sopsRuntimeReady = true` in `modules/songbird/policy.nix`
+   (`r2RuntimeReady = true` as well once `secrets/r2.yaml` is present),
+   rebuild with `./build.sh`, and confirm secret-consuming services activate.
+   `secrets/songbird.yaml` with a `samba_media_path` key enables the
+   on-demand Samba media share the way `secrets/system76.yaml` does on
+   system76; until it exists `services.nix` warns and skips the share.
 
-4. Join the tailnet; read the assigned address with `tailscale ip -4` and set
+5. Join the tailnet; read the assigned address with `tailscale ip -4` and set
    it as `tailnetIp` in `policy.nix`. In the same change move
    `primary = true` off `modules/system76/policy.nix` and onto songbird
    (ssh-hosts aliases and the tailscale SSH default follow the registry).
 
-5. Record the host SSH public key
-   (`cat /etc/ssh/ssh_host_ed25519_key.pub`) in `modules/songbird/ssh.nix`.
+6. Pin the host SSH public key. sshd runs fleet-wide (`flake.nixosModules.ssh`
+   enables it; the firewall keeps port 22 closed), so the first boot on this
+   configuration generates the key:
 
-6. Fill remaining Open Items (interface names, Wi-Fi module vendor), run the
-   validation ladder, and open the PR.
+   ```sh
+   cat /etc/ssh/ssh_host_ed25519_key.pub
+   ```
 
-### Phase N3: Migration from preserved B and S
+   Record it as `services.openssh.publicKey` in `modules/songbird/ssh.nix`
+   and as the `songbird` entry in `modules/hosts/common/ssh-known-hosts.nix`
+   in the same change; `modules/configurations/nixos.nix` rejects a host key
+   without a matching `fleetHostKeys` pin.
 
-Prerequisite: system76 has been moved onto its replacement drives (its own
-task, outside this plan), so B and S are free to pull.
+7. Run the validation ladder and merge the PR.
 
-1. Install B in M.2_2 (never M.2_3/M.2_4: GPU lane steal) and S in the 2.5"
-   sled, powered by this PSU's own modular SATA cable.
-2. Boot NixOS, unlock the old volumes manually (`cryptsetup open` with the
-   system76 passphrases), and copy:
-   - B (old system76 root): `/home/<owner>` and anything else worth keeping
-     into `/data/migration-system76/` on A.
-   - S (old system76 /data, LUKS2 + XFS): contents into `/data/` on A.
-3. Verify sizes and spot-check (`du -sh`, `diff -r` on samples). A has 4 TB;
-   both source datasets fit.
-4. Record disk B's exact model (`lsblk -o NAME,MODEL,SIZE`) in
-   [project-songbird.md](project-songbird.md) Storage Inventory (S is the
-   Samsung 850 Pro 4TB).
-5. Leave B and S untouched until Phase N4/N5 confirm nothing was missed; the
-   originals are the rollback until then.
+### Phase N3: Migration from system76
+
+`/data` needs no migration: the volume itself moved into songbird and mounts
+at `/data` with its contents. What remains is system76's root and home:
+
+1. With system76 running on its replacement drives, copy `/home/<owner>` and
+   anything else worth keeping over the network into
+   `/data/migration-system76/` on songbird (`rsync -aHAX --info=progress2`
+   over SSH; both hosts carry each other's `<host>.local` SSH alias once the
+   key pin from Phase N2 is merged).
+2. Verify sizes and spot-check (`du -sh`, `diff -r` on samples).
+3. Leave the system76 originals untouched until Phase N4/N5 confirm nothing
+   was missed; they are the rollback until then.
 
 ### Phase N4: Final Windows installation on disk B
 
+0. Resolve caveat 10 first: disk B currently exposes no NVMe namespace.
+   `nvme id-ctrl /dev/nvme2`, `nvme list-ns /dev/nvme2`, the board's NVMe
+   settings, and reseating in M.2_2 are the checks; the Windows installer
+   cannot use a drive the firmware does not present either.
 1. Protect A's boot chain: disable the M.2_1 slot in UEFI (Advanced >
    Onboard Devices) if the firmware offers it; otherwise remove disk A
    (M.2_1 Q-Latch, board heatsink off). The Windows installer is known to
-   drop its boot files onto whichever ESP it finds first.
-2. Boot Windows 11 24H2+ installer USB, delete all partitions on B (contents
-   already migrated), install to the empty disk. Windows creates its own ESP
-   on B.
+   drop its boot files onto whichever ESP it finds first. Disks S and W can
+   stay: the installer only writes to the disk it is pointed at, but
+   unplugging W avoids the wrong-drive mistake.
+2. Boot Windows 11 24H2+ installer USB, delete all partitions on B, install
+   to the empty disk. Windows creates its own ESP on B.
 3. Post-install, in an elevated shell:
    - `powercfg /h off` (kills hibernation and Fast Startup in one; required
      for safe NTFS sharing).
@@ -280,12 +261,16 @@ task, outside this plan), so B and S are free to pull.
    second.
 5. Verify both OSes boot cleanly from the F8 firmware boot menu.
 
-### Phase N5: Shared BitLocker conversion of S
+### Phase N5: Shared BitLocker conversion of W (optional)
 
-1. In Windows: wipe S (contents already migrated), create a single GPT NTFS
+`/shared` works today as plain NTFS. Convert only if the shared drive must be
+encrypted at rest:
+
+1. In Windows: back up W's contents, wipe it, create a single GPT NTFS
    volume labeled `shared`, enable BitLocker with a password protector plus
    recovery key, then `manage-bde -autounlock -enable <drive>:`. Store both
    password and recovery key in the password manager.
+
 2. In NixOS: place the BitLocker password (no trailing newline) at
    `/var/lib/secrets/shared-bitlk.key`, root:root, 0400. A plain root-owned
    file on the LUKS-encrypted root is used instead of a sops runtime path
@@ -293,9 +278,18 @@ task, outside this plan), so B and S are free to pull.
    sops-nix activation writes `/run/secrets`; the crypttab generator adds
    `RequiresMountsFor=` on the key path, so ordering against the root mount
    is automatic.
-3. The crypttab entry and mount ship in `hardware-config.nix` (skeleton
-   below). Confirm with a reboot: `/shared` mounts owner-readable, and
-   Windows still auto-unlocks.
+
+3. In `modules/songbird/hardware-config.nix`, switch the `/shared` entry's
+   `device` to `/dev/mapper/shared` and add the crypttab entry:
+
+   ```nix
+   environment.etc."crypttab".text = ''
+     shared /dev/disk/by-partuuid/<shared-partuuid> /var/lib/secrets/shared-bitlk.key bitlk,nofail
+   '';
+   ```
+
+4. Confirm with a reboot: `/shared` mounts owner-readable, and Windows still
+   auto-unlocks.
 
 ## Per-Host Module Files
 
@@ -305,255 +299,37 @@ Registry entry in `modules/hosts/common/registry.nix`:
 songbird.shareCommon = true;
 ```
 
-`modules/songbird/hardware-config.nix` (placeholders in angle brackets come
-from Phase N1 step 3 and Phase N5):
+The host directory mirrors `modules/system76/` minus the System76 chassis
+stack (EC power daemon, PRIME, legacy driver branch, lid and touchpad
+handling, the USB NIC pin) and plus the desktop-specific pieces:
 
-```nix
-{ lib, ... }:
-{
-  configurations.nixos.songbird.module =
-    { config, metaOwner, ... }:
-    let
-      owner = metaOwner.username;
-    in
-    {
-      nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
+| File                                                            | Carries                                                                                                                                                                                                                                    |
+| --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `modules/songbird/hardware-config.nix`                          | LUKS root/swap on A (`cryptroot`, `cryptswap`, `resumeDevice`), the system76 `data` LUKS volume (`nofail`) at `/data`, the NTFS `/shared` mount, microcode, NPU, Bluetooth `KernelExperimental`, firmware set, `bolt`, `/data` ownership   |
+| `modules/songbird/nvidia-gpu.nix`                               | `gpu.nvidia`: production branch, `open = true`, `vaapi.backend = "nvidia"`, `nouveau` blacklisted; VRAM preservation across suspend comes from the shared module's `powerManagement.enable`                                                |
+| `modules/songbird/networking.nix`                               | `.link` pins: `lan0` = Realtek RTL8126 (`pci-0000:84:00.0`), `lan1` = Intel I226-V (`pci-0000:85:00.0`)                                                                                                                                    |
+| `modules/songbird/policy.nix`                                   | `sopsRuntimeReady`/`r2RuntimeReady` gates (off until Phase N2), `duplicatiStateDirReadable`, `extraHomeApps`, empty `firewallDnsInterfaces`, the 8000-8999 TCP range; primary handoff pending                                              |
+| `modules/songbird/services.nix`                                 | Samba media share (from `secrets/songbird.yaml`), on-demand `samba.target`, coredump retention, power-profiles-daemon forced to performance (replacing system76-power), cloudflared, WARP headless, LACT, system76-scheduler, printing off |
+| `modules/songbird/imports.nix`                                  | Steam, rip, language toolchains; no chassis modules                                                                                                                                                                                        |
+| `modules/songbird/support.nix`                                  | `services.fwupd`                                                                                                                                                                                                                           |
+| `modules/songbird/apps-enable.nix`                              | Inkscape on; Logseq keeps GPU compositing (no PRIME here)                                                                                                                                                                                  |
+| `modules/songbird/gnome-keyring.nix`, `pass-secret-service.nix` | gnome-keyring off, `pass` as the secret service (as on system76)                                                                                                                                                                           |
+| `modules/songbird/mpv.nix`                                      | `gpu-api = "opengl"` carried over from system76; drop once Vulkan is verified on the 5080                                                                                                                                                  |
+| `modules/songbird/ssh.nix`                                      | `services.openssh.enable` override; public key pin pending (Phase N2 step 6)                                                                                                                                                               |
+| `modules/songbird/host-id.nix`                                  | `networking.hostId = "c93b3b3c"`                                                                                                                                                                                                           |
+| `modules/songbird/state-version.nix`                            | `system.stateVersion = "26.11"`                                                                                                                                                                                                            |
+| `modules/songbird/nix-settings.nix`                             | `max-jobs = "auto"`, `max-substitution-jobs = 23` (`nproc - 1`), `min-free` 50 GB                                                                                                                                                          |
+| `modules/songbird/r2-runtime.nix`                               | R2 runtime bindings gated on `r2RuntimeReady`                                                                                                                                                                                              |
 
-      boot = {
-        # hosts-common already provides the initrd module list (nvme, ahci,
-        # xhci_pci, thunderbolt, usbhid, usb_storage, sd_mod); extend here
-        # only if nixos-generate-config reports more.
-        initrd.luks.devices = {
-          cryptroot = {
-            device = "/dev/disk/by-uuid/<luks-root-partition-uuid>";
-            allowDiscards = true;
-          };
-          cryptswap = {
-            device = "/dev/disk/by-uuid/<luks-swap-partition-uuid>";
-            allowDiscards = true;
-          };
-        };
-
-        # Hibernation target: swap inside the cryptswap mapping.
-        resumeDevice = "/dev/mapper/cryptswap";
-
-        loader.systemd-boot.configurationLimit = 5;
-      };
-
-      fileSystems = {
-        "/" = {
-          device = "/dev/mapper/cryptroot";
-          fsType = "ext4";
-        };
-        "/boot" = {
-          device = "/dev/disk/by-uuid/<esp-uuid>";
-          fsType = "vfat";
-          options = [
-            "fmask=0077"
-            "dmask=0077"
-          ];
-        };
-        # Disk S: BitLocker NTFS, opened by the crypttab entry below.
-        "/shared" = {
-          device = "/dev/mapper/shared";
-          fsType = "ntfs3";
-          options = [
-            "uid=1000"
-            "gid=100"
-            "windows_names"
-            "noatime"
-            "nofail"
-          ];
-        };
-      };
-
-      swapDevices = [ { device = "/dev/mapper/cryptswap"; } ];
-
-      # BitLocker unlock for disk S. Key file provisioning: Phase N5.
-      environment.etc."crypttab".text = ''
-        shared /dev/disk/by-partuuid/<shared-partuuid> /var/lib/secrets/shared-bitlk.key bitlk,nofail
-      '';
-
-      hardware = {
-        cpu.intel.updateMicrocode = true;
-        bluetooth = {
-          enable = true;
-          powerOnBoot = true;
-        };
-      };
-
-      # Thunderbolt 4 device authorization.
-      services.hardware.bolt.enable = true;
-
-      systemd.tmpfiles.rules = [
-        "d /data 0755 ${owner} users -"
-      ];
-    };
-}
-```
-
-`modules/songbird/nvidia-gpu.nix`:
-
-```nix
-_: {
-  configurations.nixos.songbird.module =
-    { config, ... }:
-    {
-      boot.blacklistedKernelModules = [ "nouveau" ];
-      # Keep VRAM contents across suspend/hibernate (paired with the 64 GiB
-      # swap and boot.resumeDevice).
-      boot.kernelParams = [ "nvidia.NVreg_PreserveVideoMemoryAllocations=1" ];
-
-      gpu.nvidia = {
-        enable = true;
-        # Blackwell (GB203): driver >= 570 and the open kernel modules are
-        # mandatory; the proprietary modules do not support this GPU.
-        package = config.boot.kernelPackages.nvidiaPackages.production;
-        open = true;
-        # NVDEC VA-API path. Fallback documented in decision 13: set
-        # "intel-media" if Xid 31 MMU faults appear under decode churn.
-        vaapi.backend = "nvidia";
-      };
-    };
-}
-```
-
-`modules/songbird/policy.nix`:
-
-```nix
-_: {
-  flake.lib.nixos.hosts.songbird = {
-    # Primary fleet endpoint, moved from system76 in this change.
-    primary = true;
-    tailnetIp = "<songbird tailscale IPv4>";
-
-    # Flip after the age identity is installed (Phase N2 step 2-3).
-    sopsRuntimeReady = false;
-    r2RuntimeReady = false;
-
-    extraHomeApps = [ ];
-    firewallDnsInterfaces = [ ]; # only if songbird serves DNS/DHCP; see below
-  };
-}
-```
-
-Leave `firewallDnsInterfaces` empty unless songbird actually serves DNS or DHCP
-to the network. It opens inbound UDP 53/67 and TCP 53, and both existing hosts
-now leave it empty for that reason; NetworkManager's `dns = "dnsmasq"` mode does
-not count, since that dnsmasq binds `127.0.0.1` and `::1` with no `dhcp-range`.
-
-If songbird does gain such a listener: `shareCommon = true` means it boots with
-`net.ifnames=0`, so the kernel names interfaces `eth0`, `eth1`, and `wlan0`
-rather than the `enp*` names an installer shows. `modules/hosts/common/firewall.nix`
-rejects an `enp*`/`wlp*` name on such a host with an assertion, and warns when a
-name is neither kernel-assigned nor created by a declaration on the host; a
-kernel name that is simply wrong for the machine passes both and silently opens
-nothing. Do not put a bare kernel name in `firewallDnsInterfaces` on this host: songbird has two wired NICs of the same class, so the numbering
-follows discovery order and can move between them, and the value opens UDP
-53/67 and TCP 53 on whichever NIC holds the name that boot. Pin the intended
-NIC as shown below and use the pinned name. A stale name is not an evaluation
-error either: `modules/hosts/common/firewall.nix` emits a
-`networking.firewall.interfaces.<name>` entry for a device that never appears,
-so the opening silently does nothing.
-
-The two same-class NICs are the Intel 2.5 GbE on `igc` and the Realtek 5 GbE on
-`r8169`. Pin the intended one by PCI path, the way
-`modules/system76/networking.nix` pins its USB adapter:
-
-```sh
-ip -br link
-for dev in /sys/class/net/*; do
-  udevadm info -q property -p "$dev" \
-    | grep -E '^(INTERFACE|ID_NET_DRIVER|ID_PATH)='
-done
-```
-
-`modules/songbird/networking.nix`:
-
-```nix
-_: {
-  configurations.nixos.songbird.module = {
-    systemd.network.links."10-lan0" = {
-      matchConfig.Path = "<ID_PATH of the intended NIC>";
-      linkConfig = {
-        Name = "lan0";
-        # The pin displaces 99-default.link for this device, so restore the
-        # alternative names it would otherwise supply. Its "mac" token is left
-        # out: that derives an altname from the factory hardware address.
-        AlternativeNamesPolicy = "database onboard slot path";
-      };
-    };
-  };
-}
-```
-
-Then set `firewallDnsInterfaces = [ "lan0" ]`. `docs/networking/README.md`
-explains why the pinned name stays outside the kernel's `eth*` namespace.
-
-`modules/songbird/host-id.nix` (derive on the target:
-`head -c 8 /etc/machine-id`):
-
-```nix
-_: {
-  configurations.nixos.songbird.module = {
-    networking.hostId = "<8-hex-chars>";
-  };
-}
-```
-
-`modules/songbird/state-version.nix`:
-
-```nix
-_: {
-  configurations.nixos.songbird.module = {
-    # Install-time constant for this host. Never bump on upgrades.
-    system.stateVersion = "26.05";
-  };
-}
-```
-
-`modules/songbird/ssh.nix`:
-
-```nix
-{ lib, ... }:
-{
-  configurations.nixos.songbird.module = {
-    services.openssh = {
-      enable = lib.mkDefault false;
-      publicKey = "<ssh-ed25519 ... root@songbird>";
-    };
-  };
-}
-```
-
-`modules/songbird/imports.nix`:
-
-```nix
-_: {
-  configurations.nixos.songbird.module = {
-    # Desktop board with no vendor NixOS module; the fleet baseline comes
-    # from hosts-common, so no nixos-hardware import is needed.
-    programs = {
-      steam.extended.enable = true;
-      rip.extended.enable = true;
-    };
-  };
-}
-```
-
-`modules/songbird/nix-settings.nix`:
-
-```nix
-_: {
-  configurations.nixos.songbird.module.nix.settings = {
-    max-jobs = "auto"; # 24 threads, 48 GB RAM
-    min-free = 53687091200; # 50 GB
-  };
-}
-```
-
-Companion change in the same PR: remove `primary = true` and `tailnetIp`
-from `modules/system76/policy.nix` (system76 remains a fleet member).
+`firewallDnsInterfaces` stays empty unless songbird actually serves DNS or
+DHCP to the network: it opens inbound UDP 53/67 and TCP 53, and
+NetworkManager's `dns = "dnsmasq"` mode does not count, since that dnsmasq
+binds `127.0.0.1` and `::1` with no `dhcp-range`. If such a listener is ever
+added, use the pinned `lan0` (never `eth0`): with `net.ifnames=0` the two
+onboard NICs share the `eth0`/`eth1` pool by discovery order, and
+`modules/hosts/common/firewall.nix` cannot tell a wrong kernel name from a
+right one. `docs/networking/README.md` explains why the pinned names stay
+outside the kernel's `eth*` namespace.
 
 ## Booting Windows from NixOS
 
@@ -578,59 +354,61 @@ prompts) and any shared-ESP scheme (decision 6).
 
 ## Open Items
 
-Every placeholder, with its source command and destination. No decisions
-remain open; these are measurements that require the hardware.
-
-| Item                        | Command / source                        | Lands in                                                                 |
-| --------------------------- | --------------------------------------- | ------------------------------------------------------------------------ |
-| LUKS, ext4, ESP, swap UUIDs | `nixos-generate-config --root /mnt`     | `hardware-config.nix`                                                    |
-| hostId                      | `head -c 8 /etc/machine-id`             | `host-id.nix`                                                            |
-| Wired interface names       | `ip -br link` after the first boot      | Only needed if a DNS/DHCP listener is added; see note below              |
-| Wi-Fi module vendor         | `lspci -nn \| grep -i network`          | project-songbird.md (note)                                               |
-| Host SSH public key         | `cat /etc/ssh/ssh_host_ed25519_key.pub` | `ssh.nix`                                                                |
-| Tailnet IPv4                | `tailscale ip -4` after joining         | `policy.nix` `tailnetIp`                                                 |
-| Disk B exact model          | `lsblk -o NAME,MODEL,SIZE`              | project-songbird.md Storage Inventory                                    |
-| Shared partition PARTUUID   | `lsblk -o NAME,PARTUUID` after Phase N5 | `hardware-config.nix` crypttab entry                                     |
-| BitLocker keys (B, S)       | Windows BitLocker setup                 | Password manager; S password also to `/var/lib/secrets/shared-bitlk.key` |
+| Item                        | State                                                                | Lands in                                                                 |
+| --------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| LUKS, ext4, ESP, swap UUIDs | Done (harvested 2026-08-29)                                          | `hardware-config.nix`                                                    |
+| hostId                      | Done: `c93b3b3c`                                                     | `host-id.nix`                                                            |
+| Wired interface names       | Done: `lan0` (RTL8126, uplink), `lan1` (I226-V) pinned by PCI path   | `networking.nix`                                                         |
+| Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                             | `project-songbird.md`                                                    |
+| Host SSH public key         | Pending the first boot on this configuration                         | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                 |
+| age identity                | Pending (Phase N2 step 3); gates `sopsRuntimeReady`                  | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix` |
+| Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff | `policy.nix` `tailnetIp`, `primary`                                      |
+| Disk B exact model          | Recorded: TOPMORE TPCIE501 2TB; no namespace visible (caveat 10)     | `project-songbird.md` Storage Inventory                                  |
+| Shared partition PARTUUID   | Only if Phase N5 converts W to BitLocker                             | `hardware-config.nix` crypttab entry                                     |
+| BitLocker keys (B, W)       | Windows BitLocker setup (Phases N4, N5)                              | Password manager; W password also to `/var/lib/secrets/shared-bitlk.key` |
 
 ## Validation Ladder
 
-Per the runbook, before and after the PR:
+Per the runbook, before and after the PR. From the linked worktree
+(`path:` forms; the plain `.` forms work in the primary checkout):
 
 ```sh
-nix fmt
-nix flake check --accept-flake-config --no-build --offline
-nix build ".#nixosConfigurations.songbird.config.system.build.toplevel"
-./build.sh --boot          # on songbird; activates on next reboot
-nix run .#generation-manager -- score   # target: 20/20
+nix run path:.#treefmt -- .
+nix flake check path:. --accept-flake-config --no-build --offline
+nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel"
+./build.sh -t songbird --boot   # on songbird; activates on next reboot
+nix run path:.#generation-manager -- score   # target: 20/20
 ```
 
-Plus host-specific checks after first boot:
+Plus host-specific checks after the first boot:
 
-- `systemctl status systemd-cryptsetup@shared` and `ls /shared` (bitlk mount).
-- `nvidia-smi` reports the RTX 5080 on the open kernel module (driver >= 570).
-- `sensors` shows coretemp; `ip link` shows both NICs; Wi-Fi and Bluetooth
-  associate.
+- `lsblk` shows `cryptroot`, `cryptswap`, `data` open; `findmnt /data /shared`.
+- `nvidia-smi` reports the RTX 5080 on the open kernel module (driver
+  595.x); `lsmod | grep nouveau` is empty.
+- `ip -br link` shows `lan0`, `lan1`, `wlan0`; Wi-Fi and Bluetooth associate.
+- `sensors` shows coretemp; `powerprofilesctl get` reports `performance`.
 - Hibernate round-trip (`systemctl hibernate`) after confirming
-  `boot.resumeDevice`; NVIDIA VRAM survives (decision 13 kernel param).
-- Assembly checklist Phase 7 load validation (CPU 30 min, GPU 30 min, SSD
-  sustained write) runs under the temporary Windows in Phase N0 and fills the
-  hardware validation log; re-spot-check on NixOS after N1 if wanted.
+  `boot.resumeDevice`; NVIDIA VRAM survives (decision 13).
+- Assembly checklist Phase 7 load validation ran under the temporary Windows
+  in Phase N0; re-spot-check on NixOS if wanted (`stress-ng`, `glmark2` are
+  in the shared package set).
 
 ## Operating Rules (cross-OS)
 
 1. Windows never hibernates and never fast-starts (`powercfg /h off`, Phase
-   N4). This keeps B and S clean for every boot.
-2. If NixOS is hibernated, resume NixOS. Do not boot Windows and write to S
+   N4). This keeps B and W clean for every boot.
+2. If NixOS is hibernated, resume NixOS. Do not boot Windows and write to W
    while NixOS holds a hibernation image with `/shared` mounted; on resume
    the stale page cache can corrupt NTFS. Boot Windows only after a clean
    NixOS shutdown or reboot.
 3. Windows feature updates may reorder UEFI boot entries. Fix is
    `efibootmgr -o` (or UEFI setup); they cannot damage A's ESP (decision 6).
-4. BitLocker recovery keys and the S password live in the password manager;
-   losing them makes B or S unrecoverable.
+4. BitLocker recovery keys and the W password live in the password manager;
+   losing them makes B or W unrecoverable.
 5. NixOS-side writes to `/shared` use the kernel ntfs3 driver with
-   `windows_names`, which blocks file names Windows cannot read.
+   `windows_names`, which blocks file names Windows cannot read. A volume
+   Windows left dirty refuses to mount; `nofail` lets the boot continue and
+   `ntfsfix -d` (ntfs3g, in the shared app baseline) clears the flag.
 6. Firmware updates (BIOS) reset boot order and can reset PTT: after any
    BIOS update, re-check boot order, Secure Boot off, and expect one
    BitLocker recovery-key prompt on Windows.

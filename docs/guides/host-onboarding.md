@@ -62,7 +62,7 @@ Common per-host divergence files, all optional:
 | `apps-enable.nix`  | App overrides at `lib.mkOverride 1000` over the common baseline; publish the override set under `flake.lib.nixos._hostAppsOverrides.<host>` so the FR-5 flake check rejects no-op entries |
 | `default-apps.nix` | Per-host `host.defaults` overrides (audio player, video player)                                                                                                                           |
 | `networking.nix`   | DNS or routing layered on the common NetworkManager base                                                                                                                                  |
-| `nix-settings.nix` | Hardware-tuned `max-jobs` and `min-free` only                                                                                                                                             |
+| `nix-settings.nix` | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`; Nix has no `auto` for it), and `min-free` only                                                                           |
 | `services.nix`     | Host-divergent services; on non-System76 hardware keep the default `powerprofilesctl` i3 power backend, System76 chassis override `gui.i3.powerProfiles.backend = "system76-power"`       |
 | `support.nix`      | Vendor hardware-support enables (firmware daemon, kernel modules)                                                                                                                         |
 

@@ -27,8 +27,10 @@ a removable adapter, can see the numbering move between devices. A name that
 carries a firewall rule must therefore be pinned rather than observed: see
 [Pin an interface name](#pin-an-interface-name). `modules/system76/networking.nix`
 pins its USB ethernet adapter to `lan0` for that reason, so a rule keyed to that
-name follows the adapter. Both hosts currently leave `firewallDnsInterfaces`
-empty.
+name follows the adapter, and `modules/songbird/networking.nix` pins that
+desktop's two onboard NICs to `lan0` and `lan1` by PCI path so their kernel
+numbering cannot swap between boots. Every host currently leaves
+`firewallDnsInterfaces` empty.
 
 ```bash
 nmcli device status
