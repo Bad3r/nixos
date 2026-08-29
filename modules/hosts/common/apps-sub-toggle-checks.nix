@@ -13,6 +13,7 @@
 { config, lib, ... }:
 let
   classify = config.flake.lib.nixos._hostAppsSubToggleClassify or null;
+  applySubToggles = config.flake.lib.nixos._hostAppsSubToggleApply or null;
 
   # Shaped like the real snapshot: values are lib.mkOverride wrappers, which is
   # what the classifier has to unwrap before comparing.
@@ -90,6 +91,50 @@ let
     }
   ];
 
+  # Write side. The classifier decides where a path is READ from; these decide
+  # where it is WRITTEN. A regression here writes a services app's sub-toggle
+  # under programs, where the option is undeclared, while the classifier still
+  # resolves it correctly and reports it as diverging: green check, dead
+  # override.
+  routingCases = [
+    {
+      name = "programs toggle lands under programs";
+      namespace = "programs";
+      toggles = [ (toggle [ "logseq" "extended" "disableGpuCompositing" ] true) ];
+      present = true;
+    }
+    {
+      name = "programs toggle does not land under services";
+      namespace = "services";
+      toggles = [ (toggle [ "logseq" "extended" "disableGpuCompositing" ] true) ];
+      present = false;
+    }
+    {
+      name = "services toggle lands under services";
+      namespace = "services";
+      toggles = [ (toggle [ "espanso" "extended" "x11Override" ] true) ];
+      present = true;
+    }
+    {
+      name = "services toggle does not land under programs";
+      namespace = "programs";
+      toggles = [ (toggle [ "espanso" "extended" "x11Override" ] true) ];
+      present = false;
+    }
+  ];
+
+  routingFailures = lib.concatMap (
+    case:
+    let
+      got = applySubToggles baseline case.namespace { } case.toggles;
+      inherit ((lib.head case.toggles)) path;
+      landed = lib.attrByPath path null got != null;
+    in
+    lib.optional (
+      landed != case.present
+    ) "${case.name}: landed=${lib.boolToString landed}, expected ${lib.boolToString case.present}"
+  ) routingCases;
+
   fmt = paths: "[ ${lib.concatStringsSep " " paths} ]";
 
   failures = lib.concatMap (
@@ -104,27 +149,30 @@ let
       got.noOps != case.noOps
     ) "${case.name}: noOps ${fmt got.noOps}, expected ${fmt case.noOps}"
   ) cases;
+
+  allFailures = failures ++ routingFailures;
 in
 {
   perSystem =
     { pkgs, ... }:
     {
       checks.host-apps-sub-toggle-classifier =
-        if classify == null then
+        if classify == null || applySubToggles == null then
           throw (
             "host-apps-sub-toggle-classifier: modules/hosts/common/checks.nix no longer exports "
-            + "flake.lib.nixos._hostAppsSubToggleClassify, so the sub-toggle comparison is unverified."
+            + "flake.lib.nixos._hostAppsSubToggleClassify and _hostAppsSubToggleApply, so the "
+            + "sub-toggle comparison and routing are unverified."
           )
-        else if failures != [ ] then
+        else if allFailures != [ ] then
           throw (
             "host-apps-sub-toggle-classifier: "
-            + toString (lib.length failures)
+            + toString (lib.length allFailures)
             + " case(s) failed:\n  "
-            + lib.concatStringsSep "\n  " failures
+            + lib.concatStringsSep "\n  " allFailures
           )
         else
           pkgs.runCommandLocal "host-apps-sub-toggle-classifier-ok" { } ''
-            echo "ok: ${toString (lib.length cases)} sub-toggle classifier cases" > $out
+            echo "ok: ${toString (lib.length cases + lib.length routingCases)} sub-toggle cases" > $out
           '';
     };
 }
