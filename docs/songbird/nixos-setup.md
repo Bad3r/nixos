@@ -427,11 +427,17 @@ Plus host-specific checks after the first boot:
    between, which corrupts the volume silently, so
    `modules/songbird/hardware-config.nix` unmounts `/shared` from an
    `ExecStartPre` on `systemd-hibernate`, `systemd-hybrid-sleep` and
-   `systemd-suspend-then-hibernate`, and remounts it on the way back. A
-   process holding `/shared` open makes that unmount fail, which aborts the
-   hibernation rather than writing an unsafe image: close whatever holds it
-   (`lsof /shared`) and retry. Booting Windows after a clean NixOS shutdown
-   or reboot is unaffected.
+   `systemd-suspend-then-hibernate`, and remounts it from an `ExecStopPost`
+   on the same units. `ExecStopPost` rather than `ExecStartPost` so the
+   remount also runs when the transition itself fails; the unmount leaves a
+   `/run/shared-remount-after-sleep` flag, so the remount touches only a
+   `/shared` this host unmounted. A process holding `/shared` open makes the
+   unmount fail, which aborts the hibernation rather than writing an unsafe
+   image: close whatever holds it (`lsof /shared`) and retry. A remount that
+   fails after resume leaves the sleep unit `failed`
+   (`systemctl status systemd-hibernate`); a volume Windows left dirty is
+   the usual cause, which rule 5 covers. Booting Windows after a clean NixOS
+   shutdown or reboot is unaffected.
 3. Windows feature updates may reorder UEFI boot entries. Fix is
    `efibootmgr -o` (or UEFI setup); they cannot damage A's ESP (decision 6).
 4. BitLocker recovery keys and the W password live in the password manager;

@@ -154,8 +154,14 @@ _: {
       # Wants= and could not. NixOS turns a systemd.services entry colliding
       # with a shipped unit into a drop-in (overrideStrategy defaults to
       # asDropinIfExists), so the upstream ExecStart survives. The remount is
-      # prefixed "-": the image is already written by then, and an absent
-      # drive must not fail the resume.
+      # ExecStopPost, not ExecStartPost: ExecStartPost is skipped whenever
+      # ExecStart exits non-zero, which is every failed transition, and would
+      # strand /shared unmounted with no diagnostic. The /run flag records
+      # that this unit did the unmount, so the remount cannot resurrect a
+      # volume the operator unmounted by hand and cannot fire on the path
+      # where ExecStartPre refused a busy /shared. That gate is also why the
+      # mount needs no "-": it is reached only when /shared was mounted going
+      # in, so a failure there is a real anomaly, not an absent drive.
       systemd.services = lib.mkMerge [
         (lib.genAttrs
           [
@@ -168,10 +174,17 @@ _: {
               ExecStartPre = [
                 (pkgs.writeShellScript "shared-umount-before-hibernate" ''
                   ${pkgs.util-linux}/bin/mountpoint -q /shared || exit 0
-                  exec ${pkgs.util-linux}/bin/umount /shared
+                  ${pkgs.util-linux}/bin/umount /shared || exit 1
+                  exec ${pkgs.coreutils}/bin/touch /run/shared-remount-after-sleep
                 '')
               ];
-              ExecStartPost = [ "-${pkgs.util-linux}/bin/mount /shared" ];
+              ExecStopPost = [
+                (pkgs.writeShellScript "shared-remount-after-sleep" ''
+                  [ -e /run/shared-remount-after-sleep ] || exit 0
+                  ${pkgs.coreutils}/bin/rm -f /run/shared-remount-after-sleep
+                  exec ${pkgs.util-linux}/bin/mount /shared
+                '')
+              ];
             };
           })
         )
