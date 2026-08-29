@@ -31,17 +31,36 @@ let
   mkExtendedEnable = _name: value: {
     extended.enable = lib.mkOverride 1000 value;
   };
+
+  # Nested toggles cannot go through appEnable, which routes every entry to a
+  # fixed extended.enable. Registered here so FR-5 compares them against the
+  # baseline too, and applied from this list rather than written out, so an
+  # unregistered one cannot exist.
+  subToggles = [
+    {
+      path = [
+        "claude-code"
+        "extended"
+        "installMethods"
+        "bun"
+        "enable"
+      ];
+      value = true;
+    }
+  ];
+  applySubToggles = lib.foldl' (
+    acc: toggle:
+    lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
+  );
 in
 {
   flake.lib.nixos._hostAppsOverrides.songbird = appEnable;
+  flake.lib.nixos._hostAppsSubToggleOverrides.songbird = subToggles;
   configurations.nixos.songbird.module = {
     # Logseq keeps normal GPU compositing here: the disableGpuCompositing
     # override in modules/system76/apps-enable.nix is a PRIME sync workaround
     # and this is a single-GPU desktop.
-    # claude-code.installMethods.bun is a sub-toggle
-    programs = lib.recursiveUpdate (lib.mapAttrs mkExtendedEnable programOverrides) {
-      "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1000 true;
-    };
+    programs = applySubToggles (lib.mapAttrs mkExtendedEnable programOverrides) subToggles;
     services = lib.mapAttrs mkExtendedEnable serviceOverrides;
   };
 }
