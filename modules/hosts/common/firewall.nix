@@ -316,8 +316,10 @@ let
             + "(${lib.concatStringsSep ", " collidingPins}) inside the namespaces the "
             + "kernel assigns itself (eth*, wlan*, usb*, wwan*, ib*, sl*). Per systemd.link(5) "
             + "the udev rename races the kernel's own assignment there, so the pin may "
-            + "silently not apply and anything keyed to the name matches no device. Pin "
-            + "outside those namespaces, as modules/tpnix/networking.nix does with wifi0.";
+            + "silently not apply and anything keyed to the name matches no device. Rename "
+            + "the existing pin to a name outside those namespaces, as "
+            + "modules/tpnix/networking.nix does with wifi0; do not add a second file, which "
+            + "udev never reads.";
         }
         {
           assertion = policyOverriddenPins == [ ];
