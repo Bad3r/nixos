@@ -162,6 +162,42 @@ let
       ) links
     );
 
+  # Enabled .link units that bind the same device by the same selector. udev
+  # applies only the first matching file, so every later one is discarded, but
+  # pinnedNamesOf reads Name= off all of them. A second file added to pin a
+  # device that already has one therefore renames nothing while putting its name
+  # into declaredNames, which subtracts it out of kernelNames and unbackedNames
+  # and silences every guard here against a name that matches no device. Both
+  # wired hosts already ship a .link for each NIC, so that is the shape the
+  # kernel-name warning invites.
+  shadowedLinksOf =
+    links:
+    let
+      selectorOf =
+        link:
+        let
+          matchConfig = link.matchConfig or { };
+          bound = lib.filter (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
+        in
+        if bound == [ ] then
+          null
+        else
+          let
+            key = lib.head bound;
+          in
+          "${key}=${
+            lib.head (
+              lib.filter (t: lib.isString t && t != "") (
+                lib.concatMap (builtins.split "[[:space:]]+") (lib.toList matchConfig.${key})
+              )
+            )
+          }";
+      selectors = lib.filter (s: s != null) (
+        lib.mapAttrsToList (_: link: if link.enable or true then selectorOf link else null) links
+      );
+    in
+    lib.unique (lib.filter (s: lib.count (x: x == s) selectors > 1) selectors);
+
   # Interfaces a host declares rather than inherits from a NIC. Exported with
   # the classifier so the check can assert every source is still read.
   declaredNamesOf =
@@ -236,6 +272,7 @@ let
       declaredNames = declaredNamesOf config;
       collidingPins = collidingPinsOf config.systemd.network.links;
       policyOverriddenPins = policyOverriddenPinsOf config.systemd.network.links;
+      shadowedLinks = shadowedLinksOf config.systemd.network.links;
       inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
         staleScheme
@@ -254,7 +291,9 @@ let
           + "(${lib.concatStringsSep ", " staleScheme}) but the host boots with "
           + "net.ifnames=0, so they match no device. Pin the intended device with a .link "
           + "Name= outside the kernel-assigned namespaces (eth*, wlan*, usb*, wwan*, ib*, "
-          + "sl*) and name the pin here, as modules/tpnix/networking.nix does with wifi0. "
+          + "sl*) and name the pin here. If a .link already matches that device, add Name= "
+          + "to that file and drop its NamePolicy= rather than authoring a second one, which "
+          + "udev never reads. "
           + "A bare kernel name resolves, but to whichever same-class NIC enumerated first "
           + "that boot, which is what the warning below reports.";
     in
@@ -290,6 +329,16 @@ let
             + "honoured. Drop NamePolicy= from a file that pins a name; keep it only in the "
             + "no-Name= altname-narrowing shape (docs/networking/README.md).";
         }
+        {
+          assertion = shadowedLinks == [ ];
+          message =
+            "${hostName}: more than one enabled systemd.network.links unit binds "
+            + "(${lib.concatStringsSep ", " shadowedLinks}). udev applies only the first "
+            + "matching file, so the rest are never read, while pinnedNamesOf still counts "
+            + "their Name= as a declared name and silences the guards here for a name that "
+            + "matches no device. Add Name= to the file that already matches the device "
+            + "instead of authoring a second one (docs/networking/README.md).";
+        }
       ];
 
       warnings =
@@ -312,8 +361,10 @@ let
           "${hostName}: firewallDnsInterfaces names "
           + "(${lib.concatStringsSep ", " kernelNames}) are kernel-assigned and no .link on "
           + "this host pins them, so each follows discovery order and can land on a different "
-          + "device across boots. Pin the intended device outside the kernel namespaces, as "
-          + "modules/tpnix/networking.nix does with wifi0."
+          + "device across boots. Pin the intended device outside the kernel namespaces. If a "
+          + ".link already matches that device, add Name= to that file and drop its "
+          + "NamePolicy=; udev applies only the first matching file, so a second .link for the "
+          + "same device is never read (docs/networking/README.md)."
         );
 
       networking.firewall = {
@@ -355,6 +406,7 @@ in
       _firewallDnsDeclaredNamesOf = declaredNamesOf;
       _firewallDnsCollidingPinsOf = collidingPinsOf;
       _firewallDnsPolicyOverriddenPinsOf = policyOverriddenPinsOf;
+      _firewallDnsShadowedLinksOf = shadowedLinksOf;
     };
     nixosModules.hosts-common.imports = [ body ];
   };

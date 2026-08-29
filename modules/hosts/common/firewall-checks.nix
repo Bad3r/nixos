@@ -22,6 +22,7 @@ let
   declaredNamesOf = config.flake.lib.nixos._firewallDnsDeclaredNamesOf or null;
   collidingPinsOf = config.flake.lib.nixos._firewallDnsCollidingPinsOf or null;
   policyOverriddenPinsOf = config.flake.lib.nixos._firewallDnsPolicyOverriddenPinsOf or null;
+  shadowedLinksOf = config.flake.lib.nixos._firewallDnsShadowedLinksOf or null;
 
   # One entry per source declaredNamesOf reads. A source dropped from that
   # expression loses its name here, which is the failure this covers.
@@ -482,6 +483,57 @@ let
     }
   ];
 
+  # udev applies only the first matching file, so a second .link for a device
+  # that already has one is never read, while pinnedNamesOf still reads its
+  # Name= and reports the name as backed. Both wired hosts ship a .link per NIC,
+  # so this is the shape the kernel-name warning invites.
+  shadowedCases = [
+    {
+      name = "one file per device is accepted";
+      links = {
+        "10-a" = link { Path = "pci-0000:84:00.0"; } "lan0";
+        "10-b" = link { Path = "pci-0000:85:00.0"; } "lan1";
+      };
+      expected = [ ];
+    }
+    {
+      name = "a second file for the same device is rejected";
+      links = {
+        "10-realtek" = altnamesOnlyLink;
+        "20-uplink" = link { Path = "pci-0000:84:00.0"; } "lan0";
+      };
+      expected = [ "Path=pci-0000:84:00.0" ];
+    }
+    {
+      name = "a disabled second file is accepted";
+      links = {
+        "10-realtek" = altnamesOnlyLink;
+        "20-uplink" = (link { Path = "pci-0000:84:00.0"; } "lan0") // {
+          enable = false;
+        };
+      };
+      expected = [ ];
+    }
+    {
+      # Neither binds a device, so neither shadows the other in a way that
+      # matters here; the match-all case is what pinnedNamesOf already excludes.
+      name = "two match-all files are not counted";
+      links = {
+        "10-a".linkConfig.Name = "lan0";
+        "20-b".linkConfig.Name = "lan1";
+      };
+      expected = [ ];
+    }
+    {
+      name = "same device matched by different keys is not counted";
+      links = {
+        "10-a" = link { Path = "pci-0000:84:00.0"; } "lan0";
+        "20-b" = link { PermanentMACAddress = "02:00:00:00:00:01"; } "lan1";
+      };
+      expected = [ ];
+    }
+  ];
+
   collisionCases = [
     {
       name = "pin outside the kernel namespaces is accepted";
@@ -539,20 +591,30 @@ let
     lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
   ) policyOverrideCases;
 
+  shadowedFailures = lib.concatMap (
+    case:
+    let
+      got = shadowedLinksOf case.links;
+    in
+    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
+  ) shadowedCases;
+
   failures =
     classifyFailures
     ++ pinnedFailures
     ++ declaredFailures
     ++ networkdOffFailures
     ++ collisionFailures
-    ++ policyOverrideFailures;
+    ++ policyOverrideFailures
+    ++ shadowedFailures;
 
   missingExports =
     classify == null
     || pinnedNamesOf == null
     || declaredNamesOf == null
     || collidingPinsOf == null
-    || policyOverriddenPinsOf == null;
+    || policyOverriddenPinsOf == null
+    || shadowedLinksOf == null;
 in
 {
   perSystem =
@@ -564,7 +626,7 @@ in
             "firewall-dns-interface-classifier: modules/hosts/common/firewall.nix no longer exports "
             + "flake.lib.nixos._firewallDnsClassify, _firewallDnsPinnedNamesOf, "
             + "_firewallDnsDeclaredNamesOf, _firewallDnsCollidingPinsOf, and "
-            + "_firewallDnsPolicyOverriddenPinsOf, so the "
+            + "_firewallDnsPolicyOverriddenPinsOf, and _firewallDnsShadowedLinksOf, so the "
             + "firewallDnsInterfaces guards are unverified."
           )
         else if failures != [ ] then
@@ -582,6 +644,7 @@ in
                 + lib.length pinnedCases
                 + lib.length collisionCases
                 + lib.length policyOverrideCases
+                + lib.length shadowedCases
                 + 2
               )
             } classifier cases" > $out
