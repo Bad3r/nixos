@@ -329,7 +329,7 @@ handling) and plus the desktop-specific pieces:
 
 | File                                                            | Carries                                                                                                                                                                                                                                                                  |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `modules/songbird/hardware-config.nix`                          | LUKS root/swap on A (`cryptroot`, `cryptswap`, `resumeDevice`), the system76 `data` LUKS volume (`nofail`) at `/data`, the NTFS `/shared` mount, microcode, NPU, Bluetooth `KernelExperimental`, firmware set, `bolt`, `/data` ownership                                 |
+| `modules/songbird/hardware-config.nix`                          | LUKS root/swap on A (`cryptroot`, `cryptswap`, `resumeDevice`), the system76 `data` LUKS volume (`nofail`) at `/data`, the NTFS `/shared` mount and its pre-hibernation unmount, microcode, NPU, Bluetooth `KernelExperimental`, firmware set, `bolt`, `/data` ownership |
 | `modules/songbird/nvidia-gpu.nix`                               | `gpu.nvidia`: production branch, `open = true`, `vaapi.backend = "nvidia"`, `nouveau` blacklisted; VRAM preservation across suspend comes from the shared module's `powerManagement.enable`                                                                              |
 | `modules/songbird/policy.nix`                                   | `sopsRuntimeReady`/`r2RuntimeReady` gates (off until Phase N2), `duplicatiStateDirReadable`, `extraHomeApps`, empty `firewallDnsInterfaces`, the 8000-8999 TCP range; primary handoff pending                                                                            |
 | `modules/songbird/services.nix`                                 | Samba media share (from `secrets/songbird.yaml`), on-demand `samba.target` with WS-Discovery bound to it, coredump retention, power-profiles-daemon forced to performance (replacing system76-power), cloudflared, WARP headless, LACT, system76-scheduler, printing off |
@@ -422,10 +422,16 @@ Plus host-specific checks after the first boot:
 
 1. Windows never hibernates and never fast-starts (`powercfg /h off`, Phase
    N4). This keeps B and W clean for every boot.
-2. If NixOS is hibernated, resume NixOS. Do not boot Windows and write to W
-   while NixOS holds a hibernation image with `/shared` mounted; on resume
-   the stale page cache can corrupt NTFS. Boot Windows only after a clean
-   NixOS shutdown or reboot.
+2. If NixOS is hibernated, resume NixOS. An image written with `/shared`
+   mounted restores stale NTFS metadata over anything Windows wrote in
+   between, which corrupts the volume silently, so
+   `modules/songbird/hardware-config.nix` unmounts `/shared` from an
+   `ExecStartPre` on `systemd-hibernate`, `systemd-hybrid-sleep` and
+   `systemd-suspend-then-hibernate`, and remounts it on the way back. A
+   process holding `/shared` open makes that unmount fail, which aborts the
+   hibernation rather than writing an unsafe image: close whatever holds it
+   (`lsof /shared`) and retry. Booting Windows after a clean NixOS shutdown
+   or reboot is unaffected.
 3. Windows feature updates may reorder UEFI boot entries. Fix is
    `efibootmgr -o` (or UEFI setup); they cannot damage A's ESP (decision 6).
 4. BitLocker recovery keys and the W password live in the password manager;

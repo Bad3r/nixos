@@ -66,23 +66,23 @@ common-baseline participation is always a recorded choice (`true` to opt in,
 
 ### songbird (Arrow Lake desktop)
 
-| File                                       | Purpose                                                                                                                                        |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `modules/songbird/imports.nix`             | Host-specific enables only (Steam, rip, language toolchains); the desktop board has no vendor module, so nothing chassis-specific to import    |
-| `modules/songbird/nix-settings.nix`        | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                     |
-| `modules/songbird/ssh.nix`                 | `services.openssh.enable` override; the host public key pin waits for the first boot to generate the key                                       |
-| `modules/songbird/r2-runtime.nix`          | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                             |
-| `modules/songbird/hardware-config.nix`     | LUKS root and swap on the SN8100, the system76 `/data` LUKS+XFS volume, the NTFS `/shared` drive, firmware, NPU, Thunderbolt (bolt)            |
-| `modules/songbird/host-id.nix`             | `networking.hostId`                                                                                                                            |
-| `modules/songbird/state-version.nix`       | Install-time `system.stateVersion` constant (`26.11`)                                                                                          |
-| `modules/songbird/support.nix`             | `services.fwupd` (LVFS); no vendor daemon on this board                                                                                        |
-| `modules/songbird/nvidia-gpu.nix`          | GPU profile over `flake.nixosModules.nvidia-gpu`: production branch, NVIDIA open kernel modules (Blackwell), NVDEC VA-API, nouveau blacklisted |
-| `modules/songbird/mpv.nix`                 | mpv `gpu-api = "opengl"` override carried over from system76                                                                                   |
-| `modules/songbird/gnome-keyring.nix`       | gnome-keyring force-disabled in favor of the `pass` secret service                                                                             |
-| `modules/songbird/pass-secret-service.nix` | DBus secret-service for `pass`                                                                                                                 |
-| `modules/songbird/apps-enable.nix`         | Per-host overrides over the common app baseline (Inkscape on)                                                                                  |
-| `modules/songbird/policy.nix`              | Registry data under `flake.lib.nixos.hosts.songbird` (readiness gates, per-host values); primary handoff pending the tailnet address           |
-| `modules/songbird/services.nix`            | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT, system76-scheduler)            |
+| File                                       | Purpose                                                                                                                                                             |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/songbird/imports.nix`             | Host-specific enables only (Steam, rip, language toolchains); the desktop board has no vendor module, so nothing chassis-specific to import                         |
+| `modules/songbird/nix-settings.nix`        | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                                          |
+| `modules/songbird/ssh.nix`                 | `services.openssh.enable` override; the host public key pin waits for the first boot to generate the key                                                            |
+| `modules/songbird/r2-runtime.nix`          | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                                                  |
+| `modules/songbird/hardware-config.nix`     | LUKS root and swap on the SN8100, the system76 `/data` LUKS+XFS volume, the NTFS `/shared` drive and its pre-hibernation unmount, firmware, NPU, Thunderbolt (bolt) |
+| `modules/songbird/host-id.nix`             | `networking.hostId`                                                                                                                                                 |
+| `modules/songbird/state-version.nix`       | Install-time `system.stateVersion` constant (`26.11`)                                                                                                               |
+| `modules/songbird/support.nix`             | `services.fwupd` (LVFS); no vendor daemon on this board                                                                                                             |
+| `modules/songbird/nvidia-gpu.nix`          | GPU profile over `flake.nixosModules.nvidia-gpu`: production branch, NVIDIA open kernel modules (Blackwell), NVDEC VA-API, nouveau blacklisted                      |
+| `modules/songbird/mpv.nix`                 | mpv `gpu-api = "opengl"` override carried over from system76                                                                                                        |
+| `modules/songbird/gnome-keyring.nix`       | gnome-keyring force-disabled in favor of the `pass` secret service                                                                                                  |
+| `modules/songbird/pass-secret-service.nix` | DBus secret-service for `pass`                                                                                                                                      |
+| `modules/songbird/apps-enable.nix`         | Per-host overrides over the common app baseline (Inkscape on)                                                                                                       |
+| `modules/songbird/policy.nix`              | Registry data under `flake.lib.nixos.hosts.songbird` (readiness gates, per-host values); primary handoff pending the tailnet address                                |
+| `modules/songbird/services.nix`            | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT, system76-scheduler)                                 |
 
 ### system76 (Oryx Pro laptop)
 
