@@ -21,6 +21,7 @@ let
           # to be one value: independent defaults would leave the provisioner
           # and the sync on different paths with no error.
           root = config.localMirrors.root;
+          stampName = config.localMirrors.stampName;
           firefoxDocs.enable = true;
           pythonDocs.enable = true;
           jobs = 2;

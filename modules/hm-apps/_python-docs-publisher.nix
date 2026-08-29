@@ -3,6 +3,7 @@
   pkgs,
   pythonDocs,
   mirrorRoot,
+  stampName,
 }:
 
 pkgs.writeShellApplication {
@@ -27,6 +28,7 @@ pkgs.writeShellApplication {
     max_revisions=${lib.escapeShellArg (toString pythonDocs.maxRevisions)}
     lock_file=${lib.escapeShellArg pythonDocs.lockPath}
     mirror_root=${lib.escapeShellArg mirrorRoot}
+    stamp_name=${lib.escapeShellArg stampName}
     tmp_revision=
 
     log() { printf '%s python-docs: %s\n' "$(date -Is)" "$*" >&2; }
@@ -68,11 +70,11 @@ pkgs.writeShellApplication {
 
     # The lock file sits inside the mirror root, so creating its parent here
     # would put the root back on the root filesystem whenever the volume holding
-    # it is absent. local-mirrors-root.service provisions it with
-    # install -d -m 2775 while that volume is mounted and nothing else sets
-    # setgid, so the bit separates a provisioned root from a stray directory.
-    if [ ! -d "$mirror_root" ] || [ ! -g "$mirror_root" ]; then
-      log "mirror root $mirror_root is absent or unprovisioned, is the volume mounted?"
+    # it is absent. local-mirrors-root.service writes the stamp only while that
+    # volume is mounted, so the stamp is the one thing a stray root of the same
+    # name cannot have; its mode can be identical.
+    if [ ! -e "$mirror_root/$stamp_name" ]; then
+      log "mirror root $mirror_root was not provisioned by local-mirrors-root.service, is the volume mounted?"
       exit 1
     fi
 
