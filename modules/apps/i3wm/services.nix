@@ -114,9 +114,16 @@
               # i3 does not composite, so without picom every GL/video present
               # reaches the scanout unsynchronised and tears. glx+vSync is the
               # backend pair NVIDIA needs; xrender (the module default) ignores
-              # vSync entirely.
+              # vSync entirely. Follows the app registry rather than enabling
+              # unconditionally: programs.picom.extended is what puts picom in
+              # the system closure, so a host turning the app off would
+              # otherwise still run a compositor, and one from home-manager's
+              # own pkgs.picom rather than the package the app module installs.
               picom = {
-                enable = lib.mkDefault true;
+                enable = lib.mkDefault (lib.attrByPath [ "programs" "picom" "extended" "enable" ] true osConfig);
+                package = lib.mkDefault (
+                  lib.attrByPath [ "programs" "picom" "extended" "package" ] pkgs.picom osConfig
+                );
                 backend = lib.mkDefault "glx";
                 vSync = lib.mkDefault true;
               };
