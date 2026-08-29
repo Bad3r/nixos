@@ -21,6 +21,7 @@ let
   pinnedNamesOf = config.flake.lib.nixos._firewallDnsPinnedNamesOf or null;
   declaredNamesOf = config.flake.lib.nixos._firewallDnsDeclaredNamesOf or null;
   collidingPinsOf = config.flake.lib.nixos._firewallDnsCollidingPinsOf or null;
+  policyOverriddenPinsOf = config.flake.lib.nixos._firewallDnsPolicyOverriddenPinsOf or null;
 
   # One entry per source declaredNamesOf reads. A source dropped from that
   # expression loses its name here, which is the failure this covers.
@@ -451,6 +452,36 @@ let
 
   # A pin into a namespace the kernel assigns itself races udev, so it must be
   # rejected; a pin outside them must not be.
+  # A pin and a policy in the same file. systemd.link(5) gives Name= the lower
+  # precedence, so the policy wins and the pin does not apply. Both wired hosts
+  # ship the no-Name= policy shape, so adding Name= there is the natural way to
+  # satisfy the kernel-name warning and the one that silently does nothing.
+  policyOverrideCases = [
+    {
+      name = "pin with no NamePolicy is accepted";
+      links."10-lan0" = link { Path = "pci-0000:00:14.0-usb-0:1.4:1.0"; } "lan0";
+      expected = [ ];
+    }
+    {
+      name = "altname-narrowing file with no Name is accepted";
+      links."10-altnames" = altnamesOnlyLink;
+      expected = [ ];
+    }
+    {
+      name = "Name added to the altname-narrowing file is rejected";
+      links."10-altnames" = lib.recursiveUpdate altnamesOnlyLink { linkConfig.Name = "lan0"; };
+      expected = [ "10-altnames" ];
+    }
+    {
+      name = "disabled file carrying both is accepted";
+      links."10-altnames" = lib.recursiveUpdate altnamesOnlyLink {
+        enable = false;
+        linkConfig.Name = "lan0";
+      };
+      expected = [ ];
+    }
+  ];
+
   collisionCases = [
     {
       name = "pin outside the kernel namespaces is accepted";
@@ -500,11 +531,28 @@ let
     lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
   ) collisionCases;
 
+  policyOverrideFailures = lib.concatMap (
+    case:
+    let
+      got = policyOverriddenPinsOf case.links;
+    in
+    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
+  ) policyOverrideCases;
+
   failures =
-    classifyFailures ++ pinnedFailures ++ declaredFailures ++ networkdOffFailures ++ collisionFailures;
+    classifyFailures
+    ++ pinnedFailures
+    ++ declaredFailures
+    ++ networkdOffFailures
+    ++ collisionFailures
+    ++ policyOverrideFailures;
 
   missingExports =
-    classify == null || pinnedNamesOf == null || declaredNamesOf == null || collidingPinsOf == null;
+    classify == null
+    || pinnedNamesOf == null
+    || declaredNamesOf == null
+    || collidingPinsOf == null
+    || policyOverriddenPinsOf == null;
 in
 {
   perSystem =
@@ -515,7 +563,8 @@ in
           throw (
             "firewall-dns-interface-classifier: modules/hosts/common/firewall.nix no longer exports "
             + "flake.lib.nixos._firewallDnsClassify, _firewallDnsPinnedNamesOf, "
-            + "_firewallDnsDeclaredNamesOf, and _firewallDnsCollidingPinsOf, so the "
+            + "_firewallDnsDeclaredNamesOf, _firewallDnsCollidingPinsOf, and "
+            + "_firewallDnsPolicyOverriddenPinsOf, so the "
             + "firewallDnsInterfaces guards are unverified."
           )
         else if failures != [ ] then
@@ -528,7 +577,13 @@ in
         else
           pkgs.runCommandLocal "firewall-dns-interface-classifier-ok" { } ''
             echo "ok: ${
-              toString (lib.length classifyCases + lib.length pinnedCases + lib.length collisionCases + 2)
+              toString (
+                lib.length classifyCases
+                + lib.length pinnedCases
+                + lib.length collisionCases
+                + lib.length policyOverrideCases
+                + 2
+              )
             } classifier cases" > $out
           '';
     };
