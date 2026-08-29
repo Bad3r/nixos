@@ -21,9 +21,16 @@ Repositories sync to flat paths under `/data/git`.
   the unit inactive rather than writing the tree onto the root filesystem. A
   late mount is recovered with
   `systemctl start local-mirrors-root.service`
-- **Absent root**: `git-mirror` refuses every repo spec while the root is
-  missing (`mirror root ... is absent, is the volume mounted?`) instead of
-  letting `git clone` recreate the path on `/`
+- **Absent root**: `git-mirror` and both docs services refuse every job while
+  the root is missing, instead of letting `git clone` or a lock-file `mkdir`
+  recreate the path on `/`. The guard runs before the docs lock files are
+  opened, because those sit directly in the root, so their `mkdir -p` would
+  otherwise recreate it and let every later repo spec pass
+- **Unprovisioned root**: the same guard also refuses a root that is not
+  setgid. `install -d -m 2775` re-applies the bit on every boot and nothing
+  else sets it (`git clone` and `mkdir -p` under `umask 002` leave `0775`), so
+  it is what tells a provisioned root apart from a stray directory of the same
+  name left on the root filesystem, which a plain existence test cannot
 - **Environment variable**: `$LOCAL_MIRRORS` points to `/data/git`
 - **Sync schedule**: Daily via systemd timer
 - **Manual sync**: `systemctl --user start git-mirror.service`

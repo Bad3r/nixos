@@ -2,6 +2,7 @@
   lib,
   pkgs,
   pythonDocs,
+  mirrorRoot,
 }:
 
 pkgs.writeShellApplication {
@@ -25,6 +26,7 @@ pkgs.writeShellApplication {
     version_url=${lib.escapeShellArg pythonDocs.versionUrl}
     max_revisions=${lib.escapeShellArg (toString pythonDocs.maxRevisions)}
     lock_file=${lib.escapeShellArg pythonDocs.lockPath}
+    mirror_root=${lib.escapeShellArg mirrorRoot}
     tmp_revision=
 
     log() { printf '%s python-docs: %s\n' "$(date -Is)" "$*" >&2; }
@@ -64,7 +66,16 @@ pkgs.writeShellApplication {
 
     trap cleanup_tmp EXIT
 
-    mkdir -p "$(dirname "$lock_file")"
+    # The lock file sits inside the mirror root, so creating its parent here
+    # would put the root back on the root filesystem whenever the volume holding
+    # it is absent. local-mirrors-root.service provisions it with
+    # install -d -m 2775 while that volume is mounted and nothing else sets
+    # setgid, so the bit separates a provisioned root from a stray directory.
+    if [ ! -d "$mirror_root" ] || [ ! -g "$mirror_root" ]; then
+      log "mirror root $mirror_root is absent or unprovisioned, is the volume mounted?"
+      exit 1
+    fi
+
     exec 9>"$lock_file"
     flock 9
 
