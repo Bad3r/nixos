@@ -6,11 +6,9 @@ _: {
     # so unlike system76 there is nothing chassis-specific to import; the file
     # carries only host-specific enables.
 
-    # Gaming & performance
-    programs = {
-      steam.extended.enable = true;
-      rip.extended.enable = true;
-    };
+    # No programs block: steam and rip are already on in the common baseline,
+    # so repeating them here would be a no-op that FR-5 cannot see, since it
+    # reads apps-enable.nix's registries and not this file.
 
     # Language support
     languages = {
