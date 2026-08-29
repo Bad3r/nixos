@@ -78,6 +78,11 @@ pkgs.writeShellApplication {
       exit 1
     fi
 
+    # Below the guard, so it can only create paths under a root the stamp
+    # proves is on the mounted volume. Still needed: repoPath and outputRoot
+    # are unconstrained strings, so the lock file's parent is not always the
+    # root itself, and the redirection below would fail with ENOENT.
+    mkdir -p "$(dirname "$lock_file")"
     exec 9>"$lock_file"
     flock 9
 
