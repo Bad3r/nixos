@@ -22,9 +22,9 @@
 # `extended.enable`, so it cannot carry an override of a nested toggle such as
 # `claude-code.extended.installMethods.bun.enable`. Those are registered
 # separately under `flake.lib.nixos._hostAppsSubToggleOverrides.<host>` as a
-# list of `{ path; value; }` under `programs`, and the host file builds the
-# override from that list rather than writing it out, so an unregistered one
-# cannot exist. Without this the same no-op drift is invisible: the comparison
+# list of `{ path; value; }`, resolved against whichever namespace the baseline
+# declares the app in, and the host file builds the override from that list
+# rather than writing it out, so an unregistered one cannot exist. Without this the same no-op drift is invisible: the comparison
 # below reads a fixed `extended.enable` and only iterates names the flat set
 # registered.
 #
