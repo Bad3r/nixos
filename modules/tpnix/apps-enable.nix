@@ -90,15 +90,17 @@ let
   # Route each toggle by the namespace its app lives in, the way appEnable's
   # entries are routed. Folding everything into programs would silently write a
   # services app's sub-toggle under programs.
-  subTogglesIn =
-    namespace:
-    lib.filter (toggle: isService (lib.head toggle.path) == (namespace == "services")) subToggles;
+  # Shared with the FR-5 comparison so the write and read sides cannot disagree
+  # about which namespace a path belongs to.
   applySubToggles =
     namespace: base:
-    lib.foldl' (
-      acc: toggle:
-      lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
-    ) base (subTogglesIn namespace);
+    (config.flake.lib.nixos._hostAppsSubToggleApply
+      or (throw "modules/hosts/common/checks.nix no longer exports flake.lib.nixos._hostAppsSubToggleApply")
+    )
+      baseline
+      namespace
+      base
+      subToggles;
 in
 {
   flake.lib.nixos._hostAppsOverrides.tpnix = appEnable;

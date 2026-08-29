@@ -141,6 +141,28 @@ let
       );
     };
 
+  # Write side of the same decision, exported alongside the classifier and used
+  # by every host file, so the two halves cannot disagree about which namespace
+  # a path belongs to. Three byte-identical copies in the host files were two
+  # independent implementations of one invariant with a test on one of them: a
+  # regression here writes a services app's sub-toggle under programs, where the
+  # option is undeclared, while the classifier still resolves it against
+  # services and reports it as diverging. Green check, dead override.
+  applySubToggles =
+    snapshot: namespace: base: toggles:
+    let
+      inNamespace =
+        toggle:
+        let
+          head = lib.head toggle.path;
+        in
+        if snapshot.programs or { } ? ${head} then namespace == "programs" else namespace == "services";
+    in
+    lib.foldl' (
+      acc: toggle:
+      lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
+    ) base (builtins.filter inNamespace toggles);
+
   classifyFor = classifySubToggles {
     programs = baselinePrograms;
     services = baselineServices;
@@ -175,6 +197,7 @@ let
 in
 {
   flake.lib.nixos._hostAppsSubToggleClassify = classifySubToggles;
+  flake.lib.nixos._hostAppsSubToggleApply = applySubToggles;
 
   perSystem =
     { pkgs, ... }:
