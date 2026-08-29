@@ -173,27 +173,27 @@ let
   shadowedLinksOf =
     links:
     let
-      selectorOf =
+      # Every binding key, not just the first: a file that repeats another
+      # file's PermanentMACAddress= while also carrying a Path= would be keyed
+      # on Path= alone and read as binding a different device.
+      selectorsOf =
         link:
         let
           matchConfig = link.matchConfig or { };
           bound = lib.filter (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
         in
-        if bound == [ ] then
-          null
-        else
-          let
-            key = lib.head bound;
-          in
+        map (
+          key:
           "${key}=${
             lib.head (
               lib.filter (t: lib.isString t && t != "") (
                 lib.concatMap (builtins.split "[[:space:]]+") (lib.toList matchConfig.${key})
               )
             )
-          }";
-      selectors = lib.filter (s: s != null) (
-        lib.mapAttrsToList (_: link: if link.enable or true then selectorOf link else null) links
+          }"
+        ) bound;
+      selectors = lib.concatMap (link: if link.enable or true then selectorsOf link else [ ]) (
+        lib.attrValues links
       );
     in
     lib.unique (lib.filter (s: lib.count (x: x == s) selectors > 1) selectors);
