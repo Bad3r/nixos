@@ -18,9 +18,21 @@ _: {
         # decode churn: "intel-media", which routes libva to the Xe-LPG iGPU
         # at 0000:00:02.0.
         vaapi.backend = "nvidia";
+        # The XMI Mi Monitor on DFP-5 advertises 2560x1440@60 as its EDID
+        # preferred mode and 180/165/144/120 as alternates, so
+        # nvidia-auto-select lands on 60 and RandR silently reverts there on
+        # every hotplug and DPMS wake.
+        metamode = "2560x1440_144";
         # Single-GPU desktop: PRIME stays off (shared-module default). The
         # iGPU remains present for VA-API fallback and GPU-less bring-up only.
       };
+
+      # gecko-env.nix exports LIBVA_DRIVER_NAME=nvidia session-wide once
+      # nvidia-vaapi-driver is installed, but libva still picks the DRM node by
+      # enumeration order and renderD128 is the Intel iGPU here. Pin the node by
+      # PCI path so the NVDEC driver is never handed the Intel fd, and so a
+      # probe-order swap between boots cannot move decode.
+      environment.sessionVariables.LIBVA_DRM_DEVICE = "/dev/dri/by-path/pci-0000:02:00.0-render";
 
       # Suspend/hibernate VRAM preservation
       # (nvidia.NVreg_PreserveVideoMemoryAllocations=1 plus the

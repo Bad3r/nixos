@@ -53,6 +53,20 @@ let
           description = "Enable nvidia-container-toolkit for GPU passthrough into containers.";
         };
 
+        metamode = lib.mkOption {
+          type = lib.types.str;
+          default = "nvidia-auto-select";
+          example = "2560x1440_144";
+          description = ''
+            Mode token for the X screen metamode. "nvidia-auto-select" takes the
+            EDID-preferred mode, which on many high-refresh panels is 60 Hz;
+            name a `<width>x<height>_<rate>` mode to pin the rate instead. The
+            X screen mode is also what RandR falls back to when the driver
+            re-detects the display, so a wrong value here silently returns after
+            every hotplug or DPMS wake.
+          '';
+        };
+
         vaapi.backend = lib.mkOption {
           type = lib.types.enum [
             "nvidia"
@@ -104,7 +118,7 @@ let
               videoDrivers = lib.mkDefault [ "nvidia" ];
               # Tear-free: Force full composition pipeline for NVIDIA
               screenSection = lib.mkDefault ''
-                Option "metamodes" "nvidia-auto-select +0+0 {ForceFullCompositionPipeline=On}"
+                Option "metamodes" "${cfg.metamode} +0+0 {ForceFullCompositionPipeline=On}"
               '';
             };
 
