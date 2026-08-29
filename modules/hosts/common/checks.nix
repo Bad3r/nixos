@@ -103,15 +103,51 @@ let
     in
     builtins.filter isNoOp (builtins.attrNames overrides);
 
-  # A path the baseline never declares cannot be compared at all, so it is
-  # reported rather than dropped: dropping it makes registration look like
-  # coverage it does not provide, which is the asymmetry against the flat set,
-  # where an unknown name is an eval-time failure through unknownOverridesByHost.
-  subToggleUncomparableFor =
+  # Pure classifier over the sub-toggle registry, exported so
+  # modules/hosts/common/apps-sub-toggle-checks.nix can exercise every branch:
+  # the three registered toggles are all programs-namespace and all diverge, so
+  # nothing in a host closure reaches the other cases.
+  #
+  # Paths resolve in both namespaces, the way baselineEnableOf does for the flat
+  # set. The baseline splits apps into programs and services, so looking only in
+  # programs makes a sub-toggle on a services app resolve to null and be reported
+  # as an out-of-sync baseline that no baseline edit can fix.
+  classifySubToggles =
+    { programs, services }:
     toggles:
-    map (toggle: lib.concatStringsSep "." toggle.path) (
-      builtins.filter (toggle: (lib.attrByPath toggle.path null baselinePrograms) == null) toggles
-    );
+    let
+      at =
+        path:
+        let
+          fromPrograms = lib.attrByPath path null programs;
+        in
+        if fromPrograms != null then fromPrograms else lib.attrByPath path null services;
+      name = toggle: lib.concatStringsSep "." toggle.path;
+    in
+    {
+      # A path the baseline never declares cannot be compared at all, so it is
+      # reported rather than dropped: dropping it makes registration look like
+      # coverage it does not provide, which is the asymmetry against the flat
+      # set, where an unknown name fails through unknownOverridesByHost.
+      uncomparable = map name (builtins.filter (toggle: at toggle.path == null) toggles);
+      noOps = map name (
+        builtins.filter (
+          toggle:
+          let
+            base = unwrapOverride (at toggle.path);
+          in
+          base != null && base == toggle.value
+        ) toggles
+      );
+    };
+
+  classifyFor = classifySubToggles {
+    programs = baselinePrograms;
+    services = baselineServices;
+  };
+
+  subToggleUncomparableFor = toggles: (classifyFor toggles).uncomparable;
+  subToggleNoOpsFor = toggles: (classifyFor toggles).noOps;
 
   uncomparableSubTogglesByHost = lib.filterAttrs (_host: paths: paths != [ ]) (
     lib.mapAttrs (_host: subToggleUncomparableFor) hostSubToggles
@@ -122,18 +158,6 @@ let
       host: paths: "${host}: ${lib.concatStringsSep ", " paths}"
     ) uncomparableSubTogglesByHost
   );
-
-  subToggleNoOpsFor =
-    toggles:
-    let
-      isNoOp =
-        toggle:
-        let
-          base = unwrapOverride (lib.attrByPath toggle.path null baselinePrograms);
-        in
-        base != null && base == toggle.value;
-    in
-    map (toggle: lib.concatStringsSep "." toggle.path) (builtins.filter isNoOp toggles);
 
   # Keyed on the union of both registries. A host whose only divergence is
   # nested registers no flat set, and keying on hostOverrides alone emits no
@@ -150,6 +174,8 @@ let
     + lib.concatStringsSep ", " noOps;
 in
 {
+  flake.lib.nixos._hostAppsSubToggleClassify = classifySubToggles;
+
   perSystem =
     { pkgs, ... }:
     {

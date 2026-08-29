@@ -48,10 +48,18 @@ let
       value = true;
     }
   ];
-  applySubToggles = lib.foldl' (
-    acc: toggle:
-    lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
-  );
+  # Route each toggle by the namespace its app lives in, the way appEnable's
+  # entries are routed. Folding everything into programs would silently write a
+  # services app's sub-toggle under programs.
+  subTogglesIn =
+    namespace:
+    lib.filter (toggle: isService (lib.head toggle.path) == (namespace == "services")) subToggles;
+  applySubToggles =
+    namespace: base:
+    lib.foldl' (
+      acc: toggle:
+      lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
+    ) base (subTogglesIn namespace);
 in
 {
   flake.lib.nixos._hostAppsOverrides.songbird = appEnable;
@@ -60,7 +68,7 @@ in
     # Logseq keeps normal GPU compositing here: the disableGpuCompositing
     # override in modules/system76/apps-enable.nix is a PRIME sync workaround
     # and this is a single-GPU desktop.
-    programs = applySubToggles (lib.mapAttrs mkExtendedEnable programOverrides) subToggles;
-    services = lib.mapAttrs mkExtendedEnable serviceOverrides;
+    programs = applySubToggles "programs" (lib.mapAttrs mkExtendedEnable programOverrides);
+    services = applySubToggles "services" (lib.mapAttrs mkExtendedEnable serviceOverrides);
   };
 }
