@@ -26,12 +26,21 @@
 */
 let
   # Privacy, telemetry, error-reporting, and update disables baked into the binary.
+  # These replace CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC (retired below), whose
+  # single switch also blocked release notes, model discovery, and availability
+  # checks, so a feature gated behind those never reached the client.
   binary = {
     DISABLE_AUTOUPDATER = "1";
-    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
+    DISABLE_UPDATES = "1";
     DISABLE_ERROR_REPORTING = "1";
     DISABLE_TELEMETRY = "1";
     DISABLE_INSTALLATION_CHECKS = "1";
+    # In `binary` rather than `shellOnly` so a bare `claude` also loses /bug.
+    DISABLE_BUG_COMMAND = "1";
+    # Inert until CLAUDE_CODE_ENABLE_TELEMETRY is set; these are the only two
+    # OTel metric attributes that default to included.
+    OTEL_METRICS_INCLUDE_ACCOUNT_UUID = "false";
+    OTEL_METRICS_INCLUDE_SESSION_ID = "false";
   };
 
   # Bash tool knobs Claude also reads from settings.json `env`.
@@ -59,13 +68,15 @@ let
   shellOnly = {
     BASH_MAX_OUTPUT_LENGTH = "1024";
     CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
-    DISABLE_BUG_COMMAND = "1";
     USE_BUILTIN_RIPGREP = "0";
   };
 
   # Names permanently removed from managed environment groups. These stay out
   # of `settings` and `all`; activation and launch wrappers always remove them.
   retired = [
+    # Any value opts out, including "0" and "false", so it has to be unset
+    # rather than zeroed for nonessential traffic to reach the network.
+    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"
     "CLAUDE_CODE_ENABLE_TELEMETRY"
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS"
   ];
@@ -261,7 +272,7 @@ let
   # release notes, model discovery refreshes, and availability checks. Setting
   # it to 0 or false still disables this traffic; unset the variable to allow
   # it again.
-  # CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "";   # ACTIVE above
+  # CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "";   # RETIRED below
   # Set to 1 to enable OpenTelemetry data collection for metrics and logging. [1 or unset]
   # CLAUDE_CODE_ENABLE_TELEMETRY = "1";   # RETIRED below
   # Maximum length of content-bearing OpenTelemetry attributes (model
@@ -291,7 +302,7 @@ let
   # variable to turn telemetry back on.
   # DISABLE_TELEMETRY = "";   # ACTIVE above
   # Set to 1 to block all updates including manual claude update and claude install. [1 or unset]
-  # DISABLE_UPDATES = "1";
+  # DISABLE_UPDATES = "1";   # ACTIVE above
   # Set to 1 to force plugin auto-updates even when the main auto-updater is disabled via DISABLE_AUTOUPDATER. [1 or unset]
   # FORCE_AUTOUPDATE_PLUGINS = "1";
   # Standard OpenTelemetry SDK limit on attribute value length.
@@ -310,13 +321,13 @@ let
   # Set to 1 to include user prompt text in OpenTelemetry traces and logs. [1 or unset]
   # OTEL_LOG_USER_PROMPTS = "1";
   # Set to false to exclude account UUID from metrics attributes (default: included).
-  # OTEL_METRICS_INCLUDE_ACCOUNT_UUID = "";
+  # OTEL_METRICS_INCLUDE_ACCOUNT_UUID = "";   # ACTIVE above
   # Set to true to include the session entrypoint in metrics attributes (default: excluded).
   # OTEL_METRICS_INCLUDE_ENTRYPOINT = "";
   # As of v2.1.161, Claude Code attaches OTEL_RESOURCE_ATTRIBUTES keys to metric datapoint labels.
   # OTEL_METRICS_INCLUDE_RESOURCE_ATTRIBUTES = "";
   # Set to false to exclude session ID from metrics attributes (default: included).
-  # OTEL_METRICS_INCLUDE_SESSION_ID = "";
+  # OTEL_METRICS_INCLUDE_SESSION_ID = "";   # ACTIVE above
   # Set to true to include Claude Code version in metrics attributes (default: excluded).
   # OTEL_METRICS_INCLUDE_VERSION = "";
 
