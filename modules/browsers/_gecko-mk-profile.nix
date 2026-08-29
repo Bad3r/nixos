@@ -115,7 +115,18 @@ let
             move_aside "symlink resolves to $xdg_resolved, expected $legacy_resolved"
           fi
         elif [ -e "$xdg_root" ]; then
-          move_aside "expected a symlink to $legacy_root"
+          reason="expected a symlink to $legacy_root"
+          # The rename keeps open descriptors valid, so a browser holding this
+          # path keeps writing into the backup while every later launch follows
+          # the new symlink to $legacy_root. Gecko unlinks <profile>/lock on a
+          # clean exit but not after SIGKILL, so a stale one outlives a dead
+          # process: report it, never gate the move on it.
+          for lock in "$xdg_root"/*/lock; do
+            [ -L "$lock" ] || continue
+            reason="$reason ($browser_name may still be running against $lock; restart it, then look for anything it wrote after this point in the backup)"
+            break
+          done
+          move_aside "$reason"
         fi
       '';
       file = {
