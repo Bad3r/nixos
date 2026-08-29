@@ -160,8 +160,12 @@ in
         lact.enable = true;
       };
 
+      # No cpuFreqGovernor pin here, unlike system76, which forces
+      # power-profiles-daemon off and so owns the governor itself: ppd's
+      # intel_pstate probe force-writes scaling_governor = powersave for every
+      # EPP-capable CPU at startup, so a static pin only survives until the
+      # daemon comes up. songbird-power-profile drives the EPP instead.
       powerManagement = {
-        cpuFreqGovernor = "performance"; # ondemand, powersave, performance
         resumeCommands = ''
           # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
           ${pkgs.systemd}/bin/loginctl lock-sessions
