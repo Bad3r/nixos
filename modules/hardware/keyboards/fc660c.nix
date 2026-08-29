@@ -49,9 +49,11 @@ let
       config = lib.mkIf cfg.enable {
         # This bootloader speaks Atmel DFU; avrdude's protocols do not apply, and
         # the qmk CLI builds firmware rather than flashing an already-built image.
+        # The flash helper also uses lsusb to distinguish missing tools from state errors.
         environment.systemPackages = [
           pkgs.vial
           pkgs.dfu-programmer
+          pkgs.usbutils
         ];
 
         services.udev.packages = [ udevRules ];

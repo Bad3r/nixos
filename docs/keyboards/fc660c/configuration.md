@@ -15,9 +15,10 @@ hardware.keyboards.fc660c.enable = true;
 Declared in `modules/hardware/keyboards/fc660c.nix`
 (host wiring goes through the optional-module pattern in
 [../../architecture/05-host-composition.md](../../architecture/05-host-composition.md)).
-Enabling it installs the Vial GUI (`pkgs.vial`) and `pkgs.dfu-programmer`,
-plus a udev rule scoped to this board rather than either upstream option's
-broader rule. That scoping is the non-obvious part, for two reasons:
+Enabling it installs the Vial GUI (`pkgs.vial`), `pkgs.dfu-programmer`, and
+`pkgs.usbutils` for the `lsusb` checks in the flash helper, plus a udev rule
+scoped to this board rather than either upstream option's broader rule. That
+scoping is the non-obvious part, for two reasons:
 
 1. **Blanket rules exist upstream, and this module avoids both.** The
    nixpkgs `vial` package (0.7.5) bundles its own rule at
@@ -116,21 +117,27 @@ Two ways to reach the board, both live over the raw HID channel documented in
   browsers only, since WebHID is not implemented elsewhere).
 
 Vial serves its own layout definition live over the protocol on connect,
-keyed by the board's `VIAL_KEYBOARD_UID`; there is no JSON file to sideload.
-That workflow (loading a per-board JSON definition by hand) is VIA's, not
-Vial's. Once either app opens the board, remapping is: select a key on the
-rendered layout, pick its new keycode from the picker, and the change applies
-immediately and persists in the MCU's EEPROM, no reflash needed.
+keyed by the board's `VIAL_KEYBOARD_UID`; there is no Vial definition file to
+sideload. That workflow (loading a per-board JSON definition by hand) is VIA's,
+not Vial's. The checked-in [layout.vil](layout.vil) is different: it is a
+snapshot of the current dynamic keymap, restored through Vial's **Load saved
+layout** action. It is not consumed by NixOS or the firmware build, and must be
+re-exported after remaps or it will go stale. Once either app opens the board,
+remapping is: select a key on the rendered layout, pick its new keycode from
+the picker, and the change applies immediately and persists in the MCU's
+EEPROM, no reflash needed.
 
 ## The Esc+Enter unlock combo
 
-Vial gates protected features (tap dance and macro editing, per this
-keymap's `VIAL_TAP_DANCE_ENTRIES = 4` and `TAP_DANCE_ENABLE = yes`) behind a
-physical unlock combo: hold both combo keys together when the app prompts for
-an unlock.
+Vial gates protected features, including macro editing, behind a physical
+unlock combo: hold both combo keys together when the app prompts for an
+unlock. Tap dance is compiled out of the `vial-gaming` overlay by
+`TAP_DANCE_ENABLE = no` in [firmware/rules.mk](firmware/rules.mk), which leaves
+`VIAL_TAP_DANCE_ENTRIES = 4` inert on this board.
 
 For this keymap the combo is **Esc and Enter**. Derivation, reproducible from
-the source in [identification.md](identification.md#upstream-source-of-this-firmware):
+the source in
+[identification.md](identification.md#upstream-source-and-local-overlay):
 
 - `config.h` defines `VIAL_UNLOCK_COMBO_ROWS { 1, 4 }` and
   `VIAL_UNLOCK_COMBO_COLS { 3, 14 }`, i.e. the combo is matrix positions
@@ -150,16 +157,15 @@ agree: the unlock combo is Esc and Enter.
 ## Actuation point
 
 Not adjustable at runtime, through Vial or otherwise. It is a compile-time
-constant, `ACTUATION_DEPTH_ADJUSTMENT`, commented out (implicit 0) in this
-keymap's `config.h`:
+constant, `ACTUATION_DEPTH_ADJUSTMENT`. The upstream `vial` keymap leaves it
+undefined, so its effective value is 0 (see the upstream `config.h` excerpt in
+[identification.md](identification.md#upstream-source-and-local-overlay)).
+
+The `vial-gaming` overlay actually flashed on this board sets the offset to
+`-2` instead (see [firmware/config.h](firmware/config.h)):
 
 ```c
-// higher value means deeper actuation point, less sensitive
-// be careful and only make small adjustments (steps of 1 or 2).
-// too high and keys will fail to actuate. too low and keys will actuate spontaneously.
-// test all keys before further adjustment.
-// this should probably stay in the range +/-5.
-// #define ACTUATION_DEPTH_ADJUSTMENT 0
+#define ACTUATION_DEPTH_ADJUSTMENT -2
 ```
 
 The board carries an Analog Devices AD5258 digipot, reachable over I2C, that
@@ -181,13 +187,12 @@ chance of people messing up their boards." Several third-party guides read
 this as "this controller's EEPROM is unreliable" and extend that worry to
 Vial's saved keymaps. It is not about the MCU. It refers specifically to the
 **AD5258 digipot's own EEPROM**, which stores the actuation calibration, not
-the ATmega32U4's internal EEPROM. Vial's dynamic keymap and tap-dance storage
-lives in the MCU's own EEPROM and works correctly on this controller, as
-demonstrated by the board in day-to-day use: remaps made through Vial persist
-across power cycles.
+the ATmega32U4's internal EEPROM. Vial's dynamic keymap storage lives in the
+MCU's own EEPROM and works correctly on this controller, as demonstrated by the
+board in day-to-day use: remaps made through Vial persist across power cycles.
 
 The only way to change the actuation point is to edit
 `ACTUATION_DEPTH_ADJUSTMENT` in the keymap's `config.h`, rebuild, and reflash
-(see [flashing.md](flashing.md)). Change it in steps of 1 or 2, stay within
-roughly +/-5, and test every key after each change, per the guidance quoted
-above.
+(see [flashing.md](flashing.md)). Change it in steps of 1 or 2, keep the offset
+within roughly +/-5 of the factory calibration, and test every key after each
+change, per the guidance quoted above.

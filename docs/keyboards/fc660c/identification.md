@@ -3,6 +3,8 @@
 Use these commands to confirm a board is the Hasu Alt Controller rather than a
 stock FC660C controller, to tell Vial firmware apart from stock TMK or plain
 QMK/VIA, and to resolve a specific HID interface to its current hidraw node.
+The commands use `lsusb` from `usbutils`; the FC660C NixOS module installs that
+package with the other keyboard tooling.
 Every command below is bus-path-independent except where noted; hidraw
 numbers and USB bus paths are assigned at enumeration time and are not stable
 across reboots or replugs, so resolve nodes by content (vendor/product ID,
@@ -207,13 +209,19 @@ appears in a USB descriptor; it travels only over the raw-HID protocol on
 interface 1, and is read by speaking that protocol (the Vial GUI or app does
 this automatically on connect).
 
-## Upstream source of this firmware
+## Upstream source and local overlay
 
-Repository: [`vial-kb/vial-qmk`](https://github.com/vial-kb/vial-qmk), default
-branch `vial`, path `keyboards/fc660c/keymaps/vial`. Most recent commit
-touching that path: `4152685a` (`4152685aa1a228760e70a4464fd19456eab434bf`),
-2025-07-04, "Re-enable Caps Word and Layer Lock where possible. (#907)"
-(touches `rules.mk`).
+The firmware on this unit uses the `vial` keymap in the
+[`vial-kb/vial-qmk`](https://github.com/vial-kb/vial-qmk) repository as its
+upstream base, then applies the committed `vial-gaming` overlay in
+[firmware/](firmware/README.md). The base is on the repository's `vial` branch,
+at `keyboards/fc660c/keymaps/vial`. The most recent commit recorded here that
+touches that path is `4152685a`
+(`4152685aa1a228760e70a4464fd19456eab434bf`), 2025-07-04, "Re-enable Caps
+Word and Layer Lock where possible. (#907)" (touches `rules.mk`).
+
+The excerpts below are the upstream base files, not the complete image flashed
+on this unit:
 
 `config.h`:
 
@@ -244,3 +252,9 @@ marks exactly two keys with a distinct highlight color (`#777777`, versus
 Those are the same two positions named in `VIAL_UNLOCK_COMBO_ROWS`/`COLS`
 above; see [configuration.md](configuration.md#the-escenter-unlock-combo) for
 the derivation of which physical keys those are and how to use the combo.
+
+The local overlay replaces the upstream `config.h` and `rules.mk` with the
+copies in [firmware/](firmware/README.md). It sets the actuation offset to `-2`,
+forces NKRO on at boot, and disables tap dance and mouse keys to fit the
+ATmega32U4 flash budget. Build it with `make fc660c:vial-gaming` after applying
+those two files, as described in the firmware recipe.

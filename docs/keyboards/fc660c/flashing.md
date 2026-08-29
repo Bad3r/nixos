@@ -27,9 +27,12 @@ cd vial-qmk
 make fc660c:vial:dfu
 ```
 
-This builds the same keymap documented in
-[identification.md](identification.md#upstream-source-of-this-firmware) and
-flashes it over DFU.
+This builds the upstream `vial` base keymap and flashes it over DFU. It is not
+the `vial-gaming` overlay used by the unit documented here. To reproduce that
+image, apply [firmware/config.h](firmware/config.h) and
+[firmware/rules.mk](firmware/rules.mk) to a copied `vial-gaming` keymap, then
+run `make fc660c:vial-gaming:dfu` from the checkout. The NixOS-specific toolchain
+and overlay setup are in [firmware/README.md](firmware/README.md).
 
 That invocation does not work as written on NixOS. vial-qmk ships no Nix
 expression, its bundled `lib/python/qmk/math.py` calls `ast.Num` (removed in
@@ -50,11 +53,18 @@ dfu-programmer atmega32u4 reset
 ```
 
 Drop `--force` on dfu-programmer 0.6.x; it is required on newer releases.
-The fc660c NixOS module installs `dfu-programmer` directly (see
-[configuration.md](configuration.md#nixos-module)), so it is already on
-`PATH` wherever the module is enabled. nixpkgs pins it at 1.1.0 and also
+The fc660c NixOS module installs `dfu-programmer` and `usbutils` directly (see
+[configuration.md](configuration.md#nixos-module)), so `dfu-programmer` and
+`lsusb` are already on `PATH` wherever the module is enabled. nixpkgs pins it at
+1.1.0 and also
 carries `avrdude` 8.2 at the same locked commit if a workflow needs it
 instead; the module does not install `avrdude`.
+
+The [flash helper](firmware/flash-fc660c.sh) checks that both commands are
+available before inspecting the controller. Outside a host with the module
+enabled, provide `dfu-programmer` and `lsusb` through the corresponding
+packages before invoking it; it will not resolve an unpinned fallback during a
+flash.
 
 ## Permissions
 

@@ -16,7 +16,7 @@ here is the keyboard attached to `songbird`, verified from sysfs, `lsusb -v`,
 | MCU                       | ATmega32U4                                                                                                |
 | Bootloader                | Atmel DFU                                                                                                 |
 | Bootloader / reset button | Back of the controller, where the stock DIP switches were                                                 |
-| Firmware on this unit     | Vial (`vial-kb/vial-qmk`, `keyboards/fc660c/keymaps/vial`)                                                |
+| Firmware on this unit     | Vial, local `vial-gaming` overlay over `vial-kb/vial-qmk` (see [firmware/](firmware/README.md))           |
 | USB identity, normal mode | `4853:660c` "Hasu FC660C", `bcdDevice 1.00`, full speed, bus powered                                      |
 | USB identity, bootloader  | `03eb:2ff4` Atmel DFU (PID identifies an ATmega32U4 specifically)                                         |
 | `iSerial`                 | `vial:f64c2b3c` (a universal Vial string, not a per-board ID; see [identification.md](identification.md)) |
@@ -34,12 +34,13 @@ here is the keyboard attached to `songbird`, verified from sysfs, `lsusb -v`,
 ## NixOS integration
 
 `modules/hardware/keyboards/fc660c.nix` exposes `hardware.keyboards.fc660c.enable`.
-Enabling it installs the Vial GUI, `dfu-programmer`, and a udev rule covering
-both the board's normal-mode Vial interface and its Atmel DFU bootloader
-identity, scoped narrowly enough to avoid either upstream option's blanket
-hidraw rule. See [configuration.md](configuration.md#nixos-module) for the
-rule content and how it differs from `hardware.keyboard.qmk.enable` and the
-nixpkgs `vial` package's own bundled rule.
+Enabling it installs the Vial GUI, `dfu-programmer`, `usbutils` for `lsusb`, and
+a udev rule covering both the board's normal-mode Vial interface and its Atmel
+DFU bootloader identity, scoped narrowly enough to avoid either upstream
+option's blanket hidraw rule. See
+[configuration.md](configuration.md#nixos-module) for the rule content and how
+it differs from `hardware.keyboard.qmk.enable` and the nixpkgs `vial` package's
+own bundled rule.
 
 ## External references
 

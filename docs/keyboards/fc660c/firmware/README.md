@@ -56,6 +56,13 @@ Output lands at `fc660c_vial-gaming.hex` in the checkout root. Flash it with
 [flash-fc660c.sh](flash-fc660c.sh); see [../flashing.md](../flashing.md) for
 bootloader entry and recovery.
 
+The flash helper requires `dfu-programmer` and `lsusb` on `PATH`. Both are
+installed by the FC660C NixOS module. On another system, provide them through
+the `dfu-programmer` and `usbutils` packages before running the helper; it does
+not resolve a package fallback during a flash.
+After reset, the helper waits for USB re-enumeration and checks the normal-mode
+identity up to five times before reporting a failed verification.
+
 Builds are not byte-reproducible. QMK generates a `version.h` carrying
 `QMK_BUILDDATE` and a derived `BUILD_ID`, so two builds of identical sources
 minutes apart differ in `sha256`. Compare the reported firmware size and the
