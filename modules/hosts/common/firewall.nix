@@ -139,6 +139,23 @@ let
       )
     );
 
+  # Files that pin a name and also carry a policy that outranks it.
+  # systemd.link(5) gives Name= the lower precedence of the two, so the policy
+  # wins and the pin silently does not apply. Both hosts' altname-narrowing
+  # files carry NamePolicy= and no Name=, which is the shape that needs it, so
+  # adding a Name= there is the natural way to satisfy the kernel-name warning
+  # and the one that does not work. Keyed on both keys rather than on Name=
+  # alone, which is what pinnedNamesOf and collidingPinsOf read, so neither of
+  # them can see this.
+  policyOverriddenPinsOf =
+    links:
+    lib.attrNames (
+      lib.filterAttrs (
+        _: link:
+        (link.enable or true) && (link.linkConfig or { }) ? Name && (link.linkConfig or { }) ? NamePolicy
+      ) links
+    );
+
   # Interfaces a host declares rather than inherits from a NIC. Exported with
   # the classifier so the check can assert every source is still read.
   declaredNamesOf =
@@ -193,6 +210,7 @@ let
       predictable = config.networking.usePredictableInterfaceNames;
       declaredNames = declaredNamesOf config;
       collidingPins = collidingPinsOf config.systemd.network.links;
+      policyOverriddenPins = policyOverriddenPinsOf config.systemd.network.links;
       inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
         staleScheme
@@ -236,6 +254,16 @@ let
             + "the udev rename races the kernel's own assignment there, so the pin may "
             + "silently not apply and anything keyed to the name matches no device. Pin "
             + "outside those namespaces, as modules/tpnix/networking.nix does with wifi0.";
+        }
+        {
+          assertion = policyOverriddenPins == [ ];
+          message =
+            "${hostName}: systemd.network.links units "
+            + "(${lib.concatStringsSep ", " policyOverriddenPins}) set both Name= and "
+            + "NamePolicy=. systemd.link(5) gives Name= the lower precedence of the two, so "
+            + "the policy wins and the pin silently does not apply wherever NamePolicy is "
+            + "honoured. Drop NamePolicy= from a file that pins a name; keep it only in the "
+            + "no-Name= altname-narrowing shape (docs/networking/README.md).";
         }
       ];
 
@@ -299,6 +327,7 @@ in
       _firewallDnsPinnedNamesOf = pinnedNamesOf;
       _firewallDnsDeclaredNamesOf = declaredNamesOf;
       _firewallDnsCollidingPinsOf = collidingPinsOf;
+      _firewallDnsPolicyOverriddenPinsOf = policyOverriddenPinsOf;
     };
     nixosModules.hosts-common.imports = [ body ];
   };
