@@ -139,6 +139,26 @@
               ;;
           esac
 
+          # local-mirrors-root.service provisions the root only while the volume
+          # holding it is mounted, so an absent root means an absent volume.
+          # Ahead of the lock blocks below, not just of git clone: both docs lock
+          # files sit directly in the root, so their mkdir -p would recreate it on
+          # the root filesystem and hand every later spec a passing -d test.
+          if [ ! -d "$GIT_MIRROR_ROOT" ]; then
+            log "$spec: mirror root $GIT_MIRROR_ROOT is absent, is the volume mounted?"
+            exit 1
+          fi
+
+          # install -d -m 2775 re-applies setgid on every boot and nothing else
+          # sets it: git clone and mkdir -p under umask 002 both leave 0775. The
+          # bit is what separates a provisioned root from a stray directory of
+          # the same name on the root filesystem, which -d cannot tell apart once
+          # anything has created one.
+          if [ ! -g "$GIT_MIRROR_ROOT" ]; then
+            log "$spec: mirror root $GIT_MIRROR_ROOT is not setgid, so local-mirrors-root.service has not provisioned it"
+            exit 1
+          fi
+
           if [ "''${GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC:-}" = "$spec" ] && [ -n "''${GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH:-}" ]; then
             lock_file="$GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH"
             mkdir -p "$(dirname "$lock_file")"
@@ -151,15 +171,6 @@
             mkdir -p "$(dirname "$lock_file")"
             exec 8>"$lock_file"
             flock 8
-          fi
-
-          # local-mirrors-root.service provisions the root only while the volume
-          # holding it is mounted, so an absent root means an absent volume.
-          # git clone creates the whole path, which would put the mirror on the
-          # root filesystem and fill it silently.
-          if [ ! -d "$GIT_MIRROR_ROOT" ]; then
-            log "$spec: mirror root $GIT_MIRROR_ROOT is absent, is the volume mounted?"
-            exit 1
           fi
 
           log "$spec: syncing"
@@ -211,6 +222,7 @@
 
       firefoxDocsScript = import ./_firefox-docs-builder.nix {
         inherit lib pkgs;
+        mirrorRoot = cfg.root;
         firefoxDocs = firefoxDocs // {
           lockPath = firefoxDocsLockPath;
         };
@@ -218,6 +230,7 @@
 
       pythonDocsScript = import ./_python-docs-publisher.nix {
         inherit lib pkgs;
+        mirrorRoot = cfg.root;
         pythonDocs = pythonDocs // {
           lockPath = pythonDocsLockPath;
         };
