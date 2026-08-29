@@ -170,12 +170,21 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
 2. Build and stage the first generation, then reboot:
 
    ```sh
-   ./build.sh -t songbird --boot
+   cd ~/trees/nixos/feat-songbird-host
+   nix shell nixpkgs#git nixpkgs#nh -c ./build.sh -t songbird --boot
    ```
 
-   `-t songbird` is required for this first run only: `build.sh` defaults the
-   target to `$(hostname)`, which is still `nixos` under the installer's
-   configuration. `--boot` installs the generation for the next reboot
+   Two parts of that invocation are specific to the installer's stock system.
+   It ships no `git`, and both the Nix git fetcher (which fetches the
+   `secrets/` gitlink) and the secrets guard shell out to one, so without the
+   `nix shell` wrapper the run stops at `executing "git": No such file or directory`; `nix develop path:.` cannot supply it, because evaluating the
+   flake is what needs git in the first place. And `build.sh` takes the flake
+   directory from the working directory, not from where the script lives, so
+   a run started from `~/nixos` evaluates `git+file:///home/vx/nixos` on
+   `main` and fails with `does not provide attribute ...nixosConfigurations.songbird`; `-p <dir>` names the directory
+   explicitly. `-t songbird` is required for this first run only: `build.sh`
+   defaults the target to `$(hostname)`, which is still `nixos` under the
+   installer's configuration. `--boot` installs the generation for the next reboot
    instead of switching the running GNOME session live; from a linked
    worktree the script resolves a `path:` reference and runs the secrets
    guard on its own. At boot, the initrd asks for the root passphrase and
@@ -376,7 +385,7 @@ Per the runbook, before and after the PR. From the linked worktree
 nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel"
-./build.sh -t songbird --boot   # on songbird; activates on next reboot
+nix shell nixpkgs#git nixpkgs#nh -c ./build.sh -t songbird --boot   # from the worktree, on songbird; activates on next reboot
 nix run path:.#generation-manager -- score   # target: 20/20
 ```
 
