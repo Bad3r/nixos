@@ -141,12 +141,17 @@ _: {
         "d /data 0755 ${owner} ${ownerGroup} -"
       ];
 
+      # Conditional, not required: /data is nofail here, but Requires= and
+      # RequiresMountsFor= (which emits its own Requires=) ignore that, so an
+      # absent or unopened drive failed this unit too and let the chown land on
+      # the tmpfiles directory above rather than on the volume. The condition
+      # leaves the unit inactive instead of failed, so recovering the mount by
+      # hand needs `systemctl start data-ownership.service` after it.
       systemd.services."data-ownership" = {
         description = "Ensure /data ownership matches primary user";
         wantedBy = [ "multi-user.target" ];
         after = [ "data.mount" ];
-        requires = [ "data.mount" ];
-        unitConfig.RequiresMountsFor = [ "/data" ];
+        unitConfig.ConditionPathIsMountPoint = "/data";
         serviceConfig = {
           Type = "oneshot";
           ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
