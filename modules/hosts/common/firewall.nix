@@ -221,6 +221,7 @@ let
       inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
         staleScheme
+        kernelNames
         ;
       staleMessage =
         if predictable then
@@ -260,16 +261,29 @@ let
         }
       ];
 
-      warnings = lib.optional (unbackedNames != [ ]) (
-        "${hostName}: firewallDnsInterfaces names "
-        + "(${lib.concatStringsSep ", " unbackedNames}) are neither predictable nor "
-        + "kernel-assigned, and no declaration on this host creates them: no .link Name=, "
-        + "bridge, bond, VLAN, macvlan, ipvlan, vswitch, wlan interface, sit, GRE tunnel, "
-        + "WireGuard interface, wg-quick interface, or networkd netdev. That is expected "
-        + "for an interface a service creates at runtime (tailscale0, docker0); "
-        + "otherwise the opening matches no device, so pin it as "
-        + "modules/tpnix/networking.nix does."
-      );
+      warnings =
+        lib.optional (unbackedNames != [ ]) (
+          "${hostName}: firewallDnsInterfaces names "
+          + "(${lib.concatStringsSep ", " unbackedNames}) are neither predictable nor "
+          + "kernel-assigned, and no declaration on this host creates them: no .link Name=, "
+          + "bridge, bond, VLAN, macvlan, ipvlan, vswitch, wlan interface, sit, GRE tunnel, "
+          + "WireGuard interface, wg-quick interface, or networkd netdev. That is expected "
+          + "for an interface a service creates at runtime (tailscale0, docker0); "
+          + "otherwise the opening matches no device, so pin it as "
+          + "modules/tpnix/networking.nix does."
+        )
+        # The gap the two guards above leave. staleScheme is empty for a kernel
+        # name on a net.ifnames=0 host, and unbackedNames filters kernelRe out, so
+        # an unpinned eth0 reached neither. The name resolves, which is why it is
+        # a warning: it just resolves to whichever same-class NIC the kernel
+        # enumerated first that boot, so the opening moves between devices.
+        ++ lib.optional (!predictable && kernelNames != [ ]) (
+          "${hostName}: firewallDnsInterfaces names "
+          + "(${lib.concatStringsSep ", " kernelNames}) are kernel-assigned and no .link on "
+          + "this host pins them, so each follows discovery order and can land on a different "
+          + "device across boots. Pin the intended device outside the kernel namespaces, as "
+          + "modules/tpnix/networking.nix does with wifi0."
+        );
 
       networking.firewall = {
         enable = true;

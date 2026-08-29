@@ -339,6 +339,31 @@ let
       staleScheme = [ ];
     }
     {
+      # The wired-host case since the lan0/lan1 pins were dropped: nothing binds
+      # eth0 to a device, so it belongs in kernelNames and the warning fires.
+      name = "unpinned wired kernel name under kernel naming";
+      dnsInterfaces = [ "eth0" ];
+      declaredNames = [ ];
+      predictable = false;
+      predictableNames = [ ];
+      kernelNames = [ "eth0" ];
+      unbackedNames = [ ];
+      staleScheme = [ ];
+    }
+    {
+      # The same name with a pin behind it. declaredNames is subtracted, so it
+      # leaves kernelNames and the warning goes quiet, which is what makes the
+      # warning actionable rather than permanent noise.
+      name = "wired kernel name with a pin behind it";
+      dnsInterfaces = [ "eth0" ];
+      declaredNames = [ "eth0" ];
+      predictable = false;
+      predictableNames = [ ];
+      kernelNames = [ ];
+      unbackedNames = [ ];
+      staleScheme = [ ];
+    }
+    {
       name = "predictable name is stale under kernel naming";
       dnsInterfaces = [ "wlp0s20f3" ];
       declaredNames = [ ];
