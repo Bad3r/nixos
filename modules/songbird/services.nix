@@ -1,7 +1,11 @@
-{ secretsRoot, ... }:
+{ config, secretsRoot, ... }:
 let
   sambaSecretFile = secretsRoot + "/songbird.yaml";
   sambaSecretExists = builtins.pathExists sambaSecretFile;
+  # Both halves, as every other secret consumer here gates: the file arriving
+  # before the age identity would activate sops.secrets with no key to decrypt
+  # and fail sops-nix.service mid-switch.
+  sambaSecretsReady = config.flake.lib.nixos.hosts.songbird.sopsRuntimeReady && sambaSecretExists;
   sambaMediaPathSecret = "songbird/samba-media-path";
   sambaMediaShareTemplate = "songbird/samba-media-share.conf";
 in
@@ -19,7 +23,7 @@ in
     in
     {
       imports =
-        lib.optionals sambaSecretExists [
+        lib.optionals sambaSecretsReady [
           {
             services.samba.settings.media.include = sambaMediaShareTemplatePath;
 
@@ -49,10 +53,15 @@ in
             };
           }
         ]
-        ++ lib.optionals (!sambaSecretExists) [
+        ++ lib.optionals (!sambaSecretsReady) [
           {
             warnings = [
-              "songbird Samba media share skipped because ${toString sambaSecretFile} is missing."
+              (
+                if sambaSecretExists then
+                  "songbird Samba media share skipped because flake.lib.nixos.hosts.songbird.sopsRuntimeReady is false."
+                else
+                  "songbird Samba media share skipped because ${toString sambaSecretFile} is missing."
+              )
             ];
           }
         ];
