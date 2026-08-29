@@ -111,7 +111,15 @@
               dunst = {
                 enable = lib.mkDefault true;
               };
-              picom.enable = false;
+              # i3 does not composite, so without picom every GL/video present
+              # reaches the scanout unsynchronised and tears. glx+vSync is the
+              # backend pair NVIDIA needs; xrender (the module default) ignores
+              # vSync entirely.
+              picom = {
+                enable = lib.mkDefault true;
+                backend = lib.mkDefault "glx";
+                vSync = lib.mkDefault true;
+              };
               udiskie = {
                 enable = lib.mkDefault true;
                 tray = lib.mkDefault "always";
