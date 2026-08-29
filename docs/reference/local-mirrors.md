@@ -12,6 +12,18 @@ Repositories sync to flat paths under `/data/git`.
 - **Host enablement**: Common hosts get `localMirrors.enable = true;` and
   `home-manager.users.${metaOwner.username}.programs.gitMirror.enable = true;`
   from `modules/hosts/common/mirrors.nix`
+- **Root path**: `localMirrors.root` is the single source. `mirrors.nix` feeds
+  it to `programs.gitMirror.root`, so retargeting the mirrors is a one-line
+  change and the provisioner cannot end up on a different path than the sync
+- **Provisioning**: `local-mirrors-root.service` creates the root
+  (`install -d -m 2775`, setgid, group `users`) after and conditioned on the
+  deepest declared mount containing it, so an absent or unopened volume leaves
+  the unit inactive rather than writing the tree onto the root filesystem. A
+  late mount is recovered with
+  `systemctl start local-mirrors-root.service`
+- **Absent root**: `git-mirror` refuses every repo spec while the root is
+  missing (`mirror root ... is absent, is the volume mounted?`) instead of
+  letting `git clone` recreate the path on `/`
 - **Environment variable**: `$LOCAL_MIRRORS` points to `/data/git`
 - **Sync schedule**: Daily via systemd timer
 - **Manual sync**: `systemctl --user start git-mirror.service`
@@ -44,6 +56,7 @@ localMirrors.enable = true;
 
 home-manager.users.${metaOwner.username}.programs.gitMirror = {
   enable = true;
+  root = config.localMirrors.root;
   firefoxDocs.enable = true;
   pythonDocs.enable = true;
   repos = [
