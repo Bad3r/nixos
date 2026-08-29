@@ -116,13 +116,18 @@ _: {
         # labeled "WD 1 TB", the drive shared with the Windows dual boot.
         # Kernel ntfs3 with windows_names blocks names Windows cannot read;
         # nofail keeps a dirty (Windows fast-startup) or absent volume from
-        # blocking boot.
+        # blocking boot. The masks are the /boot pair above: uid=/gid= alone
+        # leave the mode at ~current_umask() of whatever mounted the volume,
+        # and "shared" here means shared with Windows, not with other local
+        # accounts.
         "/shared" = {
           device = "/dev/disk/by-uuid/1AE668D2E668B025";
           fsType = "ntfs3";
           options = [
             "uid=${toString ownerUid}"
             "gid=${toString ownerGid}"
+            "fmask=0077"
+            "dmask=0077"
             "windows_names"
             "noatime"
             "nofail"
