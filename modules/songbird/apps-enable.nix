@@ -38,7 +38,10 @@ in
     # Logseq keeps normal GPU compositing here: the disableGpuCompositing
     # override in modules/system76/apps-enable.nix is a PRIME sync workaround
     # and this is a single-GPU desktop.
-    programs = lib.mapAttrs mkExtendedEnable programOverrides;
+    # claude-code.installMethods.bun is a sub-toggle
+    programs = lib.recursiveUpdate (lib.mapAttrs mkExtendedEnable programOverrides) {
+      "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1000 true;
+    };
     services = lib.mapAttrs mkExtendedEnable serviceOverrides;
   };
 }
