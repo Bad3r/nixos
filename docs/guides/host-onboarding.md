@@ -155,6 +155,16 @@ _: {
 }
 ```
 
+The block above is for a device with no `.link` yet. When one already matches
+it, as `modules/songbird/networking.nix` and `modules/system76/networking.nix`
+do for every NIC, add `Name=` to that entry and delete its `NamePolicy=` rather
+than adding a second file: udev applies only the first matching file, so a new
+one renames nothing while `pinnedNamesOf` still counts its `Name=` as a declared
+name. `modules/hosts/common/firewall.nix` asserts against both shapes, a second
+`.link` for a device that already has one and a single file carrying `Name=` and
+`NamePolicy=` together, so following this section without that step fails
+`nix flake check`.
+
 A device that needs no pinned name still wants that last line, because
 `net.ifnames=0` gates the rename only and leaves `99-default.link`'s `mac`
 token generating an `enx<permanent-mac>` altname. Drop `Name=`, add
