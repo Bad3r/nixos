@@ -22,9 +22,10 @@ _: {
     ];
     # No service here serves DNS or DHCP to the network, so naming an interface
     # would open inbound UDP 53/67 and TCP 53 with no listener behind them.
-    # Restore it only alongside a real listener. The two onboard NICs share the
-    # kernel's eth* pool by enumeration order, so read the current eth0/eth1
-    # from `ip -br link` and re-check it whenever a NIC is added or removed.
+    # Restore it only alongside a real listener, and pin that device first per
+    # docs/networking/README.md: eth0/eth1 track enumeration order across the
+    # two onboard NICs, and under net.ifnames=0 firewall.nix neither asserts nor
+    # warns on a kernel name, so an unpinned entry opens the wrong NIC silently.
     firewallDnsInterfaces = [ ];
     firewallExtraTcpPortRanges = [
       {
