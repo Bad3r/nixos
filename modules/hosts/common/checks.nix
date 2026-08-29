@@ -37,6 +37,7 @@ let
   baselinePrograms = baseline.programs or { };
   baselineServices = baseline.services or { };
   hostOverrides = config.flake.lib.nixos._hostAppsOverrides or { };
+  hostSubToggles = config.flake.lib.nixos._hostAppsSubToggleOverrides or { };
   baselineKeys = baselinePrograms // baselineServices;
   unknownOverridesByHost = lib.mapAttrs (
     _host: overrides:
@@ -52,7 +53,7 @@ let
     ) unknownOverridesByHostNonEmpty
   );
   baselineMissing =
-    hostOverrides != { }
+    (hostOverrides != { } || hostSubToggles != { })
     && ((baselinePrograms == { } && baselineServices == { }) || anyUnknownOverrides);
   baselineMissingMessage =
     if anyUnknownOverrides then
@@ -92,8 +93,6 @@ let
     in
     builtins.filter isNoOp (builtins.attrNames overrides);
 
-  hostSubToggles = config.flake.lib.nixos._hostAppsSubToggleOverrides or { };
-
   # A path the baseline never declares is not a duplicate of anything, so it
   # reports null and is left alone, the same way an unknown app name does above.
   subToggleNoOpsFor =
@@ -108,9 +107,13 @@ let
     in
     map (toggle: lib.concatStringsSep "." toggle.path) (builtins.filter isNoOp toggles);
 
+  # Keyed on the union of both registries. A host whose only divergence is
+  # nested registers no flat set, and keying on hostOverrides alone emits no
+  # host-<host>-apps-no-noop check for it at all, rather than a passing one.
   noOpsByHost = lib.mapAttrs (
-    host: overrides: noOpsFor overrides ++ subToggleNoOpsFor (hostSubToggles.${host} or [ ])
-  ) hostOverrides;
+    host: _:
+    noOpsFor (hostOverrides.${host} or { }) ++ subToggleNoOpsFor (hostSubToggles.${host} or [ ])
+  ) (hostOverrides // hostSubToggles);
 
   messageFor =
     host: noOps:
