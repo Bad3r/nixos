@@ -16,13 +16,17 @@
       # Deepest declared mount containing the mirror root, if the host has one.
       # A host that keeps mirrors on the root filesystem yields null and is
       # provisioned unconditionally.
+      # Read from mountPoint, not from the attribute name, which only defaults
+      # to it: a host spelling the mount `fileSystems.data = { mountPoint =
+      # "/data"; ... }` would otherwise yield null here and lose both the
+      # ordering and the condition, provisioning the root on /.
       enclosingMount =
         let
           contains = m: m != "/" && (m == cfg.root || lib.hasPrefix "${m}/" cfg.root);
         in
         lib.foldl' (
           best: m: if best == null || lib.stringLength m > lib.stringLength best then m else best
-        ) null (lib.filter contains (lib.attrNames config.fileSystems));
+        ) null (lib.filter contains (lib.mapAttrsToList (_: fs: fs.mountPoint) config.fileSystems));
     in
     {
       options.localMirrors = {
