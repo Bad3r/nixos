@@ -72,16 +72,31 @@ let
   mkExtendedEnable = _name: value: {
     extended.enable = lib.mkOverride 1000 value;
   };
+
+  # firefoxpwa.dmail is a per-site PWA sub-toggle, not a flat app: it routes to
+  # dmail.enable, not extended.enable, so it cannot go through appEnable.
+  # Registered so FR-5 compares it against the baseline too, and applied from
+  # this list rather than written out, so an unregistered one cannot exist.
+  subToggles = [
+    {
+      path = [
+        "firefoxpwa"
+        "dmail"
+        "enable"
+      ];
+      value = true;
+    }
+  ];
+  applySubToggles = lib.foldl' (
+    acc: toggle:
+    lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
+  );
 in
 {
   flake.lib.nixos._hostAppsOverrides.tpnix = appEnable;
+  flake.lib.nixos._hostAppsSubToggleOverrides.tpnix = subToggles;
   configurations.nixos.tpnix.module = {
-    # firefoxpwa.dmail is a per-site PWA sub-toggle, not a flat app (it routes to
-    # dmail.enable, not extended.enable), so it stays out of `appEnable` and is
-    # layered directly at the same 1000 priority.
-    programs = lib.recursiveUpdate (lib.mapAttrs mkExtendedEnable programOverrides) {
-      firefoxpwa.dmail.enable = lib.mkOverride 1000 true;
-    };
+    programs = applySubToggles (lib.mapAttrs mkExtendedEnable programOverrides) subToggles;
     services = lib.mapAttrs mkExtendedEnable serviceOverrides;
   };
 }

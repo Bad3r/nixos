@@ -18,6 +18,16 @@
 # `flake.lib.nixos._hostAppsOverrides.<host>`. A `host-<host>-apps-no-noop`
 # check is emitted automatically for each opted-in host.
 #
+# That attrset is flat, one boolean per app, and routes to a fixed
+# `extended.enable`, so it cannot carry an override of a nested toggle such as
+# `claude-code.extended.installMethods.bun.enable`. Those are registered
+# separately under `flake.lib.nixos._hostAppsSubToggleOverrides.<host>` as a
+# list of `{ path; value; }` under `programs`, and the host file builds the
+# override from that list rather than writing it out, so an unregistered one
+# cannot exist. Without this the same no-op drift is invisible: the comparison
+# below reads a fixed `extended.enable` and only iterates names the flat set
+# registered.
+#
 # The comparison is done at flake.lib level (no module evaluation) to avoid
 # the infinite recursion that arises when reading
 # `config.configurations.nixos.<host>.module` back from a flake-level check.
@@ -82,7 +92,25 @@ let
     in
     builtins.filter isNoOp (builtins.attrNames overrides);
 
-  noOpsByHost = lib.mapAttrs (_host: noOpsFor) hostOverrides;
+  hostSubToggles = config.flake.lib.nixos._hostAppsSubToggleOverrides or { };
+
+  # A path the baseline never declares is not a duplicate of anything, so it
+  # reports null and is left alone, the same way an unknown app name does above.
+  subToggleNoOpsFor =
+    toggles:
+    let
+      isNoOp =
+        toggle:
+        let
+          base = unwrapOverride (lib.attrByPath toggle.path null baselinePrograms);
+        in
+        base != null && base == toggle.value;
+    in
+    map (toggle: lib.concatStringsSep "." toggle.path) (builtins.filter isNoOp toggles);
+
+  noOpsByHost = lib.mapAttrs (
+    host: overrides: noOpsFor overrides ++ subToggleNoOpsFor (hostSubToggles.${host} or [ ])
+  ) hostOverrides;
 
   messageFor =
     host: noOps:
