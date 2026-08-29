@@ -187,7 +187,16 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    installer's configuration. `--boot` installs the generation for the next reboot
    instead of switching the running GNOME session live; from a linked
    worktree the script resolves a `path:` reference and runs the secrets
-   guard on its own. At boot, the initrd asks for the root passphrase and
+   guard on its own. Nothing already in `$HOME` blocks the first Home
+   Manager activation: a file it manages is moved to `<file>.hm.bk`
+   (`home-manager.backupFileExtension`), and a Firefox profile directory
+   that the installer's Firefox left at `~/.config/mozilla/firefox` is moved
+   to `<dir>.<timestamp>.hm.bk`, since that root has to be a symlink to
+   `~/.mozilla/firefox` (`modules/browsers/_gecko-mk-profile.nix`). Claude
+   Code is installed with bun during activation
+   (`modules/songbird/apps-enable.nix`), which needs the npm registry
+   reachable; an offline activation keeps whatever is already installed. At
+   boot, the initrd asks for the root passphrase and
    retries it from the kernel keyring for `cryptswap` and `data`; a different
    `/data` passphrase is prompted for, and an absent or unopened `/data`
    drive no longer blocks the boot (`nofail`). The `vx` account keeps the
