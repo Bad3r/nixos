@@ -223,6 +223,12 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    `secrets/songbird.yaml` with a `samba_media_path` key enables the
    on-demand Samba media share the way `secrets/system76.yaml` does on
    system76; until it exists `services.nix` warns and skips the share.
+   Flipping `r2RuntimeReady` activates eight `systemd.tmpfiles.rules` under
+   `/data` in `modules/lib/r2-runtime.nix`. tmpfiles creates leading
+   directories implicitly and runs `After=local-fs.target`, which a `nofail`
+   mount is not ordered before, so on this host those rules land on the root
+   filesystem whenever the Samsung 860 is absent or left unopened. Gate them
+   on the mount, the way `local-mirrors-root.service` is, before enabling.
 
 5. Join the tailnet; read the assigned address with `tailscale ip -4` and set
    it as `tailnetIp` in `policy.nix`. In the same change move
