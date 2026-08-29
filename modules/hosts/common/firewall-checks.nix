@@ -92,6 +92,19 @@ let
     linkConfig.Name = name;
   };
 
+  # The shape modules/songbird/networking.nix and modules/system76/networking.nix
+  # use: a binding match with no Name=, which displaces 99-default.link for the
+  # device without renaming it. Both classifiers key on Name=, so this must read
+  # as neither a pin nor a collision; every case above sets Name=, so nothing
+  # else covers a link file that omits it.
+  altnamesOnlyLink = {
+    matchConfig.Path = "pci-0000:84:00.0";
+    linkConfig = {
+      NamePolicy = "keep kernel database onboard slot path";
+      AlternativeNamesPolicy = "database onboard slot path";
+    };
+  };
+
   pinnedCases = [
     {
       name = "path-matched link is a pin";
@@ -179,6 +192,11 @@ let
       links."10-lan0" = (link { Path = "pci-0000:00:14.3"; } "lan0") // {
         enable = false;
       };
+      expected = [ ];
+    }
+    {
+      name = "link without Name= is not a pin";
+      links."10-altnames" = altnamesOnlyLink;
       expected = [ ];
     }
   ];
@@ -441,6 +459,11 @@ let
       name = "pin named usb0 collides";
       links."10-usb0" = link { Path = "pci-0000:00:14.0-usb-0:1.4:1.0"; } "usb0";
       expected = [ "usb0" ];
+    }
+    {
+      name = "link without Name= does not collide";
+      links."10-altnames" = altnamesOnlyLink;
+      expected = [ ];
     }
   ];
 

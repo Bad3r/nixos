@@ -31,7 +31,10 @@ keyed to that name follows the card rather than a USB adapter that registered
 first. The wired hosts carry no pin: system76's USB ethernet adapter and
 songbird's two onboard NICs are read as `eth0`/`eth1` in kernel enumeration
 order. Every host currently leaves `firewallDnsInterfaces` empty, so no rule is
-keyed to a wired name today; pin the device before adding one.
+keyed to a wired name today; pin the device before adding one. Those hosts do
+carry `.link` files without a `Name=`, which narrow the alternative names
+without renaming anything: see
+[Narrow the alternative names without pinning a name](#narrow-the-alternative-names-without-pinning-a-name).
 
 ```bash
 nmcli device status
@@ -253,6 +256,43 @@ They also drop the `mac` token that systemd's own default carries, because it
 derives an `enx<permanent-mac>` or `wlx<permanent-mac>` alternative name from
 the factory address, which is the value the `"stable"` policy exists to stop
 presenting.
+
+### Narrow the alternative names without pinning a name
+
+Dropping the `mac` token is a separate concern from pinning a name, and most
+devices in this repository want only the first. `net.ifnames=0` gates
+`NamePolicy=` alone: systemd's `enable_name_policy()` is read at one call site,
+the rename, while `link_generate_alternative_names()` is ungated. So a device
+with no `.link` still gets `99-default.link`'s `mac` token and presents
+`enx<permanent-mac>`, even though nothing renames it. Confirm on a running host
+with `ip -d link show <name>`, or `udevadm info -q property -p /sys/class/net/<name>` for the computed `ID_NET_NAME_MAC`.
+
+The fix is a `.link` with a binding match and **no** `Name=`:
+
+```nix
+systemd.network.links."10-<device>" = {
+  matchConfig.Path = "<ID_PATH value>";
+  linkConfig = {
+    # Safe here, unlike in a pin: there is no Name= for it to override. Under
+    # net.ifnames=0 it is inert, and it keeps the device on the fleet scheme if
+    # networking.usePredictableInterfaceNames is ever flipped.
+    NamePolicy = "keep kernel database onboard slot path";
+    AlternativeNamesPolicy = "database onboard slot path";
+  };
+};
+```
+
+This is the shape `modules/songbird/networking.nix` and
+`modules/system76/networking.nix` use. It renames nothing, so it is not a pin:
+`pinnedNamesOf` and `collidingPinsOf` in `modules/hosts/common/firewall.nix`
+both key on `linkConfig.Name`, and a file without one contributes to neither.
+`modules/hosts/common/firewall-checks.nix` covers that with a case in each
+list, so the shape cannot start reading as a pin unnoticed.
+
+Note the inverted `NamePolicy` rule between the two shapes. A pin must not
+carry it, because `Name=` "has lower precedence than `NamePolicy=`" and the
+policy would silently win. A file without `Name=` should carry it, because
+omitting it drops the default for a device that is not being renamed anyway.
 
 Apply link-policy changes before the device appears. Rebooting, replugging a
 USB adapter, or otherwise reinitializing the link is more reliable than

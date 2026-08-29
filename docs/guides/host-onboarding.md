@@ -153,8 +153,16 @@ _: {
 }
 ```
 
+A device that needs no pinned name still wants that last line, because
+`net.ifnames=0` gates the rename only and leaves `99-default.link`'s `mac`
+token generating an `enx<permanent-mac>` altname. Drop `Name=`, add
+`NamePolicy = "keep kernel database onboard slot path"` in its place, and keep
+`AlternativeNamesPolicy`, as `modules/songbird/networking.nix` does for all
+three of its NICs.
+
 `docs/networking/README.md` covers why the pinned name stays outside the
-kernel's `eth*` namespace and why the match uses the path rather than a MAC.
+kernel's `eth*` namespace, why the match uses the path rather than a MAC, and
+why `NamePolicy` belongs in the second shape but never in a pin.
 
 If the new host becomes the primary fleet endpoint,
 move `primary = true` and `tailnetIp` from the current primary host's
