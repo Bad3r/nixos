@@ -51,7 +51,7 @@ in
 
     DNSOverHTTPS = {
       Enabled = true;
-      ProviderURL = "https://adblock.dns.mullvad.net/dns-query";
+      ProviderURL = "https://adblock.doh.mullvad.net/dns-query";
       Fallback = false;
     };
     SkipTermsOfUse = true;
