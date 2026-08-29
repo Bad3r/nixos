@@ -54,13 +54,23 @@ let
   );
   baselineMissing =
     (hostOverrides != { } || hostSubToggles != { })
-    && ((baselinePrograms == { } && baselineServices == { }) || anyUnknownOverrides);
+    && (
+      (baselinePrograms == { } && baselineServices == { })
+      || anyUnknownOverrides
+      || anyUncomparableSubToggles
+    );
   baselineMissingMessage =
     if anyUnknownOverrides then
       "FR-5 baseline snapshot missing or out of sync: "
       + "flake.lib.nixos._commonAppsBaseline does not declare every entry in "
       + "flake.lib.nixos._hostAppsOverrides.<host>: "
       + unknownOverridesSummary
+    else if anyUncomparableSubToggles then
+      "FR-5 baseline snapshot out of sync: "
+      + "flake.lib.nixos._commonAppsBaseline declares no value at these "
+      + "flake.lib.nixos._hostAppsSubToggleOverrides.<host> paths, so they are "
+      + "registered but never compared: "
+      + uncomparableSubTogglesSummary
     else
       "FR-5 baseline snapshot missing: flake.lib.nixos._commonAppsBaseline is empty "
       + "but host overrides are registered.";
@@ -93,8 +103,26 @@ let
     in
     builtins.filter isNoOp (builtins.attrNames overrides);
 
-  # A path the baseline never declares is not a duplicate of anything, so it
-  # reports null and is left alone, the same way an unknown app name does above.
+  # A path the baseline never declares cannot be compared at all, so it is
+  # reported rather than dropped: dropping it makes registration look like
+  # coverage it does not provide, which is the asymmetry against the flat set,
+  # where an unknown name is an eval-time failure through unknownOverridesByHost.
+  subToggleUncomparableFor =
+    toggles:
+    map (toggle: lib.concatStringsSep "." toggle.path) (
+      builtins.filter (toggle: (lib.attrByPath toggle.path null baselinePrograms) == null) toggles
+    );
+
+  uncomparableSubTogglesByHost = lib.filterAttrs (_host: paths: paths != [ ]) (
+    lib.mapAttrs (_host: subToggleUncomparableFor) hostSubToggles
+  );
+  anyUncomparableSubToggles = uncomparableSubTogglesByHost != { };
+  uncomparableSubTogglesSummary = lib.concatStringsSep "; " (
+    lib.mapAttrsToList (
+      host: paths: "${host}: ${lib.concatStringsSep ", " paths}"
+    ) uncomparableSubTogglesByHost
+  );
+
   subToggleNoOpsFor =
     toggles:
     let
