@@ -23,8 +23,9 @@ _: {
     # would open inbound UDP 53/67 and TCP 53 with no listener behind them.
     # Restore it only alongside a real listener, and pin that device first per
     # docs/networking/README.md: eth0 falls onto the built-in NIC whenever the
-    # USB adapter is detached at boot, and under net.ifnames=0 firewall.nix
-    # neither asserts nor warns on a kernel name.
+    # USB adapter is detached at boot. firewall.nix warns on an unpinned kernel
+    # name and the warning clears once a pin backs the entry, but it cannot tell
+    # a right kernel name from a wrong one, so the pin is still the guarantee.
     firewallDnsInterfaces = [ ];
     firewallExtraTcpPortRanges = [
       {

@@ -109,15 +109,17 @@ TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
 that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 `::1` with no `dhcp-range`, so it never listens on a link.
 
-When the host does have such a listener, use its real interface names, read from
-`ip link` on the target **after** its first boot on this configuration.
-`shareCommon` hosts boot with `net.ifnames=0`, so the names are `eth0`, `eth1`,
-and `wlan0` rather than the `enp*` and `wlp*` names an installer shows.
+When the host does have such a listener, pin the intended device with a `.link`
+`Name=` and use the pinned name. `shareCommon` hosts boot with `net.ifnames=0`,
+so an unpinned device carries `eth0`, `eth1`, or `wlan0` rather than the `enp*`
+and `wlp*` names an installer shows, and those numbers follow discovery order.
 `modules/hosts/common/firewall.nix` rejects an `enp*`/`wlp*` name on such a host
-with an assertion, and warns when a name is neither kernel-assigned nor created
-by a declaration on the host. Neither guard catches a kernel name that is simply
-wrong for this machine: that emits a `networking.firewall.interfaces.<name>`
-entry for a device that never appears, so the opening silently does nothing.
+with an assertion, warns when a name is neither kernel-assigned nor created by a
+declaration on the host, and warns on a kernel-assigned name with no pin behind
+it. That last warning clears as soon as a pin backs the entry. What no guard
+catches is a pinned or kernel name that is simply wrong for this machine: that
+emits a `networking.firewall.interfaces.<name>` entry for a device that never
+appears, so the opening silently does nothing.
 
 On a host with two interfaces of the same class, or with a removable adapter,
 the `eth0` and `eth1` numbering follows kernel discovery order and can move

@@ -209,8 +209,11 @@ let
         else
           "${hostName}: firewallDnsInterfaces has predictable interface names "
           + "(${lib.concatStringsSep ", " staleScheme}) but the host boots with "
-          + "net.ifnames=0, so they match no device. Use the kernel name (eth0, wlan0) "
-          + "read from `ip -br link` after the first boot on this configuration.";
+          + "net.ifnames=0, so they match no device. Pin the intended device with a .link "
+          + "Name= outside the kernel-assigned namespaces (eth*, wlan*, usb*, wwan*, ib*, "
+          + "sl*) and name the pin here, as modules/tpnix/networking.nix does with wifi0. "
+          + "A bare kernel name resolves, but to whichever same-class NIC enumerated first "
+          + "that boot, which is what the warning below reports.";
     in
     {
       # A name that matches no device is not an evaluation error on its own:
