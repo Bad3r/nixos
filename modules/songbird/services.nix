@@ -116,14 +116,11 @@ in
           package = pkgs.cloudflare-warp.override { headless = true; };
         };
 
-        printing = {
-          enable = lib.mkForce false;
-          drivers = with pkgs; [
-            gutenprint
-            # hplip  # Requires unfree license
-            brlaser
-          ];
-        };
+        # No drivers list: nixpkgs reads services.printing.drivers only inside
+        # its own mkIf cfg.enable, so alongside a forced-off enable it named
+        # packages nothing installs, and it was a laptop-era set copied from
+        # system76 rather than anything this desktop justified.
+        printing.enable = lib.mkForce false;
 
         samba = {
           enable = true;
