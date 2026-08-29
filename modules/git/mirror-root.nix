@@ -39,6 +39,17 @@
           default = "users";
           description = "Group ownership for the mirror directory.";
         };
+
+        stampName = lib.mkOption {
+          type = lib.types.str;
+          default = ".local-mirrors-root";
+          description = ''
+            Marker this unit writes inside the root, and the only proof a
+            consumer has that the root it sees is the provisioned one. Consumers
+            read it through `programs.gitMirror.stampName`, which
+            `modules/hosts/common/mirrors.nix` feeds from here.
+          '';
+        };
       };
 
       config = lib.mkIf cfg.enable {
@@ -55,6 +66,12 @@
         # this inactive instead of failed; recovering by hand after a late mount
         # is `systemctl start local-mirrors-root.service`. setgid so new repos
         # inherit group ownership.
+        #
+        # The stamp is what git-mirror tests for. It can only be written while
+        # this unit's condition holds, so it lives on the volume and cannot
+        # appear on a stray root of the same name. Mode carries no provenance:
+        # the tmpfiles rule this replaced wrote 2775, setgid included, onto
+        # exactly such a stray root.
         systemd.services.local-mirrors-root = {
           description = "Provision the local mirror root";
           wantedBy = [ "multi-user.target" ];
@@ -65,7 +82,10 @@
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
-            ExecStart = "${pkgs.coreutils}/bin/install -d -m 2775 -o root -g ${cfg.group} ${cfg.root}";
+            ExecStart = [
+              "${pkgs.coreutils}/bin/install -d -m 2775 -o root -g ${cfg.group} ${cfg.root}"
+              "${pkgs.coreutils}/bin/touch ${cfg.root}/${cfg.stampName}"
+            ];
           };
         };
       };

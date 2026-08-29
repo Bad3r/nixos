@@ -26,11 +26,17 @@ Repositories sync to flat paths under `/data/git`.
   recreate the path on `/`. The guard runs before the docs lock files are
   opened, because those sit directly in the root, so their `mkdir -p` would
   otherwise recreate it and let every later repo spec pass
-- **Unprovisioned root**: the same guard also refuses a root that is not
-  setgid. `install -d -m 2775` re-applies the bit on every boot and nothing
-  else sets it (`git clone` and `mkdir -p` under `umask 002` leave `0775`), so
-  it is what tells a provisioned root apart from a stray directory of the same
-  name left on the root filesystem, which a plain existence test cannot
+- **Unprovisioned root**: the same guard also refuses a root with no
+  `.local-mirrors-root` stamp. `local-mirrors-root.service` writes it, and that
+  unit runs only while its mount condition holds, so the stamp can exist only
+  on the volume. Mode carries no provenance and cannot substitute: the
+  `d /data/git 2775 root users` tmpfiles rule this replaced wrote `2775`,
+  setgid included, onto exactly the stray root on `/` that the guard has to
+  reject. The name is `localMirrors.stampName`, fed to
+  `programs.gitMirror.stampName` alongside the root
+- **Recovering an unstamped root**: a volume mounted after boot, or one whose
+  root predates the stamp, is provisioned by
+  `systemctl start local-mirrors-root.service`
 - **Environment variable**: `$LOCAL_MIRRORS` points to `/data/git`
 - **Sync schedule**: Daily via systemd timer
 - **Manual sync**: `systemctl --user start git-mirror.service`
@@ -64,6 +70,7 @@ localMirrors.enable = true;
 home-manager.users.${metaOwner.username}.programs.gitMirror = {
   enable = true;
   root = config.localMirrors.root;
+  stampName = config.localMirrors.stampName;
   firefoxDocs.enable = true;
   pythonDocs.enable = true;
   repos = [

@@ -149,13 +149,13 @@
             exit 1
           fi
 
-          # install -d -m 2775 re-applies setgid on every boot and nothing else
-          # sets it: git clone and mkdir -p under umask 002 both leave 0775. The
-          # bit is what separates a provisioned root from a stray directory of
-          # the same name on the root filesystem, which -d cannot tell apart once
-          # anything has created one.
-          if [ ! -g "$GIT_MIRROR_ROOT" ]; then
-            log "$spec: mirror root $GIT_MIRROR_ROOT is not setgid, so local-mirrors-root.service has not provisioned it"
+          # local-mirrors-root.service writes the stamp, and its condition holds
+          # only while the volume is mounted, so the stamp can exist only on that
+          # volume. No mode bit can stand in for it: the tmpfiles rule this
+          # replaced wrote 2775 onto the stray root it left on /, setgid
+          # included, and any mkdir plus chmod g+s reproduces that.
+          if [ ! -e "$GIT_MIRROR_ROOT/$GIT_MIRROR_STAMP_NAME" ]; then
+            log "$spec: mirror root $GIT_MIRROR_ROOT was not provisioned by local-mirrors-root.service, is the volume mounted?"
             exit 1
           fi
 
@@ -223,6 +223,7 @@
       firefoxDocsScript = import ./_firefox-docs-builder.nix {
         inherit lib pkgs;
         mirrorRoot = cfg.root;
+        inherit (cfg) stampName;
         firefoxDocs = firefoxDocs // {
           lockPath = firefoxDocsLockPath;
         };
@@ -231,6 +232,7 @@
       pythonDocsScript = import ./_python-docs-publisher.nix {
         inherit lib pkgs;
         mirrorRoot = cfg.root;
+        inherit (cfg) stampName;
         pythonDocs = pythonDocs // {
           lockPath = pythonDocsLockPath;
         };
@@ -249,6 +251,7 @@
           set -eu
           umask 002
           export GIT_MIRROR_ROOT="${cfg.root}"
+          export GIT_MIRROR_STAMP_NAME=${lib.escapeShellArg cfg.stampName}
           export GIT_MIRROR_MAX_BACKUPS=${toString cfg.maxBackups}
           ${lib.optionalString firefoxDocs.enable ''
             export GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC=${lib.escapeShellArg firefoxDocs.repoSpec}
@@ -271,6 +274,17 @@
           type = lib.types.str;
           default = "/data/git";
           description = "Directory for mirrored repositories.";
+        };
+
+        stampName = lib.mkOption {
+          type = lib.types.str;
+          default = ".local-mirrors-root";
+          description = ''
+            Marker `local-mirrors-root.service` writes inside the root. Every
+            sync refuses while it is missing, so it must match
+            `localMirrors.stampName`; `modules/hosts/common/mirrors.nix` feeds
+            it across.
+          '';
         };
 
         repos = lib.mkOption {
