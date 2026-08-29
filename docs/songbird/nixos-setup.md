@@ -196,10 +196,16 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    Code is installed with bun during activation
    (`modules/songbird/apps-enable.nix`), which needs the npm registry
    reachable; an offline activation keeps whatever is already installed. At
-   boot, the initrd asks for the root passphrase and
-   retries it from the kernel keyring for `cryptswap` and `data`; a different
-   `/data` passphrase is prompted for, and an absent or unopened `/data`
-   drive no longer blocks the boot (`nofail`). The `vx` account keeps the
+   boot, the initrd asks for the root passphrase and retries it from the
+   kernel keyring for `cryptswap` and `data`. `data` carries system76's
+   passphrase, so that retry fails and a second prompt starts, but under
+   `nofail` the initrd hands over to the real root a few seconds later and
+   abandons it (`data.mount: Job data.mount/start failed with result 'dependency'`), leaving `/data` unmounted. Add the root passphrase to the
+   volume once, `cryptsetup luksAddKey /dev/disk/by-uuid/183d1f98-e95d-4d6c-89de-cbed409bd9a0` (existing
+   passphrase, then the new one), and the retry unlocks it with no prompt;
+   until then, `cryptsetup open` that device as `data` and `mount /data`
+   after login. An absent drive still does not block the boot. The `vx`
+   account keeps the
    password set during the install (`users.mutableUsers` is on, so the
    initial hash in `modules/meta/owner.nix` is not applied to an existing
    user).
