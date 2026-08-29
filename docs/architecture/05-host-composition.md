@@ -68,7 +68,7 @@ common-baseline participation is always a recorded choice (`true` to opt in,
 
 | File                                       | Purpose                                                                                                                                                                                |
 | ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `modules/songbird/imports.nix`             | Host-specific enables only (Steam, rip, language toolchains); the desktop board has no vendor module, so nothing chassis-specific to import                                            |
+| `modules/songbird/imports.nix`             | Language toolchain enables only; the desktop board has no vendor module, so nothing chassis-specific to import                                                                         |
 | `modules/songbird/nix-settings.nix`        | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                                                             |
 | `modules/songbird/ssh.nix`                 | `services.openssh.enable` override; the host public key pin waits for the first boot to generate the key                                                                               |
 | `modules/songbird/r2-runtime.nix`          | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                                                                     |

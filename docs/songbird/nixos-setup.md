@@ -339,7 +339,7 @@ handling) and plus the desktop-specific pieces:
 | `modules/songbird/nvidia-gpu.nix`                               | `gpu.nvidia`: production branch, `open = true`, `vaapi.backend = "nvidia"`, `nouveau` blacklisted; VRAM preservation across suspend comes from the shared module's `powerManagement.enable`                                                                              |
 | `modules/songbird/policy.nix`                                   | `sopsRuntimeReady`/`r2RuntimeReady` gates (off until Phase N2), `duplicatiStateDirReadable`, `extraHomeApps`, empty `firewallDnsInterfaces`, the 8000-8999 TCP range; primary handoff pending                                                                            |
 | `modules/songbird/services.nix`                                 | Samba media share (from `secrets/songbird.yaml`), on-demand `samba.target` with WS-Discovery bound to it, coredump retention, power-profiles-daemon forced to performance (replacing system76-power), cloudflared, WARP headless, LACT, system76-scheduler, printing off |
-| `modules/songbird/imports.nix`                                  | Steam, rip, language toolchains; no chassis modules                                                                                                                                                                                                                      |
+| `modules/songbird/imports.nix`                                  | Language toolchain enables only; no chassis modules                                                                                                                                                                                                                      |
 | `modules/songbird/support.nix`                                  | `services.fwupd`                                                                                                                                                                                                                                                         |
 | `modules/songbird/apps-enable.nix`                              | Inkscape on; Logseq keeps GPU compositing (no PRIME here)                                                                                                                                                                                                                |
 | `modules/songbird/gnome-keyring.nix`, `pass-secret-service.nix` | gnome-keyring off, `pass` as the secret service (as on system76)                                                                                                                                                                                                         |
@@ -354,13 +354,14 @@ handling) and plus the desktop-specific pieces:
 DHCP to the network: it opens inbound UDP 53/67 and TCP 53, and
 NetworkManager's `dns = "dnsmasq"` mode does not count, since that dnsmasq
 binds `127.0.0.1` and `::1` with no `dhcp-range`. If such a listener is ever
-added, read the name from `ip -br link` first: with `net.ifnames=0` the two
-onboard NICs share the `eth0`/`eth1` pool by discovery order, so neither name
-is bound to a device, and `modules/hosts/common/firewall.nix` cannot tell a
-wrong kernel name from a right one. Pin the intended NIC with a `.link` first
-if the rule has to survive a NIC being added or removed;
-`docs/networking/README.md` covers why such a pin has to land outside the
-kernel's own `eth*` namespace rather than on `eth0` itself.
+added, pin the intended NIC with a `.link` `Name=` first and use the pinned
+name. With `net.ifnames=0` the two onboard NICs share the `eth0`/`eth1` pool by
+discovery order, so neither name is bound to a device and the opening follows
+whichever NIC the kernel enumerated first that boot.
+`modules/hosts/common/firewall.nix` warns on an unpinned kernel name here, and
+the warning goes quiet once a pin backs it. `docs/networking/README.md` covers
+why such a pin has to land outside the kernel's own `eth*` namespace rather
+than on `eth0` itself, and why the pin must omit `NamePolicy`.
 
 ## Booting Windows from NixOS
 
