@@ -10,6 +10,11 @@
 # This throws rather than emitting a failing derivation: CI forces each check's
 # drvPath with `nix eval` and never builds checks, so only an eval-time failure
 # gates it (same rationale as modules/hosts/common/checks.nix).
+#
+# The interface names below are fixtures, not names any host carries. lan0 is
+# the example systemd.link(5) gives for a safe pin, so it stands for the
+# accepted case; eth0 and wlan0 stand for the rejected one. Swapping them would
+# invert what each case asserts.
 { config, lib, ... }:
 let
   classify = config.flake.lib.nixos._firewallDnsClassify or null;
