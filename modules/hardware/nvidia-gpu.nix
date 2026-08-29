@@ -64,6 +64,14 @@ let
             X screen mode is also what RandR falls back to when the driver
             re-detects the display, so a wrong value here silently returns after
             every hotplug or DPMS wake.
+
+            A pinned mode names an EDID the attached panel may not advertise.
+            That does not cost a session: the driver discards MetaModes it
+            cannot validate and "nvidia-auto-select" is guaranteed present, so X
+            still starts. It does cost the `ForceFullCompositionPipeline`
+            attribute, which the driver's internal fallback does not carry, so
+            the generated screen section lists auto-select as an explicit second
+            MetaMode with the attribute attached.
           '';
         };
 
@@ -117,9 +125,22 @@ let
             services.xserver = {
               videoDrivers = lib.mkDefault [ "nvidia" ];
               # Tear-free: Force full composition pipeline for NVIDIA
-              screenSection = lib.mkDefault ''
-                Option "metamodes" "${cfg.metamode} +0+0 {ForceFullCompositionPipeline=On}"
-              '';
+              screenSection =
+                let
+                  metaMode = m: "${m} +0+0 {ForceFullCompositionPipeline=On}";
+                  # ';' separates MetaModes and the driver discards the ones it
+                  # cannot validate, so a pinned mode degrades to the EDID
+                  # preferred one on a panel that does not advertise it. Listed
+                  # rather than left to the driver's own auto-select fallback,
+                  # which substitutes a bare mode and drops the attribute above.
+                  modes = [
+                    cfg.metamode
+                  ]
+                  ++ lib.optional (cfg.metamode != "nvidia-auto-select") "nvidia-auto-select";
+                in
+                lib.mkDefault ''
+                  Option "metamodes" "${lib.concatMapStringsSep "; " metaMode modes}"
+                '';
             };
 
             hardware = {
