@@ -111,7 +111,7 @@ let
     matchConfig:
     lib.any (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
 
-  # Names a .link Name= creates on a host, such as lan0. A disabled unit is
+  # Names a .link Name= creates on a host, such as wifi0. A disabled unit is
   # never installed and a match-all file does not bind a name to a device, so
   # neither counts as a pin.
   pinnedNamesOf =
@@ -229,7 +229,7 @@ let
           + "networking.usePredictableInterfaceNames = true, so they match no device. "
           + "Use the predictable name, or pin the device with a .link Name= outside the "
           + "kernel-assigned namespaces (eth*, wlan*, usb*, wwan*, ib*, sl*) as "
-          + "modules/system76/networking.nix does."
+          + "modules/tpnix/networking.nix does."
         else
           "${hostName}: firewallDnsInterfaces has predictable interface names "
           + "(${lib.concatStringsSep ", " staleScheme}) but the host boots with "
@@ -256,7 +256,7 @@ let
             + "kernel assigns itself (eth*, wlan*, usb*, wwan*, ib*, sl*). Per systemd.link(5) "
             + "the udev rename races the kernel's own assignment there, so the pin may "
             + "silently not apply and anything keyed to the name matches no device. Pin "
-            + "outside those namespaces, as modules/system76/networking.nix does with lan0.";
+            + "outside those namespaces, as modules/tpnix/networking.nix does with wifi0.";
         }
       ];
 
@@ -268,7 +268,7 @@ let
         + "WireGuard interface, wg-quick interface, or networkd netdev. That is expected "
         + "for an interface a service creates at runtime (tailscale0, docker0); "
         + "otherwise the opening matches no device, so pin it as "
-        + "modules/system76/networking.nix does."
+        + "modules/tpnix/networking.nix does."
       );
 
       networking.firewall = {

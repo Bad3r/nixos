@@ -70,7 +70,6 @@ common-baseline participation is always a recorded choice (`true` to opt in,
 | ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------- |
 | `modules/songbird/imports.nix`             | Host-specific enables only (Steam, rip, language toolchains); the desktop board has no vendor module, so nothing chassis-specific to import    |
 | `modules/songbird/nix-settings.nix`        | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                     |
-| `modules/songbird/networking.nix`          | `.link` units pinning the two onboard NICs to `lan0` (Realtek RTL8126) and `lan1` (Intel I226-V) by PCI path                                   |
 | `modules/songbird/ssh.nix`                 | `services.openssh.enable` override; the host public key pin waits for the first boot to generate the key                                       |
 | `modules/songbird/r2-runtime.nix`          | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                             |
 | `modules/songbird/hardware-config.nix`     | LUKS root and swap on the SN8100, the system76 `/data` LUKS+XFS volume, the NTFS `/shared` drive, firmware, NPU, Thunderbolt (bolt)            |
@@ -91,7 +90,6 @@ common-baseline participation is always a recorded choice (`true` to opt in,
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support) and host-specific enables                    |
 | `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                       |
-| `modules/system76/networking.nix`             | `.link` unit pinning the USB ethernet adapter to `lan0` by USB path                                              |
 | `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                    |
 | `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                      |
 | `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                   |

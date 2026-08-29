@@ -123,7 +123,7 @@ On a host with two interfaces of the same class, or with a removable adapter,
 the `eth0` and `eth1` numbering follows kernel discovery order and can move
 between devices. Do not point `firewallDnsInterfaces` at a name that can
 change: the rule opens UDP 53/67 and TCP 53 on whichever device holds the name
-that boot. Pin the intended device first, as `modules/system76/networking.nix`
+that boot. Pin the intended device first, as `modules/tpnix/networking.nix`
 does, then use the pinned name:
 
 ```sh
@@ -137,10 +137,12 @@ done
 ```nix
 _: {
   configurations.nixos.<host>.module = {
-    systemd.network.links."10-lan0" = {
+    systemd.network.links."10-uplink0" = {
       matchConfig.Path = "<ID_PATH value>";
       linkConfig = {
-        Name = "lan0";
+        # Outside the kernel's own eth*/wlan* pools: systemd.link(5) calls a
+        # pin named eth0 a race against the kernel's own assignment.
+        Name = "uplink0";
         # The pin displaces 99-default.link for this device, so restore the
         # alternative names it would otherwise supply. Its "mac" token is left
         # out: that derives an altname from the factory hardware address.

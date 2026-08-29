@@ -25,12 +25,13 @@ Those names follow the order the kernel discovers the devices, which is not
 guaranteed across boots. A host with two interfaces of the same class, or with
 a removable adapter, can see the numbering move between devices. A name that
 carries a firewall rule must therefore be pinned rather than observed: see
-[Pin an interface name](#pin-an-interface-name). `modules/system76/networking.nix`
-pins its USB ethernet adapter to `lan0` for that reason, so a rule keyed to that
-name follows the adapter, and `modules/songbird/networking.nix` pins that
-desktop's two onboard NICs to `lan0` and `lan1` by PCI path so their kernel
-numbering cannot swap between boots. Every host currently leaves
-`firewallDnsInterfaces` empty.
+[Pin an interface name](#pin-an-interface-name). `modules/tpnix/networking.nix`
+pins that laptop's internal Wi-Fi card to `wifi0` for that reason, so a rule
+keyed to that name follows the card rather than a USB adapter that registered
+first. The wired hosts carry no pin: system76's USB ethernet adapter and
+songbird's two onboard NICs are read as `eth0`/`eth1` in kernel enumeration
+order. Every host currently leaves `firewallDnsInterfaces` empty, so no rule is
+keyed to a wired name today; pin the device before adding one.
 
 ```bash
 nmcli device status
@@ -207,14 +208,14 @@ Kernel names follow discovery order, so a name is not tied to one device. That
 matters when a name carries a firewall rule: `firewallDnsInterfaces` opens UDP
 53/67 and TCP 53 on whatever device holds the name, and a removable adapter is
 absent on some boots by definition. Pin the device with `linkConfig.Name`
-matched on its path, as `modules/system76/networking.nix` does for the USB
-ethernet adapter, so a rule later keyed to that name follows the adapter:
+matched on its path, as `modules/tpnix/networking.nix` does for the internal
+Wi-Fi card, so a rule later keyed to that name follows the card:
 
 ```nix
-systemd.network.links."10-lan0" = {
-  matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
+systemd.network.links."10-wifi0" = {
+  matchConfig.Path = "pci-0000:00:14.3";
   linkConfig = {
-    Name = "lan0";
+    Name = "wifi0";
     # The pin displaces 99-default.link for this device, so restore the
     # alternative names it would otherwise supply. Its "mac" token is left
     # out: that derives an altname from the factory hardware address.
@@ -225,9 +226,9 @@ systemd.network.links."10-lan0" = {
 
 Read the value from `udevadm info -q property -p /sys/class/net/<name>`, field
 `ID_PATH`. Matching on the path rather than `PermanentMACAddress` keeps a
-hardware address out of the repository, and it degrades safely: when the
-adapter is detached or moved to another port, nothing is named `lan0`, so the
-firewall rule matches no device instead of landing on a different one.
+hardware address out of the repository, and it degrades safely: when the device
+is removed or moved to another slot, nothing is named `wifi0`, so the firewall
+rule matches no device instead of landing on a different one.
 
 Pin to a name outside the namespaces the kernel assigns itself: `eth*`,
 `wlan*`, `usb*` (the usbnet default for `cdc_ether` and `rndis_host`), `wwan*`,

@@ -99,8 +99,8 @@ code is needed.
 | Arrow Lake NPU 4 (`0000:00:0b.0`)                                         | intel_vpu, intel-npu-driver firmware                        | `hardware.cpu.intel.npu.enable` in `hardware-config.nix`                                           |
 | Arrow Lake iGPU Xe-LPG (`8086:7d67`, `0000:00:02.0`)                      | i915 (xe also loaded), linux-firmware                       | Present for bring-up; VA-API only if `vaapi.backend = "intel-media"`                               |
 | RTX 5080 (GB203, `10de:2c02`, `0000:02:00.0`)                             | NVIDIA open kernel modules, production branch 595.x         | `modules/songbird/nvidia-gpu.nix` over `flake.nixosModules.nvidia-gpu`; `nouveau` blacklisted      |
-| Realtek RTL8126 5 GbE (`0000:84:00.0`, the wired uplink)                  | r8169 (in-kernel, `rtl8126a` firmware)                      | Pinned to `lan0` in `networking.nix`                                                               |
-| Intel I226-V 2.5 GbE (`0000:85:00.0`)                                     | igc (in-kernel)                                             | Pinned to `lan1` in `networking.nix`                                                               |
+| Realtek RTL8126 5 GbE (`0000:84:00.0`, the wired uplink)                  | r8169 (in-kernel, `rtl8126a` firmware)                      | `eth0` under `net.ifnames=0` (enumeration order, not pinned)                                       |
+| Intel I226-V 2.5 GbE (`0000:85:00.0`)                                     | igc (in-kernel)                                             | `eth1` under `net.ifnames=0` (enumeration order, not pinned)                                       |
 | Intel BE200 Wi-Fi 7 (`8086:272b`, `0000:86:00.0`)                         | iwlwifi + iwlmld, linux-firmware                            | Nothing needed; `wlan0` under `net.ifnames=0`                                                      |
 | Bluetooth 5.4 (Intel, USB `8087:0036`)                                    | btusb + btintel                                             | `flake.nixosModules.bluetooth` (hosts-common); `KernelExperimental` added in `hardware-config.nix` |
 | Audio: SupremeFX USB codec (`0b05:1b7c`), HDA `0000:80:1f.3`, NVIDIA HDMI | snd_usb_audio, snd_hda_intel (SOF path available), PipeWire | hosts-common (`pipewire.nix`); `sof-firmware` in `hardware-config.nix`                             |
@@ -331,7 +331,6 @@ handling, the USB NIC pin) and plus the desktop-specific pieces:
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `modules/songbird/hardware-config.nix`                          | LUKS root/swap on A (`cryptroot`, `cryptswap`, `resumeDevice`), the system76 `data` LUKS volume (`nofail`) at `/data`, the NTFS `/shared` mount, microcode, NPU, Bluetooth `KernelExperimental`, firmware set, `bolt`, `/data` ownership   |
 | `modules/songbird/nvidia-gpu.nix`                               | `gpu.nvidia`: production branch, `open = true`, `vaapi.backend = "nvidia"`, `nouveau` blacklisted; VRAM preservation across suspend comes from the shared module's `powerManagement.enable`                                                |
-| `modules/songbird/networking.nix`                               | `.link` pins: `lan0` = Realtek RTL8126 (`pci-0000:84:00.0`), `lan1` = Intel I226-V (`pci-0000:85:00.0`)                                                                                                                                    |
 | `modules/songbird/policy.nix`                                   | `sopsRuntimeReady`/`r2RuntimeReady` gates (off until Phase N2), `duplicatiStateDirReadable`, `extraHomeApps`, empty `firewallDnsInterfaces`, the 8000-8999 TCP range; primary handoff pending                                              |
 | `modules/songbird/services.nix`                                 | Samba media share (from `secrets/songbird.yaml`), on-demand `samba.target`, coredump retention, power-profiles-daemon forced to performance (replacing system76-power), cloudflared, WARP headless, LACT, system76-scheduler, printing off |
 | `modules/songbird/imports.nix`                                  | Steam, rip, language toolchains; no chassis modules                                                                                                                                                                                        |
@@ -349,11 +348,13 @@ handling, the USB NIC pin) and plus the desktop-specific pieces:
 DHCP to the network: it opens inbound UDP 53/67 and TCP 53, and
 NetworkManager's `dns = "dnsmasq"` mode does not count, since that dnsmasq
 binds `127.0.0.1` and `::1` with no `dhcp-range`. If such a listener is ever
-added, use the pinned `lan0` (never `eth0`): with `net.ifnames=0` the two
-onboard NICs share the `eth0`/`eth1` pool by discovery order, and
-`modules/hosts/common/firewall.nix` cannot tell a wrong kernel name from a
-right one. `docs/networking/README.md` explains why the pinned names stay
-outside the kernel's `eth*` namespace.
+added, read the name from `ip -br link` first: with `net.ifnames=0` the two
+onboard NICs share the `eth0`/`eth1` pool by discovery order, so neither name
+is bound to a device, and `modules/hosts/common/firewall.nix` cannot tell a
+wrong kernel name from a right one. Pin the intended NIC with a `.link` first
+if the rule has to survive a NIC being added or removed;
+`docs/networking/README.md` covers why such a pin has to land outside the
+kernel's own `eth*` namespace rather than on `eth0` itself.
 
 ## Booting Windows from NixOS
 
@@ -382,7 +383,7 @@ prompts) and any shared-ESP scheme (decision 6).
 | --------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
 | LUKS, ext4, ESP, swap UUIDs | Done (harvested 2026-08-29)                                          | `hardware-config.nix`                                                    |
 | hostId                      | Done: `c93b3b3c`                                                     | `host-id.nix`                                                            |
-| Wired interface names       | Done: `lan0` (RTL8126, uplink), `lan1` (I226-V) pinned by PCI path   | `networking.nix`                                                         |
+| Wired interface names       | Done: `eth0` (RTL8126, uplink), `eth1` (I226-V) in enumeration order | Kernel `net.ifnames=0`, no pin                                           |
 | Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                             | `project-songbird.md`                                                    |
 | Host SSH public key         | Pending the first boot on this configuration                         | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                 |
 | age identity                | Pending (Phase N2 step 3); gates `sopsRuntimeReady`                  | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix` |
@@ -409,7 +410,7 @@ Plus host-specific checks after the first boot:
 - `lsblk` shows `cryptroot`, `cryptswap`, `data` open; `findmnt /data /shared`.
 - `nvidia-smi` reports the RTX 5080 on the open kernel module (driver
   595.x); `lsmod | grep nouveau` is empty.
-- `ip -br link` shows `lan0`, `lan1`, `wlan0`; Wi-Fi and Bluetooth associate.
+- `ip -br link` shows `eth0`, `eth1`, `wlan0`; Wi-Fi and Bluetooth associate.
 - `sensors` shows coretemp; `powerprofilesctl get` reports `performance`.
 - Hibernate round-trip (`systemctl hibernate`) after confirming
   `boot.resumeDevice`; NVIDIA VRAM survives (decision 13).
