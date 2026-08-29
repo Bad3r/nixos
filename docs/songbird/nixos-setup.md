@@ -255,8 +255,12 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
 `/data` needs no migration: the volume itself moved into songbird and mounts
 at `/data` with its contents. What remains is system76's root and home:
 
-1. With system76 running on its replacement drives, copy `/home/<owner>` and
-   anything else worth keeping over the network into
+1. Confirm `/data` is mounted before copying anything into it: `findmnt /data`.
+   Phase N2 step 2 records that the initrd abandons the `data` volume until the
+   root passphrase is added as a key slot, and the mount is `nofail`, so until
+   then `/data` is an empty directory on the root ext4 and `rsync` fills `/`
+   without an error. Then, with system76 running on its replacement drives,
+   copy `/home/<owner>` and anything else worth keeping over the network into
    `/data/migration-system76/` on songbird (`rsync -aHAX --info=progress2`
    over SSH; both hosts carry each other's `<host>.local` SSH alias once the
    key pin from Phase N2 is merged).
