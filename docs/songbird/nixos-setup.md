@@ -340,6 +340,7 @@ handling) and plus the desktop-specific pieces:
 | `modules/songbird/policy.nix`                                   | `sopsRuntimeReady`/`r2RuntimeReady` gates (off until Phase N2), `duplicatiStateDirReadable`, `extraHomeApps`, empty `firewallDnsInterfaces`, the 8000-8999 TCP range; primary handoff pending                                                                            |
 | `modules/songbird/services.nix`                                 | Samba media share (from `secrets/songbird.yaml`), on-demand `samba.target` with WS-Discovery bound to it, coredump retention, power-profiles-daemon forced to performance (replacing system76-power), cloudflared, WARP headless, LACT, system76-scheduler, printing off |
 | `modules/songbird/imports.nix`                                  | Language toolchain enables only; no chassis modules                                                                                                                                                                                                                      |
+| `modules/songbird/networking.nix`                               | `.link` units for the two onboard NICs and the BE200 carrying no `Name=`: they displace `99-default.link` to drop its `mac` altname token without renaming. Adding `Name=` to one of these is how a NIC is pinned; a second `.link` for the same device is never read    |
 | `modules/songbird/support.nix`                                  | `services.fwupd`                                                                                                                                                                                                                                                         |
 | `modules/songbird/apps-enable.nix`                              | Inkscape on; Logseq keeps GPU compositing (no PRIME here)                                                                                                                                                                                                                |
 | `modules/songbird/gnome-keyring.nix`, `pass-secret-service.nix` | gnome-keyring off, `pass` as the secret service (as on system76)                                                                                                                                                                                                         |
@@ -354,8 +355,12 @@ handling) and plus the desktop-specific pieces:
 DHCP to the network: it opens inbound UDP 53/67 and TCP 53, and
 NetworkManager's `dns = "dnsmasq"` mode does not count, since that dnsmasq
 binds `127.0.0.1` and `::1` with no `dhcp-range`. If such a listener is ever
-added, pin the intended NIC with a `.link` `Name=` first and use the pinned
-name. With `net.ifnames=0` the two onboard NICs share the `eth0`/`eth1` pool by
+added, pin the intended NIC by adding `Name=` to its existing entry in
+`modules/songbird/networking.nix` and dropping that entry's `NamePolicy=`, then
+use the pinned name. Do not author a second `.link` for the device: udev applies
+only the first matching file, so the new one is never read while `pinnedNamesOf`
+still reads its `Name=` and reports the name as backed, which silences every
+guard. With `net.ifnames=0` the two onboard NICs share the `eth0`/`eth1` pool by
 discovery order, so neither name is bound to a device and the opening follows
 whichever NIC the kernel enumerated first that boot.
 `modules/hosts/common/firewall.nix` warns on an unpinned kernel name here, and
