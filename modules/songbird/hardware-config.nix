@@ -141,10 +141,12 @@ _: {
       # (0000:00:0d.2).
       services.hardware.bolt.enable = true;
 
-      # Ensure mountpoint exists declaratively
-      systemd.tmpfiles.rules = [
-        "d /data 0755 ${owner} ${ownerGroup} -"
-      ];
+      # No tmpfiles rule for /data. systemd.mount(5) creates the mount point
+      # itself, and tmpfiles.d(5) applies ownership "regardless of whether it is
+      # created anew, or already existed" from a unit ordered After=local-fs
+      # .target, which a nofail mount is not ordered before. The rule therefore
+      # wrote an owner-writable /data onto the root filesystem on any boot where
+      # the volume was absent, and anything writing there filled / silently.
 
       # Operating rule 2 of docs/songbird/nixos-setup.md, enforced rather than
       # left to memory: an image written with /shared mounted restores stale

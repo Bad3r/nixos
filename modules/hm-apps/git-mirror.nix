@@ -153,6 +153,15 @@
             flock 8
           fi
 
+          # local-mirrors-root.service provisions the root only while the volume
+          # holding it is mounted, so an absent root means an absent volume.
+          # git clone creates the whole path, which would put the mirror on the
+          # root filesystem and fill it silently.
+          if [ ! -d "$GIT_MIRROR_ROOT" ]; then
+            log "$spec: mirror root $GIT_MIRROR_ROOT is absent, is the volume mounted?"
+            exit 1
+          fi
+
           log "$spec: syncing"
 
           # Clone if missing
