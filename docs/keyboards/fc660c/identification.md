@@ -194,6 +194,14 @@ exact literal string so one rule covers every Vial keyboard a user owns:
 KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{serial}=="*vial:f64c2b3c*", MODE="0660", GROUP="users", TAG+="uaccess", TAG+="udev-acl"
 ```
 
+The fc660c module does not use that rule verbatim, and neither should anything
+else on a multi-user host. It matches every hidraw interface of the device,
+including interfaces 0 and 2, which carry keystrokes; combined with
+`GROUP="users"`, into which NixOS places every normal account, that lets any
+local user read the live keystroke stream. See
+[configuration.md](configuration.md#nixos-module) for the interface-scoped,
+`uaccess`-only form the module ships instead.
+
 The real per-board identity is the compiled-in `VIAL_KEYBOARD_UID`. It never
 appears in a USB descriptor; it travels only over the raw-HID protocol on
 interface 1, and is read by speaking that protocol (the Vial GUI or app does

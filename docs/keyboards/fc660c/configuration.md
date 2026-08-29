@@ -33,15 +33,31 @@ broader rule. That scoping is the non-obvious part, for two reasons:
    `hardware.keyboard.qmk.enable` (which pulls `qmk-udev-rules` 0.27.13) is
    narrower, `MODE="0660" GROUP="plugdev"` instead of world-writable, but its
    rule still ends in an unqualified `KERNEL=="hidraw*"` catch-all rather
-   than anything scoped to this board. The module here instead writes its
-   own rule matched on the Vial serial, the same pattern Vial's own docs
-   recommend (see [identification.md](identification.md#the-vialf64c2b3c-serial-is-not-a-per-board-id)):
+   than anything scoped to this board. The module here instead writes its own
+   rule, scoped to one USB interface of one device:
 
    ```
-   KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ATTRS{serial}=="*vial:f64c2b3c*", MODE="0660", GROUP="users", TAG+="uaccess", TAG+="udev-acl"
+   KERNEL=="hidraw*", SUBSYSTEM=="hidraw", ENV{ID_USB_VENDOR_ID}=="4853", ENV{ID_USB_MODEL_ID}=="660c", ENV{ID_USB_SERIAL_SHORT}=="vial:f64c2b3c", ENV{ID_USB_INTERFACE_NUM}=="01", TAG+="uaccess"
    ```
 
-2. **The rule file name has to sort before `73-seat-late.rules`.** That
+   Three details there are load-bearing. **Interface 01 only**: that is the
+   raw-HID config channel. Interfaces 00 and 02 are the boot and NKRO
+   keyboards, so a rule matching the whole device would hand out read access
+   to the live keystroke stream. **No `MODE` or `GROUP`**: `TAG+="uaccess"`
+   grants an ACL to the active seat user alone, whereas `GROUP="users"` would
+   reach every normal account on the host, since NixOS puts all of them in
+   `users`. **`ENV` rather than `ATTRS`**: udev requires every `ATTRS` key in
+   a rule to match on a single parent device (`man 7 udev`), and
+   `bInterfaceNumber` lives on the interface (`3-8.3:1.1`) while `serial`
+   lives on the device (`3-8.3`), so an `ATTRS` form combining them matches
+   nothing. The `ID_USB_*` properties are set on the hidraw node itself.
+
+   The serial match is kept, but it identifies the *firmware*, not the board:
+   Vial hardcodes `vial:f64c2b3c` on every Vial keyboard (see
+   [identification.md](identification.md#the-vialf64c2b3c-serial-is-not-a-per-board-id)).
+   Vendor, product, and interface are what scope the rule to this device.
+
+2. **The rule file name has to sort between 60 and 73.** That
    systemd-shipped rule file is what actually promotes a `TAG+="uaccess"`
    into a real ACL grant for the logged-in seat:
 
@@ -58,10 +74,17 @@ broader rule. That scoping is the non-obvious part, for two reasons:
    to fix by renaming its recommended rule file from `99-vial.rules` to
    `59-vial.rules`.
 
-Together these mean the module has to author its own rule file (a name
-sorting below 73) through a mechanism other than `extraRules`, rather than
+   The lower bound is 60. `60-persistent-hidraw.rules` line 7
+   (`SUBSYSTEMS=="usb", ENV{ID_BUS}=="", IMPORT{builtin}="usb_id"`) is what
+   populates the `ID_USB_*` properties the rule matches on, so a file sorting
+   below 60 would evaluate before they exist and match nothing. Vial's
+   recommended `59-` prefix works only because its rule matches `ATTRS`,
+   which reads sysfs directly and needs no prior import.
+
+Together these mean the module has to author its own rule file, named to land
+in the 61..72 window, through a mechanism other than `extraRules`, rather than
 just depending on the `vial` package or `hardware.keyboard.qmk.enable`. The
-rule ships as `/etc/udev/rules.d/59-vial-fc660c.rules` via
+rule ships as `/etc/udev/rules.d/70-vial-fc660c.rules` via
 `services.udev.packages`. `pkgs.vial` itself goes only into
 `environment.systemPackages`, which NixOS never scans for udev rules
 (only `services.udev.packages` is read), so the package's own bundled
