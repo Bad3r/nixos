@@ -69,6 +69,18 @@ let
       expected = "/data/git";
     }
     {
+      # Nothing forbids two fileSystems entries naming the same mount point, and
+      # the fold's tie-break is strict, so a duplicate must not displace it.
+      name = "two keys naming the same mount point";
+      root = "/data/git";
+      fileSystems = {
+        "/" = fs "/";
+        "/data" = fs "/data";
+        data-alias = fs "/data";
+      };
+      expected = "/data";
+    }
+    {
       # Prefix matching is on path segments: /databases must not gate /data/git.
       name = "sibling sharing a name prefix does not match";
       root = "/data/git";
