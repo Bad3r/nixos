@@ -369,6 +369,30 @@ It also re-exports the flat set as `flake.lib.nixos._hostAppsOverrides.<host>`
 so `modules/hosts/common/checks.nix` can flag values that duplicate the common
 baseline (silent no-op).
 
+That flat set carries one boolean per app and always routes to
+`extended.enable`, so an override of a nested toggle such as
+`claude-code.extended.installMethods.bun.enable` cannot go through it. Register
+those in the same file as a list of `{ path; value; }` under `programs`,
+re-export it as `flake.lib.nixos._hostAppsSubToggleOverrides.<host>`, and build
+the override by folding that list rather than writing the attribute out:
+
+```nix
+subToggles = [
+  {
+    path = [ "claude-code" "extended" "installMethods" "bun" "enable" ];
+    value = true;
+  }
+];
+applySubToggles = lib.foldl' (
+  acc: toggle:
+  lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
+);
+```
+
+Folding rather than splicing a literal is the point: registering is then the
+only way to write one, so the next nested toggle cannot slip past the check the
+way all three hosts' did.
+
 ### 5. Check for Home Manager Integration
 
 ```bash
