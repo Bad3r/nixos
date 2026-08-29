@@ -48,14 +48,23 @@ let
       # pin would build green on Lix's compiled-in 16 instead of nproc - 1.
       # Same reasoning as the required firewallDnsInterfaces entry in
       # modules/hosts/common/firewall.nix.
+      # Bounds too, not just presence: 0 was this file's own value until this
+      # branch, and it is what "unlimited" on the http-connections line above
+      # invites. && is lazy, so the comparison is reached only once the key
+      # exists, and isInt keeps a "23" typo (plausible beside max-jobs = "auto")
+      # on this message rather than on a raw string/integer comparison error.
       assertions = [
         {
-          assertion = config.nix.settings ? max-substitution-jobs;
+          assertion =
+            (config.nix.settings ? max-substitution-jobs)
+            && lib.isInt config.nix.settings.max-substitution-jobs
+            && config.nix.settings.max-substitution-jobs >= 1;
           message =
-            "${hostName}: nix.settings.max-substitution-jobs is unset. Pin nproc - 1 in "
-            + "modules/${hostName}/nix-settings.nix next to max-jobs; the setting has no "
-            + "\"auto\", so an unset host silently falls back to the evaluator's built-in "
-            + "value instead of this fleet's convention.";
+            "${hostName}: nix.settings.max-substitution-jobs must be an integer >= 1. Pin "
+            + "nproc - 1, floored at 1, in modules/${hostName}/nix-settings.nix next to "
+            + "max-jobs; the setting has no \"auto\", so an unset host silently falls back to "
+            + "Lix's compiled-in 16, and 0 is not \"unlimited\": both Lix and CppNix clamp it "
+            + "to 1 and serialize every download.";
         }
       ];
     };
