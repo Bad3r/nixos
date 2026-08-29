@@ -253,6 +253,23 @@
           export GIT_MIRROR_ROOT="${cfg.root}"
           export GIT_MIRROR_STAMP_NAME=${lib.escapeShellArg cfg.stampName}
           export GIT_MIRROR_MAX_BACKUPS=${toString cfg.maxBackups}
+
+          # Same two conditions the workers check, once, so an unusable root is
+          # one line instead of one per spec. Wording matches the per-spec
+          # messages so both read as the same failure. The worker checks stay:
+          # they are what stops a clone into a root that goes away mid-run.
+          log() { printf '%s git-mirror: %s\n' "$(date -Is)" "$*" >&2; }
+
+          if [ ! -d "$GIT_MIRROR_ROOT" ]; then
+            log "mirror root $GIT_MIRROR_ROOT is absent, is the volume mounted?"
+            exit 1
+          fi
+
+          if [ ! -e "$GIT_MIRROR_ROOT/$GIT_MIRROR_STAMP_NAME" ]; then
+            log "mirror root $GIT_MIRROR_ROOT was not provisioned by local-mirrors-root.service, is the volume mounted?"
+            exit 1
+          fi
+
           ${lib.optionalString firefoxDocs.enable ''
             export GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC=${lib.escapeShellArg firefoxDocs.repoSpec}
             export GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH=${lib.escapeShellArg firefoxDocsLockPath}
