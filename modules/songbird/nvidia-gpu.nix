@@ -31,8 +31,16 @@ _: {
       # nvidia-vaapi-driver is installed, but libva still picks the DRM node by
       # enumeration order and renderD128 is the Intel iGPU here. Pin the node by
       # PCI path so the NVDEC driver is never handed the Intel fd, and so a
-      # probe-order swap between boots cannot move decode.
-      environment.sessionVariables.LIBVA_DRM_DEVICE = "/dev/dri/by-path/pci-0000:02:00.0-render";
+      # probe-order swap between boots cannot move decode. Keyed on
+      # vaapi.backend, because the intel-media fallback above drops
+      # nvidia-vaapi-driver: a node left pointing at the NVIDIA card would then
+      # resolve the driver name to one that is no longer installed and fail
+      # vaInitialize outright, rather than moving decode to the iGPU.
+      environment.sessionVariables.LIBVA_DRM_DEVICE =
+        if config.gpu.nvidia.vaapi.backend == "intel-media" then
+          "/dev/dri/by-path/pci-0000:00:02.0-render"
+        else
+          "/dev/dri/by-path/pci-0000:02:00.0-render";
 
       # Suspend/hibernate VRAM preservation
       # (nvidia.NVreg_PreserveVideoMemoryAllocations=1 plus the
