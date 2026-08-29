@@ -282,3 +282,5 @@
   - The NixOS module and its udev rule, day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
 - [keyboards/fc660c/flashing.md](keyboards/fc660c/flashing.md)
   - Entering the DFU bootloader, flashing with vial-qmk or dfu-programmer, and recovering from a bad flash.
+- [keyboards/fc660c/firmware/README.md](keyboards/fc660c/firmware/README.md)
+  - Building FC660C firmware on NixOS, the local keymap overlay for NKRO and actuation point, the flash script, and the ATmega32U4 flash budget.

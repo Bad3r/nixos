@@ -31,6 +31,13 @@ This builds the same keymap documented in
 [identification.md](identification.md#upstream-source-of-this-firmware) and
 flashes it over DFU.
 
+That invocation does not work as written on NixOS. vial-qmk ships no Nix
+expression, its bundled `lib/python/qmk/math.py` calls `ast.Num` (removed in
+Python 3.12) while nixpkgs' `qmk` runs on 3.14, and `nixpkgs#avrlibc` is
+unsupported on `x86_64-linux`. See [firmware/README.md](firmware/README.md) for
+a working toolchain invocation, the local keymap overlay, and the flash budget
+this MCU imposes.
+
 ## Flashing with dfu-programmer directly
 
 Without a vial-qmk checkout, flash a prebuilt `.hex` directly:

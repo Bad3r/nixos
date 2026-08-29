@@ -29,6 +29,7 @@ here is the keyboard attached to `songbird`, verified from sysfs, `lsusb -v`,
 | [identification.md](identification.md) | Confirming this is the Hasu Alt Controller, checking whether Vial or stock TMK firmware is flashed, or resolving a hidraw node to a specific interface. |
 | [configuration.md](configuration.md)   | Enabling the NixOS module, remapping keys in Vial, using the Esc+Enter unlock combo, or hitting the actuation-point limitation.                         |
 | [flashing.md](flashing.md)             | Reflashing firmware, or recovering an unresponsive or badly flashed controller.                                                                         |
+| [firmware/](firmware/README.md)        | Building firmware on NixOS, the local keymap overlay (NKRO, actuation point), the flash script, and the ATmega32U4 flash budget.                        |
 
 ## NixOS integration
 
