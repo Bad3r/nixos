@@ -1,7 +1,33 @@
 # Creates and manages the shared /data/git mirror root
 # (e.g. /data/git/openai-codex, /data/git/tridactyl-tridactyl,
 # or /data/git/codeberg-librewolf-settings).
+{ lib, ... }:
+let
+  # Deepest declared mount containing the mirror root, if the host has one.
+  # A host that keeps mirrors on the root filesystem yields null and is
+  # provisioned unconditionally.
+  #
+  # Takes fileSystems rather than a list of mount points, so the mountPoint
+  # extraction is inside the tested surface: reading attribute names there
+  # instead is the regression this shipped once already, and a helper handed a
+  # ready-made list would have stayed green through it.
+  enclosingMountOf =
+    root: fileSystems:
+    let
+      contains = m: m != "/" && (m == root || lib.hasPrefix "${m}/" root);
+      # mountPoint, not the attribute name, which only defaults to it: a host
+      # spelling the mount `fileSystems.data = { mountPoint = "/data"; ... }`
+      # would otherwise yield null and lose both the ordering and the
+      # condition, provisioning the root on /.
+      mountPoints = lib.mapAttrsToList (_: fs: fs.mountPoint) fileSystems;
+    in
+    lib.foldl' (
+      best: m: if best == null || lib.stringLength m > lib.stringLength best then m else best
+    ) null (lib.filter contains mountPoints);
+in
 {
+  flake.lib.nixos._localMirrorsEnclosingMount = enclosingMountOf;
+
   flake.nixosModules.mirror-root =
     {
       lib,
@@ -12,21 +38,7 @@
     }:
     let
       cfg = config.localMirrors;
-
-      # Deepest declared mount containing the mirror root, if the host has one.
-      # A host that keeps mirrors on the root filesystem yields null and is
-      # provisioned unconditionally.
-      # Read from mountPoint, not from the attribute name, which only defaults
-      # to it: a host spelling the mount `fileSystems.data = { mountPoint =
-      # "/data"; ... }` would otherwise yield null here and lose both the
-      # ordering and the condition, provisioning the root on /.
-      enclosingMount =
-        let
-          contains = m: m != "/" && (m == cfg.root || lib.hasPrefix "${m}/" cfg.root);
-        in
-        lib.foldl' (
-          best: m: if best == null || lib.stringLength m > lib.stringLength best then m else best
-        ) null (lib.filter contains (lib.mapAttrsToList (_: fs: fs.mountPoint) config.fileSystems));
+      enclosingMount = enclosingMountOf cfg.root config.fileSystems;
     in
     {
       options.localMirrors = {
