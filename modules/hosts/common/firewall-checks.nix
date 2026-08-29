@@ -525,6 +525,23 @@ let
       expected = [ ];
     }
     {
+      # The first file binds on the second key only; the second repeats it while
+      # also carrying a Path=. Keying on the first bound key alone would read
+      # these as two devices, which is the shape this guard exists to reject.
+      name = "shared binding on a non-first key is rejected";
+      links = {
+        "10-a".matchConfig.PermanentMACAddress = "02:00:00:00:00:01";
+        "20-b" = {
+          matchConfig = {
+            Path = "pci-0000:84:00.0";
+            PermanentMACAddress = "02:00:00:00:00:01";
+          };
+          linkConfig.Name = "lan0";
+        };
+      };
+      expected = [ "PermanentMACAddress=02:00:00:00:00:01" ];
+    }
+    {
       name = "same device matched by different keys is not counted";
       links = {
         "10-a" = link { Path = "pci-0000:84:00.0"; } "lan0";
