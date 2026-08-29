@@ -63,8 +63,17 @@ in
 
         # On-demand Samba: keep units available but don't auto-start at boot.
         # Start manually with `systemctl start samba.target` when sharing is
-        # needed; `systemctl stop samba.target` brings down smbd/nmbd together.
+        # needed; `systemctl stop samba.target` brings down smbd/nmbd/wsdd
+        # together. smbd/nmbd/winbindd are wantedBy samba.target upstream, so
+        # detaching the target is enough for them; samba-wsdd ships
+        # wantedBy = [ "multi-user.target" ] with no relation to the target at
+        # all, so without its own rebind it advertised this host over
+        # WS-Discovery at every boot with no share behind it.
         targets.samba.wantedBy = lib.mkForce [ ];
+        services.samba-wsdd = {
+          wantedBy = lib.mkForce [ "samba.target" ];
+          partOf = [ "samba.target" ];
+        };
 
         # Force the power-profiles-daemon profile to performance at boot: the
         # desktop counterpart of system76-power-profile on system76, where the
