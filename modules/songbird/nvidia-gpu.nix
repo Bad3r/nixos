@@ -1,6 +1,6 @@
 _: {
   configurations.nixos.songbird.module =
-    { config, ... }:
+    { config, lib, ... }:
     {
       # nouveau bound the RTX 5080 on the stock install; keep it out so the
       # NVIDIA open kernel modules own 0000:02:00.0 (10de:2c02).
@@ -36,11 +36,16 @@ _: {
       # nvidia-vaapi-driver: a node left pointing at the NVIDIA card would then
       # resolve the driver name to one that is no longer installed and fail
       # vaInitialize outright, rather than moving decode to the iGPU.
-      environment.sessionVariables.LIBVA_DRM_DEVICE =
+      # mkDefault like the system76 pin and gecko-env.nix's VA-API set: the
+      # option's type merges equal-priority definitions with mergeEqualOption,
+      # so a plain value here would make a second definition of this key a hard
+      # eval failure on this host alone rather than an override.
+      environment.sessionVariables.LIBVA_DRM_DEVICE = lib.mkDefault (
         if config.gpu.nvidia.vaapi.backend == "intel-media" then
           "/dev/dri/by-path/pci-0000:00:02.0-render"
         else
-          "/dev/dri/by-path/pci-0000:02:00.0-render";
+          "/dev/dri/by-path/pci-0000:02:00.0-render"
+      );
 
       # Suspend/hibernate VRAM preservation
       # (nvidia.NVreg_PreserveVideoMemoryAllocations=1 plus the
