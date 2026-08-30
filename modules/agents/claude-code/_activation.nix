@@ -31,8 +31,9 @@ let
       name: "del(.[${builtins.toJSON name}])"
     ) claudeDefaults.retired.settings
   );
-  retiredEnvJq = lib.optionalString (claudeEnv.retired != [ ]) (
-    " | " + lib.concatMapStringsSep " | " (name: "del(.env[${builtins.toJSON name}])") claudeEnv.retired
+  retiredEnvJq = lib.optionalString (claudeEnv.stripped != [ ]) (
+    " | "
+    + lib.concatMapStringsSep " | " (name: "del(.env[${builtins.toJSON name}])") claudeEnv.stripped
   );
   legacyEnvValuesJq = lib.optionalString (claudeEnv.legacyEnvValues != { }) (
     " | "

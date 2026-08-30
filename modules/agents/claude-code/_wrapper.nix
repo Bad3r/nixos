@@ -23,7 +23,19 @@ let
   envExports = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") claudeEnv.all
   );
-  retiredUnsets = lib.concatMapStringsSep "\n" (name: "unset ${name}") claudeEnv.retired;
+  retiredUnsets = lib.concatMapStringsSep "\n" (name: "unset ${name}") claudeEnv.stripped;
+  # Guarded rather than unconditional: claude-rc sets the escape variable to
+  # keep DISABLE_TELEMETRY out of the launch, which is what re-enables the
+  # GrowthBook evaluation Remote Control requires.
+  launchOnlyExports = lib.optionalString (claudeEnv.launchOnly != { }) ''
+    if [ -z "''${${claudeEnv.launchOnlyEscape}:-}" ]; then
+    ${lib.concatStringsSep "\n" (
+      lib.mapAttrsToList (
+        name: value: "  export ${name}=${lib.escapeShellArg value}"
+      ) claudeEnv.launchOnly
+    )}
+    fi
+  '';
   legacyEnvValueUnsets = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (
       name: value:
@@ -126,6 +138,7 @@ let
     ${envExports}
     ${retiredUnsets}
     ${legacyEnvValueUnsets}
+    ${launchOnlyExports}
 
     # Shared scratch root for agent temp files.
     tmpDir="/tmp/agents"
@@ -149,7 +162,22 @@ let
   '';
 
   claudeWrapped = pkgs.writeShellScriptBin "claude" wrapperBody;
+
+  # Opt-in launcher for `claude rc`. Remote Control is gated on vB() in the
+  # 2.1.247 binary, which is false when DISABLE_GROWTHBOOK is set or when x()
+  # leaves "default"; x() reads the three names cleared here. Deliberately not
+  # the default launcher: it trades the telemetry and nonessential-traffic
+  # opt-outs for feature flags. Everything in `binary` still applies.
+  claudeRcWrapped = pkgs.writeShellScriptBin "claude-rc" ''
+    set -euo pipefail
+
+    unset CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC DISABLE_TELEMETRY DO_NOT_TRACK
+    unset DISABLE_GROWTHBOOK
+    export ${claudeEnv.launchOnlyEscape}=1
+
+    exec ${lib.getExe claudeWrapped} "$@"
+  '';
 in
 {
-  inherit claudeWrapped wrapperBody;
+  inherit claudeWrapped claudeRcWrapped wrapperBody;
 }

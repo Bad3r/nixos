@@ -362,6 +362,13 @@
               source = lib.getExe claudeRuntime.claudeWrapped;
               executable = true;
             };
+
+            # Same launcher with the telemetry opt-out lifted, which is what
+            # `claude rc` needs; see launchOnly in _env.nix.
+            ".local/bin/claude-rc" = {
+              source = lib.getExe claudeRuntime.claudeRcWrapped;
+              executable = true;
+            };
           }
           // claudeSkillFiles;
 
@@ -373,7 +380,10 @@
 
           # Full env from the shared source (modules/agents/claude-code/_env.nix);
           # belt-and-suspenders with the binary postFixup and settings.json `env`.
-          sessionVariables = claudeEnv.all;
+          # launchOnly is safe to add here, unlike in `settings` or `binary`,
+          # because claude-rc unsets it before exec and so still starts clean;
+          # this keeps the opt-out on a bun binary invoked outside the wrapper.
+          sessionVariables = claudeEnv.all // claudeEnv.launchOnly;
         };
       };
     };

@@ -63,7 +63,20 @@ in
       );
       retiredEnvFlags = lib.concatMapStringsSep " " (
         name: "--unset ${lib.escapeShellArg name}"
-      ) claudeEnv.retired;
+      ) claudeEnv.stripped;
+      # Guarded, not --set: claude-rc lifts these for one launch, and a plain
+      # --set here would be applied in-process where no outer wrapper reaches.
+      launchOnlyRuns = lib.concatStringsSep " " (
+        lib.mapAttrsToList (
+          name: value:
+          "--run "
+          + lib.escapeShellArg (
+            "if [ -z \""
+            + "$"
+            + "{${claudeEnv.launchOnlyEscape}:-}\" ]; then export ${name}=${lib.escapeShellArg value}; fi"
+          )
+        ) claudeEnv.launchOnly
+      );
       legacyEnvValueRuns = lib.concatStringsSep " " (
         lib.mapAttrsToList (
           name: value:
@@ -107,8 +120,8 @@ in
             echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1
           fi
-          ${lib.optionalString (claudeEnv.retired != [ ]) ''
-            for name in ${lib.escapeShellArgs claudeEnv.retired}; do
+          ${lib.optionalString (claudeEnv.stripped != [ ]) ''
+            for name in ${lib.escapeShellArgs claudeEnv.stripped}; do
               sed -i "/^export $name=/c\unset $name" "$out/bin/claude"
               if grep -qF "$name=" "$out/bin/claude"; then
                 echo "claude-code: inner wrapper still assigns retired name $name after strip; the pinned llm-agents wrapper shape changed" >&2
@@ -129,7 +142,7 @@ in
             done
           ''}
           wrapProgram $out/bin/claude \
-            ${binaryEnvFlags} ${retiredEnvFlags} ${legacyEnvValueRuns}
+            ${binaryEnvFlags} ${retiredEnvFlags} ${legacyEnvValueRuns} ${launchOnlyRuns}
         '';
       });
     in
