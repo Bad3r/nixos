@@ -122,7 +122,11 @@ sideload. That workflow (loading a per-board JSON definition by hand) is VIA's,
 not Vial's. The checked-in [layout.vil](layout.vil) is different: it is a
 snapshot of the current dynamic keymap, restored through Vial's **Load saved
 layout** action. It is not consumed by NixOS or the firmware build, and must be
-re-exported after remaps or it will go stale. Once either app opens the board,
+re-exported after remaps or it will go stale. Its `tap_dance` array is empty
+because the `vial-gaming` overlay disables `TAP_DANCE_ENABLE`; Vial's feature
+guards therefore expose zero tap-dance entries even though the inherited
+`VIAL_TAP_DANCE_ENTRIES = 4` definition remains in `firmware/config.h`. Once
+either app opens the board,
 remapping is: select a key on the rendered layout, pick its new keycode from
 the picker, and the change applies immediately and persists in the MCU's
 EEPROM, no reflash needed.
@@ -132,8 +136,10 @@ EEPROM, no reflash needed.
 Vial gates protected features, including macro editing, behind a physical
 unlock combo: hold both combo keys together when the app prompts for an
 unlock. Tap dance is compiled out of the `vial-gaming` overlay by
-`TAP_DANCE_ENABLE = no` in [firmware/rules.mk](firmware/rules.mk), which leaves
-`VIAL_TAP_DANCE_ENTRIES = 4` inert on this board.
+`TAP_DANCE_ENABLE = no` in [firmware/rules.mk](firmware/rules.mk). Vial's
+feature guards consequently expose zero tap-dance entries on this board, even
+though the inherited `VIAL_TAP_DANCE_ENTRIES = 4` definition remains in
+[firmware/config.h](firmware/config.h).
 
 For this keymap the combo is **Esc and Enter**. Derivation, reproducible from
 the source in
