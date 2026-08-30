@@ -92,10 +92,14 @@ Scope:
       passwordless for `disk` members too. `disk` membership already permits raw
       writes to the same devices, so this widens the blast radius of a typo
       rather than the privilege boundary.
-  - side effect:
-    - `/run/wrappers/bin` precedes `/run/current-system/sw/bin` in `PATH`, so
-      users outside the `disk` group cannot execute `smartctl`, `nvme`, or
-      `hdparm` at all once wrapped.
+  - effect on users outside `disk`:
+    - none. The wrapper files are `root:disk 0510`, so a non-member cannot
+      execute `/run/wrappers/bin/{smartctl,nvme,hdparm}`, but the app modules
+      keep the packages in `environment.systemPackages` and PATH lookup (bash,
+      zsh, `execvp`) skips an entry that fails `access(X_OK)` and keeps
+      searching. A bare `smartctl` therefore falls through to the `0555`
+      `/run/current-system/sw/bin/smartctl` and fails at the ioctl exactly as
+      it did before the wrappers existed.
 - Packet capture:
   - `wireshark`
   - `tcpdump`

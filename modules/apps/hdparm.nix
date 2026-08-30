@@ -13,7 +13,7 @@
     -I <device>: Display detailed drive identification, including firmware and feature support.
     -tT <device>: Perform cached and buffered read timing tests.
     -S <value>: Configure standby (spin-down) timeout.
-    -B <value>: Set Advanced Power Management level (0–255).
+    -B <value>: Set Advanced Power Management level (0-255).
     -y/-Y/-Z <device>: Put the drive into standby, sleep, or sleep mode (requires caution).
 
   Example Usage:
