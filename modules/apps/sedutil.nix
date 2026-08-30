@@ -27,7 +27,7 @@
   Notes:
     * `disk` group members run selected `sedutil-cli` diagnostics without `sudo` through a compiled argv filter and a capability wrapper carrying CAP_SYS_ADMIN and CAP_SYS_RAWIO.
     * SATA drives also need `libata.allow_tpm=1` (docs/sedutil-cli.8), set in `modules/hosts/common/storage-diagnostics.nix` while sedutil is enabled and applied on the next reboot. NVMe drives are unaffected.
-    * The filter keeps capabilities only for `--scan`, `--query`, `--isValidSED`, and `--printDefaultPassword`. State-changing actions clear the ambient set and need `sudo` again; `--revertTPer` and `--yesIreallywanttoERASEALLmydatausingthePSID` destroy data.
+    * For the sedutil 1.49.13 parser, the filter keeps capabilities only for `--scan` (with its JSON output forms), `--query` (with its JSON output forms and one device), `--isValidSED <device>`, and `--printDefaultPassword <device>`. State-changing actions clear the ambient set and need `sudo` again; `--revertTPer` and `--yesIreallywanttoERASEALLmydatausingthePSID` destroy data. A custom package must be re-audited if its argument parser changes.
     * `linuxpba` ships in the same package and stays unwrapped, so it still needs `sudo`.
 */
 _:
@@ -58,9 +58,10 @@ let
               --set PATH ${lib.makeBinPath [ pkgs.coreutils ]}
           '';
 
-      # Keep capabilities only for actions whose current implementation reads
-      # device state. All other actions run after clearing the ambient set,
-      # including unknown future actions, so a package update fails closed.
+      # Keep capabilities only for read actions in the sedutil 1.49.13 parser.
+      # Its exact and maximum argument checks reject later actions before
+      # dispatch; unsupported first actions clear the ambient set. Re-audit a
+      # custom package if its argument parser changes.
       argvFilter = pkgs.writeCBin "sedutil-cli-argv-filter" ''
         #include <stdio.h>
         #include <string.h>

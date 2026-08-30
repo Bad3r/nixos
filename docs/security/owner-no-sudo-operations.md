@@ -100,19 +100,23 @@ Scope:
       absent from glibc's `unsecvars.h`.
   - limitation:
     - the `smartctl` wrapper is filtered: it retains capabilities only for
-      audited reports, read-only settings and log queries (including bare
-      `-n sleep`, `-n standby`, and `-n idle` power-mode checks), and the standard
-      `offline`, `short`, `long`, and `conveyance` self-tests documented by the
-      module. SMART configuration (`-s`, `-o`, `-S`, and `--set`), log resets or
-      writes, vendor/selective/pending/force/captive/abort tests, and unknown
-      forms clear the ambient set and need `sudo` again. The filter fails
-      closed when a package update adds an unrecognized option.
+      audited reports, the documented `-v`/`--vendorattribute` display
+      definitions and `-F`/`--firmwarebug` report workarounds, read-only settings
+      and log queries (including bare `-n sleep`, `-n standby`, and `-n idle`
+      power-mode checks), and the standard `offline`, `short`, `long`, and
+      `conveyance` self-tests documented by the module. SMART configuration
+      (`-s`, `-o`, `-S`, and `--set`), log resets or writes,
+      selective/pending/force/captive/abort tests, and unknown forms clear the
+      ambient set and need `sudo` again. The filter fails closed when a package
+      update adds an unrecognized option or argument form.
     - the `hdparm` wrapper is filtered: it retains capabilities only for
       short-option clusters made from `-C`, `-g`, `-i`, `-I`, `-t`, and `-T`.
-      Standalone input formatting such as `--Istdin`, ATA Security, DCO/HPA,
-      raw-sector writes, TRIM, sanitize, firmware,
-      device-setting, unknown, and parameter-bearing options clear the ambient
-      set and need `sudo` again. `-t` and `-T` are non-media-mutating timing
+      Standalone input formatting such as `--Istdin` also takes the
+      cleared-capability path, but reads and formats stdin only, opens no
+      device, and needs neither storage capabilities nor `sudo`. ATA Security,
+      DCO/HPA, raw-sector writes, TRIM, sanitize, firmware, device-setting,
+      unknown, and parameter-bearing options clear the ambient set and need
+      `sudo` again. `-t` and `-T` are non-media-mutating timing
       diagnostics, but may flush or synchronize caches. The existing `disk`
       membership still permits raw block reads and writes; that does not grant
       the separate ATA Security, DCO, or HPA control paths.
@@ -167,18 +171,22 @@ Scope:
       true, so it takes effect on the next reboot rather than at switch time.
       NVMe drives do not need it.
   - limitation:
-    - the compiled `sedutil-cli` wrapper keeps capabilities only for
-      `--scan`, `--query`, `--isValidSED`, and `--printDefaultPassword`.
-      State-changing actions such as `--initialSetup`, `--setSIDPassword`,
-      `--setLockingRange`, `--loadPBAimage`, `--revertTPer`, and
+    - for the sedutil 1.49.13 parser, the compiled `sedutil-cli` wrapper keeps
+      capabilities only for `--scan` and its JSON output forms, `--query` and
+      its JSON output forms with one device, `--isValidSED <device>`, and
+      `--printDefaultPassword <device>`. State-changing actions such as
+      `--initialSetup`, `--setSIDPassword`, `--setLockingRange`,
+      `--loadPBAimage`, `--revertTPer`, and
       `--yesIreallywanttoERASEALLmydatausingthePSID` clear the ambient set and
       need `sudo` again. The last two erase the drive. `--printDefaultPassword`
       is intentionally allowed and exposes the drive MSID, so treat its output
-      as credential material.
+      as credential material. The filter checks the first action and relies on
+      sedutil's exact and maximum argument checks to reject later actions before
+      dispatch; re-audit a custom package if that parser changes.
     - `sedutil-cli` links a `popen()` helper that execs `/bin/sh -c`. Its target
       pins `PATH` to a store path as defense in depth, and the filter clears
-      ambient capabilities before every non-allowlisted action, so a helper on
-      that path cannot inherit the storage capabilities.
+      ambient capabilities before every non-allowlisted first action, so a
+      helper on that path cannot inherit the storage capabilities.
   - effect on users outside `disk`:
     - the same as the wrappers above. The wrapper file is `root:disk 0510`, so
       PATH lookup skips it and a bare `sedutil-cli` falls through to the
@@ -258,11 +266,15 @@ Scope:
     - the wrapper source is a compiled argv filter whose target is the hdparm
       binary. An empty result means the filter is not bound to the package
       binary.
-  - `strace -f -e trace=prctl /run/wrappers/bin/smartctl -a /dev/null` and
-    `strace -f -e trace=prctl /run/wrappers/bin/smartctl -s off /dev/null`
-    - the report form should execute without `PR_CAP_AMBIENT_CLEAR_ALL`, while
-      the SMART configuration form should show that call before execution.
-      The target device may still reject the diagnostic after the filter test.
+  - `strace -f -e trace=prctl /run/wrappers/bin/smartctl -a /dev/null`,
+    `strace -f -e trace=prctl /run/wrappers/bin/smartctl -v '9,raw24(raw8)' -a /dev/null`,
+    and `strace -f -e trace=prctl /run/wrappers/bin/smartctl --firmwarebug=swapid -a /dev/null`
+    - the report and audited report-modifier forms should execute without
+      `PR_CAP_AMBIENT_CLEAR_ALL`.
+  - `strace -f -e trace=prctl /run/wrappers/bin/smartctl -v 9,bad -a /dev/null`
+    and `strace -f -e trace=prctl /run/wrappers/bin/smartctl -s off /dev/null`
+    - both forms should show `PR_CAP_AMBIENT_CLEAR_ALL` before execution. The
+      target device may still reject a diagnostic after the filter test.
   - `strace -f -e trace=prctl /run/wrappers/bin/hdparm -V`
     - should show `PR_CAP_AMBIENT_CLEAR_ALL` before the non-allowlisted version
       action executes. A missing call means the filter is not clearing

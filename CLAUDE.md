@@ -84,8 +84,8 @@ common aggregate. For example,
 `modules/hosts/common/storage-diagnostics.nix` owns NVMe character-device
 permissions while app modules own their packages and capability wrappers,
 including compiled argv filters with audited, grammar-aware allowlists that fail closed
-on unsupported and non-device forms while bounding those wrappers and the resulting
-no-sudo operation boundary.
+on unsupported and non-device forms, validate parser-dependent argument boundaries,
+and bound those wrappers and the resulting no-sudo operation boundary.
 
 ```nix
 { ... }:

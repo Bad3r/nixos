@@ -45,7 +45,7 @@
 
           All Nix files are flake-parts modules and are automatically imported via [import-tree](https://github.com/vic/import-tree). Files prefixed with `_` are omitted. No literal path imports are used, so files can be moved and nested freely.
 
-          Shared device policy that serves multiple optional applications belongs in `modules/hosts/common/`, so its permissions do not disappear when one app module is disabled. Optional app modules own their package and capability-wrapper behavior, including compiled argv filters with audited, grammar-aware allowlists that fail closed on unsupported and non-device forms while bounding the resulting no-sudo operation boundary.
+          Shared device policy that serves multiple optional applications belongs in `modules/hosts/common/`, so its permissions do not disappear when one app module is disabled. Optional app modules own their package and capability-wrapper behavior, including compiled argv filters with audited, grammar-aware allowlists that fail closed on unsupported and non-device forms, validate parser-dependent argument boundaries, and bound the resulting no-sudo operation boundary.
 
         '';
 

@@ -23,7 +23,7 @@
 
   Notes:
     * `disk` group members run non-media-mutating diagnostics without `sudo` through a capability wrapper carrying CAP_SYS_ADMIN and CAP_SYS_RAWIO.
-    * The compiled argv filter keeps capabilities only for short-option clusters made from `-C`, `-g`, `-i`, `-I`, `-t`, and `-T`. Standalone input formatting such as `--Istdin`, state-changing, parameter-bearing, and unknown options clear the ambient set and need `sudo` again.
+    * The compiled argv filter keeps capabilities only for short-option clusters made from `-C`, `-g`, `-i`, `-I`, `-t`, and `-T`. Standalone input formatting such as `--Istdin` also takes the cleared-capability path, but only reads and formats stdin, opens no device, and needs neither storage capabilities nor `sudo`. State-changing, parameter-bearing, and unknown options clear the ambient set and need `sudo` again.
 */
 _:
 let
@@ -39,8 +39,9 @@ let
 
       # hdparm parses short-option clusters itself rather than using getopt,
       # so inspect every argv element. Keep capabilities only for flags that
-      # query device state or run timings; standalone input formatting, all
-      # get/set, and unknown options take the cleared-capability path.
+      # query device state or run timings; standalone input formatting also
+      # takes the cleared-capability path but needs no device access, while
+      # all get/set and unknown options need sudo again.
       argvFilter = pkgs.writeCBin "hdparm-argv-filter" ''
         #include <stdio.h>
         #include <string.h>

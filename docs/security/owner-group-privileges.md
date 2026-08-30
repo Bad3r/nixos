@@ -104,17 +104,21 @@ Scope:
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
     - the `smartctl` wrapper is filtered. It retains capabilities only for
-      audited reports, read-only settings and log queries (including bare
-      `-n sleep`, `-n standby`, and `-n idle` power-mode checks), and the standard
-      `offline`, `short`, `long`, and `conveyance` self-tests documented by the
-      module. SMART configuration (`-s`, `-o`, `-S`, and `--set`), log resets or
-      writes, vendor/selective/pending/force/captive/abort tests, and unknown
-      forms clear the ambient set and need `sudo`.
+      audited reports, the documented `-v`/`--vendorattribute` display
+      definitions and `-F`/`--firmwarebug` report workarounds, read-only settings
+      and log queries (including bare `-n sleep`, `-n standby`, and `-n idle`
+      power-mode checks), and the standard `offline`, `short`, `long`, and
+      `conveyance` self-tests documented by the module. SMART configuration
+      (`-s`, `-o`, `-S`, and `--set`), log resets or writes,
+      selective/pending/force/captive/abort tests, and unknown forms clear the
+      ambient set and need `sudo`.
     - the `hdparm` wrapper retains capabilities only for short-option clusters made from `-C`, `-g`, `-i`,
-      `-I`, `-t`, and `-T`. Standalone input formatting such as `--Istdin`, ATA
+      `-I`, `-t`, and `-T`. Standalone input formatting such as `--Istdin` also
+      takes the cleared-capability path, but reads and formats stdin only,
+      opens no device, and needs neither storage capabilities nor `sudo`. ATA
       Security, DCO/HPA, raw-sector writes, TRIM, sanitize, firmware,
-      device-setting, unknown,
-      and parameter-bearing options clear the ambient set and need `sudo`.
+      device-setting, unknown, and parameter-bearing options clear the ambient
+      set and need `sudo`.
       Raw block reads and writes remain available through `disk` membership,
       but that does not grant the separate ATA Security, DCO, or HPA control
       paths.
@@ -128,11 +132,16 @@ Scope:
       the manual page is unavailable. See
       [docs/security/owner-no-sudo-operations.md](owner-no-sudo-operations.md)
       for the allowlist and the `system()` injection sites that motivate it.
-    - the `sedutil-cli` wrapper is also filtered. It retains capabilities only
-      for `--scan`, `--query`, `--isValidSED`, and `--printDefaultPassword`;
-      Opal password, locking-range, PBA, and revert actions clear the ambient
-      set and need `sudo` again. `--printDefaultPassword` exposes the drive
-      MSID and should be treated as credential material.
+    - for the sedutil 1.49.13 parser, the `sedutil-cli` wrapper is also
+      filtered. It retains capabilities only for `--scan` and its JSON output
+      forms, `--query` and its JSON output forms with one device,
+      `--isValidSED <device>`, and `--printDefaultPassword <device>`. Opal
+      password, locking-range, PBA, and revert actions clear the ambient set
+      and need `sudo` again. `--printDefaultPassword` exposes the drive MSID
+      and should be treated as credential material. The filter checks the first
+      action and relies on sedutil's exact and maximum argument checks to reject
+      later actions before dispatch; re-audit a custom package if that parser
+      changes.
 
 ## Additional Owner Groups Added By Other Modules
 

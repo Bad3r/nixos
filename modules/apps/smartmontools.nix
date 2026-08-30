@@ -13,6 +13,8 @@
     smartctl -a /dev/sdX: Display all SMART information for a drive.
     smartctl -t short /dev/sdX: Start a short self-test.
     smartctl -H /dev/nvme0: Report overall health status.
+    smartctl -v ID,FORMAT /dev/sdX: Select a vendor attribute display format.
+    smartctl -F TYPE /dev/sdX: Apply a documented firmware-bug workaround.
     smartd.conf: Configure daemon monitoring intervals and notification methods.
 
   Example Usage:
@@ -23,7 +25,7 @@
 
   Notes:
     * `disk` group members run the audited `smartctl` reports and standard self-tests without `sudo` through a compiled argv filter and a capability wrapper carrying CAP_SYS_ADMIN and CAP_SYS_RAWIO.
-    * The filter retains capabilities for reports, settings reads including `-n sleep|standby|idle[,STATUS[,STATUS2]]`, and `offline`, `short`, `long`, and `conveyance` self-tests. Configuration, reset, vendor, selective, pending, force, captive, abort, and unknown forms clear the ambient set and need `sudo` again.
+    * The filter retains capabilities for reports, audited `-v`/`--vendorattribute` display definitions, `-F`/`--firmwarebug` report workarounds, settings reads including `-n sleep|standby|idle[,STATUS[,STATUS2]]`, and `offline`, `short`, `long`, and `conveyance` self-tests. Configuration, reset, log-writing, selective, pending, force, captive, abort, and unknown forms clear the ambient set and need `sudo` again.
 */
 _:
 let
@@ -53,8 +55,9 @@ let
           # smartctl combines read-only reports with device-mutating options. Its
           # getopt_long parser permutes options around operands, so the compiled
           # filter scans the complete argv and keeps capabilities only for the
-          # audited reports and standard tests documented above. Unsupported,
-          # state-changing, and future options take the cleared-capability path.
+          # audited reports, report modifiers, and standard tests documented
+          # above. Unsupported, state-changing, and future options take the
+          # cleared-capability path.
           argvFilter = pkgs.writeCBin "smartctl-argv-filter" ''
             #include <ctype.h>
             #include <stdio.h>
@@ -110,6 +113,60 @@ let
               NULL
             };
 
+            /* Keep the documented smartmontools 7.5 format names exact. */
+            static const char *const vendor_format_values[] = {
+              "raw8",
+              "raw16",
+              "raw48",
+              "hex48",
+              "raw56",
+              "hex56",
+              "raw64",
+              "hex64",
+              "raw16(raw16)",
+              "raw16(avg16)",
+              "raw24(raw8)",
+              "raw24/raw24",
+              "raw24/raw32",
+              "sec2hour",
+              "min2hour",
+              "halfmin2hour",
+              "msec24hour32",
+              "tempminmax",
+              "temp10x",
+              NULL
+            };
+
+            static const char *const vendor_legacy_values[] = {
+              "9,halfminutes",
+              "9,minutes",
+              "9,seconds",
+              "9,temp",
+              "192,emergencyretractcyclect",
+              "193,loadunload",
+              "194,10xCelsius",
+              "194,unknown",
+              "197,increasing",
+              "198,offlinescanuncsectorct",
+              "198,increasing",
+              "200,writeerrorcount",
+              "201,detectedtacount",
+              "220,temp",
+              NULL
+            };
+
+            /* swapid is handled outside parse_firmwarebug_def(). */
+            static const char *const firmwarebug_values[] = {
+              "none",
+              "nologdir",
+              "samsung",
+              "samsung2",
+              "samsung3",
+              "xerrorlba",
+              "swapid",
+              NULL
+            };
+
             static int is_one_of(const char *value, const char *const *allowed)
             {
               int i;
@@ -119,6 +176,11 @@ let
                   return 1;
               }
               return 0;
+            }
+
+            static int has_name(const char *name, size_t length, const char *expected)
+            {
+              return length == strlen(expected) && strncmp(name, expected, length) == 0;
             }
 
             static int is_decimal_range(const char *start, const char *end,
@@ -170,6 +232,96 @@ let
                 return 0;
               }
               return 1;
+            }
+
+            static int is_vendor_format(const char *value, size_t length)
+            {
+              int i;
+
+              for (i = 0; vendor_format_values[i] != NULL; i++) {
+                if (has_name(value, length, vendor_format_values[i]))
+                  return 1;
+              }
+              return 0;
+            }
+
+            static int is_vendor_byteorder(const char *value, size_t length)
+            {
+              size_t i;
+
+              if (length == 0 || length > 8)
+                return 0;
+              for (i = 0; i < length; i++) {
+                if (strchr("012345rvwz", value[i]) == NULL)
+                  return 0;
+              }
+              return 1;
+            }
+
+            static int is_vendor_name(const char *value, size_t length)
+            {
+              size_t i;
+
+              if (length == 0 || length > 23)
+                return 0;
+              for (i = 0; i < length; i++) {
+                if (!((value[i] >= 'a' && value[i] <= 'z') ||
+                      (value[i] >= 'A' && value[i] <= 'Z') ||
+                      (value[i] >= '0' && value[i] <= '9') ||
+                      value[i] == '_'))
+                  return 0;
+              }
+              return 1;
+            }
+
+            static int is_vendor_attribute(const char *value)
+            {
+              const char *format;
+              const char *format_end;
+              const char *separator;
+              const char *name;
+              size_t format_length;
+              size_t name_length;
+
+              if (value == NULL || *value == '\0')
+                return 0;
+
+              if (value[0] == 'N') {
+                if (value[1] != ',')
+                  return 0;
+                format = value + 2;
+              } else {
+                const char *id_end = strchr(value, ',');
+
+                if (id_end == NULL)
+                  return 0;
+                if (!is_decimal_range(value, id_end, 255, 1))
+                  return 0;
+                format = id_end + 1;
+              }
+
+              format_end = strchr(format, ',');
+              if (format_end == NULL)
+                format_end = format + strlen(format);
+              if (format == format_end)
+                return 0;
+
+              separator = memchr(format, ':', (size_t) (format_end - format));
+              format_length = separator == NULL ? (size_t) (format_end - format) :
+                (size_t) (separator - format);
+              if (!is_vendor_format(format, format_length))
+                return 0;
+              if (separator != NULL &&
+                  !is_vendor_byteorder(separator + 1,
+                    (size_t) (format_end - separator - 1)))
+                return 0;
+
+              if (format_end[0] == '\0')
+                return 1;
+              name = format_end + 1;
+              name_length = strlen(name);
+              return is_vendor_name(name, name_length) &&
+                strchr(name, ',') == NULL;
             }
 
             static int is_report(const char *value)
@@ -278,6 +430,9 @@ let
                 "wcreorder", "wcache-sct", NULL
               });
               case 'P': return is_one_of(value, preset_values);
+              case 'v': return strcmp(value, "help") == 0 ||
+                is_vendor_attribute(value) || is_one_of(value, vendor_legacy_values);
+              case 'F': return is_one_of(value, firmwarebug_values);
               case 't': return is_one_of(value, (const char *const[]) {
                 "offline", "short", "long", "conveyance", NULL
               });
@@ -297,12 +452,7 @@ let
 
             static int is_short_arg(int option)
             {
-              return strchr("dTbrqnlfgPt", option) != NULL;
-            }
-
-            static int has_name(const char *name, size_t length, const char *expected)
-            {
-              return length == strlen(expected) && strncmp(name, expected, length) == 0;
+              return strchr("dTbrqnlfgPtvF", option) != NULL;
             }
 
             static int long_option(const char *name, size_t length)
@@ -331,6 +481,8 @@ let
               if (has_name(name, length, "format")) return 'f';
               if (has_name(name, length, "presets")) return 'P';
               if (has_name(name, length, "test")) return 't';
+              if (has_name(name, length, "vendorattribute")) return 'v';
+              if (has_name(name, length, "firmwarebug")) return 'F';
               return 0;
             }
 
