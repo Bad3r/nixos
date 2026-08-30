@@ -17,12 +17,13 @@ let
     "r2-restic-backup"
   ];
   # systemd.tmpfiles.rules is a list of raw tmpfiles.d lines. Extract only the
-  # path field so an argument or unrelated path cannot trigger this guard.
+  # path field, allowing modifier-bearing type tokens, so an argument or
+  # unrelated path cannot trigger or bypass this guard.
   tmpfilesPath =
     rule:
     let
       normalized = lib.replaceStrings [ "\t" ] [ " " ] rule;
-      match = builtins.match "^ *[^ ] +(\"([^\"\\\\]|\\\\.)*\"|[^ ]+).*" normalized;
+      match = builtins.match "^ *[^ ]+ +(\"([^\"\\\\]|\\\\.)*\"|[^ ]+).*" normalized;
       token = if match == null then "" else lib.head match;
     in
     if lib.hasPrefix "\"" token && lib.hasSuffix "\"" token then
@@ -38,6 +39,10 @@ let
   tmpfilesPathTestCases = [
     {
       rule = "d /data/r2 0750 vx users - -";
+      expected = true;
+    }
+    {
+      rule = "d! /data/r2 0750 vx users - -";
       expected = true;
     }
     {
@@ -58,6 +63,10 @@ let
     }
     {
       rule = "L /run/example - - - - /data/source";
+      expected = false;
+    }
+    {
+      rule = "L+ /run/example - - - - /data/source";
       expected = false;
     }
   ];
