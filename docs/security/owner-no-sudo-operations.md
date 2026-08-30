@@ -87,12 +87,34 @@ Scope:
       udev applies rules to new uevents only, so nodes enumerated at boot would
       otherwise keep `root:root 0600` until a reboot. `udevadm trigger` needs
       root, which the `disk` members this grant targets do not have.
+  - why the wrapper sources are argv filters:
+    - `security.wrappers` raises the configured capabilities into the process
+      ambient set (`nixos/modules/security/wrappers/wrapper.c:137`). An ambient
+      capability survives `execve` of an ordinary file and lands in the child's
+      effective set, so any subprocess the wrapped binary starts inherits it.
+      The filter is a compiled binary, never a shell script: a capability
+      wrapper is not setuid, so `euid == uid`, bash does not enter privileged
+      mode, and `BASH_ENV` is absent from glibc's `unsecvars.h`.
   - limitation:
-    - the wrappers cover whole binaries, so destructive subcommands
-      (`nvme format`, `nvme sanitize`, `hdparm --security-erase`) are
-      passwordless for `disk` members too. `disk` membership already permits raw
-      writes to the same devices, so this widens the blast radius of a typo
-      rather than the privilege boundary.
+    - the `smartctl` and `hdparm` wrappers cover whole binaries, so destructive
+      flags (`hdparm --security-erase`, `--trim-sector-ranges`,
+      `--make-bad-sector`) are passwordless for `disk` members too. `disk`
+      membership already permits raw writes to the same devices, so this widens
+      the blast radius of a typo rather than the privilege boundary.
+    - the `nvme` wrapper is not whole-binary. Its source allowlists the
+      read-only diagnostic subcommands (`list`, `list-subsys`, `list-ns`,
+      `list-ctrl`, `id-ctrl`, `id-ns`, `ns-descs`, `smart-log`, `error-log`,
+      `fw-log`, `telemetry-log`, `effects-log`, `endurance-log`,
+      `sanitize-log`, `self-test-log`, `supported-log-pages`, `get-log`,
+      `device-self-test`) and clears the ambient set before `execve` for
+      everything else. `nvme format`, `nvme sanitize`, `nvme fw-commit`,
+      `nvme help` and the vendor plugins still run, but with no capability, so
+      they need `sudo` again. The vendor plugins are the reason: they
+      interpolate the caller's `--dir-name` into a shell command string passed
+      to `system()`
+      (`plugins/solidigm/solidigm-internal-logs.c:989`,
+      `plugins/wdc/wdc-nvme.c:4218`, `plugins/micron/micron-nvme.c:249`), which
+      is metacharacter injection that no pinned `PATH` can bound.
   - effect on users outside `disk`:
     - none. The wrapper files are `root:disk 0510`, so a non-member cannot
       execute `/run/wrappers/bin/{smartctl,nvme,hdparm}`, but the app modules
@@ -152,6 +174,14 @@ Scope:
     - a `wireshark` group is also created and assigned to the owner user for tooling or policy that still expects it
   - limitation:
     - monitor-mode setup via `airmon-ng` is not capability-wrapped and still requires elevated setup
+    - the `tcpdump` wrapper source is an argv filter that refuses `-z`.
+      `tcpdump.c:3173` runs the postrotate command through `execlp()`, and the
+      wrapper's ambient `CAP_NET_RAW` and `CAP_NET_ADMIN` land in that child.
+      The filter rejects `-z` in any getopt form (`-z cmd`, `-nz cmd`,
+      `-zcmd`, and after an operand, since glibc `getopt_long` permutes).
+      Compress rotated files as a separate step, or reach the unwrapped
+      `/run/current-system/sw/bin/tcpdump` and accept that it has no
+      capabilities.
   - available without sudo because packet capture is granted through capability-wrapped binaries rather than `sudo`.
 
 ## Commands That Are Passwordless With `sudo-rs`
@@ -198,3 +228,11 @@ Scope:
     - the wrapper source is a compiled `makeBinaryWrapper` binary that pins
       `PATH` to a store path. An empty result means the pin was lost and the
       ambient capabilities are reachable through a caller-controlled `PATH`.
+  - `nvme sanitize-log /dev/nvme0; nvme get-feature /dev/nvme0 -f 4`
+    - the first is allowlisted and should print log data; the second is not, so
+      it should report `Permission denied`. Both succeeding means the argv
+      filter was lost from `security.wrappers.nvme.source`.
+  - `tcpdump -c 1 -C 1 -w /tmp/cap -z /bin/true`
+    - should exit non-zero with `-z is refused by the capability wrapper`.
+      A started capture means the argv filter was lost from
+      `security.wrappers.tcpdump.source`.

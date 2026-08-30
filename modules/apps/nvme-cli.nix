@@ -23,7 +23,8 @@
 
   Notes:
     * `disk` group members run this without `sudo`: a capability wrapper supplies CAP_SYS_ADMIN and the shared storage policy opens the controller char nodes.
-    * The wrapper covers the whole binary, so destructive subcommands (`format`, `sanitize`, `fw-commit`) also lose the sudo prompt.
+    * The wrapper source is an argv filter that only keeps the capability for an allowlist of read-only diagnostic subcommands. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `fw-commit` and the vendor plugins need `sudo` again.
+    * `nvme help <cmd>` and the vendor plugins are in the cleared path: plugin.c:52 `execlp`s `man`, and the plugins interpolate `--dir-name` into a `system()` string (solidigm-internal-logs.c:989, wdc-nvme.c:4218).
 */
 _:
 let
@@ -36,6 +37,78 @@ let
     }:
     let
       cfg = config.programs."nvme-cli".extended;
+
+      # security.wrappers raises cap_sys_admin into the ambient set
+      # (wrapper.c:137), which survives execve into a file without capabilities,
+      # so it would reach anything nvme runs. The vendor plugins interpolate the
+      # caller's --dir-name into a shell string (solidigm-internal-logs.c:989,
+      # wdc-nvme.c:4218, micron-nvme.c:249), which no PATH can bound, so the
+      # filter drops the ambient set instead. It has to be a compiled binary:
+      # cap wrappers are not setuid, so euid == uid, bash never enters
+      # privileged mode, and BASH_ENV is absent from glibc's unsecvars.h.
+      argvFilter = pkgs.writeCBin "nvme-argv-filter" ''
+        #include <stdio.h>
+        #include <string.h>
+        #include <sys/prctl.h>
+        #include <unistd.h>
+
+        static char real_prog[] = "${cfg.package}/bin/nvme";
+
+        /* nvme.c:11153 dispatches argv[1]. Each name is an exact nvme-builtin.h
+           entry, so handle_plugin's strcmp arm (plugin.c:186) wins before its
+           unique-prefix and plugin-extension arms, and nvme.c holds no
+           system()/popen()/exec* call for any of them to reach. */
+        static const char *const allowed[] = {
+        	"device-self-test",
+        	"effects-log",
+        	"endurance-log",
+        	"error-log",
+        	"fw-log",
+        	"get-log",
+        	"id-ctrl",
+        	"id-ns",
+        	"list",
+        	"list-ctrl",
+        	"list-ns",
+        	"list-subsys",
+        	"ns-descs",
+        	"sanitize-log",
+        	"self-test-log",
+        	"smart-log",
+        	"supported-log-pages",
+        	"telemetry-log",
+        	NULL
+        };
+
+        int main(int argc, char **argv)
+        {
+        	int keep = 0;
+        	int i;
+
+        	/* Compared verbatim. plugin.c:174 strips leading dashes before
+        	   dispatch, so `--smart-log` reaches the same builtin but takes the
+        	   cleared path. */
+        	for (i = 0; argc > 1 && allowed[i] != NULL; i++) {
+        		if (strcmp(argv[1], allowed[i]) == 0) {
+        			keep = 1;
+        			break;
+        		}
+        	}
+
+        	/* An execve after this gets new_permitted = file_caps(0) | ambient(0). */
+        	if (!keep && prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) != 0) {
+        		perror("nvme: PR_CAP_AMBIENT_CLEAR_ALL");
+        		return 126;
+        	}
+
+        	/* execve(2) permits argc == 0, where argv[0] is the NULL terminator. */
+        	if (argc > 0)
+        		argv[0] = real_prog;
+        	execv(real_prog, argv);
+        	perror(real_prog);
+        	return 127;
+        }
+      '';
     in
     {
       options.programs.nvme-cli.extended = {
@@ -55,7 +128,7 @@ let
         # identify CNS values without CAP_SYS_ADMIN, so smart-log, error-log,
         # fw-log and telemetry fail with EACCES for a plain `disk` member.
         security.wrappers.nvme = {
-          source = "${cfg.package}/bin/nvme";
+          source = "${argvFilter}/bin/nvme-argv-filter";
           capabilities = "cap_sys_admin+ep";
           owner = "root";
           group = "disk";

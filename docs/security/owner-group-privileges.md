@@ -43,6 +43,9 @@ Scope:
   - security impact:
     - administrative control path by design.
     - also grants non-root packet capture through capability-wrapped binaries; `airmon-ng` monitor-mode setup is still outside that wrapper surface.
+    - the `tcpdump` wrapper source is an argv filter that refuses `-z`, because
+      `tcpdump.c:3173` `execlp`s the postrotate command with the ambient
+      capability set intact.
 
 - `networkmanager`:
 
@@ -99,10 +102,17 @@ Scope:
       - `hdparm` (when the hdparm app module is enabled; disabled on tpnix)
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
-    - the wrappers are whole-binary, so destructive subcommands such as
-      `nvme format` and `hdparm --security-erase` are passwordless as well.
-      Raw writes to the same devices were already possible through group
+    - the `smartctl`, `sedutil-cli`, and `hdparm` wrappers are whole-binary, so
+      destructive flags such as `hdparm --security-erase` are passwordless as
+      well. Raw writes to the same devices were already possible through group
       membership, so the wrappers do not extend the privilege boundary.
+    - the `nvme` wrapper is not whole-binary. Its source allowlists the
+      read-only diagnostic subcommands and clears the ambient capability set
+      before `execve` for everything else, so `nvme format`, `nvme sanitize`,
+      `nvme fw-commit`, and the vendor plugins run without `CAP_SYS_ADMIN` and
+      need `sudo` again. See
+      [docs/security/owner-no-sudo-operations.md](owner-no-sudo-operations.md)
+      for the allowlist and the `system()` injection sites that motivate it.
     - `sedutil-cli` is the exception to that last point: its Opal password and
       revert subcommands can lock a drive against every later reader,
       including root, which raw writes cannot do.
