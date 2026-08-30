@@ -87,9 +87,10 @@ let
       value = true;
     }
   ];
-  # Route each toggle by the namespace its app lives in, the way appEnable's
-  # entries are routed. Folding everything into programs would silently write a
-  # services app's sub-toggle under programs.
+  # Route each toggle by the namespace containing its full path, checking
+  # programs first and falling back to services for services-only paths. Folding
+  # everything into programs would silently write a services toggle under an
+  # undeclared option.
   # Shared with the FR-5 comparison so the write and read sides cannot disagree
   # about which namespace a path belongs to.
   applySubToggles =

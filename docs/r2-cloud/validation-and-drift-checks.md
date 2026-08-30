@@ -65,8 +65,8 @@ Expected result:
 
 The secret checks require `security.r2CloudSecrets.enable` on the host; the
 unit checks additionally require the host R2 policy to enable the runtime.
-Current `system76` and `tpnix` policies enable the runtime. After deploying the
-evaluated configuration, absent `r2-*` units or secret files indicate breakage.
+After a host policy enables the runtime, absent `r2-*` units or secret files in
+the deployed evaluated configuration indicate breakage.
 
 ```bash
 test -s /run/secrets/r2/account-id

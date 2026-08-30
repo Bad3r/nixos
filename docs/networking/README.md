@@ -30,7 +30,7 @@ pins that laptop's internal Wi-Fi card to `wifi0` for that reason, so a rule
 keyed to that name follows the card rather than a USB adapter that registered
 first. The wired hosts carry no pin: system76's USB ethernet adapter and
 songbird's two onboard NICs are read as `eth0`/`eth1` in kernel enumeration
-order. Every host currently leaves `firewallDnsInterfaces` empty, so no rule is
+order. Hosts that serve no DNS or DHCP leave `firewallDnsInterfaces` empty, so no rule is
 keyed to a wired name today; pin the device before adding one. Those hosts do
 carry `.link` files without a `Name=`, which narrow the alternative names
 without renaming anything: see
@@ -284,10 +284,14 @@ systemd.network.links."10-<device>" = {
 
 This is the shape `modules/songbird/networking.nix` and
 `modules/system76/networking.nix` use. It renames nothing, so it is not a pin:
-`pinnedNamesOf` and `collidingPinsOf` in `modules/hosts/common/firewall.nix`
-both key on `linkConfig.Name`, and a file without one contributes to neither.
-`modules/hosts/common/firewall-checks.nix` covers that with a case in each
-list, so the shape cannot start reading as a pin unnoticed.
+`pinnedNamesOf`, `collidingPinsOf`, and `duplicatePinsOf` in
+`modules/hosts/common/firewall.nix` all key on `linkConfig.Name`, and a file
+without one contributes to none of those pin classifiers. A device-specific
+file repeated for the same selector is reported by `shadowedLinksOf`; a broad,
+empty, globbed, or multi-valued match that precedes another enabled file is
+reported by `unboundLinksOf`. The companion cases in
+`modules/hosts/common/firewall-checks.nix` cover both the accepted no-Name
+shape and each rejected shadowing shape.
 
 Note the inverted `NamePolicy` rule between the two shapes. A pin must not
 carry it, because `Name=` "has lower precedence than `NamePolicy=`" and the

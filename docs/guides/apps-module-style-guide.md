@@ -397,17 +397,18 @@ applySubToggles =
 
 Folding rather than splicing a literal is the point: registering is then the
 only way to write one, so the next nested toggle cannot slip past the check the
-way all three hosts' did.
+way existing host overrides do.
 
 The fold and its namespace routing come from
 `flake.lib.nixos._hostAppsSubToggleApply`, not from a local copy: the same
 decision drives the FR-5 comparison, so a host writing its own fold gets a write
 side the check cannot see, which is a green check over a dead override. The
-path's first segment is the app name, and it is routed by whichever namespace
-the baseline declares that app in, exactly as `appEnable`'s entries are. A path
-is not restricted to `programs`: a sub-toggle on a services app resolves against
-`services`, and folding everything into `programs` would write it where nothing
-reads it.
+full path is checked in `programs` first and falls back to `services` when the
+baseline declares it there only, exactly as `appEnable`'s entries are. This
+full-path check matters when both namespaces contain the same top-level app
+name: a programs path must remain under `programs`, while a services-only path
+belongs under `services`. Folding everything into `programs` would write a
+services toggle where nothing reads it.
 
 ### 5. Check for Home Manager Integration
 

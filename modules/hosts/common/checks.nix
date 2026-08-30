@@ -22,9 +22,10 @@
 # `extended.enable`, so it cannot carry an override of a nested toggle such as
 # `claude-code.extended.installMethods.bun.enable`. Those are registered
 # separately under `flake.lib.nixos._hostAppsSubToggleOverrides.<host>` as a
-# list of `{ path; value; }`, resolved against whichever namespace the baseline
-# declares the app in, and the host file builds the override from that list
-# rather than writing it out, so an unregistered one cannot exist. Without this the same no-op drift is invisible: the comparison
+# list of `{ path; value; }`, resolved by full path with programs taking
+# precedence and services as the fallback namespace. The host file builds the
+# override from that list rather than writing it out, so an unregistered one
+# cannot exist. Without this the same no-op drift is invisible: the comparison
 # below reads a fixed `extended.enable` and only iterates names the flat set
 # registered.
 #
@@ -105,8 +106,8 @@ let
 
   # Pure classifier over the sub-toggle registry, exported so
   # modules/hosts/common/apps-sub-toggle-checks.nix can exercise every branch:
-  # the three registered toggles are all programs-namespace and all diverge, so
-  # nothing in a host closure reaches the other cases.
+  # Host closures can reach both namespace branches and the no-op path through
+  # the registry, so the classifier keeps both namespace lookups explicit.
   #
   # Paths resolve in both namespaces, the way baselineEnableOf does for the flat
   # set. The baseline splits apps into programs and services, so looking only in
@@ -143,20 +144,19 @@ let
 
   # Write side of the same decision, exported alongside the classifier and used
   # by every host file, so the two halves cannot disagree about which namespace
-  # a path belongs to. Three byte-identical copies in the host files were two
-  # independent implementations of one invariant with a test on one of them: a
-  # regression here writes a services app's sub-toggle under programs, where the
-  # option is undeclared, while the classifier still resolves it against
-  # services and reports it as diverging. Green check, dead override.
+  # a path belongs to. Full-path lookup matters when programs and services have
+  # the same top-level name: a programs path must win, while a services-only
+  # path must fall back to services. A mismatch writes a valid-looking but
+  # undeclared override and leaves the comparison disconnected from it.
   applySubToggles =
     snapshot: namespace: base: toggles:
     let
       inNamespace =
         toggle:
-        let
-          head = lib.head toggle.path;
-        in
-        if snapshot.programs or { } ? ${head} then namespace == "programs" else namespace == "services";
+        if lib.attrByPath toggle.path null (snapshot.programs or { }) != null then
+          namespace == "programs"
+        else
+          namespace == "services";
     in
     lib.foldl' (
       acc: toggle:

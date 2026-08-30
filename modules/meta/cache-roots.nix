@@ -53,7 +53,6 @@ let
     "google-chrome"
     "john"
     "kiro-fhs"
-    "nomachine-client"
     "obsidian"
     "p7zip-rar"
     "planify"
@@ -136,6 +135,27 @@ let
     };
   };
 
+  appEnabled =
+    hostConfig: name: ((hostConfig.programs.${name} or { }).extended or { }).enable or false;
+
+  # Operator documentation can query the evaluated host membership without
+  # maintaining a second, time-sensitive host matrix. Return names only so the
+  # query does not force package derivations.
+  inventory =
+    nixosConfigurations:
+    lib.mapAttrs (
+      _hostName: nixos:
+      let
+        hostConfig = nixos.config;
+      in
+      {
+        hostPackages = lib.filter (appEnabled hostConfig) hostPackageNames;
+        optionPackages = lib.attrNames (
+          lib.filterAttrs (_: entry: entry.installed hostConfig) hostOptionPackages
+        );
+      }
+    ) nixosConfigurations;
+
   # Built through the perSystem nixpkgs instance (devshell surface),
   # not enabled as host apps.
   perSystemPackageNames = [
@@ -144,6 +164,8 @@ let
   ];
 in
 {
+  flake.lib.nixos._cacheRootsInventory = inventory;
+
   perSystem =
     {
       pkgs,
@@ -158,9 +180,6 @@ in
       hosts = lib.filterAttrs (
         _: nixos: nixos.pkgs.stdenv.hostPlatform.system == system
       ) config.flake.nixosConfigurations;
-
-      appEnabled =
-        hostConfig: name: ((hostConfig.programs.${name} or { }).extended or { }).enable or false;
 
       hostEntries =
         hostName: nixos:
@@ -240,7 +259,7 @@ in
       # Matched on the derivation name and pname, which is what
       # scripts/cache-coverage.sh matches globs against: the entry name is
       # hand-chosen and carries no version, so it alone would miss
-      # `proton-vpn-[0-9]*` against a `proton-vpn-4.16.5` derivation, and
+      # `proton-vpn-[0-9]*` against a versioned `proton-vpn` derivation, and
       # version-anchored globs are already the file's convention for wrapper
       # entries. The entry name is checked too. The detector never sees it, so a
       # glob spelled that way suppresses nothing, but it states the same

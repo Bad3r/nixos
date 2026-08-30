@@ -1,9 +1,9 @@
 # Coverage for the firewallDnsInterfaces classifier in
 # modules/hosts/common/firewall.nix.
 #
-# Every host currently sets `firewallDnsInterfaces = [ ]`, so both assertions
-# and the warning in that module are vacuously true in every host closure
-# `nix flake check` evaluates. Without this file a typo in one regex
+# A host with `firewallDnsInterfaces = [ ]` makes both assertions and the
+# warning in that module vacuously true in its closure. Without this file a typo
+# in one regex
 # alternative, or an option silently dropped from the `declaredNames` sources,
 # passes the whole suite.
 #
@@ -21,8 +21,10 @@ let
   pinnedNamesOf = config.flake.lib.nixos._firewallDnsPinnedNamesOf or null;
   declaredNamesOf = config.flake.lib.nixos._firewallDnsDeclaredNamesOf or null;
   collidingPinsOf = config.flake.lib.nixos._firewallDnsCollidingPinsOf or null;
+  duplicatePinsOf = config.flake.lib.nixos._firewallDnsDuplicatePinsOf or null;
   policyOverriddenPinsOf = config.flake.lib.nixos._firewallDnsPolicyOverriddenPinsOf or null;
   shadowedLinksOf = config.flake.lib.nixos._firewallDnsShadowedLinksOf or null;
+  unboundLinksOf = config.flake.lib.nixos._firewallDnsUnboundLinksOf or null;
 
   # One entry per source declaredNamesOf reads. A source dropped from that
   # expression loses its name here, which is the failure this covers.
@@ -199,6 +201,45 @@ let
     {
       name = "link without Name= is not a pin";
       links."10-altnames" = altnamesOnlyLink;
+      expected = [ ];
+    }
+  ];
+
+  duplicatePinCases = [
+    {
+      name = "distinct device pins cannot share a name";
+      links = {
+        "10-a" = link { Path = "pci-0000:84:00.0"; } "lan0";
+        "20-b" = link { Path = "pci-0000:85:00.0"; } "lan0";
+      };
+      expected = [ "lan0" ];
+    }
+    {
+      name = "distinct device pins may use distinct names";
+      links = {
+        "10-a" = link { Path = "pci-0000:84:00.0"; } "lan0";
+        "20-b" = link { Path = "pci-0000:85:00.0"; } "lan1";
+      };
+      expected = [ ];
+    }
+    {
+      name = "disabled duplicate pin is ignored";
+      links = {
+        "10-a" = (link { Path = "pci-0000:84:00.0"; } "lan0") // {
+          enable = false;
+        };
+        "20-b" = link { Path = "pci-0000:85:00.0"; } "lan0";
+      };
+      expected = [ ];
+    }
+    {
+      # Non-binding files are covered by unboundLinksOf instead. They do not
+      # contribute a valid device-specific pin to this classifier.
+      name = "unbound duplicate names are outside the pin classifier";
+      links = {
+        "10-a".linkConfig.Name = "lan0";
+        "20-b".linkConfig.Name = "lan0";
+      };
       expected = [ ];
     }
   ];
@@ -425,6 +466,14 @@ let
     lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
   ) pinnedCases;
 
+  duplicatePinFailures = lib.concatMap (
+    case:
+    let
+      got = duplicatePinsOf case.links;
+    in
+    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
+  ) duplicatePinCases;
+
   declaredFailures =
     let
       got = declaredNamesOf declaredStub;
@@ -454,7 +503,7 @@ let
   # A pin into a namespace the kernel assigns itself races udev, so it must be
   # rejected; a pin outside them must not be.
   # A pin and a policy in the same file. systemd.link(5) gives Name= the lower
-  # precedence, so the policy wins and the pin does not apply. Both wired hosts
+  # precedence, so the policy wins and the pin does not apply. Wired hosts can
   # ship the no-Name= policy shape, so adding Name= there is the natural way to
   # satisfy the kernel-name warning and the one that silently does nothing.
   policyOverrideCases = [
@@ -485,8 +534,8 @@ let
 
   # udev applies only the first matching file, so a second .link for a device
   # that already has one is never read, while pinnedNamesOf still reads its
-  # Name= and reports the name as backed. Both wired hosts ship a .link per NIC,
-  # so this is the shape the kernel-name warning invites.
+  # Name= and reports the name as backed. Wired hosts commonly ship a .link
+  # per NIC, so this is the shape the kernel-name warning invites.
   shadowedCases = [
     {
       name = "one file per device is accepted";
@@ -515,9 +564,9 @@ let
       expected = [ ];
     }
     {
-      # Neither binds a device, so neither shadows the other in a way that
-      # matters here; the match-all case is what pinnedNamesOf already excludes.
-      name = "two match-all files are not counted";
+      # Neither has a singleton device selector, so shadowedLinksOf does not
+      # report a repeated selector. unboundLinksOf covers the earlier file.
+      name = "two unbound files are not selector duplicates";
       links = {
         "10-a".linkConfig.Name = "lan0";
         "20-b".linkConfig.Name = "lan1";
@@ -546,6 +595,77 @@ let
       links = {
         "10-a" = link { Path = "pci-0000:84:00.0"; } "lan0";
         "20-b" = link { PermanentMACAddress = "02:00:00:00:00:01"; } "lan1";
+      };
+      expected = [ ];
+    }
+  ];
+
+  unboundCases = [
+    {
+      name = "unbound file before a specific file is rejected";
+      links = {
+        "10-a".linkConfig.Name = "lan0";
+        "20-b" = link { Path = "pci-0000:84:00.0"; } "lan1";
+      };
+      expected = [ "10-a" ];
+    }
+    {
+      name = "two unbound files report only the earlier unit";
+      links = {
+        "10-a".linkConfig.Name = "lan0";
+        "20-b".linkConfig.Name = "lan1";
+      };
+      expected = [ "10-a" ];
+    }
+    {
+      name = "wildcard OriginalName before a specific file is rejected";
+      links = {
+        "05-wol" = {
+          matchConfig.OriginalName = "*";
+          linkConfig.Name = "lan0";
+        };
+        "10-wifi0" = link { Path = "pci-0000:86:00.0"; } "wlan0";
+      };
+      expected = [ "05-wol" ];
+    }
+    {
+      # The static classifier conservatively rejects a class-only match because
+      # it cannot prove that the broad file will not shadow a later device pin.
+      name = "class-only match before a specific file is rejected";
+      links = {
+        "05-ether" = {
+          matchConfig.Type = "ether";
+          linkConfig.Name = "lan0";
+        };
+        "10-wifi0" = link { Path = "pci-0000:86:00.0"; } "wlan0";
+      };
+      expected = [ "05-ether" ];
+    }
+    {
+      name = "multi-valued selector before a specific file is rejected";
+      links = {
+        "05-a" = link { Path = "pci-0000:84:00.0 pci-0000:85:00.0"; } "lan0";
+        "10-b" = link { Path = "pci-0000:86:00.0"; } "lan1";
+      };
+      expected = [ "05-a" ];
+    }
+    {
+      name = "disabled broad file is accepted";
+      links = {
+        "05-wol" = {
+          enable = false;
+          matchConfig.OriginalName = "*";
+          linkConfig.Name = "lan0";
+        };
+        "10-wifi0" = link { Path = "pci-0000:86:00.0"; } "wlan0";
+      };
+      expected = [ ];
+    }
+    {
+      name = "broad file after a specific file is accepted";
+      links = {
+        "10-wifi0" = link { Path = "pci-0000:86:00.0"; } "wlan0";
+        "20-wol".linkConfig.Name = "lan0";
       };
       expected = [ ];
     }
@@ -616,22 +736,34 @@ let
     lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
   ) shadowedCases;
 
+  unboundFailures = lib.concatMap (
+    case:
+    let
+      got = unboundLinksOf case.links;
+    in
+    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
+  ) unboundCases;
+
   failures =
     classifyFailures
     ++ pinnedFailures
+    ++ duplicatePinFailures
     ++ declaredFailures
     ++ networkdOffFailures
     ++ collisionFailures
     ++ policyOverrideFailures
-    ++ shadowedFailures;
+    ++ shadowedFailures
+    ++ unboundFailures;
 
   missingExports =
     classify == null
     || pinnedNamesOf == null
     || declaredNamesOf == null
     || collidingPinsOf == null
+    || duplicatePinsOf == null
     || policyOverriddenPinsOf == null
-    || shadowedLinksOf == null;
+    || shadowedLinksOf == null
+    || unboundLinksOf == null;
 in
 {
   perSystem =
@@ -642,8 +774,9 @@ in
           throw (
             "firewall-dns-interface-classifier: modules/hosts/common/firewall.nix no longer exports "
             + "flake.lib.nixos._firewallDnsClassify, _firewallDnsPinnedNamesOf, "
-            + "_firewallDnsDeclaredNamesOf, _firewallDnsCollidingPinsOf, and "
-            + "_firewallDnsPolicyOverriddenPinsOf, and _firewallDnsShadowedLinksOf, so the "
+            + "_firewallDnsDeclaredNamesOf, _firewallDnsCollidingPinsOf, "
+            + "_firewallDnsDuplicatePinsOf, _firewallDnsPolicyOverriddenPinsOf, "
+            + "_firewallDnsShadowedLinksOf, and _firewallDnsUnboundLinksOf, so the "
             + "firewallDnsInterfaces guards are unverified."
           )
         else if failures != [ ] then
@@ -659,9 +792,11 @@ in
               toString (
                 lib.length classifyCases
                 + lib.length pinnedCases
+                + lib.length duplicatePinCases
                 + lib.length collisionCases
                 + lib.length policyOverrideCases
                 + lib.length shadowedCases
+                + lib.length unboundCases
                 + 2
               )
             } classifier cases" > $out

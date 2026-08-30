@@ -9,8 +9,8 @@ _: {
       gpu.nvidia = {
         enable = true;
         # Blackwell GB203: NVIDIA's open kernel modules are the only supported
-        # flavor and need the 570+ branch (production is 595.x on the pinned
-        # nixpkgs); hardware.nvidia.gsp follows `open` automatically.
+        # flavor and require a recent driver branch; hardware.nvidia.gsp follows
+        # `open` automatically.
         package = config.boot.kernelPackages.nvidiaPackages.production;
         open = true;
         # NVDEC via nvidia-vaapi-driver (docs/songbird/nixos-setup.md,

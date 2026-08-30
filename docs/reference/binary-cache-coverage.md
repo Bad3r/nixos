@@ -14,7 +14,7 @@ the detector names what is uncovered, the publisher covers it.
 
 ## Garnix (retired)
 
-Garnix shut down on 2026-07-15, deleted every stored build artifact, and open
+Garnix is retired, has deleted every stored build artifact, and open
 sourced its CI with no public successor instance, leaving `cache.garnix.io` to
 answer HTTP 502. It never covered this repository in any case: the GitHub app
 was never installed, and `self.submodules = true` in `flake.nix` makes any
@@ -47,7 +47,7 @@ is paid and pairs with Determinate Nix while hosts here run Lix. Cachix is
 already trusted, already wired, and already publishing, so the remaining work
 is coverage, not a change of service.
 
-## Audit findings (2026-07-17)
+## Audit findings
 
 Build-log profiling under `~/.local/state/nixos-build/` after PR
 https://github.com/Bad3r/nixos/pull/380 still showed on the order of 170
@@ -79,8 +79,7 @@ keyed `<host>/<package>/<output>`.
   rather than an error. Every registered
   host that builds for the current system contributes its own entries, so an
   app only a sibling host enables still reaches the cache and each host's
-  distinct closure is published separately (nvidia-x11 is 580.173.02 on
-  system76 and 595.84 on tpnix).
+  distinct closure is published separately for each host that enables it.
   Entries are gated per host on `programs.<name>.extended.enable`, so a host
   that turns an app off contributes nothing for it and the cache never carries
   a closure that host will not install (which is why wfuzz is not listed).
@@ -146,67 +145,40 @@ An earlier `assertFree` guard aborted evaluation for any entry that was neither
 free nor redistributable. It was removed with this policy; nothing now checks a
 license at build time, so adding an entry is purely an operator decision.
 
-## Inventory (2026-07-17, 2026-08-03, and 2026-08-04 build logs)
+## Inventory
 
-Host-sourced entries, published per host that enables them. Only system76
-enables the last six.
+The authoritative lists are `hostPackageNames` and `hostOptionPackages` in
+`modules/meta/cache-roots.nix`. Host membership is evaluated from the current
+`nixosConfigurations` and is intentionally not duplicated in this document.
+Query the current inventory with:
 
-| Package             | Hosts           |
-| ------------------- | --------------- |
-| burpsuite           | system76, tpnix |
-| charles             | system76, tpnix |
-| electron-mail       | system76, tpnix |
-| firefoxpwa          | system76, tpnix |
-| google-chrome       | system76, tpnix |
-| john                | system76, tpnix |
-| obsidian            | system76, tpnix |
-| p7zip-rar           | system76, tpnix |
-| planify             | system76, tpnix |
-| proton-vpn          | system76, tpnix |
-| searchfox-cli       | system76, tpnix |
-| source-map-explorer | system76, tpnix |
-| tweakcc             | system76, tpnix |
-| vscode-fhs          | system76, tpnix |
-| wappalyzer-next     | system76, tpnix |
-| webex               | system76, tpnix |
-| discord             | system76        |
-| dropbox             | system76        |
-| kiro-fhs            | system76        |
-| upscayl             | system76        |
-| ventoy-full         | system76        |
-| veracrypt           | system76        |
+```sh
+nix eval --accept-flake-config --offline --json --impure \
+  --expr 'let flake = builtins.getFlake (toString ./.); in flake.lib.nixos._cacheRootsInventory flake.nixosConfigurations'
+```
 
-Option-sourced entries, resolved from the host config that holds the installed
-package:
+The result contains `hostPackages` and `optionPackages` for each configured
+host. It reports names only, so package versions and derivation paths continue
+to follow the evaluated flake without requiring a documentation update.
 
-| Package               | Resolved from                         | Hosts           |
-| --------------------- | ------------------------------------- | --------------- |
-| nemo-with-extensions  | `programs.nemo.extended.finalPackage` | system76, tpnix |
-| nvidia-x11            | `hardware.nvidia.package`             | system76, tpnix |
-| nvidia-kernel-modules | `hardware.nvidia.package.{open,mod}`  | system76, tpnix |
-| nvidia-settings       | `hardware.nvidia.package.settings`    | system76, tpnix |
-| steam                 | `programs.steam.package`              | system76        |
-
-`nvidia-kernel-modules` selects the module flavor the host installs rather than
-gating on one of them, mirroring upstream's
+`nvidia-kernel-modules` selects the module flavor each enabled host installs
+rather than gating on one of them, mirroring upstream's
 `boot.extraModulePackages = if useOpenModules then [ nvidia_x11.open ] else [ nvidia_x11.mod ]`
 with `useOpenModules = cfg.open == true`. Gating on one flavor would drop
 coverage silently on a host that flips `hardware.nvidia.open`, which
 `modules/hardware/nvidia-gpu.nix` documents as required on Blackwell and newer,
-and a symmetric second entry cannot exist while no host sets it: the
-unused-name throw would abort on it. `nvidia-settings` is gated on
-`hardware.nvidia.nvidiaSettings`. Both hosts currently set `open = false` and
-`nvidiaSettings = true`.
+and a symmetric second entry would create an unused-name failure when no host
+installs it. `nvidia-settings` is gated on
+`hardware.nvidia.nvidiaSettings`.
 
 `steam` is option-sourced because `modules/apps/steam.nix` installs nothing
 itself: it sets `programs.steam.enable` with `extraCompatPackages` and
 `extraPackages`, and upstream's `programs.steam.package` carries an `apply`
 that re-`override`s the FHS env with both lists. The applied value is what
 upstream puts in `environment.systemPackages`, and proton-ge-bin, dwarfs,
-fuse-overlayfs, and protonup-rs live inside it. On system76 the applied
-derivation is `steam-1.0.0.87` at a different store path than
-`pkgs.steam`, so the bare attribute published a closure no host substitutes
-from.
+fuse-overlayfs, and protonup-rs live inside it. It can differ from `pkgs.steam`,
+so publishing only the bare attribute can leave the installed closure
+unsubstituted.
 
 perSystem-sourced (codeburn, restringer) and input-sourced (context7-mcp,
 mcp-server-sequential-thinking, codex) entries are published once, not per
@@ -229,10 +201,9 @@ normally.
 
 Deliberately absent:
 
-- firefox-bin: no host installs it as an entry would publish it. Both hosts
-  install `firefox-153.0.1`, which wraps the source-built `firefox-unwrapped`,
-  and that wrapper is dispositioned as an accepted local build by the
-  `firefox-[0-9]*` glob in `scripts/cache-coverage-allowlist.txt`. The
+- firefox-bin: it is not a cache-roots entry. Source-built Firefox wrappers are
+  dispositioned as accepted local builds by the `firefox-[0-9]*` glob in
+  `scripts/cache-coverage-allowlist.txt`. The
   `firefox-bin` closure is pushed anyway, as a member of the dropbox FHS
   rootfs, so listing it would add an entry and no coverage.
 - tor-browser and mullvad-browser: see the residual-local-builds list below.
@@ -263,7 +234,7 @@ Residual local builds accepted with reasons:
 
 ## Operator setup
 
-Completed 2026-07-17:
+The operator setup is complete:
 
 1. The public Cachix cache `bad3r-nixos` exists under the account that
    owns `nix-logseq-git-flake`.
@@ -291,9 +262,9 @@ Completed 2026-07-17:
    an array that is missing, unclosed, or empty fails rather than comparing
    nothing.
 
-Confirmed operating as of 2026-07-31: `cache-push.yml` reaches the "Push
-closure to Cachix" step with a `success` conclusion on merges to `main`, and
-`https://bad3r-nixos.cachix.org/nix-cache-info` serves `Priority: 41`.
+Verify the publisher after a merge by checking that `cache-push.yml` reaches
+the "Push closure to Cachix" step successfully and that
+`https://bad3r-nixos.cachix.org/nix-cache-info` responds anonymously.
 
 ## Coverage gaps
 
@@ -321,9 +292,9 @@ the remaining work. Four gaps carry it.
    https://github.com/Bad3r/nixos/issues/423). `cache-roots.nix` iterates every
    registered host that builds for the current system and keys links
    `<host>/<package>/<output>`, so a sibling host's apps and its distinct
-   closures are published too. This is what pulls tpnix's nvidia-x11 595.84 into the cache
-   alongside system76's 580.173.02; before the change, evaluating the flake
-   fetched that 595.84 driver and then published nothing for it.
+   closures are published too. This pulls each registered host's selected
+   nvidia-x11 closure into the cache; before the change, evaluating a sibling
+   host fetched its driver and then published nothing for it.
 3. Nothing gates coverage in CI
    (https://github.com/Bad3r/nixos/issues/424). `scripts/cache-coverage.sh`
    is reachable only through `build.sh --cache-coverage` and `nix run`, and
@@ -334,7 +305,7 @@ the remaining work. Four gaps carry it.
    runtime closure of the `linkFarm`, so only an entry's default output reaches
    the cache, while the detector counts a derivation as substitutable only when
    every output is served. proton-vpn (`out`, `dist`) and nemo (`out`, `dev`,
-   `man`) report as local builds on system76 although the output hosts install
+   `man`) report as local builds although the output hosts install
    answers 200 from `bad3r-nixos.cachix.org` and the other answers 404
    everywhere. Neither name belongs in the allowlist: a glob there would
    restore coverage on paper and suppress the next real divergence on that

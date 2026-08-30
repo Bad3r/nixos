@@ -65,8 +65,7 @@ _: {
             device = "/dev/disk/by-uuid/d776cdd8-ab0f-4081-abc0-c0e11b1aa6da";
             allowDiscards = true;
           };
-          # Samsung 860 PRO 2TB SATA: the LUKS2 + XFS /data volume carried over
-          # from system76 (same header UUID as modules/system76/hardware-config.nix).
+          # Samsung 860 PRO 2TB SATA: the LUKS2 + XFS /data volume.
           # Root does not depend on it, so nofail keeps an absent or unopened
           # drive from dropping the systemd initrd into the emergency shell.
           data = {
@@ -102,7 +101,7 @@ _: {
           ];
         };
 
-        # Encrypted XFS volume from system76 (via /dev/mapper/data).
+        # Encrypted XFS /data volume (via /dev/mapper/data).
         "/data" = {
           device = "/dev/mapper/data";
           fsType = "xfs";

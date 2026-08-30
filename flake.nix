@@ -79,6 +79,11 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nix-cachyos-kernel = {
+      # Build the CachyOS kernel locally for songbird.
+      url = "github:xddxdd/nix-cachyos-kernel/release";
+    };
+
     # nix-on-droid = {
     #   url = "github:nix-community/nix-on-droid";
     #   inputs = {
