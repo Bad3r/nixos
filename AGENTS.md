@@ -71,6 +71,11 @@ Durable daemon and evaluator settings live in `modules/base/nix-settings.nix`.
 Cache topology and download retry settings live in
 `modules/hosts/common/nix-substituters.nix`. Inspect those owning files for
 current values instead of duplicating the full `nix.settings` set here.
+Cache-root publication is derived from evaluated host configuration in
+`modules/meta/cache-roots.nix`. `songbird` deliberately excludes its
+source-built `nvidia-kernel-modules` entry while retaining `nvidia-x11` and
+`nvidia-settings`; adding a third-party cache requires an explicit policy
+decision.
 
 `build.sh` exports `NIX_CONFIG` only as a bootstrap overlay for the Nix commands
 it launches before the target system configuration is active.

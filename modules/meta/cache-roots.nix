@@ -70,6 +70,12 @@ let
 
   nvidiaLoaded = hostConfig: lib.elem "nvidia" hostConfig.services.xserver.videoDrivers;
 
+  cacheRootPolicy = hostName: (config.flake.lib.nixos.hosts.${hostName} or { }).cacheRoots or { };
+
+  nvidiaKernelModulesCached =
+    hostName: hostConfig:
+    nvidiaLoaded hostConfig && ((cacheRootPolicy hostName).nvidiaKernelModules or true);
+
   # Packages the bare package-set attribute never produces, or that never
   # reach environment.systemPackages at all. Each entry resolves the package
   # from the host config and states the condition under which the host
@@ -88,11 +94,11 @@ let
   hostOptionPackages = {
     nemo-with-extensions = {
       path = hostConfig: hostConfig.programs.nemo.extended.finalPackage;
-      installed = hostConfig: hostConfig.programs.nemo.extended.enable;
+      installed = _hostName: hostConfig: hostConfig.programs.nemo.extended.enable;
     };
     nvidia-x11 = {
       path = hostConfig: hostConfig.hardware.nvidia.package;
-      installed = nvidiaLoaded;
+      installed = _: nvidiaLoaded;
     };
     # Two derivations hanging off hardware.nvidia.package rather than outputs
     # of it, so linking every output does not reach them.
@@ -107,6 +113,9 @@ let
     # required on Blackwell and newer, and a symmetric second entry cannot exist
     # while no host sets it: the unused-name throw below would abort on it.
     #
+    # A host registry policy can keep this installed module out of published
+    # cache roots when its kernel is host-specific and has no substituter.
+    #
     # `settings` is nvidia-settings, which upstream adds to
     # environment.systemPackages under hardware.nvidia.nvidiaSettings.
     nvidia-kernel-modules = {
@@ -116,11 +125,12 @@ let
           hostConfig.hardware.nvidia.package.open
         else
           hostConfig.hardware.nvidia.package.mod;
-      installed = nvidiaLoaded;
+      installed = nvidiaKernelModulesCached;
     };
     nvidia-settings = {
       path = hostConfig: hostConfig.hardware.nvidia.package.settings;
-      installed = hostConfig: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
+      installed =
+        _hostName: hostConfig: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
     };
     # modules/apps/steam.nix installs nothing itself: it sets
     # programs.steam.enable with extraCompatPackages and extraPackages, and
@@ -131,7 +141,7 @@ let
     # missing exactly the part that costs a switch.
     steam = {
       path = hostConfig: hostConfig.programs.steam.package;
-      installed = hostConfig: hostConfig.programs.steam.enable;
+      installed = _hostName: hostConfig: hostConfig.programs.steam.enable;
     };
   };
 
@@ -144,14 +154,14 @@ let
   inventory =
     nixosConfigurations:
     lib.mapAttrs (
-      _hostName: nixos:
+      hostName: nixos:
       let
         hostConfig = nixos.config;
       in
       {
         hostPackages = lib.filter (appEnabled hostConfig) hostPackageNames;
         optionPackages = lib.attrNames (
-          lib.filterAttrs (_: entry: entry.installed hostConfig) hostOptionPackages
+          lib.filterAttrs (_: entry: entry.installed hostName hostConfig) hostOptionPackages
         );
       }
     ) nixosConfigurations;
@@ -195,9 +205,12 @@ in
           key = "${hostName}/${name}";
           pkgName = name;
           path = entry.path hostConfig;
-        }) (lib.filterAttrs (_: entry: entry.installed hostConfig) hostOptionPackages);
+        }) (lib.filterAttrs (_: entry: entry.installed hostName hostConfig) hostOptionPackages);
 
-      hostConfigs = map (nixos: nixos.config) (lib.attrValues hosts);
+      hostConfigs = lib.mapAttrsToList (hostName: nixos: {
+        inherit hostName;
+        hostConfig = nixos.config;
+      }) hosts;
 
       # A name no host enables publishes nothing, so the list would carry it
       # forever while the cache stayed unchanged. That is the failure mode
@@ -205,12 +218,12 @@ in
       # output silently. Renaming an app or turning it off on the last host
       # that had it lands here.
       unusedAppNames = lib.filter (
-        name: !(lib.any (hostConfig: appEnabled hostConfig name) hostConfigs)
+        name: !(lib.any ({ hostConfig, ... }: appEnabled hostConfig name) hostConfigs)
       ) hostPackageNames;
 
       unusedOptionNames = lib.attrNames (
         lib.filterAttrs (
-          _: entry: !(lib.any (hostConfig: entry.installed hostConfig) hostConfigs)
+          _: entry: !(lib.any ({ hostName, hostConfig }: entry.installed hostName hostConfig) hostConfigs)
         ) hostOptionPackages
       );
 
@@ -324,6 +337,23 @@ in
       ) entries;
 
       buildsHere = hosts != { };
+
+      songbirdOptionPackages = (inventory config.flake.nixosConfigurations).songbird.optionPackages;
+
+      songbirdNvidiaPolicyCheck =
+        let
+          retained = [
+            "nvidia-settings"
+            "nvidia-x11"
+          ];
+          missing = lib.subtractLists songbirdOptionPackages retained;
+        in
+        if lib.elem "nvidia-kernel-modules" songbirdOptionPackages then
+          throw "cache-roots: songbird nvidia-kernel-modules must remain outside the published cache roots"
+        else if missing != [ ] then
+          throw "cache-roots: songbird cache policy lost NVIDIA userspace entries: ${lib.concatStringsSep ", " missing}"
+        else
+          pkgs.runCommandLocal "cache-roots-songbird-nvidia-policy" { } "touch $out";
     in
     {
       packages = lib.mkIf buildsHere {
@@ -341,6 +371,7 @@ in
             throw "cache-roots: ${
               lib.concatMapStringsSep ", " (entry: entry.pkgName) allowlistedPublished
             } is published by cache-roots.nix and also matched by a glob in scripts/cache-coverage-allowlist.txt; allowlisting and caching are mutually exclusive dispositions. Delete the glob (docs/reference/cache-coverage.md).";
+        cache-roots-songbird-nvidia-policy = songbirdNvidiaPolicyCheck;
       };
     };
 }

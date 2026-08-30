@@ -9,6 +9,7 @@
       "hm-package-pattern"
       "app-wiring"
       "storage-boundaries"
+      "cache-boundaries"
       "secrets"
       "flake-input-deduplication"
       "files"
@@ -111,6 +112,17 @@
           Storage-dependent services must be enabled only on hosts that provide their required mount. The system76 host has no dedicated `/data`, so it disables both common local mirror writers and the R2 runtime; the relocated `/data` volume belongs to `songbird`.
 
           See the [local mirror reference](docs/reference/local-mirrors.md), [system76 configuration](docs/system76/system76-configuration.md), and [R2 runtime policy](docs/r2-cloud/system76-runtime.md) for the operational contracts.
+
+        '';
+
+      cache-boundaries =
+        # markdown
+        ''
+          ## Cache Boundaries
+
+          Cache-root membership is derived from evaluated host configuration. songbird keeps its source-built CachyOS NVIDIA kernel module out of published cache roots while retaining cache coverage for `nvidia-x11` and `nvidia-settings`.
+
+          See [binary cache coverage](docs/reference/binary-cache-coverage.md) for the inventory and operator policy.
 
         '';
 

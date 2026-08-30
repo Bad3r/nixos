@@ -62,6 +62,12 @@ Storage-dependent services must be enabled only on hosts that provide their requ
 
 See the [local mirror reference](docs/reference/local-mirrors.md), [system76 configuration](docs/system76/system76-configuration.md), and [R2 runtime policy](docs/r2-cloud/system76-runtime.md) for the operational contracts.
 
+## Cache Boundaries
+
+Cache-root membership is derived from evaluated host configuration. songbird keeps its source-built CachyOS NVIDIA kernel module out of published cache roots while retaining cache coverage for `nvidia-x11` and `nvidia-settings`.
+
+See [binary cache coverage](docs/reference/binary-cache-coverage.md) for the inventory and operator policy.
+
 ## Secrets
 
 Secrets are managed with [sops-nix](https://github.com/Mic92/sops-nix). Encrypted payloads live in `secrets/`, a private git submodule, and are declared via `sops.secrets`.
@@ -91,4 +97,3 @@ The following files are defined in Nix and generated via [mightyiam/files](https
 - `.gitleaks.toml`
 - `.sops.yaml`
 - `README.md`
-

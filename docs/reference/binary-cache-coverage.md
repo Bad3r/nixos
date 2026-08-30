@@ -161,14 +161,20 @@ The result contains `hostPackages` and `optionPackages` for each configured
 host. It reports names only, so package versions and derivation paths continue
 to follow the evaluated flake without requiring a documentation update.
 
-`nvidia-kernel-modules` selects the module flavor each enabled host installs
-rather than gating on one of them, mirroring upstream's
+For hosts whose cache policy publishes `nvidia-kernel-modules`, the entry
+selects the module flavor each enabled host installs, mirroring upstream's
 `boot.extraModulePackages = if useOpenModules then [ nvidia_x11.open ] else [ nvidia_x11.mod ]`
 with `useOpenModules = cfg.open == true`. Gating on one flavor would drop
 coverage silently on a host that flips `hardware.nvidia.open`, which
-`modules/hardware/nvidia-gpu.nix` documents as required on Blackwell and newer,
-and a symmetric second entry would create an unused-name failure when no host
-installs it. `nvidia-settings` is gated on
+`modules/hardware/nvidia-gpu.nix` documents as required on Blackwell and newer.
+
+Songbird intentionally sets `cacheRoots.nvidiaKernelModules = false`: its
+CachyOS kernel is built from source and no CachyOS substituter is configured.
+The module remains installed on songbird, but it is omitted from the published
+cache roots. `nvidia-x11` and `nvidia-settings` remain cache roots because their
+current derivations do not require the CachyOS kernel build. The evaluated
+cache-roots check fails if the module is published again or either userspace
+entry disappears. `nvidia-settings` remains gated on
 `hardware.nvidia.nvidiaSettings`.
 
 `steam` is option-sourced because `modules/apps/steam.nix` installs nothing
@@ -332,7 +338,9 @@ and a host actually installs it. License is no longer a criterion; see
   `nix eval` that the attribute's `outPath` appears in the host's
   `environment.systemPackages` or Home Manager `home.packages`, or that it is a
   dependency of the wrapper that does.
+
 - Source it from the surface that owns the derivation:
+
   - the host package set, when a custom overlay or host nixpkgs config
     shapes it. `hostPackageNames` entries are gated per host on
     `programs.<name>.extended.enable`, so the app must be wired through
@@ -340,20 +348,28 @@ and a host actually installs it. License is no longer a criterion; see
   - `self'.packages`, when only the devshell surface consumes it;
   - the owning flake input, when a module consumes the input's package
     directly (context7-mcp);
-  - the host config, listed in `hostOptionPackages`, when the bare
-    package-set attribute never produces it or it never reaches
-    `environment.systemPackages` (nemo-with-extensions, nvidia-x11). Write
-    `path` as a `hostConfig: package` function, not an option path: it may
-    reach past the option into a derivation hanging off the package
-    (`hardware.nvidia.package.settings`) or choose between derivations by
-    another option's value (`hardware.nvidia.open`). Give the entry an
-    `installed` predicate naming the condition under which the host installs
-    it; do not assume a sibling `enable` exists, because upstream options such
-    as `hardware.nvidia.package` carry a default and stay defined on hosts
-    that never use them.
+
+- the host config, listed in `hostOptionPackages`, when the bare
+  package-set attribute never produces it or it never reaches
+  `environment.systemPackages` (nemo-with-extensions, nvidia-x11). Write
+  `path` as a `hostConfig: package` function, not an option path: it may
+  reach past the option into a derivation hanging off the package
+  (`hardware.nvidia.package.settings`) or choose between derivations by
+  another option's value (`hardware.nvidia.open`). Give the entry an
+  `installed` predicate naming the condition under which the host installs
+  it; do not assume a sibling `enable` exists, because upstream options such
+  as `hardware.nvidia.package` carry a default and stay defined on hosts
+  that never use them.
+
+- A host may install an option-sourced package without publishing it when the
+  build is host-specific and no configured substituter serves it. Keep that
+  exception in the host registry's `cacheRoots` policy and add a focused check
+  for the entries retained and omitted.
+
 - A name enabled on no host aborts evaluation rather than publishing nothing,
   so a rename or a last-host disable fails `nix flake check` instead of leaving
   a dead entry.
+
 - Verify the heavy derivation substitutes: a derivation that sets
   `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`) never hits
   the cache itself, so what matters is whether that derivation is the
@@ -362,6 +378,7 @@ and a host actually installs it. License is no longer a criterion; see
   (electron-mail, upscayl, vscode-fhs, nemo-with-extensions all set it on the
   outer wrapper). It does not belong when the non-substitutable derivation is
   itself the expensive build (tor-browser, mullvad-browser).
+
 - Drop the matching glob from `scripts/cache-coverage-allowlist.txt` in the
   same change. That file records divergences accepted as permanent local
   builds; a package the cache now serves is no longer one, and leaving the
@@ -371,6 +388,7 @@ and a host actually installs it. License is no longer a criterion; see
   derivation `name` and `pname`, and aborts evaluation naming the offender. So
   forgetting the deletion fails `nix flake check` rather than surfacing as a
   silently dead glob later.
+
 - Confirm derivation parity with
   `nix build --dry-run "path:.#cache-roots"` on a recently switched host:
   the new entry must not introduce rebuilds of paths the host already has.
