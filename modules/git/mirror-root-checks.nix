@@ -3,9 +3,8 @@
 # enclosingMountOf decides whether local-mirrors-root.service carries an
 # ordering and a ConditionPathIsMountPoint at all, so a wrong answer provisions
 # the mirror root on the root filesystem and every downstream guard then passes
-# against it. No host closure verifies that answer: songbird and system76 both
-# spell the mount `/data` the default way and tpnix declares no /data at all, so
-# `nix flake check` is green whether the derivation is right or returns null.
+# against it. A host closure may exercise either branch, so the check below
+# covers both an enclosing data mount and a root-backed mirror root.
 # Reading attribute names instead of mountPoint shipped through six commits that
 # way.
 #

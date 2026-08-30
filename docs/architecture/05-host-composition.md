@@ -72,12 +72,12 @@ common-baseline participation is always a recorded choice (`true` to opt in,
 | `modules/songbird/nix-settings.nix`        | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                                                             |
 | `modules/songbird/ssh.nix`                 | `services.openssh.enable` override; the host public key pin waits for the first boot to generate the key                                                                               |
 | `modules/songbird/r2-runtime.nix`          | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                                                                     |
-| `modules/songbird/hardware-config.nix`     | LUKS root and swap on the SN8100, the system76 `/data` LUKS+XFS volume, the NTFS `/shared` drive and its pre-hibernation unmount, firmware, NPU, Thunderbolt (bolt)                    |
+| `modules/songbird/hardware-config.nix`     | LUKS root and swap on the SN8100, the `/data` LUKS+XFS volume, the NTFS `/shared` drive and its pre-hibernation unmount, firmware, NPU, Thunderbolt (bolt)                             |
 | `modules/songbird/host-id.nix`             | `networking.hostId`                                                                                                                                                                    |
 | `modules/songbird/state-version.nix`       | Install-time `system.stateVersion` constant (`26.11`)                                                                                                                                  |
 | `modules/songbird/support.nix`             | `services.fwupd` (LVFS); no vendor daemon on this board                                                                                                                                |
 | `modules/songbird/nvidia-gpu.nix`          | GPU profile over `flake.nixosModules.nvidia-gpu`: production branch, open kernel modules (Blackwell), NVDEC VA-API on a pinned DRM node, `2560x1440_144` metamode, nouveau blacklisted |
-| `modules/songbird/mpv.nix`                 | mpv `gpu-api = "opengl"` override carried over from system76                                                                                                                           |
+| `modules/songbird/mpv.nix`                 | mpv `gpu-api = "opengl"` override; drop once Vulkan is verified on the 5080                                                                                                            |
 | `modules/songbird/gnome-keyring.nix`       | gnome-keyring force-disabled in favor of the `pass` secret service                                                                                                                     |
 | `modules/songbird/pass-secret-service.nix` | DBus secret-service for `pass`                                                                                                                                                         |
 | `modules/songbird/apps-enable.nix`         | Per-host overrides over the common app baseline (Inkscape on)                                                                                                                          |
@@ -205,6 +205,9 @@ Each host uses the same two-stage app model:
    `programs.<name>.extended.enable` baseline at `lib.mkOverride 1100`.
    Host override files such as `modules/tpnix/apps-enable.nix` layer
    `lib.mkOverride 1000` overrides for entries where a host diverges.
+   Nested overrides register full paths and route through `programs` first,
+   falling back to `services` for services-only paths; the shared FR-5 check
+   compares the same path in the same namespace.
 
 Home Manager wiring follows the same shape:
 

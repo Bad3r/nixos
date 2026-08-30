@@ -1,11 +1,9 @@
 # Coverage for the sub-toggle classifier in modules/hosts/common/checks.nix.
 #
-# The three toggles registered across the fleet are all programs-namespace and
-# all diverge from the baseline, so a host closure reaches neither the services
-# lookup nor the no-op branch. Resolving only against programs shipped that way:
-# a sub-toggle on a services app (espanso, autorandr, flameshot, pcscd,
-# protonmail-bridge, thinkfan, usbmuxd) reported as an out-of-sync baseline
-# that no baseline edit could fix, since the baseline does declare the app.
+# Host closures can reach both namespace lookups and the no-op branch through
+# the registry. Full-path lookup checks programs first and falls back to
+# services, which keeps a services-only nested toggle comparable when both
+# namespaces contain the same top-level app name.
 #
 # This throws rather than emitting a failing derivation: CI forces each check's
 # drvPath with `nix eval` and never builds checks, so only an eval-time failure
@@ -22,9 +20,11 @@ let
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
       firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
       logseq.extended.disableGpuCompositing = lib.mkOverride 1100 false;
+      collision.extended.enable = lib.mkOverride 1100 false;
     };
     services = {
       espanso.extended.x11Override = lib.mkOverride 1100 false;
+      collision.extended.x11Override = lib.mkOverride 1100 false;
     };
   };
 
@@ -92,10 +92,8 @@ let
   ];
 
   # Write side. The classifier decides where a path is READ from; these decide
-  # where it is WRITTEN. A regression here writes a services app's sub-toggle
-  # under programs, where the option is undeclared, while the classifier still
-  # resolves it correctly and reports it as diverging: green check, dead
-  # override.
+  # where it is WRITTEN. Full-path lookup gives programs precedence and uses
+  # services only when the path is absent from programs.
   routingCases = [
     {
       name = "programs toggle lands under programs";
@@ -119,6 +117,30 @@ let
       name = "services toggle does not land under programs";
       namespace = "programs";
       toggles = [ (toggle [ "espanso" "extended" "x11Override" ] true) ];
+      present = false;
+    }
+    {
+      name = "same-head programs path lands under programs";
+      namespace = "programs";
+      toggles = [ (toggle [ "collision" "extended" "enable" ] true) ];
+      present = true;
+    }
+    {
+      name = "same-head programs path does not land under services";
+      namespace = "services";
+      toggles = [ (toggle [ "collision" "extended" "enable" ] true) ];
+      present = false;
+    }
+    {
+      name = "same-head services-only path lands under services";
+      namespace = "services";
+      toggles = [ (toggle [ "collision" "extended" "x11Override" ] true) ];
+      present = true;
+    }
+    {
+      name = "same-head services-only path does not land under programs";
+      namespace = "programs";
+      toggles = [ (toggle [ "collision" "extended" "x11Override" ] true) ];
       present = false;
     }
   ];

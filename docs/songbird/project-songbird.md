@@ -4,9 +4,9 @@ Host: `songbird`.
 
 High-end Intel Arrow Lake workstation, productivity first (compilation, local
 LLM work) and gaming second. Functional, not pretty, no RGB. This revision
-reflects the final purchased build as validated on 2026-07-20 and supersedes
+reflects the final purchased build and supersedes
 the earlier Thermaltake CTE C750 / Gigabyte 5080 / ARCTIC 420 plan in full.
-The [Verified Inventory](#verified-inventory-2026-08-29) section records what
+The [Verified Inventory](#verified-inventory) section records what
 the assembled machine actually enumerates; where it differs from the tables
 below, the inventory wins.
 
@@ -34,7 +34,7 @@ needed to plan, assemble, and operate the host; the OS plan lives in
 | Fan hub       | ARCTIC Case Fan Hub (10-port PWM, SATA)          | ACFAN00175A            |
 | Thermal paste | Noctua NT-H2 (3.5g, AM5 Edition)                 | NT-H2 3.5g AM5         |
 
-Procurement state (2026-07-20): everything is purchased. All parts gating
+Procurement state: everything is purchased. All parts gating
 assembly are on hand. The SN8100 is ordered but not yet shipped and gates only
 OS installation. The P14 Pro 5-pack and the ARCTIC hub arrive 27-31 July,
 after assembly day, and gate only the deferred Phase 8 fan swap; the build
@@ -42,13 +42,13 @@ completes on the case's five stock fans first.
 
 ## Storage Inventory
 
-As enumerated on the assembled machine (2026-08-29, `lsblk` and
+As enumerated on the assembled machine (`lsblk` and
 `/sys/class/nvme`).
 
 | Disk | Device                                                          | Bus / slot                            | State and role on songbird                                                                               |
 | ---- | --------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
 | A    | WD_BLACK SN8100 4TB (sn 252415800489, fw 830ZRR05)              | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`)  | NixOS: 1 GiB ESP, LUKS2 ext4 root, 51 GiB LUKS2 swap (`modules/songbird/hardware-config.nix`)            |
-| S    | Samsung 860 PRO 2TB SATA (ex system76 `/data`, LUKS2 + XFS)     | SATA 6 Gb/s, chipset (`0000:80:17.0`) | Mounted at `/data` unchanged (same LUKS header UUID as on system76)                                      |
+| S    | Samsung 860 PRO 2TB SATA (LUKS2 + XFS)                          | SATA 6 Gb/s, chipset (`0000:80:17.0`) | Mounted at `/data`                                                                                       |
 | W    | WDC PC SN720 1TB (sn 192461421492, fw 10160101), NTFS `WD 1 TB` | Chipset M.2 (`0000:82:00.0`)          | Plain NTFS on an MBR table, mounted at `/shared` (kernel ntfs3, `nofail`); the drive shared with Windows |
 
 Slot rule: M.2_3 and M.2_4 stay empty permanently. Populating either drops
@@ -75,8 +75,7 @@ the GPU slot from PCIe 5.0 x16 to x8.
 ### Motherboard: ASUS ROG Maximus Z890 Hero
 
 - LGA1851, Intel Z890, ATX (30.5 x 24.4 cm). Native Core Ultra Series 2
-  support. Latest BIOS as of 2026-07-19 was 3202 (2026-05-08); the board runs
-  3305 (2026-07-27), flashed before the OS install.
+  support. The board runs BIOS 3305, flashed before the OS install.
 - Memory: 4x DIMM, up to DDR5-9200+ (OC) with CUDIMM support. The build's
   exact kit (Ver 5.53.13) is on the ASUS QVL at 8400 MT/s in 1- and 2-DIMM
   population, not 4.
@@ -257,7 +256,7 @@ Gentle shared curve: about 600-900 RPM idle, 1200-1400 RPM under load.
   probe-completion order and is reshuffled between boots. Address a drive
   by PCI address or serial, never by index.
 
-## Verified Inventory (2026-08-29)
+## Verified Inventory
 
 | Device                                                                                             | PCI / USB id | Address               | Driver                                                        |
 | -------------------------------------------------------------------------------------------------- | ------------ | --------------------- | ------------------------------------------------------------- |

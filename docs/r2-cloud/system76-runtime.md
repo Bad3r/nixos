@@ -27,8 +27,8 @@ contract that applies when the policy enables it.
 - `disabledReason` explaining how to restore the readiness flag and encrypted
   payload if either is unavailable
 
-`modules/system76/policy.nix` currently sets `r2RuntimeReady = true`, and the
-common baseline defaults `security.r2CloudSecrets.enable` and
+`modules/system76/policy.nix` supplies `r2RuntimeReady`, and the common baseline
+defaults `security.r2CloudSecrets.enable` and
 `home.r2Secrets.enable` on. With `secrets/r2.yaml` present, the evaluated
 configuration imports both producer modules and enables the `r2-*` units,
 runtime secret files, and the owner user's `r2` wrapper. If readiness or the
@@ -76,6 +76,10 @@ Configured mounts (in `modules/lib/r2-runtime.nix`):
 - credentials/account/password paths all sourced from `/run/secrets/r2/*`
 
 ## Runtime Ownership and Filesystem Contract
+
+System76 has no dedicated `/data` filesystem. The R2 paths below are therefore
+root-backed on that host. Capacity and failure behavior for these paths follow
+the root filesystem rather than a separate mount.
 
 - `programs.fuse.userAllowOther = true` is enabled.
 - Service units run as `vx` user/group for:

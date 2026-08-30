@@ -103,7 +103,7 @@ _: {
 
 `firewallDnsInterfaces` is required: `modules/hosts/common/firewall.nix` throws
 when the key is absent, so a misspelling cannot fall back to no rule silently.
-Leave it empty, as both current hosts now do, unless the host actually serves
+Leave it empty unless the host actually serves
 DNS or DHCP to the network. It opens inbound UDP 53/67 and
 TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
 that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
@@ -160,9 +160,11 @@ it, as `modules/songbird/networking.nix` and `modules/system76/networking.nix`
 do for every NIC, add `Name=` to that entry and delete its `NamePolicy=` rather
 than adding a second file: udev applies only the first matching file, so a new
 one renames nothing while `pinnedNamesOf` still counts its `Name=` as a declared
-name. `modules/hosts/common/firewall.nix` asserts against both shapes, a second
-`.link` for a device that already has one and a single file carrying `Name=` and
-`NamePolicy=` together, so following this section without that step fails
+name. `modules/hosts/common/firewall.nix` also rejects duplicate names on
+device-specific pins and broad, empty, globbed, or multi-valued matches that
+precede another enabled `.link`. It asserts against a second `.link` for a
+device that already has one and a single file carrying `Name=` and
+`NamePolicy=` together, so following this section without those steps fails
 `nix flake check`.
 
 A device that needs no pinned name still wants that last line, because

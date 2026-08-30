@@ -13,8 +13,8 @@ let
     "192.168.0.0/16"
   ];
 
-  # Bound once each: the three classifier outputs stay mutually consistent only
-  # while both patterns are single-sourced.
+  # Bound once each: the classifier outputs stay mutually consistent only while
+  # both patterns are single-sourced.
   # enp4s0, eno1, ens3, wlp0s20f3, wwp0s20f0u2, ibp5s0, and the enP2p1s0 form
   # systemd.net-naming-scheme(7) emits as prefix[Pdomain]sslot when the PCI
   # domain is not 0. Prefixes are the full table from that page: en, wl, ww, ib,
@@ -56,7 +56,7 @@ let
       ) dnsInterfaces;
       # The scheme the host does not boot with, so these names match no device.
       # Selected here rather than in the assertion so the check table covers the
-      # choice: both hosts pass an empty dnsInterfaces, which makes an inverted
+      # choice: a host policy with an empty dnsInterfaces would make an inverted
       # guard green in every closure.
       staleScheme = if predictable then kernelNames else predictableNames;
     };
@@ -111,6 +111,25 @@ let
     matchConfig:
     lib.any (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
 
+  # Labels for the singleton selectors that identify one device. An empty list
+  # means the file is broad or unbound in the static model below.
+  selectorsOf =
+    link:
+    let
+      matchConfig = link.matchConfig or { };
+      bound = lib.filter (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
+    in
+    map (
+      key:
+      "${key}=${
+        lib.head (
+          lib.filter (t: lib.isString t && t != "") (
+            lib.concatMap (builtins.split "[[:space:]]+") (lib.toList matchConfig.${key})
+          )
+        )
+      }"
+    ) bound;
+
   # Names a .link Name= creates on a host, such as wifi0. A disabled unit is
   # never installed and a match-all file does not bind a name to a device, so
   # neither counts as a pin.
@@ -125,6 +144,17 @@ let
           link.linkConfig.Name or null
       ) links
     );
+
+  # Two enabled device-specific files cannot safely create the same interface
+  # name. One rename wins, while declaredNamesOf would otherwise treat the
+  # duplicate as backed even when one of the pins does not produce the intended
+  # interface name.
+  duplicatePinsOf =
+    links:
+    let
+      names = pinnedNamesOf links;
+    in
+    lib.unique (lib.filter (name: lib.count (other: other == name) names > 1) names);
 
   # Pins into a namespace the kernel assigns itself. systemd.link(5) on Name=:
   # "specifying a name that the kernel might use for another interface (for
@@ -147,8 +177,8 @@ let
 
   # Files that pin a name and also carry a policy that outranks it.
   # systemd.link(5) gives Name= the lower precedence of the two, so the policy
-  # wins and the pin silently does not apply. Both hosts' altname-narrowing
-  # files carry NamePolicy= and no Name=, which is the shape that needs it, so
+  # wins and the pin silently does not apply. Altname-narrowing files carry
+  # NamePolicy= and no Name=, which is the shape that needs it, so
   # adding a Name= there is the natural way to satisfy the kernel-name warning
   # and the one that does not work. Keyed on both keys rather than on Name=
   # alone, which is what pinnedNamesOf and collidingPinsOf read, so neither of
@@ -164,39 +194,30 @@ let
 
   # Enabled .link units that bind the same device by the same selector. udev
   # applies only the first matching file, so every later one is discarded, but
-  # pinnedNamesOf reads Name= off all of them. A second file added to pin a
-  # device that already has one therefore renames nothing while putting its name
-  # into declaredNames, which subtracts it out of kernelNames and unbackedNames
-  # and silences every guard here against a name that matches no device. Both
-  # wired hosts already ship a .link for each NIC, so that is the shape the
-  # kernel-name warning invites.
+  # pinnedNamesOf reads Name= off all of them. The shadowed name would otherwise
+  # enter declaredNames and hide a firewall opening for a name that matches no
+  # device. Wired hosts commonly ship a .link for each NIC, so that is the shape
+  # the kernel-name warning invites.
   shadowedLinksOf =
     links:
     let
-      # Every binding key, not just the first: a file that repeats another
-      # file's PermanentMACAddress= while also carrying a Path= would be keyed
-      # on Path= alone and read as binding a different device.
-      selectorsOf =
-        link:
-        let
-          matchConfig = link.matchConfig or { };
-          bound = lib.filter (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
-        in
-        map (
-          key:
-          "${key}=${
-            lib.head (
-              lib.filter (t: lib.isString t && t != "") (
-                lib.concatMap (builtins.split "[[:space:]]+") (lib.toList matchConfig.${key})
-              )
-            )
-          }"
-        ) bound;
       selectors = lib.concatMap (link: if link.enable or true then selectorsOf link else [ ]) (
         lib.attrValues links
       );
     in
     lib.unique (lib.filter (s: lib.count (x: x == s) selectors > 1) selectors);
+
+  # An enabled file without a singleton device-binding selector can match the
+  # first device udev initializes and shadow every later file. This deliberately
+  # includes broad class or name matches: the static model cannot prove that one
+  # will not shadow a later file for another device class.
+  unboundLinksOf =
+    links:
+    let
+      enabled = lib.filterAttrs (_: link: link.enable or true) links;
+      names = lib.attrNames enabled;
+    in
+    lib.filter (name: selectorsOf enabled.${name} == [ ] && lib.any (other: other > name) names) names;
 
   # Interfaces a host declares rather than inherits from a NIC. Exported with
   # the classifier so the check can assert every source is still read.
@@ -271,8 +292,10 @@ let
       predictable = config.networking.usePredictableInterfaceNames;
       declaredNames = declaredNamesOf config;
       collidingPins = collidingPinsOf config.systemd.network.links;
+      duplicatePins = duplicatePinsOf config.systemd.network.links;
       policyOverriddenPins = policyOverriddenPinsOf config.systemd.network.links;
       shadowedLinks = shadowedLinksOf config.systemd.network.links;
+      unboundLinks = unboundLinksOf config.systemd.network.links;
       inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
         staleScheme
@@ -322,6 +345,15 @@ let
             + "udev never reads.";
         }
         {
+          assertion = duplicatePins == [ ];
+          message =
+            "${hostName}: enabled systemd.network.links units assign the same pinned "
+            + "name (${lib.concatStringsSep ", " duplicatePins}) to multiple device-specific "
+            + "files. One rename wins, while the duplicate name would still count as declared "
+            + "here even when one pin does not produce the intended interface name. Pin one "
+            + "device per name.";
+        }
+        {
           assertion = policyOverriddenPins == [ ];
           message =
             "${hostName}: systemd.network.links units "
@@ -337,9 +369,17 @@ let
             "${hostName}: more than one enabled systemd.network.links unit binds "
             + "(${lib.concatStringsSep ", " shadowedLinks}). udev applies only the first "
             + "matching file, so the rest are never read, while pinnedNamesOf still counts "
-            + "their Name= as a declared name and silences the guards here for a name that "
-            + "matches no device. Add Name= to the file that already matches the device "
+            + "their Name= as a declared name. The shadowed file can therefore mask a name "
+            + "that matches no device. Add Name= to the file that already matches the device "
             + "instead of authoring a second one (docs/networking/README.md).";
+        }
+        {
+          assertion = unboundLinks == [ ];
+          message =
+            "${hostName}: enabled systemd.network.links units (${lib.concatStringsSep ", " unboundLinks}) "
+            + "have no singleton Path= or PermanentMACAddress= selector and precede another .link. "
+            + "A broad or unbound file can match the first device udev initializes and shadow later "
+            + "files. Give it a singleton device selector or place it after the specific files.";
         }
       ];
 
@@ -407,8 +447,10 @@ in
       _firewallDnsPinnedNamesOf = pinnedNamesOf;
       _firewallDnsDeclaredNamesOf = declaredNamesOf;
       _firewallDnsCollidingPinsOf = collidingPinsOf;
+      _firewallDnsDuplicatePinsOf = duplicatePinsOf;
       _firewallDnsPolicyOverriddenPinsOf = policyOverriddenPinsOf;
       _firewallDnsShadowedLinksOf = shadowedLinksOf;
+      _firewallDnsUnboundLinksOf = unboundLinksOf;
     };
     nixosModules.hosts-common.imports = [ body ];
   };

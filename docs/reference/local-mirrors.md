@@ -9,6 +9,11 @@ every host that opts into the common host baseline.
 The shared mirror root is defined in `modules/git/mirror-root.nix`.
 Repositories sync to flat paths under `/data/git`.
 
+Mount placement follows each host's `fileSystems` definition. When `/data`
+encloses `/data/git`, the mirror root is gated on that mount. Otherwise it is
+provisioned on the root filesystem through the null branch of
+`enclosingMountOf`. The coverage check exercises both branches.
+
 - **Host enablement**: Common hosts get `localMirrors.enable = true;` and
   `home-manager.users.${metaOwner.username}.programs.gitMirror.enable = true;`
   from `modules/hosts/common/mirrors.nix`

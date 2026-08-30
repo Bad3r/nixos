@@ -1,17 +1,10 @@
 _: {
   configurations.nixos.system76.module =
     {
-      config,
       lib,
       pkgs,
-      metaOwner,
       ...
     }:
-    let
-      owner = metaOwner.username;
-      ownerCfg = lib.attrByPath [ "users" "users" owner ] { } config;
-      ownerGroup = ownerCfg.group or owner;
-    in
     {
       # Platform configuration (required)
       nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
@@ -75,11 +68,6 @@ _: {
               "luks-42ddd341-f150-4d0e-b5a9-d3f209688b64".device =
                 "/dev/disk/by-uuid/42ddd341-f150-4d0e-b5a9-d3f209688b64";
 
-              # Data device on SATA SSD (LUKS2 over XFS)
-              data = {
-                device = "/dev/disk/by-uuid/183d1f98-e95d-4d6c-89de-cbed409bd9a0";
-                allowDiscards = true; # enable TRIM passthrough for SSD
-              };
             };
           };
         };
@@ -109,14 +97,6 @@ _: {
           ];
         };
 
-        # Mount for encrypted XFS volume on /dev/sda1 (via /dev/mapper/data)
-        "/data" = {
-          device = "/dev/disk/by-uuid/66f87ae8-7a0a-4b98-9c7e-78d72bde1e5c";
-          fsType = "xfs";
-          options = [
-            "noatime"
-          ];
-        };
       };
 
       # Swap device (references the decrypted swap UUID)
@@ -129,23 +109,6 @@ _: {
           tapping = true;
           middleEmulation = true;
           naturalScrolling = true;
-        };
-      };
-
-      # Ensure mountpoint exists declaratively
-      systemd.tmpfiles.rules = [
-        "d /data 0755 ${owner} ${ownerGroup} -"
-      ];
-
-      systemd.services."data-ownership" = {
-        description = "Ensure /data ownership matches primary user";
-        wantedBy = [ "multi-user.target" ];
-        after = [ "data.mount" ];
-        requires = [ "data.mount" ];
-        unitConfig.RequiresMountsFor = [ "/data" ];
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
         };
       };
 

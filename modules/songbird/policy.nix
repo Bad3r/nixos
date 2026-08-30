@@ -6,10 +6,10 @@ _: {
     # every other host with no HostName. Move both keys here from
     # modules/system76/policy.nix as soon as `tailscale ip -4` reports it.
 
-    # Shared readiness gate read by modules/hosts/common/*. Flip after the
-    # canonical age identity is installed at /var/lib/sops-nix/key.txt and
+    # Shared readiness gate read by modules/hosts/common/*. The canonical age
+    # identity is installed at /var/lib/sops-nix/key.txt and
     # ~/.config/sops/age/keys.txt (docs/sops/README.md, Host Preparation).
-    sopsRuntimeReady = false;
+    sopsRuntimeReady = true;
 
     # Host runtime gate read by modules/songbird/r2-runtime.nix.
     r2RuntimeReady = false;
