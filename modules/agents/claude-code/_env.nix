@@ -26,14 +26,12 @@
 */
 let
   # Privacy, telemetry, error-reporting, and update disables baked into the binary.
-  # These replace CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC (retired below), whose
-  # single switch also blocked release notes, model discovery, and availability
-  # checks, so a feature gated behind those never reached the client.
+  # These hold on every launch, including claude-rc, which lifts only the two
+  # `launchOnly` names below.
   binary = {
     DISABLE_AUTOUPDATER = "1";
     DISABLE_UPDATES = "1";
     DISABLE_ERROR_REPORTING = "1";
-    DISABLE_TELEMETRY = "1";
     DISABLE_INSTALLATION_CHECKS = "1";
     # In `binary` rather than `shellOnly` so a bare `claude` also loses /bug.
     DISABLE_BUG_COMMAND = "1";
@@ -42,6 +40,22 @@ let
     OTEL_METRICS_INCLUDE_ACCOUNT_UUID = "false";
     OTEL_METRICS_INCLUDE_SESSION_ID = "false";
   };
+
+  # Applied by the wrappers behind `launchOnlyEscape` rather than set outright.
+  # Both names feed x() in the 2.1.247 binary, and any non-"default" result
+  # makes vB() false, which is the gate `claude rc` fails on ("Remote Control
+  # requires feature-flag evaluation"). An entry in `settings` or `binary` is
+  # applied in-process, where no outer wrapper reaches, so claude-rc would have
+  # no way to opt back in. The guard keeps the default launch as restrictive as
+  # an unconditional set would, and confines the opt-in to claude-rc.
+  launchOnly = {
+    CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
+    DISABLE_TELEMETRY = "1";
+  };
+
+  # Set by claude-rc to skip `launchOnly` for one launch. Read only by this
+  # repo's wrappers; Claude Code never looks at it.
+  launchOnlyEscape = "CLAUDE_CODE_ALLOW_FEATURE_FLAGS";
 
   # Bash tool knobs Claude also reads from settings.json `env`.
   bashRuntime = {
@@ -74,9 +88,6 @@ let
   # Names permanently removed from managed environment groups. These stay out
   # of `settings` and `all`; activation and launch wrappers always remove them.
   retired = [
-    # Any value opts out, including "0" and "false", so it has to be unset
-    # rather than zeroed for nonessential traffic to reach the network.
-    "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC"
     "CLAUDE_CODE_ENABLE_TELEMETRY"
     "DISABLE_NON_ESSENTIAL_MODEL_CALLS"
   ];
@@ -87,6 +98,13 @@ let
   };
   activeEnv = binary // bashRuntime // modelRouting // shellOnly;
   retiredButLive = builtins.filter (name: builtins.hasAttr name activeEnv) retired;
+  # Names the binary wrapper and settings.json must never carry: `retired`
+  # because it is gone for good, `launchOnly` because an in-process assignment
+  # outranks the wrapper guard that is supposed to lift it.
+  stripped = retired ++ builtins.attrNames launchOnly;
+  launchOnlyButLive = builtins.filter (
+    name: builtins.hasAttr name activeEnv || builtins.elem name retired
+  ) (builtins.attrNames launchOnly);
   # A legacy name may be active with a replacement value, but an active value
   # equal to its legacy value would be removed by every migration consumer.
   legacyEnvValueConflicts = builtins.filter (
@@ -272,7 +290,7 @@ let
   # release notes, model discovery refreshes, and availability checks. Setting
   # it to 0 or false still disables this traffic; unset the variable to allow
   # it again.
-  # CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "";   # RETIRED below
+  # CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "";   # ACTIVE above, via launchOnly
   # Set to 1 to enable OpenTelemetry data collection for metrics and logging. [1 or unset]
   # CLAUDE_CODE_ENABLE_TELEMETRY = "1";   # RETIRED below
   # Maximum length of content-bearing OpenTelemetry attributes (model
@@ -300,7 +318,7 @@ let
   # Set to any non-empty value, such as 1, to opt out of telemetry. **Setting
   # it to 0 or false still opts out**, unlike most on/off variables; unset the
   # variable to turn telemetry back on.
-  # DISABLE_TELEMETRY = "";   # ACTIVE above
+  # DISABLE_TELEMETRY = "";   # ACTIVE above, via launchOnly
   # Set to 1 to block all updates including manual claude update and claude install. [1 or unset]
   # DISABLE_UPDATES = "1";   # ACTIVE above
   # Set to 1 to force plugin auto-updates even when the main auto-updater is disabled via DISABLE_AUTOUPDATER. [1 or unset]
@@ -1294,8 +1312,18 @@ assert
 assert
   legacyEnvValueConflicts == [ ]
   || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " legacyEnvValueConflicts} are live with their legacy value; remove the name from its live group or update legacyEnvValues";
+assert
+  launchOnlyButLive == [ ]
+  || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " launchOnlyButLive} are in launchOnly and also live or retired; launchOnly owns the name alone or the wrapper guard cannot lift it";
 {
-  inherit binary legacyEnvValues retired;
+  inherit
+    binary
+    launchOnly
+    launchOnlyEscape
+    legacyEnvValues
+    retired
+    stripped
+    ;
   settings = binary // bashRuntime // modelRouting;
   all = binary // bashRuntime // modelRouting // shellOnly;
 }
