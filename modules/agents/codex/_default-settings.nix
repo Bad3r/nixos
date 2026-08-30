@@ -68,7 +68,6 @@
     fast_mode = true;
     realtime_conversation = false;
     prevent_idle_sleep = false;
-    remote_compaction_v2 = false;
     workspace_dependencies = true;
   };
   feedback = {
