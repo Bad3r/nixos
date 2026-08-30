@@ -94,7 +94,7 @@ Scope:
     - storage diagnostic wrappers with `CAP_SYS_ADMIN` / `CAP_SYS_RAWIO` for:
       - `smartctl`
       - `nvme`
-      - `hdparm`
+      - `hdparm` (when the hdparm app module is enabled; disabled on tpnix)
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
     - the wrappers are whole-binary, so destructive subcommands such as

@@ -48,7 +48,10 @@ Scope:
       - `kernel.dmesg_restrict = 0`
     - available without sudo because `kernel.dmesg_restrict = 0`.
 - Partition and device inventory:
-  - `fdisk ...`, `lsblk ...`, `blkid ...`, `parted ...`, `sgdisk ...`, `gdisk ...`
+  - `fdisk ...`, `lsblk ...`, `blkid ...`
+    - always present: `util-linux` is in the nixpkgs `corePackageNames` base
+      system, not an app module.
+  - `parted ...` (when the parted app module is enabled; disabled on tpnix)
   - mechanism:
     - `disk` group membership
   - available without sudo because block device nodes are `root:disk 0660` and
@@ -56,7 +59,7 @@ Scope:
 - Storage health diagnostics:
   - `smartctl ...`
   - `nvme ...`
-  - `hdparm ...`
+  - `hdparm ...` (when the hdparm app module is enabled; disabled on tpnix)
   - mechanism:
     - `security.wrappers` with `CAP_SYS_ADMIN` (`nvme`) or `CAP_SYS_ADMIN` plus
       `CAP_SYS_RAWIO` (`smartctl`, `hdparm`)
@@ -123,9 +126,11 @@ Scope:
       The common host baseline disables the optional wheel systemd
       unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`
-  - `getcap /run/wrappers/bin/smartctl /run/wrappers/bin/nvme /run/wrappers/bin/hdparm`
+  - `getcap /run/wrappers/bin/smartctl /run/wrappers/bin/nvme`
+    - add `/run/wrappers/bin/hdparm` where the hdparm app module is enabled.
   - `ls -l /dev/nvme0 /dev/ng0n1 /dev/nvme0n1`
     - all three should be group `disk` with mode `0660`.
-  - `smartctl -a /dev/nvme0n1`, `nvme smart-log /dev/nvme0`, `hdparm -I /dev/sda`
+  - `smartctl -a /dev/nvme0n1`, `nvme smart-log /dev/nvme0`
     - each should print device data instead of `Permission denied` or
       `Operation not permitted`.
+    - `hdparm -I /dev/sda` applies only where the hdparm app module is enabled.
