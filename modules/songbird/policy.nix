@@ -14,6 +14,11 @@ _: {
     # Host runtime gate read by modules/songbird/r2-runtime.nix.
     r2RuntimeReady = false;
 
+    # The CachyOS kernel is built from source on songbird and has no configured
+    # substituter. Keep the kernel module local to that host's build while
+    # retaining cache coverage for nvidia-x11 and nvidia-settings.
+    cacheRoots.nvidiaKernelModules = false;
+
     # Per-host values consumed by modules/hosts/common/*.
     duplicatiStateDirReadable = true;
     extraHomeApps = [
