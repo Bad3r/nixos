@@ -93,8 +93,10 @@ must provide a real mounted storage location before these profiles are used.
   - `r2-mount-docs`
   - `r2-bisync-docs`
   - `r2-restic-backup`
-- The current disabled policy installs no `systemd.tmpfiles` rules for these
-  paths.
+- The current disabled policy installs no `systemd.tmpfiles.rules` or
+  `systemd.tmpfiles.settings` entries for these paths. The
+  `system76-storage-safety` check scans both option forms so a future writer
+  cannot bypass the storage boundary by using structured tmpfiles settings.
 
 ## Quick Verification
 

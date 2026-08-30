@@ -18,7 +18,8 @@ let
   ];
   # systemd.tmpfiles.rules is a list of raw tmpfiles.d lines. Extract only the
   # path field, allowing modifier-bearing type tokens, so an argument or
-  # unrelated path cannot trigger or bypass this guard.
+  # unrelated path cannot trigger or bypass this guard. Structured settings
+  # are checked separately below because NixOS renders them independently.
   tmpfilesPath =
     rule:
     let
@@ -30,12 +31,52 @@ let
       builtins.substring 1 (builtins.stringLength token - 2) token
     else
       token;
-  tmpfilesPathMatchesData =
-    rule:
-    let
-      path = tmpfilesPath rule;
-    in
-    path == "/data" || lib.hasPrefix "/data/" path;
+  dataPathMatches = path: path == "/data" || lib.hasPrefix "/data/" path;
+  tmpfilesPathMatchesData = rule: dataPathMatches (tmpfilesPath rule);
+  tmpfilesSettingPathsFrom =
+    settings: lib.concatLists (lib.mapAttrsToList (_name: paths: lib.attrNames paths) settings);
+  tmpfilesSettingPaths = tmpfilesSettingPathsFrom host.systemd.tmpfiles.settings;
+  tmpfilesSettingPathTestCases = [
+    {
+      settings = {
+        "10-data" = {
+          "/data/r2" = {
+            d = { };
+          };
+        };
+      };
+      expected = [ "/data/r2" ];
+    }
+    {
+      settings = {
+        "10-unrelated" = {
+          "/var/lib/tailscale/data" = {
+            d = { };
+          };
+        };
+      };
+      expected = [ "/var/lib/tailscale/data" ];
+    }
+    {
+      settings = {
+        "10-multiple" = {
+          "/data" = {
+            d = { };
+          };
+          "/data-store" = {
+            d = { };
+          };
+        };
+      };
+      expected = [
+        "/data"
+        "/data-store"
+      ];
+    }
+  ];
+  tmpfilesSettingPathTestFailures = lib.filter (
+    test: tmpfilesSettingPathsFrom test.settings != test.expected
+  ) tmpfilesSettingPathTestCases;
   tmpfilesPathTestCases = [
     {
       rule = "d /data/r2 0750 vx users - -";
@@ -91,7 +132,13 @@ let
     ++ map (rule: "R2 data tmpfiles rule exists: ${rule}") (
       lib.filter tmpfilesPathMatchesData host.systemd.tmpfiles.rules
     )
-    ++ map (test: "tmpfiles path parser mismatch: ${test.rule}") tmpfilesPathTestFailures;
+    ++ map (path: "R2 data tmpfiles setting exists: ${path}") (
+      lib.filter dataPathMatches tmpfilesSettingPaths
+    )
+    ++ map (test: "tmpfiles path parser mismatch: ${test.rule}") tmpfilesPathTestFailures
+    ++ map (
+      test: "tmpfiles settings path extraction mismatch: ${lib.concatStringsSep ", " test.expected}"
+    ) tmpfilesSettingPathTestFailures;
 in
 {
   perSystem =
