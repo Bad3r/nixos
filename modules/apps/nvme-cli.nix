@@ -22,7 +22,7 @@
     * `nvme device-self-test /dev/nvme0 --start extended` -- Initiate an extended diagnostic self-test.
 
   Notes:
-    * `disk` group members run this without `sudo`: a capability wrapper supplies CAP_SYS_ADMIN and a udev rule opens the controller char nodes.
+    * `disk` group members run this without `sudo`: a capability wrapper supplies CAP_SYS_ADMIN and the shared storage policy opens the controller char nodes.
     * The wrapper covers the whole binary, so destructive subcommands (`format`, `sanitize`, `fw-commit`) also lose the sudo prompt.
 */
 _:
@@ -61,14 +61,6 @@ let
           group = "disk";
           permissions = "u+rx,g+x";
         };
-
-        # Only the namespace block nodes carry GROUP="disk"; the controller
-        # (/dev/nvme0) and generic (/dev/ng0n1) char nodes ship root:root 0600,
-        # which no capability in the wrapper set overrides.
-        services.udev.extraRules = ''
-          SUBSYSTEM=="nvme", KERNEL=="nvme[0-9]*", GROUP="disk", MODE="0660"
-          SUBSYSTEM=="nvme-generic", KERNEL=="ng[0-9]*", GROUP="disk", MODE="0660"
-        '';
       };
     };
 in

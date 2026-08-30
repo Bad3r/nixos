@@ -17,6 +17,8 @@ NixOS Infrastructure as Code using the [Dendritic Pattern](https://github.com/mi
 
 All Nix files are flake-parts modules and are automatically imported via [import-tree](https://github.com/vic/import-tree). Files prefixed with `_` are omitted. No literal path imports are used, so files can be moved and nested freely.
 
+Shared device policy that serves multiple optional applications belongs in `modules/hosts/common/`, so its permissions do not disappear when one app module is disabled.
+
 ## Build and Deployment
 
 This project uses a custom build script, [`build.sh`](build.sh), for validation and deployment:

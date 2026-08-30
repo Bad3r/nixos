@@ -79,6 +79,11 @@ host-specific module so per-host overrides still win. Every host under
 aborts evaluation for hosts without a registry entry, so a host cannot skip
 the common baseline silently.
 
+Shared device policy that serves multiple optional applications belongs in the
+common aggregate. For example,
+`modules/hosts/common/storage-diagnostics.nix` owns NVMe character-device
+permissions while app modules own their packages and capability wrappers.
+
 ```nix
 { ... }:
 let

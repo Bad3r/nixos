@@ -12,6 +12,7 @@ Scope:
   - `modules/security/polkit.nix`
   - `modules/hosts/common/sudo.nix`
   - `modules/hosts/common/boot.nix`
+  - `modules/hosts/common/storage-diagnostics.nix`
   - `modules/apps/smartmontools.nix`
   - `modules/apps/nvme-cli.nix`
   - `modules/apps/hdparm.nix`
@@ -89,7 +90,7 @@ Scope:
   - access:
     - raw block devices (e.g. `/dev/sda`, `/dev/nvme0n1`).
     - NVMe controller and generic char devices (`/dev/nvme0`, `/dev/ng0n1`) via
-      the udev rule in `modules/apps/nvme-cli.nix`.
+      the shared udev rule in `modules/hosts/common/storage-diagnostics.nix`.
     - storage diagnostic wrappers with `CAP_SYS_ADMIN` / `CAP_SYS_RAWIO` for:
       - `smartctl`
       - `nvme`

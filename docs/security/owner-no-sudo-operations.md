@@ -12,10 +12,12 @@ Scope:
   - `modules/hosts/common/sudo.nix`
 - kernel setting affecting `dmesg`:
   - `modules/hosts/common/boot.nix`
-- storage capability wrappers and the NVMe char-device udev rule:
+- storage capability wrappers:
   - `modules/apps/smartmontools.nix`
   - `modules/apps/nvme-cli.nix`
   - `modules/apps/hdparm.nix`
+- shared NVMe char-device udev rule:
+  - `modules/hosts/common/storage-diagnostics.nix`
 
 ## Commands That Do Not Require `sudo`
 
@@ -70,11 +72,12 @@ Scope:
     - `ata_sas_scsi_ioctl()` requires both capabilities for `HDIO_DRIVE_CMD`,
       the ioctl behind `hdparm -I`.
   - NVMe char devices:
-    - a udev rule in `modules/apps/nvme-cli.nix` sets `GROUP="disk"` and
-      `MODE="0660"` on the `nvme` and `nvme-generic` subsystems, because the
-      kernel default of `root:root 0600` on `/dev/nvme0` and `/dev/ng0n1` is a
-      DAC check that no capability in the wrapper set overrides. Only the
-      namespace block nodes (`/dev/nvme0n1`) carry `disk` by default.
+    - a shared udev rule in `modules/hosts/common/storage-diagnostics.nix` sets
+      `GROUP="disk"` and `MODE="0660"` on the `nvme` and `nvme-generic`
+      subsystems, because the kernel default of `root:root 0600` on
+      `/dev/nvme0` and `/dev/ng0n1` is a DAC check that no capability in the
+      wrapper set overrides. Only the namespace block nodes (`/dev/nvme0n1`)
+      carry `disk` by default.
   - limitation:
     - the wrappers cover whole binaries, so destructive subcommands
       (`nvme format`, `nvme sanitize`, `hdparm --security-erase`) are
