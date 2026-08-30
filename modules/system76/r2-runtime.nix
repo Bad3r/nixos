@@ -18,7 +18,7 @@ in
     policy = {
       enableExternalFlake = ready;
       sopsRuntimeReady = ready;
-      disabledReason = "system76 R2 runtime is disabled; set flake.lib.nixos.hosts.system76.r2RuntimeReady = true and provide secrets/r2.yaml.";
+      disabledReason = "system76 R2 runtime is disabled because this host has no dedicated /data filesystem; re-enable only with a real mounted storage location and secrets/r2.yaml.";
     };
   };
 }

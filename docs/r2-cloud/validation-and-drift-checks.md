@@ -47,7 +47,7 @@ Expected result:
 
 ```bash
 nix flake check --accept-flake-config --no-build --offline
-nix build .#nixosConfigurations.system76.config.system.build.toplevel
+nix build .#nixosConfigurations.tpnix.config.system.build.toplevel
 # Focused rclone.conf ownership check (also part of nix flake check)
 nix build --accept-flake-config --no-link '.#checks.x86_64-linux."home-manager/rclone-config-ownership"'
 ```
@@ -65,8 +65,9 @@ Expected result:
 
 The secret checks require `security.r2CloudSecrets.enable` on the host; the
 unit checks additionally require the host R2 policy to enable the runtime.
-After a host policy enables the runtime, absent `r2-*` units or secret files in
-the deployed evaluated configuration indicate breakage.
+Run them on a host with the runtime enabled, currently `tpnix`. The system76
+host is expected to have no R2 units because its policy is disabled until a
+dedicated `/data` filesystem is available.
 
 ```bash
 test -s /run/secrets/r2/account-id
