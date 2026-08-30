@@ -153,7 +153,8 @@ applied to songbird's host package set.
   `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
   `.sops.yaml`, `README.md`
   Owned by the files module. Update source definitions instead of editing
-  generated output directly.
+  generated output directly. The managed-files check compares generated output
+  byte-for-byte, including final newlines.
 
 ## Local Mirrors
 

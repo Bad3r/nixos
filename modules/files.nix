@@ -54,7 +54,9 @@
         ] sortedList;
         joined = lib.concatLines withHeader;
       in
-      joined + "\n";
+      # The joined generated-file list already ends with its line separator.
+      # Avoid adding a second one, which leaves a blank line at EOF in README.md.
+      joined;
 
     perSystem =
       { pkgs, config, ... }:
