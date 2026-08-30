@@ -17,6 +17,11 @@ intentionally keep mirrors on the root filesystem use the null branch of
 override both mirror enablement options instead of creating a root fallback.
 The coverage check exercises both mount-resolution branches.
 
+The paths in this document are host-local and are not guaranteed to exist on
+every configured host. Check that `$LOCAL_MIRRORS` is set and that the selected
+path exists before using a mirror. Hosts with mirror enablement disabled must
+use the configured upstream or web source instead.
+
 - **Host enablement**: Hosts with the common `/data` storage policy get
   `localMirrors.enable = true;` and
   `home-manager.users.${metaOwner.username}.programs.gitMirror.enable = true;`
