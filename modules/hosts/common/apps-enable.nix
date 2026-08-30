@@ -399,6 +399,7 @@ let
       screenkey.extended.enable = lib.mkOverride 1100 true;
       "searchfox-cli".extended.enable = lib.mkOverride 1100 true;
       seclists.extended.enable = lib.mkOverride 1100 true;
+      sedutil.extended.enable = lib.mkOverride 1100 true;
       selenium.extended.enable = lib.mkOverride 1100 true;
       shellcheck.extended.enable = lib.mkOverride 1100 true;
       shfmt.extended.enable = lib.mkOverride 1100 true;
