@@ -177,6 +177,12 @@ cache-roots check fails if the module is published again or either userspace
 entry disappears. `nvidia-settings` remains gated on
 `hardware.nvidia.nvidiaSettings`.
 
+The full closure detector classifies the source-built CachyOS kernel and its
+modules as `local-only`, not `unexpected-local`, because stock nixpkgs has no
+corresponding `linux-cachyos` derivation. Do not add a `linux-cachyos*` glob to
+the allowlist: allowlist entries are reserved for served stock derivations
+that diverge through an accepted overlay or wrapper.
+
 `steam` is option-sourced because `modules/apps/steam.nix` installs nothing
 itself: it sets `programs.steam.enable` with `extraCompatPackages` and
 `extraPackages`, and upstream's `programs.steam.package` carries an `apply`
