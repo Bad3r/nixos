@@ -131,7 +131,7 @@ alongside free ones and redistribution is not evaluated at build time. See
 The cache carries unfree packages. This rests on the cache being consumed by
 its operator alone, not on any redistribution grant: most entries below
 (vscode, google-chrome, webex, charles, obsidian, veracrypt, ventoy-full,
-discord, dropbox, nomachine-client, burpsuite) are `unfree` with
+discord, dropbox, burpsuite) are `unfree` with
 `redistributable = false` in nixpkgs, so publishing them to an audience would
 violate their licenses. `nvidia-x11`, `firefox-bin`, and `steam` are the only
 unfree entries nixpkgs marks redistributable.
@@ -159,7 +159,6 @@ enables the last six.
 | firefoxpwa          | system76, tpnix |
 | google-chrome       | system76, tpnix |
 | john                | system76, tpnix |
-| nomachine-client    | system76, tpnix |
 | obsidian            | system76, tpnix |
 | p7zip-rar           | system76, tpnix |
 | planify             | system76, tpnix |

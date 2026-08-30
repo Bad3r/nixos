@@ -23,13 +23,13 @@ host key pin) and the Windows phases N3 to N5.
 | 1   | Dual boot: NixOS is the daily OS, Windows 11 exists for gaming (and Windows-side local AI).                                                                                                                                                                                                       |
 | 2   | Disk A (SN8100 4TB, M.2_1) belongs entirely to NixOS: GPT with 1 GiB ESP, LUKS2 ext4 root, LUKS2 swap. As built the swap is 51 GiB (the plan said 64 GiB); it still exceeds the 46 GiB of usable RAM, so hibernation stays possible.                                                              |
 | 3   | Swap is sized for hibernation (48 GB RAM) with headroom for build and LLM spikes.                                                                                                                                                                                                                 |
-| 4   | Disk B (the 2TB NVMe in M.2_2, a TOPMORE TPCIE501) belongs entirely to Windows 11 with BitLocker and its own ESP. NixOS never mounts B.                                                                                                                                                           |
-| 5   | The shared drive is the WDC SN720 1TB (NTFS label `WD 1 TB`) that arrived with the build, mounted on NixOS at `/shared` through the kernel ntfs3 driver with `nofail`. The BitLocker conversion the plan scheduled for a SATA drive is deferred to Phase N5 and targets this one.                 |
+| 4   | One SSD belongs entirely to Windows 11 with BitLocker and its own ESP.                                                                                                                                                                                                                            |
+| 5   | The shared drive is the WDC SN720 1TB (NTFS label `WD 1 TB`), mounted on NixOS at `/shared` through the kernel ntfs3 driver with `nofail`. The BitLocker conversion the plan scheduled for a SATA drive is deferred to Phase N5 and targets this one.                                             |
 | 6   | Each OS keeps its own ESP on its own disk: Windows updates cannot touch the NixOS boot chain.                                                                                                                                                                                                     |
 | 7   | Default boot is systemd-boot on A. Windows is selected via the firmware boot menu (F8) or a one-shot `efibootmgr --bootnext`.                                                                                                                                                                     |
 | 8   | No chainloading Windows through systemd-boot: the NixOS `boot.loader.systemd-boot.windows` entries boot via the EDK2 UEFI shell, which disturbs BitLocker's TPM measurements (PCR 4) and provokes recovery prompts.                                                                               |
 | 9   | Secure Boot stays off (unsigned systemd-boot, fleet standard). BitLocker therefore binds to the non-PCR7 TPM profile; that is expected.                                                                                                                                                           |
-| 10  | Migration: system76's `/data` volume (Samsung 860 PRO 2TB, LUKS2 + XFS) moved into songbird physically and stays `/data` there, same LUKS header, unlocked in the initrd as on system76. Nothing is copied onto A for it; system76's root and home contents are copied in Phase N3.               |
+| 10  | Migration: system76's `/data` volume (Samsung 860 PRO 2TB, LUKS2 + XFS) moved into songbird physically and stays `/data` there, same LUKS header, unlocked in the initrd.                                                                                                                         |
 | 11  | `/data` is therefore the mounted system76 volume, not a plain directory on A as the plan said.                                                                                                                                                                                                    |
 | 12  | `shareCommon = true`: songbird takes the full hosts-common baseline (zen kernel, systemd-boot, i3/X11, PipeWire, sops runtime, app baseline).                                                                                                                                                     |
 | 13  | GPU wiring via `flake.nixosModules.nvidia-gpu`: `open = true` (NVIDIA's open kernel modules, mandatory on Blackwell), production driver branch (595.x on the pinned nixpkgs; >= 570 required), `nouveau` blacklisted, `vaapi.backend = "nvidia"` with `"intel-media"` as the documented fallback. |
@@ -59,16 +59,7 @@ Disk W (WDC PC SN720 1TB, chipset M.2 `0000:82:00.0`): a single NTFS
 partition on an MBR table, filesystem UUID `1AE668D2E668B025`, label
 `WD 1 TB`, mounted at `/shared`.
 
-Disk B (TOPMORE TPCIE501 2TB, M.2_2 `0000:03:00.0`): reserved for Windows;
-the installer creates its own ESP + MSR + C: (BitLocker) there. It currently
-enumerates as controller `nvme2` with no namespace
-([project-songbird.md](project-songbird.md), caveat 10).
-
-Rationale for the split (recorded from the decision discussion): game loading
-is random-read and decompression bound, so Gen5 vs Gen4/Gen3 NVMe is a
-seconds-level difference at most and Windows loses nothing on B, while NixOS
-work (LLM weights, /nix, /data) uses A's 4 TB and full sequential speed
-daily. Separate disks also isolate the boot chains completely.
+Windows gets its own disk, with its own ESP + MSR + C: (BitLocker).
 
 ## Firmware (UEFI) Settings
 
@@ -79,7 +70,7 @@ referenced 3202.
 | Setting                       | Value                       | Why                                                              |
 | ----------------------------- | --------------------------- | ---------------------------------------------------------------- |
 | Secure Boot                   | Off                         | systemd-boot is unsigned (fleet standard)                        |
-| TPM (Intel PTT)               | On                          | BitLocker on B and W                                             |
+| TPM (Intel PTT)               | On                          | BitLocker                                                        |
 | Above 4G Decoding + ReBAR     | On                          | RTX 5080 performance; driver expects Resizable BAR               |
 | VT-x and VT-d                 | On                          | kvm-intel (hosts-common), vfio headroom                          |
 | XMP (DDR5-8400)               | On                          | Memtest ladder per assembly checklist: 8400 / 8000 / 7600 / 6400 |
@@ -88,8 +79,7 @@ referenced 3202.
 
 ## Hardware to NixOS Mapping
 
-Verified on the assembled machine on 2026-08-29 (full device table in
-[project-songbird.md](project-songbird.md), Verified Inventory).
+Full device table in [project-songbird.md](project-songbird.md).
 "hosts-common" means the shared baseline already covers it and no per-host
 code is needed.
 
@@ -104,7 +94,7 @@ code is needed.
 | Intel BE200 Wi-Fi 7 (`8086:272b`, `0000:86:00.0`)                         | iwlwifi + iwlmld, linux-firmware                            | Nothing needed; `wlan0` under `net.ifnames=0`                                                      |
 | Bluetooth 5.4 (Intel, USB `8087:0036`)                                    | btusb + btintel                                             | `flake.nixosModules.bluetooth` (hosts-common); `KernelExperimental` added in `hardware-config.nix` |
 | Audio: SupremeFX USB codec (`0b05:1b7c`), HDA `0000:80:1f.3`, NVIDIA HDMI | snd_usb_audio, snd_hda_intel (SOF path available), PipeWire | hosts-common (`pipewire.nix`); `sof-firmware` in `hardware-config.nix`                             |
-| NVMe (A, B, W) and SATA (S)                                               | nvme, ahci                                                  | hosts-common initrd module list                                                                    |
+| NVMe and SATA disks                                                       | nvme, ahci                                                  | hosts-common initrd module list                                                                    |
 | Thunderbolt 4 / USB4 (`0000:00:0d.2`)                                     | thunderbolt + bolt                                          | `services.hardware.bolt.enable` in `hardware-config.nix`                                           |
 | Board sensors                                                             | coretemp, `asus` WMI hwmon, spd5118, nvme                   | Monitoring only; fan control lives in BIOS Q-Fan                                                   |
 | AIO pump/fans                                                             | none (plain PWM)                                            | No OS dependency by design                                                                         |
@@ -268,21 +258,20 @@ at `/data` with its contents. What remains is system76's root and home:
 3. Leave the system76 originals untouched until Phase N4/N5 confirm nothing
    was missed; they are the rollback until then.
 
-### Phase N4: Final Windows installation on disk B
+### Phase N4: Final Windows installation
 
-0. Resolve caveat 10 first: disk B currently exposes no NVMe namespace.
-   `nvme id-ctrl /dev/nvme2`, `nvme list-ns /dev/nvme2`, the board's NVMe
-   settings, and reseating in M.2_2 are the checks; the Windows installer
-   cannot use a drive the firmware does not present either.
 1. Protect A's boot chain: disable the M.2_1 slot in UEFI (Advanced >
    Onboard Devices) if the firmware offers it; otherwise remove disk A
    (M.2_1 Q-Latch, board heatsink off). The Windows installer is known to
    drop its boot files onto whichever ESP it finds first. Disks S and W can
    stay: the installer only writes to the disk it is pointed at, but
    unplugging W avoids the wrong-drive mistake.
-2. Boot Windows 11 24H2+ installer USB, delete all partitions on B, install
-   to the empty disk. Windows creates its own ESP on B.
+
+2. Boot Windows 11 24H2+ installer USB, delete all partitions on the target,
+   install to the empty disk. Windows creates its own ESP there.
+
 3. Post-install, in an elevated shell:
+
    - `powercfg /h off` (kills hibernation and Fast Startup in one; required
      for safe NTFS sharing).
    - `reg add "HKLM\SYSTEM\CurrentControlSet\Control\TimeZoneInformation" /v RealTimeIsUniversal /t REG_DWORD /d 1 /f`
@@ -290,9 +279,10 @@ at `/data` with its contents. What remains is system76's root and home:
    - Enable BitLocker on C:. With Secure Boot off, Windows binds to the
      PCR 0,2,4,11 profile and warns about Secure Boot: expected (decision 9).
      Store the recovery key in the password manager.
+
 4. Re-enable / reinstall disk A. In UEFI, put the `Linux Boot Manager`
-   (systemd-boot on A) first in boot order; `Windows Boot Manager` (B)
-   second.
+   (systemd-boot on A) first in boot order; `Windows Boot Manager` second.
+
 5. Verify both OSes boot cleanly from the F8 firmware boot menu.
 
 ### Phase N5: Shared BitLocker conversion of W (optional)
@@ -395,18 +385,19 @@ prompts) and any shared-ESP scheme (decision 6).
 
 ## Open Items
 
-| Item                        | State                                                                | Lands in                                                                 |
-| --------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| LUKS, ext4, ESP, swap UUIDs | Done (harvested 2026-08-29)                                          | `hardware-config.nix`                                                    |
-| hostId                      | Done: `c93b3b3c`                                                     | `host-id.nix`                                                            |
-| Wired interface names       | Done: `eth0` (RTL8126, uplink), `eth1` (I226-V) in enumeration order | Kernel `net.ifnames=0`, no pin                                           |
-| Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                             | `project-songbird.md`                                                    |
-| Host SSH public key         | Pending the first boot on this configuration                         | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                 |
-| age identity                | Pending (Phase N2 step 3); gates `sopsRuntimeReady`                  | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix` |
-| Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff | `policy.nix` `tailnetIp`, `primary`                                      |
-| Disk B exact model          | Recorded: TOPMORE TPCIE501 2TB; no namespace visible (caveat 10)     | `project-songbird.md` Storage Inventory                                  |
-| Shared partition PARTUUID   | Only if Phase N5 converts W to BitLocker                             | `hardware-config.nix` crypttab entry                                     |
-| BitLocker keys (B, W)       | Windows BitLocker setup (Phases N4, N5)                              | Password manager; W password also to `/var/lib/secrets/shared-bitlk.key` |
+| Item                        | State                                                                     | Lands in                                                                 |
+| --------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
+| LUKS, ext4, ESP, swap UUIDs | Done (harvested 2026-08-29)                                               | `hardware-config.nix`                                                    |
+| hostId                      | Done: `c93b3b3c`                                                          | `host-id.nix`                                                            |
+| Wired interface names       | Done: `eth0` (RTL8126, uplink), `eth1` (I226-V) in enumeration order      | Kernel `net.ifnames=0`, no pin                                           |
+| Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                                  | `project-songbird.md`                                                    |
+| Host SSH public key         | Pending the first boot on this configuration                              | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                 |
+| age identity                | Pending (Phase N2 step 3); gates `sopsRuntimeReady`                       | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix` |
+| Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff      | `policy.nix` `tailnetIp`, `primary`                                      |
+| `/data` root key slot       | Added 2026-08-29; the unattended initrd unlock is untested until a reboot | LUKS header `183d1f98-…` (no repo change)                                |
+| Windows disk                | Not decided                                                               | Phase N4                                                                 |
+| Shared partition PARTUUID   | Only if Phase N5 converts W to BitLocker                                  | `hardware-config.nix` crypttab entry                                     |
+| BitLocker keys              | Windows BitLocker setup (Phases N4, N5)                                   | Password manager; W password also to `/var/lib/secrets/shared-bitlk.key` |
 
 ## Validation Ladder
 
@@ -465,3 +456,12 @@ Plus host-specific checks after the first boot:
 6. Firmware updates (BIOS) reset boot order and can reset PTT: after any
    BIOS update, re-check boot order, Secure Boot off, and expect one
    BitLocker recovery-key prompt on Windows.
+
+## TODO
+
+- for nixos boot partition, it must be increased to at least 10GiB.
+- Ensure that `system.stateVersion = "26.11"` or whatever latest is.
+- Disk S (Samsung 860 PRO 2TB, SATA `0000:80:17.0`) reformatted to a shared NTFS? /data (not decided yet).
+- rename /shared to /portal
+- In windows, ensure that all the samsung SSDs and other are using up to date firmware, may require formatting.
+- low priority: find a better way to manage boatloading, e.g. a separate new bootloader that allows for selecting moving to windows or nixos bootloader (bootchain..)
