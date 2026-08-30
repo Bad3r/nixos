@@ -1,8 +1,10 @@
 /*
   CachyOS kernel integration for songbird.
 
-  Nixpkgs does not currently package the CachyOS kernel, so the overlay remains
-  an input-specific dependency. No CachyOS substituter is configured here.
+  Nixpkgs does not currently package the CachyOS kernel, so the pinned overlay
+  remains an input-specific dependency. Its flake input follows root nixpkgs
+  to avoid a duplicate lock node, while no CachyOS substituter is configured
+  here.
 */
 { inputs, ... }:
 {

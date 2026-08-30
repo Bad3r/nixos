@@ -76,7 +76,7 @@ See the [sops documentation](docs/sops/README.md) for usage instructions.
 
 ## Flake Input Deduplication
 
-These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it. Remove any `dedupe_*` input once no `.follows` declaration references it.
+These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it. The table lists dedicated dedupe roots and canonical non-nixpkgs roots; ordinary root followers such as `nixpkgs` are declared beside each dependent input. Remove any `dedupe_*` input once no `.follows` declaration references it.
 
 | Input                 | Followed By                                                  |
 | --------------------- | ------------------------------------------------------------ |
@@ -97,3 +97,4 @@ The following files are defined in Nix and generated via [mightyiam/files](https
 - `.gitleaks.toml`
 - `.sops.yaml`
 - `README.md`
+
