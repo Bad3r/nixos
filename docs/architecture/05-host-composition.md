@@ -206,8 +206,8 @@ Each host uses the same two-stage app model:
    Host override files such as `modules/tpnix/apps-enable.nix` layer
    `lib.mkOverride 1000` overrides for entries where a host diverges.
    Nested overrides register full paths and route through `programs` first,
-   falling back to `services` for services-only paths; the shared FR-5 check
-   compares the same path in the same namespace.
+   falling back to `services` for services-only paths. Paths absent from both
+   namespaces are not written and are rejected by the shared FR-5 check.
 
 Home Manager wiring follows the same shape:
 

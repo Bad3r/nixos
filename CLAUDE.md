@@ -110,9 +110,10 @@ infinite recursion in the flake-parts module evaluator.
 `modules/tpnix/apps-enable.nix` layer overrides at `lib.mkOverride 1000` so the
 host value wins. User overrides at default priority 100 still win over both.
 Nested overrides register their full paths and route through programs first,
-then services for services-only paths. `modules/hosts/common/checks.nix` adds a
-flake-level `nix flake check` assertion that fails when a per-host override
-duplicates the common baseline value.
+then services for services-only paths. A path absent from both namespaces is
+never folded into either one and fails the FR-5 check as uncomparable.
+`modules/hosts/common/checks.nix` adds a flake-level `nix flake check` assertion
+that fails when a per-host override duplicates the common baseline value.
 
 ### Flake Input Deduplication
 

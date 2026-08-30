@@ -7,6 +7,7 @@
       "automatic-import"
       "build"
       "hm-package-pattern"
+      "app-wiring"
       "secrets"
       "flake-input-deduplication"
       "files"
@@ -87,6 +88,17 @@
           This repo uses a dual-module approach: NixOS modules install packages, HM modules configure them. To avoid duplicate installation, HM modules set `package = null` when supported.
 
           See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md#6-create-home-manager-module) for details.
+
+        '';
+
+      app-wiring =
+        # markdown
+        ''
+          ## App Wiring
+
+          Nested host app overrides register full option paths and route them through `programs` first, then `services` for services-only paths. A path absent from both baseline namespaces is rejected by the FR-5 check and is never written.
+
+          See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
 
         '';
 
