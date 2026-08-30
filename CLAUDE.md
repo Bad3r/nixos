@@ -131,6 +131,8 @@ Do not restate the local flake input naming table here. Read the generated
 README's "Flake Input Deduplication" section, whose source is
 `modules/readme.nix`, before changing root input names or follower
 relationships.
+The CachyOS kernel input follows root `nixpkgs`; its pinned overlay remains
+applied to songbird's host package set.
 
 ## Ownership Map
 

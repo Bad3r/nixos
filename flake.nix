@@ -80,8 +80,10 @@
     };
 
     nix-cachyos-kernel = {
-      # Build the CachyOS kernel locally for songbird.
+      # Build the CachyOS kernel locally for songbird; share the root nixpkgs
+      # lock node while keeping the pinned CachyOS overlay.
       url = "github:xddxdd/nix-cachyos-kernel/release";
+      inputs.nixpkgs.follows = "nixpkgs";
     };
 
     # nix-on-droid = {

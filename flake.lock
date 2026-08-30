@@ -1011,7 +1011,9 @@
       "inputs": {
         "flake-compat": "flake-compat_3",
         "flake-parts": "flake-parts_4",
-        "nixpkgs": "nixpkgs"
+        "nixpkgs": [
+          "nixpkgs"
+        ]
       },
       "locked": {
         "lastModified": 1788033655,
@@ -1121,16 +1123,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1787994130,
-        "narHash": "sha256-fcaFTLuyHlYKRKBjZ2TKE9+aC8s05v+JjN1X7X/EQJY=",
-        "owner": "NixOS",
+        "lastModified": 1788031421,
+        "narHash": "sha256-TdhFfPwWPqdMpjd1btjWeCR8inDIxUgf98jdkfkAEJI=",
+        "owner": "Bad3r",
         "repo": "nixpkgs",
-        "rev": "413a9b88e4284b6f118f8e565b3442ade07336ae",
+        "rev": "bbfa9c3e2948a236b58c7789a0d2111f15f3fa2d",
         "type": "github"
       },
       "original": {
-        "owner": "NixOS",
-        "ref": "nixos-unstable-small",
+        "owner": "Bad3r",
+        "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -1245,22 +1247,6 @@
       }
     },
     "nixpkgs_2": {
-      "locked": {
-        "lastModified": 1788031421,
-        "narHash": "sha256-TdhFfPwWPqdMpjd1btjWeCR8inDIxUgf98jdkfkAEJI=",
-        "owner": "Bad3r",
-        "repo": "nixpkgs",
-        "rev": "bbfa9c3e2948a236b58c7789a0d2111f15f3fa2d",
-        "type": "github"
-      },
-      "original": {
-        "owner": "Bad3r",
-        "ref": "nixpkgs-unstable",
-        "repo": "nixpkgs",
-        "type": "github"
-      }
-    },
-    "nixpkgs_3": {
       "locked": {
         "lastModified": 1783279667,
         "narHash": "sha256-/NAkDSsve+GNM0Bt6tleJdCGfsTlK89nPjkVOzZMo0s=",
@@ -1469,7 +1455,7 @@
         "nix-index-database": "nix-index-database",
         "nix-logseq-git-flake": "nix-logseq-git-flake",
         "nixos-hardware": "nixos-hardware",
-        "nixpkgs": "nixpkgs_2",
+        "nixpkgs": "nixpkgs",
         "nixvim": "nixvim",
         "node-cloudflare": "node-cloudflare",
         "r2-flake": "r2-flake",
@@ -1858,7 +1844,7 @@
     "wrangler": {
       "inputs": {
         "flake-parts": "flake-parts_7",
-        "nixpkgs": "nixpkgs_3"
+        "nixpkgs": "nixpkgs_2"
       },
       "locked": {
         "lastModified": 1783460135,
