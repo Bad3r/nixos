@@ -12,6 +12,9 @@ Scope:
   - `modules/security/polkit.nix`
   - `modules/hosts/common/sudo.nix`
   - `modules/hosts/common/boot.nix`
+  - `modules/apps/smartmontools.nix`
+  - `modules/apps/nvme-cli.nix`
+  - `modules/apps/hdparm.nix`
 
 ## Groups Assigned To Owner In Baseline Profile
 
@@ -85,8 +88,18 @@ Scope:
 
   - access:
     - raw block devices (e.g. `/dev/sda`, `/dev/nvme0n1`).
+    - NVMe controller and generic char devices (`/dev/nvme0`, `/dev/ng0n1`) via
+      the udev rule in `modules/apps/nvme-cli.nix`.
+    - storage diagnostic wrappers with `CAP_SYS_ADMIN` / `CAP_SYS_RAWIO` for:
+      - `smartctl`
+      - `nvme`
+      - `hdparm`
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
+    - the wrappers are whole-binary, so destructive subcommands such as
+      `nvme format` and `hdparm --security-erase` are passwordless as well.
+      Raw writes to the same devices were already possible through group
+      membership, so the wrappers do not extend the privilege boundary.
 
 ## Additional Owner Groups Added By Other Modules
 

@@ -17,9 +17,13 @@
     nvme device-self-test /dev/nvme0 --start short: Run a short self-test.
 
   Example Usage:
-    * `sudo nvme list` -- Discover NVMe devices attached to the system.
-    * `sudo nvme smart-log /dev/nvme0` -- Check drive temperature, media errors, and wear indicators.
-    * `sudo nvme device-self-test /dev/nvme0 --start extended` -- Initiate an extended diagnostic self-test.
+    * `nvme list` -- Discover NVMe devices attached to the system.
+    * `nvme smart-log /dev/nvme0` -- Check drive temperature, media errors, and wear indicators.
+    * `nvme device-self-test /dev/nvme0 --start extended` -- Initiate an extended diagnostic self-test.
+
+  Notes:
+    * `disk` group members run this without `sudo`: a capability wrapper supplies CAP_SYS_ADMIN and a udev rule opens the controller char nodes.
+    * The wrapper covers the whole binary, so destructive subcommands (`format`, `sanitize`, `fw-commit`) also lose the sudo prompt.
 */
 _:
 let
@@ -46,6 +50,25 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        # nvme_cmd_allowed() rejects every admin passthrough except a few
+        # identify CNS values without CAP_SYS_ADMIN, so smart-log, error-log,
+        # fw-log and telemetry fail with EACCES for a plain `disk` member.
+        security.wrappers.nvme = {
+          source = "${cfg.package}/bin/nvme";
+          capabilities = "cap_sys_admin+ep";
+          owner = "root";
+          group = "disk";
+          permissions = "u+rx,g+x";
+        };
+
+        # Only the namespace block nodes carry GROUP="disk"; the controller
+        # (/dev/nvme0) and generic (/dev/ng0n1) char nodes ship root:root 0600,
+        # which no capability in the wrapper set overrides.
+        services.udev.extraRules = ''
+          SUBSYSTEM=="nvme", KERNEL=="nvme[0-9]*", GROUP="disk", MODE="0660"
+          SUBSYSTEM=="nvme-generic", KERNEL=="ng[0-9]*", GROUP="disk", MODE="0660"
+        '';
       };
     };
 in

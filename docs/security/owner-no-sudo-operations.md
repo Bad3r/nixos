@@ -12,6 +12,10 @@ Scope:
   - `modules/hosts/common/sudo.nix`
 - kernel setting affecting `dmesg`:
   - `modules/hosts/common/boot.nix`
+- storage capability wrappers and the NVMe char-device udev rule:
+  - `modules/apps/smartmontools.nix`
+  - `modules/apps/nvme-cli.nix`
+  - `modules/apps/hdparm.nix`
 
 ## Commands That Do Not Require `sudo`
 
@@ -41,11 +45,46 @@ Scope:
     - mechanism:
       - `kernel.dmesg_restrict = 0`
     - available without sudo because `kernel.dmesg_restrict = 0`.
-- Disk management:
-  - `fdisk ...`
+- Partition and device inventory:
+  - `fdisk ...`, `lsblk ...`, `blkid ...`, `parted ...`, `sgdisk ...`, `gdisk ...`
   - mechanism:
     - `disk` group membership
-  - available without sudo because owner is in the `disk` group.
+  - available without sudo because block device nodes are `root:disk 0660` and
+    owner is in the `disk` group.
+- Storage health diagnostics:
+  - `smartctl ...`
+  - `nvme ...`
+  - `hdparm ...`
+  - mechanism:
+    - `security.wrappers` with `CAP_SYS_ADMIN` (`nvme`) or `CAP_SYS_ADMIN` plus
+      `CAP_SYS_RAWIO` (`smartctl`, `hdparm`)
+    - available to users in the `disk` group
+  - why group membership alone is not enough:
+    - `nvme_cmd_allowed()` rejects NVMe admin passthrough
+      (`NVME_IOCTL_ADMIN_CMD`) without `CAP_SYS_ADMIN`, so SMART, error, and
+      firmware logs fail with `Permission denied` even on a device node the
+      caller can open.
+    - the SG_IO command filter rejects ATA passthrough without `CAP_SYS_RAWIO`,
+      which is what makes `smartctl -d sat` report
+      `Read Device Identity failed: Operation not permitted` on SATA disks.
+    - `ata_sas_scsi_ioctl()` requires both capabilities for `HDIO_DRIVE_CMD`,
+      the ioctl behind `hdparm -I`.
+  - NVMe char devices:
+    - a udev rule in `modules/apps/nvme-cli.nix` sets `GROUP="disk"` and
+      `MODE="0660"` on the `nvme` and `nvme-generic` subsystems, because the
+      kernel default of `root:root 0600` on `/dev/nvme0` and `/dev/ng0n1` is a
+      DAC check that no capability in the wrapper set overrides. Only the
+      namespace block nodes (`/dev/nvme0n1`) carry `disk` by default.
+  - limitation:
+    - the wrappers cover whole binaries, so destructive subcommands
+      (`nvme format`, `nvme sanitize`, `hdparm --security-erase`) are
+      passwordless for `disk` members too. `disk` membership already permits raw
+      writes to the same devices, so this widens the blast radius of a typo
+      rather than the privilege boundary.
+  - side effect:
+    - `/run/wrappers/bin` precedes `/run/current-system/sw/bin` in `PATH`, so
+      users outside the `disk` group cannot execute `smartctl`, `nvme`, or
+      `hdparm` at all once wrapped.
 - Packet capture:
   - `wireshark`
   - `tcpdump`
@@ -81,3 +120,9 @@ Scope:
       The common host baseline disables the optional wheel systemd
       unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`
+  - `getcap /run/wrappers/bin/smartctl /run/wrappers/bin/nvme /run/wrappers/bin/hdparm`
+  - `ls -l /dev/nvme0 /dev/ng0n1 /dev/nvme0n1`
+    - all three should be group `disk` with mode `0660`.
+  - `smartctl -a /dev/nvme0n1`, `nvme smart-log /dev/nvme0`, `hdparm -I /dev/sda`
+    - each should print device data instead of `Permission denied` or
+      `Operation not permitted`.

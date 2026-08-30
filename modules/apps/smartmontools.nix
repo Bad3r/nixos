@@ -16,9 +16,13 @@
     smartd.conf: Configure daemon monitoring intervals and notification methods.
 
   Example Usage:
-    * `sudo smartctl -a /dev/sda` -- Review detailed health metrics and error logs.
-    * `sudo smartctl -t long /dev/sda` -- Initiate an extended self-test (run in background).
+    * `smartctl -a /dev/sda` -- Review detailed health metrics and error logs.
+    * `smartctl -a /dev/nvme0n1` -- Read the NVMe SMART/health, error and self-test logs.
+    * `smartctl -t long /dev/sda` -- Initiate an extended self-test (run in background).
     * Edit `/etc/smartd.conf` to schedule weekly tests and email alerts via `smartd`.
+
+  Notes:
+    * `disk` group members run `smartctl` without `sudo` through a capability wrapper carrying CAP_SYS_ADMIN and CAP_SYS_RAWIO.
 */
 _:
 let
@@ -45,6 +49,17 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        # Two separate kernel gates sit in front of SMART data: NVMe admin
+        # passthrough checks CAP_SYS_ADMIN, and the SG_IO command filter that
+        # ATA-over-SAT reads go through checks CAP_SYS_RAWIO.
+        security.wrappers.smartctl = {
+          source = "${cfg.package}/bin/smartctl";
+          capabilities = "cap_sys_admin,cap_sys_rawio+ep";
+          owner = "root";
+          group = "disk";
+          permissions = "u+rx,g+x";
+        };
       };
     };
 in
