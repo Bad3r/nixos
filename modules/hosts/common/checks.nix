@@ -146,8 +146,8 @@ let
   # by every host file, so the two halves cannot disagree about which namespace
   # a path belongs to. Full-path lookup matters when programs and services have
   # the same top-level name: a programs path must win, while a services-only
-  # path must fall back to services. A mismatch writes a valid-looking but
-  # undeclared override and leaves the comparison disconnected from it.
+  # path must fall back to services. A path absent from both namespaces is not
+  # written; the FR-5 check reports it as uncomparable.
   applySubToggles =
     snapshot: namespace: base: toggles:
     let
@@ -155,8 +155,10 @@ let
         toggle:
         if lib.attrByPath toggle.path null (snapshot.programs or { }) != null then
           namespace == "programs"
+        else if lib.attrByPath toggle.path null (snapshot.services or { }) != null then
+          namespace == "services"
         else
-          namespace == "services";
+          false;
     in
     lib.foldl' (
       acc: toggle:

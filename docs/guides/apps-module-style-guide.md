@@ -404,8 +404,9 @@ The fold and its namespace routing come from
 decision drives the FR-5 comparison, so a host writing its own fold gets a write
 side the check cannot see, which is a green check over a dead override. The
 full path is checked in `programs` first and falls back to `services` when the
-baseline declares it there only, exactly as `appEnable`'s entries are. This
-full-path check matters when both namespaces contain the same top-level app
+baseline declares it there only, exactly as `appEnable`'s entries are. A path
+absent from both namespaces is not written and is reported by the FR-5 check.
+This full-path check matters when both namespaces contain the same top-level app
 name: a programs path must remain under `programs`, while a services-only path
 belongs under `services`. Folding everything into `programs` would write a
 services toggle where nothing reads it.

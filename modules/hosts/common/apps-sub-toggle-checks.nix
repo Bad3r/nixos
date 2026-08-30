@@ -2,8 +2,8 @@
 #
 # Host closures can reach both namespace lookups and the no-op branch through
 # the registry. Full-path lookup checks programs first and falls back to
-# services, which keeps a services-only nested toggle comparable when both
-# namespaces contain the same top-level app name.
+# services for services-only paths; a path absent from both namespaces is not
+# written by either namespace pass.
 #
 # This throws rather than emitting a failing derivation: CI forces each check's
 # drvPath with `nix eval` and never builds checks, so only an eval-time failure
@@ -92,8 +92,9 @@ let
   ];
 
   # Write side. The classifier decides where a path is READ from; these decide
-  # where it is WRITTEN. Full-path lookup gives programs precedence and uses
-  # services only when the path is absent from programs.
+  # where it is WRITTEN. Full-path lookup gives programs precedence, uses
+  # services only when the path is absent from programs, and rejects a path
+  # absent from both namespaces.
   routingCases = [
     {
       name = "programs toggle lands under programs";
@@ -141,6 +142,18 @@ let
       name = "same-head services-only path does not land under programs";
       namespace = "programs";
       toggles = [ (toggle [ "collision" "extended" "x11Override" ] true) ];
+      present = false;
+    }
+    {
+      name = "unknown path does not land under programs";
+      namespace = "programs";
+      toggles = [ (toggle [ "logseq" "extended" "noSuchToggle" ] true) ];
+      present = false;
+    }
+    {
+      name = "unknown path does not land under services";
+      namespace = "services";
+      toggles = [ (toggle [ "logseq" "extended" "noSuchToggle" ] true) ];
       present = false;
     }
   ];
