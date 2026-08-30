@@ -102,20 +102,25 @@ Scope:
       - `hdparm` (when the hdparm app module is enabled; disabled on tpnix)
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
-    - the `smartctl`, `sedutil-cli`, and `hdparm` wrappers are whole-binary, so
-      destructive flags such as `hdparm --security-erase` are passwordless as
-      well. Raw writes to the same devices were already possible through group
-      membership, so the wrappers do not extend the privilege boundary.
+    - the `smartctl` and `hdparm` wrappers are whole-binary, so destructive
+      flags such as `hdparm --security-erase` are passwordless as well. Raw
+      writes to the same devices were already possible through group
+      membership, so those wrappers do not extend the privilege boundary.
     - the `nvme` wrapper is not whole-binary. Its source allowlists the
-      read-only diagnostic subcommands and clears the ambient capability set
-      before `execve` for everything else, so `nvme format`, `nvme sanitize`,
-      `nvme fw-commit`, and the vendor plugins run without `CAP_SYS_ADMIN` and
-      need `sudo` again. See
+      read-only diagnostic subcommands plus `device-self-test`, whose options
+      can start or abort a drive self-test, and clears the ambient capability
+      set before `execve` for everything else. `nvme format`, `nvme sanitize`,
+      `nvme fw-commit`, and the vendor plugins therefore run without
+      `CAP_SYS_ADMIN` and need `sudo` again. `nvme help` also runs on the
+      cleared path without the storage capability, although it may fail if
+      the manual page is unavailable. See
       [docs/security/owner-no-sudo-operations.md](owner-no-sudo-operations.md)
       for the allowlist and the `system()` injection sites that motivate it.
-    - `sedutil-cli` is the exception to that last point: its Opal password and
-      revert subcommands can lock a drive against every later reader,
-      including root, which raw writes cannot do.
+    - the `sedutil-cli` wrapper is also filtered. It retains capabilities only
+      for `--scan`, `--query`, `--isValidSED`, and `--printDefaultPassword`;
+      Opal password, locking-range, PBA, and revert actions clear the ambient
+      set and need `sudo` again. `--printDefaultPassword` exposes the drive
+      MSID and should be treated as credential material.
 
 ## Additional Owner Groups Added By Other Modules
 

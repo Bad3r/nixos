@@ -105,11 +105,14 @@ Scope:
       read-only diagnostic subcommands (`list`, `list-subsys`, `list-ns`,
       `list-ctrl`, `id-ctrl`, `id-ns`, `ns-descs`, `smart-log`, `error-log`,
       `fw-log`, `telemetry-log`, `effects-log`, `endurance-log`,
-      `sanitize-log`, `self-test-log`, `supported-log-pages`, `get-log`,
-      `device-self-test`) and clears the ambient set before `execve` for
-      everything else. `nvme format`, `nvme sanitize`, `nvme fw-commit`,
-      `nvme help` and the vendor plugins still run, but with no capability, so
-      they need `sudo` again. The vendor plugins are the reason: they
+      `sanitize-log`, `self-test-log`, `supported-log-pages`, `get-log`)
+      plus `device-self-test`, whose options can start or abort a drive
+      self-test. It clears the ambient set before `execve` for everything else.
+      `nvme format`, `nvme sanitize`, `nvme fw-commit`, and the vendor plugins
+      still run, but with no capability, so they need `sudo` again.
+      `nvme help` also runs on the cleared path without the storage capability;
+      it may still fail for an ordinary reason such as a missing manual page.
+      The vendor plugins are the reason: they
       interpolate the caller's `--dir-name` into a shell command string passed
       to `system()`
       (`plugins/solidigm/solidigm-internal-logs.c:989`,
@@ -145,20 +148,22 @@ Scope:
     - SATA drives additionally need `libata.allow_tpm=1`, documented in
       `docs/sedutil-cli.8` upstream, because libata otherwise refuses ATA
       TRUSTED SEND/RECEIVE. `modules/hosts/common/storage-diagnostics.nix` sets
-      it in `boot.kernelParams`, so it takes effect on the next reboot rather
-      than at switch time. NVMe drives do not need it.
+      it to `boot.kernelParams` while `programs.sedutil.extended.enable` is
+      true, so it takes effect on the next reboot rather than at switch time.
+      NVMe drives do not need it.
   - limitation:
-    - the wrapper covers the whole binary, so `--initialSetup`,
-      `--setSIDPassword`, `--revertTPer`, and
-      `--yesIreallywanttoERASEALLmydatausingthePSID` are passwordless for
-      `disk` members too. The last two erase the drive, and a mistyped Opal
-      password locks data that `disk` membership cannot recover, so this is a
-      wider failure mode than the raw writes membership already permitted.
-    - the wrapper source pins `PATH`, because a `popen()` helper is linked into
-      `sedutil-cli` and `popen()` execs `/bin/sh -c`. `PATH` is absent from
-      glibc's `unsecvars.h`, so the capability wrapper forwards the caller's
-      value and the ambient capabilities would survive into whatever the shell
-      resolved.
+    - the compiled `sedutil-cli` wrapper keeps capabilities only for
+      `--scan`, `--query`, `--isValidSED`, and `--printDefaultPassword`.
+      State-changing actions such as `--initialSetup`, `--setSIDPassword`,
+      `--setLockingRange`, `--loadPBAimage`, `--revertTPer`, and
+      `--yesIreallywanttoERASEALLmydatausingthePSID` clear the ambient set and
+      need `sudo` again. The last two erase the drive. `--printDefaultPassword`
+      is intentionally allowed and exposes the drive MSID, so treat its output
+      as credential material.
+    - `sedutil-cli` links a `popen()` helper that execs `/bin/sh -c`. Its target
+      pins `PATH` to a store path as defense in depth, and the filter clears
+      ambient capabilities before every non-allowlisted action, so a helper on
+      that path cannot inherit the storage capabilities.
   - effect on users outside `disk`:
     - the same as the wrappers above. The wrapper file is `root:disk 0510`, so
       PATH lookup skips it and a bare `sedutil-cli` falls through to the
@@ -221,13 +226,18 @@ Scope:
   - `sedutil-cli --scan`
     - should list whole-disk block nodes instead of reporting no access. A SATA
       drive reports Opal support only once `libata.allow_tpm=1` is set, which
-      no module in this repo does; check
+      `modules/hosts/common/storage-diagnostics.nix` adds it while sedutil is
+      enabled, for the next reboot after a switch; check
       `cat /sys/module/libata/parameters/allow_tpm` before treating a `No`
       there as a drive capability result.
-  - `strings "$(nix eval --raw .#nixosConfigurations.$(hostname).config.security.wrappers.sedutil-cli.source)" | grep '^PATH='`
-    - the wrapper source is a compiled `makeBinaryWrapper` binary that pins
-      `PATH` to a store path. An empty result means the pin was lost and the
-      ambient capabilities are reachable through a caller-controlled `PATH`.
+  - `strings "$(nix eval --raw .#nixosConfigurations.$(hostname).config.security.wrappers.sedutil-cli.source)" | grep -F 'sedutil-cli-pinned-path/bin/sedutil-cli'`
+    - the wrapper source is a compiled argv filter whose target is the
+      `makeBinaryWrapper` output with a fixed `PATH`. An empty result means the
+      filter is not bound to the pinned target.
+  - `strace -f -e trace=prctl /run/wrappers/bin/sedutil-cli --version`
+    - should show `PR_CAP_AMBIENT_CLEAR_ALL` before the unprivileged `--version`
+      action executes. A missing call means the filter is not clearing
+      capabilities for non-allowlisted actions.
   - `nvme sanitize-log /dev/nvme0; nvme get-feature /dev/nvme0 -f 4`
     - the first is allowlisted and should print log data; the second is not, so
       it should report `Permission denied`. Both succeeding means the argv

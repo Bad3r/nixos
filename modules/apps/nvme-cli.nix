@@ -23,7 +23,7 @@
 
   Notes:
     * `disk` group members run this without `sudo`: a capability wrapper supplies CAP_SYS_ADMIN and the shared storage policy opens the controller char nodes.
-    * The wrapper source is an argv filter that only keeps the capability for an allowlist of read-only diagnostic subcommands. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `fw-commit` and the vendor plugins need `sudo` again.
+    * The wrapper source is an argv filter that only keeps the capability for an allowlist of read-only diagnostic subcommands plus `device-self-test`, whose options can start or abort a drive self-test. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `fw-commit` and the vendor plugins need `sudo` again.
     * `nvme help <cmd>` and the vendor plugins are in the cleared path: plugin.c:52 `execlp`s `man`, and the plugins interpolate `--dir-name` into a `system()` string (solidigm-internal-logs.c:989, wdc-nvme.c:4218).
 */
 _:

@@ -25,9 +25,9 @@
     * `sedutil-cli --printDefaultPassword /dev/sda` -- Read the factory MSID before taking ownership.
 
   Notes:
-    * `disk` group members run `sedutil-cli` without `sudo` through a capability wrapper carrying CAP_SYS_ADMIN and CAP_SYS_RAWIO.
-    * SATA drives also need `libata.allow_tpm=1` (docs/sedutil-cli.8), set in `modules/hosts/common/storage-diagnostics.nix` and applied on the next reboot. NVMe drives are unaffected.
-    * The wrapper covers the whole binary, so the password and revert subcommands (`--initialSetup`, `--revertTPer`, `--yesIreallywanttoERASEALLmydatausingthePSID`) also lose the sudo prompt, and the last two destroy data.
+    * `disk` group members run selected `sedutil-cli` diagnostics without `sudo` through a compiled argv filter and a capability wrapper carrying CAP_SYS_ADMIN and CAP_SYS_RAWIO.
+    * SATA drives also need `libata.allow_tpm=1` (docs/sedutil-cli.8), set in `modules/hosts/common/storage-diagnostics.nix` while sedutil is enabled and applied on the next reboot. NVMe drives are unaffected.
+    * The filter keeps capabilities only for `--scan`, `--query`, `--isValidSED`, and `--printDefaultPassword`. State-changing actions clear the ambient set and need `sudo` again; `--revertTPer` and `--yesIreallywanttoERASEALLmydatausingthePSID` destroy data.
     * `linuxpba` ships in the same package and stays unwrapped, so it still needs `sudo`.
 */
 _:
@@ -45,8 +45,9 @@ let
       # `Common/system.cpp` links a popen() helper into sedutil-cli, and popen
       # execs `/bin/sh -c`, which resolves command names from PATH. PATH is not
       # in glibc's unsecvars list, so the capability wrapper forwards the
-      # caller's value and the ambient caps would survive into whatever the
-      # shell found. Pinning PATH here removes that lookup from caller control.
+      # caller's value. The argv filter clears ambient capabilities for every
+      # action that could reach the helper, while this fixed PATH remains a
+      # defense-in-depth boundary for the helper lookup.
       pinnedPath =
         pkgs.runCommand "sedutil-cli-pinned-path"
           {
@@ -56,6 +57,55 @@ let
             makeWrapper ${cfg.package}/bin/sedutil-cli "$out/bin/sedutil-cli" \
               --set PATH ${lib.makeBinPath [ pkgs.coreutils ]}
           '';
+
+      # Keep capabilities only for actions whose current implementation reads
+      # device state. All other actions run after clearing the ambient set,
+      # including unknown future actions, so a package update fails closed.
+      argvFilter = pkgs.writeCBin "sedutil-cli-argv-filter" ''
+        #include <stdio.h>
+        #include <string.h>
+        #include <sys/prctl.h>
+        #include <unistd.h>
+
+        static char real_prog[] = "${pinnedPath}/bin/sedutil-cli";
+
+        static const char *const allowed[] = {
+          "--scan",
+          "--query",
+          "--isValidSED",
+          "--printDefaultPassword",
+          NULL
+        };
+
+        static int keeps_capability(int argc, char **argv)
+        {
+          int i;
+
+          if (argc < 2 || argv[1] == NULL)
+            return 0;
+
+          for (i = 0; allowed[i] != NULL; i++) {
+            if (strcmp(argv[1], allowed[i]) == 0)
+              return 1;
+          }
+          return 0;
+        }
+
+        int main(int argc, char **argv)
+        {
+          if (!keeps_capability(argc, argv) &&
+              prctl(PR_CAP_AMBIENT, PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0) != 0) {
+            perror("sedutil-cli: PR_CAP_AMBIENT_CLEAR_ALL");
+            return 126;
+          }
+
+          if (argc > 0)
+            argv[0] = real_prog;
+          execv(real_prog, argv);
+          perror(real_prog);
+          return 127;
+        }
+      '';
     in
     {
       options.programs.sedutil.extended = {
@@ -77,7 +127,7 @@ let
         # the NVMe security send/receive admin passthrough without
         # CAP_SYS_ADMIN.
         security.wrappers.sedutil-cli = {
-          source = "${pinnedPath}/bin/sedutil-cli";
+          source = "${argvFilter}/bin/sedutil-cli-argv-filter";
           capabilities = "cap_sys_admin,cap_sys_rawio+ep";
           owner = "root";
           group = "disk";
