@@ -60,7 +60,7 @@ Scope:
 - Storage health diagnostics:
   - `smartctl ...`
   - `nvme ...`
-  - `hdparm ...` (enabled on system76 and songbird; disabled on tpnix)
+  - `hdparm ...` (when the hdparm app module is enabled; disabled on tpnix)
   - mechanism:
     - `security.wrappers` with `CAP_SYS_ADMIN` (`nvme`) or `CAP_SYS_ADMIN` plus
       `CAP_SYS_RAWIO` (`smartctl`, `hdparm`)

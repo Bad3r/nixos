@@ -100,7 +100,7 @@ Scope:
       - `smartctl`
       - `nvme`
       - `sedutil-cli`
-      - `hdparm` (enabled on system76 and songbird; disabled on tpnix)
+      - `hdparm` (when the hdparm app module is enabled; disabled on tpnix)
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
     - the `smartctl` wrapper remains whole-binary. The `hdparm` wrapper retains
