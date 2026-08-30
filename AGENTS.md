@@ -94,7 +94,7 @@ Modules that apply to every host opted into the registry live under `modules/hos
 
 Common modules contribute to the aggregate `flake.nixosModules.hosts-common` module. `modules/configurations/nixos.nix` imports that aggregate for each host whose registry entry has `shareCommon = true`, before importing the host-specific module so per-host overrides still win.
 
-Shared device policy that serves multiple optional applications belongs in the common aggregate. For example, `modules/hosts/common/storage-diagnostics.nix` owns NVMe character-device permissions while app modules own their packages and capability wrappers, including compiled argv filters with audited allowlists that bound those wrappers and the resulting no-sudo operation boundary.
+Shared device policy that serves multiple optional applications belongs in the common aggregate. For example, `modules/hosts/common/storage-diagnostics.nix` owns NVMe character-device permissions while app modules own their packages and capability wrappers, including compiled argv filters with audited, grammar-aware allowlists that bound those wrappers and the resulting no-sudo operation boundary.
 
 ```nix
 { ... }:

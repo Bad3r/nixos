@@ -23,7 +23,7 @@
 
   Notes:
     * `disk` group members run the audited `smartctl` reports and standard self-tests without `sudo` through a compiled argv filter and a capability wrapper carrying CAP_SYS_ADMIN and CAP_SYS_RAWIO.
-    * The filter retains capabilities for reports, settings reads, and `offline`, `short`, `long`, and `conveyance` self-tests. Configuration, reset, vendor, selective, pending, force, captive, abort, and unknown forms clear the ambient set and need `sudo` again.
+    * The filter retains capabilities for reports, settings reads including `-n sleep|standby|idle[,STATUS[,STATUS2]]`, and `offline`, `short`, `long`, and `conveyance` self-tests. Configuration, reset, vendor, selective, pending, force, captive, abort, and unknown forms clear the ambient set and need `sudo` again.
 */
 _:
 let
@@ -192,8 +192,12 @@ let
 
               if (strcmp(value, "never") == 0)
                 return 1;
-              if (comma == NULL ||
-                  !((strncmp(value, "sleep", (size_t) (comma - value)) == 0 && comma - value == 5) ||
+              /* smartctl makes the status components optional for these modes. */
+              if (comma == NULL)
+                return strcmp(value, "sleep") == 0 ||
+                  strcmp(value, "standby") == 0 ||
+                  strcmp(value, "idle") == 0;
+              if (!((strncmp(value, "sleep", (size_t) (comma - value)) == 0 && comma - value == 5) ||
                     (strncmp(value, "standby", (size_t) (comma - value)) == 0 && comma - value == 7) ||
                     (strncmp(value, "idle", (size_t) (comma - value)) == 0 && comma - value == 4)))
                 return 0;

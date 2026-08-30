@@ -104,7 +104,8 @@ Scope:
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
     - the `smartctl` wrapper is filtered. It retains capabilities only for
-      audited reports, read-only settings and log queries, and the standard
+      audited reports, read-only settings and log queries (including bare
+      `-n sleep`, `-n standby`, and `-n idle` power-mode checks), and the standard
       `offline`, `short`, `long`, and `conveyance` self-tests documented by the
       module. SMART configuration (`-s`, `-o`, `-S`, and `--set`), log resets or
       writes, vendor/selective/pending/force/captive/abort tests, and unknown

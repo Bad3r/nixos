@@ -83,7 +83,7 @@ Shared device policy that serves multiple optional applications belongs in the
 common aggregate. For example,
 `modules/hosts/common/storage-diagnostics.nix` owns NVMe character-device
 permissions while app modules own their packages and capability wrappers,
-including compiled argv filters with audited allowlists that bound those
+including compiled argv filters with audited, grammar-aware allowlists that bound those
 wrappers and the resulting no-sudo operation boundary.
 
 ```nix
