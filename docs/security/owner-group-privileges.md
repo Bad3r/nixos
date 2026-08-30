@@ -43,9 +43,10 @@ Scope:
   - security impact:
     - administrative control path by design.
     - also grants non-root packet capture through capability-wrapped binaries; `airmon-ng` monitor-mode setup is still outside that wrapper surface.
-    - the `tcpdump` wrapper source is an argv filter that refuses `-z`, because
-      `tcpdump.c:3173` `execlp`s the postrotate command with the ambient
-      capability set intact.
+    - the `tcpdump` wrapper source refuses `-z` for non-root capability-wrapper
+      execution, because `tcpdump.c:3173` `execlp`s the postrotate command with
+      the ambient capability set intact. Root callers retain the normal
+      rotation and compression workflow.
 
 - `networkmanager`:
 
@@ -99,13 +100,17 @@ Scope:
       - `smartctl`
       - `nvme`
       - `sedutil-cli`
-      - `hdparm` (when the hdparm app module is enabled; disabled on tpnix)
+      - `hdparm` (enabled on system76 and songbird; disabled on tpnix)
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
-    - the `smartctl` and `hdparm` wrappers are whole-binary, so destructive
-      flags such as `hdparm --security-erase` are passwordless as well. Raw
-      writes to the same devices were already possible through group
-      membership, so those wrappers do not extend the privilege boundary.
+    - the `smartctl` wrapper remains whole-binary. The `hdparm` wrapper retains
+      capabilities only for short-option clusters made from `-C`, `-g`, `-i`,
+      `-I`, `-t`, and `-T`, plus standalone `--Istdin`. ATA Security, DCO/HPA,
+      raw-sector writes, TRIM, sanitize, firmware, device-setting, unknown,
+      and parameter-bearing options clear the ambient set and need `sudo`.
+      Raw block reads and writes remain available through `disk` membership,
+      but that does not grant the separate ATA Security, DCO, or HPA control
+      paths.
     - the `nvme` wrapper is not whole-binary. Its source allowlists the
       read-only diagnostic subcommands plus `device-self-test`, whose options
       can start or abort a drive self-test, and clears the ambient capability

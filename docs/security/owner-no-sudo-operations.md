@@ -60,7 +60,7 @@ Scope:
 - Storage health diagnostics:
   - `smartctl ...`
   - `nvme ...`
-  - `hdparm ...` (when the hdparm app module is enabled; disabled on tpnix)
+  - `hdparm ...` (enabled on system76 and songbird; disabled on tpnix)
   - mechanism:
     - `security.wrappers` with `CAP_SYS_ADMIN` (`nvme`) or `CAP_SYS_ADMIN` plus
       `CAP_SYS_RAWIO` (`smartctl`, `hdparm`)
@@ -96,11 +96,15 @@ Scope:
       wrapper is not setuid, so `euid == uid`, bash does not enter privileged
       mode, and `BASH_ENV` is absent from glibc's `unsecvars.h`.
   - limitation:
-    - the `smartctl` and `hdparm` wrappers cover whole binaries, so destructive
-      flags (`hdparm --security-erase`, `--trim-sector-ranges`,
-      `--make-bad-sector`) are passwordless for `disk` members too. `disk`
-      membership already permits raw writes to the same devices, so this widens
-      the blast radius of a typo rather than the privilege boundary.
+    - the `smartctl` wrapper covers the whole binary. The `hdparm` wrapper is
+      filtered: it retains capabilities only for short-option clusters made
+      from `-C`, `-g`, `-i`, `-I`, `-t`, and `-T`, plus standalone `--Istdin`.
+      ATA Security, DCO/HPA, raw-sector writes, TRIM, sanitize, firmware,
+      device-setting, unknown, and parameter-bearing options clear the ambient
+      set and need `sudo` again. `-t` and `-T` are non-media-mutating timing
+      diagnostics, but may flush or synchronize caches. The existing `disk`
+      membership still permits raw block reads and writes; that does not grant
+      the separate ATA Security, DCO, or HPA control paths.
     - the `nvme` wrapper is not whole-binary. Its source allowlists the
       read-only diagnostic subcommands (`list`, `list-subsys`, `list-ns`,
       `list-ctrl`, `id-ctrl`, `id-ns`, `ns-descs`, `smart-log`, `error-log`,
@@ -179,13 +183,14 @@ Scope:
     - a `wireshark` group is also created and assigned to the owner user for tooling or policy that still expects it
   - limitation:
     - monitor-mode setup via `airmon-ng` is not capability-wrapped and still requires elevated setup
-    - the `tcpdump` wrapper source is an argv filter that refuses `-z`.
-      `tcpdump.c:3173` runs the postrotate command through `execlp()`, and the
-      wrapper's ambient `CAP_NET_RAW` and `CAP_NET_ADMIN` land in that child.
-      The filter rejects `-z` in any getopt form (`-z cmd`, `-nz cmd`,
-      `-zcmd`, and after an operand, since glibc `getopt_long` permutes).
-      Compress rotated files as a separate step, or reach the unwrapped
-      `/run/current-system/sw/bin/tcpdump` and accept that it has no
+    - the `tcpdump` wrapper source is an argv filter that refuses `-z` for
+      non-root callers. `tcpdump.c:3173` runs the postrotate command through
+      `execlp()`, and the wrapper's ambient `CAP_NET_RAW` and `CAP_NET_ADMIN`
+      land in that child. The filter rejects `-z` in any getopt form (`-z cmd`,
+      `-nz cmd`, `-zcmd`, and after an operand, since glibc `getopt_long`
+      permutes). Root callers retain the normal rotation and compression
+      workflow; non-root callers should compress rotated files separately or
+      reach the unwrapped `/run/current-system/sw/bin/tcpdump` without
       capabilities.
   - available without sudo because packet capture is granted through capability-wrapped binaries rather than `sudo`.
 
@@ -234,6 +239,14 @@ Scope:
     - the wrapper source is a compiled argv filter whose target is the
       `makeBinaryWrapper` output with a fixed `PATH`. An empty result means the
       filter is not bound to the pinned target.
+  - `strings "$(nix eval --raw .#nixosConfigurations.$(hostname).config.security.wrappers.hdparm.source)" | grep -F '/bin/hdparm'`
+    - the wrapper source is a compiled argv filter whose target is the hdparm
+      binary. An empty result means the filter is not bound to the package
+      binary.
+  - `strace -f -e trace=prctl /run/wrappers/bin/hdparm -V`
+    - should show `PR_CAP_AMBIENT_CLEAR_ALL` before the non-allowlisted version
+      action executes. A missing call means the filter is not clearing
+      capabilities for state-changing and unknown options.
   - `strace -f -e trace=prctl /run/wrappers/bin/sedutil-cli --version`
     - should show `PR_CAP_AMBIENT_CLEAR_ALL` before the unprivileged `--version`
       action executes. A missing call means the filter is not clearing
@@ -242,7 +255,11 @@ Scope:
     - the first is allowlisted and should print log data; the second is not, so
       it should report `Permission denied`. Both succeeding means the argv
       filter was lost from `security.wrappers.nvme.source`.
-  - `tcpdump -c 1 -C 1 -w /tmp/cap -z /bin/true`
+  - `tcpdump -c 1 -C 1 -w /tmp/cap -z /bin/true` as a non-root caller
     - should exit non-zero with `-z is refused by the capability wrapper`.
       A started capture means the argv filter was lost from
       `security.wrappers.tcpdump.source`.
+  - `sudo tcpdump -c 1 -C 1 -w /tmp/cap -z /bin/true` as root, with a valid
+    capture target
+    - should not emit the wrapper refusal. A later capture or tcpdump error is
+      from the real root execution path.

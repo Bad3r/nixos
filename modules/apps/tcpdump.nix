@@ -18,7 +18,7 @@
 
   Notes:
     * Installs a capability wrapper so `wheel` users can capture without invoking `sudo`.
-    * The wrapper source is an argv filter that refuses `-z`: tcpdump.c:3173 `execlp`s the postrotate command and the wrapper's ambient capability set lands in it. Rotate first, then compress as a separate step.
+    * The wrapper source refuses `-z` for non-root callers: tcpdump.c:3173 `execlp`s the postrotate command and the wrapper's ambient capability set lands in it. Root callers retain the normal rotation workflow.
 */
 _:
 let
@@ -34,10 +34,12 @@ let
 
       # security.wrappers raises cap_net_raw and cap_net_admin into the ambient
       # set (wrapper.c:137), which survives execve into a file without
-      # capabilities, so the -z child at tcpdump.c:3173 would inherit both. The
-      # filter has to be a compiled binary: cap wrappers are not setuid, so
-      # euid == uid, bash never enters privileged mode, and BASH_ENV is absent
-      # from glibc's unsecvars.h.
+      # capabilities, so a non-root -z child at tcpdump.c:3173 would inherit
+      # both. Root already has the administrative context that this wrapper
+      # grants, so it keeps the normal -z workflow. The filter has to be a
+      # compiled binary: cap wrappers are not setuid, so euid == uid, bash
+      # never enters privileged mode, and BASH_ENV is absent from glibc's
+      # unsecvars.h.
       argvFilter = pkgs.writeCBin "tcpdump-argv-filter" ''
         #include <stdio.h>
         #include <string.h>
@@ -52,45 +54,45 @@ let
 
         int main(int argc, char **argv)
         {
-        	int i;
+          int i;
 
-        	for (i = 1; i < argc; i++) {
-        		const char *arg = argv[i];
-        		const char *c;
+          for (i = 1; i < argc; i++) {
+            const char *arg = argv[i];
+            const char *c;
 
-        		/* nixpkgs builds against glibc getopt_long, which permutes, so
-        		   an operand does not end option parsing. A lone "-" is an
-        		   operand. */
-        		if (arg[0] != '-' || arg[1] == '\0')
-        			continue;
-        		if (arg[1] == '-') {
-        			if (arg[2] == '\0')
-        				break;
-        			/* longopts[] (tcpdump.c:729) has no alias for -z. A long
-        			   option never consumes the next element here, because
-        			   guessing wrong would hide `--help -z cmd`. */
-        			continue;
-        		}
+            /* nixpkgs builds against glibc getopt_long, which permutes, so
+               an operand does not end option parsing. A lone "-" is an
+               operand. */
+            if (arg[0] != '-' || arg[1] == '\0')
+              continue;
+            if (arg[1] == '-') {
+              if (arg[2] == '\0')
+                break;
+              /* longopts[] (tcpdump.c:729) has no alias for -z. A long
+                 option never consumes the next element here, because
+                 guessing wrong would hide `--help -z cmd`. */
+              continue;
+            }
 
-        		for (c = arg + 1; *c != '\0'; c++) {
-        			if (*c == 'z') {
-        				fputs("tcpdump: -z is refused by the capability wrapper\n", stderr);
-        				return 1;
-        			}
-        			if (strchr(optarg_chars, *c) != NULL) {
-        				if (c[1] == '\0')
-        					i++;
-        				break;
-        			}
-        		}
-        	}
+            for (c = arg + 1; *c != '\0'; c++) {
+              if (*c == 'z' && geteuid() != 0) {
+                fputs("tcpdump: -z is refused by the capability wrapper\n", stderr);
+                return 1;
+              }
+              if (strchr(optarg_chars, *c) != NULL) {
+                if (c[1] == '\0')
+                  i++;
+                break;
+              }
+            }
+          }
 
-        	/* execve(2) permits argc == 0, where argv[0] is the NULL terminator. */
-        	if (argc > 0)
-        		argv[0] = real_prog;
-        	execv(real_prog, argv);
-        	perror(real_prog);
-        	return 127;
+          /* execve(2) permits argc == 0, where argv[0] is the NULL terminator. */
+          if (argc > 0)
+            argv[0] = real_prog;
+          execv(real_prog, argv);
+          perror(real_prog);
+          return 127;
         }
       '';
     in
