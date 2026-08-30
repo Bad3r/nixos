@@ -16,6 +16,7 @@ Scope:
   - `modules/apps/smartmontools.nix`
   - `modules/apps/nvme-cli.nix`
   - `modules/apps/hdparm.nix`
+  - `modules/apps/sedutil.nix`
 
 ## Groups Assigned To Owner In Baseline Profile
 
@@ -94,6 +95,7 @@ Scope:
     - storage diagnostic wrappers with `CAP_SYS_ADMIN` / `CAP_SYS_RAWIO` for:
       - `smartctl`
       - `nvme`
+      - `sedutil-cli`
       - `hdparm` (when the hdparm app module is enabled; disabled on tpnix)
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
@@ -101,6 +103,9 @@ Scope:
       `nvme format` and `hdparm --security-erase` are passwordless as well.
       Raw writes to the same devices were already possible through group
       membership, so the wrappers do not extend the privilege boundary.
+    - `sedutil-cli` is the exception to that last point: its Opal password and
+      revert subcommands can lock a drive against every later reader,
+      including root, which raw writes cannot do.
 
 ## Additional Owner Groups Added By Other Modules
 

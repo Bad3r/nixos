@@ -16,6 +16,7 @@ Scope:
   - `modules/apps/smartmontools.nix`
   - `modules/apps/nvme-cli.nix`
   - `modules/apps/hdparm.nix`
+  - `modules/apps/sedutil.nix`
 - shared NVMe char-device udev rule and its retrigger unit:
   - `modules/hosts/common/storage-diagnostics.nix`
 
@@ -100,6 +101,46 @@ Scope:
       searching. A bare `smartctl` therefore falls through to the `0555`
       `/run/current-system/sw/bin/smartctl` and fails at the ioctl exactly as
       it did before the wrappers existed.
+- Self-encrypting drive management:
+  - `sedutil-cli ...`
+  - mechanism:
+    - `security.wrappers` with `CAP_SYS_ADMIN` plus `CAP_SYS_RAWIO`
+    - available to users in the `disk` group
+  - why group membership alone is not enough:
+    - `blk_verify_command()` rejects the SECURITY PROTOCOL IN/OUT and ATA
+      PASS-THROUGH CDBs that `SG_IO` carries without `CAP_SYS_RAWIO`, and that
+      is the only path Opal traffic takes to SATA drives: the Linux backend
+      leaves `PerformATACommand_via_HD` unimplemented, so no `HDIO_*` ioctl is
+      involved.
+    - `nvme_cmd_allowed()` rejects the NVMe security send/receive admin
+      passthrough (`NVME_IOCTL_ADMIN_CMD`) without `CAP_SYS_ADMIN`.
+  - device nodes:
+    - `sedutil-cli` scans `/dev` by device major and keeps only whole-disk
+      block nodes (SCSI 8, 65-71, 128-135, and NVMe 259), so `root:disk 0660`
+      block nodes are all it needs. The NVMe controller char rule in
+      `modules/hosts/common/storage-diagnostics.nix` is not on its path.
+  - kernel prerequisite:
+    - SATA drives additionally need `libata.allow_tpm=1`, documented in
+      `docs/sedutil-cli.8` upstream, because libata otherwise refuses ATA
+      TRUSTED SEND/RECEIVE. `modules/hosts/common/storage-diagnostics.nix` sets
+      it in `boot.kernelParams`, so it takes effect on the next reboot rather
+      than at switch time. NVMe drives do not need it.
+  - limitation:
+    - the wrapper covers the whole binary, so `--initialSetup`,
+      `--setSIDPassword`, `--revertTPer`, and
+      `--yesIreallywanttoERASEALLmydatausingthePSID` are passwordless for
+      `disk` members too. The last two erase the drive, and a mistyped Opal
+      password locks data that `disk` membership cannot recover, so this is a
+      wider failure mode than the raw writes membership already permitted.
+    - the wrapper source pins `PATH`, because a `popen()` helper is linked into
+      `sedutil-cli` and `popen()` execs `/bin/sh -c`. `PATH` is absent from
+      glibc's `unsecvars.h`, so the capability wrapper forwards the caller's
+      value and the ambient capabilities would survive into whatever the shell
+      resolved.
+  - effect on users outside `disk`:
+    - the same as the wrappers above. The wrapper file is `root:disk 0510`, so
+      PATH lookup skips it and a bare `sedutil-cli` falls through to the
+      `environment.systemPackages` copy, which fails at the ioctl.
 - Packet capture:
   - `wireshark`
   - `tcpdump`
@@ -135,7 +176,7 @@ Scope:
       The common host baseline disables the optional wheel systemd
       unit-management rule.
   - `nix eval --json .#nixosConfigurations.$(hostname).config.security.sudo-rs.extraRules | jq`
-  - `getcap /run/wrappers/bin/smartctl /run/wrappers/bin/nvme`
+  - `getcap /run/wrappers/bin/smartctl /run/wrappers/bin/nvme /run/wrappers/bin/sedutil-cli`
     - add `/run/wrappers/bin/hdparm` where the hdparm app module is enabled.
   - `ls -l /dev/nvme0 /dev/ng0n1 /dev/nvme0n1`
     - all three should be group `disk` with mode `0660`.
@@ -147,3 +188,13 @@ Scope:
     - each should print device data instead of `Permission denied` or
       `Operation not permitted`.
     - `hdparm -I /dev/sda` applies only where the hdparm app module is enabled.
+  - `sedutil-cli --scan`
+    - should list whole-disk block nodes instead of reporting no access. A SATA
+      drive reports Opal support only once `libata.allow_tpm=1` is set, which
+      no module in this repo does; check
+      `cat /sys/module/libata/parameters/allow_tpm` before treating a `No`
+      there as a drive capability result.
+  - `strings "$(nix eval --raw .#nixosConfigurations.$(hostname).config.security.wrappers.sedutil-cli.source)" | grep '^PATH='`
+    - the wrapper source is a compiled `makeBinaryWrapper` binary that pins
+      `PATH` to a store path. An empty result means the pin was lost and the
+      ambient capabilities are reachable through a caller-controlled `PATH`.
