@@ -338,22 +338,35 @@ in
 
       buildsHere = hosts != { };
 
-      songbirdOptionPackages = (inventory config.flake.nixosConfigurations).songbird.optionPackages;
-
-      songbirdNvidiaPolicyCheck =
+      # A false host policy excludes only the kernel-module entry. Keep the
+      # NVIDIA userspace derivations in the cache contract for every host that
+      # declares this exception, so a policy change cannot silently remove them.
+      nvidiaCachePolicyFailures =
         let
+          hostInventory = inventory hosts;
+          excluded = lib.filterAttrs (
+            hostName: _: !((cacheRootPolicy hostName).nvidiaKernelModules or true)
+          ) hostInventory;
           retained = [
             "nvidia-settings"
             "nvidia-x11"
           ];
-          missing = lib.subtractLists songbirdOptionPackages retained;
         in
-        if lib.elem "nvidia-kernel-modules" songbirdOptionPackages then
-          throw "cache-roots: songbird nvidia-kernel-modules must remain outside the published cache roots"
-        else if missing != [ ] then
-          throw "cache-roots: songbird cache policy lost NVIDIA userspace entries: ${lib.concatStringsSep ", " missing}"
+        lib.concatLists (
+          lib.mapAttrsToList (
+            hostName: entry:
+            lib.optional (lib.elem "nvidia-kernel-modules" entry.optionPackages) "${hostName}: nvidia-kernel-modules must remain outside the published cache roots"
+            ++ map (name: "${hostName}: cache policy lost NVIDIA userspace entry ${name}") (
+              lib.subtractLists entry.optionPackages retained
+            )
+          ) excluded
+        );
+
+      nvidiaCachePolicyCheck =
+        if nvidiaCachePolicyFailures != [ ] then
+          throw "cache-roots: ${lib.concatStringsSep "; " nvidiaCachePolicyFailures}"
         else
-          pkgs.runCommandLocal "cache-roots-songbird-nvidia-policy" { } "touch $out";
+          pkgs.runCommandLocal "cache-roots-nvidia-cache-policy" { } "touch $out";
     in
     {
       packages = lib.mkIf buildsHere {
@@ -371,7 +384,7 @@ in
             throw "cache-roots: ${
               lib.concatMapStringsSep ", " (entry: entry.pkgName) allowlistedPublished
             } is published by cache-roots.nix and also matched by a glob in scripts/cache-coverage-allowlist.txt; allowlisting and caching are mutually exclusive dispositions. Delete the glob (docs/reference/cache-coverage.md).";
-        cache-roots-songbird-nvidia-policy = songbirdNvidiaPolicyCheck;
+        cache-roots-nvidia-cache-policy = nvidiaCachePolicyCheck;
       };
     };
 }
