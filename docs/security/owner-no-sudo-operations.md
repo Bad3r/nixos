@@ -16,7 +16,7 @@ Scope:
   - `modules/apps/smartmontools.nix`
   - `modules/apps/nvme-cli.nix`
   - `modules/apps/hdparm.nix`
-- shared NVMe char-device udev rule:
+- shared NVMe char-device udev rule and its retrigger unit:
   - `modules/hosts/common/storage-diagnostics.nix`
 
 ## Commands That Do Not Require `sudo`
@@ -81,6 +81,11 @@ Scope:
       `/dev/nvme0` and `/dev/ng0n1` is a DAC check that no capability in the
       wrapper set overrides. Only the namespace block nodes (`/dev/nvme0n1`)
       carry `disk` by default.
+    - the same module runs a `nvme-char-device-permissions` oneshot that
+      retriggers both subsystems. A switch only restarts `systemd-udevd`, and
+      udev applies rules to new uevents only, so nodes enumerated at boot would
+      otherwise keep `root:root 0600` until a reboot. `udevadm trigger` needs
+      root, which the `disk` members this grant targets do not have.
   - limitation:
     - the wrappers cover whole binaries, so destructive subcommands
       (`nvme format`, `nvme sanitize`, `hdparm --security-erase`) are
@@ -130,6 +135,10 @@ Scope:
     - add `/run/wrappers/bin/hdparm` where the hdparm app module is enabled.
   - `ls -l /dev/nvme0 /dev/ng0n1 /dev/nvme0n1`
     - all three should be group `disk` with mode `0660`.
+  - `systemctl status nvme-char-device-permissions`
+    - should be `active (exited)`. It retriggers the `nvme` and `nvme-generic`
+      subsystems whenever a switch changes the udev rules, so the node
+      ownership above does not wait for a reboot.
   - `smartctl -a /dev/nvme0n1`, `nvme smart-log /dev/nvme0`
     - each should print device data instead of `Permission denied` or
       `Operation not permitted`.
