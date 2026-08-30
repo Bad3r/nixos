@@ -16,6 +16,54 @@ let
     "r2-bisync-docs"
     "r2-restic-backup"
   ];
+  # systemd.tmpfiles.rules is a list of raw tmpfiles.d lines. Extract only the
+  # path field so an argument or unrelated path cannot trigger this guard.
+  tmpfilesPath =
+    rule:
+    let
+      normalized = lib.replaceStrings [ "\t" ] [ " " ] rule;
+      match = builtins.match "^ *[^ ] +(\"([^\"\\\\]|\\\\.)*\"|[^ ]+).*" normalized;
+      token = if match == null then "" else lib.head match;
+    in
+    if lib.hasPrefix "\"" token && lib.hasSuffix "\"" token then
+      builtins.substring 1 (builtins.stringLength token - 2) token
+    else
+      token;
+  tmpfilesPathMatchesData =
+    rule:
+    let
+      path = tmpfilesPath rule;
+    in
+    path == "/data" || lib.hasPrefix "/data/" path;
+  tmpfilesPathTestCases = [
+    {
+      rule = "d /data/r2 0750 vx users - -";
+      expected = true;
+    }
+    {
+      rule = "d \"/data/r2\" 0750 vx users - -";
+      expected = true;
+    }
+    {
+      rule = "d\t/data/r2 0750 vx users - -";
+      expected = true;
+    }
+    {
+      rule = "d /var/lib/tailscale/data 0700 root root - -";
+      expected = false;
+    }
+    {
+      rule = "d /var/lib/data-store 0700 root root - -";
+      expected = false;
+    }
+    {
+      rule = "L /run/example - - - - /data/source";
+      expected = false;
+    }
+  ];
+  tmpfilesPathTestFailures = lib.filter (
+    test: tmpfilesPathMatchesData test.rule != test.expected
+  ) tmpfilesPathTestCases;
   failures =
     lib.optional host.localMirrors.enable "localMirrors.enable is enabled"
     ++
@@ -32,8 +80,9 @@ let
       lib.filter (name: lib.hasAttr name host.systemd.services) r2ServiceNames
     )
     ++ map (rule: "R2 data tmpfiles rule exists: ${rule}") (
-      lib.filter (rule: lib.hasInfix "/data" rule) host.systemd.tmpfiles.rules
-    );
+      lib.filter tmpfilesPathMatchesData host.systemd.tmpfiles.rules
+    )
+    ++ map (test: "tmpfiles path parser mismatch: ${test.rule}") tmpfilesPathTestFailures;
 in
 {
   perSystem =
