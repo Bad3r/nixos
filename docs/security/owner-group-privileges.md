@@ -103,8 +103,13 @@ Scope:
       - `hdparm` (when the hdparm app module is enabled; disabled on tpnix)
   - security impact:
     - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
-    - the `smartctl` wrapper remains whole-binary. The `hdparm` wrapper retains
-      capabilities only for short-option clusters made from `-C`, `-g`, `-i`,
+    - the `smartctl` wrapper is filtered. It retains capabilities only for
+      audited reports, read-only settings and log queries, and the standard
+      `offline`, `short`, `long`, and `conveyance` self-tests documented by the
+      module. SMART configuration (`-s`, `-o`, `-S`, and `--set`), log resets or
+      writes, vendor/selective/pending/force/captive/abort tests, and unknown
+      forms clear the ambient set and need `sudo`.
+    - the `hdparm` wrapper retains capabilities only for short-option clusters made from `-C`, `-g`, `-i`,
       `-I`, `-t`, and `-T`, plus standalone `--Istdin`. ATA Security, DCO/HPA,
       raw-sector writes, TRIM, sanitize, firmware, device-setting, unknown,
       and parameter-bearing options clear the ambient set and need `sudo`.

@@ -92,13 +92,22 @@ Scope:
       ambient set (`nixos/modules/security/wrappers/wrapper.c:137`). An ambient
       capability survives `execve` of an ordinary file and lands in the child's
       effective set, so any subprocess the wrapped binary starts inherits it.
-      The filter is a compiled binary, never a shell script: a capability
-      wrapper is not setuid, so `euid == uid`, bash does not enter privileged
-      mode, and `BASH_ENV` is absent from glibc's `unsecvars.h`.
+      Each mixed read/write storage command is fronted by a compiled argv
+      filter. The `smartctl` filter scans the complete argument vector because
+      its `getopt_long` parser permutes options around device operands. A
+      filter is never a shell script: a capability wrapper is not setuid, so
+      `euid == uid`, bash does not enter privileged mode, and `BASH_ENV` is
+      absent from glibc's `unsecvars.h`.
   - limitation:
-    - the `smartctl` wrapper covers the whole binary. The `hdparm` wrapper is
-      filtered: it retains capabilities only for short-option clusters made
-      from `-C`, `-g`, `-i`, `-I`, `-t`, and `-T`, plus standalone `--Istdin`.
+    - the `smartctl` wrapper is filtered: it retains capabilities only for
+      audited reports, read-only settings and log queries, and the standard
+      `offline`, `short`, `long`, and `conveyance` self-tests documented by the
+      module. SMART configuration (`-s`, `-o`, `-S`, and `--set`), log resets or
+      writes, vendor/selective/pending/force/captive/abort tests, and unknown
+      forms clear the ambient set and need `sudo` again. The filter fails
+      closed when a package update adds an unrecognized option.
+    - the `hdparm` wrapper is filtered: it retains capabilities only for
+      short-option clusters made from `-C`, `-g`, `-i`, `-I`, `-t`, and `-T`, plus standalone `--Istdin`.
       ATA Security, DCO/HPA, raw-sector writes, TRIM, sanitize, firmware,
       device-setting, unknown, and parameter-bearing options clear the ambient
       set and need `sudo` again. `-t` and `-T` are non-media-mutating timing
@@ -239,10 +248,19 @@ Scope:
     - the wrapper source is a compiled argv filter whose target is the
       `makeBinaryWrapper` output with a fixed `PATH`. An empty result means the
       filter is not bound to the pinned target.
+  - `strings "$(nix eval --raw .#nixosConfigurations.$(hostname).config.security.wrappers.smartctl.source)" | grep -F '/bin/smartctl'`
+    - the wrapper source is a compiled argv filter whose target is the
+      smartmontools binary. An empty result means the capability-bearing
+      wrapper is not bound to the filtered target.
   - `strings "$(nix eval --raw .#nixosConfigurations.$(hostname).config.security.wrappers.hdparm.source)" | grep -F '/bin/hdparm'`
     - the wrapper source is a compiled argv filter whose target is the hdparm
       binary. An empty result means the filter is not bound to the package
       binary.
+  - `strace -f -e trace=prctl /run/wrappers/bin/smartctl -a /dev/null` and
+    `strace -f -e trace=prctl /run/wrappers/bin/smartctl -s off /dev/null`
+    - the report form should execute without `PR_CAP_AMBIENT_CLEAR_ALL`, while
+      the SMART configuration form should show that call before execution.
+      The target device may still reject the diagnostic after the filter test.
   - `strace -f -e trace=prctl /run/wrappers/bin/hdparm -V`
     - should show `PR_CAP_AMBIENT_CLEAR_ALL` before the non-allowlisted version
       action executes. A missing call means the filter is not clearing
