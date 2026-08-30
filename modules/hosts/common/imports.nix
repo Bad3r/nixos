@@ -23,6 +23,7 @@ let
   duplicatiModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "duplicati-r2" ] config;
   mirrorRootModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "mirror-root" ] config;
   lenovoMonitorExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-lenovo-y27q-20" ] config;
+  fc660cKeyboardExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-fc660c" ] config;
   repoGpgModuleExists = lib.hasAttrByPath [
     "self"
     "homeManagerModules"
@@ -81,6 +82,7 @@ in
   ++ lib.optionals duplicatiModuleExists [ config.flake.nixosModules."duplicati-r2" ]
   ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]
   ++ lib.optionals lenovoMonitorExists [ config.flake.nixosModules."hardware-lenovo-y27q-20" ]
+  ++ lib.optionals fc660cKeyboardExists [ config.flake.nixosModules."hardware-fc660c" ]
   ++ [
     (
       { lib, ... }:
