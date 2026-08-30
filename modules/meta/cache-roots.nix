@@ -338,26 +338,40 @@ in
 
       buildsHere = hosts != { };
 
-      # A false host policy excludes only the kernel-module entry. Keep the
-      # NVIDIA userspace derivations in the cache contract for every host that
-      # declares this exception, so a policy change cannot silently remove them.
+      # A false host policy may exclude only the kernel-module entry. Compare
+      # the filtered inventory with the same host's evaluated install signals,
+      # neutralizing only that policy, so an intentional nvidiaSettings=false
+      # override is not mistaken for a cache-policy regression.
       nvidiaCachePolicyFailures =
         let
           hostInventory = inventory hosts;
+          unfilteredOptionPackages =
+            hostName:
+            let
+              hostConfig = hosts.${hostName}.config;
+            in
+            lib.attrNames (
+              lib.filterAttrs (
+                name: entry:
+                if name == "nvidia-kernel-modules" then
+                  nvidiaLoaded hostConfig
+                else
+                  entry.installed hostName hostConfig
+              ) hostOptionPackages
+            );
           excluded = lib.filterAttrs (
             hostName: _: !((cacheRootPolicy hostName).nvidiaKernelModules or true)
           ) hostInventory;
-          retained = [
-            "nvidia-settings"
-            "nvidia-x11"
-          ];
         in
         lib.concatLists (
           lib.mapAttrsToList (
             hostName: entry:
+            let
+              omitted = lib.subtractLists entry.optionPackages (unfilteredOptionPackages hostName);
+            in
             lib.optional (lib.elem "nvidia-kernel-modules" entry.optionPackages) "${hostName}: nvidia-kernel-modules must remain outside the published cache roots"
-            ++ map (name: "${hostName}: cache policy lost NVIDIA userspace entry ${name}") (
-              lib.subtractLists entry.optionPackages retained
+            ++ map (name: "${hostName}: cache policy lost evaluated NVIDIA entry ${name}") (
+              lib.subtractLists [ "nvidia-kernel-modules" ] omitted
             )
           ) excluded
         );
