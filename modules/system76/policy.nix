@@ -9,8 +9,10 @@ _: {
     # Shared readiness gate read by modules/hosts/common/*.
     sopsRuntimeReady = true;
 
-    # Host runtime gate read by modules/system76/r2-runtime.nix.
-    r2RuntimeReady = true;
+    # Host runtime gate read by modules/system76/r2-runtime.nix. This host no
+    # longer owns the dedicated /data filesystem, so storage-backed R2 services
+    # remain disabled until they have a real mounted storage location.
+    r2RuntimeReady = false;
 
     # Per-host values consumed by modules/hosts/common/*.
     duplicatiStateDirReadable = true;

@@ -182,23 +182,26 @@ boot.loader.systemd-boot.configurationLimit = 3;
 
 ## Storage (LUKS)
 
+This host keeps only its encrypted root and swap devices. The dedicated
+Samsung 860 PRO `/data` volume moved to `songbird`, so system76 does not declare
+`/data`, does not enable the common local mirror writers, and keeps the R2
+runtime disabled.
+
 ```nix
 # modules/system76/hardware-config.nix
 boot.initrd.luks = {
   devices = {
     "luks-..." = { device = "/dev/disk/by-uuid/..."; };  # Root
     "luks-..." = { device = "/dev/disk/by-uuid/..."; };  # Swap
-    "data" = { device = "..."; allowDiscards = true; };  # Data SSD
   };
 };
 ```
 
-| Mount   | Device   | Filesystem       |
-| ------- | -------- | ---------------- |
-| `/`     | NVMe     | ext4 (encrypted) |
-| `/boot` | NVMe     | vfat             |
-| `/data` | SATA SSD | XFS (encrypted)  |
-| swap    | NVMe     | swap (encrypted) |
+| Mount   | Device | Filesystem       |
+| ------- | ------ | ---------------- |
+| `/`     | NVMe   | ext4 (encrypted) |
+| `/boot` | NVMe   | vfat             |
+| swap    | NVMe   | swap (encrypted) |
 
 ## Audio & Bluetooth
 

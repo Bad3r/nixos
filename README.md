@@ -56,6 +56,12 @@ Nested host app overrides register full option paths and route them through `pro
 
 See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
 
+## Storage Boundaries
+
+Storage-dependent services must be enabled only on hosts that provide their required mount. The system76 host has no dedicated `/data`, so it disables both common local mirror writers and the R2 runtime; the relocated `/data` volume belongs to `songbird`.
+
+See the [local mirror reference](docs/reference/local-mirrors.md), [system76 configuration](docs/system76/system76-configuration.md), and [R2 runtime policy](docs/r2-cloud/system76-runtime.md) for the operational contracts.
+
 ## Secrets
 
 Secrets are managed with [sops-nix](https://github.com/Mic92/sops-nix). Encrypted payloads live in `secrets/`, a private git submodule, and are declared via `sops.secrets`.

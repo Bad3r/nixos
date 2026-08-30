@@ -185,14 +185,12 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    (`modules/songbird/apps-enable.nix`), which needs the npm registry
    reachable; an offline activation keeps whatever is already installed. At
    boot, the initrd asks for the root passphrase and retries it from the
-   kernel keyring for `cryptswap` and `data`. `data` carries system76's
-   passphrase, so that retry fails and a second prompt starts, but under
-   `nofail` the initrd hands over to the real root a few seconds later and
-   abandons it (`data.mount: Job data.mount/start failed with result 'dependency'`), leaving `/data` unmounted. Add the root passphrase to the
-   volume once, `cryptsetup luksAddKey /dev/disk/by-uuid/183d1f98-e95d-4d6c-89de-cbed409bd9a0` (existing
-   passphrase, then the new one), and the retry unlocks it with no prompt;
-   until then, `cryptsetup open` that device as `data` and `mount /data`
-   after login. An absent drive still does not block the boot. The `vx`
+   kernel keyring for `cryptswap` and `data`. The `/data` volume already has
+   the root passphrase key slot listed below, so the unattended retry should
+   unlock it without a second prompt. If a replacement volume lacks that key
+   slot, add it once with `cryptsetup luksAddKey` using the device UUID from
+   `hardware-config.nix`; until then, open the device as `data` and mount
+   `/data` after login. An absent drive still does not block the boot. The `vx`
    account keeps the
    password set during the install (`users.mutableUsers` is on, so the
    initial hash in `modules/meta/owner.nix` is not applied to an existing
@@ -211,12 +209,11 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    `secrets/songbird.yaml` with a `samba_media_path` key enables the
    on-demand Samba media share the way `secrets/system76.yaml` does on
    system76; until it exists `services.nix` warns and skips the share.
-   Flipping `r2RuntimeReady` activates eight `systemd.tmpfiles.rules` under
-   `/data` in `modules/lib/r2-runtime.nix`. tmpfiles creates leading
-   directories implicitly and runs `After=local-fs.target`, which a `nofail`
-   mount is not ordered before, so on this host those rules land on the root
-   filesystem whenever the Samsung 860 is absent or left unopened. Gate them
-   on the mount, the way `local-mirrors-root.service` is, before enabling.
+   Flipping `r2RuntimeReady` activates the R2 services and their `/data` path
+   setup from `modules/lib/r2-runtime.nix`. Keep the Samsung 860 mounted and
+   verify `findmnt /data` before enabling the runtime; the `nofail` mount is
+   intentionally allowed to remain absent, and the setup must not be used
+   while `/data` is only a directory on the root filesystem.
 
 5. Join the tailnet; read the assigned address with `tailscale ip -4` and set
    it as `tailnetIp` in `policy.nix`. In the same change move
