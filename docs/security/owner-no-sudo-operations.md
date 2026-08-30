@@ -108,8 +108,9 @@ Scope:
       forms clear the ambient set and need `sudo` again. The filter fails
       closed when a package update adds an unrecognized option.
     - the `hdparm` wrapper is filtered: it retains capabilities only for
-      short-option clusters made from `-C`, `-g`, `-i`, `-I`, `-t`, and `-T`, plus standalone `--Istdin`.
-      ATA Security, DCO/HPA, raw-sector writes, TRIM, sanitize, firmware,
+      short-option clusters made from `-C`, `-g`, `-i`, `-I`, `-t`, and `-T`.
+      Standalone input formatting such as `--Istdin`, ATA Security, DCO/HPA,
+      raw-sector writes, TRIM, sanitize, firmware,
       device-setting, unknown, and parameter-bearing options clear the ambient
       set and need `sudo` again. `-t` and `-T` are non-media-mutating timing
       diagnostics, but may flush or synchronize caches. The existing `disk`

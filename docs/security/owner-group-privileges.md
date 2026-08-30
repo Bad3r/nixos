@@ -111,8 +111,9 @@ Scope:
       writes, vendor/selective/pending/force/captive/abort tests, and unknown
       forms clear the ambient set and need `sudo`.
     - the `hdparm` wrapper retains capabilities only for short-option clusters made from `-C`, `-g`, `-i`,
-      `-I`, `-t`, and `-T`, plus standalone `--Istdin`. ATA Security, DCO/HPA,
-      raw-sector writes, TRIM, sanitize, firmware, device-setting, unknown,
+      `-I`, `-t`, and `-T`. Standalone input formatting such as `--Istdin`, ATA
+      Security, DCO/HPA, raw-sector writes, TRIM, sanitize, firmware,
+      device-setting, unknown,
       and parameter-bearing options clear the ambient set and need `sudo`.
       Raw block reads and writes remain available through `disk` membership,
       but that does not grant the separate ATA Security, DCO, or HPA control
