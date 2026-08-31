@@ -39,6 +39,7 @@ let
     "kiro-fhs" = false;
     lxsession = false;
     "maestral-gui" = false;
+    markitdown = false;
     "minio-client" = false;
     mpv = false;
     "msgraph-cli" = false;
