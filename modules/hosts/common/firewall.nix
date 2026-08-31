@@ -270,7 +270,16 @@ let
           + "of the guards in modules/hosts/common/firewall.nix."
         ));
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
-      localTcpPortRanges = hostFlags.firewallLocalTcpPortRanges or [ ];
+      # Required, not `or [ ]`: this free-form registry key generates the
+      # source-scoped rules below, so a typo would silently close the intended
+      # local service range.
+      localTcpPortRanges =
+        hostFlags.firewallLocalTcpPortRanges or (throw (
+          "flake.lib.nixos.hosts.${hostName} has no firewallLocalTcpPortRanges entry; "
+          + "set it to [ ] explicitly in modules/${hostName}/policy.nix. A missing "
+          + "or misspelled key would otherwise omit source-scoped TCP rules and "
+          + "continue evaluation without the intended local service range."
+        ));
       localTcpPortRangeCommands = lib.concatMapStrings (
         range:
         let

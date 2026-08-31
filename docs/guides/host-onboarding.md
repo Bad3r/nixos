@@ -91,11 +91,10 @@ _: {
 
     # Values consumed by modules/hosts/common/*.
     extraHomeApps = [ ];
-    firewallDnsInterfaces = [ ]; # only if the host serves DNS/DHCP; see below
+    firewallDnsInterfaces = [ ]; # Required. See below before opening DNS/DHCP.
+    firewallLocalTcpPortRanges = [ ]; # Required. See below before exposing services.
     # Globally reachable TCP range on every firewall interface.
     # firewallExtraTcpPortRanges = [ { from = 8000; to = 8999; } ];
-    # IPv4 source-scoped TCP range for only 10.0.0.0/8 and 192.168.0.0/16.
-    # firewallLocalTcpPortRanges = [ { from = 8000; to = 8999; } ];
     # duplicatiStateDirReadable = true;
     # secrets/<host>.yaml keys holding hosts(5) payloads that dnsmasq serves
     # as addn-hosts files (modules/hosts/common/private-dns-hosts.nix).
@@ -104,10 +103,11 @@ _: {
 }
 ```
 
-`firewallDnsInterfaces` is required: `modules/hosts/common/firewall.nix` throws
-when the key is absent, so a misspelling cannot fall back to no rule silently.
-Leave it empty unless the host actually serves
-DNS or DHCP to the network. It opens inbound UDP 53/67 and
+`firewallDnsInterfaces` and `firewallLocalTcpPortRanges` are required:
+`modules/hosts/common/firewall.nix` throws when either key is absent, so a
+misspelling cannot silently remove the rules it controls. Leave
+`firewallDnsInterfaces` empty unless the host actually serves DNS or DHCP to
+the network. It opens inbound UDP 53/67 and
 TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
 that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 `::1` with no `dhcp-range`, so it never listens on a link.
@@ -117,7 +117,9 @@ that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 addresses in only `10.0.0.0/8` and `192.168.0.0/16`. It excludes
 `172.16.0.0/12`, IPv6, and any stronger trusted-network assertion, so choose
 the global key only for intentional public reachability and the source-scoped
-key only when those exact CIDRs are the intended access boundary.
+key only when those exact CIDRs are the intended access boundary. Set
+`firewallLocalTcpPortRanges = [ ];` explicitly when no source-scoped TCP range
+is wanted.
 
 When the host does have such a listener, pin the intended device with a `.link`
 `Name=` and use the pinned name. `shareCommon` hosts boot with `net.ifnames=0`,
