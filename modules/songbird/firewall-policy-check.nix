@@ -1,5 +1,6 @@
-# Compare the evaluated developer-port rules rather than the registry key: a
-# shared CIDR expansion must not broaden Songbird without an explicit policy change.
+# Compare the complete evaluated developer-port command lists rather than the
+# registry key: a shared CIDR expansion must not broaden Songbird without an
+# explicit policy change.
 { config, lib, ... }:
 let
   firewall = config.flake.nixosConfigurations.songbird.config.networking.firewall;
@@ -25,17 +26,14 @@ let
   globalDeveloperRange = lib.any (
     range: range.from <= 8999 && range.to >= 8000
   ) firewall.allowedTCPPortRanges;
-  missingStartRules = lib.subtractLists developerStartRules startRules;
-  unexpectedStartRules = lib.subtractLists startRules developerStartRules;
-  missingStopRules = lib.subtractLists developerStopRules stopRules;
-  unexpectedStopRules = lib.subtractLists stopRules developerStopRules;
+  sortRules = rules: lib.sort builtins.lessThan rules;
+  startRulesMatch = sortRules developerStartRules == sortRules startRules;
+  stopRulesMatch = sortRules developerStopRules == sortRules stopRules;
   failures =
     lib.optional globalDeveloperRange "TCP 8000-8999 is globally published by allowedTCPPortRanges"
     ++ lib.optional (!lib.elem 9999 firewall.allowedTCPPorts) "TCP 9999 is no longer globally open"
-    ++ map (rule: "missing source-scoped start rule: ${rule}") missingStartRules
-    ++ map (rule: "unexpected source-scoped start rule: ${rule}") unexpectedStartRules
-    ++ map (rule: "missing source-scoped stop rule: ${rule}") missingStopRules
-    ++ map (rule: "unexpected source-scoped stop rule: ${rule}") unexpectedStopRules;
+    ++ lib.optional (!startRulesMatch) "source-scoped start rules differ from the approved exact list"
+    ++ lib.optional (!stopRulesMatch) "source-scoped stop rules differ from the approved exact list";
 in
 {
   perSystem =
