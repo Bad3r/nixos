@@ -92,7 +92,10 @@ _: {
     # Values consumed by modules/hosts/common/*.
     extraHomeApps = [ ];
     firewallDnsInterfaces = [ ]; # only if the host serves DNS/DHCP; see below
+    # Globally reachable TCP range on every firewall interface.
     # firewallExtraTcpPortRanges = [ { from = 8000; to = 8999; } ];
+    # IPv4 source-scoped TCP range for only 10.0.0.0/8 and 192.168.0.0/16.
+    # firewallLocalTcpPortRanges = [ { from = 8000; to = 8999; } ];
     # duplicatiStateDirReadable = true;
     # secrets/<host>.yaml keys holding hosts(5) payloads that dnsmasq serves
     # as addn-hosts files (modules/hosts/common/private-dns-hosts.nix).
@@ -108,6 +111,13 @@ DNS or DHCP to the network. It opens inbound UDP 53/67 and
 TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
 that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 `::1` with no `dhcp-range`, so it never listens on a link.
+
+`firewallExtraTcpPortRanges` opens a range globally. In contrast,
+`firewallLocalTcpPortRanges` emits IPv4 `iptables` rules that accept source
+addresses in only `10.0.0.0/8` and `192.168.0.0/16`. It excludes
+`172.16.0.0/12`, IPv6, and any stronger trusted-network assertion, so choose
+the global key only for intentional public reachability and the source-scoped
+key only when those exact CIDRs are the intended access boundary.
 
 When the host does have such a listener, pin the intended device with a `.link`
 `Name=` and use the pinned name. `shareCommon` hosts boot with `net.ifnames=0`,

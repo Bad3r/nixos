@@ -4,7 +4,7 @@
 #   flake.lib.nixos.hosts.<host>.firewallExtraTcpPortRanges
 #     Additional globally open TCP port ranges.
 #   flake.lib.nixos.hosts.<host>.firewallLocalTcpPortRanges
-#     Additional TCP port ranges open from RFC1918 local IPv4 networks.
+#     Additional TCP port ranges open from 10.0.0.0/8 and 192.168.0.0/16 IPv4 sources.
 { config, lib, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
