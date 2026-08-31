@@ -339,39 +339,32 @@ in
       buildsHere = hosts != { };
 
       # A false host policy may exclude only the kernel-module entry. Compare
-      # the filtered inventory with the same host's evaluated install signals,
-      # neutralizing only that policy, so an intentional nvidiaSettings=false
-      # override is not mistaken for a cache-policy regression.
+      # the publisher's actual entries with the evaluated retained userspace
+      # policy, so an intentional nvidiaSettings=false override stays valid.
       nvidiaCachePolicyFailures =
         let
-          hostInventory = inventory hosts;
-          unfilteredOptionPackages =
+          publishedFor =
             hostName:
-            let
-              hostConfig = hosts.${hostName}.config;
-            in
-            lib.attrNames (
-              lib.filterAttrs (
-                name: entry:
-                if name == "nvidia-kernel-modules" then
-                  nvidiaLoaded hostConfig
-                else
-                  entry.installed hostName hostConfig
-              ) hostOptionPackages
+            map (entry: entry.pkgName) (
+              lib.filter (entry: entry.key == "${hostName}/${entry.pkgName}") entries
             );
           excluded = lib.filterAttrs (
-            hostName: _: !((cacheRootPolicy hostName).nvidiaKernelModules or true)
-          ) hostInventory;
+            hostName: nixos:
+            nvidiaLoaded nixos.config && !((cacheRootPolicy hostName).nvidiaKernelModules or true)
+          ) hosts;
+          retainedFor =
+            hostConfig:
+            [ "nvidia-x11" ] ++ lib.optional hostConfig.hardware.nvidia.nvidiaSettings "nvidia-settings";
         in
         lib.concatLists (
           lib.mapAttrsToList (
-            hostName: entry:
+            hostName: nixos:
             let
-              omitted = lib.subtractLists entry.optionPackages (unfilteredOptionPackages hostName);
+              names = publishedFor hostName;
             in
-            lib.optional (lib.elem "nvidia-kernel-modules" entry.optionPackages) "${hostName}: nvidia-kernel-modules must remain outside the published cache roots"
-            ++ map (name: "${hostName}: cache policy lost evaluated NVIDIA entry ${name}") (
-              lib.subtractLists [ "nvidia-kernel-modules" ] omitted
+            lib.optional (lib.elem "nvidia-kernel-modules" names) "${hostName}: nvidia-kernel-modules must remain outside the published cache roots"
+            ++ map (name: "${hostName}: cache policy dropped retained NVIDIA entry ${name}") (
+              lib.subtractLists names (retainedFor nixos.config)
             )
           ) excluded
         );
