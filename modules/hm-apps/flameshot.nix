@@ -71,6 +71,7 @@ _: {
               savePathFixed = true;
               uiColor = getColor "base0D";
               contrastUiColor = getColor "base01";
+              useX11LegacyScreenshot = true;
             };
           };
         };
