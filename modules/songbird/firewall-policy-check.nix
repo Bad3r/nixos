@@ -1,6 +1,6 @@
-# Compare the complete evaluated developer-port command lists rather than the
-# registry key: a shared CIDR expansion must not broaden Songbird without an
-# explicit policy change.
+# Compare exact evaluated developer-port command lists and reject unscoped
+# NixOS allowlists: a shared CIDR expansion must not broaden Songbird without
+# an explicit policy change.
 { config, lib, ... }:
 let
   firewall = config.flake.nixosConfigurations.songbird.config.networking.firewall;
@@ -23,17 +23,58 @@ let
   developerStopRules = lib.filter (line: lib.hasInfix developerRuleNeedle line) (
     lib.splitString "\n" firewall.extraStopCommands
   );
-  globalDeveloperRange = lib.any (
-    range: range.from <= 8999 && range.to >= 8000
-  ) firewall.allowedTCPPortRanges;
+  developerPortRangeOverlaps = range: range.from <= 8999 && range.to >= 8000;
+  developerPortIsUnscoped = port: port >= 8000 && port <= 8999;
+  ruleSetPublishesDeveloperPort =
+    ruleSet:
+    lib.any developerPortRangeOverlaps ruleSet.allowedTCPPortRanges
+    || lib.any developerPortIsUnscoped ruleSet.allowedTCPPorts;
+  unscopedDeveloperPort =
+    ruleSetPublishesDeveloperPort firewall
+    || lib.any ruleSetPublishesDeveloperPort (lib.attrValues firewall.interfaces);
+  unscopedAllowlistTestCases = [
+    {
+      name = "global TCP port";
+      ruleSet = {
+        allowedTCPPortRanges = [ ];
+        allowedTCPPorts = [ 8000 ];
+      };
+      expected = true;
+    }
+    {
+      name = "interface TCP range";
+      ruleSet = {
+        allowedTCPPortRanges = [
+          {
+            from = 8999;
+            to = 9000;
+          }
+        ];
+        allowedTCPPorts = [ ];
+      };
+      expected = true;
+    }
+    {
+      name = "global TCP exception";
+      ruleSet = {
+        allowedTCPPortRanges = [ ];
+        allowedTCPPorts = [ 9999 ];
+      };
+      expected = false;
+    }
+  ];
+  unscopedAllowlistFailures = lib.filter (
+    test: ruleSetPublishesDeveloperPort test.ruleSet != test.expected
+  ) unscopedAllowlistTestCases;
   sortRules = rules: lib.sort builtins.lessThan rules;
   startRulesMatch = sortRules developerStartRules == sortRules startRules;
   stopRulesMatch = sortRules developerStopRules == sortRules stopRules;
   failures =
-    lib.optional globalDeveloperRange "TCP 8000-8999 is globally published by allowedTCPPortRanges"
+    lib.optional unscopedDeveloperPort "TCP 8000-8999 is published without the approved source CIDRs"
     ++ lib.optional (!lib.elem 9999 firewall.allowedTCPPorts) "TCP 9999 is no longer globally open"
     ++ lib.optional (!startRulesMatch) "source-scoped start rules differ from the approved exact list"
-    ++ lib.optional (!stopRulesMatch) "source-scoped stop rules differ from the approved exact list";
+    ++ lib.optional (!stopRulesMatch) "source-scoped stop rules differ from the approved exact list"
+    ++ map (test: "unscoped allowlist predicate mismatch: ${test.name}") unscopedAllowlistFailures;
 in
 {
   perSystem =
