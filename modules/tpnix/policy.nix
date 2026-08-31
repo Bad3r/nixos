@@ -17,6 +17,12 @@ _: {
     # Restore it only alongside a real listener, and use the pinned wifi0 rather
     # than wlan0.
     firewallDnsInterfaces = [ ];
+    firewallLocalTcpPortRanges = [
+      {
+        from = 8000;
+        to = 9999;
+      }
+    ];
 
     # secrets/tpnix.yaml keys served as dnsmasq addn-hosts files by
     # modules/hosts/common/private-dns-hosts.nix.

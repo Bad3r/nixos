@@ -32,10 +32,10 @@ _: {
     # a pin backs the entry, but it cannot tell a right kernel name from a wrong
     # one, so the pin is still the guarantee.
     firewallDnsInterfaces = [ ];
-    firewallExtraTcpPortRanges = [
+    firewallLocalTcpPortRanges = [
       {
         from = 8000;
-        to = 8999;
+        to = 9999;
       }
     ];
   };
