@@ -211,9 +211,12 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    system76; until it exists `services.nix` warns and skips the share.
    Flipping `r2RuntimeReady` activates the R2 services and their `/data` path
    setup from `modules/lib/r2-runtime.nix`. Keep the Samsung 860 mounted and
-   verify `findmnt /data` before enabling the runtime; the `nofail` mount is
-   intentionally allowed to remain absent, and the setup must not be used
-   while `/data` is only a directory on the root filesystem.
+   verify `findmnt /data` before enabling the runtime. The `nofail` mount is
+   intentionally allowed to remain absent, but nothing in the R2 runtime
+   checks for it: the `/data/r2`, `/data/fonts`, and `/data/Docs` trees come
+   from unconditional `systemd.tmpfiles.rules`, so booting without the volume
+   creates them on the root filesystem and the sync units then fill them
+   there. Do not enable the runtime while `/data` is only a directory on root.
 
 5. Join the tailnet; read the assigned address with `tailscale ip -4` and set
    it as `tailnetIp` in `policy.nix`. In the same change move
@@ -458,7 +461,6 @@ Plus host-specific checks after the first boot:
 ## TODO
 
 - for nixos boot partition, it must be increased to at least 10GiB.
-- Ensure that `system.stateVersion = "26.11"` or whatever latest is.
 - rename /shared to /portal
 - In windows, ensure that all the samsung SSDs and other are using up to date firmware, may require formatting.
 - low priority: find a better way to manage boatloading, e.g. a separate new bootloader that allows for selecting moving to windows or nixos bootloader (bootchain..)
