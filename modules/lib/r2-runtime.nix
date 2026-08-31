@@ -36,6 +36,18 @@
         && externalHomeModuleEnabled
         && policy.sopsRuntimeReady
         && builtins.pathExists r2ConfigFile;
+
+      # The warning names only the conditions actually unmet. A fixed string
+      # listing every precondition sends the reader to check the ones already
+      # satisfied, which is how a bare `enableExternalFlake = false` reads as a
+      # missing secret or an unmounted volume.
+      unmet =
+        lib.optional (!externalFlakeEnabled) "the host policy sets enableExternalFlake = false"
+        ++ lib.optional (
+          externalFlakeEnabled && !(externalNixosModuleEnabled && externalHomeModuleEnabled)
+        ) "the r2-flake input exposes no nixosModules.default/homeManagerModules.default"
+        ++ lib.optional (!policy.sopsRuntimeReady) "the host policy sets sopsRuntimeReady = false"
+        ++ lib.optional (!builtins.pathExists r2ConfigFile) "${toString r2ConfigFile} is missing";
     in
     { config, lib, ... }:
     let
@@ -246,7 +258,9 @@
         })
 
         (lib.mkIf (!runtimeEnabled) {
-          warnings = [ (policy.disabledReason or "R2 runtime disabled.") ];
+          warnings = [
+            "${policy.disabledReason or "R2 runtime disabled."} Unmet: ${lib.concatStringsSep "; " unmet}."
+          ];
         })
       ];
     };
