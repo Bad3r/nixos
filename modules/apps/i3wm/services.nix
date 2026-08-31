@@ -120,7 +120,7 @@
               # still run a compositor, and one from home-manager's own
               # pkgs.picom rather than the package the app module installs.
               picom = {
-                enable = lib.mkDefault (lib.attrByPath [ "programs" "picom" "extended" "enable" ] true osConfig);
+                enable = lib.mkDefault (lib.attrByPath [ "programs" "picom" "extended" "enable" ] false osConfig);
                 package = lib.mkDefault (
                   lib.attrByPath [ "programs" "picom" "extended" "package" ] pkgs.picom osConfig
                 );
