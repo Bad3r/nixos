@@ -53,7 +53,6 @@ let
     "google-chrome"
     "john"
     "kiro-fhs"
-    "nomachine-client"
     "obsidian"
     "p7zip-rar"
     "planify"
