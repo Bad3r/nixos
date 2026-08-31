@@ -176,8 +176,10 @@ current derivations do not require the CachyOS kernel build. The evaluated
 `cache-roots-nvidia-cache-policy` check reads the publisher's actual
 host-qualified entries for every host declaring this exception. It fails if the
 module is published again, `nvidia-x11` is absent, or `nvidia-settings` is
-absent while the evaluated host configuration enables it. Consequently,
-`hardware.nvidia.nvidiaSettings = false` remains an intentional omission.
+absent while the evaluated host configuration enables it. A host that instead
+sets `hardware.nvidia.nvidiaSettings = false` is not required to publish
+`nvidia-settings`: the check reads that option's evaluated value rather than
+assuming every host enables it.
 
 The full closure detector classifies the source-built CachyOS kernel and its
 modules as `local-only`, not `unexpected-local`, because stock nixpkgs has no
