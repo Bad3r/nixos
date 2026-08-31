@@ -16,7 +16,7 @@ let
     cidr:
     "iptables -D nixos-fw -s ${cidr} -p tcp --dport ${developerPortRange} -j nixos-fw-accept || true"
   ) localNetworkCidrs;
-  developerRuleNeedle = "--dport ${developerPortRange} -j nixos-fw-accept";
+  developerRuleNeedle = "--dport ${developerPortRange}";
   developerStartRules = lib.filter (line: lib.hasInfix developerRuleNeedle line) (
     lib.splitString "\n" firewall.extraCommands
   );
