@@ -352,9 +352,19 @@ in
             hostName: nixos:
             nvidiaLoaded nixos.config && !((cacheRootPolicy hostName).nvidiaKernelModules or true)
           ) hosts;
+          # Derived from hostOptionPackages' own installed predicates rather than
+          # hand-listed, so a future NVIDIA-adjacent entry stays covered by this
+          # check instead of silently falling outside it.
           retainedFor =
-            hostConfig:
-            [ "nvidia-x11" ] ++ lib.optional hostConfig.hardware.nvidia.nvidiaSettings "nvidia-settings";
+            hostName: hostConfig:
+            lib.attrNames (
+              lib.filterAttrs (
+                name: entry:
+                name != "nvidia-kernel-modules"
+                && lib.hasPrefix "nvidia-" name
+                && entry.installed hostName hostConfig
+              ) hostOptionPackages
+            );
         in
         lib.concatLists (
           lib.mapAttrsToList (
@@ -364,7 +374,7 @@ in
             in
             lib.optional (lib.elem "nvidia-kernel-modules" names) "${hostName}: nvidia-kernel-modules must remain outside the published cache roots"
             ++ map (name: "${hostName}: cache policy dropped retained NVIDIA entry ${name}") (
-              lib.subtractLists names (retainedFor nixos.config)
+              lib.subtractLists names (retainedFor hostName nixos.config)
             )
           ) excluded
         );
