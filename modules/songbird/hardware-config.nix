@@ -172,6 +172,11 @@ _: {
           ]
           (_: {
             serviceConfig = {
+              # Flag written only after the unmount succeeds: it is what tells
+              # ExecStopPost a remount is owed, so writing it first would leave
+              # it set on the busy-/shared refusal above, and ExecStopPost then
+              # runs `mount` against a filesystem that was never unmounted and
+              # fails the unit.
               ExecStartPre = [
                 (pkgs.writeShellScript "shared-umount-before-hibernate" ''
                   ${pkgs.util-linux}/bin/mountpoint -q /shared || exit 0
