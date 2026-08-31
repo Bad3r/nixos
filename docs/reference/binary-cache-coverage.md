@@ -173,11 +173,11 @@ CachyOS kernel is built from source and no CachyOS substituter is configured.
 The module remains installed on songbird, but it is omitted from the published
 cache roots. `nvidia-x11` and `nvidia-settings` remain cache roots because their
 current derivations do not require the CachyOS kernel build. The evaluated
-`cache-roots-nvidia-cache-policy` check fails for every host that declares this
-exception if the module is published again or an NVIDIA entry that the host
-actually installs is omitted. The check neutralizes only the module-cache
-policy while deriving that baseline from the host's evaluated install signals,
-so `hardware.nvidia.nvidiaSettings = false` remains an intentional omission.
+`cache-roots-nvidia-cache-policy` check reads the publisher's actual
+host-qualified entries for every host declaring this exception. It fails if the
+module is published again, `nvidia-x11` is absent, or `nvidia-settings` is
+absent while the evaluated host configuration enables it. Consequently,
+`hardware.nvidia.nvidiaSettings = false` remains an intentional omission.
 
 The full closure detector classifies the source-built CachyOS kernel and its
 modules as `local-only`, not `unexpected-local`, because stock nixpkgs has no
