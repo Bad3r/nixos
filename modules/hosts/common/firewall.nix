@@ -3,9 +3,15 @@
 #     Interfaces allowed to serve DNS/DHCP (UDP 53/67, TCP 53).
 #   flake.lib.nixos.hosts.<host>.firewallExtraTcpPortRanges
 #     Additional globally open TCP port ranges.
+#   flake.lib.nixos.hosts.<host>.firewallLocalTcpPortRanges
+#     Additional TCP port ranges open from RFC1918 local IPv4 networks.
 { config, lib, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
+  localNetworkCidrs = [
+    "10.0.0.0/8"
+    "192.168.0.0/16"
+  ];
 
   # Bound once each: the classifier outputs stay mutually consistent only while
   # both patterns are single-sourced.
@@ -264,6 +270,25 @@ let
           + "of the guards in modules/hosts/common/firewall.nix."
         ));
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
+      localTcpPortRanges = hostFlags.firewallLocalTcpPortRanges or [ ];
+      localTcpPortRangeCommands = lib.concatMapStrings (
+        range:
+        let
+          portRange = "${toString range.from}:${toString range.to}";
+        in
+        lib.concatMapStrings (
+          cidr: "iptables -A nixos-fw -s ${cidr} -p tcp --dport ${portRange} -j nixos-fw-accept\n"
+        ) localNetworkCidrs
+      ) localTcpPortRanges;
+      localTcpPortRangeStopCommands = lib.concatMapStrings (
+        range:
+        let
+          portRange = "${toString range.from}:${toString range.to}";
+        in
+        lib.concatMapStrings (
+          cidr: "iptables -D nixos-fw -s ${cidr} -p tcp --dport ${portRange} -j nixos-fw-accept || true\n"
+        ) localNetworkCidrs
+      ) localTcpPortRanges;
       predictable = config.networking.usePredictableInterfaceNames;
       declaredNames = declaredNamesOf config;
       collidingPins = collidingPinsOf config.systemd.network.links;
@@ -406,9 +431,11 @@ let
         # Allow SSH from local network (10.0.0.0/8)
         extraCommands = ''
           iptables -A nixos-fw -s 10.0.0.0/8 -p tcp --dport 22 -j nixos-fw-accept
+          ${localTcpPortRangeCommands}
         '';
         extraStopCommands = ''
           iptables -D nixos-fw -s 10.0.0.0/8 -p tcp --dport 22 -j nixos-fw-accept || true
+          ${localTcpPortRangeStopCommands}
         '';
       };
     };
