@@ -1,5 +1,5 @@
-# Guard the evaluated firewall result rather than the registry key: the key
-# alone cannot prove the source rules survive common firewall composition.
+# Compare the evaluated developer-port rules rather than the registry key: a
+# shared CIDR expansion must not broaden Songbird without an explicit policy change.
 { config, lib, ... }:
 let
   firewall = config.flake.nixosConfigurations.songbird.config.networking.firewall;
@@ -12,18 +12,30 @@ let
     cidr: "iptables -A nixos-fw -s ${cidr} -p tcp --dport ${developerPortRange} -j nixos-fw-accept"
   ) localNetworkCidrs;
   stopRules = map (
-    cidr: "iptables -D nixos-fw -s ${cidr} -p tcp --dport ${developerPortRange} -j nixos-fw-accept"
+    cidr:
+    "iptables -D nixos-fw -s ${cidr} -p tcp --dport ${developerPortRange} -j nixos-fw-accept || true"
   ) localNetworkCidrs;
+  developerRuleNeedle = "--dport ${developerPortRange} -j nixos-fw-accept";
+  developerStartRules = lib.filter (line: lib.hasInfix developerRuleNeedle line) (
+    lib.splitString "\n" firewall.extraCommands
+  );
+  developerStopRules = lib.filter (line: lib.hasInfix developerRuleNeedle line) (
+    lib.splitString "\n" firewall.extraStopCommands
+  );
   globalDeveloperRange = lib.any (
     range: range.from <= 8999 && range.to >= 8000
   ) firewall.allowedTCPPortRanges;
-  missingStartRules = lib.filter (rule: !lib.hasInfix rule firewall.extraCommands) startRules;
-  missingStopRules = lib.filter (rule: !lib.hasInfix rule firewall.extraStopCommands) stopRules;
+  missingStartRules = lib.subtractLists developerStartRules startRules;
+  unexpectedStartRules = lib.subtractLists startRules developerStartRules;
+  missingStopRules = lib.subtractLists developerStopRules stopRules;
+  unexpectedStopRules = lib.subtractLists stopRules developerStopRules;
   failures =
     lib.optional globalDeveloperRange "TCP 8000-8999 is globally published by allowedTCPPortRanges"
     ++ lib.optional (!lib.elem 9999 firewall.allowedTCPPorts) "TCP 9999 is no longer globally open"
     ++ map (rule: "missing source-scoped start rule: ${rule}") missingStartRules
-    ++ map (rule: "missing source-scoped stop rule: ${rule}") missingStopRules;
+    ++ map (rule: "unexpected source-scoped start rule: ${rule}") unexpectedStartRules
+    ++ map (rule: "missing source-scoped stop rule: ${rule}") missingStopRules
+    ++ map (rule: "unexpected source-scoped stop rule: ${rule}") unexpectedStopRules;
 in
 {
   perSystem =
