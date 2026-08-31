@@ -8,6 +8,7 @@ let
   host = config.flake.nixosConfigurations.system76.config;
   ownerName = config.flake.lib.meta.owner.username;
   r2ServiceNames = [
+    "r2-runtime-paths"
     "r2-mount-workspace"
     "r2-bisync-workspace"
     "r2-mount-fonts"
