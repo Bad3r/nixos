@@ -25,10 +25,10 @@ _: {
     # than eth0, which follows enumeration order onto the built-in NIC whenever
     # the USB adapter is detached at boot.
     firewallDnsInterfaces = [ ];
-    firewallExtraTcpPortRanges = [
+    firewallLocalTcpPortRanges = [
       {
         from = 8000;
-        to = 8999;
+        to = 9999;
       }
     ];
   };
