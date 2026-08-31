@@ -8,9 +8,9 @@ let
   # provisioned unconditionally.
   #
   # Takes fileSystems rather than a list of mount points, so the mountPoint
-  # extraction is inside the tested surface: reading attribute names there
-  # instead is the regression this shipped once already, and a helper handed a
-  # ready-made list would have stayed green through it.
+  # extraction is inside the tested surface: a helper handed a ready-made list
+  # of mount points would leave the attribute-name-vs-mountPoint distinction
+  # untested.
   enclosingMountOf =
     root: fileSystems:
     let

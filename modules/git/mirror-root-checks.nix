@@ -5,8 +5,6 @@
 # the mirror root on the root filesystem and every downstream guard then passes
 # against it. A host closure may exercise either branch, so the check below
 # covers both an enclosing data mount and a root-backed mirror root.
-# Reading attribute names instead of mountPoint shipped through six commits that
-# way.
 #
 # This throws rather than emitting a failing derivation: CI forces each check's
 # drvPath with `nix eval` and never builds checks, so only an eval-time failure
@@ -29,7 +27,7 @@ let
       expected = "/data";
     }
     {
-      # The case that regressed: the key carries no path at all.
+      # The key carries no path at all; only mountPoint does.
       name = "mount keyed by a name, path only in mountPoint";
       root = "/data/git";
       fileSystems = {
