@@ -382,8 +382,8 @@ let
       staleScheme = [ ];
     }
     {
-      # The wired-host case since the lan0/lan1 pins were dropped: nothing binds
-      # eth0 to a device, so it belongs in kernelNames and the warning fires.
+      # A wired host with no .link binding eth0 to a device: it belongs in
+      # kernelNames, so the warning fires.
       name = "unpinned wired kernel name under kernel naming";
       dnsInterfaces = [ "eth0" ];
       declaredNames = [ ];

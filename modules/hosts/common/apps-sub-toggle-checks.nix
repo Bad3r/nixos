@@ -48,8 +48,8 @@ let
       noOps = [ "logseq.extended.disableGpuCompositing" ];
     }
     {
-      # The branch that regressed: the app is a service, so a programs-only
-      # lookup reports it as uncomparable even though the baseline declares it.
+      # A programs-only lookup would report this services app as uncomparable
+      # even though the baseline declares it under services.
       name = "services path resolves in the services namespace";
       toggles = [
         (toggle [ "espanso" "extended" "x11Override" ] true)
