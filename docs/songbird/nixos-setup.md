@@ -210,13 +210,17 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    on-demand Samba media share the way `secrets/system76.yaml` does on
    system76; until it exists `services.nix` warns and skips the share.
    Flipping `r2RuntimeReady` activates the R2 services and their `/data` path
-   setup from `modules/lib/r2-runtime.nix`. Keep the Samsung 860 mounted and
-   verify `findmnt /data` before enabling the runtime. The `nofail` mount is
-   intentionally allowed to remain absent, but nothing in the R2 runtime
-   checks for it: the `/data/r2`, `/data/fonts`, and `/data/Docs` trees come
-   from unconditional `systemd.tmpfiles.rules`, so booting without the volume
-   creates them on the root filesystem and the sync units then fill them
-   there. Do not enable the runtime while `/data` is only a directory on root.
+   setup from `modules/lib/r2-runtime.nix`. The `nofail` mount is intentionally
+   allowed to remain absent: `r2-runtime-paths.service` provisions
+   `/data/r2`, `/data/fonts`, and `/data/Docs`, and every mount, bisync, and
+   restic unit is ordered after it under `ConditionPathIsMountPoint=/data`, so
+   a boot without the Samsung 860 leaves them inactive rather than building the
+   tree on the root filesystem and syncing into it. Recovering after a late
+   manual mount is `systemctl start r2-runtime-paths.service` plus the writer
+   the workload needs; a condition-skipped boot job is not retried.
+
+   When the disabled warning fires, it names the terms actually unmet, so a
+   present `secrets/r2.yaml` is never listed as missing.
 
 5. Join the tailnet; read the assigned address with `tailscale ip -4` and set
    it as `tailnetIp` in `policy.nix`. In the same change move

@@ -12,7 +12,7 @@ _: {
     sopsRuntimeReady = true;
 
     # Host runtime gate read by modules/songbird/r2-runtime.nix.
-    r2RuntimeReady = false;
+    r2RuntimeReady = true;
 
     # The CachyOS kernel is built from source on songbird and has no configured
     # substituter. Keep the kernel module local to that host's build while
