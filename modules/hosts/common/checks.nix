@@ -198,8 +198,16 @@ let
     + lib.concatStringsSep ", " noOps;
 in
 {
-  flake.lib.nixos._hostAppsSubToggleClassify = classifySubToggles;
-  flake.lib.nixos._hostAppsSubToggleApply = applySubToggles;
+  flake.lib.nixos = {
+    _hostAppsSubToggleClassify = classifySubToggles;
+    _hostAppsSubToggleApply = applySubToggles;
+    # Curried the way every host apps-enable.nix wants to call it: baseline and
+    # subToggles are per-host constants closed over once, leaving the host file
+    # only the namespace/base call applySubToggles's own signature already needs.
+    _mkHostAppsSubToggleApply =
+      baseline: subToggles: namespace: base:
+      applySubToggles baseline namespace base subToggles;
+  };
 
   perSystem =
     { pkgs, ... }:

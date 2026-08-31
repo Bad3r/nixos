@@ -94,13 +94,10 @@ let
   # Shared with the FR-5 comparison so the write and read sides cannot disagree
   # about which namespace a path belongs to or whether it is comparable.
   applySubToggles =
-    namespace: base:
-    (config.flake.lib.nixos._hostAppsSubToggleApply
-      or (throw "modules/hosts/common/checks.nix no longer exports flake.lib.nixos._hostAppsSubToggleApply")
+    (config.flake.lib.nixos._mkHostAppsSubToggleApply
+      or (throw "modules/hosts/common/checks.nix no longer exports flake.lib.nixos._mkHostAppsSubToggleApply")
     )
       baseline
-      namespace
-      base
       subToggles;
 in
 {
