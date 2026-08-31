@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ lib, config, ... }:
 {
   flake.lib.nixos.r2.mkHostR2Module =
     {
@@ -8,6 +8,9 @@
       policy,
     }:
     let
+      enclosingMountOf =
+        config.flake.lib.nixos._localMirrorsEnclosingMount
+          or (throw "modules/git/mirror-root.nix no longer exports flake.lib.nixos._localMirrorsEnclosingMount");
       externalFlakeEnabled = policy.enableExternalFlake;
       r2ConfigFile = secretsRoot + "/r2.yaml";
       # Import the option surface independently from SOPS runtime readiness.
@@ -38,11 +41,94 @@
     let
       inherit (metaOwner) username;
       group = lib.attrByPath [ "users" "users" username "group" ] "users" config;
+
+      # Everything the runtime provisions or writes lives under this root, so a
+      # single enclosing mount covers the provisioner and every writer.
+      runtimeRoot = "/data";
+      runtimePaths = [
+        "/data/r2"
+        "/data/r2/mount"
+        "/data/r2/mount/workspace"
+        "/data/r2/mount/fonts"
+        "/data/r2/mount/docs"
+        "/data/r2/workspace"
+        "/data/fonts"
+        "/data/Docs"
+      ];
+      writerNames = [
+        "r2-mount-workspace"
+        "r2-bisync-workspace"
+        "r2-mount-fonts"
+        "r2-bisync-fonts"
+        "r2-mount-docs"
+        "r2-bisync-docs"
+        "r2-restic-backup"
+      ];
+
+      r2RuntimePathsModule =
+        {
+          config,
+          lib,
+          pkgs,
+          utils,
+          ...
+        }:
+        let
+          enclosingMount = enclosingMountOf runtimeRoot config.fileSystems;
+          # Null on a host that keeps /data on the root filesystem (tpnix),
+          # which stays unconditional rather than losing the runtime entirely.
+          mountAfter = lib.optional (
+            enclosingMount != null
+          ) "${utils.escapeSystemdPath enclosingMount}.mount";
+          mountCondition = lib.optionalAttrs (enclosingMount != null) {
+            ConditionPathIsMountPoint = enclosingMount;
+          };
+        in
+        {
+          # A unit rather than systemd.tmpfiles.rules, for the reason
+          # modules/git/mirror-root.nix documents: tmpfiles.d(5) runs
+          # unconditionally and creates leading directories, so a boot without
+          # the volume built this whole tree on the root filesystem and the
+          # writers below then filled it there instead of failing. A nofail
+          # mount is not ordered before local-fs.target, so tmpfiles could lose
+          # that race with the volume present as well.
+          systemd.services = {
+            r2-runtime-paths = {
+              description = "Provision the R2 runtime paths under ${runtimeRoot}";
+              wantedBy = [ "multi-user.target" ];
+              after = mountAfter;
+              unitConfig = mountCondition;
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+                ExecStart = map (
+                  path: "${pkgs.coreutils}/bin/install -d -m 0750 -o ${username} -g ${group} ${path}"
+                ) runtimePaths;
+              };
+            };
+          }
+          // lib.genAttrs writerNames (_: {
+            # Each writer repeats the condition instead of leaning on the
+            # provisioner: systemd counts a condition-skipped dependency as
+            # satisfied, so requires alone would still let a writer start
+            # against an absent volume. requires covers the other direction,
+            # where provisioning ran and failed.
+            after = [ "r2-runtime-paths.service" ] ++ mountAfter;
+            requires = [ "r2-runtime-paths.service" ];
+            unitConfig = mountCondition;
+          });
+        };
     in
     {
-      imports = lib.optionals externalNixosModuleEnabled [
-        inputs."r2-flake".nixosModules.default
-      ];
+      imports =
+        lib.optionals externalNixosModuleEnabled [
+          inputs."r2-flake".nixosModules.default
+        ]
+        # Separate module because this one needs pkgs and utils. A module
+        # carrying `imports` is applied while the module graph is still being
+        # collected, before `_module.args` can answer for either, so naming
+        # them as formals on the outer module aborts the whole evaluation.
+        ++ lib.optional runtimeEnabled r2RuntimePathsModule;
 
       config = lib.mkMerge [
         (lib.mkIf externalHomeModuleEnabled {
@@ -156,18 +242,6 @@
                 Group = group;
               };
             };
-
-            # Ensure paths exist (and are user-owned) before services start.
-            tmpfiles.rules = [
-              "d /data/r2 0750 ${username} ${group} - -"
-              "d /data/r2/mount 0750 ${username} ${group} - -"
-              "d /data/r2/mount/workspace 0750 ${username} ${group} - -"
-              "d /data/r2/mount/fonts 0750 ${username} ${group} - -"
-              "d /data/r2/mount/docs 0750 ${username} ${group} - -"
-              "d /data/r2/workspace 0750 ${username} ${group} - -"
-              "d /data/fonts 0750 ${username} ${group} - -"
-              "d /data/Docs 0750 ${username} ${group} - -"
-            ];
           };
         })
 
