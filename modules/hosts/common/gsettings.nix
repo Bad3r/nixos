@@ -53,7 +53,7 @@ let
       assertions = [
         {
           assertion =
-            portalPreferences."org.freedesktop.impl.portal.Secret" != "gnome-keyring"
+            !(builtins.elem "gnome-keyring" (lib.toList portalPreferences."org.freedesktop.impl.portal.Secret"))
             || !config.services.gnome.gnome-keyring.enable
             || builtins.elem pkgs.gnome-keyring config.xdg.portal.extraPortals;
           message =
