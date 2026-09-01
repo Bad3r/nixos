@@ -21,6 +21,9 @@
 # The comparison is done at flake.lib level (no module evaluation) to avoid
 # the infinite recursion that arises when reading
 # `config.configurations.nixos.<host>.module` back from a flake-level check.
+#
+# The portal parity check below runs at build time because CI evaluates every
+# check's drvPath without building it before selecting runtime checks.
 { config, lib, ... }:
 let
   baseline = config.flake.lib.nixos._commonAppsBaseline or { };
@@ -89,6 +92,13 @@ let
     "FR-5: ${host} apps-enable override duplicates common baseline (no-op). "
     + "Remove these entries from modules/${host}/apps-enable.nix: "
     + lib.concatStringsSep ", " noOps;
+
+  portalPreferences = config.flake.lib.nixos._portalPreferences or null;
+  gtkPortalInterfaces =
+    if portalPreferences == null then
+      [ ]
+    else
+      builtins.filter (name: portalPreferences.${name} == "gtk") (builtins.attrNames portalPreferences);
 in
 {
   perSystem =
@@ -105,6 +115,88 @@ in
             pkgs.runCommandLocal "host-apps-baseline-present-ok" { } ''
               echo "ok: common app baseline snapshot is present when host overrides are registered" > $out
             '';
+
+        portal-gtk-interface-parity =
+          if portalPreferences == null then
+            throw (
+              "portal-gtk-interface-parity: modules/hosts/common/gsettings.nix no longer exports "
+              + "flake.lib.nixos._portalPreferences, so the GTK interface pins are unverified."
+            )
+          else if gtkPortalInterfaces == [ ] then
+            throw "portal-gtk-interface-parity: no portal interfaces are pinned to gtk"
+          else
+            pkgs.runCommandLocal "portal-gtk-interface-parity"
+              {
+                # The CI check-compliance job evaluates drvPath first and
+                # builds derivations marked with runtimeCheck afterward.
+                passthru.runtimeCheck = true;
+                nativeBuildInputs = [
+                  pkgs.coreutils
+                  pkgs.gawk
+                ];
+              }
+              ''
+                set -euo pipefail
+
+                portal_file=${lib.escapeShellArg "${pkgs.xdg-desktop-portal-gtk}/share/xdg-desktop-portal/portals/gtk.portal"}
+                expected_file="$TMPDIR/expected"
+                actual_unsorted="$TMPDIR/actual-unsorted"
+                actual_file="$TMPDIR/actual"
+
+                if [ ! -f "$portal_file" ]; then
+                  echo "portal-gtk-interface-parity: missing $portal_file" >&2
+                  exit 1
+                fi
+
+                interface_line_count=$(awk '$0 ~ /^Interfaces=/ { count += 1 } END { print count + 0 }' "$portal_file")
+                if [ "$interface_line_count" -ne 1 ]; then
+                  echo "portal-gtk-interface-parity: expected one Interfaces= line in $portal_file, found $interface_line_count" >&2
+                  exit 1
+                fi
+
+                interfaces_value=$(awk '$0 ~ /^Interfaces=/ { print substr($0, 12) }' "$portal_file")
+                if [ -z "$interfaces_value" ]; then
+                  echo "portal-gtk-interface-parity: Interfaces= is empty in $portal_file" >&2
+                  exit 1
+                fi
+
+                # gtk.portal terminates the semicolon-delimited list with one
+                # delimiter; repeated or interior delimiters remain invalid.
+                case "$interfaces_value" in
+                  *';') interfaces_value=''${interfaces_value%;} ;;
+                esac
+                if [ -z "$interfaces_value" ]; then
+                  echo "portal-gtk-interface-parity: Interfaces= has no interface values in $portal_file" >&2
+                  exit 1
+                fi
+
+                empty_interface_count=$(awk -F ';' '{ for (i = 1; i <= NF; i++) if ($i == "") count += 1 } END { print count + 0 }' <<<"$interfaces_value")
+                if [ "$empty_interface_count" -ne 0 ]; then
+                  echo "portal-gtk-interface-parity: Interfaces= contains an empty entry in $portal_file" >&2
+                  exit 1
+                fi
+
+                awk -F ';' '{ for (i = 1; i <= NF; i++) print $i }' <<<"$interfaces_value" > "$actual_unsorted"
+                duplicate_interfaces=$(sort "$actual_unsorted" | uniq -d)
+                if [ -n "$duplicate_interfaces" ]; then
+                  echo "portal-gtk-interface-parity: Interfaces= contains duplicate entries:" >&2
+                  printf '%s\n' "$duplicate_interfaces" >&2
+                  exit 1
+                fi
+
+                expected_interfaces=(${lib.escapeShellArgs gtkPortalInterfaces})
+                printf '%s\n' "''${expected_interfaces[@]}" | sort -u > "$expected_file"
+                sort -u "$actual_unsorted" > "$actual_file"
+
+                if ! cmp -s "$expected_file" "$actual_file"; then
+                  echo "portal-gtk-interface-parity: packaged gtk.portal interfaces differ from gtk pins" >&2
+                  echo "expected only / actual only:" >&2
+                  comm -3 "$expected_file" "$actual_file" >&2
+                  exit 1
+                fi
+
+                printf 'ok: gtk.portal Interfaces= matches %s pinned interfaces\n' "${toString (builtins.length gtkPortalInterfaces)}" > "$out"
+              '';
       }
       // lib.mapAttrs' (
         host: noOps:

@@ -68,5 +68,8 @@ let
     };
 in
 {
+  # Keep the parity check's expected set tied to the map rendered below
+  # without re-evaluating a host configuration from a flake-level check.
+  flake.lib.nixos._portalPreferences = portalPreferences;
   flake.nixosModules.hosts-common.imports = [ body ];
 }
