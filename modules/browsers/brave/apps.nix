@@ -34,7 +34,10 @@ let
 
       # Kagi default search provider, shared verbatim with google-chrome and
       # ungoogled-chromium so every Chromium-family browser stays symmetric.
-      inherit (import ../_chromium-policies.nix) managedDefaultSearchProvider;
+      inherit (import ../_chromium-policies.nix)
+        managedDefaultSearchProvider
+        managedDnsOverHttps
+        ;
 
       defaultManagedPolicies = {
         # Brave product features and promotions.
@@ -160,7 +163,8 @@ let
         SpellCheckServiceEnabled = false;
         TranslateEnabled = false;
       }
-      // managedDefaultSearchProvider;
+      // managedDefaultSearchProvider
+      // managedDnsOverHttps;
     in
     {
       options.programs.brave.extended = {

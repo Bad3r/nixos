@@ -7,11 +7,11 @@
 
   Summary:
     * Installs Brave Origin, a separate Brave product currently shipped only through the brave-origin-nightly channel.
-    * Exposes the upstream binary as `brave-origin` without managed enterprise policies.
+    * Applies the shared managed DNS-over-HTTPS policy.
 
   Options:
     --incognito: Launch Brave Origin directly in a private browsing session.
-    brave://policy: Inspect the active policy set after rebuild (empty by default).
+    brave://policy: Inspect the active managed policy set after rebuild.
     --enable-features=VaapiVideoDecoder,VaapiVideoEncoder: Enable VA-API hardware acceleration on supported GPUs.
     --disable-features=OutdatedBuildDetector: Suppress the bundled updater notice.
     --ozone-platform-hint=auto: Allow Brave Origin to negotiate Wayland or X11 automatically.
@@ -32,6 +32,8 @@ let
     }:
     let
       cfg = config.programs."brave-origin".extended;
+
+      inherit (import ../_chromium-policies.nix) managedDnsOverHttps;
     in
     {
       options.programs."brave-origin".extended = {
@@ -45,7 +47,10 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment = {
+          systemPackages = [ cfg.package ];
+          etc."brave/policies/managed/dns-over-https.json".text = builtins.toJSON managedDnsOverHttps;
+        };
       };
     };
 in

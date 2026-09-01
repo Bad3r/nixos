@@ -1,9 +1,9 @@
 /*
   Internal: shared managed-policy payloads for Chromium-family browsers
-  Description: User-disableable extension list and default-search-provider
-  policy shared verbatim by google-chrome and ungoogled-chromium so the
-  two browsers stay symmetric. Imported via a relative path; the leading
-  underscore keeps this file out of module auto-discovery.
+  Description: Managed extension, default-search-provider, and DNS-over-HTTPS
+  policy shared verbatim by google-chrome and ungoogled-chromium so the two
+  browsers stay symmetric. Imported via a relative path; the leading underscore
+  keeps this file out of module auto-discovery.
 
   `StandardManagementPolicyProvider::MustRemainInstalled` covers
   INSTALLATION_RECOMMENDED (`normal_installed`) as well as INSTALLATION_FORCED,
@@ -33,5 +33,10 @@
     DefaultSearchProviderSuggestURL = "https://kagi.com/api/autosuggest?q={searchTerms}";
     DefaultSearchProviderIconURL = "https://kagi.com/favicon-32x32.png";
     DefaultSearchProviderEncodings = [ "UTF-8" ];
+  };
+
+  managedDnsOverHttps = {
+    DnsOverHttpsMode = "secure";
+    DnsOverHttpsTemplates = "https://adblock.doh.mullvad.net/dns-query";
   };
 }

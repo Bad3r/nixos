@@ -51,8 +51,6 @@ in
 
     DNSOverHTTPS = {
       Enabled = true;
-      # Mullvad documents dns., but Songbird's network resets its SNI handshake.
-      # This working doh. alias is required while Fallback = false.
       ProviderURL = "https://adblock.doh.mullvad.net/dns-query";
       Fallback = false;
     };
