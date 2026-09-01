@@ -1,8 +1,8 @@
 /*
   Internal: shared managed-policy payloads for Chromium-family browsers
-  Description: Managed extension, default-search-provider, and DNS-over-HTTPS
-  policy shared verbatim by google-chrome and ungoogled-chromium so the two
-  browsers stay symmetric. Imported via a relative path; the leading underscore
+  Description: Managed extensions apply to Google Chrome and ungoogled Chromium.
+  The default-search provider also applies to Brave, and DNS-over-HTTPS also
+  applies to Brave Origin. Imported via a relative path; the leading underscore
   keeps this file out of module auto-discovery.
 
   `StandardManagementPolicyProvider::MustRemainInstalled` covers

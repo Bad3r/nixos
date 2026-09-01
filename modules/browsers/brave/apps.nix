@@ -32,8 +32,8 @@ let
     let
       cfg = config.programs.brave.extended;
 
-      # Kagi default search provider, shared verbatim with google-chrome and
-      # ungoogled-chromium so every Chromium-family browser stays symmetric.
+      # Kagi search is shared with Google Chrome and ungoogled Chromium. The
+      # resolver policy also applies to Brave Origin.
       inherit (import ../_chromium-policies.nix)
         managedDefaultSearchProvider
         managedDnsOverHttps
