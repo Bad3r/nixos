@@ -23,7 +23,7 @@
 
   Notes:
     * `disk` group members run this without `sudo`: a capability wrapper supplies CAP_SYS_ADMIN and the shared storage policy opens the controller char nodes.
-    * The wrapper source is an argv filter that only keeps the capability for an allowlist of read-only diagnostic subcommands plus `device-self-test`, whose options can start or abort a drive self-test. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `fw-commit` and the vendor plugins need `sudo` again.
+    * The wrapper source is an argv filter that only keeps the capability for an allowlist of read-only diagnostic subcommands plus `device-self-test`, whose options can start or abort a drive self-test. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `set-feature`, `fw-commit` and the vendor plugins need `sudo` again.
     * `nvme help <cmd>` and the vendor plugins are in the cleared path: plugin.c:52 `execlp`s `man`, and the plugins interpolate `--dir-name` into a `system()` string (solidigm-internal-logs.c:989, wdc-nvme.c:4218).
 */
 _:
@@ -59,22 +59,52 @@ let
            unique-prefix and plugin-extension arms, and nvme.c holds no
            system()/popen()/exec* call for any of them to reach. */
         static const char *const allowed[] = {
+        	"ana-log",
+        	"ave-discovery-log",
+        	"boot-part-log",
         	"device-self-test",
+        	"dispersed-ns-participating-nss-log",
         	"effects-log",
+        	"endurance-event-agg-log",
         	"endurance-log",
         	"error-log",
+        	"fid-support-effects-log",
         	"fw-log",
+        	"get-feature",
         	"get-log",
+        	"host-discovery-log",
         	"id-ctrl",
+        	"id-domain",
+        	"id-iocs",
         	"id-ns",
+        	"id-ns-granularity",
+        	"id-ns-lba-format",
+        	"id-nvmset",
+        	"id-uuid",
+        	"lba-status-log",
         	"list",
         	"list-ctrl",
+        	"list-endgrp",
         	"list-ns",
+        	"list-secondary",
         	"list-subsys",
+        	"media-unit-stat-log",
+        	"mgmt-addr-list-log",
+        	"mi-cmd-support-effects-log",
         	"ns-descs",
+        	"nvm-id-ns-lba-format",
+        	"pred-lat-event-agg-log",
+        	"predictable-lat-log",
+        	"primary-ctrl-caps",
+        	"pull-model-ddc-req-log",
+        	"reachability-associations-log",
+        	"reachability-groups-log",
+        	"resv-notif-log",
+        	"rotational-media-info-log",
         	"sanitize-log",
         	"self-test-log",
         	"smart-log",
+        	"supported-cap-config-log",
         	"supported-log-pages",
         	"telemetry-log",
         	NULL
