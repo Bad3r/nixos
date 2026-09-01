@@ -3,11 +3,7 @@
   configurations.nixos.songbird.module = {
     services.openssh = {
       enable = lib.mkDefault false;
-      # publicKey is unset until the first boot on this configuration
-      # generates /etc/ssh/ssh_host_ed25519_key.pub (the stock install never
-      # ran sshd). Pin it here and in modules/hosts/common/ssh-known-hosts.nix
-      # in the same change: modules/configurations/nixos.nix rejects a host
-      # key without a matching fleetHostKeys entry.
+      publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINptd1paBJhCCHf8L2FolFAcCtzlBJQp6SIi4dLSiP53 root@songbird";
     };
   };
 }

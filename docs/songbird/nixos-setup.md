@@ -227,18 +227,8 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    `primary = true` off `modules/system76/policy.nix` and onto songbird
    (ssh-hosts aliases and the tailscale SSH default follow the registry).
 
-6. Pin the host SSH public key. sshd runs fleet-wide (`flake.nixosModules.ssh`
-   enables it; the firewall keeps port 22 closed), so the first boot on this
-   configuration generates the key:
-
-   ```sh
-   cat /etc/ssh/ssh_host_ed25519_key.pub
-   ```
-
-   Record it as `services.openssh.publicKey` in `modules/songbird/ssh.nix`
-   and as the `songbird` entry in `modules/hosts/common/ssh-known-hosts.nix`
-   in the same change; `modules/configurations/nixos.nix` rejects a host key
-   without a matching `fleetHostKeys` pin.
+6. The host SSH public key is pinned in `modules/songbird/ssh.nix` and as the
+   `songbird` entry in `modules/hosts/common/ssh-known-hosts.nix`.
 
 7. Run the validation ladder and merge the PR.
 
@@ -397,7 +387,7 @@ prompts) and any shared-ESP scheme (decision 6).
 | hostId                      | Done: `c93b3b3c`                                                     | `host-id.nix`                                                            |
 | Wired interface names       | Done: `eth0` (RTL8126, uplink), `eth1` (I226-V) in enumeration order | Kernel `net.ifnames=0`, no pin                                           |
 | Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                             | `project-songbird.md`                                                    |
-| Host SSH public key         | Pending the first boot on this configuration                         | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                 |
+| Host SSH public key         | Done: pinned from `/etc/ssh/ssh_host_ed25519_key.pub`                | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                 |
 | age identity                | Done (installed and verified); `sopsRuntimeReady` enabled            | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix` |
 | Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff | `policy.nix` `tailnetIp`, `primary`                                      |
 | `/data` root key slot       | Added; the unattended initrd unlock is untested until a reboot       | LUKS header `183d1f98-…` (no repo change)                                |
