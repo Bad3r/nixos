@@ -31,7 +31,7 @@ let
   };
 
   body =
-    { pkgs, ... }:
+    { config, pkgs, ... }:
     {
       environment.systemPackages = with pkgs; [
         gsettings-desktop-schemas
@@ -47,6 +47,20 @@ let
 
       services.dbus.packages = with pkgs; [
         gsettings-desktop-schemas
+      ];
+
+      # Keep the host-enabled Secret mapping coupled to its portal provider.
+      assertions = [
+        {
+          assertion =
+            portalPreferences."org.freedesktop.impl.portal.Secret" != "gnome-keyring"
+            || !config.services.gnome.gnome-keyring.enable
+            || builtins.elem pkgs.gnome-keyring config.xdg.portal.extraPortals;
+          message =
+            "org.freedesktop.impl.portal.Secret is pinned to gnome-keyring, but "
+            + "gnome-keyring.portal is not in xdg.portal.extraPortals; with default=none "
+            + "the Secret portal is unexported.";
+        }
       ];
 
       environment.variables = {
