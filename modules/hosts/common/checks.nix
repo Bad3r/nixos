@@ -98,7 +98,11 @@ let
     if portalPreferences == null then
       [ ]
     else
-      builtins.filter (name: portalPreferences.${name} == "gtk") (builtins.attrNames portalPreferences);
+      builtins.filter (
+        name:
+        lib.hasPrefix "org.freedesktop.impl.portal." name
+        && builtins.elem "gtk" (lib.toList portalPreferences.${name})
+      ) (builtins.attrNames portalPreferences);
 in
 {
   perSystem =
