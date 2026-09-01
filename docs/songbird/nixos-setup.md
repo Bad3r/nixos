@@ -190,8 +190,9 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    unlock it without a second prompt. If a replacement volume lacks that key
    slot, add it once with `cryptsetup luksAddKey` using the device UUID from
    `hardware-config.nix`; until then, open the device as `data` and mount
-   `/data` after login. An absent drive still does not block the boot. The `vx`
-   account keeps the
+   `/data` after login. An absent drive delays boot by at most 60 seconds, and
+   an unanswered `/data` unlock prompt has the same limit; either outcome skips
+   the optional volume without failing root. The `vx` account keeps the
    password set during the install (`users.mutableUsers` is on, so the
    initial hash in `modules/meta/owner.nix` is not applied to an existing
    user).
@@ -238,9 +239,9 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
 What remains is system76's root and home:
 
 1. Confirm `/data` is mounted before copying anything into it: `findmnt /data`.
-   Phase N2 step 2 records that the initrd abandons the `data` volume until the
-   root passphrase is added as a key slot, and the mount is `nofail`, so until
-   then `/data` is an empty directory on the root ext4 and `rsync` fills `/`
+   The root-passphrase key slot is present, but the optional `data` unlock and
+   absent-device paths are each bounded to 60 seconds. If the volume does not
+   unlock, `/data` is an empty directory on the root ext4 and `rsync` fills `/`
    without an error. Then, with system76 running on its replacement drives,
    copy `/home/<owner>` and anything else worth keeping over the network into
    `/data/migration-system76/` on songbird (`rsync -aHAX --info=progress2`
@@ -322,7 +323,7 @@ handling) and plus the desktop-specific pieces:
 | File                                                            | Carries                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `modules/songbird/cachyos-kernel.nix`                           | Host-specific CachyOS overlay and `boot.kernelPackages` override over the common `linuxPackages_zen` default; the kernel and its NVIDIA module are built locally                                                                                                                                                                                                                                                                                                        |
-| `modules/songbird/hardware-config.nix`                          | LUKS root/swap on A (`cryptroot`, `cryptswap`, `resumeDevice`), the `data` LUKS volume (`nofail`) at `/data`, the NTFS `/shared` mount and its pre-hibernation unmount, microcode, NPU, Bluetooth `KernelExperimental`, firmware set, `bolt`, `/data` ownership                                                                                                                                                                                                         |
+| `modules/songbird/hardware-config.nix`                          | LUKS root/swap on A (`cryptroot`, `cryptswap`, `resumeDevice`), the optional `data` LUKS volume at `/data` with 60-second device and unlock bounds, the NTFS `/shared` mount and its pre-hibernation unmount, microcode, NPU, Bluetooth `KernelExperimental`, firmware set, `bolt`, `/data` ownership                                                                                                                                                                   |
 | `modules/songbird/nvidia-gpu.nix`                               | `gpu.nvidia`: production branch, `open = true`, `vaapi.backend = "nvidia"`, `LIBVA_DRM_DEVICE=/dev/dri/by-path/pci-0000:02:00.0-render`, `metamode = "2560x1440_144"`, `nouveau` blacklisted; VRAM preservation across suspend comes from the shared module's `powerManagement.enable`                                                                                                                                                                                  |
 | `modules/songbird/policy.nix`                                   | `sopsRuntimeReady` enabled; `r2RuntimeReady` remains off until Phase N2; required NVIDIA-host cache policy `cacheRoots.nvidiaKernelModules = false` keeps the source-built CachyOS module out of published cache roots; `duplicatiStateDirReadable`, `extraHomeApps`, empty `firewallDnsInterfaces`, TCP 8000-8999 restricted to IPv4 sources in `10.0.0.0/8` and `192.168.0.0/16`; TCP 9999 remains globally open through the shared baseline; primary handoff pending |
 | `modules/songbird/firewall-policy-check.nix`                    | Flake check for exactly one source-scoped TCP 8000-8999 start and cleanup rule per approved CIDR, absence of overlapping source-unrestricted TCP ports or ranges, and the documented shared TCP 9999 state                                                                                                                                                                                                                                                              |
@@ -390,7 +391,7 @@ prompts) and any shared-ESP scheme (decision 6).
 | Host SSH public key         | Done: pinned from `/etc/ssh/ssh_host_ed25519_key.pub`                | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                 |
 | age identity                | Done (installed and verified); `sopsRuntimeReady` enabled            | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix` |
 | Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff | `policy.nix` `tailnetIp`, `primary`                                      |
-| `/data` root key slot       | Added; the unattended initrd unlock is untested until a reboot       | LUKS header `183d1f98-…` (no repo change)                                |
+| `/data` root key slot       | Added; the bounded 60-second initrd unlock is untested until reboot  | LUKS header `183d1f98-…`, `hardware-config.nix`                          |
 | Windows disk                | Not decided                                                          | Phase N4                                                                 |
 | Shared partition PARTUUID   | Only if Phase N5 converts W to BitLocker                             | `hardware-config.nix` crypttab entry                                     |
 | BitLocker keys              | Windows BitLocker setup (Phases N4, N5)                              | Password manager; W password also to `/var/lib/secrets/shared-bitlk.key` |

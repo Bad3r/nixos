@@ -87,19 +87,23 @@ _: {
           data = {
             device = "/dev/disk/by-uuid/183d1f98-e95d-4d6c-89de-cbed409bd9a0";
             allowDiscards = true;
-            crypttabExtraOpts = [ "nofail" ];
+            crypttabExtraOpts = [
+              "nofail"
+              "x-systemd.device-timeout=60s"
+            ];
           };
         };
 
         # nofail above also drops Before=cryptsetup.target, so initrd-cleanup
         # isolated initrd-switch-root.target out from under this unlock while
-        # its argon2id was still running and killed it. Restore the wait; the
-        # generator emits no Requires= under nofail, so a drive that is absent
-        # or refuses the passphrase still does not fail the boot.
+        # its argon2id was still running and killed it. Restore the wait, but
+        # bound both the absent-device and unlock-prompt paths at 60 seconds.
+        # nofail emits no Requires=, so either expiry still lets root boot.
         initrd.systemd.services."systemd-cryptsetup@data" = {
           overrideStrategy = "asDropin";
           wantedBy = [ "initrd.target" ];
           before = [ "initrd.target" ];
+          serviceConfig.TimeoutStartSec = "60s";
         };
 
         # Hibernation target: swap inside the cryptswap mapping.
