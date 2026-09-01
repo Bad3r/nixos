@@ -384,32 +384,32 @@ subToggles = [
   }
 ];
 applySubToggles =
-  namespace: base:
   (
-    config.flake.lib.nixos._hostAppsSubToggleApply
-      or (throw "modules/hosts/common/checks.nix no longer exports flake.lib.nixos._hostAppsSubToggleApply")
+    config.flake.lib.nixos._mkHostAppsSubToggleApply
+      or (throw "modules/hosts/common/checks.nix no longer exports flake.lib.nixos._mkHostAppsSubToggleApply")
   )
     baseline
-    namespace
-    base
     subToggles;
 ```
+
+Use the resulting function as `applySubToggles "programs" base` and
+`applySubToggles "services" base` when constructing the host module.
 
 Folding rather than splicing a literal is the point: registering is then the
 only way to write one, so the next nested toggle cannot slip past the check the
 way existing host overrides do.
 
 The fold and its namespace routing come from
-`flake.lib.nixos._hostAppsSubToggleApply`, not from a local copy: the same
-decision drives the FR-5 comparison, so a host writing its own fold gets a write
-side the check cannot see, which is a green check over a dead override. The
-full path is checked in `programs` first and falls back to `services` when the
-baseline declares it there only, exactly as `appEnable`'s entries are. A path
-absent from both namespaces is not written and is reported by the FR-5 check.
-This full-path check matters when both namespaces contain the same top-level app
-name: a programs path must remain under `programs`, while a services-only path
-belongs under `services`. Folding everything into `programs` would write a
-services toggle where nothing reads it.
+`flake.lib.nixos._mkHostAppsSubToggleApply`, not from a local copy: the wrapper
+closes over the host's baseline and `subToggles`, the same decision drives the
+FR-5 comparison, and a host writing its own fold gets a write side the check
+cannot see. The full path is checked in `programs` first and falls back to
+`services` when the baseline declares it there only, exactly as `appEnable`'s
+entries are. A path absent from both namespaces is not written and is reported
+by the FR-5 check. This full-path check matters when both namespaces contain the
+same top-level app name: a programs path must remain under `programs`, while a
+services-only path belongs under `services`. Folding everything into `programs`
+would write a services toggle where nothing reads it.
 
 ### 5. Check for Home Manager Integration
 

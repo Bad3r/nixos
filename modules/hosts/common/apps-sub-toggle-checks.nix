@@ -1,4 +1,5 @@
-# Coverage for the sub-toggle classifier in modules/hosts/common/checks.nix.
+# Coverage for the sub-toggle classifier and host-facing apply wrapper in
+# modules/hosts/common/checks.nix.
 #
 # Host closures can reach both namespace lookups and the no-op branch through
 # the registry. Full-path lookup checks programs first and falls back to
@@ -11,7 +12,7 @@
 { config, lib, ... }:
 let
   classify = config.flake.lib.nixos._hostAppsSubToggleClassify or null;
-  applySubToggles = config.flake.lib.nixos._hostAppsSubToggleApply or null;
+  mkApplySubToggles = config.flake.lib.nixos._mkHostAppsSubToggleApply or null;
 
   # Shaped like the real snapshot: values are lib.mkOverride wrappers, which is
   # what the classifier has to unwrap before comparing.
@@ -161,7 +162,7 @@ let
   routingFailures = lib.concatMap (
     case:
     let
-      got = applySubToggles baseline case.namespace { } case.toggles;
+      got = (mkApplySubToggles baseline case.toggles) case.namespace { };
       inherit ((lib.head case.toggles)) path;
       landed = lib.attrByPath path null got != null;
     in
@@ -192,10 +193,10 @@ in
     { pkgs, ... }:
     {
       checks.host-apps-sub-toggle-classifier =
-        if classify == null || applySubToggles == null then
+        if classify == null || mkApplySubToggles == null then
           throw (
             "host-apps-sub-toggle-classifier: modules/hosts/common/checks.nix no longer exports "
-            + "flake.lib.nixos._hostAppsSubToggleClassify and _hostAppsSubToggleApply, so the "
+            + "flake.lib.nixos._hostAppsSubToggleClassify and _mkHostAppsSubToggleApply, so the "
             + "sub-toggle comparison and routing are unverified."
           )
         else if allFailures != [ ] then
