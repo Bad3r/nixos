@@ -240,6 +240,11 @@ in
               "portal-gnome-keyring-interface-parity: modules/hosts/common/gsettings.nix no longer exports "
               + "flake.lib.nixos._portalPreferences, so the Secret interface pin is unverified."
             )
+          else if gnomeKeyringPortalInterfaces == [ ] then
+            # No interface is routed to gnome-keyring, so its portal artifact is not selected.
+            pkgs.runCommandLocal "portal-gnome-keyring-interface-parity-skipped" { } ''
+              echo "ok: no portal interface is routed to gnome-keyring" > $out
+            ''
           else
             portalInterfaceParity {
               checkName = "portal-gnome-keyring-interface-parity";
