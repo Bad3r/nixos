@@ -44,10 +44,11 @@ Cache topology and download retry settings live in
 `modules/hosts/common/nix-substituters.nix`. Inspect those owning files for
 current values instead of duplicating the full `nix.settings` set here.
 Cache-root publication is derived from evaluated host configuration in
-`modules/meta/cache-roots.nix`. `songbird` deliberately excludes its
-source-built `nvidia-kernel-modules` entry while retaining `nvidia-x11` and
-`nvidia-settings`; adding a third-party cache requires an explicit policy
-decision.
+`modules/meta/cache-roots.nix`. Every NVIDIA-enabled host must explicitly set
+the Boolean `cacheRoots.nvidiaKernelModules`; missing, malformed, or unknown
+policy values fail evaluation. `songbird` sets it to `false` for its
+source-built module while retaining `nvidia-x11` and `nvidia-settings`.
+Adding a third-party cache requires an explicit policy decision.
 
 `build.sh` exports `NIX_CONFIG` only as a bootstrap overlay for the Nix commands
 it launches before the target system configuration is active.

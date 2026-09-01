@@ -64,7 +64,7 @@ See the [local mirror reference](docs/reference/local-mirrors.md), [system76 con
 
 ## Cache Boundaries
 
-Cache-root membership is derived from evaluated host configuration. songbird keeps its source-built CachyOS NVIDIA kernel module out of published cache roots while retaining cache coverage for `nvidia-x11` and `nvidia-settings`.
+Cache-root membership is derived from evaluated host configuration. Every NVIDIA-enabled host explicitly sets `cacheRoots.nvidiaKernelModules`; missing, malformed, or unknown policy values fail evaluation. songbird sets it to `false` to keep its source-built CachyOS module out while retaining `nvidia-x11` and `nvidia-settings` coverage.
 
 See [binary cache coverage](docs/reference/binary-cache-coverage.md) for the inventory and operator policy.
 

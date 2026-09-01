@@ -70,11 +70,123 @@ let
 
   nvidiaLoaded = hostConfig: lib.elem "nvidia" hostConfig.services.xserver.videoDrivers;
 
-  cacheRootPolicy = hostName: (config.flake.lib.nixos.hosts.${hostName} or { }).cacheRoots or { };
+  # cacheRoots is free-form host-registry data. NVIDIA hosts must choose this
+  # explicit Boolean so a lost exception cannot silently publish a module that
+  # has no substituter. All declared keys are checked on every host.
+  cacheRootPolicyKeys = [ "nvidiaKernelModules" ];
+  nvidiaKernelModulesCachePolicy =
+    hostName: nvidiaEnabled: hostFlags:
+    let
+      rawPolicy = hostFlags.cacheRoots or { };
+      policy =
+        if builtins.isAttrs rawPolicy then
+          rawPolicy
+        else
+          throw "cache-roots: flake.lib.nixos.hosts.${hostName}.cacheRoots must be an attrset";
+      unknown = lib.subtractLists cacheRootPolicyKeys (lib.attrNames policy);
+      value =
+        policy.nvidiaKernelModules or (
+          if nvidiaEnabled then
+            throw "cache-roots: flake.lib.nixos.hosts.${hostName}.cacheRoots.nvidiaKernelModules must be set to true or false for an NVIDIA-enabled host"
+          else
+            true
+        );
+    in
+    if unknown != [ ] then
+      throw "cache-roots: flake.lib.nixos.hosts.${hostName}.cacheRoots has unknown key(s): ${lib.concatStringsSep ", " unknown}"
+    else if !builtins.isBool value then
+      throw "cache-roots: flake.lib.nixos.hosts.${hostName}.cacheRoots.nvidiaKernelModules must be a Boolean"
+    else
+      value;
+
+  nvidiaKernelModulesCachePolicyFor =
+    hostName: hostConfig:
+    nvidiaKernelModulesCachePolicy hostName (nvidiaLoaded hostConfig) (
+      config.flake.lib.nixos.hosts.${hostName} or { }
+    );
 
   nvidiaKernelModulesCached =
     hostName: hostConfig:
-    nvidiaLoaded hostConfig && ((cacheRootPolicy hostName).nvidiaKernelModules or true);
+    let
+      nvidiaEnabled = nvidiaLoaded hostConfig;
+      policy = nvidiaKernelModulesCachePolicyFor hostName hostConfig;
+    in
+    builtins.seq policy (nvidiaEnabled && policy);
+
+  nvidiaKernelModulesPolicyTestCases = [
+    {
+      name = "non-NVIDIA host with no policy";
+      nvidiaEnabled = false;
+      hostFlags = { };
+      expected = true;
+    }
+    {
+      name = "NVIDIA host with explicit inclusion";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots.nvidiaKernelModules = true;
+      expected = true;
+    }
+    {
+      name = "NVIDIA host with explicit exclusion";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots.nvidiaKernelModules = false;
+      expected = false;
+    }
+    {
+      name = "NVIDIA host with no policy";
+      nvidiaEnabled = true;
+      hostFlags = { };
+      expectFailure = true;
+    }
+    {
+      name = "NVIDIA host with an empty policy";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots = { };
+      expectFailure = true;
+    }
+    {
+      name = "misspelled policy key";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots.nvidiaKernelModule = false;
+      expectFailure = true;
+    }
+    {
+      name = "unknown policy key alongside valid policy";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots = {
+        nvidiaKernelModules = false;
+        nvidiaKernelModule = false;
+      };
+      expectFailure = true;
+    }
+    {
+      name = "non-Boolean policy value";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots.nvidiaKernelModules = "false";
+      expectFailure = true;
+    }
+    {
+      name = "non-attrset policy";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots = "false";
+      expectFailure = true;
+    }
+  ];
+  nvidiaKernelModulesPolicyTestFailures = lib.filter (
+    test:
+    let
+      result = builtins.tryEval (
+        let
+          value = nvidiaKernelModulesCachePolicy "fixture" test.nvidiaEnabled test.hostFlags;
+        in
+        builtins.deepSeq value value
+      );
+    in
+    if test.expectFailure or false then
+      result.success
+    else
+      !result.success || result.value != test.expected
+  ) nvidiaKernelModulesPolicyTestCases;
 
   # Packages the bare package-set attribute never produces, or that never
   # reach environment.systemPackages at all. Each entry resolves the package
@@ -338,6 +450,14 @@ in
 
       buildsHere = hosts != { };
 
+      # Force every registered host policy before testing the published-entry
+      # contract. Otherwise a non-NVIDIA host's unknown cacheRoots key could
+      # remain lazy forever and a future GPU enablement would be fail-open.
+      nvidiaCachePolicyValidation = builtins.deepSeq (map (
+        { hostName, hostConfig }:
+        nvidiaKernelModulesCachePolicyFor hostName hostConfig
+      ) hostConfigs) true;
+
       # A false host policy may exclude only the kernel-module entry. Compare
       # the publisher's actual entries with the evaluated retained userspace
       # policy, so an intentional nvidiaSettings=false override stays valid.
@@ -350,7 +470,10 @@ in
             );
           excluded = lib.filterAttrs (
             hostName: nixos:
-            nvidiaLoaded nixos.config && !((cacheRootPolicy hostName).nvidiaKernelModules or true)
+            let
+              policy = nvidiaKernelModulesCachePolicyFor hostName nixos.config;
+            in
+            builtins.seq policy (nvidiaLoaded nixos.config && !policy)
           ) hosts;
           # Derived from hostOptionPackages' own installed predicates rather than
           # hand-listed, so a future NVIDIA-adjacent entry stays covered by this
@@ -380,7 +503,13 @@ in
         );
 
       nvidiaCachePolicyCheck =
-        if nvidiaCachePolicyFailures != [ ] then
+        if nvidiaKernelModulesPolicyTestFailures != [ ] then
+          throw "cache-roots: nvidia kernel modules cache policy fixture failed: ${
+            lib.concatStringsSep ", " (map (test: test.name) nvidiaKernelModulesPolicyTestFailures)
+          }"
+        else if !nvidiaCachePolicyValidation then
+          throw "cache-roots: nvidia kernel modules cache policy validation did not evaluate to true"
+        else if nvidiaCachePolicyFailures != [ ] then
           throw "cache-roots: ${lib.concatStringsSep "; " nvidiaCachePolicyFailures}"
         else
           pkgs.runCommandLocal "cache-roots-nvidia-cache-policy" { } "touch $out";

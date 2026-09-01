@@ -168,13 +168,20 @@ with `useOpenModules = cfg.open == true`. Gating on one flavor would drop
 coverage silently on a host that flips `hardware.nvidia.open`, which
 `modules/hardware/nvidia-gpu.nix` documents as required on Blackwell and newer.
 
-Songbird intentionally sets `cacheRoots.nvidiaKernelModules = false`: its
+Every NVIDIA-enabled host must declare the Boolean
+`cacheRoots.nvidiaKernelModules`. `true` keeps the installed module in the
+published cache roots, while `false` records an intentional exclusion. Missing,
+empty, non-Boolean, and unknown policy values fail evaluation before the cache
+publisher can fall back to its ordinary inclusion behavior.
+
+Songbird intentionally declares `cacheRoots.nvidiaKernelModules = false`: its
 CachyOS kernel is built from source and no CachyOS substituter is configured.
 The module remains installed on songbird, but it is omitted from the published
 cache roots. `nvidia-x11` and `nvidia-settings` remain cache roots because their
 current derivations do not require the CachyOS kernel build. The evaluated
-`cache-roots-nvidia-cache-policy` check reads the publisher's actual
-host-qualified entries for every host declaring this exception. It fails if the
+`cache-roots-nvidia-cache-policy` check exercises valid, missing, empty,
+misspelled, unknown-key, and non-Boolean policy cases, then reads the
+publisher's actual host-qualified entries for each exclusion. It fails if the
 module is published again, `nvidia-x11` is absent, or `nvidia-settings` is
 absent while the evaluated host configuration enables it. A host that instead
 sets `hardware.nvidia.nvidiaSettings = false` is not required to publish
@@ -373,8 +380,10 @@ and a host actually installs it. License is no longer a criterion; see
 
 - A host may install an option-sourced package without publishing it when the
   build is host-specific and no configured substituter serves it. Keep that
-  exception in the host registry's `cacheRoots` policy and add a focused check
-  for the entries retained and omitted.
+  exception in the host registry's `cacheRoots` policy. Every NVIDIA-enabled
+  host must set its `nvidiaKernelModules` Boolean explicitly; the focused check
+  rejects missing, malformed, or unknown policy values and verifies retained
+  and omitted entries.
 
 - A name enabled on no host aborts evaluation rather than publishing nothing,
   so a rename or a last-host disable fails `nix flake check` instead of leaving
