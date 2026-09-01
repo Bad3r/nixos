@@ -22,7 +22,7 @@
 # the infinite recursion that arises when reading
 # `config.configurations.nixos.<host>.module` back from a flake-level check.
 #
-# The portal parity check below runs at build time because CI evaluates every
+# The portal parity checks below run at build time because CI evaluates every
 # check's drvPath without building it before selecting runtime checks.
 { config, lib, ... }:
 let
@@ -94,16 +94,23 @@ let
     + lib.concatStringsSep ", " noOps;
 
   portalPreferences = config.flake.lib.nixos._portalPreferences or null;
+  # Include explicit `none` entries in policy coverage; `default` is a profile
+  # fallback and is not an interface policy.
+  portalInterfaceKeys =
+    if portalPreferences == null then
+      [ ]
+    else
+      builtins.filter (name: lib.hasPrefix "org.freedesktop.impl.portal." name) (
+        builtins.attrNames portalPreferences
+      );
   portalInterfacesFor =
     backend:
     if portalPreferences == null then
       [ ]
     else
       builtins.filter (
-        name:
-        lib.hasPrefix "org.freedesktop.impl.portal." name
-        && builtins.elem backend (lib.toList portalPreferences.${name})
-      ) (builtins.attrNames portalPreferences);
+        name: builtins.elem backend (lib.toList portalPreferences.${name})
+      ) portalInterfaceKeys;
   gtkPortalInterfaces = portalInterfacesFor "gtk";
   gnomeKeyringPortalInterfaces = portalInterfacesFor "gnome-keyring";
 in
@@ -117,10 +124,11 @@ in
           portalPackage,
           portalBasename,
           expectedInterfaces,
-          exact,
+          requireExpectedSubset,
+          requireActualSubset,
         }:
-        if expectedInterfaces == [ ] then
-          throw "${checkName}: no portal interfaces are pinned to ${portalBasename}"
+        if !(requireExpectedSubset || requireActualSubset) then
+          throw "${checkName}: no portal comparison direction is configured"
         else
           pkgs.runCommandLocal checkName
             {
@@ -182,26 +190,32 @@ in
               fi
 
               expected_interfaces=(${lib.escapeShellArgs expectedInterfaces})
-              printf '%s\n' "''${expected_interfaces[@]}" | sort -u > "$expected_file"
+              if [ "''${#expected_interfaces[@]}" -eq 0 ]; then
+                : > "$expected_file"
+              else
+                printf '%s\n' "''${expected_interfaces[@]}" | sort -u > "$expected_file"
+              fi
               sort -u "$actual_unsorted" > "$actual_file"
 
-              if ${lib.boolToString exact}; then
-                if ! cmp -s "$expected_file" "$actual_file"; then
-                  echo "${checkName}: packaged ${portalBasename}.portal interfaces differ from pinned interfaces" >&2
-                  echo "expected only / actual only:" >&2
-                  comm -3 "$expected_file" "$actual_file" >&2
-                  exit 1
-                fi
-              else
+              if ${lib.boolToString requireExpectedSubset}; then
                 missing_interfaces=$(comm -23 "$expected_file" "$actual_file")
                 if [ -n "$missing_interfaces" ]; then
-                  echo "${checkName}: packaged ${portalBasename}.portal is missing pinned interfaces:" >&2
+                  echo "${checkName}: packaged ${portalBasename}.portal is missing expected interfaces:" >&2
                   printf '%s\n' "$missing_interfaces" >&2
                   exit 1
                 fi
               fi
 
-              printf 'ok: %s.portal Interfaces= satisfies %s pinned interfaces\n' "${portalBasename}" "${toString (builtins.length expectedInterfaces)}" > "$out"
+              if ${lib.boolToString requireActualSubset}; then
+                unexpected_interfaces=$(comm -13 "$expected_file" "$actual_file")
+                if [ -n "$unexpected_interfaces" ]; then
+                  echo "${checkName}: packaged ${portalBasename}.portal advertises interfaces without explicit policy:" >&2
+                  printf '%s\n' "$unexpected_interfaces" >&2
+                  exit 1
+                fi
+              fi
+
+              printf 'ok: %s.portal Interfaces= satisfies comparison against %s expected interfaces\n' "${portalBasename}" "${toString (builtins.length expectedInterfaces)}" > "$out"
             '';
     in
     {
@@ -218,6 +232,8 @@ in
             '';
 
         portal-gtk-interface-parity =
+          # Keep route coverage separate from policy coverage so explicit
+          # `none` mappings do not look like missing GTK package interfaces.
           if portalPreferences == null then
             throw (
               "portal-gtk-interface-parity: modules/hosts/common/gsettings.nix no longer exports "
@@ -231,7 +247,24 @@ in
               portalPackage = pkgs.xdg-desktop-portal-gtk;
               portalBasename = "gtk";
               expectedInterfaces = gtkPortalInterfaces;
-              exact = true;
+              requireExpectedSubset = true;
+              requireActualSubset = false;
+            };
+
+        portal-gtk-policy-parity =
+          if portalPreferences == null then
+            throw (
+              "portal-gtk-policy-parity: modules/hosts/common/gsettings.nix no longer exports "
+              + "flake.lib.nixos._portalPreferences, so the packaged GTK interface policy is unverified."
+            )
+          else
+            portalInterfaceParity {
+              checkName = "portal-gtk-policy-parity";
+              portalPackage = pkgs.xdg-desktop-portal-gtk;
+              portalBasename = "gtk";
+              expectedInterfaces = portalInterfaceKeys;
+              requireExpectedSubset = false;
+              requireActualSubset = true;
             };
 
         portal-gnome-keyring-interface-parity =
@@ -251,7 +284,8 @@ in
               portalPackage = pkgs.gnome-keyring;
               portalBasename = "gnome-keyring";
               expectedInterfaces = gnomeKeyringPortalInterfaces;
-              exact = false;
+              requireExpectedSubset = true;
+              requireActualSubset = false;
             };
       }
       // lib.mapAttrs' (
