@@ -15,7 +15,13 @@ _: {
       ownerCfg = lib.attrByPath [ "users" "users" owner ] { } config;
       ownerGroup = ownerCfg.group or owner;
       ownerUid = ownerCfg.uid or 1000;
-      ownerGid = lib.attrByPath [ "users" "groups" ownerGroup "gid" ] 100 config;
+      # attrByPath's default only fires when the path is absent, not when
+      # users.groups.<group>.gid is present-but-null (the option's own
+      # default for a group with no pinned gid), so the null case needs an
+      # explicit fallback too: toString null renders "", corrupting the
+      # ntfs3 gid= mount option silently instead of failing evaluation.
+      ownerGidRaw = lib.attrByPath [ "users" "groups" ownerGroup "gid" ] null config;
+      ownerGid = if ownerGidRaw == null then 100 else ownerGidRaw;
     in
     {
       # Platform configuration (required)
