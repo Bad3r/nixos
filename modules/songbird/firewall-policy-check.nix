@@ -4,27 +4,32 @@
 { config, lib, ... }:
 let
   firewall = config.flake.nixosConfigurations.songbird.config.networking.firewall;
-  developerPortRange = "8000:8999";
-  localNetworkCidrs = [
-    "10.0.0.0/8"
-    "192.168.0.0/16"
-  ];
-  startRules = map (
-    cidr: "iptables -A nixos-fw -s ${cidr} -p tcp --dport ${developerPortRange} -j nixos-fw-accept"
-  ) localNetworkCidrs;
-  stopRules = map (
-    cidr:
-    "iptables -D nixos-fw -s ${cidr} -p tcp --dport ${developerPortRange} -j nixos-fw-accept || true"
-  ) localNetworkCidrs;
-  developerRuleNeedle = "--dport ${developerPortRange}";
-  developerStartRules = lib.filter (line: lib.hasInfix developerRuleNeedle line) (
-    lib.splitString "\n" firewall.extraCommands
+  # modules/hosts/common/firewall.nix generates one rule per range per CIDR from
+  # modules/songbird/policy.nix, so every range is walked here too: a literal or
+  # a lib.head would leave a second range generating rules this check never
+  # inspects, and it would pass without proving anything about them.
+  developerRanges = config.flake.lib.nixos.hosts.songbird.firewallLocalTcpPortRanges;
+  portRangeOf = range: "${toString range.from}:${toString range.to}";
+  developerPortRanges = map portRangeOf developerRanges;
+  localNetworkCidrs =
+    config.flake.lib.nixos._firewallLocalNetworkCidrs
+      or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallLocalNetworkCidrs");
+  rulesFor = template: lib.concatMap (range: map (template range) localNetworkCidrs) developerRanges;
+  startRules = rulesFor (
+    range: cidr:
+    "iptables -A nixos-fw -s ${cidr} -p tcp --dport ${portRangeOf range} -j nixos-fw-accept"
   );
-  developerStopRules = lib.filter (line: lib.hasInfix developerRuleNeedle line) (
-    lib.splitString "\n" firewall.extraStopCommands
+  stopRules = rulesFor (
+    range: cidr:
+    "iptables -D nixos-fw -s ${cidr} -p tcp --dport ${portRangeOf range} -j nixos-fw-accept || true"
   );
-  developerPortRangeOverlaps = range: range.from <= 8999 && range.to >= 8000;
-  developerPortIsUnscoped = port: port >= 8000 && port <= 8999;
+  isDeveloperRule =
+    line: lib.any (portRange: lib.hasInfix "--dport ${portRange}" line) developerPortRanges;
+  developerStartRules = lib.filter isDeveloperRule (lib.splitString "\n" firewall.extraCommands);
+  developerStopRules = lib.filter isDeveloperRule (lib.splitString "\n" firewall.extraStopCommands);
+  developerPortRangeOverlaps =
+    range: lib.any (dev: range.from <= dev.to && range.to >= dev.from) developerRanges;
+  developerPortIsUnscoped = port: lib.any (dev: port >= dev.from && port <= dev.to) developerRanges;
   ruleSetPublishesDeveloperPort =
     ruleSet:
     lib.any developerPortRangeOverlaps ruleSet.allowedTCPPortRanges
@@ -32,12 +37,17 @@ let
   unscopedDeveloperPort =
     ruleSetPublishesDeveloperPort firewall
     || lib.any ruleSetPublishesDeveloperPort (lib.attrValues firewall.interfaces);
-  unscopedAllowlistTestCases = [
+  # These probe the predicate's boundary handling, not the policy numbers, so
+  # they are anchored to the declared range: literal bounds would fail the
+  # moment the policy range legitimately moved.
+  firstRange = lib.head developerRanges;
+  highestPort = lib.foldl' (acc: range: if range.to > acc then range.to else acc) 0 developerRanges;
+  unscopedAllowlistTestCases = lib.optionals (developerRanges != [ ]) [
     {
       name = "global TCP port";
       ruleSet = {
         allowedTCPPortRanges = [ ];
-        allowedTCPPorts = [ 8000 ];
+        allowedTCPPorts = [ firstRange.from ];
       };
       expected = true;
     }
@@ -46,8 +56,8 @@ let
       ruleSet = {
         allowedTCPPortRanges = [
           {
-            from = 8999;
-            to = 9000;
+            from = firstRange.to;
+            to = firstRange.to + 1;
           }
         ];
         allowedTCPPorts = [ ];
@@ -55,10 +65,10 @@ let
       expected = true;
     }
     {
-      name = "global TCP exception";
+      name = "port past every range";
       ruleSet = {
         allowedTCPPortRanges = [ ];
-        allowedTCPPorts = [ 9999 ];
+        allowedTCPPorts = [ (highestPort + 1) ];
       };
       expected = false;
     }
@@ -70,7 +80,10 @@ let
   startRulesMatch = sortRules developerStartRules == sortRules startRules;
   stopRulesMatch = sortRules developerStopRules == sortRules stopRules;
   failures =
-    lib.optional unscopedDeveloperPort "TCP 8000-8999 is published without the approved source CIDRs"
+    lib.optional (
+      developerRanges == [ ]
+    ) "songbird declares no firewallLocalTcpPortRanges; the source-scoped developer range was removed"
+    ++ lib.optional unscopedDeveloperPort "TCP ${lib.concatStringsSep ", " developerPortRanges} is published without the approved source CIDRs"
     ++ lib.optional (!lib.elem 9999 firewall.allowedTCPPorts) "TCP 9999 is no longer globally open"
     ++ lib.optional (!startRulesMatch) "source-scoped start rules differ from the approved exact list"
     ++ lib.optional (!stopRulesMatch) "source-scoped stop rules differ from the approved exact list"

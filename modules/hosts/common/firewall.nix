@@ -460,6 +460,11 @@ in
       _firewallDnsPolicyOverriddenPinsOf = policyOverriddenPinsOf;
       _firewallDnsShadowedLinksOf = shadowedLinksOf;
       _firewallDnsUnboundLinksOf = unboundLinksOf;
+      # Exported so a per-host policy check (e.g.
+      # modules/songbird/firewall-policy-check.nix) can compare against the
+      # exact CIDR list instead of a hand-copied literal that silently goes
+      # stale when this one changes.
+      _firewallLocalNetworkCidrs = localNetworkCidrs;
     };
     nixosModules.hosts-common.imports = [ body ];
   };
