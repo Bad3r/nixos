@@ -113,9 +113,10 @@
               serviceConfig = {
                 Type = "oneshot";
                 RemainAfterExit = true;
-                ExecStart = map (
-                  path: "${pkgs.coreutils}/bin/install -d -m 0750 -o ${username} -g ${group} ${path}"
-                ) runtimePaths;
+                # One install invocation for every path: they share the same
+                # mode and owner, so a process per path is pure fork/exec
+                # overhead for an identical result.
+                ExecStart = "${pkgs.coreutils}/bin/install -d -m 0750 -o ${username} -g ${group} ${lib.escapeShellArgs runtimePaths}";
               };
             };
           }
