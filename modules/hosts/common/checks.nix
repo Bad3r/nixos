@@ -170,11 +170,14 @@ let
     services = baselineServices;
   };
 
-  subToggleUncomparableFor = toggles: (classifyFor toggles).uncomparable;
-  subToggleNoOpsFor = toggles: (classifyFor toggles).noOps;
+  # Computed once per host: uncomparableSubTogglesByHost and noOpsByHost both
+  # need this classification, and classifyFor re-walks and re-filters the same
+  # toggle list, so calling it once per host instead of once per consumer
+  # halves that work.
+  subToggleClassificationByHost = lib.mapAttrs (_host: classifyFor) hostSubToggles;
 
   uncomparableSubTogglesByHost = lib.filterAttrs (_host: paths: paths != [ ]) (
-    lib.mapAttrs (_host: subToggleUncomparableFor) hostSubToggles
+    lib.mapAttrs (_host: result: result.uncomparable) subToggleClassificationByHost
   );
   anyUncomparableSubToggles = uncomparableSubTogglesByHost != { };
   uncomparableSubTogglesSummary = lib.concatStringsSep "; " (
@@ -188,7 +191,7 @@ let
   # host-<host>-apps-no-noop check for it at all, rather than a passing one.
   noOpsByHost = lib.mapAttrs (
     host: _:
-    noOpsFor (hostOverrides.${host} or { }) ++ subToggleNoOpsFor (hostSubToggles.${host} or [ ])
+    noOpsFor (hostOverrides.${host} or { }) ++ (subToggleClassificationByHost.${host}.noOps or [ ])
   ) (hostOverrides // hostSubToggles);
 
   messageFor =
