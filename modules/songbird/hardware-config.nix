@@ -81,6 +81,17 @@ _: {
           };
         };
 
+        # nofail above also drops Before=cryptsetup.target, so initrd-cleanup
+        # isolated initrd-switch-root.target out from under this unlock while
+        # its argon2id was still running and killed it. Restore the wait; the
+        # generator emits no Requires= under nofail, so a drive that is absent
+        # or refuses the passphrase still does not fail the boot.
+        initrd.systemd.services."systemd-cryptsetup@data" = {
+          overrideStrategy = "asDropin";
+          wantedBy = [ "initrd.target" ];
+          before = [ "initrd.target" ];
+        };
+
         # Hibernation target: swap inside the cryptswap mapping.
         resumeDevice = "/dev/mapper/cryptswap";
 
