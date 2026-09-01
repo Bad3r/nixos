@@ -12,9 +12,19 @@ _: {
     }:
     let
       owner = metaOwner.username;
-      ownerCfg = lib.attrByPath [ "users" "users" owner ] { } config;
-      ownerGroup = ownerCfg.group or owner;
-      ownerUid = ownerCfg.uid or 1000;
+      ownerCfg = config.users.users.${owner};
+      # /shared needs a stable numeric owner. NixOS allocates a free UID for
+      # null, which cannot safely be represented by this static mount option.
+      ownerGroup =
+        if ownerCfg.group == "" then
+          throw "songbird /shared requires users.users.${owner}.group to be set"
+        else
+          ownerCfg.group;
+      ownerUid =
+        if ownerCfg.uid == null then
+          throw "songbird /shared requires users.users.${owner}.uid to be pinned"
+        else
+          ownerCfg.uid;
       # attrByPath's default only fires when the path is absent, not when
       # users.groups.<group>.gid is present-but-null (the option's own
       # default for a group with no pinned gid), so the null case needs an
