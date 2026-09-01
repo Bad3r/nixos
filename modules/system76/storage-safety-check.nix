@@ -7,16 +7,9 @@
 let
   host = config.flake.nixosConfigurations.system76.config;
   ownerName = config.flake.lib.meta.owner.username;
-  r2ServiceNames = [
-    "r2-runtime-paths"
-    "r2-mount-workspace"
-    "r2-bisync-workspace"
-    "r2-mount-fonts"
-    "r2-bisync-fonts"
-    "r2-mount-docs"
-    "r2-bisync-docs"
-    "r2-restic-backup"
-  ];
+  r2ServiceNames =
+    config.flake.lib.nixos.r2._serviceNames
+      or (throw "modules/lib/r2-runtime.nix no longer exports flake.lib.nixos.r2._serviceNames");
   # systemd.tmpfiles.rules is a list of raw tmpfiles.d lines. Extract only the
   # path field, allowing modifier-bearing type tokens, so an argument or
   # unrelated path cannot trigger or bypass this guard. Structured settings
