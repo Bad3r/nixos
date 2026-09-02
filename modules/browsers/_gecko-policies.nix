@@ -49,6 +49,10 @@ in
     };
     Cookies.Allow = [ "https://github.com" ];
 
+    # doh. is a SAN alias of Mullvad's documented adblock.dns.mullvad.net on
+    # the same resolver. The dns., dot. and public-resolver. names are SNI-reset
+    # on the fleet's ISP, and Fallback = false turns that into a total DNS
+    # outage, so do not restore the documented name.
     DNSOverHTTPS = {
       Enabled = true;
       ProviderURL = "https://adblock.doh.mullvad.net/dns-query";

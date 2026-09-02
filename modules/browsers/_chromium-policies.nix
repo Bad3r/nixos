@@ -35,6 +35,9 @@
     DefaultSearchProviderEncodings = [ "UTF-8" ];
   };
 
+  # doh. is a SAN alias of Mullvad's documented adblock.dns.mullvad.net on the
+  # same resolver. The dns. zone is SNI-reset on the fleet's ISP, and secure
+  # mode has no system-resolver fallback, so do not restore the documented name.
   managedDnsOverHttps = {
     DnsOverHttpsMode = "secure";
     DnsOverHttpsTemplates = "https://adblock.doh.mullvad.net/dns-query";
