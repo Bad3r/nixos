@@ -46,9 +46,9 @@ in
         policy,
       }:
       let
-        enclosingMountOf =
-          config.flake.lib.nixos._localMirrorsEnclosingMount
-            or (throw "modules/git/mirror-root.nix no longer exports flake.lib.nixos._localMirrorsEnclosingMount");
+        mountGateFor =
+          config.flake.lib.nixos._localMirrorsMountGate
+            or (throw "modules/git/mirror-root.nix no longer exports flake.lib.nixos._localMirrorsMountGate");
         externalFlakeEnabled = policy.enableExternalFlake;
         r2ConfigFile = secretsRoot + "/r2.yaml";
         # Import the option surface independently from SOPS runtime readiness.
@@ -126,15 +126,11 @@ in
             ...
           }:
           let
-            enclosingMount = enclosingMountOf runtimeRoot config.fileSystems;
-            # Null on a host that keeps /data on the root filesystem (tpnix),
-            # which stays unconditional rather than losing the runtime entirely.
-            mountAfter = lib.optional (
-              enclosingMount != null
-            ) "${utils.escapeSystemdPath enclosingMount}.mount";
-            mountCondition = lib.optionalAttrs (enclosingMount != null) {
-              ConditionPathIsMountPoint = enclosingMount;
-            };
+            # Empty on tpnix, which keeps /data on the root filesystem and so
+            # has no mount to order against.
+            mountGate = mountGateFor runtimeRoot config.fileSystems utils;
+            mountAfter = mountGate.after;
+            mountCondition = mountGate.unitConfig;
           in
           {
             # A unit rather than systemd.tmpfiles.rules, for the reason

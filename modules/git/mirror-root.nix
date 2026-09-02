@@ -24,9 +24,27 @@ let
     lib.foldl' (
       best: m: if best == null || lib.stringLength m > lib.stringLength best then m else best
     ) null (lib.filter contains mountPoints);
+
+  # Ordering plus condition for a unit that writes under root. A null enclosing
+  # mount means root sits on / itself, which stays unconditional rather than
+  # gating on a mount point that never appears.
+  mountGateFor =
+    root: fileSystems: utils:
+    let
+      enclosingMount = enclosingMountOf root fileSystems;
+    in
+    {
+      after = lib.optional (enclosingMount != null) "${utils.escapeSystemdPath enclosingMount}.mount";
+      unitConfig = lib.optionalAttrs (enclosingMount != null) {
+        ConditionPathIsMountPoint = enclosingMount;
+      };
+    };
 in
 {
-  flake.lib.nixos._localMirrorsEnclosingMount = enclosingMountOf;
+  flake.lib.nixos = {
+    _localMirrorsEnclosingMount = enclosingMountOf;
+    _localMirrorsMountGate = mountGateFor;
+  };
 
   flake.nixosModules.mirror-root =
     {
@@ -38,7 +56,7 @@ in
     }:
     let
       cfg = config.localMirrors;
-      enclosingMount = enclosingMountOf cfg.root config.fileSystems;
+      mountGate = mountGateFor cfg.root config.fileSystems utils;
     in
     {
       options.localMirrors = {
@@ -91,10 +109,7 @@ in
         systemd.services.local-mirrors-root = {
           description = "Provision the local mirror root";
           wantedBy = [ "multi-user.target" ];
-          after = lib.optional (enclosingMount != null) "${utils.escapeSystemdPath enclosingMount}.mount";
-          unitConfig = lib.optionalAttrs (enclosingMount != null) {
-            ConditionPathIsMountPoint = enclosingMount;
-          };
+          inherit (mountGate) after unitConfig;
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
