@@ -65,9 +65,9 @@ Expected result:
 
 The secret checks require `security.r2CloudSecrets.enable` on the host; the
 unit checks additionally require the host R2 policy to enable the runtime.
-Run them on a host with the runtime enabled, currently `tpnix`. The system76
-host is expected to have no R2 units because its policy is disabled until a
-dedicated `/data` filesystem is available.
+Run them on a host with the runtime enabled, currently `tpnix` or `songbird`.
+The system76 host is expected to have no R2 units because its policy is
+disabled until a dedicated `/data` filesystem is available.
 
 ```bash
 test -s /run/secrets/r2/account-id

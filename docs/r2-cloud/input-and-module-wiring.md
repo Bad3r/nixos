@@ -32,9 +32,10 @@ repository.
    - `inputs."r2-flake".homeManagerModules.default` via
      `home-manager.sharedModules`
    - File: `modules/lib/r2-runtime.nix`
-   - The `tpnix` policy sets `enableExternalFlake = true`; `system76` keeps the
-     flag false because it has no dedicated `/data` filesystem. The producer
-     surfaces are therefore imported for `tpnix` only.
+   - The `tpnix` and `songbird` policies set `enableExternalFlake = true`;
+     `system76` keeps the flag false because it has no dedicated `/data`
+     filesystem. The producer surfaces are therefore imported for `tpnix` and
+     `songbird`, not `system76`.
 4. Repo-local HM secrets module is also loaded globally:
    - `flake.homeManagerModules.r2Secrets` from `modules/home/r2-secrets.nix`
    - wired by `modules/home-manager/nixos.nix`
