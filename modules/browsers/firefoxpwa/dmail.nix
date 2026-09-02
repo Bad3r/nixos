@@ -46,8 +46,10 @@ _: {
 
       # The launcher name doubles as the idempotency key. firefoxpwa stores it in
       # config.json at .sites.<ulid>.config.name, so an existing site with this
-      # name means the app is already installed.
-      appName = "DMail";
+      # name means the app is already installed. Read from the option rather
+      # than written here, so ./apps.nix can register it among the names every
+      # site installer claims and catch a collision at eval.
+      appName = osConfig.programs.firefoxpwa.dmail.name or "DMail";
 
       # Owned by ./home.nix, which pins and hardens it to 0700. Read rather
       # than re-derived: a second rule drifts from it as soon as either side
@@ -86,6 +88,12 @@ _: {
             Service = {
               Type = "oneshot";
               RemainAfterExit = true;
+              # Past the default 90s, which a legitimate wait can exceed: the
+              # installers share one lock (packages/firefoxpwa-site-installer)
+              # and this unit is the one with no Restart=, so a run killed while
+              # queued behind another would sit failed until the next switch.
+              # Still a bound, so a genuine hang fails rather than sits.
+              TimeoutStartSec = 900;
               # FFPWA_USERDATA (the userdata tree, ProjectDirs) and
               # XDG_DATA_HOME (system integration's applications/ directory,
               # BaseDirs) are exported by the installer itself from the same
