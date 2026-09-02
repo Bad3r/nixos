@@ -151,8 +151,21 @@ in
                   RemainAfterExit = true;
                   # One install invocation for every path: they share the same
                   # mode and owner, so a process per path is pure fork/exec
-                  # overhead for an identical result.
-                  ExecStart = "${pkgs.coreutils}/bin/install -d -m 0750 -o ${username} -g ${group} ${lib.escapeShellArgs runtimePaths}";
+                  # overhead for an identical result. systemd tokenizes this
+                  # line itself, so the quoting is its own, not the shell's.
+                  ExecStart = utils.escapeSystemdExecArgs (
+                    [
+                      "${pkgs.coreutils}/bin/install"
+                      "-d"
+                      "-m"
+                      "0750"
+                      "-o"
+                      username
+                      "-g"
+                      group
+                    ]
+                    ++ runtimePaths
+                  );
                 };
               };
             }
