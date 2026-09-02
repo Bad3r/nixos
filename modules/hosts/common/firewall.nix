@@ -124,8 +124,6 @@ let
   # non-glob value: the shape selectorsOf below turns into a device selector.
   isBoundKey = matchConfig: key: matchConfig ? ${key} && bindsOneValue matchConfig.${key};
 
-  bindsOneDevice = matchConfig: lib.any (isBoundKey matchConfig) bindingMatchKeys;
-
   # Labels for the singleton selectors that identify one device. An empty list
   # means the file is broad or unbound in the static model below.
   selectorsOf =
@@ -136,103 +134,102 @@ let
     in
     map (key: "${key}=${lib.head (tokensOf matchConfig.${key})}") bound;
 
-  # Names a .link Name= creates on a host, such as wifi0. A disabled unit is
-  # never installed and a match-all file does not bind a name to a device, so
-  # neither counts as a pin.
-  pinnedNamesOf =
-    links:
-    lib.filter (n: n != null) (
-      lib.mapAttrsToList (
-        _: link:
-        if !(link.enable or true) || !(bindsOneDevice (link.matchConfig or { })) then
-          null
-        else
-          link.linkConfig.Name or null
-      ) links
-    );
-
-  # Two enabled device-specific files cannot safely create the same interface
-  # name. One rename wins, while declaredNamesOf would otherwise treat the
-  # duplicate as backed even when one of the pins does not produce the intended
-  # interface name.
-  duplicatePinsOf =
+  # Resolves each link once; every list below is derived from this record set,
+  # so the five link guards cannot disagree about what a link binds or pins.
+  classifyLinks =
     links:
     let
-      names = pinnedNamesOf links;
-    in
-    lib.unique (lib.filter (name: lib.count (other: other == name) names > 1) names);
+      records = lib.mapAttrsToList (key: link: {
+        inherit key;
+        enabled = link.enable or true;
+        linkName = link.linkConfig.Name or null;
+        hasPolicy = (link.linkConfig or { }) ? Name && (link.linkConfig or { }) ? NamePolicy;
+        selectors = selectorsOf link;
+      }) links;
+      enabledRecords = lib.filter (r: r.enabled) records;
 
-  # Pins into a namespace the kernel assigns itself. systemd.link(5) on Name=:
-  # "specifying a name that the kernel might use for another interface (for
-  # example eth0) is dangerous because the name assignment done by udev will
-  # race with the assignment done by the kernel ... making the naming
-  # unpredictable". A pin that loses that race leaves the device on its kernel
-  # name, so anything keyed to the pinned name matches nothing.
-  # Derived from every enabled link rather than from pinnedNamesOf: a collision
-  # is a property of the name a .link writes, not of whether it binds to one
-  # device. A match-all file named eth0 is the worse case, not an excluded one.
-  collidingPinsOf =
-    links:
-    lib.filter (matches kernelRe) (
-      lib.filter (n: n != null) (
-        lib.mapAttrsToList (
-          _: link: if link.enable or true then link.linkConfig.Name or null else null
-        ) links
-      )
-    );
-
-  # Files that pin a name and also carry a policy that outranks it.
-  # systemd.link(5) gives Name= the lower precedence of the two, so the policy
-  # wins and the pin silently does not apply. Altname-narrowing files carry
-  # NamePolicy= and no Name=, which is the shape that needs it, so
-  # adding a Name= there is the natural way to satisfy the kernel-name warning
-  # and the one that does not work. Keyed on both keys rather than on Name=
-  # alone, which is what pinnedNamesOf and collidingPinsOf read, so neither of
-  # them can see this.
-  policyOverriddenPinsOf =
-    links:
-    lib.attrNames (
-      lib.filterAttrs (
-        _: link:
-        (link.enable or true) && (link.linkConfig or { }) ? Name && (link.linkConfig or { }) ? NamePolicy
-      ) links
-    );
-
-  # Enabled .link units that bind the same device by the same selector. udev
-  # applies only the first matching file, so every later one is discarded, but
-  # pinnedNamesOf reads Name= off all of them. The shadowed name would otherwise
-  # enter declaredNames and hide a firewall opening for a name that matches no
-  # device. Wired hosts commonly ship a .link for each NIC, so that is the shape
-  # the kernel-name warning invites.
-  shadowedLinksOf =
-    links:
-    let
-      selectors = lib.concatMap (link: if link.enable or true then selectorsOf link else [ ]) (
-        lib.attrValues links
+      # Names a .link Name= creates on a host, such as wifi0. A disabled unit is
+      # never installed and a match-all file does not bind a name to a device, so
+      # neither counts as a pin.
+      pinnedNames = lib.filter (n: n != null) (
+        map (r: if r.selectors != [ ] then r.linkName else null) enabledRecords
       );
-    in
-    lib.unique (lib.filter (s: lib.count (x: x == s) selectors > 1) selectors);
 
-  # An enabled file without a singleton device-binding selector can match the
-  # first device udev initializes and shadow every later file. This deliberately
-  # includes broad class or name matches: the static model cannot prove that one
-  # will not shadow a later file for another device class.
-  unboundLinksOf =
-    links:
-    let
-      enabled = lib.filterAttrs (_: link: link.enable or true) links;
-      names = lib.attrNames enabled;
+      shadowedSelectors = lib.concatMap (r: r.selectors) enabledRecords;
+
+      enabledNames = map (r: r.key) enabledRecords;
       # udev sorts the rendered basenames with strcmp, so "10-net-fallback.link"
       # precedes "10-net.link" ('-' < '.') while the bare names order the other way.
-      precedesAnother = name: lib.any (other: "${other}.link" > "${name}.link") names;
+      precedesAnother = name: lib.any (other: "${other}.link" > "${name}.link") enabledNames;
     in
-    lib.filter (name: selectorsOf enabled.${name} == [ ] && precedesAnother name) names;
+    {
+      inherit pinnedNames;
+
+      # Pins into a namespace the kernel assigns itself. systemd.link(5) on Name=:
+      # "specifying a name that the kernel might use for another interface (for
+      # example eth0) is dangerous because the name assignment done by udev will
+      # race with the assignment done by the kernel ... making the naming
+      # unpredictable". A pin that loses that race leaves the device on its kernel
+      # name, so anything keyed to the pinned name matches nothing.
+      # Derived from every enabled link rather than from pinnedNames: a collision
+      # is a property of the name a .link writes, not of whether it binds to one
+      # device. A match-all file named eth0 is the worse case, not an excluded one.
+      collidingPins = lib.filter (matches kernelRe) (
+        lib.filter (n: n != null) (map (r: r.linkName) enabledRecords)
+      );
+
+      # Two enabled device-specific files cannot safely create the same interface
+      # name. One rename wins, while declaredNamesFrom would otherwise treat the
+      # duplicate as backed even when one of the pins does not produce the
+      # intended interface name.
+      duplicatePins = lib.unique (
+        lib.filter (name: lib.count (other: other == name) pinnedNames > 1) pinnedNames
+      );
+
+      # Files that pin a name and also carry a policy that outranks it.
+      # systemd.link(5) gives Name= the lower precedence of the two, so the policy
+      # wins and the pin silently does not apply. Altname-narrowing files carry
+      # NamePolicy= and no Name=, which is the shape that needs it, so
+      # adding a Name= there is the natural way to satisfy the kernel-name warning
+      # and the one that does not work. Keyed on both keys rather than on Name=
+      # alone, which is what pinnedNames and collidingPins read, so neither of
+      # them can see this.
+      policyOverriddenPins = map (r: r.key) (lib.filter (r: r.hasPolicy) enabledRecords);
+
+      # Enabled .link units that bind the same device by the same selector. udev
+      # applies only the first matching file, so every later one is discarded, but
+      # pinnedNames reads Name= off all of them. The shadowed name would otherwise
+      # enter declaredNames and hide a firewall opening for a name that matches no
+      # device. Wired hosts commonly ship a .link for each NIC, so that is the
+      # shape the kernel-name warning invites.
+      shadowedLinks = lib.unique (
+        lib.filter (s: lib.count (x: x == s) shadowedSelectors > 1) shadowedSelectors
+      );
+
+      # An enabled file without a singleton device-binding selector can match the
+      # first device udev initializes and shadow every later file. This deliberately
+      # includes broad class or name matches: the static model cannot prove that one
+      # will not shadow a later file for another device class.
+      unboundLinks = map (r: r.key) (
+        lib.filter (r: r.selectors == [ ] && precedesAnother r.key) enabledRecords
+      );
+    };
+
+  # Per-field entry points for firewall-checks.nix and the flake.lib.nixos
+  # exports below; the host body reads the classifyLinks result directly.
+  pinnedNamesOf = links: (classifyLinks links).pinnedNames;
+  collidingPinsOf = links: (classifyLinks links).collidingPins;
+  duplicatePinsOf = links: (classifyLinks links).duplicatePins;
+  policyOverriddenPinsOf = links: (classifyLinks links).policyOverriddenPins;
+  shadowedLinksOf = links: (classifyLinks links).shadowedLinks;
+  unboundLinksOf = links: (classifyLinks links).unboundLinks;
 
   # Interfaces a host declares rather than inherits from a NIC. Exported with
-  # the classifier so the check can assert every source is still read.
-  declaredNamesOf =
-    cfg:
-    pinnedNamesOf cfg.systemd.network.links
+  # the classifier so the check can assert every source is still read. Takes
+  # pinnedNames as an argument so the host body can pass the one it already has.
+  declaredNamesFrom =
+    pinnedNames: cfg:
+    pinnedNames
     ++ lib.attrNames cfg.networking.bridges
     ++ lib.attrNames cfg.networking.bonds
     ++ lib.attrNames cfg.networking.vlans
@@ -257,6 +254,8 @@ let
         )
       )
     );
+
+  declaredNamesOf = cfg: declaredNamesFrom (classifyLinks cfg.systemd.network.links).pinnedNames cfg;
 
   body =
     {
@@ -308,12 +307,16 @@ let
         ) localNetworkCidrs
       ) localTcpPortRanges;
       predictable = config.networking.usePredictableInterfaceNames;
-      declaredNames = declaredNamesOf config;
-      collidingPins = collidingPinsOf config.systemd.network.links;
-      duplicatePins = duplicatePinsOf config.systemd.network.links;
-      policyOverriddenPins = policyOverriddenPinsOf config.systemd.network.links;
-      shadowedLinks = shadowedLinksOf config.systemd.network.links;
-      unboundLinks = unboundLinksOf config.systemd.network.links;
+      # One pass over config.systemd.network.links for all five link guards.
+      linkClassification = classifyLinks config.systemd.network.links;
+      declaredNames = declaredNamesFrom linkClassification.pinnedNames config;
+      inherit (linkClassification)
+        collidingPins
+        duplicatePins
+        policyOverriddenPins
+        shadowedLinks
+        unboundLinks
+        ;
       inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
         staleScheme
@@ -337,6 +340,66 @@ let
           + "udev never reads. "
           + "A bare kernel name resolves, but to whichever same-class NIC enumerated first "
           + "that boot, which is what the warning below reports.";
+      # One row per systemd.network.links guard, in assertion order. A new rule
+      # is one row here plus its fixture block in firewall-checks.nix, rather
+      # than a third hand-copied assertion stanza to keep in step with the
+      # other five.
+      linkAssertionTable = [
+        {
+          result = collidingPins;
+          message =
+            names:
+            "${hostName}: systemd.network.links pins interface names "
+            + "(${lib.concatStringsSep ", " names}) inside the namespaces the "
+            + "kernel assigns itself (eth*, wlan*, usb*, wwan*, ib*, sl*). Per systemd.link(5) "
+            + "the udev rename races the kernel's own assignment there, so the pin may "
+            + "silently not apply and anything keyed to the name matches no device. Rename "
+            + "the existing pin to a name outside those namespaces, as "
+            + "modules/tpnix/networking.nix does with wifi0; do not add a second file, which "
+            + "udev never reads.";
+        }
+        {
+          result = duplicatePins;
+          message =
+            names:
+            "${hostName}: enabled systemd.network.links units assign the same pinned "
+            + "name (${lib.concatStringsSep ", " names}) to multiple device-specific "
+            + "files. One rename wins, while the duplicate name would still count as declared "
+            + "here even when one pin does not produce the intended interface name. Pin one "
+            + "device per name.";
+        }
+        {
+          result = policyOverriddenPins;
+          message =
+            names:
+            "${hostName}: systemd.network.links units "
+            + "(${lib.concatStringsSep ", " names}) set both Name= and "
+            + "NamePolicy=. systemd.link(5) gives Name= the lower precedence of the two, so "
+            + "the policy wins and the pin silently does not apply wherever NamePolicy is "
+            + "honoured. Drop NamePolicy= from a file that pins a name; keep it only in the "
+            + "no-Name= altname-narrowing shape (docs/networking/README.md).";
+        }
+        {
+          result = shadowedLinks;
+          message =
+            names:
+            "${hostName}: more than one enabled systemd.network.links unit binds "
+            + "(${lib.concatStringsSep ", " names}). udev applies only the first "
+            + "matching file, so the rest are never read, while pinnedNamesOf still counts "
+            + "their Name= as a declared name. The shadowed file can therefore mask a name "
+            + "that matches no device. Add Name= to the file that already matches the device "
+            + "instead of authoring a second one (docs/networking/README.md).";
+        }
+        {
+          result = unboundLinks;
+          message =
+            names:
+            "${hostName}: enabled systemd.network.links units (${lib.concatStringsSep ", " names}) "
+            + "have no singleton Path= or PermanentMACAddress= selector and precede another .link. "
+            + "A broad or unbound file can match the first device udev initializes and shadow later "
+            + "files. Give it a singleton device selector or place it after the specific files.";
+        }
+      ];
     in
     {
       # A name that matches no device is not an evaluation error on its own:
@@ -350,56 +413,11 @@ let
           assertion = staleScheme == [ ];
           message = staleMessage;
         }
-        {
-          assertion = collidingPins == [ ];
-          message =
-            "${hostName}: systemd.network.links pins interface names "
-            + "(${lib.concatStringsSep ", " collidingPins}) inside the namespaces the "
-            + "kernel assigns itself (eth*, wlan*, usb*, wwan*, ib*, sl*). Per systemd.link(5) "
-            + "the udev rename races the kernel's own assignment there, so the pin may "
-            + "silently not apply and anything keyed to the name matches no device. Rename "
-            + "the existing pin to a name outside those namespaces, as "
-            + "modules/tpnix/networking.nix does with wifi0; do not add a second file, which "
-            + "udev never reads.";
-        }
-        {
-          assertion = duplicatePins == [ ];
-          message =
-            "${hostName}: enabled systemd.network.links units assign the same pinned "
-            + "name (${lib.concatStringsSep ", " duplicatePins}) to multiple device-specific "
-            + "files. One rename wins, while the duplicate name would still count as declared "
-            + "here even when one pin does not produce the intended interface name. Pin one "
-            + "device per name.";
-        }
-        {
-          assertion = policyOverriddenPins == [ ];
-          message =
-            "${hostName}: systemd.network.links units "
-            + "(${lib.concatStringsSep ", " policyOverriddenPins}) set both Name= and "
-            + "NamePolicy=. systemd.link(5) gives Name= the lower precedence of the two, so "
-            + "the policy wins and the pin silently does not apply wherever NamePolicy is "
-            + "honoured. Drop NamePolicy= from a file that pins a name; keep it only in the "
-            + "no-Name= altname-narrowing shape (docs/networking/README.md).";
-        }
-        {
-          assertion = shadowedLinks == [ ];
-          message =
-            "${hostName}: more than one enabled systemd.network.links unit binds "
-            + "(${lib.concatStringsSep ", " shadowedLinks}). udev applies only the first "
-            + "matching file, so the rest are never read, while pinnedNamesOf still counts "
-            + "their Name= as a declared name. The shadowed file can therefore mask a name "
-            + "that matches no device. Add Name= to the file that already matches the device "
-            + "instead of authoring a second one (docs/networking/README.md).";
-        }
-        {
-          assertion = unboundLinks == [ ];
-          message =
-            "${hostName}: enabled systemd.network.links units (${lib.concatStringsSep ", " unboundLinks}) "
-            + "have no singleton Path= or PermanentMACAddress= selector and precede another .link. "
-            + "A broad or unbound file can match the first device udev initializes and shadow later "
-            + "files. Give it a singleton device selector or place it after the specific files.";
-        }
-      ];
+      ]
+      ++ map (row: {
+        assertion = row.result == [ ];
+        message = row.message row.result;
+      }) linkAssertionTable;
 
       warnings =
         lib.optional (unbackedNames != [ ]) (
