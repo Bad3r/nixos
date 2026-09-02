@@ -120,7 +120,7 @@ Scope:
       diagnostics, but may flush or synchronize caches. The existing `disk`
       membership still permits raw block reads and writes; that does not grant
       the separate ATA Security, DCO, or HPA control paths.
-    - the `nvme` wrapper is not whole-binary. Its source allowlists 48
+    - the `nvme` wrapper is not whole-binary. Its source allowlists 47
       subcommands, enumerated in `modules/apps/nvme-cli.nix`, which is the
       authoritative list. Membership is limited to Identify (opcode 0x06, such
       as `id-ctrl`, `id-nvmset`, `primary-ctrl-caps`, `list-secondary`), Get
@@ -128,20 +128,36 @@ Scope:
       `lba-status-log`, `rotational-media-info-log`), Get Features (opcode
       0x0A, which is `get-feature` alone, carrying no `--save`, so the
       saved-value write path stays behind `set-feature` and the verbatim
-      `strcmp` does not match it), and `device-self-test`, the one exception,
-      whose options can start or abort a drive self-test.
+      `strcmp` does not match it), plus two exceptions whose state change is
+      the diagnostic itself: `device-self-test`, whose options start or abort
+      a drive self-test, and `telemetry-log`, whose default
+      `--host-generate=1` (`nvme.c:916`) sets the Create bit in the Telemetry
+      Host-Initiated log's LSP so the controller captures fresh host-initiated
+      telemetry in place of the capture it retained (`--host-generate=0`
+      re-reads that capture; `--controller-init` reads the separate
+      controller-initiated log, which the bit never touches), and whose
+      `--data-area=4` sets the ETDAS bit of Host Behavior Support (feature
+      16h) through Set Features and clears it again after the read (libnvme
+      `linux.c:124`). The filter matches `argv[1]` only, so neither exception
+      constrains options. Host-initiated telemetry exists only because a host
+      asked for it, and the command that creates it copies it out in the same
+      run, so no other consumer waits on the retained copy.
       It clears the ambient set before `execve` for everything else.
       `nvme format`, `nvme sanitize`, `nvme set-feature`, `nvme fw-commit`,
       `nvme admin-passthru`, `nvme io-passthru`, and the vendor plugins still
       run, but with no capability, so they need `sudo` again.
-      Four subcommands that read data are excluded on purpose, because the
+      Five subcommands that read data are excluded on purpose, because the
       read is not free of state change: `changed-ns-list-log` and
       `changed-alloc-ns-list-log` are clear-on-read, so consuming the list can
       hide a namespace-change event from another reader; `persistent-event-log`
       takes an `--action` that establishes or releases a controller-side log
       context (`nvme.c:1685-1705`); `phy-rx-eom-log` can initiate a PHY
-      receiver eye-opening measurement rather than only report one.
-      Eleven allowlisted log readers accept `--rae`; omitting it lets the
+      receiver eye-opening measurement rather than only report one; and raw
+      `get-log` (`nvme.c:2390`) takes any `--log-id` with any `--lsp` below
+      128, so `--log-id persistent-event --lsp 1`, `--log-id changed-ns`, and
+      `--log-id telemetry-host --lsp 1` reach every effect above under a
+      name that none of the other exclusions matches.
+      Ten allowlisted log readers accept `--rae`; omitting it lets the
       controller clear the associated asynchronous event, which is a property
       of the log pages themselves and applies equally to the long-standing
       `smart-log` and `error-log` grants, both of which pass `rae = false`.

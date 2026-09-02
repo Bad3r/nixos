@@ -23,7 +23,8 @@
 
   Notes:
     * `disk` group members run this without `sudo`: a capability wrapper supplies CAP_SYS_ADMIN and the shared storage policy opens the controller char nodes.
-    * The wrapper source is an argv filter that only keeps the capability for an allowlist of read-only diagnostic subcommands plus `device-self-test`, whose options can start or abort a drive self-test. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `set-feature`, `fw-commit` and the vendor plugins need `sudo` again.
+    * The wrapper source is an argv filter that only keeps the capability for an allowlist of read-only diagnostic subcommands plus two whose state change is the diagnostic itself: `device-self-test`, whose options can start or abort a drive self-test, and `telemetry-log`, whose default `--host-generate=1` has the controller capture fresh host-initiated telemetry in place of the retained capture and whose `--data-area=4` toggles the ETDAS Host Behavior bit through Set Features. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `set-feature`, `fw-commit` and the vendor plugins need `sudo` again.
+    * Raw `get-log` is deliberately absent: it addresses any log identifier with any LSP value, which reaches the telemetry create bit and the clear-on-read, context-establishing, and measurement-starting pages the named readers keep behind `sudo`.
     * `nvme help <cmd>` and the vendor plugins are in the cleared path: plugin.c:52 `execlp`s `man`, and the plugins interpolate `--dir-name` into a `system()` string (solidigm-internal-logs.c:989, wdc-nvme.c:4218).
 */
 _:
@@ -71,7 +72,6 @@ let
         	"fid-support-effects-log",
         	"fw-log",
         	"get-feature",
-        	"get-log",
         	"host-discovery-log",
         	"id-ctrl",
         	"id-domain",
