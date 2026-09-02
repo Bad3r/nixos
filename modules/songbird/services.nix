@@ -166,8 +166,11 @@ in
         resumeCommands = ''
           # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
           ${pkgs.systemd}/bin/loginctl lock-sessions
-          # Re-assert the daemon profile after resume.
-          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance || true
+          # Re-assert the daemon profile after resume. Suppressed rather than
+          # fatal: nixpkgs concatenates powerUpCommands after this in the same
+          # set -e sleep-actions preStop script, so an unguarded failure here
+          # would skip it. The journal line keeps the failure visible.
+          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance || echo "songbird resume: powerprofilesctl set performance failed" >&2
         '';
       };
 
