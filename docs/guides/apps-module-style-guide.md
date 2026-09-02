@@ -362,19 +362,20 @@ appEnable = {
 };
 ```
 
-The host override module routes each entry to
-`programs.<name>.extended.enable` or `services.<name>.extended.enable` at
-`lib.mkOverride 1000` based on the namespace declared by the common baseline.
-It also re-exports the flat set as `flake.lib.nixos._hostAppsOverrides.<host>`
-so `modules/hosts/common/checks.nix` can flag values that duplicate the common
-baseline (silent no-op).
+The host override module registers that flat set as
+`flake.lib.nixos._hostAppsOverrides.<host>`. `modules/hosts/common/checks.nix`
+reads it to flag values that duplicate the common baseline (silent no-op) and
+routes each entry to `programs.<name>.extended.enable` or
+`services.<name>.extended.enable` at `lib.mkOverride 1000`, based on the
+namespace where the common baseline declares the app.
 
 That flat set carries one boolean per app and always routes to
 `extended.enable`, so an override of a nested toggle such as
 `claude-code.extended.installMethods.bun.enable` cannot go through it. Register
-those in the same file as a list of `{ path; value; }`,
-re-export it as `flake.lib.nixos._hostAppsSubToggleOverrides.<host>`, and build
-the override by folding that list rather than writing the attribute out:
+those in the same file as a list of `{ path; value; }` under
+`flake.lib.nixos._hostAppsSubToggleOverrides.<host>`, then build the whole host
+module from both registries through `flake.lib.hostApps.mk` rather than
+writing any override out:
 
 ```nix
 subToggles = [
@@ -383,35 +384,39 @@ subToggles = [
     value = true;
   }
 ];
-applySubToggles =
+hostApps =
   (
-    config.flake.lib.nixos._mkHostAppsSubToggleApply
-      or (throw "modules/hosts/common/checks.nix no longer exports flake.lib.nixos._mkHostAppsSubToggleApply")
+    config.flake.lib.hostApps.mk
+      or (throw "modules/hosts/common/checks.nix no longer exports flake.lib.hostApps.mk")
   )
-    baseline
-    subToggles;
+    "<host>";
 ```
 
-Use the resulting function as `applySubToggles "programs" base` and
-`applySubToggles "services" base` when constructing the host module.
+and `configurations.nixos.<host>.module = { inherit (hostApps) programs services; }`.
 
-Folding rather than splicing a literal is the point: registering is then the
-only way to write one, so the next nested toggle cannot slip past the check the
-way existing host overrides do.
+Building from the registries is the point: registering is then the only way to
+write an override, so the next one cannot slip past the check. The builder
+reads the registries by host name, so a name in neither registry fails the
+evaluation rather than applying nothing.
 
-The fold and its namespace routing come from
-`flake.lib.nixos._mkHostAppsSubToggleApply`, not from a local copy: the wrapper
-closes over the host's baseline and `subToggles`, the same decision drives the
-FR-5 comparison, and a host writing its own fold gets a write side the check
-cannot see. The full path is checked in `programs` first and falls back to
-`services` when the baseline declares it there only, exactly as `appEnable`'s
-entries are. A path absent from both namespaces fails the host evaluation: the
-FR-5 check also reports it, but that check is a `perSystem` check no switch
-runs, so writing nothing would drop the override from the switched closure
-without a diagnostic. This full-path check matters when both namespaces contain
-the same top-level app name: a programs path must remain under `programs`, while
-a services-only path belongs under `services`. Folding everything into
-`programs` would write a services toggle where nothing reads it.
+The builder and the FR-5 comparison share one full-path lookup, so the write
+side cannot disagree with the check about which namespace owns a path or
+whether it is comparable. The path is checked in `programs` first and falls
+back to `services` when the baseline declares it there only; a flat entry is
+the same lookup with the `extended.enable` suffix. A path absent from both
+namespaces fails the host evaluation: the FR-5 check also reports it, but that
+check is a `perSystem` check no switch runs, so writing nothing would drop the
+override from the switched closure without a diagnostic. The full-path check
+matters when both namespaces contain the same top-level app name: a programs
+path must remain under `programs`, while a services-only path belongs under
+`services`. Folding everything into `programs` would write a services toggle
+where nothing reads it.
+
+`flake.lib.hostApps` is typed `lazyAttrsOf raw` on purpose. The `anything` type
+behind `flake.lib.nixos` merges every attrset a function returns and discharges
+`lib.mkOverride` wrappers on the way, so a builder exported there delivers the
+host override at the default priority 100 with the same value, which a user
+override at priority 100 then conflicts with instead of winning.
 
 ### 5. Check for Home Manager Integration
 

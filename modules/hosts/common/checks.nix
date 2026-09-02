@@ -1,4 +1,5 @@
-# FR-5: no-op override collision check for per-host apps-enable overrides.
+# FR-5: no-op override collision check for per-host apps-enable overrides,
+# and the builder every host module applies those overrides through.
 #
 # The common app catalog (modules/hosts/common/apps-enable.nix) sets app
 # defaults under `programs.*.extended.enable` and `services.*.extended.enable`
@@ -22,12 +23,12 @@
 # `extended.enable`, so it cannot carry an override of a nested toggle such as
 # `claude-code.extended.installMethods.bun.enable`. Those are registered
 # separately under `flake.lib.nixos._hostAppsSubToggleOverrides.<host>` as a
-# list of `{ path; value; }`, resolved by full path with programs taking
-# precedence and services as the fallback namespace. The host file builds the
-# override from that list rather than writing it out, so an unregistered one
-# cannot exist. Without this the same no-op drift is invisible: the comparison
-# below reads a fixed `extended.enable` and only iterates names the flat set
-# registered.
+# list of `{ path; value; }`. To this file both registries are one toggle
+# list, the flat set being the nested case with a fixed suffix, so a single
+# full-path lookup (programs first, services as the fallback) decides what
+# this comparison reads and where `flake.lib.hostApps.mk` writes. Host files
+# build their module from that builder rather than writing overrides out, so
+# an unregistered override cannot exist.
 #
 # The comparison is done at flake.lib level (no module evaluation) to avoid
 # the infinite recursion that arises when reading
@@ -35,46 +36,39 @@
 { config, lib, ... }:
 let
   baseline = config.flake.lib.nixos._commonAppsBaseline or { };
-  baselinePrograms = baseline.programs or { };
-  baselineServices = baseline.services or { };
   hostOverrides = config.flake.lib.nixos._hostAppsOverrides or { };
   hostSubToggles = config.flake.lib.nixos._hostAppsSubToggleOverrides or { };
-  baselineKeys = baselinePrograms // baselineServices;
-  unknownOverridesByHost = lib.mapAttrs (
-    _host: overrides:
-    builtins.filter (name: !(lib.hasAttr name baselineKeys)) (builtins.attrNames overrides)
-  ) hostOverrides;
-  unknownOverridesByHostNonEmpty = lib.filterAttrs (
-    _host: names: names != [ ]
-  ) unknownOverridesByHost;
-  anyUnknownOverrides = unknownOverridesByHostNonEmpty != { };
-  unknownOverridesSummary = lib.concatStringsSep "; " (
-    lib.mapAttrsToList (
-      host: names: "${host}: ${lib.concatStringsSep ", " names}"
-    ) unknownOverridesByHostNonEmpty
-  );
-  baselineMissing =
-    (hostOverrides != { } || hostSubToggles != { })
-    && (
-      (baselinePrograms == { } && baselineServices == { })
-      || anyUnknownOverrides
-      || anyUncomparableSubToggles
-    );
-  baselineMissingMessage =
-    if anyUnknownOverrides then
-      "FR-5 baseline snapshot missing or out of sync: "
-      + "flake.lib.nixos._commonAppsBaseline does not declare every entry in "
-      + "flake.lib.nixos._hostAppsOverrides.<host>: "
-      + unknownOverridesSummary
-    else if anyUncomparableSubToggles then
-      "FR-5 baseline snapshot out of sync: "
-      + "flake.lib.nixos._commonAppsBaseline declares no value at these "
-      + "flake.lib.nixos._hostAppsSubToggleOverrides.<host> paths, so they are "
-      + "registered but never compared: "
-      + uncomparableSubTogglesSummary
+
+  snapshotOf = snapshot: {
+    programs = snapshot.programs or { };
+    services = snapshot.services or { };
+  };
+  baselineSnapshot = snapshotOf baseline;
+
+  # The one namespace decision in this file: programs wins, services is the
+  # fallback, neither is null. The read side wants the value and the write side
+  # wants the label, so both come out of this single lookup and cannot disagree
+  # about which namespace owns a path. A shallow `programs // services` merge
+  # would resolve a colliding name the other way round.
+  lookupIn =
+    { programs, services }:
+    path:
+    let
+      fromPrograms = lib.attrByPath path null programs;
+      fromServices = lib.attrByPath path null services;
+    in
+    if fromPrograms != null then
+      {
+        namespace = "programs";
+        value = fromPrograms;
+      }
+    else if fromServices != null then
+      {
+        namespace = "services";
+        value = fromServices;
+      }
     else
-      "FR-5 baseline snapshot missing: flake.lib.nixos._commonAppsBaseline is empty "
-      + "but host overrides are registered.";
+      null;
 
   # Baseline values come from `lib.mkOverride 1100 <bool>`, which wraps the
   # boolean in `{ _type = "override"; priority = 1100; content = <bool>; }`.
@@ -82,125 +76,128 @@ let
   # before comparison or `==` is always false.
   unwrapOverride = v: if lib.isAttrs v && (v._type or "") == "override" then v.content else v;
 
-  baselineEnableOf =
-    app:
-    let
-      programEntry = baselinePrograms.${app} or null;
-      serviceEntry = baselineServices.${app} or null;
-      entry = if programEntry != null then programEntry else serviceEntry;
-    in
-    if entry == null then null else unwrapOverride (entry.extended.enable or null);
+  # One host's registries as a single toggle list.
+  togglesOf =
+    {
+      overrides ? { },
+      subToggles ? [ ],
+    }:
+    lib.mapAttrsToList (name: value: {
+      path = [
+        name
+        "extended"
+        "enable"
+      ];
+      inherit value;
+    }) overrides
+    ++ subToggles;
+  nameOf = toggle: lib.concatStringsSep "." toggle.path;
 
-  noOpsFor =
-    overrides:
+  # Read side, exported so modules/hosts/common/apps-sub-toggle-checks.nix can
+  # exercise every branch against a snapshot of its own rather than the live
+  # baseline.
+  classifyRegistry =
+    snapshot: registry:
     let
-      isNoOp =
-        app:
-        let
-          base = baselineEnableOf app;
-          over = overrides.${app};
-        in
-        base != null && base == over;
-    in
-    builtins.filter isNoOp (builtins.attrNames overrides);
-
-  # Pure classifier over the sub-toggle registry, exported so
-  # modules/hosts/common/apps-sub-toggle-checks.nix can exercise every branch:
-  # Host closures can reach both namespace branches and the no-op path through
-  # the registry, so the classifier keeps both namespace lookups explicit.
-  #
-  # Paths resolve in both namespaces, the way baselineEnableOf does for the flat
-  # set. The baseline splits apps into programs and services, so looking only in
-  # programs makes a sub-toggle on a services app resolve to null and be reported
-  # as an out-of-sync baseline that no baseline edit can fix.
-  classifySubToggles =
-    { programs, services }:
-    toggles:
-    let
-      at =
-        path:
-        let
-          fromPrograms = lib.attrByPath path null programs;
-        in
-        if fromPrograms != null then fromPrograms else lib.attrByPath path null services;
-      name = toggle: lib.concatStringsSep "." toggle.path;
+      lookup = lookupIn (snapshotOf snapshot);
+      resolved = map (toggle: {
+        inherit toggle;
+        hit = lookup toggle.path;
+      }) (togglesOf registry);
+      namesWhere = predicate: map (entry: nameOf entry.toggle) (builtins.filter predicate resolved);
     in
     {
       # A path the baseline never declares cannot be compared at all, so it is
       # reported rather than dropped: dropping it makes registration look like
-      # coverage it does not provide, which is the asymmetry against the flat
-      # set, where an unknown name fails through unknownOverridesByHost.
-      uncomparable = map name (builtins.filter (toggle: at toggle.path == null) toggles);
-      noOps = map name (
-        builtins.filter (
-          toggle:
-          let
-            base = unwrapOverride (at toggle.path);
-          in
-          base != null && base == toggle.value
-        ) toggles
+      # coverage it does not provide.
+      uncomparable = namesWhere (entry: entry.hit == null);
+      noOps = namesWhere (
+        entry: entry.hit != null && unwrapOverride entry.hit.value == entry.toggle.value
       );
     };
 
-  # Write side of the same decision, exported alongside the classifier and used
-  # by every host file, so the two halves cannot disagree about which namespace
-  # a path belongs to. Full-path lookup matters when programs and services have
-  # the same top-level name: a programs path must win, while a services-only
-  # path must fall back to services. A path absent from both namespaces throws
-  # here, inside the host evaluation: the FR-5 check that also reports it is a
-  # perSystem check, which nixos-rebuild never evaluates, so silently writing
-  # nothing would drop the override from the switched closure.
-  applySubToggles =
-    snapshot: namespace: base: toggles:
+  # Write side: the same lookup decides where each entry lands. A path absent
+  # from both namespaces throws here, inside the host evaluation, because the
+  # FR-5 check that also reports it is a perSystem check nixos-rebuild never
+  # evaluates; writing nothing would drop the override from the switched
+  # closure without a diagnostic.
+  hostAppsFor =
+    host: snapshot: registry:
     let
-      resolvedIn =
+      lookup = lookupIn (snapshotOf snapshot);
+      toggles = togglesOf registry;
+      namespaceOf =
         toggle:
-        if lib.attrByPath toggle.path null (snapshot.programs or { }) != null then
-          "programs"
-        else if lib.attrByPath toggle.path null (snapshot.services or { }) != null then
-          "services"
+        let
+          hit = lookup toggle.path;
+        in
+        if hit != null then
+          hit.namespace
         else
           throw (
-            "flake.lib.nixos._hostAppsSubToggleOverrides registers "
-            + lib.concatStringsSep "." toggle.path
-            + ", which flake.lib.nixos._commonAppsBaseline declares under neither programs nor "
-            + "services, so the override has nowhere to land; declare the path in "
-            + "modules/hosts/common/apps-enable.nix or drop the registration."
+            "modules/${host}/apps-enable.nix registers ${nameOf toggle}, which "
+            + "flake.lib.nixos._commonAppsBaseline declares under neither programs nor services, "
+            + "so the override has nowhere to land; declare it in modules/hosts/common/apps-enable.nix "
+            + "or drop the registration."
           );
+      landing =
+        namespace:
+        lib.foldl' (
+          acc: toggle:
+          lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
+        ) { } (builtins.filter (toggle: namespaceOf toggle == namespace) toggles);
     in
-    lib.foldl' (
-      acc: toggle:
-      lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
-    ) base (builtins.filter (toggle: resolvedIn toggle == namespace) toggles);
-
-  classifyFor = classifySubToggles {
-    programs = baselinePrograms;
-    services = baselineServices;
-  };
-
-  # Computed once per host: uncomparableSubTogglesByHost and noOpsByHost both
-  # need this classification, and classifyFor re-walks and re-filters the same
-  # toggle list, so calling it once per host instead of once per consumer
-  # halves that work.
-  subToggleClassificationByHost = lib.mapAttrs (_host: classifyFor) hostSubToggles;
-
-  uncomparableSubTogglesByHost = lib.filterAttrs (_host: paths: paths != [ ]) (
-    lib.mapAttrs (_host: result: result.uncomparable) subToggleClassificationByHost
-  );
-  anyUncomparableSubToggles = uncomparableSubTogglesByHost != { };
-  uncomparableSubTogglesSummary = lib.concatStringsSep "; " (
-    lib.mapAttrsToList (
-      host: paths: "${host}: ${lib.concatStringsSep ", " paths}"
-    ) uncomparableSubTogglesByHost
-  );
+    {
+      programs = landing "programs";
+      services = landing "services";
+    };
 
   # Keyed on the union of both registries. A host whose only divergence is
   # nested registers no flat set, and keying on hostOverrides alone emits no
   # host-<host>-apps-no-noop check for it at all, rather than a passing one.
-  noOpsByHost = lib.mapAttrs (
-    host: _:
-    noOpsFor (hostOverrides.${host} or { }) ++ (subToggleClassificationByHost.${host}.noOps or [ ])
-  ) (hostOverrides // hostSubToggles);
+  registryByHost = lib.mapAttrs (host: _: {
+    overrides = hostOverrides.${host} or { };
+    subToggles = hostSubToggles.${host} or [ ];
+  }) (hostOverrides // hostSubToggles);
+
+  # Built from the registries, not from arguments, so what a host switches is
+  # exactly what this file compares; a host name in neither registry is a typo,
+  # not an empty override.
+  mkHostApps =
+    host:
+    if registryByHost ? ${host} then
+      hostAppsFor host baselineSnapshot registryByHost.${host}
+    else
+      throw (
+        "flake.lib.hostApps.mk: ${host} has no flake.lib.nixos._hostAppsOverrides or "
+        + "_hostAppsSubToggleOverrides entry"
+      );
+
+  classificationByHost = lib.mapAttrs (_host: classifyRegistry baselineSnapshot) registryByHost;
+
+  uncomparableByHost = lib.filterAttrs (_host: paths: paths != [ ]) (
+    lib.mapAttrs (_host: result: result.uncomparable) classificationByHost
+  );
+  uncomparableSummary = lib.concatStringsSep "; " (
+    lib.mapAttrsToList (host: paths: "${host}: ${lib.concatStringsSep ", " paths}") uncomparableByHost
+  );
+  noOpsByHost = lib.mapAttrs (_host: result: result.noOps) classificationByHost;
+
+  baselineMissing =
+    registryByHost != { }
+    && (
+      (baselineSnapshot.programs == { } && baselineSnapshot.services == { }) || uncomparableByHost != { }
+    );
+  baselineMissingMessage =
+    if uncomparableByHost != { } then
+      "FR-5 baseline snapshot out of sync: "
+      + "flake.lib.nixos._commonAppsBaseline declares no value at these paths registered under "
+      + "flake.lib.nixos._hostAppsOverrides.<host> (shown with their extended.enable suffix) or "
+      + "flake.lib.nixos._hostAppsSubToggleOverrides.<host>, so they are registered but never compared: "
+      + uncomparableSummary
+    else
+      "FR-5 baseline snapshot missing: flake.lib.nixos._commonAppsBaseline is empty "
+      + "but host overrides are registered.";
 
   messageFor =
     host: noOps:
@@ -209,15 +206,10 @@ let
     + lib.concatStringsSep ", " noOps;
 in
 {
-  flake.lib.nixos = {
-    _hostAppsSubToggleClassify = classifySubToggles;
-    _hostAppsSubToggleApply = applySubToggles;
-    # Curried the way every host apps-enable.nix wants to call it: baseline and
-    # subToggles are per-host constants closed over once, leaving the host file
-    # only the namespace/base call applySubToggles's own signature already needs.
-    _mkHostAppsSubToggleApply =
-      baseline: subToggles: namespace: base:
-      applySubToggles baseline namespace base subToggles;
+  flake.lib.hostApps = {
+    classify = classifyRegistry;
+    forRegistry = hostAppsFor;
+    mk = mkHostApps;
   };
 
   perSystem =
