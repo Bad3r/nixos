@@ -23,6 +23,8 @@
     * The nightly binary compiles in /etc/brave/policies like every Brave channel; there is no channel-scoped
       directory. Brave stable reads the same directory, so the two modules write one identical
       dns-over-https.json and Brave's extended.json never restates its keys.
+    * The file is present while either module's enableManagedPolicies is true, so leaving every Brave channel
+      unmanaged takes both flags.
 */
 _:
 let
@@ -47,12 +49,23 @@ let
         };
 
         package = lib.mkPackageOption pkgs "brave-origin" { };
+
+        enableManagedPolicies = lib.mkOption {
+          type = lib.types.bool;
+          default = true;
+          description = ''
+            Whether to install the shared Brave-family resolver policy. Every Brave
+            channel reads /etc/brave/policies, so this and
+            programs.brave.extended.enableManagedPolicies both have to be false to
+            leave Brave unmanaged.
+          '';
+        };
       };
 
       config = lib.mkIf cfg.enable {
         environment = {
           systemPackages = [ cfg.package ];
-          etc = braveDnsOverHttpsEtc pkgs;
+          etc = lib.mkIf cfg.enableManagedPolicies (braveDnsOverHttpsEtc pkgs);
         };
       };
     };

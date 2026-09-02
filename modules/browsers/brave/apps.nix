@@ -23,6 +23,8 @@
     * Every Brave channel compiles in /etc/brave/policies, so the directory is shared with Brave Origin and
       Chromium merges every JSON file in it. The resolver policy therefore lives in its own file, written
       identically by both modules, and managedPolicies must not restate its keys.
+    * enableManagedPolicies = false removes extended.json, but the resolver file stays while
+      programs.brave-origin.extended.enableManagedPolicies is true; leaving Brave unmanaged takes both flags.
 */
 _:
 let
@@ -187,7 +189,12 @@ let
         enableManagedPolicies = lib.mkOption {
           type = lib.types.bool;
           default = true;
-          description = "Whether to install Brave managed policies.";
+          description = ''
+            Whether to install Brave managed policies. The resolver policy file is
+            shared with brave-origin, which writes it while
+            programs.brave-origin.extended.enableManagedPolicies is true, so both
+            have to be false to leave Brave unmanaged.
+          '';
         };
 
         managedPolicies = lib.mkOption {
