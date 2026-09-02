@@ -7,7 +7,7 @@
 
   Summary:
     * Installs Brave Origin, a separate Brave product currently shipped only through the brave-origin-nightly channel.
-    * Applies the shared managed DNS-over-HTTPS policy.
+    * Writes the Brave-family DNS-over-HTTPS policy file, shared with the brave module.
 
   Options:
     --incognito: Launch Brave Origin directly in a private browsing session.
@@ -20,6 +20,9 @@
     * Local copy of https://github.com/NixOS/nixpkgs/pull/511131 until the PR merges upstream.
     * Package is defined under packages/brave-origin/ and wired through modules/custom-overlays/brave-origin.nix.
     * Changelog: https://github.com/brave/brave-browser/blob/master/CHANGELOG_DESKTOP_ORIGIN.md (currently empty upstream).
+    * The nightly binary compiles in /etc/brave/policies like every Brave channel; there is no channel-scoped
+      directory. Brave stable reads the same directory, so the two modules write one identical
+      dns-over-https.json and Brave's extended.json never restates its keys.
 */
 _:
 let
@@ -33,7 +36,7 @@ let
     let
       cfg = config.programs."brave-origin".extended;
 
-      inherit (import ../_chromium-policies.nix) managedDnsOverHttps;
+      inherit (import ../_chromium-policies.nix) braveDnsOverHttpsEtc;
     in
     {
       options.programs."brave-origin".extended = {
@@ -49,7 +52,7 @@ let
       config = lib.mkIf cfg.enable {
         environment = {
           systemPackages = [ cfg.package ];
-          etc."brave/policies/managed/dns-over-https.json".text = builtins.toJSON managedDnsOverHttps;
+          etc = braveDnsOverHttpsEtc pkgs;
         };
       };
     };
