@@ -90,7 +90,7 @@ let
   ];
   # Route each toggle by the namespace containing its full path, checking
   # programs first and falling back to services for services-only paths. A path
-  # absent from both namespaces is not written and is reported by the FR-5 check.
+  # absent from both namespaces fails this evaluation, not only the FR-5 check.
   # Shared with the FR-5 comparison so the write and read sides cannot disagree
   # about which namespace a path belongs to or whether it is comparable.
   applySubToggles =

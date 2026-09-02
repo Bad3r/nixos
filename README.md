@@ -52,7 +52,7 @@ See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md#6-creat
 
 ## App Wiring
 
-Nested host app overrides register full option paths and route them through `programs` first, then `services` for services-only paths. A path absent from both baseline namespaces is rejected by the FR-5 check and is never written.
+Nested host app overrides register full option paths and route them through `programs` first, then `services` for services-only paths. A path absent from both baseline namespaces fails the host evaluation, so it cannot be dropped by a switch that never runs the FR-5 check.
 
 See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
 

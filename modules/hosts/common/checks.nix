@@ -146,24 +146,32 @@ let
   # by every host file, so the two halves cannot disagree about which namespace
   # a path belongs to. Full-path lookup matters when programs and services have
   # the same top-level name: a programs path must win, while a services-only
-  # path must fall back to services. A path absent from both namespaces is not
-  # written; the FR-5 check reports it as uncomparable.
+  # path must fall back to services. A path absent from both namespaces throws
+  # here, inside the host evaluation: the FR-5 check that also reports it is a
+  # perSystem check, which nixos-rebuild never evaluates, so silently writing
+  # nothing would drop the override from the switched closure.
   applySubToggles =
     snapshot: namespace: base: toggles:
     let
-      inNamespace =
+      resolvedIn =
         toggle:
         if lib.attrByPath toggle.path null (snapshot.programs or { }) != null then
-          namespace == "programs"
+          "programs"
         else if lib.attrByPath toggle.path null (snapshot.services or { }) != null then
-          namespace == "services"
+          "services"
         else
-          false;
+          throw (
+            "flake.lib.nixos._hostAppsSubToggleOverrides registers "
+            + lib.concatStringsSep "." toggle.path
+            + ", which flake.lib.nixos._commonAppsBaseline declares under neither programs nor "
+            + "services, so the override has nowhere to land; declare the path in "
+            + "modules/hosts/common/apps-enable.nix or drop the registration."
+          );
     in
     lib.foldl' (
       acc: toggle:
       lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
-    ) base (builtins.filter inNamespace toggles);
+    ) base (builtins.filter (toggle: resolvedIn toggle == namespace) toggles);
 
   classifyFor = classifySubToggles {
     programs = baselinePrograms;

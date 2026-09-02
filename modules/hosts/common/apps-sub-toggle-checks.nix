@@ -3,8 +3,8 @@
 #
 # Host closures can reach both namespace lookups and the no-op branch through
 # the registry. Full-path lookup checks programs first and falls back to
-# services for services-only paths; a path absent from both namespaces is not
-# written by either namespace pass.
+# services for services-only paths; a path absent from both namespaces fails
+# either namespace pass.
 #
 # This throws rather than emitting a failing derivation: CI forces each check's
 # drvPath with `nix eval` and never builds checks, so only an eval-time failure
@@ -94,7 +94,7 @@ let
 
   # Write side. The classifier decides where a path is READ from; these decide
   # where it is WRITTEN. Full-path lookup gives programs precedence, uses
-  # services only when the path is absent from programs, and rejects a path
+  # services only when the path is absent from programs, and throws on a path
   # absent from both namespaces.
   routingCases = [
     {
@@ -146,16 +146,18 @@ let
       present = false;
     }
     {
-      name = "unknown path does not land under programs";
+      # Every host evaluation runs this pass, so a registered path the baseline
+      # stopped declaring fails the switch instead of vanishing from it.
+      name = "unknown path fails the programs pass";
       namespace = "programs";
       toggles = [ (toggle [ "logseq" "extended" "noSuchToggle" ] true) ];
-      present = false;
+      throws = true;
     }
     {
-      name = "unknown path does not land under services";
+      name = "unknown path fails the services pass";
       namespace = "services";
       toggles = [ (toggle [ "logseq" "extended" "noSuchToggle" ] true) ];
-      present = false;
+      throws = true;
     }
   ];
 
@@ -166,9 +168,14 @@ let
       inherit ((lib.head case.toggles)) path;
       landed = lib.attrByPath path null got != null;
     in
-    lib.optional (
-      landed != case.present
-    ) "${case.name}: landed=${lib.boolToString landed}, expected ${lib.boolToString case.present}"
+    if case.throws or false then
+      # The throw fires when the fold is forced, which the lookup above does;
+      # an unexpected throw in the other cases propagates with its own message.
+      lib.optional (builtins.tryEval landed).success "${case.name}: routed instead of throwing"
+    else
+      lib.optional (
+        landed != case.present
+      ) "${case.name}: landed=${lib.boolToString landed}, expected ${lib.boolToString case.present}"
   ) routingCases;
 
   fmt = paths: "[ ${lib.concatStringsSep " " paths} ]";
