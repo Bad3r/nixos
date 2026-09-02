@@ -60,6 +60,11 @@ Expected result:
   writer of `~/.config/rclone/rclone.conf`, that a colliding
   `programs.r2-cloud.enableRcloneRemote` fails evaluation, and that a
   populated `programs.rclone.remotes` fails evaluation
+- the host evaluation asserts the guarded writer set in both directions:
+  every name in `r2WriterServiceNames` (`modules/lib/r2-runtime.nix`) still
+  renders an `ExecStart`, and every `r2-` prefixed unit in `systemd.services`
+  is in that set, so a unit the `r2-flake` adds without a matching entry
+  fails evaluation instead of shipping without the `/data` mount gate
 
 ## Runtime Presence Checks (after switch/boot)
 

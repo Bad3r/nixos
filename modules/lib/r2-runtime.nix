@@ -116,6 +116,11 @@ in
         missingWriterServiceNames = lib.filter (
           name: !(lib.hasAttrByPath [ "systemd" "services" name "serviceConfig" "ExecStart" ] config)
         ) r2WriterServiceNames;
+        # The other direction: a unit the r2-flake adds under its prefix without
+        # an entry in r2WriterServiceNames would ship with no mount gate at all.
+        unguardedServiceNames = lib.filter (
+          name: lib.hasPrefix "r2-" name && !(lib.elem name r2ServiceNames)
+        ) (lib.attrNames config.systemd.services);
 
         r2RuntimePathsModule =
           {
@@ -193,6 +198,23 @@ in
           ++ lib.optional runtimeEnabled r2RuntimePathsModule;
 
         config = lib.mkMerge [
+          # One list: flake.lib.nixos is typed `anything`, whose merge walks
+          # this module body and rejects a second definition of the same list.
+          # The prefix guard is unconditional because an r2- unit that appears
+          # while the runtime is disabled is still ungated.
+          {
+            assertions = [
+              {
+                assertion = unguardedServiceNames == [ ];
+                message = "r2 runtime: systemd.services carries r2- units outside the guarded writer set, so they get no mount gate: ${lib.concatStringsSep ", " unguardedServiceNames}. Add them to r2WriterServiceNames in modules/lib/r2-runtime.nix.";
+              }
+            ]
+            ++ lib.optional runtimeEnabled {
+              assertion = missingWriterServiceNames == [ ];
+              message = "r2 runtime: r2-flake service naming no longer matches the guarded writer set: ${lib.concatStringsSep ", " missingWriterServiceNames}";
+            };
+          }
+
           (lib.mkIf externalHomeModuleEnabled {
             home-manager.sharedModules = lib.mkAfter [
               inputs."r2-flake".homeManagerModules.default
@@ -205,13 +227,6 @@ in
           (lib.optionalAttrs runtimeEnabled {
             # Allow non-root mounts to use `--allow-other`.
             programs.fuse.userAllowOther = true;
-
-            assertions = [
-              {
-                assertion = missingWriterServiceNames == [ ];
-                message = "r2 runtime: r2-flake service naming no longer matches the guarded writer set: ${lib.concatStringsSep ", " missingWriterServiceNames}";
-              }
-            ];
 
             services.r2-sync = {
               enable = true;
