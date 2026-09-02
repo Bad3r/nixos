@@ -123,7 +123,9 @@ Scope:
       but that does not grant the separate ATA Security, DCO, or HPA control
       paths.
     - the `nvme` wrapper is not whole-binary. Its source allowlists the
-      read-only diagnostic subcommands plus two whose state change is the
+      diagnostic subcommands that leave media and settings untouched (the log
+      readers still clear the asynchronous event tied to the page they read,
+      which the detailed document accepts) plus two whose state change is the
       diagnostic itself, `device-self-test`, whose options can start or abort
       a drive self-test, and `telemetry-log`, whose default run has the
       controller capture fresh host-initiated telemetry in place of the
