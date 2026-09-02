@@ -25,6 +25,9 @@
       dns-over-https.json and Brave's extended.json never restates its keys.
     * The file is present while either module's enableManagedPolicies is true, so leaving every Brave channel
       unmanaged takes both flags.
+    * extended.json comes only from modules/browsers/brave/apps.nix, which the common baseline disables, so this
+      channel runs with the resolver policy alone. docs/drafts/chromium-webapps-plan-3-implement.md Task 8 gives it
+      the shared hardened set.
 */
 _:
 let

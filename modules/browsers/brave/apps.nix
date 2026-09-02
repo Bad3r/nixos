@@ -25,6 +25,8 @@
       identically by both modules, and managedPolicies must not restate its keys.
     * enableManagedPolicies = false removes extended.json, but the resolver file stays while
       programs.brave-origin.extended.enableManagedPolicies is true; leaving Brave unmanaged takes both flags.
+    * extended.json reaches Brave Origin only while this module is enabled; the common baseline disables it, so
+      the fleet's Brave Origin carries the resolver policy alone.
 */
 _:
 let
