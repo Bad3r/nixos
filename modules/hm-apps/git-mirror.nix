@@ -63,6 +63,10 @@
       pythonDocsLockPath = "${pythonDocs.outputRoot}.git-mirror.lock";
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
+      # Single import site: the two docs helpers below receive their rendered guard
+      # text as an argument instead of importing this file themselves.
+      mirrorRootStampGuard = import ./_mirror-root-stamp-guard.nix;
+
       # Helper script for syncing a single repo (called by parallel)
       syncRepoScript = pkgs.writeShellApplication {
         name = "git-mirror-sync-repo";
@@ -154,10 +158,11 @@
           # volume. No mode bit can stand in for it: the tmpfiles rule this
           # replaced wrote 2775 onto the stray root it left on /, setgid
           # included, and any mkdir plus chmod g+s reproduces that.
-          if [ ! -e "$GIT_MIRROR_ROOT/$GIT_MIRROR_STAMP_NAME" ]; then
-            log "$spec: mirror root $GIT_MIRROR_ROOT was not provisioned by local-mirrors-root.service, is the volume mounted?"
-            exit 1
-          fi
+          ${mirrorRootStampGuard {
+            rootRef = "$GIT_MIRROR_ROOT";
+            stampRef = "$GIT_MIRROR_STAMP_NAME";
+            logPrefix = "$spec: ";
+          }}
 
           if [ "''${GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC:-}" = "$spec" ] && [ -n "''${GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH:-}" ]; then
             lock_file="$GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH"
@@ -224,6 +229,10 @@
         inherit lib pkgs;
         mirrorRoot = cfg.root;
         inherit (cfg) stampName;
+        stampGuard = mirrorRootStampGuard {
+          rootRef = "$mirror_root";
+          stampRef = "$stamp_name";
+        };
         firefoxDocs = firefoxDocs // {
           lockPath = firefoxDocsLockPath;
         };
@@ -233,6 +242,10 @@
         inherit lib pkgs;
         mirrorRoot = cfg.root;
         inherit (cfg) stampName;
+        stampGuard = mirrorRootStampGuard {
+          rootRef = "$mirror_root";
+          stampRef = "$stamp_name";
+        };
         pythonDocs = pythonDocs // {
           lockPath = pythonDocsLockPath;
         };
@@ -265,10 +278,10 @@
             exit 1
           fi
 
-          if [ ! -e "$GIT_MIRROR_ROOT/$GIT_MIRROR_STAMP_NAME" ]; then
-            log "mirror root $GIT_MIRROR_ROOT was not provisioned by local-mirrors-root.service, is the volume mounted?"
-            exit 1
-          fi
+          ${mirrorRootStampGuard {
+            rootRef = "$GIT_MIRROR_ROOT";
+            stampRef = "$GIT_MIRROR_STAMP_NAME";
+          }}
 
           ${lib.optionalString firefoxDocs.enable ''
             export GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC=${lib.escapeShellArg firefoxDocs.repoSpec}
