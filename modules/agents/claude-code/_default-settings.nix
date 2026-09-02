@@ -195,7 +195,7 @@ let
       allow = fileWebAllow ++ map bashPrefix bashAllow;
       ask = map bashPrefix bashAsk;
       deny = map bashPrefix bashDeny;
-      defaultMode = "plan";
+      defaultMode = "auto";
     };
     model = "claude-opus-5"; # Default model
     alwaysThinkingEnabled = true;
