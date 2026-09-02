@@ -25,13 +25,14 @@ _: {
           throw "songbird /shared requires users.users.${owner}.uid to be pinned"
         else
           ownerCfg.uid;
-      # attrByPath's default only fires when the path is absent, not when
-      # users.groups.<group>.gid is present-but-null (the option's own
-      # default for a group with no pinned gid), so the null case needs an
-      # explicit fallback too: toString null renders "", corrupting the
-      # ntfs3 gid= mount option silently instead of failing evaluation.
+      # attrByPath's default covers an absent group, not a present one whose
+      # gid is null (the option default for any group outside ids.gids).
       ownerGidRaw = lib.attrByPath [ "users" "groups" ownerGroup "gid" ] null config;
-      ownerGid = if ownerGidRaw == null then 100 else ownerGidRaw;
+      ownerGid =
+        if ownerGidRaw == null then
+          throw "songbird /shared requires users.groups.${ownerGroup}.gid to be pinned"
+        else
+          ownerGidRaw;
     in
     {
       # Platform configuration (required)
