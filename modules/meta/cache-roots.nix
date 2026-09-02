@@ -106,7 +106,7 @@ let
     );
 
   nvidiaKernelModulesCached =
-    hostName: hostConfig:
+    { hostName, hostConfig }:
     let
       nvidiaEnabled = nvidiaLoaded hostConfig;
       policy = nvidiaKernelModulesCachePolicyFor hostName hostConfig;
@@ -206,11 +206,11 @@ let
   hostOptionPackages = {
     nemo-with-extensions = {
       path = hostConfig: hostConfig.programs.nemo.extended.finalPackage;
-      installed = _hostName: hostConfig: hostConfig.programs.nemo.extended.enable;
+      installed = { hostConfig, ... }: hostConfig.programs.nemo.extended.enable;
     };
     nvidia-x11 = {
       path = hostConfig: hostConfig.hardware.nvidia.package;
-      installed = _: nvidiaLoaded;
+      installed = { hostConfig, ... }: nvidiaLoaded hostConfig;
     };
     # Two derivations hanging off hardware.nvidia.package rather than outputs
     # of it, so linking every output does not reach them.
@@ -242,7 +242,7 @@ let
     nvidia-settings = {
       path = hostConfig: hostConfig.hardware.nvidia.package.settings;
       installed =
-        _hostName: hostConfig: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
+        { hostConfig, ... }: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
     };
     # modules/apps/steam.nix installs nothing itself: it sets
     # programs.steam.enable with extraCompatPackages and extraPackages, and
@@ -253,7 +253,7 @@ let
     # missing exactly the part that costs a switch.
     steam = {
       path = hostConfig: hostConfig.programs.steam.package;
-      installed = _hostName: hostConfig: hostConfig.programs.steam.enable;
+      installed = { hostConfig, ... }: hostConfig.programs.steam.enable;
     };
   };
 
@@ -273,7 +273,7 @@ let
       {
         hostPackages = lib.filter (appEnabled hostConfig) hostPackageNames;
         optionPackages = lib.attrNames (
-          lib.filterAttrs (_: entry: entry.installed hostName hostConfig) hostOptionPackages
+          lib.filterAttrs (_: entry: entry.installed { inherit hostName hostConfig; }) hostOptionPackages
         );
       }
     ) nixosConfigurations;
@@ -313,11 +313,14 @@ in
           pkgName = name;
           path = hostConfig.programs.${name}.extended.package;
         }) (lib.filter (appEnabled hostConfig) hostPackageNames)
-        ++ lib.mapAttrsToList (name: entry: {
-          key = "${hostName}/${name}";
-          pkgName = name;
-          path = entry.path hostConfig;
-        }) (lib.filterAttrs (_: entry: entry.installed hostName hostConfig) hostOptionPackages);
+        ++
+          lib.mapAttrsToList
+            (name: entry: {
+              key = "${hostName}/${name}";
+              pkgName = name;
+              path = entry.path hostConfig;
+            })
+            (lib.filterAttrs (_: entry: entry.installed { inherit hostName hostConfig; }) hostOptionPackages);
 
       hostConfigs = lib.mapAttrsToList (hostName: nixos: {
         inherit hostName;
@@ -335,7 +338,8 @@ in
 
       unusedOptionNames = lib.attrNames (
         lib.filterAttrs (
-          _: entry: !(lib.any ({ hostName, hostConfig }: entry.installed hostName hostConfig) hostConfigs)
+          _: entry:
+          !(lib.any ({ hostName, hostConfig }: entry.installed { inherit hostName hostConfig; }) hostConfigs)
         ) hostOptionPackages
       );
 
@@ -488,7 +492,7 @@ in
                 name: entry:
                 name != "nvidia-kernel-modules"
                 && lib.hasPrefix "nvidia-" name
-                && entry.installed hostName hostConfig
+                && entry.installed { inherit hostName hostConfig; }
               ) hostOptionPackages
             );
         in
