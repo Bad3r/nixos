@@ -113,9 +113,24 @@ in
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
+            # systemd tokenizes these lines and expands % specifiers first,
+            # so the str options go through its quoting, not the shell's.
             ExecStart = [
-              "${pkgs.coreutils}/bin/install -d -m 2775 -o root -g ${cfg.group} ${cfg.root}"
-              "${pkgs.coreutils}/bin/touch ${cfg.root}/${cfg.stampName}"
+              (utils.escapeSystemdExecArgs [
+                "${pkgs.coreutils}/bin/install"
+                "-d"
+                "-m"
+                "2775"
+                "-o"
+                "root"
+                "-g"
+                cfg.group
+                cfg.root
+              ])
+              (utils.escapeSystemdExecArgs [
+                "${pkgs.coreutils}/bin/touch"
+                "${cfg.root}/${cfg.stampName}"
+              ])
             ];
           };
         };
