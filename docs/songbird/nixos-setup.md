@@ -8,13 +8,16 @@ onboarding mechanics live in the
 [Host Onboarding Runbook](../guides/host-onboarding.md). Decisions below are
 locked.
 
-Status: Phases N0 and N1 are done. Disk A carries a NixOS
-install (the installer's stock configuration, hostname `nixos`, still boots
-it), and `modules/songbird/` holds the hardware truth harvested from that
-machine, so the host builds from this repository. Where the machine differs
-from the plan, the tables below carry the as-built values and note the plan
-value in place. What remains is Phase N2 (first switch, tailnet, host key pin)
-and the Windows phases N3 to N5.
+Status: Phases N0 and N1 are done, and Phase N2 has reached its first switch.
+Disk A boots this repository's `songbird` configuration (first boot
+2026-09-01: CachyOS kernel, `cryptroot`, `cryptswap` and `data` open, `/data`
+and `/shared` mounted), `modules/songbird/` holds the hardware truth harvested
+from the machine, the age identity plus the initialized `secrets/` submodule
+have the sops and R2 runtimes live, and the host SSH key is pinned. Where the
+machine differs from the plan, the tables below carry the as-built values and
+note the plan value in place. What remains of N2 is the tailnet join with the
+primary handoff and the PR merge; the migration and Windows phases N3 to N5
+follow.
 
 ## Decision Record
 
@@ -102,8 +105,9 @@ code is needed.
 Runs inside the assembly flow of the build's
 [assembly-checklist.md](https://github.com/Bad3r/project-songbird/blob/main/assembly-checklist.md)
 (OS install is its Phase 6 step). Phases N0 and N1 needed only disk A and are
-done; N2 is the first switch from this repository; N3 to N5 cover the drives
-that came from system76 and the Windows install.
+done; N2 is the first switch from this repository, done up to the tailnet
+join; N3 to N5 cover the drives that came from system76 and the Windows
+install.
 
 ### Phase N0: Temporary Windows on disk A (done)
 
@@ -118,9 +122,8 @@ and applied Windows-only firmware updates. Phase N1 wiped it.
 Disk A was partitioned to the layout above and installed from a NixOS
 26.11pre image with the installer's stock configuration (hostname `nixos`,
 GNOME, `linuxPackages_latest`, `system.stateVersion = "26.11"`). That
-configuration is what boots until Phase N2 switches the host to this
-repository; it is not committed here. For a reinstall, the partition and
-encrypt sequence was:
+configuration booted the host until the Phase N2 switch replaced it; it is
+not committed here. For a reinstall, the partition and encrypt sequence was:
 
 ```sh
 DISK=/dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489
@@ -147,7 +150,9 @@ the values there are the current install's.
 Run on songbird. Until the `feat/songbird-host` branch merges, run from its
 linked worktree (`~/trees/nixos/feat-songbird-host`); afterwards from the
 canonical `~/nixos` checkout on `main`, which is the path the shared
-`worktree-prune` timer and `programs.nh.flake` expect.
+`worktree-prune` timer and `programs.nh.flake` expect. Steps 1 to 4 are done
+(first boot into this configuration on 2026-09-01); their text stays as the
+procedure for a reinstall.
 
 1. Keep the `secrets/` submodule uninitialized until step 3 has installed the
    age identity: every sops declaration is guarded on the encrypted file
@@ -162,40 +167,45 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    nix shell nixpkgs#git nixpkgs#nh -c ./build.sh -t songbird --boot
    ```
 
-   Two parts of that invocation are specific to the installer's stock system.
-   It ships no `git`, and both the Nix git fetcher (which fetches the
-   `secrets/` gitlink) and the secrets guard shell out to one, so without the
-   `nix shell` wrapper the run stops at `executing "git": No such file or directory`; `nix develop path:.` cannot supply it, because evaluating the
-   flake is what needs git in the first place. And `build.sh` takes the flake
-   directory from the working directory, not from where the script lives, so
-   a run started from `~/nixos` evaluates `git+file:///home/vx/nixos` on
-   `main` and fails with `does not provide attribute ...nixosConfigurations.songbird`; `-p <dir>` names the directory
-   explicitly. `-t songbird` is required for this first run only: `build.sh`
-   defaults the target to `$(hostname)`, which is still `nixos` under the
-   installer's configuration. `--boot` installs the generation for the next reboot
-   instead of switching the running GNOME session live; from a linked
-   worktree the script resolves a `path:` reference and runs the secrets
-   guard on its own. Nothing already in `$HOME` blocks the first Home
-   Manager activation: a file it manages is moved to `<file>.hm.bk`
-   (`home-manager.backupFileExtension`), and a Firefox profile directory
-   that the installer's Firefox left at `~/.config/mozilla/firefox` is moved
-   to `<dir>.<timestamp>.hm.bk`, since that root has to be a symlink to
-   `~/.mozilla/firefox` (`modules/browsers/_gecko-mk-profile.nix`). Claude
+   Two parts of that invocation are specific to the installer's stock system
+   and are only needed again after a reinstall. It ships no `git`, and both
+   the Nix git fetcher (which fetches the `secrets/` gitlink) and the secrets
+   guard shell out to one, so without the `nix shell` wrapper the run stops at
+   `executing "git": No such file or directory`; `nix develop path:.` cannot
+   supply it, because evaluating the flake is what needs git in the first
+   place. And `build.sh` takes the flake directory from the working directory,
+   not from where the script lives, so a run started from `~/nixos` evaluates
+   `git+file:///home/vx/nixos` on `main` and fails with
+   `does not provide attribute ...nixosConfigurations.songbird`; `-p <dir>`
+   names the directory explicitly. `-t songbird` is required for this first
+   run only: `build.sh` defaults the target to `$(hostname)`, which is still
+   `nixos` under the installer's configuration. `--boot` installs the
+   generation for the next reboot instead of switching the running GNOME
+   session live; from a linked worktree the script resolves a `path:`
+   reference and runs the secrets guard on its own. Nothing already in `$HOME`
+   blocks the first Home Manager activation: a file it manages is moved to
+   `<file>.hm.bk` (`home-manager.backupFileExtension`), and a Firefox profile
+   directory that the installer's Firefox left at `~/.config/mozilla/firefox`
+   is moved to `<dir>.<timestamp>.hm.bk`, since that root has to be a symlink
+   to `~/.mozilla/firefox` (`modules/browsers/_gecko-mk-profile.nix`). Claude
    Code is installed with bun during activation
    (`modules/songbird/apps-enable.nix`), which needs the npm registry
    reachable; an offline activation keeps whatever is already installed. At
    boot, the initrd asks for the root passphrase and retries it from the
-   kernel keyring for `cryptswap` and `data`. The `/data` volume already has
-   the root passphrase key slot listed below, so the unattended retry should
-   unlock it without a second prompt. If a replacement volume lacks that key
-   slot, add it once with `cryptsetup luksAddKey` using the device UUID from
-   `hardware-config.nix`; until then, open the device as `data` and mount
-   `/data` after login. An absent drive delays boot by at most 60 seconds, and
-   an unanswered `/data` unlock prompt has the same limit; either outcome skips
-   the optional volume without failing root. The `vx` account keeps the
-   password set during the install (`users.mutableUsers` is on, so the
-   initial hash in `modules/meta/owner.nix` is not applied to an existing
-   user).
+   kernel keyring for `cryptswap` and `data`. The `/data` volume has the root
+   passphrase key slot listed below, and the first boot confirmed the
+   unattended retry: all three `systemd-cryptsetup@` units logged `Set cipher`
+   in the same second the root passphrase query finished, so the keyring
+   retry covered `cryptswap` and `data` without waiting on the console again.
+   If a replacement volume lacks that key slot, add it once with
+   `cryptsetup luksAddKey` using the device UUID from `hardware-config.nix`;
+   until then, open the device as `data` and mount `/data` after login. An
+   absent drive delays boot by at most 60 seconds, and an unanswered `/data`
+   unlock prompt has the same limit; either outcome skips the optional volume
+   without failing root. Neither expiry path has been exercised on the
+   hardware yet. The `vx` account keeps the password set during the install
+   (`users.mutableUsers` is on, so the initial hash in `modules/meta/owner.nix`
+   is not applied to an existing user).
 
 3. Provision the canonical age identity (sops), per
    [SOPS usage](../sops/README.md) Host Preparation: copy from system76 or
@@ -203,15 +213,18 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
    `~/.config/sops/age/keys.txt`. Single-recipient design: no `.sops.yaml`
    change, no `sops updatekeys`.
 
-4. Initialize the secrets submodule (`git submodule update --init --recursive`),
-   flip `sopsRuntimeReady = true` in `modules/songbird/policy.nix`
-   (`r2RuntimeReady = true` as well once `secrets/r2.yaml` is present),
-   rebuild with `./build.sh`, and confirm secret-consuming services activate.
+4. Initialize the secrets submodule (`git submodule update --init --recursive`;
+   this is per clone, so a fresh worktree repeats it) and rebuild with
+   `./build.sh`. `modules/songbird/policy.nix` already carries
+   `sopsRuntimeReady = true` and `r2RuntimeReady = true`, so this step is a
+   verification, not a flag flip: `ls /run/secrets` lists the host secrets,
+   `systemctl status r2-runtime-paths.service` shows the `/data` tree
+   provisioned, and the R2 mount, bisync, and restic units are loaded.
    `secrets/songbird.yaml` with a `samba_media_path` key enables the
    on-demand Samba media share the way `secrets/system76.yaml` does on
-   system76; until it exists `services.nix` warns and skips the share.
-   Flipping `r2RuntimeReady` activates the R2 services and their `/data` path
-   setup from `modules/lib/r2-runtime.nix`. The `nofail` mount is intentionally
+   system76; without that key `services.nix` warns and skips the share.
+   `r2RuntimeReady` activates the R2 services and their `/data` path setup
+   from `modules/lib/r2-runtime.nix`. The `nofail` mount is intentionally
    allowed to remain absent: `r2-runtime-paths.service` provisions
    `/data/r2`, `/data/fonts`, and `/data/Docs`, and every mount, bisync, and
    restic unit is ordered after it under `ConditionPathIsMountPoint=/data`, so
@@ -222,6 +235,14 @@ canonical `~/nixos` checkout on `main`, which is the path the shared
 
    When the disabled warning fires, it names the terms actually unmet, so a
    present `secrets/r2.yaml` is never listed as missing.
+
+   Observed after the first boot: `r2-bisync-docs.service` has not completed
+   a run. Its bisync state under `/var/lib/r2-sync-docs/bisync/` is fresh on
+   this host, `/data/Docs` holds 4.9 GB in about 32,500 files (one
+   `node_modules` tree among them), and every run is killed by the 20-minute
+   `TimeoutStartSec` from `modules/lib/r2-runtime.nix` before the initial
+   listing finishes; the timer then starts the next run, which clears the
+   orphaned lock and begins again. See the Open Items table.
 
 5. Join the tailnet; read the assigned address with `tailscale ip -4` and set
    it as `tailnetIp` in `policy.nix`. In the same change move
@@ -382,19 +403,20 @@ prompts) and any shared-ESP scheme (decision 6).
 
 ## Open Items
 
-| Item                        | State                                                                | Lands in                                                                  |
-| --------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| LUKS, ext4, ESP, swap UUIDs | Done (harvested)                                                     | `hardware-config.nix`                                                     |
-| hostId                      | Done: `c93b3b3c`                                                     | `host-id.nix`                                                             |
-| Wired interface names       | Done: `eth0` (RTL8126, uplink), `eth1` (I226-V) in enumeration order | Kernel `net.ifnames=0`, no pin                                            |
-| Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                             | `project-songbird.md`                                                     |
-| Host SSH public key         | Done: pinned from `/etc/ssh/ssh_host_ed25519_key.pub`                | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                  |
-| age identity                | Done (installed and verified); `sopsRuntimeReady` enabled            | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix`  |
-| Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff | `policy.nix` `tailnetIp`, `primary`                                       |
-| `/data` root key slot       | Added; the bounded 60-second initrd unlock is untested until reboot  | LUKS header `183d1f98-e95d-4d6c-89de-cbed409bd9a0`, `hardware-config.nix` |
-| Windows disk                | Not decided                                                          | Phase N4                                                                  |
-| Shared partition PARTUUID   | Only if Phase N5 converts W to BitLocker                             | `hardware-config.nix` crypttab entry                                      |
-| BitLocker keys              | Windows BitLocker setup (Phases N4, N5)                              | Password manager; W password also to `/var/lib/secrets/shared-bitlk.key`  |
+| Item                        | State                                                                                                                                                                                                                                             | Lands in                                                                  |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| LUKS, ext4, ESP, swap UUIDs | Done (harvested)                                                                                                                                                                                                                                  | `hardware-config.nix`                                                     |
+| hostId                      | Done: `c93b3b3c`                                                                                                                                                                                                                                  | `host-id.nix`                                                             |
+| Wired interface names       | Done: `eth0` (RTL8126, uplink), `eth1` (I226-V) in enumeration order                                                                                                                                                                              | Kernel `net.ifnames=0`, no pin                                            |
+| Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                                                                                                                                                                                                          | `project-songbird.md`                                                     |
+| Host SSH public key         | Done: pinned from `/etc/ssh/ssh_host_ed25519_key.pub`                                                                                                                                                                                             | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                  |
+| age identity                | Done (installed and verified); `sopsRuntimeReady` enabled                                                                                                                                                                                         | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix`  |
+| Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff                                                                                                                                                                              | `policy.nix` `tailnetIp`, `primary`                                       |
+| `/data` root key slot       | Done: the 2026-09-01 boot unlocked `data` from the cached root passphrase; the 60-second absent-drive and unanswered-prompt bounds are still unexercised                                                                                          | LUKS header `183d1f98-e95d-4d6c-89de-cbed409bd9a0`, `hardware-config.nix` |
+| `r2-bisync-docs` first sync | Pending: every run since the first boot hits the 20-minute `TimeoutStartSec` during the initial listing and restarts from scratch; needs a decision between a one-off manual run outside the timer, a `node_modules` exclusion, or a longer bound | `modules/lib/r2-runtime.nix`, `/var/lib/r2-sync-docs/bisync/`             |
+| Windows disk                | Not decided                                                                                                                                                                                                                                       | Phase N4                                                                  |
+| Shared partition PARTUUID   | Only if Phase N5 converts W to BitLocker                                                                                                                                                                                                          | `hardware-config.nix` crypttab entry                                      |
+| BitLocker keys              | Windows BitLocker setup (Phases N4, N5)                                                                                                                                                                                                           | Password manager; W password also to `/var/lib/secrets/shared-bitlk.key`  |
 
 ## Validation Ladder
 
@@ -405,7 +427,7 @@ Per the runbook, before and after the PR. From the linked worktree
 nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel"
-nix shell nixpkgs#git nixpkgs#nh -c ./build.sh -t songbird --boot   # from the worktree, on songbird; activates on next reboot
+./build.sh   # from the worktree, on songbird; the first-boot form was `nix shell nixpkgs#git nixpkgs#nh -c ./build.sh -t songbird --boot`
 nix run path:.#generation-manager -- score   # target: 20/20
 ```
 
