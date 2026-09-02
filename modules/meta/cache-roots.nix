@@ -450,13 +450,16 @@ in
 
       buildsHere = hosts != { };
 
+      # Computed once per host and shared with nvidiaCachePolicyFailures below,
+      # which would otherwise re-evaluate the same policy a second time per host.
+      nvidiaPolicyByHost = lib.mapAttrs (
+        hostName: nixos: nvidiaKernelModulesCachePolicyFor hostName nixos.config
+      ) hosts;
+
       # Force every registered host policy before testing the published-entry
       # contract. Otherwise a non-NVIDIA host's unknown cacheRoots key could
       # remain lazy forever and a future GPU enablement would be fail-open.
-      nvidiaCachePolicyValidation = builtins.deepSeq (map (
-        { hostName, hostConfig }:
-        nvidiaKernelModulesCachePolicyFor hostName hostConfig
-      ) hostConfigs) true;
+      nvidiaCachePolicyValidation = builtins.deepSeq (lib.attrValues nvidiaPolicyByHost) true;
 
       # A false host policy may exclude only the kernel-module entry. Compare
       # the publisher's actual entries with the evaluated retained userspace
@@ -471,7 +474,7 @@ in
           excluded = lib.filterAttrs (
             hostName: nixos:
             let
-              policy = nvidiaKernelModulesCachePolicyFor hostName nixos.config;
+              policy = nvidiaPolicyByHost.${hostName};
             in
             builtins.seq policy (nvidiaLoaded nixos.config && !policy)
           ) hosts;
