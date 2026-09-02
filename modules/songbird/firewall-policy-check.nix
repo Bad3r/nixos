@@ -23,10 +23,71 @@ let
     range: cidr:
     "iptables -D nixos-fw -s ${cidr} -p tcp --dport ${portRangeOf range} -j nixos-fw-accept || true"
   );
+  # iptables spells the destination port as --dport or --destination-port and
+  # multiport as --dports or --destination-ports, each after blanks or `=`,
+  # with a comma list of ports and a:b ranges where an empty bound means 0 or
+  # 65535. Selecting a line by the numbers it names instead of one flag
+  # spelling puts a sub-range or single port opened under any spelling in
+  # front of the exact-list comparison, and a value that is not a port number
+  # (a service name, a missing value, anything past 65535) fails outright.
+  destinationPortFlags = [
+    "--dport"
+    "--dports"
+    "--destination-port"
+    "--destination-ports"
+  ];
+  destinationPortSpecs =
+    line:
+    let
+      tokens = lib.filter (token: builtins.isString token && token != "") (builtins.split "[ \t]+" line);
+      count = lib.length tokens;
+      valuesAt =
+        index: token:
+        let
+          parts = lib.splitString "=" token;
+        in
+        if !(lib.elem (lib.head parts) destinationPortFlags) then
+          [ ]
+        else if lib.length parts > 1 then
+          [ (lib.concatStringsSep "=" (lib.tail parts)) ]
+        else
+          [ (if index + 1 < count then lib.elemAt tokens (index + 1) else "") ];
+    in
+    lib.concatMap (lib.splitString ",") (lib.concatLists (lib.imap0 valuesAt tokens));
+  # The regex rejects leading zeros and overlong digit strings, both of which
+  # make lib.toInt throw; the value check keeps it inside the port range.
+  portBoundIsValid =
+    bound:
+    bound == "" || (builtins.match "0|[1-9][0-9]{0,4}" bound != null && lib.toInt bound <= 65535);
+  portSpecIsValid =
+    spec:
+    let
+      bounds = lib.splitString ":" spec;
+    in
+    spec != "" && lib.length bounds <= 2 && lib.all portBoundIsValid bounds;
+  portSpecOverlaps =
+    spec:
+    let
+      bounds = lib.splitString ":" spec;
+      boundOr = fallback: bound: if bound == "" then fallback else lib.toInt bound;
+    in
+    developerPortRangeOverlaps {
+      from = boundOr 0 (lib.head bounds);
+      to = boundOr 65535 (lib.last bounds);
+    };
+  unresolvedPortSpecsOf = line: lib.filter (spec: !portSpecIsValid spec) (destinationPortSpecs line);
   isDeveloperRule =
-    line: lib.any (portRange: lib.hasInfix "--dport ${portRange}" line) developerPortRanges;
-  developerStartRules = lib.filter isDeveloperRule (lib.splitString "\n" firewall.extraCommands);
-  developerStopRules = lib.filter isDeveloperRule (lib.splitString "\n" firewall.extraStopCommands);
+    line: lib.any portSpecOverlaps (lib.filter portSpecIsValid (destinationPortSpecs line));
+  startLines = lib.splitString "\n" firewall.extraCommands;
+  stopLines = lib.splitString "\n" firewall.extraStopCommands;
+  developerStartRules = lib.filter isDeveloperRule startLines;
+  developerStopRules = lib.filter isDeveloperRule stopLines;
+  unresolvedPortSpecs = lib.concatMap (
+    line:
+    map (spec: "destination port `${spec}` in `${line}` is not a port number") (
+      unresolvedPortSpecsOf line
+    )
+  ) (startLines ++ stopLines);
   developerPortRangeOverlaps =
     range: lib.any (dev: range.from <= dev.to && range.to >= dev.from) developerRanges;
   developerPortIsUnscoped = port: lib.any (dev: port >= dev.from && port <= dev.to) developerRanges;
@@ -76,6 +137,77 @@ let
   unscopedAllowlistFailures = lib.filter (
     test: ruleSetPublishesDeveloperPort test.ruleSet != test.expected
   ) unscopedAllowlistTestCases;
+  rule = portArgs: "iptables -A nixos-fw -p tcp ${portArgs} -j nixos-fw-accept";
+  developerRuleTestCases = lib.optionals (developerRanges != [ ]) (
+    let
+      range = portRangeOf firstRange;
+    in
+    [
+      {
+        name = "long flag";
+        line = rule "--destination-port ${range}";
+        expected = true;
+      }
+      {
+        name = "multiport list";
+        line = rule "-m multiport --dports 22,${range}";
+        expected = true;
+      }
+      {
+        name = "equals separator";
+        line = rule "--dport=${range}";
+        expected = true;
+      }
+      {
+        name = "tab separator";
+        line = rule "--dport\t${range}";
+        expected = true;
+      }
+      {
+        name = "single port inside a range";
+        line = rule "--dport ${toString firstRange.from}";
+        expected = true;
+      }
+      {
+        name = "open-ended range";
+        line = rule "--dport ${toString highestPort}:";
+        expected = true;
+      }
+      {
+        name = "port past every range";
+        line = rule "--dport ${toString (highestPort + 1)}";
+        expected = false;
+      }
+      {
+        name = "source port only";
+        line = rule "--sport ${range}";
+        expected = false;
+      }
+    ]
+  );
+  developerRuleFailures = lib.filter (
+    test: isDeveloperRule test.line != test.expected
+  ) developerRuleTestCases;
+  unresolvedTestCases = [
+    {
+      name = "service name";
+      line = rule "--dport http-alt";
+      expected = [ "http-alt" ];
+    }
+    {
+      name = "port past 65535";
+      line = rule "--dport 65536";
+      expected = [ "65536" ];
+    }
+    {
+      name = "flag without a value";
+      line = "iptables -A nixos-fw -p tcp --dport";
+      expected = [ "" ];
+    }
+  ];
+  unresolvedFailures = lib.filter (
+    test: unresolvedPortSpecsOf test.line != test.expected
+  ) unresolvedTestCases;
   sortRules = rules: lib.sort builtins.lessThan rules;
   startRulesMatch = sortRules developerStartRules == sortRules startRules;
   stopRulesMatch = sortRules developerStopRules == sortRules stopRules;
@@ -87,7 +219,10 @@ let
     ++ lib.optional (!lib.elem 9999 firewall.allowedTCPPorts) "TCP 9999 is no longer globally open"
     ++ lib.optional (!startRulesMatch) "source-scoped start rules differ from the approved exact list"
     ++ lib.optional (!stopRulesMatch) "source-scoped stop rules differ from the approved exact list"
-    ++ map (test: "unscoped allowlist predicate mismatch: ${test.name}") unscopedAllowlistFailures;
+    ++ unresolvedPortSpecs
+    ++ map (test: "unscoped allowlist predicate mismatch: ${test.name}") unscopedAllowlistFailures
+    ++ map (test: "developer rule predicate mismatch: ${test.name}") developerRuleFailures
+    ++ map (test: "unresolved port predicate mismatch: ${test.name}") unresolvedFailures;
 in
 {
   perSystem =
