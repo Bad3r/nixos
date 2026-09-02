@@ -669,6 +669,27 @@ let
       };
       expected = [ ];
     }
+    {
+      # "10-net-fallback.link" sorts before "10-net.link" under udev's strcmp
+      # order even though the bare name sorts after: the broad file is read first.
+      name = "broad file whose rendered name precedes a prefix name is rejected";
+      links = {
+        "10-net" = link { Path = "pci-0000:84:00.0"; } "lan0";
+        "10-net-fallback" = {
+          matchConfig.Type = "ether";
+          linkConfig.Name = "lan1";
+        };
+      };
+      expected = [ "10-net-fallback" ];
+    }
+    {
+      name = "broad file whose rendered name follows a longer specific name is accepted";
+      links = {
+        "10-net".linkConfig.Name = "lan0";
+        "10-net-fallback" = link { Path = "pci-0000:84:00.0"; } "lan1";
+      };
+      expected = [ ];
+    }
   ];
 
   collisionCases = [

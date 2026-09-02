@@ -222,8 +222,11 @@ let
     let
       enabled = lib.filterAttrs (_: link: link.enable or true) links;
       names = lib.attrNames enabled;
+      # udev sorts the rendered basenames with strcmp, so "10-net-fallback.link"
+      # precedes "10-net.link" ('-' < '.') while the bare names order the other way.
+      precedesAnother = name: lib.any (other: "${other}.link" > "${name}.link") names;
     in
-    lib.filter (name: selectorsOf enabled.${name} == [ ] && lib.any (other: other > name) names) names;
+    lib.filter (name: selectorsOf enabled.${name} == [ ] && precedesAnother name) names;
 
   # Interfaces a host declares rather than inherits from a NIC. Exported with
   # the classifier so the check can assert every source is still read.

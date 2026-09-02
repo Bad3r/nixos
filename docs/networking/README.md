@@ -289,7 +289,10 @@ This is the shape `modules/songbird/networking.nix` and
 without one contributes to none of those pin classifiers. A device-specific
 file repeated for the same selector is reported by `shadowedLinksOf`; a broad,
 empty, globbed, or multi-valued match that precedes another enabled file is
-reported by `unboundLinksOf`. The companion cases in
+reported by `unboundLinksOf`. Precedence is udev's `strcmp` order of the
+rendered `<name>.link` basenames, not of the attribute names: `-` sorts before
+`.`, so `10-net-fallback.link` is read before `10-net.link` even though
+`10-net-fallback` sorts after `10-net`. The companion cases in
 `modules/hosts/common/firewall-checks.nix` cover both the accepted no-Name
 shape and each rejected shadowing shape.
 
