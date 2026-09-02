@@ -13,6 +13,15 @@ let
     "192.168.0.0/16"
   ];
 
+  # Restores what 99-default.link supplies minus its "mac" altname token.
+  # Exported because the per-host .link entries that displace that file must
+  # all carry the same pair; firewall-checks.nix keeps its own literal on
+  # purpose, so the fixture cannot pass by agreeing with itself.
+  stableNamePolicyLinkConfig = {
+    NamePolicy = "keep kernel database onboard slot path";
+    AlternativeNamesPolicy = "database onboard slot path";
+  };
+
   # Bound once each: the classifier outputs stay mutually consistent only while
   # both patterns are single-sourced.
   # enp4s0, eno1, ens3, wlp0s20f3, wwp0s20f0u2, ibp5s0, and the enP2p1s0 form
@@ -81,6 +90,16 @@ let
     "PermanentMACAddress"
   ];
 
+  # Split on any whitespace run, not just spaces: systemd.link(5) calls these
+  # "whitespace-separated" lists, and a tab or newline in a Nix multi-line
+  # string separates values just as well. builtins.split drops empty tokens,
+  # which also covers the empty assignment that resets the list.
+  tokensOf =
+    value:
+    lib.filter (t: lib.isString t && t != "") (
+      lib.concatMap (builtins.split "[[:space:]]+") (lib.toList value)
+    );
+
   # A [Match] that is empty, whose selector is a glob, or which carries more than
   # one value matches each device udev initializes: it renames whichever
   # interface appears first and shadows every higher-numbered .link file, so it
@@ -89,13 +108,7 @@ let
   bindsOneValue =
     value:
     let
-      # Split on any whitespace run, not just spaces: systemd.link(5) calls these
-      # "whitespace-separated" lists, and a tab or newline in a Nix multi-line
-      # string separates values just as well. builtins.split drops empty tokens,
-      # which also covers the empty assignment that resets the list.
-      tokens = lib.filter (t: lib.isString t && t != "") (
-        lib.concatMap (builtins.split "[[:space:]]+") (lib.toList value)
-      );
+      tokens = tokensOf value;
     in
     lib.length tokens == 1
     # A "!" prefix inverts the test, so the file applies to every device except
@@ -107,9 +120,11 @@ let
       "["
     ]);
 
-  bindsOneDevice =
-    matchConfig:
-    lib.any (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
+  # A match key that is present on matchConfig and carries exactly one
+  # non-glob value: the shape selectorsOf below turns into a device selector.
+  isBoundKey = matchConfig: key: matchConfig ? ${key} && bindsOneValue matchConfig.${key};
+
+  bindsOneDevice = matchConfig: lib.any (isBoundKey matchConfig) bindingMatchKeys;
 
   # Labels for the singleton selectors that identify one device. An empty list
   # means the file is broad or unbound in the static model below.
@@ -117,18 +132,9 @@ let
     link:
     let
       matchConfig = link.matchConfig or { };
-      bound = lib.filter (key: matchConfig ? ${key} && bindsOneValue matchConfig.${key}) bindingMatchKeys;
+      bound = lib.filter (isBoundKey matchConfig) bindingMatchKeys;
     in
-    map (
-      key:
-      "${key}=${
-        lib.head (
-          lib.filter (t: lib.isString t && t != "") (
-            lib.concatMap (builtins.split "[[:space:]]+") (lib.toList matchConfig.${key})
-          )
-        )
-      }"
-    ) bound;
+    map (key: "${key}=${lib.head (tokensOf matchConfig.${key})}") bound;
 
   # Names a .link Name= creates on a host, such as wifi0. A disabled unit is
   # never installed and a match-all file does not bind a name to a device, so
@@ -465,6 +471,7 @@ in
       # exact CIDR list instead of a hand-copied literal that silently goes
       # stale when this one changes.
       _firewallLocalNetworkCidrs = localNetworkCidrs;
+      _firewallStableNamePolicyLinkConfig = stableNamePolicyLinkConfig;
     };
     nixosModules.hosts-common.imports = [ body ];
   };

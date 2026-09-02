@@ -1,4 +1,5 @@
-_: {
+{ config, ... }:
+{
   configurations.nixos.songbird.module = {
     # No Name= on any of these: the kernel's own eth0/eth1/wlan0 stand under
     # net.ifnames=0, and systemd.link(5) calls a pin into those pools a race.
@@ -11,12 +12,12 @@ _: {
     # override. Paths are the ID_PATH values read off the installed machine.
     systemd.network.links =
       let
+        stableNamePolicy =
+          config.flake.lib.nixos._firewallStableNamePolicyLinkConfig
+            or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallStableNamePolicyLinkConfig");
         altnamesOnly = path: {
           matchConfig.Path = path;
-          linkConfig = {
-            NamePolicy = "keep kernel database onboard slot path";
-            AlternativeNamesPolicy = "database onboard slot path";
-          };
+          linkConfig = stableNamePolicy;
         };
       in
       {
