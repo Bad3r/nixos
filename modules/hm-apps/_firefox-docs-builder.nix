@@ -4,7 +4,7 @@
   firefoxDocs,
   mirrorRoot,
   stampName,
-  stampGuard,
+  mkStampGuard,
 }:
 
 pkgs.writeShellApplication {
@@ -62,7 +62,10 @@ pkgs.writeShellApplication {
     # it is absent. local-mirrors-root.service writes the stamp only while that
     # volume is mounted, so the stamp is the one thing a stray root of the same
     # name cannot have; its mode can be identical.
-    ${stampGuard}
+    ${mkStampGuard {
+      rootRef = "$mirror_root";
+      stampRef = "$stamp_name";
+    }}
 
     # Below the guard, so it can only create paths under a root the stamp
     # proves is on the mounted volume. Still needed: repoPath and outputRoot

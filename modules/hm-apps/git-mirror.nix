@@ -63,8 +63,9 @@
       pythonDocsLockPath = "${pythonDocs.outputRoot}.git-mirror.lock";
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
-      # Single import site: the two docs helpers below receive their rendered guard
-      # text as an argument instead of importing this file themselves.
+      # Single import site: the two docs helpers below receive this function as
+      # an argument and render it against their own variables, instead of
+      # importing this file themselves or having their variable names spelled here.
       mirrorRootStampGuard = import ./_mirror-root-stamp-guard.nix;
 
       # Helper script for syncing a single repo (called by parallel)
@@ -229,10 +230,7 @@
         inherit lib pkgs;
         mirrorRoot = cfg.root;
         inherit (cfg) stampName;
-        stampGuard = mirrorRootStampGuard {
-          rootRef = "$mirror_root";
-          stampRef = "$stamp_name";
-        };
+        mkStampGuard = mirrorRootStampGuard;
         firefoxDocs = firefoxDocs // {
           lockPath = firefoxDocsLockPath;
         };
@@ -242,10 +240,7 @@
         inherit lib pkgs;
         mirrorRoot = cfg.root;
         inherit (cfg) stampName;
-        stampGuard = mirrorRootStampGuard {
-          rootRef = "$mirror_root";
-          stampRef = "$stamp_name";
-        };
+        mkStampGuard = mirrorRootStampGuard;
         pythonDocs = pythonDocs // {
           lockPath = pythonDocsLockPath;
         };
