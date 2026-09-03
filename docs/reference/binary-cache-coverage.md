@@ -157,6 +157,14 @@ nix eval --accept-flake-config --offline --json --impure \
   --expr 'let flake = builtins.getFlake (toString ./.); in flake.lib.nixos._cacheRootsInventory flake.nixosConfigurations'
 ```
 
+In a linked worktree this resolves through the unfiltered `path:` fetcher
+(`.git` is a file there, so Lix cannot fetch it as `git+file`), which copies
+every untracked path into the world-readable store, secrets included; this
+hand-typed `nix eval` does not run through the guard in
+`scripts/lib/secrets-guard.sh`. Sweep first with
+`git status --porcelain --ignored=matching`, or run this from a primary
+checkout instead.
+
 The result contains `hostPackages` and `optionPackages` for each configured
 host. It reports names only, so package versions and derivation paths continue
 to follow the evaluated flake without requiring a documentation update.
