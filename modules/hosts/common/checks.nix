@@ -13,7 +13,8 @@
 # throws at evaluation time when such duplicates are found, so the CI gate
 # that forces check drvPaths with `nix eval` fails (not only a full
 # `nix flake check` that builds checks), prompting the author to delete the
-# redundant entry.
+# redundant entry. A path registered twice within one host is rejected the
+# same way, since the host builder below throws on it.
 #
 # Hosts opt in by publishing their override attrset under
 # `flake.lib.nixos._hostAppsOverrides.<host>`. A `host-<host>-apps-no-noop`
@@ -93,17 +94,38 @@ let
     ++ subToggles;
   nameOf = toggle: lib.concatStringsSep "." toggle.path;
 
+  # lib.recursiveUpdate in hostAppsFor would fold a path registered twice
+  # (overrides plus a colliding subToggles entry) silently, later entry wins.
+  duplicateNamesOf =
+    toggles:
+    lib.attrNames (
+      lib.filterAttrs (_: count: count > 1) (
+        lib.foldl' (acc: toggle: acc // { ${nameOf toggle} = (acc.${nameOf toggle} or 0) + 1; }) { } toggles
+      )
+    );
+  duplicateMessage =
+    host: names:
+    "modules/${host}/apps-enable.nix registers "
+    + lib.concatStringsSep ", " names
+    + " more than once; the later registration silently wins, so remove the duplicate.";
+
+  # One baseline lookup per toggle; every classification below reads the
+  # resolved entry rather than looking the path up again.
+  resolveToggles =
+    lookup:
+    map (toggle: {
+      inherit toggle;
+      hit = lookup toggle.path;
+    });
+
   # Read side, exported so modules/hosts/common/apps-sub-toggle-checks.nix can
   # exercise every branch against a snapshot of its own rather than the live
   # baseline.
   classifyRegistry =
     snapshot: registry:
     let
-      lookup = lookupIn (snapshotOf snapshot);
-      resolved = map (toggle: {
-        inherit toggle;
-        hit = lookup toggle.path;
-      }) (togglesOf registry);
+      toggles = togglesOf registry;
+      resolved = resolveToggles (lookupIn (snapshotOf snapshot)) toggles;
       namesWhere = predicate: map (entry: nameOf entry.toggle) (builtins.filter predicate resolved);
     in
     {
@@ -114,6 +136,9 @@ let
       noOps = namesWhere (
         entry: entry.hit != null && unwrapOverride entry.hit.value == entry.toggle.value
       );
+      # Reported here as well as thrown by hostAppsFor, so the perSystem check
+      # rejects the same registry the host evaluation rejects.
+      duplicates = duplicateNamesOf toggles;
     };
 
   # Write side: the same lookup decides where each entry lands. A path absent
@@ -124,42 +149,35 @@ let
   hostAppsFor =
     host: snapshot: registry:
     let
-      lookup = lookupIn (snapshotOf snapshot);
       toggles = togglesOf registry;
-      # lib.recursiveUpdate below would fold a path registered twice (overrides
-      # plus a colliding subToggles entry) silently, later entry wins.
-      duplicateNames = lib.attrNames (
-        lib.filterAttrs (_: count: count > 1) (
-          lib.foldl' (acc: toggle: acc // { ${nameOf toggle} = (acc.${nameOf toggle} or 0) + 1; }) { } toggles
-        )
-      );
+      duplicateNames = duplicateNamesOf toggles;
       namespaceOf =
-        toggle:
-        let
-          hit = lookup toggle.path;
-        in
-        if hit != null then
-          hit.namespace
+        entry:
+        if entry.hit != null then
+          entry.hit.namespace
         else
           throw (
-            "modules/${host}/apps-enable.nix registers ${nameOf toggle}, which "
+            "modules/${host}/apps-enable.nix registers ${nameOf entry.toggle}, which "
             + "flake.lib.nixos._commonAppsBaseline declares under neither programs nor services, "
             + "so the override has nowhere to land; declare it in modules/hosts/common/apps-enable.nix "
             + "or drop the registration."
           );
+      # Both namespace passes filter this one list, so each toggle is resolved
+      # once rather than once per pass.
+      resolved = map (entry: entry // { namespace = namespaceOf entry; }) (
+        resolveToggles (lookupIn (snapshotOf snapshot)) toggles
+      );
       landing =
         namespace:
         lib.foldl' (
-          acc: toggle:
-          lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
-        ) { } (builtins.filter (toggle: namespaceOf toggle == namespace) toggles);
+          acc: entry:
+          lib.recursiveUpdate acc (
+            lib.setAttrByPath entry.toggle.path (lib.mkOverride 1000 entry.toggle.value)
+          )
+        ) { } (builtins.filter (entry: entry.namespace == namespace) resolved);
     in
     if duplicateNames != [ ] then
-      throw (
-        "modules/${host}/apps-enable.nix registers "
-        + lib.concatStringsSep ", " duplicateNames
-        + " more than once; the later registration silently wins, so remove the duplicate."
-      )
+      throw (duplicateMessage host duplicateNames)
     else
       {
         programs = landing "programs";
@@ -195,8 +213,6 @@ let
   uncomparableSummary = lib.concatStringsSep "; " (
     lib.mapAttrsToList (host: paths: "${host}: ${lib.concatStringsSep ", " paths}") uncomparableByHost
   );
-  noOpsByHost = lib.mapAttrs (_host: result: result.noOps) classificationByHost;
-
   baselineMissing =
     registryByHost != { }
     && (
@@ -242,15 +258,17 @@ in
             '';
       }
       // lib.mapAttrs' (
-        host: noOps:
+        host: result:
         lib.nameValuePair "host-${host}-apps-no-noop" (
-          if noOps == [ ] then
-            pkgs.runCommandLocal "host-${host}-apps-no-noop-ok" { } ''
-              echo "ok: ${host} apps override file contains no no-op entries" > $out
-            ''
+          if result.duplicates != [ ] then
+            throw (duplicateMessage host result.duplicates)
+          else if result.noOps != [ ] then
+            throw (messageFor host result.noOps)
           else
-            throw (messageFor host noOps)
+            pkgs.runCommandLocal "host-${host}-apps-no-noop-ok" { } ''
+              echo "ok: ${host} apps override file contains no no-op or duplicate entries" > $out
+            ''
         )
-      ) noOpsByHost;
+      ) classificationByHost;
     };
 }

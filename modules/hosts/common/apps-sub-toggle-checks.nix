@@ -124,6 +124,19 @@ let
       uncomparable = [ ];
       noOps = [ ];
     }
+    {
+      # The flat set and the nested registry can name the same path. The
+      # builder throws on it, so the classifier has to report it too, or the
+      # perSystem check passes a registry the host evaluation rejects.
+      name = "path registered in both registries";
+      registry = {
+        overrides.inkscape = true;
+        subToggles = [ (toggle [ "inkscape" "extended" "enable" ] true) ];
+      };
+      uncomparable = [ ];
+      noOps = [ ];
+      duplicates = [ "inkscape.extended.enable" ];
+    }
   ];
 
   # Write side. The classifier decides where a path is READ from; these decide
@@ -220,45 +233,83 @@ let
       registry.overrides.noSuchApp = true;
       throws = true;
     }
+    {
+      # Both registries at once, the shape songbird and system76 register, so
+      # a regression in either half fails here rather than only in a host
+      # evaluation.
+      name = "mixed registries land under programs";
+      namespace = "programs";
+      registry = {
+        overrides.inkscape = true;
+        subToggles = [ (toggle [ "logseq" "extended" "disableGpuCompositing" ] true) ];
+      };
+      present = true;
+    }
+    {
+      name = "mixed registries do not land under services";
+      namespace = "services";
+      registry = {
+        overrides.inkscape = true;
+        subToggles = [ (toggle [ "logseq" "extended" "disableGpuCompositing" ] true) ];
+      };
+      present = false;
+    }
+    {
+      name = "path registered in both registries fails the build";
+      namespace = "programs";
+      registry = {
+        overrides.inkscape = true;
+        subToggles = [ (toggle [ "inkscape" "extended" "enable" ] true) ];
+      };
+      throws = true;
+    }
   ];
 
-  # The single path each routing case registers, in the shape the registry
-  # gives it.
-  registeredPath =
+  # Every path a routing case registers, in the shape the builder reads them,
+  # so a case that fills both registries checks both halves.
+  registeredToggles =
     registry:
-    if registry ? overrides then
-      [
-        (lib.head (lib.attrNames registry.overrides))
+    lib.mapAttrsToList (
+      name: value:
+      toggle [
+        name
         "extended"
         "enable"
-      ]
-    else
-      (lib.head registry.subToggles).path;
-  registeredValue =
-    registry:
-    if registry ? overrides then
-      lib.head (lib.attrValues registry.overrides)
-    else
-      (lib.head registry.subToggles).value;
+      ] value
+    ) (registry.overrides or { })
+    ++ registry.subToggles or [ ];
 
   routingFailures = lib.concatMap (
     case:
     let
       got = (hostAppsFor "fixture" baseline case.registry).${case.namespace};
-      landed = lib.attrByPath (registeredPath case.registry) null got;
-      expectedLeaf = lib.mkOverride 1000 (registeredValue case.registry);
+      landings = map (t: {
+        name = lib.concatStringsSep "." t.path;
+        landed = lib.attrByPath t.path null got;
+        expected = lib.mkOverride 1000 t.value;
+      }) (registeredToggles case.registry);
     in
-    if case.throws or false then
-      # The throw fires when the fold is forced, which the lookup above does;
-      # an unexpected throw in the other cases propagates with its own message.
-      lib.optional (builtins.tryEval (landed != null)).success "${case.name}: routed instead of throwing"
-    else if case.present then
-      lib.optional (landed != expectedLeaf)
-        "${case.name}: landed as ${
-          lib.generators.toPretty { } landed
-        }, expected the lib.mkOverride 1000 wrapper"
-    else
-      lib.optional (landed != null) "${case.name}: landed under ${case.namespace}"
+    # A case that registers nothing proves nothing, whichever branch it takes.
+    lib.optional (landings == [ ]) "${case.name}: registers no path"
+    ++ (
+      if case.throws or false then
+        # The throw fires when the fold is forced, which the first lookup does;
+        # an unexpected throw in the other cases propagates with its own message.
+        lib.optional (builtins.tryEval (lib.any (l: l.landed != null) landings)).success
+          "${case.name}: routed instead of throwing"
+      else if case.present then
+        lib.concatMap (
+          l:
+          lib.optional (l.landed != l.expected)
+            "${case.name}: ${l.name} landed as ${
+              lib.generators.toPretty { } l.landed
+            }, expected the lib.mkOverride 1000 wrapper"
+        ) landings
+      else
+        lib.concatMap (
+          l: lib.optional (l.landed != null) "${case.name}: ${l.name} landed under ${case.namespace}"
+        ) landings
+    )
   ) routingCases;
 
   fmt = paths: "[ ${lib.concatStringsSep " " paths} ]";
@@ -267,6 +318,7 @@ let
     case:
     let
       got = classify baseline case.registry;
+      expectedDuplicates = case.duplicates or [ ];
     in
     lib.optional (
       got.uncomparable != case.uncomparable
@@ -274,6 +326,9 @@ let
     ++ lib.optional (
       got.noOps != case.noOps
     ) "${case.name}: noOps ${fmt got.noOps}, expected ${fmt case.noOps}"
+    ++ lib.optional (
+      got.duplicates != expectedDuplicates
+    ) "${case.name}: duplicates ${fmt got.duplicates}, expected ${fmt expectedDuplicates}"
   ) cases;
 
   allFailures = failures ++ routingFailures;
