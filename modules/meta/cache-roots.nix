@@ -106,7 +106,7 @@ let
     );
 
   nvidiaKernelModulesCached =
-    { hostName, hostConfig }:
+    { hostName, hostConfig, ... }:
     let
       nvidiaEnabled = nvidiaLoaded hostConfig;
       policy = nvidiaKernelModulesCachePolicyFor hostName hostConfig;
