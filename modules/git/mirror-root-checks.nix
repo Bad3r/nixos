@@ -79,12 +79,13 @@ let
       expected = "/data";
     }
     {
-      # Prefix matching is on path segments: /databases must not gate /data/git.
+      # "/dat" is a string prefix of "/data/git" but not an ancestor, so an
+      # unguarded `lib.hasPrefix m root` matches it; "/databases" is too long to.
       name = "sibling sharing a name prefix does not match";
       root = "/data/git";
       fileSystems = {
         "/" = fs "/";
-        "/databases" = fs "/databases";
+        "/dat" = fs "/dat";
       };
       expected = null;
     }
