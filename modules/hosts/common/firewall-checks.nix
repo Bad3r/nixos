@@ -440,6 +440,18 @@ let
 
   fmt = names: "[ ${lib.concatStringsSep " " names} ]";
 
+  # Shared by the six single-classifier case tables below: each compares one
+  # classifier's output against one case's `expected` and names the mismatch.
+  mkFailures =
+    of: cases:
+    lib.concatMap (
+      case:
+      let
+        got = of case.links;
+      in
+      lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
+    ) cases;
+
   classifyFailures = lib.concatMap (
     case:
     let
@@ -459,21 +471,9 @@ let
     ++ lib.optionals (case ? staleScheme) (mismatch "staleScheme")
   ) classifyCases;
 
-  pinnedFailures = lib.concatMap (
-    case:
-    let
-      got = pinnedNamesOf case.links;
-    in
-    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
-  ) pinnedCases;
+  pinnedFailures = mkFailures pinnedNamesOf pinnedCases;
 
-  duplicatePinFailures = lib.concatMap (
-    case:
-    let
-      got = duplicatePinsOf case.links;
-    in
-    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
-  ) duplicatePinCases;
+  duplicatePinFailures = mkFailures duplicatePinsOf duplicatePinCases;
 
   declaredFailures =
     let
@@ -734,37 +734,13 @@ let
     }
   ];
 
-  collisionFailures = lib.concatMap (
-    case:
-    let
-      got = collidingPinsOf case.links;
-    in
-    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
-  ) collisionCases;
+  collisionFailures = mkFailures collidingPinsOf collisionCases;
 
-  policyOverrideFailures = lib.concatMap (
-    case:
-    let
-      got = policyOverriddenPinsOf case.links;
-    in
-    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
-  ) policyOverrideCases;
+  policyOverrideFailures = mkFailures policyOverriddenPinsOf policyOverrideCases;
 
-  shadowedFailures = lib.concatMap (
-    case:
-    let
-      got = shadowedLinksOf case.links;
-    in
-    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
-  ) shadowedCases;
+  shadowedFailures = mkFailures shadowedLinksOf shadowedCases;
 
-  unboundFailures = lib.concatMap (
-    case:
-    let
-      got = unboundLinksOf case.links;
-    in
-    lib.optional (got != case.expected) "${case.name}: got ${fmt got}, expected ${fmt case.expected}"
-  ) unboundCases;
+  unboundFailures = mkFailures unboundLinksOf unboundCases;
 
   failures =
     classifyFailures
