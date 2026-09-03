@@ -273,12 +273,19 @@ in
                   Group = group;
                 };
               })
-              // lib.genAttrs r2BisyncServiceNames (_: {
+              // lib.genAttrs r2BisyncServiceNames (name: {
                 serviceConfig = {
                   User = username;
                   Group = group;
-                  # base unit sets TimeoutStartUSec=infinity; bound above bisync's own --max-lock=15m
-                  TimeoutStartSec = "20m";
+                  # base unit sets TimeoutStartUSec=infinity. Per profile, not
+                  # shared: a bound sized for the small trees kills the docs run
+                  # mid-listing on every timer firing, so it never completes a
+                  # first sync. Each value stays above bisync's --max-lock=15m.
+                  TimeoutStartSec =
+                    {
+                      docs = "6h";
+                    }
+                    .${lib.removePrefix "r2-bisync-" name} or "20m";
                 };
               })
               // {
