@@ -195,56 +195,71 @@ _: {
       # where ExecStartPre refused a busy /shared. That gate is also why the
       # mount needs no "-": it is reached only when /shared was mounted going
       # in, so a failure there is a real anomaly, not an absent drive.
-      systemd.services = lib.mkMerge [
-        (lib.genAttrs
-          [
-            "systemd-hibernate"
-            "systemd-hybrid-sleep"
-            "systemd-suspend-then-hibernate"
-          ]
-          (_: {
-            serviceConfig = {
-              # Flag written only after the unmount succeeds: it is what tells
-              # ExecStopPost a remount is owed, so writing it first would leave
-              # it set on the busy-/shared refusal above, and ExecStopPost then
-              # runs `mount` against a filesystem that was never unmounted and
-              # fails the unit.
-              ExecStartPre = [
-                (pkgs.writeShellScript "shared-umount-before-hibernate" ''
-                  ${pkgs.util-linux}/bin/mountpoint -q /shared || exit 0
-                  ${pkgs.util-linux}/bin/umount /shared || exit 1
-                  exec ${pkgs.coreutils}/bin/touch /run/shared-remount-after-sleep
-                '')
-              ];
-              ExecStopPost = [
-                (pkgs.writeShellScript "shared-remount-after-sleep" ''
-                  [ -e /run/shared-remount-after-sleep ] || exit 0
-                  ${pkgs.coreutils}/bin/rm -f /run/shared-remount-after-sleep
-                  exec ${pkgs.util-linux}/bin/mount /shared
-                '')
-              ];
+      systemd.services =
+        let
+          # Flag written only after the unmount succeeds: it is what tells
+          # ExecStopPost a remount is owed, so writing it first would leave
+          # it set on the busy-/shared refusal above, and ExecStopPost then
+          # runs `mount` against a filesystem that was never unmounted and
+          # fails the unit. A failed marker write must still abort the
+          # transition (exit 1): otherwise hibernation proceeds with /shared
+          # mounted again, defeating the whole guard.
+          sharedUmountBeforeHibernate = pkgs.writeShellScript "shared-umount-before-hibernate" ''
+            ${pkgs.util-linux}/bin/mountpoint -q /shared || exit 0
+            ${pkgs.util-linux}/bin/umount /shared || exit 1
+            if ${pkgs.coreutils}/bin/touch /run/shared-remount-after-sleep; then
+              exit 0
+            fi
+            echo "songbird: failed to record the hibernate-remount marker after unmounting /shared; remounting and aborting this sleep transition" >&2
+            ${pkgs.util-linux}/bin/mount /shared
+            exit 1
+          '';
+          # Retries cover the volume not being re-enumerated yet on resume;
+          # exhausting them still fails the unit, per the no-"-" note above.
+          sharedRemountAfterSleep = pkgs.writeShellScript "shared-remount-after-sleep" ''
+            [ -e /run/shared-remount-after-sleep ] || exit 0
+            ${pkgs.coreutils}/bin/rm -f /run/shared-remount-after-sleep
+            for _ in 1 2 3; do
+              ${pkgs.util-linux}/bin/mount /shared && exit 0
+              ${pkgs.coreutils}/bin/sleep 1
+            done
+            echo "songbird: failed to remount /shared after resume; run 'mount /shared' by hand" >&2
+            exit 1
+          '';
+        in
+        lib.mkMerge [
+          (lib.genAttrs
+            [
+              "systemd-hibernate"
+              "systemd-hybrid-sleep"
+              "systemd-suspend-then-hibernate"
+            ]
+            (_: {
+              serviceConfig = {
+                ExecStartPre = [ sharedUmountBeforeHibernate ];
+                ExecStopPost = [ sharedRemountAfterSleep ];
+              };
+            })
+          )
+          {
+            # Conditional, not required: /data is nofail here, but Requires= and
+            # RequiresMountsFor= (which emits its own Requires=) ignore that, so
+            # an absent or unopened drive failed this unit too, and the chown then
+            # landed on the bare mount point data.mount leaves behind on the root
+            # filesystem rather than on the volume. The condition leaves the unit
+            # inactive instead of failed, so recovering the mount by hand needs
+            # `systemctl start data-ownership.service`.
+            "data-ownership" = {
+              description = "Ensure /data ownership matches primary user";
+              wantedBy = [ "multi-user.target" ];
+              after = [ "data.mount" ];
+              unitConfig.ConditionPathIsMountPoint = "/data";
+              serviceConfig = {
+                Type = "oneshot";
+                ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
+              };
             };
-          })
-        )
-        {
-          # Conditional, not required: /data is nofail here, but Requires= and
-          # RequiresMountsFor= (which emits its own Requires=) ignore that, so
-          # an absent or unopened drive failed this unit too, and the chown then
-          # landed on the bare mount point data.mount leaves behind on the root
-          # filesystem rather than on the volume. The condition leaves the unit
-          # inactive instead of failed, so recovering the mount by hand needs
-          # `systemctl start data-ownership.service`.
-          "data-ownership" = {
-            description = "Ensure /data ownership matches primary user";
-            wantedBy = [ "multi-user.target" ];
-            after = [ "data.mount" ];
-            unitConfig.ConditionPathIsMountPoint = "/data";
-            serviceConfig = {
-              Type = "oneshot";
-              ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
-            };
-          };
-        }
-      ];
+          }
+        ];
     };
 }
