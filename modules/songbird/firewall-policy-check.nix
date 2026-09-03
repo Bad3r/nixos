@@ -75,11 +75,14 @@ let
       from = boundOr 0 (lib.head bounds);
       to = boundOr 65535 (lib.last bounds);
     };
-  unresolvedPortSpecsOf = line: lib.filter (spec: !portSpecIsValid spec) (destinationPortSpecs line);
-  isDeveloperRule =
-    line: lib.any portSpecOverlaps (lib.filter portSpecIsValid (destinationPortSpecs line));
   startLines = lib.splitString "\n" firewall.extraCommands;
   stopLines = lib.splitString "\n" firewall.extraStopCommands;
+  # isDeveloperRule and unresolvedPortSpecsOf would otherwise tokenize each
+  # line twice; the `or` branch serves the synthetic fixture lines below.
+  specsForLine = lib.genAttrs (lib.unique (startLines ++ stopLines)) destinationPortSpecs;
+  specsOf = line: specsForLine.${line} or (destinationPortSpecs line);
+  unresolvedPortSpecsOf = line: lib.filter (spec: !portSpecIsValid spec) (specsOf line);
+  isDeveloperRule = line: lib.any portSpecOverlaps (lib.filter portSpecIsValid (specsOf line));
   developerStartRules = lib.filter isDeveloperRule startLines;
   developerStopRules = lib.filter isDeveloperRule stopLines;
   unresolvedPortSpecs = lib.concatMap (
