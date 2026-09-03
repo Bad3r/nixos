@@ -17,6 +17,11 @@ let
   formatCaseFailures =
     config.flake.lib.nixos._formatCheckFailures
       or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
+  # The rule text is a literal on purpose, for the reason firewall-checks.nix
+  # keeps its own NamePolicy literal: this check is the approval gate for the
+  # exact rules, so it cannot take them from the template it is checking. A
+  # template change in firewall.nix (a dropped -s, another chain or target)
+  # fails here until the new text is approved below.
   rulesFor = template: lib.concatMap (range: map (template range) localNetworkCidrs) developerRanges;
   startRules = rulesFor (
     range: cidr:
@@ -32,7 +37,11 @@ let
   # 65535. Selecting a line by the numbers it names instead of one flag
   # spelling puts a sub-range or single port opened under any spelling in
   # front of the exact-list comparison, and a value that is not a port number
-  # (a service name, a missing value, anything past 65535) fails outright.
+  # (a service name, a missing value, anything past 65535) fails outright. A
+  # `!` before the flag, or before the value in the deprecated intrapositioned
+  # form iptables still accepts, inverts the match to every port but those
+  # listed; the marker is kept on each spec so the rule is reported below
+  # rather than classified as if it opened them.
   destinationPortFlags = [
     "--dport"
     "--dports"
@@ -44,19 +53,26 @@ let
     let
       tokens = lib.filter (token: builtins.isString token && token != "") (builtins.split "[ \t]+" line);
       count = lib.length tokens;
+      tokenAt = index: if index < count then lib.elemAt tokens index else "";
       valuesAt =
         index: token:
         let
           parts = lib.splitString "=" token;
+          negatedBefore = index > 0 && lib.elemAt tokens (index - 1) == "!";
+          negatedAfter = lib.length parts == 1 && tokenAt (index + 1) == "!";
+          value =
+            if lib.length parts > 1 then
+              lib.concatStringsSep "=" (lib.tail parts)
+            else
+              tokenAt (index + (if negatedAfter then 2 else 1));
+          marker = lib.optionalString (negatedBefore || negatedAfter) "!";
         in
         if !(lib.elem (lib.head parts) destinationPortFlags) then
           [ ]
-        else if lib.length parts > 1 then
-          [ (lib.concatStringsSep "=" (lib.tail parts)) ]
         else
-          [ (if index + 1 < count then lib.elemAt tokens (index + 1) else "") ];
+          map (spec: marker + spec) (lib.splitString "," value);
     in
-    lib.concatMap (lib.splitString ",") (lib.concatLists (lib.imap0 valuesAt tokens));
+    lib.concatLists (lib.imap0 valuesAt tokens);
   # The regex rejects leading zeros and overlong digit strings, both of which
   # make lib.toInt throw; the value check keeps it inside the port range.
   portBoundIsValid =
@@ -88,11 +104,17 @@ let
   isDeveloperRule = line: lib.any portSpecOverlaps (lib.filter portSpecIsValid (specsOf line));
   developerStartRules = lib.filter isDeveloperRule startLines;
   developerStopRules = lib.filter isDeveloperRule stopLines;
+  # A negated spec never passes portSpecIsValid, so it lands here instead of in
+  # the developer classification: the policy has no "every port but" rule, and
+  # a line the check cannot place must fail rather than pass.
+  unresolvedMessage =
+    line: spec:
+    if lib.hasPrefix "!" spec then
+      "destination port match `${spec}` in `${line}` is negated, which this policy has no rule for"
+    else
+      "destination port `${spec}` in `${line}` is not a port number";
   unresolvedPortSpecs = lib.concatMap (
-    line:
-    map (spec: "destination port `${spec}` in `${line}` is not a port number") (
-      unresolvedPortSpecsOf line
-    )
+    line: map (unresolvedMessage line) (unresolvedPortSpecsOf line)
   ) (startLines ++ stopLines);
   developerPortRangeOverlaps =
     range: lib.any (dev: range.from <= dev.to && range.to >= dev.from) developerRanges;
@@ -189,6 +211,11 @@ let
         line = rule "--sport ${range}";
         expected = false;
       }
+      {
+        name = "negated match";
+        line = rule "! --dport ${range}";
+        expected = false;
+      }
     ]
   );
   developerRuleFailures = lib.filter (
@@ -209,6 +236,25 @@ let
       name = "flag without a value";
       line = "iptables -A nixos-fw -p tcp --dport";
       expected = [ "" ];
+    }
+    {
+      name = "negated match";
+      line = rule "! --dport 22";
+      expected = [ "!22" ];
+    }
+    {
+      # The marker has to reach every member: negation applies to the list.
+      name = "negated multiport list";
+      line = rule "-m multiport ! --dports 22,80";
+      expected = [
+        "!22"
+        "!80"
+      ];
+    }
+    {
+      name = "intrapositioned negated match";
+      line = rule "--dport ! 22";
+      expected = [ "!22" ];
     }
   ];
   unresolvedFailures = lib.filter (
