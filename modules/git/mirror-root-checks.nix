@@ -12,6 +12,7 @@
 { config, lib, ... }:
 let
   enclosingMountOf = config.flake.lib.nixos._localMirrorsEnclosingMount or null;
+  formatCaseFailures = config.flake.lib.nixos._formatCheckFailures;
 
   fs = mountPoint: { inherit mountPoint; };
 
@@ -111,12 +112,7 @@ in
             + "local-mirrors-root.service is unverified."
           )
         else if failures != [ ] then
-          throw (
-            "local-mirrors-enclosing-mount: "
-            + toString (lib.length failures)
-            + " case(s) failed:\n  "
-            + lib.concatStringsSep "\n  " failures
-          )
+          throw (formatCaseFailures "local-mirrors-enclosing-mount" failures)
         else
           pkgs.runCommandLocal "local-mirrors-enclosing-mount-ok" { } ''
             echo "ok: ${toString (lib.length cases)} mount-derivation cases" > $out

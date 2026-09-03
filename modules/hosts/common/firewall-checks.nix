@@ -25,6 +25,7 @@ let
   policyOverriddenPinsOf = config.flake.lib.nixos._firewallDnsPolicyOverriddenPinsOf or null;
   shadowedLinksOf = config.flake.lib.nixos._firewallDnsShadowedLinksOf or null;
   unboundLinksOf = config.flake.lib.nixos._firewallDnsUnboundLinksOf or null;
+  formatCaseFailures = config.flake.lib.nixos._formatCheckFailures;
 
   # One entry per source declaredNamesOf reads. A source dropped from that
   # expression loses its name here, which is the failure this covers.
@@ -801,12 +802,7 @@ in
             + "firewallDnsInterfaces guards are unverified."
           )
         else if failures != [ ] then
-          throw (
-            "firewall-dns-interface-classifier: "
-            + toString (lib.length failures)
-            + " case(s) failed:\n  "
-            + lib.concatStringsSep "\n  " failures
-          )
+          throw (formatCaseFailures "firewall-dns-interface-classifier" failures)
         else
           pkgs.runCommandLocal "firewall-dns-interface-classifier-ok" { } ''
             echo "ok: ${

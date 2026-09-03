@@ -13,6 +13,7 @@
 let
   classify = config.flake.lib.hostApps.classify or null;
   hostAppsFor = config.flake.lib.hostApps.forRegistry or null;
+  formatCaseFailures = config.flake.lib.nixos._formatCheckFailures;
 
   # Shaped like the real snapshot: values are lib.mkOverride wrappers, which is
   # what the classifier has to unwrap before comparing.
@@ -287,12 +288,7 @@ in
             + "override comparison and routing are unverified."
           )
         else if allFailures != [ ] then
-          throw (
-            "host-apps-sub-toggle-classifier: "
-            + toString (lib.length allFailures)
-            + " case(s) failed:\n  "
-            + lib.concatStringsSep "\n  " allFailures
-          )
+          throw (formatCaseFailures "host-apps-sub-toggle-classifier" allFailures)
         else
           pkgs.runCommandLocal "host-apps-sub-toggle-classifier-ok" { } ''
             echo "ok: ${toString (lib.length cases + lib.length routingCases)} sub-toggle cases" > $out
