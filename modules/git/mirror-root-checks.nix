@@ -12,7 +12,9 @@
 { config, lib, ... }:
 let
   enclosingMountOf = config.flake.lib.nixos._localMirrorsEnclosingMount or null;
-  formatCaseFailures = config.flake.lib.nixos._formatCheckFailures;
+  formatCaseFailures =
+    config.flake.lib.nixos._formatCheckFailures
+      or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
 
   fs = mountPoint: { inherit mountPoint; };
 

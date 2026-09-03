@@ -13,7 +13,9 @@
 let
   classify = config.flake.lib.hostApps.classify or null;
   hostAppsFor = config.flake.lib.hostApps.forRegistry or null;
-  formatCaseFailures = config.flake.lib.nixos._formatCheckFailures;
+  formatCaseFailures =
+    config.flake.lib.nixos._formatCheckFailures
+      or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
 
   # Shaped like the real snapshot: values are lib.mkOverride wrappers, which is
   # what the classifier has to unwrap before comparing.

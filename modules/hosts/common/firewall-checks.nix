@@ -25,7 +25,9 @@ let
   policyOverriddenPinsOf = config.flake.lib.nixos._firewallDnsPolicyOverriddenPinsOf or null;
   shadowedLinksOf = config.flake.lib.nixos._firewallDnsShadowedLinksOf or null;
   unboundLinksOf = config.flake.lib.nixos._firewallDnsUnboundLinksOf or null;
-  formatCaseFailures = config.flake.lib.nixos._formatCheckFailures;
+  formatCaseFailures =
+    config.flake.lib.nixos._formatCheckFailures
+      or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
 
   # One entry per source declaredNamesOf reads. A source dropped from that
   # expression loses its name here, which is the failure this covers.

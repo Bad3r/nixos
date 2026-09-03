@@ -14,6 +14,9 @@ let
   localNetworkCidrs =
     config.flake.lib.nixos._firewallLocalNetworkCidrs
       or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallLocalNetworkCidrs");
+  formatCaseFailures =
+    config.flake.lib.nixos._formatCheckFailures
+      or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
   rulesFor = template: lib.concatMap (range: map (template range) localNetworkCidrs) developerRanges;
   startRules = rulesFor (
     range: cidr:
@@ -233,7 +236,7 @@ in
     {
       checks.songbird-firewall-port-policy =
         if failures != [ ] then
-          throw ("songbird-firewall-port-policy: " + lib.concatStringsSep "; " failures)
+          throw (formatCaseFailures "songbird-firewall-port-policy" failures)
         else
           pkgs.runCommandLocal "songbird-firewall-port-policy-ok" { } "touch $out";
     };
