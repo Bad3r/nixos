@@ -164,8 +164,9 @@ in
       # daemon comes up. songbird-power-profile drives the EPP instead.
       powerManagement = {
         resumeCommands = ''
-          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
-          ${pkgs.systemd}/bin/loginctl lock-sessions
+          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix).
+          # Guarded for the same set -e reason as the reassert below.
+          ${pkgs.systemd}/bin/loginctl lock-sessions || echo "songbird resume: loginctl lock-sessions failed" >&2
           # Re-assert the daemon profile after resume. Suppressed rather than
           # fatal: nixpkgs concatenates powerUpCommands after this in the same
           # set -e sleep-actions preStop script, so an unguarded failure here
