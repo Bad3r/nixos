@@ -126,6 +126,13 @@ let
     let
       lookup = lookupIn (snapshotOf snapshot);
       toggles = togglesOf registry;
+      # lib.recursiveUpdate below would fold a path registered twice (overrides
+      # plus a colliding subToggles entry) silently, later entry wins.
+      duplicateNames = lib.attrNames (
+        lib.filterAttrs (_: count: count > 1) (
+          lib.foldl' (acc: toggle: acc // { ${nameOf toggle} = (acc.${nameOf toggle} or 0) + 1; }) { } toggles
+        )
+      );
       namespaceOf =
         toggle:
         let
@@ -147,10 +154,17 @@ let
           lib.recursiveUpdate acc (lib.setAttrByPath toggle.path (lib.mkOverride 1000 toggle.value))
         ) { } (builtins.filter (toggle: namespaceOf toggle == namespace) toggles);
     in
-    {
-      programs = landing "programs";
-      services = landing "services";
-    };
+    if duplicateNames != [ ] then
+      throw (
+        "modules/${host}/apps-enable.nix registers "
+        + lib.concatStringsSep ", " duplicateNames
+        + " more than once; the later registration silently wins, so remove the duplicate."
+      )
+    else
+      {
+        programs = landing "programs";
+        services = landing "services";
+      };
 
   # Keyed on the union of both registries. A host whose only divergence is
   # nested registers no flat set, and keying on hostOverrides alone emits no
