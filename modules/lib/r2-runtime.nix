@@ -3,34 +3,52 @@ let
   # The profile definitions are the source of truth for the producer's mount,
   # bisync, provisioning, and identity settings. The upstream unit names are
   # derived from each profile name, so an upstream naming change is asserted below.
-  r2Mounts = {
+  # `mount` goes to services.r2-sync.mounts verbatim, and that submodule has
+  # fixed options, so settings local to this file sit beside it.
+  r2Profiles = {
     workspace = {
-      bucket = "nix-r2-cf-r2e-files-prod";
-      remotePrefix = "workspace";
-      mountPoint = "/data/r2/mount/workspace";
-      localPath = "/data/r2/workspace";
-      syncInterval = "5m";
+      mount = {
+        bucket = "nix-r2-cf-r2e-files-prod";
+        remotePrefix = "workspace";
+        mountPoint = "/data/r2/mount/workspace";
+        localPath = "/data/r2/workspace";
+        syncInterval = "5m";
+      };
+      bisyncStartTimeout = "20m";
     };
 
     fonts = {
-      bucket = "nix-r2-cf-r2e-files-prod";
-      remotePrefix = "fonts";
-      mountPoint = "/data/r2/mount/fonts";
-      localPath = "/data/fonts";
-      syncInterval = "30m";
+      mount = {
+        bucket = "nix-r2-cf-r2e-files-prod";
+        remotePrefix = "fonts";
+        mountPoint = "/data/r2/mount/fonts";
+        localPath = "/data/fonts";
+        syncInterval = "30m";
+      };
+      bisyncStartTimeout = "20m";
     };
 
     docs = {
-      bucket = "nix-r2-cf-r2e-files-prod";
-      remotePrefix = "docs";
-      mountPoint = "/data/r2/mount/docs";
-      localPath = "/data/Docs";
-      syncInterval = "5m";
+      mount = {
+        bucket = "nix-r2-cf-r2e-files-prod";
+        remotePrefix = "docs";
+        mountPoint = "/data/r2/mount/docs";
+        localPath = "/data/Docs";
+        syncInterval = "5m";
+      };
+      # Temporary mitigation. The initial listing sends one HEAD request per
+      # object, and the r2-flake bisync submodule at 2af9005 exposes no compare
+      # or exclude setting, so the unit bound is the only lever this repository
+      # has; at 20m every run died mid-listing. Return to 20m once
+      # Bad3r/nix-R2-CloudFlare-Flake#150 ships and Bad3r/nixos#477 lands.
+      bisyncStartTimeout = "6h";
     };
   };
-  r2MountNames = lib.attrNames r2Mounts;
+  r2Mounts = lib.mapAttrs (_: profile: profile.mount) r2Profiles;
+  r2MountNames = lib.attrNames r2Profiles;
+  bisyncServiceNameOf = name: "r2-bisync-${name}";
   r2MountServiceNames = map (name: "r2-mount-${name}") r2MountNames;
-  r2BisyncServiceNames = map (name: "r2-bisync-${name}") r2MountNames;
+  r2BisyncServiceNames = map bisyncServiceNameOf r2MountNames;
   r2WriterServiceNames = r2MountServiceNames ++ r2BisyncServiceNames ++ [ "r2-restic-backup" ];
   r2ServiceNames = [ "r2-runtime-paths" ] ++ r2WriterServiceNames;
 in
@@ -273,21 +291,19 @@ in
                   Group = group;
                 };
               })
-              // lib.genAttrs r2BisyncServiceNames (name: {
-                serviceConfig = {
-                  User = username;
-                  Group = group;
-                  # base unit sets TimeoutStartUSec=infinity. Per profile, not
-                  # shared: a bound sized for the small trees kills the docs run
-                  # mid-listing on every timer firing, so it never completes a
-                  # first sync. Each value stays above bisync's --max-lock=15m.
-                  TimeoutStartSec =
-                    {
-                      docs = "6h";
-                    }
-                    .${lib.removePrefix "r2-bisync-" name} or "20m";
-                };
-              })
+              // lib.mapAttrs' (
+                name: profile:
+                lib.nameValuePair (bisyncServiceNameOf name) {
+                  serviceConfig = {
+                    User = username;
+                    Group = group;
+                    # The base unit sets TimeoutStartUSec=infinity. Per profile
+                    # rather than shared, and every value stays above bisync's
+                    # --max-lock=15m.
+                    TimeoutStartSec = profile.bisyncStartTimeout;
+                  };
+                }
+              ) r2Profiles
               // {
                 "r2-restic-backup".serviceConfig = {
                   User = username;
