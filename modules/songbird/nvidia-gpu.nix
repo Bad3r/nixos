@@ -9,9 +9,9 @@ _: {
       gpu.nvidia = {
         enable = true;
         # Blackwell GB203: NVIDIA's open kernel modules are the only supported
-        # flavor and require a recent driver branch; hardware.nvidia.gsp follows
-        # `open` automatically.
-        package = config.boot.kernelPackages.nvidiaPackages.production;
+        # flavor; the driver branch is the shared module's default
+        # (nvidiaPackages.production, resolved against the CachyOS kernel
+        # above). hardware.nvidia.gsp follows `open` automatically.
         open = true;
         # NVDEC via nvidia-vaapi-driver (docs/songbird/nixos-setup.md,
         # decision 13). Documented fallback if Xid 31 MMU faults appear under
