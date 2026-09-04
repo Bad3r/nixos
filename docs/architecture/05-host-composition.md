@@ -67,7 +67,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | File                                          | Purpose                                                                                                          |
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support) and host-specific enables                    |
-| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                                                               |
+| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                       |
 | `modules/system76/networking.nix`             | `.link` unit for the USB ethernet adapter, no `Name=`: drops the `mac` altname token without renaming            |
 | `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                    |
 | `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                      |
@@ -89,7 +89,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `modules/tpnix/apps-enable.nix`          | Per-host overrides over the common app baseline                                                                                 |
 | `modules/tpnix/default-apps.nix`         | Per-host overrides for `host.defaults` (audioPlayer, videoPlayer = null)                                                        |
-| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs` and `min-free` overrides                                                                              |
+| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                      |
 | `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                                                                             |
 | `modules/tpnix/fingerprint.nix`          | Fingerprint auth (`services.fprintd`) and PAM service wiring (tpnix-only)                                                       |
 | `modules/tpnix/fonts.nix`                | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                         |
@@ -109,7 +109,7 @@ Cross-host baselines (imports skeleton, boot, base services, networking base, fi
 General Nix daemon and evaluator settings live in `modules/base/nix-settings.nix`.
 The common `nix-substituters` module owns cache topology and download retry
 settings only. Per-host `nix-settings.nix` files stay limited to hardware-tuned
-values such as `max-jobs` and `min-free`.
+values such as `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free`.
 
 ### Host-conditional helpers
 
