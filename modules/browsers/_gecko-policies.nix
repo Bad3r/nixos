@@ -16,6 +16,7 @@
 _:
 let
   geckoSearch = import ./_gecko-search.nix { };
+  mullvadDohUrl = import ./_mullvad-doh-url.nix;
 in
 {
   policies = {
@@ -49,13 +50,12 @@ in
     };
     Cookies.Allow = [ "https://github.com" ];
 
-    # doh. is a SAN alias of Mullvad's documented adblock.dns.mullvad.net on
-    # the same resolver. The dns., dot. and public-resolver. names are SNI-reset
-    # on the fleet's ISP, and Fallback = false turns that into a total DNS
-    # outage, so do not restore the documented name.
+    # Fallback = false turns an SNI reset into a total DNS outage; see
+    # _mullvad-doh-url.nix for why the URL itself cannot revert to the
+    # documented dns. name.
     DNSOverHTTPS = {
       Enabled = true;
-      ProviderURL = "https://adblock.doh.mullvad.net/dns-query";
+      ProviderURL = mullvadDohUrl;
       Fallback = false;
     };
     SkipTermsOfUse = true;

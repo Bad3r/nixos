@@ -15,12 +15,11 @@
   modules/browsers/_gecko-extension-data.nix.
 */
 let
-  # doh. is a SAN alias of Mullvad's documented adblock.dns.mullvad.net on the
-  # same resolver. The dns. zone is SNI-reset on the fleet's ISP, and secure
-  # mode has no system-resolver fallback, so do not restore the documented name.
+  # Secure mode has no system-resolver fallback; see _mullvad-doh-url.nix for
+  # why the URL itself cannot revert to the documented dns. name.
   managedDnsOverHttps = {
     DnsOverHttpsMode = "secure";
-    DnsOverHttpsTemplates = "https://adblock.doh.mullvad.net/dns-query";
+    DnsOverHttpsTemplates = import ./_mullvad-doh-url.nix;
   };
 in
 {
