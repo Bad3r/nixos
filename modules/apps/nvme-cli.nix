@@ -23,7 +23,9 @@
 
   Notes:
     * `disk` group members run this without `sudo`: a capability wrapper supplies CAP_SYS_ADMIN and the shared storage policy opens the controller char nodes.
-    * The wrapper source is an argv filter that only keeps the capability for an allowlist of read-only diagnostic subcommands plus `device-self-test`, whose options can start or abort a drive self-test. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `fw-commit` and the vendor plugins need `sudo` again.
+    * The wrapper source is an argv filter that only keeps the capability for an allowlist of diagnostic subcommands that leave media and settings untouched plus two whose state change is the diagnostic itself: `device-self-test`, whose options can start or abort a drive self-test, and `telemetry-log`, whose default `--host-generate=1` has the controller capture fresh host-initiated telemetry in place of the retained capture and whose `--data-area=4` toggles the ETDAS Host Behavior bit through Set Features. Every other subcommand still runs, with the ambient set cleared, so `format`, `sanitize`, `set-feature`, `fw-commit` and the vendor plugins need `sudo` again.
+    * Get Log Page with the Retain Asynchronous Event bit cleared also clears the asynchronous event tied to the page, and that is nvme-cli's default: `smart-log`, `error-log`, `fw-log` and `resv-notif-log` send RAE=0 unconditionally (`resv-notif-log` has no `--rae` and also retires the queued notification it reports), and the readers that take `--rae`, among them `endurance-event-agg-log`, `pred-lat-event-agg-log`, `lba-status-log` and `sanitize-log`, send it unless the flag is given. That clearing is accepted: the event record is the diagnostic being collected, and nothing on these hosts consumes reservation notifications (docs/security/owner-no-sudo-operations.md).
+    * Raw `get-log` is deliberately absent: it addresses any log identifier with any LSP value, which reaches the telemetry create bit and the clear-on-read namespace lists, the context-establishing persistent event log, and the measurement-starting PHY page the named readers keep behind `sudo`.
     * `nvme help <cmd>` and the vendor plugins are in the cleared path: plugin.c:52 `execlp`s `man`, and the plugins interpolate `--dir-name` into a `system()` string (solidigm-internal-logs.c:989, wdc-nvme.c:4218).
 */
 _:
@@ -59,22 +61,51 @@ let
            unique-prefix and plugin-extension arms, and nvme.c holds no
            system()/popen()/exec* call for any of them to reach. */
         static const char *const allowed[] = {
+        	"ana-log",
+        	"ave-discovery-log",
+        	"boot-part-log",
         	"device-self-test",
+        	"dispersed-ns-participating-nss-log",
         	"effects-log",
+        	"endurance-event-agg-log",
         	"endurance-log",
         	"error-log",
+        	"fid-support-effects-log",
         	"fw-log",
-        	"get-log",
+        	"get-feature",
+        	"host-discovery-log",
         	"id-ctrl",
+        	"id-domain",
+        	"id-iocs",
         	"id-ns",
+        	"id-ns-granularity",
+        	"id-ns-lba-format",
+        	"id-nvmset",
+        	"id-uuid",
+        	"lba-status-log",
         	"list",
         	"list-ctrl",
+        	"list-endgrp",
         	"list-ns",
+        	"list-secondary",
         	"list-subsys",
+        	"media-unit-stat-log",
+        	"mgmt-addr-list-log",
+        	"mi-cmd-support-effects-log",
         	"ns-descs",
+        	"nvm-id-ns-lba-format",
+        	"pred-lat-event-agg-log",
+        	"predictable-lat-log",
+        	"primary-ctrl-caps",
+        	"pull-model-ddc-req-log",
+        	"reachability-associations-log",
+        	"reachability-groups-log",
+        	"resv-notif-log",
+        	"rotational-media-info-log",
         	"sanitize-log",
         	"self-test-log",
         	"smart-log",
+        	"supported-cap-config-log",
         	"supported-log-pages",
         	"telemetry-log",
         	NULL

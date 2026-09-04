@@ -123,10 +123,15 @@ Scope:
       but that does not grant the separate ATA Security, DCO, or HPA control
       paths.
     - the `nvme` wrapper is not whole-binary. Its source allowlists the
-      read-only diagnostic subcommands plus `device-self-test`, whose options
-      can start or abort a drive self-test, and clears the ambient capability
-      set before `execve` for everything else. `nvme format`, `nvme sanitize`,
-      `nvme fw-commit`, and the vendor plugins therefore run without
+      diagnostic subcommands that leave media and settings untouched (the log
+      readers still clear the asynchronous event tied to the page they read,
+      which the detailed document accepts) plus two whose state change is the
+      diagnostic itself, `device-self-test`, whose options can start or abort
+      a drive self-test, and `telemetry-log`, whose default run has the
+      controller capture fresh host-initiated telemetry in place of the
+      retained capture, and clears the ambient capability set before `execve`
+      for everything else. `nvme format`, `nvme sanitize`, `nvme fw-commit`,
+      raw `nvme get-log`, and the vendor plugins therefore run without
       `CAP_SYS_ADMIN` and need `sudo` again. `nvme help` also runs on the
       cleared path without the storage capability, although it may fail if
       the manual page is unavailable. See
