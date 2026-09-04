@@ -5,11 +5,14 @@
   Notes:
     * `fonts` is forwarded from `config.stylix.fonts`; pass `null` to let
       the browser use its built-in defaults.
+    * `nvidiaGpu` is the host's `gpu.nvidia.enable`; it adds the blocklist
+      override without which Gecko never probes VA-API on NVIDIA.
 */
 
 {
   lib,
   fonts ? null,
+  nvidiaGpu ? false,
 }:
 let
   geckoSearch = import ./_gecko-search.nix { };
@@ -128,9 +131,6 @@ in
 
       "reader.font_type" = "monospace";
 
-      # VA-API hardware decoding under Wayland/X11.
-      "media.ffmpeg.vaapi.enabled" = true;
-
       # Prefer xdg-desktop-portal for file picker and integration.
       "widget.use-xdg-desktop-portal.file-picker" = 1;
       "widget.use-xdg-desktop-portal" = 1;
@@ -197,5 +197,12 @@ in
 
       # Disable IPv6 address lookups.
       "network.dns.disableIPv6" = true;
+    }
+    // lib.optionalAttrs nvidiaGpu {
+      # Gecko blocklists hardware video decoding on every NVIDIA GPU
+      # (FEATURE_HARDWARE_VIDEO_DECODING_NO_LINUX_NVIDIA, widget/gtk/GfxInfo.cpp)
+      # and only runs its VA-API probe when this pref is set, whatever libva
+      # driver gecko-env.nix routes to. Required since Firefox 137.
+      "media.hardware-video-decoding.force-enabled" = true;
     };
 }

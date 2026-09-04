@@ -6,6 +6,8 @@
 
   Arguments:
     pkgs, lib, config: standard module args from the caller.
+    nvidiaGpu: the host's `gpu.nvidia.enable`; gates the Gecko blocklist
+      override that hardware video decoding on NVIDIA depends on.
   Returns:
     mkProfile, policies, nativeMessagingHosts, profile packages, and helpers.
 */
@@ -16,10 +18,11 @@
   config,
   firefoxpwaEnabled ? false,
   firefoxpwaPackage ? pkgs.firefoxpwa,
+  nvidiaGpu ? false,
 }:
 let
   geckoPrefs = import ./_gecko-prefs.nix {
-    inherit lib;
+    inherit lib nvidiaGpu;
     fonts = if (config.stylix.enable or false) then config.stylix.fonts else null;
   };
   geckoBookmarks = import ./_gecko-bookmarks.nix { inherit lib; };

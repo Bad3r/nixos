@@ -17,6 +17,10 @@
   variables would override the host's iHD routing and weaken the RDD process
   sandbox for a decode path that does not exist.
 
+  None of this reaches a decoder on its own: Gecko blocklists hardware video
+  decoding whenever the active GPU is NVIDIA, so _gecko-prefs.nix sets the
+  media.hardware-video-decoding.force-enabled override on gpu.nvidia hosts.
+
   WEBKIT_DISABLE_DMABUF_RENDERER from the same dotfiles branch is
   WebKit-specific and owned by modules/hosts/common/webkitgtk-dmabuf.nix.
 */

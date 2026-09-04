@@ -18,6 +18,7 @@ _: {
         "extended"
         "package"
       ] pkgs.firefoxpwa osConfig;
+      nvidiaGpu = lib.attrByPath [ "gpu" "nvidia" "enable" ] false osConfig;
       gecko = import ../_gecko-mk-profile.nix {
         inherit
           pkgs
@@ -25,6 +26,7 @@ _: {
           config
           firefoxpwaEnabled
           firefoxpwaPackage
+          nvidiaGpu
           ;
       };
       xdgProfileRoot = gecko.mkXdgProfileRoot {
