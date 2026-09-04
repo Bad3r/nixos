@@ -33,6 +33,7 @@ let
       cfg = config.programs."ungoogled-chromium".extended;
 
       inherit (import ../_chromium-policies.nix)
+        managedDnsOverHttps
         managedExtensionSettings
         managedDefaultSearchProvider
         ;
@@ -133,11 +134,14 @@ let
         programs.ungoogled-chromium.extended.finalPackage = customizedPackage;
         environment = {
           systemPackages = [ cfg.finalPackage ];
-          etc."chromium/policies/managed/extension-settings.json".text = builtins.toJSON {
-            ExtensionSettings = managedExtensionSettings;
+          etc = {
+            "chromium/policies/managed/extension-settings.json".text = builtins.toJSON {
+              ExtensionSettings = managedExtensionSettings;
+            };
+            "chromium/policies/managed/default-search-provider.json".text =
+              builtins.toJSON managedDefaultSearchProvider;
+            "chromium/policies/managed/dns-over-https.json".text = builtins.toJSON managedDnsOverHttps;
           };
-          etc."chromium/policies/managed/default-search-provider.json".text =
-            builtins.toJSON managedDefaultSearchProvider;
         };
       };
     };

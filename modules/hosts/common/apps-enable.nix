@@ -60,6 +60,9 @@ let
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
+      # brave off leaves extended.json unwritten, so brave-origin runs with the shared
+      # resolver policy alone; docs/drafts/chromium-webapps-plan-3-implement.md Task 8
+      # owns its managed set.
       brave.extended.enable = lib.mkOverride 1100 false;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
       brightnessctl.extended.enable = lib.mkOverride 1100 true;
