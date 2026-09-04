@@ -11,7 +11,10 @@ let
   # layer because openFirewall opens 139/445 on every interface. hosts deny =
   # ALL also closes the IPv6 path, matching that IPv4-only scoping.
   sambaHostsAllow = lib.concatStringsSep " " (
-    [ "127.0.0.1" ]
+    [
+      "127.0.0.1"
+      "::1"
+    ]
     ++ (config.flake.lib.nixos._firewallLocalNetworkCidrs
       or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallLocalNetworkCidrs")
     )
