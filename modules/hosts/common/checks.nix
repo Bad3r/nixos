@@ -109,6 +109,30 @@ let
     + lib.concatStringsSep ", " names
     + " more than once; the later registration silently wins, so remove the duplicate.";
 
+  # lib.recursiveUpdate in `landing` also corrupts an override node when one
+  # registered path is a strict prefix of another's: the shorter path's
+  # mkOverride wrapper gains the longer path's tail as a sibling attribute,
+  # and the module system then reads only that wrapper's `.content`, so the
+  # sibling silently never lands instead of erroring like duplicateNamesOf
+  # catches for an exact repeat.
+  prefixCollisionsOf =
+    toggles:
+    lib.concatMap (
+      a:
+      lib.concatMap (
+        b:
+        lib.optional (
+          lib.length a.path < lib.length b.path && lib.take (lib.length a.path) b.path == a.path
+        ) "${nameOf a} is a prefix of ${nameOf b}"
+      ) toggles
+    ) toggles;
+  collisionMessage =
+    host: collisions:
+    "modules/${host}/apps-enable.nix registers "
+    + lib.concatStringsSep "; " collisions
+    + "; a shorter registered path corrupts a longer sibling's mkOverride wrapper when both land "
+    + "through lib.recursiveUpdate, so split or remove one.";
+
   # One baseline lookup per toggle; every classification below reads the
   # resolved entry rather than looking the path up again.
   resolveToggles =
@@ -138,7 +162,7 @@ let
       );
       # Reported here as well as thrown by hostAppsFor, so the perSystem check
       # rejects the same registry the host evaluation rejects.
-      duplicates = duplicateNamesOf toggles;
+      duplicates = duplicateNamesOf toggles ++ prefixCollisionsOf toggles;
     };
 
   # Write side: the same lookup decides where each entry lands. A path absent
@@ -151,6 +175,7 @@ let
     let
       toggles = togglesOf registry;
       duplicateNames = duplicateNamesOf toggles;
+      prefixCollisions = prefixCollisionsOf toggles;
       namespaceOf =
         entry:
         if entry.hit != null then
@@ -178,6 +203,8 @@ let
     in
     if duplicateNames != [ ] then
       throw (duplicateMessage host duplicateNames)
+    else if prefixCollisions != [ ] then
+      throw (collisionMessage host prefixCollisions)
     else
       {
         programs = landing "programs";
