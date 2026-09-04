@@ -238,8 +238,10 @@ let
       ## Python
 
       Target Python 3.14 when using Python. Use the cloned docs at
-      `/data/git/python-cpython-docs/current` before web lookup when Python
-      behavior or documentation is relevant.
+      `$LOCAL_MIRRORS/python-cpython-docs/current` before web lookup when Python
+      behavior or documentation is relevant, if that path exists on the host.
+      When `$LOCAL_MIRRORS` is unset or the path is absent, use the configured
+      upstream or web source instead of assuming that local mirrors are mounted.
 
       Use `uv` and `uvx` for Python work. Do not directly use `pip`, `venv`, or
       `python` invocations. For inline or one-off dependencies, use
@@ -314,44 +316,46 @@ let
       ## Local Mirrors
 
       Use local source and documentation mirrors before web lookup when a mirror is
-      listed for the subject. The shared mirror list is managed in
-      `modules/hosts/common/mirrors.nix`, and operator path documentation lives in
-      `docs/reference/local-mirrors.md`.
+      listed for the subject and its path exists on this host. The shared mirror
+      list is managed in `modules/hosts/common/mirrors.nix`, and operator path
+      documentation lives in `docs/reference/local-mirrors.md`. `$LOCAL_MIRRORS`
+      is set only when the host enables the mirror feature. If it is unset or a
+      listed path is absent, use the configured upstream or web source.
 
-      - Nix: `/data/git/NixOS-nix`, `/data/git/NixOS-nixos-hardware`,
-        `/data/git/NixOS-nixpkgs`, `/data/git/NixOS-rfcs`,
-        `/data/git/DeterminateSystems-nix-installer`
-      - Lix: `/data/git/git.lix.systems-lix-project-lix`,
-        `/data/git/git.lix.systems-lix-project-lix-installer`,
-        `/data/git/git.lix.systems-lix-project-nixos-module`
-      - Nix community: `/data/git/nix-community-home-manager`,
-        `/data/git/nix-community-nh`, `/data/git/nix-community-nixd`,
-        `/data/git/nix-community-nixvim`, `/data/git/nix-community-noogle`,
-        `/data/git/nix-community-stylix`
-      - Flake inputs and tooling: `/data/git/numtide-llm-agents.nix`,
-        `/data/git/Mic92-sops-nix`, `/data/git/cachix-devenv`,
-        `/data/git/cachix-git-hooks.nix`, `/data/git/cachix-docs.cachix.org`,
-        `/data/git/evilmartians-lefthook`, `/data/git/hercules-ci-flake-parts`,
-        `/data/git/hercules-ci-flake.parts-website`, `/data/git/mightyiam-files`,
-        `/data/git/numtide-treefmt`, `/data/git/numtide-treefmt-nix`,
-        `/data/git/vic-import-tree`
-      - Documentation: `/data/git/duplicati-documentation`,
-        `/data/git/github-docs`, `/data/git/i3-i3.github.io`,
-        `/data/git/mozilla-firefox-firefox`,
-        `/data/git/mozilla-firefox-firefox-docs/current`,
-        `/data/git/mdn-content`, `/data/git/mozilla-policy-templates`,
-        `/data/git/mozilla-enterprise-admin-reference`, `/data/git/python-cpython`,
-        `/data/git/python-cpython-docs/current`
-      - Applications and services: `/data/git/codeberg-librewolf-settings`,
-        `/data/git/better-auth-better-auth`, `/data/git/cloudflare-workers-sdk`,
-        `/data/git/duplicati-duplicati`, `/data/git/logseq-logseq`,
-        `/data/git/mpv-player-mpv`, `/data/git/openai-codex`,
-        `/data/git/rclone-rclone`, `/data/git/restic-restic`,
-        `/data/git/s0md3v-wappalyzer-next`, `/data/git/tridactyl-tridactyl`
-      - ZAP: `/data/git/zaproxy-zaproxy`,
-        `/data/git/zaproxy-zap-extensions`, `/data/git/zaproxy-zap-api-python`,
-        `/data/git/zaproxy-community-scripts`, `/data/git/fuzzdb-project-fuzzdb`,
-        `/data/git/dtkmn-mcp-zap-server`
+      - Nix: `$LOCAL_MIRRORS/NixOS-nix`, `$LOCAL_MIRRORS/NixOS-nixos-hardware`,
+        `$LOCAL_MIRRORS/NixOS-nixpkgs`, `$LOCAL_MIRRORS/NixOS-rfcs`,
+        `$LOCAL_MIRRORS/DeterminateSystems-nix-installer`
+      - Lix: `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix`,
+        `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix-installer`,
+        `$LOCAL_MIRRORS/git.lix.systems-lix-project-nixos-module`
+      - Nix community: `$LOCAL_MIRRORS/nix-community-home-manager`,
+        `$LOCAL_MIRRORS/nix-community-nh`, `$LOCAL_MIRRORS/nix-community-nixd`,
+        `$LOCAL_MIRRORS/nix-community-nixvim`, `$LOCAL_MIRRORS/nix-community-noogle`,
+        `$LOCAL_MIRRORS/nix-community-stylix`
+      - Flake inputs and tooling: `$LOCAL_MIRRORS/numtide-llm-agents.nix`,
+        `$LOCAL_MIRRORS/Mic92-sops-nix`, `$LOCAL_MIRRORS/cachix-devenv`,
+        `$LOCAL_MIRRORS/cachix-git-hooks.nix`, `$LOCAL_MIRRORS/cachix-docs.cachix.org`,
+        `$LOCAL_MIRRORS/evilmartians-lefthook`, `$LOCAL_MIRRORS/hercules-ci-flake-parts`,
+        `$LOCAL_MIRRORS/hercules-ci-flake.parts-website`, `$LOCAL_MIRRORS/mightyiam-files`,
+        `$LOCAL_MIRRORS/numtide-treefmt`, `$LOCAL_MIRRORS/numtide-treefmt-nix`,
+        `$LOCAL_MIRRORS/vic-import-tree`
+      - Documentation: `$LOCAL_MIRRORS/duplicati-documentation`,
+        `$LOCAL_MIRRORS/github-docs`, `$LOCAL_MIRRORS/i3-i3.github.io`,
+        `$LOCAL_MIRRORS/mozilla-firefox-firefox`,
+        `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/current`,
+        `$LOCAL_MIRRORS/mdn-content`, `$LOCAL_MIRRORS/mozilla-policy-templates`,
+        `$LOCAL_MIRRORS/mozilla-enterprise-admin-reference`, `$LOCAL_MIRRORS/python-cpython`,
+        `$LOCAL_MIRRORS/python-cpython-docs/current`
+      - Applications and services: `$LOCAL_MIRRORS/codeberg-librewolf-settings`,
+        `$LOCAL_MIRRORS/better-auth-better-auth`, `$LOCAL_MIRRORS/cloudflare-workers-sdk`,
+        `$LOCAL_MIRRORS/duplicati-duplicati`, `$LOCAL_MIRRORS/logseq-logseq`,
+        `$LOCAL_MIRRORS/mpv-player-mpv`, `$LOCAL_MIRRORS/openai-codex`,
+        `$LOCAL_MIRRORS/rclone-rclone`, `$LOCAL_MIRRORS/restic-restic`,
+        `$LOCAL_MIRRORS/s0md3v-wappalyzer-next`, `$LOCAL_MIRRORS/tridactyl-tridactyl`
+      - ZAP: `$LOCAL_MIRRORS/zaproxy-zaproxy`,
+        `$LOCAL_MIRRORS/zaproxy-zap-extensions`, `$LOCAL_MIRRORS/zaproxy-zap-api-python`,
+        `$LOCAL_MIRRORS/zaproxy-community-scripts`, `$LOCAL_MIRRORS/fuzzdb-project-fuzzdb`,
+        `$LOCAL_MIRRORS/dtkmn-mcp-zap-server`
     '';
   };
 

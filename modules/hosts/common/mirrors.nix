@@ -8,87 +8,95 @@
   ...
 }:
 let
-  body = _: {
-    config = {
-      localMirrors.enable = true;
+  body =
+    { config, ... }:
+    {
+      config = {
+        localMirrors.enable = true;
 
-      home-manager.users.${metaOwner.username}.programs.gitMirror = {
-        enable = true;
-        firefoxDocs.enable = true;
-        pythonDocs.enable = true;
-        jobs = 2;
-        repos = [
-          # NixOS
-          "NixOS/nix"
-          "NixOS/nixos-hardware"
-          "NixOS/nixpkgs"
-          "NixOS/rfcs"
+        home-manager.users.${metaOwner.username}.programs.gitMirror = {
+          enable = true;
+          # local-mirrors-root.service provisions localMirrors.root and the sync
+          # treats an absent root as an unmounted volume, so the two paths have
+          # to be one value: independent defaults would leave the provisioner
+          # and the sync on different paths with no error.
+          root = config.localMirrors.root;
+          stampName = config.localMirrors.stampName;
+          firefoxDocs.enable = true;
+          pythonDocs.enable = true;
+          jobs = 2;
+          repos = [
+            # NixOS
+            "NixOS/nix"
+            "NixOS/nixos-hardware"
+            "NixOS/nixpkgs"
+            "NixOS/rfcs"
 
-          # Lix
-          "https://git.lix.systems/lix-project/lix.git"
-          "https://git.lix.systems/lix-project/lix-installer.git"
-          "https://git.lix.systems/lix-project/nixos-module.git"
+            # Lix
+            "https://git.lix.systems/lix-project/lix.git"
+            "https://git.lix.systems/lix-project/lix-installer.git"
+            "https://git.lix.systems/lix-project/nixos-module.git"
 
-          # Determinate Nix (DeterminateSystems)
-          "DeterminateSystems/nix-installer"
+            # Determinate Nix (DeterminateSystems)
+            "DeterminateSystems/nix-installer"
 
-          # Nix community
-          "nix-community/home-manager"
-          "nix-community/nh"
-          "nix-community/nixd"
-          "nix-community/nixvim"
-          "nix-community/noogle"
-          "nix-community/stylix"
+            # Nix community
+            "nix-community/home-manager"
+            "nix-community/nh"
+            "nix-community/nixd"
+            "nix-community/nixvim"
+            "nix-community/noogle"
+            "nix-community/stylix"
 
-          # Flake inputs / tooling
-          "numtide/llm-agents.nix"
-          "Mic92/sops-nix"
-          "cachix/devenv"
-          "cachix/git-hooks.nix"
-          "cachix/docs.cachix.org"
-          "evilmartians/lefthook"
-          "hercules-ci/flake-parts"
-          "hercules-ci/flake.parts-website"
-          "mightyiam/files"
-          "numtide/treefmt"
-          "numtide/treefmt-nix"
-          "vic/import-tree"
+            # Flake inputs / tooling
+            "numtide/llm-agents.nix"
+            "Mic92/sops-nix"
+            "cachix/devenv"
+            "cachix/git-hooks.nix"
+            "cachix/docs.cachix.org"
+            "evilmartians/lefthook"
+            "hercules-ci/flake-parts"
+            "hercules-ci/flake.parts-website"
+            "mightyiam/files"
+            "numtide/treefmt"
+            "numtide/treefmt-nix"
+            "vic/import-tree"
 
-          # Documentation
-          "duplicati/documentation"
-          "github/docs"
-          "i3/i3.github.io"
-          "mozilla-firefox/firefox"
-          "mdn/content" # https://developer.mozilla.org
-          "mozilla/policy-templates"
-          "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
-          "python/cpython" # Source for docs.python.org
+            # Documentation
+            "duplicati/documentation"
+            "github/docs"
+            "i3/i3.github.io"
+            "mozilla-firefox/firefox"
+            "mdn/content" # https://developer.mozilla.org
+            "mozilla/policy-templates"
+            "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
+            "python/cpython" # Source for docs.python.org
 
-          # Applications
-          "https://codeberg.org/librewolf/settings.git"
-          "better-auth/better-auth"
-          "cloudflare/workers-sdk"
-          "duplicati/duplicati"
-          "logseq/logseq"
-          "mpv-player/mpv"
-          "openai/codex"
-          "rclone/rclone"
-          "restic/restic"
-          "s0md3v/wappalyzer-next"
-          "tridactyl/tridactyl"
+            # Applications
+            "https://codeberg.org/librewolf/settings.git"
+            "better-auth/better-auth"
+            "cloudflare/workers-sdk"
+            "duplicati/duplicati"
+            "logseq/logseq"
+            "mpv-player/mpv"
+            "openai/codex"
+            "rclone/rclone"
+            "restic/restic"
+            "s0md3v/wappalyzer-next"
+            "tridactyl/tridactyl"
 
-          # Zap (Zed Attack Proxy)
-          "zaproxy/zaproxy"
-          "zaproxy/zap-extensions"
-          "zaproxy/zap-api-python"
-          "zaproxy/community-scripts"
-          "fuzzdb-project/fuzzdb"
-          "dtkmn/mcp-zap-server"
+            # Zap (Zed Attack Proxy)
+            "zaproxy/zaproxy"
+            "zaproxy/zap-extensions"
+            "zaproxy/zap-api-python"
+            "zaproxy/community-scripts"
+            "fuzzdb-project/fuzzdb"
+            "dtkmn/mcp-zap-server"
 
-        ];
+          ];
+        };
       };
     };
-  };
 in
 {
   flake.nixosModules.hosts-common.imports = [ body ];

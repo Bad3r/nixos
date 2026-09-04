@@ -63,6 +63,11 @@
       pythonDocsLockPath = "${pythonDocs.outputRoot}.git-mirror.lock";
       reposFile = pkgs.writeText "repos.txt" (lib.concatStringsSep "\n" cfg.repos);
 
+      # Single import site: the two docs helpers below receive this function as
+      # an argument and render it against their own variables, instead of
+      # importing this file themselves or having their variable names spelled here.
+      mirrorRootStampGuard = import ./_mirror-root-stamp-guard.nix;
+
       # Helper script for syncing a single repo (called by parallel)
       syncRepoScript = pkgs.writeShellApplication {
         name = "git-mirror-sync-repo";
@@ -139,6 +144,27 @@
               ;;
           esac
 
+          # local-mirrors-root.service provisions the root only while the volume
+          # holding it is mounted, so an absent root means an absent volume.
+          # Ahead of the lock blocks below, not just of git clone: both docs lock
+          # files sit directly in the root, so their mkdir -p would recreate it on
+          # the root filesystem and hand every later spec a passing -d test.
+          if [ ! -d "$GIT_MIRROR_ROOT" ]; then
+            log "$spec: mirror root $GIT_MIRROR_ROOT is absent, is the volume mounted?"
+            exit 1
+          fi
+
+          # local-mirrors-root.service writes the stamp, and its condition holds
+          # only while the volume is mounted, so the stamp can exist only on that
+          # volume. No mode bit can stand in for it: the tmpfiles rule this
+          # replaced wrote 2775 onto the stray root it left on /, setgid
+          # included, and any mkdir plus chmod g+s reproduces that.
+          ${mirrorRootStampGuard {
+            rootRef = "$GIT_MIRROR_ROOT";
+            stampRef = "$GIT_MIRROR_STAMP_NAME";
+            logPrefix = "$spec: ";
+          }}
+
           if [ "''${GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC:-}" = "$spec" ] && [ -n "''${GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH:-}" ]; then
             lock_file="$GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH"
             mkdir -p "$(dirname "$lock_file")"
@@ -202,6 +228,9 @@
 
       firefoxDocsScript = import ./_firefox-docs-builder.nix {
         inherit lib pkgs;
+        mirrorRoot = cfg.root;
+        inherit (cfg) stampName;
+        mkStampGuard = mirrorRootStampGuard;
         firefoxDocs = firefoxDocs // {
           lockPath = firefoxDocsLockPath;
         };
@@ -209,6 +238,9 @@
 
       pythonDocsScript = import ./_python-docs-publisher.nix {
         inherit lib pkgs;
+        mirrorRoot = cfg.root;
+        inherit (cfg) stampName;
+        mkStampGuard = mirrorRootStampGuard;
         pythonDocs = pythonDocs // {
           lockPath = pythonDocsLockPath;
         };
@@ -227,7 +259,25 @@
           set -eu
           umask 002
           export GIT_MIRROR_ROOT="${cfg.root}"
+          export GIT_MIRROR_STAMP_NAME=${lib.escapeShellArg cfg.stampName}
           export GIT_MIRROR_MAX_BACKUPS=${toString cfg.maxBackups}
+
+          # Same two conditions the workers check, once, so an unusable root is
+          # one line instead of one per spec. Wording matches the per-spec
+          # messages so both read as the same failure. The worker checks stay:
+          # they are what stops a clone into a root that goes away mid-run.
+          log() { printf '%s git-mirror: %s\n' "$(date -Is)" "$*" >&2; }
+
+          if [ ! -d "$GIT_MIRROR_ROOT" ]; then
+            log "mirror root $GIT_MIRROR_ROOT is absent, is the volume mounted?"
+            exit 1
+          fi
+
+          ${mirrorRootStampGuard {
+            rootRef = "$GIT_MIRROR_ROOT";
+            stampRef = "$GIT_MIRROR_STAMP_NAME";
+          }}
+
           ${lib.optionalString firefoxDocs.enable ''
             export GIT_MIRROR_FIREFOX_DOCS_REPO_SPEC=${lib.escapeShellArg firefoxDocs.repoSpec}
             export GIT_MIRROR_FIREFOX_DOCS_LOCK_PATH=${lib.escapeShellArg firefoxDocsLockPath}
@@ -249,6 +299,17 @@
           type = lib.types.str;
           default = "/data/git";
           description = "Directory for mirrored repositories.";
+        };
+
+        stampName = lib.mkOption {
+          type = lib.types.str;
+          default = ".local-mirrors-root";
+          description = ''
+            Marker `local-mirrors-root.service` writes inside the root. Every
+            sync refuses while it is missing, so it must match
+            `localMirrors.stampName`; `modules/hosts/common/mirrors.nix` feeds
+            it across.
+          '';
         };
 
         repos = lib.mkOption {

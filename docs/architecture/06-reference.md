@@ -115,10 +115,13 @@ Available after `nix develop path:.`:
 
 ## Resource Links
 
-The complete shared mirror inventory is documented in
+The complete shared mirror inventory for hosts that enable the feature is documented in
 [`../reference/local-mirrors.md`](../reference/local-mirrors.md). The table
 below mirrors the configured common-host paths from
 `modules/hosts/common/mirrors.nix` plus generated documentation paths.
+These are host-local paths: use them only when `$LOCAL_MIRRORS` is set and the
+selected path exists. Hosts without the mirror feature use the configured
+upstream or web source.
 
 | Resource                   | Location                                              |
 | -------------------------- | ----------------------------------------------------- |
