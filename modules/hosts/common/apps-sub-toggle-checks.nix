@@ -140,8 +140,10 @@ let
     {
       # lib.recursiveUpdate in hostAppsFor's landing fold corrupts the shorter
       # path's mkOverride wrapper when a longer registered path shares its
-      # prefix, so this has to be reported like an exact duplicate rather than
-      # routed and silently missing its sibling data.
+      # prefix, so this is rejected rather than routed with its sibling data
+      # silently missing. Its own field, not `duplicates`: the check renders it
+      # through collisionMessage, the diagnosis hostAppsFor throws, and not as
+      # an exact repeat whose remedy ("remove the duplicate") does not apply.
       name = "one registered path is a prefix of another";
       registry.subToggles = [
         (toggle [ "logseq" "extended" "disableGpuCompositing" ] true)
@@ -149,7 +151,7 @@ let
       ];
       uncomparable = [ "logseq.extended.disableGpuCompositing.nested" ];
       noOps = [ ];
-      duplicates = [
+      prefixCollisions = [
         "logseq.extended.disableGpuCompositing is a prefix of logseq.extended.disableGpuCompositing.nested"
       ];
     }
@@ -344,6 +346,7 @@ let
     let
       got = classify baseline case.registry;
       expectedDuplicates = case.duplicates or [ ];
+      expectedPrefixCollisions = case.prefixCollisions or [ ];
     in
     lib.optional (
       got.uncomparable != case.uncomparable
@@ -354,6 +357,9 @@ let
     ++ lib.optional (
       got.duplicates != expectedDuplicates
     ) "${case.name}: duplicates ${fmt got.duplicates}, expected ${fmt expectedDuplicates}"
+    ++
+      lib.optional (got.prefixCollisions != expectedPrefixCollisions)
+        "${case.name}: prefixCollisions ${fmt got.prefixCollisions}, expected ${fmt expectedPrefixCollisions}"
   ) cases;
 
   allFailures = failures ++ routingFailures;

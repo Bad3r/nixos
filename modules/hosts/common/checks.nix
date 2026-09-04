@@ -161,8 +161,10 @@ let
         entry: entry.hit != null && unwrapOverride entry.hit.value == entry.toggle.value
       );
       # Reported here as well as thrown by hostAppsFor, so the perSystem check
-      # rejects the same registry the host evaluation rejects.
-      duplicates = duplicateNamesOf toggles ++ prefixCollisionsOf toggles;
+      # rejects the same registry the host evaluation rejects, with the same
+      # diagnosis for each shape.
+      duplicates = duplicateNamesOf toggles;
+      prefixCollisions = prefixCollisionsOf toggles;
     };
 
   # Write side: the same lookup decides where each entry lands. A path absent
@@ -290,6 +292,8 @@ in
         lib.nameValuePair "host-${host}-apps-no-noop" (
           if result.duplicates != [ ] then
             throw (duplicateMessage host result.duplicates)
+          else if result.prefixCollisions != [ ] then
+            throw (collisionMessage host result.prefixCollisions)
           else if result.noOps != [ ] then
             throw (messageFor host result.noOps)
           else
