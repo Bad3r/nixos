@@ -56,6 +56,12 @@ Nested host app overrides register full option paths and route them through `pro
 
 See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
 
+## Cache Boundaries
+
+Cache-root membership is derived from evaluated host configuration. Every NVIDIA-enabled host explicitly sets `cacheRoots.nvidiaKernelModules`; missing, malformed, or unknown policy values fail evaluation. songbird sets it to `false` to keep its source-built CachyOS module out while retaining `nvidia-x11` and `nvidia-settings` coverage.
+
+See [binary cache coverage](docs/reference/binary-cache-coverage.md) for the inventory and operator policy.
+
 ## Secrets
 
 Secrets are managed with [sops-nix](https://github.com/Mic92/sops-nix). Encrypted payloads live in `secrets/`, a private git submodule, and are declared via `sops.secrets`.

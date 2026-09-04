@@ -70,6 +70,124 @@ let
 
   nvidiaLoaded = hostConfig: lib.elem "nvidia" hostConfig.services.xserver.videoDrivers;
 
+  # cacheRoots is free-form host-registry data. NVIDIA hosts must choose this
+  # explicit Boolean so a lost exception cannot silently publish a module that
+  # has no substituter. All declared keys are checked on every host.
+  cacheRootPolicyKeys = [ "nvidiaKernelModules" ];
+  nvidiaKernelModulesCachePolicy =
+    hostName: nvidiaEnabled: hostFlags:
+    let
+      rawPolicy = hostFlags.cacheRoots or { };
+      policy =
+        if builtins.isAttrs rawPolicy then
+          rawPolicy
+        else
+          throw "cache-roots: flake.lib.nixos.hosts.${hostName}.cacheRoots must be an attrset";
+      unknown = lib.subtractLists cacheRootPolicyKeys (lib.attrNames policy);
+      value =
+        policy.nvidiaKernelModules or (
+          if nvidiaEnabled then
+            throw "cache-roots: flake.lib.nixos.hosts.${hostName}.cacheRoots.nvidiaKernelModules must be set to true or false for an NVIDIA-enabled host"
+          else
+            true
+        );
+    in
+    if unknown != [ ] then
+      throw "cache-roots: flake.lib.nixos.hosts.${hostName}.cacheRoots has unknown key(s): ${lib.concatStringsSep ", " unknown}"
+    else if !builtins.isBool value then
+      throw "cache-roots: flake.lib.nixos.hosts.${hostName}.cacheRoots.nvidiaKernelModules must be a Boolean"
+    else
+      value;
+
+  nvidiaKernelModulesCachePolicyFor =
+    hostName: hostConfig:
+    nvidiaKernelModulesCachePolicy hostName (nvidiaLoaded hostConfig) (
+      config.flake.lib.nixos.hosts.${hostName} or { }
+    );
+
+  nvidiaKernelModulesCached =
+    { hostName, hostConfig, ... }:
+    let
+      nvidiaEnabled = nvidiaLoaded hostConfig;
+      policy = nvidiaKernelModulesCachePolicyFor hostName hostConfig;
+    in
+    builtins.seq policy (nvidiaEnabled && policy);
+
+  nvidiaKernelModulesPolicyTestCases = [
+    {
+      name = "non-NVIDIA host with no policy";
+      nvidiaEnabled = false;
+      hostFlags = { };
+      expected = true;
+    }
+    {
+      name = "NVIDIA host with explicit inclusion";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots.nvidiaKernelModules = true;
+      expected = true;
+    }
+    {
+      name = "NVIDIA host with explicit exclusion";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots.nvidiaKernelModules = false;
+      expected = false;
+    }
+    {
+      name = "NVIDIA host with no policy";
+      nvidiaEnabled = true;
+      hostFlags = { };
+      expectFailure = true;
+    }
+    {
+      name = "NVIDIA host with an empty policy";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots = { };
+      expectFailure = true;
+    }
+    {
+      name = "misspelled policy key";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots.nvidiaKernelModule = false;
+      expectFailure = true;
+    }
+    {
+      name = "unknown policy key alongside valid policy";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots = {
+        nvidiaKernelModules = false;
+        nvidiaKernelModule = false;
+      };
+      expectFailure = true;
+    }
+    {
+      name = "non-Boolean policy value";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots.nvidiaKernelModules = "false";
+      expectFailure = true;
+    }
+    {
+      name = "non-attrset policy";
+      nvidiaEnabled = true;
+      hostFlags.cacheRoots = "false";
+      expectFailure = true;
+    }
+  ];
+  nvidiaKernelModulesPolicyTestFailures = lib.filter (
+    test:
+    let
+      result = builtins.tryEval (
+        let
+          value = nvidiaKernelModulesCachePolicy "fixture" test.nvidiaEnabled test.hostFlags;
+        in
+        builtins.deepSeq value value
+      );
+    in
+    if test.expectFailure or false then
+      result.success
+    else
+      !result.success || result.value != test.expected
+  ) nvidiaKernelModulesPolicyTestCases;
+
   # Packages the bare package-set attribute never produces, or that never
   # reach environment.systemPackages at all. Each entry resolves the package
   # from the host config and states the condition under which the host
@@ -88,11 +206,11 @@ let
   hostOptionPackages = {
     nemo-with-extensions = {
       path = hostConfig: hostConfig.programs.nemo.extended.finalPackage;
-      installed = hostConfig: hostConfig.programs.nemo.extended.enable;
+      installed = { hostConfig, ... }: hostConfig.programs.nemo.extended.enable;
     };
     nvidia-x11 = {
       path = hostConfig: hostConfig.hardware.nvidia.package;
-      installed = nvidiaLoaded;
+      installed = { hostConfig, ... }: nvidiaLoaded hostConfig;
     };
     # Two derivations hanging off hardware.nvidia.package rather than outputs
     # of it, so linking every output does not reach them.
@@ -107,6 +225,9 @@ let
     # required on Blackwell and newer, and a symmetric second entry cannot exist
     # while no host sets it: the unused-name throw below would abort on it.
     #
+    # A host registry policy can keep this installed module out of published
+    # cache roots when its kernel is host-specific and has no substituter.
+    #
     # `settings` is nvidia-settings, which upstream adds to
     # environment.systemPackages under hardware.nvidia.nvidiaSettings.
     nvidia-kernel-modules = {
@@ -116,11 +237,12 @@ let
           hostConfig.hardware.nvidia.package.open
         else
           hostConfig.hardware.nvidia.package.mod;
-      installed = nvidiaLoaded;
+      installed = nvidiaKernelModulesCached;
     };
     nvidia-settings = {
       path = hostConfig: hostConfig.hardware.nvidia.package.settings;
-      installed = hostConfig: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
+      installed =
+        { hostConfig, ... }: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
     };
     # modules/apps/steam.nix installs nothing itself: it sets
     # programs.steam.enable with extraCompatPackages and extraPackages, and
@@ -131,9 +253,30 @@ let
     # missing exactly the part that costs a switch.
     steam = {
       path = hostConfig: hostConfig.programs.steam.package;
-      installed = hostConfig: hostConfig.programs.steam.enable;
+      installed = { hostConfig, ... }: hostConfig.programs.steam.enable;
     };
   };
+
+  appEnabled =
+    hostConfig: name: ((hostConfig.programs.${name} or { }).extended or { }).enable or false;
+
+  # Operator documentation can query the evaluated host membership without
+  # maintaining a second, time-sensitive host matrix. Return names only so the
+  # query does not force package derivations.
+  inventory =
+    nixosConfigurations:
+    lib.mapAttrs (
+      hostName: nixos:
+      let
+        hostConfig = nixos.config;
+      in
+      {
+        hostPackages = lib.filter (appEnabled hostConfig) hostPackageNames;
+        optionPackages = lib.attrNames (
+          lib.filterAttrs (_: entry: entry.installed { inherit hostName hostConfig; }) hostOptionPackages
+        );
+      }
+    ) nixosConfigurations;
 
   # Built through the perSystem nixpkgs instance (devshell surface),
   # not enabled as host apps.
@@ -143,6 +286,8 @@ let
   ];
 in
 {
+  flake.lib.nixos._cacheRootsInventory = inventory;
+
   perSystem =
     {
       pkgs,
@@ -158,9 +303,6 @@ in
         _: nixos: nixos.pkgs.stdenv.hostPlatform.system == system
       ) config.flake.nixosConfigurations;
 
-      appEnabled =
-        hostConfig: name: ((hostConfig.programs.${name} or { }).extended or { }).enable or false;
-
       hostEntries =
         hostName: nixos:
         let
@@ -171,13 +313,19 @@ in
           pkgName = name;
           path = hostConfig.programs.${name}.extended.package;
         }) (lib.filter (appEnabled hostConfig) hostPackageNames)
-        ++ lib.mapAttrsToList (name: entry: {
-          key = "${hostName}/${name}";
-          pkgName = name;
-          path = entry.path hostConfig;
-        }) (lib.filterAttrs (_: entry: entry.installed hostConfig) hostOptionPackages);
+        ++
+          lib.mapAttrsToList
+            (name: entry: {
+              key = "${hostName}/${name}";
+              pkgName = name;
+              path = entry.path hostConfig;
+            })
+            (lib.filterAttrs (_: entry: entry.installed { inherit hostName hostConfig; }) hostOptionPackages);
 
-      hostConfigs = map (nixos: nixos.config) (lib.attrValues hosts);
+      hostConfigs = lib.mapAttrsToList (hostName: nixos: {
+        inherit hostName;
+        hostConfig = nixos.config;
+      }) hosts;
 
       # A name no host enables publishes nothing, so the list would carry it
       # forever while the cache stayed unchanged. That is the failure mode
@@ -185,12 +333,13 @@ in
       # output silently. Renaming an app or turning it off on the last host
       # that had it lands here.
       unusedAppNames = lib.filter (
-        name: !(lib.any (hostConfig: appEnabled hostConfig name) hostConfigs)
+        name: !(lib.any ({ hostConfig, ... }: appEnabled hostConfig name) hostConfigs)
       ) hostPackageNames;
 
       unusedOptionNames = lib.attrNames (
         lib.filterAttrs (
-          _: entry: !(lib.any (hostConfig: entry.installed hostConfig) hostConfigs)
+          _: entry:
+          !(lib.any ({ hostName, hostConfig }: entry.installed { inherit hostName hostConfig; }) hostConfigs)
         ) hostOptionPackages
       );
 
@@ -239,7 +388,7 @@ in
       # Matched on the derivation name and pname, which is what
       # scripts/cache-coverage.sh matches globs against: the entry name is
       # hand-chosen and carries no version, so it alone would miss
-      # `proton-vpn-[0-9]*` against a `proton-vpn-4.16.5` derivation, and
+      # `proton-vpn-[0-9]*` against a versioned `proton-vpn` derivation, and
       # version-anchored globs are already the file's convention for wrapper
       # entries. The entry name is checked too. The detector never sees it, so a
       # glob spelled that way suppresses nothing, but it states the same
@@ -304,6 +453,73 @@ in
       ) entries;
 
       buildsHere = hosts != { };
+
+      # Computed once per host and shared with nvidiaCachePolicyFailures below,
+      # which would otherwise re-evaluate the same policy a second time per host.
+      nvidiaPolicyByHost = lib.mapAttrs (
+        hostName: nixos: nvidiaKernelModulesCachePolicyFor hostName nixos.config
+      ) hosts;
+
+      # Force every registered host policy before testing the published-entry
+      # contract. Otherwise a non-NVIDIA host's unknown cacheRoots key could
+      # remain lazy forever and a future GPU enablement would be fail-open.
+      nvidiaCachePolicyValidation = builtins.deepSeq (lib.attrValues nvidiaPolicyByHost) true;
+
+      # A false host policy may exclude only the kernel-module entry. Compare
+      # the publisher's actual entries with the evaluated retained userspace
+      # policy, so an intentional nvidiaSettings=false override stays valid.
+      nvidiaCachePolicyFailures =
+        let
+          publishedFor =
+            hostName:
+            map (entry: entry.pkgName) (
+              lib.filter (entry: entry.key == "${hostName}/${entry.pkgName}") entries
+            );
+          excluded = lib.filterAttrs (
+            hostName: nixos:
+            let
+              policy = nvidiaPolicyByHost.${hostName};
+            in
+            builtins.seq policy (nvidiaLoaded nixos.config && !policy)
+          ) hosts;
+          # Derived from hostOptionPackages' own installed predicates rather than
+          # hand-listed, so a future NVIDIA-adjacent entry stays covered by this
+          # check instead of silently falling outside it.
+          retainedFor =
+            hostName: hostConfig:
+            lib.attrNames (
+              lib.filterAttrs (
+                name: entry:
+                name != "nvidia-kernel-modules"
+                && lib.hasPrefix "nvidia-" name
+                && entry.installed { inherit hostName hostConfig; }
+              ) hostOptionPackages
+            );
+        in
+        lib.concatLists (
+          lib.mapAttrsToList (
+            hostName: nixos:
+            let
+              names = publishedFor hostName;
+            in
+            lib.optional (lib.elem "nvidia-kernel-modules" names) "${hostName}: nvidia-kernel-modules must remain outside the published cache roots"
+            ++ map (name: "${hostName}: cache policy dropped retained NVIDIA entry ${name}") (
+              lib.subtractLists names (retainedFor hostName nixos.config)
+            )
+          ) excluded
+        );
+
+      nvidiaCachePolicyCheck =
+        if nvidiaKernelModulesPolicyTestFailures != [ ] then
+          throw "cache-roots: nvidia kernel modules cache policy fixture failed: ${
+            lib.concatStringsSep ", " (map (test: test.name) nvidiaKernelModulesPolicyTestFailures)
+          }"
+        else if !nvidiaCachePolicyValidation then
+          throw "cache-roots: nvidia kernel modules cache policy validation did not evaluate to true"
+        else if nvidiaCachePolicyFailures != [ ] then
+          throw "cache-roots: ${lib.concatStringsSep "; " nvidiaCachePolicyFailures}"
+        else
+          pkgs.runCommandLocal "cache-roots-nvidia-cache-policy" { } "touch $out";
     in
     {
       packages = lib.mkIf buildsHere {
@@ -321,6 +537,7 @@ in
             throw "cache-roots: ${
               lib.concatMapStringsSep ", " (entry: entry.pkgName) allowlistedPublished
             } is published by cache-roots.nix and also matched by a glob in scripts/cache-coverage-allowlist.txt; allowlisting and caching are mutually exclusive dispositions. Delete the glob (docs/reference/cache-coverage.md).";
+        cache-roots-nvidia-cache-policy = nvidiaCachePolicyCheck;
       };
     };
 }

@@ -12,6 +12,10 @@ _: {
     # Host runtime gate read by modules/system76/r2-runtime.nix.
     r2RuntimeReady = true;
 
+    # All NVIDIA-enabled hosts must choose this cache-root policy explicitly.
+    # System76's generic kernel module remains a published cache root.
+    cacheRoots.nvidiaKernelModules = true;
+
     # Per-host values consumed by modules/hosts/common/*.
     duplicatiStateDirReadable = true;
     lenovoMonitorAttached = true;

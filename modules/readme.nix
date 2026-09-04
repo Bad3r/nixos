@@ -8,6 +8,7 @@
       "build"
       "hm-package-pattern"
       "app-wiring"
+      "cache-boundaries"
       "secrets"
       "flake-input-deduplication"
       "files"
@@ -99,6 +100,17 @@
           Nested host app overrides register full option paths and route them through `programs` first, then `services` for services-only paths. A path absent from both baseline namespaces fails the host evaluation, so it cannot be dropped by a switch that never runs the FR-5 check.
 
           See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
+
+        '';
+
+      cache-boundaries =
+        # markdown
+        ''
+          ## Cache Boundaries
+
+          Cache-root membership is derived from evaluated host configuration. Every NVIDIA-enabled host explicitly sets `cacheRoots.nvidiaKernelModules`; missing, malformed, or unknown policy values fail evaluation. songbird sets it to `false` to keep its source-built CachyOS module out while retaining `nvidia-x11` and `nvidia-settings` coverage.
+
+          See [binary cache coverage](docs/reference/binary-cache-coverage.md) for the inventory and operator policy.
 
         '';
 

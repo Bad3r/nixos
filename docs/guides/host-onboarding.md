@@ -36,16 +36,16 @@ to `configurations.nixos.<host>.module`; import-tree discovers the files
 automatically, so no imports need registering. The minimal managed-workstation
 footprint:
 
-| File                  | Purpose                                                                                                                                                                                                             |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hardware-config.nix` | Hardware truth from `nixos-generate-config`: filesystems, initrd modules, firmware, loader entry limit                                                                                                              |
-| `host-id.nix`         | Unique `networking.hostId` (8 hex chars; derive with `head -c 8 /etc/machine-id` on the target)                                                                                                                     |
-| `state-version.nix`   | Install-time `system.stateVersion` constant; never bump on upgrades                                                                                                                                                 |
-| `policy.nix`          | Registry flags under `flake.lib.nixos.hosts.<host>` consumed by `modules/hosts/common/*` (see step 3)                                                                                                               |
-| `ssh.nix`             | `services.openssh.publicKey` (the host ed25519 public key, consumed by `flake.nixosModules.ssh` for fleet known_hosts) and the enable choice                                                                        |
-| `imports.nix`         | Chassis-specific modules only (nixos-hardware profile, vendor support module); the fleet baseline comes from hosts-common                                                                                           |
-| GPU module            | GPU wiring over `flake.nixosModules.nvidia-gpu` when the hardware has an NVIDIA GPU (`modules/system76/nvidia-gpu.nix`, `modules/tpnix/power.nix` are the current examples)                                         |
-| `nix-settings.nix`    | Hardware-tuned `max-jobs` and `min-free`, plus `max-substitution-jobs` (`nproc - 1`, floored at 1; Nix has no `auto` for it), which `modules/hosts/common/nix-substituters.nix` asserts on every `shareCommon` host |
+| File                  | Purpose                                                                                                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hardware-config.nix` | Hardware truth from `nixos-generate-config`: filesystems, initrd modules, firmware, loader entry limit                                                                                                                                            |
+| `host-id.nix`         | Unique `networking.hostId` (8 hex chars; derive with `head -c 8 /etc/machine-id` on the target)                                                                                                                                                   |
+| `state-version.nix`   | Install-time `system.stateVersion` constant; never bump on upgrades                                                                                                                                                                               |
+| `policy.nix`          | Registry flags under `flake.lib.nixos.hosts.<host>` consumed by `modules/hosts/common/*` (see step 3)                                                                                                                                             |
+| `ssh.nix`             | `services.openssh.publicKey` (the host ed25519 public key, consumed by `flake.nixosModules.ssh` for fleet known_hosts) and the enable choice                                                                                                      |
+| `imports.nix`         | Chassis-specific modules only (nixos-hardware profile, vendor support module); the fleet baseline comes from hosts-common                                                                                                                         |
+| GPU module            | GPU wiring over `flake.nixosModules.nvidia-gpu` when the hardware has an NVIDIA GPU (`modules/system76/nvidia-gpu.nix`, `modules/tpnix/power.nix` are the current examples); pairs with the `cacheRoots.nvidiaKernelModules` policy key in step 3 |
+| `nix-settings.nix`    | Hardware-tuned `max-jobs` and `min-free`, plus `max-substitution-jobs` (`nproc - 1`, floored at 1; Nix has no `auto` for it), which `modules/hosts/common/nix-substituters.nix` asserts on every `shareCommon` host                               |
 
 Baseline behavior that does NOT need per-host files:
 
@@ -99,6 +99,11 @@ _: {
     # secrets/<host>.yaml keys holding hosts(5) payloads that dnsmasq serves
     # as addn-hosts files (modules/hosts/common/private-dns-hosts.nix).
     # privateDnsHostsSecretKeys = [ "internal_hosts" ];
+
+    # Required on an NVIDIA host: modules/meta/cache-roots.nix throws without
+    # it. true publishes the built kernel module as a cache root, false keeps
+    # a module with no substituter local. See below.
+    # cacheRoots.nvidiaKernelModules = true;
   };
 }
 ```
@@ -111,6 +116,18 @@ the network. It opens inbound UDP 53/67 and
 TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
 that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 `::1` with no `dhcp-range`, so it never listens on a link.
+
+`cacheRoots.nvidiaKernelModules` becomes required the moment the host loads
+the `nvidia` video driver, which the GPU module in step 2 does:
+`modules/meta/cache-roots.nix` throws for an NVIDIA-enabled host that leaves
+it unset or non-Boolean, and for any host whose `cacheRoots` carries an
+unknown key, and the `cache-roots-nvidia-cache-policy` flake check forces
+that policy for every registered host, so `nix flake check` fails before the
+host builds. `true`
+publishes the built kernel module among the cache roots the fleet pushes;
+`false` records an exclusion for a module no substituter serves, which is
+songbird's case with its source-built CachyOS kernel.
+`docs/reference/binary-cache-coverage.md` covers the policy.
 
 `firewallExtraTcpPortRanges` opens a range globally. In contrast,
 `firewallLocalTcpPortRanges` emits IPv4 `iptables` rules that accept source
