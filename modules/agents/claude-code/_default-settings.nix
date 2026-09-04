@@ -195,7 +195,7 @@ let
       allow = fileWebAllow ++ map bashPrefix bashAllow;
       ask = map bashPrefix bashAsk;
       deny = map bashPrefix bashDeny;
-      defaultMode = "plan";
+      defaultMode = "auto";
     };
     model = "claude-opus-5"; # Default model
     alwaysThinkingEnabled = true;
@@ -204,6 +204,13 @@ let
     # max and outranks this, which stays as the floor if that var is unset.
     effortLevel = "xhigh";
     enableAllProjectMcpServers = true;
+    # Registers the marketplace behind the chrome-devtools-mcp extraPlugins key at
+    # startup. Sparse because a full clone pulls the devtools-frontend submodule.
+    extraKnownMarketplaces."chrome-devtools-plugins".source = {
+      source = "git";
+      url = "https://github.com/ChromeDevTools/chrome-devtools-mcp.git";
+      sparsePaths = [ ".claude-plugin" ];
+    };
     fileCheckpointingEnabled = true; # Snapshot files before edits so /rewind can restore them
     language = "en"; # Language
     outputStyle = "Proactive"; # Output style

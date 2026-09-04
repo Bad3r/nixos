@@ -7,6 +7,9 @@
       "automatic-import"
       "build"
       "hm-package-pattern"
+      "app-wiring"
+      "storage-boundaries"
+      "cache-boundaries"
       "secrets"
       "flake-input-deduplication"
       "files"
@@ -90,6 +93,39 @@
 
         '';
 
+      app-wiring =
+        # markdown
+        ''
+          ## App Wiring
+
+          Nested host app overrides register full option paths and route them through `programs` first, then `services` for services-only paths. A path absent from both baseline namespaces fails the host evaluation, so it cannot be dropped by a switch that never runs the FR-5 check.
+
+          See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
+
+        '';
+
+      storage-boundaries =
+        # markdown
+        ''
+          ## Storage Boundaries
+
+          Storage-dependent services must be enabled only on hosts that provide their required mount. The system76 host has no dedicated `/data`, so it disables both common local mirror writers and the R2 runtime; the relocated `/data` volume belongs to `songbird`.
+
+          See the [local mirror reference](docs/reference/local-mirrors.md), [system76 configuration](docs/system76/system76-configuration.md), and [R2 runtime policy](docs/r2-cloud/system76-runtime.md) for the operational contracts.
+
+        '';
+
+      cache-boundaries =
+        # markdown
+        ''
+          ## Cache Boundaries
+
+          Cache-root membership is derived from evaluated host configuration. Every NVIDIA-enabled host explicitly sets `cacheRoots.nvidiaKernelModules`; missing, malformed, or unknown policy values fail evaluation. songbird sets it to `false` to keep its source-built CachyOS module out while retaining `nvidia-x11` and `nvidia-settings` coverage.
+
+          See [binary cache coverage](docs/reference/binary-cache-coverage.md) for the inventory and operator policy.
+
+        '';
+
       secrets =
         # markdown
         ''
@@ -106,11 +142,11 @@
         ''
           ## Flake Input Deduplication
 
-          These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it. Remove any `dedupe_*` input once no `.follows` declaration references it.
+          These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it. The table lists dedicated dedupe roots and canonical non-nixpkgs roots; ordinary root followers such as `nixpkgs` are declared beside each dependent input. Remove any `dedupe_*` input once no `.follows` declaration references it.
 
           | Input                 | Followed By                                                  |
           | --------------------- | ------------------------------------------------------------ |
-          | `dedupe_flake-compat` | `make-shell.inputs.flake-compat`                             |
+          | `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat` |
           | `dedupe_flake-utils`  | `claude-desktop-linux-flake.inputs.flake-utils`              |
           | `dedupe_nur`          | `stylix.inputs.nur`                                          |
           | `systems`             | `dedupe_flake-utils.inputs.systems`, `stylix.inputs.systems` |

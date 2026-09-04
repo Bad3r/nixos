@@ -39,6 +39,7 @@ let
       cfg = config.programs.google-chrome.extended;
 
       inherit (import ../_chromium-policies.nix)
+        managedDnsOverHttps
         managedExtensionSettings
         managedDefaultSearchProvider
         ;
@@ -75,6 +76,7 @@ let
           };
           "opt/chrome/policies/managed/default-search-provider.json".text =
             builtins.toJSON managedDefaultSearchProvider;
+          "opt/chrome/policies/managed/dns-over-https.json".text = builtins.toJSON managedDnsOverHttps;
         };
       };
     };

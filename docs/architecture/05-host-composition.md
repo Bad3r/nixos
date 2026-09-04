@@ -53,35 +53,64 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
 
 Every host follows the same shape: NixOS fragments under `modules/<host>/` extend `configurations.nixos.<host>.module`, while `policy.nix` contributes per-host registry data. Cross-host concerns (imports skeleton, boot, base services, networking base, firewall, fonts, duplicati wiring, sudo, dbus, pipewire, hostname, sops, etc.) live under `modules/hosts/common/`; a host directory carries only hardware truth, chassis-specific modules, and small value files. Notable and divergent files are listed below for the hosts currently in the repo. To audit the current set of files for any host, run `ls modules/<host>/`.
 
-The planned `songbird` managed-workstation footprint is `hardware-config.nix`,
-`host-id.nix`, `state-version.nix`, a GPU module, `support.nix`, and a
-`policy.nix` carrying the registry values the common layer consumes. Every
-host additionally needs an explicit `shareCommon` entry in
-`modules/hosts/common/registry.nix`: the host constructor aborts evaluation
-for hosts without one, so common-baseline participation is always a recorded
-choice (`true` to opt in, `false` to deliberately opt out). The full
-procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
+`songbird` is the managed-workstation instance of that shape:
+`hardware-config.nix`, `host-id.nix`, `state-version.nix`, `nvidia-gpu.nix`,
+`support.nix`, a `cachyos-kernel.nix` that swaps the common `linuxPackages_zen`
+default for the locally built CachyOS kernel, a `firewall-policy-check.nix`
+flake check pinning the source-scoped developer port rules, and a `policy.nix`
+carrying the registry values the common layer consumes, plus the same
+preference files system76 carries (Samba share, secret-service backend, mpv
+backend, app overrides). Every host additionally
+needs an explicit `shareCommon` entry in `modules/hosts/common/registry.nix`:
+the host constructor aborts evaluation for hosts without one, so
+common-baseline participation is always a recorded choice (`true` to opt in,
+`false` to deliberately opt out). The full procedure lives in the
+[host onboarding runbook](../guides/host-onboarding.md).
+
+### songbird (Arrow Lake desktop)
+
+| File                                         | Purpose                                                                                                                                                                                                                            |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/songbird/imports.nix`               | Language toolchain enables only; the desktop board has no vendor module, so nothing chassis-specific to import                                                                                                                     |
+| `modules/songbird/nix-settings.nix`          | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                                                                                                         |
+| `modules/songbird/ssh.nix`                   | songbird host public key + `services.openssh.enable` override                                                                                                                                                                      |
+| `modules/songbird/r2-runtime.nix`            | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                                                                                                                 |
+| `modules/songbird/hardware-config.nix`       | LUKS root and swap on the SN8100, the `/data` LUKS+XFS volume, the NTFS `/shared` drive and its pre-hibernation unmount, firmware, NPU, Thunderbolt (bolt)                                                                         |
+| `modules/songbird/host-id.nix`               | `networking.hostId`                                                                                                                                                                                                                |
+| `modules/songbird/state-version.nix`         | Install-time `system.stateVersion` constant (`26.11`)                                                                                                                                                                              |
+| `modules/songbird/support.nix`               | `services.fwupd` (LVFS); no vendor daemon on this board                                                                                                                                                                            |
+| `modules/songbird/nvidia-gpu.nix`            | GPU profile over `flake.nixosModules.nvidia-gpu`: production branch, open kernel modules (Blackwell), NVDEC VA-API on a pinned DRM node, `2560x1440_144` metamode, nouveau blacklisted                                             |
+| `modules/songbird/mpv.nix`                   | mpv `gpu-api = "opengl"` override; drop once Vulkan is verified on the 5080                                                                                                                                                        |
+| `modules/songbird/gnome-keyring.nix`         | gnome-keyring force-disabled in favor of the `pass` secret service                                                                                                                                                                 |
+| `modules/songbird/pass-secret-service.nix`   | DBus secret-service for `pass`                                                                                                                                                                                                     |
+| `modules/songbird/apps-enable.nix`           | Per-host overrides over the common app baseline (Inkscape on)                                                                                                                                                                      |
+| `modules/songbird/policy.nix`                | Registry data under `flake.lib.nixos.hosts.songbird` (readiness gates, per-host values); primary handoff pending the tailnet address                                                                                               |
+| `modules/songbird/services.nix`              | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT, system76-scheduler)                                                                                                |
+| `modules/songbird/networking.nix`            | `.link` units for the two onboard NICs and the BE200 carrying no `Name=`: they displace `99-default.link` to drop its `mac` altname token without renaming                                                                         |
+| `modules/songbird/cachyos-kernel.nix`        | Pinned CachyOS overlay and `boot.kernelPackages` override over the common `linuxPackages_zen` default; the kernel and its NVIDIA module are built locally, which is why `policy.nix` sets `cacheRoots.nvidiaKernelModules = false` |
+| `modules/songbird/firewall-policy-check.nix` | Flake check `songbird-firewall-port-policy`: exactly one source-scoped start and cleanup rule per declared TCP range per approved CIDR, no source-unrestricted overlap, and TCP 9999 still globally open                           |
 
 ### system76 (Oryx Pro laptop)
 
-| File                                          | Purpose                                                                                                          |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support) and host-specific enables                    |
-| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                                                               |
-| `modules/system76/networking.nix`             | `.link` unit pinning the USB ethernet adapter to `lan0` by USB path                                              |
-| `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                    |
-| `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                      |
-| `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                   |
-| `modules/system76/r2-runtime.nix`             | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag               |
-| `modules/system76/hardware-config.nix`        | Filesystems, firmware, loader entry limit, low-level hardware settings                                           |
-| `modules/system76/host-id.nix`                | `networking.hostId`                                                                                              |
-| `modules/system76/state-version.nix`          | Install-time `system.stateVersion` constant                                                                      |
-| `modules/system76/support.nix`                | system76 hardware-support enable (kernel modules, firmware-daemon)                                               |
-| `modules/system76/nvidia-gpu.nix`             | GPU profile over `flake.nixosModules.nvidia-gpu` (`system76.gpu.mode` enum, libva routing, NVIDIA kernel params) |
-| `modules/system76/mpv.nix`                    | mpv `gpu-api = "opengl"` override (NVIDIA Vulkan deadlock workaround)                                            |
-| `modules/system76/pass-secret-service.nix`    | DBus secret-service for `pass` (system76-only)                                                                   |
-| `modules/system76/policy.nix`                 | Registry data under `flake.lib.nixos.hosts.system76` (`primary`, `tailnetIp`, readiness gates, per-host values)  |
-| `modules/system76/services.nix`               | Host-divergent services (Samba media share, system76-power stack, cloudflared, LACT)                             |
+| File                                          | Purpose                                                                                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support), host-specific enables, and storage-dependent mirror disablement |
+| `modules/system76/storage-safety-check.nix`   | Flake check proving the host has no local mirror or R2 writers while `/data` is absent                                               |
+| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                           |
+| `modules/system76/networking.nix`             | `.link` unit for the USB ethernet adapter, no `Name=`: drops the `mac` altname token without renaming                                |
+| `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                                        |
+| `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                                          |
+| `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                                       |
+| `modules/system76/r2-runtime.nix`             | Host runtime bindings for external `r2-flake` modules, gated off because system76 has no dedicated `/data`                           |
+| `modules/system76/hardware-config.nix`        | Filesystems, firmware, loader entry limit, low-level hardware settings                                                               |
+| `modules/system76/host-id.nix`                | `networking.hostId`                                                                                                                  |
+| `modules/system76/state-version.nix`          | Install-time `system.stateVersion` constant                                                                                          |
+| `modules/system76/support.nix`                | system76 hardware-support enable (kernel modules, firmware-daemon)                                                                   |
+| `modules/system76/nvidia-gpu.nix`             | GPU profile over `flake.nixosModules.nvidia-gpu` (`system76.gpu.mode` enum, libva routing, NVIDIA kernel params)                     |
+| `modules/system76/mpv.nix`                    | mpv `gpu-api = "opengl"` override (NVIDIA Vulkan deadlock workaround)                                                                |
+| `modules/system76/pass-secret-service.nix`    | DBus secret-service for `pass` (system76-only)                                                                                       |
+| `modules/system76/policy.nix`                 | Registry data under `flake.lib.nixos.hosts.system76` (`primary`, `tailnetIp`, disabled R2 readiness gate, per-host values)           |
+| `modules/system76/services.nix`               | Host-divergent services (Samba media share, system76-power stack, cloudflared, LACT)                                                 |
 
 ### tpnix (ThinkPad)
 
@@ -89,7 +118,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
 | `modules/tpnix/apps-enable.nix`          | Per-host overrides over the common app baseline                                                                                 |
 | `modules/tpnix/default-apps.nix`         | Per-host overrides for `host.defaults` (audioPlayer, videoPlayer = null)                                                        |
-| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs` and `min-free` overrides                                                                              |
+| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                      |
 | `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                                                                             |
 | `modules/tpnix/fingerprint.nix`          | Fingerprint auth (`services.fprintd`) and PAM service wiring (tpnix-only)                                                       |
 | `modules/tpnix/fonts.nix`                | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                         |
@@ -104,12 +133,12 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | `modules/tpnix/power.nix`                | GPU profile over `flake.nixosModules.nvidia-gpu` plus display and power services (`power-profiles-daemon`, logind lid handling) |
 | `modules/tpnix/services.nix`             | Host-divergent services (printing, power-profiles-daemon stack, espanso X11 override)                                           |
 
-Cross-host baselines (imports skeleton, boot, base services, networking base, firewall, private DNS hosts, fonts, duplicati wiring, color-profile, default-apps, mirrors, nix-ld, sudo, zsh, ssh, nix-substituters, packages, home-manager-apps, virtualization, ...) live in `modules/hosts/common/` and contribute to `flake.nixosModules.hosts-common`. The host constructor imports that aggregate before each host-specific module when `flake.lib.nixos.hosts.<host>.shareCommon = true`.
+Cross-host baselines (imports skeleton, boot, base services, networking base, firewall, private DNS hosts, fonts, duplicati wiring, color-profile, default-apps, mirrors, nix-ld, sudo, zsh, ssh, nix-substituters, packages, home-manager-apps, virtualization, ...) live in `modules/hosts/common/` and contribute to `flake.nixosModules.hosts-common`. The host constructor imports that aggregate before each host-specific module when `flake.lib.nixos.hosts.<host>.shareCommon = true`; host-specific modules can disable a storage-dependent baseline when the hardware lacks its required mount.
 
 General Nix daemon and evaluator settings live in `modules/base/nix-settings.nix`.
 The common `nix-substituters` module owns cache topology and download retry
 settings only. Per-host `nix-settings.nix` files stay limited to hardware-tuned
-values such as `max-jobs` and `min-free`.
+values such as `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free`.
 
 ### Host-conditional helpers
 
@@ -123,9 +152,12 @@ let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
   body =
     { hostName, lib, ... }:
+    let
+      hostFlags = hostsRegistry.${hostName} or { };
+    in
     {
       networking.firewall.allowedTCPPortRanges =
-        (hostsRegistry.${hostName} or { }).firewallExtraTcpPortRanges or [ ];
+        hostFlags.firewallExtraTcpPortRanges or [ ];
     };
 in
 {
@@ -133,7 +165,9 @@ in
 }
 ```
 
-Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers read the path with `lib.hasAttrByPath` or `or` fallbacks to stay safe across hosts. Current per-host value keys consumed by `modules/hosts/common/*`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, `firewallExtraTcpPortRanges`, and `privateDnsHostsSecretKeys`. `firewallDnsInterfaces` is the exception to the fallback rule: `modules/hosts/common/firewall.nix` throws when it is absent, so every host must set it explicitly (`[ ]` when the host serves no DNS or DHCP), because a misspelled key would otherwise emit no firewall rule and trip none of that module's guards. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+`firewallExtraTcpPortRanges` maps to NixOS's normal globally reachable TCP ranges. `firewallLocalTcpPortRanges` is separate: `modules/hosts/common/firewall.nix` emits IPv4 `iptables` rules for source addresses in `10.0.0.0/8` and `192.168.0.0/16` only. It neither includes `172.16.0.0/12` nor establishes an IPv6 or trusted-network boundary.
+
+Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules or `modules/meta/cache-roots.nix`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, `privateDnsHostsSecretKeys`, and `cacheRoots`. `firewallDnsInterfaces` and `firewallLocalTcpPortRanges` are exceptions to the fallback rule: `modules/hosts/common/firewall.nix` throws when either is absent, so every host must set both explicitly. `firewallDnsInterfaces = [ ];` means the host serves no DNS or DHCP; `firewallLocalTcpPortRanges = [ ];` means it exposes no source-scoped TCP range. A misspelled key would otherwise silently omit the rules it controls. `cacheRoots.nvidiaKernelModules` is a Boolean required on every NVIDIA-enabled host: `true` publishes the installed module and `false` excludes it. Missing, empty, non-Boolean, or unknown cache-root policy values fail evaluation. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
 
 ### Private DNS Host Pinning
 
@@ -182,6 +216,10 @@ Each host uses the same two-stage app model:
    `programs.<name>.extended.enable` baseline at `lib.mkOverride 1100`.
    Host override files such as `modules/tpnix/apps-enable.nix` layer
    `lib.mkOverride 1000` overrides for entries where a host diverges.
+   Nested overrides register full paths and route through `programs` first,
+   falling back to `services` for services-only paths. Paths absent from both
+   namespaces fail the host evaluation, so a switch cannot drop them silently;
+   the shared FR-5 check reports them as well.
 
 Home Manager wiring follows the same shape:
 

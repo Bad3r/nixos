@@ -34,33 +34,24 @@ _: {
         };
       };
 
-      # Power management configuration.
+      # Power management configuration. No cpuFreqGovernor pin: ppd is forced on
+      # above and its intel_pstate probe force-writes the governor at startup,
+      # so a pin here never survives to boot. tpnix-power-profile below owns the
+      # profile. See modules/hosts/common/services.nix.
       powerManagement = {
-        cpuFreqGovernor = lib.mkForce "performance"; # ondemand, powersave, performance
         resumeCommands = ''
-          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
-          ${pkgs.systemd}/bin/loginctl lock-sessions
-
-          # Re-assert the daemon profile after resume.
-          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance
+          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix).
+          # Guarded for the same set -e reason as the reassert below.
+          ${pkgs.systemd}/bin/loginctl lock-sessions || echo "tpnix resume: loginctl lock-sessions failed" >&2
+          # Re-assert the daemon profile after resume. Suppressed rather than
+          # fatal: nixpkgs concatenates powerUpCommands after this in the same
+          # set -e sleep-actions preStop script, so an unguarded failure here
+          # would skip it. The journal line keeps the failure visible.
+          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance || echo "tpnix resume: powerprofilesctl set performance failed" >&2
         '';
       };
 
-      systemd.services.tpnix-power-profile = {
-        description = "Force power-profiles-daemon profile to performance";
-        wantedBy = [ "graphical.target" ];
-        wants = [ "power-profiles-daemon.service" ];
-        after = [ "power-profiles-daemon.service" ];
-        startLimitBurst = 3;
-        startLimitIntervalSec = 3600;
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance";
-          RemainAfterExit = true;
-          Restart = "on-failure";
-          RestartSec = 3;
-        };
-      };
+      systemd.services.tpnix-power-profile = import ../hosts/common/_power-profile-unit.nix pkgs;
 
       # espanso's Wayland/X11 split is decided per host; this chassis runs X11.
       home-manager.sharedModules = lib.mkAfter [

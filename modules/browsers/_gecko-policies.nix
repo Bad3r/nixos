@@ -16,6 +16,7 @@
 _:
 let
   geckoSearch = import ./_gecko-search.nix { };
+  mullvadDohUrl = import ./_mullvad-doh-url.nix;
 in
 {
   policies = {
@@ -49,9 +50,12 @@ in
     };
     Cookies.Allow = [ "https://github.com" ];
 
+    # Fallback = false turns an SNI reset into a total DNS outage; see
+    # _mullvad-doh-url.nix for why the URL itself cannot revert to the
+    # documented dns. name.
     DNSOverHTTPS = {
       Enabled = true;
-      ProviderURL = "https://adblock.dns.mullvad.net/dns-query";
+      ProviderURL = mullvadDohUrl;
       Fallback = false;
     };
     SkipTermsOfUse = true;

@@ -71,6 +71,12 @@ Durable daemon and evaluator settings live in `modules/base/nix-settings.nix`.
 Cache topology and download retry settings live in
 `modules/hosts/common/nix-substituters.nix`. Inspect those owning files for
 current values instead of duplicating the full `nix.settings` set here.
+Cache-root publication is derived from evaluated host configuration in
+`modules/meta/cache-roots.nix`. Every NVIDIA-enabled host must explicitly set
+the Boolean `cacheRoots.nvidiaKernelModules`; missing, malformed, or unknown
+policy values fail evaluation. `songbird` sets it to `false` for its
+source-built module while retaining `nvidia-x11` and `nvidia-settings`.
+Adding a third-party cache requires an explicit policy decision.
 
 `build.sh` exports `NIX_CONFIG` only as a bootstrap overlay for the Nix commands
 it launches before the target system configuration is active.
@@ -110,19 +116,23 @@ in
 
 Do NOT iterate over `flake.lib.nixos.hosts` with `lib.filterAttrs`/`lib.mapAttrs` from `modules/hosts/common/*.nix`. Host iteration belongs in `modules/configurations/nixos.nix`, which already owns NixOS system construction. Iterating from a common module that contributes to host configuration can trigger infinite recursion in the flake-parts module evaluator.
 
-`modules/hosts/common/apps-enable.nix` carries the default-on baseline at `lib.mkOverride 1100`; per-host override files (e.g. `modules/tpnix/apps-enable.nix`) layer overrides at `lib.mkOverride 1000` so the host value wins. User overrides at default priority 100 still win over both. `modules/hosts/common/checks.nix` adds a flake-level `nix flake check` assertion that fails when a per-host override duplicates the common baseline value (silent no-op detection).
+`modules/hosts/common/apps-enable.nix` carries the default-on baseline at `lib.mkOverride 1100`; per-host override files (e.g. `modules/tpnix/apps-enable.nix`) layer overrides at `lib.mkOverride 1000` so the host value wins. User overrides at default priority 100 still win over both. Nested overrides register their full paths, route through programs first and then services for services-only paths, and fail the host evaluation on a path absent from both namespaces. `modules/hosts/common/checks.nix` adds a flake-level `nix flake check` assertion that fails when a per-host override duplicates the common baseline value or registers an uncomparable path.
+
+Storage-dependent common features must be disabled or backed by a host-mounted path when the host lacks their storage contract. The system76 host has no dedicated `/data` volume and therefore disables local mirror writers and R2 runtime units; tpnix intentionally retains its root-backed mirror behavior.
 
 ### Flake Input Deduplication
 
 Use the generated README's "Flake Input Deduplication" section as the canonical
 source for local flake input naming and follower relationships. Its source text
 is `modules/readme.nix`.
+The CachyOS kernel input follows root `nixpkgs`; its pinned overlay remains
+applied to songbird's host package set.
 
 ### Repository Layout
 
 - NixOS modules
   - Location: `modules/`
-  - Notes: Auto-loaded. Per-host logic under `modules/system76` and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
+  - Notes: Auto-loaded. Per-host logic under `modules/songbird`, `modules/system76`, and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
 - Shared derivations
   - Location: `packages/`
   - Notes: Common build logic shared between modules.
@@ -140,7 +150,7 @@ is `modules/readme.nix`.
   - Location: `.actrc`, `.githooks/post-checkout`, `.gitignore`,
     `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
     `.sops.yaml`, `README.md`
-  - Notes: Owned by the files module. Update source definitions instead of editing generated output directly.
+  - Notes: Owned by the files module. Update source definitions instead of editing generated output directly. The managed-files check compares generated output byte-for-byte, including final newlines.
 
 ### Local Mirrors
 

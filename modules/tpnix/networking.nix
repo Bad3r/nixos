@@ -1,4 +1,10 @@
-_: {
+{ config, ... }:
+let
+  stableNamePolicy =
+    config.flake.lib.nixos._firewallStableNamePolicyLinkConfig
+      or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallStableNamePolicyLinkConfig");
+in
+{
   configurations.nixos.tpnix.module = {
     # NetworkManager/DHCP base comes from modules/hosts/common/networking.nix
     # and private DNS records from modules/hosts/common/private-dns-hosts.nix;
@@ -21,7 +27,9 @@ _: {
       matchConfig.Path = "pci-0000:00:14.3";
       linkConfig = {
         Name = "wifi0";
-        AlternativeNamesPolicy = "database onboard slot path";
+        # Name= above supersedes the shared NamePolicy, so only the altname
+        # half of the pair applies here.
+        inherit (stableNamePolicy) AlternativeNamesPolicy;
       };
     };
   };

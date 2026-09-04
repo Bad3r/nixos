@@ -79,28 +79,54 @@ let
       legacyProfilesRoot = "${config.home.homeDirectory}/${legacyProfilesPath}";
       xdgProfilesRoot = "${config.home.homeDirectory}/${xdgProfilesPath}";
       readlink = lib.getExe' pkgs.coreutils "readlink";
+      date = lib.getExe' pkgs.coreutils "date";
+      mv = lib.getExe' pkgs.coreutils "mv";
     in
     {
+      # The XDG root must be a symlink to the legacy root, but a browser run
+      # before the first switch leaves a real profile directory there, and a
+      # stale symlink can point elsewhere. Neither blocks activation: the path
+      # is moved aside with a timestamped backup suffix (the same suffix
+      # `home-manager.backupFileExtension` uses for clobbered files), and the
+      # `home.file` entry below then creates the symlink with `force = true`.
       activation = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
         browser_name=${lib.escapeShellArg browserName}
         xdg_root=${lib.escapeShellArg xdgProfilesRoot}
         legacy_root=${lib.escapeShellArg legacyProfilesRoot}
 
-        if [ -e "$xdg_root" ] || [ -L "$xdg_root" ]; then
-          if [ ! -L "$xdg_root" ]; then
-            echo "$browser_name XDG profile root must be a symlink to $legacy_root: $xdg_root" >&2
-            echo "Move the existing path recoverably with: rip $xdg_root" >&2
-            exit 1
-          fi
+        move_aside() {
+          stamp="$(${date} +%Y%m%dT%H%M%S)"
+          backup="$xdg_root.$stamp.''${HOME_MANAGER_BACKUP_EXT:-hm.bk}"
+          n=0
+          while [ -e "$backup" ] || [ -L "$backup" ]; do
+            n=$((n + 1))
+            backup="$xdg_root.$stamp-$n.''${HOME_MANAGER_BACKUP_EXT:-hm.bk}"
+          done
+          echo "$browser_name XDG profile root $xdg_root: $1; moving it to $backup" >&2
+          # -T keeps mv from descending into a backup that already exists.
+          $DRY_RUN_CMD ${mv} -T "$xdg_root" "$backup"
+        }
 
+        if [ -L "$xdg_root" ]; then
           xdg_resolved="$(${readlink} -m "$xdg_root")"
           legacy_resolved="$(${readlink} -m "$legacy_root")"
 
           if [ "$xdg_resolved" != "$legacy_resolved" ]; then
-            echo "$browser_name XDG profile root resolves to $xdg_resolved, expected $legacy_resolved" >&2
-            echo "Move or relink $xdg_root so it points at $legacy_root" >&2
-            exit 1
+            move_aside "symlink resolves to $xdg_resolved, expected $legacy_resolved"
           fi
+        elif [ -e "$xdg_root" ]; then
+          reason="expected a symlink to $legacy_root"
+          # The rename keeps open descriptors valid, so a browser holding this
+          # path keeps writing into the backup while every later launch follows
+          # the new symlink to $legacy_root. Gecko unlinks <profile>/lock on a
+          # clean exit but not after SIGKILL, so a stale one outlives a dead
+          # process: report it, never gate the move on it.
+          for lock in "$xdg_root"/*/lock; do
+            [ -L "$lock" ] || continue
+            reason="$reason ($browser_name may still be running against $lock; restart it, then look for anything it wrote after this point in the backup)"
+            break
+          done
+          move_aside "$reason"
         fi
       '';
       file = {

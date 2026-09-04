@@ -36,15 +36,16 @@ to `configurations.nixos.<host>.module`; import-tree discovers the files
 automatically, so no imports need registering. The minimal managed-workstation
 footprint:
 
-| File                  | Purpose                                                                                                                                                                     |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `hardware-config.nix` | Hardware truth from `nixos-generate-config`: filesystems, initrd modules, firmware, loader entry limit                                                                      |
-| `host-id.nix`         | Unique `networking.hostId` (8 hex chars; derive with `head -c 8 /etc/machine-id` on the target)                                                                             |
-| `state-version.nix`   | Install-time `system.stateVersion` constant; never bump on upgrades                                                                                                         |
-| `policy.nix`          | Registry flags under `flake.lib.nixos.hosts.<host>` consumed by `modules/hosts/common/*` (see step 3)                                                                       |
-| `ssh.nix`             | `services.openssh.publicKey` (the host ed25519 public key, consumed by `flake.nixosModules.ssh` for fleet known_hosts) and the enable choice                                |
-| `imports.nix`         | Chassis-specific modules only (nixos-hardware profile, vendor support module); the fleet baseline comes from hosts-common                                                   |
-| GPU module            | GPU wiring over `flake.nixosModules.nvidia-gpu` when the hardware has an NVIDIA GPU (`modules/system76/nvidia-gpu.nix`, `modules/tpnix/power.nix` are the current examples) |
+| File                  | Purpose                                                                                                                                                                                                                                           |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `hardware-config.nix` | Hardware truth from `nixos-generate-config`: filesystems, initrd modules, firmware, loader entry limit                                                                                                                                            |
+| `host-id.nix`         | Unique `networking.hostId` (8 hex chars; derive with `head -c 8 /etc/machine-id` on the target)                                                                                                                                                   |
+| `state-version.nix`   | Install-time `system.stateVersion` constant; never bump on upgrades                                                                                                                                                                               |
+| `policy.nix`          | Registry flags under `flake.lib.nixos.hosts.<host>` consumed by `modules/hosts/common/*` (see step 3)                                                                                                                                             |
+| `ssh.nix`             | `services.openssh.publicKey` (the host ed25519 public key, consumed by `flake.nixosModules.ssh` for fleet known_hosts) and the enable choice                                                                                                      |
+| `imports.nix`         | Chassis-specific modules only (nixos-hardware profile, vendor support module); the fleet baseline comes from hosts-common                                                                                                                         |
+| GPU module            | GPU wiring over `flake.nixosModules.nvidia-gpu` when the hardware has an NVIDIA GPU (`modules/system76/nvidia-gpu.nix`, `modules/tpnix/power.nix` are the current examples); pairs with the `cacheRoots.nvidiaKernelModules` policy key in step 3 |
+| `nix-settings.nix`    | Hardware-tuned `max-jobs` and `min-free`, plus `max-substitution-jobs` (`nproc - 1`, floored at 1; Nix has no `auto` for it), which `modules/hosts/common/nix-substituters.nix` asserts on every `shareCommon` host                               |
 
 Baseline behavior that does NOT need per-host files:
 
@@ -57,14 +58,13 @@ Baseline behavior that does NOT need per-host files:
 
 Common per-host divergence files, all optional:
 
-| File               | Purpose                                                                                                                                                                                   |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `apps-enable.nix`  | App overrides at `lib.mkOverride 1000` over the common baseline; publish the override set under `flake.lib.nixos._hostAppsOverrides.<host>` so the FR-5 flake check rejects no-op entries |
-| `default-apps.nix` | Per-host `host.defaults` overrides (audio player, video player)                                                                                                                           |
-| `networking.nix`   | DNS or routing layered on the common NetworkManager base                                                                                                                                  |
-| `nix-settings.nix` | Hardware-tuned `max-jobs` and `min-free` only                                                                                                                                             |
-| `services.nix`     | Host-divergent services; on non-System76 hardware keep the default `powerprofilesctl` i3 power backend, System76 chassis override `gui.i3.powerProfiles.backend = "system76-power"`       |
-| `support.nix`      | Vendor hardware-support enables (firmware daemon, kernel modules)                                                                                                                         |
+| File               | Purpose                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                               |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps-enable.nix`  | App overrides at `lib.mkOverride 1000` over the common baseline; publish the flat set under `flake.lib.nixos._hostAppsOverrides.<host>` so the FR-5 flake check rejects no-op entries. A nested toggle (`claude-code.extended.installMethods.bun.enable`) cannot go through that set: register it under `flake.lib.nixos._hostAppsSubToggleOverrides.<host>` as `{ path; value; }`. Build the host module from both registries with `flake.lib.hostApps.mk "<host>"` rather than writing overrides out, per the [apps module style guide](apps-module-style-guide.md) |
+| `default-apps.nix` | Per-host `host.defaults` overrides (audio player, video player)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
+| `networking.nix`   | DNS or routing layered on the common NetworkManager base                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| `services.nix`     | Host-divergent services; on non-System76 hardware keep the default `powerprofilesctl` i3 power backend, System76 chassis override `gui.i3.powerProfiles.backend = "system76-power"`                                                                                                                                                                                                                                                                                                                                                                                   |
+| `support.nix`      | Vendor hardware-support enables (firmware daemon, kernel modules)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 Unfree packages are declared at the flake-parts level only (the
 `nixpkgs.allowedUnfreePackages` option declared in
@@ -91,39 +91,70 @@ _: {
 
     # Values consumed by modules/hosts/common/*.
     extraHomeApps = [ ];
-    firewallDnsInterfaces = [ ]; # only if the host serves DNS/DHCP; see below
+    firewallDnsInterfaces = [ ]; # Required. See below before opening DNS/DHCP.
+    firewallLocalTcpPortRanges = [ ]; # Required. See below before exposing services.
+    # Globally reachable TCP range on every firewall interface.
     # firewallExtraTcpPortRanges = [ { from = 8000; to = 8999; } ];
     # duplicatiStateDirReadable = true;
     # secrets/<host>.yaml keys holding hosts(5) payloads that dnsmasq serves
     # as addn-hosts files (modules/hosts/common/private-dns-hosts.nix).
     # privateDnsHostsSecretKeys = [ "internal_hosts" ];
+
+    # Required on an NVIDIA host: modules/meta/cache-roots.nix throws without
+    # it. true publishes the built kernel module as a cache root, false keeps
+    # a module with no substituter local. See below.
+    # cacheRoots.nvidiaKernelModules = true;
   };
 }
 ```
 
-`firewallDnsInterfaces` is required: `modules/hosts/common/firewall.nix` throws
-when the key is absent, so a misspelling cannot fall back to no rule silently.
-Leave it empty, as both current hosts now do, unless the host actually serves
-DNS or DHCP to the network. It opens inbound UDP 53/67 and
+`firewallDnsInterfaces` and `firewallLocalTcpPortRanges` are required:
+`modules/hosts/common/firewall.nix` throws when either key is absent, so a
+misspelling cannot silently remove the rules it controls. Leave
+`firewallDnsInterfaces` empty unless the host actually serves DNS or DHCP to
+the network. It opens inbound UDP 53/67 and
 TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
 that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 `::1` with no `dhcp-range`, so it never listens on a link.
 
-When the host does have such a listener, use its real interface names, read from
-`ip link` on the target **after** its first boot on this configuration.
-`shareCommon` hosts boot with `net.ifnames=0`, so the names are `eth0`, `eth1`,
-and `wlan0` rather than the `enp*` and `wlp*` names an installer shows.
+`cacheRoots.nvidiaKernelModules` becomes required the moment the host loads
+the `nvidia` video driver, which the GPU module in step 2 does:
+`modules/meta/cache-roots.nix` throws for an NVIDIA-enabled host that leaves
+it unset or non-Boolean, and for any host whose `cacheRoots` carries an
+unknown key, and the `cache-roots-nvidia-cache-policy` flake check forces
+that policy for every registered host, so `nix flake check` fails before the
+host builds. `true`
+publishes the built kernel module among the cache roots the fleet pushes;
+`false` records an exclusion for a module no substituter serves, which is
+songbird's case with its source-built CachyOS kernel.
+`docs/reference/binary-cache-coverage.md` covers the policy.
+
+`firewallExtraTcpPortRanges` opens a range globally. In contrast,
+`firewallLocalTcpPortRanges` emits IPv4 `iptables` rules that accept source
+addresses in only `10.0.0.0/8` and `192.168.0.0/16`. It excludes
+`172.16.0.0/12`, IPv6, and any stronger trusted-network assertion, so choose
+the global key only for intentional public reachability and the source-scoped
+key only when those exact CIDRs are the intended access boundary. Set
+`firewallLocalTcpPortRanges = [ ];` explicitly when no source-scoped TCP range
+is wanted.
+
+When the host does have such a listener, pin the intended device with a `.link`
+`Name=` and use the pinned name. `shareCommon` hosts boot with `net.ifnames=0`,
+so an unpinned device carries `eth0`, `eth1`, or `wlan0` rather than the `enp*`
+and `wlp*` names an installer shows, and those numbers follow discovery order.
 `modules/hosts/common/firewall.nix` rejects an `enp*`/`wlp*` name on such a host
-with an assertion, and warns when a name is neither kernel-assigned nor created
-by a declaration on the host. Neither guard catches a kernel name that is simply
-wrong for this machine: that emits a `networking.firewall.interfaces.<name>`
-entry for a device that never appears, so the opening silently does nothing.
+with an assertion, warns when a name is neither kernel-assigned nor created by a
+declaration on the host, and warns on a kernel-assigned name with no pin behind
+it. That last warning clears as soon as a pin backs the entry. What no guard
+catches is a pinned or kernel name that is simply wrong for this machine: that
+emits a `networking.firewall.interfaces.<name>` entry for a device that never
+appears, so the opening silently does nothing.
 
 On a host with two interfaces of the same class, or with a removable adapter,
 the `eth0` and `eth1` numbering follows kernel discovery order and can move
 between devices. Do not point `firewallDnsInterfaces` at a name that can
 change: the rule opens UDP 53/67 and TCP 53 on whichever device holds the name
-that boot. Pin the intended device first, as `modules/system76/networking.nix`
+that boot. Pin the intended device first, as `modules/tpnix/networking.nix`
 does, then use the pinned name:
 
 ```sh
@@ -137,10 +168,12 @@ done
 ```nix
 _: {
   configurations.nixos.<host>.module = {
-    systemd.network.links."10-lan0" = {
+    systemd.network.links."10-uplink0" = {
       matchConfig.Path = "<ID_PATH value>";
       linkConfig = {
-        Name = "lan0";
+        # Outside the kernel's own eth*/wlan* pools: systemd.link(5) calls a
+        # pin named eth0 a race against the kernel's own assignment.
+        Name = "uplink0";
         # The pin displaces 99-default.link for this device, so restore the
         # alternative names it would otherwise supply. Its "mac" token is left
         # out: that derives an altname from the factory hardware address.
@@ -151,8 +184,28 @@ _: {
 }
 ```
 
+The block above is for a device with no `.link` yet. When one already matches
+it, as `modules/songbird/networking.nix` and `modules/system76/networking.nix`
+do for every NIC, add `Name=` to that entry and delete its `NamePolicy=` rather
+than adding a second file: udev applies only the first matching file, so a new
+one renames nothing while `pinnedNamesOf` still counts its `Name=` as a declared
+name. `modules/hosts/common/firewall.nix` also rejects duplicate names on
+device-specific pins and broad, empty, globbed, or multi-valued matches that
+precede another enabled `.link`. It asserts against a second `.link` for a
+device that already has one and a single file carrying `Name=` and
+`NamePolicy=` together, so following this section without those steps fails
+`nix flake check`.
+
+A device that needs no pinned name still wants that last line, because
+`net.ifnames=0` gates the rename only and leaves `99-default.link`'s `mac`
+token generating an `enx<permanent-mac>` altname. Drop `Name=`, add
+`NamePolicy = "keep kernel database onboard slot path"` in its place, and keep
+`AlternativeNamesPolicy`, as `modules/songbird/networking.nix` does for all
+three of its NICs.
+
 `docs/networking/README.md` covers why the pinned name stays outside the
-kernel's `eth*` namespace and why the match uses the path rather than a MAC.
+kernel's `eth*` namespace, why the match uses the path rather than a MAC, and
+why `NamePolicy` belongs in the second shape but never in a pin.
 
 If the new host becomes the primary fleet endpoint,
 move `primary = true` and `tailnetIp` from the current primary host's

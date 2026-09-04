@@ -216,10 +216,11 @@ matching the shared SOPS runtime configuration. Rendering
 host provisioned with only the system key decrypts `/run/secrets/r2/*` but
 cannot render the Home Manager env file.
 
-Both host policies currently set `r2RuntimeReady = true`, so their evaluated
-configurations import the external R2 modules and enable the runtime consumers.
-Clearing a host's readiness flag or removing `secrets/r2.yaml` disables those
-runtime assignments and emits the host's `disabledReason` warning.
+Each host policy supplies an `r2RuntimeReady` flag. When that flag is true and
+`secrets/r2.yaml` exists, the evaluated configuration imports the external R2
+modules and enables the runtime consumers. Clearing a host's readiness flag or
+removing the encrypted payload disables those runtime assignments and emits the
+host's `disabledReason` warning.
 
 For the full integration contract (input wiring, runtime consumers, drift
 checks), see [`docs/r2-cloud/README.md`](../r2-cloud/README.md).

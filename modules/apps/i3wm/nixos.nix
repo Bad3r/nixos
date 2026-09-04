@@ -102,7 +102,10 @@ let
             i3lock-color
             i3status-rust
             maim
-            picom
+            # picom is installed by modules/apps/picom.nix under
+            # programs.picom.extended, which the app baseline turns on. Listing
+            # it here as well installed a second, stock derivation that shadowed
+            # an overridden package on PATH and survived turning the app off.
             rofi
             xclip
             xbacklight
