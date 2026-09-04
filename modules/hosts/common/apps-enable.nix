@@ -288,6 +288,7 @@ let
       mosh.extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
       "msgraph-cli".extended.enable = lib.mkOverride 1100 true;
+      mtdev.extended.enable = lib.mkOverride 1100 true;
       "mullvad-browser".extended.enable = lib.mkOverride 1100 true;
       mupdf.extended.enable = lib.mkOverride 1100 true;
       mysql.extended.enable = lib.mkOverride 1100 true;
