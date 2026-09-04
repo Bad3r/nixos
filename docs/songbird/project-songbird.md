@@ -4,8 +4,11 @@ Host: `songbird`.
 
 High-end Intel Arrow Lake workstation, productivity first (compilation, local
 LLM work) and gaming second. Functional, not pretty, no RGB. This revision
-reflects the final purchased build as validated on 2026-07-20 and supersedes
+reflects the final purchased build and supersedes
 the earlier Thermaltake CTE C750 / Gigabyte 5080 / ARCTIC 420 plan in full.
+The [Verified Inventory](#verified-inventory) section records what
+the assembled machine actually enumerates; where it differs from the tables
+below, the inventory wins.
 
 Source of truth for hardware research is the
 [Bad3r/project-songbird](https://github.com/Bad3r/project-songbird)
@@ -31,7 +34,7 @@ needed to plan, assemble, and operate the host; the OS plan lives in
 | Fan hub       | ARCTIC Case Fan Hub (10-port PWM, SATA)          | ACFAN00175A            |
 | Thermal paste | Noctua NT-H2 (3.5g, AM5 Edition)                 | NT-H2 3.5g AM5         |
 
-Procurement state (2026-07-20): everything is purchased. All parts gating
+Procurement state: everything is purchased. All parts gating
 assembly are on hand. The SN8100 is ordered but not yet shipped and gates only
 OS installation. The P14 Pro 5-pack and the ARCTIC hub arrive 27-31 July,
 after assembly day, and gate only the deferred Phase 8 fan swap; the build
@@ -39,20 +42,14 @@ completes on the case's five stock fans first.
 
 ## Storage Inventory
 
-Beyond the new SN8100, songbird receives both storage devices currently in
-the `system76` host. system76 itself keeps running on replacement drives.
+As enumerated on the assembled machine (`lsblk` and
+`/sys/class/nvme`).
 
-| Disk | Device                                           | Bus                  | Role on songbird                          |
-| ---- | ------------------------------------------------ | -------------------- | ----------------------------------------- |
-| A    | WD_BLACK SN8100 4TB (new)                        | M.2_1, CPU PCIe 5.0  | NixOS (LUKS2), daily driver               |
-| B    | 2TB NVMe (ex system76 root drive)                | M.2_2, CPU PCIe 4.0  | Windows 11 (BitLocker), gaming            |
-| S    | Samsung 850 Pro 4TB SATA SSD (ex system76 /data) | SATA 6 Gb/s, chipset | Shared BitLocker NTFS drive for both OSes |
-
-Disk B's exact model is recorded when it is pulled from system76; both moved
-drives predate this build. B in M.2_2 uses CPU Gen4 lanes and does not touch
-GPU lanes. S (2.5 in, 3D V-NAND MLC) caps at SATA speeds (about 550 MB/s),
-which is adequate for a bulk game library and shared data; latency-sensitive
-titles install on B.
+| Disk | Device                                                          | Bus / slot                            | State and role on songbird                                                                               |
+| ---- | --------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
+| A    | WD_BLACK SN8100 4TB (sn 252415800489, fw 830ZRR05)              | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`)  | NixOS: 1 GiB ESP, LUKS2 ext4 root, 51 GiB LUKS2 swap (`modules/songbird/hardware-config.nix`)            |
+| S    | Samsung 860 PRO 2TB SATA (LUKS2 + XFS)                          | SATA 6 Gb/s, chipset (`0000:80:17.0`) | Mounted at `/data`                                                                                       |
+| W    | WDC PC SN720 1TB (sn 192461421492, fw 10160101), NTFS `WD 1 TB` | Chipset M.2 (`0000:82:00.0`)          | Plain NTFS on an MBR table, mounted at `/shared` (kernel ntfs3, `nofail`); the drive shared with Windows |
 
 Slot rule: M.2_3 and M.2_4 stay empty permanently. Populating either drops
 the GPU slot from PCIe 5.0 x16 to x8.
@@ -78,7 +75,7 @@ the GPU slot from PCIe 5.0 x16 to x8.
 ### Motherboard: ASUS ROG Maximus Z890 Hero
 
 - LGA1851, Intel Z890, ATX (30.5 x 24.4 cm). Native Core Ultra Series 2
-  support. Latest BIOS as of 2026-07-19: 3202 (2026-05-08).
+  support. The board runs BIOS 3305, flashed before the OS install.
 - Memory: 4x DIMM, up to DDR5-9200+ (OC) with CUDIMM support. The build's
   exact kit (Ver 5.53.13) is on the ASUS QVL at 8400 MT/s in 1- and 2-DIMM
   population, not 4.
@@ -88,8 +85,8 @@ the GPU slot from PCIe 5.0 x16 to x8.
   M.2_6 chipset PCIe 4.0 x4. 4x SATA 6 Gb/s ports (chipset).
 - PCIe slots: 1x PCIe 5.0 x16 (CPU) with Q-Release Slim, 1x PCIe 4.0 x16
   length at x4 (chipset), 1x PCIe 4.0 x1.
-- Networking: 1x Intel 2.5 GbE + 1x Realtek 5 GbE, Wi-Fi 7 (2x2, 802.11be,
-  module vendor not published by ASUS), Bluetooth 5.4.
+- Networking: 1x Intel 2.5 GbE + 1x Realtek 5 GbE, Wi-Fi 7 (2x2, 802.11be;
+  the module is an Intel BE200 "Gale Peak" on `iwlwifi`), Bluetooth 5.4.
 - Rear I/O: 2x Thunderbolt 4 (USB4, DP out), 1x HDMI 2.1 (iGPU path for
   GPU-less bring-up), about 11 USB ports total.
 - USB BIOS FlashBack works on standby power with no CPU installed (BIOS file
@@ -243,23 +240,46 @@ Gentle shared curve: about 600-900 RPM idle, 1200-1400 RPM under load.
 
 ## Build Caveats
 
-1. Contact frame install: board flat, fingers off exposed socket pins, all
-   four screws started by hand, tightened gradually in a cross pattern (stock
-   frame screws are Torx T20). May void the board warranty; stock parts kept.
-2. DDR5-8400 is an XMP overclock; ladder down 8000 / 7600 / 6400 on
-   instability. Four DIMMs forfeit 8400.
-3. Disk A must sit under the board's M.2_1 heatsink or it throttles.
-4. M.2_3 and M.2_4 stay empty (GPU x8 drop). B goes in M.2_2 only.
-5. 12V-2x6: native PSU cable only, click-seat with no shoulder gap, 35 mm
-   straight before the first bend, no side-panel pressure, re-check seating
-   after the first heavy GPU session.
-6. P14 Pro screw holes are tight: pre-run every screw on a flat surface
-   before mounting fans in the case.
-7. Q-Release Slim: to remove the GPU, hold the end nearest the rear I/O and
-   lift slightly at an angle; do not force the card straight out.
-8. Install the GPU's bundled anti-sag holder (2.7 kg card, no case support).
-9. SATA power for disk S comes from this PSU's own modular SATA cables only
-   (pin-out warning above).
+- DDR5-8400 is an XMP overclock; ladder down 8000 / 7600 / 6400 on
+  instability. Four DIMMs forfeit 8400.
+
+- Disk A must sit under the board's M.2_1 heatsink or it throttles.
+
+- M.2_3 and M.2_4 stay empty (GPU x8 drop).
+
+- Q-Release Slim: to remove the GPU, hold the end nearest the rear I/O and
+  lift slightly at an angle; do not force the card straight out.
+
+- Install the GPU's bundled anti-sag holder (2.7 kg card, no case support).
+
+- NVMe controller indices are not stable: `/dev/nvmeN` follows
+  probe-completion order and is reshuffled between boots. Address a drive
+  by PCI address or serial, never by index.
+
+## Verified Inventory
+
+| Device                                                                                             | PCI / USB id | Address               | Driver                                                        |
+| -------------------------------------------------------------------------------------------------- | ------------ | --------------------- | ------------------------------------------------------------- |
+| Arrow Lake-S iGPU (Xe-LPG)                                                                         | `8086:7d67`  | `0000:00:02.0`        | i915 (xe also loaded)                                         |
+| NPU 4                                                                                              | `8086:ad1d`  | `0000:00:0b.0`        | intel_vpu                                                     |
+| Thunderbolt 4 / USB4 controller                                                                    | `8086:7ec2`  | `0000:00:0d.2`        | thunderbolt                                                   |
+| WD_BLACK SN8100 4TB (disk A)                                                                       | `15b7:5050`  | `0000:01:00.0`        | nvme                                                          |
+| GeForce RTX 5080 (GB203)                                                                           | `10de:2c02`  | `0000:02:00.0`        | nouveau on the stock install; NVIDIA open modules on songbird |
+| RTX 5080 HDMI audio                                                                                | `10de:22e9`  | `0000:02:00.1`        | snd_hda_intel                                                 |
+| SATA controller (disk S)                                                                           | `8086:7f62`  | `0000:80:17.0`        | ahci                                                          |
+| HDA audio controller                                                                               | `8086:7f50`  | `0000:80:1f.3`        | snd_hda_intel (SOF modules loaded)                            |
+| WDC PC SN720 1TB (disk W)                                                                          | `15b7:5002`  | `0000:82:00.0`        | nvme                                                          |
+| Realtek RTL8126 5 GbE                                                                              | `10ec:8126`  | `0000:84:00.0`        | r8169 (`eth0` on songbird; the wired uplink)                  |
+| Intel I226-V 2.5 GbE                                                                               | `8086:125c`  | `0000:85:00.0`        | igc (`eth1` on songbird)                                      |
+| Intel BE200 Wi-Fi 7                                                                                | `8086:272b`  | `0000:86:00.0`        | iwlwifi + iwlmld                                              |
+| Bluetooth 5.4 (Intel BE200, USB)                                                                   | `8087:0036`  | `usb-0000:80:14.0-14` | btusb + btintel                                               |
+| SupremeFX USB audio codec                                                                          | `0b05:1b7c`  | `usb-0000:80:14.0-5`  | snd_usb_audio                                                 |
+| HyperX SoloCast microphone                                                                         | `0951:170f`  | `usb-0000:80:14.0-12` | snd_usb_audio                                                 |
+| Hasu FC660C keyboard, 2.4G mouse, YubiKey 5 (`1050:0407`), ROG AURA board controller (`0b05:1aa6`) | USB          |                       | usbhid / plain USB                                            |
+
+Sensors the kernel binds without configuration: `coretemp`, the `asus` WMI
+hwmon, `spd5118` DIMM thermals, `acpitz`, `acpi_fan`, per-drive `nvme`,
+`iwlwifi`. Display: a Xiaomi "Mi Monitor" on the RTX 5080's DP-5 output.
 
 ## Sources
 
