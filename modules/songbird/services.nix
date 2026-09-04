@@ -73,8 +73,9 @@ in
         # On-demand Samba: keep units available but don't auto-start at boot.
         # Start manually with `systemctl start samba.target` when sharing is
         # needed; `systemctl stop samba.target` brings down smbd/nmbd/wsdd
-        # together. smbd/nmbd/winbindd are wantedBy samba.target upstream, so
-        # detaching the target is enough for them; samba-wsdd ships
+        # together. smbd/nmbd/winbindd are wantedBy and partOf samba.target
+        # upstream, so detaching the target keeps them down at boot and the
+        # target's stop still propagates to them; samba-wsdd ships
         # wantedBy = [ "multi-user.target" ] with no relation to the target at
         # all, so without its own rebind it advertised this host over
         # WS-Discovery at every boot with no share behind it.
