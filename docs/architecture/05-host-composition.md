@@ -88,7 +88,7 @@ common-baseline participation is always a recorded choice (`true` to opt in,
 | `modules/songbird/services.nix`              | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT, system76-scheduler)                                                                                                |
 | `modules/songbird/networking.nix`            | `.link` units for the two onboard NICs and the BE200 carrying no `Name=`: they displace `99-default.link` to drop its `mac` altname token without renaming                                                                         |
 | `modules/songbird/cachyos-kernel.nix`        | Pinned CachyOS overlay and `boot.kernelPackages` override over the common `linuxPackages_zen` default; the kernel and its NVIDIA module are built locally, which is why `policy.nix` sets `cacheRoots.nvidiaKernelModules = false` |
-| `modules/songbird/firewall-policy-check.nix` | Flake check `songbird-firewall-port-policy`: exactly one source-scoped TCP 8000-8999 start and cleanup rule per approved CIDR, no source-unrestricted overlap, and TCP 9999 still globally open                                    |
+| `modules/songbird/firewall-policy-check.nix` | Flake check `songbird-firewall-port-policy`: exactly one source-scoped start and cleanup rule per declared TCP range per approved CIDR, no source-unrestricted overlap, and TCP 9999 still globally open                           |
 
 ### system76 (Oryx Pro laptop)
 

@@ -37,10 +37,13 @@ _: {
     # is still the guarantee.
     firewallDnsInterfaces = [ ];
     firewallLocalTcpPortRanges = [
+      # Fleet convention for local dev servers, as on system76 and tpnix.
       {
         from = 8000;
         to = 8999;
       }
+      # qBittorrent's incoming-peer listener (Session\Port); LAN peers only,
+      # the UDP side of the same port stays closed.
       {
         from = 50513;
         to = 50513;
