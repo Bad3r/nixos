@@ -232,7 +232,8 @@ let
   messageFor =
     host: noOps:
     "FR-5: ${host} apps-enable override duplicates common baseline (no-op). "
-    + "Remove these entries from modules/${host}/apps-enable.nix: "
+    + "Remove these entries from modules/${host}/apps-enable.nix (flat appEnable "
+    + "entries are shown with their extended.enable suffix): "
     + lib.concatStringsSep ", " noOps;
 in
 {
