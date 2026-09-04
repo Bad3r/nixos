@@ -211,7 +211,7 @@ _: {
               exit 0
             fi
             echo "songbird: failed to record the hibernate-remount marker after unmounting /shared; remounting and aborting this sleep transition" >&2
-            ${pkgs.util-linux}/bin/mount /shared
+            ${pkgs.util-linux}/bin/mount /shared || echo "songbird: recovery remount of /shared failed; run 'mount /shared' by hand" >&2
             exit 1
           '';
           # Retries cover the volume not being re-enumerated yet on resume;
