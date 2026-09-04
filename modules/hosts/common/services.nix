@@ -14,12 +14,10 @@
         };
 
         services = {
-          journald = {
-            storage = "persistent";
-            extraConfig = ''
-              SystemMaxUse=1G
-              SystemKeepFree=10G
-            '';
+          journald.settings.Journal = {
+            Storage = "persistent";
+            SystemMaxUse = "1G";
+            SystemKeepFree = "10G";
           };
 
           avahi = {
