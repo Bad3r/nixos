@@ -30,7 +30,6 @@ let
     "csharp-lsp" = "csharp-ls";
     "gopls-lsp" = "gopls";
     "jdtls-lsp" = "jdt-language-server";
-    "kotlin-lsp" = "kotlin-language-server";
     "lua-lsp" = "lua-language-server";
     "php-lsp" = "intelephense";
     "pyright-lsp" = "pyright";
