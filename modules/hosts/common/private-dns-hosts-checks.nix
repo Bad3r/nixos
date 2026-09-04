@@ -13,6 +13,9 @@
 { config, lib, ... }:
 let
   collidingKeysOf = config.flake.lib.nixos._privateDnsCollidingKeysOf or null;
+  formatCaseFailures =
+    config.flake.lib.nixos._formatCheckFailures
+      or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
 
   cases = [
     {
@@ -107,12 +110,7 @@ in
             + "privateDnsHostsSecretKeys collision assertion is unverified."
           )
         else if failures != [ ] then
-          throw (
-            "private-dns-hosts-collision-guard: "
-            + toString (lib.length failures)
-            + " case(s) failed:\n  "
-            + lib.concatStringsSep "\n  " failures
-          )
+          throw (formatCaseFailures "private-dns-hosts-collision-guard" failures)
         else
           pkgs.runCommandLocal "private-dns-hosts-collision-guard-ok" { } ''
             echo "ok: ${toString (lib.length cases)} collision cases" > $out
