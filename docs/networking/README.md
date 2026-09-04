@@ -287,11 +287,17 @@ This is the shape `modules/songbird/networking.nix` and
 `pinnedNamesOf`, `collidingPinsOf`, and `duplicatePinsOf` in
 `modules/hosts/common/firewall.nix` all key on `linkConfig.Name`, and a file
 without one contributes to none of those pin classifiers. A device-specific
-file repeated for the same selector is reported by `shadowedLinksOf`; a broad,
-empty, globbed, or multi-valued match that precedes another enabled file is
-reported by `unboundLinksOf`. Precedence is udev's `strcmp` order of the
-rendered `<name>.link` basenames, not of the attribute names: `-` sorts before
-`.`, so `10-net-fallback.link` is read before `10-net.link` even though
+file repeated for the same selector is reported by `shadowedLinksOf`. A broad,
+empty, globbed, or multi-valued match is reported by `unboundLinksOf` when it
+carries a `Name=`, whatever its position, because it applies to every device no
+earlier file matched and renames each of them, and when it precedes another
+enabled file, whose device it can match first. Any enabled file whose basename
+sorts after systemd's own `99-default.link` is reported by
+`defaultShadowedLinksOf`: udev merges `/etc/systemd/network` with
+`/usr/lib/systemd/network` by basename and `99-default.link` matches every
+device, so a file behind it is never read. Precedence is udev's `strcmp` order
+of the rendered `<name>.link` basenames, not of the attribute names: `-` sorts
+before `.`, so `10-net-fallback.link` is read before `10-net.link` even though
 `10-net-fallback` sorts after `10-net`. The companion cases in
 `modules/hosts/common/firewall-checks.nix` cover both the accepted no-Name
 shape and each rejected shadowing shape.

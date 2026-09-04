@@ -135,7 +135,7 @@ let
     map (key: "${key}=${lib.head (tokensOf matchConfig.${key})}") bound;
 
   # Resolves each link once; every list below is derived from this record set,
-  # so the five link guards cannot disagree about what a link binds or pins.
+  # so the six link guards cannot disagree about what a link binds or pins.
   classifyLinks =
     links:
     let
@@ -206,13 +206,25 @@ let
         lib.filter (s: lib.count (x: x == s) shadowedSelectors > 1) shadowedSelectors
       );
 
-      # An enabled file without a singleton device-binding selector can match the
-      # first device udev initializes and shadow every later file. This deliberately
-      # includes broad class or name matches: the static model cannot prove that one
-      # will not shadow a later file for another device class.
+      # An enabled file without a singleton device-binding selector applies to
+      # every device no earlier file matched. One that pins a Name= renames all
+      # of them to that name whatever its position, so it is reported
+      # unconditionally; one without a Name= is a hazard only when it precedes
+      # another file, whose device it can match first and shadow. This
+      # deliberately includes broad class or name matches: the static model
+      # cannot prove that one will not shadow a later file for another device
+      # class.
       unboundLinks = map (r: r.key) (
-        lib.filter (r: r.selectors == [ ] && precedesAnother r.key) enabledRecords
+        lib.filter (r: r.selectors == [ ] && (r.linkName != null || precedesAnother r.key)) enabledRecords
       );
+
+      # Enabled files that sort after systemd's own 99-default.link. udev merges
+      # /etc/systemd/network with /usr/lib/systemd/network by basename,
+      # strcmp-sorts the result and applies the first match, and 99-default.link
+      # matches every device (OriginalName=*), so such a file is never read while
+      # pinnedNames still counts its Name= as declared. A host file named
+      # 99-default itself replaces systemd's copy, so it is not reported.
+      defaultShadowedLinks = lib.filter (name: "${name}.link" > "99-default.link") enabledNames;
     };
 
   # Per-field entry points for firewall-checks.nix and the flake.lib.nixos
@@ -223,6 +235,7 @@ let
   policyOverriddenPinsOf = links: (classifyLinks links).policyOverriddenPins;
   shadowedLinksOf = links: (classifyLinks links).shadowedLinks;
   unboundLinksOf = links: (classifyLinks links).unboundLinks;
+  defaultShadowedLinksOf = links: (classifyLinks links).defaultShadowedLinks;
 
   # Interfaces a host declares rather than inherits from a NIC. Exported with
   # the classifier so the check can assert every source is still read. Takes
@@ -307,7 +320,7 @@ let
         ) localNetworkCidrs
       ) localTcpPortRanges;
       predictable = config.networking.usePredictableInterfaceNames;
-      # One pass over config.systemd.network.links for all five link guards.
+      # One pass over config.systemd.network.links for all six link guards.
       linkClassification = classifyLinks config.systemd.network.links;
       declaredNames = declaredNamesFrom linkClassification.pinnedNames config;
       inherit (linkClassification)
@@ -316,6 +329,7 @@ let
         policyOverriddenPins
         shadowedLinks
         unboundLinks
+        defaultShadowedLinks
         ;
       inherit (classify { inherit dnsInterfaces declaredNames predictable; })
         unbackedNames
@@ -343,7 +357,7 @@ let
       # One row per systemd.network.links guard, in assertion order. A new rule
       # is one row here plus its fixture block in firewall-checks.nix, rather
       # than a third hand-copied assertion stanza to keep in step with the
-      # other five.
+      # other six.
       linkAssertionTable = [
         {
           result = collidingPins;
@@ -395,9 +409,22 @@ let
           message =
             names:
             "${hostName}: enabled systemd.network.links units (${lib.concatStringsSep ", " names}) "
-            + "have no singleton Path= or PermanentMACAddress= selector and precede another .link. "
-            + "A broad or unbound file can match the first device udev initializes and shadow later "
-            + "files. Give it a singleton device selector or place it after the specific files.";
+            + "have no singleton Path= or PermanentMACAddress= selector and either pin a Name= or "
+            + "precede another .link. Without a device selector a file applies to every device no "
+            + "earlier file matched, so a Name= there renames all of them, and a broad file read "
+            + "before a specific one shadows it. Give it a singleton device selector, or drop its "
+            + "Name= and place it after the specific files.";
+        }
+        {
+          result = defaultShadowedLinks;
+          message =
+            names:
+            "${hostName}: enabled systemd.network.links units (${lib.concatStringsSep ", " names}) "
+            + "sort after systemd's own 99-default.link. udev merges /etc/systemd/network with "
+            + "/usr/lib/systemd/network by basename, applies the first file whose [Match] fits, and "
+            + "99-default.link matches every device (OriginalName=*), so these files are never read, "
+            + "while a Name= in them still counts as declared here. Renumber them below 99-default, "
+            + "as the 10-* files in modules/*/networking.nix are.";
         }
       ];
     in
@@ -487,6 +514,7 @@ in
       _firewallDnsPolicyOverriddenPinsOf = policyOverriddenPinsOf;
       _firewallDnsShadowedLinksOf = shadowedLinksOf;
       _firewallDnsUnboundLinksOf = unboundLinksOf;
+      _firewallDnsDefaultShadowedLinksOf = defaultShadowedLinksOf;
       # Exported so a per-host policy check (e.g.
       # modules/songbird/firewall-policy-check.nix) can compare against the
       # exact CIDR list instead of a hand-copied literal that silently goes

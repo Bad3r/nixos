@@ -25,6 +25,7 @@ let
   policyOverriddenPinsOf = config.flake.lib.nixos._firewallDnsPolicyOverriddenPinsOf or null;
   shadowedLinksOf = config.flake.lib.nixos._firewallDnsShadowedLinksOf or null;
   unboundLinksOf = config.flake.lib.nixos._firewallDnsUnboundLinksOf or null;
+  defaultShadowedLinksOf = config.flake.lib.nixos._firewallDnsDefaultShadowedLinksOf or null;
   formatCaseFailures =
     config.flake.lib.nixos._formatCheckFailures
       or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
@@ -110,6 +111,13 @@ let
       NamePolicy = "keep kernel database onboard slot path";
       AlternativeNamesPolicy = "database onboard slot path";
     };
+  };
+
+  # A class match with no Name=, the shape a wake-on-LAN or MTU file takes:
+  # unbound, but it renames nothing, so only its position can make it a hazard.
+  broadLink = {
+    matchConfig.Type = "ether";
+    linkConfig.WakeOnLan = "magic";
   };
 
   pinnedCases = [
@@ -613,10 +621,23 @@ let
       expected = [ "10-a" ];
     }
     {
-      name = "two unbound files report only the earlier unit";
+      # Each applies to every device no earlier file matched and renames it, so
+      # position does not excuse the later one.
+      name = "two unbound files that pin a Name= are both rejected";
       links = {
         "10-a".linkConfig.Name = "lan0";
         "20-b".linkConfig.Name = "lan1";
+      };
+      expected = [
+        "10-a"
+        "20-b"
+      ];
+    }
+    {
+      name = "two unbound files without Name= report only the earlier unit";
+      links = {
+        "10-a" = broadLink;
+        "20-b" = broadLink;
       };
       expected = [ "10-a" ];
     }
@@ -665,12 +686,22 @@ let
       expected = [ ];
     }
     {
-      name = "broad file after a specific file is accepted";
+      name = "broad file without Name= after a specific file is accepted";
+      links = {
+        "10-wifi0" = link { Path = "pci-0000:86:00.0"; } "wlan0";
+        "20-wol" = broadLink;
+      };
+      expected = [ ];
+    }
+    {
+      # Read after the specific file, but it still matches every other device
+      # and renames each of them to lan0.
+      name = "broad file that pins a Name= after a specific file is rejected";
       links = {
         "10-wifi0" = link { Path = "pci-0000:86:00.0"; } "wlan0";
         "20-wol".linkConfig.Name = "lan0";
       };
-      expected = [ ];
+      expected = [ "20-wol" ];
     }
     {
       # "10-net-fallback.link" sorts before "10-net.link" under udev's strcmp
@@ -678,20 +709,67 @@ let
       name = "broad file whose rendered name precedes a prefix name is rejected";
       links = {
         "10-net" = link { Path = "pci-0000:84:00.0"; } "lan0";
-        "10-net-fallback" = {
-          matchConfig.Type = "ether";
-          linkConfig.Name = "lan1";
-        };
+        "10-net-fallback" = broadLink;
       };
       expected = [ "10-net-fallback" ];
     }
     {
       name = "broad file whose rendered name follows a longer specific name is accepted";
       links = {
-        "10-net".linkConfig.Name = "lan0";
+        "10-net" = broadLink;
         "10-net-fallback" = link { Path = "pci-0000:84:00.0"; } "lan1";
       };
       expected = [ ];
+    }
+  ];
+
+  # udev reads systemd's 99-default.link (OriginalName=*) ahead of every
+  # basename that sorts after it, so a host file there is never applied.
+  defaultShadowedCases = [
+    {
+      name = "pin sorting after 99-default.link is rejected";
+      links."99-uplink" = link { Path = "pci-0000:84:00.0"; } "lan0";
+      expected = [ "99-uplink" ];
+    }
+    {
+      name = "pin sorting before 99-default.link is accepted";
+      links."10-realtek-5gbe" = link { Path = "pci-0000:84:00.0"; } "lan0";
+      expected = [ ];
+    }
+    {
+      # '-' sorts before '.', so 99-default-uplink.link is read before
+      # 99-default.link even though the bare name sorts after 99-default.
+      name = "pin whose rendered name precedes 99-default.link is accepted";
+      links."99-default-uplink" = link { Path = "pci-0000:84:00.0"; } "lan0";
+      expected = [ ];
+    }
+    {
+      name = "pin whose rendered name extends 99-default.link is rejected";
+      links."99-defaults" = link { Path = "pci-0000:84:00.0"; } "lan0";
+      expected = [ "99-defaults" ];
+    }
+    {
+      # /etc/systemd/network wins over /usr/lib/systemd/network for the same
+      # basename, so this file replaces systemd's copy rather than hiding behind it.
+      name = "host file named 99-default is accepted";
+      links."99-default" = link { Path = "pci-0000:84:00.0"; } "lan0";
+      expected = [ ];
+    }
+    {
+      name = "disabled file sorting after 99-default.link is accepted";
+      links."99-uplink" = {
+        enable = false;
+        matchConfig.Path = "pci-0000:84:00.0";
+        linkConfig.Name = "lan0";
+      };
+      expected = [ ];
+    }
+    {
+      # Nothing to count as declared, but the file is still dead: its altname
+      # policy never applies either.
+      name = "no-Name file sorting after 99-default.link is rejected";
+      links."99-onboard" = altnamesOnlyLink;
+      expected = [ "99-onboard" ];
     }
   ];
 
@@ -744,6 +822,8 @@ let
 
   unboundFailures = mkFailures unboundLinksOf unboundCases;
 
+  defaultShadowedFailures = mkFailures defaultShadowedLinksOf defaultShadowedCases;
+
   failures =
     classifyFailures
     ++ pinnedFailures
@@ -753,7 +833,8 @@ let
     ++ collisionFailures
     ++ policyOverrideFailures
     ++ shadowedFailures
-    ++ unboundFailures;
+    ++ unboundFailures
+    ++ defaultShadowedFailures;
 
   missingExports =
     classify == null
@@ -763,7 +844,8 @@ let
     || duplicatePinsOf == null
     || policyOverriddenPinsOf == null
     || shadowedLinksOf == null
-    || unboundLinksOf == null;
+    || unboundLinksOf == null
+    || defaultShadowedLinksOf == null;
 in
 {
   perSystem =
@@ -776,8 +858,9 @@ in
             + "flake.lib.nixos._firewallDnsClassify, _firewallDnsPinnedNamesOf, "
             + "_firewallDnsDeclaredNamesOf, _firewallDnsCollidingPinsOf, "
             + "_firewallDnsDuplicatePinsOf, _firewallDnsPolicyOverriddenPinsOf, "
-            + "_firewallDnsShadowedLinksOf, and _firewallDnsUnboundLinksOf, so the "
-            + "firewallDnsInterfaces guards are unverified."
+            + "_firewallDnsShadowedLinksOf, _firewallDnsUnboundLinksOf, and "
+            + "_firewallDnsDefaultShadowedLinksOf, so the firewallDnsInterfaces guards are "
+            + "unverified."
           )
         else if failures != [ ] then
           throw (formatCaseFailures "firewall-dns-interface-classifier" failures)
@@ -792,6 +875,7 @@ in
                 + lib.length policyOverrideCases
                 + lib.length shadowedCases
                 + lib.length unboundCases
+                + lib.length defaultShadowedCases
                 + 2
               )
             } classifier cases" > $out
