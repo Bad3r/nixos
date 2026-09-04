@@ -118,7 +118,11 @@ dependency of the `vscode-fhs` closure.
 
 A name listed but enabled on no host aborts evaluation instead of quietly
 publishing nothing, so renaming an app or disabling it on the last host that
-had it fails `nix flake check` rather than leaving a dead entry behind.
+had it fails `nix flake check` rather than leaving a dead entry behind. The
+one exemption is `nvidia-kernel-modules`: while some host loads the NVIDIA
+driver, every NVIDIA host setting `cacheRoots.nvidiaKernelModules = false` is
+a policy opt-out that leaves the name in place unpublished, and the abort only
+returns once no host loads the driver at all.
 
 There is no license gate. `cachix push` publishes the full runtime closure,
 and the cache is operator-private in use, so unfree packages are published
@@ -395,7 +399,9 @@ and a host actually installs it. License is no longer a criterion; see
 
 - A name enabled on no host aborts evaluation rather than publishing nothing,
   so a rename or a last-host disable fails `nix flake check` instead of leaving
-  a dead entry.
+  a dead entry. `nvidia-kernel-modules` is exempt while any host loads the
+  NVIDIA driver, because a fleet-wide `cacheRoots.nvidiaKernelModules = false`
+  is a policy opt-out rather than a stale name.
 
 - Verify the heavy derivation substitutes: a derivation that sets
   `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`) never hits

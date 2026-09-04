@@ -336,11 +336,20 @@ in
         name: !(lib.any ({ hostConfig, ... }: appEnabled hostConfig name) hostConfigs)
       ) hostPackageNames;
 
-      unusedOptionNames = lib.attrNames (
-        lib.filterAttrs (
-          _: entry:
-          !(lib.any ({ hostName, hostConfig }: entry.installed { inherit hostName hostConfig; }) hostConfigs)
-        ) hostOptionPackages
+      # cacheRoots.nvidiaKernelModules = false on every NVIDIA host is a policy
+      # opt-out, not a dead name: neither remedy the throw below offers applies
+      # to it. A fleet with no NVIDIA host still reports the entry as unused.
+      policyExcludedNames = lib.optional (lib.any (
+        { hostConfig, ... }: nvidiaLoaded hostConfig
+      ) hostConfigs) "nvidia-kernel-modules";
+
+      unusedOptionNames = lib.subtractLists policyExcludedNames (
+        lib.attrNames (
+          lib.filterAttrs (
+            _: entry:
+            !(lib.any ({ hostName, hostConfig }: entry.installed { inherit hostName hostConfig; }) hostConfigs)
+          ) hostOptionPackages
+        )
       );
 
       unused = unusedAppNames ++ unusedOptionNames;
