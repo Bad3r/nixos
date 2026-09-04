@@ -90,22 +90,12 @@ in
         environment.systemPackages = [ pkgs.git ];
         environment.sessionVariables.LOCAL_MIRRORS = cfg.root;
 
-        # A unit rather than systemd.tmpfiles.rules: tmpfiles.d(5) creates
-        # leading directories implicitly, so the rule this replaces wrote a
-        # setgid group-writable tree onto the root filesystem on every boot
-        # where the volume holding cfg.root was absent, which a sync then filled
-        # instead of failing. A nofail mount is not ordered before
-        # local-fs.target, so tmpfiles could also lose that race with the volume
-        # present. Conditioned rather than required, so an absent volume leaves
-        # this inactive instead of failed; recovering by hand after a late mount
-        # is `systemctl start local-mirrors-root.service`. setgid so new repos
-        # inherit group ownership.
-        #
-        # The stamp is what git-mirror tests for. It can only be written while
-        # this unit's condition holds, so it lives on the volume and cannot
-        # appear on a stray root of the same name. Mode carries no provenance:
-        # the tmpfiles rule this replaced wrote 2775, setgid included, onto
-        # exactly such a stray root.
+        # A oneshot unit, not tmpfiles.rules, so an absent volume leaves this
+        # inactive (not failed) instead of tmpfiles creating cfg.root
+        # unconditionally on the root filesystem; recover a late mount with
+        # `systemctl start local-mirrors-root.service`. The stamp is what
+        # git-mirror tests for, and can only be written while the mount
+        # condition holds, so it cannot appear on a stray root.
         systemd.services.local-mirrors-root = {
           description = "Provision the local mirror root";
           wantedBy = [ "multi-user.target" ];

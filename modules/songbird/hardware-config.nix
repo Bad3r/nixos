@@ -179,22 +179,15 @@ _: {
       # wrote an owner-writable /data onto the root filesystem on any boot where
       # the volume was absent, and anything writing there filled / silently.
 
-      # Operating rule 2 of docs/songbird/nixos-setup.md, enforced rather than
-      # left to memory: an image written with /shared mounted restores stale
-      # NTFS metadata over whatever Windows wrote in between, corrupting the
-      # volume silently. ExecStartPre aborts the unit's own start, so a busy
-      # /shared refuses the transition; wantedBy on these units would only be
-      # Wants= and could not. NixOS turns a systemd.services entry colliding
-      # with a shipped unit into a drop-in (overrideStrategy defaults to
-      # asDropinIfExists), so the upstream ExecStart survives. The remount is
-      # ExecStopPost, not ExecStartPost: ExecStartPost is skipped whenever
-      # ExecStart exits non-zero, which is every failed transition, and would
-      # strand /shared unmounted with no diagnostic. The /run flag records
-      # that this unit did the unmount, so the remount cannot resurrect a
-      # volume the operator unmounted by hand and cannot fire on the path
-      # where ExecStartPre refused a busy /shared. That gate is also why the
-      # mount needs no "-": it is reached only when /shared was mounted going
-      # in, so a failure there is a real anomaly, not an absent drive.
+      # Enforces operating rule 2 of docs/songbird/nixos-setup.md: /shared
+      # mounted during imaging restores stale NTFS metadata, corrupting the
+      # volume silently, so ExecStartPre aborts the unit on a busy /shared.
+      # Collides with a shipped unit, so NixOS renders this as a drop-in
+      # (asDropinIfExists) rather than a replacement. Remount runs on
+      # ExecStopPost, not ExecStartPost, which nixpkgs skips on any failed
+      # transition. The /run flag marks that this unit performed the unmount,
+      # so remount, and the unprefixed mount command, only ever run for that
+      # transition.
       systemd.services =
         let
           # Flag written only after the unmount succeeds: it is what tells
