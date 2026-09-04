@@ -102,21 +102,7 @@ in
         # Force the power-profiles-daemon profile to performance at boot: the
         # desktop counterpart of system76-power-profile on system76, where the
         # System76 EC daemon owns the profile instead.
-        services.songbird-power-profile = {
-          description = "Force power-profiles-daemon profile to performance";
-          wantedBy = [ "graphical.target" ];
-          wants = [ "power-profiles-daemon.service" ];
-          after = [ "power-profiles-daemon.service" ];
-          startLimitBurst = 3;
-          startLimitIntervalSec = 3600;
-          serviceConfig = {
-            Type = "oneshot";
-            ExecStart = "${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance";
-            RemainAfterExit = true;
-            Restart = "on-failure";
-            RestartSec = 3;
-          };
-        };
+        services.songbird-power-profile = import ../hosts/common/_power-profile-unit.nix pkgs;
       };
 
       # lock = logind signal -> xss-lock --transfer-sleep-lock (i3lock-stylix).

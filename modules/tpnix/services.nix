@@ -51,21 +51,7 @@ _: {
         '';
       };
 
-      systemd.services.tpnix-power-profile = {
-        description = "Force power-profiles-daemon profile to performance";
-        wantedBy = [ "graphical.target" ];
-        wants = [ "power-profiles-daemon.service" ];
-        after = [ "power-profiles-daemon.service" ];
-        startLimitBurst = 3;
-        startLimitIntervalSec = 3600;
-        serviceConfig = {
-          Type = "oneshot";
-          ExecStart = "${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance";
-          RemainAfterExit = true;
-          Restart = "on-failure";
-          RestartSec = 3;
-        };
-      };
+      systemd.services.tpnix-power-profile = import ../hosts/common/_power-profile-unit.nix pkgs;
 
       # espanso's Wayland/X11 split is decided per host; this chassis runs X11.
       home-manager.sharedModules = lib.mkAfter [
