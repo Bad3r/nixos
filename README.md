@@ -97,4 +97,3 @@ The following files are defined in Nix and generated via [mightyiam/files](https
 - `.gitleaks.toml`
 - `.sops.yaml`
 - `README.md`
-
