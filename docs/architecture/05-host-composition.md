@@ -182,6 +182,10 @@ Each host uses the same two-stage app model:
    `programs.<name>.extended.enable` baseline at `lib.mkOverride 1100`.
    Host override files such as `modules/tpnix/apps-enable.nix` layer
    `lib.mkOverride 1000` overrides for entries where a host diverges.
+   Nested overrides register full paths and route through `programs` first,
+   falling back to `services` for services-only paths. Paths absent from both
+   namespaces fail the host evaluation, so a switch cannot drop them silently;
+   the shared FR-5 check reports them as well.
 
 Home Manager wiring follows the same shape:
 

@@ -155,6 +155,10 @@ let
       findutils.extended.enable = lib.mkOverride 1100 true;
       firefox.extended.enable = lib.mkOverride 1100 true;
       firefoxpwa.extended.enable = lib.mkOverride 1100 true;
+      # Matches the option's own default. Stated so the tpnix sub-toggle that
+      # turns it on has a baseline value to be compared against; without one
+      # tpnix fails to evaluate, since the toggle would have nowhere to land.
+      firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
       fonttools.extended.enable = lib.mkOverride 1100 true;
