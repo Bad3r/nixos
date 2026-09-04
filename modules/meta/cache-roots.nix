@@ -518,15 +518,27 @@ in
           ) excluded
         );
 
+      formatCaseFailures =
+        config.flake.lib.nixos._formatCheckFailures
+          or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
+
       nvidiaCachePolicyCheck =
         if nvidiaKernelModulesPolicyTestFailures != [ ] then
-          throw "cache-roots: nvidia kernel modules cache policy fixture failed: ${
-            lib.concatStringsSep ", " (map (test: test.name) nvidiaKernelModulesPolicyTestFailures)
-          }"
+          throw (
+            formatCaseFailures "cache-roots" (
+              map (
+                test: "nvidia kernel modules cache policy fixture failed: ${test.name}"
+              ) nvidiaKernelModulesPolicyTestFailures
+            )
+          )
         else if !nvidiaCachePolicyValidation then
-          throw "cache-roots: nvidia kernel modules cache policy validation did not evaluate to true"
+          throw (
+            formatCaseFailures "cache-roots" [
+              "nvidia kernel modules cache policy validation did not evaluate to true"
+            ]
+          )
         else if nvidiaCachePolicyFailures != [ ] then
-          throw "cache-roots: ${lib.concatStringsSep "; " nvidiaCachePolicyFailures}"
+          throw (formatCaseFailures "cache-roots" nvidiaCachePolicyFailures)
         else
           pkgs.runCommandLocal "cache-roots-nvidia-cache-policy" { } "touch $out";
     in

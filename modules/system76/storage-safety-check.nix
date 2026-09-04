@@ -10,6 +10,9 @@ let
   r2ServiceNames =
     config.flake.lib.nixos.r2._serviceNames
       or (throw "modules/lib/r2-runtime.nix no longer exports flake.lib.nixos.r2._serviceNames");
+  formatCaseFailures =
+    config.flake.lib.nixos._formatCheckFailures
+      or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
   # systemd.tmpfiles.rules is a list of raw tmpfiles.d lines. Extract only the
   # path field, allowing modifier-bearing type tokens, so an argument or
   # unrelated path cannot trigger or bypass this guard. Structured settings
@@ -140,7 +143,7 @@ in
     {
       checks.system76-storage-safety =
         if failures != [ ] then
-          throw ("system76-storage-safety: " + lib.concatStringsSep "; " failures)
+          throw (formatCaseFailures "system76-storage-safety" failures)
         else
           pkgs.runCommandLocal "system76-storage-safety-ok" { } ''
             echo "ok: system76 has no /data-backed mirror or R2 writers" > $out
