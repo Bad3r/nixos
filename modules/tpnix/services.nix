@@ -34,9 +34,11 @@ _: {
         };
       };
 
-      # Power management configuration.
+      # Power management configuration. No cpuFreqGovernor pin: ppd is forced on
+      # above and its intel_pstate probe force-writes the governor at startup,
+      # so a pin here never survives to boot. tpnix-power-profile below owns the
+      # profile. See modules/hosts/common/services.nix.
       powerManagement = {
-        cpuFreqGovernor = lib.mkForce "performance"; # ondemand, powersave, performance
         resumeCommands = ''
           # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
           ${pkgs.systemd}/bin/loginctl lock-sessions

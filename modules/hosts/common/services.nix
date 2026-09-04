@@ -48,7 +48,9 @@
         };
 
         # Kernel-level CPU governor and suspend/resume hooks; each host sets
-        # cpuFreqGovernor and resumeCommands next to its power stack.
+        # resumeCommands next to its power stack, and cpuFreqGovernor only
+        # where nothing else owns the governor (power-profiles-daemon
+        # overwrites it at startup, so a pin alongside it is inert).
         powerManagement = {
           enable = true;
           powertop.enable = false; # Aggressive USB autosuspend causes device issues
