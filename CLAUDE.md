@@ -122,6 +122,11 @@ also reports it as uncomparable.
 `modules/hosts/common/checks.nix` adds a flake-level `nix flake check` assertion
 that fails when a per-host override duplicates the common baseline value.
 
+Storage-dependent common features must be disabled or backed by a host-mounted
+path when the host lacks their storage contract. The system76 host has no
+dedicated `/data` volume and therefore disables local mirror writers and R2
+runtime units; tpnix intentionally retains its root-backed mirror behavior.
+
 ### Flake Input Deduplication
 
 Do not restate the local flake input naming table here. Read the generated

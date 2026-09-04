@@ -2,6 +2,7 @@
   config,
   lib,
   inputs,
+  metaOwner,
   ...
 }:
 let
@@ -15,6 +16,12 @@ in
       inputs.nixos-hardware.nixosModules.system76
     ]
     ++ lib.optionals system76SupportExists [ config.flake.nixosModules.system76-support ];
+
+    # This host no longer owns the dedicated /data volume. Disable both halves
+    # of the common mirror feature so neither the system provisioner nor the
+    # Home Manager timer creates or fills /data/git on the root filesystem.
+    localMirrors.enable = lib.mkForce false;
+    home-manager.users.${metaOwner.username}.programs.gitMirror.enable = lib.mkForce false;
 
     # Hardware support; gate the enable on the optional system76-support module
     # that declares hardware.system76.extended so an absent module degrades

@@ -8,6 +8,7 @@
       "build"
       "hm-package-pattern"
       "app-wiring"
+      "storage-boundaries"
       "cache-boundaries"
       "secrets"
       "flake-input-deduplication"
@@ -100,6 +101,17 @@
           Nested host app overrides register full option paths and route them through `programs` first, then `services` for services-only paths. A path absent from both baseline namespaces fails the host evaluation, so it cannot be dropped by a switch that never runs the FR-5 check.
 
           See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
+
+        '';
+
+      storage-boundaries =
+        # markdown
+        ''
+          ## Storage Boundaries
+
+          Storage-dependent services must be enabled only on hosts that provide their required mount. The system76 host has no dedicated `/data`, so it disables both common local mirror writers and the R2 runtime; the relocated `/data` volume belongs to `songbird`.
+
+          See the [local mirror reference](docs/reference/local-mirrors.md), [system76 configuration](docs/system76/system76-configuration.md), and [R2 runtime policy](docs/r2-cloud/system76-runtime.md) for the operational contracts.
 
         '';
 

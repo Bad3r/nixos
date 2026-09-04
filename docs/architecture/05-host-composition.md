@@ -64,24 +64,25 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 
 ### system76 (Oryx Pro laptop)
 
-| File                                          | Purpose                                                                                                          |
-| --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
-| `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support) and host-specific enables                    |
-| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                       |
-| `modules/system76/networking.nix`             | `.link` unit for the USB ethernet adapter, no `Name=`: drops the `mac` altname token without renaming            |
-| `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                    |
-| `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                      |
-| `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                   |
-| `modules/system76/r2-runtime.nix`             | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag               |
-| `modules/system76/hardware-config.nix`        | Filesystems, firmware, loader entry limit, low-level hardware settings                                           |
-| `modules/system76/host-id.nix`                | `networking.hostId`                                                                                              |
-| `modules/system76/state-version.nix`          | Install-time `system.stateVersion` constant                                                                      |
-| `modules/system76/support.nix`                | system76 hardware-support enable (kernel modules, firmware-daemon)                                               |
-| `modules/system76/nvidia-gpu.nix`             | GPU profile over `flake.nixosModules.nvidia-gpu` (`system76.gpu.mode` enum, libva routing, NVIDIA kernel params) |
-| `modules/system76/mpv.nix`                    | mpv `gpu-api = "opengl"` override (NVIDIA Vulkan deadlock workaround)                                            |
-| `modules/system76/pass-secret-service.nix`    | DBus secret-service for `pass` (system76-only)                                                                   |
-| `modules/system76/policy.nix`                 | Registry data under `flake.lib.nixos.hosts.system76` (`primary`, `tailnetIp`, readiness gates, per-host values)  |
-| `modules/system76/services.nix`               | Host-divergent services (Samba media share, system76-power stack, cloudflared, LACT)                             |
+| File                                          | Purpose                                                                                                                              |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support), host-specific enables, and storage-dependent mirror disablement |
+| `modules/system76/storage-safety-check.nix`   | Flake check proving the host has no local mirror or R2 writers while `/data` is absent                                               |
+| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                           |
+| `modules/system76/networking.nix`             | `.link` unit for the USB ethernet adapter, no `Name=`: drops the `mac` altname token without renaming                                |
+| `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                                        |
+| `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                                          |
+| `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                                       |
+| `modules/system76/r2-runtime.nix`             | Host runtime bindings for external `r2-flake` modules, gated off because system76 has no dedicated `/data`                           |
+| `modules/system76/hardware-config.nix`        | Filesystems, firmware, loader entry limit, low-level hardware settings                                                               |
+| `modules/system76/host-id.nix`                | `networking.hostId`                                                                                                                  |
+| `modules/system76/state-version.nix`          | Install-time `system.stateVersion` constant                                                                                          |
+| `modules/system76/support.nix`                | system76 hardware-support enable (kernel modules, firmware-daemon)                                                                   |
+| `modules/system76/nvidia-gpu.nix`             | GPU profile over `flake.nixosModules.nvidia-gpu` (`system76.gpu.mode` enum, libva routing, NVIDIA kernel params)                     |
+| `modules/system76/mpv.nix`                    | mpv `gpu-api = "opengl"` override (NVIDIA Vulkan deadlock workaround)                                                                |
+| `modules/system76/pass-secret-service.nix`    | DBus secret-service for `pass` (system76-only)                                                                                       |
+| `modules/system76/policy.nix`                 | Registry data under `flake.lib.nixos.hosts.system76` (`primary`, `tailnetIp`, disabled R2 readiness gate, per-host values)           |
+| `modules/system76/services.nix`               | Host-divergent services (Samba media share, system76-power stack, cloudflared, LACT)                                                 |
 
 ### tpnix (ThinkPad)
 
@@ -104,7 +105,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | `modules/tpnix/power.nix`                | GPU profile over `flake.nixosModules.nvidia-gpu` plus display and power services (`power-profiles-daemon`, logind lid handling) |
 | `modules/tpnix/services.nix`             | Host-divergent services (printing, power-profiles-daemon stack, espanso X11 override)                                           |
 
-Cross-host baselines (imports skeleton, boot, base services, networking base, firewall, private DNS hosts, fonts, duplicati wiring, color-profile, default-apps, mirrors, nix-ld, sudo, zsh, ssh, nix-substituters, packages, home-manager-apps, virtualization, ...) live in `modules/hosts/common/` and contribute to `flake.nixosModules.hosts-common`. The host constructor imports that aggregate before each host-specific module when `flake.lib.nixos.hosts.<host>.shareCommon = true`.
+Cross-host baselines (imports skeleton, boot, base services, networking base, firewall, private DNS hosts, fonts, duplicati wiring, color-profile, default-apps, mirrors, nix-ld, sudo, zsh, ssh, nix-substituters, packages, home-manager-apps, virtualization, ...) live in `modules/hosts/common/` and contribute to `flake.nixosModules.hosts-common`. The host constructor imports that aggregate before each host-specific module when `flake.lib.nixos.hosts.<host>.shareCommon = true`; host-specific modules can disable a storage-dependent baseline when the hardware lacks its required mount.
 
 General Nix daemon and evaluator settings live in `modules/base/nix-settings.nix`.
 The common `nix-substituters` module owns cache topology and download retry

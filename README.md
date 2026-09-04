@@ -56,6 +56,12 @@ Nested host app overrides register full option paths and route them through `pro
 
 See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
 
+## Storage Boundaries
+
+Storage-dependent services must be enabled only on hosts that provide their required mount. The system76 host has no dedicated `/data`, so it disables both common local mirror writers and the R2 runtime; the relocated `/data` volume belongs to `songbird`.
+
+See the [local mirror reference](docs/reference/local-mirrors.md), [system76 configuration](docs/system76/system76-configuration.md), and [R2 runtime policy](docs/r2-cloud/system76-runtime.md) for the operational contracts.
+
 ## Cache Boundaries
 
 Cache-root membership is derived from evaluated host configuration. Every NVIDIA-enabled host explicitly sets `cacheRoots.nvidiaKernelModules`; missing, malformed, or unknown policy values fail evaluation. songbird sets it to `false` to keep its source-built CachyOS module out while retaining `nvidia-x11` and `nvidia-settings` coverage.
