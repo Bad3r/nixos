@@ -1,7 +1,21 @@
-{ config, secretsRoot, ... }:
+{
+  config,
+  lib,
+  secretsRoot,
+  ...
+}:
 let
   sambaSecretFile = secretsRoot + "/songbird.yaml";
   sambaSecretExists = builtins.pathExists sambaSecretFile;
+  # The source CIDRs firewallLocalTcpPortRanges admits, applied at the Samba
+  # layer because openFirewall opens 139/445 on every interface. hosts deny =
+  # ALL also closes the IPv6 path, matching that IPv4-only scoping.
+  sambaHostsAllow = lib.concatStringsSep " " (
+    [ "127.0.0.1" ]
+    ++ (config.flake.lib.nixos._firewallLocalNetworkCidrs
+      or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallLocalNetworkCidrs")
+    )
+  );
   # Both halves, as every other secret consumer here gates: the file arriving
   # before the age identity would activate sops.secrets with no key to decrypt
   # and fail sops-nix.service mid-switch.
@@ -130,6 +144,8 @@ in
             global = {
               "map to guest" = "Bad User";
               "server min protocol" = "SMB3";
+              "hosts allow" = sambaHostsAllow;
+              "hosts deny" = "ALL";
             };
           };
         };
