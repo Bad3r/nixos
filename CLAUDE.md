@@ -133,13 +133,15 @@ Do not restate the local flake input naming table here. Read the generated
 README's "Flake Input Deduplication" section, whose source is
 `modules/readme.nix`, before changing root input names or follower
 relationships.
+The CachyOS kernel input follows root `nixpkgs`; its pinned overlay remains
+applied to songbird's host package set.
 
 ## Ownership Map
 
 - NixOS modules: `modules/`
-  Auto-loaded modules. Per-host logic lives under `modules/system76` and
-  `modules/tpnix`; cross-host shared logic lives under `modules/hosts/common`;
-  other bundles are grouped by domain.
+  Auto-loaded modules. Per-host logic lives under `modules/songbird`,
+  `modules/system76`, and `modules/tpnix`; cross-host shared logic lives under
+  `modules/hosts/common`; other bundles are grouped by domain.
 - Shared derivations: `packages/`
   Common build logic shared between modules.
 - Helper scripts: `scripts/`

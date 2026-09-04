@@ -125,12 +125,14 @@ Storage-dependent common features must be disabled or backed by a host-mounted p
 Use the generated README's "Flake Input Deduplication" section as the canonical
 source for local flake input naming and follower relationships. Its source text
 is `modules/readme.nix`.
+The CachyOS kernel input follows root `nixpkgs`; its pinned overlay remains
+applied to songbird's host package set.
 
 ### Repository Layout
 
 - NixOS modules
   - Location: `modules/`
-  - Notes: Auto-loaded. Per-host logic under `modules/system76` and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
+  - Notes: Auto-loaded. Per-host logic under `modules/songbird`, `modules/system76`, and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
 - Shared derivations
   - Location: `packages/`
   - Notes: Common build logic shared between modules.

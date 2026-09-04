@@ -79,6 +79,18 @@
       inputs.nixpkgs.follows = "nixpkgs";
     };
 
+    nix-cachyos-kernel = {
+      # Build the CachyOS kernel locally for songbird; share the canonical
+      # flake-parts, flake-compat, and nixpkgs lock nodes while keeping the
+      # pinned CachyOS overlay.
+      url = "github:xddxdd/nix-cachyos-kernel/release";
+      inputs = {
+        flake-compat.follows = "dedupe_flake-compat";
+        flake-parts.follows = "flake-parts";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
+
     # nix-on-droid = {
     #   url = "github:nix-community/nix-on-droid";
     #   inputs = {

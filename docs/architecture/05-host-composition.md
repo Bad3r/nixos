@@ -53,14 +53,42 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
 
 Every host follows the same shape: NixOS fragments under `modules/<host>/` extend `configurations.nixos.<host>.module`, while `policy.nix` contributes per-host registry data. Cross-host concerns (imports skeleton, boot, base services, networking base, firewall, fonts, duplicati wiring, sudo, dbus, pipewire, hostname, sops, etc.) live under `modules/hosts/common/`; a host directory carries only hardware truth, chassis-specific modules, and small value files. Notable and divergent files are listed below for the hosts currently in the repo. To audit the current set of files for any host, run `ls modules/<host>/`.
 
-The planned `songbird` managed-workstation footprint is `hardware-config.nix`,
-`host-id.nix`, `state-version.nix`, a GPU module, `support.nix`, and a
-`policy.nix` carrying the registry values the common layer consumes. Every
-host additionally needs an explicit `shareCommon` entry in
-`modules/hosts/common/registry.nix`: the host constructor aborts evaluation
-for hosts without one, so common-baseline participation is always a recorded
-choice (`true` to opt in, `false` to deliberately opt out). The full
-procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
+`songbird` is the managed-workstation instance of that shape:
+`hardware-config.nix`, `host-id.nix`, `state-version.nix`, `nvidia-gpu.nix`,
+`support.nix`, a `cachyos-kernel.nix` that swaps the common `linuxPackages_zen`
+default for the locally built CachyOS kernel, a `firewall-policy-check.nix`
+flake check pinning the source-scoped developer port rules, and a `policy.nix`
+carrying the registry values the common layer consumes, plus the same
+preference files system76 carries (Samba share, secret-service backend, mpv
+backend, app overrides). Every host additionally
+needs an explicit `shareCommon` entry in `modules/hosts/common/registry.nix`:
+the host constructor aborts evaluation for hosts without one, so
+common-baseline participation is always a recorded choice (`true` to opt in,
+`false` to deliberately opt out). The full procedure lives in the
+[host onboarding runbook](../guides/host-onboarding.md).
+
+### songbird (Arrow Lake desktop)
+
+| File                                         | Purpose                                                                                                                                                                                                                            |
+| -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/songbird/imports.nix`               | Language toolchain enables only; the desktop board has no vendor module, so nothing chassis-specific to import                                                                                                                     |
+| `modules/songbird/nix-settings.nix`          | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                                                                                                         |
+| `modules/songbird/ssh.nix`                   | songbird host public key + `services.openssh.enable` override                                                                                                                                                                      |
+| `modules/songbird/r2-runtime.nix`            | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                                                                                                                 |
+| `modules/songbird/hardware-config.nix`       | LUKS root and swap on the SN8100, the `/data` LUKS+XFS volume, the NTFS `/shared` drive and its pre-hibernation unmount, firmware, NPU, Thunderbolt (bolt)                                                                         |
+| `modules/songbird/host-id.nix`               | `networking.hostId`                                                                                                                                                                                                                |
+| `modules/songbird/state-version.nix`         | Install-time `system.stateVersion` constant (`26.11`)                                                                                                                                                                              |
+| `modules/songbird/support.nix`               | `services.fwupd` (LVFS); no vendor daemon on this board                                                                                                                                                                            |
+| `modules/songbird/nvidia-gpu.nix`            | GPU profile over `flake.nixosModules.nvidia-gpu`: production branch, open kernel modules (Blackwell), NVDEC VA-API on a pinned DRM node, `2560x1440_144` metamode, nouveau blacklisted                                             |
+| `modules/songbird/mpv.nix`                   | mpv `gpu-api = "opengl"` override; drop once Vulkan is verified on the 5080                                                                                                                                                        |
+| `modules/songbird/gnome-keyring.nix`         | gnome-keyring force-disabled in favor of the `pass` secret service                                                                                                                                                                 |
+| `modules/songbird/pass-secret-service.nix`   | DBus secret-service for `pass`                                                                                                                                                                                                     |
+| `modules/songbird/apps-enable.nix`           | Per-host overrides over the common app baseline (Inkscape on)                                                                                                                                                                      |
+| `modules/songbird/policy.nix`                | Registry data under `flake.lib.nixos.hosts.songbird` (readiness gates, per-host values); primary handoff pending the tailnet address                                                                                               |
+| `modules/songbird/services.nix`              | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT, system76-scheduler)                                                                                                |
+| `modules/songbird/networking.nix`            | `.link` units for the two onboard NICs and the BE200 carrying no `Name=`: they displace `99-default.link` to drop its `mac` altname token without renaming                                                                         |
+| `modules/songbird/cachyos-kernel.nix`        | Pinned CachyOS overlay and `boot.kernelPackages` override over the common `linuxPackages_zen` default; the kernel and its NVIDIA module are built locally, which is why `policy.nix` sets `cacheRoots.nvidiaKernelModules = false` |
+| `modules/songbird/firewall-policy-check.nix` | Flake check `songbird-firewall-port-policy`: exactly one source-scoped TCP 8000-8999 start and cleanup rule per approved CIDR, no source-unrestricted overlap, and TCP 9999 still globally open                                    |
 
 ### system76 (Oryx Pro laptop)
 
