@@ -40,11 +40,14 @@ _: {
       # profile. See modules/hosts/common/services.nix.
       powerManagement = {
         resumeCommands = ''
-          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix)
-          ${pkgs.systemd}/bin/loginctl lock-sessions
-
-          # Re-assert the daemon profile after resume.
-          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance
+          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix).
+          # Guarded for the same set -e reason as the reassert below.
+          ${pkgs.systemd}/bin/loginctl lock-sessions || echo "tpnix resume: loginctl lock-sessions failed" >&2
+          # Re-assert the daemon profile after resume. Suppressed rather than
+          # fatal: nixpkgs concatenates powerUpCommands after this in the same
+          # set -e sleep-actions preStop script, so an unguarded failure here
+          # would skip it. The journal line keeps the failure visible.
+          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance || echo "tpnix resume: powerprofilesctl set performance failed" >&2
         '';
       };
 
