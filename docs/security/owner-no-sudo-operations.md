@@ -324,10 +324,11 @@ Scope:
     - should show `PR_CAP_AMBIENT_CLEAR_ALL` before the unprivileged `--version`
       action executes. A missing call means the filter is not clearing
       capabilities for non-allowlisted actions.
-  - `nvme sanitize-log /dev/nvme0; nvme get-feature /dev/nvme0 -f 4`
-    - the first is allowlisted and should print log data; the second is not, so
-      it should report `Permission denied`. Both succeeding means the argv
-      filter was lost from `security.wrappers.nvme.source`.
+  - `nvme sanitize-log /dev/nvme0; nvme get-log /dev/nvme0 --log-id 2 --log-len 512`
+    - the first is allowlisted and should print log data; the second is raw
+      `get-log`, one of the deliberate exclusions, so it should report
+      `Permission denied`. Both succeeding means the argv filter was lost from
+      `security.wrappers.nvme.source`.
   - `tcpdump -c 1 -C 1 -w /tmp/cap -z /bin/true` as a non-root caller
     - should exit non-zero with `-z is refused by the capability wrapper`.
       A started capture means the argv filter was lost from
