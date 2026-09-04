@@ -91,7 +91,9 @@ _: {
 
     # Values consumed by modules/hosts/common/*.
     extraHomeApps = [ ];
-    firewallDnsInterfaces = [ ]; # only if the host serves DNS/DHCP; see below
+    firewallDnsInterfaces = [ ]; # Required. See below before opening DNS/DHCP.
+    firewallLocalTcpPortRanges = [ ]; # Required. See below before exposing services.
+    # Globally reachable TCP range on every firewall interface.
     # firewallExtraTcpPortRanges = [ { from = 8000; to = 8999; } ];
     # duplicatiStateDirReadable = true;
     # secrets/<host>.yaml keys holding hosts(5) payloads that dnsmasq serves
@@ -101,29 +103,41 @@ _: {
 }
 ```
 
-`firewallDnsInterfaces` is required: `modules/hosts/common/firewall.nix` throws
-when the key is absent, so a misspelling cannot fall back to no rule silently.
-Leave it empty, as both current hosts now do, unless the host actually serves
-DNS or DHCP to the network. It opens inbound UDP 53/67 and
+`firewallDnsInterfaces` and `firewallLocalTcpPortRanges` are required:
+`modules/hosts/common/firewall.nix` throws when either key is absent, so a
+misspelling cannot silently remove the rules it controls. Leave
+`firewallDnsInterfaces` empty unless the host actually serves DNS or DHCP to
+the network. It opens inbound UDP 53/67 and
 TCP 53, and NetworkManager's `dns = "dnsmasq"` mode is not a reason to set it:
 that dnsmasq is a caching resolver NetworkManager binds to `127.0.0.1` and
 `::1` with no `dhcp-range`, so it never listens on a link.
 
-When the host does have such a listener, use its real interface names, read from
-`ip link` on the target **after** its first boot on this configuration.
-`shareCommon` hosts boot with `net.ifnames=0`, so the names are `eth0`, `eth1`,
-and `wlan0` rather than the `enp*` and `wlp*` names an installer shows.
+`firewallExtraTcpPortRanges` opens a range globally. In contrast,
+`firewallLocalTcpPortRanges` emits IPv4 `iptables` rules that accept source
+addresses in only `10.0.0.0/8` and `192.168.0.0/16`. It excludes
+`172.16.0.0/12`, IPv6, and any stronger trusted-network assertion, so choose
+the global key only for intentional public reachability and the source-scoped
+key only when those exact CIDRs are the intended access boundary. Set
+`firewallLocalTcpPortRanges = [ ];` explicitly when no source-scoped TCP range
+is wanted.
+
+When the host does have such a listener, pin the intended device with a `.link`
+`Name=` and use the pinned name. `shareCommon` hosts boot with `net.ifnames=0`,
+so an unpinned device carries `eth0`, `eth1`, or `wlan0` rather than the `enp*`
+and `wlp*` names an installer shows, and those numbers follow discovery order.
 `modules/hosts/common/firewall.nix` rejects an `enp*`/`wlp*` name on such a host
-with an assertion, and warns when a name is neither kernel-assigned nor created
-by a declaration on the host. Neither guard catches a kernel name that is simply
-wrong for this machine: that emits a `networking.firewall.interfaces.<name>`
-entry for a device that never appears, so the opening silently does nothing.
+with an assertion, warns when a name is neither kernel-assigned nor created by a
+declaration on the host, and warns on a kernel-assigned name with no pin behind
+it. That last warning clears as soon as a pin backs the entry. What no guard
+catches is a pinned or kernel name that is simply wrong for this machine: that
+emits a `networking.firewall.interfaces.<name>` entry for a device that never
+appears, so the opening silently does nothing.
 
 On a host with two interfaces of the same class, or with a removable adapter,
 the `eth0` and `eth1` numbering follows kernel discovery order and can move
 between devices. Do not point `firewallDnsInterfaces` at a name that can
 change: the rule opens UDP 53/67 and TCP 53 on whichever device holds the name
-that boot. Pin the intended device first, as `modules/system76/networking.nix`
+that boot. Pin the intended device first, as `modules/tpnix/networking.nix`
 does, then use the pinned name:
 
 ```sh
@@ -137,10 +151,12 @@ done
 ```nix
 _: {
   configurations.nixos.<host>.module = {
-    systemd.network.links."10-lan0" = {
+    systemd.network.links."10-uplink0" = {
       matchConfig.Path = "<ID_PATH value>";
       linkConfig = {
-        Name = "lan0";
+        # Outside the kernel's own eth*/wlan* pools: systemd.link(5) calls a
+        # pin named eth0 a race against the kernel's own assignment.
+        Name = "uplink0";
         # The pin displaces 99-default.link for this device, so restore the
         # alternative names it would otherwise supply. Its "mac" token is left
         # out: that derives an altname from the factory hardware address.
@@ -151,8 +167,28 @@ _: {
 }
 ```
 
+The block above is for a device with no `.link` yet. When one already matches
+it, as `modules/songbird/networking.nix` and `modules/system76/networking.nix`
+do for every NIC, add `Name=` to that entry and delete its `NamePolicy=` rather
+than adding a second file: udev applies only the first matching file, so a new
+one renames nothing while `pinnedNamesOf` still counts its `Name=` as a declared
+name. `modules/hosts/common/firewall.nix` also rejects duplicate names on
+device-specific pins and broad, empty, globbed, or multi-valued matches that
+precede another enabled `.link`. It asserts against a second `.link` for a
+device that already has one and a single file carrying `Name=` and
+`NamePolicy=` together, so following this section without those steps fails
+`nix flake check`.
+
+A device that needs no pinned name still wants that last line, because
+`net.ifnames=0` gates the rename only and leaves `99-default.link`'s `mac`
+token generating an `enx<permanent-mac>` altname. Drop `Name=`, add
+`NamePolicy = "keep kernel database onboard slot path"` in its place, and keep
+`AlternativeNamesPolicy`, as `modules/songbird/networking.nix` does for all
+three of its NICs.
+
 `docs/networking/README.md` covers why the pinned name stays outside the
-kernel's `eth*` namespace and why the match uses the path rather than a MAC.
+kernel's `eth*` namespace, why the match uses the path rather than a MAC, and
+why `NamePolicy` belongs in the second shape but never in a pin.
 
 If the new host becomes the primary fleet endpoint,
 move `primary = true` and `tailnetIp` from the current primary host's

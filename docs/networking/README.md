@@ -25,10 +25,16 @@ Those names follow the order the kernel discovers the devices, which is not
 guaranteed across boots. A host with two interfaces of the same class, or with
 a removable adapter, can see the numbering move between devices. A name that
 carries a firewall rule must therefore be pinned rather than observed: see
-[Pin an interface name](#pin-an-interface-name). `modules/system76/networking.nix`
-pins its USB ethernet adapter to `lan0` for that reason, so a rule keyed to that
-name follows the adapter. Both hosts currently leave `firewallDnsInterfaces`
-empty.
+[Pin an interface name](#pin-an-interface-name). `modules/tpnix/networking.nix`
+pins that laptop's internal Wi-Fi card to `wifi0` for that reason, so a rule
+keyed to that name follows the card rather than a USB adapter that registered
+first. The wired hosts carry no pin: system76's USB ethernet adapter and
+songbird's two onboard NICs are read as `eth0`/`eth1` in kernel enumeration
+order. Hosts that serve no DNS or DHCP leave `firewallDnsInterfaces` empty, so no rule is
+keyed to a wired name today; pin the device before adding one. Those hosts do
+carry `.link` files without a `Name=`, which narrow the alternative names
+without renaming anything: see
+[Narrow the alternative names without pinning a name](#narrow-the-alternative-names-without-pinning-a-name).
 
 ```bash
 nmcli device status
@@ -205,14 +211,14 @@ Kernel names follow discovery order, so a name is not tied to one device. That
 matters when a name carries a firewall rule: `firewallDnsInterfaces` opens UDP
 53/67 and TCP 53 on whatever device holds the name, and a removable adapter is
 absent on some boots by definition. Pin the device with `linkConfig.Name`
-matched on its path, as `modules/system76/networking.nix` does for the USB
-ethernet adapter, so a rule later keyed to that name follows the adapter:
+matched on its path, as `modules/tpnix/networking.nix` does for the internal
+Wi-Fi card, so a rule later keyed to that name follows the card:
 
 ```nix
-systemd.network.links."10-lan0" = {
-  matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
+systemd.network.links."10-wifi0" = {
+  matchConfig.Path = "pci-0000:00:14.3";
   linkConfig = {
-    Name = "lan0";
+    Name = "wifi0";
     # The pin displaces 99-default.link for this device, so restore the
     # alternative names it would otherwise supply. Its "mac" token is left
     # out: that derives an altname from the factory hardware address.
@@ -223,9 +229,9 @@ systemd.network.links."10-lan0" = {
 
 Read the value from `udevadm info -q property -p /sys/class/net/<name>`, field
 `ID_PATH`. Matching on the path rather than `PermanentMACAddress` keeps a
-hardware address out of the repository, and it degrades safely: when the
-adapter is detached or moved to another port, nothing is named `lan0`, so the
-firewall rule matches no device instead of landing on a different one.
+hardware address out of the repository, and it degrades safely: when the device
+is removed or moved to another slot, nothing is named `wifi0`, so the firewall
+rule matches no device instead of landing on a different one.
 
 Pin to a name outside the namespaces the kernel assigns itself: `eth*`,
 `wlan*`, `usb*` (the usbnet default for `cdc_ether` and `rndis_host`), `wwan*`,
@@ -250,6 +256,50 @@ They also drop the `mac` token that systemd's own default carries, because it
 derives an `enx<permanent-mac>` or `wlx<permanent-mac>` alternative name from
 the factory address, which is the value the `"stable"` policy exists to stop
 presenting.
+
+### Narrow the alternative names without pinning a name
+
+Dropping the `mac` token is a separate concern from pinning a name, and most
+devices in this repository want only the first. `net.ifnames=0` gates
+`NamePolicy=` alone: systemd's `enable_name_policy()` is read at one call site,
+the rename, while `link_generate_alternative_names()` is ungated. So a device
+with no `.link` still gets `99-default.link`'s `mac` token and presents
+`enx<permanent-mac>`, even though nothing renames it. Confirm on a running host
+with `ip -d link show <name>`, or `udevadm info -q property -p /sys/class/net/<name>` for the computed `ID_NET_NAME_MAC`.
+
+The fix is a `.link` with a binding match and **no** `Name=`:
+
+```nix
+systemd.network.links."10-<device>" = {
+  matchConfig.Path = "<ID_PATH value>";
+  linkConfig = {
+    # Safe here, unlike in a pin: there is no Name= for it to override. Under
+    # net.ifnames=0 it is inert, and it keeps the device on the fleet scheme if
+    # networking.usePredictableInterfaceNames is ever flipped.
+    NamePolicy = "keep kernel database onboard slot path";
+    AlternativeNamesPolicy = "database onboard slot path";
+  };
+};
+```
+
+This is the shape `modules/songbird/networking.nix` and
+`modules/system76/networking.nix` use. It renames nothing, so it is not a pin:
+`pinnedNamesOf`, `collidingPinsOf`, and `duplicatePinsOf` in
+`modules/hosts/common/firewall.nix` all key on `linkConfig.Name`, and a file
+without one contributes to none of those pin classifiers. A device-specific
+file repeated for the same selector is reported by `shadowedLinksOf`; a broad,
+empty, globbed, or multi-valued match that precedes another enabled file is
+reported by `unboundLinksOf`. Precedence is udev's `strcmp` order of the
+rendered `<name>.link` basenames, not of the attribute names: `-` sorts before
+`.`, so `10-net-fallback.link` is read before `10-net.link` even though
+`10-net-fallback` sorts after `10-net`. The companion cases in
+`modules/hosts/common/firewall-checks.nix` cover both the accepted no-Name
+shape and each rejected shadowing shape.
+
+Note the inverted `NamePolicy` rule between the two shapes. A pin must not
+carry it, because `Name=` "has lower precedence than `NamePolicy=`" and the
+policy would silently win. A file without `Name=` should carry it, because
+omitting it drops the default for a device that is not being renamed anyway.
 
 Apply link-policy changes before the device appears. Rebooting, replugging a
 USB adapter, or otherwise reinitializing the link is more reliable than

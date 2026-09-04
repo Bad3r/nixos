@@ -68,7 +68,7 @@ procedure lives in the [host onboarding runbook](../guides/host-onboarding.md).
 | --------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support) and host-specific enables                    |
 | `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs` and `min-free` overrides                                                               |
-| `modules/system76/networking.nix`             | `.link` unit pinning the USB ethernet adapter to `lan0` by USB path                                              |
+| `modules/system76/networking.nix`             | `.link` unit for the USB ethernet adapter, no `Name=`: drops the `mac` altname token without renaming            |
 | `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                    |
 | `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                      |
 | `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                   |
@@ -123,9 +123,12 @@ let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
   body =
     { hostName, lib, ... }:
+    let
+      hostFlags = hostsRegistry.${hostName} or { };
+    in
     {
       networking.firewall.allowedTCPPortRanges =
-        (hostsRegistry.${hostName} or { }).firewallExtraTcpPortRanges or [ ];
+        hostFlags.firewallExtraTcpPortRanges or [ ];
     };
 in
 {
@@ -133,7 +136,9 @@ in
 }
 ```
 
-Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers read the path with `lib.hasAttrByPath` or `or` fallbacks to stay safe across hosts. Current per-host value keys consumed by `modules/hosts/common/*`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, `firewallExtraTcpPortRanges`, and `privateDnsHostsSecretKeys`. `firewallDnsInterfaces` is the exception to the fallback rule: `modules/hosts/common/firewall.nix` throws when it is absent, so every host must set it explicitly (`[ ]` when the host serves no DNS or DHCP), because a misspelled key would otherwise emit no firewall rule and trip none of that module's guards. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+`firewallExtraTcpPortRanges` maps to NixOS's normal globally reachable TCP ranges. `firewallLocalTcpPortRanges` is separate: `modules/hosts/common/firewall.nix` emits IPv4 `iptables` rules for source addresses in `10.0.0.0/8` and `192.168.0.0/16` only. It neither includes `172.16.0.0/12` nor establishes an IPv6 or trusted-network boundary.
+
+Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallDnsInterfaces`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, and `privateDnsHostsSecretKeys`. `firewallDnsInterfaces` and `firewallLocalTcpPortRanges` are exceptions to the fallback rule: `modules/hosts/common/firewall.nix` throws when either is absent, so every host must set both explicitly. `firewallDnsInterfaces = [ ];` means the host serves no DNS or DHCP; `firewallLocalTcpPortRanges = [ ];` means it exposes no source-scoped TCP range. A misspelled key would otherwise silently omit the rules it controls. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
 
 ### Private DNS Host Pinning
 
