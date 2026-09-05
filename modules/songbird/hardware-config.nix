@@ -12,27 +12,7 @@ _: {
     }:
     let
       owner = metaOwner.username;
-      ownerCfg = config.users.users.${owner};
-      # /shared needs a stable numeric owner. NixOS allocates a free UID for
-      # null, which cannot safely be represented by this static mount option.
-      ownerGroup =
-        if ownerCfg.group == "" then
-          throw "songbird /shared requires users.users.${owner}.group to be set"
-        else
-          ownerCfg.group;
-      ownerUid =
-        if ownerCfg.uid == null then
-          throw "songbird /shared requires users.users.${owner}.uid to be pinned"
-        else
-          ownerCfg.uid;
-      # attrByPath's default covers an absent group, not a present one whose
-      # gid is null (the option default for any group outside ids.gids).
-      ownerGidRaw = lib.attrByPath [ "users" "groups" ownerGroup "gid" ] null config;
-      ownerGid =
-        if ownerGidRaw == null then
-          throw "songbird /shared requires users.groups.${ownerGroup}.gid to be pinned"
-        else
-          ownerGidRaw;
+      ownerGroup = config.users.users.${owner}.group;
     in
     {
       # Platform configuration (required)
@@ -142,28 +122,6 @@ _: {
             "nofail"
           ];
         };
-
-        # WDC PC SN720 1TB (chipset M.2, 0000:82:00.0): plain NTFS volume
-        # labeled "WD 1 TB", the drive shared with the Windows dual boot.
-        # Kernel ntfs3 with windows_names blocks names Windows cannot read;
-        # nofail keeps a dirty (Windows fast-startup) or absent volume from
-        # blocking boot. The masks are the /boot pair above: uid=/gid= alone
-        # leave the mode at ~current_umask() of whatever mounted the volume,
-        # and "shared" here means shared with Windows, not with other local
-        # accounts.
-        "/shared" = {
-          device = "/dev/disk/by-uuid/1AE668D2E668B025";
-          fsType = "ntfs3";
-          options = [
-            "uid=${toString ownerUid}"
-            "gid=${toString ownerGid}"
-            "fmask=0077"
-            "dmask=0077"
-            "windows_names"
-            "noatime"
-            "nofail"
-          ];
-        };
       };
 
       swapDevices = [ { device = "/dev/mapper/cryptswap"; } ];
@@ -179,80 +137,22 @@ _: {
       # wrote an owner-writable /data onto the root filesystem on any boot where
       # the volume was absent, and anything writing there filled / silently.
 
-      # Enforces operating rule 2 of docs/songbird/nixos-setup.md: /shared
-      # mounted during imaging restores stale NTFS metadata, corrupting the
-      # volume silently, so ExecStartPre aborts the unit on a busy /shared.
-      # Collides with a shipped unit, so NixOS renders this as a drop-in
-      # (asDropinIfExists) rather than a replacement. Remount runs on
-      # ExecStopPost, not ExecStartPost, which nixpkgs skips on any failed
-      # transition. The /run flag marks that this unit performed the unmount,
-      # so remount, and the unprefixed mount command, only ever run for that
-      # transition.
-      systemd.services =
-        let
-          # Flag written only after the unmount succeeds: it is what tells
-          # ExecStopPost a remount is owed, so writing it first would leave
-          # it set on the busy-/shared refusal above, and ExecStopPost then
-          # runs `mount` against a filesystem that was never unmounted and
-          # fails the unit. A failed marker write must still abort the
-          # transition (exit 1): otherwise hibernation proceeds with /shared
-          # mounted again, defeating the whole guard.
-          sharedUmountBeforeHibernate = pkgs.writeShellScript "shared-umount-before-hibernate" ''
-            ${pkgs.util-linux}/bin/mountpoint -q /shared || exit 0
-            ${pkgs.util-linux}/bin/umount /shared || exit 1
-            if ${pkgs.coreutils}/bin/touch /run/shared-remount-after-sleep; then
-              exit 0
-            fi
-            echo "songbird: failed to record the hibernate-remount marker after unmounting /shared; remounting and aborting this sleep transition" >&2
-            ${pkgs.util-linux}/bin/mount /shared || echo "songbird: recovery remount of /shared failed; run 'mount /shared' by hand" >&2
-            exit 1
-          '';
-          # Retries cover the volume not being re-enumerated yet on resume;
-          # exhausting them still fails the unit, per the no-"-" note above.
-          sharedRemountAfterSleep = pkgs.writeShellScript "shared-remount-after-sleep" ''
-            [ -e /run/shared-remount-after-sleep ] || exit 0
-            ${pkgs.coreutils}/bin/rm -f /run/shared-remount-after-sleep
-            for _ in 1 2 3; do
-              ${pkgs.util-linux}/bin/mount /shared && exit 0
-              ${pkgs.coreutils}/bin/sleep 1
-            done
-            echo "songbird: failed to remount /shared after resume; run 'mount /shared' by hand" >&2
-            exit 1
-          '';
-        in
-        lib.mkMerge [
-          (lib.genAttrs
-            [
-              "systemd-hibernate"
-              "systemd-hybrid-sleep"
-              "systemd-suspend-then-hibernate"
-            ]
-            (_: {
-              serviceConfig = {
-                ExecStartPre = [ sharedUmountBeforeHibernate ];
-                ExecStopPost = [ sharedRemountAfterSleep ];
-              };
-            })
-          )
-          {
-            # Conditional, not required: /data is nofail here, but Requires= and
-            # RequiresMountsFor= (which emits its own Requires=) ignore that, so
-            # an absent or unopened drive failed this unit too, and the chown then
-            # landed on the bare mount point data.mount leaves behind on the root
-            # filesystem rather than on the volume. The condition leaves the unit
-            # inactive instead of failed, so recovering the mount by hand needs
-            # `systemctl start data-ownership.service`.
-            "data-ownership" = {
-              description = "Ensure /data ownership matches primary user";
-              wantedBy = [ "multi-user.target" ];
-              after = [ "data.mount" ];
-              unitConfig.ConditionPathIsMountPoint = "/data";
-              serviceConfig = {
-                Type = "oneshot";
-                ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
-              };
-            };
-          }
-        ];
+      # Conditional, not required: /data is nofail here, but Requires= and
+      # RequiresMountsFor= (which emits its own Requires=) ignore that, so
+      # an absent or unopened drive failed this unit too, and the chown then
+      # landed on the bare mount point data.mount leaves behind on the root
+      # filesystem rather than on the volume. The condition leaves the unit
+      # inactive instead of failed, so recovering the mount by hand needs
+      # `systemctl start data-ownership.service`.
+      systemd.services.data-ownership = {
+        description = "Ensure /data ownership matches primary user";
+        wantedBy = [ "multi-user.target" ];
+        after = [ "data.mount" ];
+        unitConfig.ConditionPathIsMountPoint = "/data";
+        serviceConfig = {
+          Type = "oneshot";
+          ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
+        };
+      };
     };
 }
