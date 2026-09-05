@@ -18,15 +18,14 @@ _: {
         "extended"
         "package"
       ] pkgs.firefoxpwa osConfig;
-      nvidiaGpu = lib.elem "nvidia" (lib.attrByPath [ "services" "xserver" "videoDrivers" ] [ ] osConfig);
       gecko = import ../_gecko-mk-profile.nix {
         inherit
           pkgs
           lib
           config
+          osConfig
           firefoxpwaEnabled
           firefoxpwaPackage
-          nvidiaGpu
           ;
       };
       xdgProfileRoot = gecko.mkXdgProfileRoot {
