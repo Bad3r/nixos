@@ -49,7 +49,6 @@ let
     opendirectorydownloader = false;
     parted = false;
     projectlibre = true;
-    "sc-controller" = false;
     "spec-kit" = false;
     steam = false;
     terraform = false;
