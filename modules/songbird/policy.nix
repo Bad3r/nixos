@@ -45,8 +45,8 @@ _: {
       # qBittorrent's incoming-peer listener (Session\Port); LAN peers only,
       # the UDP side of the same port stays closed.
       {
-        from = 55844;
-        to = 55844;
+        from = 48845;
+        to = 48845;
       }
     ];
   };

@@ -16,6 +16,7 @@
 { config, ... }:
 let
   appEnable = {
+    antimicrox = false;
     azd = false;
     "azure-cli" = false;
     "cf-terraforming" = false;
@@ -23,6 +24,7 @@ let
     "coderabbit-cli" = false;
     discord = false;
     dropbox = false;
+    dualsensectl = false;
     dwarfs = false; # Default dependency of steam extraTools
     ent = false;
     f3 = false;
