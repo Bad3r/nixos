@@ -17,6 +17,11 @@
   variables would override the host's iHD routing and weaken the RDD process
   sandbox for a decode path that does not exist.
 
+  No render-node variable accompanies LIBVA_DRIVER_NAME: libva 2.24 reads only
+  LIBVA_DRIVER_NAME, LIBVA_DRIVERS_PATH, LIBVA_MESSAGING_LEVEL and LIBVA_TRACE*,
+  and Gecko opens the render node of the EGL device it composes with (glxtest
+  DRM_DEVICE), which MOZ_DRM_DEVICE overrides.
+
   None of this reaches a decoder on its own: Gecko blocklists hardware video
   decoding whenever the active GPU is NVIDIA, so _gecko-prefs.nix sets the
   media.hardware-video-decoding.force-enabled override wherever "nvidia" drives
