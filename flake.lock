@@ -206,11 +206,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788585453,
-        "narHash": "sha256-Uuy2VldrQmsQqUmkg5A75P5JCzbQSe4PQDROjK6Ist0=",
+        "lastModified": 1788604758,
+        "narHash": "sha256-kSjJHIPl7dkPsADE+75jIb5sNKiIxs0X6QjZF5R9LE0=",
         "owner": "ilysenko",
         "repo": "codex-desktop-linux",
-        "rev": "bb421378b2526bab60315bfb277a9625e003834d",
+        "rev": "fad43ff80a56b1fe95c6d70433e3f9812f3ccdaf",
         "type": "github"
       },
       "original": {
@@ -264,11 +264,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788598533,
-        "narHash": "sha256-yK7g7ROfBJDaJGY3+XpXci/lFlGiPfQ2IwT9Yuhrvu0=",
+        "lastModified": 1788632958,
+        "narHash": "sha256-15tjXCc4W/yqouz76Ep3N8P1hcPIrxninSY7sf73o/0=",
         "owner": "nix-community",
         "repo": "NUR",
-        "rev": "e32636011440e15effd2bfe80075a84364befd97",
+        "rev": "ce67b1fd2f1cfccf1b4f95e85f0cf8c0c1a9536e",
         "type": "github"
       },
       "original": {
@@ -297,11 +297,11 @@
     "doomemacs": {
       "flake": false,
       "locked": {
-        "lastModified": 1788470853,
-        "narHash": "sha256-8WAkrAleQjpMVhDrY/A9TcPCPizjwGLB4Ttu6qi2O7w=",
+        "lastModified": 1788540148,
+        "narHash": "sha256-J/DflNfXCTT48cY6YmkZcBGxPS7O/zba+Pwd+r6XV8s=",
         "owner": "doomemacs",
         "repo": "core",
-        "rev": "539db7daf80deb6965870e90af0544a608603e25",
+        "rev": "2e0dbaddd71600392498428c4b0e827c72a81e0e",
         "type": "github"
       },
       "original": {
@@ -334,11 +334,11 @@
         "nixpkgs-stable": "nixpkgs-stable"
       },
       "locked": {
-        "lastModified": 1788580231,
-        "narHash": "sha256-bskwQSQCYzHaRfylelRDMmLGoGEiKyoE7gCCnqKATs4=",
+        "lastModified": 1788633018,
+        "narHash": "sha256-TqCpNjI6LVF8D+Fn5zDKY5/h64VzqF1piFgwiqBTyRU=",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "bf4d38d57a5d08ee54625b1b97b1db1d62841512",
+        "rev": "5794cff62891f807b4adf0d3b40fec9b669c6094",
         "type": "github"
       },
       "original": {
@@ -357,11 +357,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788525252,
-        "narHash": "sha256-Dds1EFdMzqubq2s1XfPudF8HUgYdbmXsVNZvrghZSlU=",
+        "lastModified": 1788608546,
+        "narHash": "sha256-xu/QhoXOaXGUVEf2dEqCKuJHyhpJImEdy26Oz5/YdgA=",
         "owner": "nix-community",
         "repo": "emacs-overlay",
-        "rev": "45fb2af019888900111ca7cc6d015edc7f29b28a",
+        "rev": "32898a9994f139deaa6e6bc2b7ad3f9378420363",
         "type": "github"
       },
       "original": {
@@ -740,11 +740,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788496887,
-        "narHash": "sha256-QetyCRLKQfNZ/xl253f+pJG3K/exYgPeVQcJtQyC9ec=",
+        "lastModified": 1788629105,
+        "narHash": "sha256-sEc58xv0nwmRjyZqrKI4RlK/a/7mPzY2iYFUJbnCHBU=",
         "owner": "Bad3r",
         "repo": "home-manager",
-        "rev": "37f48aee9b90e2f874db7e191ee56d937d0b8d0f",
+        "rev": "4816b87a0cfaff7d008f4b682c10e1b3e606e8f5",
         "type": "github"
       },
       "original": {
@@ -849,11 +849,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1788599200,
-        "narHash": "sha256-C0OHz03werXLLRLbuZ4E9njpbcqTUHJVlA/dPOym9fU=",
+        "lastModified": 1788608980,
+        "narHash": "sha256-W8ZZNKc3K3TATWnHzFFr1vsXVPyDDs6QSbbJ6HGjEdk=",
         "owner": "Bad3r",
         "repo": "llm-agents.nix",
-        "rev": "f0a46c3427bb50f1d88058a3fc10af2a20f98fe9",
+        "rev": "42d3b1a8eba9a190adf5b657cbce60dfd4d809a1",
         "type": "github"
       },
       "original": {
@@ -991,11 +991,11 @@
         "systems": "systems_3"
       },
       "locked": {
-        "lastModified": 1788525982,
-        "narHash": "sha256-ZCw4CA8mD1kf+CuO6vfuqA4vWiSsHAru+08wDT4uMfI=",
+        "lastModified": 1788609128,
+        "narHash": "sha256-jh7Ahdw+ijH/whuj3xHDzXpnq3XaUC0vM8/fgeHpaEQ=",
         "owner": "marienz",
         "repo": "nix-doom-emacs-unstraightened",
-        "rev": "d144a4f01694b9b79cfd9354bce90a2494785ae0",
+        "rev": "25f240d61f7330167597c1fbb78a473fd354423a",
         "type": "github"
       },
       "original": {
@@ -1072,11 +1072,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1788547952,
-        "narHash": "sha256-KY5VoSjSeYnfGlHCjxjIL1E0VeIYh4EsrGSriMZqqY4=",
+        "lastModified": 1788608948,
+        "narHash": "sha256-X+o1VP9LI/oexa6bN7gLeMPHuBTHly4AcpsuG+/hvF8=",
         "owner": "Bad3r",
         "repo": "nixpkgs",
-        "rev": "059eff553540e11df6c8873234e50fae7a40fbe0",
+        "rev": "e39782f5b7e8d85c0d5d6b113a2397301e55cb07",
         "type": "github"
       },
       "original": {
