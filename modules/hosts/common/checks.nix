@@ -34,6 +34,9 @@
 # The comparison is done at flake.lib level (no module evaluation) to avoid
 # the infinite recursion that arises when reading
 # `config.configurations.nixos.<host>.module` back from a flake-level check.
+#
+# The portal parity checks below run at build time because CI evaluates every
+# check's drvPath without building it before selecting runtime checks.
 { config, lib, ... }:
 let
   baseline = config.flake.lib.nixos._commonAppsBaseline or { };
@@ -262,6 +265,27 @@ let
     + "Remove these entries from modules/${host}/apps-enable.nix (flat appEnable "
     + "entries are shown with their extended.enable suffix): "
     + lib.concatStringsSep ", " noOps;
+
+  portalPreferences = config.flake.lib.nixos._portalPreferences or null;
+  # Include explicit `none` entries in policy coverage; `default` is a profile
+  # fallback and is not an interface policy.
+  portalInterfaceKeys =
+    if portalPreferences == null then
+      [ ]
+    else
+      builtins.filter (name: lib.hasPrefix "org.freedesktop.impl.portal." name) (
+        builtins.attrNames portalPreferences
+      );
+  portalInterfacesFor =
+    backend:
+    if portalPreferences == null then
+      [ ]
+    else
+      builtins.filter (
+        name: builtins.elem backend (lib.toList portalPreferences.${name})
+      ) portalInterfaceKeys;
+  gtkPortalInterfaces = portalInterfacesFor "gtk";
+  gnomeKeyringPortalInterfaces = portalInterfacesFor "gnome-keyring";
 in
 {
   flake.lib.hostApps = {
@@ -272,6 +296,107 @@ in
 
   perSystem =
     { pkgs, ... }:
+    let
+      portalInterfaceParity =
+        {
+          checkName,
+          portalPackage,
+          portalBasename,
+          expectedInterfaces,
+          requireExpectedSubset,
+          requireActualSubset,
+        }:
+        if !(requireExpectedSubset || requireActualSubset) then
+          throw "${checkName}: no portal comparison direction is configured"
+        else
+          pkgs.runCommandLocal checkName
+            {
+              # The CI check-compliance job evaluates drvPath first and
+              # builds derivations marked with runtimeCheck afterward.
+              passthru.runtimeCheck = true;
+              nativeBuildInputs = [
+                pkgs.coreutils
+                pkgs.gawk
+              ];
+            }
+            ''
+              set -euo pipefail
+
+              portal_file=${lib.escapeShellArg "${portalPackage}/share/xdg-desktop-portal/portals/${portalBasename}.portal"}
+              expected_file="$TMPDIR/expected"
+              actual_unsorted="$TMPDIR/actual-unsorted"
+              actual_file="$TMPDIR/actual"
+
+              if [ ! -f "$portal_file" ]; then
+                echo "${checkName}: missing $portal_file" >&2
+                exit 1
+              fi
+
+              interface_line_count=$(awk '$0 ~ /^Interfaces=/ { count += 1 } END { print count + 0 }' "$portal_file")
+              if [ "$interface_line_count" -ne 1 ]; then
+                echo "${checkName}: expected one Interfaces= line in $portal_file, found $interface_line_count" >&2
+                exit 1
+              fi
+
+              interfaces_value=$(awk '$0 ~ /^Interfaces=/ { print substr($0, 12) }' "$portal_file")
+              if [ -z "$interfaces_value" ]; then
+                echo "${checkName}: Interfaces= is empty in $portal_file" >&2
+                exit 1
+              fi
+
+              # Portal metadata uses a semicolon-delimited list; permit one
+              # trailing delimiter while rejecting repeated or interior delimiters.
+              case "$interfaces_value" in
+                *';') interfaces_value=''${interfaces_value%;} ;;
+              esac
+              if [ -z "$interfaces_value" ]; then
+                echo "${checkName}: Interfaces= has no interface values in $portal_file" >&2
+                exit 1
+              fi
+
+              empty_interface_count=$(awk -F ';' '{ for (i = 1; i <= NF; i++) if ($i == "") count += 1 } END { print count + 0 }' <<<"$interfaces_value")
+              if [ "$empty_interface_count" -ne 0 ]; then
+                echo "${checkName}: Interfaces= contains an empty entry in $portal_file" >&2
+                exit 1
+              fi
+
+              awk -F ';' '{ for (i = 1; i <= NF; i++) print $i }' <<<"$interfaces_value" > "$actual_unsorted"
+              duplicate_interfaces=$(sort "$actual_unsorted" | uniq -d)
+              if [ -n "$duplicate_interfaces" ]; then
+                echo "${checkName}: Interfaces= contains duplicate entries:" >&2
+                printf '%s\n' "$duplicate_interfaces" >&2
+                exit 1
+              fi
+
+              expected_interfaces=(${lib.escapeShellArgs expectedInterfaces})
+              if [ "''${#expected_interfaces[@]}" -eq 0 ]; then
+                : > "$expected_file"
+              else
+                printf '%s\n' "''${expected_interfaces[@]}" | sort -u > "$expected_file"
+              fi
+              sort -u "$actual_unsorted" > "$actual_file"
+
+              if ${lib.boolToString requireExpectedSubset}; then
+                missing_interfaces=$(comm -23 "$expected_file" "$actual_file")
+                if [ -n "$missing_interfaces" ]; then
+                  echo "${checkName}: packaged ${portalBasename}.portal is missing expected interfaces:" >&2
+                  printf '%s\n' "$missing_interfaces" >&2
+                  exit 1
+                fi
+              fi
+
+              if ${lib.boolToString requireActualSubset}; then
+                unexpected_interfaces=$(comm -13 "$expected_file" "$actual_file")
+                if [ -n "$unexpected_interfaces" ]; then
+                  echo "${checkName}: packaged ${portalBasename}.portal advertises interfaces without explicit policy:" >&2
+                  printf '%s\n' "$unexpected_interfaces" >&2
+                  exit 1
+                fi
+              fi
+
+              printf 'ok: %s.portal Interfaces= satisfies comparison against %s expected interfaces\n' "${portalBasename}" "${toString (builtins.length expectedInterfaces)}" > "$out"
+            '';
+    in
     {
       checks = {
         host-apps-baseline-present =
@@ -284,6 +409,63 @@ in
             pkgs.runCommandLocal "host-apps-baseline-present-ok" { } ''
               echo "ok: common app baseline snapshot is present when host overrides are registered" > $out
             '';
+
+        portal-gtk-interface-parity =
+          # Keep route coverage separate from policy coverage so explicit
+          # `none` mappings do not look like missing GTK package interfaces.
+          if portalPreferences == null then
+            throw (
+              "portal-gtk-interface-parity: modules/hosts/common/gsettings.nix no longer exports "
+              + "flake.lib.nixos._portalPreferences, so the GTK interface pins are unverified."
+            )
+          else if gtkPortalInterfaces == [ ] then
+            throw "portal-gtk-interface-parity: no portal interfaces are pinned to gtk"
+          else
+            portalInterfaceParity {
+              checkName = "portal-gtk-interface-parity";
+              portalPackage = pkgs.xdg-desktop-portal-gtk;
+              portalBasename = "gtk";
+              expectedInterfaces = gtkPortalInterfaces;
+              requireExpectedSubset = true;
+              requireActualSubset = false;
+            };
+
+        portal-gtk-policy-parity =
+          if portalPreferences == null then
+            throw (
+              "portal-gtk-policy-parity: modules/hosts/common/gsettings.nix no longer exports "
+              + "flake.lib.nixos._portalPreferences, so the packaged GTK interface policy is unverified."
+            )
+          else
+            portalInterfaceParity {
+              checkName = "portal-gtk-policy-parity";
+              portalPackage = pkgs.xdg-desktop-portal-gtk;
+              portalBasename = "gtk";
+              expectedInterfaces = portalInterfaceKeys;
+              requireExpectedSubset = false;
+              requireActualSubset = true;
+            };
+
+        portal-gnome-keyring-interface-parity =
+          if portalPreferences == null then
+            throw (
+              "portal-gnome-keyring-interface-parity: modules/hosts/common/gsettings.nix no longer exports "
+              + "flake.lib.nixos._portalPreferences, so the Secret interface pin is unverified."
+            )
+          else if gnomeKeyringPortalInterfaces == [ ] then
+            # No interface is routed to gnome-keyring, so its portal artifact is not selected.
+            pkgs.runCommandLocal "portal-gnome-keyring-interface-parity-skipped" { } ''
+              echo "ok: no portal interface is routed to gnome-keyring" > $out
+            ''
+          else
+            portalInterfaceParity {
+              checkName = "portal-gnome-keyring-interface-parity";
+              portalPackage = pkgs.gnome-keyring;
+              portalBasename = "gnome-keyring";
+              expectedInterfaces = gnomeKeyringPortalInterfaces;
+              requireExpectedSubset = true;
+              requireActualSubset = false;
+            };
       }
       // lib.mapAttrs' (
         host: result:
