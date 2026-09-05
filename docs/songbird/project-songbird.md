@@ -45,11 +45,11 @@ completes on the case's five stock fans first.
 As enumerated on the assembled machine (`lsblk` and
 `/sys/class/nvme`).
 
-| Disk | Device                                                          | Bus / slot                            | State and role on songbird                                                                               |
-| ---- | --------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------- |
-| A    | WD_BLACK SN8100 4TB (sn 252415800489, fw 830ZRR05)              | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`)  | NixOS: 1 GiB ESP, LUKS2 ext4 root, 51 GiB LUKS2 swap (`modules/songbird/hardware-config.nix`)            |
-| S    | Samsung 860 PRO 2TB SATA (LUKS2 + XFS)                          | SATA 6 Gb/s, chipset (`0000:80:17.0`) | Mounted at `/data`                                                                                       |
-| W    | WDC PC SN720 1TB (sn 192461421492, fw 10160101), NTFS `WD 1 TB` | Chipset M.2 (`0000:82:00.0`)          | Plain NTFS on an MBR table, mounted at `/shared` (kernel ntfs3, `nofail`); the drive shared with Windows |
+| Disk | Device                                                          | Bus / slot                            | State and role on songbird                                                                                                                                     |
+| ---- | --------------------------------------------------------------- | ------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| A    | WD_BLACK SN8100 4TB (sn 252415800489, fw 830ZRR05)              | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`)  | NixOS: 1 GiB ESP, LUKS2 ext4 root, 51 GiB LUKS2 swap (`modules/songbird/hardware-config.nix`)                                                                  |
+| S    | Samsung 860 PRO 2TB SATA (LUKS2 + XFS)                          | SATA 6 Gb/s, chipset (`0000:80:17.0`) | Mounted at `/data`                                                                                                                                             |
+| W    | WDC PC SN720 1TB (sn 192461421492, fw 10160101), NTFS `WD 1 TB` | Chipset M.2 (`0000:82:00.0`)          | Reserved for the Windows 11 installation (nixos-setup.md, Phase N4); its plain NTFS volume was mounted at `/shared` until 2026-09-05 and is no longer declared |
 
 Slot rule: M.2_3 and M.2_4 stay empty permanently. Populating either drops
 the GPU slot from PCIe 5.0 x16 to x8.
