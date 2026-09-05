@@ -13,11 +13,13 @@ Disk A boots this repository's `songbird` configuration (first boot
 2026-09-01: CachyOS kernel, `cryptroot`, `cryptswap` and `data` open, `/data`
 and `/shared` mounted), `modules/songbird/` holds the hardware truth harvested
 from the machine, the age identity plus the initialized `secrets/` submodule
-have the sops and R2 runtimes live, and the host SSH key is pinned. Where the
-machine differs from the plan, the tables below carry the as-built values and
-note the plan value in place. What remains of N2 is the tailnet join with the
-primary handoff and the PR merge; the migration and Windows phases N3 to N5
-follow.
+have the sops and R2 runtimes live, and the host SSH key is pinned. Since
+2026-09-05 no `/shared` mount is declared: disk W becomes the Windows disk
+(decision 4), and the shared drive moves to an SSD that is not chosen yet
+(decision 5). Where the machine differs from the plan, the tables below carry
+the as-built values and note the plan value in place. What remains of N2 is
+the tailnet join with the primary handoff and the PR merge; the migration and
+Windows phases N3 to N5 follow.
 
 ## Decision Record
 
@@ -26,8 +28,8 @@ follow.
 | 1   | Dual boot: NixOS is the daily OS, Windows 11 exists for gaming (and Windows-side local AI).                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
 | 2   | Disk A (SN8100 4TB, M.2_1) belongs entirely to NixOS: GPT with 1 GiB ESP, LUKS2 ext4 root, LUKS2 swap. As built the swap is 51 GiB (the plan said 64 GiB); it still exceeds the 46 GiB of usable RAM, so hibernation stays possible.                                                                                                                                                                                                                                                                                                                                                                                                                                    |
 | 3   | Swap is sized for hibernation (48 GB RAM) with headroom for build and LLM spikes.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| 4   | One SSD belongs entirely to Windows 11 with BitLocker and its own ESP.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| 5   | The shared drive is the WDC SN720 1TB (NTFS label `WD 1 TB`), mounted on NixOS at `/shared` through the kernel ntfs3 driver with `nofail`. The BitLocker conversion the plan scheduled for a SATA drive is deferred to Phase N5 and targets this one.                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| 4   | Disk W (WDC SN720 1TB, chipset M.2) belongs entirely to Windows 11 with BitLocker and its own ESP. It carried the shared NTFS volume `WD 1 TB` until 2026-09-05; Phase N4 repartitions it.                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
+| 5   | The shared drive moves to an SSD that is not chosen yet, so NixOS declares no `/shared` mount until it is in place. It returns as plain NTFS through the kernel ntfs3 driver with `nofail`, owner-only masks and the pre-hibernation unmount pair (operating rule 2); all of that left `modules/songbird/hardware-config.nix` with the mount on 2026-09-05 and comes back from git history alongside the new UUID. The BitLocker conversion the plan scheduled for a SATA drive stays deferred to Phase N5 and targets the new drive.                                                                                                                                   |
 | 6   | Each OS keeps its own ESP on its own disk: Windows updates cannot touch the NixOS boot chain.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | 7   | Default boot is systemd-boot on A. Windows is selected via the firmware boot menu (F8) or a one-shot `efibootmgr --bootnext`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
 | 8   | No chainloading Windows through systemd-boot: the NixOS `boot.loader.systemd-boot.windows` entries boot via the EDK2 UEFI shell, which disturbs BitLocker's TPM measurements (PCR 4) and provokes recovery prompts.                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
@@ -59,9 +61,10 @@ header UUID `183d1f98-e95d-4d6c-89de-cbed409bd9a0`, opened as
 
 Disk W (WDC PC SN720 1TB, chipset M.2 `0000:82:00.0`): a single NTFS
 partition on an MBR table, filesystem UUID `1AE668D2E668B025`, label
-`WD 1 TB`, mounted at `/shared`.
+`WD 1 TB`, mounted at `/shared` until 2026-09-05 and no longer declared. The
+volume goes away when Phase N4 installs Windows on this disk.
 
-Windows gets its own disk, with its own ESP + MSR + C: (BitLocker).
+Windows gets disk W, with its own ESP + MSR + C: (BitLocker).
 
 ## Firmware (UEFI) Settings
 
@@ -287,11 +290,12 @@ What remains is system76's root and home:
 1. Protect A's boot chain: disable the M.2_1 slot in UEFI (Advanced >
    Onboard Devices) if the firmware offers it; otherwise remove disk A
    (M.2_1 Q-Latch, board heatsink off). The Windows installer is known to
-   drop its boot files onto whichever ESP it finds first. Disks S and W can
-   stay: the installer only writes to the disk it is pointed at, but
-   unplugging W avoids the wrong-drive mistake.
+   drop its boot files onto whichever ESP it finds first. Disk S can stay:
+   the installer only writes to the disk it is pointed at, and W is that
+   disk.
 
-2. Boot Windows 11 24H2+ installer USB, delete all partitions on the target,
+2. Boot Windows 11 24H2+ installer USB, delete all partitions on W (the
+   `WD 1 TB` volume included; NixOS stopped declaring it on 2026-09-05),
    install to the empty disk. Windows creates its own ESP there.
 
 3. Post-install, in an elevated shell:
@@ -309,15 +313,15 @@ What remains is system76's root and home:
 
 5. Verify both OSes boot cleanly from the F8 firmware boot menu.
 
-### Phase N5: Shared BitLocker conversion of W (optional)
+### Phase N5: Shared BitLocker conversion (optional)
 
-`/shared` works today as plain NTFS. Convert only if the shared drive must be
-encrypted at rest:
+The shared drive returns as plain NTFS (decision 5). Convert only if it must
+be encrypted at rest:
 
-1. In Windows: back up W's contents, wipe it, create a single GPT NTFS
-   volume labeled `shared`, enable BitLocker with a password protector plus
-   recovery key, then `manage-bde -autounlock -enable <drive>:`. Store both
-   password and recovery key in the password manager.
+1. In Windows: back up the shared drive's contents, wipe it, create a single
+   GPT NTFS volume labeled `shared`, enable BitLocker with a password
+   protector plus recovery key, then `manage-bde -autounlock -enable <drive>:`.
+   Store both password and recovery key in the password manager.
 
 2. In NixOS: place the BitLocker password (no trailing newline) at
    `/var/lib/secrets/shared-bitlk.key`, root:root, 0400. A plain root-owned
@@ -327,8 +331,8 @@ encrypted at rest:
    `RequiresMountsFor=` on the key path, so ordering against the root mount
    is automatic.
 
-3. In `modules/songbird/hardware-config.nix`, switch the `/shared` entry's
-   `device` to `/dev/mapper/shared` and add the crypttab entry:
+3. In `modules/songbird/hardware-config.nix`, point the `/shared` entry's
+   `device` at `/dev/mapper/shared` and add the crypttab entry:
 
    ```nix
    environment.etc."crypttab".text = ''
@@ -354,7 +358,7 @@ handling) and plus the desktop-specific pieces:
 | File                                                            | Carries                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
 | --------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `modules/songbird/cachyos-kernel.nix`                           | Host-specific CachyOS overlay and `boot.kernelPackages` override over the common `linuxPackages_zen` default; the kernel and its NVIDIA module are built locally                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `modules/songbird/hardware-config.nix`                          | LUKS root/swap on A (`cryptroot`, `cryptswap`, `resumeDevice`), the optional `data` LUKS volume at `/data` with 60-second device and unlock bounds, the NTFS `/shared` mount and its pre-hibernation unmount, microcode, NPU, Bluetooth `KernelExperimental`, firmware set, `bolt`, `/data` ownership                                                                                                                                                                                                                                                                                    |
+| `modules/songbird/hardware-config.nix`                          | LUKS root/swap on A (`cryptroot`, `cryptswap`, `resumeDevice`), the optional `data` LUKS volume at `/data` with 60-second device and unlock bounds, microcode, NPU, Bluetooth `KernelExperimental`, firmware set, `bolt`, `/data` ownership                                                                                                                                                                                                                                                                                                                                              |
 | `modules/songbird/nvidia-gpu.nix`                               | `gpu.nvidia`: production branch, `open = true`, `vaapi.backend = "nvidia"`, `metamode = "2560x1440_144"`; VRAM preservation across suspend comes from the shared module's `powerManagement.enable`                                                                                                                                                                                                                                                                                                                                                                                       |
 | `modules/songbird/policy.nix`                                   | `sopsRuntimeReady` enabled; `r2RuntimeReady` enabled; required NVIDIA-host cache policy `cacheRoots.nvidiaKernelModules = false` keeps the source-built CachyOS module out of published cache roots; `duplicatiStateDirReadable`, `extraHomeApps`, empty `firewallDnsInterfaces`, `firewallLocalTcpPortRanges` for TCP 8000-8999 (local dev servers) and qBittorrent's incoming-peer listener (Session\\Port, not fixed here), both restricted to IPv4 sources in `10.0.0.0/8` and `192.168.0.0/16`; TCP 9999 remains globally open through the shared baseline; primary handoff pending |
 | `modules/songbird/firewall-policy-check.nix`                    | Flake check for exactly one source-scoped start and cleanup rule per declared TCP range per approved CIDR, absence of overlapping source-unrestricted TCP ports or ranges, and the documented shared TCP 9999 state                                                                                                                                                                                                                                                                                                                                                                      |
@@ -413,20 +417,21 @@ prompts) and any shared-ESP scheme (decision 6).
 
 ## Open Items
 
-| Item                        | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Lands in                                                                  |
-| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------- |
-| LUKS, ext4, ESP, swap UUIDs | Done (harvested)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `hardware-config.nix`                                                     |
-| hostId                      | Done: `c93b3b3c`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `host-id.nix`                                                             |
-| Wired interface names       | Done: `eth0` (RTL8126, uplink), `eth1` (I226-V) in enumeration order                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Kernel `net.ifnames=0`, no pin                                            |
-| Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `project-songbird.md`                                                     |
-| Host SSH public key         | Done: pinned from `/etc/ssh/ssh_host_ed25519_key.pub`                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                  |
-| age identity                | Done (installed and verified); `sopsRuntimeReady` enabled                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix`  |
-| Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `policy.nix` `tailnetIp`, `primary`                                       |
-| `/data` root key slot       | Done: the 2026-09-01 boot unlocked `data` from the cached root passphrase; the 60-second absent-drive and unanswered-prompt bounds are still unexercised                                                                                                                                                                                                                                                                                                                                                                 | LUKS header `183d1f98-e95d-4d6c-89de-cbed409bd9a0`, `hardware-config.nix` |
-| `r2-bisync-docs` first sync | Mitigated locally, blocked upstream: every run since the first boot was killed at the shared 20-minute `TimeoutStartSec` during the initial listing, so the docs profile carries a temporary 6-hour `bisyncStartTimeout`; the `r2-flake` module still exposes no bisync compare, exclude, or extra-args option (<https://github.com/Bad3r/nix-R2-CloudFlare-Flake/issues/150>), the consumer-side changes are tracked in <https://github.com/Bad3r/nixos/issues/477>, and the bound returns to 20 minutes once both land | `modules/lib/r2-runtime.nix`, `/var/lib/r2-sync-docs/bisync/`             |
-| Windows disk                | Not decided                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              | Phase N4                                                                  |
-| Shared partition PARTUUID   | Only if Phase N5 converts W to BitLocker                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `hardware-config.nix` crypttab entry                                      |
-| BitLocker keys              | Windows BitLocker setup (Phases N4, N5)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Password manager; W password also to `/var/lib/secrets/shared-bitlk.key`  |
+| Item                        | State                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Lands in                                                                            |
+| --------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------- |
+| LUKS, ext4, ESP, swap UUIDs | Done (harvested)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `hardware-config.nix`                                                               |
+| hostId                      | Done: `c93b3b3c`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         | `host-id.nix`                                                                       |
+| Wired interface names       | Done: `eth0` (RTL8126, uplink), `eth1` (I226-V) in enumeration order                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Kernel `net.ifnames=0`, no pin                                                      |
+| Wi-Fi module vendor         | Done: Intel BE200 (`8086:272b`, iwlwifi)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | `project-songbird.md`                                                               |
+| Host SSH public key         | Done: pinned from `/etc/ssh/ssh_host_ed25519_key.pub`                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | `ssh.nix` and `modules/hosts/common/ssh-known-hosts.nix`                            |
+| age identity                | Done (installed and verified); `sopsRuntimeReady` enabled                                                                                                                                                                                                                                                                                                                                                                                                                                                                | `/var/lib/sops-nix/key.txt`, `~/.config/sops/age/keys.txt`, `policy.nix`            |
+| Tailnet IPv4                | Pending `tailscale ip -4` after joining; carries the primary handoff                                                                                                                                                                                                                                                                                                                                                                                                                                                     | `policy.nix` `tailnetIp`, `primary`                                                 |
+| `/data` root key slot       | Done: the 2026-09-01 boot unlocked `data` from the cached root passphrase; the 60-second absent-drive and unanswered-prompt bounds are still unexercised                                                                                                                                                                                                                                                                                                                                                                 | LUKS header `183d1f98-e95d-4d6c-89de-cbed409bd9a0`, `hardware-config.nix`           |
+| `r2-bisync-docs` first sync | Mitigated locally, blocked upstream: every run since the first boot was killed at the shared 20-minute `TimeoutStartSec` during the initial listing, so the docs profile carries a temporary 6-hour `bisyncStartTimeout`; the `r2-flake` module still exposes no bisync compare, exclude, or extra-args option (<https://github.com/Bad3r/nix-R2-CloudFlare-Flake/issues/150>), the consumer-side changes are tracked in <https://github.com/Bad3r/nixos/issues/477>, and the bound returns to 20 minutes once both land | `modules/lib/r2-runtime.nix`, `/var/lib/r2-sync-docs/bisync/`                       |
+| Windows disk                | Decided 2026-09-05: W (SN720); the `/shared` mount it carried left `hardware-config.nix` ahead of the install                                                                                                                                                                                                                                                                                                                                                                                                            | Phase N4                                                                            |
+| Shared drive                | Not chosen; `/shared` returns with the new UUID, the ntfs3 options and the pre-hibernation unmount pair (operating rule 2)                                                                                                                                                                                                                                                                                                                                                                                               | `hardware-config.nix`                                                               |
+| Shared partition PARTUUID   | Only if Phase N5 converts the shared drive to BitLocker                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | `hardware-config.nix` crypttab entry                                                |
+| BitLocker keys              | Windows BitLocker setup (Phases N4, N5)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Password manager; shared-drive password also to `/var/lib/secrets/shared-bitlk.key` |
 
 ## Validation Ladder
 
@@ -443,7 +448,7 @@ nix run path:.#generation-manager -- score   # target: 20/20
 
 Plus host-specific checks after the first boot:
 
-- `lsblk` shows `cryptroot`, `cryptswap`, `data` open; `findmnt /data /shared`.
+- `lsblk` shows `cryptroot`, `cryptswap`, `data` open; `findmnt /data`.
 - `nvidia-smi` reports the RTX 5080 on the open kernel module; `lsmod | grep nouveau` is empty.
 - `ip -br link` shows `eth0`, `eth1`, `wlan0`; Wi-Fi and Bluetooth associate.
 - `sensors` shows coretemp; `powerprofilesctl get` reports `performance`.
@@ -456,31 +461,30 @@ Plus host-specific checks after the first boot:
 ## Operating Rules (cross-OS)
 
 1. Windows never hibernates and never fast-starts (`powercfg /h off`, Phase
-   N4). This keeps B and W clean for every boot.
+   N4). This keeps W and the shared drive clean for every boot.
 2. If NixOS is hibernated, resume NixOS. An image written with `/shared`
    mounted restores stale NTFS metadata over anything Windows wrote in
-   between, which corrupts the volume silently, so
-   `modules/songbird/hardware-config.nix` unmounts `/shared` from an
+   between, which corrupts the volume silently. While the mount existed,
+   `modules/songbird/hardware-config.nix` unmounted `/shared` from an
    `ExecStartPre` on `systemd-hibernate`, `systemd-hybrid-sleep` and
-   `systemd-suspend-then-hibernate`, and remounts it from an `ExecStopPost`
-   on the same units. `ExecStopPost` rather than `ExecStartPost` so the
-   remount also runs when the transition itself fails; the unmount leaves a
-   `/run/shared-remount-after-sleep` flag, so the remount touches only a
-   `/shared` this host unmounted. A process holding `/shared` open makes the
-   unmount fail, which aborts the hibernation rather than writing an unsafe
-   image: close whatever holds it (`lsof /shared`) and retry. A remount that
-   fails after resume leaves the sleep unit `failed`
-   (`systemctl status systemd-hibernate`); a volume Windows left dirty is
-   the usual cause, which rule 5 covers. Booting Windows after a clean NixOS
-   shutdown or reboot is unaffected.
+   `systemd-suspend-then-hibernate`, and remounted it from an `ExecStopPost`
+   on the same units: `ExecStopPost` rather than `ExecStartPost` so the
+   remount also ran when the transition itself failed, a
+   `/run/shared-remount-after-sleep` flag kept the remount to a `/shared`
+   this host had unmounted, and a process holding `/shared` open failed the
+   unmount and aborted the hibernation rather than writing an unsafe image.
+   That pair left with the mount on 2026-09-05 and returns with it;
+   `git log -S/shared -- modules/songbird/hardware-config.nix` finds both.
+   Booting Windows after a clean NixOS shutdown or reboot is unaffected.
 3. Windows feature updates may reorder UEFI boot entries. Fix is
    `efibootmgr -o` (or UEFI setup); they cannot damage A's ESP (decision 6).
-4. BitLocker recovery keys and the W password live in the password manager;
-   losing them makes B or W unrecoverable.
-5. NixOS-side writes to `/shared` use the kernel ntfs3 driver with
-   `windows_names`, which blocks file names Windows cannot read. A volume
-   Windows left dirty refuses to mount; `nofail` lets the boot continue and
-   `ntfsfix -d` (ntfs3g, in the shared app baseline) clears the flag.
+4. BitLocker recovery keys and the shared-drive password live in the password
+   manager; losing them makes W or the shared drive unrecoverable.
+5. NixOS-side writes to `/shared`, once it is back, use the kernel ntfs3
+   driver with `windows_names`, which blocks file names Windows cannot read.
+   A volume Windows left dirty refuses to mount; `nofail` lets the boot
+   continue and `ntfsfix -d` (ntfs3g, in the shared app baseline) clears the
+   flag.
 6. Firmware updates (BIOS) reset boot order and can reset PTT: after any
    BIOS update, re-check boot order, Secure Boot off, and expect one
    BitLocker recovery-key prompt on Windows.
