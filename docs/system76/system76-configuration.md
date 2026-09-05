@@ -131,9 +131,9 @@ gpu.nvidia = {
   };
 };
 
-# nvidia-only branch: libva uses Intel Quick Sync through the stable iGPU render node.
+# Unconditional: vaapi.backend is "intel-media" in both modes, so every libva client
+# loads iHD; the render node stays each client's own choice.
 environment.sessionVariables.LIBVA_DRIVER_NAME = lib.mkDefault "iHD";
-environment.sessionVariables.LIBVA_DRM_DEVICE = lib.mkDefault "/dev/dri/by-path/pci-0000:00:02.0-render";
 ```
 
 ```nix
@@ -166,12 +166,8 @@ boot = {
   };
 };
 
-# modules/system76/nvidia-gpu.nix (host GPU profile)
-boot.blacklistedKernelModules = [ "nouveau" ];
-boot.kernelParams = [
-  "nvidia.NVreg_PreserveVideoMemoryAllocations=1"
-  "nvidia.NVreg_EnableGpuFirmware=1"
-];
+# nouveau blacklisting and nvidia.NVreg_PreserveVideoMemoryAllocations=1 come from
+# nixpkgs' hardware.nvidia module (videoDrivers = [ "nvidia" ], powerManagement.enable).
 
 # The loader skeleton (systemd-boot enable, editor, consoleMode, EFI vars)
 # lives in modules/hosts/common/boot.nix; the host keeps its entry limit,

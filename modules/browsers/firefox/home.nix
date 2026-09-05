@@ -23,6 +23,7 @@ _: {
           pkgs
           lib
           config
+          osConfig
           firefoxpwaEnabled
           firefoxpwaPackage
           ;

@@ -105,7 +105,7 @@ ______________________________________________________________________
 # Already configured in modules/system76/
 boot.crashDump.enable = true;           # Crash kernel
 boot.kernel.sysctl."kernel.sysrq" = 1;  # SysRq enabled
-services.journald.storage = "persistent";  # Logs survive reboot
+services.journald.settings.Journal.Storage = "persistent";  # Logs survive reboot
 ```
 
 ### SysRq Key Reference
