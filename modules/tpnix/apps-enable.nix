@@ -23,6 +23,7 @@ let
     "coderabbit-cli" = false;
     discord = false;
     dropbox = false;
+    dualsensectl = false;
     dwarfs = false; # Default dependency of steam extraTools
     ent = false;
     f3 = false;
