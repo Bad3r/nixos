@@ -6,8 +6,10 @@
 
   Arguments:
     pkgs, lib, config: standard module args from the caller.
-    nvidiaGpu: the host's `gpu.nvidia.enable`; gates the Gecko blocklist
-      override that hardware video decoding on NVIDIA depends on.
+    nvidiaGpu: whether "nvidia" drives the host's `services.xserver.videoDrivers`;
+      gates the Gecko blocklist override that hardware video decoding on NVIDIA
+      depends on. Same signal modules/hosts/common/webkitgtk-dmabuf.nix uses for
+      the analogous WebKitGTK case.
   Returns:
     mkProfile, policies, nativeMessagingHosts, profile packages, and helpers.
 */

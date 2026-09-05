@@ -5,8 +5,8 @@
   Notes:
     * `fonts` is forwarded from `config.stylix.fonts`; pass `null` to let
       the browser use its built-in defaults.
-    * `nvidiaGpu` is the host's `gpu.nvidia.enable`; it adds the blocklist
-      override without which Gecko never probes VA-API on NVIDIA.
+    * `nvidiaGpu` is whether "nvidia" drives the host's `services.xserver.videoDrivers`;
+      it adds the blocklist override without which Gecko never probes VA-API on NVIDIA.
 */
 
 {
