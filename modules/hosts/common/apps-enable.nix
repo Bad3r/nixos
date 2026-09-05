@@ -41,6 +41,7 @@ let
       audiness.extended.enable = lib.mkOverride 1100 true;
       "android-studio".extended.enable = lib.mkOverride 1100 false;
       "antigravity-cli".extended.enable = lib.mkOverride 1100 true;
+      antimicrox.extended.enable = lib.mkOverride 1100 true;
       "arp-scan-rs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
@@ -137,6 +138,7 @@ let
       "dragon-drop".extended.enable = lib.mkOverride 1100 true;
       dropbox.extended.enable = lib.mkOverride 1100 true;
       dua.extended.enable = lib.mkOverride 1100 true;
+      dualsensectl.extended.enable = lib.mkOverride 1100 true;
       duckdb.extended.enable = lib.mkOverride 1100 true;
       duf.extended.enable = lib.mkOverride 1100 true;
       dunst.extended.enable = lib.mkOverride 1100 true;
@@ -403,6 +405,7 @@ let
       s5cmd.extended.enable = lib.mkOverride 1100 true;
       "safeguard-rdp".extended.enable = lib.mkOverride 1100 true;
       samba.extended.enable = lib.mkOverride 1100 true;
+      "sc-controller".extended.enable = lib.mkOverride 1100 true;
       screenkey.extended.enable = lib.mkOverride 1100 true;
       "searchfox-cli".extended.enable = lib.mkOverride 1100 true;
       seclists.extended.enable = lib.mkOverride 1100 true;
@@ -544,6 +547,7 @@ let
       autorandr.extended.enable = lib.mkOverride 1100 true;
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
+      "input-remapper".extended.enable = lib.mkOverride 1100 true;
       pcscd.extended.enable = lib.mkOverride 1100 true;
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
       thinkfan.extended.enable = lib.mkOverride 1100 false;
