@@ -15,7 +15,8 @@
     antimicrox --profile FILE: Load a specific profile at start.
 
   Notes:
-    * Installs the package's 60-antimicrox-uinput.rules so the active seat can open /dev/uinput; the rule is uaccess-only, no MODE widening.
+    * Installs the package's 60-antimicrox-uinput.rules so the active seat can open /dev/uinput; the rule is uaccess-only, no MODE widening. Trusted directly from the package with no local copy, so a future upstream rule change applies to every host unchecked.
+    * Reads gamepads through SDL2, which does not call EVIOCGRAB. If another enabled tool (input-remapper, sc-controller) holds an exclusive grab on the same device, antimicrox still shows it as connected but receives no events, with no error surfaced anywhere.
 */
 _:
 let
@@ -36,8 +37,10 @@ let
           default = false;
           description = "Whether to enable antimicrox.";
         };
+
         package = lib.mkPackageOption pkgs "antimicrox" { };
       };
+
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
         services.udev.packages = [ cfg.package ];

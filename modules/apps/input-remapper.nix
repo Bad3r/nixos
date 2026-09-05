@@ -13,11 +13,12 @@
   Options:
     input-remapper-gtk: Open the preset editor.
     input-remapper-control --command autoload: Apply every preset flagged for autoload.
-    services.input-remapper.enableUdevRules: Upstream keeps the hotplug autoload rule off (sezanzeb/input-remapper#140); left at that default.
+    services.input-remapper.enableUdevRules: Upstream keeps the hotplug autoload rule off (sezanzeb/input-remapper#140); left at that default, so a controller plugged in mid-session needs a manual autoload or a service restart.
 
   Notes:
     * The daemon is wanted by graphical.target (upstream default), so autoload presets apply once a session starts.
     * Presets live in ~/.config/input-remapper-2/.
+    * Grabs its source evdev devices exclusively; antimicrox and sc-controller do not coordinate with it, so autoloading a preset for a device one of them also targets leaves only one program receiving events.
 */
 _:
 let
@@ -38,8 +39,10 @@ let
           default = false;
           description = "Whether to enable input-remapper.";
         };
+
         package = lib.mkPackageOption pkgs "input-remapper" { };
       };
+
       config = lib.mkIf cfg.enable {
         services.input-remapper = {
           enable = true;

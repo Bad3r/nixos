@@ -53,8 +53,10 @@ let
           default = false;
           description = "Whether to enable dualsensectl.";
         };
+
         package = lib.mkPackageOption pkgs "dualsensectl" { };
       };
+
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
         services.udev.packages = [ udevRules ];

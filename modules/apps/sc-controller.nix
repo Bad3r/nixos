@@ -17,6 +17,8 @@
   Notes:
     * The package's 69-sc-controller.rules is not installed: it opens /dev/uinput and every Sony USB device at MODE 0666, which lets any local account inject input. A uaccess-only uinput rule is shipped here instead.
     * Gamepad evdev nodes already carry the uaccess tag from the stock udev rules (ID_INPUT_JOYSTICK). The hidraw DualSense driver (`ds5drv`) needs the node ACL from `programs.dualsensectl.extended` or `hardware.steam-hardware`.
+    * Steam Controller's raw-USB dongle (idVendor 28de) and DualShock 4's hidraw node get no rule here either; both need `hardware.steam-hardware` (on via `programs.steam.extended`), which this module does not check or assert.
+    * Grabs its evdev source devices exclusively; input-remapper does the same, so enabling both against the same physical gamepad leaves only one of them receiving events, with no error from either the Nix layer or the losing side.
 */
 _:
 let
@@ -46,8 +48,10 @@ let
           default = false;
           description = "Whether to enable sc-controller.";
         };
+
         package = lib.mkPackageOption pkgs "sc-controller" { };
       };
+
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
         services.udev.packages = [ udevRules ];
