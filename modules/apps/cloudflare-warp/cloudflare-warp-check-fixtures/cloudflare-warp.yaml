@@ -1,0 +1,3 @@
+# Non-secret fixture. sops validation is disabled by the module check; this file
+# only makes builtins.pathExists take the managed-enrollment branch.
+{}
