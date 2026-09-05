@@ -405,6 +405,7 @@ let
       s5cmd.extended.enable = lib.mkOverride 1100 true;
       "safeguard-rdp".extended.enable = lib.mkOverride 1100 true;
       samba.extended.enable = lib.mkOverride 1100 true;
+      "sc-controller".extended.enable = lib.mkOverride 1100 true;
       screenkey.extended.enable = lib.mkOverride 1100 true;
       "searchfox-cli".extended.enable = lib.mkOverride 1100 true;
       seclists.extended.enable = lib.mkOverride 1100 true;
