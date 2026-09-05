@@ -16,6 +16,7 @@
 { config, ... }:
 let
   appEnable = {
+    antimicrox = false;
     azd = false;
     "azure-cli" = false;
     "cf-terraforming" = false;
