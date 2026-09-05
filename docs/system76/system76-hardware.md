@@ -29,10 +29,10 @@
 
 ### Storage
 
-| Device | Model           | Capacity |
-| ------ | --------------- | -------- |
-| NVMe   | Samsung 970 PRO | 512GB    |
-| SATA   | Samsung 860 PRO | 2TB      |
+| Device      | Model           | Capacity                   |
+| ----------- | --------------- | -------------------------- |
+| NVMe        | Samsung 970 PRO | 512GB                      |
+| Former SATA | Samsung 860 PRO | 2TB, relocated to songbird |
 
 ### Wireless
 

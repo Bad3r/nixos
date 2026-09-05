@@ -5,13 +5,53 @@ Repositories mirrored locally via `git-mirror` for offline access and patching.
 ## Configuration
 
 The shared mirror list is managed in `modules/hosts/common/mirrors.nix` for
-every host that opts into the common host baseline.
+hosts that opt into the common host baseline and have the storage required by
+the feature.
 The shared mirror root is defined in `modules/git/mirror-root.nix`.
 Repositories sync to flat paths under `/data/git`.
 
-- **Host enablement**: Common hosts get `localMirrors.enable = true;` and
+Mount placement follows each host's `fileSystems` definition. When `/data`
+encloses `/data/git`, the mirror root is gated on that mount. Hosts that
+intentionally keep mirrors on the root filesystem use the null branch of
+`enclosingMountOf`; hosts without that storage policy, such as `system76`,
+override both mirror enablement options instead of creating a root fallback.
+The coverage check exercises both mount-resolution branches.
+
+The paths in this document are host-local and are not guaranteed to exist on
+every configured host. Check that `$LOCAL_MIRRORS` is set and that the selected
+path exists before using a mirror. Hosts with mirror enablement disabled must
+use the configured upstream or web source instead.
+
+- **Host enablement**: Hosts with the common `/data` storage policy get
+  `localMirrors.enable = true;` and
   `home-manager.users.${metaOwner.username}.programs.gitMirror.enable = true;`
-  from `modules/hosts/common/mirrors.nix`
+  from `modules/hosts/common/mirrors.nix`. `system76` force-disables both
+  settings because its `/data` volume moved to `songbird`
+- **Root path**: `localMirrors.root` is the single source. `mirrors.nix` feeds
+  it to `programs.gitMirror.root`, so retargeting the mirrors is a one-line
+  change and the provisioner cannot end up on a different path than the sync
+- **Provisioning**: On a mirror-enabled host, `local-mirrors-root.service` creates the root
+  (`install -d -m 2775`, setgid, group `users`) after and conditioned on the
+  deepest declared mount containing it, so an absent or unopened volume leaves
+  the unit inactive rather than writing the tree onto the root filesystem. A
+  late mount is recovered with
+  `systemctl start local-mirrors-root.service`
+- **Absent root**: `git-mirror` and both docs services refuse every job while
+  the root is missing, instead of letting `git clone` or a lock-file `mkdir`
+  recreate the path on `/`. The guard runs before the docs lock files are
+  opened, because those sit directly in the root, so their `mkdir -p` would
+  otherwise recreate it and let every later repo spec pass
+- **Unprovisioned root**: the same guard also refuses a root with no
+  `.local-mirrors-root` stamp. `local-mirrors-root.service` writes it, and that
+  unit runs only while its mount condition holds, so the stamp can exist only
+  on the volume. Mode carries no provenance and cannot substitute: the
+  `d /data/git 2775 root users` tmpfiles rule this replaced wrote `2775`,
+  setgid included, onto exactly the stray root on `/` that the guard has to
+  reject. The name is `localMirrors.stampName`, fed to
+  `programs.gitMirror.stampName` alongside the root
+- **Recovering an unstamped root**: a volume mounted after boot, or one whose
+  root predates the stamp, is provisioned by
+  `systemctl start local-mirrors-root.service`
 - **Environment variable**: `$LOCAL_MIRRORS` points to `/data/git`
 - **Sync schedule**: Daily via systemd timer
 - **Manual sync**: `systemctl --user start git-mirror.service`
@@ -37,13 +77,16 @@ Repositories sync to flat paths under `/data/git`.
 
 ## Enable On Hosts
 
-Common hosts already enable mirrors through `modules/hosts/common/mirrors.nix`:
+Hosts with the required mirror storage enable mirrors through
+`modules/hosts/common/mirrors.nix`:
 
 ```nix
 localMirrors.enable = true;
 
 home-manager.users.${metaOwner.username}.programs.gitMirror = {
   enable = true;
+  root = config.localMirrors.root;
+  stampName = config.localMirrors.stampName;
   firefoxDocs.enable = true;
   pythonDocs.enable = true;
   repos = [
@@ -58,7 +101,7 @@ The timer is only created when `programs.gitMirror.enable = true;`.
 
 ## Apply And Verify
 
-Rebuild the target host, then verify that the user timer exists and run the first sync manually:
+Rebuild a mirror-enabled target host, then verify that the user timer exists and run the first sync manually:
 
 ```bash
 ./build.sh --host <host>

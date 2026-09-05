@@ -2,6 +2,9 @@
   lib,
   pkgs,
   pythonDocs,
+  mirrorRoot,
+  stampName,
+  mkStampGuard,
 }:
 
 pkgs.writeShellApplication {
@@ -25,6 +28,8 @@ pkgs.writeShellApplication {
     version_url=${lib.escapeShellArg pythonDocs.versionUrl}
     max_revisions=${lib.escapeShellArg (toString pythonDocs.maxRevisions)}
     lock_file=${lib.escapeShellArg pythonDocs.lockPath}
+    mirror_root=${lib.escapeShellArg mirrorRoot}
+    stamp_name=${lib.escapeShellArg stampName}
     tmp_revision=
 
     log() { printf '%s python-docs: %s\n' "$(date -Is)" "$*" >&2; }
@@ -64,6 +69,20 @@ pkgs.writeShellApplication {
 
     trap cleanup_tmp EXIT
 
+    # The lock file sits inside the mirror root, so creating its parent here
+    # would put the root back on the root filesystem whenever the volume holding
+    # it is absent. local-mirrors-root.service writes the stamp only while that
+    # volume is mounted, so the stamp is the one thing a stray root of the same
+    # name cannot have; its mode can be identical.
+    ${mkStampGuard {
+      rootRef = "$mirror_root";
+      stampRef = "$stamp_name";
+    }}
+
+    # Below the guard, so it can only create paths under a root the stamp
+    # proves is on the mounted volume. Still needed: repoPath and outputRoot
+    # are unconstrained strings, so the lock file's parent is not always the
+    # root itself, and the redirection below would fail with ENOENT.
     mkdir -p "$(dirname "$lock_file")"
     exec 9>"$lock_file"
     flock 9

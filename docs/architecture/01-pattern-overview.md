@@ -15,10 +15,12 @@ modules/
 ├── apps/
 │   ├── jq.nix           ← Imported automatically
 │   └── _experimental.nix ← Ignored (underscore prefix)
+├── songbird/
+│   └── hardware-config.nix ← Imported automatically (songbird host)
 ├── system76/
-│   └── boot.nix         ← Imported automatically (system76 host)
+│   └── hardware-config.nix ← Imported automatically (system76 host)
 ├── tpnix/
-│   └── boot.nix         ← Imported automatically (tpnix host)
+│   └── hardware-config.nix ← Imported automatically (tpnix host)
 └── _scratch/            ← Entire directory ignored
 ```
 

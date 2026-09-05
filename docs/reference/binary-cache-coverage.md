@@ -14,7 +14,7 @@ the detector names what is uncovered, the publisher covers it.
 
 ## Garnix (retired)
 
-Garnix shut down on 2026-07-15, deleted every stored build artifact, and open
+Garnix is retired, has deleted every stored build artifact, and open
 sourced its CI with no public successor instance, leaving `cache.garnix.io` to
 answer HTTP 502. It never covered this repository in any case: the GitHub app
 was never installed, and `self.submodules = true` in `flake.nix` makes any
@@ -47,7 +47,7 @@ is paid and pairs with Determinate Nix while hosts here run Lix. Cachix is
 already trusted, already wired, and already publishing, so the remaining work
 is coverage, not a change of service.
 
-## Audit findings (2026-07-17)
+## Audit findings
 
 Build-log profiling under `~/.local/state/nixos-build/` after PR
 https://github.com/Bad3r/nixos/pull/380 still showed on the order of 170
@@ -79,8 +79,7 @@ keyed `<host>/<package>/<output>`.
   rather than an error. Every registered
   host that builds for the current system contributes its own entries, so an
   app only a sibling host enables still reaches the cache and each host's
-  distinct closure is published separately (nvidia-x11 is 580.173.02 on
-  system76 and 595.84 on tpnix).
+  distinct closure is published separately for each host that enables it.
   Entries are gated per host on `programs.<name>.extended.enable`, so a host
   that turns an app off contributes nothing for it and the cache never carries
   a closure that host will not install (which is why wfuzz is not listed).
@@ -119,7 +118,11 @@ dependency of the `vscode-fhs` closure.
 
 A name listed but enabled on no host aborts evaluation instead of quietly
 publishing nothing, so renaming an app or disabling it on the last host that
-had it fails `nix flake check` rather than leaving a dead entry behind.
+had it fails `nix flake check` rather than leaving a dead entry behind. The
+one exemption is `nvidia-kernel-modules`: while some host loads the NVIDIA
+driver, every NVIDIA host setting `cacheRoots.nvidiaKernelModules = false` is
+a policy opt-out that leaves the name in place unpublished, and the abort only
+returns once no host loads the driver at all.
 
 There is no license gate. `cachix push` publishes the full runtime closure,
 and the cache is operator-private in use, so unfree packages are published
@@ -131,7 +134,7 @@ alongside free ones and redistribution is not evaluated at build time. See
 The cache carries unfree packages. This rests on the cache being consumed by
 its operator alone, not on any redistribution grant: most entries below
 (vscode, google-chrome, webex, charles, obsidian, veracrypt, ventoy-full,
-discord, dropbox, nomachine-client, burpsuite) are `unfree` with
+discord, dropbox, burpsuite) are `unfree` with
 `redistributable = false` in nixpkgs, so publishing them to an audience would
 violate their licenses. `nvidia-x11`, `firefox-bin`, and `steam` are the only
 unfree entries nixpkgs marks redistributable.
@@ -146,68 +149,71 @@ An earlier `assertFree` guard aborted evaluation for any entry that was neither
 free nor redistributable. It was removed with this policy; nothing now checks a
 license at build time, so adding an entry is purely an operator decision.
 
-## Inventory (2026-07-17, 2026-08-03, and 2026-08-04 build logs)
+## Inventory
 
-Host-sourced entries, published per host that enables them. Only system76
-enables the last six.
+The authoritative lists are `hostPackageNames` and `hostOptionPackages` in
+`modules/meta/cache-roots.nix`. Host membership is evaluated from the current
+`nixosConfigurations` and is intentionally not duplicated in this document.
+Query the current inventory with:
 
-| Package             | Hosts           |
-| ------------------- | --------------- |
-| burpsuite           | system76, tpnix |
-| charles             | system76, tpnix |
-| electron-mail       | system76, tpnix |
-| firefoxpwa          | system76, tpnix |
-| google-chrome       | system76, tpnix |
-| john                | system76, tpnix |
-| nomachine-client    | system76, tpnix |
-| obsidian            | system76, tpnix |
-| p7zip-rar           | system76, tpnix |
-| planify             | system76, tpnix |
-| proton-vpn          | system76, tpnix |
-| searchfox-cli       | system76, tpnix |
-| source-map-explorer | system76, tpnix |
-| tweakcc             | system76, tpnix |
-| vscode-fhs          | system76, tpnix |
-| wappalyzer-next     | system76, tpnix |
-| webex               | system76, tpnix |
-| discord             | system76        |
-| dropbox             | system76        |
-| kiro-fhs            | system76        |
-| upscayl             | system76        |
-| ventoy-full         | system76        |
-| veracrypt           | system76        |
+```sh
+nix eval --accept-flake-config --offline --json --impure \
+  --expr 'let flake = builtins.getFlake (toString ./.); in flake.lib.nixos._cacheRootsInventory flake.nixosConfigurations'
+```
 
-Option-sourced entries, resolved from the host config that holds the installed
-package:
+In a linked worktree this resolves through the unfiltered `path:` fetcher
+(`.git` is a file there, so Lix cannot fetch it as `git+file`), which copies
+every untracked path into the world-readable store, secrets included; this
+hand-typed `nix eval` does not run through the guard in
+`scripts/lib/secrets-guard.sh`. Sweep first with
+`git status --porcelain --ignored=matching`, or run this from a primary
+checkout instead.
 
-| Package               | Resolved from                         | Hosts           |
-| --------------------- | ------------------------------------- | --------------- |
-| nemo-with-extensions  | `programs.nemo.extended.finalPackage` | system76, tpnix |
-| nvidia-x11            | `hardware.nvidia.package`             | system76, tpnix |
-| nvidia-kernel-modules | `hardware.nvidia.package.{open,mod}`  | system76, tpnix |
-| nvidia-settings       | `hardware.nvidia.package.settings`    | system76, tpnix |
-| steam                 | `programs.steam.package`              | system76        |
+The result contains `hostPackages` and `optionPackages` for each configured
+host. It reports names only, so package versions and derivation paths continue
+to follow the evaluated flake without requiring a documentation update.
 
-`nvidia-kernel-modules` selects the module flavor the host installs rather than
-gating on one of them, mirroring upstream's
+For hosts whose cache policy publishes `nvidia-kernel-modules`, the entry
+selects the module flavor each enabled host installs, mirroring upstream's
 `boot.extraModulePackages = if useOpenModules then [ nvidia_x11.open ] else [ nvidia_x11.mod ]`
 with `useOpenModules = cfg.open == true`. Gating on one flavor would drop
 coverage silently on a host that flips `hardware.nvidia.open`, which
-`modules/hardware/nvidia-gpu.nix` documents as required on Blackwell and newer,
-and a symmetric second entry cannot exist while no host sets it: the
-unused-name throw would abort on it. `nvidia-settings` is gated on
-`hardware.nvidia.nvidiaSettings`. Both hosts currently set `open = false` and
-`nvidiaSettings = true`.
+`modules/hardware/nvidia-gpu.nix` documents as required on Blackwell and newer.
+
+Every NVIDIA-enabled host must declare the Boolean
+`cacheRoots.nvidiaKernelModules`. `true` keeps the installed module in the
+published cache roots, while `false` records an intentional exclusion. Missing,
+empty, non-Boolean, and unknown policy values fail evaluation before the cache
+publisher can fall back to its ordinary inclusion behavior.
+
+Songbird intentionally declares `cacheRoots.nvidiaKernelModules = false`: its
+CachyOS kernel is built from source and no CachyOS substituter is configured.
+The module remains installed on songbird, but it is omitted from the published
+cache roots. `nvidia-x11` and `nvidia-settings` remain cache roots because their
+current derivations do not require the CachyOS kernel build. The evaluated
+`cache-roots-nvidia-cache-policy` check exercises valid, missing, empty,
+misspelled, unknown-key, and non-Boolean policy cases, then reads the
+publisher's actual host-qualified entries for each exclusion. It fails if the
+module is published again, `nvidia-x11` is absent, or `nvidia-settings` is
+absent while the evaluated host configuration enables it. A host that instead
+sets `hardware.nvidia.nvidiaSettings = false` is not required to publish
+`nvidia-settings`: the check reads that option's evaluated value rather than
+assuming every host enables it.
+
+The full closure detector classifies the source-built CachyOS kernel and its
+modules as `local-only`, not `unexpected-local`, because stock nixpkgs has no
+corresponding `linux-cachyos` derivation. Do not add a `linux-cachyos*` glob to
+the allowlist: allowlist entries are reserved for served stock derivations
+that diverge through an accepted overlay or wrapper.
 
 `steam` is option-sourced because `modules/apps/steam.nix` installs nothing
 itself: it sets `programs.steam.enable` with `extraCompatPackages` and
 `extraPackages`, and upstream's `programs.steam.package` carries an `apply`
 that re-`override`s the FHS env with both lists. The applied value is what
 upstream puts in `environment.systemPackages`, and proton-ge-bin, dwarfs,
-fuse-overlayfs, and protonup-rs live inside it. On system76 the applied
-derivation is `steam-1.0.0.87` at a different store path than
-`pkgs.steam`, so the bare attribute published a closure no host substitutes
-from.
+fuse-overlayfs, and protonup-rs live inside it. It can differ from `pkgs.steam`,
+so publishing only the bare attribute can leave the installed closure
+unsubstituted.
 
 perSystem-sourced (codeburn, restringer) and input-sourced (context7-mcp,
 mcp-server-sequential-thinking, codex) entries are published once, not per
@@ -230,10 +236,9 @@ normally.
 
 Deliberately absent:
 
-- firefox-bin: no host installs it as an entry would publish it. Both hosts
-  install `firefox-153.0.1`, which wraps the source-built `firefox-unwrapped`,
-  and that wrapper is dispositioned as an accepted local build by the
-  `firefox-[0-9]*` glob in `scripts/cache-coverage-allowlist.txt`. The
+- firefox-bin: it is not a cache-roots entry. Source-built Firefox wrappers are
+  dispositioned as accepted local builds by the `firefox-[0-9]*` glob in
+  `scripts/cache-coverage-allowlist.txt`. The
   `firefox-bin` closure is pushed anyway, as a member of the dropbox FHS
   rootfs, so listing it would add an entry and no coverage.
 - tor-browser and mullvad-browser: see the residual-local-builds list below.
@@ -264,7 +269,7 @@ Residual local builds accepted with reasons:
 
 ## Operator setup
 
-Completed 2026-07-17:
+The operator setup is complete:
 
 1. The public Cachix cache `bad3r-nixos` exists under the account that
    owns `nix-logseq-git-flake`.
@@ -292,9 +297,9 @@ Completed 2026-07-17:
    an array that is missing, unclosed, or empty fails rather than comparing
    nothing.
 
-Confirmed operating as of 2026-07-31: `cache-push.yml` reaches the "Push
-closure to Cachix" step with a `success` conclusion on merges to `main`, and
-`https://bad3r-nixos.cachix.org/nix-cache-info` serves `Priority: 41`.
+Verify the publisher after a merge by checking that `cache-push.yml` reaches
+the "Push closure to Cachix" step successfully and that
+`https://bad3r-nixos.cachix.org/nix-cache-info` responds anonymously.
 
 ## Coverage gaps
 
@@ -322,9 +327,9 @@ the remaining work. Four gaps carry it.
    https://github.com/Bad3r/nixos/issues/423). `cache-roots.nix` iterates every
    registered host that builds for the current system and keys links
    `<host>/<package>/<output>`, so a sibling host's apps and its distinct
-   closures are published too. This is what pulls tpnix's nvidia-x11 595.84 into the cache
-   alongside system76's 580.173.02; before the change, evaluating the flake
-   fetched that 595.84 driver and then published nothing for it.
+   closures are published too. This pulls each registered host's selected
+   nvidia-x11 closure into the cache; before the change, evaluating a sibling
+   host fetched its driver and then published nothing for it.
 3. Nothing gates coverage in CI
    (https://github.com/Bad3r/nixos/issues/424). `scripts/cache-coverage.sh`
    is reachable only through `build.sh --cache-coverage` and `nix run`, and
@@ -335,7 +340,7 @@ the remaining work. Four gaps carry it.
    runtime closure of the `linkFarm`, so only an entry's default output reaches
    the cache, while the detector counts a derivation as substitutable only when
    every output is served. proton-vpn (`out`, `dist`) and nemo (`out`, `dev`,
-   `man`) report as local builds on system76 although the output hosts install
+   `man`) report as local builds although the output hosts install
    answers 200 from `bad3r-nixos.cachix.org` and the other answers 404
    everywhere. Neither name belongs in the allowlist: a glob there would
    restore coverage on paper and suppress the next real divergence on that
@@ -362,7 +367,9 @@ and a host actually installs it. License is no longer a criterion; see
   `nix eval` that the attribute's `outPath` appears in the host's
   `environment.systemPackages` or Home Manager `home.packages`, or that it is a
   dependency of the wrapper that does.
+
 - Source it from the surface that owns the derivation:
+
   - the host package set, when a custom overlay or host nixpkgs config
     shapes it. `hostPackageNames` entries are gated per host on
     `programs.<name>.extended.enable`, so the app must be wired through
@@ -370,20 +377,32 @@ and a host actually installs it. License is no longer a criterion; see
   - `self'.packages`, when only the devshell surface consumes it;
   - the owning flake input, when a module consumes the input's package
     directly (context7-mcp);
-  - the host config, listed in `hostOptionPackages`, when the bare
-    package-set attribute never produces it or it never reaches
-    `environment.systemPackages` (nemo-with-extensions, nvidia-x11). Write
-    `path` as a `hostConfig: package` function, not an option path: it may
-    reach past the option into a derivation hanging off the package
-    (`hardware.nvidia.package.settings`) or choose between derivations by
-    another option's value (`hardware.nvidia.open`). Give the entry an
-    `installed` predicate naming the condition under which the host installs
-    it; do not assume a sibling `enable` exists, because upstream options such
-    as `hardware.nvidia.package` carry a default and stay defined on hosts
-    that never use them.
+
+- the host config, listed in `hostOptionPackages`, when the bare
+  package-set attribute never produces it or it never reaches
+  `environment.systemPackages` (nemo-with-extensions, nvidia-x11). Write
+  `path` as a `hostConfig: package` function, not an option path: it may
+  reach past the option into a derivation hanging off the package
+  (`hardware.nvidia.package.settings`) or choose between derivations by
+  another option's value (`hardware.nvidia.open`). Give the entry an
+  `installed` predicate naming the condition under which the host installs
+  it; do not assume a sibling `enable` exists, because upstream options such
+  as `hardware.nvidia.package` carry a default and stay defined on hosts
+  that never use them.
+
+- A host may install an option-sourced package without publishing it when the
+  build is host-specific and no configured substituter serves it. Keep that
+  exception in the host registry's `cacheRoots` policy. Every NVIDIA-enabled
+  host must set its `nvidiaKernelModules` Boolean explicitly; the focused check
+  rejects missing, malformed, or unknown policy values and verifies retained
+  and omitted entries.
+
 - A name enabled on no host aborts evaluation rather than publishing nothing,
   so a rename or a last-host disable fails `nix flake check` instead of leaving
-  a dead entry.
+  a dead entry. `nvidia-kernel-modules` is exempt while any host loads the
+  NVIDIA driver, because a fleet-wide `cacheRoots.nvidiaKernelModules = false`
+  is a policy opt-out rather than a stale name.
+
 - Verify the heavy derivation substitutes: a derivation that sets
   `allowSubstitutes = false` (check `drvAttrs.allowSubstitutes`) never hits
   the cache itself, so what matters is whether that derivation is the
@@ -392,6 +411,7 @@ and a host actually installs it. License is no longer a criterion; see
   (electron-mail, upscayl, vscode-fhs, nemo-with-extensions all set it on the
   outer wrapper). It does not belong when the non-substitutable derivation is
   itself the expensive build (tor-browser, mullvad-browser).
+
 - Drop the matching glob from `scripts/cache-coverage-allowlist.txt` in the
   same change. That file records divergences accepted as permanent local
   builds; a package the cache now serves is no longer one, and leaving the
@@ -401,6 +421,7 @@ and a host actually installs it. License is no longer a criterion; see
   derivation `name` and `pname`, and aborts evaluation naming the offender. So
   forgetting the deletion fails `nix flake check` rather than surfacing as a
   silently dead glob later.
+
 - Confirm derivation parity with
   `nix build --dry-run "path:.#cache-roots"` on a recently switched host:
   the new entry must not introduce rebuilds of paths the host already has.

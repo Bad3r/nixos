@@ -47,7 +47,7 @@ Expected result:
 
 ```bash
 nix flake check --accept-flake-config --no-build --offline
-nix build .#nixosConfigurations.system76.config.system.build.toplevel
+nix build .#nixosConfigurations.tpnix.config.system.build.toplevel
 # Focused rclone.conf ownership check (also part of nix flake check)
 nix build --accept-flake-config --no-link '.#checks.x86_64-linux."home-manager/rclone-config-ownership"'
 ```
@@ -60,13 +60,19 @@ Expected result:
   writer of `~/.config/rclone/rclone.conf`, that a colliding
   `programs.r2-cloud.enableRcloneRemote` fails evaluation, and that a
   populated `programs.rclone.remotes` fails evaluation
+- the host evaluation asserts the guarded writer set in both directions:
+  every name in `r2WriterServiceNames` (`modules/lib/r2-runtime.nix`) still
+  renders an `ExecStart`, and every `r2-` prefixed unit in `systemd.services`
+  is in that set, so a unit the `r2-flake` adds without a matching entry
+  fails evaluation instead of shipping without the `/data` mount gate
 
 ## Runtime Presence Checks (after switch/boot)
 
 The secret checks require `security.r2CloudSecrets.enable` on the host; the
 unit checks additionally require the host R2 policy to enable the runtime.
-Current `system76` and `tpnix` policies enable the runtime. After deploying the
-evaluated configuration, absent `r2-*` units or secret files indicate breakage.
+Run them on a host with the runtime enabled, currently `tpnix` or `songbird`.
+The system76 host is expected to have no R2 units because its policy is
+disabled until a dedicated `/data` filesystem is available.
 
 ```bash
 test -s /run/secrets/r2/account-id

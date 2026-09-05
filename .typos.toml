@@ -30,6 +30,8 @@ wdth = "wdth"                 # CSS font-variation-settings property
 substituters = "substituters" # nix substituters
 ANC = "ANC"                   # Active Noise Cancellation (AirPods)
 udid = "udid"                 # Apple Unique Device Identifier (ifuse -u, idevicepair)
+hda = "hda"                   # Intel High Definition Audio (snd_hda_intel)
+HDA = "HDA"                   # Intel High Definition Audio controller
 # Hashes/keys (extend-ignore-re should catch most, but explicit for safety)
 "981DE78A201C2B735FF0B545A3967CCA47D5275F" = "981DE78A201C2B735FF0B545A3967CCA47D5275F"
 

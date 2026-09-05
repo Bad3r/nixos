@@ -6,6 +6,10 @@ _: {
     # Host runtime gate read by modules/tpnix/r2-runtime.nix.
     r2RuntimeReady = true;
 
+    # All NVIDIA-enabled hosts must choose this cache-root policy explicitly.
+    # Tpnix's generic kernel module remains a published cache root.
+    cacheRoots.nvidiaKernelModules = true;
+
     # Per-host values consumed by modules/hosts/common/*.
     extraHomeApps = [ "libreoffice" ];
     # No service here serves DNS or DHCP to the network. The only dnsmasq is the

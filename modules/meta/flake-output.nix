@@ -21,6 +21,14 @@
           default = { };
           description = "Helper functions and small metadata for NixOS modules (pure/idempotent; no heavy evaluation or side effects).";
         };
+        # raw, not anything: the anything merge walks every attrset a function
+        # returns and discharges the lib.mkOverride wrappers in it, which turns
+        # a priority-1000 host override into a priority-100 one.
+        hostApps = lib.mkOption {
+          type = lib.types.lazyAttrsOf lib.types.raw;
+          default = { };
+          description = "Builders for per-host apps-enable overrides (modules/hosts/common/checks.nix); results carry lib.mkOverride wrappers.";
+        };
         security = lib.mkOption {
           type = lib.types.attrsOf lib.types.anything;
           default = { };

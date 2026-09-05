@@ -406,7 +406,15 @@ configure_nix_config() {
   append_nix_config_line "warn-dirty = false"
   append_nix_config_line "download-attempts = 3"
   append_nix_config_line "stalled-download-timeout = 300"
-  append_nix_config_line "max-substitution-jobs = 0"
+  # Parallel substitutions: nproc - 1, floored at 1. Both Lix and CppNix clamp
+  # values below 1 to 1, so 0 would serialize every download rather than lift
+  # the limit; http-connections = 0 is the genuine "no limit" value.
+  local substitution_jobs
+  substitution_jobs="$(($(nproc) - 1))"
+  if [[ ${substitution_jobs} -lt 1 ]]; then
+    substitution_jobs=1
+  fi
+  append_nix_config_line "max-substitution-jobs = ${substitution_jobs}"
   append_nix_config_line "http-connections = 0"
   append_nix_config_line "connect-timeout = 30"
 

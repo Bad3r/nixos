@@ -1,9 +1,12 @@
 /*
   Internal: shared managed-policy payloads for Chromium-family browsers
-  Description: User-disableable extension list and default-search-provider
-  policy shared verbatim by google-chrome and ungoogled-chromium so the
-  two browsers stay symmetric. Imported via a relative path; the leading
-  underscore keeps this file out of module auto-discovery.
+  Description: Managed extensions apply to Google Chrome and ungoogled Chromium.
+  The default-search provider also applies to Brave, and DNS-over-HTTPS also
+  applies to Brave and Brave Origin, which share one policy directory: every
+  Brave channel compiles in /etc/brave/policies, so both modules write the
+  same dns-over-https.json through braveDnsOverHttpsEtc. Imported via a
+  relative path; the leading underscore keeps this file out of module
+  auto-discovery.
 
   `StandardManagementPolicyProvider::MustRemainInstalled` covers
   INSTALLATION_RECOMMENDED (`normal_installed`) as well as INSTALLATION_FORCED,
@@ -11,7 +14,25 @@
   `normal_installed` adds back is Disable. Gecko behaves the same way, see
   modules/browsers/_gecko-extension-data.nix.
 */
+let
+  # Secure mode has no system-resolver fallback; see _mullvad-doh-url.nix for
+  # why the URL itself cannot revert to the documented dns. name.
+  managedDnsOverHttps = {
+    DnsOverHttpsMode = "secure";
+    DnsOverHttpsTemplates = import ./_mullvad-doh-url.nix;
+  };
+in
 {
+  inherit managedDnsOverHttps;
+
+  # Both Brave modules write this entry: .source merges equal store paths (Nix
+  # compares derivations by outPath) where .text would concatenate two bodies.
+  braveDnsOverHttpsEtc = pkgs: {
+    "brave/policies/managed/dns-over-https.json".source = pkgs.writeText "brave-dns-over-https.json" (
+      builtins.toJSON managedDnsOverHttps
+    );
+  };
+
   managedExtensionSettings = {
     # uBlock Origin Lite
     "ddkjiahejlhfcafbddmgiahcphecmpfh" = {

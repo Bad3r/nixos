@@ -60,6 +60,9 @@ let
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
       bottom.extended.enable = lib.mkOverride 1100 true;
+      # brave off leaves extended.json unwritten, so brave-origin runs with the shared
+      # resolver policy alone; docs/drafts/chromium-webapps-plan-3-implement.md Task 8
+      # owns its managed set.
       brave.extended.enable = lib.mkOverride 1100 false;
       "brave-origin".extended.enable = lib.mkOverride 1100 true;
       brightnessctl.extended.enable = lib.mkOverride 1100 true;
@@ -155,6 +158,10 @@ let
       findutils.extended.enable = lib.mkOverride 1100 true;
       firefox.extended.enable = lib.mkOverride 1100 true;
       firefoxpwa.extended.enable = lib.mkOverride 1100 true;
+      # Matches the option's own default. Stated so the tpnix sub-toggle that
+      # turns it on has a baseline value to be compared against; without one
+      # tpnix fails to evaluate, since the toggle would have nowhere to land.
+      firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
       fonttools.extended.enable = lib.mkOverride 1100 true;
@@ -232,7 +239,6 @@ let
       keepassxc.extended.enable = lib.mkOverride 1100 true;
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
       kitty.extended.enable = lib.mkOverride 1100 true;
-      "kotlin-language-server".extended.enable = lib.mkOverride 1100 false;
       krita.extended.enable = lib.mkOverride 1100 false;
       ktailctl.extended.enable = lib.mkOverride 1100 true;
       lazydocker.extended.enable = lib.mkOverride 1100 true;
@@ -282,6 +288,7 @@ let
       mosh.extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
       "msgraph-cli".extended.enable = lib.mkOverride 1100 true;
+      mtdev.extended.enable = lib.mkOverride 1100 true;
       "mullvad-browser".extended.enable = lib.mkOverride 1100 true;
       mupdf.extended.enable = lib.mkOverride 1100 true;
       mysql.extended.enable = lib.mkOverride 1100 true;

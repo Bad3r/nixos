@@ -1,23 +1,20 @@
+{ config, ... }:
 {
   configurations.nixos.system76.module = {
-    # Under net.ifnames=0 the USB ethernet adapter and the built-in NIC share the
-    # eth0/eth1 pool by enumeration order, so neither name is device-bound. Pin
-    # the adapter to a name outside the kernel's eth* namespace instead, so
-    # anything keyed to it follows the adapter: matching on its USB path keeps a
-    # MAC out of the repository, and no device is named lan0 when the adapter is
-    # detached or moved to another port, which fails closed rather than onto the
-    # built-in NIC.
-    # This pin is the only .link udev applies to the adapter, so it restores the
-    # alternative names 99-default.link would otherwise supply. Its "mac" token
-    # is dropped: that one derives an enx<permanent-mac> altname from the factory
-    # address, which is the value the "stable" policy exists to stop presenting.
-    # The address itself stays NetworkManager's.
-    systemd.network.links."10-lan0" = {
+    # No Name=: the kernel's own eth* naming stands under net.ifnames=0, and
+    # systemd.link(5) calls a pin into that pool a race. This file exists only
+    # to displace 99-default.link, whose AlternativeNamesPolicy carries a "mac"
+    # token deriving an enx<permanent-mac> altname from the factory address,
+    # which is the value NetworkManager's "stable" policy exists to stop
+    # presenting. net.ifnames=0 gates the rename only, not altname generation.
+    # NamePolicy is safe to restore here precisely because there is no Name= for
+    # it to override; it keeps this adapter on the fleet scheme if
+    # networking.usePredictableInterfaceNames is ever flipped.
+    systemd.network.links."10-usb-ethernet" = {
       matchConfig.Path = "pci-0000:00:14.0-usb-0:1.4:1.0";
-      linkConfig = {
-        Name = "lan0";
-        AlternativeNamesPolicy = "database onboard slot path";
-      };
+      linkConfig =
+        config.flake.lib.nixos._firewallStableNamePolicyLinkConfig
+          or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallStableNamePolicyLinkConfig");
     };
   };
 }

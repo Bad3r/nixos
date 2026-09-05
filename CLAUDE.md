@@ -43,6 +43,12 @@ Durable daemon and evaluator settings live in `modules/base/nix-settings.nix`.
 Cache topology and download retry settings live in
 `modules/hosts/common/nix-substituters.nix`. Inspect those owning files for
 current values instead of duplicating the full `nix.settings` set here.
+Cache-root publication is derived from evaluated host configuration in
+`modules/meta/cache-roots.nix`. Every NVIDIA-enabled host must explicitly set
+the Boolean `cacheRoots.nvidiaKernelModules`; missing, malformed, or unknown
+policy values fail evaluation. `songbird` sets it to `false` for its
+source-built module while retaining `nvidia-x11` and `nvidia-settings`.
+Adding a third-party cache requires an explicit policy decision.
 
 `build.sh` exports `NIX_CONFIG` only as a bootstrap overlay for the Nix commands
 it launches before the target system configuration is active.
@@ -109,9 +115,17 @@ infinite recursion in the flake-parts module evaluator.
 `lib.mkOverride 1100`. Per-host override files such as
 `modules/tpnix/apps-enable.nix` layer overrides at `lib.mkOverride 1000` so the
 host value wins. User overrides at default priority 100 still win over both.
-`modules/hosts/common/checks.nix` adds a flake-level `nix flake check`
-assertion that fails when a per-host override duplicates the common baseline
-value.
+Nested overrides register their full paths and route through programs first,
+then services for services-only paths. A path absent from both namespaces
+fails the host evaluation itself, since a switch never runs the FR-5 check that
+also reports it as uncomparable.
+`modules/hosts/common/checks.nix` adds a flake-level `nix flake check` assertion
+that fails when a per-host override duplicates the common baseline value.
+
+Storage-dependent common features must be disabled or backed by a host-mounted
+path when the host lacks their storage contract. The system76 host has no
+dedicated `/data` volume and therefore disables local mirror writers and R2
+runtime units; tpnix intentionally retains its root-backed mirror behavior.
 
 ### Flake Input Deduplication
 
@@ -119,13 +133,15 @@ Do not restate the local flake input naming table here. Read the generated
 README's "Flake Input Deduplication" section, whose source is
 `modules/readme.nix`, before changing root input names or follower
 relationships.
+The CachyOS kernel input follows root `nixpkgs`; its pinned overlay remains
+applied to songbird's host package set.
 
 ## Ownership Map
 
 - NixOS modules: `modules/`
-  Auto-loaded modules. Per-host logic lives under `modules/system76` and
-  `modules/tpnix`; cross-host shared logic lives under `modules/hosts/common`;
-  other bundles are grouped by domain.
+  Auto-loaded modules. Per-host logic lives under `modules/songbird`,
+  `modules/system76`, and `modules/tpnix`; cross-host shared logic lives under
+  `modules/hosts/common`; other bundles are grouped by domain.
 - Shared derivations: `packages/`
   Common build logic shared between modules.
 - Helper scripts: `scripts/`
@@ -139,7 +155,8 @@ relationships.
   `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
   `.sops.yaml`, `README.md`
   Owned by the files module. Update source definitions instead of editing
-  generated output directly.
+  generated output directly. The managed-files check compares generated output
+  byte-for-byte, including final newlines.
 
 ## Local Mirrors
 
