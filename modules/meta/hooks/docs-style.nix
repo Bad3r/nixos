@@ -337,16 +337,20 @@ _: {
               extract_code_spans "$text" >"$hits"
               while IFS=$'\t' read -r lineno span; do
                 [ -z "$lineno" ] && continue
-                case "$span" in
+                # The suffixes come off before the match, since flake.nix and
+                # build.sh are exact arms that `flake.nix#nixConfig` or
+                # `build.sh:42` would otherwise slip past; the trailing slash
+                # comes off after it so `docs/` still meets docs/*.
+                local target=$span
+                target=''${target%%#*}
+                target=''${target%:[0-9]*}
+                case "$target" in
                 modules/* | docs/* | scripts/* | packages/* | tests/* | lib/* | .github/* | flake.nix | build.sh) ;;
                 *) continue ;;
                 esac
                 if has_excluded_chars "$span"; then
                   continue
                 fi
-                local target=$span
-                target=''${target%%#*}
-                target=''${target%:[0-9]*}
                 target=''${target%/}
                 if ! is_tracked "$root/$target"; then
                   report_unresolved "$path" "$lineno" "backticked path" "does not exist" "$root/$target" "$target"

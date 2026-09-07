@@ -664,18 +664,30 @@ PAGE
   pass
 }
 
+# flake.nix and build.sh are exact arms of the allowlist, so a suffix on them
+# once fell past the match and the span was never checked at all.
 test_a_backticked_path_drops_its_line_fragment_and_slash_suffix() {
   local repo
   repo="$(make_repo suffixes)"
   : >"${repo}/docs/other.md"
+  : >"${repo}/flake.nix"
   write_page "${repo}" docs/page.md <<'PAGE'
 # Page
 
-`docs/other.md:12`, `docs/other.md:12-20`, `docs/other.md#section`, `docs/`.
+`docs/other.md:12`, `docs/other.md:12-20`, `docs/other.md#section`, `docs/`, `flake.nix#nixConfig`.
 PAGE
 
   run_hook "${repo}" docs/page.md
   assert_clean "suffixes"
+
+  write_page "${repo}" docs/page.md <<'PAGE'
+# Page
+
+`build.sh:42` names a file this tree lacks.
+PAGE
+  run_hook "${repo}" docs/page.md
+  assert_violations 1 "suffix on an exact arm"
+  assert_err_has "docs/page.md:3: backticked path does not exist: build.sh" "suffix on an exact arm"
   pass
 }
 
