@@ -19,13 +19,12 @@
 
 ## Storage
 
-| Disk | Model                      | Slot or bus                          | Serial          | Role                            |
-| ---- | -------------------------- | ------------------------------------ | --------------- | ------------------------------- |
-| A    | WD_BLACK SN8100 4TB        | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`) | 252415800489    | NixOS root, swap, ESP           |
-| S    | Samsung 860 PRO 2TB        | SATA, chipset (`0000:80:17.0`)       | S45DNF0K503930R | LUKS data volume at `/data`     |
-| W    | WDC PC SN720 1TB           | M.2_2, CPU PCIe 4.0 (`0000:03:00.0`) | 192461421492    | Windows                         |
-| P    | Samsung 970 PRO 512GB      | Chipset M.2 (`0000:82:00.0`)         | S469NF0K509254D | NTFS portal shared with Windows |
-| none | Samsung MZHPV512HDGL-000L1 | AHCI M.2, chipset (`0000:87:00.0`)   | S1WUNYAH206176  | undeclared, reports 0 bytes     |
+| Disk | Model                 | Slot or bus                          | Serial          | Role                            |
+| ---- | --------------------- | ------------------------------------ | --------------- | ------------------------------- |
+| A    | WD_BLACK SN8100 4TB   | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`) | 252415800489    | NixOS root, swap, ESP           |
+| S    | Samsung 860 PRO 2TB   | SATA, chipset (`0000:80:17.0`)       | S45DNF0K503930R | LUKS data volume at `/data`     |
+| W    | WDC PC SN720 1TB      | M.2_2, CPU PCIe 4.0 (`0000:03:00.0`) | 192461421492    | Windows                         |
+| P    | Samsung 970 PRO 512GB | Chipset M.2 (`0000:82:00.0`)         | S469NF0K509254D | NTFS portal shared with Windows |
 
 ## Devices
 
