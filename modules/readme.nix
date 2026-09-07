@@ -39,6 +39,8 @@
 
           NixOS Infrastructure as Code using the [Dendritic Pattern](https://github.com/mightyiam/dendritic), an organic configuration growth pattern with automatic module discovery. Powered by [flake-parts](https://flake.parts/).
 
+          The `system76` host (System76 Oryx Pro laptop) is deprecated: its configuration was removed from this repository and survives only in git history.
+
         '';
 
       automatic-import =
@@ -109,9 +111,9 @@
         ''
           ## Storage Boundaries
 
-          Storage-dependent services must be enabled only on hosts that provide their required mount. The system76 host has no dedicated `/data`, so it disables both common local mirror writers and the R2 runtime; the relocated `/data` volume belongs to `songbird`.
+          Storage-dependent services must be enabled only on hosts that provide their required mount. `songbird` owns the dedicated `/data` volume that backs the common local mirror writers and the R2 runtime; `tpnix` keeps its mirrors on the root filesystem by policy.
 
-          See the [local mirror reference](docs/reference/local-mirrors.md), [system76 configuration](docs/system76/system76-configuration.md), and [R2 runtime policy](docs/r2-cloud/system76-runtime.md) for the operational contracts.
+          See the [local mirror reference](docs/reference/local-mirrors.md) and [R2 runtime policy](docs/r2-cloud/songbird-runtime.md) for the operational contracts.
 
         '';
 
