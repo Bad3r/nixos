@@ -304,7 +304,14 @@ _: {
 
             check_file() {
               local path=$1
-              [ -f "$path" ] || return 0
+              # The cd above makes every argument root-relative, so a path typed
+              # from a subdirectory, or a typo, would otherwise check nothing
+              # and pass.
+              if [ ! -f "$path" ]; then
+                echo "docs-style: not a file: $path" >&2
+                violations=$((violations + 1))
+                return 0
+              fi
 
               # docs/index.md is a table of contents that grows with every
               # page; only the line cap is inapplicable to it, so it stays
