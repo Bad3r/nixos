@@ -50,7 +50,8 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
 
    `secrets/` stays uninitialized until the age identity exists, and holding that through the build takes `--allow-dirty` on the command below.
    That flag selects the `path:` reference, whose per-file `builtins.pathExists` guards evaluate the secretless configuration as in CI; the bare `git+file` reference would pull the private secrets submodule, which this machine has no credentials for.
-   The same flag skips the clean-tree guard and `path:` reads the working tree, so the UUID edit from the reinstall step takes effect uncommitted; the stock system carries no git identity, and the secrets section commits it.
+   Apply the reinstall step's UUID edit to `modules/songbird/hardware-config.nix` in this clone now, before the build below.
+   `--allow-dirty` also skips the clean-tree guard and `path:` reads the working tree, so that edit takes effect uncommitted; the stock system carries no git identity, and the secrets section commits it.
 
 2. Build and stage the first generation:
 
@@ -99,7 +100,7 @@ Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ss
 Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
 A volume created from scratch carries a new `crypto_LUKS` UUID, so record `blkid -s UUID -o value <partition>` in that option, commit it, and run `./build.sh` before the reboot below.
 The running generation's initrd names the old UUID until then.
-It also needs the XFS filesystem `data.mount` expects, `sudo mkfs.xfs -L data /dev/mapper/data` with the container open; never run that on a volume whose contents stay.
+Such a volume also needs the XFS filesystem `data.mount` expects: `sudo cryptsetup open <data-device-path> data && sudo mkfs.xfs -L data /dev/mapper/data`, never on a volume whose contents stay.
 
 1. Add the root passphrase as an extra key slot:
 
@@ -128,7 +129,7 @@ Precondition: the change sits in a linked worktree.
    nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel"
    ```
 
-3. Switch on songbird:
+3. Commit the change, then switch on songbird:
 
    ```sh
    ./build.sh
