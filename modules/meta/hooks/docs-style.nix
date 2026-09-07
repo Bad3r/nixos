@@ -220,11 +220,13 @@ _: {
               done <"$hits"
             }
 
-            # Strips a trailing quoted title, then a `<...>` wrapper. The title
-            # must go first: a bracketed target followed by a title does not
+            # Trims the padding CommonMark allows inside the parentheses, strips
+            # a trailing quoted title, then a `<...>` wrapper. The title must go
+            # before the wrapper: a bracketed target followed by a title does not
             # itself end in `>`, so stripping brackets first would miss it.
             normalize_link_target() {
-              local target=$1
+              local target
+              target=$(trim "$1")
               target=''${target%%[[:space:]][\"\']*}
               case "$target" in
               "<"*">") target=''${target#<} target=''${target%>} ;;
