@@ -97,7 +97,7 @@ Precondition: the host is registered, with a module directory and policy flags i
    ./build.sh --allow-dirty --host <host> --boot
    ```
 
-   `build.sh` refuses an uncommitted tree, so the files land in a commit first.
+   `--allow-dirty` skips the clean-tree guard, so the commit is on the reader: `path:` builds the target's working tree, and an uncommitted host module activates here while reaching no other checkout.
    The secrets submodule stays uninitialized through this step: `--allow-dirty` selects the `path:` reference, whose `builtins.pathExists` guards evaluate the secretless configuration; the bare `git+file` reference would pull the private secrets submodule, which the target has no credentials for.
 
 4. Score Dendritic Pattern compliance:

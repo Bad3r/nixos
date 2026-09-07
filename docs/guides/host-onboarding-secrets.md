@@ -19,7 +19,7 @@ Verification: the public key printed by Host Preparation's `age-keygen -y` step 
 
 ## Provision host secrets
 
-Precondition: the age identity is installed, with `sopsRuntimeReady = true`.
+Precondition: the age identity is installed, with `sopsRuntimeReady = true` and `gh` logged in, since the private submodule fetches with its token.
 
 1. Initialize the secrets submodule now that the identity exists:
 
@@ -42,11 +42,11 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true`.
 5. On the new host, commit the `sopsRuntimeReady` flip, the new `sops.secrets` declarations, and the moved `secrets` gitlink, then switch so sops-nix installs the secrets:
 
    ```sh
-   ./build.sh --allow-dirty --host <host>
+   ./build.sh --host <host>
    ```
 
    `build.sh` hands the name to `nh os switch -H <host>`, which activates on the machine it runs on; from any other machine this step switches that machine into `<host>`'s configuration.
-   `--allow-dirty` keeps the `path:` reference, since the credentials that fetch the private submodule arrive with the secrets this switch installs.
+   Step 1 already fetched the private submodule with this host's credentials and this step's commit leaves the tree clean, so the bare `git+file` reference resolves and keeps `self.rev`.
 
 6. Confirm every source path in the shared `secrets/duplicati-config.json` manifest exists on this host.
    `sopsRuntimeReady = true` enables `services.duplicati-r2` against that one manifest, and its generator checks that a target names a path, not that the path exists here.

@@ -34,7 +34,7 @@ Precondition: a NixOS installer image is booted with network access, and the she
 
    The vfat UUID goes to `fileSystems."/boot".device` and the two `crypto_LUKS` UUIDs to `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device` in `modules/songbird/hardware-config.nix`.
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
-   Make that edit from another fleet host and land it on the default branch before the clone below, which checks that branch out; `build.sh` refuses an uncommitted tree, and a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
+   Make that edit in the clone below, before the build, and commit it in the secrets section; a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
 
 Verification: `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
 
@@ -50,7 +50,7 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
 
    `secrets/` stays uninitialized until the age identity exists, and holding that through the build takes `--allow-dirty` on the command below.
    That flag selects the `path:` reference, whose per-file `builtins.pathExists` guards evaluate the secretless configuration as in CI; the bare `git+file` reference would pull the private secrets submodule, which this machine has no credentials for.
-   Nothing else in the tree changes before the switch, since `build.sh` exits on an uncommitted change and the stock system carries no git identity to commit with.
+   The same flag skips the clean-tree guard and `path:` reads the working tree, so the UUID edit from the reinstall step takes effect uncommitted; the stock system carries no git identity, and the secrets section commits it.
 
 2. Build and stage the first generation:
 
@@ -69,7 +69,7 @@ A `data` volume keyed to an older passphrase prompts again until the key-slot pr
 
 ## Install the age identity and secrets
 
-Precondition: songbird is running this repository's configuration, with `secrets/` still uninitialized.
+Precondition: songbird is running this repository's configuration, with `secrets/` still uninitialized and `gh` logged in, since the private submodule fetches with its token.
 
 1. Copy the age private key from the password manager to `/var/lib/sops-nix/key.txt` (root, mode 0600) and `~/.config/sops/age/keys.txt`.
    See [SOPS usage](../sops/README.md), Host Preparation, for the exact key handling.
@@ -81,15 +81,15 @@ Precondition: songbird is running this repository's configuration, with `secrets
    ```
 
 3. Replace the stale host key pin in `modules/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
-   Replace the host id in `modules/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit both; `build.sh` refuses an uncommitted tree.
+   Replace the host id in `modules/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit the pin, the id, and the UUID edit; `build.sh` refuses an uncommitted tree.
 
 4. Rebuild with the secrets submodule present:
 
    ```sh
-   ./build.sh --allow-dirty
+   ./build.sh
    ```
 
-   `--allow-dirty` keeps the `path:` reference, since the credentials that fetch the private submodule arrive with the secrets this switch installs.
+   Step 2 already fetched the private submodule with this machine's credentials and step 3 leaves the tree clean, so the bare `git+file` reference resolves and keeps `self.rev`, which `path:` unsets along with `system.configurationRevision`.
 
 Verification: `ls /run/secrets` lists the host secrets, `systemctl status r2-runtime-paths.service` shows the `/data` tree in place, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
 
