@@ -43,7 +43,8 @@ Precondition: a NixOS installer image is booted with network access, and the she
    blkid "$DISK-part1" "$DISK-part2" "$DISK-part3"
    ```
 
-   The vfat UUID goes to `fileSystems."/boot".device` and the two `crypto_LUKS` UUIDs to `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device` in `modules/songbird/hardware-config.nix`.
+   Each option holds a device path, not a bare UUID: write the vfat UUID as `/dev/disk/by-uuid/<uuid>` into `fileSystems."/boot".device` in `modules/songbird/hardware-config.nix`.
+   Write the two `crypto_LUKS` UUIDs the same way into `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device`.
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
    Make that edit in the clone below, before the build, and commit it in the secrets section; a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
 
@@ -97,6 +98,7 @@ The stock configuration has only root, so the clone above sits at `/root/nixos`;
 
 3. Replace the stale host key pin in `modules/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
    Replace the host id in `modules/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit the pin, the id, and the UUID edit; `build.sh` refuses an uncommitted tree.
+   Push that commit before step 4 so the other fleet hosts can reach it: their `/etc/ssh/ssh_known_hosts` is rendered from `fleetHostKeys` at build time, and until they switch onto the new pin `ssh songbird` fails there with `REMOTE HOST IDENTIFICATION HAS CHANGED`.
 
 4. Rebuild with the secrets submodule present:
 

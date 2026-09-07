@@ -92,7 +92,7 @@ A present file with no `samba_media_path` key fails activation instead, with `th
 
 ```sh
 systemctl is-active samba.target
-nix eval "path:.#nixosConfigurations.songbird.config.warnings"
+nix eval "$HOME/nixos#nixosConfigurations.songbird.config.warnings"
 ```
 
 Start the units with `sudo systemctl start samba.target` when that target is inactive.
@@ -104,7 +104,7 @@ For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, s
 `eth0` and `eth1` are kernel-assigned under `net.ifnames=0`, and if `firewallDnsInterfaces` in `modules/songbird/policy.nix` ever names one directly, `modules/hosts/common/firewall.nix` warns because nothing pins that name to a device.
 
 ```sh
-nix eval "path:.#nixosConfigurations.songbird.config.warnings"
+nix eval "$HOME/nixos#nixosConfigurations.songbird.config.warnings"
 ```
 
 Replace that device's `altnamesOnly` entry in `modules/songbird/networking.nix` with an explicit `linkConfig` carrying `Name=` and `AlternativeNamesPolicy=` only, then name that pin in `firewallDnsInterfaces` in place of `eth0`.
