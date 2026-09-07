@@ -366,18 +366,12 @@ in
           }) perSystemPackageNames
           ++ [
             # modules/agents/mcp.nix resolves MCP server packages from the
-            # mcp-servers-nix input; host package sets carry same-named but
-            # different context7-mcp and mcp-server-sequential-thinking
-            # derivations no consumer runs.
+            # mcp-servers-nix input; host package sets carry a same-named but
+            # different context7-mcp derivation no consumer runs.
             {
               key = "context7-mcp";
               pkgName = "context7-mcp";
               path = inputs'.mcp-servers-nix.packages.context7-mcp;
-            }
-            {
-              key = "mcp-server-sequential-thinking";
-              pkgName = "mcp-server-sequential-thinking";
-              path = inputs'.mcp-servers-nix.packages.mcp-server-sequential-thinking;
             }
             {
               key = "codex";

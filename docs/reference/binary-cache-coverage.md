@@ -106,7 +106,7 @@ keyed `<host>/<package>/<output>`.
   `programs.steam.enable` are what actually install them.
 - perSystem-sourced entries (codeburn, restringer) are consumed through
   the devshell surface and build from the perSystem nixpkgs instance.
-- Input-sourced entries (context7-mcp, mcp-server-sequential-thinking, codex)
+- Input-sourced entries (context7-mcp, codex)
   come from the flake input the consuming module resolves them from, because
   host package sets can carry a same-named but different derivation.
 
@@ -216,14 +216,13 @@ so publishing only the bare attribute can leave the installed closure
 unsubstituted.
 
 perSystem-sourced (codeburn, restringer) and input-sourced (context7-mcp,
-mcp-server-sequential-thinking, codex) entries are published once, not per
-host, because no host package set shapes them.
+codex) entries are published once, not per host, because no host package set
+shapes them.
 
-context7-mcp and mcp-server-sequential-thinking are sourced from the
-`mcp-servers-nix` input, matching the consumer in `modules/agents/mcp.nix`,
-which resolves every server's package through
-`inputs.mcp-servers-nix.packages.<system>`; host package sets carry
-same-named but different derivations no consumer runs. nemo-with-extensions
+context7-mcp is sourced from the `mcp-servers-nix` input, matching the
+consumer in `modules/agents/mcp.nix`, which resolves every server's package
+through `inputs.mcp-servers-nix.packages.<system>`; host package sets carry a
+same-named but different derivation no consumer runs. nemo-with-extensions
 is sourced from `programs.nemo.extended.finalPackage` for the same reason:
 `modules/apps/nemo.nix` re-wraps nemo with an explicit extension list, so
 the bare `pkgs.nemo-with-extensions` attribute is a derivation no host

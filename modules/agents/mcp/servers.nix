@@ -1,15 +1,14 @@
 _: {
   flake.lib.agents._internal.mcp.raw = {
+    # Off: mcp-servers-nix compiles it with nixpkgs typescript, TypeScript 7 since nixpkgs#560311, which
+    # no longer auto-includes @types/node, so tsc fails on `process`.
     sequential-thinking = {
       source = "nix";
       package = "mcp-server-sequential-thinking";
-      clients = [
-        "claude"
-        "codex"
-      ];
+      clients = [ ];
       docs = {
         primaryUse = "Record structured reasoning steps for complex tasks.";
-        accessNotes = "Useful for debugging, planning, and other nontrivial workflows.";
+        accessNotes = "Available in the catalog but not enabled by default for Codex or Claude Code.";
         example = "`sequentialthinking start`";
       };
     };
