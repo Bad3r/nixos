@@ -44,6 +44,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 - fwupd is enabled, since LVFS covers firmware updates for the NVMe drives and USB peripherals: [support.nix](../../modules/songbird/support.nix).
 - The power profile is forced to performance at boot and reasserted after resume through power-profiles-daemon, which drives the intel_pstate energy-performance preference: [services.nix](../../modules/songbird/services.nix).
 - R2 sync units wait on the `/data` provisioning unit and run only while that volume stays mounted: [r2-runtime.nix](../../modules/songbird/r2-runtime.nix).
+- `data-ownership.service` chowns `/data` to the owner, gated on the mount point rather than requiring it, so an absent volume leaves it inactive instead of failed and a hand mount has to start it explicitly: [hardware-config.nix](../../modules/songbird/hardware-config.nix).
 - The power key locks the session and resume relocks it, since this desktop chassis has no lid switch to handle: [services.nix](../../modules/songbird/services.nix).
 - Bluetooth turns on the kernel's experimental features for BLE battery reporting, on top of the controller the baseline enables: [hardware-config.nix](../../modules/songbird/hardware-config.nix).
 - bolt authorizes Thunderbolt 4 and USB4 devices on the two rear ports: [hardware-config.nix](../../modules/songbird/hardware-config.nix).

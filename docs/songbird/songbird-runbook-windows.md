@@ -1,6 +1,6 @@
 # Songbird runbook: Windows
 
-NixOS procedures are in [songbird-runbook.md](songbird-runbook.md).
+NixOS procedures are in [songbird-runbook.md](songbird-runbook.md), and the reinstall in [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md).
 
 ## Boot Windows once from NixOS
 

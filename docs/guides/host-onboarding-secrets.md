@@ -37,7 +37,8 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true` and 
 
 3. Guard every new `sops.secrets` declaration with `builtins.pathExists` on the encrypted file, so a checkout without the submodule still evaluates.
 
-4. Push the secrets submodule commit before opening a PR or running `nix flake check` elsewhere.
+4. Commit the new file inside the submodule (`git -C secrets add <host>.yaml && git -C secrets commit`), then push that commit, before opening a PR or running `nix flake check` elsewhere.
+   Without it the superproject gitlink still points at the old submodule revision, so step 5 records no change and the verification below passes against a commit that does not carry the new file.
 
 5. On the new host, commit the `sopsRuntimeReady` flip, the new `sops.secrets` declarations, and the moved `secrets` gitlink, then switch so sops-nix installs the secrets:
 

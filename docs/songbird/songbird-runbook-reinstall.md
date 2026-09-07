@@ -82,7 +82,9 @@ A `data` volume keyed to an older passphrase prompts again until the key-slot pr
 
 ## Install the age identity and secrets
 
-Precondition: songbird is running this repository's configuration, with `secrets/` still uninitialized and `gh` logged in, since Home Manager's `gh` module makes `gh auth git-credential` git's helper for github.com and the private submodule fetches through it.
+Precondition: songbird is running this repository's configuration, with `secrets/` still uninitialized, and the steps below run as the owner rather than root.
+The stock configuration has only root, so the clone above sits at `/root/nixos`; move it first (`sudo mv /root/nixos ~/nixos && sudo chown -R "$USER" ~/nixos`).
+`gh` must be logged in as that owner, since Home Manager's `gh` module makes `gh auth git-credential` git's helper for github.com in the owner's git config only, and the private submodule fetches through it.
 
 1. Copy the age private key from the password manager to `/var/lib/sops-nix/key.txt` (root, mode 0600) and `~/.config/sops/age/keys.txt`.
    See [SOPS usage](../sops/README.md), Host Preparation, for the exact key handling.
@@ -110,7 +112,7 @@ Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ss
 ## Give the /data volume the root passphrase key slot
 
 Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
-A volume created from scratch carries a new `crypto_LUKS` UUID, so record `blkid -s UUID -o value <partition>` in that option, commit it, and run `./build.sh` before the reboot below.
+A volume created from scratch carries a new `crypto_LUKS` UUID, so record `/dev/disk/by-uuid/$(blkid -s UUID -o value <partition>)` in that option, commit it, and run `./build.sh` before the reboot below.
 The running generation's initrd names the old UUID until then.
 Such a volume also needs the XFS filesystem `data.mount` expects: `sudo cryptsetup open <data-device-path> data && sudo mkfs.xfs -L data /dev/mapper/data`, never on a volume whose contents stay.
 
