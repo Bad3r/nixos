@@ -26,14 +26,14 @@ Precondition: a NixOS installer image is booted with network access, and the she
 
 2. Install NixOS from the live image onto the new partitions with the installer's stock configuration.
 
-3. Re-harvest the filesystem identifiers:
+3. Re-harvest the partition identifiers:
 
    ```sh
-   nixos-generate-config --show-hardware-config
-   lsblk -o NAME,FSTYPE,UUID
+   blkid "$DISK-part1" "$DISK-part2" "$DISK-part3"
    ```
 
-   Copy the ESP, root, and swap identifiers into `modules/songbird/hardware-config.nix`.
+   The vfat UUID goes to `fileSystems."/boot".device` and the two `crypto_LUKS` UUIDs to `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device` in `modules/songbird/hardware-config.nix`.
+   Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
 
 4. Re-harvest the host id:
 

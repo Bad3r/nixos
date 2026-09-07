@@ -71,6 +71,7 @@ Precondition: `/portal` is the plain NTFS volume declared in `modules/songbird/h
    Store both the password and the recovery key in the password manager.
 
 3. In NixOS, place the BitLocker password with no trailing newline at `/var/lib/secrets/portal-bitlk.key`, root owned, mode 0400.
+   No module recreates this file, and it lives on disk A's root filesystem, which the reinstall procedure wipes; restore it from the password manager after every reinstall or `/portal` stays locked.
 
    A plain root-owned file replaces a sops runtime path because `systemd-cryptsetup@portal` runs from `cryptsetup.target`, before sops-nix activation writes `/run/secrets`.
 

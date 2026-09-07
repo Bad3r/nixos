@@ -91,7 +91,8 @@ A present file with no `samba_media_path` key fails activation instead, with `th
 nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
-Add the key with `sops secrets/songbird.yaml`, or set `sopsRuntimeReady = true` in `modules/songbird/policy.nix`.
+For an absent file, initialize the secrets submodule with `git submodule update --init --recursive`; `secrets/songbird.yaml` is tracked there, and `sops` against an empty checkout writes a stray file instead.
+For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, set `sopsRuntimeReady = true` in `modules/songbird/policy.nix`.
 
 ## Evaluation warns about an unpinned interface name
 
@@ -101,5 +102,6 @@ Add the key with `sops secrets/songbird.yaml`, or set `sopsRuntimeReady = true` 
 nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
-Add `Name=` to the device's existing entry in `modules/songbird/networking.nix` and drop its `NamePolicy=`.
+Add a `Name=` outside the kernel namespaces to the device's entry in `modules/songbird/networking.nix`, drop its `NamePolicy=`, and put that name in `firewallDnsInterfaces` in place of `eth0`.
+[Pin an interface name](../networking/README.md#pin-an-interface-name) lists those namespaces; a pin inside them fails the `modules/hosts/common/firewall.nix` assertion instead of warning.
 Never add a second `.link` file for the same device; udev reads only the first match.
