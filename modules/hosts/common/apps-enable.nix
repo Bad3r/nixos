@@ -256,8 +256,8 @@ let
       librewolf.extended.enable = lib.mkOverride 1100 true;
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
       localsend.extended.enable = lib.mkOverride 1100 true;
-      # Normal GPU compositing is the common default; System76 enables the
-      # NVIDIA PRIME sync workaround in modules/system76/apps-enable.nix.
+      # Normal GPU compositing is the common default; tpnix enables the
+      # NVIDIA PRIME sync workaround in modules/tpnix/apps-enable.nix.
       logseq.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.disableGpuCompositing = lib.mkOverride 1100 false;
       "logseq-cli".extended.enable = lib.mkOverride 1100 true;
