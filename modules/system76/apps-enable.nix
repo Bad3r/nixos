@@ -19,19 +19,10 @@ let
     inkscape = true;
   };
 
-  # disableGpuCompositing is a Logseq sub-option, not a flat app toggle, so it
-  # cannot go through appEnable. Registered so FR-5 compares it against the
-  # baseline too.
-  subToggles = [
-    {
-      path = [
-        "logseq"
-        "extended"
-        "disableGpuCompositing"
-      ];
-      value = true;
-    }
-  ];
+  # system76 currently runs nvidia-only mode (system76.gpu.mode in
+  # hardware-config.nix), not PRIME sync, so it does not need the Logseq
+  # disableGpuCompositing workaround; see modules/tpnix/apps-enable.nix.
+  subToggles = [ ];
   # Built from the registries above, never written out here, so an
   # unregistered override cannot exist and the write side cannot disagree with
   # the FR-5 comparison about which namespace a path belongs to.
