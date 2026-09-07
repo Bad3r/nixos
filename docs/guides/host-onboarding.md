@@ -91,13 +91,14 @@ Precondition: the host is registered, with a module directory and policy flags i
    nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
    ```
 
-3. Boot it on the target machine without switching the running system:
+3. Commit the host's files and land them on the branch the target checks out, then boot the generation from that checkout on the target machine without switching its running system:
 
    ```sh
-   ./build.sh --host <host> --boot
+   ./build.sh --allow-dirty --host <host> --boot
    ```
 
-   The secrets submodule can stay uninitialized through this step: every `sops.secrets` declaration guards on `builtins.pathExists`, so a secretless checkout still evaluates and activates.
+   `build.sh` refuses an uncommitted tree, so the files land in a commit first.
+   The secrets submodule stays uninitialized through this step: `--allow-dirty` selects the `path:` reference, whose `builtins.pathExists` guards evaluate the secretless configuration; the bare `git+file` reference would pull the private secrets submodule, which the target has no credentials for.
 
 4. Score Dendritic Pattern compliance:
 

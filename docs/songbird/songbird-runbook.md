@@ -34,7 +34,7 @@ Precondition: a NixOS installer image is booted with network access, and the she
 
    The vfat UUID goes to `fileSystems."/boot".device` and the two `crypto_LUKS` UUIDs to `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device` in `modules/songbird/hardware-config.nix`.
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
-   Make that edit from another fleet host and push it before the clone below; `build.sh` refuses an uncommitted tree, and a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
+   Make that edit from another fleet host and land it on the default branch before the clone below, which checks that branch out; `build.sh` refuses an uncommitted tree, and a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
 
 Verification: `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
 
@@ -48,14 +48,15 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
    nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git -c git clone https://github.com/Bad3r/nixos ~/nixos
    ```
 
-   `secrets/` stays uninitialized until the age identity exists; every `sops` declaration guards on the encrypted file's presence, so a secretless checkout still evaluates and activates.
-   The tree stays untouched until the switch below, since `build.sh` exits on an uncommitted change and the stock system carries no git identity to commit with.
+   `secrets/` stays uninitialized until the age identity exists, and holding that through the build takes `--allow-dirty` on the command below.
+   That flag selects the `path:` reference, whose per-file `builtins.pathExists` guards evaluate the secretless configuration as in CI; the bare `git+file` reference would pull the private secrets submodule, which this machine has no credentials for.
+   Nothing else in the tree changes before the switch, since `build.sh` exits on an uncommitted change and the stock system carries no git identity to commit with.
 
 2. Build and stage the first generation:
 
    ```sh
    cd ~/nixos
-   nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh -t songbird --boot
+   nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh --allow-dirty -t songbird --boot
    ```
 
    `nix shell nixpkgs#git` supplies `git`, since the stock system ships none and both the Nix git fetcher and the secrets guard shell out to it.
@@ -85,15 +86,18 @@ Precondition: songbird is running this repository's configuration, with `secrets
 4. Rebuild with the secrets submodule present:
 
    ```sh
-   ./build.sh
+   ./build.sh --allow-dirty
    ```
+
+   `--allow-dirty` keeps the `path:` reference, since the credentials that fetch the private submodule arrive with the secrets this switch installs.
 
 Verification: `ls /run/secrets` lists the host secrets, `systemctl status r2-runtime-paths.service` shows the `/data` tree in place, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
 
 ## Give the /data volume the root passphrase key slot
 
 Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
-A volume created from scratch carries a new `crypto_LUKS` UUID, so record `blkid -s UUID -o value <partition>` in that option first.
+A volume created from scratch carries a new `crypto_LUKS` UUID, so record `blkid -s UUID -o value <partition>` in that option, commit it, and run `./build.sh` before the reboot below.
+The running generation's initrd names the old UUID until then.
 It also needs the XFS filesystem `data.mount` expects, `sudo mkfs.xfs -L data /dev/mapper/data` with the container open; never run that on a volume whose contents stay.
 
 1. Add the root passphrase as an extra key slot:
