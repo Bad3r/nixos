@@ -13,6 +13,7 @@
       i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
       xfsettingsdEnabled = lib.attrByPath [ "integrations" "xfsettingsd" "enable" ] true hostI3Cfg;
+      primeSync = lib.attrByPath [ "hardware" "nvidia" "prime" "sync" "enable" ] false osConfig;
     in
     {
       config = lib.mkIf i3Enabled (
@@ -114,18 +115,25 @@
               # i3 does not composite, so without picom every GL/video present
               # reaches the scanout unsynchronised and tears. glx+vSync is the
               # backend pair NVIDIA needs; xrender (the module default) ignores
-              # vSync entirely. Follows the app registry rather than enabling
-              # unconditionally: programs.picom.extended is the switch that
-              # installs picom, so a host turning the app off would otherwise
-              # still run a compositor, and one from home-manager's own
-              # pkgs.picom rather than the package the app module installs.
+              # vSync entirely. Not on PRIME-sync hosts, though: there the NVIDIA
+              # X screen has no CRTC, so picom's NVIDIA vblank wait (a
+              # GLX_SGI_video_sync thread with no timeout, chosen whenever a
+              # RandR provider is named NVIDIA) parks for good once the Intel
+              # sink blanks its panel, leaving the last composited frame on
+              # screen while X keeps running. PRIME Synchronization already
+              # keeps the sink scanout tear-free. Follows the app registry
+              # rather than enabling unconditionally: programs.picom.extended
+              # is the switch that installs picom, so a host turning the app
+              # off would otherwise still run a compositor, and one from
+              # home-manager's own pkgs.picom rather than the package the app
+              # module installs.
               picom = {
                 enable = lib.mkDefault (lib.attrByPath [ "programs" "picom" "extended" "enable" ] false osConfig);
                 package = lib.mkDefault (
                   lib.attrByPath [ "programs" "picom" "extended" "package" ] pkgs.picom osConfig
                 );
                 backend = lib.mkDefault "glx";
-                vSync = lib.mkDefault true;
+                vSync = lib.mkDefault (!primeSync);
               };
               udiskie = {
                 enable = lib.mkDefault true;
