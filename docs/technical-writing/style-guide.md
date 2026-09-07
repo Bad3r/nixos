@@ -56,6 +56,7 @@ Longer rationale belongs in the commit body, in the code comment at the option, 
 - A sentence carries one idea and stays under about 25 words.
 - Identifiers that may appear: PCI and USB ids and addresses, drive serial numbers, kernel driver and module names, disk labels, mount points, hostnames.
 - Every relative link resolves, and every backticked repository path exists.
+  A path in another repository is a link to that repository, not a backticked span, which the hook resolves against this tree.
 
 ## Host pages
 
