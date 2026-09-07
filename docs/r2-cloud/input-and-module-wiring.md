@@ -14,7 +14,7 @@ repository.
 
 ## Not Covered
 
-- Runtime unit behavior and mount layout (see `system76-runtime.md`)
+- Runtime unit behavior and mount layout (see `songbird-runtime.md`)
 - Secret key mapping details (see `secrets-and-rendered-files.md`)
 
 ## Wiring Path
@@ -32,10 +32,8 @@ repository.
    - `inputs."r2-flake".homeManagerModules.default` via
      `home-manager.sharedModules`
    - File: `modules/lib/r2-runtime.nix`
-   - The `tpnix` and `songbird` policies set `enableExternalFlake = true`;
-     `system76` keeps the flag false because it has no dedicated `/data`
-     filesystem. The producer surfaces are therefore imported for `tpnix` and
-     `songbird`, not `system76`.
+   - The `songbird` and `tpnix` policies both set `enableExternalFlake = true`,
+     so the producer surfaces are imported for both hosts.
 4. Repo-local HM secrets module is also loaded globally:
    - `flake.homeManagerModules.r2Secrets` from `modules/home/r2-secrets.nix`
    - wired by `modules/home-manager/nixos.nix`

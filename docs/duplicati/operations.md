@@ -70,9 +70,9 @@ sets `sopsRuntimeReady = true`. Hosts grant the owner read access to local state
 through `duplicatiStateDirReadable`:
 
 ```nix
-# modules/system76/policy.nix (excerpt)
+# modules/songbird/policy.nix (excerpt)
 _: {
-  flake.lib.nixos.hosts.system76 = {
+  flake.lib.nixos.hosts.songbird = {
     sopsRuntimeReady = true;
     duplicatiStateDirReadable = true;
   };

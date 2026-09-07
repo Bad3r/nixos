@@ -8,7 +8,7 @@ inputs for user `vx`.
 ## Source of Truth
 
 - `modules/lib/r2-runtime.nix`
-- `modules/system76/r2-runtime.nix`
+- per-host `modules/<host>/r2-runtime.nix`
 - `modules/hosts/common/imports.nix`
 - `modules/home-manager/nixos.nix`
 - `modules/home/r2-secrets.nix`
