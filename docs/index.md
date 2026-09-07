@@ -60,7 +60,9 @@
 - [songbird/songbird-configuration.md](songbird/songbird-configuration.md)
   - Every way `songbird` deviates from the hosts-common baseline, one line each with its reason.
 - [songbird/songbird-runbook.md](songbird/songbird-runbook.md)
-  - Reinstall, first switch, secrets, `/data` key slot, and validation procedures for `songbird`.
+  - Validation procedure for a `songbird` change.
+- [songbird/songbird-runbook-reinstall.md](songbird/songbird-runbook-reinstall.md)
+  - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
 - [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)

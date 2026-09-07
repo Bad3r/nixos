@@ -94,11 +94,12 @@ Precondition: the host is registered, with a module directory and policy flags i
 3. Commit the host's files and land them on the branch the target checks out, then boot the generation from that checkout on the target machine without switching its running system:
 
    ```sh
-   ./build.sh --allow-dirty --host <host> --boot
+   ./build.sh --bootstrap --skip-hooks --allow-dirty --host <host> --boot
    ```
 
-   `--allow-dirty` skips the clean-tree guard, so the commit is on the reader: `path:` builds the target's working tree, and an uncommitted host module activates here while reaching no other checkout.
-   The secrets submodule stays uninitialized through this step: `--allow-dirty` selects the `path:` reference, whose `builtins.pathExists` guards evaluate the secretless configuration; the bare `git+file` reference would pull the private secrets submodule, which the target has no credentials for.
+   `--allow-dirty` returns early from `build.sh`'s clean-tree guard, so the commit is on the reader: `path:` builds the target's working tree, and an uncommitted host module activates here while reaching no other checkout.
+   That same `path:` reference keeps the secrets submodule out of the build, since its per-file `builtins.pathExists` guards evaluate the secretless configuration; a linked worktree selects it on its own, and on a primary checkout the flag selects it in place of the bare `git+file` reference, which would pull the private submodule the target has no credentials for.
+   `--bootstrap` replaces the substituter list with the fleet caches before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
 
 4. Score Dendritic Pattern compliance:
 
@@ -106,7 +107,7 @@ Precondition: the host is registered, with a module directory and policy flags i
    nix run path:.#generation-manager -- score
    ```
 
-[Songbird runbook](../songbird/songbird-runbook.md) works through this same ladder for one host, starting at its first switch after a reinstall.
+[Songbird runbook: reinstall](../songbird/songbird-runbook-reinstall.md) works through this same ladder for one host, starting at its first switch after a reinstall.
 
 Verification: the target machine reboots into the new generation, and step 1's flake check reports no assertion failures for the new host.
 

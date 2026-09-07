@@ -21,10 +21,11 @@ sudo systemctl start r2-runtime-paths.service
 
 ## R2 mount, bisync, and restic units stay inactive
 
-Every R2 writer unit requires `r2-runtime-paths.service`, whose `ConditionPathIsMountPoint=/data` gate in `modules/lib/r2-runtime.nix` skips it once `/data` comes up unmounted.
+Every R2 writer unit carries its own `ConditionPathIsMountPoint` copy of the `/data` gate in `modules/lib/r2-runtime.nix`, beside the one on `r2-runtime-paths.service` it requires, so each is skipped independently once `/data` comes up unmounted.
+A `requires` on a condition-skipped unit counts as satisfied and would not stop them.
 
 ```sh
-systemctl status r2-runtime-paths.service
+systemctl status r2-runtime-paths.service r2-mount-docs.service
 ```
 
 Mount `/data` first, then start the ownership unit, the gate, and the writer that is needed, because a condition-skipped unit never retries on its own.

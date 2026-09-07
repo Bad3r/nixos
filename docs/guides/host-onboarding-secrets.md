@@ -19,7 +19,7 @@ Verification: the public key printed by Host Preparation's `age-keygen -y` step 
 
 ## Provision host secrets
 
-Precondition: the age identity is installed, with `sopsRuntimeReady = true` and `gh` logged in, since the private submodule fetches with its token.
+Precondition: the age identity is installed, with `sopsRuntimeReady = true` and `gh` logged in, since Home Manager's `gh` module makes `gh auth git-credential` git's helper for github.com and the private submodule fetches through it.
 
 1. Initialize the secrets submodule now that the identity exists:
 
@@ -46,7 +46,7 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true` and 
    ```
 
    `build.sh` hands the name to `nh os switch -H <host>`, which activates on the machine it runs on; from any other machine this step switches that machine into `<host>`'s configuration.
-   Step 1 already fetched the private submodule with this host's credentials and this step's commit leaves the tree clean, so the bare `git+file` reference resolves and keeps `self.rev`.
+   A linked worktree takes the `path:` reference on its own; a primary checkout resolves the bare `git+file` reference and keeps `self.rev`, since step 1 already fetched the private submodule through the `gh` credential helper and this step's commit leaves the tree clean.
 
 6. Confirm every source path in the shared `secrets/duplicati-config.json` manifest exists on this host.
    `sopsRuntimeReady = true` enables `services.duplicati-r2` against that one manifest, and its generator checks that a target names a path, not that the path exists here.
