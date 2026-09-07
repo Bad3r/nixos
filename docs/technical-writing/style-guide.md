@@ -96,6 +96,7 @@ It fails on more than 150 lines, on a banned phrase outside code, and on a link 
 Exempt paths: `docs/nixos-manual/`, `docs/drafts/`, the generated root `README.md`, any `CLAUDE.md` or `AGENTS.md`, and `tests/`.
 `docs/index.md` is a table of contents that grows with every page, so only the line cap skips it; its phrases and links are still checked.
 A phrase this list matches in a technical sense rather than a meta sense is committed with `SKIP=docs-style`, never `--no-verify`, which also turns off the secret scan.
+The hook's behavior is pinned by `tests/docs-style/run.sh`, which runs as the `script-tests-docs-style` flake check.
 Run it by hand on chosen files from the repository root:
 
 ```sh
