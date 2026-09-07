@@ -47,7 +47,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    The `apps-enable.nix` override pattern, including the no-op check that rejects redundant entries, is in [Apps Module Style Guide](apps-module-style-guide.md).
    Unfree packages go through `nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`; the same option inside a host module fails evaluation.
 
-Verification: `nix flake check path:. --accept-flake-config --no-build --offline` evaluates the new host instead of throwing the missing-registry message.
+Verification: `nix flake check path:. --accept-flake-config --no-build --offline` passes the registry check in `modules/configurations/nixos.nix` and stops at the absent `firewallDnsInterfaces` key, which the next section sets.
 
 ## Set the policy flags
 

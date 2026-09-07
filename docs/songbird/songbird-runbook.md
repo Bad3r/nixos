@@ -95,9 +95,10 @@ systemctl status r2-runtime-paths.service
 
 `ls /run/secrets` lists the host secrets, and `r2-runtime-paths.service` shows the `/data` tree in place.
 
-## Give a replacement /data volume the root passphrase key slot
+## Give the /data volume the root passphrase key slot
 
-Precondition: the replacement volume is LUKS2 formatted and holds an XFS filesystem (`sudo mkfs.xfs -L data /dev/mapper/data` with the container open), with its device path recorded at `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
+Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
+A volume created from scratch also needs the XFS filesystem `data.mount` expects, `sudo mkfs.xfs -L data /dev/mapper/data` with the container open; never run that on a volume whose contents stay.
 
 1. Add the root passphrase as an extra key slot:
 

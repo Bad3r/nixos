@@ -27,9 +27,10 @@ Every R2 writer unit requires `r2-runtime-paths.service`, whose `ConditionPathIs
 systemctl status r2-runtime-paths.service
 ```
 
-Mount `/data` first, then start the gate and the writer that is needed, because a condition-skipped unit never retries on its own.
+Mount `/data` first, then start the ownership unit, the gate, and the writer that is needed, because a condition-skipped unit never retries on its own.
 
 ```sh
+sudo systemctl start data-ownership.service
 sudo systemctl start r2-runtime-paths.service
 sudo systemctl start r2-mount-docs.service
 ```
