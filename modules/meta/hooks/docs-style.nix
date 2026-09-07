@@ -47,26 +47,36 @@ _: {
               printf '%s' "$s"
             }
 
-            # Blanks lines inside ``` or ~~~ fences (any indentation); keeps line
-            # numbers stable for the -n reports downstream. The closing run
-            # must be at least as long as the opening run, so a longer fence
-            # can safely wrap a shorter one shown as an example.
+            # Blanks lines inside ``` or ~~~ fences (any indentation, inside a
+            # blockquote too); keeps line numbers stable for the -n reports
+            # downstream. The closing run must be at least as long as the
+            # opening run, so a longer fence can safely wrap a shorter one
+            # shown as an example.
             blank_fenced_blocks() {
               awk '
-                BEGIN { in_fence = 0; fence_char = ""; fence_len = 0 }
+                BEGIN { in_fence = 0; fence_char = ""; fence_len = 0; fence_depth = 0 }
                 {
                   stripped = $0
                   sub(/^[ \t]*/, "", stripped)
+                  # A fence inside a blockquote carries a > marker on every one
+                  # of its lines, so the markers go with the indentation; their
+                  # count is the quote depth the fence was opened at.
+                  depth = 0
+                  while (sub(/^>[ \t]?/, "", stripped)) { sub(/^[ \t]*/, "", stripped); depth++ }
+                  # A fenced block is never lazily continued (CommonMark), so a
+                  # line below the depth of a quoted fence ends the quote and
+                  # the fence with it, and is prose again.
+                  if (in_fence && depth < fence_depth) { in_fence = 0 }
                   if (in_fence) {
                     print ""
                     if (stripped ~ ("^" fence_char "{" fence_len ",}[ \t]*$")) { in_fence = 0 }
                     next
                   }
                   if (match(stripped, /^`{3,}/)) {
-                    fence_char = "`"; fence_len = RLENGTH; in_fence = 1; print ""; next
+                    fence_char = "`"; fence_len = RLENGTH; fence_depth = depth; in_fence = 1; print ""; next
                   }
                   if (match(stripped, /^~{3,}/)) {
-                    fence_char = "~"; fence_len = RLENGTH; in_fence = 1; print ""; next
+                    fence_char = "~"; fence_len = RLENGTH; fence_depth = depth; in_fence = 1; print ""; next
                   }
                   print
                 }

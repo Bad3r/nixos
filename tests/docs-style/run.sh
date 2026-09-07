@@ -412,6 +412,36 @@ PAGE
   pass
 }
 
+# The > marker sits ahead of the fence on every quoted line, so the fence was
+# never recognized and a quoted listing reached every scan as prose. A fenced
+# block is never lazily continued, so a quoted fence also ends with its
+# quote, and the prose after it is scanned rather than swallowed.
+test_a_fence_inside_a_blockquote_is_ignored() {
+  local repo
+  repo="$(make_repo quoted-fence)"
+  write_page "${repo}" docs/page.md <<'PAGE'
+# Page
+
+> ```sh
+> fixture-phrase inside a quoted fence
+> [text](missing.md) and `docs/missing.md`
+> ```
+
+> > ~~~
+> > fixture-phrase two levels down
+> > ~~~
+
+> ```
+> fixture-phrase in a quoted fence that ends with its quote
+fixture-phrase in prose right after the quote.
+PAGE
+
+  run_hook "${repo}" docs/page.md
+  assert_violations 1 "quoted fences"
+  assert_err_has "docs/page.md:14: fixture-phrase in prose right after the quote." "prose after the quote"
+  pass
+}
+
 # A span closes only on a backtick run of its opening length (CommonMark), so
 # a double run is one span, a single backtick inside it is text, and an
 # unmatched run is literal. Toggling on every backtick left the second and
@@ -769,6 +799,7 @@ test_the_line_cap_counts_an_unterminated_last_line
 test_the_index_skips_the_cap_only
 test_a_banned_phrase_in_prose_fails
 test_a_phrase_inside_a_fence_is_ignored
+test_a_fence_inside_a_blockquote_is_ignored
 test_a_phrase_inside_a_code_span_is_ignored
 test_link_destinations_and_urls_are_not_scanned
 test_link_text_is_scanned
