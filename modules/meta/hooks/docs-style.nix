@@ -244,6 +244,28 @@ _: {
               [[ $1 =~ ^[A-Za-z][A-Za-z0-9+.-]*: ]]
             }
 
+            # pre-commit stashes unstaged changes to tracked files only, so an
+            # untracked target is still on disk while the hook runs and only
+            # the index agrees with the commit. A directory is tracked when a
+            # file under it is; -s keeps a symlinked component as written.
+            is_tracked() {
+              local rel
+              rel=$(realpath -ms --relative-to="$root" "$1")
+              git ls-files --error-unmatch -- ":(literal)$rel" >/dev/null 2>&1
+            }
+
+            # Distinguishes a target that is on disk but unstaged from one that
+            # is absent, since the fix differs: git add versus a wrong path.
+            report_unresolved() {
+              local path=$1 lineno=$2 what=$3 absent=$4 resolved=$5 target=$6
+              if [ -e "$resolved" ]; then
+                echo "$path:$lineno: $what is not tracked by git: $target" >&2
+              else
+                echo "$path:$lineno: $what $absent: $target" >&2
+              fi
+              violations=$((violations + 1))
+            }
+
             check_relative_links() {
               local path=$1
               local text=$2
@@ -266,9 +288,8 @@ _: {
                 else
                   resolved="$dir/$target"
                 fi
-                if [ ! -e "$resolved" ]; then
-                  echo "$path:$lineno: relative link target does not resolve: $target" >&2
-                  violations=$((violations + 1))
+                if ! is_tracked "$resolved"; then
+                  report_unresolved "$path" "$lineno" "relative link target" "does not resolve" "$resolved" "$target"
                 fi
               done <"$hits"
             }
@@ -297,9 +318,8 @@ _: {
                 target=''${target%%#*}
                 target=''${target%:[0-9]*}
                 target=''${target%/}
-                if [ ! -e "$root/$target" ]; then
-                  echo "$path:$lineno: backticked path does not exist: $target" >&2
-                  violations=$((violations + 1))
+                if ! is_tracked "$root/$target"; then
+                  report_unresolved "$path" "$lineno" "backticked path" "does not exist" "$root/$target" "$target"
                 fi
               done <"$hits"
             }

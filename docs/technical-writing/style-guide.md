@@ -94,6 +94,7 @@ Each section gives the cause in one sentence, the diagnostic command, and the fi
 The pre-commit hook `docs-style` in `modules/meta/hooks/docs-style.nix` runs on every staged Markdown file.
 It is pinned to the pre-commit stage, so the `--hook-stage manual` sweep skips it and an older page comes under the rules when it is next edited.
 It fails on more than 150 lines, on a banned phrase outside code, and on a link or backticked repository path that does not resolve.
+A target resolves only when git tracks it, so a new page is staged before the page that links to it.
 Exempt paths: `docs/nixos-manual/`, `docs/drafts/`, the generated root `README.md`, any `CLAUDE.md` or `AGENTS.md`, and `tests/`.
 `docs/index.md` is a table of contents that grows with every page, so only the line cap skips it; its phrases and links are still checked.
 A phrase this list matches in a technical sense rather than a meta sense is committed with `SKIP=docs-style`, never `--no-verify`, which turns off every other pre-commit hook with it.

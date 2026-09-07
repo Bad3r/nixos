@@ -110,8 +110,16 @@ write_lines() {
 }
 
 # Runs the hook from the fixture root with root-relative paths, the way
-# pre-commit invokes it.
+# pre-commit invokes it, with every fixture file staged first: link and path
+# targets resolve against the index, so an unstaged fixture reads as missing.
 run_hook() {
+  local repo="$1"
+  shift
+  git -C "${repo}" add -A
+  run_hook_unstaged "${repo}" "$@"
+}
+
+run_hook_unstaged() {
   local repo="$1"
   shift
   hook_rc=0
@@ -508,6 +516,33 @@ PAGE
   pass
 }
 
+# pre-commit stashes unstaged changes to tracked files only, so a target that
+# exists on disk but was never staged is still there while the hook runs;
+# resolving against the working tree let the commit land with a link no
+# commit satisfies. The message names the cause, since the fix is git add.
+test_an_untracked_target_does_not_resolve() {
+  local repo
+  repo="$(make_repo untracked)"
+  : >"${repo}/docs/new.md"
+  write_page "${repo}" docs/page.md <<'PAGE'
+# Page
+
+A [new page](new.md), also as `docs/new.md`, and a [gone one](missing.md).
+PAGE
+
+  run_hook_unstaged "${repo}" docs/page.md
+  assert_violations 3 "untracked target"
+  assert_err_has "docs/page.md:3: relative link target is not tracked by git: new.md" "untracked link"
+  assert_err_has "docs/page.md:3: backticked path is not tracked by git: docs/new.md" "untracked path"
+  assert_err_has "docs/page.md:3: relative link target does not resolve: missing.md" "absent link"
+
+  git -C "${repo}" add docs/new.md
+  run_hook_unstaged "${repo}" docs/page.md
+  assert_violations 1 "staged target"
+  assert_err_lacks "new.md" "staged target"
+  pass
+}
+
 # Markup quoted in a code span or a fence is an example, not a link.
 test_link_syntax_inside_code_is_not_a_link() {
   local repo
@@ -694,6 +729,7 @@ test_a_dead_relative_link_fails
 test_an_absolute_target_resolves_from_the_root
 test_a_destination_is_normalized_before_resolving
 test_scheme_targets_are_skipped
+test_an_untracked_target_does_not_resolve
 test_link_syntax_inside_code_is_not_a_link
 test_a_dead_backticked_path_fails_under_every_claimed_prefix
 test_a_backticked_path_drops_its_line_fragment_and_slash_suffix
