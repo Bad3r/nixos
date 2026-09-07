@@ -292,13 +292,6 @@
             exit 0
           fi
 
-          power_saver_profile="power-saver"
-          power_saver_label="  Power Saver"
-          balanced_profile="balanced"
-          balanced_label="  Balanced"
-          performance_profile="performance"
-          performance_label="  Performance"
-
           # Mark current profile
           mark_current() {
             local profile="$1"
@@ -312,9 +305,9 @@
 
           # Build menu
           menu=$(printf "%s\n%s\n%s" \
-            "$(mark_current "$power_saver_profile" "$power_saver_label")" \
-            "$(mark_current "$balanced_profile" "$balanced_label")" \
-            "$(mark_current "$performance_profile" "$performance_label")")
+            "$(mark_current "power-saver" "  Power Saver")" \
+            "$(mark_current "balanced" "  Balanced")" \
+            "$(mark_current "performance" "  Performance")")
 
           # Show rofi menu (Stylix-themed)
           chosen=$(echo "$menu" | rofi -dmenu -i -p "Power Profile" -theme-str '
