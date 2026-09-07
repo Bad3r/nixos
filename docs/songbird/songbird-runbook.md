@@ -91,7 +91,8 @@ Precondition: songbird is running this repository's configuration, with `secrets
 
    Step 2 already fetched the private submodule with this machine's credentials and step 3 leaves the tree clean, so the bare `git+file` reference resolves and keeps `self.rev`, which `path:` unsets along with `system.configurationRevision`.
 
-Verification: `ls /run/secrets` lists the host secrets, `systemctl status r2-runtime-paths.service` shows the `/data` tree in place, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
+Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
+`systemctl status r2-runtime-paths.service` shows the `/data` tree only once that volume is mounted, which after a reinstall waits on the second initrd prompt or the key-slot procedure below.
 
 ## Give the /data volume the root passphrase key slot
 

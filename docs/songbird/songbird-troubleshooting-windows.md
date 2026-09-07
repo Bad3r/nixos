@@ -26,7 +26,8 @@ sudo systemctl start portal.mount
 fuser -vm /portal
 ```
 
-Close whatever holds `/portal` open, then retry the hibernate or suspend command.
+Close whatever holds `/portal` open, then retry the transition.
+`modules/songbird/hardware-config.nix` attaches the guard to `systemd-hibernate`, `systemd-hybrid-sleep`, and `systemd-suspend-then-hibernate` only, so a plain `systemctl suspend` never reaches it.
 
 ## Windows Boot Manager boots by default
 

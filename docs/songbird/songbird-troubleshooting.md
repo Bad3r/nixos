@@ -106,6 +106,6 @@ For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, s
 nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
-Add a `Name=` outside the kernel namespaces to the device's entry in `modules/songbird/networking.nix`, drop its `NamePolicy=`, and put that name in `firewallDnsInterfaces` in place of `eth0`.
-[Pin an interface name](../networking/README.md#pin-an-interface-name) lists those namespaces; a pin inside them fails the `modules/hosts/common/firewall.nix` assertion instead of warning.
+Replace that device's `altnamesOnly` entry in `modules/songbird/networking.nix` with an explicit `linkConfig` carrying `Name=` and `AlternativeNamesPolicy=` only, then name that pin in `firewallDnsInterfaces` in place of `eth0`.
+The shared helper is where `NamePolicy=` comes from, and a file setting both keys fails the `modules/hosts/common/firewall.nix` assertion, as does a pin inside the kernel namespaces that [Pin an interface name](../networking/README.md#pin-an-interface-name) lists.
 Never add a second `.link` file for the same device; udev reads only the first match.
