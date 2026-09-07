@@ -65,6 +65,8 @@
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
 - [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [songbird/songbird-troubleshooting-windows.md](songbird/songbird-troubleshooting-windows.md)
+  - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
 ## R2 Cloud
 
