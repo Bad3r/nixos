@@ -56,7 +56,7 @@
 ## Songbird
 
 - [songbird/project-songbird.md](songbird/project-songbird.md)
-  - Hardware reference, verified inventory, and assembly notes for the `songbird` workstation host.
+  - Hardware reference, component inventory, and assembly notes for the `songbird` workstation host.
 - [songbird/nixos-setup.md](songbird/nixos-setup.md)
   - Dual-boot layout, install record, per-host module map, and remaining integration steps for `songbird`.
 
@@ -86,7 +86,7 @@
 - [drafts/chromium-webapps-plan-2-remove-firefoxpwa.md](drafts/chromium-webapps-plan-2-remove-firefoxpwa.md)
   - Phase 2 of the Chromium web-app migration: delete the Firefox PWA subsystem and unwire every reference to it.
 - [drafts/chromium-webapps-plan-3-implement.md](drafts/chromium-webapps-plan-3-implement.md)
-  - Phase 3 of the Chromium web-app migration: the `programs.webapps` module on brave-origin, plus the decisions table, the verified facts, and the self-review for the series.
+  - Phase 3 of the Chromium web-app migration: the `programs.webapps` module on brave-origin, plus the decisions table, the fact table, and the self-review for the series.
 - [drafts/duplicati-r2-readonly-mount-investigation.md](drafts/duplicati-r2-readonly-mount-investigation.md)
   - Investigation into a read-only mount for encrypted R2 backup archives (issue #204).
 - [drafts/tpnix-cryptographic-identity-bootstrap-plan.md](drafts/tpnix-cryptographic-identity-bootstrap-plan.md)

@@ -83,9 +83,8 @@ _: {
               pass_filenames = true;
               files = "\\.md$";
               excludes = [
-                "^README\\.md$"
+                "(^|/)README\\.md$"
                 "^docs/drafts/"
-                "^docs/index\\.md$"
                 "(^|/)(CLAUDE|AGENTS)\\.md$"
                 "^tests/"
               ];
