@@ -21,15 +21,6 @@ let
           };
         };
 
-        powerProfiles.backend = lib.mkOption {
-          type = lib.types.enum [
-            "system76-power"
-            "powerprofilesctl"
-          ];
-          default = "powerprofilesctl";
-          description = "Power-profile backend exposed to shared i3 launcher scripts.";
-        };
-
         powerProfiles.allowSelection = lib.mkOption {
           type = lib.types.bool;
           default = true;

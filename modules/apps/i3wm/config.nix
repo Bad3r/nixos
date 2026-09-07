@@ -12,7 +12,6 @@
     }:
     let
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
-      powerProfileBackend = lib.attrByPath [ "powerProfiles" "backend" ] "powerprofilesctl" hostI3Cfg;
       powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
       sessionMetadata = {
         DESKTOP_SESSION = "none+i3";
@@ -272,58 +271,33 @@
         '';
       };
 
-      # Power profile switcher using the host-selected backend
+      # Power profile switcher over power-profiles-daemon
       powerProfileScript = pkgs.writeShellApplication {
         name = "power-profile-rofi";
         runtimeInputs = [
           pkgs.libnotify
-          pkgs.rofi
-        ]
-        ++ lib.optionals (powerProfileBackend == "system76-power") [
-          pkgs.gawk
-          pkgs.gnugrep
-          pkgs.system76-power
-        ]
-        ++ lib.optionals (powerProfileBackend == "powerprofilesctl") [
           pkgs.power-profiles-daemon
+          pkgs.rofi
         ];
         text = ''
           set -euo pipefail
-          backend=${lib.escapeShellArg powerProfileBackend}
           selection_allowed=${lib.escapeShellArg (if powerProfileSelectionAllowed then "true" else "false")}
 
           # Get current profile
-          if [ "$backend" = "powerprofilesctl" ]; then
-            current=$(powerprofilesctl get 2>/dev/null || echo "unknown")
-          else
-            current=$(system76-power profile 2>/dev/null | grep -oP '(?<=Power Profile: ).*' || echo "unknown")
-          fi
+          current=$(powerprofilesctl get 2>/dev/null || echo "unknown")
 
           if [ "$selection_allowed" != "true" ]; then
-            if [ "$backend" = "powerprofilesctl" ]; then
-              powerprofilesctl set performance
-            else
-              system76-power profile performance
-            fi
+            powerprofilesctl set performance
             notify-send -i battery "Power Profile" "Performance mode is enforced on this host"
             exit 0
           fi
 
-          if [ "$backend" = "powerprofilesctl" ]; then
-            power_saver_profile="power-saver"
-            power_saver_label="  Power Saver"
-            balanced_profile="balanced"
-            balanced_label="  Balanced"
-            performance_profile="performance"
-            performance_label="  Performance"
-          else
-            power_saver_profile="Battery"
-            power_saver_label="  Battery (power saving)"
-            balanced_profile="Balanced"
-            balanced_label="  Balanced (default)"
-            performance_profile="Performance"
-            performance_label="  Performance (max power)"
-          fi
+          power_saver_profile="power-saver"
+          power_saver_label="  Power Saver"
+          balanced_profile="balanced"
+          balanced_label="  Balanced"
+          performance_profile="performance"
+          performance_label="  Performance"
 
           # Mark current profile
           mark_current() {
@@ -356,28 +330,16 @@
 
           # Extract profile name and apply
           case "$chosen" in
-            *Power\ Saver*|*Battery*)
-              if [ "$backend" = "powerprofilesctl" ]; then
-                powerprofilesctl set power-saver
-              else
-                system76-power profile battery
-              fi
+            *Power\ Saver*)
+              powerprofilesctl set power-saver
               notify-send -i battery "Power Profile" "Switched to Power Saver mode"
               ;;
             *Balanced*)
-              if [ "$backend" = "powerprofilesctl" ]; then
-                powerprofilesctl set balanced
-              else
-                system76-power profile balanced
-              fi
+              powerprofilesctl set balanced
               notify-send -i battery "Power Profile" "Switched to Balanced mode"
               ;;
             *Performance*)
-              if [ "$backend" = "powerprofilesctl" ]; then
-                powerprofilesctl set performance
-              else
-                system76-power profile performance
-              fi
+              powerprofilesctl set performance
               notify-send -i battery "Power Profile" "Switched to Performance mode"
               ;;
           esac
