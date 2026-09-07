@@ -1,6 +1,6 @@
 # Host secrets and handoff
 
-Continues [Host Onboarding Runbook](host-onboarding.md) after the new host boots: age identity, secrets, SSH host key pin, and primary handoff.
+Continues [Host Onboarding Runbook](host-onboarding.md) after the new host boots: age identity, secrets, backup manifest, SSH host key pin, and primary handoff.
 
 ## Install the age identity
 
@@ -39,21 +39,33 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true`.
 
 4. Push the secrets submodule commit before opening a PR or running `nix flake check` elsewhere.
 
-Verification: `git -C secrets status` reports no unpushed commits; an unpushed commit otherwise fails evaluation with `Cannot find Git revision`.
+5. Switch the host so sops-nix installs the secrets:
+
+   ```sh
+   ./build.sh --host <host>
+   ```
+
+6. Confirm every source path in the shared `secrets/duplicati-config.json` manifest exists on this host.
+   `sopsRuntimeReady = true` enables `services.duplicati-r2` against that one manifest, and its generator checks that a target names a path, not that the path exists here.
+
+Verification: `git -C secrets fetch origin && git -C secrets branch -r --contains HEAD` lists `origin/main`.
+Empty output means the commit is unpushed, and evaluation elsewhere then fails with `Cannot find Git revision`.
+`ls /run/secrets` lists the host secrets, and `systemctl list-timers 'duplicati-r2-backup-*'` lists one timer per enabled target.
 
 ## Pin the SSH host key
 
-Precondition: `modules/<host>/ssh.nix` sets `services.openssh.publicKey`.
+Precondition: the host has booted, so `/etc/ssh/ssh_host_ed25519_key.pub` exists on it.
 
-1. Add the same key to `fleetHostKeys` in `modules/hosts/common/ssh-known-hosts.nix`:
+1. Set `services.openssh.publicKey` in `modules/<host>/ssh.nix` and add the same key to `fleetHostKeys` in `modules/hosts/common/ssh-known-hosts.nix`, in one commit:
 
    ```nix
    <host> = "ssh-ed25519 AAAA...";
    ```
 
+   `modules/configurations/nixos.nix` throws when either side is set without the other.
    Every `shareCommon` host, including this one, then carries every other fleet host's key in `/etc/ssh/ssh_known_hosts`, so the first connection between fleet hosts is never trust-on-first-use.
 
-Verification: `nix flake check path:. --accept-flake-config --no-build --offline` builds the check in `modules/configurations/nixos.nix` that throws when a host's `publicKey` has no matching `fleetHostKeys` pin.
+Verification: `nix flake check path:. --accept-flake-config --no-build --offline` passes the check in `modules/configurations/nixos.nix` that throws on a `publicKey` with no matching `fleetHostKeys` pin.
 
 ## Hand off the primary role
 

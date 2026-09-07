@@ -25,11 +25,12 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    | `host-id.nix`         | `networking.hostId`, 8 hex chars from `/etc/machine-id` |
    | `state-version.nix`   | Install-time `system.stateVersion`, fixed forever       |
    | `policy.nix`          | Registry flags hosts-common reads (next section)        |
-   | `ssh.nix`             | `services.openssh.publicKey` and the enable choice      |
    | `imports.nix`         | Chassis-specific modules only                           |
    | `nix-settings.nix`    | `max-jobs`, `min-free`, `max-substitution-jobs`         |
 
    `networking.hostName` and the default kernel package already come from hosts-common; add a per-host file only to override them.
+   `modules/<host>/ssh.nix` waits for first boot, since `modules/configurations/nixos.nix` throws on a `services.openssh.publicKey` with no `fleetHostKeys` pin.
+   [Host secrets and handoff](host-onboarding-secrets.md) adds the key and its pin together.
 
 3. Add per-host divergence files only where the host actually diverges:
 
@@ -61,6 +62,8 @@ Precondition: `modules/<host>/policy.nix` exists with a `flake.lib.nixos.hosts.<
 
    Leave `firewallDnsInterfaces` empty unless the host actually serves DNS or DHCP; a non-empty entry opens inbound UDP 53/67 and TCP 53 on those interfaces.
    `firewallLocalTcpPortRanges` scopes to `10.0.0.0/8` and `192.168.0.0/16` IPv4 sources; `firewallExtraTcpPortRanges` opens a range globally instead.
+   `shareCommon` hosts boot with `net.ifnames=0`, so `firewall.nix` asserts on an `enp*` or `wlp*` name here and warns on an unpinned kernel name such as `eth0`.
+   [Pin an interface name](../networking/README.md#pin-an-interface-name) in the networking guide gives the `.link` procedure.
 
 2. Set `cacheRoots.nvidiaKernelModules` to `true` or `false` the moment the host loads the `nvidia` driver.
    `modules/meta/cache-roots.nix` throws for an NVIDIA-enabled host that leaves the key unset or non-Boolean, or that sets an unknown `cacheRoots` key.
@@ -105,5 +108,20 @@ Precondition: the host is registered, with a module directory and policy flags i
 [Songbird runbook](../songbird/songbird-runbook.md) works through this same ladder for one host, starting at its first switch after a reinstall.
 
 Verification: the target machine reboots into the new generation, and step 1's flake check reports no assertion failures for the new host.
+
+## Register the host outside the module tree
+
+Precondition: the host boots through the ladder above.
+
+1. Create the GitHub label, since no label-sync config exists, and add its row to the Host Labels table in [GitHub Labels](../reference/github-labels.md):
+
+   ```sh
+   gh label create "host(<host>)" --color 5319E7 --description "Specific to the <host> host or its runtime contract."
+   ```
+
+2. Add `<host>` to the pages that enumerate hosts by name:
+   `docs/index.md`, `docs/ONBOARDING.md`, `docs/architecture/01-pattern-overview.md`, `docs/architecture/03-nixos-modules.md`, `docs/architecture/04-home-manager.md`, and `docs/architecture/05-host-composition.md`.
+
+Verification: `gh label list --search 'host('` includes `host(<host>)`, and `rg -l -w <host> docs/` lists every page above.
 
 Install the age identity, provision secrets, pin the SSH host key, and hand off the primary role in [Host secrets and handoff](host-onboarding-secrets.md).
