@@ -213,9 +213,11 @@ _: {
               local text=$2
               local hits="$tmpdir/phrase-hits"
               run_grep -E -i -n -f "$tmpdir/patterns" "$text" >"$hits"
-              while IFS=: read -r lineno rest; do
+              # The matched text has code spans and link destinations removed,
+              # so the report prints the source line the number points at.
+              while IFS=: read -r lineno _; do
                 [ -z "$lineno" ] && continue
-                echo "$path:$lineno: $(trim "$rest")" >&2
+                echo "$path:$lineno: $(trim "$(awk -v n="$lineno" 'NR == n { print; exit }' "$path")")" >&2
                 violations=$((violations + 1))
               done <"$hits"
             }

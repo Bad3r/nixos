@@ -387,11 +387,16 @@ Double ``fixture-phrase`` span.
 Double ``a ` fixture-phrase`` span holding a backtick.
 Two `spans` on `fixture-phrase` one line.
 Unmatched ` run then fixture-phrase in prose.
+A `span` beside fixture-phrase in prose.
 PAGE
 
   run_hook "${repo}" docs/page.md
-  assert_violations 1 "code spans"
+  assert_violations 2 "code spans"
   assert_err_has 'docs/page.md:7: Unmatched ` run then fixture-phrase in prose.' "unmatched run"
+  # The report prints the source line, span intact, rather than the stripped
+  # text the pattern matched, so the reader can find it in the file.
+  # shellcheck disable=SC2016 # a literal pair of backticks, not a substitution
+  assert_err_has 'docs/page.md:8: A `span` beside fixture-phrase in prose.' "source line"
   pass
 }
 
@@ -431,7 +436,7 @@ PAGE
 
   run_hook "${repo}" docs/page.md
   assert_violations 1 "link text"
-  assert_err_has "docs/page.md:3: A [fixture-phrase link]" "link text"
+  assert_err_has "docs/page.md:3: A [fixture-phrase link](other.md)." "link text"
   pass
 }
 
