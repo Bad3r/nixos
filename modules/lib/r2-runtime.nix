@@ -54,8 +54,6 @@ let
 in
 {
   flake.lib.nixos.r2 = {
-    _serviceNames = r2ServiceNames;
-
     mkHostR2Module =
       {
         inputs,

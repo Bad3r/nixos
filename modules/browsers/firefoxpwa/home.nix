@@ -40,7 +40,7 @@ _: {
           # every site installed from the browser extension, so tying the
           # directory to a narrower toggle would move it out from under those
           # sites whenever that toggle changed. XDG_DATA_HOME is also defined by
-          # Home Manager's own xdg module wherever xdg.enable is true (system76,
+          # Home Manager's own xdg module wherever xdg.enable is true (songbird,
           # through pentesting-devshell): both definitions are config.xdg.dataHome,
           # so types.str's mergeEqualOption accepts them. Any other value here is
           # an eval conflict on that host, not an override.

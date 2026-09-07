@@ -120,7 +120,7 @@ body:
       description: |
         Package, module, host, or area affected (lowercase, hyphenated).
         Matches existing repo labels where possible — e.g., `envfs`,
-        `proton-vpn`, `flake`, `pentesting`, `fonts`, `system76`.
+        `proton-vpn`, `flake`, `pentesting`, `fonts`, `songbird`.
       placeholder: envfs
     validations:
       required: true
@@ -269,8 +269,8 @@ body:
         local follow-up is complete. Leave blank if no mechanical check applies.
       render: shell
       placeholder: |
-        nix eval .#nixosConfigurations.system76.pkgs.envfs.version
-        nix build .#nixosConfigurations.system76.config.system.build.toplevel
+        nix eval .#nixosConfigurations.songbird.pkgs.envfs.version
+        nix build .#nixosConfigurations.songbird.config.system.build.toplevel
 
   - type: textarea
     id: notes

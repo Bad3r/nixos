@@ -250,7 +250,7 @@ let
       throws = true;
     }
     {
-      # Both registries at once, the shape songbird and system76 register, so
+      # Both registries at once, the shape songbird and tpnix register, so
       # a regression in either half fails here rather than only in a host
       # evaluation.
       name = "mixed registries land under programs";

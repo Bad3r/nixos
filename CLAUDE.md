@@ -123,9 +123,9 @@ also reports it as uncomparable.
 that fails when a per-host override duplicates the common baseline value.
 
 Storage-dependent common features must be disabled or backed by a host-mounted
-path when the host lacks their storage contract. The system76 host has no
-dedicated `/data` volume and therefore disables local mirror writers and R2
-runtime units; tpnix intentionally retains its root-backed mirror behavior.
+path when the host lacks their storage contract. songbird owns the dedicated
+`/data` volume that backs the local mirror writers and the R2 runtime; tpnix
+intentionally retains its root-backed mirror behavior.
 
 ### Flake Input Deduplication
 
@@ -139,9 +139,9 @@ applied to songbird's host package set.
 ## Ownership Map
 
 - NixOS modules: `modules/`
-  Auto-loaded modules. Per-host logic lives under `modules/songbird`,
-  `modules/system76`, and `modules/tpnix`; cross-host shared logic lives under
-  `modules/hosts/common`; other bundles are grouped by domain.
+  Auto-loaded modules. Per-host logic lives under `modules/songbird` and
+  `modules/tpnix`; cross-host shared logic lives under `modules/hosts/common`;
+  other bundles are grouped by domain.
 - Shared derivations: `packages/`
   Common build logic shared between modules.
 - Helper scripts: `scripts/`

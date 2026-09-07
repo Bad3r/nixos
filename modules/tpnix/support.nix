@@ -14,7 +14,7 @@
       };
 
       # Intentionally empty by default. Host-specific hardware support can be
-      # added here later without coupling tpnix to System76 modules.
+      # added here later without coupling tpnix to another host's modules.
       config = lib.mkIf cfg.enable { };
     };
 }

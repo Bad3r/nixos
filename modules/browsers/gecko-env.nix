@@ -11,11 +11,12 @@
 
   The dotfiles NVIDIA branch (NVD_BACKEND=direct, LIBVA_DRIVER_NAME=nvidia,
   MOZ_DISABLE_RDD_SANDBOX=1) is preserved only when the host installs
-  nvidia-vaapi-driver. modules/system76/nvidia-gpu.nix deliberately rejects
-  that driver: hardware.nvidia.videoAcceleration is false and VA-API routes
-  through Intel iHD to avoid Xid 31 NVDEC faults, so the NVIDIA VA-API
-  variables would override the host's iHD routing and weaken the RDD process
-  sandbox for a decode path that does not exist.
+  nvidia-vaapi-driver. A host on gpu.nvidia.vaapi.backend = "intel-media"
+  (modules/hardware/nvidia-gpu.nix) deliberately rejects that driver:
+  hardware.nvidia.videoAcceleration is false there and VA-API routes through
+  Intel iHD to avoid Xid 31 NVDEC faults, so the NVIDIA VA-API variables
+  would override the host's iHD routing and weaken the RDD process sandbox
+  for a decode path that does not exist.
 
   No render-node variable accompanies LIBVA_DRIVER_NAME: libva 2.24 reads only
   LIBVA_DRIVER_NAME, LIBVA_DRIVERS_PATH, LIBVA_MESSAGING_LEVEL and LIBVA_TRACE*,

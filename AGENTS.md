@@ -118,7 +118,7 @@ Do NOT iterate over `flake.lib.nixos.hosts` with `lib.filterAttrs`/`lib.mapAttrs
 
 `modules/hosts/common/apps-enable.nix` carries the default-on baseline at `lib.mkOverride 1100`; per-host override files (e.g. `modules/tpnix/apps-enable.nix`) layer overrides at `lib.mkOverride 1000` so the host value wins. User overrides at default priority 100 still win over both. Nested overrides register their full paths, route through programs first and then services for services-only paths, and fail the host evaluation on a path absent from both namespaces. `modules/hosts/common/checks.nix` adds a flake-level `nix flake check` assertion that fails when a per-host override duplicates the common baseline value or registers an uncomparable path.
 
-Storage-dependent common features must be disabled or backed by a host-mounted path when the host lacks their storage contract. The system76 host has no dedicated `/data` volume and therefore disables local mirror writers and R2 runtime units; tpnix intentionally retains its root-backed mirror behavior.
+Storage-dependent common features must be disabled or backed by a host-mounted path when the host lacks their storage contract. songbird owns the dedicated `/data` volume that backs the local mirror writers and the R2 runtime; tpnix intentionally retains its root-backed mirror behavior.
 
 ### Flake Input Deduplication
 
@@ -132,7 +132,7 @@ applied to songbird's host package set.
 
 - NixOS modules
   - Location: `modules/`
-  - Notes: Auto-loaded. Per-host logic under `modules/songbird`, `modules/system76`, and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
+  - Notes: Auto-loaded. Per-host logic under `modules/songbird` and `modules/tpnix`; cross-host shared logic under `modules/hosts/common`; other bundles grouped by domain.
 - Shared derivations
   - Location: `packages/`
   - Notes: Common build logic shared between modules.

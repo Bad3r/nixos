@@ -100,11 +100,11 @@ let
     linkConfig.Name = name;
   };
 
-  # The shape modules/songbird/networking.nix and modules/system76/networking.nix
-  # use: a binding match with no Name=, which displaces 99-default.link for the
-  # device without renaming it. Both classifiers key on Name=, so this must read
-  # as neither a pin nor a collision; every case above sets Name=, so nothing
-  # else covers a link file that omits it.
+  # The shape modules/songbird/networking.nix uses: a binding match with no
+  # Name=, which displaces 99-default.link for the device without renaming it.
+  # Both classifiers key on Name=, so this must read as neither a pin nor a
+  # collision; every case above sets Name=, so nothing else covers a link file
+  # that omits it.
   altnamesOnlyLink = {
     matchConfig.Path = "pci-0000:84:00.0";
     linkConfig = {
