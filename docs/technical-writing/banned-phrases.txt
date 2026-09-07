@@ -19,7 +19,6 @@
 \bcurrently\b
 \bfor now\b
 \bat the moment\b
-\bpending\b
 \bdone\b
 \btodo\b
 \bin progress\b
@@ -30,6 +29,5 @@
 \bnote that\b
 \bit is worth\b
 \bkeep in mind\b
-\bobserved\b
 \bverified\b
 \bconfirmed\b
