@@ -260,6 +260,7 @@ in
             # A link and a backticked path reach realpath and the index
             # snapshot; the prose reaches every awk parser and the grep scan.
             printf '%s\n' '# Page' "" 'A [link](other.md) and `docs/other.md`.' >"$HOME/repo/docs/page.md"
+            printf '%s\n' '# Bad' "" 'A [dead link](gone.md).' >"$HOME/repo/docs/bad.md"
             git -C "$HOME/repo" add docs
 
             # PATH is scrubbed so only the wrapper supplies its tools.
@@ -269,6 +270,27 @@ in
               TMPDIR="$HOME" \
               PATH=/nonexistent \
               ${config.packages.hook-docs-style}/bin/hook-docs-style docs/page.md
+
+            # Exit 0 alone cannot tell a full run from an early return through
+            # is_exempt or the file check, both ahead of every awk call, so a
+            # second run has to reach the parsers and report through them.
+            rc=0
+            env -i \
+              HOME="$HOME" \
+              TMPDIR="$HOME" \
+              PATH=/nonexistent \
+              ${config.packages.hook-docs-style}/bin/hook-docs-style docs/bad.md \
+              2>stderr.log || rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "expected exit 1 from the dead link, got $rc" >&2
+              cat stderr.log >&2
+              exit 1
+            fi
+            if ! grep -q 'docs/bad.md:3: relative link target does not resolve: gone.md' stderr.log; then
+              echo "the hook exited 1 without reporting through its parsers" >&2
+              cat stderr.log >&2
+              exit 1
+            fi
             touch "$out"
           '';
 
