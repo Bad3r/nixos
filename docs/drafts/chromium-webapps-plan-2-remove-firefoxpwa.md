@@ -368,7 +368,7 @@ replacement example in the same PR that creates the files.
 
 - [ ] **Step 2: Update the cache coverage reference**
 
-In `docs/reference/binary-cache-coverage.md`, change the parenthetical on line 73 from `(firefoxpwa policy injection, john patches)` to `(john patches)`, and delete the `| firefoxpwa | system76, tpnix |` table row.
+In `docs/reference/binary-cache-coverage.md`, change the parenthetical on line 73 from `(firefoxpwa policy injection, john patches)` to `(john patches)`, and delete the `| firefoxpwa | songbird, tpnix |` table row.
 
 - [ ] **Step 3: Drop the module-check cross-reference**
 

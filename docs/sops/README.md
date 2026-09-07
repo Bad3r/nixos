@@ -198,7 +198,7 @@ hardware-backed SSH keys can coexist without breaking SOPS.
 - Encrypted file: `secrets/act.yaml` with field `github_token`.
 - Declaration lives in `modules/security/secrets.nix` (`sops.secrets."act/github_token"`).
 - Template renders `/etc/act/secrets.env` and the dev-shell helper `gh-actions-run` automatically picks it up unless `ACT_SECRETS_FILE` overrides the path.
-- Rotate with `sops secrets/act.yaml`, build via `nix build "path:.#nixosConfigurations.system76.config.system.build.toplevel"`, and deploy with `./build.sh --host system76 --boot` (or the approved helper for your host).
+- Rotate with `sops secrets/act.yaml`, build via `nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel"`, and deploy with `./build.sh --host songbird --boot` (or the approved helper for your host).
 
 ## Working With `r2.yaml`
 
@@ -207,7 +207,7 @@ system secrets are extracted to `/run/secrets/r2/*` and Home Manager renders
 `~/.config/cloudflare/r2/env` via `modules/home/r2-secrets.nix`.
 
 The common baseline enables the R2 system secrets and Home Manager R2 env for
-`system76` and `tpnix` when the encrypted file exists. The system secrets under
+`songbird` and `tpnix` when the encrypted file exists. The system secrets under
 `/run/secrets/r2/*` expect the host age key at `/var/lib/sops-nix/key.txt`,
 matching the shared SOPS runtime configuration. Rendering
 `~/.config/cloudflare/r2/env` additionally requires the owner age key at

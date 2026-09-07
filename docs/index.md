@@ -68,7 +68,7 @@
   - How `inputs.r2-flake` is wired into registered NixOS and Home Manager hosts.
 - [r2-cloud/secrets-and-rendered-files.md](r2-cloud/secrets-and-rendered-files.md)
   - Mapping from `secrets/r2.yaml` to `/run/secrets/r2/*` and HM env templates.
-- [r2-cloud/system76-runtime.md](r2-cloud/system76-runtime.md)
+- [r2-cloud/songbird-runtime.md](r2-cloud/songbird-runtime.md)
   - Runtime contract for sync/restic/git-annex/r2 wrapper on this host.
 - [r2-cloud/home-manager-r2-cloud.md](r2-cloud/home-manager-r2-cloud.md)
   - HM-side `programs.r2-cloud` load path and credential-source behavior.
@@ -213,15 +213,6 @@
   - sops-nix secrets management including host preparation, adding secrets, templates, and common issues.
 - [sops/secrets-act.md](sops/secrets-act.md)
   - GitHub personal access token setup for act (local GitHub Actions runner) via sops-nix.
-
-## System76
-
-- [system76/system76-configuration.md](system76/system76-configuration.md)
-  - System76 Oryx Pro NixOS configuration covering modules, NVIDIA GPU, power management, and LUKS storage.
-- [system76/system76-hardware.md](system76/system76-hardware.md)
-  - Hardware reference for System76 Oryx Pro including CPU, GPU, cooling, thermal sensors, and firmware.
-- [system76/system76-troubleshooting.md](system76/system76-troubleshooting.md)
-  - Troubleshooting guide covering thermal management, crash diagnostics, fan issues, and stress testing.
 
 ## tpnix
 

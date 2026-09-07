@@ -5,28 +5,25 @@ Repositories mirrored locally via `git-mirror` for offline access and patching.
 ## Configuration
 
 The shared mirror list is managed in `modules/hosts/common/mirrors.nix` for
-hosts that opt into the common host baseline and have the storage required by
-the feature.
+every host that opts into the common host baseline.
 The shared mirror root is defined in `modules/git/mirror-root.nix`.
 Repositories sync to flat paths under `/data/git`.
 
 Mount placement follows each host's `fileSystems` definition. When `/data`
-encloses `/data/git`, the mirror root is gated on that mount. Hosts that
-intentionally keep mirrors on the root filesystem use the null branch of
-`enclosingMountOf`; hosts without that storage policy, such as `system76`,
-override both mirror enablement options instead of creating a root fallback.
-The coverage check exercises both mount-resolution branches.
+encloses `/data/git`, the mirror root is gated on that mount, as on
+`songbird`. Hosts that intentionally keep mirrors on the root filesystem,
+such as `tpnix`, use the null branch of `enclosingMountOf` instead. The
+coverage check exercises both mount-resolution branches.
 
 The paths in this document are host-local and are not guaranteed to exist on
 every configured host. Check that `$LOCAL_MIRRORS` is set and that the selected
 path exists before using a mirror. Hosts with mirror enablement disabled must
 use the configured upstream or web source instead.
 
-- **Host enablement**: Hosts with the common `/data` storage policy get
+- **Host enablement**: Hosts that opt into the common host baseline get
   `localMirrors.enable = true;` and
   `home-manager.users.${metaOwner.username}.programs.gitMirror.enable = true;`
-  from `modules/hosts/common/mirrors.nix`. `system76` force-disables both
-  settings because its `/data` volume moved to `songbird`
+  from `modules/hosts/common/mirrors.nix`
 - **Root path**: `localMirrors.root` is the single source. `mirrors.nix` feeds
   it to `programs.gitMirror.root`, so retargeting the mirrors is a one-line
   change and the provisioner cannot end up on a different path than the sync
@@ -77,7 +74,7 @@ use the configured upstream or web source instead.
 
 ## Enable On Hosts
 
-Hosts with the required mirror storage enable mirrors through
+Every host on the common baseline enables mirrors through
 `modules/hosts/common/mirrors.nix`:
 
 ```nix

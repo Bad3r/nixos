@@ -17,8 +17,6 @@ modules/
 │   └── _experimental.nix ← Ignored (underscore prefix)
 ├── songbird/
 │   └── hardware-config.nix ← Imported automatically (songbird host)
-├── system76/
-│   └── hardware-config.nix ← Imported automatically (system76 host)
 ├── tpnix/
 │   └── hardware-config.nix ← Imported automatically (tpnix host)
 └── _scratch/            ← Entire directory ignored

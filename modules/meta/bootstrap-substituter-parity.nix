@@ -27,7 +27,7 @@
 let
   # Only decides which perSystem instance carries the check. The comparison
   # below reads every registered host.
-  checkHost = "system76";
+  checkHost = "songbird";
 
   buildScriptLines = lib.splitString "\n" (builtins.readFile ../../build.sh);
 

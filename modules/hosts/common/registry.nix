@@ -5,7 +5,6 @@
 _: {
   flake.lib.nixos.hosts = {
     songbird.shareCommon = true;
-    system76.shareCommon = true;
     tpnix.shareCommon = true;
   };
 }

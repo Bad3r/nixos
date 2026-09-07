@@ -12,7 +12,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 1. Fixes Git commit signing failures on `tpnix`.
 2. Enables GitHub push/auth over SSH on `tpnix`.
 3. Enables `sops-nix` decryption on `tpnix` with a dedicated host Age key.
-4. Keeps `tpnix` keys different from `system76` keys.
+4. Keeps `tpnix` keys different from `songbird` keys.
 
 ## 2. Final State (Acceptance Definition)
 
@@ -22,8 +22,8 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 2. `ssh -T git@github.com` succeeds using a `tpnix`-specific SSH key.
 3. `/var/lib/sops-nix/key.txt` exists on `tpnix` with `0600` and root ownership.
 4. `sops-install-secrets` completes successfully on `tpnix`.
-5. Host-specific secret files decrypt on `tpnix` and do not require `system76` host key.
-6. `system76` keeps its own existing cryptographic identity and behavior.
+5. Host-specific secret files decrypt on `tpnix` and do not require `songbird` host key.
+6. `songbird` keeps its own existing cryptographic identity and behavior.
 
 ## 3. Locked Decisions
 
@@ -31,9 +31,9 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 2. Private key management model: SOPS-managed.
 3. Git signing key configuration ownership:
    - Shared defaults in `modules/git/git.nix`.
-   - Host-specific fingerprint override in dedicated `modules/system76/git.nix` and `modules/tpnix/git.nix` files.
+   - Host-specific fingerprint override in dedicated `modules/songbird/git.nix` and `modules/tpnix/git.nix` files.
 4. Secret file layout:
-   - `secrets/gpg/system76.asc`
+   - `secrets/gpg/songbird.asc`
    - `secrets/gpg/tpnix.asc`
    - `secrets/ssh/tpnix/id_ed25519.asc`
 5. Runtime secret paths:
@@ -64,10 +64,10 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
      - `signing.format = "openpgp"`
    - Remove hard-coded shared `signing.key`.
 
-2. `modules/system76/git.nix`
+2. `modules/songbird/git.nix`
 
    - Add explicit host signing key:
-     - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<SYSTEM76_GPG_FINGERPRINT>";`
+     - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<SONGBIRD_GPG_FINGERPRINT>";`
 
 3. `modules/tpnix/git.nix`
 
@@ -106,7 +106,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
    - Expand recipients to include:
      - owner/editor key
-     - `system76` host key
+     - `songbird` host key
      - `tpnix` host key
    - Add explicit path rules for host-separated GPG/SSH files.
    - Keep existing service secret rules (`act`, `r2`, `fonts`) intact unless explicitly changed.
@@ -115,7 +115,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 1. Existing `secrets/gpg/vx.asc` is split into host-specific files.
 2. Add:
-   - `secrets/gpg/system76.asc`
+   - `secrets/gpg/songbird.asc`
    - `secrets/gpg/tpnix.asc`
    - `secrets/ssh/tpnix/id_ed25519.asc`
 
@@ -171,9 +171,9 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 1. Regenerate generated policy file:
    - `nix develop -c write-files`
-2. One-time migration for current `system76` GPG file (required in current repo state):
-   - `test -f secrets/gpg/vx.asc && cp secrets/gpg/vx.asc secrets/gpg/system76.asc`
-   - Keep `secrets/gpg/vx.asc` until `system76` validation is complete, then remove legacy file in a follow-up cleanup with `rip secrets/gpg/vx.asc`.
+2. One-time migration for current `songbird` GPG file (required in current repo state):
+   - `test -f secrets/gpg/vx.asc && cp secrets/gpg/vx.asc secrets/gpg/songbird.asc`
+   - Keep `secrets/gpg/vx.asc` until `songbird` validation is complete, then remove legacy file in a follow-up cleanup with `rip secrets/gpg/vx.asc`.
 3. Create encrypted host-specific files:
    - `cp /tmp/tpnix-gpg-private.asc secrets/gpg/tpnix.asc`
    - `sops -e -i secrets/gpg/tpnix.asc`
@@ -181,7 +181,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
    - `cp /tmp/tpnix-id_ed25519 secrets/ssh/tpnix/id_ed25519.asc`
    - `sops -e -i secrets/ssh/tpnix/id_ed25519.asc`
 4. Re-key after policy updates:
-   - `sops updatekeys secrets/gpg/system76.asc`
+   - `sops updatekeys secrets/gpg/songbird.asc`
    - `sops updatekeys secrets/gpg/tpnix.asc`
    - `sops updatekeys secrets/ssh/tpnix/id_ed25519.asc`
 5. Remove plaintext temp files:
@@ -219,7 +219,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 1. Revert only touched files:
    - `modules/git/git.nix`
-   - `modules/system76/git.nix`
+   - `modules/songbird/git.nix`
    - `modules/tpnix/git.nix`
    - `modules/security/secrets.nix`
    - `modules/home/pass-secret-service.nix`

@@ -2,8 +2,8 @@
 
 Procedural checklist for adding a NixOS host to this repository. The
 composition model behind these steps is documented in
-[Host Composition](../architecture/05-host-composition.md); hardware planning
-for the next host lives in
+[Host Composition](../architecture/05-host-composition.md); the hardware
+record for songbird lives in
 [project-songbird](../songbird/project-songbird.md). Follow the steps in
 order: the validation ladder at the end assumes everything before it is in
 place.
@@ -44,7 +44,7 @@ footprint:
 | `policy.nix`          | Registry flags under `flake.lib.nixos.hosts.<host>` consumed by `modules/hosts/common/*` (see step 3)                                                                                                                                             |
 | `ssh.nix`             | `services.openssh.publicKey` (the host ed25519 public key, consumed by `flake.nixosModules.ssh` for fleet known_hosts) and the enable choice                                                                                                      |
 | `imports.nix`         | Chassis-specific modules only (nixos-hardware profile, vendor support module); the fleet baseline comes from hosts-common                                                                                                                         |
-| GPU module            | GPU wiring over `flake.nixosModules.nvidia-gpu` when the hardware has an NVIDIA GPU (`modules/system76/nvidia-gpu.nix`, `modules/tpnix/power.nix` are the current examples); pairs with the `cacheRoots.nvidiaKernelModules` policy key in step 3 |
+| GPU module            | GPU wiring over `flake.nixosModules.nvidia-gpu` when the hardware has an NVIDIA GPU (`modules/songbird/nvidia-gpu.nix`, `modules/tpnix/power.nix` are the current examples); pairs with the `cacheRoots.nvidiaKernelModules` policy key in step 3 |
 | `nix-settings.nix`    | Hardware-tuned `max-jobs` and `min-free`, plus `max-substitution-jobs` (`nproc - 1`, floored at 1; Nix has no `auto` for it), which `modules/hosts/common/nix-substituters.nix` asserts on every `shareCommon` host                               |
 
 Baseline behavior that does NOT need per-host files:
@@ -63,7 +63,7 @@ Common per-host divergence files, all optional:
 | `apps-enable.nix`  | App overrides at `lib.mkOverride 1000` over the common baseline; publish the flat set under `flake.lib.nixos._hostAppsOverrides.<host>` so the FR-5 flake check rejects no-op entries. A nested toggle (`claude-code.extended.installMethods.bun.enable`) cannot go through that set: register it under `flake.lib.nixos._hostAppsSubToggleOverrides.<host>` as `{ path; value; }`. Build the host module from both registries with `flake.lib.hostApps.mk "<host>"` rather than writing overrides out, per the [apps module style guide](apps-module-style-guide.md) |
 | `default-apps.nix` | Per-host `host.defaults` overrides (audio player, video player)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
 | `networking.nix`   | DNS or routing layered on the common NetworkManager base                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              |
-| `services.nix`     | Host-divergent services; on non-System76 hardware keep the default `powerprofilesctl` i3 power backend, System76 chassis override `gui.i3.powerProfiles.backend = "system76-power"`                                                                                                                                                                                                                                                                                                                                                                                   |
+| `services.nix`     | Host-divergent services; the i3 power launcher is `powerprofilesctl`-only, gated by `gui.i3.powerProfiles.allowSelection` (bool, default true; tpnix sets it `false` in `modules/tpnix/services.nix`)                                                                                                                                                                                                                                                                                                                                                                 |
 | `support.nix`      | Vendor hardware-support enables (firmware daemon, kernel modules)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 Unfree packages are declared at the flake-parts level only (the
@@ -185,9 +185,9 @@ _: {
 ```
 
 The block above is for a device with no `.link` yet. When one already matches
-it, as `modules/songbird/networking.nix` and `modules/system76/networking.nix`
-do for every NIC, add `Name=` to that entry and delete its `NamePolicy=` rather
-than adding a second file: udev applies only the first matching file, so a new
+it, as `modules/songbird/networking.nix` does for every NIC, add `Name=` to
+that entry and delete its `NamePolicy=` rather than adding a second file: udev
+applies only the first matching file, so a new
 one renames nothing while `pinnedNamesOf` still counts its `Name=` as a declared
 name. `modules/hosts/common/firewall.nix` also rejects duplicate names on
 device-specific pins and broad, empty, globbed, or multi-valued matches that

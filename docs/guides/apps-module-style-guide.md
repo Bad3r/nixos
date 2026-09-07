@@ -350,7 +350,7 @@ programs = {
 ```
 
 If a single host needs to diverge from the common baseline (e.g. tpnix
-disables a system76-only tool), add the entry to the flat `appEnable` set in
+enables a ThinkPad-specific tool), add the entry to the flat `appEnable` set in
 `modules/<host>/apps-enable.nix` (see `modules/tpnix/apps-enable.nix` for the
 canonical shape):
 
@@ -537,9 +537,9 @@ nix fmt
 nix flake check --accept-flake-config --no-build
 
 # Additional verification (optional but recommended)
-nix eval .#nixosConfigurations.system76.options.programs.<tool>.extended.enable.type --raw  # Should output "bool"
-nix eval .#nixosConfigurations.system76.config.programs.<tool>.extended.enable 2>&1 | tail -1  # Should output "true"
-nix eval .#nixosConfigurations.system76.config.environment.systemPackages --apply 'pkgs: builtins.any (p: p.pname or "" == "<tool>") pkgs' 2>&1 | tail -1  # Should output "true"
+nix eval .#nixosConfigurations.songbird.options.programs.<tool>.extended.enable.type --raw  # Should output "bool"
+nix eval .#nixosConfigurations.songbird.config.programs.<tool>.extended.enable 2>&1 | tail -1  # Should output "true"
+nix eval .#nixosConfigurations.songbird.config.environment.systemPackages --apply 'pkgs: builtins.any (p: p.pname or "" == "<tool>") pkgs' 2>&1 | tail -1  # Should output "true"
 ```
 
 ## Common Pitfalls

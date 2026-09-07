@@ -102,9 +102,7 @@ in
           partOf = [ "samba.target" ];
         };
 
-        # Force the power-profiles-daemon profile to performance at boot: the
-        # desktop counterpart of system76-power-profile on system76, where the
-        # System76 EC daemon owns the profile instead.
+        # Force the power-profiles-daemon profile to performance at boot.
         services.songbird-power-profile = import ../hosts/common/_power-profile-unit.nix pkgs;
       };
 
@@ -121,9 +119,8 @@ in
         };
 
         # No drivers list: nixpkgs reads services.printing.drivers only inside
-        # its own mkIf cfg.enable, so alongside a forced-off enable it named
-        # packages nothing installs, and it was a laptop-era set copied from
-        # system76 rather than anything this desktop justified.
+        # its own mkIf cfg.enable, so alongside a forced-off enable it would
+        # name packages nothing installs.
         printing.enable = lib.mkForce false;
 
         samba = {
@@ -145,29 +142,23 @@ in
         };
 
         # intel_pstate on the 285K exposes the energy-performance preference
-        # that power-profiles-daemon drives; the shared i3 launcher keeps its
-        # default powerprofilesctl backend (gui.i3.powerProfiles.backend).
-        # This replaces the system76-power stack of the System76 chassis.
+        # that power-profiles-daemon drives; the shared i3 launcher shells out
+        # to powerprofilesctl.
         power-profiles-daemon.enable = true;
 
         # Desktop K-SKU under a 360 mm AIO with BIOS Q-Fan curves: thermald has
         # no platform to manage here.
         thermald.enable = false;
 
-        # System76 process scheduler for improved desktop responsiveness
-        # (hardware-agnostic: CFS latency tuning and foreground boosts).
-        system76-scheduler.enable = true;
-
         # LACT: GPU control and monitoring (power limits, fan curves, clocks)
         # over NVML for the RTX 5080.
         lact.enable = true;
       };
 
-      # No cpuFreqGovernor pin here, unlike system76, which forces
-      # power-profiles-daemon off and so owns the governor itself: ppd's
-      # intel_pstate probe force-writes scaling_governor = powersave for every
-      # EPP-capable CPU at startup, so a static pin only survives until the
-      # daemon comes up. songbird-power-profile drives the EPP instead.
+      # No cpuFreqGovernor pin here: ppd's intel_pstate probe force-writes
+      # scaling_governor = powersave for every EPP-capable CPU at startup, so a
+      # static pin only survives until the daemon comes up.
+      # songbird-power-profile drives the EPP instead.
       powerManagement = {
         resumeCommands = ''
           # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix).

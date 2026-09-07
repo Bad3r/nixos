@@ -28,8 +28,8 @@ sops secrets/act.yaml
 After committing the encrypted file, rebuild and deploy with the approved helpers:
 
 ```bash
-nix build "path:.#nixosConfigurations.system76.config.system.build.toplevel"
-./build.sh --host system76 --boot
+nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel"
+./build.sh --host songbird --boot
 ```
 
 `sops-nix` decrypts the secret during activation and writes `/etc/act/secrets.env` with permissions `0400` and owner `${config.flake.lib.meta.owner.username}`.

@@ -1,10 +1,10 @@
 _: {
   flake.lib.nixos.hosts.songbird = {
-    # Primary fleet endpoint handoff (`primary = true` plus `tailnetIp`) is
-    # pending: the tailnet address only exists once this host has joined, and
-    # a primary without an address would leave the tailscale SSH alias on
-    # every other host with no HostName. Move both keys here from
-    # modules/system76/policy.nix as soon as `tailscale ip -4` reports it.
+    # Primary fleet endpoint: registry consumers (ssh-hosts, tailscale)
+    # point their default aliases at this machine. Hand off by moving
+    # these two keys to the successor host's policy.nix.
+    primary = true;
+    tailnetIp = "100.120.100.117";
 
     # Shared readiness gate read by modules/hosts/common/*. The canonical age
     # identity is installed at /var/lib/sops-nix/key.txt and
@@ -37,7 +37,7 @@ _: {
     # is still the guarantee.
     firewallDnsInterfaces = [ ];
     firewallLocalTcpPortRanges = [
-      # Fleet convention for local dev servers, as on system76 and tpnix.
+      # Fleet convention for local dev servers, as on tpnix.
       {
         from = 8000;
         to = 8999;

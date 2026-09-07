@@ -3,11 +3,9 @@
 This directory documents how `/home/vx/nixos` consumes
 `Bad3r/nix-R2-CloudFlare-Flake` for user `vx`. Each host wires the integration
 through the shared builder `flake.lib.nixos.r2.mkHostR2Module` with a per-host
-policy. The current `tpnix` and `songbird` policies enable the producer
-runtime; `system76` keeps it disabled because the host no longer owns a
-dedicated `/data` filesystem. The builder still gates imports and runtime
-assignments on each host's readiness flag and the encrypted `secrets/r2.yaml`
-payload.
+policy. The `songbird` and `tpnix` policies both enable the producer runtime.
+The builder still gates imports and runtime assignments on each host's
+readiness flag and the encrypted `secrets/r2.yaml` payload.
 
 ## Scope
 
@@ -44,7 +42,7 @@ payload.
 | -------------------------------- | ---------------------------------------------------------------- |
 | `input-and-module-wiring.md`     | Exact integration path from `inputs.r2-flake` to host/HM imports |
 | `secrets-and-rendered-files.md`  | `secrets/r2.yaml` key mapping and rendered file contract         |
-| `system76-runtime.md`            | Host policy and the service/mount layout applied when enabled    |
+| `songbird-runtime.md`            | Host policy and the service/mount layout applied when enabled    |
 | `home-manager-r2-cloud.md`       | HM-side wrapper, secret template, and module loading behavior    |
 | `validation-and-drift-checks.md` | Commands to prove integration is still wired correctly           |
 | `troubleshooting.md`             | Fast diagnosis for common breakages                              |

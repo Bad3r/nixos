@@ -1,6 +1,6 @@
 # USBGuard Configuration
 
-This repository ships a [USBGuard](https://usbguard.github.io/) module to control USB device access, but the service is currently disabled: `modules/hosts/common/usbguard.nix` sets `enabled = false`, which forces `services.usbguard.enable` off on every common host. Set that toggle to `true` to activate the workflow below. Rules are stored encrypted via sops at `secrets/usbguard/system76.yaml`.
+This repository ships a [USBGuard](https://usbguard.github.io/) module to control USB device access, but the service is currently disabled: `modules/hosts/common/usbguard.nix` sets `enabled = false`, which forces `services.usbguard.enable` off on every common host. Set that toggle to `true` to activate the workflow below. Rules are stored encrypted via sops at `secrets/usbguard/<host>.yaml`.
 
 ## Adding New Devices
 
@@ -63,7 +63,7 @@ Add rules for **all** observed identities to ensure the device works across reco
 ### Runtime vs Persistent Rules
 
 - `sudo usbguard allow-device <id>` - Runtime only, lost on reboot/service restart
-- Rules in `secrets/usbguard/system76.yaml` - Persistent, applied on activation
+- Rules in `secrets/usbguard/<host>.yaml` - Persistent, applied on activation
 
 Always add devices to the encrypted rules file after testing with runtime allows.
 

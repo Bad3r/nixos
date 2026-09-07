@@ -12,12 +12,12 @@ Usage examples:
         --parent-hash yTbqZv2hoAVyAvzT1r5iqC45+9VweaiBs362Djdgi4w= \\
         --via-port 1-5.2 \\
         --interface 01:01:00 --interface 01:02:00 --interface 03:00:00' \\
-      nix develop -c sops secrets/usbguard/system76.yaml
+      nix develop -c sops secrets/usbguard/<host>.yaml
 
     # Or feed a line copied from `usbguard list-devices`
     EDITOR='scripts/usbguard-ensure-allow.py \\
         --from-line \"28: block id 1058:264d serial \\\"5830475838334D43\\\" name \\\"easystore 264D\\\" hash \\\"vbqGfVCQTRDBslxpW8T6eDrYOZ+pLbeSYrNTtas3uKY=\\\" parent-hash \\\"prM+Jby/bFHCn2lNjQdAMbgc6tse3xVx+hZwjOPHSdQ=\\\" via-port \\\"2-4\\\" with-interface 08:06:50 with-connect-type \\\"hotplug\\\"\"' \\
-      nix develop -c sops secrets/usbguard/system76.yaml
+      nix develop -c sops secrets/usbguard/<host>.yaml
 
 The script is idempotent: if an identical rule already exists, it leaves the
 file untouched.
