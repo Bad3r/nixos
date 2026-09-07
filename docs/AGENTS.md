@@ -72,9 +72,9 @@ There is no docs-only test framework. Validation is done through:
 
 - pre-commit hooks
 - `docs-style`, which checks staged Markdown for the 150-line cap, banned
-  phrases, and unresolved links and backticked paths; exempt for
-  `README.md`, `docs/drafts/`, `docs/nixos-manual/`, `tests/`, and any
-  `CLAUDE.md` or `AGENTS.md`; `docs/index.md` is exempt from the line cap
+  phrases, and unresolved links and backticked paths; exempt for the
+  generated root `README.md`, `docs/drafts/`, `docs/nixos-manual/`, `tests/`,
+  and any `CLAUDE.md` or `AGENTS.md`; `docs/index.md` is exempt from the line cap
   only; pinned to the pre-commit stage, so the `--hook-stage manual` sweep
   skips it
 - flake checks
