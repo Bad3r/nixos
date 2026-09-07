@@ -34,6 +34,7 @@ Precondition: a NixOS installer image is booted with network access, and the she
 
    The vfat UUID goes to `fileSystems."/boot".device` and the two `crypto_LUKS` UUIDs to `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device` in `modules/songbird/hardware-config.nix`.
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
+   Make that edit from another fleet host and push it before the clone below; `build.sh` refuses an uncommitted tree, and a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
 
 Verification: `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
 
@@ -87,19 +88,13 @@ Precondition: songbird is running this repository's configuration, with `secrets
    ./build.sh
    ```
 
-Verification:
-
-```sh
-ls /run/secrets
-systemctl status r2-runtime-paths.service
-```
-
-`ls /run/secrets` lists the host secrets, `r2-runtime-paths.service` shows the `/data` tree in place, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
+Verification: `ls /run/secrets` lists the host secrets, `systemctl status r2-runtime-paths.service` shows the `/data` tree in place, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
 
 ## Give the /data volume the root passphrase key slot
 
 Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
-A volume created from scratch also needs the XFS filesystem `data.mount` expects, `sudo mkfs.xfs -L data /dev/mapper/data` with the container open; never run that on a volume whose contents stay.
+A volume created from scratch carries a new `crypto_LUKS` UUID, so record `blkid -s UUID -o value <partition>` in that option first.
+It also needs the XFS filesystem `data.mount` expects, `sudo mkfs.xfs -L data /dev/mapper/data` with the container open; never run that on a volume whose contents stay.
 
 1. Add the root passphrase as an extra key slot:
 

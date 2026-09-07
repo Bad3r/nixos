@@ -85,13 +85,16 @@ Track the fix at https://github.com/Bad3r/nix-R2-CloudFlare-Flake/issues/150 and
 
 ## The Samba media share is missing
 
-`modules/songbird/services.nix` skips the share and warns when `secrets/songbird.yaml` is absent or `sopsRuntimeReady` in `modules/songbird/policy.nix` is false.
+`modules/songbird/services.nix` detaches `samba.target` from `multi-user.target`, so smbd, nmbd, and wsdd stay down until the target is started by hand.
+With the target running, the share itself is skipped with a warning when `secrets/songbird.yaml` is absent or `sopsRuntimeReady` in `modules/songbird/policy.nix` is false.
 A present file with no `samba_media_path` key fails activation instead, with `the key 'samba_media_path' cannot be found` in the switch output.
 
 ```sh
+systemctl is-active samba.target
 nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
+Start the units with `sudo systemctl start samba.target` when that target is inactive.
 For an absent file, initialize the secrets submodule with `git submodule update --init --recursive`; `secrets/songbird.yaml` is tracked there, and `sops` against an empty checkout writes a stray file instead.
 For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, set `sopsRuntimeReady = true` in `modules/songbird/policy.nix`.
 
