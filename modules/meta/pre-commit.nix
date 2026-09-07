@@ -75,6 +75,22 @@ _: {
               files = "\\.nix$";
             };
 
+            docs-style = {
+              enable = true;
+              name = "docs-style";
+              description = "Check staged Markdown against docs/technical-writing/style-guide.md.";
+              entry = "${config.packages.hook-docs-style}/bin/hook-docs-style";
+              pass_filenames = true;
+              files = "\\.md$";
+              excludes = [
+                "^README\\.md$"
+                "^docs/drafts/"
+                "^docs/index\\.md$"
+                "(^|/)(CLAUDE|AGENTS)\\.md$"
+                "^tests/"
+              ];
+            };
+
             luacheck = {
               enable = true;
               entry = "${config.packages.hook-luacheck}/bin/hook-luacheck";
