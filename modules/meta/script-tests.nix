@@ -242,6 +242,36 @@ in
             fi
             touch "$out"
           '';
+      # The docs-style suite runs the wrapper, but on a PATH that already
+      # carries bash, coreutils, git and stdenv's gawk and grep, so an entry
+      # dropped from its runtimeInputs leaves every case green while the hook
+      # fails for a user whose ambient PATH lacks that tool.
+      docsStyleWrapperInputsCheck =
+        pkgs.runCommand "script-tests-docs-style-wrapper-inputs"
+          {
+            nativeBuildInputs = [ pkgs.git ];
+          }
+          ''
+            export HOME="$PWD/home"
+            mkdir -p "$HOME/repo/docs/technical-writing"
+            git -C "$HOME/repo" init -q -b main
+            printf '%s\n' '\bfixture-phrase\b' >"$HOME/repo/docs/technical-writing/banned-phrases.txt"
+            : >"$HOME/repo/docs/other.md"
+            # A link and a backticked path reach realpath and the index
+            # snapshot; the prose reaches every awk parser and the grep scan.
+            printf '%s\n' '# Page' "" 'A [link](other.md) and `docs/other.md`.' >"$HOME/repo/docs/page.md"
+            git -C "$HOME/repo" add docs
+
+            # PATH is scrubbed so only the wrapper supplies its tools.
+            cd "$HOME/repo"
+            env -i \
+              HOME="$HOME" \
+              TMPDIR="$HOME" \
+              PATH=/nonexistent \
+              ${config.packages.hook-docs-style}/bin/hook-docs-style docs/page.md
+            touch "$out"
+          '';
+
       # The minimum set named in secrets_guard_paths is the guard's coupling to
       # modules/development/gitignore.nix, and every other fixture that reaches
       # the parser is a hand-written copy of the block, so the suite passes
@@ -310,10 +340,12 @@ in
       # util-linux from it leaves every case passing while the wrapper fails at
       # the flock call for any user whose ambient PATH lacks it. The
       # cache-coverage wrapper carries the same exposure through the guard text
-      # prepended to it, whose tools no suite reaches either.
+      # prepended to it, whose tools no suite reaches either, and the
+      # docs-style wrapper through the PATH its suite runs on.
       checks = {
         script-tests-prune-old-stashes-wrapper-inputs = wrapperInputsCheck;
         script-tests-cache-coverage-wrapper-inputs = cacheCoverageWrapperInputsCheck;
+        script-tests-docs-style-wrapper-inputs = docsStyleWrapperInputsCheck;
         script-tests-secrets-guard-gitignore-contract = gitignoreContractCheck;
       }
       // lib.mapAttrs' (
