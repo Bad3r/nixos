@@ -8,11 +8,12 @@ The optional LUKS `data` volume stays closed when its initrd unlock prompt in `m
 findmnt /data
 ```
 
-Open the volume and mount it, then start the writer gate by hand.
+Open the volume and mount it, then start the ownership unit and the writer gate by hand.
 
 ```sh
 sudo cryptsetup open /dev/disk/by-id/ata-Samsung_SSD_860_PRO_2TB_S45DNF0K503930R-part1 data
 sudo mount /data
+sudo systemctl start data-ownership.service
 sudo systemctl start r2-runtime-paths.service
 ```
 
@@ -33,13 +34,14 @@ sudo systemctl start r2-mount-docs.service
 
 ## /portal is missing after boot
 
-Windows can leave the shared NTFS volume dirty, so the kernel `ntfs3` driver refuses it, and `nofail` on `/portal` in `modules/songbird/hardware-config.nix` lets boot continue anyway.
+An unclean Windows exit leaves the shared NTFS volume dirty, so the kernel `ntfs3` driver refuses it, and `nofail` on `/portal` in `modules/songbird/hardware-config.nix` lets boot continue anyway.
 
 ```sh
 journalctl -b -u portal.mount
 ```
 
-Clear the dirty flag on the partition through its stable by-id path, then start the mount.
+Boot Windows once through [songbird-runbook-windows.md](songbird-runbook-windows.md) and shut it down cleanly; Windows replays the journal on mount and clears the flag on shutdown.
+Clear the flag directly only when Windows is unreachable, since `ntfsfix -d` discards the pending journal instead of replaying it.
 
 ```sh
 sudo ntfsfix -d /dev/disk/by-id/nvme-Samsung_SSD_970_PRO_512GB_S469NF0K509254D-part1
@@ -109,7 +111,7 @@ Stop the daemon and clear the lock.
 
 ```sh
 gpgconf --kill keyboxd
-rm ~/.gnupg/public-keys.d/pubring.db.lock
+rip ~/.gnupg/public-keys.d/pubring.db.lock
 ```
 
 ## The r2-bisync-docs service never finishes
@@ -126,13 +128,14 @@ Track the fix at https://github.com/Bad3r/nix-R2-CloudFlare-Flake/issues/150 and
 
 ## The Samba media share is missing
 
-`secrets/songbird.yaml` has no `samba_media_path` key, or the file itself is absent, so `modules/songbird/services.nix` skips the share and emits a warning instead of failing the build.
+`modules/songbird/services.nix` skips the share and warns when `secrets/songbird.yaml` is absent or `sopsRuntimeReady` in `modules/songbird/policy.nix` is false.
+A present file with no `samba_media_path` key fails activation instead, with `the key 'samba_media_path' cannot be found` in the switch output.
 
 ```sh
 nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
-Add the key with `sops secrets/songbird.yaml`.
+Add the key with `sops secrets/songbird.yaml`, or set `sopsRuntimeReady = true` in `modules/songbird/policy.nix`.
 
 ## Evaluation warns about an unpinned interface name
 
