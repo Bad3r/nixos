@@ -2,15 +2,16 @@
 
 Style guides, coding standards, and how-to documentation.
 
-| Guide                                                         | Purpose                                             |
-| ------------------------------------------------------------- | --------------------------------------------------- |
-| [Apps Module Style Guide](apps-module-style-guide.md)         | Header format and conventions for `modules/apps/`   |
-| [Custom Packages Style Guide](custom-packages-style-guide.md) | Templates and conventions for `packages/`           |
-| [GitHub Deployments](github-deployments.md)                   | Deployment tracking via GitHub API                  |
-| [Host Onboarding Runbook](host-onboarding.md)                 | Checklist for adding a NixOS host                   |
-| [Nix Debugging Manual](nix-debugging-manual.md)               | General Nix/NixOS/Home Manager debugging techniques |
-| [Stylix Integration](stylix-integration.md)                   | Theming constraints for module authors              |
-| [Tray Icon Theming (i3/i3bar)](tray-icon-theming.md)          | Runtime tray ownership and icon theming remediation |
+| Guide                                                         | Purpose                                                  |
+| ------------------------------------------------------------- | -------------------------------------------------------- |
+| [Apps Module Style Guide](apps-module-style-guide.md)         | Header format and conventions for `modules/apps/`        |
+| [Custom Packages Style Guide](custom-packages-style-guide.md) | Templates and conventions for `packages/`                |
+| [GitHub Deployments](github-deployments.md)                   | Deployment tracking via GitHub API                       |
+| [Host Onboarding Runbook](host-onboarding.md)                 | Checklist for adding a NixOS host                        |
+| [Host Secrets and Handoff](host-onboarding-secrets.md)        | Age identity, secrets, SSH host key pin, primary handoff |
+| [Nix Debugging Manual](nix-debugging-manual.md)               | General Nix/NixOS/Home Manager debugging techniques      |
+| [Stylix Integration](stylix-integration.md)                   | Theming constraints for module authors                   |
+| [Tray Icon Theming (i3/i3bar)](tray-icon-theming.md)          | Runtime tray ownership and icon theming remediation      |
 
 ## Related
 

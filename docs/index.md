@@ -109,7 +109,9 @@
 - [guides/github-deployments.md](guides/github-deployments.md)
   - Using GitHub's Deployments API via gh CLI for tracking deployments (metadata only, not actual deployment).
 - [guides/host-onboarding.md](guides/host-onboarding.md)
-  - Procedural checklist for adding a NixOS host: registry entry, per-host module set, policy flags, sops provisioning, backups, docs, and validation.
+  - Runbook for adding a NixOS host: registry entry, per-host module set, policy flags, and validation ladder.
+- [guides/host-onboarding-secrets.md](guides/host-onboarding-secrets.md)
+  - Age identity, secrets submodule, SSH host key pin, and primary handoff for a new host.
 - [guides/nix-debugging-manual.md](guides/nix-debugging-manual.md)
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
 - [guides/stylix-integration.md](guides/stylix-integration.md)
