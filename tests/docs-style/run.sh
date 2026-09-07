@@ -181,13 +181,27 @@ test_an_argument_that_is_not_a_file_is_a_violation() {
   repo="$(make_repo not-a-file)"
   mkdir -p "${repo}/docs/guides"
 
-  run_hook "${repo}" docs/missing.md docs/guides tests/typo.md
-  assert_violations 3 "not a file"
+  # pre-commit's own flag spelling, typed by hand, is an argument that starts
+  # with a dash; realpath read it as an option and died before the report.
+  run_hook "${repo}" docs/missing.md docs/guides tests/typo.md --files
+  assert_violations 4 "not a file"
   assert_err_has "docs-style: not a file: docs/missing.md" "missing file"
   assert_err_has "docs-style: not a file: docs/guides" "directory"
   # The file check runs ahead of the exemption, so a typo under an exempt
   # prefix is loud as well.
   assert_err_has "docs-style: not a file: tests/typo.md" "exempt prefix"
+  assert_err_has "docs-style: not a file: --files" "dash argument"
+  pass
+}
+
+test_a_page_whose_name_starts_with_a_dash_is_checked() {
+  local repo
+  repo="$(make_repo dash-name)"
+  write_lines "${repo}/docs/-page.md" 151
+
+  run_hook "${repo}" docs/-page.md
+  assert_violations 1 "dash name"
+  assert_err_has "docs/-page.md: 151 lines exceeds the 150 line cap" "dash name"
   pass
 }
 
@@ -744,6 +758,7 @@ PAGE
 
 test_no_arguments_exits_zero
 test_an_argument_that_is_not_a_file_is_a_violation
+test_a_page_whose_name_starts_with_a_dash_is_checked
 test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not
 test_agent_instruction_files_are_exempt_by_exact_name
 test_drafts_the_manual_and_test_fixtures_are_exempt_by_directory
