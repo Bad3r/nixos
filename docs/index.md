@@ -221,6 +221,8 @@
 
 ## Technical Writing
 
+- [technical-writing/style-guide.md](technical-writing/style-guide.md)
+  - Rules for every hand-written page: the value test, banned content, shape, prose, host pages, and the docs-style hook.
 - [technical-writing/scope-and-audience.md](technical-writing/scope-and-audience.md)
   - Rules for audience definition, content type selection, and information architecture.
 - [technical-writing/drafting.md](technical-writing/drafting.md)

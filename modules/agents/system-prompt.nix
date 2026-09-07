@@ -109,6 +109,9 @@ let
         behavior visible to callers, or a surprising design constraint.
       - Skip documentation churn for pure refactors, formatting, typo fixes, test-only
         changes, and dependency bumps without behavior change.
+      - In the nixos repo, hand-written Markdown follows
+        `docs/technical-writing/style-guide.md`; the `docs-style` pre-commit hook
+        enforces its line cap, banned phrases, and link resolution on staged pages.
     '';
 
     safety = _vars: ''
