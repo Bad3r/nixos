@@ -28,7 +28,7 @@ scripts/cache-coverage.sh
 One host, through the flake wrapper (use `path:.` in linked worktrees):
 
 ```sh
-nix run path:.#cache-coverage -- --host system76
+nix run path:.#cache-coverage -- --host songbird
 ```
 
 Gate a deploy on the report:

@@ -175,7 +175,7 @@ Scope:
   - Avahi D-Bus policy grants `org.freedesktop.Avahi.Server.SetHostName` to `netdev` group members.
   - if owner is added to `netdev`, hostname change becomes available without sudo.
 - `power` note:
-  - on `system76` the `power` group has no active grant because `thermald` is disabled.
+  - on `songbird` the `power` group has no active grant because `thermald` is disabled.
   - on hosts where `thermald` is enabled (for example `tpnix`), its D-Bus policy grants the `power` group control of the daemon.
 - `plugdev` / `bluetooth` note:
   - currently no direct owner assignment in baseline; privilege impact depends on future service or udev rules that consume those groups.

@@ -10,7 +10,7 @@
 
 ## Scope & Assumptions
 
-- Target host: single System76 workstation running NixOS 25.05 or later with X11 session; virtualization extensions (VT-x/AMD-V) available in firmware.
+- Target host: songbird, running NixOS 25.05 or later with X11 session; VT-x virtualization extensions available in firmware.
 - Workflows are executed inside the repository’s flakes/dev shells; no legacy `android` tool usage.
 - Physical devices are out-of-scope for this phase; focus is Android Virtual Devices (AVDs).
 

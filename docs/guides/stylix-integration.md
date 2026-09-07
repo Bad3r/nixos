@@ -28,7 +28,7 @@ To inspect available targets in each context:
 
 ```bash
 # NixOS targets
-nix eval .#nixosConfigurations.system76.options.stylix.targets --apply builtins.attrNames
+nix eval .#nixosConfigurations.songbird.options.stylix.targets --apply builtins.attrNames
 
 # Home Manager targets (via the HM module system)
 # These are only available within Home Manager module evaluation
@@ -174,7 +174,7 @@ Instead, fix the root cause by ensuring options are only set in their valid cont
 
 ```bash
 # List NixOS stylix targets
-nix eval .#nixosConfigurations.system76.options.stylix.targets \
+nix eval .#nixosConfigurations.songbird.options.stylix.targets \
   --apply builtins.attrNames 2>/dev/null | tr ',' '\n' | tr -d '[]" '
 ```
 
@@ -182,7 +182,7 @@ nix eval .#nixosConfigurations.system76.options.stylix.targets \
 
 ```bash
 # Check if a specific target is enabled in the final config
-nix eval .#nixosConfigurations.system76.config.stylix.targets.console.enable
+nix eval .#nixosConfigurations.songbird.config.stylix.targets.console.enable
 ```
 
 ### Trace autoEnable Behavior

@@ -52,7 +52,7 @@ This error occurs during module evaluation when a configuration option receives 
 error: cannot coerce null to a string: null
 
 ... while checking flake output 'nixosConfigurations'
-... while checking the NixOS configuration 'nixosConfigurations.system76'
+... while checking the NixOS configuration 'nixosConfigurations.songbird'
 ... while calling the 'seq' builtin
   at «github:NixOS/nixpkgs/.../lib/modules.nix:361:18
 ```

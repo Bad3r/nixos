@@ -10,7 +10,7 @@ All system modules feed into `flake.nixosModules` so that hosts compose features
 # Structure
 flake.nixosModules = {
   base = { ... };                    # Core system settings
-  "system76-support" = { ... };      # Hardware support
+  "tpnix-support" = { ... };         # Hardware support
   "hardware-lenovo-y27q-20" = { ... }; # Monitor profile
   apps = {
     steam = { ... };
@@ -64,7 +64,7 @@ let
   nixos = config.flake.lib.nixos;
 in
 {
-  configurations.nixos.system76.module.imports =
+  configurations.nixos.songbird.module.imports =
     lib.optionals (nixos.hasApp "steam") [
       (nixos.getApp "steam")
     ];
@@ -102,7 +102,7 @@ This means these packages are **not** exposed under `.#packages.<system>.<name>`
 
 | Module                                         | Export                                         | Scope           | Purpose                                       |
 | ---------------------------------------------- | ---------------------------------------------- | --------------- | --------------------------------------------- |
-| `modules/system76/support.nix`                 | `flake.nixosModules."system76-support"`        | system76 only   | System76 kernel modules, firmware             |
+| `modules/tpnix/support.nix`                    | `flake.nixosModules."tpnix-support"`           | tpnix only      | Stub for future tpnix hardware-support hooks  |
 | `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile                               |
 | `modules/hosts/common/virtualization.nix`      | host options under `host.virtualization.*`     | shared          | Virtualization app toggles                    |
 | `modules/<host>/policy.nix`                    | `flake.lib.nixos.hosts.<host>.*` data          | per host        | Host readiness gates and common-module values |

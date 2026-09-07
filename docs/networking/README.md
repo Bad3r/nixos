@@ -28,9 +28,8 @@ carries a firewall rule must therefore be pinned rather than observed: see
 [Pin an interface name](#pin-an-interface-name). `modules/tpnix/networking.nix`
 pins that laptop's internal Wi-Fi card to `wifi0` for that reason, so a rule
 keyed to that name follows the card rather than a USB adapter that registered
-first. The wired hosts carry no pin: system76's USB ethernet adapter and
-songbird's two onboard NICs are read as `eth0`/`eth1` in kernel enumeration
-order. Hosts that serve no DNS or DHCP leave `firewallDnsInterfaces` empty, so no rule is
+first. The wired host carries no pin: songbird's two onboard NICs are read as
+`eth0`/`eth1` in kernel enumeration order. Hosts that serve no DNS or DHCP leave `firewallDnsInterfaces` empty, so no rule is
 keyed to a wired name today; pin the device before adding one. Those hosts do
 carry `.link` files without a `Name=`, which narrow the alternative names
 without renaming anything: see
@@ -282,8 +281,7 @@ systemd.network.links."10-<device>" = {
 };
 ```
 
-This is the shape `modules/songbird/networking.nix` and
-`modules/system76/networking.nix` use. It renames nothing, so it is not a pin:
+This is the shape `modules/songbird/networking.nix` uses. It renames nothing, so it is not a pin:
 `pinnedNamesOf`, `collidingPinsOf`, and `duplicatePinsOf` in
 `modules/hosts/common/firewall.nix` all key on `linkConfig.Name`, and a file
 without one contributes to none of those pin classifiers. A device-specific

@@ -384,13 +384,13 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 - The managed mount unit sets `restartIfChanged = false;`, `stopIfChanged = false;`, and `serviceConfig.Restart = "on-failure";`. The switch flags prevent rebuilds from tearing down or restarting a live mount during activation; `Restart=on-failure` restarts only after unexpected process failure, not after an operator-initiated stop/unmount.
 - Add an assertion that `services.duplicati-r2.mount.user` is listed in `services.duplicati-r2.stateDirReadableBy`; the mounting user must already have read ACLs for the SQLite state and env file. Normal mount use should not require sudo.
 - Create the mountpoint with `systemd.tmpfiles` using the configured user/group and restrictive mode. The service should stop via `duplicati-r2-mount unmount <mountpoint>` or `fusermount3 -u`, and should avoid leaving stale mountpoints or confusing dead mounts after stop/restart.
-- Enable the managed mount service on `system76` only. `tpnix` should not enable it unless that host later grants `stateDirReadableBy` and explicitly opts into the mount runtime.
+- Enable the managed mount service on `songbird` only. `tpnix` should not enable it unless that host later grants `stateDirReadableBy` and explicitly opts into the mount runtime.
 
 ### 4.7 Cut C validation boundaries
 
 - A Nix build sandbox cannot perform a real FUSE mount here: a sandboxed `runCommand` check for `/dev/fuse` returned `missing`. Therefore `mount.nix` must not require `/dev/fuse` or a real mount during `installCheckPhase`.
 - In-package checks should cover import/compile, fake filesystem object tests, `getattr`/`readdir`/`read`/`readlink` behavior over fixture data, and reuse of the existing resolver/decrypt/cache code paths.
-- Host or VM validation on `system76` covers the real FUSE path: service foreground startup, no activation-time stop/restart due to `restartIfChanged=false` and `stopIfChanged=false`, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, unmount, busy-unmount diagnostics with `--debug`, and recovery from dead/stale mount state through `Restart=on-failure`.
+- Host or VM validation on `songbird` covers the real FUSE path: service foreground startup, no activation-time stop/restart due to `restartIfChanged=false` and `stopIfChanged=false`, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, unmount, busy-unmount diagnostics with `--debug`, and recovery from dead/stale mount state through `Restart=on-failure`.
 
 ### 4.8 Per-invocation lifecycle (Cut B)
 
@@ -461,7 +461,7 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 - Implement `--allow-other` as a CLI opt-in. The NixOS service passes it only when `services.duplicati-r2.mount.allowOther = true`, and that same option is the only path that sets `programs.fuse.userAllowOther = true;`.
 - Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}` and a `systemd` service in `modules/services/duplicati-r2.nix`. Assert the mount user is included in `stateDirReadableBy`, create the mountpoint via `systemd.tmpfiles`, set `restartIfChanged = false;`, `stopIfChanged = false;`, and `serviceConfig.Restart = "on-failure";`, and keep sudo out of normal operation by using the existing SQLite/env-file ACLs.
 - Add `pkgs.duplicati-r2-tools.mount` to the app module's default package list and expose flake output `.#duplicati-r2-mount`.
-- Gate the managed mount service in `modules/hosts/common/duplicati.nix` on per-host registry data; enable it only for `system76`. `tpnix` should remain off unless it later gets matching state/env-file ACL access and explicitly opts in.
+- Gate the managed mount service in `modules/hosts/common/duplicati.nix` on per-host registry data; enable it only for `songbird`. `tpnix` should remain off unless it later gets matching state/env-file ACL access and explicitly opts in.
 
 **FUSE semantics work**:
 
@@ -476,7 +476,7 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 **Test plan**:
 
 - In `installCheckPhase`: import/compile, fake filesystem object tests, `getattr`/`readdir`/`read`/`readlink` fixture tests, and resolver/decrypt/cache reuse tests. Do not perform a real FUSE mount in the Nix build sandbox because `/dev/fuse` is absent there.
-- On `system76`: service startup, foreground logging, activation that leaves a running mount alone, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, clean unmount, busy-unmount diagnostics under `--debug`, and restart after a stale/dead mount.
+- On `songbird`: service startup, foreground logging, activation that leaves a running mount alone, `ls`, `stat`, `cat`, `readlink`, `grep`, partial reads, clean unmount, busy-unmount diagnostics under `--debug`, and restart after a stale/dead mount.
 
 **Risk**: FUSE-on-Linux is stable and acceptable for this repo, but the mount can fail inside kernel callbacks under load rather than at command startup. Cross-user exposure through `allow_other` is security-sensitive and must remain behind the two explicit gates above.
 
@@ -529,7 +529,7 @@ Cut C's implementation should keep FUSE permissions private by default. Add `dup
 
 ## 9. Storage budget
 
-The user's host (`system76`) has 107 GiB free on root. The investigation must show none of the cuts requires more than a small fraction of that for a single-file workflow.
+The investigation must show none of the cuts requires more than a small fraction of the host's free root space for a single-file workflow.
 
 ### 9.1 Production parameters (from `secrets/duplicati-config.json`)
 
@@ -550,7 +550,7 @@ Live archive sizes (queried `aws s3 ls --recursive --summarize` against R2):
 Two observations from the live numbers:
 
 - The `bankdata` average dblock is ~49 MiB, well below the configured 200 MiB cap. The override (`--dblock-size=200MB`) only governs new dblock creation; the bulk of the archive predates the override and was written under the 50 MiB default. New writes will tend toward the 200 MiB cap as the archive grows.
-- `bankdata` is 2.67 TiB encrypted. A full local restore is impossible on the 107 GiB free root volume and would still exceed any reasonably sized scratch volume on this host. Browsing or single-file extraction is the only viable interactive workflow against this archive; this is the constraint that drives the "build Cut A and Cut B" recommendation rather than waiting for FUSE.
+- `bankdata` is 2.67 TiB encrypted. A full local restore is impossible on this host's free root space and would still exceed any reasonably sized scratch volume. Browsing or single-file extraction is the only viable interactive workflow against this archive; this is the constraint that drives the "build Cut A and Cut B" recommendation rather than waiting for FUSE.
 
 ### 9.2 Storage cost model
 
@@ -584,9 +584,9 @@ Plaintext is **never** written outside the explicit output target. Decryption an
 Assume `bankdata` (`blocksize=1 MiB`, configured `dblock-size=200 MiB`, observed average dblock ~49 MiB on existing pre-override volumes).
 
 - **10 MiB file**, fully contained in one dblock: peak fetch = 49..200 MiB encrypted (one dblock); output = 10 MiB; cache holds the single dblock. Total transient = 60..210 MiB.
-- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~105 dblocks at the legacy 49 MiB average. For a contiguous file, bytes fetched are roughly the encrypted dblocks containing those 5 GiB of plaintext plus zip/AES overhead; fragmented or heavily deduplicated files can touch more volumes, and the exact number is the SQL-derived unique-volume set. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds \<= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits with 100+ GiB to spare.
+- **5 GiB file** (5120 blocks of 1 MiB): packs into ~26 dblocks if each is at the 200 MiB cap, or up to ~105 dblocks at the legacy 49 MiB average. For a contiguous file, bytes fetched are roughly the encrypted dblocks containing those 5 GiB of plaintext plus zip/AES overhead; fragmented or heavily deduplicated files can touch more volumes, and the exact number is the SQL-derived unique-volume set. With `cache_cap = 1 GiB`, the cache rotates and at any one time holds \<= 1 GiB of encrypted dblocks plus the partial output file. Peak disk = 5 GiB output + 1 GiB cache = 6 GiB. Fits.
 - **50 GiB file**, single archive: 50 GiB output + 1 GiB cache = 51 GiB. Fits.
-- **Full archive restore** (theoretical, not the use case): `bankdata` is 2.67 TiB encrypted. The 107 GiB free root cannot hold this and never could; even after subtracting Duplicati's compression and dedup, the plaintext is far above the local capacity. This is the structural reason Cut A and Cut B exist: they are the only practical interface to a multi-TiB archive on this host.
+- **Full archive restore** (theoretical, not the use case): `bankdata` is 2.67 TiB encrypted. The host's free root space cannot hold this and never could; even after subtracting Duplicati's compression and dedup, the plaintext is far above the local capacity. This is the structural reason Cut A and Cut B exist: they are the only practical interface to a multi-TiB archive on this host.
 
 ### 9.5 Cache strategy
 
@@ -631,8 +631,8 @@ This was a prerequisite for Cut A, Cut B, and Cut C; all three depend on the ACL
 
 ### 9.7 Conclusion: storage is not a blocker (and the archive scale makes the cuts mandatory)
 
-- Cut A: zero R2 download, zero plaintext on disk. Works today on 107 GiB free.
-- Cut B: local disk ceiling = output file size + encrypted cache cap; R2 fetches are the whole dblocks in the SQL-derived unique-volume set. With default 1 GiB cache, any single file up to ~100 GiB extracts comfortably as long as the chosen output path has room for the plaintext.
+- Cut A: zero R2 download, zero plaintext on disk.
+- Cut B: local disk ceiling = output file size + encrypted cache cap; R2 fetches are the whole dblocks in the SQL-derived unique-volume set. With default 1 GiB cache, any single file extracts comfortably as long as the chosen output path has room for the plaintext.
 - Cut C: local disk ceiling remains the encrypted cache cap only; R2 fetch behavior starts the same as Cut B unless the mount implementation adds HTTP range reads inside dblocks.
 
 The "limited local storage" constraint is more than satisfied: it is the constraint that promotes Cut A and Cut B from "ergonomics" to "the only available interface". `bankdata` is 2.67 TiB encrypted on R2 (Section 9.1). Pulling the archive in full to inspect or recover a single file is not an option on this host and would not be on any reasonably sized scratch volume either. Cut C keeps the same storage ceiling and is sequenced after Cut B because the remaining work is FUSE-semantics correctness rather than backup-format discovery.

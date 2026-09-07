@@ -10,7 +10,7 @@ nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply built
 
 Complete hosts live under `configurations.nixos.<name>.module`. The helper in `modules/configurations/nixos.nix` maps each entry to a `nixosConfigurations.<name>` output by wrapping the deferred module in `inputs.nixpkgs.lib.nixosSystem`.
 
-Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, lang, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files carry chassis-specific modules when needed; `modules/system76/imports.nix` is the current example:
+Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, lang, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files extend `configurations.nixos.<host>.module` directly for anything that does not belong in the shared aggregate; `modules/songbird/imports.nix` is the current example:
 
 ```nix
 # modules/hosts/common/imports.nix (excerpt)
@@ -27,16 +27,16 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
   ];
 }
 
-# modules/system76/imports.nix (excerpt)
-{ config, lib, inputs, ... }:
-{
-  configurations.nixos.system76.module = {
-    imports = [
-      inputs.nixos-hardware.nixosModules.system76
-    ]
-    ++ lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config) [
-      config.flake.nixosModules.system76-support
-    ];
+# modules/songbird/imports.nix (excerpt)
+_: {
+  configurations.nixos.songbird.module = {
+    languages = {
+      clojure.extended.enable = true;
+      rust.extended.enable = true;
+      java.extended.enable = true;
+      python.extended.enable = true;
+      go.extended.enable = true;
+    };
   };
 }
 ```
@@ -57,10 +57,10 @@ Every host follows the same shape: NixOS fragments under `modules/<host>/` exten
 `hardware-config.nix`, `host-id.nix`, `state-version.nix`, `nvidia-gpu.nix`,
 `support.nix`, a `cachyos-kernel.nix` that swaps the common `linuxPackages_zen`
 default for the locally built CachyOS kernel, a `firewall-policy-check.nix`
-flake check pinning the source-scoped developer port rules, and a `policy.nix`
-carrying the registry values the common layer consumes, plus the same
-preference files system76 carries (Samba share, secret-service backend, mpv
-backend, app overrides). Every host additionally
+flake check pinning the source-scoped developer port rules, a `policy.nix`
+carrying the registry values the common layer consumes, and preference files
+for the Samba share, secret-service backend, mpv backend, and app overrides.
+Every host additionally
 needs an explicit `shareCommon` entry in `modules/hosts/common/registry.nix`:
 the host constructor aborts evaluation for hosts without one, so
 common-baseline participation is always a recorded choice (`true` to opt in,
@@ -84,33 +84,11 @@ common-baseline participation is always a recorded choice (`true` to opt in,
 | `modules/songbird/gnome-keyring.nix`         | gnome-keyring force-disabled in favor of the `pass` secret service                                                                                                                                                                 |
 | `modules/songbird/pass-secret-service.nix`   | DBus secret-service for `pass`                                                                                                                                                                                                     |
 | `modules/songbird/apps-enable.nix`           | Per-host overrides over the common app baseline (Inkscape on)                                                                                                                                                                      |
-| `modules/songbird/policy.nix`                | Registry data under `flake.lib.nixos.hosts.songbird` (readiness gates, per-host values); primary handoff pending the tailnet address                                                                                               |
-| `modules/songbird/services.nix`              | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT, system76-scheduler)                                                                                                |
+| `modules/songbird/policy.nix`                | Registry data under `flake.lib.nixos.hosts.songbird` (`primary`, `tailnetIp`, readiness gates, per-host values)                                                                                                                    |
+| `modules/songbird/services.nix`              | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT)                                                                                                                    |
 | `modules/songbird/networking.nix`            | `.link` units for the two onboard NICs and the BE200 carrying no `Name=`: they displace `99-default.link` to drop its `mac` altname token without renaming                                                                         |
 | `modules/songbird/cachyos-kernel.nix`        | Pinned CachyOS overlay and `boot.kernelPackages` override over the common `linuxPackages_zen` default; the kernel and its NVIDIA module are built locally, which is why `policy.nix` sets `cacheRoots.nvidiaKernelModules = false` |
 | `modules/songbird/firewall-policy-check.nix` | Flake check `songbird-firewall-port-policy`: exactly one source-scoped start and cleanup rule per declared TCP range per approved CIDR, no source-unrestricted overlap, and TCP 9999 still globally open                           |
-
-### system76 (Oryx Pro laptop)
-
-| File                                          | Purpose                                                                                                                              |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| `modules/system76/imports.nix`                | System76-chassis modules (nixos-hardware profile, system76-support), host-specific enables, and storage-dependent mirror disablement |
-| `modules/system76/storage-safety-check.nix`   | Flake check proving the host has no local mirror or R2 writers while `/data` is absent                                               |
-| `modules/system76/nix-settings.nix`           | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                           |
-| `modules/system76/networking.nix`             | `.link` unit for the USB ethernet adapter, no `Name=`: drops the `mac` altname token without renaming                                |
-| `modules/system76/ssh.nix`                    | system76 host public key + `services.openssh.enable` override                                                                        |
-| `modules/system76/packages.nix`               | system76-hardware packages (system76-power, firmware, etc.)                                                                          |
-| `modules/system76/system76-power-overlay.nix` | `system76-power` patch overlay (host-specific)                                                                                       |
-| `modules/system76/r2-runtime.nix`             | Host runtime bindings for external `r2-flake` modules, gated off because system76 has no dedicated `/data`                           |
-| `modules/system76/hardware-config.nix`        | Filesystems, firmware, loader entry limit, low-level hardware settings                                                               |
-| `modules/system76/host-id.nix`                | `networking.hostId`                                                                                                                  |
-| `modules/system76/state-version.nix`          | Install-time `system.stateVersion` constant                                                                                          |
-| `modules/system76/support.nix`                | system76 hardware-support enable (kernel modules, firmware-daemon)                                                                   |
-| `modules/system76/nvidia-gpu.nix`             | GPU profile over `flake.nixosModules.nvidia-gpu` (`system76.gpu.mode` enum, libva routing, NVIDIA kernel params)                     |
-| `modules/system76/mpv.nix`                    | mpv `gpu-api = "opengl"` override (NVIDIA Vulkan deadlock workaround)                                                                |
-| `modules/system76/pass-secret-service.nix`    | DBus secret-service for `pass` (system76-only)                                                                                       |
-| `modules/system76/policy.nix`                 | Registry data under `flake.lib.nixos.hosts.system76` (`primary`, `tailnetIp`, disabled R2 readiness gate, per-host values)           |
-| `modules/system76/services.nix`               | Host-divergent services (Samba media share, system76-power stack, cloudflared, LACT)                                                 |
 
 ### tpnix (ThinkPad)
 
@@ -204,7 +182,7 @@ mode `0440`, readable after the privilege drop and on SIGHUP re-reads.
 secret's ownership triple, because sops-nix restarts units only when decrypted
 bytes change.
 
-Registry entries also carry fleet endpoint data. `modules/system76/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's `tailnetIp`. Promoting another host to primary is a policy.nix data change, not a module edit.
+Registry entries also carry fleet endpoint data. `modules/songbird/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's `tailnetIp`. Promoting another host to primary is a policy.nix data change, not a module edit.
 
 ## App and Home Manager Wiring
 

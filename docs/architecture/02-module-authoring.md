@@ -10,7 +10,7 @@ This document covers how to write modules correctly in this flake-parts + import
 | `modules/hm-apps/<name>.nix` | Per-app HM modules    | `flake.homeManagerModules.apps.<name>`                                                                     |
 | `modules/browsers/<name>/`   | Per-browser modules   | `flake.nixosModules.browsers.<name>` (`apps.nix`), `flake.homeManagerModules.browsers.<name>` (`home.nix`) |
 | `modules/<domain>/`          | Higher-level features | `flake.nixosModules.<feature>`                                                                             |
-| `modules/<host>/`            | Host-specific config  | `configurations.nixos.<host>.module` (e.g. `modules/system76/`, `modules/tpnix/`)                          |
+| `modules/<host>/`            | Host-specific config  | `configurations.nixos.<host>.module` (e.g. `modules/songbird/`, `modules/tpnix/`)                          |
 
 **Rule:** If a module only installs packages, put it in `modules/apps/`. If it configures services or composes multiple apps, use a domain directory.
 
@@ -105,13 +105,10 @@ Cache topology and download retry settings belong in `modules/hosts/common/nix-s
 ### Pattern 5: Host Module
 
 ```nix
-# modules/system76/imports.nix (simplified)
-{ config, lib, ... }:
-{
-  configurations.nixos.system76.module = {
-    imports = lib.optionals (lib.hasAttrByPath [ "flake" "nixosModules" "system76-support" ] config) [
-      config.flake.nixosModules."system76-support"
-    ];
+# modules/songbird/imports.nix (simplified)
+_: {
+  configurations.nixos.songbird.module = {
+    languages.rust.extended.enable = true;
   };
 }
 ```

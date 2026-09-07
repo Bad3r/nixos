@@ -313,7 +313,7 @@ the remaining work. Four gaps carry it.
    hand-maintained name list, while `scripts/cache-coverage-allowlist.txt`
    suppresses diverged local builds that list never publishes
    (age-plugin-fido2prf, librepods, snixembed, subjack, cewl, normcap, zap,
-   system76-power, nixos-icons, nixos-option). The two sets are disjoint by
+   nixos-icons, nixos-option). The two sets are disjoint by
    hand, not by construction: one file accepts rebuilding a package forever
    and the other decides what to publish, with nothing reconciling them. So a
    new custom package stays uncached until somebody reads a build log, and a

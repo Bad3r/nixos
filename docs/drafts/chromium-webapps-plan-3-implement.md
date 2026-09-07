@@ -95,7 +95,7 @@ follow-ups, not part of this plan.
 
 - `brave-origin` binary contains the string `/etc/brave/policies`. The binary is under `brave-origin-nightly/`, which is the channel the package ships (`packages/brave-origin/default.nix`), not `brave-origin/`. Reproduce: `strings -a "$(nix build --impure --no-link --print-out-paths --expr 'with import <nixpkgs> {}; brave-origin')/opt/brave.com/brave-origin-nightly/brave" | rg '^/etc/brave'`
 
-- `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available. Reproduce against the pinned build: `B="$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.system76.pkgs.brave-origin")/opt/brave.com/brave-origin-nightly/brave"; strings -a "$B" | rg -x 'load-extension|disable-extensions-except'; strings -a "$B" | rg -i 'via the command line is not supported'`. Expected: both switches present, and no output from the second probe, because the branding-gated refusal message is compiled out of a build where `GOOGLE_CHROME_BRANDING` is unset. That settles the branding half. The Enhanced Safe Browsing half is a runtime check no string probe can reach, so Task 18 Step 3 is where it is confirmed on a real host; if it fails there, the fallback is `ExtensionSettings` with a `file://` update URL rather than a command-line load, and Task 10's extension design changes with it.
+- `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available. Reproduce against the pinned build: `B="$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.songbird.pkgs.brave-origin")/opt/brave.com/brave-origin-nightly/brave"; strings -a "$B" | rg -x 'load-extension|disable-extensions-except'; strings -a "$B" | rg -i 'via the command line is not supported'`. Expected: both switches present, and no output from the second probe, because the branding-gated refusal message is compiled out of a build where `GOOGLE_CHROME_BRANDING` is unset. That settles the branding half. The Enhanced Safe Browsing half is a runtime check no string probe can reach, so Task 18 Step 3 is where it is confirmed on a real host; if it fails there, the fallback is `ExtensionSettings` with a `file://` update URL rather than a command-line load, and Task 10's extension design changes with it.
 
 - Policy names and types confirmed against the Chromium policy registry: `AudioCaptureAllowed` (bool), `VideoCaptureAllowed` (bool), `ScreenCaptureAllowed` (bool), `DefaultNotificationsSetting` (int), `DefaultClipboardSetting` (int), `DefaultSensorsSetting` (int), `DefaultWindowManagementSetting` (int), `DefaultLocalFontsSetting` (int), `ExtensionSettings` (dict), `BackgroundModeEnabled` (bool).
 
@@ -2280,7 +2280,7 @@ an entry without its row leaves the inventory a row short. Add to the
 host-sourced table, keeping the existing alphabetical order:
 
 ```markdown
-| brave-origin        | system76, tpnix |
+| brave-origin        | songbird, tpnix |
 ```
 
 Confirm every cache root has a row. One-way, not a `diff`: the coverage doc
@@ -3206,7 +3206,7 @@ nix run path:.#treefmt -- .
 nix develop path:. -c pre-commit run --all-files --hook-stage manual
 nix flake check path:. --accept-flake-config --no-build --offline
 nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
-nix build "path:.#nixosConfigurations.system76.config.system.build.toplevel" --no-link
+nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel" --no-link
 ```
 
 Expected: all succeed.
@@ -3218,7 +3218,7 @@ git add docs/reference/webapps.md docs/architecture/04-home-manager.md docs/inde
 git commit -m "docs(webapps): document the web app module
 
 Validation: nix flake check path:. --accept-flake-config --no-build --offline;
-nix build path:.#nixosConfigurations.{tpnix,system76}.config.system.build.toplevel"
+nix build path:.#nixosConfigurations.{tpnix,songbird}.config.system.build.toplevel"
 git push -u origin feat/chromium-webapps
 gh pr create --title "feat(browsers): declarative Chromium web apps on brave-origin" --body "$(cat <<'EOF'
 ## Summary
@@ -3258,7 +3258,7 @@ Plan: `docs/drafts/chromium-webapps-plan-3-implement.md`. Operator docs: `docs/r
 ## Test plan
 
 - `nix flake check path:. --accept-flake-config --no-build --offline`
-- `nix build path:.#nixosConfigurations.{tpnix,system76}.config.system.build.toplevel`
+- `nix build path:.#nixosConfigurations.{tpnix,songbird}.config.system.build.toplevel`
 - `nix build path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages`: builds every launcher, so
   `shellcheck` runs over each one. Eval alone does not reach the launcher body.
 - `checks."browsers/webapps-policy"`: generated policy against a fixture, recomputed grants against the catalog, and

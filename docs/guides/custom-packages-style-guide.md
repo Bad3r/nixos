@@ -264,13 +264,13 @@ writeShellApplication {
 
 Every package must include these meta fields:
 
-| Field         | Description             | Example                              |
-| ------------- | ----------------------- | ------------------------------------ |
-| `description` | One-line summary        | `"System76 EC tool for fan control"` |
-| `homepage`    | Project landing page    | `"https://github.com/system76/ec"`   |
-| `license`     | SPDX license            | `lib.licenses.mit`                   |
-| `mainProgram` | Primary executable name | `"system76_ectool"`                  |
-| `platforms`   | Supported platforms     | `lib.platforms.linux`                |
+| Field         | Description             | Example                                                               |
+| ------------- | ----------------------- | --------------------------------------------------------------------- |
+| `description` | One-line summary        | `"Deobfuscate obfuscator.io, unminify and unpack bundled javascript"` |
+| `homepage`    | Project landing page    | `"https://github.com/j4k0xb/webcrack"`                                |
+| `license`     | SPDX license            | `lib.licenses.mit`                                                    |
+| `mainProgram` | Primary executable name | `"webcrack"`                                                          |
+| `platforms`   | Supported platforms     | `lib.platforms.linux`                                                 |
 
 Optional but recommended:
 
@@ -378,7 +378,7 @@ For packages with `passthru.updateScript`, prefer implementing the cargo hash up
 2. Fetch the latest upstream version
 3. Recalculate `srcHash`
 4. Write a temporary dummy `cargoHash`
-5. Build `.#nixosConfigurations.system76.pkgs.<name>` and extract the `got:` hash
+5. Build `.#nixosConfigurations.<host>.pkgs.<name>` and extract the `got:` hash
 6. Save the final `hashes.json`
 
 ### Vendor Hash (Go packages)
@@ -453,7 +453,7 @@ Before committing a new package:
 - [ ] App catalog default added to `modules/hosts/common/apps-enable.nix`, with host override entries only for real divergences
 - [ ] `nix build .#nixosConfigurations.<host>.pkgs.<name>` succeeds for overlay-backed packages
 - [ ] `./packages/<name>/update.py --force` succeeds when an updater is present
-- [ ] `script=$(nix eval --accept-flake-config --raw .#nixosConfigurations.system76.pkgs.<name>.passthru.updateScript); "$script" --force` succeeds when an updater is present
+- [ ] `script=$(nix eval --accept-flake-config --raw .#nixosConfigurations.<host>.pkgs.<name>.passthru.updateScript); "$script" --force` succeeds when an updater is present
 - [ ] `nix develop --no-write-lock-file -c hook-apps-catalog-sync` passes when app catalog files changed
 - [ ] `nix flake check --accept-flake-config` passes for structural package/module changes
 

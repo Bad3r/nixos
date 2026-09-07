@@ -40,7 +40,7 @@ gh auth status
 
 This repository has two configured environments:
 
-- `production` - Main system76 host
+- `production` - Main songbird host
 - `staging` - Testing environment
 
 View environments:
@@ -108,7 +108,7 @@ DEPLOYMENT_ID=3264963045
 gh api repos/Bad3r/nixos/deployments/$DEPLOYMENT_ID/statuses \
   --method POST \
   --field state="in_progress" \
-  --field description="Deploying to system76 host" \
+  --field description="Deploying to songbird host" \
   --field environment="production"
 ```
 
@@ -168,7 +168,7 @@ echo "Created deployment: $DEPLOYMENT_ID"
 gh api repos/Bad3r/nixos/deployments/$DEPLOYMENT_ID/statuses \
   --method POST \
   --field state="in_progress" \
-  --field description="Running ./build.sh on system76"
+  --field description="Running ./build.sh on songbird"
 
 # 3. Actually deploy (this is where real work happens)
 if ./build.sh; then
@@ -263,7 +263,7 @@ gh api repos/Bad3r/nixos/deployments \
 gh api repos/Bad3r/nixos/deployments/$DEPLOYMENT_ID/statuses \
   --method POST \
   --field state="success" \
-  --field description="Deployed release $RELEASE_TAG to system76" \
+  --field description="Deployed release $RELEASE_TAG to songbird" \
   --field log_url="$RELEASE_URL"
 ```
 
@@ -317,7 +317,7 @@ Remember: After creating a deployment record, you still need to **actually deplo
 ### Local Deployment (Current Method)
 
 ```bash
-# On system76 machine
+# On songbird machine
 cd /home/vx/nixos
 git pull origin main
 ./build.sh  # Validates, builds, and switches generation
@@ -347,7 +347,7 @@ jobs:
     steps:
       - name: Deploy via SSH
         run: |
-          ssh system76 "cd /home/vx/nixos && git pull && ./build.sh"
+          ssh songbird "cd /home/vx/nixos && git pull && ./build.sh"
 ```
 
 ## Troubleshooting
@@ -409,6 +409,6 @@ GitHub Deployments provide deployment tracking but don't execute deployments:
 | ---------------------------- | ------------ | ---------------------------------- |
 | **Create deployment record** | `gh api`     | Track that deployment is happening |
 | **Update status**            | `gh api`     | Record deployment progress/result  |
-| **Actual deployment**        | `./build.sh` | Apply changes to system76 host     |
+| **Actual deployment**        | `./build.sh` | Apply changes to songbird host     |
 
 Always remember: GitHub Deployments are for **tracking**, actual deployment is **separate**.
