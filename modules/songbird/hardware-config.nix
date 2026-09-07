@@ -178,9 +178,9 @@ _: {
       # wrote an owner-writable /data onto the root filesystem on any boot where
       # the volume was absent, and anything writing there filled / silently.
 
-      # Enforces operating rule 2 of docs/songbird/nixos-setup.md: /portal
-      # mounted during imaging restores stale NTFS metadata, corrupting the
-      # volume silently, so ExecStartPre aborts the unit on a busy /portal.
+      # An image written with /portal mounted restores stale NTFS metadata on
+      # resume, corrupting the volume silently, so ExecStartPre aborts the
+      # unit on a busy /portal.
       # Collides with a shipped unit, so NixOS renders this as a drop-in
       # (asDropinIfExists) rather than a replacement. Remount runs on
       # ExecStopPost, not ExecStartPost, which nixpkgs skips on any failed

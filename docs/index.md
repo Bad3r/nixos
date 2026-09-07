@@ -55,10 +55,16 @@
 
 ## Songbird
 
-- [songbird/project-songbird.md](songbird/project-songbird.md)
-  - Hardware reference, component inventory, and assembly notes for the `songbird` workstation host.
-- [songbird/nixos-setup.md](songbird/nixos-setup.md)
-  - Dual-boot layout, install record, per-host module map, and remaining integration steps for `songbird`.
+- [songbird/songbird-hardware.md](songbird/songbird-hardware.md)
+  - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
+- [songbird/songbird-configuration.md](songbird/songbird-configuration.md)
+  - Every way `songbird` deviates from the hosts-common baseline, one line each with its reason.
+- [songbird/songbird-runbook.md](songbird/songbird-runbook.md)
+  - Reinstall, first switch, secrets, `/data` key slot, and validation procedures for `songbird`.
+- [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
+  - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+- [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
+  - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
 ## R2 Cloud
 
