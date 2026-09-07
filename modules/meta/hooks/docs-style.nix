@@ -248,12 +248,30 @@ _: {
 
             # pre-commit stashes unstaged changes to tracked files only, so an
             # untracked target is still on disk while the hook runs and only
-            # the index agrees with the commit. A directory is tracked when a
-            # file under it is; -s keeps a symlinked component as written.
+            # the index agrees with the commit. The index cannot change during
+            # the run, so it is read once rather than queried per target, which
+            # forked git 135 times on docs/index.md alone. Each ancestor
+            # directory is recorded too, since a directory is tracked when a
+            # file under it is, and the root as `.` for the same reason.
+            declare -A tracked_paths=()
+            if ! git ls-files -z >"$tmpdir/index"; then
+              echo "docs-style: git ls-files failed" >&2
+              exit 2
+            fi
+            while IFS= read -r -d "" entry; do
+              while [ -n "$entry" ]; do
+                tracked_paths["$entry"]=1
+                [ "''${entry%/*}" != "$entry" ] || break
+                entry=''${entry%/*}
+              done
+            done <"$tmpdir/index"
+            [ "''${#tracked_paths[@]}" -eq 0 ] || tracked_paths["."]=1
+
+            # -s keeps a symlinked component as written.
             is_tracked() {
               local rel
               rel=$(realpath -ms --relative-to="$root" "$1")
-              git ls-files --error-unmatch -- ":(literal)$rel" >/dev/null 2>&1
+              [ -n "''${tracked_paths["$rel"]:-}" ]
             }
 
             # Distinguishes a target that is on disk but unstaged from one that

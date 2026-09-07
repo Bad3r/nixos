@@ -494,7 +494,7 @@ test_an_absolute_target_resolves_from_the_root() {
   write_page "${repo}" docs/guides/page.md <<'PAGE'
 # Page
 
-A [root link](/docs/other.md) and a [dead root link](/docs/missing.md).
+A [root link](/docs/other.md), the [root itself](/), and a [dead root link](/docs/missing.md).
 PAGE
 
   run_hook "${repo}" docs/guides/page.md
