@@ -252,6 +252,28 @@ test_drafts_the_manual_and_test_fixtures_are_exempt_by_directory() {
   pass
 }
 
+# `find . -name '*.md' | xargs hook-docs-style` hands the hook ./-prefixed
+# paths, and the cd to the root opens docs/./index.md and an absolute path
+# just the same; the raw string once had to match the exemption exactly.
+test_an_exempt_path_is_matched_however_it_is_spelled() {
+  local repo
+  repo="$(make_repo spellings)"
+  write_lines "${repo}/README.md" 151
+  write_lines "${repo}/docs/index.md" 151
+  write_lines "${repo}/docs/nixos-manual/page.md" 151
+  write_lines "${repo}/docs/drafts/plan.md" 151
+  write_lines "${repo}/docs/page.md" 151
+
+  run_hook "${repo}" ./README.md docs/../README.md docs/./index.md \
+    ./docs/nixos-manual/page.md "${repo}/docs/drafts/plan.md"
+  assert_clean "exempt spellings"
+
+  run_hook "${repo}" ./docs/page.md
+  assert_violations 1 "a checked page spelled with ./"
+  assert_err_has "docs/page.md: 151 lines exceeds the 150 line cap" "canonical path in the report"
+  pass
+}
+
 test_a_clean_page_passes() {
   local repo
   repo="$(make_repo clean)"
@@ -725,6 +747,7 @@ test_an_argument_that_is_not_a_file_is_a_violation
 test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not
 test_agent_instruction_files_are_exempt_by_exact_name
 test_drafts_the_manual_and_test_fixtures_are_exempt_by_directory
+test_an_exempt_path_is_matched_however_it_is_spelled
 test_a_clean_page_passes
 test_the_line_cap_is_150
 test_the_line_cap_counts_an_unterminated_last_line

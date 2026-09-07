@@ -340,7 +340,11 @@ _: {
             }
 
             check_file() {
-              local path=$1
+              local path
+              # ./docs/x.md, docs/./x.md and an absolute path all open the same
+              # file after the cd above; is_exempt and the index cap skip match
+              # the root-relative spelling, so every argument is reduced to it.
+              path=$(realpath -ms --relative-to="$root" "$1")
               # The cd above makes every argument root-relative, so a path typed
               # from a subdirectory, or a typo, would otherwise check nothing
               # and pass. Checked before the exemption so a typo under tests/
