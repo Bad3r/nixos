@@ -520,6 +520,7 @@ let
       xh.extended.enable = lib.mkOverride 1100 true;
       xkcdpass.extended.enable = lib.mkOverride 1100 true;
       xkill.extended.enable = lib.mkOverride 1100 true;
+      xlsx2csv.extended.enable = lib.mkOverride 1100 true;
       xnlinkfinder.extended.enable = lib.mkOverride 1100 true;
       xsel.extended.enable = lib.mkOverride 1100 true;
       xwininfo.extended.enable = lib.mkOverride 1100 true;
