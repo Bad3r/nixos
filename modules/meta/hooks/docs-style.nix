@@ -111,9 +111,13 @@ _: {
               ' "$1" >"$2"
             }
 
-            # Blanks the target of a `](target)` inline link and of a
-            # `[label]: target` reference-style link definition, so a dated or
-            # otherwise phrase-matching URL never trips the banned-phrase scan.
+            # Blanks the target of a `](target)` inline link, of a
+            # `[label]: target` reference-style link definition, of a GFM
+            # autolink, and of a bare scheme://... URL in prose, so a dated
+            # or otherwise phrase-matching URL never trips the banned-phrase
+            # scan wherever it appears. A reference-style label starting
+            # with `^` is a footnote definition, not a link reference, and
+            # is left alone.
             strip_link_targets() {
               awk '
                 {
@@ -124,16 +128,20 @@ _: {
                     line = substr(line, RSTART + RLENGTH)
                   }
                   out = out line
-                  if (match(out, /^[ ]{0,3}\[[^]]+\]:[ \t]+/)) {
+                  if (match(out, /^[ ]{0,3}\[[^]^][^]]*\]:[ \t]+/)) {
                     out = substr(out, 1, RLENGTH)
                   }
+                  gsub(/<[A-Za-z][A-Za-z0-9+.-]*:[^ \t<>]*>/, "<>", out)
+                  gsub(/[A-Za-z][A-Za-z0-9+.-]*:\/\/[^ \t]*/, "", out)
                   print out
                 }
               ' "$1" >"$2"
             }
 
             # Prints "lineno<TAB>target" for every `](target)` inline link and
-            # every `[label]: target` reference-style link definition.
+            # every `[label]: target` reference-style link definition. A
+            # label starting with `^` is a footnote definition, not a link
+            # reference, and is skipped.
             extract_link_targets() {
               awk '
                 {
@@ -144,9 +152,9 @@ _: {
                     line = substr(line, RSTART + RLENGTH)
                   }
                 }
-                $0 ~ /^[ ]{0,3}\[[^]]+\]:[ \t]+[^ \t]/ {
+                $0 ~ /^[ ]{0,3}\[[^]^][^]]*\]:[ \t]+[^ \t]/ {
                   rest = $0
-                  sub(/^[ ]{0,3}\[[^]]+\]:[ \t]+/, "", rest)
+                  sub(/^[ ]{0,3}\[[^]^][^]]*\]:[ \t]+/, "", rest)
                   match(rest, /^[^ \t]+/)
                   print NR "\t" substr(rest, RSTART, RLENGTH)
                 }
@@ -224,9 +232,12 @@ _: {
               printf '%s' "$target"
             }
 
+            # A URI scheme is case-insensitive (RFC 3986); lowercase first so
+            # HTTPS://... is skipped the same as https://....
             is_skippable_target() {
-              case "$1" in
-              http://* | https://* | mailto:* | tel:* | \#*) return 0 ;;
+              local lower=''${1,,}
+              case "$lower" in
+              http://* | https://* | ftp://* | git://* | ssh://* | mailto:* | tel:* | //* | \#*) return 0 ;;
               *) return 1 ;;
               esac
             }
