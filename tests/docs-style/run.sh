@@ -88,14 +88,15 @@ write_page() {
   cat >"${repo}/${path}"
 }
 
-# Writes a page of exactly $2 lines; with a third argument the last line has
-# no newline.
+# Writes a page of exactly $2 lines, creating its directory on the way; with a
+# third argument the last line has no newline.
 write_lines() {
   local path="$1"
   local count="$2"
   local unterminated="${3:-}"
   local i
 
+  mkdir -p "$(dirname "${path}")"
   {
     for ((i = 1; i < count; i++)); do
       printf 'line %d\n' "${i}"
@@ -172,10 +173,70 @@ test_an_argument_that_is_not_a_file_is_a_violation() {
   repo="$(make_repo not-a-file)"
   mkdir -p "${repo}/docs/guides"
 
-  run_hook "${repo}" docs/missing.md docs/guides
-  assert_violations 2 "not a file"
+  run_hook "${repo}" docs/missing.md docs/guides tests/typo.md
+  assert_violations 3 "not a file"
   assert_err_has "docs-style: not a file: docs/missing.md" "missing file"
   assert_err_has "docs-style: not a file: docs/guides" "directory"
+  # The file check runs ahead of the exemption, so a typo under an exempt
+  # prefix is loud as well.
+  assert_err_has "docs-style: not a file: tests/typo.md" "exempt prefix"
+  pass
+}
+
+# --- exempt paths ----------------------------------------------------------
+
+# The match lives in the hook rather than in a pre-commit exclude so it can be
+# pinned here: an anchor lost from a pattern, or a prefix widened, shows up as
+# a page skipped when it should be checked or checked when it should be
+# skipped. Each fixture is over the cap, so being checked is visible.
+
+# Only the root README.md is generated; the ones under docs/ are hand-written
+# index pages, and a basename match once exempted all of them.
+test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not() {
+  local repo
+  repo="$(make_repo readme)"
+  write_lines "${repo}/README.md" 151
+  write_lines "${repo}/docs/README.md" 151
+  write_lines "${repo}/docs/architecture/README.md" 151
+
+  run_hook "${repo}" README.md
+  assert_clean "root README"
+
+  run_hook "${repo}" docs/README.md docs/architecture/README.md
+  assert_violations 2 "docs READMEs"
+  pass
+}
+
+test_agent_instruction_files_are_exempt_by_exact_name() {
+  local repo
+  repo="$(make_repo agent-files)"
+  write_lines "${repo}/CLAUDE.md" 151
+  write_lines "${repo}/AGENTS.md" 151
+  write_lines "${repo}/docs/AGENTS.md" 151
+  write_lines "${repo}/docs/claude-code/CLAUDE.md" 151
+  write_lines "${repo}/docs/claude-code/writing-CLAUDE.md" 151
+
+  run_hook "${repo}" CLAUDE.md AGENTS.md docs/AGENTS.md docs/claude-code/CLAUDE.md
+  assert_clean "instruction files"
+
+  run_hook "${repo}" docs/claude-code/writing-CLAUDE.md
+  assert_violations 1 "a page named after one"
+  pass
+}
+
+test_drafts_and_test_fixtures_are_exempt_by_directory() {
+  local repo
+  repo="$(make_repo drafts)"
+  write_lines "${repo}/docs/drafts/plan.md" 151
+  write_lines "${repo}/docs/drafts/nested/plan.md" 151
+  write_lines "${repo}/tests/suite/fixture.md" 151
+  write_lines "${repo}/docs/drafts.md" 151
+
+  run_hook "${repo}" docs/drafts/plan.md docs/drafts/nested/plan.md tests/suite/fixture.md
+  assert_clean "exempt directories"
+
+  run_hook "${repo}" docs/drafts.md
+  assert_violations 1 "a page beside the directory"
   pass
 }
 
@@ -617,6 +678,9 @@ PAGE
 
 test_no_arguments_exits_zero
 test_an_argument_that_is_not_a_file_is_a_violation
+test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not
+test_agent_instruction_files_are_exempt_by_exact_name
+test_drafts_and_test_fixtures_are_exempt_by_directory
 test_a_clean_page_passes
 test_the_line_cap_is_150
 test_the_line_cap_counts_an_unterminated_last_line
