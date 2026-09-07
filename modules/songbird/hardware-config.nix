@@ -51,7 +51,7 @@ _: {
 
         # flake.nixosModules.bluetooth (hosts-common) enables the controller
         # (btintel over USB); this adds the kernel-side experimental features
-        # system76 also carries for BLE battery reporting.
+        # for BLE battery reporting.
         bluetooth.settings.General.KernelExperimental = true;
 
         # Explicit firmware set, verified against the drivers the stock install

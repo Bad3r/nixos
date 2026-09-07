@@ -3,7 +3,7 @@ _: {
     # Shared fleet composition lives in modules/hosts/common/imports.nix,
     # including nixos-hardware's common-cpu-intel-cpu-only profile. This is a
     # desktop board (ASUS ROG Maximus Z890 Hero) with no vendor NixOS module,
-    # so unlike system76 there is nothing chassis-specific to import; the file
+    # so there is nothing chassis-specific to import; the file
     # carries only host-specific enables.
 
     # No programs block: steam and rip are already on in the common baseline,
