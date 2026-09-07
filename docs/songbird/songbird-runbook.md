@@ -4,9 +4,9 @@ Windows procedures are in [songbird-runbook-windows.md](songbird-runbook-windows
 
 ## Reinstall NixOS on disk A
 
-Precondition: a NixOS installer image is booted, with network access.
+Precondition: a NixOS installer image is booted with network access, and the shell is root (`sudo -i`).
 
-1. Partition, encrypt, and format disk A:
+1. Partition, encrypt, and format disk A, giving both `luksFormat` prompts one passphrase so the initrd opens every volume from a single prompt:
 
    ```sh
    DISK=/dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489
@@ -14,6 +14,7 @@ Precondition: a NixOS installer image is booted, with network access.
    sgdisk -n1:0:+1GiB  -t1:ef00 -c1:ESP        "$DISK"
    sgdisk -n2:0:-51GiB -t2:8309 -c2:cryptroot  "$DISK"
    sgdisk -n3:0:0      -t3:8309 -c3:cryptswap  "$DISK"
+   udevadm settle
    cryptsetup luksFormat --type luks2 "$DISK-part2"
    cryptsetup luksFormat --type luks2 "$DISK-part3"
    cryptsetup open "$DISK-part2" cryptroot
@@ -64,6 +65,7 @@ Precondition: disk A holds the installer's stock configuration, with `secrets/` 
 3. Home Manager moves any pre-existing `$HOME` file it manages aside with the `.hm.bk` backup extension rather than failing activation.
 
 Verification: reboot; the initrd asks for the root passphrase once, and `cryptroot`, `cryptswap`, and `data` all open from that single prompt.
+A `data` volume keyed to an older passphrase prompts again until the key-slot procedure below adds the new one.
 
 ## Install the age identity and secrets
 
@@ -95,7 +97,7 @@ systemctl status r2-runtime-paths.service
 
 ## Give a replacement /data volume the root passphrase key slot
 
-Precondition: the replacement volume is LUKS2 formatted, with its device path recorded at `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
+Precondition: the replacement volume is LUKS2 formatted and holds an XFS filesystem (`sudo mkfs.xfs -L data /dev/mapper/data` with the container open), with its device path recorded at `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
 
 1. Add the root passphrase as an extra key slot:
 
@@ -105,7 +107,7 @@ Precondition: the replacement volume is LUKS2 formatted, with its device path re
 
    Authenticate with the volume's own passphrase, then enter the same passphrase used for `cryptroot` and `cryptswap` as the new key.
 
-Verification: reboot; the initrd's single passphrase prompt opens `cryptroot`, `cryptswap`, and `data` with no second prompt.
+Verification: reboot; the initrd's single passphrase prompt opens `cryptroot`, `cryptswap`, and `data` with no second prompt, and `findmnt /data` shows the xfs mount.
 
 ## Validate a host change
 
