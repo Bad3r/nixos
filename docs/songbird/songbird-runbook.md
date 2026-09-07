@@ -35,34 +35,33 @@ Precondition: a NixOS installer image is booted with network access, and the she
    The vfat UUID goes to `fileSystems."/boot".device` and the two `crypto_LUKS` UUIDs to `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device` in `modules/songbird/hardware-config.nix`.
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
 
-4. Re-harvest the host id:
-
-   ```sh
-   head -c 8 /etc/machine-id
-   ```
-
-   Copy the output into `modules/songbird/host-id.nix` as `networking.hostId`.
-
 Verification: `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
 
 ## First switch after a reinstall
 
-Precondition: disk A holds the installer's stock configuration, with `secrets/` uninitialized.
+Precondition: disk A boots the installer's stock configuration, with no checkout on it.
 
-1. Leave the `secrets/` submodule uninitialized until the age identity exists.
-   Every `sops` declaration guards on the encrypted file's presence, so a secretless checkout still evaluates and activates.
-
-2. From the linked worktree, build and stage the first generation:
+1. Clone the repository without `--recurse-submodules` and read the host id the first boot generated:
 
    ```sh
-   nix shell nixpkgs#git nixpkgs#nh -c ./build.sh -t songbird --boot
+   nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git -c git clone https://github.com/Bad3r/nixos ~/nixos
+   head -c 8 /etc/machine-id
    ```
 
-   `nix shell nixpkgs#git` supplies `git`, since the installer image ships none and both the Nix git fetcher and the secrets guard shell out to it.
-   `-t songbird` is required because `build.sh` defaults the target to `$(hostname)`, still `nixos` under the installer's configuration.
-   `--boot` installs the generation for the next reboot instead of switching the running installer session live.
+   `secrets/` stays uninitialized until the age identity exists; every `sops` declaration guards on the encrypted file's presence, so a secretless checkout still evaluates and activates.
+   The id goes into `modules/songbird/host-id.nix` as `networking.hostId`; the installer image carries a different one.
 
-3. Home Manager moves any pre-existing `$HOME` file it manages aside with the `.hm.bk` backup extension rather than failing activation.
+2. Build and stage the first generation:
+
+   ```sh
+   cd ~/nixos
+   nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh -t songbird --boot
+   ```
+
+   `nix shell nixpkgs#git` supplies `git`, since the stock system ships none and both the Nix git fetcher and the secrets guard shell out to it.
+   The stock configuration enables no experimental features, so the flag carries `nix shell` until `modules/base/nix-settings.nix` lands; `build.sh` bootstraps its own Nix commands.
+   `-t songbird` is required because `build.sh` defaults the target to `$(hostname)`, still `nixos` under the stock configuration.
+   `--boot` installs the generation for the next reboot instead of switching the running session live, and Home Manager moves any pre-existing `$HOME` file it manages aside with the `.hm.bk` extension rather than failing activation.
 
 Verification: reboot; the initrd asks for the root passphrase once, and `cryptroot`, `cryptswap`, and `data` all open from that single prompt.
 A `data` volume keyed to an older passphrase prompts again until the key-slot procedure below adds the new one.
@@ -80,7 +79,9 @@ Precondition: songbird is running this repository's configuration, with `secrets
    git submodule update --init --recursive
    ```
 
-3. Rebuild with the secrets submodule present:
+3. Replace the stale host key pin in `modules/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
+
+4. Rebuild with the secrets submodule present:
 
    ```sh
    ./build.sh
@@ -93,7 +94,7 @@ ls /run/secrets
 systemctl status r2-runtime-paths.service
 ```
 
-`ls /run/secrets` lists the host secrets, and `r2-runtime-paths.service` shows the `/data` tree in place.
+`ls /run/secrets` lists the host secrets, `r2-runtime-paths.service` shows the `/data` tree in place, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
 
 ## Give the /data volume the root passphrase key slot
 
@@ -138,8 +139,6 @@ Precondition: the change sits in a linked worktree.
    ```sh
    nix run path:.#generation-manager -- score
    ```
-
-   The generic form of this ladder is in the [Host Onboarding Runbook](../guides/host-onboarding.md), Validation ladder.
 
 Verification:
 

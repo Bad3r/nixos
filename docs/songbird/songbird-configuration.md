@@ -33,7 +33,8 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 
 ## Services
 
-- A Samba media share renders from a host secret, starts only on demand, and stays restricted to LAN hosts: [services.nix](../../modules/songbird/services.nix).
+- A Samba media share renders from a host secret and starts only on demand; `openFirewall` opens 139/445 on every interface, so the LAN restriction is Samba's own `hosts allow` and `hosts deny` pair, not a firewall scope: [services.nix](../../modules/songbird/services.nix).
+- Samba WSDD runs beside it with its own `openFirewall`, opening the WS-Discovery ports on every interface as well: [services.nix](../../modules/songbird/services.nix).
 - Coredump retention adds a local time bound on top of the shared baseline: [services.nix](../../modules/songbird/services.nix).
 - cloudflared runs as a tunnel service, beyond the CLI package the baseline installs: [services.nix](../../modules/songbird/services.nix).
 - Cloudflare WARP runs headless as a service, beyond the CLI package the baseline installs: [services.nix](../../modules/songbird/services.nix).
