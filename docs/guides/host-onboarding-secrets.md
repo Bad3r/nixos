@@ -39,11 +39,13 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true`.
 
 4. Push the secrets submodule commit before opening a PR or running `nix flake check` elsewhere.
 
-5. Switch the host so sops-nix installs the secrets:
+5. On the new host, switch it so sops-nix installs the secrets:
 
    ```sh
    ./build.sh --host <host>
    ```
+
+   `build.sh` hands the name to `nh os switch -H <host>`, which activates on the machine it runs on; from any other machine this step switches that machine into `<host>`'s configuration.
 
 6. Confirm every source path in the shared `secrets/duplicati-config.json` manifest exists on this host.
    `sopsRuntimeReady = true` enables `services.duplicati-r2` against that one manifest, and its generator checks that a target names a path, not that the path exists here.
@@ -63,9 +65,12 @@ Precondition: the host has booted, so `/etc/ssh/ssh_host_ed25519_key.pub` exists
    ```
 
    `modules/configurations/nixos.nix` throws when either side is set without the other.
-   Every `shareCommon` host, including this one, then carries every other fleet host's key in `/etc/ssh/ssh_known_hosts`, so the first connection between fleet hosts is never trust-on-first-use.
 
-Verification: `nix flake check path:. --accept-flake-config --no-build --offline` passes the check in `modules/configurations/nixos.nix` that throws on a `publicKey` with no matching `fleetHostKeys` pin.
+2. Switch every other `shareCommon` host so it picks up the new pin.
+   `/etc/ssh/ssh_known_hosts` is rendered at build time from `fleetHostKeys`, so a host that has not rebuilt still carries the old table.
+   For a new host that leaves the first connection trust-on-first-use; for a replaced key it fails with `REMOTE HOST IDENTIFICATION HAS CHANGED`.
+
+Verification: `nix flake check path:. --accept-flake-config --no-build --offline` passes the check in `modules/configurations/nixos.nix` that throws on a `publicKey` with no matching `fleetHostKeys` pin, and `ssh -o StrictHostKeyChecking=yes <host>` from another fleet host connects with no prompt.
 
 ## Hand off the primary role
 

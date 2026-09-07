@@ -41,15 +41,14 @@ Verification: `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapp
 
 Precondition: disk A boots the installer's stock configuration, with no checkout on it.
 
-1. Clone the repository without `--recurse-submodules` and read the host id the first boot generated:
+1. Clone the repository without `--recurse-submodules`:
 
    ```sh
    nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git -c git clone https://github.com/Bad3r/nixos ~/nixos
-   head -c 8 /etc/machine-id
    ```
 
    `secrets/` stays uninitialized until the age identity exists; every `sops` declaration guards on the encrypted file's presence, so a secretless checkout still evaluates and activates.
-   The id goes into `modules/songbird/host-id.nix` as `networking.hostId`; the installer image carries a different one.
+   The tree stays untouched until the switch below, since `build.sh` exits on an uncommitted change and the stock system carries no git identity to commit with.
 
 2. Build and stage the first generation:
 
@@ -80,6 +79,7 @@ Precondition: songbird is running this repository's configuration, with `secrets
    ```
 
 3. Replace the stale host key pin in `modules/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
+   Replace the host id in `modules/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit both; `build.sh` refuses an uncommitted tree.
 
 4. Rebuild with the secrets submodule present:
 
