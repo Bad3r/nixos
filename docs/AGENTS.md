@@ -75,7 +75,8 @@ There is no docs-only test framework. Validation is done through:
   phrases, and unresolved links and backticked paths; exempt for
   `README.md`, `docs/drafts/`, `docs/nixos-manual/`, `tests/`, and any
   `CLAUDE.md` or `AGENTS.md`; `docs/index.md` is exempt from the line cap
-  only
+  only; pinned to the pre-commit stage, so the `--hook-stage manual` sweep
+  skips it
 - flake checks
 - manual verification that referenced commands and paths still exist
 

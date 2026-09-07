@@ -82,6 +82,8 @@ _: {
               entry = "${config.packages.hook-docs-style}/bin/hook-docs-style";
               pass_filenames = true;
               files = "\\.md$";
+              # pre-commit only: the manual sweep passes every tracked page, not just staged ones.
+              stages = [ "pre-commit" ];
               excludes = [
                 "(^|/)README\\.md$"
                 "^docs/drafts/"
