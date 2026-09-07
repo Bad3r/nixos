@@ -232,14 +232,14 @@ _: {
               printf '%s' "$target"
             }
 
-            # A URI scheme is case-insensitive (RFC 3986); lowercase first so
-            # HTTPS://... is skipped the same as https://....
+            # RFC 3986 section 4.2: a leading path segment holding a colon reads
+            # as a scheme, so no relative reference starts with `<scheme>:`;
+            # the section 3.1 grammar covers every scheme without a list.
             is_skippable_target() {
-              local lower=''${1,,}
-              case "$lower" in
-              http://* | https://* | ftp://* | git://* | ssh://* | mailto:* | tel:* | //* | \#*) return 0 ;;
-              *) return 1 ;;
+              case "$1" in
+              //* | \#*) return 0 ;;
               esac
+              [[ $1 =~ ^[A-Za-z][A-Za-z0-9+.-]*: ]]
             }
 
             check_relative_links() {
