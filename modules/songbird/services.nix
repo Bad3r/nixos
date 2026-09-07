@@ -150,10 +150,6 @@ in
         # no platform to manage here.
         thermald.enable = false;
 
-        # System76 process scheduler for improved desktop responsiveness
-        # (hardware-agnostic: CFS latency tuning and foreground boosts).
-        system76-scheduler.enable = true;
-
         # LACT: GPU control and monitoring (power limits, fan curves, clocks)
         # over NVML for the RTX 5080.
         lact.enable = true;
