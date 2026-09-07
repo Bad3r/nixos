@@ -28,24 +28,21 @@ jobs:
       max-parallel: 1
       matrix:
         host:
-          - system76
+          - songbird
           - tpnix
     env:
       HOST: ${{ matrix.host }}
       REPORT: vulnix-report-${{ matrix.host }}.json
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v6
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v31
+        uses: actions/checkout@v7
         with:
-          install_url: https://releases.nixos.org/nix/nix-2.32.0/install
-          github_access_token: ${{ secrets.GITHUB_TOKEN }}
-          extra_nix_config: |
-            experimental-features = nix-command flakes pipe-operators
-            abort-on-warn = false
-            access-tokens = github.com=${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: false
+
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Prefer HTTPS for GitHub
         run: |
