@@ -389,6 +389,17 @@ _: {
               # file after the cd above; is_exempt and the index cap skip match
               # the root-relative spelling, so every argument is reduced to it.
               path=$(realpath -ms --relative-to="$root" -- "$1")
+              # An argument outside the tree normalizes to a ../ chain that -f
+              # still satisfies, and is then checked against the wrong root:
+              # every relative link in it resolves under ../, where nothing is
+              # tracked. Named as the one problem it is instead.
+              case "$path" in
+              .. | ../*)
+                echo "docs-style: outside the repository: $1" >&2
+                violations=$((violations + 1))
+                return 0
+                ;;
+              esac
               # The cd above makes every argument root-relative, so a path typed
               # from a subdirectory, or a typo, would otherwise check nothing
               # and pass. Checked before the exemption so a typo under tests/

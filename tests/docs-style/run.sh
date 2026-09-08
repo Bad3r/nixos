@@ -194,6 +194,32 @@ test_an_argument_that_is_not_a_file_is_a_violation() {
   pass
 }
 
+# The hook is also on the dev shell PATH under its own name, reachable from
+# any cwd; realpath -ms normalizes an out-of-tree argument to a ../ chain
+# that -f still satisfies, so the page was checked against this repo's
+# index, where nothing under ../ is ever tracked, and every link on it
+# reported dead instead of one clear diagnosis.
+test_a_path_outside_the_repository_is_one_report() {
+  local repo other
+  repo="$(make_repo outside-here)"
+  other="$(make_repo outside-there)"
+  write_page "${other}" docs/hardware.md <<'PAGE'
+# Hardware
+PAGE
+  write_page "${other}" docs/page.md <<'PAGE'
+# Page
+
+A [link](hardware.md) to a page in the same directory.
+PAGE
+  git -C "${other}" add -A
+
+  run_hook "${repo}" "${other}/docs/page.md"
+  assert_violations 1 "outside the repository"
+  assert_err_has "docs-style: outside the repository: ${other}/docs/page.md" "outside the repository"
+  assert_err_lacks "does not resolve" "outside the repository"
+  pass
+}
+
 test_a_page_whose_name_starts_with_a_dash_is_checked() {
   local repo
   repo="$(make_repo dash-name)"
@@ -824,6 +850,7 @@ PAGE
 
 test_no_arguments_exits_zero
 test_an_argument_that_is_not_a_file_is_a_violation
+test_a_path_outside_the_repository_is_one_report
 test_a_page_whose_name_starts_with_a_dash_is_checked
 test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not
 test_agent_instruction_files_are_exempt_by_exact_name
