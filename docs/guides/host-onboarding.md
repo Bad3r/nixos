@@ -131,11 +131,12 @@ Precondition: the host boots through the ladder above.
    gh label create "host(<host>)" --color 5319E7 --description "Specific to the <host> host or its runtime contract."
    ```
 
-2. Add `<host>` to the pages that enumerate hosts by name:
-   `docs/index.md`, `docs/ONBOARDING.md`, `docs/architecture/01-pattern-overview.md`, `docs/architecture/03-nixos-modules.md`, `docs/architecture/04-home-manager.md`, and `docs/architecture/05-host-composition.md`.
+2. Add `<host>` to the fleet inventories in `docs/ONBOARDING.md`, `docs/architecture/01-pattern-overview.md`, `docs/architecture/04-home-manager.md`, and `docs/architecture/host-file-inventory.md`.
+   Add host-specific module exports to `docs/architecture/03-nixos-modules.md` only when the host introduces them.
+   If the host adds documentation pages, add its directory to `docs/architecture/README.md` and its pages to `docs/index.md`.
 
 3. No workflow edits are needed. `.github/workflows/check.yml` and `.github/workflows/update-flake.yml` derive the host list from `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`, so the new host is covered without touching either. `check.yml` only forces each host's `system.build.toplevel.drvPath` through `nix eval`, not `nix build --dry-run`, because Lix forces read-only store mode for `--dry-run` and that breaks eval-time store writes on the fresh runner; a compliance run proves the host evaluates to a derivation, not that its closure builds or substitutes. `update-flake.yml` is what builds each host closure, one at a time with `nix store gc` between hosts to respect runner disk.
 
-Verification: `gh label list --search 'host('` includes `host(<host>)`, and `rg -l -w <host> docs/` lists every page above.
+Verification: `gh label list --search 'host('` includes `host(<host>)`, and `rg -l -w <host> docs/` includes every applicable page named above.
 
 Install the age identity, provision secrets, pin the SSH host key, and hand off the primary role in [Host secrets and handoff](host-onboarding-secrets.md).
