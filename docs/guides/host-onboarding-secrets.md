@@ -40,7 +40,9 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true` and 
 4. Commit the new file inside the submodule (`git -C secrets add <host>.yaml && git -C secrets commit`), then push it with `git -C secrets push origin HEAD:main`, before opening a PR or running `nix flake check` elsewhere.
    `modules/git/git.nix` sets `signing.signByDefault` with 1Password's `op-ssh-sign` in the owner's global git config, so this submodule commit is signed too; sign in to 1Password on this host first, or make it with `git -C secrets -c commit.gpgsign=false commit`.
    `git submodule update --init` leaves `secrets/` on a detached HEAD, so a bare `git -C secrets push` exits with `You are not currently on a branch`; the explicit refspec is also what the verification below looks for.
-   Without that push the superproject still records the new gitlink in step 5, but no remote carries that submodule revision, so evaluation elsewhere fails with `Cannot find Git revision` and the verification below returns empty.
+   Without that push the superproject still records the new gitlink in step 5, but no remote carries that submodule revision.
+   `.gitmodules` gives `secrets` an absolute `https://github.com/Bad3r/secrets.git` URL, so the `git+file` reference that step 5 resolves fetches the submodule from that remote.
+   That fetch fails with `Cannot find Git revision` on this host too, not only elsewhere, and the verification below returns empty.
 
 5. On the new host, commit the `sopsRuntimeReady` flip, the new `sops.secrets` declarations, and the moved `secrets` gitlink, then switch so sops-nix installs the secrets:
 
