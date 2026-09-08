@@ -88,9 +88,11 @@ Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`
 `modules/songbird/services.nix` detaches `samba.target` from `multi-user.target`, so smbd, nmbd, and wsdd stay down until the target is started by hand.
 With the target running, the share itself is skipped with a warning when `secrets/songbird.yaml` is absent or `sopsRuntimeReady` in `modules/songbird/policy.nix` is false.
 A present file with no `samba_media_path` key fails activation instead, with `the key 'samba_media_path' cannot be found` in the switch output.
+A bare `$HOME/nixos` path resolves as `git+file:`, and `self.submodules = true` fetches `secrets/` from its remote regardless of whether this checkout ever ran `git submodule update --init`, so the warnings eval below can read `[ ]` even when the local file is absent; check the file directly first.
 
 ```sh
 systemctl is-active samba.target
+ls "$HOME/nixos/secrets/songbird.yaml"
 nix eval "$HOME/nixos#nixosConfigurations.songbird.config.warnings"
 ```
 
