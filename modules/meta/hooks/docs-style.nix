@@ -371,8 +371,10 @@ _: {
             }
 
             has_excluded_chars() {
-              run_grep -q -E '[*<>{}$?[:space:]]' <<<"$1"
-              [ "$grep_status" -eq 0 ]
+              case "$1" in
+              *"*"* | *"<"* | *">"* | *"{"* | *"}"* | *'$'* | *"?"* | *[[:space:]]*) return 0 ;;
+              esac
+              return 1
             }
 
             # Skips spans with a glob character, angle brackets, braces, a dollar
