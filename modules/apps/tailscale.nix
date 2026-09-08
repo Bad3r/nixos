@@ -20,17 +20,85 @@
     sshHostAlias: Host alias written to `~/.ssh/hosts/<alias>` when tailscale is enabled.
     sshHostName: HostName used in the generated SSH match block (IP or MagicDNS name).
       Defaults to the `tailnetIp` of the registry host marked `primary` in
-      `flake.lib.nixos.hosts`, so a primary-host handoff changes registry data
-      rather than this module. Hosts must switch before the generated alias changes.
+      `flake.lib.nixos.hosts`. At most one host may be primary; no primary leaves
+      the default null. Hosts must switch before the generated alias changes.
 */
 { config, lib, ... }:
 let
   fleetHosts = config.flake.lib.nixos.hosts or { };
-  primaryTailnetIp = lib.findFirst (ip: ip != null) null (
-    lib.mapAttrsToList (_: host: host.tailnetIp or null) (
-      lib.filterAttrs (_: host: host.primary or false) fleetHosts
-    )
-  );
+  primaryHostNamesOf =
+    hosts: builtins.attrNames (lib.filterAttrs (_: host: host.primary or false) hosts);
+  duplicatePrimaryMessage =
+    names:
+    "flake.lib.nixos.hosts marks multiple primary hosts: ${lib.concatStringsSep ", " names}; at most one host may set primary = true";
+  primaryTailnetIpOf =
+    hosts:
+    let
+      primaryHostNames = primaryHostNamesOf hosts;
+    in
+    if builtins.length primaryHostNames > 1 then
+      throw (duplicatePrimaryMessage primaryHostNames)
+    else if primaryHostNames == [ ] then
+      null
+    else
+      hosts.${builtins.head primaryHostNames}.tailnetIp or null;
+  primaryHostNames = primaryHostNamesOf fleetHosts;
+  primaryTailnetIp = primaryTailnetIpOf fleetHosts;
+  primaryTailnetIpTests = [
+    {
+      name = "no primary host";
+      hosts = { };
+      expected = null;
+    }
+    {
+      name = "one primary host";
+      hosts.alpha = {
+        primary = true;
+        tailnetIp = "100.64.0.1";
+      };
+      expected = "100.64.0.1";
+    }
+    {
+      name = "one primary host without an address";
+      hosts.alpha.primary = true;
+      expected = null;
+    }
+    {
+      name = "two addressed primary hosts";
+      hosts = {
+        alpha = {
+          primary = true;
+          tailnetIp = "100.64.0.1";
+        };
+        beta = {
+          primary = true;
+          tailnetIp = "100.64.0.2";
+        };
+      };
+      expectFailure = true;
+    }
+    {
+      name = "two primary hosts with one address";
+      hosts = {
+        alpha = {
+          primary = true;
+          tailnetIp = "100.64.0.1";
+        };
+        beta.primary = true;
+      };
+      expectFailure = true;
+    }
+  ];
+  primaryTailnetIpTestFailures = lib.filter (
+    test:
+    let
+      result = builtins.tryEval (primaryTailnetIpOf test.hosts);
+    in
+    if test.expectFailure or false then
+      result.success
+    else
+      !result.success || result.value != test.expected
+  ) primaryTailnetIpTests;
   TailscaleModule =
     {
       config,
@@ -81,26 +149,53 @@ let
           description = ''
             SSH HostName for the tailscale host entry (IP or MagicDNS name).
             Defaults to the tailnetIp of the flake.lib.nixos.hosts entry marked
-            primary; null skips the generated ~/.ssh/hosts alias.
+            primary. At most one host may be primary; no primary leaves this
+            null and skips the generated ~/.ssh/hosts alias.
           '';
         };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+      config = lib.mkMerge [
+        {
+          assertions = [
+            {
+              assertion = builtins.length primaryHostNames <= 1;
+              message = duplicatePrimaryMessage primaryHostNames;
+            }
+          ];
+        }
+        (lib.mkIf cfg.enable {
+          environment.systemPackages = [ cfg.package ];
 
-        services.tailscale = lib.mkMerge [
-          {
-            enable = true;
-            inherit (cfg) package interfaceName extraSetFlags;
-          }
-          (lib.mkIf (cfg.authKeyFile != null) {
-            inherit (cfg) authKeyFile;
-          })
-        ];
-      };
+          services.tailscale = lib.mkMerge [
+            {
+              enable = true;
+              inherit (cfg) package interfaceName extraSetFlags;
+            }
+            (lib.mkIf (cfg.authKeyFile != null) {
+              inherit (cfg) authKeyFile;
+            })
+          ];
+        })
+      ];
     };
 in
 {
   flake.nixosModules.apps.tailscale = TailscaleModule;
+
+  perSystem =
+    { pkgs, ... }:
+    {
+      checks."apps/tailscale-primary-host" =
+        assert builtins.deepSeq primaryTailnetIp true;
+        if primaryTailnetIpTestFailures != [ ] then
+          throw (
+            "apps/tailscale-primary-host failed: "
+            + lib.concatStringsSep ", " (map (test: test.name) primaryTailnetIpTestFailures)
+          )
+        else
+          pkgs.runCommandLocal "tailscale-primary-host-ok" { } ''
+            echo "ok: ${toString (builtins.length primaryTailnetIpTests)} primary-host cases" > $out
+          '';
+    };
 }

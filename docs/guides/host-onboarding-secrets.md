@@ -86,7 +86,7 @@ Precondition: this host replaces the current primary fleet endpoint.
 
 1. Move `primary = true` and `tailnetIp` from the outgoing primary host's `policy.nix` to this host's `policy.nix`.
 
-   `programs.tailscale.extended.sshHostName` in `modules/apps/tailscale.nix` defaults to the `tailnetIp` of whichever registry host is marked `primary`. Moving those keys is the only source edit required.
+   `programs.tailscale.extended.sshHostName` in `modules/apps/tailscale.nix` defaults to the `tailnetIp` of whichever registry host is marked `primary`. Moving those keys is the only source edit required; evaluation names and rejects duplicate primary entries.
 
 2. Switch every host that carries the fleet SSH config. With the current common baseline, this is every `shareCommon` host, including the incoming and outgoing primary. `modules/networking/ssh-hosts.nix` renders `~/.ssh/hosts/tailscale` at build time, so an unswitched host retains the outgoing primary's address.
 
