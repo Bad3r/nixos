@@ -92,6 +92,13 @@ in
         ] false osConfig;
       in
       {
+        # Sourced after /etc/set-environment, whose gpg-agent export fills only an
+        # empty SSH_AUTH_SOCK; clients that skip ssh_config (ssh-add, libssh2) then
+        # reach 1Password too.
+        home.sessionVariables = lib.mkIf onePasswordSshAgentEnabled {
+          SSH_AUTH_SOCK = "${homeDirectory}/.1password/agent.sock";
+        };
+
         programs.ssh = {
           enable = true;
           enableDefaultConfig = false;
