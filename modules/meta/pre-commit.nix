@@ -75,6 +75,20 @@ _: {
               files = "\\.nix$";
             };
 
+            docs-style = {
+              enable = true;
+              name = "docs-style";
+              description = "Check staged Markdown against docs/technical-writing/style-guide.md.";
+              entry = "${config.packages.hook-docs-style}/bin/hook-docs-style";
+              pass_filenames = true;
+              files = "\\.md$";
+              # pre-commit only: the manual sweep passes every tracked page, not just staged ones.
+              stages = [ "pre-commit" ];
+              # Exempt paths are matched inside the hook, where tests/docs-style
+              # pins them; the repo-wide docs/nixos-manual exclude above serves
+              # the other hooks.
+            };
+
             luacheck = {
               enable = true;
               entry = "${config.packages.hook-luacheck}/bin/hook-luacheck";

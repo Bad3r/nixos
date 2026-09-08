@@ -11,7 +11,9 @@
 _:
 let
   # Each suite resolves its subject relative to its own directory, so `dest` is
-  # the path under the build root that the harness expects to find.
+  # the path under the build root that the harness expects to find. A subject
+  # that is a flake package rather than a file in the tree goes in `packages`,
+  # which puts it on the suite's PATH.
   #
   # extraInputs declares every external the harness or its subjects invoke past
   # the bash/coreutils/git floor below. stdenv puts gnused, gnugrep and gawk on
@@ -116,6 +118,20 @@ let
         pkgs.jq
         pkgs.gnused
       ];
+    };
+    docs-style = {
+      dir = ../../tests/docs-style;
+      # The hook reads the phrase list from the tree at run time, so the list
+      # is a subject: a pattern grep -E rejects fails here, not on the next
+      # commit.
+      subjects = [
+        {
+          src = ../../docs/technical-writing/banned-phrases.txt;
+          dest = "docs/technical-writing/banned-phrases.txt";
+        }
+      ];
+      packages = config: [ config.packages.hook-docs-style ];
+      extraInputs = pkgs: [ pkgs.gnugrep ];
     };
   };
 in
@@ -226,6 +242,58 @@ in
             fi
             touch "$out"
           '';
+      # The docs-style suite runs the wrapper, but on a PATH that already
+      # carries bash, coreutils, git and stdenv's gawk and grep, so an entry
+      # dropped from its runtimeInputs leaves every case green while the hook
+      # fails for a user whose ambient PATH lacks that tool.
+      docsStyleWrapperInputsCheck =
+        pkgs.runCommand "script-tests-docs-style-wrapper-inputs"
+          {
+            nativeBuildInputs = [ pkgs.git ];
+          }
+          ''
+            export HOME="$PWD/home"
+            mkdir -p "$HOME/repo/docs/technical-writing"
+            git -C "$HOME/repo" init -q -b main
+            printf '%s\n' '\bfixture-phrase\b' >"$HOME/repo/docs/technical-writing/banned-phrases.txt"
+            : >"$HOME/repo/docs/other.md"
+            # A link and a backticked path reach realpath and the index
+            # snapshot; the prose reaches every awk parser and the grep scan.
+            printf '%s\n' '# Page' "" 'A [link](other.md) and `docs/other.md`.' >"$HOME/repo/docs/page.md"
+            printf '%s\n' '# Bad' "" 'A [dead link](gone.md).' >"$HOME/repo/docs/bad.md"
+            git -C "$HOME/repo" add docs
+
+            # PATH is scrubbed so only the wrapper supplies its tools.
+            cd "$HOME/repo"
+            env -i \
+              HOME="$HOME" \
+              TMPDIR="$HOME" \
+              PATH=/nonexistent \
+              ${config.packages.hook-docs-style}/bin/hook-docs-style docs/page.md
+
+            # Exit 0 alone cannot tell a full run from an early return through
+            # is_exempt or the file check, both ahead of every awk call, so a
+            # second run has to reach the parsers and report through them.
+            rc=0
+            env -i \
+              HOME="$HOME" \
+              TMPDIR="$HOME" \
+              PATH=/nonexistent \
+              ${config.packages.hook-docs-style}/bin/hook-docs-style docs/bad.md \
+              2>stderr.log || rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "expected exit 1 from the dead link, got $rc" >&2
+              cat stderr.log >&2
+              exit 1
+            fi
+            if ! grep -q 'docs/bad.md:3: relative link target does not resolve: gone.md' stderr.log; then
+              echo "the hook exited 1 without reporting through its parsers" >&2
+              cat stderr.log >&2
+              exit 1
+            fi
+            touch "$out"
+          '';
+
       # The minimum set named in secrets_guard_paths is the guard's coupling to
       # modules/development/gitignore.nix, and every other fixture that reaches
       # the parser is a hand-written copy of the block, so the suite passes
@@ -294,10 +362,12 @@ in
       # util-linux from it leaves every case passing while the wrapper fails at
       # the flock call for any user whose ambient PATH lacks it. The
       # cache-coverage wrapper carries the same exposure through the guard text
-      # prepended to it, whose tools no suite reaches either.
+      # prepended to it, whose tools no suite reaches either, and the
+      # docs-style wrapper through the PATH its suite runs on.
       checks = {
         script-tests-prune-old-stashes-wrapper-inputs = wrapperInputsCheck;
         script-tests-cache-coverage-wrapper-inputs = cacheCoverageWrapperInputsCheck;
+        script-tests-docs-style-wrapper-inputs = docsStyleWrapperInputsCheck;
         script-tests-secrets-guard-gitignore-contract = gitignoreContractCheck;
       }
       // lib.mapAttrs' (
@@ -311,7 +381,8 @@ in
                   coreutils
                   git
                 ])
-                ++ suite.extraInputs pkgs;
+                ++ suite.extraInputs pkgs
+                ++ (suite.packages or (_: [ ])) config;
             }
             ''
               mkdir -p tests
@@ -319,8 +390,10 @@ in
               ${lib.concatMapStringsSep "\n" (s: ''
                 install -Dm755 ${s.src} ${s.dest}
               '') suite.subjects}
-              # No /usr/bin/env in the build sandbox.
-              patchShebangs ${lib.concatMapStringsSep " " (s: s.dest) suite.subjects}
+              ${lib.optionalString (suite.subjects != [ ]) ''
+                # No /usr/bin/env in the build sandbox.
+                patchShebangs ${lib.concatMapStringsSep " " (s: s.dest) suite.subjects}
+              ''}
               export HOME="$PWD/home"
               mkdir -p "$HOME"
               bash tests/${name}/run.sh

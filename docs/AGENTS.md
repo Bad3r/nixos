@@ -7,8 +7,8 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 - `architecture/`: canonical design docs for module system and composition.
 - `guides/`, `usage/`, `reference/`: task-oriented instructions and reference material.
 - `nixos-manual/`: mirrored upstream NixOS manual sources.
-- `technical-writing/`: style guidance for documentation structure,
-  examples, review, and lifecycle.
+- `technical-writing/`: the documentation style guide and the writing
+  rules that support it.
 - Host and domain folders (for example `cloudflare/`, `songbird/`,
   `duplicati/`, `mpv/`, `r2-cloud/`, `sops/`, `usbguard/`):
   host-specific and product-specific docs.
@@ -63,15 +63,20 @@ nix develop path:. -c pre-commit run --all-files --hook-stage manual
 ```
 
 Prefer lowercase, hyphenated filenames (for example `module-discovery.md`). Use backticks for commands, paths, options, and identifiers.
-Follow the local technical-writing guidance for new or substantially rewritten
-pages, especially `technical-writing/drafting.md` and
-`technical-writing/code-samples.md`.
+Every hand-written page follows `technical-writing/style-guide.md`; its
+rules win over the older pages in that folder.
 
 ## Testing Guidelines
 
 There is no docs-only test framework. Validation is done through:
 
 - pre-commit hooks
+- `docs-style`, which checks staged Markdown for the 150-line cap, banned
+  phrases, and unresolved links and backticked paths; exempt for the
+  generated root `README.md`, `docs/drafts/`, `docs/nixos-manual/`, `tests/`,
+  and any `CLAUDE.md` or `AGENTS.md`; `docs/index.md` is exempt from the line cap
+  only; pinned to the pre-commit stage, so the `--hook-stage manual` sweep
+  skips it
 - flake checks
 - manual verification that referenced commands and paths still exist
 
