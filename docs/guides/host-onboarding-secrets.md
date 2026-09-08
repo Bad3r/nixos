@@ -46,6 +46,7 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true` and 
    ./build.sh --host <host>
    ```
 
+   `modules/git/git.nix` signs every commit through 1Password's `op-ssh-sign`; sign in to 1Password on this host first, or make this commit with `git -c commit.gpgsign=false commit`.
    `build.sh` hands the name to `nh os switch -H <host>`, which activates on the machine it runs on; from any other machine this step switches that machine into `<host>`'s configuration.
    A linked worktree takes the `path:` reference on its own; a primary checkout resolves the bare `git+file` reference and keeps `self.rev`, since step 1 already fetched the private submodule through the `gh` credential helper and this step's commit leaves the tree clean.
 

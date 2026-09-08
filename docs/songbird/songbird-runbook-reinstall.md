@@ -98,6 +98,7 @@ The stock configuration has only root, so the clone above sits at `/root/nixos`;
 
 3. Replace the stale host key pin in `modules/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
    Replace the host id in `modules/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit the pin, the id, and the UUID edit; `build.sh` refuses an uncommitted tree.
+   `modules/git/git.nix` signs every commit through 1Password's `op-ssh-sign`, which has no signed-in app behind it on a machine this fresh, so sign in to 1Password first or make this commit with `git -c commit.gpgsign=false commit`.
    Push that commit before step 4 so the other fleet hosts can reach it: their `/etc/ssh/ssh_known_hosts` is rendered from `fleetHostKeys` at build time, and until they switch onto the new pin `ssh songbird` fails there with `REMOTE HOST IDENTIFICATION HAS CHANGED`.
 
 4. Rebuild with the secrets submodule present:
