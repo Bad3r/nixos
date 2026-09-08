@@ -59,7 +59,6 @@ let
     "tealdeer"
     "thunderbird"
     "tridactyl"
-    "tree"
     "usbguard-notifier"
     "uv"
     "vscode"
