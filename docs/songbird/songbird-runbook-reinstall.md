@@ -36,6 +36,7 @@ Precondition: a NixOS installer image is booted with network access, and the she
    ```
 
    `nixos-install` prompts for a root password at the end; the owner account arrives with the first switch below.
+   Verification: before rebooting, `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
    Then leave the live image; the first-switch section below runs on the installed system:
 
    ```sh
@@ -51,7 +52,7 @@ Precondition: a NixOS installer image is booted with network access, and the she
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
    The first-switch section below reads the three values and applies this edit in the clone before its build; a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
 
-Verification: `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
+The generated stock configuration opens `cryptroot` only: `nixos-generate-config` derives LUKS entries from mounted filesystems, so the swap-only `cryptswap` mapping stays closed until the first switch below.
 
 ## First switch after a reinstall
 
