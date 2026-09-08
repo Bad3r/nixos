@@ -51,7 +51,7 @@ Reboot; reloading the kernel module is the only way to clear the mismatch.
 Heavy parallel compilation on this non-ECC host can corrupt an in-flight compile, so gcc or clang exits with SIGILL or SIGSEGV instead of a normal diagnostic.
 
 ```sh
-nix build /nix/store/<hash>-<name>.drv^*
+nix build '/nix/store/<hash>-<name>.drv^*'
 ```
 
 Retry the exact derivation named in the failure.

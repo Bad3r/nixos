@@ -62,7 +62,7 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
 
    `secrets/` stays uninitialized until the age identity exists, and holding that through the build takes `--allow-dirty` on the command below.
    That flag selects the `path:` reference, whose per-file `builtins.pathExists` guards evaluate the secretless configuration as in CI; the bare `git+file` reference would pull the private secrets submodule, which this machine has no credentials for.
-   Apply the reinstall step's UUID edit to `modules/songbird/hardware-config.nix` in this clone now, before the build below.
+   Re-run the reinstall step's `blkid` against the disk-A partitions (`blkid /dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489-part{1,2,3}`) and apply its UUID edit to `modules/songbird/hardware-config.nix` in this clone now, before the build below.
    `--allow-dirty` also skips the clean-tree guard and `path:` reads the working tree, so that edit takes effect uncommitted; the stock system carries no git identity, and the secrets section commits it.
 
 2. Build and stage the first generation:

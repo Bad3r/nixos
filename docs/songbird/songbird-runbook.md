@@ -23,7 +23,7 @@ Precondition: the change sits in a linked worktree.
 Verification:
 
 - `lsblk -o NAME,FSTYPE,UUID` shows `cryptroot`, `cryptswap`, and `data` mapped.
-- `nvidia-smi` reports the GPU on the open kernel module.
+- `cat /proc/driver/nvidia/version` names the open kernel module, and `nvidia-smi` lists the GPU.
 - `ip -br link` shows `eth0`, `eth1`, and `wlan0`.
 - `powerprofilesctl get` reports `performance`.
 - `systemctl hibernate` round-trips, and `/portal` remounts on resume.
