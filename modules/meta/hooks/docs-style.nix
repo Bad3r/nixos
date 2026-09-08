@@ -69,7 +69,9 @@ _: {
                   if (in_fence && depth < fence_depth) { in_fence = 0 }
                   if (in_fence) {
                     print ""
-                    if (stripped ~ ("^" fence_char "{" fence_len ",}[ \t]*$")) { in_fence = 0 }
+                    # A close belongs to the depth its opening did: a quoted
+                    # fence shown inside a top-level one is content.
+                    if (depth == fence_depth && stripped ~ ("^" fence_char "{" fence_len ",}[ \t]*$")) { in_fence = 0 }
                     next
                   }
                   if (match(stripped, /^`{3,}/)) {

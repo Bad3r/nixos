@@ -442,6 +442,30 @@ PAGE
   pass
 }
 
+# A close belongs to the depth its opening did. With the quote markers
+# stripped before the close test, a quoted fence shown inside a top-level one
+# closed it early, the real close reopened a fence, and everything below was
+# blanked: a false negative that nothing surfaced.
+test_a_quoted_fence_shown_inside_a_fence_does_not_close_it() {
+  local repo
+  repo="$(make_repo nested-quoted-fence)"
+  write_page "${repo}" docs/page.md <<'PAGE'
+# Page
+
+```markdown
+> ```sh
+> echo hi
+> ```
+```
+Prose with a dead [link](gone.md) after.
+PAGE
+
+  run_hook "${repo}" docs/page.md
+  assert_violations 1 "nested quoted fence"
+  assert_err_has "docs/page.md:8: relative link target does not resolve: gone.md" "prose after the fence"
+  pass
+}
+
 # A span closes only on a backtick run of its opening length (CommonMark), so
 # a double run is one span, a single backtick inside it is text, and an
 # unmatched run is literal. Toggling on every backtick left the second and
@@ -812,6 +836,7 @@ test_the_index_skips_the_cap_only
 test_a_banned_phrase_in_prose_fails
 test_a_phrase_inside_a_fence_is_ignored
 test_a_fence_inside_a_blockquote_is_ignored
+test_a_quoted_fence_shown_inside_a_fence_does_not_close_it
 test_a_phrase_inside_a_code_span_is_ignored
 test_link_destinations_and_urls_are_not_scanned
 test_link_text_is_scanned
