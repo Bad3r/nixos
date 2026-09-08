@@ -67,11 +67,11 @@ let
         assertion = state.atMostOnePrimary;
         message = duplicatePrimaryMessage names;
       }
-      {
-        assertion = state.primaryHasTailnetIp;
-        message = invalidPrimaryAddressMessage state.primaryHostName;
-      }
-    ];
+    ]
+    ++ lib.optional (state.primaryHostName != null) {
+      assertion = state.primaryHasTailnetIp;
+      message = invalidPrimaryAddressMessage state.primaryHostName;
+    };
   primaryTailnetIpOf =
     hosts:
     let
@@ -204,16 +204,17 @@ let
     let
       resolverResult = builtins.tryEval (primaryTailnetIpOf test.hosts);
       assertions = primaryAssertionsOf test.hosts;
-      assertionState = {
-        primaryHostName = primaryHostNameOf test.hosts;
-        atMostOnePrimary = (builtins.elemAt assertions 0).assertion;
-        primaryHasTailnetIp = (builtins.elemAt assertions 1).assertion;
-      };
+      assertionState = primaryAssertionStateOf test.hosts;
       assertionResult = builtins.tryEval (builtins.deepSeq assertionState assertionState);
-      failedAssertionMessages =
-        assertions |> lib.filter (assertion: !assertion.assertion) |> map (assertion: assertion.message);
-      assertionMessagesResult = builtins.tryEval (
-        builtins.deepSeq failedAssertionMessages failedAssertionMessages
+      assertionValues = map (entry: entry.assertion) assertions;
+      expectedAssertionValues = [
+        test.expectedAssertionState.atMostOnePrimary
+      ]
+      ++ lib.optional (
+        test.expectedAssertionState.primaryHostName != null
+      ) test.expectedAssertionState.primaryHasTailnetIp;
+      assertionsResult = builtins.tryEval (
+        builtins.deepSeq assertions (builtins.deepSeq assertionValues assertionValues)
       );
       resolverFailures =
         if test.expectFailure or false then
@@ -229,11 +230,14 @@ let
         else
           lib.optional (assertionResult.value != test.expectedAssertionState)
             "${test.name}: assertion state got ${builtins.toJSON assertionResult.value}, expected ${builtins.toJSON test.expectedAssertionState}";
-      assertionMessageFailures = lib.optional (
-        !assertionMessagesResult.success
-      ) "${test.name}: failed assertion messages threw during evaluation";
+      assertionsFailures =
+        if !assertionsResult.success then
+          [ "${test.name}: emitted assertions threw during full evaluation" ]
+        else
+          lib.optional (assertionsResult.value != expectedAssertionValues)
+            "${test.name}: assertion values got ${builtins.toJSON assertionsResult.value}, expected ${builtins.toJSON expectedAssertionValues}";
     in
-    resolverFailures ++ assertionFailures ++ assertionMessageFailures
+    resolverFailures ++ assertionFailures ++ assertionsFailures
   ) primaryTailnetIpTests;
   TailscaleModule =
     {
