@@ -383,12 +383,12 @@ _: {
               while IFS=$'\t' read -r lineno span; do
                 [ -z "$lineno" ] && continue
                 # The suffixes come off before the match, since flake.nix and
-                # build.sh are exact arms that `flake.nix#nixConfig` or
-                # `build.sh:42` would otherwise slip past; the trailing slash
-                # comes off after it so `docs/` still meets docs/*.
+                # build.sh are exact arms that `flake.nix#nixConfig` or a
+                # `build.sh:42:5` location would otherwise slip past; the
+                # trailing slash comes off after it so `docs/` still meets docs/*.
                 local target=$span
                 target=''${target%%#*}
-                target=''${target%:[0-9]*}
+                target=''${target%%:[0-9]*}
                 case "$target" in
                 modules/* | docs/* | scripts/* | packages/* | tests/* | lib/* | .github/* | flake.nix | build.sh) ;;
                 *) continue ;;

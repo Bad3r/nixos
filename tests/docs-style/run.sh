@@ -768,7 +768,7 @@ test_a_backticked_path_drops_its_line_fragment_and_slash_suffix() {
   write_page "${repo}" docs/page.md <<'PAGE'
 # Page
 
-`docs/other.md:12`, `docs/other.md:12-20`, `docs/other.md#section`, `docs/`, `flake.nix#nixConfig`.
+`docs/other.md:12`, `docs/other.md:12-20`, `docs/other.md:12:34`, `docs/other.md#section`, `docs/`, `flake.nix#nixConfig`.
 PAGE
 
   run_hook "${repo}" docs/page.md
