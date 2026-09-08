@@ -45,9 +45,10 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true` and 
 5. On the new host, commit the `sopsRuntimeReady` flip, the new `sops.secrets` declarations, and the moved `secrets` gitlink, then switch so sops-nix installs the secrets:
 
    ```sh
-   ./build.sh --host <host>
+   ./build.sh --skip-hooks --host <host>
    ```
 
+   `--skip-hooks` keeps the same devshell build off this switch that the boot command in [Host Onboarding Runbook](host-onboarding.md) avoided; the ordinary `./build.sh` a reader runs afterward for routine changes is what exercises those hooks on this host for the first time.
    `build.sh` hands the name to `nh os switch -H <host>`, which activates on the machine it runs on; from any other machine this step switches that machine into `<host>`'s configuration.
    A linked worktree takes the `path:` reference on its own; a primary checkout resolves the bare `git+file` reference and keeps `self.rev`, since step 1 already fetched the private submodule through the `gh` credential helper and this step's commit leaves the tree clean.
 
