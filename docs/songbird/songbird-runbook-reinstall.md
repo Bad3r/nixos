@@ -49,7 +49,7 @@ Verification: `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapp
 
 ## First switch after a reinstall
 
-Precondition: disk A boots the installer's stock configuration, with no checkout on it.
+Precondition: disk A boots the installer's stock configuration, with no checkout on it; the shell is still root, since the reinstall step above creates no other account.
 
 1. Clone the repository without `--recurse-submodules`:
 
@@ -71,7 +71,7 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
 
    ```sh
    cd ~/nixos
-   nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh --bootstrap --skip-hooks --allow-dirty -t songbird --boot
+   NH_BYPASS_ROOT_CHECK=1 nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh --bootstrap --skip-hooks --allow-dirty -t songbird --boot
    ```
 
    `nix shell nixpkgs#git` supplies `git`, since the stock system ships none and both the Nix git fetcher and the secrets guard shell out to it.
@@ -79,6 +79,8 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
    `-t songbird` is required because `build.sh` defaults the target to `$(hostname)`, still `nixos` under the stock configuration.
    `--boot` installs the generation for the next reboot instead of switching the running session live, and Home Manager moves any pre-existing `$HOME` file it manages aside with the `.hm.bk` extension rather than failing activation.
    `--bootstrap` replaces the substituter list with the fleet caches before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
+   `NH_BYPASS_ROOT_CHECK=1` is required because `nh os` refuses to run as an effective uid of 0, and the stock configuration has no other account to run it from.
+   The flake's own configuration declares the owner account, so this same activation creates it; no manual user setup precedes it.
 
 Verification: reboot; the initrd asks for the root passphrase once, and `cryptroot`, `cryptswap`, and `data` all open from that single prompt.
 A `data` volume keyed to an older passphrase prompts again until the key-slot procedure below adds the new one.
@@ -117,9 +119,9 @@ Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ss
 ## Give the /data volume the root passphrase key slot
 
 Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
-A volume created from scratch carries a new `crypto_LUKS` UUID, so record `/dev/disk/by-uuid/$(blkid -s UUID -o value <partition>)` in that option, commit it, and run `./build.sh` before the reboot below.
+A volume created from scratch needs the container and the XFS filesystem `data.mount` expects first: `sudo cryptsetup luksFormat --type luks2 <partition> && sudo cryptsetup open <partition> data && sudo mkfs.xfs -L data /dev/mapper/data`, never on a volume whose contents stay.
+`luksFormat` mints the container's `crypto_LUKS` UUID, so record `/dev/disk/by-uuid/$(blkid -s UUID -o value <partition>)` in that option only after it, commit it, and run `./build.sh` before the reboot below.
 The running generation's initrd names the old UUID until then.
-Such a volume also needs the container itself and the XFS filesystem `data.mount` expects: `sudo cryptsetup luksFormat --type luks2 <partition> && sudo cryptsetup open <partition> data && sudo mkfs.xfs -L data /dev/mapper/data`, never on a volume whose contents stay.
 
 1. Add the root passphrase as an extra key slot:
 
