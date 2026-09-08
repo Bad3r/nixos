@@ -1,14 +1,14 @@
 # Host onboarding runbook
 
-Procedure for adding a NixOS host to this repository.
-The composition model behind these steps is in [Host Composition](../architecture/05-host-composition.md).
+Procedure for adding a NixOS host to this repository; its composition model is in [Host Composition](../architecture/05-host-composition.md).
 Commands below assume a linked worktree at the repository root, per the branch workflow in `CLAUDE.md`, except on the target machine: the validation ladder's boot step needs a clone made without `--recurse-submodules`, as that step explains.
-Before any direct `path:.` command below, inventory ignored paths and require the shared guard described in [Reference](../architecture/06-reference.md) to pass; benign inventory output may appear.
+Define `guarded_nix` in every shell used below; each call inventories ignored paths and requires the shared guard from [Reference](../architecture/06-reference.md) to pass before Nix starts. Benign inventory output may appear.
 
 ```sh
-git status --porcelain --ignored=matching
-git submodule foreach --recursive 'git status --porcelain --ignored=matching'
-bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"'
+guarded_nix() { git status --porcelain --ignored=matching &&
+  git submodule foreach --recursive 'git status --porcelain --ignored=matching' &&
+  bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
+  command nix "$@"; }
 ```
 
 ## Register the host and create its module directory
@@ -57,7 +57,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    The `apps-enable.nix` override pattern, including the no-op check that rejects redundant entries, is in [Apps Module Style Guide](apps-module-style-guide.md).
    Unfree packages go through `nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`; the same option inside a host module fails evaluation.
 
-Verification: `nix flake check path:. --accept-flake-config --no-build --offline` passes the registry check in `modules/configurations/nixos.nix` and stops at the absent `firewallDnsInterfaces` key, which the next section sets.
+Verification: `guarded_nix flake check path:. --accept-flake-config --no-build --offline` passes the registry check in `modules/configurations/nixos.nix` and stops at the absent `firewallDnsInterfaces` key, which the next section sets.
 
 ## Set the policy flags
 
@@ -82,7 +82,7 @@ Precondition: `modules/<host>/policy.nix` exists with a `flake.lib.nixos.hosts.<
 3. Leave `sopsRuntimeReady` and any runtime gate such as `r2RuntimeReady` at `false` until the age identity and its secrets exist.
    Hosts-common modules read these with an `or false` default, so an untouched gate simply stays off until the next guide flips it.
 
-Verification: `nix flake check path:. --accept-flake-config --no-build --offline` reports no unknown-key or missing-Boolean throw from `modules/meta/cache-roots.nix` or `modules/hosts/common/firewall.nix`.
+Verification: `guarded_nix flake check path:. --accept-flake-config --no-build --offline` reports no unknown-key or missing-Boolean throw from `modules/meta/cache-roots.nix` or `modules/hosts/common/firewall.nix`.
 
 ## Validation ladder
 
@@ -91,14 +91,14 @@ Precondition: the host is registered, with a module directory and policy flags i
 1. Format and check the flake:
 
    ```sh
-   nix run path:.#treefmt -- .
-   nix flake check path:. --accept-flake-config --no-build --offline
+   guarded_nix run path:.#treefmt -- . &&
+     guarded_nix flake check path:. --accept-flake-config --no-build --offline
    ```
 
 2. Build the host closure:
 
    ```sh
-   nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
+   guarded_nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
    ```
 
 3. Commit the host's files and land them on the branch the target checks out, then boot the generation from that checkout on the target machine without switching its running system:
@@ -122,7 +122,7 @@ Precondition: the host is registered, with a module directory and policy flags i
 4. Score Dendritic Pattern compliance:
 
    ```sh
-   nix run path:.#generation-manager -- score
+   guarded_nix run path:.#generation-manager -- score
    ```
 
 [Songbird runbook: reinstall](../songbird/songbird-runbook-reinstall.md) works through this same ladder for one host, starting at its first switch after a reinstall.
