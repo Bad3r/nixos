@@ -95,9 +95,10 @@ Precondition: the host is registered, with a module directory and policy flags i
 3. Commit the host's files and land them on the branch the target checks out, then boot the generation from that checkout on the target machine without switching its running system:
 
    ```sh
-   ./build.sh --bootstrap --skip-hooks --allow-dirty --host <host> --boot
+   nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh --bootstrap --skip-hooks --allow-dirty --host <host> --boot
    ```
 
+   A freshly installed target ships no `git`, which `--allow-dirty` needs for `build.sh`'s secrets guard, and enables no experimental features, so both landing that checkout and running this command need the `nix shell nixpkgs#git nixpkgs#nh` wrapper shown above; [Songbird runbook: reinstall](../songbird/songbird-runbook-reinstall.md) works through this exact case end to end.
    `--allow-dirty` returns early from `build.sh`'s clean-tree guard, so the commit is on the reader: `path:` builds the target's working tree, and an uncommitted host module activates here while reaching no other checkout.
    That same `path:` reference keeps the secrets submodule out of the build, since its per-file `builtins.pathExists` guards evaluate the secretless configuration; a linked worktree selects it on its own, and on a primary checkout the flag selects it in place of the bare `git+file` reference, which would pull the private submodule the target has no credentials for.
    `--bootstrap` replaces the substituter list with the fleet caches before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
