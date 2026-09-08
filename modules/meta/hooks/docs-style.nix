@@ -210,10 +210,11 @@ _: {
 
             check_line_cap() {
               local path=$1
+              local input=$2
               local lines
               # wc -l counts newlines, undercounting a file whose last line
               # has none; awk's NR counts the final unterminated line too.
-              lines=$(awk 'END { print NR }' "$path")
+              lines=$(awk 'END { print NR }' "$input")
               if [ "$lines" -gt 150 ]; then
                 echo "$path: $lines lines exceeds the 150 line cap" >&2
                 violations=$((violations + 1))
@@ -223,6 +224,7 @@ _: {
             check_banned_phrases() {
               local path=$1
               local text=$2
+              local input=$3
               local hits="$tmpdir/phrase-hits"
               run_grep -E -i -n -f "$tmpdir/patterns" "$text" >"$hits"
               # The matched text has code spans and link destinations removed,
@@ -239,7 +241,7 @@ _: {
                     sub(/[[:space:]]+$/, "", line)
                     print path ":" FNR ": " line
                   }
-                ' "$hits" "$path" >&2
+                ' "$hits" "$input" >&2
                 violations=$((violations + $(wc -l <"$hits")))
               fi
             }
@@ -344,7 +346,7 @@ _: {
               local path=$1
               local text=$2
               local dir
-              dir=$(dirname "$path")
+              dir=$(dirname -- "$path")
               local hits="$tmpdir/link-hits"
               extract_link_targets "$text" >"$hits"
               while IFS=$'\t' read -r lineno raw_target; do
@@ -417,7 +419,7 @@ _: {
             }
 
             check_file() {
-              local path
+              local path input
               # realpath rejects the empty string outright, and under set -e
               # that kills the run with realpath's own message and no
               # violation count; named here like the two argument reports
@@ -442,11 +444,16 @@ _: {
                 return 0
                 ;;
               esac
+              # File readers receive an absolute operand so a root filename
+              # beginning with a dash is not an option and one containing an
+              # equals sign is not an awk assignment. The root-relative path
+              # stays canonical for policy checks and reports.
+              input="$root/$path"
               # The cd above makes every argument root-relative, so a path typed
               # from a subdirectory, or a typo, would otherwise check nothing
               # and pass. Checked before the exemption so a typo under tests/
               # is loud too.
-              if [ ! -f "$path" ]; then
+              if [ ! -f "$input" ]; then
                 echo "docs-style: not a file: $path" >&2
                 violations=$((violations + 1))
                 return 0
@@ -459,17 +466,17 @@ _: {
               # page; only the line cap is inapplicable to it, so it stays
               # fully checked for banned phrases and link resolution.
               if [ "$path" != "docs/index.md" ]; then
-                check_line_cap "$path"
+                check_line_cap "$path" "$input"
               fi
 
               local blanked="$tmpdir/blanked"
               local codeless="$tmpdir/codeless"
               local phrase_text="$tmpdir/phrase-text"
-              blank_fenced_blocks "$path" "$blanked"
+              blank_fenced_blocks "$input" "$blanked"
               strip_inline_code "$blanked" "$codeless"
               strip_link_targets "$codeless" "$phrase_text"
 
-              check_banned_phrases "$path" "$phrase_text"
+              check_banned_phrases "$path" "$phrase_text" "$input"
               check_relative_links "$path" "$codeless"
               check_backticked_paths "$path" "$blanked"
             }

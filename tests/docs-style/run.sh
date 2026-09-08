@@ -240,14 +240,27 @@ PAGE
   pass
 }
 
-test_a_page_whose_name_starts_with_a_dash_is_checked() {
+test_option_and_assignment_shaped_filenames_are_checked() {
   local repo
-  repo="$(make_repo dash-name)"
+  repo="$(make_repo operand-names)"
   write_lines "${repo}/docs/-page.md" 151
+  write_lines "${repo}/-page.md" 151
+  write_lines "${repo}/name=value.md" 151
 
   run_hook "${repo}" docs/-page.md
-  assert_violations 1 "dash name"
-  assert_err_has "docs/-page.md: 151 lines exceeds the 150 line cap" "dash name"
+  assert_violations 1 "nested dash name"
+  assert_err_has "docs/-page.md: 151 lines exceeds the 150 line cap" "nested dash name"
+
+  # A root dash starts a dirname option, while awk consumes name=value as an
+  # assignment instead of a file operand. Each run must reach the aggregate
+  # report without changing the canonical path in its diagnostic.
+  run_hook "${repo}" -page.md
+  assert_violations 1 "root dash name"
+  assert_err_has "-page.md: 151 lines exceeds the 150 line cap" "root dash name"
+
+  run_hook "${repo}" name=value.md
+  assert_violations 1 "root assignment name"
+  assert_err_has "name=value.md: 151 lines exceeds the 150 line cap" "root assignment name"
   pass
 }
 
@@ -299,11 +312,12 @@ test_drafts_the_manual_and_test_fixtures_are_exempt_by_directory() {
   repo="$(make_repo drafts)"
   write_lines "${repo}/docs/drafts/plan.md" 151
   write_lines "${repo}/docs/drafts/nested/plan.md" 151
+  write_lines "${repo}/docs/drafts/name=value.md" 151
   write_lines "${repo}/docs/nixos-manual/release-notes/rl-2405.section.md" 151
   write_lines "${repo}/tests/suite/fixture.md" 151
   write_lines "${repo}/docs/drafts.md" 151
 
-  run_hook "${repo}" docs/drafts/plan.md docs/drafts/nested/plan.md \
+  run_hook "${repo}" docs/drafts/plan.md docs/drafts/nested/plan.md docs/drafts/name=value.md \
     docs/nixos-manual/release-notes/rl-2405.section.md tests/suite/fixture.md
   assert_clean "exempt directories"
 
@@ -915,7 +929,7 @@ test_no_arguments_exits_zero
 test_an_argument_that_is_not_a_file_is_a_violation
 test_a_path_outside_the_repository_is_one_report
 test_an_empty_argument_is_a_violation_not_an_abort
-test_a_page_whose_name_starts_with_a_dash_is_checked
+test_option_and_assignment_shaped_filenames_are_checked
 test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not
 test_agent_instruction_files_are_exempt_by_exact_name
 test_drafts_the_manual_and_test_fixtures_are_exempt_by_directory
