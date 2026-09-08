@@ -406,6 +406,15 @@ _: {
 
             check_file() {
               local path
+              # realpath rejects the empty string outright, and under set -e
+              # that kills the run with realpath's own message and no
+              # violation count; named here like the two argument reports
+              # below.
+              if [ -z "$1" ]; then
+                echo "docs-style: empty path argument" >&2
+                violations=$((violations + 1))
+                return 0
+              fi
               # ./docs/x.md, docs/./x.md and an absolute path all open the same
               # file after the cd above; is_exempt and the index cap skip match
               # the root-relative spelling, so every argument is reduced to it.

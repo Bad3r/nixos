@@ -220,6 +220,26 @@ PAGE
   pass
 }
 
+# realpath rejects the empty string outright (exit 1, no -m fallback), and
+# the assignment sat outside any conditional, so set -e killed the whole run
+# on the bare realpath message: no docs-style: prefix, no violation count,
+# and every argument after the empty one went unchecked instead of reported.
+test_an_empty_argument_is_a_violation_not_an_abort() {
+  local repo
+  repo="$(make_repo empty-arg)"
+  write_page "${repo}" docs/page.md <<'PAGE'
+# Page
+
+A [dead link](missing.md).
+PAGE
+
+  run_hook "${repo}" "" docs/page.md
+  assert_violations 2 "empty argument"
+  assert_err_has "docs-style: empty path argument" "empty argument"
+  assert_err_has "docs/page.md:3: relative link target does not resolve: missing.md" "argument after empty one still checked"
+  pass
+}
+
 test_a_page_whose_name_starts_with_a_dash_is_checked() {
   local repo
   repo="$(make_repo dash-name)"
@@ -875,6 +895,7 @@ PAGE
 test_no_arguments_exits_zero
 test_an_argument_that_is_not_a_file_is_a_violation
 test_a_path_outside_the_repository_is_one_report
+test_an_empty_argument_is_a_violation_not_an_abort
 test_a_page_whose_name_starts_with_a_dash_is_checked
 test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not
 test_agent_instruction_files_are_exempt_by_exact_name
