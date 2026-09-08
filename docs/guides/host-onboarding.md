@@ -46,7 +46,6 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    | `imports.nix`      | Host-only module imports or grouped toolchain enables      |
    | GPU module         | `gpu.nvidia.*` wiring, named per host, if the host has one |
 
-   [Songbird configuration](../songbird/songbird-configuration.md) is a finished example of this layout.
    The `apps-enable.nix` override pattern, including the no-op check that rejects redundant entries, is in [Apps Module Style Guide](apps-module-style-guide.md).
    Unfree packages go through `nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`; the same option inside a host module fails evaluation.
 
