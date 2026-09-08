@@ -1,6 +1,6 @@
 { lib, ... }:
-{
-  configurations.nixos.tpnix.module = {
+let
+  body = {
     home-manager.sharedModules = lib.mkAfter [
       (
         {
@@ -37,4 +37,7 @@
       )
     ];
   };
+in
+{
+  flake.nixosModules.hosts-common.imports = [ body ];
 }
