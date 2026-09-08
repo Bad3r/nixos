@@ -88,12 +88,12 @@ Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`
 `modules/songbird/services.nix` detaches `samba.target` from `multi-user.target`, so smbd, nmbd, and wsdd stay down until the target is started by hand.
 With the target running, the share itself is skipped with a warning when `secrets/songbird.yaml` is absent or `sopsRuntimeReady` in `modules/songbird/policy.nix` is false.
 A present file with no `samba_media_path` key fails activation instead, with `the key 'samba_media_path' cannot be found` in the switch output.
-A bare `$HOME/nixos` path resolves as `git+file:`, and `self.submodules = true` fetches `secrets/` from its remote regardless of whether this checkout ever ran `git submodule update --init`, so the warnings eval below can read `[ ]` even when the local file is absent; check the file directly first.
+Run both checks in the worktree that built the running generation, not `$HOME/nixos`: a bare `$HOME/nixos` path resolves as `git+file:`, and `self.submodules = true` fetches `secrets/` from its remote regardless of local init, so both checks can clear there even when the worktree's `secrets/` is empty.
 
 ```sh
 systemctl is-active samba.target
-ls "$HOME/nixos/secrets/songbird.yaml"
-nix eval "$HOME/nixos#nixosConfigurations.songbird.config.warnings"
+ls secrets/songbird.yaml
+nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
 Start the units with `sudo systemctl start samba.target` when that target is inactive.
@@ -103,9 +103,10 @@ For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, s
 ## Evaluation warns about an unpinned interface name
 
 `eth0` and `eth1` are kernel-assigned under `net.ifnames=0`, and if `firewallDnsInterfaces` in `modules/songbird/policy.nix` ever names one directly, `modules/hosts/common/firewall.nix` warns because nothing pins that name to a device.
+Run the eval in the worktree with the edit; a bare `$HOME/nixos` path evaluates a different checkout and misses it.
 
 ```sh
-nix eval "$HOME/nixos#nixosConfigurations.songbird.config.warnings"
+nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
 Replace that device's `altnamesOnly` entry in `modules/songbird/networking.nix` with an explicit `linkConfig` carrying `Name=` and `AlternativeNamesPolicy=` only, then name that pin in `firewallDnsInterfaces` in place of `eth0`.
