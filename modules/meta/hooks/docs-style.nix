@@ -275,19 +275,29 @@ _: {
             # forked git 135 times on docs/index.md alone. Each ancestor
             # directory is recorded too, since a directory is tracked when a
             # file under it is, and the root as `.` for the same reason.
+            #
+            # Deferred to the first resolution: a run whose arguments are all
+            # exempt, or all argument reports, never reaches is_tracked, and
+            # expanding every tracked path is the hook's largest fixed cost.
             declare -A tracked_paths=()
-            if ! git ls-files -z >"$tmpdir/index"; then
-              echo "docs-style: git ls-files failed" >&2
-              exit 2
-            fi
-            while IFS= read -r -d "" entry; do
-              while [ -n "$entry" ]; do
-                tracked_paths["$entry"]=1
-                [ "''${entry%/*}" != "$entry" ] || break
-                entry=''${entry%/*}
-              done
-            done <"$tmpdir/index"
-            [ "''${#tracked_paths[@]}" -eq 0 ] || tracked_paths["."]=1
+            index_read=0
+            read_index() {
+              [ "$index_read" -eq 0 ] || return 0
+              index_read=1
+              local entry
+              if ! git ls-files -z >"$tmpdir/index"; then
+                echo "docs-style: git ls-files failed" >&2
+                exit 2
+              fi
+              while IFS= read -r -d "" entry; do
+                while [ -n "$entry" ]; do
+                  tracked_paths["$entry"]=1
+                  [ "''${entry%/*}" != "$entry" ] || break
+                  entry=''${entry%/*}
+                done
+              done <"$tmpdir/index"
+              [ "''${#tracked_paths[@]}" -eq 0 ] || tracked_paths["."]=1
+            }
 
             # Every key in tracked_paths is a clean git-relative path (no . or
             # .. component), so a raw spelling that hits the set is a genuine
@@ -295,6 +305,7 @@ _: {
             # falls through to today's realpath call unchanged. -s keeps a
             # symlinked component as written.
             is_tracked() {
+              read_index
               local rel=''${1#"$root/"}
               # An empty rel means $1 was exactly "$root/" (the root link
               # target normalizes to this): tracked_paths has no "" key, and
