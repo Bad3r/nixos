@@ -1,7 +1,5 @@
 # Host Composition
 
-Host configurations assemble modules from each `modules/<host>/` directory through the `configurations.nixos.<host>` aggregator.
-
 ## Host Definition Pattern
 
 Complete hosts live under `configurations.nixos.<name>.module`. The helper in `modules/configurations/nixos.nix` maps each entry to a `nixosConfigurations.<name>` output by wrapping the deferred module in `inputs.nixpkgs.lib.nixosSystem`.
@@ -138,13 +136,14 @@ For integration-specific details of the external R2 module chain, see [`../r2-cl
 
 ## Validation
 
-After host-level changes, run both ignored-path inventories in [Reference](06-reference.md), require the shared guard below, then build every affected host closure and run flake-level checks:
+After host-level changes, run this chain from the repository root to inventory ignored paths, list active hosts, and validate every affected host:
 
 ```bash
-bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
-  nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
-nix flake check path:. --accept-flake-config --no-build --offline
-nix run path:.#generation-manager -- score   # target: 20/20
+git status --porcelain --ignored=matching &&
+  git submodule foreach --recursive 'git status --porcelain --ignored=matching' &&
+  bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
+  nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames &&
+  nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel" &&
+  nix flake check path:. --accept-flake-config --no-build --offline &&
+  nix run path:.#generation-manager -- score   # target: 20/20
 ```
-
-Use `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames` to enumerate the host names available in the current checkout.
