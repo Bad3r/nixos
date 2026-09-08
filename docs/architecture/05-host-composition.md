@@ -111,7 +111,7 @@ mode `0440`, readable after the privilege drop and on SIGHUP re-reads.
 secret's ownership triple, because sops-nix restarts units only when decrypted
 bytes change.
 
-Registry entries also carry fleet endpoint data. `modules/songbird/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's `tailnetIp`. Promoting another host to primary is a policy.nix data change, not a module edit.
+Registry entries also carry fleet endpoint data. `modules/songbird/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's `tailnetIp`. Promoting another host to primary is a policy.nix data change, not a module edit. Each host carrying the fleet SSH config must then switch because Home Manager renders the primary alias at build time.
 
 ## App and Home Manager Wiring
 

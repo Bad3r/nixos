@@ -2,8 +2,8 @@ _: {
   flake.lib.nixos.hosts.songbird = {
     # Primary fleet endpoint: programs.tailscale.extended.sshHostName in
     # modules/apps/tailscale.nix defaults to the tailnetIp of whichever
-    # registry host is marked primary. Hand off by moving these two keys to
-    # the successor host's policy.nix.
+    # registry host is marked primary. Hand off by moving these two keys, then
+    # switch every host whose Home Manager config renders the fleet SSH alias.
     primary = true;
     tailnetIp = "100.120.100.117";
 

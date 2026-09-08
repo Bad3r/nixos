@@ -20,7 +20,8 @@
     sshHostAlias: Host alias written to `~/.ssh/hosts/<alias>` when tailscale is enabled.
     sshHostName: HostName used in the generated SSH match block (IP or MagicDNS name).
       Defaults to the `tailnetIp` of the registry host marked `primary` in
-      `flake.lib.nixos.hosts`, so a primary-host handoff is a registry data change.
+      `flake.lib.nixos.hosts`, so a primary-host handoff changes registry data
+      rather than this module. Hosts must switch before the generated alias changes.
 */
 { config, lib, ... }:
 let
