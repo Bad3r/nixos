@@ -175,7 +175,11 @@ sync with `modules/hosts/common/mirrors.nix`.
 ## Branch And PR Workflow
 
 Use a dedicated worktree and PR for changes. Do not commit directly to `main`
-unless the user explicitly approves it.
+unless the user explicitly approves it. A documented procedure that itself
+directs a specific commit or push, such as a runbook step, is that approval
+already given: explicit operator direction on a specific commit or push takes
+precedence over this default and needs no separate exception noted at the call
+site.
 
 Create a worktree:
 
