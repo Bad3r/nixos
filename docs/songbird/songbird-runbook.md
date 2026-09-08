@@ -4,7 +4,8 @@ Reinstall procedures are in [songbird-runbook-reinstall.md](songbird-runbook-rei
 
 ## Validate a host change
 
-Precondition: the change sits in a linked worktree.
+Precondition: the change sits in a linked worktree whose `secrets/` submodule is initialized (`git submodule update --init --recursive`).
+A linked worktree always takes the `path:` reference, which copies the tree instead of fetching it, so `self.submodules = true` never applies and an uninitialized `secrets/` builds a generation with every `sops.secrets` declaration dropped.
 
 1. Run the format, check, and closure rungs of the [Validation ladder](../guides/host-onboarding.md#validation-ladder) with `songbird` as the host.
 

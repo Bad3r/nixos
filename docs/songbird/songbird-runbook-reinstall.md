@@ -36,6 +36,7 @@ Precondition: a NixOS installer image is booted with network access, and the she
    ```
 
    `nixos-install` prompts for a root password at the end; the owner account arrives with the first switch below.
+   Then leave the live image, which is where the first-switch section runs: `umount -R /mnt && swapoff /dev/mapper/cryptswap && reboot`.
 
 3. Record where each partition identifier goes.
 
@@ -58,7 +59,12 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
 
    `secrets/` stays uninitialized until the age identity exists, and holding that through the build takes `--allow-dirty` on the command below.
    That flag selects the `path:` reference, whose per-file `builtins.pathExists` guards evaluate the secretless configuration as in CI; the bare `git+file` reference would pull the private secrets submodule, which this machine has no credentials for.
-   Re-run the reinstall step's `blkid` against the disk-A partitions (`blkid /dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489-part{1,2,3}`) and apply its UUID edit to `modules/songbird/hardware-config.nix` in this clone now, before the build below.
+   Read the three disk-A partition UUIDs and apply the reinstall step's mapping to `modules/songbird/hardware-config.nix` in this clone now, before the build below:
+
+   ```sh
+   blkid /dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489-part{1,2,3}
+   ```
+
    `--allow-dirty` also skips the clean-tree guard and `path:` reads the working tree, so that edit takes effect uncommitted; the stock system carries no git identity, and the secrets section commits it.
 
 2. Build and stage the first generation:
@@ -113,7 +119,7 @@ Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ss
 Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
 A volume created from scratch carries a new `crypto_LUKS` UUID, so record `/dev/disk/by-uuid/$(blkid -s UUID -o value <partition>)` in that option, commit it, and run `./build.sh` before the reboot below.
 The running generation's initrd names the old UUID until then.
-Such a volume also needs the XFS filesystem `data.mount` expects: `sudo cryptsetup open <data-device-path> data && sudo mkfs.xfs -L data /dev/mapper/data`, never on a volume whose contents stay.
+Such a volume also needs the container itself and the XFS filesystem `data.mount` expects: `sudo cryptsetup luksFormat --type luks2 <partition> && sudo cryptsetup open <partition> data && sudo mkfs.xfs -L data /dev/mapper/data`, never on a volume whose contents stay.
 
 1. Add the root passphrase as an extra key slot:
 
