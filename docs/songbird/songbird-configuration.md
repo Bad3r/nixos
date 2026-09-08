@@ -56,7 +56,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 
 - gnome-keyring is forced off: [gnome-keyring.nix](../../modules/songbird/gnome-keyring.nix).
 - pass backs the desktop secret-service portal instead: [pass-secret-service.nix](../../modules/songbird/pass-secret-service.nix).
-- Songbird is marked the primary fleet endpoint, so registry consumers such as ssh-hosts and tailscale default their aliases to its tailnet address: [policy.nix](../../modules/songbird/policy.nix).
+- Songbird is marked the primary fleet endpoint, so `programs.tailscale.extended.sshHostName` in [tailscale.nix](../../modules/apps/tailscale.nix) defaults its generated `~/.ssh/hosts` alias to songbird's tailnet address: [policy.nix](../../modules/songbird/policy.nix).
 - The sops and R2 readiness gates turn on, unlocking secret-backed features once the age identity is installed: [policy.nix](../../modules/songbird/policy.nix).
 - awscli2 and the pentesting devshell join the Home Manager app set: [policy.nix](../../modules/songbird/policy.nix).
 - The owner can read the duplicati-r2 state directory: [policy.nix](../../modules/songbird/policy.nix).
