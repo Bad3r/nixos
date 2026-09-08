@@ -86,15 +86,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
    - Declare:
      - `sops.secrets."ssh/vx-auth-key"` (`format = "binary"`, owner `vx`, mode `0400`, path `/run/secrets/ssh/vx-auth-key`)
 
-5. `modules/home/pass-secret-service.nix`
-
-   - Replace static fingerprint with dynamic source:
-     - `config.programs.git.signing.key`
-   - Read secret path from Home Manager config:
-     - `config.sops.secrets."gpg/vx-secret-key".path`
-   - Keep guarded activation (import only when both fingerprint and secret path exist).
-
-6. `modules/tpnix/ssh.nix`
+5. `modules/tpnix/ssh.nix`
 
    - Set actual `tpnix` host SSH public key:
      - `services.openssh.publicKey = "ssh-ed25519 ... root@tpnix";`
@@ -102,7 +94,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
      - `PasswordAuthentication = false`
      - `PermitRootLogin = "no"`
 
-7. `modules/security/sops-policy.nix`
+6. `modules/security/sops-policy.nix`
 
    - Expand recipients to include:
      - owner/editor key
@@ -222,7 +214,6 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
    - `modules/songbird/git.nix`
    - `modules/tpnix/git.nix`
    - `modules/security/secrets.nix`
-   - `modules/home/pass-secret-service.nix`
    - `modules/tpnix/ssh.nix`
    - `modules/security/sops-policy.nix`
 2. Remove newly registered GitHub keys by title if rollout is abandoned.

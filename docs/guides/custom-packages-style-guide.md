@@ -429,7 +429,7 @@ Create a corresponding app module in `modules/apps/<name>.nix` when:
 - The package is a user-facing application
 - Users should be able to enable/disable it declaratively
 - The package needs unfree allowlisting or extra configuration
-- The package is host-visible tooling such as a shell helper or system-management script (e.g., `modules/apps/sss-pass-gpg-bootstrap.nix`, `modules/apps/sss-nix-repair.nix`)
+- The package is host-visible tooling such as a shell helper or system-management script (e.g., `modules/apps/sss-nix-repair.nix`)
 
 Skip the app module when:
 
