@@ -2,7 +2,7 @@
 
 Procedure for adding a NixOS host to this repository.
 The composition model behind these steps is in [Host Composition](../architecture/05-host-composition.md).
-Commands below assume a linked worktree at the repository root, per the branch workflow in `CLAUDE.md`.
+Commands below assume a linked worktree at the repository root, per the branch workflow in `CLAUDE.md`, except on the target machine: the validation ladder's boot step needs a clone made without `--recurse-submodules`, as that step explains.
 
 ## Register the host and create its module directory
 
