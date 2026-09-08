@@ -308,14 +308,24 @@ _: {
             }
 
             # Distinguishes a target that is on disk but unstaged from one that
-            # is absent, since the fix differs: git add versus a wrong path.
+            # is absent, since the fix differs: git add versus a wrong path. A
+            # target that climbs outside the tree can never be tracked, so it
+            # is named separately instead of pointing at a git add that cannot
+            # work.
             report_unresolved() {
               local path=$1 lineno=$2 what=$3 absent=$4 resolved=$5 target=$6
-              if [ -e "$resolved" ]; then
-                echo "$path:$lineno: $what is not tracked by git: $target" >&2
-              else
-                echo "$path:$lineno: $what $absent: $target" >&2
-              fi
+              case "$(realpath -ms --relative-to="$root" -- "$resolved")" in
+              .. | ../*)
+                echo "$path:$lineno: $what is outside the repository: $target" >&2
+                ;;
+              *)
+                if [ -e "$resolved" ]; then
+                  echo "$path:$lineno: $what is not tracked by git: $target" >&2
+                else
+                  echo "$path:$lineno: $what $absent: $target" >&2
+                fi
+                ;;
+              esac
               violations=$((violations + 1))
             }
 

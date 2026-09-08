@@ -581,6 +581,30 @@ PAGE
   pass
 }
 
+# A link that climbs past the root the same way a CLI argument can: realpath
+# -ms normalizes it to a ../ chain that -e can still satisfy when a real file
+# sits there, so it read as unstaged and named a git add that could never
+# track a path this repository does not own.
+test_a_link_target_outside_the_repository_is_one_report() {
+  local repo
+  repo="$(make_repo target-outside)"
+  write_page "${tmpdir}" outside-tree/readme.md <<'PAGE'
+# Outside
+PAGE
+  write_page "${repo}" docs/page.md <<'PAGE'
+# Page
+
+A [link](../../outside-tree/readme.md) to a page outside the repository.
+PAGE
+
+  run_hook "${repo}" docs/page.md
+  assert_violations 1 "link target outside the repository"
+  assert_err_has "docs/page.md:3: relative link target is outside the repository: ../../outside-tree/readme.md" "outside repository target"
+  assert_err_lacks "is not tracked by git" "outside repository target"
+  assert_err_lacks "does not resolve" "outside repository target"
+  pass
+}
+
 test_an_absolute_target_resolves_from_the_root() {
   local repo
   repo="$(make_repo absolute)"
@@ -868,6 +892,7 @@ test_a_phrase_inside_a_code_span_is_ignored
 test_link_destinations_and_urls_are_not_scanned
 test_link_text_is_scanned
 test_a_dead_relative_link_fails
+test_a_link_target_outside_the_repository_is_one_report
 test_an_absolute_target_resolves_from_the_root
 test_a_destination_is_normalized_before_resolving
 test_scheme_targets_are_skipped
