@@ -138,10 +138,11 @@ For integration-specific details of the external R2 module chain, see [`../r2-cl
 
 ## Validation
 
-After host-level changes, build every affected host closure and run flake-level checks. Substitute the host name(s) you actually touched:
+After host-level changes, run both ignored-path inventories in [Reference](06-reference.md), require the shared guard below, then build every affected host closure and run flake-level checks:
 
 ```bash
-nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
+bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
+  nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
 nix flake check path:. --accept-flake-config --no-build --offline
 nix run path:.#generation-manager -- score   # target: 20/20
 ```

@@ -78,7 +78,16 @@ Precondition: the host has booted, so `/etc/ssh/ssh_host_ed25519_key.pub` exists
    `/etc/ssh/ssh_known_hosts` is rendered at build time from `fleetHostKeys`, so a host that has not rebuilt still carries the old table.
    For a new host that leaves the first connection trust-on-first-use; for a replaced key it fails with `REMOTE HOST IDENTIFICATION HAS CHANGED`.
 
-Verification: `nix flake check path:. --accept-flake-config --no-build --offline` passes the check in `modules/configurations/nixos.nix` that throws on a `publicKey` with no matching `fleetHostKeys` pin. If SSH is enabled, `ssh -o StrictHostKeyChecking=yes <host>` from another fleet host connects with no prompt; if disabled, `systemctl is-active sshd.service` on the new host reports `inactive` after the switch.
+Before the direct `path:.` check, inventory ignored paths and require the shared secrets guard to pass; benign inventory output may appear.
+
+```sh
+git status --porcelain --ignored=matching
+git submodule foreach --recursive 'git status --porcelain --ignored=matching'
+bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
+  nix flake check path:. --accept-flake-config --no-build --offline
+```
+
+Verification: the guarded flake check passes the check in `modules/configurations/nixos.nix` that throws on a `publicKey` with no matching `fleetHostKeys` pin. If SSH is enabled, `ssh -o StrictHostKeyChecking=yes <host>` from another fleet host connects with no prompt; if disabled, `systemctl is-active sshd.service` on the new host reports `inactive` after the switch.
 
 ## Hand off the primary role
 

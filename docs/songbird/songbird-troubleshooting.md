@@ -88,12 +88,20 @@ Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`
 `modules/songbird/services.nix` detaches `samba.target` from `multi-user.target`, so smbd, nmbd, and wsdd stay down until the target is started by hand.
 With the target running, the share itself is skipped with a warning when `secrets/songbird.yaml` is absent or `sopsRuntimeReady` in `modules/songbird/policy.nix` is false.
 A present file with no `samba_media_path` key fails activation instead, with `the key 'samba_media_path' cannot be found` in the switch output.
-Run both checks in the worktree that built the running generation, not `$HOME/nixos`: a bare `$HOME/nixos` path resolves as `git+file:`, and `self.submodules = true` fetches `secrets/` from its remote regardless of local init, so both checks can clear there even when the worktree's `secrets/` is empty.
+Run the source checks in the worktree that built the running generation, not the primary checkout at `$HOME/nixos`.
+A bare primary-checkout path resolves as `git+file:` and materializes the recorded `secrets` gitlink independently of that checkout's submodule initialization, so it cannot diagnose an empty worktree submodule.
+Before either direct `path:.` evaluation, inventory the superproject's ignored paths.
+Inventory initialized submodules too.
+Then require the repository's fail-closed secrets guard to pass.
+`path:` copies the worktree and submodule contents unfiltered into the world-readable Nix store; benign inventory output may appear, but evaluation must stop when the guard fails.
 
 ```sh
 systemctl is-active samba.target
 ls secrets/songbird.yaml
-nix eval "path:.#nixosConfigurations.songbird.config.warnings"
+git status --porcelain --ignored=matching
+git submodule foreach --recursive 'git status --porcelain --ignored=matching'
+bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
+  nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
 Start the units with `sudo systemctl start samba.target` when that target is inactive.
@@ -106,7 +114,10 @@ For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, s
 Run the eval in the worktree with the edit; a bare `$HOME/nixos` path evaluates a different checkout and misses it.
 
 ```sh
-nix eval "path:.#nixosConfigurations.songbird.config.warnings"
+git status --porcelain --ignored=matching
+git submodule foreach --recursive 'git status --porcelain --ignored=matching'
+bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
+  nix eval "path:.#nixosConfigurations.songbird.config.warnings"
 ```
 
 Replace that device's `altnamesOnly` entry in `modules/songbird/networking.nix` with an explicit `linkConfig` carrying `Name=` and `AlternativeNamesPolicy=` only, then name that pin in `firewallDnsInterfaces` in place of `eth0`.

@@ -18,7 +18,10 @@ A linked worktree always takes the `path:` reference, which copies the tree inst
 3. Score the generation:
 
    ```sh
-   nix run path:.#generation-manager -- score
+   git status --porcelain --ignored=matching
+   git submodule foreach --recursive 'git status --porcelain --ignored=matching'
+   bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
+     nix run path:.#generation-manager -- score
    ```
 
 Verification:
