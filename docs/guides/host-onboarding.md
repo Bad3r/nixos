@@ -29,6 +29,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    | `nix-settings.nix`    | `max-jobs`, `min-free`, `max-substitution-jobs`         |
 
    `networking.hostName` and the default kernel package already come from hosts-common; add a per-host file only to override them.
+   `nix-settings.nix` is not optional: `modules/hosts/common/nix-substituters.nix` asserts `max-substitution-jobs` is an integer at least 1 on every `shareCommon` host, since Nix has no `auto` for it; pin `nproc - 1`.
    `modules/<host>/ssh.nix` waits for first boot, since `modules/configurations/nixos.nix` throws on a `services.openssh.publicKey` with no `fleetHostKeys` pin.
    That file also carries the host's `services.openssh.enable` choice, but `modules/networking/ssh.nix` sets `enable = true` at default priority, so a plain `false` there is a conflicting definition that fails the host's evaluation and `lib.mkDefault false` loses to it; opting out takes `lib.mkForce false`.
    [Host secrets and handoff](host-onboarding-secrets.md) adds the key and its pin together.
@@ -125,6 +126,8 @@ Precondition: the host boots through the ladder above.
 
 2. Add `<host>` to the pages that enumerate hosts by name:
    `docs/index.md`, `docs/ONBOARDING.md`, `docs/architecture/01-pattern-overview.md`, `docs/architecture/03-nixos-modules.md`, `docs/architecture/04-home-manager.md`, and `docs/architecture/05-host-composition.md`.
+
+3. No workflow edits are needed. `.github/workflows/check.yml` and `.github/workflows/update-flake.yml` derive the host list from `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`, so the new host is dry-run built on every compliance run and fully built in the nightly update gate; `update-flake.yml` builds each host closure sequentially with garbage collection between builds to respect runner disk.
 
 Verification: `gh label list --search 'host('` includes `host(<host>)`, and `rg -l -w <host> docs/` lists every page above.
 

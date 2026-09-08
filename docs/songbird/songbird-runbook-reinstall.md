@@ -37,16 +37,12 @@ Precondition: a NixOS installer image is booted with network access, and the she
 
    `nixos-install` prompts for a root password at the end; the owner account arrives with the first switch below.
 
-3. Re-harvest the partition identifiers:
-
-   ```sh
-   blkid "$DISK-part1" "$DISK-part2" "$DISK-part3"
-   ```
+3. Record where each partition identifier goes.
 
    Each option holds a device path, not a bare UUID: write the vfat UUID as `/dev/disk/by-uuid/<uuid>` into `fileSystems."/boot".device` in `modules/songbird/hardware-config.nix`.
    Write the two `crypto_LUKS` UUIDs the same way into `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device`.
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
-   Make that edit in the clone below, before the build, and commit it in the secrets section; a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
+   The first-switch section below reads the three values and applies this edit in the clone before its build; a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
 
 Verification: `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
 

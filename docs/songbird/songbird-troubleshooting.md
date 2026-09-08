@@ -81,8 +81,7 @@ systemctl status r2-bisync-docs.service
 journalctl -u r2-bisync-docs.service
 ```
 
-The upstream R2 flake module exposes no compare or exclude setting, so the timeout is the only lever available.
-Track the fix at https://github.com/Bad3r/nix-R2-CloudFlare-Flake/issues/150 and the consumer side at https://github.com/Bad3r/nixos/issues/477.
+Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`, then switch and start the unit again.
 
 ## The Samba media share is missing
 
