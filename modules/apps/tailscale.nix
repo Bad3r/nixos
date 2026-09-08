@@ -21,8 +21,8 @@
     sshHostName: HostName used in the generated SSH match block (IP or MagicDNS name).
       Defaults to the `tailnetIp` of the registry host marked `primary` in
       `flake.lib.nixos.hosts`. At most one host may be primary, and that host
-      must provide `tailnetIp`; no primary leaves the default null. Hosts must
-      switch before the generated alias changes.
+      must provide a non-empty `tailnetIp` string; no primary leaves the default
+      null. Hosts must switch before the generated alias changes.
 */
 { config, lib, ... }:
 let
@@ -35,9 +35,10 @@ let
   duplicatePrimaryMessage =
     names:
     "flake.lib.nixos.hosts marks multiple primary hosts: ${lib.concatStringsSep ", " names}; at most one host may set primary = true";
-  missingPrimaryAddressMessage =
+  tailnetIpIsValid = value: lib.types.nonEmptyStr.check value;
+  invalidPrimaryAddressMessage =
     name:
-    "flake.lib.nixos.hosts.${name} sets primary = true without a non-null tailnetIp; the generated fleet SSH alias requires that address";
+    "flake.lib.nixos.hosts.${name} sets primary = true without a non-empty tailnetIp string; the generated fleet SSH alias requires that address";
   primaryTailnetIpOf =
     hosts:
     let
@@ -52,12 +53,15 @@ let
         primaryHostName = builtins.head primaryHostNames;
         tailnetIp = hosts.${primaryHostName}.tailnetIp or null;
       in
-      if tailnetIp == null then throw (missingPrimaryAddressMessage primaryHostName) else tailnetIp;
+      if !tailnetIpIsValid tailnetIp then
+        throw (invalidPrimaryAddressMessage primaryHostName)
+      else
+        tailnetIp;
   primaryHostNames = primaryHostNamesOf fleetHosts;
   primaryHostName =
     if builtins.length primaryHostNames == 1 then builtins.head primaryHostNames else null;
   primaryHasTailnetIp =
-    primaryHostName == null || (fleetHosts.${primaryHostName}.tailnetIp or null) != null;
+    primaryHostName == null || tailnetIpIsValid (fleetHosts.${primaryHostName}.tailnetIp or null);
   primaryTailnetIp = primaryTailnetIpOf fleetHosts;
   primaryTailnetIpTests = [
     {
@@ -86,6 +90,22 @@ let
       hosts.alpha = {
         primary = true;
         tailnetIp = null;
+      };
+      expectFailure = true;
+    }
+    {
+      name = "one primary host with an empty address";
+      hosts.alpha = {
+        primary = true;
+        tailnetIp = "";
+      };
+      expectFailure = true;
+    }
+    {
+      name = "one primary host with a whitespace-only address";
+      hosts.alpha = {
+        primary = true;
+        tailnetIp = "   ";
       };
       expectFailure = true;
     }
@@ -174,13 +194,13 @@ let
         };
 
         sshHostName = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
+          type = lib.types.nullOr lib.types.nonEmptyStr;
           default = primaryTailnetIp;
           description = ''
             SSH HostName for the tailscale host entry (IP or MagicDNS name).
             Defaults to the tailnetIp of the flake.lib.nixos.hosts entry marked
-            primary. At most one host may be primary, and that host must provide
-            a non-null tailnetIp. No primary leaves this null and skips the
+            primary. At most one host may be primary, and that host must provide a
+            non-empty tailnetIp string. No primary leaves this null and skips the
             generated ~/.ssh/hosts alias.
           '';
         };
@@ -195,11 +215,7 @@ let
             }
             {
               assertion = primaryHasTailnetIp;
-              message =
-                if primaryHostName == null then
-                  "flake.lib.nixos.hosts primary hosts must define non-null tailnetIp values"
-                else
-                  missingPrimaryAddressMessage primaryHostName;
+              message = invalidPrimaryAddressMessage primaryHostName;
             }
           ];
         }
