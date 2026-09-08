@@ -226,12 +226,22 @@ _: {
               local hits="$tmpdir/phrase-hits"
               run_grep -E -i -n -f "$tmpdir/patterns" "$text" >"$hits"
               # The matched text has code spans and link destinations removed,
-              # so the report prints the source line the number points at.
-              while IFS=: read -r lineno _; do
-                [ -z "$lineno" ] && continue
-                echo "$path:$lineno: $(trim "$(awk -v n="$lineno" 'NR == n { print; exit }' "$path")")" >&2
-                violations=$((violations + 1))
-              done <"$hits"
+              # so the report prints the source line the number points at, in
+              # one pass over the hits and the page rather than a fork and a
+              # re-read per hit. The -s guard matters: on an empty hits file
+              # NR == FNR would hold for the page and read every line as a hit.
+              if [ -s "$hits" ]; then
+                awk -F: -v path="$path" '
+                  NR == FNR { want[$1 + 0] = 1; next }
+                  (FNR in want) {
+                    line = $0
+                    sub(/^[[:space:]]+/, "", line)
+                    sub(/[[:space:]]+$/, "", line)
+                    print path ":" FNR ": " line
+                  }
+                ' "$hits" "$path" >&2
+                violations=$((violations + $(wc -l <"$hits")))
+              fi
             }
 
             # Trims the padding CommonMark allows inside the parentheses, strips
