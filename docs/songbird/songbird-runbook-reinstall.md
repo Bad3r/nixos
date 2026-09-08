@@ -117,7 +117,7 @@ The stock configuration has only root, so the clone above sits at `/root/nixos`;
    ./build.sh --skip-hooks
    ```
 
-   `--skip-hooks` keeps the same devshell build off this switch that step 2 avoided; the ordinary `./build.sh` a reader runs afterward for routine changes is what exercises those hooks against the step-3 commit.
+   `--skip-hooks` keeps the same devshell build off this switch that the first-switch build above avoided; the ordinary `./build.sh` a reader runs afterward for routine changes is what exercises those hooks against the step-3 commit.
    Step 2 already fetched the private submodule with this machine's credentials and step 3 leaves the tree clean, so the bare `git+file` reference resolves and keeps `self.rev`, which `path:` unsets along with `system.configurationRevision`.
 
 Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
