@@ -8,7 +8,7 @@
   Summary:
     * Runs the upstream Bridge binary as a systemd user service in `--noninteractive` mode.
     * Translates Proton Mail's encrypted API into local IMAP on `127.0.0.1:1143` (STARTTLS) and SMTP on `127.0.0.1:1025` (STARTTLS).
-    * Talks to the host's Secret Service implementation over D-Bus (libsecret), so any GNOME Keyring, KWallet, or `pass-secret-service` backend works without further configuration.
+    * Talks to the host's Secret Service implementation over D-Bus (libsecret), so GNOME Keyring or KWallet works without further configuration.
     * Upstream's user unit is gated on `graphical-session.target`, so the daemon only starts once a desktop session is active; on a headless host the unit will sit idle.
 
   Initial sign-in:
