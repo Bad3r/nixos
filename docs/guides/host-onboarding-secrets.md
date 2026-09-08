@@ -44,7 +44,8 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true` and 
    `.gitmodules` gives `secrets` an absolute `https://github.com/Bad3r/secrets.git` URL, so the `git+file` reference that step 5 resolves fetches the submodule from that remote.
    That fetch fails with `Cannot find Git revision` on this host too, not only elsewhere, and the verification below returns empty.
 
-5. On the new host, commit the `sopsRuntimeReady` flip, the new `sops.secrets` declarations, and the moved `secrets` gitlink, then switch so sops-nix installs the secrets:
+5. On the new host, remove any temporary `security.repoSecrets.enable = false;` bootstrap override, then commit that removal with the `sopsRuntimeReady` flip, the new `sops.secrets` declarations, and the moved `secrets` gitlink.
+   Both age identity copies from the first section must exist before removing the override; the common `lib.mkDefault true` then restores the repo-managed declarations for this secret-bearing switch:
 
    ```sh
    ./build.sh --skip-hooks --host <host>
