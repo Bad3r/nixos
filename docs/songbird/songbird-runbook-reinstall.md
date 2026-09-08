@@ -53,7 +53,7 @@ Precondition: a NixOS installer image is booted with network access, and the she
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
    The first-switch section below reads the three values and applies this edit in the clone before its build; a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
 
-The generated stock configuration opens `cryptroot` only: `nixos-generate-config` derives LUKS entries from mounted filesystems, so the swap-only `cryptswap` mapping stays closed until the first switch below.
+`nixos-generate-config` derives LUKS entries from mounted filesystems, so the stock configuration opens `cryptroot` only and the installed system boots with no swap; reopen it before the first-switch build below with `cryptsetup open /dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489-part3 cryptswap && swapon /dev/mapper/cryptswap`, since that build compiles the CachyOS kernel and its NVIDIA module locally.
 
 ## First switch after a reinstall
 
