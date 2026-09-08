@@ -25,7 +25,6 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    | `host-id.nix`         | `networking.hostId`, 8 hex chars from `/etc/machine-id` |
    | `state-version.nix`   | Install-time `system.stateVersion`, fixed forever       |
    | `policy.nix`          | Registry flags hosts-common reads (next section)        |
-   | `imports.nix`         | Chassis-specific modules only                           |
    | `nix-settings.nix`    | `max-jobs`, `min-free`, `max-substitution-jobs`         |
 
    `networking.hostName` and the default kernel package already come from hosts-common; add a per-host file only to override them.
@@ -43,6 +42,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    | `networking.nix`   | DNS, routing, pinned interface names                       |
    | `services.nix`     | Host-divergent services                                    |
    | `support.nix`      | Vendor firmware and kernel modules                         |
+   | `imports.nix`      | Host-only module imports or grouped toolchain enables      |
    | GPU module         | `gpu.nvidia.*` wiring, named per host, if the host has one |
 
    [Songbird configuration](../songbird/songbird-configuration.md) is a finished example of this layout.
