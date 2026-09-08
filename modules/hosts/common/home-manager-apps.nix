@@ -32,7 +32,6 @@ let
     "htop"
     "i3-config"
     "jq"
-    "keepassxc"
     "kitty"
     "lazydocker"
     "lazygit"
