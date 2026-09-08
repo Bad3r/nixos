@@ -531,6 +531,7 @@ let
       yamlfmt.extended.enable = lib.mkOverride 1100 true;
       yarn.extended.enable = lib.mkOverride 1100 true;
       "yq-go".extended.enable = lib.mkOverride 1100 true;
+      ytubic.extended.enable = lib.mkOverride 1100 false;
       "yubico-piv-tool".extended.enable = lib.mkOverride 1100 true;
       "yubikey-manager".extended.enable = lib.mkOverride 1100 true;
       "yubikey-personalization".extended.enable = lib.mkOverride 1100 true;
