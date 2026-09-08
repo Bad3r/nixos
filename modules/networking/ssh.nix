@@ -110,16 +110,16 @@ in
           settings = {
             "*" = {
               IdentitiesOnly = true;
-              IdentityAgent =
-                if onePasswordSshAgentEnabled then
-                  "~/.1password/agent.sock"
-                else
-                  "${homeDirectory}/.gnupg/S.gpg-agent.ssh";
               AddKeysToAgent = "yes";
               IdentityFile = [ "${homeDirectory}/.ssh/id_ed25519" ];
               SetEnv.TERM = "xterm-256color";
               Compression = false;
               HashKnownHosts = false;
+            }
+            # Without the GUI no IdentityAgent is set: ssh follows SSH_AUTH_SOCK, which
+            # /etc/set-environment fills from `gpgconf --list-dirs agent-ssh-socket`.
+            // lib.optionalAttrs onePasswordSshAgentEnabled {
+              IdentityAgent = "~/.1password/agent.sock";
             };
           };
         };
