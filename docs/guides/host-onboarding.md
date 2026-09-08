@@ -26,12 +26,13 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    | `state-version.nix`   | Install-time `system.stateVersion`, fixed forever       |
    | `policy.nix`          | Registry flags hosts-common reads (next section)        |
    | `nix-settings.nix`    | `max-jobs`, `min-free`, `max-substitution-jobs`         |
+   | `ssh.nix`             | Explicit SSH enable choice; public key added after boot |
 
    `networking.hostName` and the default kernel package already come from hosts-common; add a per-host file only to override them.
    `nix-settings.nix` is not optional: `modules/hosts/common/nix-substituters.nix` asserts `max-substitution-jobs` is an integer at least 1 on every `shareCommon` host, since Nix has no `auto` for it; pin `nproc - 1`.
-   `modules/<host>/ssh.nix` waits for first boot, since `modules/configurations/nixos.nix` throws on a `services.openssh.publicKey` with no `fleetHostKeys` pin.
-   That file also records the host's explicit `services.openssh.enable` choice; `modules/networking/ssh.nix` supplies `lib.mkDefault true`, so plain `false` opts out and plain `true` records the opt-in without `lib.mkForce`.
-   [Host secrets and handoff](host-onboarding-secrets.md) adds the key and its pin together.
+   Create `modules/<host>/ssh.nix` now with a plain `services.openssh.enable = true` when remote first-boot administration is required, or `false` when local-console access makes it unnecessary.
+   Without that explicit choice, `modules/networking/ssh.nix` defaults the service on and the common firewall admits TCP 22 on `tailscale0` and from `10.0.0.0/8`.
+   Only `services.openssh.publicKey` waits for first boot; [Host secrets and handoff](host-onboarding-secrets.md) adds the generated key and its `fleetHostKeys` pin together.
 
 3. Add per-host divergence files only where the host actually diverges:
 
