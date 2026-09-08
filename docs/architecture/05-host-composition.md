@@ -47,7 +47,7 @@ _: {
 
 [Host File Inventory](host-file-inventory.md) records the host directory contract, shared ownership boundaries, and host-specific files.
 
-### Host-conditional helpers
+## Host-conditional helpers
 
 When a module needs to behave differently for one host (or skip itself entirely), use `flake.lib.nixos.hosts.<hostname>.<flag>` rather than reading hostname strings. Example: `modules/tpnix/policy.nix` exports `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`, and `modules/hosts/common/duplicati.nix` reads it before enabling `services.duplicati-r2` for that host.
 

@@ -26,6 +26,7 @@ Songbird is the managed-workstation instance of the host directory pattern.
 | `modules/songbird/mpv.nix`                   | mpv `gpu-api = "opengl"` override for reliable RTX 5080 playback                                                                                                                                                                   |
 | `modules/songbird/gnome-keyring.nix`         | gnome-keyring force-disabled in favor of the `pass` secret service                                                                                                                                                                 |
 | `modules/songbird/pass-secret-service.nix`   | DBus secret-service for `pass`                                                                                                                                                                                                     |
+| `modules/songbird/qbittorrent.nix`           | qBittorrent incoming-peer port TCP+UDP 48845, opened only on the `proton0` Proton VPN tunnel interface                                                                                                                             |
 | `modules/songbird/apps-enable.nix`           | Per-host overrides over the common app baseline (Inkscape on)                                                                                                                                                                      |
 | `modules/songbird/policy.nix`                | Registry data under `flake.lib.nixos.hosts.songbird` (`primary`, `tailnetIp`, readiness gates, per-host values)                                                                                                                    |
 | `modules/songbird/services.nix`              | Host-divergent services (Samba media share, power-profiles-daemon performance profile, cloudflared, WARP, LACT)                                                                                                                    |
@@ -35,25 +36,27 @@ Songbird is the managed-workstation instance of the host directory pattern.
 
 ## Tpnix
 
-| File                                     | Purpose                                                                                                                         |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `modules/tpnix/apps-enable.nix`          | Per-host overrides over the common app baseline                                                                                 |
-| `modules/tpnix/default-apps.nix`         | Per-host overrides for `host.defaults` (audioPlayer, videoPlayer = null)                                                        |
-| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                      |
-| `modules/tpnix/ssh.nix`                  | Explicit OpenSSH enable choice and host public key                                                                              |
-| `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                                                                             |
-| `modules/tpnix/fingerprint.nix`          | Fingerprint auth (`services.fprintd`) and PAM service wiring (tpnix-only)                                                       |
-| `modules/tpnix/fonts.nix`                | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                         |
-| `modules/tpnix/networking.nix`           | `.link` unit pinning the internal Wi-Fi card to `wifi0` by PCI path                                                             |
-| `modules/tpnix/printing.nix`             | Printer provisioning with a SOPS-managed device URI (tpnix-only)                                                                |
-| `modules/tpnix/r2-runtime.nix`           | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                              |
-| `modules/tpnix/hardware-config.nix`      | Filesystems, firmware, loader entry limit, low-level hardware settings                                                          |
-| `modules/tpnix/host-id.nix`              | `networking.hostId`                                                                                                             |
-| `modules/tpnix/state-version.nix`        | Install-time `system.stateVersion` constant                                                                                     |
-| `modules/tpnix/support.nix`              | Stub for future tpnix hardware-support hooks                                                                                    |
-| `modules/tpnix/policy.nix`               | Registry data under `flake.lib.nixos.hosts.tpnix` (readiness gates, per-host values, private DNS host secret keys)              |
-| `modules/tpnix/power.nix`                | GPU profile over `flake.nixosModules.nvidia-gpu` plus display and power services (`power-profiles-daemon`, logind lid handling) |
-| `modules/tpnix/services.nix`             | Host-divergent services (printing, power-profiles-daemon stack, espanso X11 override)                                           |
+| File                                     | Purpose                                                                                                                                                          |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `modules/tpnix/apps-enable.nix`          | Per-host overrides over the common app baseline                                                                                                                  |
+| `modules/tpnix/default-apps.nix`         | Per-host overrides for `host.defaults` (audioPlayer, videoPlayer = null)                                                                                         |
+| `modules/tpnix/nix-settings.nix`         | Hardware-tuned `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free` overrides                                                                       |
+| `modules/tpnix/ssh.nix`                  | Explicit OpenSSH enable choice and host public key                                                                                                               |
+| `modules/tpnix/firmware-manager-fix.nix` | tpnix-only `services.fwupd.enable = true;` override                                                                                                              |
+| `modules/tpnix/fingerprint.nix`          | Fingerprint auth (`services.fprintd`) and PAM service wiring (tpnix-only)                                                                                        |
+| `modules/tpnix/fonts.nix`                | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                                                          |
+| `modules/tpnix/gnome-keyring.nix`        | gnome-keyring with login, LightDM, and LightDM autologin PAM integration; conditional GNOME polkit agent                                                         |
+| `modules/tpnix/networking.nix`           | `.link` unit pinning the internal Wi-Fi card to `wifi0` by PCI path                                                                                              |
+| `modules/tpnix/printing.nix`             | Printer provisioning with a SOPS-managed device URI (tpnix-only)                                                                                                 |
+| `modules/tpnix/r2-runtime.nix`           | Host runtime bindings for external `r2-flake` modules, gated on the `r2RuntimeReady` registry flag                                                               |
+| `modules/tpnix/hardware-config.nix`      | Filesystems, firmware, loader entry limit, low-level hardware settings                                                                                           |
+| `modules/tpnix/host-id.nix`              | `networking.hostId`                                                                                                                                              |
+| `modules/tpnix/state-version.nix`        | Install-time `system.stateVersion` constant                                                                                                                      |
+| `modules/tpnix/support.nix`              | Stub for future tpnix hardware-support hooks                                                                                                                     |
+| `modules/tpnix/policy.nix`               | Registry data under `flake.lib.nixos.hosts.tpnix` (readiness gates, per-host values, private DNS host secret keys)                                               |
+| `modules/tpnix/power.nix`                | GPU profile over `flake.nixosModules.nvidia-gpu` plus display and power services (`power-profiles-daemon`, logind lid handling)                                  |
+| `modules/tpnix/services.nix`             | Host-divergent services (printing, power-profiles-daemon stack, espanso X11 override)                                                                            |
+| `modules/tpnix/ssh-private-host.nix`     | SOPS-backed SSH config at `~/.ssh/hosts/private-host` and public key at `~/.ssh/private-host-identity.pub`, gated on `sopsRuntimeReady` and `secrets/tpnix.yaml` |
 
 ## Shared Boundaries
 
