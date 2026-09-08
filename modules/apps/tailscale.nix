@@ -26,6 +26,9 @@
 { config, lib, ... }:
 let
   fleetHosts = config.flake.lib.nixos.hosts or { };
+  formatCaseFailures =
+    config.flake.lib.nixos._formatCheckFailures
+      or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
   primaryHostNamesOf =
     hosts: builtins.attrNames (lib.filterAttrs (_: host: host.primary or false) hosts);
   duplicatePrimaryMessage =
@@ -89,15 +92,19 @@ let
       expectFailure = true;
     }
   ];
-  primaryTailnetIpTestFailures = lib.filter (
+  primaryTailnetIpTestFailures = lib.concatMap (
     test:
     let
       result = builtins.tryEval (primaryTailnetIpOf test.hosts);
     in
     if test.expectFailure or false then
-      result.success
+      lib.optional result.success "${test.name}: evaluated to ${builtins.toJSON result.value}, expected a throw"
+    else if !result.success then
+      [ "${test.name}: threw, expected ${builtins.toJSON test.expected}" ]
     else
-      !result.success || result.value != test.expected
+      lib.optional (
+        result.value != test.expected
+      ) "${test.name}: got ${builtins.toJSON result.value}, expected ${builtins.toJSON test.expected}"
   ) primaryTailnetIpTests;
   TailscaleModule =
     {
@@ -189,10 +196,7 @@ in
       checks."apps/tailscale-primary-host" =
         assert builtins.deepSeq primaryTailnetIp true;
         if primaryTailnetIpTestFailures != [ ] then
-          throw (
-            "apps/tailscale-primary-host failed: "
-            + lib.concatStringsSep ", " (map (test: test.name) primaryTailnetIpTestFailures)
-          )
+          throw (formatCaseFailures "apps/tailscale-primary-host" primaryTailnetIpTestFailures)
         else
           pkgs.runCommandLocal "tailscale-primary-host-ok" { } ''
             echo "ok: ${toString (builtins.length primaryTailnetIpTests)} primary-host cases" > $out
