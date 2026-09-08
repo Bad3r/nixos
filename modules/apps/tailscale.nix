@@ -32,6 +32,12 @@ let
       or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
   primaryHostNamesOf =
     hosts: builtins.attrNames (lib.filterAttrs (_: host: host.primary or false) hosts);
+  primaryHostNameOf =
+    hosts:
+    let
+      names = primaryHostNamesOf hosts;
+    in
+    if builtins.length names == 1 then builtins.head names else null;
   duplicatePrimaryMessage =
     names:
     "flake.lib.nixos.hosts marks multiple primary hosts: ${lib.concatStringsSep ", " names}; at most one host may set primary = true";
@@ -39,35 +45,58 @@ let
   invalidPrimaryAddressMessage =
     name:
     "flake.lib.nixos.hosts.${name} sets primary = true without a non-empty tailnetIp string; the generated fleet SSH alias requires that address";
+  primaryHasTailnetIpOf =
+    hosts:
+    let
+      name = primaryHostNameOf hosts;
+    in
+    name == null || tailnetIpIsValid (hosts.${name}.tailnetIp or null);
+  primaryAssertionStateOf = hosts: {
+    primaryHostName = primaryHostNameOf hosts;
+    atMostOnePrimary = builtins.length (primaryHostNamesOf hosts) <= 1;
+    primaryHasTailnetIp = primaryHasTailnetIpOf hosts;
+  };
+  primaryAssertionsOf =
+    hosts:
+    let
+      names = primaryHostNamesOf hosts;
+      state = primaryAssertionStateOf hosts;
+    in
+    [
+      {
+        assertion = state.atMostOnePrimary;
+        message = duplicatePrimaryMessage names;
+      }
+      {
+        assertion = state.primaryHasTailnetIp;
+        message = invalidPrimaryAddressMessage state.primaryHostName;
+      }
+    ];
   primaryTailnetIpOf =
     hosts:
     let
       primaryHostNames = primaryHostNamesOf hosts;
+      state = primaryAssertionStateOf hosts;
     in
-    if builtins.length primaryHostNames > 1 then
+    if !state.atMostOnePrimary then
       throw (duplicatePrimaryMessage primaryHostNames)
-    else if primaryHostNames == [ ] then
+    else if state.primaryHostName == null then
       null
+    else if !state.primaryHasTailnetIp then
+      throw (invalidPrimaryAddressMessage state.primaryHostName)
     else
-      let
-        primaryHostName = builtins.head primaryHostNames;
-        tailnetIp = hosts.${primaryHostName}.tailnetIp or null;
-      in
-      if !tailnetIpIsValid tailnetIp then
-        throw (invalidPrimaryAddressMessage primaryHostName)
-      else
-        tailnetIp;
-  primaryHostNames = primaryHostNamesOf fleetHosts;
-  primaryHostName =
-    if builtins.length primaryHostNames == 1 then builtins.head primaryHostNames else null;
-  primaryHasTailnetIp =
-    primaryHostName == null || tailnetIpIsValid (fleetHosts.${primaryHostName}.tailnetIp or null);
+      hosts.${state.primaryHostName}.tailnetIp;
   primaryTailnetIp = primaryTailnetIpOf fleetHosts;
   primaryTailnetIpTests = [
     {
       name = "no primary host";
       hosts.alpha.tailnetIp = "100.64.0.1";
       expected = null;
+      expectedAssertionState = {
+        primaryHostName = null;
+        atMostOnePrimary = true;
+        primaryHasTailnetIp = true;
+      };
     }
     {
       name = "one primary host";
@@ -76,6 +105,11 @@ let
         tailnetIp = "100.64.0.1";
       };
       expected = "100.64.0.1";
+      expectedAssertionState = {
+        primaryHostName = "alpha";
+        atMostOnePrimary = true;
+        primaryHasTailnetIp = true;
+      };
     }
     {
       name = "one primary host without an address";
@@ -84,6 +118,11 @@ let
         beta.primary = true;
       };
       expectFailure = true;
+      expectedAssertionState = {
+        primaryHostName = "beta";
+        atMostOnePrimary = true;
+        primaryHasTailnetIp = false;
+      };
     }
     {
       name = "one primary host with a null address";
@@ -92,6 +131,11 @@ let
         tailnetIp = null;
       };
       expectFailure = true;
+      expectedAssertionState = {
+        primaryHostName = "alpha";
+        atMostOnePrimary = true;
+        primaryHasTailnetIp = false;
+      };
     }
     {
       name = "one primary host with an empty address";
@@ -100,6 +144,11 @@ let
         tailnetIp = "";
       };
       expectFailure = true;
+      expectedAssertionState = {
+        primaryHostName = "alpha";
+        atMostOnePrimary = true;
+        primaryHasTailnetIp = false;
+      };
     }
     {
       name = "one primary host with a whitespace-only address";
@@ -108,6 +157,11 @@ let
         tailnetIp = "   ";
       };
       expectFailure = true;
+      expectedAssertionState = {
+        primaryHostName = "alpha";
+        atMostOnePrimary = true;
+        primaryHasTailnetIp = false;
+      };
     }
     {
       name = "two addressed primary hosts";
@@ -122,6 +176,11 @@ let
         };
       };
       expectFailure = true;
+      expectedAssertionState = {
+        primaryHostName = null;
+        atMostOnePrimary = false;
+        primaryHasTailnetIp = true;
+      };
     }
     {
       name = "two primary hosts with one address";
@@ -133,21 +192,48 @@ let
         beta.primary = true;
       };
       expectFailure = true;
+      expectedAssertionState = {
+        primaryHostName = null;
+        atMostOnePrimary = false;
+        primaryHasTailnetIp = true;
+      };
     }
   ];
   primaryTailnetIpTestFailures = lib.concatMap (
     test:
     let
-      result = builtins.tryEval (primaryTailnetIpOf test.hosts);
+      resolverResult = builtins.tryEval (primaryTailnetIpOf test.hosts);
+      assertions = primaryAssertionsOf test.hosts;
+      assertionState = {
+        primaryHostName = primaryHostNameOf test.hosts;
+        atMostOnePrimary = (builtins.elemAt assertions 0).assertion;
+        primaryHasTailnetIp = (builtins.elemAt assertions 1).assertion;
+      };
+      assertionResult = builtins.tryEval (builtins.deepSeq assertionState assertionState);
+      failedAssertionMessages =
+        assertions |> lib.filter (assertion: !assertion.assertion) |> map (assertion: assertion.message);
+      assertionMessagesResult = builtins.tryEval (
+        builtins.deepSeq failedAssertionMessages failedAssertionMessages
+      );
+      resolverFailures =
+        if test.expectFailure or false then
+          lib.optional resolverResult.success "${test.name}: resolver evaluated to ${builtins.toJSON resolverResult.value}, expected a throw"
+        else if !resolverResult.success then
+          [ "${test.name}: resolver threw, expected ${builtins.toJSON test.expected}" ]
+        else
+          lib.optional (resolverResult.value != test.expected)
+            "${test.name}: resolver got ${builtins.toJSON resolverResult.value}, expected ${builtins.toJSON test.expected}";
+      assertionFailures =
+        if !assertionResult.success then
+          [ "${test.name}: assertion state threw, expected ${builtins.toJSON test.expectedAssertionState}" ]
+        else
+          lib.optional (assertionResult.value != test.expectedAssertionState)
+            "${test.name}: assertion state got ${builtins.toJSON assertionResult.value}, expected ${builtins.toJSON test.expectedAssertionState}";
+      assertionMessageFailures = lib.optional (
+        !assertionMessagesResult.success
+      ) "${test.name}: failed assertion messages threw during evaluation";
     in
-    if test.expectFailure or false then
-      lib.optional result.success "${test.name}: evaluated to ${builtins.toJSON result.value}, expected a throw"
-    else if !result.success then
-      [ "${test.name}: threw, expected ${builtins.toJSON test.expected}" ]
-    else
-      lib.optional (
-        result.value != test.expected
-      ) "${test.name}: got ${builtins.toJSON result.value}, expected ${builtins.toJSON test.expected}"
+    resolverFailures ++ assertionFailures ++ assertionMessageFailures
   ) primaryTailnetIpTests;
   TailscaleModule =
     {
@@ -208,16 +294,7 @@ let
 
       config = lib.mkMerge [
         {
-          assertions = [
-            {
-              assertion = builtins.length primaryHostNames <= 1;
-              message = duplicatePrimaryMessage primaryHostNames;
-            }
-            {
-              assertion = primaryHasTailnetIp;
-              message = invalidPrimaryAddressMessage primaryHostName;
-            }
-          ];
+          assertions = primaryAssertionsOf fleetHosts;
         }
         (lib.mkIf cfg.enable {
           environment.systemPackages = [ cfg.package ];
