@@ -30,11 +30,12 @@ Precondition: a NixOS installer image is booted with network access, and the she
    mount /dev/mapper/cryptroot /mnt
    mkdir -p /mnt/boot
    mount "$DISK-part1" /mnt/boot
-   swapon /dev/mapper/cryptswap
    nixos-generate-config --root /mnt
+   swapon /dev/mapper/cryptswap
    nixos-install
    ```
 
+   `nixos-generate-config` runs before `swapon` so the stock configuration does not name `/dev/mapper/cryptswap` without a matching initrd LUKS entry; the live installer still uses swap during `nixos-install`.
    `nixos-install` prompts for a root password at the end; the owner account arrives with the first switch below.
    Verification: before rebooting, `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
    Then leave the live image; the first-switch section below runs on the installed system:
