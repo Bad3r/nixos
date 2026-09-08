@@ -90,9 +90,6 @@ With the target running, the share itself is skipped with a warning when `secret
 A present file with no `samba_media_path` key fails activation instead, with `the key 'samba_media_path' cannot be found` in the switch output.
 Run the source checks in the worktree that built the running generation, not the primary checkout at `$HOME/nixos`.
 A bare primary-checkout path resolves as `git+file:` and materializes the recorded `secrets` gitlink independently of that checkout's submodule initialization, so it cannot diagnose an empty worktree submodule.
-Before either direct `path:.` evaluation, inventory the superproject's ignored paths.
-Inventory initialized submodules too.
-Then require the repository's fail-closed secrets guard to pass.
 `path:` copies the worktree and submodule contents unfiltered into the world-readable Nix store; benign inventory output may appear, but evaluation must stop when the guard fails.
 
 ```sh

@@ -60,7 +60,7 @@
 - [songbird/songbird-hardware.md](songbird/songbird-hardware.md)
   - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
 - [songbird/songbird-configuration.md](songbird/songbird-configuration.md)
-  - Every way `songbird` deviates from the hosts-common baseline, one line each with its reason.
+  - Non-obvious operational deviations from the hosts-common baseline.
 - [songbird/songbird-runbook.md](songbird/songbird-runbook.md)
   - Validation procedure for a `songbird` change.
 - [songbird/songbird-runbook-reinstall.md](songbird/songbird-runbook-reinstall.md)

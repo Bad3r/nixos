@@ -53,7 +53,6 @@
 - DDR5-8400 is an XMP profile above the CPU's native DDR5-6400. The fallback ladder is 8000, 7600, 6400; four DIMMs forfeit 8400.
 - All fan and pump control runs through BIOS Q-Fan; no OS-side fan software exists.
 - Use only the PSU's own modular cables. A cable from another unit can damage drives.
-- The GPU's bundled anti-sag holder is installed; the case has no built-in GPU support.
 - Remove the GPU with Q-Release Slim: lift the rear-I/O end at an angle, never pull it straight out.
 - Each OS keeps its own ESP on its own disk, so Windows updates cannot touch the NixOS boot chain.
 
