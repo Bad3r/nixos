@@ -145,6 +145,7 @@ let
       "duplicati-r2-tools".extended.enable = lib.mkOverride 1100 false;
       dust.extended.enable = lib.mkOverride 1100 true;
       dwarfs.extended.enable = lib.mkOverride 1100 true; # Default dependency of steam extraTools
+      easyeffects.extended.enable = lib.mkOverride 1100 true;
       "electron-mail".extended.enable = lib.mkOverride 1100 true;
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 true;
