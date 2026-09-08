@@ -289,9 +289,20 @@ _: {
             done <"$tmpdir/index"
             [ "''${#tracked_paths[@]}" -eq 0 ] || tracked_paths["."]=1
 
-            # -s keeps a symlinked component as written.
+            # Every key in tracked_paths is a clean git-relative path (no . or
+            # .. component), so a raw spelling that hits the set is a genuine
+            # hit; anything else, including an unclean or unprefixed spelling,
+            # falls through to today's realpath call unchanged. -s keeps a
+            # symlinked component as written.
             is_tracked() {
-              local rel
+              local rel=''${1#"$root/"}
+              # An empty rel means $1 was exactly "$root/" (the root link
+              # target normalizes to this): tracked_paths has no "" key, and
+              # bash treats that subscript itself as an error under set -e,
+              # so it is never attempted.
+              if [ -n "$rel" ] && [ -n "''${tracked_paths["$rel"]:-}" ]; then
+                return 0
+              fi
               rel=$(realpath -ms --relative-to="$root" -- "$1")
               [ -n "''${tracked_paths["$rel"]:-}" ]
             }
