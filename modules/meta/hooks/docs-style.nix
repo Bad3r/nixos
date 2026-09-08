@@ -392,7 +392,7 @@ _: {
                 modules/* | docs/* | scripts/* | packages/* | tests/* | lib/* | .github/* | flake.nix | build.sh) ;;
                 *) continue ;;
                 esac
-                if has_excluded_chars "$span"; then
+                if has_excluded_chars "$target"; then
                   continue
                 fi
                 target=''${target%/}

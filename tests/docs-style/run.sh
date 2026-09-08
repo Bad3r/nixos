@@ -822,6 +822,25 @@ PAGE
   pass
 }
 
+# An excluded character confined to the #fragment or :line suffix used to
+# exempt the whole span, because the gate ran on the raw span rather than the
+# suffix-stripped target; the target itself is a plain, resolvable path and
+# must still be checked.
+test_an_excluded_char_confined_to_the_suffix_still_checks_the_target() {
+  local repo
+  repo="$(make_repo suffix-excluded-chars)"
+  write_page "${repo}" docs/page.md <<'PAGE'
+# Page
+
+`docs/missing.md#the-<host>-registry` is gone.
+PAGE
+
+  run_hook "${repo}" docs/page.md
+  assert_violations 1 "excluded char confined to the suffix"
+  assert_err_has "docs/page.md:3: backticked path does not exist: docs/missing.md" "excluded char confined to the suffix"
+  pass
+}
+
 # --- the run ---------------------------------------------------------------
 
 test_violations_are_counted_across_files() {
@@ -923,6 +942,7 @@ test_a_dead_backticked_path_fails_under_every_claimed_prefix
 test_a_backticked_path_drops_its_line_fragment_and_slash_suffix
 test_a_templated_span_is_not_a_path
 test_a_span_outside_the_prefixes_is_not_a_path
+test_an_excluded_char_confined_to_the_suffix_still_checks_the_target
 test_violations_are_counted_across_files
 test_a_pattern_grep_rejects_aborts_the_run
 test_the_committed_phrase_list_parses_and_catches_a_date
