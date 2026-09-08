@@ -36,7 +36,13 @@ Precondition: a NixOS installer image is booted with network access, and the she
    ```
 
    `nixos-install` prompts for a root password at the end; the owner account arrives with the first switch below.
-   Then leave the live image, which is where the first-switch section runs: `umount -R /mnt && swapoff /dev/mapper/cryptswap && reboot`.
+   Then leave the live image; the first-switch section below runs on the installed system:
+
+   ```sh
+   umount -R /mnt
+   swapoff /dev/mapper/cryptswap
+   reboot
+   ```
 
 3. Record where each partition identifier goes.
 
@@ -119,7 +125,14 @@ Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ss
 ## Give the /data volume the root passphrase key slot
 
 Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
-A volume created from scratch needs the container and the XFS filesystem `data.mount` expects first: `sudo cryptsetup luksFormat --type luks2 <partition> && sudo cryptsetup open <partition> data && sudo mkfs.xfs -L data /dev/mapper/data`, never on a volume whose contents stay.
+A volume created from scratch needs the container and the XFS filesystem `data.mount` expects first; never run these on a volume whose contents stay:
+
+```sh
+sudo cryptsetup luksFormat --type luks2 <partition>
+sudo cryptsetup open <partition> data
+sudo mkfs.xfs -L data /dev/mapper/data
+```
+
 `luksFormat` mints the container's `crypto_LUKS` UUID, so record `/dev/disk/by-uuid/$(blkid -s UUID -o value <partition>)` in that option only after it, commit it, and run `./build.sh` before the reboot below.
 The running generation's initrd names the old UUID until then.
 
