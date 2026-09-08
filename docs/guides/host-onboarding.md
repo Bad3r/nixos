@@ -96,13 +96,15 @@ Precondition: the host is registered, with a module directory and policy flags i
 3. Commit the host's files and land them on the branch the target checks out, then boot the generation from that checkout on the target machine without switching its running system:
 
    ```sh
-   nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh --bootstrap --skip-hooks --allow-dirty --host <host> --boot
+   NH_BYPASS_ROOT_CHECK=1 nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh --bootstrap --skip-hooks --allow-dirty --host <host> --boot
    ```
 
    A freshly installed target ships no `git`, which `--allow-dirty` needs for `build.sh`'s secrets guard, and enables no experimental features, so both landing that checkout and running this command need the `nix shell nixpkgs#git nixpkgs#nh` wrapper shown above; [Songbird runbook: reinstall](../songbird/songbird-runbook-reinstall.md) works through this exact case end to end.
    `--allow-dirty` returns early from `build.sh`'s clean-tree guard, so the commit is on the reader: `path:` builds the target's working tree, and an uncommitted host module activates here while reaching no other checkout.
    That same `path:` reference keeps the secrets submodule out of the build, since its per-file `builtins.pathExists` guards evaluate the secretless configuration; a linked worktree selects it on its own, and on a primary checkout the flag selects it in place of the bare `git+file` reference, which would pull the private submodule the target has no credentials for.
    `--bootstrap` replaces the substituter list with the fleet caches before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
+   `NH_BYPASS_ROOT_CHECK=1` is required because `nh os` refuses to run as an effective uid of 0, and a freshly installed target has no other account to run it from.
+   `modules/meta/owner.nix` declares the owner account, so this same activation creates it; no manual user setup precedes it.
 
 4. Score Dendritic Pattern compliance:
 
@@ -127,7 +129,7 @@ Precondition: the host boots through the ladder above.
 2. Add `<host>` to the pages that enumerate hosts by name:
    `docs/index.md`, `docs/ONBOARDING.md`, `docs/architecture/01-pattern-overview.md`, `docs/architecture/03-nixos-modules.md`, `docs/architecture/04-home-manager.md`, and `docs/architecture/05-host-composition.md`.
 
-3. No workflow edits are needed. `.github/workflows/check.yml` and `.github/workflows/update-flake.yml` derive the host list from `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`, so the new host is dry-run built on every compliance run and fully built in the nightly update gate; `update-flake.yml` builds each host closure sequentially with garbage collection between builds to respect runner disk.
+3. No workflow edits are needed. `.github/workflows/check.yml` and `.github/workflows/update-flake.yml` derive the host list from `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`, so the new host is covered without touching either. `check.yml` only forces each host's `system.build.toplevel.drvPath` through `nix eval`, not `nix build --dry-run`, because Lix forces read-only store mode for `--dry-run` and that breaks eval-time store writes on the fresh runner; a compliance run proves the host evaluates to a derivation, not that its closure builds or substitutes. `update-flake.yml` is what builds each host closure, one at a time with `nix store gc` between hosts to respect runner disk.
 
 Verification: `gh label list --search 'host('` includes `host(<host>)`, and `rg -l -w <host> docs/` lists every page above.
 

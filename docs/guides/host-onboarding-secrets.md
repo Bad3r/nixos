@@ -38,6 +38,7 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true` and 
 3. Guard every new `sops.secrets` declaration with `builtins.pathExists` on the encrypted file, so a checkout without the submodule still evaluates.
 
 4. Commit the new file inside the submodule (`git -C secrets add <host>.yaml && git -C secrets commit`), then push it with `git -C secrets push origin HEAD:main`, before opening a PR or running `nix flake check` elsewhere.
+   `modules/git/git.nix` sets `signing.signByDefault` with 1Password's `op-ssh-sign` in the owner's global git config, so this submodule commit is signed too; sign in to 1Password on this host first, or make it with `git -C secrets -c commit.gpgsign=false commit`.
    `git submodule update --init` leaves `secrets/` on a detached HEAD, so a bare `git -C secrets push` exits with `You are not currently on a branch`; the explicit refspec is also what the verification below looks for.
    Without that push the superproject gitlink still points at the old submodule revision, so step 5 records no change and the verification below passes against a commit that does not carry the new file.
 
@@ -47,7 +48,6 @@ Precondition: the age identity is installed, with `sopsRuntimeReady = true` and 
    ./build.sh --host <host>
    ```
 
-   `modules/git/git.nix` signs every commit through 1Password's `op-ssh-sign`; sign in to 1Password on this host first, or make this commit with `git -c commit.gpgsign=false commit`.
    `build.sh` hands the name to `nh os switch -H <host>`, which activates on the machine it runs on; from any other machine this step switches that machine into `<host>`'s configuration.
    A linked worktree takes the `path:` reference on its own; a primary checkout resolves the bare `git+file` reference and keeps `self.rev`, since step 1 already fetched the private submodule through the `gh` credential helper and this step's commit leaves the tree clean.
 
