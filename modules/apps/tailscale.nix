@@ -19,10 +19,10 @@
     interfaceName: Override the network interface name used by tailscaled (default `tailscale0`).
     sshHostAlias: Host alias written to `~/.ssh/hosts/<alias>` when tailscale is enabled.
     sshHostName: HostName used in the generated SSH match block (IP or MagicDNS name).
-      Defaults to the `tailnetIp` of the registry host marked `primary` in
-      `flake.lib.nixos.hosts`. At most one host may be primary, and that host
-      must provide a non-empty `tailnetIp` string; no primary leaves the default
-      null. Hosts must switch before the generated alias changes.
+      Defaults to the registry host marked `primary` using that host's own
+      `tailnetIp` in `flake.lib.nixos.hosts`. At most one host may be primary,
+      and that host must provide a non-empty `tailnetIp` string; no primary
+      leaves the default null. Hosts must switch before the generated alias changes.
 */
 { config, lib, ... }:
 let
@@ -198,10 +198,10 @@ let
           default = primaryTailnetIp;
           description = ''
             SSH HostName for the tailscale host entry (IP or MagicDNS name).
-            Defaults to the tailnetIp of the flake.lib.nixos.hosts entry marked
-            primary. At most one host may be primary, and that host must provide a
-            non-empty tailnetIp string. No primary leaves this null and skips the
-            generated ~/.ssh/hosts alias.
+            Defaults to the flake.lib.nixos.hosts entry marked primary using that
+            host's own tailnetIp. At most one host may be primary, and that host
+            must provide a non-empty tailnetIp string. No primary leaves this null
+            and skips the generated ~/.ssh/hosts alias.
           '';
         };
       };
