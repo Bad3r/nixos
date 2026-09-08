@@ -17,6 +17,9 @@
     authKeyFile: Optional file path containing a reusable auth key for non-interactive node registration.
     extraSetFlags: Additional arguments passed to `tailscale set` after daemon startup.
     interfaceName: Override the network interface name used by tailscaled (default `tailscale0`).
+    operator: Unix user allowed to change tailscaled state without root, applied as
+      `tailscale set --operator`. Defaults to `flake.lib.meta.owner.username`; null
+      leaves `tailscale up`, `down`, and `set` to root.
     sshHostAlias: Host alias written to `~/.ssh/hosts/<alias>` when tailscale is enabled.
     sshHostName: HostName used in the generated SSH match block (IP or MagicDNS name).
       Defaults to the `tailnetIp` of the registry host marked `primary` in
@@ -25,6 +28,7 @@
 { config, lib, ... }:
 let
   fleetHosts = config.flake.lib.nixos.hosts or { };
+  ownerUsername = config.flake.lib.meta.owner.username or null;
   primaryTailnetIp = lib.findFirst (ip: ip != null) null (
     lib.mapAttrsToList (_: host: host.tailnetIp or null) (
       lib.filterAttrs (_: host: host.primary or false) fleetHosts
@@ -68,6 +72,17 @@ let
           description = "Network interface name used for the tailscale tunnel.";
         };
 
+        operator = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = ownerUsername;
+          description = ''
+            Unix user allowed to change tailscaled state without root, passed as
+            `tailscale set --operator`. Without it `tailscale up`, `tailscale down`
+            and `tailscale set` answer only root, so user-facing tooling such as
+            captive-portal cannot release or restore DNS. null keeps that default.
+          '';
+        };
+
         sshHostAlias = lib.mkOption {
           type = lib.types.str;
           default = "tailscale";
@@ -88,10 +103,22 @@ let
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
 
+        # `tailscale set --operator` names a Unix user, and tailscaled resolves it
+        # at runtime: a name no host account carries fails the tailscaled-set unit
+        # after the switch instead of at eval.
+        assertions = lib.optional (cfg.operator != null) {
+          assertion = config.users.users ? ${cfg.operator};
+          message = "programs.tailscale.extended.operator is '${cfg.operator}', which is not a declared user.";
+        };
+
         services.tailscale = lib.mkMerge [
           {
             enable = true;
-            inherit (cfg) package interfaceName extraSetFlags;
+            inherit (cfg) package interfaceName;
+            # nixpkgs runs `tailscale set` from a root oneshot only when this list
+            # is non-empty, so the operator pref is re-applied on every boot.
+            extraSetFlags =
+              cfg.extraSetFlags ++ lib.optional (cfg.operator != null) "--operator=${cfg.operator}";
           }
           (lib.mkIf (cfg.authKeyFile != null) {
             inherit (cfg) authKeyFile;
