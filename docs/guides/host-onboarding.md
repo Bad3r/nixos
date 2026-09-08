@@ -31,7 +31,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    `networking.hostName` and the default kernel package already come from hosts-common; add a per-host file only to override them.
    `nix-settings.nix` is not optional: `modules/hosts/common/nix-substituters.nix` asserts `max-substitution-jobs` is an integer at least 1 on every `shareCommon` host, since Nix has no `auto` for it; pin `nproc - 1`.
    `modules/<host>/ssh.nix` waits for first boot, since `modules/configurations/nixos.nix` throws on a `services.openssh.publicKey` with no `fleetHostKeys` pin.
-   That file also carries the host's `services.openssh.enable` choice, but `modules/networking/ssh.nix` sets `enable = true` at default priority, so a plain `false` there is a conflicting definition that fails the host's evaluation and `lib.mkDefault false` loses to it; opting out takes `lib.mkForce false`.
+   That file also records the host's explicit `services.openssh.enable` choice; `modules/networking/ssh.nix` supplies `lib.mkDefault true`, so plain `false` opts out and plain `true` records the opt-in without `lib.mkForce`.
    [Host secrets and handoff](host-onboarding-secrets.md) adds the key and its pin together.
 
 3. Add per-host divergence files only where the host actually diverges:

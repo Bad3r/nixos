@@ -22,6 +22,7 @@ This directory explains how the Dendritic Pattern organizes this NixOS configura
 | Understanding aggregator namespaces  | [03-nixos-modules.md](03-nixos-modules.md)                                                       |
 | Home Manager app loading             | [04-home-manager.md](04-home-manager.md)                                                         |
 | Understanding host composition       | [05-host-composition.md](05-host-composition.md)                                                 |
+| Auditing host-owned files            | [host-file-inventory.md](host-file-inventory.md)                                                 |
 | Validation commands                  | [06-reference.md#validation](06-reference.md#validation)                                         |
 | Glossary of terms                    | [06-reference.md#glossary](06-reference.md#glossary)                                             |
 
