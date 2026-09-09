@@ -1,0 +1,150 @@
+# Songbird runbook: reinstall
+
+The everyday validation procedure is in [songbird-runbook.md](songbird-runbook.md), and Windows procedures in [songbird-runbook-windows.md](songbird-runbook-windows.md).
+
+## Reinstall NixOS on disk A
+
+Precondition: a NixOS installer image is booted with network access, and the shell is root (`sudo -i`).
+
+1. Partition, encrypt, and format disk A, giving both `luksFormat` prompts one passphrase so the initrd opens every volume from a single prompt:
+
+   ```sh
+   DISK=/dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489
+   sgdisk --zap-all "$DISK"
+   sgdisk -n1:0:+1GiB  -t1:ef00 -c1:ESP        "$DISK"
+   sgdisk -n2:0:-51GiB -t2:8309 -c2:cryptroot  "$DISK"
+   sgdisk -n3:0:0      -t3:8309 -c3:cryptswap  "$DISK"
+   udevadm settle
+   cryptsetup luksFormat --type luks2 "$DISK-part2"
+   cryptsetup luksFormat --type luks2 "$DISK-part3"
+   cryptsetup open "$DISK-part2" cryptroot
+   cryptsetup open "$DISK-part3" cryptswap
+   mkfs.vfat -F32 -n ESP "$DISK-part1"
+   mkfs.ext4 -L root /dev/mapper/cryptroot
+   mkswap -L swap /dev/mapper/cryptswap
+   ```
+
+2. Mount the new filesystems and install onto them with the installer's stock configuration:
+
+   ```sh
+   mount /dev/mapper/cryptroot /mnt
+   mkdir -p /mnt/boot
+   mount "$DISK-part1" /mnt/boot
+   nixos-generate-config --root /mnt
+   swapon /dev/mapper/cryptswap
+   nixos-install
+   ```
+
+   `nixos-generate-config` runs before `swapon` so the stock configuration does not name `/dev/mapper/cryptswap` without a matching initrd LUKS entry; the live installer still uses swap during `nixos-install`.
+   `nixos-install` prompts for a root password at the end; the owner account arrives with the first switch below.
+   Verification: before rebooting, `lsblk -o NAME,FSTYPE,UUID` lists `cryptroot` and `cryptswap` mapped on disk A.
+   Then leave the live image; the first-switch section below runs on the installed system:
+
+   ```sh
+   umount -R /mnt
+   swapoff /dev/mapper/cryptswap
+   reboot
+   ```
+
+3. Record where each partition identifier goes.
+
+   Each option holds a device path, not a bare UUID: write the vfat UUID as `/dev/disk/by-uuid/<uuid>` into `fileSystems."/boot".device` in `modules/songbird/hardware-config.nix`.
+   Write the two `crypto_LUKS` UUIDs the same way into `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device`.
+   Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
+   The first-switch section below reads the three values and applies this edit in the clone before its build; a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
+
+`nixos-generate-config` derives LUKS entries from mounted filesystems, so the stock configuration opens `cryptroot` only and the installed system boots with no swap; reopen it before the first-switch build below with `cryptsetup open /dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489-part3 cryptswap && swapon /dev/mapper/cryptswap`, since that build compiles the CachyOS kernel and its NVIDIA module locally.
+
+## First switch after a reinstall
+
+Precondition: disk A boots the installer's stock configuration, with no checkout on it; the shell is still root, since the reinstall step above creates no other account.
+
+1. Clone the repository without `--recurse-submodules`:
+
+   ```sh
+   nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git -c git clone https://github.com/Bad3r/nixos ~/nixos
+   ```
+
+   `secrets/` stays uninitialized until the age identity exists, and holding that through the build takes `--allow-dirty` on the command below.
+   That flag selects the `path:` reference, whose per-file `builtins.pathExists` guards evaluate the secretless configuration as in CI; the bare `git+file` reference would pull the private secrets submodule, which this machine has no credentials for.
+   Read the three disk-A partition UUIDs and apply the reinstall step's mapping to `modules/songbird/hardware-config.nix` in this clone now, before the build below:
+
+   ```sh
+   blkid /dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489-part{1,2,3}
+   ```
+
+   `--allow-dirty` also skips the clean-tree guard and `path:` reads the working tree, so that edit takes effect uncommitted; the stock system carries no git identity, and the secrets section commits it.
+
+2. Build and stage the first generation:
+
+   ```sh
+   cd ~/nixos
+   NH_BYPASS_ROOT_CHECK=1 nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh --bootstrap --skip-hooks --allow-dirty -t songbird --boot
+   ```
+
+   `nix shell nixpkgs#git` supplies `git`, since the stock system ships none and both the Nix git fetcher and the secrets guard shell out to it.
+   The stock configuration enables no experimental features, so the flag carries `nix shell` until `modules/base/nix-settings.nix` lands; `build.sh` bootstraps its own Nix commands.
+   `-t songbird` is required because `build.sh` defaults the target to `$(hostname)`, still `nixos` under the stock configuration.
+   `--boot` installs the generation for the next reboot instead of switching the running session live, and Home Manager moves any pre-existing `$HOME` file it manages aside with the `.hm.bk` extension rather than failing activation.
+   `--bootstrap` replaces the substituter list with the fleet caches before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
+   `NH_BYPASS_ROOT_CHECK=1` is required because `nh os` refuses to run as an effective uid of 0, and the stock configuration has no other account to run it from.
+   The flake's own configuration declares the owner account, so this same activation creates it; no manual user setup precedes it.
+
+Verification: reboot; the initrd asks for the root passphrase once, and `cryptroot`, `cryptswap`, and `data` all open from that single prompt.
+A `data` volume keyed to an older passphrase prompts again until the key-slot procedure below adds the new one.
+
+## Install the age identity and secrets
+
+Precondition: songbird is running this repository's configuration, with `secrets/` still uninitialized, and the steps below run as the owner rather than root.
+The stock configuration has only root, so the clone above sits at `/root/nixos`; move it first (`sudo mv /root/nixos ~/nixos && sudo chown -R "$USER" ~/nixos`).
+`gh` must be logged in as that owner, since Home Manager's `gh` module makes `gh auth git-credential` git's helper for github.com in the owner's git config only, and the private submodule fetches through it.
+
+1. Copy the age private key from the password manager to `/var/lib/sops-nix/key.txt` (root, mode 0600) and `~/.config/sops/age/keys.txt`.
+   See [SOPS usage](../sops/README.md), Host Preparation, for the exact key handling.
+
+2. Initialize the secrets submodule now that the age identity exists:
+
+   ```sh
+   git submodule update --init --recursive
+   ```
+
+3. Replace the stale host key pin in `modules/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
+   Replace the host id in `modules/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit the pin, the id, and the UUID edit; `build.sh` refuses an uncommitted tree.
+   `modules/git/git.nix` signs every commit through 1Password's `op-ssh-sign`, which has no signed-in app behind it on a machine this fresh, so sign in to 1Password first or make this commit with `git -c commit.gpgsign=false commit`.
+   Push that commit before step 4 so the other fleet hosts can reach it: their `/etc/ssh/ssh_known_hosts` is rendered from `fleetHostKeys` at build time, and until they switch onto the new pin `ssh songbird` fails there with `REMOTE HOST IDENTIFICATION HAS CHANGED`.
+
+4. Rebuild with the secrets submodule present:
+
+   ```sh
+   ./build.sh --skip-hooks
+   ```
+
+   `--skip-hooks` keeps the same devshell build off this switch that the first-switch build above avoided; the ordinary `./build.sh` a reader runs afterward for routine changes is what exercises those hooks against the step-3 commit.
+   Step 2 already fetched the private submodule with this machine's credentials and step 3 leaves the tree clean, so the bare `git+file` reference resolves and keeps `self.rev`, which `path:` unsets along with `system.configurationRevision`.
+
+Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
+`systemctl status r2-runtime-paths.service` shows the `/data` tree only once that volume is mounted, which after a reinstall waits on the second initrd prompt or the key-slot procedure below.
+
+## Give the /data volume the root passphrase key slot
+
+Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
+A volume created from scratch needs the container and the XFS filesystem `data.mount` expects first; never run these on a volume whose contents stay:
+
+```sh
+sudo cryptsetup luksFormat --type luks2 <partition>
+sudo cryptsetup open <partition> data
+sudo mkfs.xfs -L data /dev/mapper/data
+```
+
+`luksFormat` mints the container's `crypto_LUKS` UUID, so record `/dev/disk/by-uuid/$(blkid -s UUID -o value <partition>)` in that option only after it, commit it, and run `./build.sh` before the reboot below.
+The running generation's initrd names the old UUID until then.
+
+1. Add the root passphrase as an extra key slot:
+
+   ```sh
+   sudo cryptsetup luksAddKey <data-device-path>
+   ```
+
+   Authenticate with the volume's own passphrase, then enter the same passphrase used for `cryptroot` and `cryptswap` as the new key.
+
+Verification: reboot; the initrd's single passphrase prompt opens `cryptroot`, `cryptswap`, and `data` with no second prompt, and `findmnt /data` shows the xfs mount.

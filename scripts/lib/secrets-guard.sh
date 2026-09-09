@@ -1,5 +1,6 @@
 # shellcheck shell=bash
-# Sourced by build.sh and scripts/cache-coverage.sh. Not executable on its own.
+# Sourced by build.sh, scripts/cache-coverage.sh, and documented direct path
+# preflights. Not executable on its own.
 #
 # The bare `.` form fetches through git, so .gitignore kept ignored files out of
 # the store. path: dumps the tree, so the secrets block stops protecting

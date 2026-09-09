@@ -13,7 +13,9 @@
 - [architecture/04-home-manager.md](architecture/04-home-manager.md)
   - Covers the flake.homeManagerModules namespace, app loading mechanism, and secrets integration for user configuration.
 - [architecture/05-host-composition.md](architecture/05-host-composition.md)
-  - Explains host definition under configurations.nixos, the per-host file structure under `modules/<host>/`, host-conditional helpers, and validation.
+  - Explains host definition, shared imports, host-conditional policy, app and Home Manager wiring, and validation.
+- [architecture/host-file-inventory.md](architecture/host-file-inventory.md)
+  - Maps host-owned files to their responsibilities and separates them from shared host composition.
 - [architecture/06-reference.md](architecture/06-reference.md)
   - Quick reference for validation commands, troubleshooting common issues, introspection via REPL, and glossary of terms.
 
@@ -55,10 +57,20 @@
 
 ## Songbird
 
-- [songbird/project-songbird.md](songbird/project-songbird.md)
-  - Hardware reference, component inventory, and assembly notes for the `songbird` workstation host.
-- [songbird/nixos-setup.md](songbird/nixos-setup.md)
-  - Dual-boot layout, install record, per-host module map, and remaining integration steps for `songbird`.
+- [songbird/songbird-hardware.md](songbird/songbird-hardware.md)
+  - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
+- [songbird/songbird-configuration.md](songbird/songbird-configuration.md)
+  - Non-obvious operational deviations from the hosts-common baseline.
+- [songbird/songbird-runbook.md](songbird/songbird-runbook.md)
+  - Validation procedure for a `songbird` change.
+- [songbird/songbird-runbook-reinstall.md](songbird/songbird-runbook-reinstall.md)
+  - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
+- [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
+  - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+- [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
+  - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [songbird/songbird-troubleshooting-windows.md](songbird/songbird-troubleshooting-windows.md)
+  - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
 ## R2 Cloud
 
@@ -103,7 +115,9 @@
 - [guides/github-deployments.md](guides/github-deployments.md)
   - Using GitHub's Deployments API via gh CLI for tracking deployments (metadata only, not actual deployment).
 - [guides/host-onboarding.md](guides/host-onboarding.md)
-  - Procedural checklist for adding a NixOS host: registry entry, per-host module set, policy flags, sops provisioning, backups, docs, and validation.
+  - Runbook for adding a NixOS host: registry entry, per-host module set, policy flags, validation ladder, label, and docs rosters.
+- [guides/host-onboarding-secrets.md](guides/host-onboarding-secrets.md)
+  - Age identity, secrets submodule, backup manifest, SSH host key pin, and primary handoff for a new host.
 - [guides/nix-debugging-manual.md](guides/nix-debugging-manual.md)
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
 - [guides/stylix-integration.md](guides/stylix-integration.md)

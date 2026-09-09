@@ -146,7 +146,7 @@ _: {
         # Samsung SSD 970 PRO 512GB (chipset M.2, 0000:82:00.0): plain NTFS
         # volume labeled "portal", the drive shared with the Windows dual
         # boot. Kernel ntfs3 with windows_names blocks names Windows cannot
-        # read; nofail keeps a dirty (Windows fast-startup) or absent volume
+        # read; nofail keeps a dirty (unclean Windows exit) or absent volume
         # from blocking boot. The masks are the /boot pair above: uid=/gid=
         # alone leave the mode at ~current_umask() of whatever mounted the
         # volume.
@@ -178,9 +178,9 @@ _: {
       # wrote an owner-writable /data onto the root filesystem on any boot where
       # the volume was absent, and anything writing there filled / silently.
 
-      # Enforces operating rule 2 of docs/songbird/nixos-setup.md: /portal
-      # mounted during imaging restores stale NTFS metadata, corrupting the
-      # volume silently, so ExecStartPre aborts the unit on a busy /portal.
+      # An image written with /portal mounted restores stale NTFS metadata on
+      # resume, corrupting the volume silently, so ExecStartPre aborts the
+      # unit on a busy /portal.
       # Collides with a shipped unit, so NixOS renders this as a drop-in
       # (asDropinIfExists) rather than a replacement. Remount runs on
       # ExecStopPost, not ExecStartPost, which nixpkgs skips on any failed

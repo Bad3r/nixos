@@ -10,10 +10,9 @@ _: {
       # (nvidiaPackages.production, resolved against the CachyOS kernel
       # above). hardware.nvidia.gsp follows `open` automatically.
       open = true;
-      # NVDEC via nvidia-vaapi-driver (docs/songbird/nixos-setup.md,
-      # decision 13). Documented fallback if Xid 31 MMU faults appear under
-      # decode churn: "intel-media", which routes libva to the Xe-LPG iGPU
-      # at 0000:00:02.0.
+      # NVDEC via nvidia-vaapi-driver. Fallback if Xid 31 MMU faults appear
+      # under decode churn: "intel-media", which routes libva to the Xe-LPG
+      # iGPU at 0000:00:02.0.
       vaapi.backend = "nvidia";
       # The XMI Mi Monitor on DFP-5 advertises 2560x1440@60 as its EDID
       # preferred mode and 180/165/144/120 as alternates, so

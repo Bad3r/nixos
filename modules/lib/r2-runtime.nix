@@ -37,10 +37,10 @@ let
         syncInterval = "5m";
       };
       # Temporary mitigation. The initial listing sends one HEAD request per
-      # object, and the r2-flake bisync submodule at 2af9005 exposes no compare
-      # or exclude setting, so the unit bound is the only lever this repository
-      # has; at 20m every run died mid-listing. Return to 20m once
-      # Bad3r/nix-R2-CloudFlare-Flake#150 ships and Bad3r/nixos#477 lands.
+      # object; at 20m every run died mid-listing. The pinned r2-flake revision
+      # (63b2dd47) now exposes compare and excludes options that would remove
+      # the need for this bound, but this profile does not set them yet. Keep
+      # 6h until Bad3r/nixos#477 applies them and right-sizes this value.
       bisyncStartTimeout = "6h";
     };
   };
