@@ -195,6 +195,12 @@
 
 - [reference/binary-cache-coverage.md](reference/binary-cache-coverage.md)
   - Operator surface for serving custom derivations from a binary cache, its substituter wiring, build surface, and CI publisher.
+- [reference/binary-cache-coverage-policy.md](reference/binary-cache-coverage-policy.md)
+  - License posture and evaluated inventory for published binary-cache roots.
+- [reference/binary-cache-coverage-operations.md](reference/binary-cache-coverage-operations.md)
+  - Cachix setup, publisher verification, and known binary-cache coverage gaps.
+- [reference/binary-cache-coverage-extension.md](reference/binary-cache-coverage-extension.md)
+  - Rules for adding derivations to the published binary-cache roots.
 - [reference/cache-coverage.md](reference/cache-coverage.md)
   - Per-host report of closure derivations that would compile locally despite a substitutable nixpkgs equivalent.
 - [reference/fork-sync-automation.md](reference/fork-sync-automation.md)

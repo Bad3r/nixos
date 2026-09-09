@@ -281,7 +281,6 @@ let
   # Built through the perSystem nixpkgs instance (devshell surface),
   # not enabled as host apps.
   perSystemPackageNames = [
-    "codeburn"
     "restringer"
   ];
 in
