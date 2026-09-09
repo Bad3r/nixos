@@ -17,9 +17,8 @@
           default-cache-ttl-ssh = 28800;
           max-cache-ttl = 28800;
           max-cache-ttl-ssh = 28800;
-          # Avoid delayed fallback through secret-service when a secret-service query
-          # stalls; go directly to pinentry instead.
-          "no-allow-external-cache" = "";
+          # Keep GPG signing passphrase out of the keyring.
+          no-allow-external-cache = "";
         };
       };
     };

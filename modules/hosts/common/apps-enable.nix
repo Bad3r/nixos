@@ -196,7 +196,7 @@ let
       gobuster.extended.enable = lib.mkOverride 1100 true;
       "golangci-lint".extended.enable = lib.mkOverride 1100 false;
       "google-chrome".extended.enable = lib.mkOverride 1100 true;
-      gopass.extended.enable = lib.mkOverride 1100 true;
+      gopass.extended.enable = lib.mkOverride 1100 false;
       gopls.extended.enable = lib.mkOverride 1100 false;
       gowitness.extended.enable = lib.mkOverride 1100 true;
       gparted.extended.enable = lib.mkOverride 1100 true;
@@ -238,7 +238,7 @@ let
       katana.extended.enable = lib.mkOverride 1100 true;
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
       kdiskmark.extended.enable = lib.mkOverride 1100 true;
-      keepassxc.extended.enable = lib.mkOverride 1100 true;
+      keepassxc.extended.enable = lib.mkOverride 1100 false;
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
       kitty.extended.enable = lib.mkOverride 1100 true;
       krita.extended.enable = lib.mkOverride 1100 false;
@@ -437,7 +437,6 @@ let
       "ssh-to-pgp".extended.enable = lib.mkOverride 1100 true;
       sshfs.extended.enable = lib.mkOverride 1100 true;
       "sss-nix-repair".extended.enable = lib.mkOverride 1100 true;
-      "sss-pass-gpg-bootstrap".extended.enable = lib.mkOverride 1100 true;
       starship.extended.enable = lib.mkOverride 1100 true;
       stash.extended.enable = lib.mkOverride 1100 true;
       statix.extended.enable = lib.mkOverride 1100 true;

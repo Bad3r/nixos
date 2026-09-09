@@ -6,14 +6,12 @@
     {
       config,
       lib,
-      osConfig ? { },
       ...
     }:
     let
       cfg = config.home.repoGpg;
       gpgSecretFile = secretsRoot + "/gpg/vx.asc";
       gpgSecretExists = builtins.pathExists gpgSecretFile;
-      gpgAgentEnabled = lib.attrByPath [ "programs" "gnupg" "agent" "enable" ] false osConfig;
       repoGpgAvailable = cfg.enable && gpgSecretExists;
     in
     {
@@ -29,9 +27,8 @@
           default = "981DE78A201C2B735FF0B545A3967CCA47D5275F";
           description = ''
             Fingerprint of the repository GPG signing key.
-            Defaults to the shared vx repository signing key so Git signing and
-            pass bootstrap stay aligned unless a host deliberately overrides it
-            for key rotation or testing.
+            Defaults to the shared vx repository signing key unless a host
+            deliberately overrides it for key rotation or testing.
           '';
         };
 
@@ -46,18 +43,6 @@
           readOnly = true;
           description = "Whether the repository GPG secret file exists on disk.";
         };
-
-        available = lib.mkOption {
-          type = lib.types.bool;
-          readOnly = true;
-          description = "Whether the repository GPG key is enabled and available for Home Manager.";
-        };
-
-        signingReady = lib.mkOption {
-          type = lib.types.bool;
-          readOnly = true;
-          description = "Whether Git signing should be enabled for the repository GPG key.";
-        };
       };
 
       config = lib.mkMerge [
@@ -65,8 +50,6 @@
           home.repoGpg = {
             secretFile = gpgSecretFile;
             secretExists = gpgSecretExists;
-            available = repoGpgAvailable;
-            signingReady = repoGpgAvailable && gpgAgentEnabled;
           };
         }
 
