@@ -16,9 +16,9 @@
           default-cache-ttl = 28800;
           default-cache-ttl-ssh = 28800;
           max-cache-ttl = 28800;
+          max-cache-ttl-ssh = 28800;
           # Keep GPG signing passphrase out of the keyring.
           no-allow-external-cache = "";
-          max-cache-ttl-ssh = 28800;
         };
       };
     };
