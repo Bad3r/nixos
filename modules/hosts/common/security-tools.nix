@@ -1,9 +1,10 @@
-_:
+{ lib, ... }:
 let
   body = _: {
     security = {
       pam.sshAgentAuth.enable = true;
-      polkit.enable = true;
+      # A default so a host can turn the polkit-gnome agent off; polkit-agent.nix keys off this.
+      polkit.enable = lib.mkDefault true;
       apparmor = {
         enable = true;
         killUnconfinedConfinables = true;
