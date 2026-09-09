@@ -6,14 +6,12 @@
     {
       config,
       lib,
-      osConfig ? { },
       ...
     }:
     let
       cfg = config.home.repoGpg;
       gpgSecretFile = secretsRoot + "/gpg/vx.asc";
       gpgSecretExists = builtins.pathExists gpgSecretFile;
-      gpgAgentEnabled = lib.attrByPath [ "programs" "gnupg" "agent" "enable" ] false osConfig;
       repoGpgAvailable = cfg.enable && gpgSecretExists;
     in
     {
@@ -45,18 +43,6 @@
           readOnly = true;
           description = "Whether the repository GPG secret file exists on disk.";
         };
-
-        available = lib.mkOption {
-          type = lib.types.bool;
-          readOnly = true;
-          description = "Whether the repository GPG key is enabled and available for Home Manager.";
-        };
-
-        signingReady = lib.mkOption {
-          type = lib.types.bool;
-          readOnly = true;
-          description = "Whether Git signing should be enabled for the repository GPG key.";
-        };
       };
 
       config = lib.mkMerge [
@@ -64,8 +50,6 @@
           home.repoGpg = {
             secretFile = gpgSecretFile;
             secretExists = gpgSecretExists;
-            available = repoGpgAvailable;
-            signingReady = repoGpgAvailable && gpgAgentEnabled;
           };
         }
 

@@ -47,11 +47,10 @@ let
       geckoSecrets.enable = lib.mkDefault true;
       r2Secrets.enable = lib.mkDefault true;
       virustotalSecrets.enable = lib.mkDefault true;
-    }
-    // lib.optionalAttrs repoGpgModuleExists {
-      repoGpg.enable = lib.mkDefault true;
     };
 
+    # repoGpg has no consumer (nothing reads .secretFile/.secretExists): stays at its own
+    # enable = false default rather than decrypting the repo signing key fleet-wide unused.
     home-manager.sharedModules = lib.mkAfter (
       lib.optionals repoGpgModuleExists [
         (lib.getAttrFromPath [ "self" "homeManagerModules" "repoGpg" ] inputs)
