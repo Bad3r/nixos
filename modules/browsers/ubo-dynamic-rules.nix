@@ -198,11 +198,13 @@ let
     }
   ];
 
-  # Pin the rows that establish medium mode and the Turnstile exception.
+  # Pin the rows that establish medium mode and the seeded site exceptions.
   requiredSeedRules = [
     "* * 3p-script block"
     "* * 3p-frame block"
     "* challenges.cloudflare.com * noop"
+    "id.atlassian.com * 3p-script noop"
+    "id.atlassian.com * 3p-frame noop"
   ];
 
   failedValidHostnameSwitchCases = lib.filter (

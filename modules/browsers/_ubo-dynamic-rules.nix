@@ -221,6 +221,10 @@ let
     "login.microsoft.com * 3p-script noop"
     "login.microsoft.com * 3p-frame noop"
 
+    # Atlassian identity
+    "id.atlassian.com * 3p-script noop"
+    "id.atlassian.com * 3p-frame noop"
+
     # Cloud consoles
     "cloud.google.com * 3p-script noop"
     "cloud.google.com * 3p-frame noop"
