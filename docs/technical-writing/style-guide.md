@@ -8,7 +8,12 @@ When a rule here conflicts with another page in this folder, the rule here wins.
 
 A sentence stays only when the reader cannot get its content from the code, the tree, or one command.
 A fact the code states clearly is never restated; the page names the file when the reader must open it.
+Current state is the usual offender: which apps a host enables, which hosts turn a feature on, which groups a profile assigns, which tools a catalog switches on.
+Each is one file away, and a page that lists it is wrong the first time the code changes, with no check to catch it.
 A rule that a check enforces is documented by naming the check, not by repeating the rule.
+A fact another page states is never restated either; one page owns it and the rest link there.
+Ownership follows scope: the fact lives on the page whose subject it belongs to.
+Two copies drift, and the reader who finds the stale one has no way to tell which is stale.
 
 ## Content that never appears
 
@@ -26,6 +31,26 @@ A rule that a check enforces is documented by naming the check, not by repeating
 The machine-checked phrase list is [banned-phrases.txt](banned-phrases.txt).
 A phrase on that list is a symptom; rewording around it while keeping the transient content is still a violation.
 
+### No meta-commentary
+
+A sentence about the material rather than about the subject is meta-commentary.
+No check catches it, it drifts as the tree around it moves, and the reader gains nothing from it.
+Three shapes, with the wording each takes:
+
+- Completeness narration, giving a reason for content instead of a fact: `Listed for completeness`, `kept here for reference`.
+- Doc-set structure, describing where content sits: `there is no dedicated section for them`, `the groupings below are this report's`, `the only copy of this list`.
+- Cross-subject contrast, which restates code-readable state on both sides: `enabled on tpnix but not songbird`, `unlike the other hosts`.
+
+A page writing about itself is the fourth shape, and it is left without a wording list on purpose.
+Every listed wording teaches the substitution that clears it: `Commands on this page carry` rewritten to `Commands here carry` passes the phrase list with the subject unchanged.
+The test is the subject, not the vocabulary.
+A sentence whose subject is the page, the section, or the documentation set is rebuilt around the tool, the host, or the reader's task, which is what the fact belongs to.
+A page opens on its subject, never on a sentence about the page.
+A pointer to another page is a plain link, never a sentence about where the fact lives.
+Contrast between subjects is deleted whole, never trimmed to its positive half.
+`enabled on tpnix` restates `modules/tpnix/apps-enable.nix` exactly as `but not songbird` restates songbird's, so the shorter sentence is the same violation with one subject instead of two.
+The page names the file the reader opens.
+
 ## Rationale
 
 A why is one clause attached to the fact it explains, at most one sentence.
@@ -35,6 +60,8 @@ Longer rationale belongs in the commit body, in the code comment at the option, 
 
 - One page, one scope.
   Split a page instead of growing it.
+  A split sends each section to the one page that owns its scope, and deletes what a linked page already carries.
+  Moving a duplicate into a new file keeps the duplicate and adds a page to maintain.
 - A page has at most 150 lines, counted on the file.
 - Headings go two levels below the title: `##` and `###`.
 - No sections named `Status`, `Decisions`, `Open Items`, `Notes`, or `Tasks`.
@@ -93,6 +120,7 @@ Each section gives the cause in one sentence, the diagnostic command, and the fi
 
 The pre-commit hook `docs-style` in `modules/meta/hooks/docs-style.nix` runs on every staged Markdown file.
 It is pinned to the pre-commit stage, so the `--hook-stage manual` sweep skips it and an older page comes under the rules when it is next edited.
+A change that has to edit such a page brings it into compliance as part of that change, rather than dropping the edit or moving the content to a page that passes.
 It fails on more than 150 lines, on a banned phrase outside code, and on a link or backticked repository path that does not resolve.
 A target resolves only when git tracks it, so a new page is staged before the page that links to it.
 Exempt paths: `docs/nixos-manual/`, `docs/drafts/`, the generated root `README.md`, any `CLAUDE.md` or `AGENTS.md`, and `tests/`.
