@@ -24,8 +24,8 @@ let
   # Generic helper to generate defaultApplications attrset
   mkDefaults = mimeTypes: desktopFile: lib.genAttrs mimeTypes (_: desktopFile);
 
-  # environment.sessionVariables feeds /etc/pam/environment, so the user manager and
-  # D-Bus-activated apps see these; environment.variables reaches shells only.
+  # sessionVariables feeds /etc/pam/environment (user manager, D-Bus-activated apps) and
+  # nixpkgs merges it into environment.variables, so shells need no second declaration.
   sessionEnv = env: {
     environment.sessionVariables = env;
     home-manager.sharedModules = [ { home.sessionVariables = env; } ];
