@@ -41,13 +41,19 @@ let
         hicolor-icon-theme
       ];
 
-      services.udev.packages = with pkgs; [
-        gsettings-desktop-schemas
-      ];
+      services = {
+        udev.packages = with pkgs; [
+          gsettings-desktop-schemas
+        ];
 
-      services.dbus.packages = with pkgs; [
-        gsettings-desktop-schemas
-      ];
+        dbus.packages = with pkgs; [
+          gsettings-desktop-schemas
+        ];
+
+        # Adds the TLS GIO module dir via sessionVariables, list-merged with the dconf
+        # and gvfs modules; a forced string here would diverge from /etc/pam/environment.
+        gnome.glib-networking.enable = true;
+      };
 
       # Keep the host-enabled Secret mapping coupled to its portal provider.
       assertions = [
@@ -65,16 +71,16 @@ let
         }
       ];
 
-      environment.variables = {
-        GIO_EXTRA_MODULES = lib.mkForce (
-          lib.concatStringsSep ":" [
-            "${pkgs.glib-networking}/lib/gio/modules"
-            "${pkgs.gvfs}/lib/gio/modules"
-            "${pkgs.dconf.lib}/lib/gio/modules"
-          ]
-        );
-        GSETTINGS_SCHEMA_DIR = "${pkgs.gsettings-desktop-schemas}/share/gsettings-schemas/${pkgs.gsettings-desktop-schemas.name}/glib-2.0/schemas";
-      };
+      # Unwrapped GTK programs (nix-ld foreign binaries, devshell scripts) reach schemas
+      # only via XDG_DATA_DIRS; these entries rank below a wrapGAppsHook --prefix.
+      environment.sessionVariables.XDG_DATA_DIRS = map (p: "${p}/share/gsettings-schemas/${p.name}") (
+        with pkgs;
+        [
+          gsettings-desktop-schemas
+          gtk3
+          gtk4
+        ]
+      );
 
       xdg.portal = {
         enable = true;
