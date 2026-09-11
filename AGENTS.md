@@ -120,10 +120,6 @@ Do NOT iterate over `flake.lib.nixos.hosts` with `lib.filterAttrs`/`lib.mapAttrs
 
 Storage-dependent common features must be disabled or backed by a host-mounted path when the host lacks their storage contract. songbird owns the dedicated `/data` volume that backs the local mirror writers and the R2 runtime; tpnix intentionally retains its root-backed mirror behavior.
 
-### Session Environment Variables
-
-GUI-facing variables such as BROWSER, EDITOR, TERMINAL, OPENER, FILE_MANAGER, and SSH_ASKPASS are declared through `environment.sessionVariables`, never `environment.variables`. Session variables feed `/etc/pam/environment`, which both the display-manager session and the `systemd-user` PAM stack read, so the user manager, its services, and D-Bus-activated apps see them without a window-manager import. nixpkgs also merges `environment.sessionVariables` into `environment.variables`, so the same declaration still reaches shells and whatever sources `/etc/profile`; the i3 module additionally imports only session runtime names such as DISPLAY and XAUTHORITY into the user manager. The default-app hooks in `modules/xdg/mime.nix` route through `sessionEnv`, which sets both the NixOS session variable and the Home Manager one.
-
 ### Flake Input Deduplication
 
 Use the generated README's "Flake Input Deduplication" section as the canonical
