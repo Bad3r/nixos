@@ -44,12 +44,10 @@ let
     {
       config,
       lib,
-      options,
       ...
     }:
     let
       cfg = config.host.defaults;
-      hasHomeManager = options ? home-manager;
 
       mkCategoryOption =
         _name: cat:
@@ -91,7 +89,7 @@ let
           lib.mkMerge [
             { xdg.mime.defaultApplications = mimeDefaults; }
             { xdg.mime.addedAssociations = addedAssociations; }
-            (lib.optionalAttrs hasHomeManager {
+            {
               home-manager.sharedModules = [
                 {
                   xdg.mimeApps = {
@@ -101,7 +99,7 @@ let
                   };
                 }
               ];
-            })
+            }
             (lib.optionalAttrs (cat ? extraConfig) (cat.extraConfig cfg.${name}))
           ]
         );
