@@ -82,6 +82,10 @@ let
         ]
       );
 
+      # gdk-pixbuf builds its own loaders in; the SVG loader is third-party, and the
+      # icon themes here ship SVG only. Same session-wide cache the xfce module uses.
+      programs.gdk-pixbuf.modulePackages = [ pkgs.librsvg ];
+
       xdg.portal = {
         enable = true;
         extraPortals = [ pkgs.xdg-desktop-portal-gtk ];
