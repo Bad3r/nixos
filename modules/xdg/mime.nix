@@ -633,16 +633,17 @@ let
       '';
       extraConfig =
         value:
-        sessionEnv (
-          {
+        let
+          env = {
             PAGER = value.command;
             MANPAGER = value.man.pager;
             MANWIDTH = value.man.width;
           }
           // lib.optionalAttrs (value.man.roffopt != null) {
             MANROFFOPT = value.man.roffopt;
-          }
-        );
+          };
+        in
+        sessionEnv env;
     };
 
     diffProgram = {
