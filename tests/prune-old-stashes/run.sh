@@ -1580,7 +1580,18 @@ test_cdpath_does_not_divert_the_dedup_key
 # the suite green while guarding nothing, which is the same failure as a test
 # that can no longer fail. Compared as sets, not counts: one function listed
 # twice and another omitted keeps the totals equal.
-expected="$(compgen -A function 'test_' | sort)"
+#
+# declare -F, not compgen -A function: compgen needs programmable completion,
+# which the bash a runCommand builder runs is built without, so the enumeration
+# this guard depends on would exist only because modules/meta/script-tests.nix
+# happens to put pkgs.bash on PATH. declare -F is a plain builtin.
+expected="$(
+  while read -r _ _ fn; do
+    if [[ ${fn} == test_* ]]; then
+      printf '%s\n' "${fn}"
+    fi
+  done < <(declare -F) | sort
+)"
 ran="$(printf '%s\n' "${tests_ran[@]}" | sort -u)"
 if [[ ${ran} != "${expected}" ]]; then
   printf 'run.sh: defined but never ran:\n%s\n' \
