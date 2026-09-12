@@ -168,9 +168,9 @@ input is an `https://github.com/owner/repo/` URL. For example,
 `tridactyl/tridactyl` maps to `/data/git/tridactyl-tridactyl`.
 
 The full path inventory lives in `docs/reference/local-mirrors.md`. When a
-common mirror is added or removed, keep `docs/reference/local-mirrors.md`,
-`docs/architecture/06-reference.md`, and `modules/agents/system-prompt.nix` in
-sync with `modules/hosts/common/mirrors.nix`.
+common mirror is added or removed, keep that page and
+`modules/agents/system-prompt.nix` in sync with
+`modules/hosts/common/mirrors.nix`.
 
 ## Branch And PR Workflow
 
@@ -280,6 +280,18 @@ nix develop path:. -c pre-commit run --all-files --hook-stage manual
 
 Preconditions: dev shell ready and workspace writable.
 Post-check: exit code 0. Review reported TODOs and failures.
+
+Sweep the full history for credentials:
+
+```sh
+nix run path:.#hook-gitleaks
+```
+
+Preconditions: a complete, non-shallow clone; the hook refuses a shallow one
+rather than reporting it clean. Scope rules for this hook, including the
+narrower range it reads at `pre-push`, are in
+`docs/architecture/06-reference.md`.
+Post-check: exit code 0, and one result line per repository scanned.
 
 Generate managed artifacts:
 

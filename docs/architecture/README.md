@@ -11,7 +11,8 @@ This directory explains how the Dendritic Pattern organizes this NixOS configura
 | 3   | [NixOS Modules](03-nixos-modules.md)       | System-level aggregators and app registry               |
 | 4   | [Home Manager](04-home-manager.md)         | User-level aggregators and app loading                  |
 | 5   | [Host Composition](05-host-composition.md) | How hosts are assembled from modules                    |
-| 6   | [Reference](06-reference.md)               | Validation, glossary, troubleshooting                   |
+| 6   | [Reference](06-reference.md)               | Validation, introspection, tooling, glossary            |
+| 7   | [Troubleshooting](07-troubleshooting.md)   | Symptoms and their resolutions                          |
 
 ## Quick Links
 
@@ -24,7 +25,10 @@ This directory explains how the Dendritic Pattern organizes this NixOS configura
 | Understanding host composition       | [05-host-composition.md](05-host-composition.md)                                                 |
 | Auditing host-owned files            | [host-file-inventory.md](host-file-inventory.md)                                                 |
 | Validation commands                  | [06-reference.md#validation](06-reference.md#validation)                                         |
+| Scanning history for credentials     | [06-reference.md#credential-scanning](06-reference.md#credential-scanning)                       |
 | Glossary of terms                    | [06-reference.md#glossary](06-reference.md#glossary)                                             |
+| A symptom to resolve                 | [07-troubleshooting.md](07-troubleshooting.md)                                                   |
+| Local mirror paths                   | [../reference/local-mirrors.md](../reference/local-mirrors.md)                                   |
 
 ## Related Guides
 

@@ -225,6 +225,42 @@ _: {
             # a valid alternate repository gives a large non-zero count with
             # shallow=false, so the count alone cannot prove which history the
             # pass will scan.
+            # A push publishes a range, not a history, but gitleaks with no
+            # --log-opts runs `git log -p -U0 --full-history --all`, so every
+            # pre-push re-read every already-published commit. On this
+            # repository that is 4328 commits and 37.65 MB for 27.5s, against
+            # 0.06s for the ten commits actually being sent. pre-commit's
+            # hook_impl.py computes the pair from the pre-push stdin line: the
+            # sha the remote holds for the ref, and the tip it is about to
+            # receive.
+            #
+            # Absent variables mean full history, and that half is the
+            # load-bearing one: check.yml's gitleaks-scan runs
+            # `nix run .#hook-gitleaks` and the manual stage runs the hook
+            # directly, neither with a range, so the merge-path sweep this hook
+            # is the only credential gate for still reads everything.
+            # hook_impl.py also omits both variables when the push carries a
+            # root commit, which is that same full-history case, and computes
+            # them from the first pushed ref only, so a multi-ref push leaves
+            # the rest to that sweep.
+            #
+            # Resolved rather than trusted: the values arrive in the
+            # environment, they are interpolated into a --log-opts string
+            # gitleaks splits on spaces before handing it to git log, and a
+            # pair naming no commit here would leave that log command failing
+            # while gitleaks still printed "no leaks found" and exited 0.
+            range_from=""
+            range_to=""
+            if [ -n "''${PRE_COMMIT_FROM_REF:-}" ] && [ -n "''${PRE_COMMIT_TO_REF:-}" ]; then
+              if resolved_from=$(git_in_repo . rev-parse --verify --quiet "''${PRE_COMMIT_FROM_REF}^{commit}") \
+                && resolved_to=$(git_in_repo . rev-parse --verify --quiet "''${PRE_COMMIT_TO_REF}^{commit}"); then
+                range_from="$resolved_from"
+                range_to="$resolved_to"
+              else
+                echo "hook-gitleaks: PRE_COMMIT_FROM_REF and PRE_COMMIT_TO_REF do not both name commits in this repository; scanning the full history rather than a range that resolves to nothing" >&2
+              fi
+            fi
+
             super_commits=$(git_in_repo . rev-list --all --count)
             super_shallow=$(git_in_repo . rev-parse --is-shallow-repository)
             if [ "$super_commits" -eq 0 ] || [ "$super_shallow" != "false" ]; then
@@ -270,6 +306,17 @@ _: {
             # pass, and announcing a filtered scan first would print that line
             # ahead of a refusal saying the pass never ran at all.
             git_args=("''${common[@]}" --config ".gitleaks.toml")
+            if [ -n "$range_to" ]; then
+              # --full-history spelled out: supplying --log-opts replaces
+              # gitleaks' whole default argument list, `--full-history --all`
+              # included, rather than appending to it.
+              # Announced for the reason the baseline announcements below are:
+              # a scoped pass prints the same "no leaks found" as one that read
+              # every commit, and here that verdict covers only what this push
+              # adds.
+              git_args+=(--log-opts "--full-history $range_from..$range_to")
+              echo "hook-gitleaks: superproject pass scoped to $range_from..$range_to, the commits this push publishes; the full history is swept by check.yml's gitleaks-scan" >&2
+            fi
             if [ -f ".gitleaks-baseline.json" ]; then
               git_args+=(--baseline-path ".gitleaks-baseline.json")
               echo "hook-gitleaks: superproject pass filtered by .gitleaks-baseline.json" >&2
@@ -307,6 +354,46 @@ _: {
               fi
             done
             sub_args=("''${common[@]}" --config "$submodule_config")
+
+            # What a superproject push publishes for a gitlink is the history
+            # its pointer newly reaches, so the range is read out of the two
+            # pushed trees rather than carried over from the superproject's own
+            # shas, which name nothing in the submodule. An unmoved pointer
+            # publishes nothing and skips the pass entirely, which is where the
+            # 8.8s this repository spent re-reading secrets/ on every push goes.
+            # rev-parse resolves <tree-ish>:<path> to the commit id a gitlink
+            # entry records; it fails on a path the pushed tip does not carry
+            # and on a nested gitlink, whose entry lives in its parent's tree
+            # rather than the superproject's, and either falls back to the full
+            # history rather than to a skip.
+            sub_log_opts=""
+            sub_range_commits=()
+            sub_unmoved=""
+            if [ -n "$range_to" ]; then
+              if link_new=$(git_in_repo . rev-parse --verify --quiet "$range_to:$sm"); then
+                if link_old=$(git_in_repo . rev-parse --verify --quiet "$range_from:$sm") \
+                  && [ "$link_old" = "$link_new" ]; then
+                  sub_unmoved=1
+                elif [ -n "$link_old" ]; then
+                  sub_log_opts="--full-history $link_old..$link_new"
+                  sub_range_commits=("$link_old" "$link_new")
+                else
+                  sub_log_opts="--full-history $link_new"
+                  sub_range_commits=("$link_new")
+                fi
+              else
+                echo "hook-gitleaks: $range_to records no gitlink at $sm, so this push's range for it is unknown; scanning its full history instead" >&2
+              fi
+            fi
+            if [ -n "$sub_unmoved" ]; then
+              # Said rather than skipped quietly, for the reason the absent
+              # checkout below is warned about: the pass produced no verdict,
+              # and the push that does move this pointer is what scans the
+              # history in between. CI is no backstop here, since gitleaks-scan
+              # never checks a gitlink out.
+              echo "hook-gitleaks: $sm/ keeps gitlink $link_new across $range_from..$range_to, so this push publishes no history for it and it was NOT scanned" >&2
+              continue
+            fi
             if [ -e "$sm/.git" ]; then
               # git exports GIT_DIR to its hooks and gitleaks shells out to git,
               # so an inherited GIT_DIR overrides the path argument and silently
@@ -336,6 +423,23 @@ _: {
                 if [ "$sub_commits" -eq 0 ] || [ "$sub_shallow" != "false" ]; then
                   echo "hook-gitleaks: submodule pass would read an incomplete history (commits=$sub_commits, shallow=$sub_shallow); refusing to report $sm/ clean (run 'git submodule update --init $sm', and 'git -C $sm fetch --unshallow' if it was cloned shallow)" >&2
                   exit 1
+                fi
+                # The range's endpoints come from the superproject's trees, so
+                # a clone that never fetched one of them leaves git log exiting
+                # non-zero inside gitleaks, which logs the failure and still
+                # prints "no leaks found" and exits 0: verified on 8.30.1
+                # against an unresolvable range. Falling back to the full
+                # history keeps that from becoming the pass's verdict.
+                for sub_range_commit in ''${sub_range_commits[@]+"''${sub_range_commits[@]}"}; do
+                  if ! git -C "$sm" rev-parse --verify --quiet "$sub_range_commit^{commit}" >/dev/null; then
+                    echo "hook-gitleaks: $sm/ has no commit $sub_range_commit, which the pushed range records for it; scanning its full history instead (run 'git -C $sm fetch')" >&2
+                    sub_log_opts=""
+                    break
+                  fi
+                done
+                if [ -n "$sub_log_opts" ]; then
+                  sub_args+=(--log-opts "$sub_log_opts")
+                  echo "hook-gitleaks: submodule pass scoped to $sub_log_opts, the history $sm/ newly reaches across $range_from..$range_to" >&2
                 fi
                 # Built after the history guard above rather than before it, for
                 # the reason the superproject's announcement moved below its own
