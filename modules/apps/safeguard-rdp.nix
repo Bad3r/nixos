@@ -36,13 +36,11 @@ let
       config,
       lib,
       pkgs,
-      options,
       ...
     }:
     let
       cfg = config.programs.safeguard-rdp.extended;
       desktop = "safeguard-rdp.desktop";
-      hasHomeManager = options ? home-manager;
     in
     {
       options.programs.safeguard-rdp.extended = {
@@ -62,7 +60,7 @@ let
             xdg.mime.defaultApplications."x-scheme-handler/rdp" = desktop;
             xdg.mime.addedAssociations."x-scheme-handler/rdp" = desktop;
           }
-          (lib.optionalAttrs hasHomeManager {
+          {
             home-manager.sharedModules = [
               {
                 xdg.mimeApps = {
@@ -72,7 +70,7 @@ let
                 };
               }
             ];
-          })
+          }
         ]
       );
     };

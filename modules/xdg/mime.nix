@@ -24,6 +24,13 @@ let
   # Generic helper to generate defaultApplications attrset
   mkDefaults = mimeTypes: desktopFile: lib.genAttrs mimeTypes (_: desktopFile);
 
+  # sessionVariables feeds /etc/pam/environment (user manager, D-Bus-activated apps) and
+  # nixpkgs merges it into environment.variables, so shells need no second declaration.
+  sessionEnv = env: {
+    environment.sessionVariables = env;
+    home-manager.sharedModules = [ { home.sessionVariables = env; } ];
+  };
+
   # Canonical MIME types for web browsers per freedesktop.org shared-mime-info
   browserMimeTypes = [
     "text/html"
@@ -438,10 +445,7 @@ let
         Default web browser for this host.
         Set to null to not configure a default browser via XDG mimeapps.
       '';
-      extraConfig = value: {
-        environment.variables.BROWSER = value;
-        home-manager.sharedModules = [ { home.sessionVariables.BROWSER = value; } ];
-      };
+      extraConfig = value: sessionEnv { BROWSER = value; };
     };
 
     mailClient = {
@@ -482,20 +486,12 @@ let
         Default terminal emulator for this host.
         Set to null to not configure a default terminal via XDG mimeapps.
       '';
-      extraConfig = value: {
-        environment.variables = {
+      extraConfig =
+        value:
+        sessionEnv {
           TERMINAL = value;
           COLORTERM = "truecolor";
         };
-        home-manager.sharedModules = [
-          {
-            home.sessionVariables = {
-              TERMINAL = value;
-              COLORTERM = "truecolor";
-            };
-          }
-        ];
-      };
     };
 
     fileManager = {
@@ -506,10 +502,7 @@ let
         Default file manager for this host.
         Set to null to not configure a default file manager via XDG mimeapps.
       '';
-      extraConfig = value: {
-        environment.variables.FILE_MANAGER = value;
-        home-manager.sharedModules = [ { home.sessionVariables.FILE_MANAGER = value; } ];
-      };
+      extraConfig = value: sessionEnv { FILE_MANAGER = value; };
     };
 
     archiveManager = {
@@ -530,10 +523,7 @@ let
         Default image viewer for this host.
         Set to null to not configure a default image viewer via XDG mimeapps.
       '';
-      extraConfig = value: {
-        environment.variables.IMAGE = value;
-        home-manager.sharedModules = [ { home.sessionVariables.IMAGE = value; } ];
-      };
+      extraConfig = value: sessionEnv { IMAGE = value; };
     };
 
     documentViewer = {
@@ -544,10 +534,7 @@ let
         Default document viewer (PDF, EPUB, DjVu, etc.) for this host.
         Set to null to not configure a default document viewer via XDG mimeapps.
       '';
-      extraConfig = value: {
-        environment.variables.READER = value;
-        home-manager.sharedModules = [ { home.sessionVariables.READER = value; } ];
-      };
+      extraConfig = value: sessionEnv { READER = value; };
     };
 
     audioPlayer = {
@@ -568,10 +555,7 @@ let
         Default video player for this host.
         Set to null to not configure a default video player via XDG mimeapps.
       '';
-      extraConfig = value: {
-        environment.variables.VIDEO_PLAYER = value;
-        home-manager.sharedModules = [ { home.sessionVariables.VIDEO_PLAYER = value; } ];
-      };
+      extraConfig = value: sessionEnv { VIDEO_PLAYER = value; };
     };
   };
 
@@ -583,22 +567,13 @@ let
         Default text editor for this host.
         Sets EDITOR, VISUAL, and GIT_EDITOR environment variables.
       '';
-      extraConfig = value: {
-        environment.variables = {
+      extraConfig =
+        value:
+        sessionEnv {
           EDITOR = value;
           VISUAL = value;
           GIT_EDITOR = value;
         };
-        home-manager.sharedModules = [
-          {
-            home.sessionVariables = {
-              EDITOR = value;
-              VISUAL = value;
-              GIT_EDITOR = value;
-            };
-          }
-        ];
-      };
     };
 
     pager = {
@@ -668,10 +643,7 @@ let
             MANROFFOPT = value.man.roffopt;
           };
         in
-        {
-          environment.variables = env;
-          home-manager.sharedModules = [ { home.sessionVariables = env; } ];
-        };
+        sessionEnv env;
     };
 
     diffProgram = {
@@ -681,10 +653,7 @@ let
         Default diff program for this host.
         Sets DIFFPROG environment variable (used by pacdiff, etc.).
       '';
-      extraConfig = value: {
-        environment.variables.DIFFPROG = value;
-        home-manager.sharedModules = [ { home.sessionVariables.DIFFPROG = value; } ];
-      };
+      extraConfig = value: sessionEnv { DIFFPROG = value; };
     };
 
     opener = {
@@ -694,10 +663,7 @@ let
         Default generic file opener for this host.
         Sets OPENER environment variable (delegates to XDG MIME handlers).
       '';
-      extraConfig = value: {
-        environment.variables.OPENER = value;
-        home-manager.sharedModules = [ { home.sessionVariables.OPENER = value; } ];
-      };
+      extraConfig = value: sessionEnv { OPENER = value; };
     };
   };
 in

@@ -2,8 +2,7 @@
 
 mpv is the focal point of several adjacent integrations in this NixOS configuration: XDG MIME
 defaults, MPRIS-driven media keys, an orthogonal codec bundle, a browser
-bridge, and a custom playlist helper. This page walks each integration and
-notes the boundary between it and the dedicated mpv module.
+bridge, and a custom playlist helper.
 
 ## XDG MIME and Default Applications
 
@@ -22,7 +21,7 @@ these structures and emits parallel configurations:
 
 - `xdg.mime.defaultApplications` (NixOS): System-wide `/etc/xdg/mimeapps.list` registers `mpv.desktop` for the audio/video MIME set.
 - `home-manager.sharedModules.xdg.mimeApps.defaultApplications`: User-level `~/.config/mimeapps.list` carries the same mappings.
-- `environment.variables.VIDEO_PLAYER` / `home.sessionVariables.VIDEO_PLAYER`: Exposes `VIDEO_PLAYER=mpv` to scripts that prefer env-driven dispatch.
+- `environment.sessionVariables.VIDEO_PLAYER` / `home.sessionVariables.VIDEO_PLAYER`: Exposes `VIDEO_PLAYER=mpv` to shells, the PAM session, and the user manager for env-driven dispatch.
 
 The MIME-type lists themselves are exhaustive (covering matroska, webm, mp4,
 opus, flac, etc.). Updating the list in the helper updates every consumer.
