@@ -14,6 +14,7 @@
     tailscale up: Bring the node online and apply advertised routes or exit-node settings.
     tailscale status: Show peer connectivity, tunnel health, and route state.
     tailscale ssh <target>: Open an SSH session over the tailnet identity plane.
+    acceptDns: Whether to install the tailnet DNS configuration pushed by the coordination server.
     authKeyFile: Optional file path containing a reusable auth key for non-interactive node registration.
     extraSetFlags: Additional arguments passed to `tailscale set` after daemon startup.
     interfaceName: Override the network interface name used by tailscaled (default `tailscale0`).
@@ -259,6 +260,19 @@ let
 
         package = lib.mkPackageOption pkgs "tailscale" { };
 
+        # Default off because this tailnet publishes global resolvers while
+        # MagicDNS is disabled tailnet-wide with no split-DNS routes and no
+        # search domains, so accepting its config only redirects every query
+        # away from NetworkManager's dnsmasq, which is what serves
+        # private-dns-hosts.nix. tailscaled forwards each query over a fresh
+        # DoH connection and does not reap the ones a blackholing uplink leaves
+        # in backoff; tpnix reached 539 stuck sockets to a single resolver.
+        acceptDns = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to apply the tailnet DNS configuration to this host (`tailscale set --accept-dns`).";
+        };
+
         authKeyFile = lib.mkOption {
           type = lib.types.nullOr lib.types.path;
           default = null;
@@ -306,7 +320,11 @@ let
           services.tailscale = lib.mkMerge [
             {
               enable = true;
-              inherit (cfg) package interfaceName extraSetFlags;
+              inherit (cfg) package interfaceName;
+              extraSetFlags = [
+                "--accept-dns=${lib.boolToString cfg.acceptDns}"
+              ]
+              ++ cfg.extraSetFlags;
             }
             (lib.mkIf (cfg.authKeyFile != null) {
               inherit (cfg) authKeyFile;
