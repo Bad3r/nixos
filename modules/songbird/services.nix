@@ -113,11 +113,6 @@ in
       services = {
         cloudflared.enable = true;
 
-        cloudflare-warp = {
-          enable = true;
-          package = pkgs.cloudflare-warp.override { headless = true; };
-        };
-
         # No drivers list: nixpkgs reads services.printing.drivers only inside
         # its own mkIf cfg.enable, so alongside a forced-off enable it would
         # name packages nothing installs.
