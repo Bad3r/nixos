@@ -16,7 +16,7 @@ configuration. Dashboard steps target an Enterprise Zero Trust account.
    the service token from step 2. Required for token enrollment; without it the
    daemon enrolls then fails policy.
 4. **Device profiles.** Assign a profile whose service mode matches each host:
-   **Gateway with WARP** (`service_mode = warp`) for system76, and **Secure Web
+   **Gateway with WARP** (`service_mode = warp`) for songbird, and **Secure Web
    Gateway without DNS filtering** (`service_mode = tunnelonly`) for tpnix.
    tpnix keeps its local NetworkManager dnsmasq mappings for private hosts.
 5. **Split Tunnels (Exclude IPs).** Keep the default RFC1918 ranges excluded and
@@ -58,16 +58,17 @@ git -C secrets add cloudflare-warp.yaml
 Each host opts in through a small file that enables the wrapper with its host's
 required service mode:
 
-- `modules/system76/cloudflare-warp.nix` sets `enable = true` directly; system76
-  has runtime SOPS decryption.
+- `modules/songbird/cloudflare-warp.nix` sets `enable = sopsRuntimeReady`, gating
+  on `flake.lib.nixos.hosts.songbird.sopsRuntimeReady`
+  (`modules/songbird/policy.nix`) like the host's other secret-backed services.
 - `modules/tpnix/cloudflare-warp.nix` sets `enable = sopsRuntimeReady`, gating on
   `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady` (`modules/tpnix/policy.nix`).
-  The flag is currently `true` (repo-managed sops landed for tpnix in PR #305), so
-  the wrapper behaves like system76's: `warp-cli` on `PATH` and no daemon until
+  The flag is `true` (repo-managed sops landed for tpnix in PR #305), so
+  the wrapper behaves like songbird's: `warp-cli` on `PATH` and no daemon until
   `secrets/cloudflare-warp.yaml` is committed, then non-interactive enrollment.
   The gate remains a kill switch: if tpnix ever loses its runtime decryption key,
   flipping the flag back to `false` drops the `cloudflare-warp/*` secret
-  declarations and removes the previously rendered runtime `mdm.xml` on the next
+  declarations and removes the rendered runtime `mdm.xml` on the next
   activation, avoiding a stranded service-token cache.
 
 Until the secret exists, `enable = true` installs the client only. `warp-svc`
@@ -92,10 +93,10 @@ _: {
 ```
 
 tpnix keeps `enable` gated on `sopsRuntimeReady` as a kill switch. The flag is
-currently `true`, so tpnix behaves like a SOPS-ready host. If the tpnix
+`true`, so tpnix behaves like a SOPS-ready host. If the tpnix
 decryption key is ever lost, flipping the flag back to `false` in
 `modules/tpnix/policy.nix` drops the `cloudflare-warp/*` secret declarations and
-the mdm template with it, and the disabled wrapper removes the previously
+the mdm template with it, and the disabled wrapper removes the
 rendered runtime `mdm.xml` on the next activation:
 
 ```nix

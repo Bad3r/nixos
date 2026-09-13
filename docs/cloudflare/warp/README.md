@@ -7,13 +7,14 @@ service token delivered through a managed deployment file (`mdm.xml`).
 
 ## Documents
 
-| Document                      | Purpose                                                    |
-| ----------------------------- | ---------------------------------------------------------- |
-| [Deployment](./deployment.md) | Operator runbook: dashboard prerequisites, secret, rollout |
-| [Reference](./reference.md)   | Module options, mdm.xml parameters, sops layout            |
-| [Modes](./modes.md)           | WARP mode comparison, DNS tradeoffs, split tunnels         |
-| [Operations](./operations.md) | Runtime verification, coexistence checks, troubleshooting  |
-| [Cheatsheet](./cheatsheet.md) | `warp-cli`, `warp-diag`, and service inspection commands   |
+| Document                                | Purpose                                                    |
+| --------------------------------------- | ---------------------------------------------------------- |
+| [Deployment](./deployment.md)           | Operator runbook: dashboard prerequisites, secret, rollout |
+| [Reference](./reference.md)             | Module options, mdm.xml parameters, sops layout            |
+| [Modes](./modes.md)                     | WARP mode comparison, DNS tradeoffs, split tunnels         |
+| [Operations](./operations.md)           | Runtime verification, coexistence checks, managed config   |
+| [Troubleshooting](./troubleshooting.md) | Known failures with cause, diagnostic, and fix             |
+| [Cheatsheet](./cheatsheet.md)           | `warp-cli`, `warp-diag`, and service inspection commands   |
 
 ## What the module does
 
@@ -63,20 +64,21 @@ removes the runtime managed file instead of leaving the service token on disk.
 | Host       | Service mode         | Enable file                            |
 | ---------- | -------------------- | -------------------------------------- |
 | `tpnix`    | `tunnelonly`         | `modules/tpnix/cloudflare-warp.nix`    |
-| `system76` | `warp` (full tunnel) | `modules/system76/cloudflare-warp.nix` |
+| `songbird` | `warp` (full tunnel) | `modules/songbird/cloudflare-warp.nix` |
 
 `tpnix` uses `tunnelonly` because its private-DNS module selects NetworkManager
 dnsmasq for SignalX host mappings. This keeps those mappings under the host's
 DNS while retaining the WARP tunnel, HTTP filtering, network policies, and
-posture checks. `system76` has no competing local resolver and uses Full mode.
+posture checks. `songbird` has no competing local resolver and uses Full mode.
 
 The common baseline (`modules/hosts/common/apps-enable.nix`) defaults the app
-OFF; enrollment is a deliberate per-host opt-in. `system76` enables the wrapper
-directly. `tpnix` gates `enable` on `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`
-(currently `true` since repo-managed sops landed for tpnix in PR #305,
-`modules/tpnix/policy.nix`), so both hosts ship `warp-cli` and no daemon until
-`secrets/cloudflare-warp.yaml` is committed. The gate remains a kill switch: if
-tpnix ever loses its runtime key, flipping the flag back to `false` also drops
+OFF; enrollment is a deliberate per-host opt-in. Both hosts gate `enable` on
+their registry flag: `flake.lib.nixos.hosts.songbird.sopsRuntimeReady`
+(`modules/songbird/policy.nix`) and `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`
+(`modules/tpnix/policy.nix`, `true` since repo-managed sops landed for tpnix in
+PR #305), so both hosts ship `warp-cli` and no daemon until
+`secrets/cloudflare-warp.yaml` is committed. The gate remains a kill switch: if a
+host ever loses its runtime key, flipping its flag back to `false` also drops
 the `cloudflare-warp/*` secret declarations that would otherwise fail activation
 on an un-decryptable payload.
 

@@ -4,7 +4,7 @@ Choose the WARP mode before changing host configuration. The mode controls which
 Zero Trust features reach the device because each mode combines DNS, tunneling,
 and posture collection differently.
 
-System76 uses `Gateway with WARP`, which maps to `service_mode = "warp"` in
+Songbird uses `Gateway with WARP`, which maps to `service_mode = "warp"` in
 `mdm.xml` and keeps DNS filtering, HTTP filtering, device posture, and
 domain-based split tunneling active. Tpnix uses `tunnelonly` because its local
 NetworkManager dnsmasq service owns private-host resolution.
@@ -49,10 +49,10 @@ local resolver, switch WARP to `tunnelonly` or disable the local resolver.
 The current host modules do not enable `services.dnscrypt-proxy`. The shared
 private-DNS module selects NetworkManager dnsmasq only when the host declares
 private DNS keys, its SOPS runtime is ready, and `secrets/<host>.yaml` exists.
-`tpnix` currently meets those conditions for SignalX DNS, so inspect the
+`tpnix` meets those conditions for SignalX DNS, so inspect the
 evaluated host DNS setting before selecting full mode. Tpnix therefore uses
 `tunnelonly` and does not trigger the Full-mode resolver warning. Full mode is
-appropriate for system76 because no competing local resolver is active there.
+appropriate for songbird because no competing local resolver is active there.
 
 ## Configure split tunnels
 

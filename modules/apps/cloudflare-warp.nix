@@ -31,7 +31,7 @@
     * Relies on the hosts-common vpn-defaults owner for networking.firewall.checkReversePath;
       the WARP interface trips strict rp_filter when that shared baseline is overridden, except
       under serviceMode postureonly, which carries no traffic.
-    * Pairs with per-host enablement in modules/tpnix/cloudflare-warp.nix and modules/system76/cloudflare-warp.nix.
+    * Pairs with per-host enablement in modules/tpnix/cloudflare-warp.nix and modules/songbird/cloudflare-warp.nix.
 */
 { config, ... }:
 let

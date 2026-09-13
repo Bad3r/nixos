@@ -47,7 +47,9 @@
 - [cloudflare/warp/modes.md](cloudflare/warp/modes.md)
   - Compact comparison of WARP modes, DNS ownership tradeoffs, and split-tunnel behavior.
 - [cloudflare/warp/operations.md](cloudflare/warp/operations.md)
-  - Runtime verification, coexistence checks, and troubleshooting for enrolled WARP hosts.
+  - Runtime verification, coexistence checks, and managed-config lifecycle for enrolled WARP hosts.
+- [cloudflare/warp/troubleshooting.md](cloudflare/warp/troubleshooting.md)
+  - Known WARP failures after enrollment, each with cause, diagnostic, and fix.
 - [cloudflare/warp/cheatsheet.md](cloudflare/warp/cheatsheet.md)
   - Command reference for `warp-cli`, `warp-diag`, and WARP-related systemd services.
 - [cloudflare/containers/README.md](cloudflare/containers/README.md)
