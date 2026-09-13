@@ -1,6 +1,8 @@
 # Reference
 
-Quick reference for validation, troubleshooting, tooling, and terminology.
+Quick reference for validation, introspection, tooling, and terminology.
+Symptoms and their resolutions live in
+[Troubleshooting](07-troubleshooting.md).
 
 ## Validation
 
@@ -14,19 +16,34 @@ nix run path:.#generation-manager -- score   # target: 20/20
 nix flake check path:. --accept-flake-config --no-build --offline
 ```
 
-Commands on this page carry the explicit `path:.` installable because the
-branch workflow in `AGENTS.md` puts the work in a linked worktree, where Lix
-cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not
-a directory. Dropping `path:.` gives the primary-checkout form. Two cases
-`path:.` cannot fix: `nix fmt`, because Lix hardcodes the `.` installable in
-`lix/nix/fmt.cc`, so use the `nix run` form above or `-- <file>` for a targeted
-run; and any command that writes `flake.lock` back, including
-`nix flake metadata --refresh` and `nix flake update`, because the write goes
-through Lix's `getAbsPath` and needs an absolute ref such as `"path:$PWD"`.
-A dirty worktree masks all of this,
-because Lix copies the working tree instead of fetching the revision, so a
-command that passes with uncommitted changes present can still exit 1 once the
-tree is clean.
+The branch workflow in `AGENTS.md` puts work in a linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake, since `.git` is a file there and not a directory.
+Flake commands in a linked worktree take an explicit `path:.` installable; the primary checkout takes the bare form.
+Two cases `path:.` cannot fix.
+`nix fmt` resolves the hardcoded `.` installable from `lix/nix/fmt.cc`, so a linked worktree reaches the formatter as `nix run path:.#treefmt -- .`, or `-- <file>` for a targeted run.
+A command that writes `flake.lock` back needs an absolute ref such as `"path:$PWD"`, because the write goes through Lix's `getAbsPath`; that covers `nix flake metadata --refresh` and `nix flake update`.
+A dirty worktree masks all of it, because Lix copies the working tree instead of fetching the revision, so a command that passes with uncommitted changes present can still exit 1 once the tree is clean.
+
+### Credential Scanning
+
+`hook-gitleaks` scans commits rather than the worktree, so its scope depends on
+how it is invoked. At `pre-push` it reads only the range pre-commit reports in
+`PRE_COMMIT_FROM_REF` and `PRE_COMMIT_TO_REF`, and each gitlink only across the
+commits its pointer newly reaches, so a push does not re-read history it has
+already published. Every reduced scope is named in the hook's own output.
+
+The full sweep runs with neither variable set, which is how
+`.github/workflows/check.yml` invokes it on the merge path and how it runs by
+hand:
+
+```bash
+nix run path:.#hook-gitleaks
+```
+
+A shallow clone is refused rather than reported clean, so run this against a
+complete history. Suppression goes through `.gitleaks-baseline.json`, whose
+entries the hook announces whenever they filter a pass;
+`.gitleaksignore` is refused outright, since it filters findings with no
+review and cannot be turned off.
 
 ### Individual Commands
 
@@ -35,6 +52,7 @@ tree is clean.
 | `nix run path:.#treefmt -- .`                                          | Format all Nix files                                               |
 | `nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh`    | Sync shared git hooks and absolute config for all linked worktrees |
 | `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, gitleaks)          |
+| `nix run path:.#hook-gitleaks`                                         | Sweep the full history for credentials, the scan CI runs           |
 | `nix run path:.#generation-manager -- score`                           | Evaluate Dendritic pattern compliance                              |
 | `nix flake check path:. --accept-flake-config`                         | Full flake validation (with builds/checks)                         |
 | `nix flake check path:. --accept-flake-config --no-build --offline`    | Fast offline evaluation-only check                                 |
@@ -48,20 +66,6 @@ tree is clean.
 | `./build.sh`                                                                                    | Full validation + deployment                          |
 | `./build.sh --host <name>`                                                                      | Target a specific host                                |
 | `./build.sh --skip-all`                                                                         | Skip validation (emergency only)                      |
-
-## Troubleshooting
-
-| Scenario                                                | Resolution                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    |
-| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Git hooks fail in a new worktree                        | Run `nix develop path:.` (auto-sync runs in shellHook) or run `nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh` manually. The bare form is what fails here: a clean linked worktree is not fetchable as a `git+file` flake                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| Commit fails with `hooks were refreshed; retry commit.` | The `pre-commit-config-sync` hook resynced generated hook state after a hook source change; rerun the same `git commit`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Missing app reference                                   | Use `config.flake.lib.nixos.hasApp "name"` or `nix eval --json "path:.#nixosModules.apps" --apply builtins.attrNames`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| Helper assertion failures                               | Run `nix flake check path:. --accept-flake-config` and inspect `checks.<system>.helpers-exist`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                |
-| Managed file drift                                      | Run `nix develop path:. -c write-files` then `git diff`                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       |
-| Unfree package blocked                                  | Add to the flake-parts `nixpkgs.allowedUnfreePackages` option from any module (declared in `modules/meta/nixpkgs-allowed-unfree.nix`); no NixOS-scope allowlist exists                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
-| Insecure package blocked                                | Add the package name to `nixpkgs.extraPermittedInsecurePackages`; the unconditional `nixpkgs-allowed-insecure` host module writes `nixpkgs.config.permittedInsecurePackages` for both common-baseline and deliberate opt-out hosts                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
-| Ignored files copied into the store under `path:.`      | `path:` dumps the tree unfiltered, so the `.gitignore` secrets block (`*.agekey`, `*.key`, `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`, plus `decrypted_*` and `*.dec.*`) protects nothing and those files land world-readable in `/nix/store`. The last two carry a `secrets/` prefix in the block so git applies them only under the gitlink, which leaves a stray copy at the superproject root untracked and visible instead of ignored; the guard matches both names anywhere it scans, so the anchor scopes git's ignore rule and not the guard, and `git check-ignore` does not confirm such a hit. `git status --short` does not report them: run `git status --porcelain --ignored=matching`, then `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`, since the superproject form stops at the `secrets/` gitlink and the guard matches the same block against what it finds there. `./build.sh` and `scripts/cache-coverage.sh` run both sweeps and abort through the guard they share in `scripts/lib/secrets-guard.sh` (`--allow-secret-copy` overrides), on the same two conditions that select `path:`: a linked worktree and `--allow-dirty`, matching the block against every untracked path rather than the ignored subset, since `git+file` carries only the tracked tree. An untracked directory that is itself a git repository is a hit on its name alone: `ls-files` stops at that boundary and never opens it, so nothing inside reaches the block, while `path:` copies it whole. A primary checkout on the default path copies nothing. The guard covers the ref a script evaluates, not the one that delivered it, so `nix run path:.#cache-coverage` is unguarded by construction, Lix having copied while resolving the installable, and so is any other bare `nix` command |
-| "Cannot coerce null to string"                          | See [Two-Context Problem](02-module-authoring.md#the-two-context-problem)                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
 
 ## Introspection
 
@@ -113,75 +117,9 @@ Available after `nix develop path:.`:
 | **perSystem**           | flake-parts construct yielding system-specific attrsets (packages, dev shells, checks)                                                                                                                                 |
 | **Two-Context Problem** | Issue where `config.flake.*` and `config.home.*` exist in different evaluation contexts                                                                                                                                |
 
-## Resource Links
-
-The complete shared mirror inventory for hosts that enable the feature is documented in
-[`../reference/local-mirrors.md`](../reference/local-mirrors.md). The table
-below mirrors the configured common-host paths from
-`modules/hosts/common/mirrors.nix` plus generated documentation paths.
-These are host-local paths: use them only when `$LOCAL_MIRRORS` is set and the
-selected path exists. Hosts without the mirror feature use the configured
-upstream or web source.
-
-| Resource                   | Location                                              |
-| -------------------------- | ----------------------------------------------------- |
-| Nix source                 | `/data/git/NixOS-nix`                                 |
-| nixos-hardware             | `/data/git/NixOS-nixos-hardware`                      |
-| nixpkgs                    | `/data/git/NixOS-nixpkgs`                             |
-| Nix RFCs                   | `/data/git/NixOS-rfcs`                                |
-| Lix source                 | `/data/git/git.lix.systems-lix-project-lix`           |
-| Lix installer              | `/data/git/git.lix.systems-lix-project-lix-installer` |
-| Lix NixOS module           | `/data/git/git.lix.systems-lix-project-nixos-module`  |
-| Determinate Nix installer  | `/data/git/DeterminateSystems-nix-installer`          |
-| Home Manager source        | `/data/git/nix-community-home-manager`                |
-| Home Manager manual        | `/data/git/nix-community-home-manager/docs/manual/`   |
-| nh                         | `/data/git/nix-community-nh`                          |
-| nixd                       | `/data/git/nix-community-nixd`                        |
-| nixvim                     | `/data/git/nix-community-nixvim`                      |
-| noogle                     | `/data/git/nix-community-noogle`                      |
-| Stylix source              | `/data/git/nix-community-stylix`                      |
-| llm-agents.nix             | `/data/git/numtide-llm-agents.nix`                    |
-| sops-nix                   | `/data/git/Mic92-sops-nix`                            |
-| devenv                     | `/data/git/cachix-devenv`                             |
-| git-hooks.nix              | `/data/git/cachix-git-hooks.nix`                      |
-| Cachix docs                | `/data/git/cachix-docs.cachix.org`                    |
-| lefthook                   | `/data/git/evilmartians-lefthook`                     |
-| flake-parts                | `/data/git/hercules-ci-flake-parts`                   |
-| flake.parts website        | `/data/git/hercules-ci-flake.parts-website`           |
-| files module               | `/data/git/mightyiam-files`                           |
-| treefmt                    | `/data/git/numtide-treefmt`                           |
-| treefmt-nix                | `/data/git/numtide-treefmt-nix`                       |
-| import-tree                | `/data/git/vic-import-tree`                           |
-| Duplicati docs             | `/data/git/duplicati-documentation`                   |
-| GitHub docs                | `/data/git/github-docs`                               |
-| i3 Docs                    | `/data/git/i3-i3.github.io`                           |
-| Firefox source/docs        | `/data/git/mozilla-firefox-firefox`                   |
-| Firefox built docs         | `/data/git/mozilla-firefox-firefox-docs/current`      |
-| MDN Web Docs               | `/data/git/mdn-content`                               |
-| Firefox policies           | `/data/git/mozilla-policy-templates`                  |
-| Enterprise admin reference | `/data/git/mozilla-enterprise-admin-reference`        |
-| CPython source/docs        | `/data/git/python-cpython`                            |
-| Python stable docs source  | `/data/git/python-cpython-docs/current`               |
-| LibreWolf settings         | `/data/git/codeberg-librewolf-settings`               |
-| better-auth                | `/data/git/better-auth-better-auth`                   |
-| Cloudflare Workers SDK     | `/data/git/cloudflare-workers-sdk`                    |
-| Duplicati source           | `/data/git/duplicati-duplicati`                       |
-| Logseq source              | `/data/git/logseq-logseq`                             |
-| mpv source                 | `/data/git/mpv-player-mpv`                            |
-| openai/codex               | `/data/git/openai-codex`                              |
-| rclone source              | `/data/git/rclone-rclone`                             |
-| restic source              | `/data/git/restic-restic`                             |
-| wappalyzer-next            | `/data/git/s0md3v-wappalyzer-next`                    |
-| tridactyl                  | `/data/git/tridactyl-tridactyl`                       |
-| ZAP source                 | `/data/git/zaproxy-zaproxy`                           |
-| ZAP extensions             | `/data/git/zaproxy-zap-extensions`                    |
-| ZAP Python API             | `/data/git/zaproxy-zap-api-python`                    |
-| ZAP community scripts      | `/data/git/zaproxy-community-scripts`                 |
-| fuzzdb                     | `/data/git/fuzzdb-project-fuzzdb`                     |
-| mcp-zap-server             | `/data/git/dtkmn-mcp-zap-server`                      |
-| NixOS manual mirror        | `docs/nixos-manual/`                                  |
-
 ## Next Steps
 
 - [Pattern Overview](01-pattern-overview.md) -- Dendritic fundamentals
 - [Module Authoring](02-module-authoring.md) -- writing modules correctly
+- [Troubleshooting](07-troubleshooting.md) -- symptoms and their resolutions
+- [`../reference/local-mirrors.md`](../reference/local-mirrors.md) -- mirror paths and host enablement
