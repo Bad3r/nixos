@@ -198,11 +198,15 @@ let
     }
   ];
 
-  # Pin the rows that establish medium mode and the seeded site exceptions.
+  # Pin the rows that establish medium mode and the seeded exceptions.
   requiredSeedRules = [
     "* * 3p-script block"
     "* * 3p-frame block"
     "* challenges.cloudflare.com * noop"
+    "* www.google.com * noop"
+    "* www.gstatic.com * noop"
+    "* recaptcha.google.com * noop"
+    "* www.recaptcha.net * noop"
     "id.atlassian.com * 3p-script noop"
     "id.atlassian.com * 3p-frame noop"
   ];

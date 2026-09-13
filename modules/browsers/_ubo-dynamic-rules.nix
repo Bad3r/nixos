@@ -160,6 +160,12 @@ let
     # Cloudflare Turnstile: /turnstile/v0/api.js plus the widget iframe.
     "* challenges.cloudflare.com * noop"
 
+    # Google reCAPTCHA: API, challenge frames, and static client assets.
+    "* www.google.com * noop"
+    "* www.gstatic.com * noop"
+    "* recaptcha.google.com * noop"
+    "* www.recaptcha.net * noop"
+
     # Trusted sites: allow 3p scripts and frames.
     # Source-host match covers all subdomains.
 
