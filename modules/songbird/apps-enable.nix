@@ -16,6 +16,7 @@
 { config, ... }:
 let
   appEnable = {
+    "cloudflare-warp" = true;
     inkscape = true;
     ytubic = true;
   };

@@ -34,7 +34,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 - A Samba media share renders from a host secret and starts only on demand; `openFirewall` opens TCP 139/445 and UDP 137/138 on every interface, so the LAN restriction is Samba's own `hosts allow` and `hosts deny` pair, not a firewall scope: [services.nix](../../modules/songbird/services.nix).
 - Samba WSDD runs beside it with its own `openFirewall`, opening TCP 5357 and UDP 3702 (WS-Discovery) on every interface as well: [services.nix](../../modules/songbird/services.nix).
 - cloudflared runs as a tunnel service, beyond the CLI package the baseline installs: [services.nix](../../modules/songbird/services.nix).
-- Cloudflare WARP runs headless as a service, beyond the CLI package the baseline installs: [services.nix](../../modules/songbird/services.nix).
+- Cloudflare WARP enrolls with the host's service token in `warp` mode, so the WARP resolver serves DNS through systemd-resolved, since nothing here serves private-host mappings: [cloudflare-warp.nix](../../modules/songbird/cloudflare-warp.nix).
 - thermald stays off, since a desktop K-SKU under an AIO with BIOS Q-Fan curves gives it no platform to manage: [services.nix](../../modules/songbird/services.nix).
 - fwupd is enabled, since LVFS covers firmware updates for the NVMe drives and USB peripherals: [support.nix](../../modules/songbird/support.nix).
 - The power profile is forced to performance at boot and reasserted after resume through power-profiles-daemon, which drives the intel_pstate energy-performance preference: [services.nix](../../modules/songbird/services.nix).

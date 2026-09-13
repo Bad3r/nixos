@@ -20,6 +20,7 @@ let
     azd = false;
     "azure-cli" = false;
     "cf-terraforming" = false;
+    "cloudflare-warp" = true;
     cloudflared = false;
     "coderabbit-cli" = false;
     discord = false;
