@@ -130,6 +130,53 @@ archive and the journal excerpt, per the design's risk list (section 11).
 
 ## Cross-host go/no-go gate
 
+- [ ] **Profiles: complete the exclude lists.** The `nixos-songbird` profile carries 17 entries and
+  lacks `239.255.255.250/32` (SSDP), `fc00::/7`, and the five Apple ranges that Cloudflare serves
+  by default (the consumer defaults songbird showed before enrollment); the runbook's profile step
+  now lists all 24, and `nixos-tpnix` and the default profile take the same body.
+
+```sh
+cat > exclude.json <<'EOF'
+[
+  {"address": "10.0.0.0/8"},
+  {"address": "100.64.0.0/11", "description": "CGNAT below the Cloudflare Mesh range"},
+  {"address": "100.112.0.0/12", "description": "CGNAT above the Cloudflare Mesh range"},
+  {"address": "169.254.0.0/16"},
+  {"address": "172.16.0.0/12"},
+  {"address": "192.0.0.0/24"},
+  {"address": "192.168.0.0/16"},
+  {"address": "224.0.0.0/24"},
+  {"address": "239.255.255.250/32", "description": "SSDP"},
+  {"address": "240.0.0.0/4"},
+  {"address": "255.255.255.255/32"},
+  {"address": "fe80::/10"},
+  {"address": "fc00::/7"},
+  {"address": "fd00::/8"},
+  {"address": "ff01::/16"},
+  {"address": "ff02::/16"},
+  {"address": "ff03::/16"},
+  {"address": "ff04::/16"},
+  {"address": "ff05::/16"},
+  {"address": "17.249.0.0/16", "description": "Apple services"},
+  {"address": "17.252.0.0/16", "description": "Apple services"},
+  {"address": "17.57.144.0/22", "description": "Apple services"},
+  {"address": "17.188.128.0/18", "description": "Apple services"},
+  {"address": "17.188.20.0/23", "description": "Apple services"}
+]
+EOF
+curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/2d386bee-c816-47c2-8d45-a3b1353ab63c/exclude" \
+  -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
+curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/<nixos-tpnix profile id>/exclude" \
+  -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
+curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/exclude" \
+  -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
+warp-cli --accept-tos settings | grep -c -E '239\.255\.255\.250/32|fc00::/7|17\.(249|252|57|188)\.'
+```
+
+Expected: each PUT answers `"success": true`; after the profile refresh (up to ten minutes, or a
+restart of `cloudflare-warp.service`), the grep count on songbird is 7.
+If not: `GET /accounts/$ACCOUNT/devices/policies` shows which profile still carries 17 entries.
+
 - [ ] **Step 10: SSH both directions over Mesh.** Only once both hosts show Connected.
 
 ```sh
