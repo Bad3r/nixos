@@ -30,6 +30,12 @@ in
         "extended"
         "sshHostName"
       ] null osConfig;
+      warpEnabled = lib.attrByPath [
+        "programs"
+        "cloudflare-warp"
+        "extended"
+        "enable"
+      ] false osConfig;
       selfHostName = lib.attrByPath [ "networking" "hostName" ] "" osConfig;
       # One LAN alias per registered fleet host, excluding the host itself.
       lanAliasFiles = lib.listToAttrs (
@@ -42,20 +48,25 @@ in
         }) (lib.filter (name: name != selfHostName) fleetHostNames)
       );
       # One Mesh alias per fleet host with a recorded address, excluding the
-      # host itself. Rendered at build time: every host switches after a
-      # meshIp lands, as with any registry change.
-      meshAliasFiles = lib.listToAttrs (
-        map (name: {
-          name = ".ssh/hosts/${name}.warp";
-          value.text = ''
-            Host ${name}.warp
-              HostName ${meshIpOf name}
-              Port 22
-              ForwardAgent yes
-              ForwardX11 yes
-              User ${metaOwner.username}
-          '';
-        }) (lib.filter (name: name != selfHostName) meshHostNames)
+      # host itself, and only on a host that runs WARP: without the tunnel
+      # there is no route to 100.96.0.0/12, so the alias would hang until the
+      # TCP connect times out instead of failing on an unknown host name.
+      # Rendered at build time: every host switches after a meshIp lands, as
+      # with any registry change.
+      meshAliasFiles = lib.optionalAttrs warpEnabled (
+        lib.listToAttrs (
+          map (name: {
+            name = ".ssh/hosts/${name}.warp";
+            value.text = ''
+              Host ${name}.warp
+                HostName ${meshIpOf name}
+                Port 22
+                ForwardAgent yes
+                ForwardX11 yes
+                User ${metaOwner.username}
+            '';
+          }) (lib.filter (name: name != selfHostName) meshHostNames)
+        )
       );
     in
     {

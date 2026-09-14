@@ -93,7 +93,7 @@ Precondition: the host is enrolled and Connected.
 
 1. Read the address: `ip -4 addr show CloudflareWARP | awk '/inet / { sub("/.*", "", $2); print $2 }'`.
 2. Add `meshIp = "<address>";` to `flake.lib.nixos.hosts.<host>` in `modules/<host>/policy.nix` and commit.
-3. Switch every fleet host, since Home Manager renders `~/.ssh/hosts/<host>.warp` and `/etc/ssh/ssh_known_hosts` at build time.
+3. Switch every fleet host, since `/etc/ssh/ssh_known_hosts` and, on hosts that run WARP, `~/.ssh/hosts/<host>.warp` render at build time.
 
 Verification: from another fleet host, `ssh <host>.warp true` succeeds with no host-key prompt.
 
