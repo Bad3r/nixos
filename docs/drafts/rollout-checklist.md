@@ -141,7 +141,9 @@ Optional: `nc -vz <meshIp> 22` and, since the ICMP proxy is on, `ping <meshIp>`.
 Early check with the iPhone, enrolled on the default profile: from an SSH client app on the phone,
 `ssh vx@100.96.0.9` proves songbird's inbound Mesh path (firewall rule and sshd; the phone has no
 host-key pin), and `ping <phone device address>` from songbird proves the ICMP proxy. The phone's
-device address is in the same Devices list.
+device address is in the same Devices list. Passed for songbird inbound: sshd logged
+`Accepted keyboard-interactive/pam for vx from 100.96.0.8`, and `ping 100.96.0.8` from songbird
+answered three of three, so only tpnix's half of Step 10 is open.
 Pass: both directions succeed; record each host's `meshIp` in `modules/<host>/policy.nix` as a
 follow-up commit (this is also what renders the `.warp` ssh aliases and known_hosts pins on the
 next switch). songbird's address is recorded already, so tpnix renders `songbird.warp` and its
