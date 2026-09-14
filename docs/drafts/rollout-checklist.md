@@ -48,27 +48,38 @@ without sudo.
 If not: same triage as Step 6.
 
 - [ ] **Step 4: Confirm registration, status, and DNS.** Registration and status held; the DNS
-  lines wait for a switch that carries the resolved routing to the WARP proxy.
+  lines wait for a switch that carries the tunnel-bound resolved route. That switch restarts
+  `warp-svc` once, so the new tunnel pulls in `cloudflare-warp-dns.service`.
 
 ```sh
 warp-cli --accept-tos registration show
 warp-cli --accept-tos status
+systemctl status cloudflare-warp-dns.service
 resolvectl dns
 resolvectl domain
 resolvectl query example.com
 curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E 'warp=|gateway='
+warp-cli --accept-tos disconnect
+ip link show CloudflareWARP
+resolvectl dns
+resolvectl query example.com
+warp-cli --accept-tos connect
 ```
 
 Expected: registration bound to `nixos-songbird`, status reaches `Connected` with no manual
-command (repeat after a reboot as in Step 8), `resolvectl dns` lists `Global: 127.0.2.2 127.0.2.3`,
-`resolvectl domain` lists `Global: ~.` and no domain on `eth0`, `resolvectl query` answers, and the trace prints `warp=on`
-and `gateway=on`. `CloudflareWARP` itself carries no DNS server: warp-svc rejects systemd 261's
-version string and writes `resolv.conf` instead of configuring the link, which glibc skips while
-nss-resolve answers, so the module points resolved's global DNS at warp-svc's proxy (see
-"resolvectl shows no DNS server on CloudflareWARP" in `docs/cloudflare/warp/troubleshooting.md`).
-If not: apply the registration and reboot checks for songbird; if `Global` is empty, check that the
-switch carried the routing and the host is enrolled in `warp` mode; if `eth0` lists a domain, the
-names under it bypass Gateway; if lookups fail, follow "Name resolution fails in warp mode" in
+command (repeat after a reboot as in Step 8), `cloudflare-warp-dns.service` is active (exited),
+`resolvectl dns` lists `Global: 127.0.2.2 127.0.2.3`, `resolvectl domain` lists `Global: ~.` and
+no domain on `eth0`, `resolvectl query` answers, and the trace prints `warp=on` and `gateway=on`.
+After the disconnect, `ip link` finds no `CloudflareWARP`, `Global` is empty, and the query still
+answers from eth0's servers; `connect` brings `Global` back. `CloudflareWARP` itself carries no DNS
+server: warp-svc rejects systemd 261's version string and writes `resolv.conf` instead of
+configuring the link, which glibc skips while nss-resolve answers (see "resolvectl shows no DNS
+server on CloudflareWARP" in `docs/cloudflare/warp/troubleshooting.md`).
+If not: apply the registration and reboot checks for songbird; if `Global` is empty while
+connected, read `systemctl status cloudflare-warp-dns.service` and check that the host is enrolled
+in `warp` mode; if `CloudflareWARP` survives the disconnect, `Global` stays on the proxy and the
+fallback covers only a stopped or dead `warp-svc`; if `eth0` lists a domain, the names under it
+bypass Gateway; if lookups fail, follow "Name resolution fails in warp mode" in
 `docs/cloudflare/warp/troubleshooting.md`, then check that the `nixos-songbird` profile applied
 instead of the default profile.
 

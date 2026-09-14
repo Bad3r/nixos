@@ -44,6 +44,14 @@ let
       placeholder = key: config.sops.placeholder.${secretName key};
       templateName = "cloudflare-warp-mdm";
       installSecretsDeps = sopsInstallSecretsDeps config;
+      tunnelDevice = "sys-subsystem-net-devices-CloudflareWARP.device";
+      resolvedDropIn = "/run/systemd/resolved.conf.d/cloudflare-warp.conf";
+      resolvedRoute = pkgs.writeText "cloudflare-warp-resolved.conf" ''
+        [Resolve]
+        DNS=127.0.2.2 127.0.2.3
+        Domains=~.
+      '';
+      reloadResolved = "${config.systemd.package}/bin/systemctl kill --kill-whom=main --signal=SIGHUP systemd-resolved.service";
     in
     {
       options.programs.cloudflare-warp.extended = {
@@ -74,9 +82,10 @@ let
           ];
           description = ''
             `service_mode` written to mdm.xml. `warp` (Gateway with WARP)
-            makes WARP the system resolver, through systemd-resolved's global
-            DNS where resolved runs; `tunnelonly` carries traffic and leaves
-            local DNS alone. The host's device profile in the Zero
+            makes WARP the system resolver while its tunnel is up, through
+            systemd-resolved where resolved runs, and leaves the link servers
+            answering whenever the tunnel is down; `tunnelonly` carries traffic
+            and leaves local DNS alone. The host's device profile in the Zero
             Trust dashboard carries the same mode; the device-profile API
             spells the two `warp` and `warp_tunnel_only`, and `warp-cli mode`
             spells the second `tunnel_only`. Required whenever `enable` is
@@ -152,16 +161,36 @@ let
         })
 
         # warp-svc cannot register with resolved on systemd 261 and writes
-        # /etc/resolv.conf instead, which glibc skips while nss-resolve answers,
-        # so resolved sends every name (`~.`) to the client's DNS proxy.
-        (lib.mkIf (enrolled && cfg.serviceMode == "warp") {
-          services.resolved.settings.Resolve = {
-            DNS = [
-              "127.0.2.2"
-              "127.0.2.3"
+        # /etc/resolv.conf instead, which glibc skips while nss-resolve answers.
+        # The route to the proxy lives only as long as the tunnel device, so the
+        # link servers answer whenever warp-svc is stopped, disconnected, or dead.
+        (lib.mkIf (enrolled && cfg.serviceMode == "warp" && config.services.resolved.enable) {
+          systemd.services.cloudflare-warp-dns = {
+            description = "Route systemd-resolved to the WARP DNS proxy while CloudflareWARP exists";
+            bindsTo = [ tunnelDevice ];
+            after = [
+              tunnelDevice
+              "systemd-resolved.service"
             ];
-            Domains = [ "~." ];
+            wantedBy = [ tunnelDevice ];
+            # SIGHUP, not a reload job: shutdown queues resolved's stop
+            # irreversibly, and a reload transaction would be refused.
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart = [
+                "${pkgs.coreutils}/bin/install -D -m 0644 ${resolvedRoute} ${resolvedDropIn}"
+                reloadResolved
+              ];
+              ExecStopPost = [
+                "${pkgs.coreutils}/bin/rm -f ${resolvedDropIn}"
+                reloadResolved
+              ];
+            };
           };
+          # A tunnel already up at switch time never pulls in the unit, so a
+          # changed route restarts warp-svc, whose new tunnel does.
+          systemd.services.cloudflare-warp.restartTriggers = [ resolvedRoute ];
         })
 
         # The upstream service module installs the package only on the

@@ -51,6 +51,9 @@
                   # a sops file.
                   sops.validateSopsFiles = false;
                   sops.age.keyFile = "/dev/null";
+                  # The warp route is gated on resolved, so every system runs it
+                  # and only mode and enrollment decide the route.
+                  services.resolved.enable = true;
                   system.stateVersion = "26.05";
                 }
               ]
@@ -85,6 +88,8 @@
           pairs = name: lib.hasInfix "<key>${name}</key><string>${placeholderOf name}</string>" packed;
           check = name: cond: lib.assertMsg cond "apps/cloudflare-warp-module-eval: ${name}";
           resolveOf = system: { inherit (system.config.services.resolved.settings.Resolve) DNS Domains; };
+          dnsUnitOf = system: system.config.systemd.services.cloudflare-warp-dns or null;
+          tunnelDevice = "sys-subsystem-net-devices-CloudflareWARP.device";
           linkResolve = {
             DNS = [ ];
             Domains = [ ];
@@ -132,18 +137,32 @@
         assert check "enrolled host keeps the upstream UDP opening off" (
           !enrolled.config.services.cloudflare-warp.openFirewall
         );
-        assert check "warp mode sends every name to the client's DNS proxy through resolved" (
-          resolveOf systemdActivation == {
-            DNS = [
-              "127.0.2.2"
-              "127.0.2.3"
-            ];
-            Domains = [ "~." ];
-          }
+        # A static global route would outlive the tunnel and leave no resolver
+        # while warp-svc is down.
+        assert check "warp mode keeps resolved's static settings on the link servers" (
+          resolveOf systemdActivation == linkResolve
         );
-        assert check "tunnelonly leaves resolved on the link servers" (resolveOf enrolled == linkResolve);
+        assert check "warp mode binds the proxy route to the tunnel device" (
+          let
+            unit = dnsUnitOf systemdActivation;
+          in
+          unit != null && lib.elem tunnelDevice unit.bindsTo && lib.elem tunnelDevice unit.wantedBy
+        );
+        assert check "the route sends every name to the client's DNS proxy" (
+          lib.any (
+            trigger:
+            trigger ? text
+            && lib.hasInfix "DNS=127.0.2.2 127.0.2.3" trigger.text
+            && lib.hasInfix "Domains=~." trigger.text
+          ) (warpUnitOf systemdActivation).restartTriggers
+        );
+        assert check "stopping the unit removes the route" (
+          lib.any (lib.hasInfix "rm -f /run/systemd/resolved.conf.d/cloudflare-warp.conf") (dnsUnitOf systemdActivation)
+          .serviceConfig.ExecStopPost
+        );
+        assert check "tunnelonly adds no proxy route" (dnsUnitOf enrolled == null);
         assert check "an unenrolled host never points resolved at the absent proxy" (
-          resolveOf unenrolled == linkResolve
+          dnsUnitOf unenrolled == null
         );
         assert check "enrolled host does not warn" (
           !lib.any (lib.hasInfix "Cloudflare WARP enrollment is disabled on") enrolled.config.warnings
