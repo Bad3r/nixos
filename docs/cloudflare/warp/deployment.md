@@ -120,7 +120,7 @@ Precondition: the host's client secret leaked, or the token must stop working.
 1. Create a replacement token and profile as in the first procedure, and add the new token id to `hosts-service-auth`.
 2. Update the host's section in `secrets/cloudflare-warp.yaml`, commit, push, bump the gitlink, and switch the host; the changed template restarts `warp-svc`.
 3. Delete the old registration with `warp-cli --accept-tos registration delete`, then `sudo systemctl restart cloudflare-warp.service`, so the daemon registers under the new token.
-4. Delete the old token through the API or the dashboard; the deleted registration released the device address, so record the new `meshIp` afterwards.
+4. Delete the old token through the API or the dashboard; the deleted registration released the device address, so replace the host's `meshIp` per [Record the Mesh address](#record-the-mesh-address), which switches every fleet host.
 
 Verification: `warp-cli --accept-tos registration show` reports the new profile, and the old token is gone from the service token list.
 
