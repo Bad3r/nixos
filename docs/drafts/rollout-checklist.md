@@ -138,6 +138,10 @@ ssh tpnix.warp      # from songbird
 ```
 
 Optional: `nc -vz <meshIp> 22` and, since the ICMP proxy is on, `ping <meshIp>`.
+Early check with the iPhone, enrolled on the default profile: from an SSH client app on the phone,
+`ssh vx@100.96.0.9` proves songbird's inbound Mesh path (firewall rule and sshd; the phone has no
+host-key pin), and `ping <phone device address>` from songbird proves the ICMP proxy. The phone's
+device address is in the same Devices list.
 Pass: both directions succeed; record each host's `meshIp` in `modules/<host>/policy.nix` as a
 follow-up commit (this is also what renders the `.warp` ssh aliases and known_hosts pins on the
 next switch). songbird's address is recorded already, so tpnix renders `songbird.warp` and its
@@ -147,13 +151,14 @@ Fail: with tpnix still in `tunnelonly`, fall back to switching tpnix's Cloudflar
 profile mode and its NixOS `serviceMode` to `warp`, then retest. Read "Private hostnames stop
 resolving on tpnix" in `docs/cloudflare/warp/troubleshooting.md` first.
 
-- [ ] **Step 11: Verify both device registrations in the dashboard.** Zero Trust dashboard,
+- [ ] **Step 11: Verify the device registrations in the dashboard.** Zero Trust dashboard,
   Team & Resources > Devices > Devices list.
-  Expected: exactly two registrations, both identity `non_identity@repo.cloudflareaccess.com`,
+  Expected: exactly three registrations: two with identity `non_identity@repo.cloudflareaccess.com`,
   one matching device profile `nixos-tpnix` (precedence 100) and one matching `nixos-songbird`
-  (precedence 200), both Connected.
-  If not: an extra or missing registration means a host registered under the wrong token; delete
-  the stray registration and recheck Step 4 or Step 7 for that host.
+  (precedence 200), plus the iPhone under the user's own identity on the default profile; all
+  Connected.
+  If not: an extra or missing `non_identity` registration means a host registered under the wrong
+  token; delete the stray registration and recheck Step 4 or Step 7 for that host.
 
 ## Code follow-ups noted by the final branch review (none block the merge)
 
