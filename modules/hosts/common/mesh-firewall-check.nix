@@ -35,6 +35,17 @@ let
   sharedHosts = lib.filterAttrs (
     name: _: hosts.${name}.shareCommon or false
   ) config.flake.nixosConfigurations;
+  # Every real shareCommon host enables cloudflare-warp, so the false arm
+  # below and firewall.nix's warpEnabled gate have no host proving them
+  # without a forced-off variant of each.
+  warpOffHosts = lib.mapAttrs' (
+    name: nixos:
+    lib.nameValuePair "${name} (cloudflare-warp off)" (
+      nixos.extendModules {
+        modules = [ { programs.cloudflare-warp.extended.enable = lib.mkForce false; } ];
+      }
+    )
+  ) sharedHosts;
   failuresOf =
     hostName: nixos:
     let
@@ -53,7 +64,7 @@ let
     in
     lib.optional (ruleSet != approved)
       "${hostName}: ${meshInterface} opens ${builtins.toJSON ruleSet}, approved ${builtins.toJSON approved} (approvedMeshRanges in modules/hosts/common/mesh-firewall-check.nix)";
-  failures = lib.concatLists (lib.mapAttrsToList failuresOf sharedHosts);
+  failures = lib.concatLists (lib.mapAttrsToList failuresOf (sharedHosts // warpOffHosts));
 in
 {
   perSystem =
