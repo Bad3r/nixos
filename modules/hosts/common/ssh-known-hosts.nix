@@ -5,8 +5,8 @@
 # services.openssh.publicKey. A host's Cloudflare Mesh address (meshIp in
 # modules/<host>/policy.nix) joins its names once recorded, so the
 # <host>.warp alias from modules/networking/ssh-hosts.nix is pinned too.
-# Pins come from fleetHostKeys below, so a registry host with a meshIp but no
-# entry there gets an unpinned .warp alias, as it already does for .local.
+# Pins come from fleetHostKeys below; modules/networking/ssh-hosts.nix refuses
+# a meshIp for a host without an entry here, while .local aliases stay unpinned.
 # The tailnet FQDN is intentionally not listed: this repository is public
 # and the MagicDNS name is not disclosed here.
 # GitHub's key is pinned for the same reason: the github.com alias in

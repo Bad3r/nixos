@@ -30,6 +30,7 @@ The interface is the scope: every device enrolled in the team reaches those rang
 A host records its address as `meshIp` in `modules/<host>/policy.nix`; every other host then pins the host key for that address, and every other host that runs WARP renders `~/.ssh/hosts/<host>.warp`.
 Evaluation rejects a `meshIp` outside `100.96.0.0/12`, since the alias and the pin would name an address the tunnel never carries.
 It also rejects an address two hosts record, since either host key would then pass for that address.
+An address for a host without a `fleetHostKeys` pin fails too, since its alias would trust the first key met in a pool every team device shares.
 `ping` between devices needs the ICMP proxy, enabled under Traffic policies, Traffic settings in the dashboard.
 
 ## Coexistence

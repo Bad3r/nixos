@@ -89,10 +89,10 @@ Verification: the dashboard lists the device under Team & Resources, Devices as 
 
 ## Record the Mesh address
 
-Precondition: the host is enrolled and Connected.
+Precondition: the host is enrolled and Connected, and its host key is pinned per [Pin the SSH host key](../../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
 
 1. Read the address: `ip -4 addr show CloudflareWARP | awk '/inet / { sub("/.*", "", $2); print $2 }'`.
-2. Add `meshIp = "<address>";` to `flake.lib.nixos.hosts.<host>` in `modules/<host>/policy.nix` and commit; evaluation rejects an address outside `100.96.0.0/12` or one another host already records.
+2. Add `meshIp = "<address>";` to `flake.lib.nixos.hosts.<host>` in `modules/<host>/policy.nix` and commit; evaluation rejects an address outside `100.96.0.0/12`, one another host already records, and one for a host without a `fleetHostKeys` pin.
 3. Switch every fleet host, since `/etc/ssh/ssh_known_hosts` and, on hosts that run WARP, `~/.ssh/hosts/<host>.warp` render at build time.
 
 Verification: from another fleet host, `ssh <host>.warp true` succeeds with no host-key prompt.
