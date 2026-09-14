@@ -52,7 +52,9 @@ runs:
             exit 1
           fi
         done
-        NIX_INSTALLER_EXTRA_CONF="$NIX_INSTALLER_EXTRA_CONF$(cat "$conf")"
+        # One separator whether or not the env block kept its trailing newline.
+        base="${NIX_INSTALLER_EXTRA_CONF%$'\n'}"
+        NIX_INSTALLER_EXTRA_CONF="$base"$'\n'"$(cat "$conf")"
         # The installer appends /nix/var/nix/profiles/default/bin to
         # GITHUB_PATH itself (ConfigureShellProfile); sudo -E keeps the
         # variable visible to it.

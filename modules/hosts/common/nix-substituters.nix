@@ -1,9 +1,9 @@
-{ lib, ... }:
+_:
 let
-  # One list for the host daemon and for CI: install-lix appends the
-  # generated substituters.conf to the runner's nix.conf, so a cache-roots
-  # build substitutes every root a cache already serves instead of
-  # rebuilding the whole set on each push.
+  # One list for the host daemon and for CI: modules/meta/ci-substituter-parity.nix
+  # generates the install-lix substituters.conf from the export below, so a
+  # cache-roots build substitutes every root a cache already serves instead
+  # of rebuilding the whole set on each push.
   caches = [
     {
       url = "https://cache.numtide.com";
@@ -21,9 +21,6 @@ let
       key = "bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE=";
     }
   ];
-
-  substituterConfPath = ".github/actions/install-lix/substituters.conf";
-  actionFile = ../../../.github/actions/install-lix/action.yml;
 
   body =
     {
@@ -85,31 +82,6 @@ let
     };
 in
 {
+  flake.lib.nixos.substituterCaches = caches;
   flake.nixosModules.hosts-common.imports = [ body ];
-
-  perSystem =
-    { pkgs, ... }:
-    {
-      files.file.${substituterConfPath}.text = ''
-        extra-substituters = ${lib.concatMapStringsSep " " (cache: cache.url) caches}
-        extra-trusted-public-keys = ${lib.concatMapStringsSep " " (cache: cache.key) caches}
-      '';
-
-      # An action that stops appending the conf silently returns cache-push to
-      # rebuilding every root. A throw keeps `nix flake check --no-build`
-      # catching it, as ci-lix-installer-parity does for the Lix pin. The
-      # append itself is asserted, not a mention: the comment and the verify
-      # step also name the file and both survive a deleted append line.
-      checks.ci-substituter-parity =
-        let
-          actionText = builtins.readFile actionFile;
-          appendsConf =
-            lib.hasInfix ''conf="$GITHUB_ACTION_PATH/${baseNameOf substituterConfPath}"'' actionText
-            && lib.hasInfix ''NIX_INSTALLER_EXTRA_CONF$(cat "$conf")'' actionText;
-        in
-        if appendsConf then
-          pkgs.runCommandLocal "ci-substituter-parity" { } "touch $out"
-        else
-          throw "ci-substituter-parity: .github/actions/install-lix/action.yml does not append ${substituterConfPath} to NIX_INSTALLER_EXTRA_CONF; CI would rebuild every cache root on each push";
-    };
 }
