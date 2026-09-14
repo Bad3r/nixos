@@ -91,7 +91,7 @@ Verification: the guarded flake check passes the check in `modules/configuration
 
 ## Hand off the primary role
 
-Precondition: this host enables Tailscale and replaces the primary tailnet endpoint. Hosts that reach each other over WARP Mesh record `meshIp` in `modules/<host>/policy.nix` after enrollment instead, and every fleet host switches after it lands so the `<host>.warp` alias and its host-key pin render.
+Precondition: this host enables Tailscale and replaces the primary tailnet endpoint. Hosts that reach each other over WARP Mesh record `meshIp` in `modules/<host>/policy.nix` after enrollment instead, per [WARP deployment](../cloudflare/warp/deployment.md), and every fleet host switches after it lands so the `<host>.warp` alias and its host-key pin render.
 
 1. Remove `primary = true` from the outgoing primary host. If that host is being retired, remove its `tailnetIp` too. On this host, run `tailscale ip -4`, then set `primary = true` with that address as this host's `tailnetIp`.
 

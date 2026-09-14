@@ -8,6 +8,12 @@ Technical documentation for Cloudflare's developer platform services.
 | --------------------------- | ------------------------------------------ | ------ |
 | [Containers](./containers/) | Run Docker containers on Cloudflare's edge | Beta   |
 
+## Zero Trust
+
+| Topic                    | Purpose                                |
+| ------------------------ | -------------------------------------- |
+| [WARP](./warp/README.md) | Enroll fleet hosts with service tokens |
+
 ## NixOS samples
 
 | Sample                                              | Purpose                                 |
