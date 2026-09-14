@@ -20,6 +20,12 @@ Cause: a symlink sits at `/var/lib/cloudflare-warp/mdm.xml`, and `warp-svc` open
 Diagnostic: `sudo ls -l /var/lib/cloudflare-warp/mdm.xml`; the unit's own view is `sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp.service)" -m cat /var/lib/cloudflare-warp/mdm.xml`.
 Fix: `sudo rm /var/lib/cloudflare-warp/mdm.xml`, `warp-cli --accept-tos registration delete`, then `sudo systemctl restart cloudflare-warp.service`, which recreates the path as the bind mount of the sops render.
 
+## resolvectl shows no DNS server on CloudflareWARP
+
+Cause: `warp-svc` rejects the systemd 261 version string when it probes systemd-resolved, so it writes `/etc/resolv.conf` itself instead of configuring resolved over D-Bus.
+Diagnostic: `cat /etc/resolv.conf` names `127.0.2.2` and `127.0.2.3`, and `journalctl -u cloudflare-warp.service | grep 'file-based DNS'` shows the fallback.
+Fix: none on the host; Gateway DNS applies to every glibc resolver client, while `resolvectl query` and other resolved clients keep using the link servers.
+
 ## Status stays Disconnected after boot
 
 Cause: a manual `warp-cli disconnect` holds until the next boot, or another tunnel owns the default route.

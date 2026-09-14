@@ -18,7 +18,7 @@ Expected: `connection.autoconnect:no`.
 If not: rerun with the exact connection name from `nmcli con show`; do not switch songbird
 while Proton still autoconnects.
 
-- [ ] **Step 2: Switch songbird to the branch.** The first switch left a symlink at `mdm.xml` and a
+- [x] **Step 2: Switch songbird to the branch.** The first switch left a symlink at `mdm.xml` and a
   Free registration behind; clear both first, since systemd resolves a symlink destination and
   warp-svc would still open the link.
 
@@ -44,17 +44,22 @@ Expected: both print the same dict: organization value, `service_mode` `warp`, `
 non-empty client id and secret for the `nixos-songbird` service token.
 If not: same triage as Step 6.
 
-- [ ] **Step 4: Confirm registration, status, and DNS.**
+- [x] **Step 4: Confirm registration, status, and DNS.**
 
 ```sh
 warp-cli --accept-tos registration show
 warp-cli --accept-tos status
-resolvectl status
+cat /etc/resolv.conf
+curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E 'warp=|gateway='
 ```
 
 Expected: registration bound to `nixos-songbird`, status reaches `Connected` with no manual
-command (repeat after a reboot as in Step 8), resolver shows WARP with Gateway DNS in effect.
-If not: apply the registration and reboot checks for songbird; if the resolver never shows WARP,
+command (repeat after a reboot as in Step 8), `/etc/resolv.conf` names `127.0.2.2` and `127.0.2.3`,
+and the trace prints `warp=on` and `gateway=on`. `resolvectl status` keeps showing eth0's servers and
+no DNS on `CloudflareWARP`: warp-svc rejects systemd 261's version string and writes `resolv.conf`
+directly instead of configuring resolved (see "resolvectl shows no DNS server on CloudflareWARP" in
+`docs/cloudflare/warp/troubleshooting.md`).
+If not: apply the registration and reboot checks for songbird; if `resolv.conf` never changes,
 check that the `nixos-songbird` profile applied instead of the default profile.
 
 ## tpnix
