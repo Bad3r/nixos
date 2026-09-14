@@ -1,11 +1,5 @@
 _: {
   flake.lib.nixos.hosts.songbird = {
-    # Primary fleet endpoint: tailnetIp is this host's own `tailscale ip -4`
-    # address. A successor records its own address before every host whose Home
-    # Manager configuration renders the fleet SSH alias switches.
-    primary = true;
-    tailnetIp = "100.120.100.117";
-
     # Shared readiness gate read by modules/hosts/common/*. The canonical age
     # identity is installed at /var/lib/sops-nix/key.txt and
     # ~/.config/sops/age/keys.txt (docs/sops/README.md, Host Preparation).

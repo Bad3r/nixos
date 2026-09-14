@@ -1,6 +1,11 @@
 { config, ... }:
 let
   fleetHostNames = builtins.attrNames (config.flake.lib.nixos.hosts or { });
+  # Hosts that recorded their Cloudflare Mesh device address (meshIp in
+  # modules/<host>/policy.nix) after enrolling through
+  # modules/apps/cloudflare-warp.nix.
+  meshIpOf = config.flake.lib.nixos.meshIpOf;
+  meshHostNames = builtins.filter (name: meshIpOf name != null) fleetHostNames;
 in
 {
   # Provide per-host SSH config via include files under ~/.ssh/hosts/*
@@ -36,6 +41,22 @@ in
           '';
         }) (lib.filter (name: name != selfHostName) fleetHostNames)
       );
+      # One Mesh alias per fleet host with a recorded address, excluding the
+      # host itself. Rendered at build time: every host switches after a
+      # meshIp lands, as with any registry change.
+      meshAliasFiles = lib.listToAttrs (
+        map (name: {
+          name = ".ssh/hosts/${name}.warp";
+          value.text = ''
+            Host ${name}.warp
+              HostName ${meshIpOf name}
+              Port 22
+              ForwardAgent yes
+              ForwardX11 yes
+              User ${metaOwner.username}
+          '';
+        }) (lib.filter (name: name != selfHostName) meshHostNames)
+      );
     in
     {
       home.file = lib.mkMerge [
@@ -63,6 +84,7 @@ in
           '';
         }
         lanAliasFiles
+        meshAliasFiles
       ];
     };
 }

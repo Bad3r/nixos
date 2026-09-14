@@ -52,7 +52,6 @@ let
     projectlibre = true;
     "spec-kit" = false;
     steam = false;
-    tailscale = false;
     terraform = false;
     thinkfan = true;
     upscayl = false;

@@ -109,7 +109,7 @@ mode `0440`, readable after the privilege drop and on SIGHUP re-reads.
 secret's ownership triple, because sops-nix restarts units only when decrypted
 bytes change.
 
-Registry entries also carry fleet endpoint data. `modules/songbird/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's own `tailnetIp`. At most one registry host may be primary and it must carry a non-empty `tailnetIp` string, while no primary leaves the default unset. Promoting another host clears the outgoing `primary` marker and records `primary = true` with the successor's own `tailscale ip -4` address in its policy. Each host carrying the fleet SSH config must then switch because Home Manager renders the primary alias at build time.
+Registry entries also carry fleet endpoint data. A host records its Cloudflare Mesh device address as `meshIp` in `modules/<host>/policy.nix` after enrolling through `modules/apps/cloudflare-warp.nix`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` and, for hosts with a `meshIp`, one `<host>.warp` SSH alias per registered host (excluding self), and `modules/hosts/common/ssh-known-hosts.nix` pins the host key for that address as well. `modules/apps/tailscale.nix` keeps the `primary` and `tailnetIp` mechanism for a host that enables Tailscale: at most one registry host may be primary, it must carry a non-empty `tailnetIp` string, and no primary leaves `sshHostName` unset.
 
 ## App and Home Manager Wiring
 
