@@ -33,6 +33,13 @@ substituter. The `nix-logseq-git-flake` input already used this shape, so the
 trust and wiring pattern was proven in this configuration before being
 generalized.
 
+CI reads from the same caches hosts trust. `.github/actions/install-lix`
+appends the generated `substituters.conf` beside it to the runner's
+`nix.conf`, so a run builds only the roots no configured cache serves and
+`cachix push` uploads only what `bad3r-nixos` lacks. The
+`ci-substituter-parity` check fails when the action stops appending that file
+or drops its verification of the installed result.
+
 `cache-push.yml` triggers on `workflow_dispatch` and on pushes to `main`
 touching `flake.lock`, `modules/**`, or `packages/**`. Lock freshness rides on
 `update-flake.yml`, which opens a daily `automated/flake-update` pull request;

@@ -18,7 +18,8 @@ concurrency:
   # A push after a nixpkgs bump rebuilds the whole closure and runs 60-90
   # minutes, so cancelling in progress discarded finished builds and left
   # hosts rebuilding cache-roots packages locally until a later run caught
-  # up. Queued runs re-push only paths the cache still lacks.
+  # up. Queued runs substitute the roots the cache already holds and build
+  # only the rest.
   cancel-in-progress: false
 permissions:
   contents: read
@@ -50,6 +51,8 @@ jobs:
       # a git-based self fetch pull the private secrets submodule that CI
       # cannot read. cache-roots only references package sets, so the
       # secretless evaluation yields the same derivations hosts build.
+      # install-lix put the host substituters in nix.conf, so only roots no
+      # configured cache serves are built here.
       - name: Build cache roots
         run: |
           nix build --accept-flake-config --print-build-logs \

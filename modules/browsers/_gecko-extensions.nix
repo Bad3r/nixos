@@ -16,12 +16,7 @@
 let
   geckoExtensionData = import ./_gecko-extension-data.nix { inherit lib; };
   uboDynamicRules = import ./_ubo-dynamic-rules.nix { inherit lib; };
-  inherit (uboDynamicRules)
-    checkedHostnameSwitches
-    checkedMediumModeRules
-    ublockOriginHostnameSwitches
-    ublockOriginMediumModeRules
-    ;
+  inherit (uboDynamicRules) ublockOriginHostnameSwitches ublockOriginMediumModeRules;
   inherit (geckoExtensionData)
     toWidgetId
     ublockOrigin
@@ -187,7 +182,6 @@ let
   );
   # Filtered from LibreWolf upstream defaults:
   disabledLibrewolfLists = [
-    "adguard-spyware-url"
     "ublock-badware"
     "urlhaus-1"
     "curben-phishing"
@@ -337,13 +331,9 @@ in
       uiAccentCustom0 = ublockOriginAccentColor;
       uiTheme = ublockOriginUiTheme;
 
-      hostnameSwitchesString = builtins.concatStringsSep "\n" (
-        checkedHostnameSwitches ublockOriginHostnameSwitches
-      );
+      hostnameSwitchesString = builtins.concatStringsSep "\n" ublockOriginHostnameSwitches;
 
-      dynamicFilteringString = builtins.concatStringsSep "\n" (
-        checkedMediumModeRules ublockOriginMediumModeRules
-      );
+      dynamicFilteringString = builtins.concatStringsSep "\n" ublockOriginMediumModeRules;
 
       netWhitelist = [
         "chrome-extension-scheme"

@@ -117,6 +117,7 @@ let
       cutter.extended.enable = lib.mkOverride 1100 true;
       "czkawka-cli".extended.enable = lib.mkOverride 1100 true;
       "czkawka-gui".extended.enable = lib.mkOverride 1100 false;
+      davmail.extended.enable = lib.mkOverride 1100 false;
       ddrescue.extended.enable = lib.mkOverride 1100 true;
       deadnix.extended.enable = lib.mkOverride 1100 true;
       delve.extended.enable = lib.mkOverride 1100 false;
@@ -533,7 +534,7 @@ let
       "yubico-piv-tool".extended.enable = lib.mkOverride 1100 true;
       "yubikey-manager".extended.enable = lib.mkOverride 1100 true;
       "yubikey-personalization".extended.enable = lib.mkOverride 1100 true;
-      zap.extended.enable = lib.mkOverride 1100 true;
+      zap.extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;
       zbar.extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
