@@ -178,6 +178,13 @@
             " ${dropIn}"
           ] reloadsResolved
         );
+        # A failed start runs ExecStopPost, and the tunnel that is already up
+        # never starts the unit again.
+        assert check "a failed reload at start leaves the route installed" (
+          lib.any (
+            cmd: lib.hasPrefix "-" cmd && lib.hasInfix (lib.head reloadsResolved) cmd
+          ) (dnsUnitOf systemdActivation).serviceConfig.ExecStart
+        );
         assert check "stopping the unit removes the route, then reloads resolved" (
           runsBefore (dnsUnitOf systemdActivation).serviceConfig.ExecStopPost [
             "rm -f ${dropIn}"

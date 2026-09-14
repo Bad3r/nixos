@@ -180,7 +180,9 @@ let
               RemainAfterExit = true;
               ExecStart = [
                 "${pkgs.coreutils}/bin/install -D -m 0644 ${resolvedRoute} ${resolvedDropIn}"
-                reloadResolved
+                # resolved reads the drop-in whenever it next starts, so a failed
+                # reload must not fail the unit and let ExecStopPost delete the route.
+                "-${reloadResolved}"
               ];
               ExecStopPost = [
                 "${pkgs.coreutils}/bin/rm -f ${resolvedDropIn}"
