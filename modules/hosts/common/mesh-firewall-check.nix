@@ -1,9 +1,10 @@
 # Approval gate for the CloudflareWARP rule in modules/hosts/common/firewall.nix
-# on every shareCommon host: TCP 22 and the host's firewallLocalTcpPortRanges
-# while the WARP app is on, no rule while it is off. The interface is the
-# approved scope, so every device enrolled in the team reaches these ports.
-# The approved rule is written out rather than read from the template, so a
-# widened range, an added port or protocol, or a dropped app gate fails here.
+# on every shareCommon host: TCP 22 and the host's approved Mesh ranges while
+# the WARP app is on, no rule while it is off. The interface is the approved
+# scope, so every device enrolled in the team reaches these ports.
+# The approved rule, ranges included, is written out rather than read from the
+# template or the registry, so a widened firewallLocalTcpPortRanges entry, an
+# added port or protocol, or a dropped app gate fails here until approved below.
 { config, lib, ... }:
 let
   hosts = config.flake.lib.nixos.hosts;
@@ -11,6 +12,20 @@ let
     config.flake.lib.nixos._formatCheckFailures
       or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
   meshInterface = "CloudflareWARP";
+  approvedMeshRanges = {
+    songbird = [
+      {
+        from = 8000;
+        to = 8999;
+      }
+    ];
+    tpnix = [
+      {
+        from = 8000;
+        to = 9999;
+      }
+    ];
+  };
   noRule = {
     allowedTCPPorts = [ ];
     allowedTCPPortRanges = [ ];
@@ -31,13 +46,13 @@ let
           noRule
           // {
             allowedTCPPorts = [ 22 ];
-            allowedTCPPortRanges = hosts.${hostName}.firewallLocalTcpPortRanges;
+            allowedTCPPortRanges = approvedMeshRanges.${hostName} or [ ];
           }
         else
           noRule;
     in
     lib.optional (ruleSet != approved)
-      "${hostName}: ${meshInterface} opens ${builtins.toJSON ruleSet}, approved ${builtins.toJSON approved}";
+      "${hostName}: ${meshInterface} opens ${builtins.toJSON ruleSet}, approved ${builtins.toJSON approved} (approvedMeshRanges in modules/hosts/common/mesh-firewall-check.nix)";
   failures = lib.concatLists (lib.mapAttrsToList failuresOf sharedHosts);
 in
 {

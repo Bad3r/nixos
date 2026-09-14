@@ -71,7 +71,7 @@ Precondition: `modules/<host>/policy.nix` exists with a `flake.lib.nixos.hosts.<
    ```
 
    Leave `firewallDnsInterfaces` empty unless the host actually serves DNS or DHCP; a non-empty entry opens inbound UDP 53/67 and TCP 53 on those interfaces.
-   `firewallLocalTcpPortRanges` scopes to `10.0.0.0/8` and `192.168.0.0/16` IPv4 sources; `firewallExtraTcpPortRanges` opens a range globally instead.
+   `firewallLocalTcpPortRanges` scopes to `10.0.0.0/8` and `192.168.0.0/16` IPv4 sources, and with `cloudflare-warp` on also to every Mesh device once approved in `modules/hosts/common/mesh-firewall-check.nix`; `firewallExtraTcpPortRanges` opens a range globally instead.
    `shareCommon` hosts boot with `net.ifnames=0`, so `firewall.nix` asserts on an `enp*` or `wlp*` name here and warns on an unpinned kernel name such as `eth0`.
    [Pin an interface name](../networking/README.md#pin-an-interface-name) in the networking guide gives the `.link` procedure.
 
