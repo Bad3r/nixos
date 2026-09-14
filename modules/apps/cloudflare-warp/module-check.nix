@@ -6,7 +6,11 @@
   A fixture secrets root holding a non-secret cloudflare-warp.yaml, together
   with hostName = "tpnix" (a registry host whose sopsRuntimeReady is true),
   forces the enrolled branch here. A missing fixture root and a host outside
-  the registry cover both warning paths in the same check.
+  the registry cover two of the three warning paths in the same check; the
+  third, a registered host with sopsRuntimeReady = false, needs a registry
+  entry the flake does not carry. A second enrolled system with
+  sops.useSystemdActivation covers the unit ordering the fleet's
+  activation-script hosts never exercise.
 */
 {
   lib,
@@ -29,6 +33,7 @@
               secretsRoot,
               serviceMode ? "warp",
               hostName ? "tpnix",
+              extraModules ? [ ],
             }:
             inputs.nixpkgs.lib.nixosSystem {
               system = "x86_64-linux";
@@ -47,7 +52,8 @@
                   sops.age.keyFile = "/dev/null";
                   system.stateVersion = "26.05";
                 }
-              ];
+              ]
+              ++ extraModules;
               specialArgs = {
                 inherit hostName secretsRoot;
               };
@@ -56,12 +62,18 @@
             secretsRoot = ./module-check-fixtures;
             serviceMode = "tunnelonly";
           };
+          systemdActivation = mkNixos {
+            secretsRoot = ./module-check-fixtures;
+            extraModules = [ { sops.useSystemdActivation = true; } ];
+          };
           unenrolled = mkNixos { secretsRoot = "${./module-check-fixtures}/missing"; };
           unregistered = mkNixos {
             secretsRoot = ./module-check-fixtures;
             hostName = "unregistered";
           };
           template = enrolled.config.sops.templates."cloudflare-warp-mdm";
+          warpUnitOf = system: system.config.systemd.services.cloudflare-warp;
+          sopsUnit = "sops-install-secrets.service";
           secretOf = name: enrolled.config.sops.secrets."cloudflare-warp/${name}";
           placeholderOf = name: enrolled.config.sops.placeholder."cloudflare-warp/${name}";
           renders = text: lib.hasInfix text template.content;
@@ -81,10 +93,28 @@
           template.path == "/run/secrets/rendered/cloudflare-warp-mdm"
         );
         assert check "unit bind-mounts the render into the WARP state directory" (
-          lib.elem "${template.path}:/var/lib/cloudflare-warp/mdm.xml" enrolled.config.systemd.services.cloudflare-warp.serviceConfig.BindReadOnlyPaths
+          lib.elem "${template.path}:/var/lib/cloudflare-warp/mdm.xml" (warpUnitOf enrolled)
+          .serviceConfig.BindReadOnlyPaths
         );
+        # systemd.services.<name> creates a unit as readily as it extends one,
+        # and restartUnits takes any string: without this anchor an upstream
+        # rename would leave the bind mount and the restart hook on a stub
+        # while the real daemon starts without mdm.xml, and everything green.
+        assert check
+          "cloudflare-warp.service is the upstream warp-svc daemon, not a stub this module created"
+          (lib.hasSuffix "/bin/warp-svc" ((warpUnitOf enrolled).serviceConfig.ExecStart or ""));
         assert check "template is root-only" (template.mode == "0600");
         assert check "template restarts warp-svc" (template.restartUnits == [ "cloudflare-warp.service" ]);
+        # Requires= on a unit that does not exist fails the dependent's start,
+        # which is why the helper gates the dependency on useSystemdActivation.
+        assert check "activation-script hosts do not depend on the absent sops-install-secrets unit" (
+          !(lib.elem sopsUnit (warpUnitOf enrolled).requires)
+          && !(lib.elem sopsUnit (warpUnitOf enrolled).after)
+        );
+        assert check "systemd-activation hosts start warp-svc after sops-install-secrets" (
+          lib.elem sopsUnit (warpUnitOf systemdActivation).after
+          && lib.elem sopsUnit (warpUnitOf systemdActivation).requires
+        );
         assert check "organization key" ((secretOf "organization").key == "organization");
         assert check "auth_client_id key is per host" (
           (secretOf "auth_client_id").key == "tpnix/auth_client_id"
