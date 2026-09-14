@@ -130,7 +130,7 @@ archive and the journal excerpt, per the design's risk list (section 11).
 
 ## Cross-host go/no-go gate
 
-- [ ] **Profiles: complete the exclude lists.** The `nixos-songbird` profile carries 17 entries and
+- [x] **Profiles: complete the exclude lists.** The `nixos-songbird` profile carries 17 entries and
   lacks `239.255.255.250/32` (SSDP), `fc00::/7`, and the five Apple ranges that Cloudflare serves
   by default (the consumer defaults songbird showed before enrollment); the runbook's profile step
   now lists all 24, and `nixos-tpnix` and the default profile take the same body.
@@ -166,16 +166,17 @@ cat > exclude.json <<'EOF'
 EOF
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/2d386bee-c816-47c2-8d45-a3b1353ab63c/exclude" \
   -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
-curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/<nixos-tpnix profile id>/exclude" \
+curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/f28aa1c3-98d3-4f14-9ae5-cdfdb7b79d90/exclude" \
   -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/exclude" \
   -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
 warp-cli --accept-tos settings | grep -c -E '239\.255\.255\.250/32|fc00::/7|17\.(249|252|57|188)\.'
 ```
 
-Expected: each PUT answers `"success": true`; after the profile refresh (up to ten minutes, or a
-restart of `cloudflare-warp.service`), the grep count on songbird is 7.
-If not: `GET /accounts/$ACCOUNT/devices/policies` shows which profile still carries 17 entries.
+Expected: each PUT answers `"success": true`; after `sudo systemctl restart cloudflare-warp.service`,
+the grep count on songbird is 7 and `ip route get 239.255.255.250` leaves through eth0. Songbird still
+held 17 entries twelve minutes after the write, so the restart is required, not a shortcut.
+If not: `GET /accounts/$ACCOUNT/devices/policy/<profile id>/exclude` shows which profile still carries 17 entries.
 
 - [ ] **Step 10: SSH both directions over Mesh.** Only once both hosts show Connected.
 
