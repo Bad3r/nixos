@@ -133,11 +133,6 @@ let
                 <false/>
               </dict>
             '';
-            # sops-nix renders under /run/secrets, a tmpfs, and symlinks this
-            # path to it, so the token never lands on persistent storage;
-            # warp-svc still writes its own registration state (reg.json)
-            # under rootDir on disk, so the guarantee covers the token only.
-            path = "${config.services.cloudflare-warp.rootDir}/mdm.xml";
             mode = "0600";
             restartUnits = [ "cloudflare-warp.service" ];
           };
@@ -145,6 +140,11 @@ let
           systemd.services.cloudflare-warp = {
             after = installSecretsDeps;
             requires = installSecretsDeps;
+            # warp-svc opens mdm.xml with O_NOFOLLOW, so the tmpfs render is
+            # bind-mounted in as a regular file instead of symlinked (ELOOP).
+            serviceConfig.BindReadOnlyPaths = [
+              "${config.sops.templates.${templateName}.path}:${config.services.cloudflare-warp.rootDir}/mdm.xml"
+            ];
           };
         })
 

@@ -77,8 +77,11 @@
         assert check "auth_client_secret pairs with its placeholder" (pairs "auth_client_secret");
         assert check "service_mode follows the option" (renders "<string>tunnelonly</string>");
         assert check "auto_connect is 0" (renders "<integer>0</integer>");
-        assert check "template lands in the WARP state directory" (
-          template.path == "/var/lib/cloudflare-warp/mdm.xml"
+        assert check "template stays on the sops tmpfs" (
+          template.path == "/run/secrets/rendered/cloudflare-warp-mdm"
+        );
+        assert check "unit bind-mounts the render into the WARP state directory" (
+          lib.elem "${template.path}:/var/lib/cloudflare-warp/mdm.xml" enrolled.config.systemd.services.cloudflare-warp.serviceConfig.BindReadOnlyPaths
         );
         assert check "template is root-only" (template.mode == "0600");
         assert check "template restarts warp-svc" (template.restartUnits == [ "cloudflare-warp.service" ]);

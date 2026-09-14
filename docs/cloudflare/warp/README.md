@@ -7,7 +7,8 @@ No browser login happens on the host: sops-nix renders the team name, the token,
 
 - `programs.cloudflare-warp.extended.enable` opts a host in through its `apps-enable.nix` override; the common baseline leaves it off.
 - The host enrolls only when its registry entry sets `sopsRuntimeReady` and the secret file exists; otherwise the switch warns and installs only `warp-cli` and `warp-diag` for diagnosis.
-- The rendered `mdm.xml` lives under `/run/secrets`, a tmpfs, and the WARP state directory holds a symlink to it, so the token never lands on disk.
+- The rendered `mdm.xml` stays under `/run/secrets`, a tmpfs, and reaches the WARP state directory as a read-only bind mount, so the token never lands on disk.
+  `warp-svc` opens its policy file without following symlinks, which rules out a link into `/run/secrets`.
 - A changed token or mode restarts `warp-svc` through the template's restart hook.
 - The client starts Connected after install and after every boot; a manual `warp-cli disconnect` holds until the next boot.
 - The upstream inbound UDP opening stays off, since the client only dials out over MASQUE.

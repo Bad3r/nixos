@@ -18,24 +18,30 @@ Expected: `connection.autoconnect:no`.
 If not: rerun with the exact connection name from `nmcli con show`; do not switch songbird
 while Proton still autoconnects.
 
-- [x] **Step 2: Switch songbird to the branch.**
+- [ ] **Step 2: Switch songbird to the branch.** The first switch left a symlink at `mdm.xml` and a
+  Free registration behind; clear both first, since systemd resolves a symlink destination and
+  warp-svc would still open the link.
 
 ```sh
+sudo rm /var/lib/cloudflare-warp/mdm.xml
+warp-cli --accept-tos registration delete
 ./build.sh
 systemctl status cloudflare-warp
+journalctl _PID="$(systemctl show -p MainPID --value cloudflare-warp)" | grep -c 'Too many levels of symbolic links'
 ```
 
-Expected: switch exits 0, service active (running).
+Expected: switch exits 0, service active (running), the grep count is 0.
 If not: read `journalctl -xeu cloudflare-warp` before retrying; do not rerun blind.
 
 - [ ] **Step 3: Check the sops-rendered mdm.xml.**
 
 ```sh
-sudo cat /var/lib/cloudflare-warp/mdm.xml
+sudo cat /run/secrets/rendered/cloudflare-warp-mdm
+sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp)" -m cat /var/lib/cloudflare-warp/mdm.xml
 ```
 
-Expected: organization value, `service_mode` `warp`, `auto_connect` 0, non-empty client id and
-secret for the `nixos-songbird` service token.
+Expected: both print the same dict: organization value, `service_mode` `warp`, `auto_connect` 0,
+non-empty client id and secret for the `nixos-songbird` service token.
 If not: same triage as Step 6.
 
 - [ ] **Step 4: Confirm registration, status, and DNS.**
@@ -50,20 +56,6 @@ Expected: registration bound to `nixos-songbird`, status reaches `Connected` wit
 command (repeat after a reboot as in Step 8), resolver shows WARP with Gateway DNS in effect.
 If not: apply the registration and reboot checks for songbird; if the resolver never shows WARP,
 check that the `nixos-songbird` profile applied instead of the default profile.
-
-2026-09-14 reverted to unchecked: the switch's own journal shows `warp_settings::manager: Unable to read local policy file e=Too many levels of symbolic links (os error 40)` at
-warp-svc startup, then `warp_primitives::access: Service token credentials not configured: missing organization`. `warp-cli registration show` reports `Account type: Free` with no
-organization, unchanged across a recheck 47 minutes and 517 network-change events later. This
-is the "Registration missing after the switch" case in `docs/cloudflare/warp/troubleshooting.md`,
-but its documented fix does not clear it: a manual `sudo systemctl restart cloudflare-warp.service`
-on songbird reproduced the identical `Unable to read local policy file ... os error 40` on the new
-PID, immediately. This is not a one-time startup race; it is structural, most likely warp-svc
-opening `mdm.xml` with O_NOFOLLOW against a path that `sops.templates` renders as a symlink into
-`/run/secrets` (an O_NOFOLLOW open against a symlinked last path component fails with ELOOP
-regardless of chain depth or timing). Blocker: do not check Steps 3 and 4, and do not proceed to
-tpnix or the cross-host gate, until `modules/apps/cloudflare-warp.nix` delivers `mdm.xml` as a
-plain file at the path warp-svc opens rather than a symlink into `/run/secrets`, and a fresh
-switch shows a non-Free registration bound to `nixos-songbird`.
 
 ## tpnix
 
@@ -80,11 +72,12 @@ If not: read `journalctl -xeu cloudflare-warp` before retrying; do not rerun bli
 - [ ] **Step 6: Check the sops-rendered mdm.xml.**
 
 ```sh
-sudo cat /var/lib/cloudflare-warp/mdm.xml
+sudo cat /run/secrets/rendered/cloudflare-warp-mdm
+sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp)" -m cat /var/lib/cloudflare-warp/mdm.xml
 ```
 
-Expected: organization value, `service_mode` `tunnelonly`, `auto_connect` 0, non-empty client
-id and secret for the `nixos-tpnix` service token.
+Expected: both print the same dict: organization value, `service_mode` `tunnelonly`,
+`auto_connect` 0, non-empty client id and secret for the `nixos-tpnix` service token.
 If not: the sops secret or template did not render; sops-nix runs in the activation script here (no
 unit), so reread the switch output for `sops-install-secrets` errors and check
 `ls -la /run/secrets/rendered/cloudflare-warp-mdm` before continuing.
