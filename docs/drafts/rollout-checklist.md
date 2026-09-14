@@ -33,15 +33,18 @@ journalctl _PID="$(systemctl show -p MainPID --value cloudflare-warp)" | grep -c
 Expected: switch exits 0, service active (running), the grep count is 0.
 If not: read `journalctl -xeu cloudflare-warp` before retrying; do not rerun blind.
 
-- [ ] **Step 3: Check the sops-rendered mdm.xml.**
+- [x] **Step 3: Check the sops-rendered mdm.xml.**
 
 ```sh
 sudo cat /run/secrets/rendered/cloudflare-warp-mdm
 sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp)" -m cat /var/lib/cloudflare-warp/mdm.xml
+grep mdm.xml "/proc/$(systemctl show -p MainPID --value cloudflare-warp)/mountinfo"
 ```
 
-Expected: both print the same dict: organization value, `service_mode` `warp`, `auto_connect` 0,
-non-empty client id and secret for the `nixos-songbird` service token.
+Expected: both cat commands print the same dict: organization value, `service_mode` `warp`,
+`auto_connect` 0, non-empty client id and secret for the `nixos-songbird` service token; the
+mountinfo line shows `/var/lib/cloudflare-warp/mdm.xml` as a read-only bind of the rendered file
+without sudo.
 If not: same triage as Step 6.
 
 - [x] **Step 4: Confirm registration, status, and DNS.**
