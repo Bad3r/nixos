@@ -39,7 +39,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    `nix-settings.nix` is not optional: `modules/hosts/common/nix-substituters.nix` asserts `max-substitution-jobs` is an integer at least 1 on every `shareCommon` host, since Nix has no `auto` for it; pin `nproc - 1`.
    Create `modules/<host>/ssh.nix` now with a plain `services.openssh.enable = true` when remote first-boot administration is required, or `false` when local-console access makes it unnecessary.
    Without that explicit choice, `modules/networking/ssh.nix` defaults sshd on with `lib.mkDefault true`.
-   The hosts-common firewall is independent: `false` stops sshd while its TCP 22 rules for `tailscale0`, `CloudflareWARP`, and `10.0.0.0/8` remain.
+   The hosts-common firewall is independent: `false` stops sshd while its TCP 22 rules for `tailscale0` and `10.0.0.0/8` remain, as does the `CloudflareWARP` rule on a host that enables `cloudflare-warp`.
    Only `services.openssh.publicKey` waits for first boot; [Host secrets and handoff](host-onboarding-secrets.md) adds the generated key and its `fleetHostKeys` pin together.
 
 3. Add per-host divergence files only where the host actually diverges:
