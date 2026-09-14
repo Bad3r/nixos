@@ -1,9 +1,6 @@
 /*
-  Internal: uBlock Origin dynamic-filtering rules, hostname switches, and
+  uBlock Origin dynamic-filtering rules, hostname switches, and
   their syntax guards.
-
-  Keep this helper independent from module config and packages so the browser
-  profile and the flake-level evaluation check consume the same rule set.
 */
 { lib }:
 let
@@ -143,19 +140,13 @@ let
   ];
 
   # uBO "medium mode": block third-party scripts and frames by default.
-  # Commonly-used sites are pre-whitelisted; other sites need interactive
-  # whitelisting via the uBO popup (per-site 3p-script/3p-frame => noop).
   # See https://github.com/gorhill/uBlock/wiki/Blocking-mode:-medium-mode.
   ublockOriginMediumModeRules = [
     "behind-the-scene * * noop"
     "* * 3p-script block"
     "* * 3p-frame block"
 
-    # Trusted destinations: allowed on every site. uBO evaluates a named
-    # destination before the blanket 3p-script/3p-frame rows above, and
-    # `validateRuleParts` discards a named destination paired with anything
-    # narrower than type `*`, so each entry covers script and frame together
-    # and matches on hostname alone, never a request path.
+    ### Trusted destinations: allowed on every site ###
 
     # Cloudflare Turnstile: /turnstile/v0/api.js plus the widget iframe.
     "* challenges.cloudflare.com * noop"
@@ -166,8 +157,7 @@ let
     "* recaptcha.google.com * noop"
     "* www.recaptcha.net * noop"
 
-    # Trusted sites: allow 3p scripts and frames.
-    # Source-host match covers all subdomains.
+    ### Trusted sites: allow 3p scripts and frames ###
 
     # Dev hosting & code collaboration
     "github.com * 3p-script noop"
@@ -227,9 +217,9 @@ let
     "login.microsoft.com * 3p-script noop"
     "login.microsoft.com * 3p-frame noop"
 
-    # Atlassian identity
-    "id.atlassian.com * 3p-script noop"
-    "id.atlassian.com * 3p-frame noop"
+    # Atlassian/Jira
+    "atlassian.com * 3p-script noop"
+    "atlassian.com * 3p-frame noop"
 
     # Cloud consoles
     "cloud.google.com * 3p-script noop"
