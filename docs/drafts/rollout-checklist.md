@@ -2,11 +2,72 @@
 
 Private working file, not for the PR body. Ids and hostnames are fine here; never write a
 client secret into this file. Rollback commands for every object live in `cloudflare-changes.md`.
-Run the tpnix steps first, then songbird, then the cross-host gate.
+Run the songbird steps first, then tpnix, then the cross-host gate.
+
+## songbird
+
+- [x] **Step 1: ProtonVPN autoconnect off before enrolling.** WARP and ProtonVPN together is
+  unsupported.
+
+```sh
+nmcli con mod "<ProtonVPN connection>" connection.autoconnect no
+nmcli -t -f connection.autoconnect con show "<ProtonVPN connection>"
+```
+
+Expected: `connection.autoconnect:no`.
+If not: rerun with the exact connection name from `nmcli con show`; do not switch songbird
+while Proton still autoconnects.
+
+- [x] **Step 2: Switch songbird to the branch.**
+
+```sh
+./build.sh
+systemctl status cloudflare-warp
+```
+
+Expected: switch exits 0, service active (running).
+If not: read `journalctl -xeu cloudflare-warp` before retrying; do not rerun blind.
+
+- [ ] **Step 3: Check the sops-rendered mdm.xml.**
+
+```sh
+sudo cat /var/lib/cloudflare-warp/mdm.xml
+```
+
+Expected: organization value, `service_mode` `warp`, `auto_connect` 0, non-empty client id and
+secret for the `nixos-songbird` service token.
+If not: same triage as Step 6.
+
+- [ ] **Step 4: Confirm registration, status, and DNS.**
+
+```sh
+warp-cli --accept-tos registration show
+warp-cli --accept-tos status
+resolvectl status
+```
+
+Expected: registration bound to `nixos-songbird`, status reaches `Connected` with no manual
+command (repeat after a reboot as in Step 8), resolver shows WARP with Gateway DNS in effect.
+If not: apply the registration and reboot checks for songbird; if the resolver never shows WARP,
+check that the `nixos-songbird` profile applied instead of the default profile.
+
+2026-09-14 reverted to unchecked: the switch's own journal shows `warp_settings::manager: Unable to read local policy file e=Too many levels of symbolic links (os error 40)` at
+warp-svc startup, then `warp_primitives::access: Service token credentials not configured: missing organization`. `warp-cli registration show` reports `Account type: Free` with no
+organization, unchanged across a recheck 47 minutes and 517 network-change events later. This
+is the "Registration missing after the switch" case in `docs/cloudflare/warp/troubleshooting.md`,
+but its documented fix does not clear it: a manual `sudo systemctl restart cloudflare-warp.service`
+on songbird reproduced the identical `Unable to read local policy file ... os error 40` on the new
+PID, immediately. This is not a one-time startup race; it is structural, most likely warp-svc
+opening `mdm.xml` with O_NOFOLLOW against a path that `sops.templates` renders as a symlink into
+`/run/secrets` (an O_NOFOLLOW open against a symlinked last path component fails with ELOOP
+regardless of chain depth or timing). Blocker: do not check Steps 3 and 4, and do not proceed to
+tpnix or the cross-host gate, until `modules/apps/cloudflare-warp.nix` delivers `mdm.xml` as a
+plain file at the path warp-svc opens rather than a symlink into `/run/secrets`, and a fresh
+switch shows a non-Free registration bound to `nixos-songbird`.
 
 ## tpnix
 
-- [ ] **Step 1: Switch tpnix to the merged branch.**
+- [ ] **Step 5: Switch tpnix to the merged branch.**
 
 ```sh
 ./build.sh
@@ -16,7 +77,7 @@ systemctl status cloudflare-warp
 Expected: switch exits 0 and the service is active (running).
 If not: read `journalctl -xeu cloudflare-warp` before retrying; do not rerun blind.
 
-- [ ] **Step 2: Check the sops-rendered mdm.xml.**
+- [ ] **Step 6: Check the sops-rendered mdm.xml.**
 
 ```sh
 sudo cat /var/lib/cloudflare-warp/mdm.xml
@@ -28,7 +89,7 @@ If not: the sops secret or template did not render; sops-nix runs in the activat
 unit), so reread the switch output for `sops-install-secrets` errors and check
 `ls -la /run/secrets/rendered/cloudflare-warp-mdm` before continuing.
 
-- [ ] **Step 3: Confirm registration and status.**
+- [ ] **Step 7: Confirm registration and status.**
 
 ```sh
 warp-cli --accept-tos registration show
@@ -43,7 +104,7 @@ If not: for registration, `warp-cli --accept-tos registration delete` then resta
 `cloudflare-warp.service`; for mode, recheck the device profile matched on
 `identity.service_token_uuid` before touching the profile itself.
 
-- [ ] **Step 4: Reboot and repeat the auto-connect check.** Reboot also activates
+- [ ] **Step 8: Reboot and repeat the auto-connect check.** Reboot also activates
   `ipv6.disable=1`, the first real test of that against WARP.
 
 ```sh
@@ -53,9 +114,9 @@ warp-cli --accept-tos status
 Expected: `Connected` again with no manual command.
 If not: apply the design's fallback (section 11), a small oneshot systemd unit that runs
 `warp-cli --accept-tos connect` after `cloudflare-warp.service` (not yet in the branch); do not
-assume this is the IPv6 blocker (Step 5) until the fallback has been tried.
+assume this is the IPv6 blocker (Step 9) until the fallback has been tried.
 
-- [ ] **Step 5: IPv6-disabled kernel parameter check.**
+- [ ] **Step 9: IPv6-disabled kernel parameter check.**
 
 ```sh
 warp-diag
@@ -65,54 +126,6 @@ journalctl -u cloudflare-warp -b
 Expected: WARP reaches Connected and assigns its device address even with `ipv6.disable=1`.
 If not: this is a blocker, not something to work around; report it with the `warp-diag`
 archive and the journal excerpt, per the design's risk list (section 11).
-
-## songbird
-
-- [ ] **Step 6: ProtonVPN autoconnect off before enrolling.** WARP and ProtonVPN together is
-  unsupported.
-
-```sh
-nmcli con mod "<ProtonVPN connection>" connection.autoconnect no
-nmcli -t -f connection.autoconnect con show "<ProtonVPN connection>"
-```
-
-Expected: `connection.autoconnect:no`.
-If not: rerun with the exact connection name from `nmcli con show`; do not switch songbird
-while Proton still autoconnects.
-
-- [ ] **Step 7: Switch songbird to the merged branch.**
-
-```sh
-./build.sh
-systemctl status cloudflare-warp
-```
-
-Expected: switch exits 0 (songbird's kernel builds from source, longer than tpnix), service
-active (running).
-If not: same journalctl triage as Step 1.
-
-- [ ] **Step 8: Check the sops-rendered mdm.xml.**
-
-```sh
-sudo cat /var/lib/cloudflare-warp/mdm.xml
-```
-
-Expected: organization value, `service_mode` `warp`, `auto_connect` 0, non-empty client id and
-secret for the `nixos-songbird` service token.
-If not: same triage as Step 2.
-
-- [ ] **Step 9: Confirm registration, status, and DNS.**
-
-```sh
-warp-cli --accept-tos registration show
-warp-cli --accept-tos status
-resolvectl status
-```
-
-Expected: registration bound to `nixos-songbird`, status reaches `Connected` with no manual
-command (repeat after a reboot as in Step 4), resolver shows WARP with Gateway DNS in effect.
-If not: apply Step 3 and Step 4's fixes for songbird; if the resolver never shows WARP, check
-that the `nixos-songbird` profile applied instead of the default profile.
 
 ## Cross-host go/no-go gate
 
@@ -137,25 +150,7 @@ resolving on tpnix" in `docs/cloudflare/warp/troubleshooting.md` first.
   one matching device profile `nixos-tpnix` (precedence 100) and one matching `nixos-songbird`
   (precedence 200), both Connected.
   If not: an extra or missing registration means a host registered under the wrong token; delete
-  the stray registration and recheck Step 3 or Step 9 for that host.
-
-## Follow-ups
-
-- [ ] **Step 12: Optional, re-sign the branch commits.** Unsigned because the 1Password commit
-  signer was unreachable in a non-interactive session.
-
-```sh
-git rebase --exec 'git commit --amend --no-edit -S' origin/main
-git log --show-signature -5
-```
-
-Expected: every rebased commit shows a good signature.
-If not: unlock the signer so it is reachable and rerun; merging as is without signatures is
-also acceptable if branch protection does not require them.
-
-- [ ] **Step 13: Rollback reference.** If anything above needs to be undone, use
-  `cloudflare-changes.md` (Created, Modified, Deleted tables) for the exact rollback command for
-  that object; do not guess a delete or restore call from memory.
+  the stray registration and recheck Step 4 or Step 7 for that host.
 
 ## Code follow-ups noted by the final branch review (none block the merge)
 

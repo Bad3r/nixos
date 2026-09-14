@@ -11,7 +11,7 @@ Fix: `git submodule update --init secrets`, or install the age identity per [hos
 ## Registration missing after the switch
 
 Cause: `mdm.xml` was unreadable when `warp-svc` started, or the token is not in the Service Auth policy.
-Diagnostic: `sudo ls -l /var/lib/cloudflare-warp/mdm.xml` shows a symlink into `/run/secrets`; `journalctl -u cloudflare-warp.service | grep -i -E 'mdm|register|registration|auth'`.
+Diagnostic: `sudo ls -l /var/lib/cloudflare-warp/mdm.xml` shows a symlink into `/run/secrets`; `journalctl -u cloudflare-warp.service | grep -i -E 'mdm|register|registration|auth|policy|organization'`. The unreadable-at-startup case logs `Unable to read local policy file` followed by `Service token credentials not configured: missing organization`, neither of which the narrower `mdm|register|registration|auth` pattern alone would catch.
 Fix: `sudo systemctl restart cloudflare-warp.service` once the secret is in place; an authorization error in the log means the token id is absent from `hosts-service-auth` on the `Warp Login App`.
 
 ## Status stays Disconnected after boot
