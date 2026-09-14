@@ -45,6 +45,9 @@ in
       files.file.${substituterConfPath}.text = ''
         extra-substituters = ${lib.concatMapStringsSep " " (cache: cache.url) caches}
         extra-trusted-public-keys = ${lib.concatMapStringsSep " " (cache: cache.key) caches}
+        connect-timeout = 30
+        download-attempts = 3
+        stalled-download-timeout = 300
       '';
 
       checks.ci-substituter-parity =
