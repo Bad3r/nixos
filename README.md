@@ -93,6 +93,7 @@ The following files are defined in Nix and generated via [mightyiam/files](https
 
 - `.actrc`
 - `.githooks/post-checkout`
+- `.github/actions/install-lix/substituters.conf`
 - `.gitignore`
 - `.gitleaks-gitlink.toml`
 - `.gitleaks-secrets.toml`
