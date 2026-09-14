@@ -140,7 +140,9 @@ ssh tpnix.warp      # from songbird
 Optional: `nc -vz <meshIp> 22` and, since the ICMP proxy is on, `ping <meshIp>`.
 Pass: both directions succeed; record each host's `meshIp` in `modules/<host>/policy.nix` as a
 follow-up commit (this is also what renders the `.warp` ssh aliases and known_hosts pins on the
-next switch).
+next switch). songbird's address is recorded already, so tpnix renders `songbird.warp` and its
+host-key pin on its first switch; tpnix's address lands after Step 7, then songbird switches once
+more for `tpnix.warp`.
 Fail: with tpnix still in `tunnelonly`, fall back to switching tpnix's Cloudflare device
 profile mode and its NixOS `serviceMode` to `warp`, then retest. Read "Private hostnames stop
 resolving on tpnix" in `docs/cloudflare/warp/troubleshooting.md` first.

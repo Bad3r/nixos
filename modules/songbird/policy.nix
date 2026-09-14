@@ -15,6 +15,9 @@ _: {
 
     # Per-host values consumed by modules/hosts/common/*.
     duplicatiStateDirReadable = true;
+    # Cloudflare Mesh device address; released only when the registration is
+    # deleted (docs/cloudflare/warp/deployment.md, Rotate a token).
+    meshIp = "100.96.0.9";
     extraHomeApps = [
       "awscli2"
       "pentesting-devshell"
