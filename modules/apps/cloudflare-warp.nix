@@ -174,6 +174,9 @@ let
               "systemd-resolved.service"
             ];
             wantedBy = [ tunnelDevice ];
+            # Every tunnel transition starts the unit, so the default five starts
+            # in 10 s would fail it on a flapping tunnel and leave the route off.
+            startLimitIntervalSec = 0;
             # SIGHUP, not a reload job: shutdown queues resolved's stop
             # irreversibly, and a reload transaction would be refused.
             serviceConfig = {

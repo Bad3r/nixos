@@ -159,6 +159,10 @@
         assert check "warp mode keeps resolved's static settings on the link servers" (
           resolveOf systemdActivation == linkResolve
         );
+        assert check "tunnel churn cannot trip the unit's start limit" (
+          lib.hasInfix "\nStartLimitIntervalSec=0\n"
+            systemdActivation.config.systemd.units."cloudflare-warp-dns.service".text
+        );
         assert check "warp mode binds the proxy route to the tunnel device" (
           let
             unit = dnsUnitOf systemdActivation;
