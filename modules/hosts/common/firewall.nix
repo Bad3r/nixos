@@ -502,6 +502,9 @@ let
           # Mesh is the fleet's private network once the tailnet retires, so the
           # developer ranges ride it and the other host reaches the LAN-only dev
           # servers; tailscale0 above stays SSH-only for a host that opts back in.
+          # The interface is the scope: every device enrolled in the team reaches
+          # the ranges, accepted over per-peer meshIp rules, which would close the
+          # ports until each address is recorded and on every re-registration.
           (lib.mkIf warpEnabled {
             CloudflareWARP = {
               allowedTCPPorts = [ 22 ];

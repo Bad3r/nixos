@@ -24,6 +24,7 @@ Cloudflare documents Mesh for the Traffic and DNS mode, so tpnix's Traffic-only 
 
 Enrolled devices get an address in `100.96.0.0/12` and reach each other directly.
 The shared firewall in `modules/hosts/common/firewall.nix` opens SSH and the host's declared developer port ranges on the `CloudflareWARP` interface, and nothing else.
+The interface is the scope: every device enrolled in the team reaches those ranges over Mesh, and only Gateway policies on the Cloudflare side narrow that.
 A host records its address as `meshIp` in `modules/<host>/policy.nix`; every other host then pins the host key for that address, and every other host that runs WARP renders `~/.ssh/hosts/<host>.warp`.
 Evaluation rejects a `meshIp` outside `100.96.0.0/12`, since the alias and the pin would name an address the tunnel never carries.
 `ping` between devices needs the ICMP proxy, enabled under Traffic policies, Traffic settings in the dashboard.

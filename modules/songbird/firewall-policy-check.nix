@@ -126,6 +126,8 @@ let
   # The WARP client's tun device is the one interface scope approved for the
   # developer range: a Mesh peer reaches songbird only through it, and
   # firewall.nix must open exactly the declared ranges there, nothing wider.
+  # Interface scope means every device enrolled in the team, not only the
+  # fleet hosts; that width is the approved policy, not an oversight.
   # Its exemption from the unscoped scan below is paired with an exact-match
   # arm in both app states, so a rule left behind once the app is off fails
   # here instead of passing through the exemption unread.
