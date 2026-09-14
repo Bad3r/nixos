@@ -41,14 +41,6 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
-
-        networking.firewall.allowedTCPPorts = [
-          1025
-          1080
-          1110
-          1143
-          1389
-        ];
       };
     };
 in
