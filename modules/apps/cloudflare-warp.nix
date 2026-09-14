@@ -158,10 +158,12 @@ let
         (lib.mkIf (cfg.enable && !enrolled) {
           warnings = [
             (
-              if secretExists then
-                "Cloudflare WARP enrollment is disabled on ${hostName} because flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady is false."
-              else
+              if !secretExists then
                 "Cloudflare WARP enrollment is disabled on ${hostName} because secrets/cloudflare-warp.yaml is missing."
+              else if !(hostsRegistry ? ${hostName}) then
+                "Cloudflare WARP enrollment is disabled on ${hostName} because it has no flake.lib.nixos.hosts entry; add one in modules/${hostName}/policy.nix."
+              else
+                "Cloudflare WARP enrollment is disabled on ${hostName} because flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady is false."
             )
           ];
         })

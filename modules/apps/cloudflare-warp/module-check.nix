@@ -108,8 +108,8 @@
         assert check "host outside the registry leaves the service off" (
           !unregistered.config.services.cloudflare-warp.enable
         );
-        assert check "host outside the registry warns" (
-          lib.any (lib.hasInfix "sopsRuntimeReady is false") unregistered.config.warnings
+        assert check "host outside the registry warns about the missing entry" (
+          lib.any (lib.hasInfix "has no flake.lib.nixos.hosts entry") unregistered.config.warnings
         );
         assert check "host outside the registry renders no template" (
           !(unregistered.config.sops.templates ? "cloudflare-warp-mdm")
