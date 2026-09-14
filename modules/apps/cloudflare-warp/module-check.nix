@@ -90,6 +90,19 @@
           resolveOf = system: { inherit (system.config.services.resolved.settings.Resolve) DNS Domains; };
           dnsUnitOf = system: system.config.systemd.services.cloudflare-warp-dns or null;
           tunnelDevice = "sys-subsystem-net-devices-CloudflareWARP.device";
+          dropIn = "/run/systemd/resolved.conf.d/cloudflare-warp.conf";
+          reloadsResolved = [ "--signal=SIGHUP systemd-resolved.service" ];
+          route = lib.findFirst (
+            trigger: trigger ? text && lib.hasInfix "DNS=127.0.2.2 127.0.2.3" trigger.text
+          ) null (warpUnitOf systemdActivation).restartTriggers;
+          # A command holding every `first` fragment runs before one holding every `next` fragment.
+          runsBefore =
+            commands: first: next:
+            let
+              indexOf =
+                fragments: lib.lists.findFirstIndex (cmd: lib.all (f: lib.hasInfix f cmd) fragments) null commands;
+            in
+            indexOf first != null && indexOf next != null && indexOf first < indexOf next;
           linkResolve = {
             DNS = [ ];
             Domains = [ ];
@@ -156,9 +169,19 @@
             && lib.hasInfix "Domains=~." trigger.text
           ) (warpUnitOf systemdActivation).restartTriggers
         );
-        assert check "stopping the unit removes the route" (
-          lib.any (lib.hasInfix "rm -f /run/systemd/resolved.conf.d/cloudflare-warp.conf") (dnsUnitOf systemdActivation)
-          .serviceConfig.ExecStopPost
+        # bindsTo and the route text alone stay green with the install or the
+        # SIGHUP dropped, which leaves resolved on the link servers.
+        assert check "starting the unit installs the route where resolved reads it, then reloads resolved" (
+          route != null
+          && runsBefore (dnsUnitOf systemdActivation).serviceConfig.ExecStart [
+            (builtins.unsafeDiscardStringContext "${route}")
+            " ${dropIn}"
+          ] reloadsResolved
+        );
+        assert check "stopping the unit removes the route, then reloads resolved" (
+          runsBefore (dnsUnitOf systemdActivation).serviceConfig.ExecStopPost [
+            "rm -f ${dropIn}"
+          ] reloadsResolved
         );
         assert check "tunnelonly adds no proxy route" (dnsUnitOf enrolled == null);
         assert check "an unenrolled host never points resolved at the absent proxy" (
