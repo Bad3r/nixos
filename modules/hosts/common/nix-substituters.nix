@@ -1,5 +1,30 @@
-_:
+{ lib, ... }:
 let
+  # One list for the host daemon and for CI: install-lix appends the
+  # generated substituters.conf to the runner's nix.conf, so a cache-roots
+  # build substitutes every root a cache already serves instead of
+  # rebuilding the whole set on each push.
+  caches = [
+    {
+      url = "https://cache.numtide.com";
+      key = "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=";
+    }
+    {
+      # unfree packages (unrar, etc.)
+      url = "https://nixpkgs-unfree.cachix.org";
+      key = "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs=";
+    }
+    {
+      # CI-built custom derivations (cache-roots); see
+      # docs/reference/binary-cache-coverage.md
+      url = "https://bad3r-nixos.cachix.org";
+      key = "bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE=";
+    }
+  ];
+
+  substituterConfPath = ".github/actions/install-lix/substituters.conf";
+  actionFile = ../../../.github/actions/install-lix/action.yml;
+
   body =
     {
       config,
@@ -14,20 +39,10 @@ let
         # spelling is not deduplicated (Lix getDefaultSubstituters compares
         # exact URI strings), so it opens a second store against the same host
         # and doubles narinfo misses.
-        substituters = lib.mkAfter [
-          "https://cache.numtide.com"
-          "https://nixpkgs-unfree.cachix.org" # unfree packages (unrar, etc.)
-          # CI-built custom derivations (cache-roots); see
-          # docs/reference/binary-cache-coverage.md
-          "https://bad3r-nixos.cachix.org"
-          # nix-community.cachix.org / doom-emacs-unstraightened.cachix.org are
-          # appended by modules/apps/doom-emacs.nix when the module is enabled.
-        ];
-        trusted-public-keys = lib.mkAfter [
-          "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-          "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
-          "bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE="
-        ];
+        # nix-community.cachix.org / doom-emacs-unstraightened.cachix.org are
+        # appended by modules/apps/doom-emacs.nix when the module is enabled.
+        substituters = lib.mkAfter (map (cache: cache.url) caches);
+        trusted-public-keys = lib.mkAfter (map (cache: cache.key) caches);
 
         download-attempts = lib.mkDefault 3;
         connect-timeout = lib.mkDefault 30;
@@ -71,4 +86,22 @@ let
 in
 {
   flake.nixosModules.hosts-common.imports = [ body ];
+
+  perSystem =
+    { pkgs, ... }:
+    {
+      files.file.${substituterConfPath}.text = ''
+        extra-substituters = ${lib.concatMapStringsSep " " (cache: cache.url) caches}
+        extra-trusted-public-keys = ${lib.concatMapStringsSep " " (cache: cache.key) caches}
+      '';
+
+      # An action that stops reading the conf silently returns cache-push to
+      # rebuilding every root. A throw keeps `nix flake check --no-build`
+      # catching it, as ci-lix-installer-parity does for the Lix pin.
+      checks.ci-substituter-parity =
+        if lib.hasInfix (baseNameOf substituterConfPath) (builtins.readFile actionFile) then
+          pkgs.runCommandLocal "ci-substituter-parity" { } "touch $out"
+        else
+          throw "ci-substituter-parity: .github/actions/install-lix/action.yml does not read ${substituterConfPath}; CI would rebuild every cache root on each push";
+    };
 }
