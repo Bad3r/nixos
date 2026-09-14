@@ -51,7 +51,8 @@ let
         DNS=127.0.2.2 127.0.2.3
         Domains=~.
       '';
-      reloadResolved = "${config.systemd.package}/bin/systemctl kill --kill-whom=main --signal=SIGHUP systemd-resolved.service";
+      # `all`, unlike `main`, exits 0 while resolved has no process to signal.
+      reloadResolved = "${config.systemd.package}/bin/systemctl kill --kill-whom=all --signal=SIGHUP systemd-resolved.service";
     in
     {
       options.programs.cloudflare-warp.extended = {

@@ -26,6 +26,7 @@ Cause: `warp-svc` rejects the systemd 261 version string when it probes systemd-
 Diagnostic: `journalctl -u cloudflare-warp.service | grep 'file-based DNS'` shows the fallback, and `resolvectl dns` and `resolvectl domain` show `127.0.2.2 127.0.2.3` and `~.` under `Global` while `CloudflareWARP` exists.
 A domain listed on a link routes the names under it to that link's servers instead, past Gateway.
 Fix: none while `Global` carries them, since in `warp` mode `cloudflare-warp-dns.service` routes every lookup there for as long as the tunnel exists; an empty `Global` with the tunnel up means the host is not enrolled, runs `tunnelonly`, or the unit failed (`systemctl status cloudflare-warp-dns.service`).
+An `active (exited)` unit with `/run/systemd/resolved.conf.d/cloudflare-warp.conf` present and an empty `Global` means a running resolved missed the unit's reload: `journalctl -u cloudflare-warp-dns.service` shows the `systemctl` error, and `sudo systemctl reload systemd-resolved.service` applies the route.
 
 ## Name resolution fails in warp mode
 

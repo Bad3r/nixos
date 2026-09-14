@@ -91,7 +91,11 @@
           dnsUnitOf = system: system.config.systemd.services.cloudflare-warp-dns or null;
           tunnelDevice = "sys-subsystem-net-devices-CloudflareWARP.device";
           dropIn = "/run/systemd/resolved.conf.d/cloudflare-warp.conf";
-          reloadsResolved = [ "--signal=SIGHUP systemd-resolved.service" ];
+          # `main` fails on a stopped resolved, which would fail a clean teardown.
+          reloadsResolved = [
+            "--kill-whom=all"
+            "--signal=SIGHUP systemd-resolved.service"
+          ];
           route = lib.findFirst (
             trigger: trigger ? text && lib.hasInfix "DNS=127.0.2.2 127.0.2.3" trigger.text
           ) null (warpUnitOf systemdActivation).restartTriggers;
@@ -182,7 +186,7 @@
         # never starts the unit again.
         assert check "a failed reload at start leaves the route installed" (
           lib.any (
-            cmd: lib.hasPrefix "-" cmd && lib.hasInfix (lib.head reloadsResolved) cmd
+            cmd: lib.hasPrefix "-" cmd && lib.all (fragment: lib.hasInfix fragment cmd) reloadsResolved
           ) (dnsUnitOf systemdActivation).serviceConfig.ExecStart
         );
         assert check "stopping the unit removes the route, then reloads resolved" (
