@@ -46,10 +46,12 @@ runs:
         # conf so a build substitutes what a cache already serves; the runner
         # user is not trusted, so a client-side NIX_CONFIG would be ignored.
         conf="$GITHUB_ACTION_PATH/substituters.conf"
-        if ! grep -q '^extra-substituters = ' "$conf"; then
-          echo "::error::$conf lacks extra-substituters; run write-files"
-          exit 1
-        fi
+        for key in extra-substituters extra-trusted-public-keys; do
+          if ! grep -q "^$key = " "$conf"; then
+            echo "::error::$conf lacks $key; run write-files"
+            exit 1
+          fi
+        done
         NIX_INSTALLER_EXTRA_CONF="$NIX_INSTALLER_EXTRA_CONF$(cat "$conf")"
         # The installer appends /nix/var/nix/profiles/default/bin to
         # GITHUB_PATH itself (ConfigureShellProfile); sudo -E keeps the
@@ -61,12 +63,18 @@ runs:
       # The installer rewrites the extra conf from a parsed key map, so the
       # installed result is what counts, not the payload.
       run: |-
-        read -ra urls <<< "$(sed -n 's/^extra-substituters = //p' \
-          "$GITHUB_ACTION_PATH/substituters.conf")"
-        effective=" $(nix config show substituters) "
-        for url in "${urls[@]}"; do
-          if [[ "$effective" != *" $url "* ]]; then
-            echo "::error::$url is missing from the installed substituters"
+        for setting in substituters trusted-public-keys; do
+          read -ra want <<< "$(sed -n "s/^extra-$setting = //p" \
+            "$GITHUB_ACTION_PATH/substituters.conf")"
+          if [ "${#want[@]}" -eq 0 ]; then
+            echo "::error::extra-$setting is missing from substituters.conf"
             exit 1
           fi
+          effective=" $(nix config show "$setting") "
+          for value in "${want[@]}"; do
+            if [[ "$effective" != *" $value "* ]]; then
+              echo "::error::$value is missing from the installed $setting"
+              exit 1
+            fi
+          done
         done

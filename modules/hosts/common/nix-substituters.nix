@@ -95,13 +95,21 @@ in
         extra-trusted-public-keys = ${lib.concatMapStringsSep " " (cache: cache.key) caches}
       '';
 
-      # An action that stops reading the conf silently returns cache-push to
+      # An action that stops appending the conf silently returns cache-push to
       # rebuilding every root. A throw keeps `nix flake check --no-build`
-      # catching it, as ci-lix-installer-parity does for the Lix pin.
+      # catching it, as ci-lix-installer-parity does for the Lix pin. The
+      # append itself is asserted, not a mention: the comment and the verify
+      # step also name the file and both survive a deleted append line.
       checks.ci-substituter-parity =
-        if lib.hasInfix (baseNameOf substituterConfPath) (builtins.readFile actionFile) then
+        let
+          actionText = builtins.readFile actionFile;
+          appendsConf =
+            lib.hasInfix ''conf="$GITHUB_ACTION_PATH/${baseNameOf substituterConfPath}"'' actionText
+            && lib.hasInfix ''NIX_INSTALLER_EXTRA_CONF$(cat "$conf")'' actionText;
+        in
+        if appendsConf then
           pkgs.runCommandLocal "ci-substituter-parity" { } "touch $out"
         else
-          throw "ci-substituter-parity: .github/actions/install-lix/action.yml does not read ${substituterConfPath}; CI would rebuild every cache root on each push";
+          throw "ci-substituter-parity: .github/actions/install-lix/action.yml does not append ${substituterConfPath} to NIX_INSTALLER_EXTRA_CONF; CI would rebuild every cache root on each push";
     };
 }
