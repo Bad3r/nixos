@@ -1,11 +1,26 @@
-{ config, ... }:
+{ config, lib, ... }:
 let
   fleetHostNames = builtins.attrNames (config.flake.lib.nixos.hosts or { });
   # Hosts that recorded their Cloudflare Mesh device address (meshIp in
   # modules/<host>/policy.nix) after enrolling through
   # modules/apps/cloudflare-warp.nix.
   meshIpOf = config.flake.lib.nixos.meshIpOf;
-  meshHostNames = builtins.filter (name: meshIpOf name != null) fleetHostNames;
+  recordedMeshHostNames = builtins.filter (name: meshIpOf name != null) fleetHostNames;
+  # One address under two hosts would point one alias at the other machine,
+  # and OpenSSH accepts either pinned key for that address
+  # (modules/hosts/common/ssh-known-hosts.nix), so no mismatch warns.
+  sharedMeshIps = lib.filterAttrs (_: names: lib.length names > 1) (
+    lib.groupBy meshIpOf recordedMeshHostNames
+  );
+  meshHostNames =
+    if sharedMeshIps == { } then
+      recordedMeshHostNames
+    else
+      throw "flake.lib.nixos.hosts records the same meshIp for more than one host: ${
+        lib.concatStringsSep "; " (
+          lib.mapAttrsToList (address: names: "${address} (${lib.concatStringsSep ", " names})") sharedMeshIps
+        )
+      }";
 in
 {
   # Provide per-host SSH config via include files under ~/.ssh/hosts/*

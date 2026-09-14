@@ -29,6 +29,7 @@ The `hosts-common-mesh-firewall` flake check fails on any host whose rule there 
 The interface is the scope: every device enrolled in the team reaches those ranges over Mesh, and only Gateway policies on the Cloudflare side narrow that.
 A host records its address as `meshIp` in `modules/<host>/policy.nix`; every other host then pins the host key for that address, and every other host that runs WARP renders `~/.ssh/hosts/<host>.warp`.
 Evaluation rejects a `meshIp` outside `100.96.0.0/12`, since the alias and the pin would name an address the tunnel never carries.
+It also rejects an address two hosts record, since either host key would then pass for that address.
 `ping` between devices needs the ICMP proxy, enabled under Traffic policies, Traffic settings in the dashboard.
 
 ## Coexistence
