@@ -118,8 +118,9 @@ Verification: `warp-cli --accept-tos settings` lists every entry under `Exclude 
 Precondition: the host's client secret leaked, or the token must stop working.
 
 1. Create a replacement token and profile as in the first procedure, and add the new token id to `hosts-service-auth`.
-2. Update the host's section in `secrets/cloudflare-warp.yaml`, commit, push, bump the gitlink, and switch the host; the changed template restarts `warp-svc`, which re-registers.
-3. Delete the old registration, then the old token, through the API or the dashboard; deleting the registration releases the device address, so record the new `meshIp` afterwards.
+2. Update the host's section in `secrets/cloudflare-warp.yaml`, commit, push, bump the gitlink, and switch the host; the changed template restarts `warp-svc`.
+3. Delete the old registration with `warp-cli --accept-tos registration delete`, then `sudo systemctl restart cloudflare-warp.service`, so the daemon registers under the new token.
+4. Delete the old token through the API or the dashboard; the deleted registration released the device address, so record the new `meshIp` afterwards.
 
 Verification: `warp-cli --accept-tos registration show` reports the new profile, and the old token is gone from the service token list.
 
