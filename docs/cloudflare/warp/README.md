@@ -39,7 +39,7 @@ Evaluation rejects a `meshIp` outside `100.96.0.0/12`, since the alias and the p
 ## Secrets
 
 `secrets/cloudflare-warp.yaml` holds `organization` once and one section per host named after its `networking.hostName`; the `.example` file beside it in the secrets repository shows the shape.
-The team name identifies the tenant and this repository is public, which is why it lives in the encrypted file as well.
+The team name lives in the encrypted file beside the token, so `mdm.xml` renders from one source.
 
 ## Pages
 
