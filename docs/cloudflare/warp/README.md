@@ -17,6 +17,7 @@ No browser login happens on the host: sops-nix renders the team name, the token,
 
 tpnix stays on `tunnelonly` because NetworkManager's dnsmasq serves the private-host mappings from `modules/hosts/common/private-dns-hosts.nix`, which Gateway DNS would replace.
 The mode is set in `modules/<host>/cloudflare-warp.nix`, and the host's device profile in the dashboard carries the same mode, matched on the host's service token.
+Cloudflare spells Traffic-only mode three ways: `tunnelonly` as the `service_mode` value in `mdm.xml`, `warp_tunnel_only` in the device-profile API, and `tunnel_only` in `warp-cli mode`.
 Cloudflare documents Mesh for the Traffic and DNS mode, so tpnix's Traffic-only mode is checked at rollout (see [troubleshooting.md](troubleshooting.md)).
 
 ## Reaching hosts over Cloudflare Mesh
