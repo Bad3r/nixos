@@ -124,37 +124,10 @@ let
     lib.any developerPortRangeOverlaps ruleSet.allowedTCPPortRanges
     || lib.any developerPortIsUnscoped ruleSet.allowedTCPPorts;
   # The WARP client's tun device is the one interface scope approved for the
-  # developer range: a Mesh peer reaches songbird only through it, and
-  # firewall.nix must open exactly the declared ranges there, nothing wider.
-  # Interface scope means every device enrolled in the team, not only the
-  # fleet hosts; that width is the approved policy, not an oversight.
-  # Its exemption from the unscoped scan below is paired with an exact-match
-  # arm in both app states, so a rule left behind once the app is off fails
-  # here instead of passing through the exemption unread.
+  # developer range. The unscoped scan below skips it because
+  # hosts-common-mesh-firewall (modules/hosts/common/mesh-firewall-check.nix)
+  # holds its rule to exactly the declared ranges in both app states.
   meshInterface = "CloudflareWARP";
-  meshRuleSet =
-    firewall.interfaces.${meshInterface} or {
-      allowedTCPPortRanges = [ ];
-      allowedTCPPorts = [ ];
-    };
-  meshEnabled =
-    lib.attrByPath
-      [
-        "programs"
-        "cloudflare-warp"
-        "extended"
-        "enable"
-      ]
-      (throw (
-        "songbird-firewall-port-policy: programs.cloudflare-warp.extended.enable is no longer "
-        + "declared; update meshEnabled in modules/songbird/firewall-policy-check.nix"
-      ))
-      config.flake.nixosConfigurations.songbird.config;
-  meshRuleMatches =
-    if meshEnabled then
-      meshRuleSet.allowedTCPPortRanges == developerRanges && meshRuleSet.allowedTCPPorts == [ 22 ]
-    else
-      meshRuleSet.allowedTCPPortRanges == [ ] && meshRuleSet.allowedTCPPorts == [ ];
   unscopedDeveloperPort =
     ruleSetPublishesDeveloperPort firewall
     || lib.any ruleSetPublishesDeveloperPort (
@@ -302,9 +275,6 @@ let
       developerRanges == [ ]
     ) "songbird declares no firewallLocalTcpPortRanges; the source-scoped developer range was removed"
     ++ lib.optional unscopedDeveloperPort "TCP ${lib.concatStringsSep ", " developerPortRanges} is published without the approved source CIDRs"
-    ++
-      lib.optional (!meshRuleMatches)
-        "TCP 22 and the declared developer ranges on ${meshInterface} differ from the approved rule (the rule set must be empty while the app is off)"
     ++ lib.optional (!lib.elem 9999 firewall.allowedTCPPorts) "TCP 9999 is no longer globally open"
     ++ lib.optional (!startRulesMatch) "source-scoped start rules differ from the approved exact list"
     ++ lib.optional (!stopRulesMatch) "source-scoped stop rules differ from the approved exact list"
