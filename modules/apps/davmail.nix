@@ -15,13 +15,6 @@
     -tray: Force-enable the system tray icon, overriding the davmail.enableTray setting.
     -token: Print an OAuth refresh token after an interactive Microsoft sign-in, then exit.
     -kerberos: Check Kerberos authentication and exit.
-
-  Notes:
-    * modules/hm-apps/davmail.nix enables Home Manager's per-user services.davmail (a systemd user unit)
-      once this module is enabled, since each gateway instance holds one user's Exchange credentials and
-      mailbox URL.
-    * That unit is gated on graphical-session.target, so it only starts once a desktop session is active;
-      on a headless host it sits idle.
 */
 _:
 let
@@ -48,6 +41,14 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+
+        networking.firewall.allowedTCPPorts = [
+          1025
+          1080
+          1110
+          1143
+          1389
+        ];
       };
     };
 in
