@@ -109,7 +109,7 @@ Precondition: `exclude.json` holds the full 24-entry array from the profile step
      --data @exclude.json
    ```
 
-2. Wait for the client's profile refresh, or `sudo systemctl restart cloudflare-warp.service` on the host.
+2. Run `sudo systemctl restart cloudflare-warp.service` on each host: warp-svc 2026.7.1343.0 can keep the previous list past Cloudflare's ten-minute propagation window.
 
 Verification: `warp-cli --accept-tos settings` lists every entry under `Exclude mode`.
 

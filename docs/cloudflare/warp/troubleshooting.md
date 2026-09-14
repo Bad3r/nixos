@@ -67,6 +67,6 @@ Fix: set `serviceMode = "tunnelonly"` in `modules/tpnix/cloudflare-warp.nix` and
 
 ## The device profile does not apply
 
-Cause: profile changes propagate within about ten minutes, and the match uses the token id, not the token name.
-Diagnostic: `warp-cli --accept-tos settings` prints the profile id; compare it with the dashboard.
-Fix: wait, then `sudo systemctl restart cloudflare-warp.service`; correct the profile's match expression when the id differs.
+Cause: warp-svc 2026.7.1343.0 can keep a changed profile's previous settings past Cloudflare's ten-minute propagation window, or the match names the token instead of its id.
+Diagnostic: `warp-cli --accept-tos settings` prints the profile id and the exclude list; compare both with the dashboard.
+Fix: `sudo systemctl restart cloudflare-warp.service`; correct the profile's match expression when the id differs.
