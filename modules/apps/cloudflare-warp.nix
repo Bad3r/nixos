@@ -142,6 +142,8 @@ let
             restartUnits = [ "cloudflare-warp.service" ];
           };
 
+          # No-op on activation-script hosts (songbird, tpnix); only matters
+          # under sops.useSystemdActivation, per modules/security/sops-helpers.nix.
           systemd.services.cloudflare-warp = {
             after = installSecretsDeps;
             requires = installSecretsDeps;
@@ -153,6 +155,14 @@ let
         # an enrollment that never came up.
         (lib.mkIf cfg.enable {
           environment.systemPackages = [ cfg.package ];
+          # Forces serviceMode's no-default requirement at eval: the only
+          # other read site is inside `enrolled`, which CI never reaches.
+          assertions = [
+            {
+              assertion = cfg.serviceMode == "warp" || cfg.serviceMode == "tunnelonly";
+              message = "programs.cloudflare-warp.extended.serviceMode must be set on ${hostName} whenever enable is true.";
+            }
+          ];
         })
 
         (lib.mkIf (cfg.enable && !enrolled) {
