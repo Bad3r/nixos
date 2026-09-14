@@ -22,9 +22,16 @@ Fix: `sudo rm /var/lib/cloudflare-warp/mdm.xml`, `warp-cli --accept-tos registra
 
 ## resolvectl shows no DNS server on CloudflareWARP
 
-Cause: `warp-svc` rejects the systemd 261 version string when it probes systemd-resolved, so it writes `/etc/resolv.conf` itself instead of configuring resolved over D-Bus.
-Diagnostic: `cat /etc/resolv.conf` names `127.0.2.2` and `127.0.2.3`, and `journalctl -u cloudflare-warp.service | grep 'file-based DNS'` shows the fallback.
-Fix: none on the host; Gateway DNS applies to every glibc resolver client, while `resolvectl query` and other resolved clients keep using the link servers.
+Cause: `warp-svc` rejects the systemd 261 version string when it probes systemd-resolved, so it writes `/etc/resolv.conf` itself instead of configuring the tunnel link.
+Diagnostic: `journalctl -u cloudflare-warp.service | grep 'file-based DNS'` shows the fallback, and `resolvectl dns` and `resolvectl domain` show `127.0.2.2 127.0.2.3` and `~.` under `Global`.
+A domain listed on a link routes the names under it to that link's servers instead, past Gateway.
+Fix: none while `Global` carries them, since in `warp` mode the module routes every lookup there; an empty `Global` means the host is not enrolled or runs `tunnelonly`.
+
+## Name resolution fails in warp mode
+
+Cause: systemd-resolved sends every name to the client's DNS proxy, so nothing resolves while `warp-svc` is not serving it, such as during a restart.
+Diagnostic: `ss -lnu 'sport = :53'` lists no `127.0.2.2` or `127.0.2.3` socket, and `warp-cli --accept-tos status` shows the client state.
+Fix: bring the client back per the sections above; to resolve without it, for example to fetch a recovery switch, `sudo resolvectl domain eth0 '~.'` lets songbird's uplink servers answer beside the proxy until `sudo resolvectl domain eth0 ''`.
 
 ## Status stays Disconnected after boot
 

@@ -10,7 +10,8 @@
   third, a registered host with sopsRuntimeReady = false, needs a registry
   entry the flake does not carry. A second enrolled system with
   sops.useSystemdActivation covers the unit ordering the fleet's
-  activation-script hosts never exercise.
+  activation-script hosts never exercise. The two enrolled systems run the two
+  modes, so the resolved routing that only `warp` adds is asserted both ways.
 */
 {
   lib,
@@ -83,6 +84,11 @@
           packed = lib.replaceStrings [ "\n" " " ] [ "" "" ] template.content;
           pairs = name: lib.hasInfix "<key>${name}</key><string>${placeholderOf name}</string>" packed;
           check = name: cond: lib.assertMsg cond "apps/cloudflare-warp-module-eval: ${name}";
+          resolveOf = system: { inherit (system.config.services.resolved.settings.Resolve) DNS Domains; };
+          linkResolve = {
+            DNS = [ ];
+            Domains = [ ];
+          };
         in
         assert check "organization pairs with its placeholder" (pairs "organization");
         assert check "auth_client_id pairs with its placeholder" (pairs "auth_client_id");
@@ -125,6 +131,19 @@
         assert check "enrolled host runs the service" enrolled.config.services.cloudflare-warp.enable;
         assert check "enrolled host keeps the upstream UDP opening off" (
           !enrolled.config.services.cloudflare-warp.openFirewall
+        );
+        assert check "warp mode sends every name to the client's DNS proxy through resolved" (
+          resolveOf systemdActivation == {
+            DNS = [
+              "127.0.2.2"
+              "127.0.2.3"
+            ];
+            Domains = [ "~." ];
+          }
+        );
+        assert check "tunnelonly leaves resolved on the link servers" (resolveOf enrolled == linkResolve);
+        assert check "an unenrolled host never points resolved at the absent proxy" (
+          resolveOf unenrolled == linkResolve
         );
         assert check "enrolled host does not warn" (
           !lib.any (lib.hasInfix "Cloudflare WARP enrollment is disabled on") enrolled.config.warnings

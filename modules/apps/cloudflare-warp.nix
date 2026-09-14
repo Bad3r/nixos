@@ -74,8 +74,9 @@ let
           ];
           description = ''
             `service_mode` written to mdm.xml. `warp` (Gateway with WARP)
-            makes WARP the system resolver; `tunnelonly` carries traffic and
-            leaves local DNS alone. The host's device profile in the Zero
+            makes WARP the system resolver, through systemd-resolved's global
+            DNS where resolved runs; `tunnelonly` carries traffic and leaves
+            local DNS alone. The host's device profile in the Zero
             Trust dashboard carries the same mode; the device-profile API
             spells the two `warp` and `warp_tunnel_only`, and `warp-cli mode`
             spells the second `tunnel_only`. Required whenever `enable` is
@@ -147,6 +148,19 @@ let
             serviceConfig.BindReadOnlyPaths = [
               "${config.sops.templates.${templateName}.path}:${config.services.cloudflare-warp.rootDir}/mdm.xml"
             ];
+          };
+        })
+
+        # warp-svc cannot register with resolved on systemd 261 and writes
+        # /etc/resolv.conf instead, which glibc skips while nss-resolve answers,
+        # so resolved sends every name (`~.`) to the client's DNS proxy.
+        (lib.mkIf (enrolled && cfg.serviceMode == "warp") {
+          services.resolved.settings.Resolve = {
+            DNS = [
+              "127.0.2.2"
+              "127.0.2.3"
+            ];
+            Domains = [ "~." ];
           };
         })
 

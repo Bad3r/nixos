@@ -47,23 +47,30 @@ mountinfo line shows `/var/lib/cloudflare-warp/mdm.xml` as a read-only bind of t
 without sudo.
 If not: same triage as Step 6.
 
-- [x] **Step 4: Confirm registration, status, and DNS.**
+- [ ] **Step 4: Confirm registration, status, and DNS.** Registration and status held; the DNS
+  lines wait for a switch that carries the resolved routing to the WARP proxy.
 
 ```sh
 warp-cli --accept-tos registration show
 warp-cli --accept-tos status
-cat /etc/resolv.conf
+resolvectl dns
+resolvectl domain
+resolvectl query example.com
 curl -s https://www.cloudflare.com/cdn-cgi/trace | grep -E 'warp=|gateway='
 ```
 
 Expected: registration bound to `nixos-songbird`, status reaches `Connected` with no manual
-command (repeat after a reboot as in Step 8), `/etc/resolv.conf` names `127.0.2.2` and `127.0.2.3`,
-and the trace prints `warp=on` and `gateway=on`. `resolvectl status` keeps showing eth0's servers and
-no DNS on `CloudflareWARP`: warp-svc rejects systemd 261's version string and writes `resolv.conf`
-directly instead of configuring resolved (see "resolvectl shows no DNS server on CloudflareWARP" in
-`docs/cloudflare/warp/troubleshooting.md`).
-If not: apply the registration and reboot checks for songbird; if `resolv.conf` never changes,
-check that the `nixos-songbird` profile applied instead of the default profile.
+command (repeat after a reboot as in Step 8), `resolvectl dns` lists `Global: 127.0.2.2 127.0.2.3`,
+`resolvectl domain` lists `Global: ~.` and no domain on `eth0`, `resolvectl query` answers, and the trace prints `warp=on`
+and `gateway=on`. `CloudflareWARP` itself carries no DNS server: warp-svc rejects systemd 261's
+version string and writes `resolv.conf` instead of configuring the link, which glibc skips while
+nss-resolve answers, so the module points resolved's global DNS at warp-svc's proxy (see
+"resolvectl shows no DNS server on CloudflareWARP" in `docs/cloudflare/warp/troubleshooting.md`).
+If not: apply the registration and reboot checks for songbird; if `Global` is empty, check that the
+switch carried the routing and the host is enrolled in `warp` mode; if `eth0` lists a domain, the
+names under it bypass Gateway; if lookups fail, follow "Name resolution fails in warp mode" in
+`docs/cloudflare/warp/troubleshooting.md`, then check that the `nixos-songbird` profile applied
+instead of the default profile.
 
 ## tpnix
 
