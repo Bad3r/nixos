@@ -11,7 +11,9 @@ let
   formatCaseFailures =
     config.flake.lib.nixos._formatCheckFailures
       or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
-  meshInterface = "CloudflareWARP";
+  meshInterface =
+    config.flake.lib.nixos._firewallMeshInterface
+      or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallMeshInterface");
   approvedMeshRanges = {
     songbird = [
       {

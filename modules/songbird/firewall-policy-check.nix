@@ -127,7 +127,9 @@ let
   # developer range. The unscoped scan below skips it because
   # hosts-common-mesh-firewall (modules/hosts/common/mesh-firewall-check.nix)
   # holds its rule to the Mesh ranges approved there in both app states.
-  meshInterface = "CloudflareWARP";
+  meshInterface =
+    config.flake.lib.nixos._firewallMeshInterface
+      or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallMeshInterface");
   unscopedDeveloperPort =
     ruleSetPublishesDeveloperPort firewall
     || lib.any ruleSetPublishesDeveloperPort (

@@ -16,9 +16,10 @@ let
   # Interface names this file already assigns a dedicated, narrowly-scoped
   # rule to. A firewallDnsInterfaces entry reusing one would merge DNS ports
   # onto that tunnel's SSH/Mesh-only rule instead of a real DNS-serving device.
+  meshInterface = "CloudflareWARP";
   tunnelInterfaceNames = [
     "tailscale0"
-    "CloudflareWARP"
+    meshInterface
   ];
 
   # Restores what 99-default.link supplies minus its "mac" altname token.
@@ -565,6 +566,10 @@ in
       # exact CIDR list instead of a hand-copied literal that silently goes
       # stale when this one changes.
       _firewallLocalNetworkCidrs = localNetworkCidrs;
+      # Exported so the mesh-scoped approval gates (modules/songbird/firewall-policy-check.nix,
+      # modules/hosts/common/mesh-firewall-check.nix) read the same interface name instead of
+      # a hand-copied literal that silently goes stale when this one changes.
+      _firewallMeshInterface = meshInterface;
       _firewallStableNamePolicyLinkConfig = stableNamePolicyLinkConfig;
     };
     nixosModules.hosts-common.imports = [ body ];
