@@ -34,6 +34,8 @@ in
       checks.hosts-common-mesh-known-hosts =
         if pinnedHosts == { } then
           throw "hosts-common-mesh-known-hosts: no host has a fleetHostKeys entry, so the check would pass vacuously"
+        else if !(lib.any (name: meshIpOf name != null) (lib.attrNames fleetHostKeys)) then
+          throw "hosts-common-mesh-known-hosts: no pinned host records a meshIp, so the check would compare nothing"
         else if failures != [ ] then
           throw (formatCaseFailures "hosts-common-mesh-known-hosts" failures)
         else
