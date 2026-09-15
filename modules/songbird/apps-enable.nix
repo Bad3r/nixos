@@ -18,6 +18,10 @@ let
   appEnable = {
     "cloudflare-warp" = true;
     "protonmail-bridge" = true;
+    # The Qt client gives way to the namespaced service and its Web UI
+    # handler (qbittorrent.nix).
+    qbittorrent = false;
+    "qbittorrent-webui" = true;
     inkscape = true;
     ytubic = true;
     stash = true;

@@ -99,7 +99,9 @@ Verification: from another fleet host, `ssh <host>.warp true` succeeds with no h
 
 ## Change a profile's exclude list
 
-Precondition: `exclude.json` holds the full 24-entry array from the profile step above, since the call replaces the whole list.
+Precondition: `exclude.json` holds the full 24-entry array from the profile step above plus the host entries below, since the call replaces the whole list.
+
+Host entries: `nixos-songbird` adds the Proton VPN WireGuard endpoint in [qbittorrent.nix](../../../modules/songbird/qbittorrent.nix) as a `/32`, so the torrent tunnel's outer packets leave through the wired uplink instead of the WARP tunnel; a rotated Proton profile moves the endpoint and repeats this procedure.
 
 1. Set the list on a custom profile, with the id from `GET /accounts/$ACCOUNT/devices/policies`; the default profile takes the same body at `/devices/policy/exclude`.
 
