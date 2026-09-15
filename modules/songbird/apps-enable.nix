@@ -17,6 +17,7 @@
 let
   appEnable = {
     "cloudflare-warp" = true;
+    "protonmail-bridge" = true;
     inkscape = true;
     ytubic = true;
     stash = true;

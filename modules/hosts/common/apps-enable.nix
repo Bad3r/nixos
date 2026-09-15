@@ -551,7 +551,7 @@ let
       flameshot.extended.enable = lib.mkOverride 1100 true;
       "input-remapper".extended.enable = lib.mkOverride 1100 true;
       pcscd.extended.enable = lib.mkOverride 1100 true;
-      "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
+      "protonmail-bridge".extended.enable = lib.mkOverride 1100 false;
       thinkfan.extended.enable = lib.mkOverride 1100 false;
       usbmuxd.extended.enable = lib.mkOverride 1100 true;
     };
