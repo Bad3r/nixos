@@ -507,7 +507,7 @@ let
           # the ranges, accepted over per-peer meshIp rules, which would close the
           # ports until each address is recorded and on every re-registration.
           (lib.mkIf warpEnabled {
-            CloudflareWARP = {
+            ${meshInterface} = {
               allowedTCPPorts = [ 22 ];
               allowedTCPPortRanges = localTcpPortRanges;
             };
@@ -550,8 +550,9 @@ in
       # stale when this one changes.
       _firewallLocalNetworkCidrs = localNetworkCidrs;
       # Exported so the mesh-scoped approval gates (modules/songbird/firewall-policy-check.nix,
-      # modules/hosts/common/mesh-firewall-check.nix) read the same interface name instead of
-      # a hand-copied literal that silently goes stale when this one changes.
+      # modules/hosts/common/mesh-firewall-check.nix) and the tunnel-bound DNS unit in
+      # modules/apps/cloudflare-warp.nix read the same interface name instead of a hand-copied
+      # literal that silently goes stale when this one changes.
       _firewallMeshInterface = meshInterface;
       _firewallStableNamePolicyLinkConfig = stableNamePolicyLinkConfig;
     };

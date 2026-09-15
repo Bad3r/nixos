@@ -20,6 +20,9 @@
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
+  meshInterface =
+    config.flake.lib.nixos._firewallMeshInterface
+      or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallMeshInterface");
 
   CloudflareWarpModule =
     {
@@ -44,7 +47,7 @@ let
       placeholder = key: config.sops.placeholder.${secretName key};
       templateName = "cloudflare-warp-mdm";
       installSecretsDeps = sopsInstallSecretsDeps config;
-      tunnelDevice = "sys-subsystem-net-devices-CloudflareWARP.device";
+      tunnelDevice = "sys-subsystem-net-devices-${meshInterface}.device";
       resolvedDropIn = "/run/systemd/resolved.conf.d/cloudflare-warp.conf";
       resolvedRoute = pkgs.writeText "cloudflare-warp-resolved.conf" ''
         [Resolve]
