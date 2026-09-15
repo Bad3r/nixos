@@ -38,7 +38,7 @@ An address for a host without a `fleetHostKeys` pin fails too, since its alias w
 - ProtonVPN stays installed for manual use, with its NetworkManager autoconnect turned off before the first switch as [deployment.md](deployment.md) shows, since two default-route tunnels cannot share a host.
   Bring ProtonVPN down before relying on WARP, and the other way round.
 - Tailscale is off in the common baseline; a host that opts back in keeps the `tailscale0` firewall rule and the `primary` alias mechanism in `modules/apps/tailscale.nix`.
-- IPv6 is disabled at the kernel on both hosts, so WARP carries IPv4 only here.
+- IPv6 is disabled at the kernel on both hosts, so WARP carries IPv4 only here; the client can still log an IPv6 error against that disabled parameter (see [troubleshooting.md](troubleshooting.md)).
 
 ## Secrets
 
