@@ -547,6 +547,7 @@ let
     # Services-based apps (use services.<name>.extended namespace)
     services = {
       autorandr.extended.enable = lib.mkOverride 1100 true;
+      dovecot.extended.enable = lib.mkOverride 1100 false;
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
       "input-remapper".extended.enable = lib.mkOverride 1100 true;

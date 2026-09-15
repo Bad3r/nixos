@@ -24,6 +24,7 @@ let
     cloudflared = false;
     "coderabbit-cli" = false;
     discord = false;
+    dovecot = true;
     dropbox = false;
     dualsensectl = false;
     dwarfs = false; # Default dependency of steam extraTools
