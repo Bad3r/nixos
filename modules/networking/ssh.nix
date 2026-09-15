@@ -31,7 +31,8 @@ in
             # Fleet default; a host opts out with a plain enable = false in
             # modules/<host>/ssh.nix, which outranks mkDefault.
             enable = lib.mkDefault true;
-            # Per-host firewall rules restrict port 22 to LAN + Tailscale.
+            # Per-host firewall rules restrict port 22 to the LAN, the WARP Mesh
+            # interface, and Tailscale.
             openFirewall = false;
 
             settings = {

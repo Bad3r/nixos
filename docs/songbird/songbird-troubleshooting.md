@@ -120,3 +120,9 @@ bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "pa
 Replace that device's `altnamesOnly` entry in `modules/songbird/networking.nix` with an explicit `linkConfig` carrying `Name=` and `AlternativeNamesPolicy=` only, then name that pin in `firewallDnsInterfaces` in place of `eth0`.
 The shared helper is where `NamePolicy=` comes from, and a file setting both keys fails the `modules/hosts/common/firewall.nix` assertion, as does a pin inside the kernel namespaces that [Pin an interface name](../networking/README.md#pin-an-interface-name) lists.
 Never add a second `.link` file for the same device; udev reads only the first match.
+
+## qBittorrent reports no incoming connections
+
+Cause: the Proton tunnel has no handshake, so the NAT-PMP renewal inside the namespace fails and no mapped port reaches the session.
+Diagnostic: `journalctl -u qbittorrent-port-forward.service -n 5` shows `NAT-PMP mapping failed`, and `sudo ip netns exec torrent wg show wg-torrent` shows no recent handshake.
+Fix: `sudo systemctl restart wireguard-wg-torrent.service`; a handshake that never returns means the Proton profile expired or the server retired, so rotate it per [the torrent runbook](songbird-runbook-torrent.md#rotate-the-proton-vpn-wireguard-profile).

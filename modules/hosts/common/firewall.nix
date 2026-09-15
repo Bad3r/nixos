@@ -4,7 +4,8 @@
 #   flake.lib.nixos.hosts.<host>.firewallExtraTcpPortRanges
 #     Additional globally open TCP port ranges.
 #   flake.lib.nixos.hosts.<host>.firewallLocalTcpPortRanges
-#     Additional TCP port ranges open from 10.0.0.0/8 and 192.168.0.0/16 IPv4 sources.
+#     Additional TCP port ranges open from 10.0.0.0/8 and 192.168.0.0/16 IPv4 sources,
+#     and on the CloudflareWARP interface when the host enables the WARP app.
 { config, lib, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
@@ -12,6 +13,7 @@ let
     "10.0.0.0/8"
     "192.168.0.0/16"
   ];
+  meshInterface = "CloudflareWARP";
 
   # Restores what 99-default.link supplies minus its "mac" altname token.
   # Exported because the per-host .link entries that displace that file must
@@ -319,6 +321,16 @@ let
           cidr: "iptables -D nixos-fw -s ${cidr} -p tcp --dport ${portRange} -j nixos-fw-accept || true\n"
         ) localNetworkCidrs
       ) localTcpPortRanges;
+      # The WARP client's tun device carries Cloudflare Mesh peers. Keyed on
+      # the app toggle rather than the enrolled service so the rule is the
+      # same with and without the secrets submodule; an absent interface
+      # matches nothing, as tailscale0 does on hosts without Tailscale.
+      warpEnabled = lib.attrByPath [
+        "programs"
+        "cloudflare-warp"
+        "extended"
+        "enable"
+      ] false config;
       predictable = config.networking.usePredictableInterfaceNames;
       # One pass over config.systemd.network.links for all six link guards.
       linkClassification = classifyLinks config.systemd.network.links;
@@ -479,10 +491,27 @@ let
         ];
         allowedTCPPortRanges = extraTcpPortRanges;
         # mkMerge, not //: a shallow update would let a dnsInterfaces entry named
-        # tailscale0 replace the submodule below and drop the port 22 rule that
-        # carries SSH over the tailnet.
+        # tailscale0 or CloudflareWARP replace the submodule below and drop the
+        # port 22 rule that carries SSH over that tunnel.
         interfaces = lib.mkMerge [
           { tailscale0.allowedTCPPorts = [ 22 ]; }
+          # Inert until the device profile routes 100.96.0.0/12 into the tunnel:
+          # the stock split-tunnel exclude list covers all of 100.64.0.0/10, so
+          # the profile excludes 100.64.0.0/11 and 100.112.0.0/12 instead of
+          # dropping the CGNAT entry, which carves out the Mesh block and keeps
+          # any tailnet address in 100.112.0.0/12 excluded.
+          # Mesh is the fleet's private network once the tailnet retires, so the
+          # developer ranges ride it and the other host reaches the LAN-only dev
+          # servers; tailscale0 above stays SSH-only for a host that opts back in.
+          # The interface is the scope: every device enrolled in the team reaches
+          # the ranges, accepted over per-peer meshIp rules, which would close the
+          # ports until each address is recorded and on every re-registration.
+          (lib.mkIf warpEnabled {
+            ${meshInterface} = {
+              allowedTCPPorts = [ 22 ];
+              allowedTCPPortRanges = localTcpPortRanges;
+            };
+          })
           (lib.genAttrs dnsInterfaces (_: {
             allowedUDPPorts = [
               53
@@ -520,6 +549,11 @@ in
       # exact CIDR list instead of a hand-copied literal that silently goes
       # stale when this one changes.
       _firewallLocalNetworkCidrs = localNetworkCidrs;
+      # Exported so the mesh-scoped approval gates (modules/songbird/firewall-policy-check.nix,
+      # modules/hosts/common/mesh-firewall-check.nix) and the tunnel-bound DNS unit in
+      # modules/apps/cloudflare-warp.nix read the same interface name instead of a hand-copied
+      # literal that silently goes stale when this one changes.
+      _firewallMeshInterface = meshInterface;
       _firewallStableNamePolicyLinkConfig = stableNamePolicyLinkConfig;
     };
     nixosModules.hosts-common.imports = [ body ];

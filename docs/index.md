@@ -54,6 +54,12 @@
   - Practical Cloudflare Containers examples and application patterns.
 - [cloudflare/containers/limitations-roadmap.md](cloudflare/containers/limitations-roadmap.md)
   - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
+- [cloudflare/warp/README.md](cloudflare/warp/README.md)
+  - Cloudflare WARP on the fleet: service-token enrollment, per-host mode, Mesh reachability, coexistence.
+- [cloudflare/warp/deployment.md](cloudflare/warp/deployment.md)
+  - Runbook: Cloudflare objects, the sops payload, host enrollment, recording the Mesh address, token rotation.
+- [cloudflare/warp/troubleshooting.md](cloudflare/warp/troubleshooting.md)
+  - WARP symptoms with cause, diagnostic, and fix.
 
 ## Songbird
 
@@ -67,6 +73,8 @@
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+- [songbird/songbird-runbook-torrent.md](songbird/songbird-runbook-torrent.md)
+  - Moving torrents into the namespaced qBittorrent service, rotating the Proton VPN profile, and reaching the Web UI from another host.
 - [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [songbird/songbird-troubleshooting-windows.md](songbird/songbird-troubleshooting-windows.md)
