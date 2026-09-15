@@ -152,7 +152,13 @@ let
             networking.hostName = "self";
           };
         }).home.file.contents;
-      names = lib.concatMap (part: builtins.attrNames (part.content or part)) files;
+      # A mkMerge participant is either a plain attrset or an mkIf wrapper
+      # ({ _type = "if"; condition; content; }); reading .content without
+      # checking .condition would count a false-gated entry's keys as rendered,
+      # unlike the real Home Manager module system, which drops them.
+      attrsOf =
+        part: if (part._type or null) == "if" then (if part.condition then part.content else { }) else part;
+      names = lib.concatMap (part: builtins.attrNames (attrsOf part)) files;
       result = builtins.tryEval (builtins.deepSeq names names);
     in
     if result.success then lib.filter (lib.hasSuffix ".warp") result.value else "throws";
