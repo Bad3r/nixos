@@ -7,13 +7,16 @@
 let
   sambaSecretFile = secretsRoot + "/songbird.yaml";
   sambaSecretExists = builtins.pathExists sambaSecretFile;
-  # The source CIDRs firewallLocalTcpPortRanges admits, applied at the Samba
-  # layer because openFirewall opens 139/445 on every interface. hosts deny =
-  # ALL also closes the IPv6 path, matching that IPv4-only scoping.
+  # The LAN CIDRs firewallLocalTcpPortRanges admits plus the Mesh block, applied
+  # at the Samba layer because openFirewall opens 139/445 on every interface.
+  # Mesh carries only the owner's enrolled devices and counts as a local network.
+  # hosts deny = ALL also closes the IPv6 path, matching that IPv4-only scoping.
   sambaHostsAllow = lib.concatStringsSep " " (
     [
       "127.0.0.1"
       "::1"
+      # Cloudflare Mesh device block; registry.nix validates meshIp against it.
+      "100.96.0.0/12"
     ]
     ++ (config.flake.lib.nixos._firewallLocalNetworkCidrs
       or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallLocalNetworkCidrs")
