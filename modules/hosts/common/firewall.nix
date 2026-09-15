@@ -13,6 +13,13 @@ let
     "10.0.0.0/8"
     "192.168.0.0/16"
   ];
+  # Interface names this file already assigns a dedicated, narrowly-scoped
+  # rule to. A firewallDnsInterfaces entry reusing one would merge DNS ports
+  # onto that tunnel's SSH/Mesh-only rule instead of a real DNS-serving device.
+  tunnelInterfaceNames = [
+    "tailscale0"
+    "CloudflareWARP"
+  ];
 
   # Restores what 99-default.link supplies minus its "mac" altname token.
   # Exported because the per-host .link entries that displace that file must
@@ -291,6 +298,7 @@ let
           + "or misspelled key would otherwise emit no firewall rule and trip none "
           + "of the guards in modules/hosts/common/firewall.nix."
         ));
+      reservedDnsInterfaces = lib.filter (n: lib.elem n tunnelInterfaceNames) dnsInterfaces;
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       # Required, not `or [ ]`: this free-form registry key generates the
       # source-scoped rules below, so a typo would silently close the intended
@@ -450,6 +458,15 @@ let
         {
           assertion = staleScheme == [ ];
           message = staleMessage;
+        }
+        {
+          assertion = reservedDnsInterfaces == [ ];
+          message =
+            "${hostName}: firewallDnsInterfaces names "
+            + "(${lib.concatStringsSep ", " reservedDnsInterfaces}) collide with a tunnel "
+            + "interface this file already scopes on its own (${lib.concatStringsSep ", " tunnelInterfaceNames}). "
+            + "Serving DNS there would merge onto that interface's dedicated SSH/Mesh-only rule "
+            + "instead of opening a real DNS-serving device. Name the actual interface instead.";
         }
       ]
       ++ map (row: {
