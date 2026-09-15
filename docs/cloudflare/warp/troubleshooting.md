@@ -17,7 +17,7 @@ Fix: for a load failure, read the next section; an authorization error in the lo
 ## warp-svc logs Too many levels of symbolic links
 
 Cause: a symlink sits at `/var/lib/cloudflare-warp/mdm.xml`, and `warp-svc` opens its policy file without following symlinks, so the deployment is ignored and the client can only hold a Free consumer registration.
-Diagnostic: `sudo ls -l /var/lib/cloudflare-warp/mdm.xml`; the unit's own view is `sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp.service)" -m cat /var/lib/cloudflare-warp/mdm.xml`.
+Diagnostic: `sudo ls -l /var/lib/cloudflare-warp/mdm.xml`; the unit's own view is `sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp.service)" -m ls -l /var/lib/cloudflare-warp/mdm.xml`.
 Fix: `sudo rm /var/lib/cloudflare-warp/mdm.xml`, `warp-cli --accept-tos registration delete`, then `sudo systemctl restart cloudflare-warp.service`, which recreates the path as the bind mount of the sops render.
 
 ## resolvectl shows no DNS server on CloudflareWARP

@@ -36,15 +36,18 @@ If not: read `journalctl -xeu cloudflare-warp` before retrying; do not rerun bli
 - [x] **Step 3: Check the sops-rendered mdm.xml.**
 
 ```sh
-sudo cat /run/secrets/rendered/cloudflare-warp-mdm
-sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp)" -m cat /var/lib/cloudflare-warp/mdm.xml
+sudo sha256sum /run/secrets/rendered/cloudflare-warp-mdm
+sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp)" -m sha256sum /var/lib/cloudflare-warp/mdm.xml
+sudo grep -c '<string></string>' /run/secrets/rendered/cloudflare-warp-mdm
+sudo grep -A1 -e '<key>organization</key>' -e '<key>auth_client_id</key>' -e '<key>service_mode</key>' -e '<key>auto_connect</key>' /run/secrets/rendered/cloudflare-warp-mdm
 grep mdm.xml "/proc/$(systemctl show -p MainPID --value cloudflare-warp)/mountinfo"
 ```
 
-Expected: both cat commands print the same dict: organization value, `service_mode` `warp`,
-`auto_connect` 0, non-empty client id and secret for the `nixos-songbird` service token; the
-mountinfo line shows `/var/lib/cloudflare-warp/mdm.xml` as a read-only bind of the rendered file
-without sudo.
+Expected: the two digests match; the empty-value count is `0`, so no string value, the secret
+included, rendered empty; the last grep shows the organization value, the `nixos-songbird` token's
+client id, `service_mode` `warp`, and `auto_connect` 0; the mountinfo line shows
+`/var/lib/cloudflare-warp/mdm.xml` as a read-only bind of the rendered file without sudo. None of
+these commands prints the client secret.
 If not: same triage as Step 6.
 
 - [ ] **Step 4: Confirm registration, status, and DNS.** Registration and status held; the DNS
@@ -98,12 +101,15 @@ If not: read `journalctl -xeu cloudflare-warp` before retrying; do not rerun bli
 - [ ] **Step 6: Check the sops-rendered mdm.xml.**
 
 ```sh
-sudo cat /run/secrets/rendered/cloudflare-warp-mdm
-sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp)" -m cat /var/lib/cloudflare-warp/mdm.xml
+sudo sha256sum /run/secrets/rendered/cloudflare-warp-mdm
+sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp)" -m sha256sum /var/lib/cloudflare-warp/mdm.xml
+sudo grep -c '<string></string>' /run/secrets/rendered/cloudflare-warp-mdm
+sudo grep -A1 -e '<key>organization</key>' -e '<key>auth_client_id</key>' -e '<key>service_mode</key>' -e '<key>auto_connect</key>' /run/secrets/rendered/cloudflare-warp-mdm
 ```
 
-Expected: both print the same dict: organization value, `service_mode` `tunnelonly`,
-`auto_connect` 0, non-empty client id and secret for the `nixos-tpnix` service token.
+Expected: the two digests match; the empty-value count is `0`, so no string value, the secret
+included, rendered empty; the last grep shows the organization value, the `nixos-tpnix` token's
+client id, `service_mode` `tunnelonly`, and `auto_connect` 0.
 If not: the sops secret or template did not render; sops-nix runs in the activation script here (no
 unit), so reread the switch output for `sops-install-secrets` errors and check
 `ls -la /run/secrets/rendered/cloudflare-warp-mdm` before continuing.
