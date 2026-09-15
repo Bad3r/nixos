@@ -2,6 +2,9 @@
 # on every shareCommon host: TCP 22 and the host's approved Mesh ranges while
 # the WARP app is on, no rule while it is off. The interface is the approved
 # scope, so every device enrolled in the team reaches these ports.
+# Ports opened on every interface (openFirewall, the global allowed lists) are
+# out of scope by decision: Mesh carries only the owner's enrolled devices and
+# counts as a local network, so a service opened to the LAN answers there too.
 # The approved rule, ranges included, is written out rather than read from the
 # template or the registry, so a widened firewallLocalTcpPortRanges entry, an
 # added port or protocol, or a dropped app gate fails here until approved below.
