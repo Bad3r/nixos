@@ -11,21 +11,25 @@ let
     config.flake.lib.nixos._formatCheckFailures
       or (throw "modules/lib/check-failures.nix no longer exports flake.lib.nixos._formatCheckFailures");
   pinnedHosts = lib.filterAttrs (name: _: fleetHostKeys ? ${name}) config.flake.nixosConfigurations;
-  pinFailuresOf =
+  comparisonsOf =
     hostName: nixos:
     lib.concatLists (
       lib.mapAttrsToList (
         peer: _:
         let
           meshIp = meshIpOf peer;
-          pinned = nixos.config.programs.ssh.knownHosts."fleet-${peer}".hostNames or [ ];
         in
-        lib.optional (
-          meshIp != null && peer != hostName && !(lib.elem meshIp pinned)
-        ) "${hostName}: fleet-${peer} pins ${builtins.toJSON pinned}, missing the Mesh address ${meshIp}"
+        lib.optional (meshIp != null && peer != hostName) {
+          inherit hostName peer meshIp;
+          pinned = nixos.config.programs.ssh.knownHosts."fleet-${peer}".hostNames or [ ];
+        }
       ) fleetHostKeys
     );
-  failures = lib.concatLists (lib.mapAttrsToList pinFailuresOf pinnedHosts);
+  comparisons = lib.concatLists (lib.mapAttrsToList comparisonsOf pinnedHosts);
+  failures = map (
+    c:
+    "${c.hostName}: fleet-${c.peer} pins ${builtins.toJSON c.pinned}, missing the Mesh address ${c.meshIp}"
+  ) (lib.filter (c: !(lib.elem c.meshIp c.pinned)) comparisons);
 in
 {
   perSystem =
@@ -34,8 +38,8 @@ in
       checks.hosts-common-mesh-known-hosts =
         if pinnedHosts == { } then
           throw "hosts-common-mesh-known-hosts: no host has a fleetHostKeys entry, so the check would pass vacuously"
-        else if !(lib.any (name: meshIpOf name != null) (lib.attrNames fleetHostKeys)) then
-          throw "hosts-common-mesh-known-hosts: no pinned host records a meshIp, so the check would compare nothing"
+        else if comparisons == [ ] then
+          throw "hosts-common-mesh-known-hosts: no pinned host has a peer that records a meshIp, so the check would compare nothing"
         else if failures != [ ] then
           throw (formatCaseFailures "hosts-common-mesh-known-hosts" failures)
         else
