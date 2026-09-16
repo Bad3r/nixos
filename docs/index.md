@@ -226,6 +226,12 @@
   - Security-relevant access granted by owner group membership.
 - [security/owner-no-sudo-operations.md](security/owner-no-sudo-operations.md)
   - Configuration-managed operations available to the owner user without a sudo password.
+- [security/owner-no-sudo-storage.md](security/owner-no-sudo-storage.md)
+  - Storage inventory and health diagnostics without a sudo password, and the capability wrappers that grant them.
+- [security/owner-no-sudo-nvme.md](security/owner-no-sudo-nvme.md)
+  - Which `nvme` subcommands keep the wrapper's storage capability, which clear it, and why each exclusion exists.
+- [security/owner-no-sudo-sed.md](security/owner-no-sudo-sed.md)
+  - Opal self-encrypting drive queries without a sudo password, and the state-changing actions that stay behind it.
 
 ## SOPS
 
