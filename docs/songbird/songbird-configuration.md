@@ -26,7 +26,12 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 
 - Per-NIC and Wi-Fi `.link` units displace the default link policy so no MAC-derived altname exposes the factory address, and they pin no name, so eth0 and eth1 stay under kernel enumeration: [networking.nix](../../modules/songbird/networking.nix).
 - A TCP range for local dev servers opens to LAN sources and on the Cloudflare Mesh interface, since Mesh counts as a local network: [policy.nix](../../modules/songbird/policy.nix).
-- qBittorrent's incoming-peer port is open only on the Proton VPN tunnel interface, where Proton's NAT-PMP forwarding maps it: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
+- qBittorrent runs as a service inside the `torrent` network namespace, whose only route is a Proton VPN WireGuard tunnel, so a dropped tunnel leaves it no other way out: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
+- A renewal unit inside that namespace keeps Proton's NAT-PMP mapping alive and pushes the mapped port into the running session, since Proton assigns the port per tunnel session: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
+- The Web UI answers LAN and Mesh clients without a password through a socket proxy into the namespace: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
+- The Web UI port opens to LAN sources and on the Mesh interface through rules of its own, apart from the dev range: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
+- The `qbittorrent-webui` handler takes magnet links and `.torrent` files in place of the Qt client: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
+- The `nixos-songbird` WARP profile excludes the Proton endpoint, so the tunnel's outer packets leave through the wired uplink instead of riding the WARP tunnel: [deployment.md](../cloudflare/warp/deployment.md#change-a-profiles-exclude-list).
 
 ## Services
 
