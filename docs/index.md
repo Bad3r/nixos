@@ -140,7 +140,13 @@
 ## Networking
 
 - [networking/README.md](networking/README.md)
-  - NetworkManager MAC-address policies, the re-keying step the `"stable"` cutover needs, systemd-udevd `.link` policies, and temporary macchanger commands.
+  - NetworkManager MAC-address policies and temporary macchanger commands.
+- [networking/interface-names.md](networking/interface-names.md)
+  - Pinning interface names under `net.ifnames=0` and narrowing alternative names without a pin.
+- [networking/link-policy.md](networking/link-policy.md)
+  - systemd-udevd `.link` address policies, device matching, and when a change applies.
+- [networking/stable-mac-rekey.md](networking/stable-mac-rekey.md)
+  - Re-keying DHCP reservations and MAC allowlists after the `"stable"` cutover and after profile, name, or identity changes.
 
 ## mpv
 

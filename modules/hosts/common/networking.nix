@@ -11,7 +11,7 @@
             # secret_key and /etc/machine-id, not the permanent hardware
             # address. DHCP reservations and MAC ACLs need a re-key at cutover
             # and whenever a profile is re-created or the host is reinstalled.
-            # See docs/networking/README.md.
+            # See docs/networking/stable-mac-rekey.md.
             wifi.macAddress = lib.mkDefault "stable";
             ethernet.macAddress = lib.mkDefault "stable";
           };
