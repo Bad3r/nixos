@@ -58,8 +58,6 @@ let
       # Required rather than given a mkDefault floor: any floor is
       # indistinguishable from a host that chose that number, so a forgotten
       # pin would build green on Lix's compiled-in 16 instead of nproc - 1.
-      # Same reasoning as the required firewallDnsInterfaces entry in
-      # modules/hosts/common/firewall.nix.
       # Bounds too, not just presence: 0 was this file's own value until this
       # branch, and it is what "unlimited" on the http-connections line above
       # invites. && is lazy, so the comparison is reached only once the key

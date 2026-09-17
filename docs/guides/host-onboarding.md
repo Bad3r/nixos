@@ -57,23 +57,14 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    The `apps-enable.nix` override pattern, including the no-op check that rejects redundant entries, is in [Apps Module Style Guide](apps-module-style-guide.md).
    Unfree packages go through `nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`; the same option inside a host module fails evaluation.
 
-Verification: `guarded_nix flake check path:. --accept-flake-config --no-build --offline` passes the registry check in `modules/configurations/nixos.nix` and stops at the absent `firewallDnsInterfaces` key, which the next section sets.
+Verification: `guarded_nix flake check path:. --accept-flake-config --no-build --offline` passes the registry check in `modules/configurations/nixos.nix`.
 
 ## Set the policy flags
 
 Precondition: `modules/<host>/policy.nix` exists with a `flake.lib.nixos.hosts.<host>` attrset.
 
-1. Set the two firewall keys that `modules/hosts/common/firewall.nix` requires on every `shareCommon` host:
-
-   ```nix
-   firewallDnsInterfaces = [ ];
-   firewallLocalTcpPortRanges = [ ];
-   ```
-
-   Leave `firewallDnsInterfaces` empty unless the host actually serves DNS or DHCP; a non-empty entry opens inbound UDP 53/67 and TCP 53 on those interfaces.
-   `firewallLocalTcpPortRanges` scopes to `10.0.0.0/8` and `192.168.0.0/16` IPv4 sources; `firewallExtraTcpPortRanges` opens a range globally instead.
-   `shareCommon` hosts boot with `net.ifnames=0`, so `firewall.nix` asserts on an `enp*` or `wlp*` name here and warns on an unpinned kernel name such as `eth0`.
-   [Pin an interface name](../networking/README.md#pin-an-interface-name) in the networking guide gives the `.link` procedure.
+1. Set `firewallLocalTcpPortRanges` for TCP ranges the host serves locally; it scopes to `10.0.0.0/8` and `192.168.0.0/16` IPv4 sources.
+   `firewallExtraTcpPortRanges` opens a range globally instead, and a host that sets neither opens no extra ports.
 
 2. Set `cacheRoots.nvidiaKernelModules` to `true` or `false` the moment the host loads the `nvidia` driver.
    `modules/meta/cache-roots.nix` throws for an NVIDIA-enabled host that leaves the key unset or non-Boolean, or that sets an unknown `cacheRoots` key.

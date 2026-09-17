@@ -15,9 +15,7 @@ let
       "127.0.0.1"
       "::1"
     ]
-    ++ (config.flake.lib.nixos._firewallLocalNetworkCidrs
-      or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallLocalNetworkCidrs")
-    )
+    ++ config.flake.lib.nixos._firewallLocalNetworkCidrs
   );
   # Both halves, as every other secret consumer here gates: the file arriving
   # before the age identity would activate sops.secrets with no key to decrypt

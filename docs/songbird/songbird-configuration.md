@@ -26,7 +26,6 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 
 - Per-NIC and Wi-Fi `.link` units displace the default link policy so no MAC-derived altname exposes the factory address, and they pin no name, so eth0 and eth1 stay under kernel enumeration: [networking.nix](../../modules/songbird/networking.nix).
 - A TCP range for local dev servers opens, scoped to the LAN by the shared firewall helper: [policy.nix](../../modules/songbird/policy.nix).
-- A host-only flake check approves the exact source-scoped rules that range generates, so a changed range or rule template fails `nix flake check` until the approved list follows: [firewall-policy-check.nix](../../modules/songbird/firewall-policy-check.nix).
 - qBittorrent's incoming-peer port is open only on the Proton VPN tunnel interface, where Proton's NAT-PMP forwarding maps it: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 
 ## Services
