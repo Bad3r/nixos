@@ -3,19 +3,25 @@ let
   fleetIdentityPath = "~/.ssh/keys/onepassword-ssh.pub";
   gitSigningIdentityPath = "~/.ssh/keys/onepassword-git-signing.pub";
 
-  githubHostConfig = ''
-    Host github.com
-      Hostname ssh.github.com
-      Port 443
-      User git
-      IdentitiesOnly yes
-      IdentityFile ${gitSigningIdentityPath}
-      ForwardAgent no
-      # Reuse SSH connection for GitHub only
-      ControlMaster auto
-      ControlPersist 15m
-      ControlPath ~/.ssh/ctl-%C
-  '';
+  # ~/.1password/agent.sock is created at runtime by the 1Password desktop
+  # app (GUI); gating on it, matching modules/networking/ssh.nix, keeps this
+  # from selecting a public key with no agent behind it and silently
+  # breaking GitHub SSH.
+  githubHostConfig =
+    { onePasswordSshAgentEnabled }:
+    ''
+      Host github.com
+        Hostname ssh.github.com
+        Port 443
+        User git
+        IdentitiesOnly yes
+        IdentityFile ${if onePasswordSshAgentEnabled then gitSigningIdentityPath else "~/.ssh/id_ed25519"}
+        ForwardAgent no
+        # Reuse SSH connection for GitHub only
+        ControlMaster auto
+        ControlPersist 15m
+        ControlPath ~/.ssh/ctl-%C
+    '';
 
   formatCaseFailures =
     config.flake.lib.nixos._formatCheckFailures
@@ -137,7 +143,7 @@ let
           ".ssh/keys/onepassword-git-signing.pub".text = ''
             ${metaOwner.gitSigningPublicKey}
           '';
-          ".ssh/hosts/github.com".text = githubHostConfig;
+          ".ssh/hosts/github.com".text = githubHostConfig { inherit onePasswordSshAgentEnabled; };
         }
         lanAliasFiles
         meshAliasFiles
@@ -161,7 +167,8 @@ let
   meshOn = meshAliasFilesFor (fixture // { warpEnabled = true; });
   meshOff = meshAliasFilesFor (fixture // { warpEnabled = false; });
   alphaAlias = meshOn.".ssh/hosts/alpha.internal".text or "";
-  githubAlias = githubHostConfig;
+  githubAliasOn = githubHostConfig { onePasswordSshAgentEnabled = true; };
+  githubAliasOff = githubHostConfig { onePasswordSshAgentEnabled = false; };
   meshAliasFailures =
     lib.optional (
       builtins.attrNames meshOn != [ ".ssh/hosts/alpha.internal" ]
@@ -180,12 +187,16 @@ let
       !lib.hasInfix "ForwardAgent no" alphaAlias
     ) "alpha.internal: forwards the 1Password SSH agent"
     ++ lib.optional (
-      !lib.hasInfix "IdentityFile ${gitSigningIdentityPath}" githubAlias
-    ) "github.com: does not select the Git signing key for SSH authentication"
-    ++ lib.optional (lib.hasInfix "IdentityFile ${fleetIdentityPath}" githubAlias) "github.com: selects the fleet SSH key"
+      !lib.hasInfix "IdentityFile ${gitSigningIdentityPath}" githubAliasOn
+    ) "github.com (1Password enabled): does not select the Git signing key for SSH authentication"
+    ++ lib.optional (lib.hasInfix "IdentityFile ${fleetIdentityPath}" githubAliasOn) "github.com (1Password enabled): selects the fleet SSH key"
     ++ lib.optional (
-      !lib.hasInfix "ForwardAgent no" githubAlias
-    ) "github.com: forwards the 1Password SSH agent"
+      !lib.hasInfix "ForwardAgent no" githubAliasOn
+    ) "github.com (1Password enabled): forwards the 1Password SSH agent"
+    ++ lib.optional (
+      !lib.hasInfix "IdentityFile ~/.ssh/id_ed25519" githubAliasOff
+    ) "github.com (1Password disabled): does not fall back to the local SSH key"
+    ++ lib.optional (lib.hasInfix "IdentityFile ${gitSigningIdentityPath}" githubAliasOff) "github.com (1Password disabled): selects a public key with no agent behind it"
     ++ lib.optional (
       meshOff != { }
     ) "WARP disabled: rendered ${builtins.toJSON (builtins.attrNames meshOff)}";
