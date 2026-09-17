@@ -74,7 +74,7 @@
 - [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
 - [songbird/songbird-runbook-torrent.md](songbird/songbird-runbook-torrent.md)
-  - Moving torrents into the namespaced qBittorrent service, rotating the Proton VPN profile, and reaching the Web UI from another host.
+  - Moving torrents into the namespaced qBittorrent service, choosing a save folder under the home directory, rotating the Proton VPN profile, and reaching the Web UI from another host.
 - [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [songbird/songbird-troubleshooting-windows.md](songbird/songbird-troubleshooting-windows.md)

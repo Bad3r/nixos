@@ -1,6 +1,6 @@
 # Songbird torrent runbook
 
-Procedures for the qBittorrent service that [qbittorrent.nix](../../modules/songbird/qbittorrent.nix) runs inside the `torrent` network namespace behind a Proton VPN WireGuard tunnel.
+Procedures for the qBittorrent service that [qbittorrent.nix](../../modules/songbird/qbittorrent.nix) runs as the `qbittorrent` system user inside the `torrent` network namespace behind a Proton VPN WireGuard tunnel.
 The Web UI opens with `qbittorrent-webui`, which is also the handler behind magnet links and `.torrent` files.
 
 ## Move the desktop client's torrents into the service
@@ -13,16 +13,12 @@ Precondition: the switch that enables the service has run, and the Qt client has
    sudo systemctl stop qbittorrent.service
    ```
 
-2. Copy the resume data and the categories into the service profile, which the service user owns:
+2. Copy the resume data and the categories into the service profile, owned by the `qbittorrent` user:
 
    ```sh
-   (
-     umask 077
-     install -d -m 0700 /var/lib/qBittorrent
-     install -d /var/lib/qBittorrent/qBittorrent/data/BT_backup
-     cp ~/.local/share/qBittorrent/BT_backup/* /var/lib/qBittorrent/qBittorrent/data/BT_backup/
-     cp ~/.config/qBittorrent/categories.json /var/lib/qBittorrent/qBittorrent/config/
-   )
+   sudo install -d -m 0700 -o qbittorrent -g qbittorrent /var/lib/qBittorrent/qBittorrent/data /var/lib/qBittorrent/qBittorrent/data/BT_backup
+   sudo install -m 0600 -o qbittorrent -g qbittorrent ~/.local/share/qBittorrent/BT_backup/* /var/lib/qBittorrent/qBittorrent/data/BT_backup/
+   sudo install -m 0600 -o qbittorrent -g qbittorrent ~/.config/qBittorrent/categories.json /var/lib/qBittorrent/qBittorrent/config/
    ```
 
 3. Start the service and open the Web UI:
@@ -33,6 +29,15 @@ Precondition: the switch that enables the service has run, and the Qt client has
    ```
 
 Verification: the Web UI lists every torrent the Qt client held at the same save paths, and `journalctl -u qbittorrent-port-forward.service` ends with a `listen port set to` line.
+
+## Save torrents into a folder under the home directory
+
+Precondition: the folder is under `~/Downloads`, the only part of the home directory the service can see.
+
+1. Create the folder with any tool, or type its path into a save path field and let the Web UI create it.
+2. Set it as the default save path under Options, Downloads, or as the save path of a category or of a single torrent.
+
+Verification: `getfacl -p ~/Downloads/<folder>` lists a `user:qbittorrent:rwx` and a `default:user:qbittorrent:rwx` entry, and a torrent saved there completes without an errored state.
 
 ## Rotate the Proton VPN WireGuard profile
 

@@ -110,3 +110,9 @@ For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, s
 Cause: the Proton tunnel has no handshake, so the NAT-PMP renewal inside the namespace fails and no mapped port reaches the session.
 Diagnostic: `journalctl -u qbittorrent-port-forward.service -n 5` shows `NAT-PMP mapping failed`, and `sudo ip netns exec torrent wg show wg-torrent` shows no recent handshake.
 Fix: `sudo systemctl restart wireguard-wg-torrent.service`; a handshake that never returns means the Proton profile expired or the server retired, so rotate it per [the torrent runbook](songbird-runbook-torrent.md#rotate-the-proton-vpn-wireguard-profile).
+
+## qBittorrent marks a torrent errored on a save path under the home directory
+
+Cause: the path lies outside `~/Downloads`, the only part of the home directory bound into the service, or the folder arrived by `mv` and carries no entry for the service user yet.
+Diagnostic: `getfacl -p <folder>` lists no `user:qbittorrent` entry, or the folder is not under `~/Downloads`.
+Fix: move the folder under `~/Downloads`, then `sudo systemd-tmpfiles --create --prefix="$HOME/Downloads"` applies the entries without waiting for the next switch or boot.

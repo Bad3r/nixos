@@ -52,6 +52,7 @@ in
     let
       resolvConf = pkgs.writeText "${netns}-resolv.conf" "nameserver ${proton.dns}\n";
       downloadDir = "${config.users.users.${metaOwner.username}.home}/Downloads";
+      inherit (config.services.qbittorrent) profileDir;
       # Shared by every unit that runs inside the namespace as an unprivileged,
       # dynamically allocated user with no capabilities of its own.
       hardening = {
@@ -118,11 +119,11 @@ in
               ];
             };
 
+            # Runs as the upstream `qbittorrent` system user (nologin shell,
+            # locked password, no home): its only writable paths are the
+            # profile and the save path below.
             services.qbittorrent = {
               enable = true;
-              # Downloads stay the owner's files, as under the desktop client.
-              user = metaOwner.username;
-              group = "users";
               inherit webuiPort;
               # Installed over qBittorrent.conf on every start (nixpkgs module),
               # so a preference changed in the Web UI lasts until the next
@@ -199,7 +200,20 @@ in
                   ];
                   serviceConfig = {
                     NetworkNamespacePath = netnsPath;
+                    # The profile root: mode 0700 and UMask=0077 since resume
+                    # data carries private tracker passkeys. systemd applies
+                    # the mode on every start and chowns the tree recursively
+                    # when the root's owner differs, which is how a profile
+                    # written under another user (the desktop-era copy, an
+                    # operator restore) becomes the service's without a step.
+                    StateDirectory = lib.removePrefix "/var/lib/" profileDir;
+                    StateDirectoryMode = "0700";
                     UMask = "0077";
+                    # Nothing the service can write is executable: the save
+                    # path, the profile, and the shared /tmp (upstream keeps
+                    # PrivateTmp off) are noexec, and only the store runs.
+                    NoExecPaths = [ "/" ];
+                    ExecPaths = [ "/nix/store" ];
                     # The upstream address-family list has no AF_UNIX, so
                     # nss-resolve cannot reach systemd-resolved and lookups fall
                     # through to the dns module reading this file; blocking the
@@ -301,11 +315,6 @@ in
                 };
               };
 
-              tmpfiles.settings.qbittorrent.${config.services.qbittorrent.profileDir}.d = {
-                inherit (config.services.qbittorrent) user group;
-                mode = "0700";
-              };
-
               # tmpfiles, not `-`-prefixed BindPaths, owns creating the save
               # path: xdg-user-dirs only creates ~/Downloads at the owner's
               # first graphical login, which has no ordering against this unit.
@@ -314,6 +323,20 @@ in
                 group = "users";
                 mode = "0755";
               };
+
+              # The service reaches the owner's tree through ACLs alone. The
+              # default entries make any folder the owner creates a save path
+              # at once and keep the owner in charge of what the service
+              # writes; the recursive walk covers what predates them or came
+              # in by mv. A file of its own, sorted after the one above: in
+              # one file the attribute order would put `A+` ahead of `d`, and
+              # tmpfiles skips an ACL on a path that does not exist yet.
+              tmpfiles.settings."20-qbittorrent-save-path-acl".${downloadDir}."A+".argument =
+                lib.concatMapStringsSep "," (user: "u:${user}:rwX,d:u:${user}:rwx")
+                  [
+                    config.services.qbittorrent.user
+                    metaOwner.username
+                  ];
 
               sockets.qbittorrent-webui = {
                 description = "qBittorrent Web UI proxy socket";
