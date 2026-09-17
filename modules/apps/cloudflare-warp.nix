@@ -21,6 +21,13 @@ let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   meshInterface = config.flake.lib.nixos._firewallMeshInterface;
+  meshHostNames = builtins.filter (
+    name: hostsRegistry.${name}.cloudflareWarpMeshAddressReady or false
+  ) (builtins.attrNames hostsRegistry);
+  # Shared with modules/songbird/services.nix and modules/networking/ssh-hosts.nix
+  # so both consume the same "cloudflare-warp/<key>" naming and mesh-ready host
+  # list this module already computes, instead of retyping either.
+  secretName = key: "cloudflare-warp/${key}";
 
   CloudflareWarpModule =
     {
@@ -41,12 +48,6 @@ let
       # before the age identity would activate sops.secrets with no key to
       # decrypt and fail activation mid-switch.
       enrolled = cfg.enable && (hostFlags.sopsRuntimeReady or false) && secretExists;
-      fleetHostNames = builtins.attrNames hostsRegistry;
-      meshHostNames = builtins.filter (
-        name: hostsRegistry.${name}.cloudflareWarpMeshAddressReady or false
-      ) fleetHostNames;
-
-      secretName = key: "cloudflare-warp/${key}";
       meshHostSecretName = name: secretName "mesh-host-${name}";
       placeholderFor = name: config.sops.placeholder.${name};
       placeholder = key: placeholderFor (secretName key);
@@ -102,6 +103,19 @@ let
           description = "Whether to enroll this host into Cloudflare Zero Trust with its service token and run warp-svc.";
         };
 
+        enrolled = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = ''
+            Whether this host is actually enrolled: `enable` is set, its
+            `flake.lib.nixos.hosts` entry reports `sopsRuntimeReady`, and
+            `secrets/cloudflare-warp.yaml` exists. Mirrors the readiness gate
+            that controls `/etc/hosts` rendering below, so other modules (the
+            SSH mesh aliases in modules/networking/ssh-hosts.nix) can key off
+            real enrollment instead of the raw `enable` flag.
+          '';
+        };
+
         package = lib.mkOption {
           type = lib.types.package;
           default = pkgs.cloudflare-warp.override { headless = true; };
@@ -136,6 +150,8 @@ let
       };
 
       config = lib.mkMerge [
+        { programs.cloudflare-warp.extended.enrolled = enrolled; }
+
         (lib.mkIf enrolled {
           assertions = [
             {
@@ -298,5 +314,9 @@ in
     "cloudflare-warp-headless"
   ];
 
-  flake.nixosModules.apps.cloudflare-warp = CloudflareWarpModule;
+  flake = {
+    lib.nixos._cloudflareWarpMeshHostNames = meshHostNames;
+    lib.nixos._cloudflareWarpSecretName = secretName;
+    nixosModules.apps.cloudflare-warp = CloudflareWarpModule;
+  };
 }
