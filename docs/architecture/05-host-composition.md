@@ -70,7 +70,7 @@ in
 }
 ```
 
-`firewallExtraTcpPortRanges` maps to NixOS's normal globally reachable TCP ranges. `firewallLocalTcpPortRanges` is separate: `modules/hosts/common/firewall.nix` emits IPv4 `iptables` rules for source addresses in `10.0.0.0/8` and `192.168.0.0/16` only. It neither includes `172.16.0.0/12` nor establishes an IPv6 or trusted-network boundary.
+`firewallExtraTcpPortRanges` maps to NixOS's normal globally reachable TCP ranges. `firewallLocalTcpPortRanges` is separate: `modules/hosts/common/firewall.nix` emits IPv4 `iptables` rules for source addresses in `10.0.0.0/8` and `192.168.0.0/16`, and on a host that enables `cloudflare-warp` it opens the same ranges on `CloudflareWARP` to every Mesh device. It neither includes `172.16.0.0/12` nor establishes an IPv6 or trusted-network boundary.
 
 Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules or `modules/meta/cache-roots.nix`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, `privateDnsHostsSecretKeys`, and `cacheRoots`. `cacheRoots.nvidiaKernelModules` is a Boolean required on every NVIDIA-enabled host: `true` publishes the installed module and `false` excludes it. Missing, empty, non-Boolean, or unknown cache-root policy values fail evaluation. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
 

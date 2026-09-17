@@ -7,9 +7,13 @@
 let
   sambaSecretFile = secretsRoot + "/songbird.yaml";
   sambaSecretExists = builtins.pathExists sambaSecretFile;
-  # The source CIDRs firewallLocalTcpPortRanges admits, applied at the Samba
-  # layer because openFirewall opens 139/445 on every interface. hosts deny =
-  # ALL also closes the IPv6 path, matching that IPv4-only scoping.
+  cloudflareWarpSecretFile = secretsRoot + "/cloudflare-warp.yaml";
+  cloudflareWarpSecretExists = builtins.pathExists cloudflareWarpSecretFile;
+  songbirdSopsRuntimeReady = config.flake.lib.nixos.hosts.songbird.sopsRuntimeReady;
+  # The LAN CIDRs firewallLocalTcpPortRanges admits, applied at the Samba layer
+  # because openFirewall opens 139/445 on every interface. The Mesh allocation
+  # is appended from SOPS at runtime. hosts deny = ALL also closes the IPv6
+  # path, matching that IPv4-only scoping.
   sambaHostsAllow = lib.concatStringsSep " " (
     [
       "127.0.0.1"
@@ -20,9 +24,11 @@ let
   # Both halves, as every other secret consumer here gates: the file arriving
   # before the age identity would activate sops.secrets with no key to decrypt
   # and fail sops-nix.service mid-switch.
-  sambaSecretsReady = config.flake.lib.nixos.hosts.songbird.sopsRuntimeReady && sambaSecretExists;
+  sambaSecretsReady = songbirdSopsRuntimeReady && sambaSecretExists;
   sambaMediaPathSecret = "songbird/samba-media-path";
   sambaMediaShareTemplate = "songbird/samba-media-share.conf";
+  meshCidrSecret = "cloudflare-warp/mesh-cidr";
+  sambaMeshAccessTemplate = "songbird/samba-mesh-access.conf";
 in
 {
   configurations.nixos.songbird.module =
@@ -35,6 +41,11 @@ in
     }:
     let
       sambaMediaShareTemplatePath = config.sops.templates.${sambaMediaShareTemplate}.path;
+      meshAccessReady =
+        config.programs.cloudflare-warp.extended.enable
+        && songbirdSopsRuntimeReady
+        && cloudflareWarpSecretExists;
+      sambaMeshAccessTemplatePath = config.sops.templates.${sambaMeshAccessTemplate}.path;
     in
     {
       imports =
@@ -81,6 +92,21 @@ in
           }
         ];
 
+      sops.templates = lib.mkIf meshAccessReady {
+        ${sambaMeshAccessTemplate} = {
+          content = ''
+            hosts allow = ${sambaHostsAllow} ${config.sops.placeholder.${meshCidrSecret}}
+          '';
+          owner = "root";
+          group = "root";
+          mode = "0400";
+          reloadUnits = [
+            "samba-smbd.service"
+            "samba-nmbd.service"
+          ];
+        };
+      };
+
       systemd = {
         # Local crash-triage retention on top of the shared coredump baseline.
         coredump.settings.Coredump.MaxRetentionSec = "3d";
@@ -111,11 +137,6 @@ in
       services = {
         cloudflared.enable = true;
 
-        cloudflare-warp = {
-          enable = true;
-          package = pkgs.cloudflare-warp.override { headless = true; };
-        };
-
         # No drivers list: nixpkgs reads services.printing.drivers only inside
         # its own mkIf cfg.enable, so alongside a forced-off enable it would
         # name packages nothing installs.
@@ -128,9 +149,14 @@ in
             global = {
               "map to guest" = "Bad User";
               "server min protocol" = "SMB3";
-              "hosts allow" = sambaHostsAllow;
               "hosts deny" = "ALL";
-            };
+            }
+            // (
+              if meshAccessReady then
+                { include = sambaMeshAccessTemplatePath; }
+              else
+                { "hosts allow" = sambaHostsAllow; }
+            );
           };
         };
 

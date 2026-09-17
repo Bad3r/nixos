@@ -25,15 +25,15 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 ## Network
 
 - Per-NIC and Wi-Fi `.link` units displace the default link policy so no MAC-derived altname exposes the factory address, and they pin no name, so eth0 and eth1 stay under kernel enumeration: [networking.nix](../../modules/songbird/networking.nix).
-- A TCP range for local dev servers opens, scoped to the LAN by the shared firewall helper: [policy.nix](../../modules/songbird/policy.nix).
+- A TCP range for local dev servers opens to LAN sources and on the Cloudflare Mesh interface, since Mesh counts as a local network: [policy.nix](../../modules/songbird/policy.nix).
 - qBittorrent's incoming-peer port is open only on the Proton VPN tunnel interface, where Proton's NAT-PMP forwarding maps it: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 
 ## Services
 
-- A Samba media share renders from a host secret and starts only on demand; `openFirewall` opens TCP 139/445 and UDP 137/138 on every interface, so the LAN restriction is Samba's own `hosts allow` and `hosts deny` pair, not a firewall scope: [services.nix](../../modules/songbird/services.nix).
+- A Samba media share renders from a host secret and starts only on demand; `openFirewall` opens its ports on every interface, so Samba's own `hosts allow` and `hosts deny` pair limits clients to loopback, the LAN, and Cloudflare Mesh: [services.nix](../../modules/songbird/services.nix).
 - Samba WSDD runs beside it with its own `openFirewall`, opening TCP 5357 and UDP 3702 (WS-Discovery) on every interface as well: [services.nix](../../modules/songbird/services.nix).
 - cloudflared runs as a tunnel service, beyond the CLI package the baseline installs: [services.nix](../../modules/songbird/services.nix).
-- Cloudflare WARP runs headless as a service, beyond the CLI package the baseline installs: [services.nix](../../modules/songbird/services.nix).
+- Cloudflare WARP enrolls with the host's service token in `warp` mode, so systemd-resolved sends every lookup to the WARP resolver while its tunnel is up, since nothing here serves private-host mappings: [cloudflare-warp.nix](../../modules/songbird/cloudflare-warp.nix).
 - thermald stays off, since a desktop K-SKU under an AIO with BIOS Q-Fan curves gives it no platform to manage: [services.nix](../../modules/songbird/services.nix).
 - fwupd is enabled, since LVFS covers firmware updates for the NVMe drives and USB peripherals: [support.nix](../../modules/songbird/support.nix).
 - The power profile is forced to performance at boot and reasserted after resume through power-profiles-daemon, which drives the intel_pstate energy-performance preference: [services.nix](../../modules/songbird/services.nix).

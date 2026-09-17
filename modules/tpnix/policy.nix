@@ -11,6 +11,7 @@ _: {
     cacheRoots.nvidiaKernelModules = true;
 
     # Per-host values consumed by modules/hosts/common/*.
+    cloudflareWarpMeshAddressReady = true;
     extraHomeApps = [ "libreoffice" ];
     firewallLocalTcpPortRanges = [
       {

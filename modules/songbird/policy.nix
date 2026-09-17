@@ -21,6 +21,7 @@ _: {
 
     # Per-host values consumed by modules/hosts/common/*.
     duplicatiStateDirReadable = true;
+    cloudflareWarpMeshAddressReady = true;
     extraHomeApps = [
       "awscli2"
       "pentesting-devshell"

@@ -39,7 +39,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    `nix-settings.nix` is not optional: `modules/hosts/common/nix-substituters.nix` asserts `max-substitution-jobs` is an integer at least 1 on every `shareCommon` host, since Nix has no `auto` for it; pin `nproc - 1`.
    Create `modules/<host>/ssh.nix` now with a plain `services.openssh.enable = true` when remote first-boot administration is required, or `false` when local-console access makes it unnecessary.
    Without that explicit choice, `modules/networking/ssh.nix` defaults sshd on with `lib.mkDefault true`.
-   The hosts-common firewall is independent: `false` stops sshd while its TCP 22 rules for `tailscale0` and `10.0.0.0/8` remain.
+   The hosts-common firewall is independent: `false` stops sshd while its TCP 22 rules for `tailscale0` and `10.0.0.0/8` remain, as does the `CloudflareWARP` rule on a host that enables `cloudflare-warp`.
    Only `services.openssh.publicKey` waits for first boot; [Host secrets and handoff](host-onboarding-secrets.md) adds the generated key and its `fleetHostKeys` pin together.
 
 3. Add per-host divergence files only where the host actually diverges:
@@ -63,7 +63,7 @@ Verification: `guarded_nix flake check path:. --accept-flake-config --no-build -
 
 Precondition: `modules/<host>/policy.nix` exists with a `flake.lib.nixos.hosts.<host>` attrset.
 
-1. Set `firewallLocalTcpPortRanges` for TCP ranges the host serves locally; it scopes to `10.0.0.0/8` and `192.168.0.0/16` IPv4 sources.
+1. Set `firewallLocalTcpPortRanges` for TCP ranges the host serves locally; it scopes to `10.0.0.0/8` and `192.168.0.0/16` IPv4 sources, and with `cloudflare-warp` on also to every Mesh device.
    `firewallExtraTcpPortRanges` opens a range globally instead, and a host that sets neither opens no extra ports.
 
 2. Set `cacheRoots.nvidiaKernelModules` to `true` or `false` the moment the host loads the `nvidia` driver.
