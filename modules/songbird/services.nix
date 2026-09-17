@@ -27,7 +27,11 @@ let
   sambaSecretsReady = songbirdSopsRuntimeReady && sambaSecretExists;
   sambaMediaPathSecret = "songbird/samba-media-path";
   sambaMediaShareTemplate = "songbird/samba-media-share.conf";
-  meshCidrSecret = "cloudflare-warp/mesh-cidr";
+  meshCidrSecret =
+    (config.flake.lib.nixos._cloudflareWarpSecretName
+      or (throw "modules/apps/cloudflare-warp.nix no longer exports flake.lib.nixos._cloudflareWarpSecretName")
+    )
+      "mesh-cidr";
   sambaMeshAccessTemplate = "songbird/samba-mesh-access.conf";
 in
 {
