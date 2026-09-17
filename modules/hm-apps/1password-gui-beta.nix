@@ -42,6 +42,8 @@ _: {
           "security.holdToggleReveal" = true;
           "sidebar.showCategories" = true;
           "sshAgent.enabled" = true;
+          # The persisted 1Password key spells "Authorization" without the second "i".
+          "sshAgent.sshAuthorizatonModel" = "application-and-terminal-session";
           "sshAgent.storeKeyTitles" = true;
           "sshAgent.storeSshKeyTitlesResponseGiven" = true;
           "sshAgent.syncBookmarksToFilesystem" = true;

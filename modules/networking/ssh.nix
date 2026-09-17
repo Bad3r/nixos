@@ -31,7 +31,8 @@ in
             # Fleet default; a host opts out with a plain enable = false in
             # modules/<host>/ssh.nix, which outranks mkDefault.
             enable = lib.mkDefault true;
-            # Per-host firewall rules restrict port 22 to LAN + Tailscale.
+            # Per-host firewall rules restrict port 22 to the LAN, the WARP Mesh
+            # interface, and Tailscale.
             openFirewall = false;
 
             settings = {
@@ -66,7 +67,7 @@ in
             }
           );
 
-          # SSH keys are set in modules/meta/owner.nix using metaOwner.sshKeys
+          # SSH keys are set in modules/meta/owner.nix using metaOwner.sshKeys.
         };
       };
 
@@ -109,15 +110,24 @@ in
             "*" = {
               IdentitiesOnly = true;
               AddKeysToAgent = "yes";
-              IdentityFile = [ "${homeDirectory}/.ssh/id_ed25519" ];
               SetEnv.TERM = "xterm-256color";
               Compression = false;
               HashKnownHosts = false;
             }
-            # Without the GUI no IdentityAgent is set: ssh follows SSH_AUTH_SOCK, which
-            # /etc/set-environment fills from `gpgconf --list-dirs agent-ssh-socket`.
             // lib.optionalAttrs onePasswordSshAgentEnabled {
               IdentityAgent = "~/.1password/agent.sock";
+            };
+            # Fleet hosts use the dedicated SSH key. GitHub keeps its separate
+            # signing and authentication key in the github.com host block.
+            "* !github.com" = {
+              IdentityFile = [
+                (
+                  if onePasswordSshAgentEnabled then
+                    "${homeDirectory}/.ssh/keys/onepassword-ssh.pub"
+                  else
+                    "${homeDirectory}/.ssh/id_ed25519"
+                )
+              ];
             };
           };
         };

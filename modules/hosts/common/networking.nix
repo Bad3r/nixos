@@ -11,7 +11,7 @@
             # secret_key and /etc/machine-id, not the permanent hardware
             # address. DHCP reservations and MAC ACLs need a re-key at cutover
             # and whenever a profile is re-created or the host is reinstalled.
-            # See docs/networking/README.md.
+            # See docs/networking/stable-mac-rekey.md.
             wifi.macAddress = lib.mkDefault "stable";
             ethernet.macAddress = lib.mkDefault "stable";
           };
@@ -19,12 +19,10 @@
           # Kernel-order names (eth0, wlan0) instead of the topology-derived
           # enp0s20f0u1u4 style. Kernel order is not tied to a device, so a name
           # that carries a firewall rule is pinned with a .link Name= instead
-          # (modules/tpnix/networking.nix); modules/hosts/common/firewall.nix
-          # asserts that every firewallDnsInterfaces value matches the naming
-          # scheme the host boots with, or is pinned. A pin must land outside
-          # the kernel's own eth*/wlan* pools, per systemd.link(5) on Name=, so
-          # it cannot be eth0 itself. Renaming also reseeds every "stable" MAC
-          # above, because NetworkManager hashes the interface name into it.
+          # (modules/tpnix/networking.nix). A pin must land outside the kernel's
+          # own eth*/wlan* pools, per systemd.link(5) on Name=, so it cannot be
+          # eth0 itself. Renaming also reseeds every "stable" MAC above, because
+          # NetworkManager hashes the interface name into it.
           usePredictableInterfaceNames = lib.mkDefault false;
         };
       }

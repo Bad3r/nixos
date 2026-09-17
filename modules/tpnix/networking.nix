@@ -1,8 +1,6 @@
 { config, ... }:
 let
-  stableNamePolicy =
-    config.flake.lib.nixos._firewallStableNamePolicyLinkConfig
-      or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallStableNamePolicyLinkConfig");
+  stableNamePolicy = config.flake.lib.nixos._firewallStableNamePolicyLinkConfig;
 in
 {
   configurations.nixos.tpnix.module = {

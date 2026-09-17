@@ -8,7 +8,7 @@
 #
 # This throws rather than emitting a failing derivation: CI forces each check's
 # drvPath with `nix eval` and never builds checks, so only an eval-time failure
-# gates it (same rationale as modules/hosts/common/firewall-checks.nix).
+# gates it (same rationale as modules/hosts/common/checks.nix).
 { config, lib, ... }:
 let
   enclosingMountOf = config.flake.lib.nixos._localMirrorsEnclosingMount or null;
