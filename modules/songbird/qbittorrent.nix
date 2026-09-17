@@ -25,6 +25,7 @@ let
   # peer's own `name`; this is the unit that installs the default route, and
   # it needs the same restart propagation as the interface unit itself.
   tunnelPeerUnitName = "wireguard-${tunnel}-peer-proton";
+  qbittorrentUnit = "qbittorrent.service";
   # Proton VPN WireGuard profile "songbird-protonvpn" on server SA#3, generated
   # with NAT-PMP port forwarding on. Proton hands every profile 10.2.0.2/32
   # and answers DNS at 10.2.0.1 inside the tunnel.
@@ -221,16 +222,16 @@ in
                 # is pushed into the running session when it changes.
                 qbittorrent-port-forward = {
                   description = "Proton VPN NAT-PMP port renewal for qBittorrent";
-                  bindsTo = [ "qbittorrent.service" ];
-                  after = [ "qbittorrent.service" ];
-                  wantedBy = [ "qbittorrent.service" ];
+                  bindsTo = [ qbittorrentUnit ];
+                  after = [ qbittorrentUnit ];
+                  wantedBy = [ qbittorrentUnit ];
                   # bindsTo alone can miss a restart: systemd's job coalescing
                   # skips a BindsTo= peer's stop while the target has a pending
                   # restart job, which would leave this loop running with a
                   # `last` cached from before qBittorrent picked a new port.
                   partOf = [
                     netnsUnit
-                    "qbittorrent.service"
+                    qbittorrentUnit
                   ];
                   path = [
                     pkgs.coreutils
@@ -277,15 +278,15 @@ in
 
                 qbittorrent-webui = {
                   description = "qBittorrent Web UI proxy into the ${netns} namespace";
-                  requires = [ "qbittorrent.service" ];
-                  after = [ "qbittorrent.service" ];
+                  requires = [ qbittorrentUnit ];
+                  after = [ qbittorrentUnit ];
                   # See qbittorrent-port-forward above: Requires= alone does not
                   # restart this unit when the namespace or qBittorrent itself
                   # restarts, which strands the proxy's setns() on a deleted
                   # namespace until it is restarted by hand.
                   partOf = [
                     netnsUnit
-                    "qbittorrent.service"
+                    qbittorrentUnit
                   ];
                   # A tunnel or namespace flap can fail this unit's start faster
                   # than the default 5-in-10s burst while it retries; that must
@@ -335,7 +336,7 @@ in
             # its url has no default and an enabled handler forces it.
             host.defaults.torrentClient = "qbittorrent-webui";
             programs."qbittorrent-webui".extended = {
-              enable = true;
+              enable = lib.mkOverride 1000 true;
               url = webuiUrl;
             };
           }
