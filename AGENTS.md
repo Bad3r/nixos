@@ -147,7 +147,8 @@ applied to songbird's host package set.
   - Location: `secrets/`
   - Notes: Encrypted payloads managed via `sops.secrets`.
 - Generated artifacts
-  - Location: `.actrc`, `.githooks/post-checkout`, `.gitignore`,
+  - Location: `.actrc`, `.githooks/post-checkout`,
+    `.github/actions/install-lix/substituters.conf`, `.gitignore`,
     `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
     `.sops.yaml`, `README.md`
   - Notes: Owned by the files module. Update source definitions instead of editing generated output directly. The managed-files check compares generated output byte-for-byte, including final newlines.
@@ -240,7 +241,7 @@ gives the primary-checkout form.
 - Generate artifacts
   - Command: `nix develop path:. --accept-flake-config -c write-files --offline`
   - Preconditions: Dev shell ready; managed files may update.
-  - Post-check: Review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`, `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`, `.sops.yaml`, `README.md`.
+  - Post-check: Review diffs in `.actrc`, `.githooks/post-checkout`, `.github/actions/install-lix/substituters.conf`, `.gitignore`, `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`, `.sops.yaml`, `README.md`.
 
 ### Validation and Builds
 

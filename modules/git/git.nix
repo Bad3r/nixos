@@ -15,7 +15,7 @@
         "package"
       ] pkgs._1password-gui osConfig;
       githubUnsignedEmail = "github@unsigned.sh";
-      githubUnsignedSigningKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJDNTENPappbhPz4AqjvRmWBO0m2oS/mkej/pgN0F6fM";
+      githubUnsignedSigningKey = metaOwner.gitSigningPublicKey;
       gitAllowedSignersPath = "${config.xdg.configHome}/git/allowed_signers";
     in
     {

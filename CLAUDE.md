@@ -151,7 +151,8 @@ applied to songbird's host package set.
   `docs/nixos-manual/`.
 - Secrets: `secrets/`
   Encrypted payloads managed through `sops.secrets`.
-- Generated artifacts: `.actrc`, `.githooks/post-checkout`, `.gitignore`,
+- Generated artifacts: `.actrc`, `.githooks/post-checkout`,
+  `.github/actions/install-lix/substituters.conf`, `.gitignore`,
   `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
   `.sops.yaml`, `README.md`
   Owned by the files module. Update source definitions instead of editing
@@ -299,7 +300,8 @@ Generate managed artifacts:
 nix develop path:. --accept-flake-config -c write-files --offline
 ```
 
-Post-check: review diffs in `.actrc`, `.githooks/post-checkout`, `.gitignore`,
+Post-check: review diffs in `.actrc`, `.githooks/post-checkout`,
+`.github/actions/install-lix/substituters.conf`, `.gitignore`,
 `.gitleaks-gitlink.toml`, `.gitleaks-secrets.toml`, `.gitleaks.toml`,
 `.sops.yaml`, and `README.md`.
 

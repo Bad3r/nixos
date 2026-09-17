@@ -39,7 +39,8 @@ REPAIR=false
 FALLBACK=false
 BOOTSTRAP_CACHES=false
 CACHE_COVERAGE=false
-ACTION="switch" # default action after build: switch | boot
+DOWNLOAD_SPEED="" # KB/s ceiling per transfer; empty keeps Lix unlimited
+ACTION="switch"   # default action after build: switch | boot
 BUILD_FLAGS=()
 NH_CMD=()
 LOG_DIR="${XDG_STATE_HOME:-${HOME}/.local/state}/nixos-build"
@@ -82,6 +83,10 @@ Options:
       --cache-coverage   Fail before deploying when the target host closure
                          has unexpected local source builds
                          (scripts/cache-coverage.sh)
+      --download-speed KBPS
+                         Cap each substituter transfer at KBPS kilobytes per
+                         second. Needed on uplinks that police a flow once it
+                         sustains a high rate; costs throughput elsewhere.
   -h, --help             Show this help message
 
 Logs:
@@ -243,6 +248,18 @@ while [[ $# -gt 0 ]]; do
   --cache-coverage)
     CACHE_COVERAGE=true
     shift
+    ;;
+  --download-speed)
+    if [[ -z ${2:-} ]]; then
+      error_msg "Option $1 requires an argument"
+      exit 1
+    fi
+    if [[ ! $2 =~ ^[1-9][0-9]*$ ]]; then
+      error_msg "Option $1 requires a positive integer (kilobytes per second), got: $2"
+      exit 1
+    fi
+    DOWNLOAD_SPEED="$2"
+    shift 2
     ;;
   -h | --help)
     show_help
@@ -417,6 +434,16 @@ configure_nix_config() {
   append_nix_config_line "max-substitution-jobs = ${substitution_jobs}"
   append_nix_config_line "http-connections = 0"
   append_nix_config_line "connect-timeout = 30"
+
+  # Opt-in only, because the ceiling is per curl handle and costs throughput on
+  # an unshaped link. A carrier hotspot policed tpnix's NAR fetches to a
+  # standstill once a single flow held ~20 Mbit/s for about 18s. Lix then hit
+  # stalled-download-timeout, and restartTransfer resumed against a different
+  # CDN node whose ETag no longer matched, which curlfiletransfer.cc raises as
+  # a fatal error rather than another retry.
+  if [[ -n ${DOWNLOAD_SPEED} ]]; then
+    append_nix_config_line "download-speed = ${DOWNLOAD_SPEED}"
+  fi
 
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
     append_nix_config_line "substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"

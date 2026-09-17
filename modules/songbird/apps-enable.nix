@@ -16,8 +16,14 @@
 { config, ... }:
 let
   appEnable = {
+    "cloudflare-warp" = true;
+    "protonmail-bridge" = true;
+    # The Qt client gives way to the namespaced service, whose module
+    # (qbittorrent.nix) enables the Web UI handler together with the service.
+    qbittorrent = false;
     inkscape = true;
     ytubic = true;
+    stash = true;
   };
 
   # Nested toggles cannot go through appEnable, which routes every entry to a

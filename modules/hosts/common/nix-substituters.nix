@@ -1,5 +1,27 @@
 _:
 let
+  # One list for the host daemon and for CI: modules/meta/ci-substituter-parity.nix
+  # generates the install-lix substituters.conf from the export below, so a
+  # cache-roots build substitutes every root a cache already serves instead
+  # of rebuilding the whole set on each push.
+  caches = [
+    {
+      url = "https://cache.numtide.com";
+      key = "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=";
+    }
+    {
+      # unfree packages (unrar, etc.)
+      url = "https://nixpkgs-unfree.cachix.org";
+      key = "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs=";
+    }
+    {
+      # CI-built custom derivations (cache-roots); see
+      # docs/reference/binary-cache-coverage.md
+      url = "https://bad3r-nixos.cachix.org";
+      key = "bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE=";
+    }
+  ];
+
   body =
     {
       config,
@@ -14,20 +36,10 @@ let
         # spelling is not deduplicated (Lix getDefaultSubstituters compares
         # exact URI strings), so it opens a second store against the same host
         # and doubles narinfo misses.
-        substituters = lib.mkAfter [
-          "https://cache.numtide.com"
-          "https://nixpkgs-unfree.cachix.org" # unfree packages (unrar, etc.)
-          # CI-built custom derivations (cache-roots); see
-          # docs/reference/binary-cache-coverage.md
-          "https://bad3r-nixos.cachix.org"
-          # nix-community.cachix.org / doom-emacs-unstraightened.cachix.org are
-          # appended by modules/apps/doom-emacs.nix when the module is enabled.
-        ];
-        trusted-public-keys = lib.mkAfter [
-          "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g="
-          "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs="
-          "bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE="
-        ];
+        # nix-community.cachix.org / doom-emacs-unstraightened.cachix.org are
+        # appended by modules/apps/doom-emacs.nix when the module is enabled.
+        substituters = lib.mkAfter (map (cache: cache.url) caches);
+        trusted-public-keys = lib.mkAfter (map (cache: cache.key) caches);
 
         download-attempts = lib.mkDefault 3;
         connect-timeout = lib.mkDefault 30;
@@ -46,8 +58,6 @@ let
       # Required rather than given a mkDefault floor: any floor is
       # indistinguishable from a host that chose that number, so a forgotten
       # pin would build green on Lix's compiled-in 16 instead of nproc - 1.
-      # Same reasoning as the required firewallDnsInterfaces entry in
-      # modules/hosts/common/firewall.nix.
       # Bounds too, not just presence: 0 was this file's own value until this
       # branch, and it is what "unlimited" on the http-connections line above
       # invites. && is lazy, so the comparison is reached only once the key
@@ -70,5 +80,6 @@ let
     };
 in
 {
+  flake.lib.nixos.substituterCaches = caches;
   flake.nixosModules.hosts-common.imports = [ body ];
 }

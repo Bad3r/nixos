@@ -128,6 +128,7 @@ let
             '--fallback[build from source if binary substitutes fail]' \
             '--bootstrap[use extra substituters for first build]' \
             '--cache-coverage[fail before deploy on unexpected local source builds]' \
+            '--download-speed[cap each substituter transfer]:KBPS:' \
             '(-h --help)'{-h,--help}'[show help message]'
         }
 

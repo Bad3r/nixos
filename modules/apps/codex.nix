@@ -30,18 +30,6 @@
     let
       cfg = config.programs.codex.extended;
       defaultPackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
-      # Uncomment to locally patch the upstream default exec timeout. This requires
-      # building a custom Codex derivation instead of using the cached upstream one.
-      # defaultExecTimeoutMs = 60000;
-      # defaultPackage =
-      #   inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex.overrideAttrs
-      #     (old: {
-      #       postPatch = (old.postPatch or "") + ''
-      #         substituteInPlace core/src/exec.rs \
-      #           --replace-fail 'pub const DEFAULT_EXEC_COMMAND_TIMEOUT_MS: u64 = 10_000;' \
-      #           'pub const DEFAULT_EXEC_COMMAND_TIMEOUT_MS: u64 = ${toString defaultExecTimeoutMs};'
-      #       '';
-      #     });
     in
     {
       options.programs.codex.extended = {

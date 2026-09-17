@@ -12,9 +12,7 @@
     # override. Paths are the ID_PATH values read off the installed machine.
     systemd.network.links =
       let
-        stableNamePolicy =
-          config.flake.lib.nixos._firewallStableNamePolicyLinkConfig
-            or (throw "modules/hosts/common/firewall.nix no longer exports flake.lib.nixos._firewallStableNamePolicyLinkConfig");
+        stableNamePolicy = config.flake.lib.nixos._firewallStableNamePolicyLinkConfig;
         altnamesOnly = path: {
           matchConfig.Path = path;
           linkConfig = stableNamePolicy;

@@ -100,7 +100,7 @@ let
       "cloudflare-go-sdk".extended.enable = lib.mkOverride 1100 false;
       "cloudflare-python-sdk".extended.enable = lib.mkOverride 1100 false;
       "cloudflare-rs-sdk".extended.enable = lib.mkOverride 1100 false;
-      "cloudflare-warp".extended.enable = lib.mkOverride 1100 true;
+      "cloudflare-warp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 true;
       cmake.extended.enable = lib.mkOverride 1100 true;
       codegraph.extended.enable = lib.mkOverride 1100 true;
@@ -117,6 +117,7 @@ let
       cutter.extended.enable = lib.mkOverride 1100 true;
       "czkawka-cli".extended.enable = lib.mkOverride 1100 true;
       "czkawka-gui".extended.enable = lib.mkOverride 1100 false;
+      davmail.extended.enable = lib.mkOverride 1100 false;
       ddrescue.extended.enable = lib.mkOverride 1100 true;
       deadnix.extended.enable = lib.mkOverride 1100 true;
       delve.extended.enable = lib.mkOverride 1100 false;
@@ -378,6 +379,7 @@ let
       python.extended.enable = lib.mkOverride 1100 true;
       pyyaml.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
+      "qbittorrent-webui".extended.enable = lib.mkOverride 1100 false;
       qpdf.extended.enable = lib.mkOverride 1100 true;
       qrencode.extended.enable = lib.mkOverride 1100 true;
       quarto.extended.enable = lib.mkOverride 1100 true;
@@ -438,7 +440,7 @@ let
       sshfs.extended.enable = lib.mkOverride 1100 true;
       "sss-nix-repair".extended.enable = lib.mkOverride 1100 true;
       starship.extended.enable = lib.mkOverride 1100 true;
-      stash.extended.enable = lib.mkOverride 1100 true;
+      stash.extended.enable = lib.mkOverride 1100 false;
       statix.extended.enable = lib.mkOverride 1100 true;
       steam.extended.enable = lib.mkOverride 1100 true;
       strace.extended.enable = lib.mkOverride 1100 true;
@@ -448,7 +450,7 @@ let
       svgo.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 false;
       sysstat.extended.enable = lib.mkOverride 1100 true;
-      tailscale.extended.enable = lib.mkOverride 1100 true;
+      tailscale.extended.enable = lib.mkOverride 1100 false;
       taplo.extended.enable = lib.mkOverride 1100 true;
       tar.extended.enable = lib.mkOverride 1100 true;
       tcpdump.extended.enable = lib.mkOverride 1100 true;
@@ -533,7 +535,7 @@ let
       "yubico-piv-tool".extended.enable = lib.mkOverride 1100 true;
       "yubikey-manager".extended.enable = lib.mkOverride 1100 true;
       "yubikey-personalization".extended.enable = lib.mkOverride 1100 true;
-      zap.extended.enable = lib.mkOverride 1100 true;
+      zap.extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;
       zbar.extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
@@ -550,7 +552,7 @@ let
       flameshot.extended.enable = lib.mkOverride 1100 true;
       "input-remapper".extended.enable = lib.mkOverride 1100 true;
       pcscd.extended.enable = lib.mkOverride 1100 true;
-      "protonmail-bridge".extended.enable = lib.mkOverride 1100 true;
+      "protonmail-bridge".extended.enable = lib.mkOverride 1100 false;
       thinkfan.extended.enable = lib.mkOverride 1100 false;
       usbmuxd.extended.enable = lib.mkOverride 1100 true;
     };

@@ -11,6 +11,7 @@ let
     "bottom"
     "bun"
     "claude-code"
+    "davmail"
     "dive"
     "docker-compose"
     "doom-emacs"
