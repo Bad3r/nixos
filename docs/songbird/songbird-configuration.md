@@ -45,5 +45,4 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 
 ## Policy
 
-- Songbird is marked the primary fleet endpoint, so `programs.tailscale.extended.sshHostName` in [tailscale.nix](../../modules/apps/tailscale.nix) defaults its generated `~/.ssh/hosts` alias to songbird's tailnet address: [policy.nix](../../modules/songbird/policy.nix).
 - The sops and R2 readiness gates turn on, unlocking secret-backed features once the age identity is installed: [policy.nix](../../modules/songbird/policy.nix).

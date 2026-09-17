@@ -91,13 +91,17 @@ Verification: the guarded flake check passes the check in `modules/configuration
 
 ## Hand off the primary role
 
-Precondition: this host replaces the current primary fleet endpoint.
+Precondition: this host enables Tailscale and becomes the primary tailnet endpoint.
+Hosts that reach each other over WARP Mesh store their addresses in the encrypted
+`secrets/cloudflare-warp.yaml` and expose `<host>.internal` locally, per
+[WARP deployment](../cloudflare/warp/deployment.md).
 
-1. Remove `primary = true` from the outgoing primary host. If that host is being retired, remove its `tailnetIp` too. On this host, run `tailscale ip -4`, then set `primary = true` with that address as this host's `tailnetIp`.
+1. If another host's `modules/<host>/policy.nix` sets `primary = true`, remove it there, and remove that host's `tailnetIp` too when the host is being retired.
+   On this host, run `tailscale ip -4`, then set `primary = true` with that address as this host's `tailnetIp`.
 
    `programs.tailscale.extended.sshHostName` in `modules/apps/tailscale.nix` defaults to the primary host's own `tailnetIp`; copying the outgoing host's value leaves the fleet alias pointed at the old endpoint.
    Evaluation names and rejects duplicate primaries or a primary with a missing, null, empty, or whitespace-only `tailnetIp`, but it cannot prove which host owns an otherwise valid address.
 
-2. Switch every host that carries the fleet SSH config. With the current common baseline, this is every `shareCommon` host, including the incoming and outgoing primary. `modules/networking/ssh-hosts.nix` renders `~/.ssh/hosts/tailscale` at build time, so an unswitched host retains the outgoing primary's address.
+2. Switch every host that carries the fleet SSH config. This is every host with `programs.tailscale.extended` on, including this host and any outgoing primary. `modules/networking/ssh-hosts.nix` renders `~/.ssh/hosts/tailscale` at build time, so an unswitched host keeps the alias its last switch rendered, or none.
 
 Verification: on each switched host, `ssh -G tailscale | awk '$1 == "hostname" { print $2; exit }'` prints the new primary's tailnet address.

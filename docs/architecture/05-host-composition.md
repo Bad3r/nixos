@@ -109,7 +109,8 @@ mode `0440`, readable after the privilege drop and on SIGHUP re-reads.
 secret's ownership triple, because sops-nix restarts units only when decrypted
 bytes change.
 
-Registry entries also carry fleet endpoint data. `modules/songbird/policy.nix` marks the host `primary = true` and records its `tailnetIp`; `modules/networking/ssh-hosts.nix` derives one `<host>.local` SSH alias per registered host (excluding self), and `modules/apps/tailscale.nix` defaults `sshHostName` to the primary host's own `tailnetIp`. At most one registry host may be primary and it must carry a non-empty `tailnetIp` string, while no primary leaves the default unset. Promoting another host clears the outgoing `primary` marker and records `primary = true` with the successor's own `tailscale ip -4` address in its policy. Each host carrying the fleet SSH config must then switch because Home Manager renders the primary alias at build time.
+Cloudflare Mesh endpoints stay encrypted in `secrets/cloudflare-warp.yaml` and render as local `<host>.internal` mappings after the registry readiness flag is set; see [WARP on the fleet](../cloudflare/warp/README.md).
+The Tailscale `primary` and `tailnetIp` mechanism remains separate and permits at most one primary.
 
 ## App and Home Manager Wiring
 
