@@ -28,7 +28,19 @@ let
       warpEnabled,
       selfHostName,
       username,
+      onePasswordSshAgentEnabled,
     }:
+    let
+      # ~/.1password/agent.sock is created at runtime by the 1Password
+      # desktop app (GUI); gating on it, matching modules/networking/ssh.nix,
+      # keeps this from pointing IdentityAgent at a socket that never exists
+      # and silently breaking SSH authentication.
+      identityLines =
+        if onePasswordSshAgentEnabled then
+          "  IdentityAgent ~/.1password/agent.sock\n  IdentityFile ${fleetIdentityPath}\n"
+        else
+          "  IdentityFile ~/.ssh/id_ed25519\n";
+    in
     lib.optionalAttrs warpEnabled (
       lib.listToAttrs (
         map (name: {
@@ -40,9 +52,8 @@ let
               ForwardX11 yes
               User ${username}
               IdentitiesOnly yes
-              IdentityAgent ~/.1password/agent.sock
-              IdentityFile ${fleetIdentityPath}
-          '';
+          ''
+          + identityLines;
         }) (builtins.filter (name: name != selfHostName && fleetHostKeys ? ${name}) meshHostNames)
       )
     );
@@ -74,6 +85,16 @@ let
         "programs"
         "cloudflare-warp"
         "extended"
+        "enrolled"
+      ] false osConfig;
+      # ~/.1password/agent.sock is created at runtime by the 1Password
+      # desktop app (GUI); gating on it, matching modules/networking/ssh.nix,
+      # keeps the aliases below from pointing IdentityAgent/IdentityFile at a
+      # socket or key that never exists.
+      onePasswordSshAgentEnabled = lib.attrByPath [
+        "programs"
+        "1password-gui-beta"
+        "extended"
         "enable"
       ] false osConfig;
       selfHostName = lib.attrByPath [ "networking" "hostName" ] "" osConfig;
@@ -82,7 +103,7 @@ let
           name = ".ssh/hosts/${name}.local";
           value.text = ''
             Host ${name}.local
-              IdentityFile ${fleetIdentityPath}
+              IdentityFile ${if onePasswordSshAgentEnabled then fleetIdentityPath else "~/.ssh/id_ed25519"}
           '';
         }) (lib.filter (name: name != selfHostName) hostNames)
       );
@@ -90,6 +111,7 @@ let
         inherit
           fleetHostKeys
           meshHostNames
+          onePasswordSshAgentEnabled
           selfHostName
           warpEnabled
           ;
@@ -134,6 +156,7 @@ let
     };
     selfHostName = "self";
     username = "owner";
+    onePasswordSshAgentEnabled = true;
   };
   meshOn = meshAliasFilesFor (fixture // { warpEnabled = true; });
   meshOff = meshAliasFilesFor (fixture // { warpEnabled = false; });
@@ -170,9 +193,7 @@ in
 {
   flake.homeManagerModules.base = sshHostsModule {
     hostNames = builtins.attrNames (config.flake.lib.nixos.hosts or { });
-    meshHostNames = builtins.filter (
-      name: config.flake.lib.nixos.hosts.${name}.cloudflareWarpMeshAddressReady or false
-    ) (builtins.attrNames (config.flake.lib.nixos.hosts or { }));
+    meshHostNames = config.flake.lib.nixos._cloudflareWarpMeshHostNames or [ ];
     fleetHostKeys = config.flake.lib.nixos.fleetHostKeys;
   };
 
