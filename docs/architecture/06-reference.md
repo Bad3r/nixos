@@ -1,8 +1,6 @@
 # Reference
 
 Quick reference for validation, introspection, tooling, and terminology.
-Symptoms and their resolutions live in
-[Troubleshooting](07-troubleshooting.md).
 
 ## Validation
 
@@ -26,10 +24,13 @@ A dirty worktree masks all of it, because Lix copies the working tree instead of
 ### Credential Scanning
 
 `hook-gitleaks` scans commits rather than the worktree, so its scope depends on
-how it is invoked. At `pre-push` it reads only the range pre-commit reports in
-`PRE_COMMIT_FROM_REF` and `PRE_COMMIT_TO_REF`, and each gitlink only across the
-commits its pointer newly reaches, so a push does not re-read history it has
-already published. Every reduced scope is named in the hook's own output.
+how it is invoked. At `pre-push` it scopes to every local branch and tag not
+already reachable from a remote-tracking ref, using the pair pre-commit reports
+in `PRE_COMMIT_FROM_REF` and `PRE_COMMIT_TO_REF` as a second exclusion for the
+pushed ref, and each gitlink to the commits its pointer newly reaches across
+that same set, so a push does not re-read history it has already published and
+a second pushed ref is not left unscanned. Every reduced scope is named in the
+hook's own output.
 
 The full sweep runs with neither variable set, which is how
 `.github/workflows/check.yml` invokes it on the merge path and how it runs by
