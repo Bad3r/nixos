@@ -75,8 +75,6 @@
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
-- [songbird/songbird-runbook-torrent.md](songbird/songbird-runbook-torrent.md)
-  - Moving torrents into the namespaced qBittorrent service, choosing a save folder under the home directory, rotating the Proton VPN profile, and reaching the Web UI from another host.
 - [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [songbird/songbird-troubleshooting-windows.md](songbird/songbird-troubleshooting-windows.md)
@@ -130,6 +128,8 @@
   - Age identity, secrets submodule, backup manifest, SSH host key pin, and primary handoff for a new host.
 - [guides/nix-debugging-manual.md](guides/nix-debugging-manual.md)
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
+- [guides/qbittorrent-web-ui-setup.md](guides/qbittorrent-web-ui-setup.md)
+  - Setting up the qBittorrent Web UI, with optional desktop profile import and Songbird as the host example.
 - [guides/stylix-integration.md](guides/stylix-integration.md)
   - Stylix theming integration covering NixOS vs Home Manager targets, autoEnable behavior, and common pitfalls.
 - [guides/tray-icon-theming.md](guides/tray-icon-theming.md)
