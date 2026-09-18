@@ -15,7 +15,6 @@ let
     "dive"
     "docker-compose"
     "doom-emacs"
-    "easyeffects"
     "element-desktop"
     "espanso"
     "fd"
