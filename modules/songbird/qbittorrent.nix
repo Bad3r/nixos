@@ -56,7 +56,7 @@ in
       # change (docs/cloudflare/warp/troubleshooting.md) and activation on
       # every switch, after which the sandbox reads the host's 127.0.2.2
       # servers that nothing in the namespace answers.
-      resolvConfext = pkgs.runCommand "${netns}-resolv-confext" { } ''
+      resolvConfext = pkgs.runCommandLocal "${netns}-resolv-confext" { } ''
         mkdir -p "$out/etc/extension-release.d"
         cp ${resolvConf} "$out/etc/resolv.conf"
         # systemd matches the release file name to the directory name.
