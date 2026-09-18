@@ -111,8 +111,8 @@ Cause: the Proton tunnel has no handshake, so the NAT-PMP renewal inside the nam
 Diagnostic: `journalctl -u qbittorrent-port-forward.service -n 5` shows `NAT-PMP mapping failed`, and `sudo ip netns exec torrent wg show wg-torrent` shows no recent handshake.
 Fix: `sudo systemctl restart wireguard-wg-torrent.service`; a handshake that never returns means the Proton profile expired or the server retired, so rotate it per [the torrent runbook](songbird-runbook-torrent.md#rotate-the-proton-vpn-wireguard-profile).
 
-## qBittorrent marks a torrent errored on a save path under the home directory
+## qBittorrent marks a torrent errored on its save path
 
-Cause: the path lies outside `~/Downloads`, the only part of the home directory bound into the service, the folder arrived by `mv` and carries no entry for the service user yet, or a chmod cut the folder's ACL mask.
-Diagnostic: `getfacl -p <folder>` lists no `user:qbittorrent` entry or marks it `#effective:r-x`, or the folder is not under `~/Downloads`.
-Fix: move the folder under `~/Downloads`, then `sudo systemd-tmpfiles --create --prefix="$HOME/Downloads"` applies the entries without waiting for the next switch or boot; `setfacl -m m::rwx <folder>` restores a cut mask.
+Cause: the path lies outside `~/Downloads` and `/data/media`, the folder arrived by `mv` and carries no entry for the service user yet, or a chmod cut the folder's ACL mask.
+Diagnostic: `getfacl -p <folder>` lists no `user:qbittorrent` entry or marks it `#effective:r-x`, or the folder is under neither root.
+Fix: move the folder under one of them, then `sudo systemd-tmpfiles --create --prefix=<root>` applies the entries without waiting for the next switch or boot; `setfacl -m m::rwx <folder>` restores a cut mask.

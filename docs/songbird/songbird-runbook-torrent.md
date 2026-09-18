@@ -30,14 +30,14 @@ Precondition: the switch that enables the service has run, and the Qt client has
 
 Verification: the Web UI lists every torrent the Qt client held at the same save paths, and `journalctl -u qbittorrent-port-forward.service` ends with a `listen port set to` line.
 
-## Save torrents into a folder under the home directory
+## Save torrents into a folder under a save root
 
-Precondition: the folder is under `~/Downloads`, the only part of the home directory the service can see.
+Precondition: the folder is under `~/Downloads`, the only part of the home directory the service can see, or under `/data/media`.
 
 1. Create the folder with any tool, or type its path into a save path field and let the Web UI create it.
 2. Set it as the default save path under Options, Downloads, or as the save path of a category or of a single torrent.
 
-Verification: `getfacl -p ~/Downloads/<folder>` lists a `user:qbittorrent:rwx` and a `default:user:qbittorrent:rwx` entry, and a torrent saved there completes without an errored state.
+Verification: `getfacl -p <folder>` lists a `user:qbittorrent:rwx` and a `default:user:qbittorrent:rwx` entry, and a torrent saved there completes without an errored state.
 
 ## Rotate the Proton VPN WireGuard profile
 

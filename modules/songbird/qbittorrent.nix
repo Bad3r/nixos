@@ -63,6 +63,10 @@ in
         echo "ID=_any" > "$out/etc/extension-release.d/extension-release.$(basename "$out")"
       '';
       downloadDir = "${config.users.users.${metaOwner.username}.home}/Downloads";
+      saveRoots = [
+        downloadDir
+        "/data/media"
+      ];
       inherit (config.services.qbittorrent) profileDir;
       # Shared by every unit that runs inside the namespace as an unprivileged,
       # dynamically allocated user with no capabilities of its own.
@@ -132,7 +136,7 @@ in
 
             # Runs as the upstream `qbittorrent` system user (nologin shell,
             # locked password, no home): its only writable paths are the
-            # profile and the save path below.
+            # profile and the save roots below.
             services.qbittorrent = {
               enable = true;
               inherit webuiPort;
@@ -338,19 +342,22 @@ in
                 mode = ":0755";
               };
 
-              # The service reaches the owner's tree through ACLs alone. The
+              # The service reaches the owner's trees through ACLs alone. The
               # default entries make any folder the owner creates a save path
               # at once and keep the owner in charge of what the service
               # writes; the recursive walk covers what predates them or came
               # in by mv. A file of its own, sorted after the one above: in
               # one file the attribute order would put `A+` ahead of `d`, and
               # tmpfiles skips an ACL on a path that does not exist yet.
-              tmpfiles.settings."20-qbittorrent-save-path-acl".${downloadDir}."A+".argument =
-                lib.concatMapStringsSep "," (user: "u:${user}:rwX,d:u:${user}:rwx")
-                  [
-                    config.services.qbittorrent.user
-                    metaOwner.username
-                  ];
+              # /data/media needs no bind (ProtectSystem=full) and gets no `d`
+              # rule: /data mounts nofail, so one would create it on the root
+              # filesystem on a boot without the volume.
+              tmpfiles.settings."20-qbittorrent-save-path-acl" = lib.genAttrs saveRoots (_: {
+                "A+".argument = lib.concatMapStringsSep "," (user: "u:${user}:rwX,d:u:${user}:rwx") [
+                  config.services.qbittorrent.user
+                  metaOwner.username
+                ];
+              });
 
               sockets.qbittorrent-webui = {
                 description = "qBittorrent Web UI proxy socket";
