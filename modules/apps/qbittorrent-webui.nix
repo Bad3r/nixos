@@ -74,7 +74,9 @@ let
           status=0
           for item in "$@"; do
             case "$item" in
-              magnet:*)
+              # The Web UI's fetchMetadata takes a remote URL directly; only a
+              # local path needs staging.
+              magnet:* | http://* | https://*)
                 sources+=("$item")
                 ;;
               *)
@@ -82,6 +84,11 @@ let
                 case "$path" in
                   file://*)
                     path=''${path#file://}
+                    # RFC 8089 allows an explicit "localhost" authority;
+                    # strip it so what remains is the absolute path.
+                    case "$path" in
+                      localhost/*) path=''${path#localhost} ;;
+                    esac
                     # Backslashes are doubled first so printf %b keeps a
                     # literal backslash in the path instead of reading it as
                     # the start of an escape sequence.
@@ -100,8 +107,17 @@ let
           done
 
           # The Web UI URI-decodes the fragment and takes one link per line.
+          # jq and xdg-open share one guard: under errexit, a failure nested
+          # in xdg-open's argument (the command substitution) would otherwise
+          # abort the script silently, past both notify and exit "$status".
           if [ "''${#sources[@]}" -gt 0 ]; then
-            xdg-open "$url/#download=$(jq -rn '$ARGS.positional | join("\n") | @uri' --args "''${sources[@]}")"
+            if fragment=$(jq -rn '$ARGS.positional | join("\n") | @uri' --args "''${sources[@]}") \
+              && xdg-open "$url/#download=$fragment"; then
+              :
+            else
+              notify -u critical "qBittorrent" "Failed to open the Web UI at $url"
+              status=1
+            fi
           fi
           exit "$status"
         '';
@@ -111,7 +127,7 @@ let
         name = "qbittorrent-webui";
         desktopName = "qBittorrent Web UI";
         genericName = "BitTorrent client";
-        comment = "Add torrents to the qBittorrent service and open its Web UI";
+        comment = "Open a torrent file or magnet link in the qBittorrent service's Web UI add dialog";
         exec = "qbittorrent-webui %U";
         icon = "qbittorrent";
         terminal = false;
@@ -181,8 +197,8 @@ in
   perSystem =
     { pkgs, ... }:
     let
-      # Each stub appends its arguments to <name>.log in the working directory,
-      # one per line.
+      # Stand-in binaries for xdg-open/notify-send, so the check can assert on
+      # what the handler invoked without a real browser or notification bus.
       mkStub =
         name:
         pkgs.writeShellApplication {
@@ -197,6 +213,19 @@ in
         url = "http://webui.invalid:8989";
         # The build sandbox has no fixed writable absolute path; /proc/self/cwd
         # resolves to the directory the handler runs in.
+        stagingDir = "/proc/self/cwd/staging";
+      };
+      # A failing xdg-open must still notify and exit nonzero, not vanish
+      # under errexit past both the notify call and exit "$status".
+      handlerFailingOpen = pkgs.callPackage qbittorrentWebuiPackage {
+        xdg-utils = pkgs.writeShellApplication {
+          name = "xdg-open";
+          text = ''
+            exit 1
+          '';
+        };
+        libnotify = mkStub "notify-send";
+        url = "http://webui.invalid:8989";
         stagingDir = "/proc/self/cwd/staging";
       };
     in
@@ -216,6 +245,9 @@ in
           }
           ''
             set -o errexit -o nounset -o pipefail
+            # An unmatched glob would otherwise stay a literal string and
+            # inflate the count below, masking a stage() regression.
+            shopt -s nullglob
             subject=${handler}/bin/qbittorrent-webui
 
             mkdir staging
@@ -234,11 +266,12 @@ in
 
             opened=$(cat xdg-open.log)
             prefix='http://webui.invalid:8989/#download='
-            if [ "''${opened#"$prefix"}" = "$opened" ]; then
+            fragment=''${opened#"$prefix"}
+            if [ "$fragment" = "$opened" ]; then
               echo "the handler opened $opened, not a #download= link" >&2
               exit 1
             fi
-            jq -rn --arg fragment "''${opened#"$prefix"}" '$fragment | @urid' >links
+            jq -rn --arg fragment "$fragment" '$fragment | @urid' >links
 
             staged=$(head -n 1 links)
             staged=''${staged#file://}
@@ -251,6 +284,16 @@ in
             rm xdg-open.log
             "$subject"
             [ "$(cat xdg-open.log)" = http://webui.invalid:8989 ]
+
+            subjectFailingOpen=${handlerFailingOpen}/bin/qbittorrent-webui
+            rc=0
+            "$subjectFailingOpen" "$magnet" || rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "expected exit 1 when xdg-open fails, got $rc" >&2
+              exit 1
+            fi
+            grep -qxF 'Failed to open the Web UI at http://webui.invalid:8989' notify-send.log
+
             touch "$out"
           '';
     };
