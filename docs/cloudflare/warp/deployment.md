@@ -1,7 +1,7 @@
 # WARP deployment runbook
 
 Procedures for enrolling a fleet host with the module in `modules/apps/cloudflare-warp.nix`.
-API calls below use `curl` with `ACCOUNT` set to the account id and `CF_API_TOKEN` to an API token holding the Zero Trust write scopes; the dashboard shows the same objects.
+API calls below use `curl` with `ACCOUNT` and `CF_API_TOKEN` taken from `secrets/cloudflare-warp.yaml` through `sops -d --extract` on `account_id` and `zero_trust_api_token`, an account-owned token holding Zero Trust Write that verifies at `/accounts/$ACCOUNT/tokens/verify` rather than `/user/tokens/verify`; the dashboard shows the same objects.
 
 ## Create the Cloudflare objects for a host
 
