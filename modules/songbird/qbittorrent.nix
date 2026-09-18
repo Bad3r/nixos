@@ -149,15 +149,34 @@ in
                 BitTorrent.Session = {
                   DefaultSavePath = downloadDir;
                   QueueingSystemEnabled = false;
+                  DisableAutoTMMByDefault = false;
+                  UseCategoryPathsInManualMode = true;
                   # Under a save root, so the ACLs below let the service write it.
                   TorrentExportDirectory = "/data/torrent/.torrent";
+                  # Twice the upstream defaults.
+                  MaxConnections = 1000;
+                  MaxConnectionsPerTorrent = 200;
+                  MaxUploads = 40;
+                  MaxUploadsPerTorrent = 8;
+                  MaxActiveCheckingTorrents = 3;
+                  AddTrackersFromURLEnabled = true;
+                  AdditionalTrackersURL = "https://raw.githubusercontent.com/ngosang/trackerslist/master/trackers_all.txt";
+                  # The renewal unit below changes the listen port, so trackers
+                  # learn it at once instead of at the next announce.
+                  ReannounceWhenAddressChanged = true;
+                  # The first start with it converts BT_backup into torrents.db.
+                  ResumeDataStorageType = "SQLite";
+                  PerformanceWarning = true;
                 };
                 Core.AutoDeleteAddedTorrentFile = "Never";
                 # libtorrent's own NAT-PMP would race the renewal unit below
                 # for the same Proton mapping.
                 Network.PortForwardingEnabled = false;
                 Preferences = {
-                  General.Locale = "en";
+                  General = {
+                    Locale = "en";
+                    StatusbarExternalIPDisplayed = true;
+                  };
                   WebUI = {
                     # Every proxied request arrives from 127.0.0.1.
                     Address = "127.0.0.1";
