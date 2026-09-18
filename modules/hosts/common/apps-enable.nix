@@ -449,6 +449,7 @@ let
       svgo.extended.enable = lib.mkOverride 1100 true;
       synchrony.extended.enable = lib.mkOverride 1100 false;
       sysstat.extended.enable = lib.mkOverride 1100 true;
+      sysz.extended.enable = lib.mkOverride 1100 true;
       tailscale.extended.enable = lib.mkOverride 1100 false;
       taplo.extended.enable = lib.mkOverride 1100 true;
       tar.extended.enable = lib.mkOverride 1100 true;
