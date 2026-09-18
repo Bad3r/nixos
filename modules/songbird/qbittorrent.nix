@@ -399,24 +399,10 @@ in
                 cidr: "iptables -A nixos-fw -s ${cidr} -p tcp --dport ${toString webuiPort} -j nixos-fw-accept\n"
               ) _firewallLocalNetworkCidrs;
             };
-
-            # Inside the secretsReady arm: without it, nothing above creates the
-            # namespace, the service, or the socket, and a torrentClient default
-            # with no backend would leave every magnet click posting to a proxy
-            # that was never built. The handler's enable rides along because
-            # its url has no default and an enabled handler forces it.
-            host.defaults.torrentClient = "qbittorrent-webui";
-            programs."qbittorrent-webui".extended = {
-              enable = lib.mkOverride 1000 true;
-              url = webuiUrl;
-            };
           }
         ]
         ++ lib.optionals (!secretsReady) [
           {
-            # apps-enable.nix turns the Qt client off, so the common
-            # torrentClient default would fail the default-apps assertion here.
-            host.defaults.torrentClient = null;
             warnings = [
               (
                 if secretExists then
