@@ -47,15 +47,19 @@ let
           url=${lib.escapeShellArg url}
           staging=${lib.escapeShellArg stagingDir}
 
-          if [ "$#" -eq 0 ]; then
-            exec xdg-open "$url"
-          fi
-
           # A launcher-invoked handler has no terminal, so the notification is
           # the only feedback; a missing session bus is logged, not fatal.
           notify() {
             notify-send "$@" || echo "notify-send failed: $*" >&2
           }
+
+          if [ "$#" -eq 0 ]; then
+            if xdg-open "$url"; then
+              exit 0
+            fi
+            notify -u critical "qBittorrent" "Failed to open the Web UI at $url"
+            exit 1
+          fi
 
           # qBittorrent reads the file itself, so it gets a copy the service can
           # read, under a random name that needs no escaping in a file:// URL.
@@ -290,6 +294,16 @@ in
             "$subjectFailingOpen" "$magnet" || rc=$?
             if [ "$rc" -ne 1 ]; then
               echo "expected exit 1 when xdg-open fails, got $rc" >&2
+              exit 1
+            fi
+            grep -qxF 'Failed to open the Web UI at http://webui.invalid:8989' notify-send.log
+
+            # The no-source path must notify on an xdg-open failure too.
+            rm notify-send.log
+            rc=0
+            "$subjectFailingOpen" || rc=$?
+            if [ "$rc" -ne 1 ]; then
+              echo "expected exit 1 when xdg-open fails without a source, got $rc" >&2
               exit 1
             fi
             grep -qxF 'Failed to open the Web UI at http://webui.invalid:8989' notify-send.log
