@@ -1,9 +1,9 @@
 # qBittorrent runs as a service inside the `torrent` network namespace, whose
 # only route is a Proton VPN WireGuard tunnel, so nothing it sends can leave
 # through the host's routes, WARP's tunnel, or a dropped VPN. The tunnel's
-# outer UDP packets are the only thing the host sees; the nixos-songbird WARP
-# profile excludes the endpoint so they bypass the WARP tunnel at full speed
-# (docs/cloudflare/warp/deployment.md, Change a profile's exclude list).
+# outer UDP packets are the only thing the host sees, and they ride inside the
+# WARP tunnel: the ISP drops a WireGuard flow it can see, so the endpoint stays
+# off the nixos-songbird profile's exclude list.
 {
   config,
   secretsRoot,
@@ -123,6 +123,9 @@ in
               interfaceNamespace = netns;
               privateKeyFile = config.sops.secrets.${privateKeySecret}.path;
               ips = [ proton.address ];
+              # WARP's tun is 1300 bytes and IPv4, UDP, and WireGuard framing
+              # take 60, so the default 1420 fragmented every full packet.
+              mtu = 1240;
               peers = [
                 {
                   name = "proton";

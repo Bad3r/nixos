@@ -51,8 +51,6 @@ Precondition: a new WireGuard configuration from the Proton account page, genera
 
 2. Set the peer's `PublicKey` and `Endpoint` in [qbittorrent.nix](../../modules/songbird/qbittorrent.nix), then commit the secrets repository, the gitlink, and the module, and switch.
 
-3. Replace the endpoint entry on the `nixos-songbird` WARP profile per [change a profile's exclude list](../cloudflare/warp/deployment.md#change-a-profiles-exclude-list).
-
 Verification: `sudo ip netns exec torrent wg show wg-torrent` reports a recent handshake, and `sudo ip netns exec torrent natpmpc -g 10.2.0.1` prints the new server's public address.
 
 ## Reach the Web UI from another host

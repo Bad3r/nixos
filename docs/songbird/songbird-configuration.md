@@ -34,7 +34,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 - The Web UI answers LAN and Mesh clients without a password through a socket proxy into the namespace: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 - The Web UI port opens to LAN sources and on the Mesh interface through rules of its own, apart from the dev range: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 - The `qbittorrent-webui` handler takes magnet links and `.torrent` files in place of the Qt client: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
-- The `nixos-songbird` WARP profile excludes the Proton endpoint, so the tunnel's outer packets leave through the wired uplink instead of riding the WARP tunnel: [deployment.md](../cloudflare/warp/deployment.md#change-a-profiles-exclude-list).
+- The Proton endpoint stays inside the WARP tunnel and `wg-torrent` carries an MTU sized for it, because the ISP drops a WireGuard flow it can see: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 
 ## Services
 
