@@ -2,7 +2,7 @@
 
 Procedure for adding a NixOS host to this repository; its composition model is in [Host Composition](../architecture/05-host-composition.md).
 Commands below assume a linked worktree at the repository root, per the branch workflow in `CLAUDE.md`, except on the target machine: the validation ladder's boot step needs a clone made without `--recurse-submodules`, as that step explains.
-Define `guarded_nix` in every shell used below; each call inventories ignored paths and requires the shared guard from [Reference](../architecture/06-reference.md) to pass before Nix starts. Benign inventory output may appear.
+Define `guarded_nix` in every shell used below; each call inventories ignored paths and requires the shared guard from [Troubleshooting](../architecture/07-troubleshooting.md) to pass before Nix starts. Benign inventory output may appear.
 
 ```sh
 guarded_nix() { git status --porcelain --ignored=matching &&
@@ -24,7 +24,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    `shareCommon = true` imports the `hosts-common` aggregate before the host module; `false` is a deliberate opt-out, never a default.
    `modules/configurations/nixos.nix` throws for any host under `configurations.nixos` with no entry here, naming the exact line to add.
 
-2. Create `modules/<host>/` with this file set; import-tree discovers every file automatically, with no import to register.
+2. Create `modules/<host>/` with the files below; import-tree discovers each one automatically, with no import to register.
 
    | File                  | Purpose                                                 |
    | --------------------- | ------------------------------------------------------- |
