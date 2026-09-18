@@ -17,7 +17,9 @@
 - [architecture/host-file-inventory.md](architecture/host-file-inventory.md)
   - Maps host-owned files to their responsibilities and separates them from shared host composition.
 - [architecture/06-reference.md](architecture/06-reference.md)
-  - Quick reference for validation commands, troubleshooting common issues, introspection via REPL, and glossary of terms.
+  - Quick reference for validation commands, credential scanning scope, introspection via REPL, dev shell helpers, and glossary of terms.
+- [architecture/07-troubleshooting.md](architecture/07-troubleshooting.md)
+  - Symptoms that come up while working in the repository, each paired with its resolution.
 
 ## Claude Code
 

@@ -20,6 +20,7 @@ Before analyzing or replying, ingest the following local material (chunked reads
   - `docs/architecture/04-home-manager.md`
   - `docs/architecture/05-host-composition.md`
   - `docs/architecture/06-reference.md`
+  - `docs/architecture/07-troubleshooting.md`
 
 - SOPS workflow – `docs/sops/README.md` and related helpers under `docs/sops/`.
 
