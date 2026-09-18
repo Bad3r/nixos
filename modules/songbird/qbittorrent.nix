@@ -51,6 +51,17 @@ in
     }:
     let
       resolvConf = pkgs.writeText "${netns}-resolv.conf" "nameserver ${proton.dns}\n";
+      # An overlay, not a bind over /etc/resolv.conf: the kernel detaches a
+      # bind whose file the host recreates, which warp-svc does on every DNS
+      # change (docs/cloudflare/warp/troubleshooting.md) and activation on
+      # every switch, after which the sandbox reads the host's 127.0.2.2
+      # servers that nothing in the namespace answers.
+      resolvConfext = pkgs.runCommandLocal "${netns}-resolv-confext" { } ''
+        mkdir -p "$out/etc/extension-release.d"
+        cp ${resolvConf} "$out/etc/resolv.conf"
+        # systemd matches the release file name to the directory name.
+        echo "ID=_any" > "$out/etc/extension-release.d/extension-release.$(basename "$out")"
+      '';
       downloadDir = "${config.users.users.${metaOwner.username}.home}/Downloads";
       inherit (config.services.qbittorrent) profileDir;
       # Shared by every unit that runs inside the namespace as an unprivileged,
@@ -97,7 +108,7 @@ in
             };
 
             # `ip netns exec torrent` binds this over /etc/resolv.conf on its
-            # own; the units below bind the same file explicitly.
+            # own; the service reads the same file through its overlay.
             environment.etc."netns/${netns}/resolv.conf".source = resolvConf;
 
             # The interface is created in the host namespace, which pins its
@@ -216,9 +227,10 @@ in
                     ExecPaths = [ "/nix/store" ];
                     # The upstream address-family list has no AF_UNIX, so
                     # nss-resolve cannot reach systemd-resolved and lookups fall
-                    # through to the dns module reading this file; blocking the
-                    # varlink socket keeps that true if the list ever grows.
-                    BindReadOnlyPaths = [ "${resolvConf}:/etc/resolv.conf" ];
+                    # through to the dns module reading the overlay's
+                    # resolv.conf; blocking the varlink socket keeps that true
+                    # if the list ever grows.
+                    ExtensionDirectories = [ "${resolvConfext}" ];
                     InaccessiblePaths = [ "-/run/systemd/resolve/io.systemd.Resolve" ];
                     # Upstream hides /home entirely; the tmpfs form admits a bind
                     # of the save path alone.
