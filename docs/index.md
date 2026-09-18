@@ -235,6 +235,8 @@
   - Collection of handy general-purpose CLI commands not tied to NixOS or this repository.
 - [reference/worktree-prune.md](reference/worktree-prune.md)
   - Pruning of local branches with gone upstreams and their worktrees, the scheduled cleanup timer, safety guarantees, and recovery paths.
+- [reference/zsh.md](reference/zsh.md)
+  - Layout of the owner's Home Manager zsh module, its startup order, where each kind of change goes, and its flake check.
 
 ## Security
 
