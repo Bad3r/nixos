@@ -37,6 +37,14 @@ _: {
     in
     {
       config = lib.mkIf nixosEnabled {
+        programs.zsh.shellAliases = {
+          kdiff = "kitty +kitten diff";
+          kimg = "kitty +kitten icat";
+          kgrep-url = "kitty +kitten hyperlinked_grep -f";
+          kssh = "kitty +kitten ssh";
+          sukitty = "sudo setsid kitty";
+        };
+
         programs.kitty = {
           enable = true;
           # Ensure kitty is set as default terminal in user session
