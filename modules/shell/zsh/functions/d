@@ -1,0 +1,12 @@
+local dir
+
+if (( ${#dirstack} == 0 )); then
+  print -u2 -- "d: directory stack is empty"
+  return 1
+fi
+
+select dir in $dirstack; do
+  break
+done
+
+[[ -n $dir ]] && cd -- "$dir" || return 1

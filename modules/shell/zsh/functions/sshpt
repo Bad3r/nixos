@@ -1,0 +1,15 @@
+emulate -L zsh
+
+if (( $# != 1 )); then
+  print -u2 -- "usage: sshpt <user>@<host>"
+  return 1
+fi
+
+# Lab targets are rebuilt constantly, so host keys are neither checked nor stored.
+ssh "$1" -t \
+  -o ControlMaster=auto \
+  -o ControlPath=~/.ssh/ctrl-%C \
+  -o ControlPersist=yes \
+  -o UserKnownHostsFile=/dev/null \
+  -o StrictHostKeyChecking=no \
+  'export TERM=xterm-256color; command -v bash >/dev/null 2>&1 && exec bash; exec sh'

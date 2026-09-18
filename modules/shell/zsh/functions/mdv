@@ -1,0 +1,8 @@
+emulate -L zsh
+
+if [[ -z $1 || ! -r $1 ]]; then
+  print -u2 -- "usage: mdv <file>"
+  return 1
+fi
+
+pandoc -t plain -- "$1" | ${=PAGER:-less}

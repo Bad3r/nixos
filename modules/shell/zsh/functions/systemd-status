@@ -1,0 +1,20 @@
+emulate -L zsh
+
+if (( $# == 0 )); then
+  print -r -- '[]'
+  return 0
+fi
+
+local unit active
+local -a parts
+
+for unit in "$@"; do
+  if systemctl is-active "$unit" &>/dev/null; then
+    active=true
+  else
+    active=false
+  fi
+  parts+=("{\"service\": \"$unit\", \"is-active\": $active}")
+done
+
+print -r -- "[${(j:,:)parts}]"
