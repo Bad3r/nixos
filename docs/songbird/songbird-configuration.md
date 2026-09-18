@@ -34,7 +34,9 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 - The Web UI answers LAN and Mesh clients without a password through a socket proxy into the namespace: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 - The Web UI port opens to LAN sources and on the Mesh interface through rules of its own, apart from the dev range: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 - The `qbittorrent-webui` handler takes magnet links and `.torrent` files in place of the Qt client: [qbittorrent-webui.nix](../../modules/songbird/qbittorrent-webui.nix).
-- The service serves a patched copy of its stock Web UI, so a link opens straight in the add dialog, in a tab that closes with it, and a duplicate asks to merge trackers as the desktop client does: [qbittorrent-webui.nix](../../modules/songbird/qbittorrent-webui.nix).
+- The service serves a patched copy of its stock Web UI, so a link opens straight in the add dialog: [qbittorrent-webui.nix](../../modules/songbird/qbittorrent-webui.nix).
+- A duplicate already in the transfer list gets a prompt to merge trackers, as the desktop client does: [qbittorrent-webui.nix](../../modules/songbird/qbittorrent-webui.nix).
+- The handler's tab closes once its add dialogs finish: [qbittorrent-webui.nix](../../modules/songbird/qbittorrent-webui.nix).
 - The Proton endpoint stays inside the WARP tunnel and `wg-torrent` carries an MTU sized for it, because the ISP drops a WireGuard flow it can see: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 
 ## Services

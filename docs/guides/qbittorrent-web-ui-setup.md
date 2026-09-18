@@ -2,7 +2,8 @@
 
 Use qBittorrent through a host's Web UI instead of its desktop client.
 Songbird is the example host: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix) runs the service inside the `torrent` network namespace behind Proton VPN.
-The `qbittorrent-webui` handler opens each magnet link or `.torrent` file in the add dialog of Songbird's Web UI, which sets the category and save path before the torrent is added.
+The `qbittorrent-webui` handler opens each magnet link or `.torrent` file in the add dialog of Songbird's Web UI.
+The dialog is where the category and save path are chosen before the torrent is added.
 
 ## Optional: import torrents from the desktop profile
 
