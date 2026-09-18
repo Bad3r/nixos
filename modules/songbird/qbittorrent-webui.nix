@@ -61,16 +61,15 @@ let
     const markWindow = (attribute) => window.parent.document.getElementById(windowId)?.setAttribute(attribute, "");
     let duplicateCheck = null;
     const checkDuplicate = async (metadata) => {
-        // Marks the window as being checked before the first await, so the
-        // 3 s fallback above never reveals it out from under an in-flight
-        // check (an unfiltered torrents/info can take longer than that).
+        // Set before the first await so the 3 s fallback cannot reveal the
+        // window mid-check; the fetch timeout bounds how long it stays hidden.
         markWindow("data-checking");
         const hashes = [metadata.infohash_v1, metadata.infohash_v2].filter((hash) => hash);
         let existing;
         try {
             // hashes matches TorrentID, which for a v2-only torrent is the
             // v2 infohash truncated to 40 hex chars.
-            const response = await fetch("api/v2/torrents/info?hashes=" + [...hashes, ...hashes.map((hash) => hash.slice(0, 40))].join("|"), { cache: "no-store" });
+            const response = await fetch("api/v2/torrents/info?hashes=" + [...hashes, ...hashes.map((hash) => hash.slice(0, 40))].join("|"), { cache: "no-store", signal: AbortSignal.timeout(5000) });
             if (!response.ok)
                 throw new Error("torrents/info answered " + response.status);
             existing = (await response.json()).find((torrent) => hashes.includes(torrent.infohash_v1) || hashes.includes(torrent.infohash_v2));
