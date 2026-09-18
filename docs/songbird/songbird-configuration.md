@@ -28,7 +28,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 - A TCP range for local dev servers opens to LAN sources and on the Cloudflare Mesh interface, since Mesh counts as a local network: [policy.nix](../../modules/songbird/policy.nix).
 - qBittorrent runs as a service inside the `torrent` network namespace, whose only route is a Proton VPN WireGuard tunnel, so a dropped tunnel leaves it no other way out: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 - That service runs as the `qbittorrent` system user, so an abused Web UI reaches only the profile and the save roots: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
-- ACLs on the owner's `~/Downloads`, `/data/media`, and `/data/torrent` trees let the service write any folder under them while the owner keeps full access: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
+- ACLs on every tree in `saveRoots` let the service write any folder under it while the owner keeps full access: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 - Every path but the store is noexec inside the service, so nothing it downloads or writes can run: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 - A renewal unit inside that namespace keeps Proton's NAT-PMP mapping alive and pushes the mapped port into the running session, since Proton assigns the port per tunnel session: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
 - The Web UI answers LAN and Mesh clients without a password through a socket proxy into the namespace: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).

@@ -65,6 +65,7 @@ in
       downloadDir = "${config.users.users.${metaOwner.username}.home}/Downloads";
       saveRoots = [
         downloadDir
+        "/data/Gaming"
         "/data/media"
         "/data/torrent"
       ];
