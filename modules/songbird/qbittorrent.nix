@@ -63,11 +63,12 @@ in
         echo "ID=_any" > "$out/etc/extension-release.d/extension-release.$(basename "$out")"
       '';
       downloadDir = "${config.users.users.${metaOwner.username}.home}/Downloads";
+      torrentDir = "/data/torrent";
       saveRoots = [
         downloadDir
         "/data/Gaming"
         "/data/media"
-        "/data/torrent"
+        torrentDir
       ];
       inherit (config.services.qbittorrent) profileDir;
       # Shared by every unit that runs inside the namespace as an unprivileged,
@@ -151,12 +152,12 @@ in
               serverConfig = {
                 LegalNotice.Accepted = true;
                 BitTorrent.Session = {
-                  DefaultSavePath = downloadDir;
+                  DefaultSavePath = torrentDir;
                   QueueingSystemEnabled = false;
                   DisableAutoTMMByDefault = false;
                   UseCategoryPathsInManualMode = true;
                   # Under a save root, so the ACLs below let the service write it.
-                  TorrentExportDirectory = "/data/torrent/.torrent";
+                  TorrentExportDirectory = "${torrentDir}/.torrent";
                   # Twice the upstream defaults.
                   MaxConnections = 1000;
                   MaxConnectionsPerTorrent = 200;

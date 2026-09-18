@@ -35,7 +35,8 @@ Verification: the Web UI lists every torrent the Qt client held at the same save
 Precondition: the folder is under a tree in `saveRoots` in [qbittorrent.nix](../../modules/songbird/qbittorrent.nix); `~/Downloads` is the only part of the home directory the service can see.
 
 1. Create the folder with any tool, or type its path into a save path field and let the Web UI create it.
-2. Set it as the default save path under Options, Downloads, or as the save path of a category or of a single torrent.
+2. Set it as the save path of a category or of a single torrent.
+   The default save path is `DefaultSavePath` in [qbittorrent.nix](../../modules/songbird/qbittorrent.nix); a change under Options lasts only until the next restart.
 
 Verification: `getfacl -p <folder>` lists a `user:qbittorrent:rwx` and a `default:user:qbittorrent:rwx` entry, and a torrent saved there completes without an errored state.
 
