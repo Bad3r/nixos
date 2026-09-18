@@ -113,6 +113,6 @@ Fix: `sudo systemctl restart wireguard-wg-torrent.service`; a handshake that nev
 
 ## qBittorrent marks a torrent errored on its save path
 
-Cause: the path lies outside `~/Downloads` and `/data/media`, the folder arrived by `mv` and carries no entry for the service user yet, or a chmod cut the folder's ACL mask.
-Diagnostic: `getfacl -p <folder>` lists no `user:qbittorrent` entry or marks it `#effective:r-x`, or the folder is under neither root.
+Cause: the path lies outside `~/Downloads`, `/data/media`, and `/data/torrent`, the folder arrived by `mv` and carries no entry for the service user yet, or a chmod cut the folder's ACL mask.
+Diagnostic: `getfacl -p <folder>` lists no `user:qbittorrent` entry or marks it `#effective:r-x`, or the folder is under none of those roots.
 Fix: move the folder under one of them, then `sudo systemd-tmpfiles --create --prefix=<root>` applies the entries without waiting for the next switch or boot; `setfacl -m m::rwx <folder>` restores a cut mask.

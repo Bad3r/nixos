@@ -32,7 +32,7 @@ Verification: the Web UI lists every torrent the Qt client held at the same save
 
 ## Save torrents into a folder under a save root
 
-Precondition: the folder is under `~/Downloads`, the only part of the home directory the service can see, or under `/data/media`.
+Precondition: the folder is under `~/Downloads`, the only part of the home directory the service can see, or under `/data/media` or `/data/torrent`.
 
 1. Create the folder with any tool, or type its path into a save path field and let the Web UI create it.
 2. Set it as the default save path under Options, Downloads, or as the save path of a category or of a single torrent.

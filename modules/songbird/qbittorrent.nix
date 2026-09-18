@@ -66,6 +66,7 @@ in
       saveRoots = [
         downloadDir
         "/data/media"
+        "/data/torrent"
       ];
       inherit (config.services.qbittorrent) profileDir;
       # Shared by every unit that runs inside the namespace as an unprivileged,
@@ -148,6 +149,8 @@ in
                 BitTorrent.Session = {
                   DefaultSavePath = downloadDir;
                   QueueingSystemEnabled = false;
+                  # Under a save root, so the ACLs below let the service write it.
+                  TorrentExportDirectory = "/data/torrent/.torrent";
                 };
                 Core.AutoDeleteAddedTorrentFile = "Never";
                 # libtorrent's own NAT-PMP would race the renewal unit below
@@ -349,8 +352,8 @@ in
               # in by mv. A file of its own, sorted after the one above: in
               # one file the attribute order would put `A+` ahead of `d`, and
               # tmpfiles skips an ACL on a path that does not exist yet.
-              # /data/media needs no bind (ProtectSystem=full) and gets no `d`
-              # rule: /data mounts nofail, so one would create it on the root
+              # The /data roots need no bind (ProtectSystem=full) and get no `d`
+              # rule: /data mounts nofail, so one would create them on the root
               # filesystem on a boot without the volume.
               tmpfiles.settings."20-qbittorrent-save-path-acl" = lib.genAttrs saveRoots (_: {
                 "A+".argument = lib.concatMapStringsSep "," (user: "u:${user}:rwX,d:u:${user}:rwx") [
