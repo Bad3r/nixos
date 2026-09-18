@@ -333,7 +333,9 @@ in
               tmpfiles.settings."10-qbittorrent-save-path".${downloadDir}.d = {
                 user = metaOwner.username;
                 group = "users";
-                mode = "0755";
+                # Creation only: a chmod of the existing directory resets its
+                # ACL mask to r-x, which `A+` never recalculates.
+                mode = ":0755";
               };
 
               # The service reaches the owner's tree through ACLs alone. The
