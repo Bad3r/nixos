@@ -254,7 +254,7 @@ _: {
               git -C "$1" commit -qm "base"
             }
 
-            echo "hook-gitleaks-guards: 1/34 missing .gitleaks.toml"
+            echo "hook-gitleaks-guards: 1/38 missing .gitleaks.toml"
             new_repo "$work/no-config"
             git -C "$work/no-config" rm -q --cached .gitleaks.toml
             rm "$work/no-config/.gitleaks.toml"
@@ -268,7 +268,7 @@ _: {
             # runs in, secrets/ is absent and the submodule pass never executes,
             # so the job stays green while the config governing the private
             # submodule's scan is gone from the tree.
-            echo "hook-gitleaks-guards: 2/34 missing .gitleaks-secrets.toml"
+            echo "hook-gitleaks-guards: 2/38 missing .gitleaks-secrets.toml"
             new_repo "$work/no-sub-config"
             git -C "$work/no-sub-config" rm -q --cached .gitleaks-secrets.toml
             rm "$work/no-sub-config/.gitleaks-secrets.toml"
@@ -276,7 +276,7 @@ _: {
             cd "$work/no-sub-config" && run_hook
             expect_refusal "missing .gitleaks-secrets.toml" 'gitleaks-secrets.toml is missing'
 
-            echo "hook-gitleaks-guards: 3/34 missing .gitleaks-gitlink.toml"
+            echo "hook-gitleaks-guards: 3/38 missing .gitleaks-gitlink.toml"
             new_repo "$work/no-gitlink-config"
             git -C "$work/no-gitlink-config" rm -q --cached .gitleaks-gitlink.toml
             rm "$work/no-gitlink-config/.gitleaks-gitlink.toml"
@@ -284,7 +284,7 @@ _: {
             cd "$work/no-gitlink-config" && run_hook
             expect_refusal "missing .gitleaks-gitlink.toml" 'gitleaks-gitlink.toml is missing'
 
-            echo "hook-gitleaks-guards: 4/34 .gitleaksignore at the repository root"
+            echo "hook-gitleaks-guards: 4/38 .gitleaksignore at the repository root"
             new_repo "$work/ignore-root"
             touch "$work/ignore-root/.gitleaksignore"
             cd "$work/ignore-root" && run_hook
@@ -296,7 +296,7 @@ _: {
             # a .gitleaksignore beside a plain directory is read by no pass and
             # guarding it would be guarding nothing. No checkout is needed, since
             # the branch tests the path rather than the clone.
-            echo "hook-gitleaks-guards: 5/34 .gitleaksignore inside a submodule root"
+            echo "hook-gitleaks-guards: 5/38 .gitleaksignore inside a submodule root"
             new_repo "$work/ignore-sub"
             git -C "$work/ignore-sub" update-index --add \
               --cacheinfo 160000,0000000000000000000000000000000000000001,secrets
@@ -306,7 +306,7 @@ _: {
             cd "$work/ignore-sub" && run_hook
             expect_refusal "secrets/.gitleaksignore" 'secrets/\.gitleaksignore suppresses findings'
 
-            echo "hook-gitleaks-guards: 6/34 shallow superproject"
+            echo "hook-gitleaks-guards: 6/38 shallow superproject"
             new_repo "$work/deep"
             echo second > "$work/deep/second.txt"
             git -C "$work/deep" add -A
@@ -318,7 +318,7 @@ _: {
 
             # rev-list --all --count returns 1 here, so a lower bound of one commit
             # passes while the history stays hidden.
-            echo "hook-gitleaks-guards: 7/34 shallow submodule at secrets/"
+            echo "hook-gitleaks-guards: 7/38 shallow submodule at secrets/"
             # A second, credential-free upstream for fixtures that need a clean
             # first submodule; subup gains a credential in fixture 10.
             git init -q --initial-branch=main "$work/subup-clean"
@@ -347,7 +347,7 @@ _: {
             # load-bearing: without that flag this line is suppressed with no config
             # edit, no fingerprint and no review. The flag is unconditional, so the
             # credential must still be reported.
-            echo "hook-gitleaks-guards: 8/34 committed credential is still reported"
+            echo "hook-gitleaks-guards: 8/38 committed credential is still reported"
             new_repo "$work/leak"
             pat_prefix=ghp
             pat_body=A1b2C3d4E5f6G7h8I9j0K1l2M3n4O5p6Q7r8
@@ -367,7 +367,7 @@ _: {
               fail "committed credential: the secret reached the output, so --redact is not in effect"
             fi
 
-            echo "hook-gitleaks-guards: 9/34 clean full clone"
+            echo "hook-gitleaks-guards: 9/38 clean full clone"
             new_repo "$work/clean"
             cd "$work/clean" && run_hook
             expect_clean "clean repository"
@@ -375,7 +375,7 @@ _: {
             # Warned, not refused: CI never checks secrets/ out, so refusing would
             # fail gitleaks-scan on every run. The warning is the only thing keeping
             # a partial run from reading as full coverage.
-            echo "hook-gitleaks-guards: 10/34 absent submodule warns and still scans"
+            echo "hook-gitleaks-guards: 10/38 absent submodule warns and still scans"
             new_repo "$work/absent"
             git -C "$work/absent" update-index --add \
               --cacheinfo 160000,0000000000000000000000000000000000000001,secrets
@@ -390,7 +390,7 @@ _: {
             # arm, and the rest carry no gitlink. secrets/ is absent in
             # gitleaks-scan too, so this is the only place the sub_args wiring, the
             # six unsets and the scan itself are exercised.
-            echo "hook-gitleaks-guards: 11/34 credential inside a full-depth submodule"
+            echo "hook-gitleaks-guards: 11/38 credential inside a full-depth submodule"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/subup/token.txt"
             git -C "$work/subup" add -A
             git -C "$work/subup" commit -qm "commit a credential in the submodule"
@@ -428,7 +428,7 @@ _: {
             # finding in at most one pass, so that regression still exits 1 and
             # leaves them all green while the run covers one repository and
             # reports half the problem.
-            echo "hook-gitleaks-guards: 12/34 both passes report in one run"
+            echo "hook-gitleaks-guards: 12/38 both passes report in one run"
             new_repo "$work/both-leak"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/both-leak/token.txt"
             git -C "$work/both-leak" add -A
@@ -455,7 +455,7 @@ _: {
             # to the built-in defaults and reports the credential
             # .gitleaks-secrets.toml allowlists. A clean result therefore proves
             # that config reached a pass that could not have discovered it.
-            echo "hook-gitleaks-guards: 13/34 the repository config reaches both passes"
+            echo "hook-gitleaks-guards: 13/38 the repository config reaches both passes"
             new_repo "$work/configured"
             # Both configs: .gitleaks-secrets.toml is what must reach the
             # submodule pass, and it is also an ordinary committed file that the
@@ -480,7 +480,7 @@ _: {
             # that filtered findings otherwise prints the same "no leaks found"
             # as one that filtered none, and for this pass the filtering list is
             # reviewed only in the private repository.
-            echo "hook-gitleaks-guards: 14/34 submodule baseline filters and says so"
+            echo "hook-gitleaks-guards: 14/38 submodule baseline filters and says so"
             new_repo "$work/sub-baselined"
             git -C "$work/sub-baselined" -c protocol.file.allow=always \
               submodule add -q "file://$work/subup" secrets
@@ -501,7 +501,7 @@ _: {
             # config would skip a top-level nixos-manual/ inside the private
             # repository before scanning it, reachable by creating a directory
             # and invisible from here.
-            echo "hook-gitleaks-guards: 15/34 superproject paths do not reach the submodule"
+            echo "hook-gitleaks-guards: 15/38 superproject paths do not reach the submodule"
             git init -q --initial-branch=main "$work/docs-sub"
             mkdir -p "$work/docs-sub/nixos-manual"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/docs-sub/nixos-manual/leak.txt"
@@ -518,7 +518,7 @@ _: {
             # Without the flag the planted credential remains, while without the
             # announcement a filtered result is indistinguishable from a clean
             # scan in the hook output.
-            echo "hook-gitleaks-guards: 16/34 superproject baseline filters and says so"
+            echo "hook-gitleaks-guards: 16/38 superproject baseline filters and says so"
             new_repo "$work/baselined"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/baselined/token.txt"
             git -C "$work/baselined" add -A
@@ -538,7 +538,7 @@ _: {
             # GIT_COMMON_DIR or GIT_OBJECT_DIRECTORY pointed away from the
             # repository produces the same 0 commits, and this pass runs in the
             # ambient environment where those live.
-            echo "hook-gitleaks-guards: 17/34 superproject with no commits"
+            echo "hook-gitleaks-guards: 17/38 superproject with no commits"
             git init -q --initial-branch=main "$work/no-commits"
             write_config "$work/no-commits"
             cd "$work/no-commits" && run_hook
@@ -554,7 +554,7 @@ _: {
             # for; the second must still be reported, which is what targetRules =
             # ["generic-api-key"] buys. Without it the line-target match drops
             # every rule's finding on that line and the Stripe key disappears.
-            echo "hook-gitleaks-guards: 18/34 the KV allowlist suppresses only its own rule"
+            echo "hook-gitleaks-guards: 18/38 the KV allowlist suppresses only its own rule"
             new_repo "$work/kv-scope"
             git init -q --initial-branch=main "$work/kv-sub"
             kv_note='# production'
@@ -586,7 +586,7 @@ _: {
             # credential a parser that mangles another path drops it into the
             # not-checked-out warning and the run still exits 1 on the remaining
             # finding, leaving the regression invisible.
-            echo "hook-gitleaks-guards: 19/34 every gitlink is scanned, not just the first"
+            echo "hook-gitleaks-guards: 19/38 every gitlink is scanned, not just the first"
             git init -q --initial-branch=main "$work/second-up"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/second-up/tok.txt"
             other_kv_note='# production'
@@ -628,7 +628,7 @@ _: {
             printf '%s' "$hook_out" | grep -q 'leaks found: 2' \
               || fail "generic gitlink config: the second submodule KV note was suppressed"
 
-            echo "hook-gitleaks-guards: 20/34 readable wrong index is ignored"
+            echo "hook-gitleaks-guards: 20/38 readable wrong index is ignored"
             new_repo "$work/wrong-index"
             git -C "$work/wrong-index" -c protocol.file.allow=always \
               submodule add -q "file://$work/subup" secrets
@@ -639,14 +639,14 @@ _: {
             unset GIT_INDEX_FILE
             expect_finding "readable wrong index"
 
-            echo "hook-gitleaks-guards: 21/34 unreadable index refuses before enumeration"
+            echo "hook-gitleaks-guards: 21/38 unreadable index refuses before enumeration"
             new_repo "$work/broken-index"
             mv "$work/broken-index/.git/index" "$work/broken-index/.git/index.saved"
             mkdir "$work/broken-index/.git/index"
             cd "$work/broken-index" && run_hook
             expect_refusal "unreadable index" 'cannot read the index'
 
-            echo "hook-gitleaks-guards: 22/34 valid alternate GIT_DIR is ignored"
+            echo "hook-gitleaks-guards: 22/38 valid alternate GIT_DIR is ignored"
             new_repo "$work/ambient-git-dir"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/ambient-git-dir/token.txt"
             git -C "$work/ambient-git-dir" add -A
@@ -665,7 +665,7 @@ _: {
             # baseline is the reachable shape: this repository carries
             # .gitleaks-baseline.json today, so any shallow checkout hits
             # exactly this combination.
-            echo "hook-gitleaks-guards: 23/34 baseline announcement does not precede a refusal"
+            echo "hook-gitleaks-guards: 23/38 baseline announcement does not precede a refusal"
             new_repo "$work/baseline-then-shallow"
             echo second > "$work/baseline-then-shallow/second.txt"
             git -C "$work/baseline-then-shallow" add -A
@@ -684,7 +684,7 @@ _: {
             # $work/subup, which fixtures 11 through 14 also submodule-add: a
             # baseline file committed into it here would reach their clones too
             # and change what those fixtures are testing.
-            echo "hook-gitleaks-guards: 24/34 gitlink baseline announcement does not precede a refusal"
+            echo "hook-gitleaks-guards: 24/38 gitlink baseline announcement does not precede a refusal"
             git init -q --initial-branch=main "$work/gitlink-baseline-up"
             echo one > "$work/gitlink-baseline-up/one.txt"
             git -C "$work/gitlink-baseline-up" add -A
@@ -714,7 +714,7 @@ _: {
             # wrong layer to prove this at. Cloning straight into that path
             # reproduces the index state a genuine gitlink named this way
             # would have.
-            echo "hook-gitleaks-guards: 25/34 gitlink named with a leading dash is still scanned"
+            echo "hook-gitleaks-guards: 25/38 gitlink named with a leading dash is still scanned"
             git init -q --initial-branch=main "$work/dash-up"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/dash-up/token.txt"
             git -C "$work/dash-up" add -A
@@ -738,7 +738,7 @@ _: {
             # see. Reusing kv_note from fixture 18: committed directly in a
             # superproject file rather than through a private submodule, it
             # is reported only while that pass runs under .gitleaks.toml.
-            echo "hook-gitleaks-guards: 26/34 the superproject pass carries no KV suppression"
+            echo "hook-gitleaks-guards: 26/38 the superproject pass carries no KV suppression"
             new_repo "$work/kv-public"
             printf '%s\n' "$kv_note" > "$work/kv-public/notes.md"
             git -C "$work/kv-public" add -A
@@ -755,7 +755,7 @@ _: {
             # second upstream, merged to produce an actual CONFLICT
             # (submodule), confirmed the shape this reproduces byte for
             # byte before this fixture was written.
-            echo "hook-gitleaks-guards: 27/34 a conflicted gitlink is scanned once, not three times"
+            echo "hook-gitleaks-guards: 27/38 a conflicted gitlink is scanned once, not three times"
             git init -q --initial-branch=main "$work/conflict-up"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/conflict-up/token.txt"
             git -C "$work/conflict-up" add -A
@@ -780,7 +780,7 @@ _: {
             # neither and exiting 0. -z output quotes special bytes unless
             # asked not to, so --cacheinfo (an argument, not --index-info's
             # line-based stdin) is what can register the raw byte here.
-            echo "hook-gitleaks-guards: 28/34 a gitlink path containing a newline is still scanned once"
+            echo "hook-gitleaks-guards: 28/38 a gitlink path containing a newline is still scanned once"
             git init -q --initial-branch=main "$work/newline-up"
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/newline-up/token.txt"
             git -C "$work/newline-up" add -A
@@ -804,7 +804,7 @@ _: {
             # full-history path that check.yml's gitleaks-scan and the manual
             # stage take. Nothing above reaches the range path a real pre-push
             # takes, which is every push a person makes.
-            echo "hook-gitleaks-guards: 29/34 a credential inside the pushed range is reported"
+            echo "hook-gitleaks-guards: 29/38 a credential inside the pushed range is reported"
             new_repo "$work/range"
             range_base=$(git -C "$work/range" rev-parse HEAD)
             printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/range/token.txt"
@@ -823,10 +823,10 @@ _: {
             # sits in the tree at $range_tip and this run does not report it.
             # The announcement is the only thing separating that from a
             # full-history clean, which is why it is asserted here.
-            echo "hook-gitleaks-guards: 30/34 a credential before the pushed range is not rescanned"
+            echo "hook-gitleaks-guards: 30/38 a credential before the pushed range is not rescanned"
             cd "$work/range" && run_hook_range "$range_leak" "$range_tip"
             expect_clean "credential before the pushed range"
-            printf '%s' "$hook_out" | grep -q "superproject pass scoped to $range_leak\.\.$range_tip" \
+            printf '%s' "$hook_out" | grep -q 'superproject pass scoped to the commits no remote-tracking ref reaches' \
               || fail "credential before the pushed range: the scoped pass was not announced"
 
             # gitleaks logs an unresolvable --log-opts range and still prints
@@ -834,7 +834,7 @@ _: {
             # naming no commit here would turn every push into a vacuous green
             # rather than an error. The values arrive in the environment, which
             # is why they are resolved rather than interpolated as given.
-            echo "hook-gitleaks-guards: 31/34 an unresolvable range falls back to the full history"
+            echo "hook-gitleaks-guards: 31/38 an unresolvable range falls back to the full history"
             cd "$work/range" \
               && run_hook_range 0000000000000000000000000000000000000001 "$range_tip"
             expect_finding "unresolvable range"
@@ -846,7 +846,7 @@ _: {
             # nothing and skips the pass. subup carries a credential from
             # fixture 11, so a skip that stopped skipping reports it and fails
             # here rather than passing silently.
-            echo "hook-gitleaks-guards: 32/34 an unmoved gitlink is skipped and says so"
+            echo "hook-gitleaks-guards: 32/38 an unmoved gitlink is skipped and says so"
             new_repo "$work/link-unmoved"
             link_base=$(git -C "$work/link-unmoved" rev-parse HEAD)
             git -C "$work/link-unmoved" -c protocol.file.allow=always \
@@ -867,7 +867,7 @@ _: {
             # pointer reaches is published and must be scanned. Distinct from
             # fixture 11, which reaches this repository through the
             # full-history path.
-            echo "hook-gitleaks-guards: 33/34 a gitlink introduced in the range is scanned"
+            echo "hook-gitleaks-guards: 33/38 a gitlink introduced in the range is scanned"
             cd "$work/link-unmoved" && run_hook_range "$link_base" "$link_added"
             expect_finding "gitlink introduced in the range"
 
@@ -877,7 +877,7 @@ _: {
             # rather than a real bump, because the point is a recorded pointer
             # the checked-out clone cannot resolve; the fallback then scans
             # that clone in full and reports subup's credential.
-            echo "hook-gitleaks-guards: 34/34 a gitlink sha the clone lacks falls back to the full history"
+            echo "hook-gitleaks-guards: 34/38 a gitlink sha the clone lacks falls back to the full history"
             new_repo "$work/link-unfetched"
             git -C "$work/link-unfetched" -c protocol.file.allow=always \
               submodule add -q "file://$work/subup" secrets
@@ -894,7 +894,112 @@ _: {
               | grep -q 'has no commit 0000000000000000000000000000000000000001' \
               || fail "unfetched gitlink sha: the fallback to the full history was not announced"
 
-            echo "hook-gitleaks-guards: all 34 fixtures passed"
+            # The branch a real push here takes: the pointer moves, so the
+            # pass runs against the newly reached commit rather than the full
+            # history. Nothing above ever built this shape: fixture 32 hits
+            # sub_unmoved, fixture 33 hits the else arm (link_old empty), and
+            # fixture 34 discards its two-point range through the unfetched
+            # fallback, so --log-opts was never handed to a submodule pass
+            # that actually reads.
+            echo "hook-gitleaks-guards: 35/38 a bumped gitlink is scoped to the newly reached commit"
+            git init -q --initial-branch=main "$work/bump-up"
+            echo clean > "$work/bump-up/clean.txt"
+            git -C "$work/bump-up" add -A
+            git -C "$work/bump-up" commit -qm clean
+            bump_old=$(git -C "$work/bump-up" rev-parse HEAD)
+            new_repo "$work/bump"
+            git -C "$work/bump" -c protocol.file.allow=always \
+              submodule add -q "file://$work/bump-up" secrets
+            git -C "$work/bump" commit -qm "add a clean submodule"
+            bump_added=$(git -C "$work/bump" rev-parse HEAD)
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/bump-up/token.txt"
+            git -C "$work/bump-up" add -A
+            git -C "$work/bump-up" commit -qm "commit a credential in the submodule"
+            bump_new=$(git -C "$work/bump-up" rev-parse HEAD)
+            git -C "$work/bump/secrets" fetch -q origin main
+            git -C "$work/bump/secrets" checkout -q "$bump_new"
+            git -C "$work/bump" add secrets
+            git -C "$work/bump" commit -qm "bump the gitlink"
+            bump_tip=$(git -C "$work/bump" rev-parse HEAD)
+            cd "$work/bump" && run_hook_range "$bump_added" "$bump_tip"
+            expect_finding "bumped gitlink"
+            printf '%s' "$hook_out" | grep -q "submodule pass scoped to --full-history $bump_new --not $bump_old" \
+              || fail "bumped gitlink: the scoped submodule pass was not announced"
+
+            # The other half of the same read: with the credential commit
+            # already behind the pushed range's start, the pass must not
+            # reach it again.
+            echo "hook-gitleaks-guards: 36/38 a submodule commit behind the range is not rescanned"
+            echo later > "$work/bump-up/later.txt"
+            git -C "$work/bump-up" add -A
+            git -C "$work/bump-up" commit -qm later
+            bump_later=$(git -C "$work/bump-up" rev-parse HEAD)
+            git -C "$work/bump/secrets" fetch -q origin main
+            git -C "$work/bump/secrets" checkout -q "$bump_later"
+            git -C "$work/bump" add secrets
+            git -C "$work/bump" commit -qm "bump the gitlink past the credential"
+            bump_later_tip=$(git -C "$work/bump" rev-parse HEAD)
+            cd "$work/bump" && run_hook_range "$bump_tip" "$bump_later_tip"
+            expect_clean "submodule commit behind the range"
+
+            # The failure a two-point range cannot see: an intermediate
+            # commit bumps the gitlink to a credential-carrying commit, and a
+            # later commit in the same push reverts it to the original value.
+            # $link_old..$link_new alone never walks the intermediate value,
+            # and if $link_old equals $link_new the old equality test read the
+            # pointer as unmoved and skipped the pass outright while the
+            # credential still reached the submodule's own history.
+            echo "hook-gitleaks-guards: 37/38 a gitlink bumped and reverted within one push is still scanned"
+            git init -q --initial-branch=main "$work/revert-up"
+            echo clean > "$work/revert-up/clean.txt"
+            git -C "$work/revert-up" add -A
+            git -C "$work/revert-up" commit -qm clean
+            revert_old=$(git -C "$work/revert-up" rev-parse HEAD)
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/revert-up/token.txt"
+            git -C "$work/revert-up" add -A
+            git -C "$work/revert-up" commit -qm "commit a credential in the submodule"
+            revert_leak=$(git -C "$work/revert-up" rev-parse HEAD)
+            new_repo "$work/revert"
+            git -C "$work/revert" -c protocol.file.allow=always \
+              submodule add -q "file://$work/revert-up" secrets
+            git -C "$work/revert/secrets" checkout -q "$revert_old"
+            git -C "$work/revert" add secrets
+            git -C "$work/revert" commit -qm "add the submodule at the clean commit"
+            revert_added=$(git -C "$work/revert" rev-parse HEAD)
+            git -C "$work/revert/secrets" checkout -q "$revert_leak"
+            git -C "$work/revert" add secrets
+            git -C "$work/revert" commit -qm "bump the gitlink to the credential commit"
+            git -C "$work/revert/secrets" checkout -q "$revert_old"
+            git -C "$work/revert" add secrets
+            git -C "$work/revert" commit -qm "revert the gitlink back to the clean commit"
+            revert_tip=$(git -C "$work/revert" rev-parse HEAD)
+            cd "$work/revert" && run_hook_range "$revert_added" "$revert_tip"
+            expect_finding "gitlink bumped and reverted within one push"
+
+            # hook_impl.py's _pre_push_ns resolves PRE_COMMIT_FROM_REF and
+            # PRE_COMMIT_TO_REF from the first pushed ref only, so a push
+            # carrying a second ref is not described by this pair at all.
+            # Scoping the superproject walk to one ref's two endpoints would
+            # leave a credential on a second, purely local branch this same
+            # push also carries unscanned; --branches covers every local
+            # branch and tag a single push can carry instead of trusting the
+            # pair to name the whole push.
+            echo "hook-gitleaks-guards: 38/38 a second pushed branch outside the reported range is still scanned"
+            new_repo "$work/multiref"
+            multiref_base=$(git -C "$work/multiref" rev-parse HEAD)
+            echo clean > "$work/multiref/clean.txt"
+            git -C "$work/multiref" add -A
+            git -C "$work/multiref" commit -qm "main: a clean commit"
+            multiref_main=$(git -C "$work/multiref" rev-parse HEAD)
+            git -C "$work/multiref" checkout -qb topic "$multiref_base"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/multiref/token.txt"
+            git -C "$work/multiref" add -A
+            git -C "$work/multiref" commit -qm "topic: a credential"
+            git -C "$work/multiref" checkout -q main
+            cd "$work/multiref" && run_hook_range "$multiref_base" "$multiref_main"
+            expect_finding "second pushed branch outside the reported range"
+
+            echo "hook-gitleaks-guards: all 38 fixtures passed"
             touch $out
           '';
     };

@@ -240,9 +240,11 @@ _: {
             # directly, neither with a range, so the merge-path sweep this hook
             # is the only credential gate for still reads everything.
             # hook_impl.py also omits both variables when the push carries a
-            # root commit, which is that same full-history case, and computes
-            # them from the first pushed ref only, so a multi-ref push leaves
-            # the rest to that sweep.
+            # root commit, which is that same full-history case, and resolves
+            # them from the first pushed ref only when a push carries several;
+            # the scopes built below cover every other pushed ref through
+            # --branches --tags rather than trusting this one pair to name the
+            # whole push.
             #
             # Resolved rather than trusted: the values arrive in the
             # environment, they are interpolated into a --log-opts string
@@ -259,6 +261,19 @@ _: {
               else
                 echo "hook-gitleaks: PRE_COMMIT_FROM_REF and PRE_COMMIT_TO_REF do not both name commits in this repository; scanning the full history rather than a range that resolves to nothing" >&2
               fi
+            fi
+
+            # pre-commit's run.py sets this alongside the ref pair on every
+            # pre-push invocation (the same remote_name _pre_push_ns threads
+            # through every branch it returns, root commit included), so it
+            # names the actual push destination. Unscoped --remotes reads
+            # every configured remote's tracking refs as already published; a
+            # second remote (a fork upstream, a mirror) that already holds a
+            # commit this push is the first to send to the real destination
+            # would then hide it from the scoped scan below.
+            remotes_arg="--remotes"
+            if [ -n "''${PRE_COMMIT_REMOTE_NAME:-}" ]; then
+              remotes_arg="--remotes=''${PRE_COMMIT_REMOTE_NAME}"
             fi
 
             super_commits=$(git_in_repo . rev-list --all --count)
@@ -310,12 +325,25 @@ _: {
               # --full-history spelled out: supplying --log-opts replaces
               # gitleaks' whole default argument list, `--full-history --all`
               # included, rather than appending to it.
+              # $range_from..$range_to alone bounds one ref, but hook_impl.py's
+              # _pre_push_ns returns on the first pushed ref that yields a
+              # scope: `git push origin main topic` describes only main here
+              # even though topic also publishes. check.yml's gitleaks-scan
+              # triggers on pull_request and push to main, not an arbitrary
+              # topic push, so a range on one ref would leave any other pushed
+              # ref swept by nothing. --branches --tags --not $range_from
+              # $remotes_arg covers every local branch and tag a single push
+              # can carry, minus whatever the push destination's own
+              # remote-tracking refs already reach; $range_from stays as a
+              # second exclusion for this ref in case its own remote-tracking
+              # ref is not present locally. A stale or absent remote-tracking
+              # ref only widens the walk, never narrows it below range_to.
               # Announced for the reason the baseline announcements below are:
               # a scoped pass prints the same "no leaks found" as one that read
               # every commit, and here that verdict covers only what this push
               # adds.
-              git_args+=(--log-opts "--full-history $range_from..$range_to")
-              echo "hook-gitleaks: superproject pass scoped to $range_from..$range_to, the commits this push publishes; the full history is swept by check.yml's gitleaks-scan" >&2
+              git_args+=(--log-opts "--full-history $range_to --branches --tags --not $range_from $remotes_arg")
+              echo "hook-gitleaks: superproject pass scoped to the commits no remote-tracking ref reaches, which is everything this push can publish; the full history is swept by check.yml's gitleaks-scan" >&2
             fi
             if [ -f ".gitleaks-baseline.json" ]; then
               git_args+=(--baseline-path ".gitleaks-baseline.json")
@@ -345,6 +373,24 @@ _: {
             # pushed is committed, so the git passes already cover it. Guarded
             # because the submodule may not be checked out; .git is a file there,
             # not a directory, so -e not -d.
+            #
+            # Enumerated once here rather than inside the loop below: this list
+            # of newly-published superproject commits does not depend on $sm,
+            # so recomputing it per gitlink would repeat the same rev-list walk
+            # once per submodule. A failure here is not silently treated as "no
+            # commits": the range test below falls back to each gitlink's full
+            # history the same way an unresolvable PRE_COMMIT_FROM/TO_REF pair
+            # already does.
+            range_commits=()
+            if [ -n "$range_to" ]; then
+              if range_commits_raw=$(git_in_repo . rev-list "$range_to" --branches --tags --not "$range_from" "$remotes_arg"); then
+                [ -n "$range_commits_raw" ] && mapfile -t range_commits <<<"$range_commits_raw"
+              else
+                echo "hook-gitleaks: cannot enumerate the commits this push newly publishes; scanning every gitlink's full history instead" >&2
+                range_to=""
+              fi
+            fi
+
             for sm in "''${submodules[@]}"; do
             submodule_config=".gitleaks-gitlink.toml"
             for private_gitlink in "''${private_config_gitlinks[@]}"; do
@@ -371,15 +417,40 @@ _: {
             sub_unmoved=""
             if [ -n "$range_to" ]; then
               if link_new=$(git_in_repo . rev-parse --verify --quiet "$range_to:$sm"); then
-                if link_old=$(git_in_repo . rev-parse --verify --quiet "$range_from:$sm") \
-                  && [ "$link_old" = "$link_new" ]; then
+                link_old=$(git_in_repo . rev-parse --verify --quiet "$range_from:$sm" || true)
+                # Every gitlink value a newly-published commit records, not
+                # only the two range endpoints: a push can carry an
+                # intermediate commit whose pointer is not an ancestor of
+                # $link_new (a bump later reverted, a rebase, a merge resolved
+                # to the other side), and a plain $link_old..$link_new range
+                # never walks it, so the credential it names would go
+                # unscanned; if the revert also restores $link_old exactly, a
+                # two-point equality test reads the pointer as unmoved and
+                # skips the pass outright. range_commits already covers every
+                # branch and tag this push can carry rather than
+                # $range_from..$range_to alone, matching the superproject scope
+                # above, for the same multi-ref reason. Deduplicated through
+                # the same associative-array presence idiom submodule
+                # enumeration above uses, rather than a second, weaker
+                # mechanism for the same problem.
+                link_values=()
+                declare -A link_seen=()
+                for range_commit in "''${range_commits[@]}"; do
+                  if link_at=$(git_in_repo . rev-parse --verify --quiet "$range_commit:$sm") \
+                    && [ "$link_at" != "$link_old" ] \
+                    && [ -z "''${link_seen[$link_at]+set}" ]; then
+                    link_seen[$link_at]=1
+                    link_values+=("$link_at")
+                  fi
+                done
+                if [ "''${#link_values[@]}" -eq 0 ]; then
                   sub_unmoved=1
                 elif [ -n "$link_old" ]; then
-                  sub_log_opts="--full-history $link_old..$link_new"
-                  sub_range_commits=("$link_old" "$link_new")
+                  sub_log_opts="--full-history ''${link_values[*]} --not $link_old"
+                  sub_range_commits=("$link_old" "''${link_values[@]}")
                 else
-                  sub_log_opts="--full-history $link_new"
-                  sub_range_commits=("$link_new")
+                  sub_log_opts="--full-history ''${link_values[*]}"
+                  sub_range_commits=("''${link_values[@]}")
                 fi
               else
                 echo "hook-gitleaks: $range_to records no gitlink at $sm, so this push's range for it is unknown; scanning its full history instead" >&2
@@ -391,7 +462,7 @@ _: {
               # and the push that does move this pointer is what scans the
               # history in between. CI is no backstop here, since gitleaks-scan
               # never checks a gitlink out.
-              echo "hook-gitleaks: $sm/ keeps gitlink $link_new across $range_from..$range_to, so this push publishes no history for it and it was NOT scanned" >&2
+              echo "hook-gitleaks: $sm/ keeps gitlink $link_new across this push, so this push publishes no history for it and it was NOT scanned" >&2
               continue
             fi
             if [ -e "$sm/.git" ]; then
@@ -439,7 +510,7 @@ _: {
                 done
                 if [ -n "$sub_log_opts" ]; then
                   sub_args+=(--log-opts "$sub_log_opts")
-                  echo "hook-gitleaks: submodule pass scoped to $sub_log_opts, the history $sm/ newly reaches across $range_from..$range_to" >&2
+                  echo "hook-gitleaks: submodule pass scoped to $sub_log_opts, the history $sm/ newly reaches in this push" >&2
                 fi
                 # Built after the history guard above rather than before it, for
                 # the reason the superproject's announcement moved below its own
