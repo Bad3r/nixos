@@ -5,7 +5,7 @@ if (( $# == 0 )); then
   return 0
 fi
 
-local unit active
+local unit active name
 local -a parts
 
 for unit in "$@"; do
@@ -14,7 +14,9 @@ for unit in "$@"; do
   else
     active=false
   fi
-  parts+=("{\"service\": \"$unit\", \"is-active\": $active}")
+  # Escaped unit names such as dev-disk-by\x2dlabel-x.device carry backslashes, which JSON must escape.
+  name=${${unit//\\/\\\\}//\"/\\\"}
+  parts+=("{\"service\": \"$name\", \"is-active\": $active}")
 done
 
 print -r -- "[${(j:,:)parts}]"
