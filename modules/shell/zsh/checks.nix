@@ -14,17 +14,23 @@
         inherit pkgs;
         extraSpecialArgs = {
           inherit inputs;
-          # The gates that source code at startup. Alias groups only add strings, so their gates stay off.
+          # The gates that carry zsh code. Alias groups only add strings, so their gates stay off.
           osConfig.programs = {
             libnotify.extended.enable = true;
             forgit.extended = {
               enable = true;
               package = pkgs.zsh-forgit;
             };
+            lazygit.extended = {
+              enable = true;
+              package = pkgs.lazygit;
+            };
           };
         };
         modules = [
           config.flake.homeManagerModules.zsh
+          # Its `lg` wrapper is an autoloaded function of its own.
+          config.flake.homeManagerModules.apps.lazygit
           {
             home = {
               inherit homeDirectory;
