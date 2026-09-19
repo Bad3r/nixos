@@ -86,14 +86,17 @@ _: {
             "--preview '${pkgs.eza}/bin/eza --tree --level=2 --color=always {} | head -200'"
           ];
 
-          # History search with preview showing command
-          historyWidget.options = [
-            "--preview 'echo {}'"
-            "--preview-window=down:3:wrap"
-          ];
+          historyWidget = {
+            # History search with preview showing command
+            options = [
+              "--preview 'echo {}'"
+              "--preview-window=down:3:wrap"
+            ];
 
-          # Yield Ctrl-R to Atuin in nushell; fzf keeps Ctrl-R for zsh/bash.
-          historyWidget.nushell.command = "";
+            # Yield Ctrl-R to Atuin in nushell and zsh; fzf keeps Ctrl-R for bash.
+            nushell.command = "";
+            zsh.command = "";
+          };
 
           # Colors automatically managed by stylix.targets.fzf
         };

@@ -28,6 +28,19 @@ _: {
           enable = true;
           package = null;
         };
+
+        programs.zsh.shellAliases = {
+          rgh = "rg --hidden";
+          rgz = "rg --search-zip";
+          rgi = "rg --ignore-case";
+          rgf = "rg --files";
+          rgt = "rg --type-list";
+          rgp = "rg --pretty";
+          rgj = "rg --json";
+          rgc = "rg --count";
+          rgl = "rg --files-with-matches";
+          rgL = "rg --files-without-match";
+        };
       };
     };
 }

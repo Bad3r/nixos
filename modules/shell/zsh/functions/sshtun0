@@ -1,0 +1,20 @@
+emulate -L zsh
+
+local line addr
+
+line=$(ip -4 -o addr show dev tun0 2>/dev/null)
+if [[ -z $line ]]; then
+  print -u2 -- "sshtun0: tun0 interface not found"
+  return 1
+fi
+
+if [[ $line != *' inet '* ]]; then
+  print -u2 -- "sshtun0: could not determine tun0 address"
+  return 1
+fi
+
+addr=${line#*' inet '}
+addr=${addr%% *}
+addr=${addr%%/*}
+
+ssh -b "$addr" "$@"

@@ -6,7 +6,12 @@
 
 _: {
   flake.homeManagerModules.apps.go =
-    { osConfig, lib, ... }:
+    {
+      config,
+      osConfig,
+      lib,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "go" "extended" "enable" ] false osConfig;
     in
@@ -16,6 +21,9 @@ _: {
           enable = true;
           package = null;
         };
+
+        # `go install` writes here under Go's default GOPATH.
+        home.sessionPath = [ "${config.home.homeDirectory}/go/bin" ];
       };
     };
 }

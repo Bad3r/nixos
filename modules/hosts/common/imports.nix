@@ -72,7 +72,6 @@ in
     config.flake.nixosModules.ssh
     config.flake.nixosModules.bluetooth
     config.flake.nixosModules.nvidia-gpu
-    config.flake.nixosModules.zshKeybindings
 
     # External hardware modules shared by the current fleet
     inputs.nixos-hardware.nixosModules.common-cpu-intel-cpu-only

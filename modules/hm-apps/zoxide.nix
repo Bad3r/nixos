@@ -14,7 +14,17 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.zoxide = {
           enable = true;
-          enableZshIntegration = false;
+          # `j` and `ji` instead of `z` and `zi`.
+          options = [
+            "--cmd"
+            "j"
+          ];
+        };
+
+        programs.zsh.shellAliases = {
+          ja = "zoxide add";
+          jr = "zoxide remove";
+          jri = "zoxide remove -i";
         };
       };
     };

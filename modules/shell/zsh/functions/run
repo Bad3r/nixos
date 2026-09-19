@@ -1,0 +1,10 @@
+# Closes the shell on purpose: the launched program outlives the terminal.
+emulate -L zsh
+
+if (( $# == 0 )); then
+  print -u2 -- "usage: run <command> [args...]"
+  return 1
+fi
+
+"$@" &>/dev/null &!
+exit 0

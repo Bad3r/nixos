@@ -23,6 +23,7 @@ Laf = "Laf"                           # FlatLaf Java look-and-feel suffix
 gost = "gost"                         # GO Simple Tunnel (ginuerzh/gost)
 noice = "noice"                       # Neovim UI plugin (folke/noice.nvim)
 IHS = "IHS"
+cpy = "cpy"                           # zsh clipboard alias (modules/shell/zsh/aliases.nix)
 # NixOS/nixpkgs terms
 facter = "facter"             # nixos-facter-modules
 crypted = "crypted"           # LUKS device mapper name

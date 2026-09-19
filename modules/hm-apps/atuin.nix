@@ -14,7 +14,8 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.atuin = {
           enable = true;
-          enableZshIntegration = false;
+          # The arrows stay on zsh's prefix history search (modules/shell/zsh/keybindings.nix).
+          flags = [ "--disable-up-arrow" ];
         };
       };
     };
