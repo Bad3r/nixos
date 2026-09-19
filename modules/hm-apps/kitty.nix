@@ -40,7 +40,7 @@ _: {
         programs.zsh.shellAliases = {
           kdiff = "kitty +kitten diff";
           kimg = "kitty +kitten icat";
-          kgrep-url = "kitty +kitten hyperlinked_grep -f";
+          kgrep-url = "kitty +kitten hyperlinked_grep";
           kssh = "kitty +kitten ssh";
           sukitty = "sudo setsid kitty";
         };
