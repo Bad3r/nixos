@@ -20,7 +20,8 @@
         gyml = ''grep-smart -r --include="*.yml" --include="*.yaml" "$@"'';
         gconf = ''grep-smart -r --include="*.conf" --include="*.config" "$@"'';
         glog = ''grep-smart -r --include="*.log" "$@"'';
-        gtodo = ''grep-smart -rn "TODO\|FIXME\|HACK\|XXX\|BUG" "$@"'';
+        # The markers are upper case; under grep-smart's -i, BUG would also match "debug".
+        gtodo = ''grep-smart --no-ignore-case -rn "TODO\|FIXME\|HACK\|XXX\|BUG" "$@"'';
         gfunc = ''grep-smart -rn "function\|def\|class" "$@"'';
         gimport = ''grep-smart -rn "import\|require\|include" "$@"'';
         gerr = ''grep-smart -i "error\|warn\|fail\|exception" "$@"'';
