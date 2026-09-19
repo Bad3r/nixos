@@ -68,7 +68,13 @@
               zsh -n "$profile/share/zsh/site-functions/$name"
             done
 
-            mkdir -p ${homeDirectory}
+            # The path is fixed at eval time. Outside the sandbox's private /tmp, a leftover or
+            # planted directory makes mkdir fail instead of being reused or written through.
+            if ! mkdir -m 700 -- ${homeDirectory} 2>/dev/null; then
+              echo "shell/zsh-startup: ${homeDirectory} already exists; this check needs the sandbox's private /tmp" >&2
+              exit 1
+            fi
+            trap 'rm -rf -- ${homeDirectory}' EXIT
             cp -rs "$files"/. ${homeDirectory}/
             chmod -R u+w ${homeDirectory}
             HOME=${homeDirectory} NIX_PROFILES="$profile" TERM=xterm-256color \
