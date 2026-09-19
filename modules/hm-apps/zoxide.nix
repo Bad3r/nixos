@@ -15,7 +15,10 @@ _: {
         programs.zoxide = {
           enable = true;
           # `j` and `ji` instead of `z` and `zi`.
-          options = [ "--cmd j" ];
+          options = [
+            "--cmd"
+            "j"
+          ];
         };
 
         programs.zsh.shellAliases = {
