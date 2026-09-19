@@ -9,7 +9,7 @@
         envgrep = ''env | grep-smart "$@"'';
         gip = ''grep-smart -oE "\b([0-9]{1,3}\.){3}[0-9]{1,3}\b" "$@"'';
         gemail = ''grep-smart -oE "\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b" "$@"'';
-        gurl = ''grep-smart -oE "https?://[^\s]+" "$@"'';
+        gurl = ''grep-smart -oE "https?://[^[:space:]]+" "$@"'';
         gphone = ''grep-smart -oE "\b[0-9]{3}[-.]?[0-9]{3}[-.]?[0-9]{4}\b" "$@"'';
         gpy = ''grep-smart -r --include="*.py" "$@"'';
         gjs = ''grep-smart -r --include="*.js" "$@"'';
