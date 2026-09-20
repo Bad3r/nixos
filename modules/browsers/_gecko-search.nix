@@ -59,7 +59,7 @@ _: {
           Description = "Search packages on search.nixos.org.";
           Alias = "@nix";
           Method = "GET";
-          URLTemplate = "https://search.nixos.org/packages?query={searchTerms}";
+          URLTemplate = "https://search.nixos.org/packages?channel=unstable&query{searchTerms}";
           IconURL = "https://search.nixos.org/favicon-96x96.png";
         }
         {

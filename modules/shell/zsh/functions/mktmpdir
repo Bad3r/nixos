@@ -1,0 +1,32 @@
+# An EXIT trap set inside a zsh function fires when the function returns, hence the zshexit hook.
+_mktmpdir_cleanup() {
+  local dir
+  for dir in $_mktmpdir_dirs; do
+    [[ -d $dir ]] && command rm -rf -- $dir
+  done
+}
+
+typeset -ga _mktmpdir_dirs
+
+local base_dir="${1:-${TMPDIR:-/tmp}}"
+local dir
+
+dir=$(mktemp -d --tmpdir="$base_dir") || {
+  print -u2 -- "mktmpdir: mktemp failed (check that '$base_dir' exists and is writable)"
+  return 1
+}
+
+if [[ -z $dir || ! -d $dir ]]; then
+  print -u2 -- "mktmpdir: mktemp returned an invalid path"
+  return 1
+fi
+
+_mktmpdir_dirs+=("$dir")
+
+autoload -Uz add-zsh-hook
+add-zsh-hook zshexit _mktmpdir_cleanup
+
+cd -- "$dir" || return 1
+
+print -r -- "[i] $dir"
+print -r -- "[!] (will be removed on shell exits)"

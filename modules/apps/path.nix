@@ -68,10 +68,10 @@ let
         }
       '';
 
-      zshCompletion = ''
-        if [ -n "''${ZSH_VERSION-}" ] && type compdef >/dev/null 2>&1; then
-          compdef _files path
-        fi
+      # On fpath, so it registers under whichever compinit runs: the global one or a user's own.
+      zshCompletion = pkgs.writeTextDir "share/zsh/site-functions/_path" ''
+        #compdef path
+        _files
       '';
 
       bashCompletion = ''
@@ -97,10 +97,9 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        programs.zsh.interactiveShellInit = lib.mkAfter ''
-          ${pathFunction}
-          ${zshCompletion}
-        '';
+        environment.systemPackages = [ zshCompletion ];
+
+        programs.zsh.interactiveShellInit = lib.mkAfter pathFunction;
 
         programs.bash.interactiveShellInit = lib.mkAfter ''
           ${pathFunction}

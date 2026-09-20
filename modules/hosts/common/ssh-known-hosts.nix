@@ -2,8 +2,10 @@
 # fleet members' host keys in /etc/ssh/ssh_known_hosts, so the first
 # connection between fleet hosts is never trust-on-first-use (issue #349).
 # Each host's own key is pinned separately by nixosModules.ssh from
-# services.openssh.publicKey. The tailnet FQDN is intentionally not listed:
-# this repository is public and the MagicDNS name is not disclosed here.
+# services.openssh.publicKey. Each <host>.internal name is pinned here too; its
+# address is resolved at runtime from the SOPS-backed hosts file.
+# The tailnet FQDN is intentionally not listed: this repository is public
+# and the MagicDNS name is not disclosed here.
 # GitHub's key is pinned for the same reason: the github.com alias in
 # modules/networking/ssh-hosts.nix routes through ssh.github.com:443, and
 # non-interactive git (plugin marketplaces, submodules) fails on an unknown key.
@@ -27,6 +29,7 @@ let
             hostNames = [
               name
               "${name}.local"
+              "${name}.internal"
             ];
             inherit publicKey;
           }

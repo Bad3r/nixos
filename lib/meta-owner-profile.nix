@@ -1,3 +1,6 @@
+let
+  fleetSshPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHxTLwyGcLkZ0oxOw9lA/bMgwG/9N0YgJR+jGj2jQxsL ssh@unsigned.sh";
+in
 {
   username = "vx";
   email = "bad3r@unsigned.sh";
@@ -10,7 +13,7 @@
     email = "25513724+Bad3r@users.noreply.github.com";
   };
 
-  sshKeys = [
-    "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAlBCQzhqKBSRIVkh1p1QNN6IXzGQr91LgQl4FU9vtZx ssh@unsigned.sh"
-  ];
+  inherit fleetSshPublicKey;
+  sshKeys = [ fleetSshPublicKey ];
+  gitSigningPublicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJDNTENPappbhPz4AqjvRmWBO0m2oS/mkej/pgN0F6fM";
 }

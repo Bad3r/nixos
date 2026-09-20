@@ -17,7 +17,9 @@
 - [architecture/host-file-inventory.md](architecture/host-file-inventory.md)
   - Maps host-owned files to their responsibilities and separates them from shared host composition.
 - [architecture/06-reference.md](architecture/06-reference.md)
-  - Quick reference for validation commands, troubleshooting common issues, introspection via REPL, and glossary of terms.
+  - Quick reference for validation commands, credential scanning scope, introspection via REPL, dev shell helpers, and glossary of terms.
+- [architecture/07-troubleshooting.md](architecture/07-troubleshooting.md)
+  - Symptoms that come up while working in the repository, each paired with its resolution.
 
 ## Claude Code
 
@@ -54,6 +56,12 @@
   - Practical Cloudflare Containers examples and application patterns.
 - [cloudflare/containers/limitations-roadmap.md](cloudflare/containers/limitations-roadmap.md)
   - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
+- [cloudflare/warp/README.md](cloudflare/warp/README.md)
+  - Cloudflare WARP on the fleet: service-token enrollment, per-host mode, Mesh reachability, coexistence.
+- [cloudflare/warp/deployment.md](cloudflare/warp/deployment.md)
+  - Runbook: Cloudflare objects, the sops payload, host enrollment, recording the Mesh address, token rotation.
+- [cloudflare/warp/troubleshooting.md](cloudflare/warp/troubleshooting.md)
+  - WARP symptoms with cause, diagnostic, and fix.
 
 ## Songbird
 
@@ -120,6 +128,8 @@
   - Age identity, secrets submodule, backup manifest, SSH host key pin, and primary handoff for a new host.
 - [guides/nix-debugging-manual.md](guides/nix-debugging-manual.md)
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
+- [guides/qbittorrent-web-ui-setup.md](guides/qbittorrent-web-ui-setup.md)
+  - Setting up the qBittorrent Web UI, with optional desktop profile import and Songbird as the host example.
 - [guides/stylix-integration.md](guides/stylix-integration.md)
   - Stylix theming integration covering NixOS vs Home Manager targets, autoEnable behavior, and common pitfalls.
 - [guides/tray-icon-theming.md](guides/tray-icon-theming.md)
@@ -140,7 +150,13 @@
 ## Networking
 
 - [networking/README.md](networking/README.md)
-  - NetworkManager MAC-address policies, the re-keying step the `"stable"` cutover needs, systemd-udevd `.link` policies, and temporary macchanger commands.
+  - NetworkManager MAC-address policies and temporary macchanger commands.
+- [networking/interface-names.md](networking/interface-names.md)
+  - Pinning interface names under `net.ifnames=0` and narrowing alternative names without a pin.
+- [networking/link-policy.md](networking/link-policy.md)
+  - systemd-udevd `.link` address policies, device matching, and when a change applies.
+- [networking/stable-mac-rekey.md](networking/stable-mac-rekey.md)
+  - Re-keying DHCP reservations and MAC allowlists after the `"stable"` cutover and after profile, name, or identity changes.
 
 ## mpv
 
@@ -219,6 +235,8 @@
   - Collection of handy general-purpose CLI commands not tied to NixOS or this repository.
 - [reference/worktree-prune.md](reference/worktree-prune.md)
   - Pruning of local branches with gone upstreams and their worktrees, the scheduled cleanup timer, safety guarantees, and recovery paths.
+- [reference/zsh.md](reference/zsh.md)
+  - Layout of the owner's Home Manager zsh module, its startup order, where each kind of change goes, and its flake check.
 
 ## Security
 

@@ -1,0 +1,12 @@
+if [[ $1 == -h || $1 == --help ]]; then
+  print -r -- "usage: cd-gitroot [path]"
+  return 0
+fi
+
+local root
+root=$(git rev-parse --show-toplevel 2>/dev/null) || {
+  print -u2 -- "cd-gitroot: not a git repository"
+  return 1
+}
+
+cd -- "$root${1:+/$1}"

@@ -35,10 +35,30 @@ _: {
   flake.homeManagerModules.apps.lazygit =
     { osConfig, lib, ... }:
     let
-      enabled = lib.attrByPath [ "programs" "lazygit" "extended" "enable" ] false osConfig;
+      cfg = lib.attrByPath [ "programs" "lazygit" "extended" ] { enable = false; } osConfig;
     in
     {
-      config = lib.mkIf enabled {
+      config = lib.mkIf cfg.enable {
+        # Home Manager's own `lg` drops lazygit's exit status and cds without checking the path.
+        programs.zsh.siteFunctions.lg = ''
+          local -x LAZYGIT_NEW_DIR_FILE="''${XDG_CACHE_HOME:-$HOME/.cache}/lazygit/newdir"
+          local lazygit_status lazygit_new_dir
+
+          mkdir -p -- "''${LAZYGIT_NEW_DIR_FILE:h}"
+          ${lib.getExe cfg.package} "$@"
+          lazygit_status=$?
+
+          if [[ -f $LAZYGIT_NEW_DIR_FILE ]]; then
+            lazygit_new_dir="$(<$LAZYGIT_NEW_DIR_FILE)"
+            rm -f -- "$LAZYGIT_NEW_DIR_FILE"
+            if [[ -n $lazygit_new_dir && -d $lazygit_new_dir ]]; then
+              cd -- "$lazygit_new_dir"
+            fi
+          fi
+
+          return $lazygit_status
+        '';
+
         programs.lazygit = {
           enable = true;
           enableZshIntegration = false;

@@ -25,7 +25,8 @@
 \bopen items?\b
 
 # Meta commentary and thought stream
-\bthis (document|page)\b
+\bthis (document|page|guide|file|report|inventory)\b
+\bfor completeness\b
 \bnote that\b
 \bit is worth\b
 \bkeep in mind\b

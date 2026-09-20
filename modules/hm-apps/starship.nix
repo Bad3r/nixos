@@ -12,10 +12,7 @@ _: {
     in
     {
       config = lib.mkIf nixosEnabled {
-        programs.starship = {
-          enable = true;
-          enableZshIntegration = false;
-        };
+        programs.starship.enable = true;
       };
     };
 }

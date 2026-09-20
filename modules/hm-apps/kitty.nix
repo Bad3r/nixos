@@ -37,10 +37,16 @@ _: {
     in
     {
       config = lib.mkIf nixosEnabled {
+        programs.zsh.shellAliases = {
+          kdiff = "kitty +kitten diff";
+          kimg = "kitty +kitten icat";
+          kgrep-url = "kitty +kitten hyperlinked_grep";
+          kssh = "kitty +kitten ssh";
+          sukitty = "sudo setsid kitty";
+        };
+
         programs.kitty = {
           enable = true;
-          # NixOS-managed zsh sources kitty integration in hosts/common/zsh.nix.
-          shellIntegration.enableZshIntegration = false;
           # Ensure kitty is set as default terminal in user session
           settings = {
             # Font and glyph handling

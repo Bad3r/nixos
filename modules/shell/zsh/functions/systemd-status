@@ -1,0 +1,22 @@
+emulate -L zsh
+
+if (( $# == 0 )); then
+  print -r -- '[]'
+  return 0
+fi
+
+local unit active name
+local -a parts
+
+for unit in "$@"; do
+  if systemctl is-active "$unit" &>/dev/null; then
+    active=true
+  else
+    active=false
+  fi
+  # Escaped unit names such as dev-disk-by\x2dlabel-x.device carry backslashes, which JSON must escape.
+  name=${${unit//\\/\\\\}//\"/\\\"}
+  parts+=("{\"service\": \"$name\", \"is-active\": $active}")
+done
+
+print -r -- "[${(j:,:)parts}]"

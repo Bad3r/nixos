@@ -307,6 +307,10 @@ let
         desktop = "org.qbittorrent.qBittorrent.desktop";
         module = "qbittorrent";
       };
+      "qbittorrent-webui" = {
+        desktop = "qbittorrent-webui.desktop";
+        module = "qbittorrent-webui";
+      };
     };
 
     remoteDesktopClient = {

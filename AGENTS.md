@@ -162,9 +162,9 @@ input is a `https://github.com/owner/repo/` URL. For example,
 `tridactyl/tridactyl` maps to `/data/git/tridactyl-tridactyl`.
 
 The full path inventory lives in `docs/reference/local-mirrors.md`. When a
-common mirror is added or removed, keep `docs/reference/local-mirrors.md`,
-`docs/architecture/06-reference.md`, and `modules/agents/system-prompt.nix` in
-sync with `modules/hosts/common/mirrors.nix`.
+common mirror is added or removed, keep that page and
+`modules/agents/system-prompt.nix` in sync with
+`modules/hosts/common/mirrors.nix`.
 
 ## Execution Playbooks
 
@@ -238,6 +238,12 @@ gives the primary-checkout form.
   - Command: `nix develop path:. -c pre-commit run --all-files --hook-stage manual`
   - Preconditions: Dev shell ready; workspace writable.
   - Post-check: Exit code 0; review reported TODOs/failures.
+- Sweep credential history
+  - Command: `nix run path:.#hook-gitleaks`
+  - Preconditions: Complete, non-shallow clone; the hook refuses a shallow one
+    rather than reporting it clean. Scope rules, including the narrower range
+    read at `pre-push`, are in `docs/architecture/06-reference.md`.
+  - Post-check: Exit code 0; one result line per repository scanned.
 - Generate artifacts
   - Command: `nix develop path:. --accept-flake-config -c write-files --offline`
   - Preconditions: Dev shell ready; managed files may update.
