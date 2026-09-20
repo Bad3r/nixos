@@ -339,6 +339,31 @@
         '';
       };
 
+      # Session power menu, laid out by ~/.config/rofi/powermenu.rasi (modules/hm-apps/rofi.nix)
+      powerMenuScript = pkgs.writeShellApplication {
+        name = "power-menu-rofi";
+        runtimeInputs = [
+          pkgs.i3
+          pkgs.rofi
+          pkgs.systemd
+        ];
+        text = ''
+          set -euo pipefail
+
+          chosen=$(printf '%s\n' Lock Logout Suspend Hibernate Reboot Shutdown Cancel |
+            rofi -dmenu -i -config "$HOME/.config/rofi/powermenu.rasi" || true)
+
+          case "$chosen" in
+            Lock) exec ${lockCommandValue} ;;
+            Logout) i3-msg exit ;;
+            Suspend) systemctl suspend ;;
+            Hibernate) systemctl hibernate ;;
+            Reboot) systemctl reboot ;;
+            Shutdown) systemctl poweroff ;;
+          esac
+        '';
+      };
+
       commandsDefault = {
         launcher = "${lib.getExe pkgs.rofi} -config ~/.config/rofi/rofidmenu.rasi -modi drun -show drun";
         terminal = lib.getExe pkgs.kitty;
@@ -353,6 +378,7 @@
         logseqToggle = lib.getExe toggleLogseqScript;
         raindropToggle = lib.getExe toggleRaindropScript;
         powerProfile = lib.getExe powerProfileScript;
+        powerMenu = lib.getExe powerMenuScript;
         focusOrLaunch = lib.getExe pkgs.i3-focus-or-launch;
       };
 

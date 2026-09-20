@@ -270,6 +270,16 @@ _: {
             '';
           };
         };
+
+        # The diff kitten behind the kdiff alias reads this file, not kitty.conf.
+        xdg.configFile."kitty/diff.conf".text = ''
+          syntax_aliases pyj:py pyi:py recipe:py zsh:bash
+          replace_tab_by \x20\x20
+          ignore_name .git
+          ignore_name *~
+          ignore_name *.pyc
+          ignore_name .zshcomp*
+        '';
       };
     };
 }
