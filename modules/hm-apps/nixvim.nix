@@ -1413,7 +1413,19 @@ _: {
                 }
                 {
                   mode = "v";
+                  key = "<S-Tab>";
+                  action = "<gv";
+                  options.desc = "Indent left";
+                }
+                {
+                  mode = "v";
                   key = ">";
+                  action = ">gv";
+                  options.desc = "Indent right";
+                }
+                {
+                  mode = "v";
+                  key = "<Tab>";
                   action = ">gv";
                   options.desc = "Indent right";
                 }
