@@ -7,7 +7,6 @@ let
     "antigravity-cli"
     "atuin"
     "autorandr"
-    "bat"
     "bottom"
     "bun"
     "claude-code"
@@ -21,7 +20,6 @@ let
     "feh"
     "file-roller"
     "flameshot"
-    "fzf"
     "gcc"
     "gemini-cli"
     "git"
@@ -32,7 +30,6 @@ let
     "htop"
     "i3-config"
     "jq"
-    "kitty"
     "lazydocker"
     "lazygit"
     "less"
@@ -73,7 +70,23 @@ let
     name:
     flakeHmApps.${name}
       or (throw "Home Manager app module '${name}' not found in flake.homeManagerModules.apps");
-  sharedAppModules = map getAppModule sharedAppNames;
+
+  # modules/home-manager/nixos.nix already imports these for the owner, and sharedModules imports
+  # the lists below too: a name in both evaluates its module twice, doubling list and `lines` options.
+  defaultAppNames = config.flake.lib.homeManager.defaultAppImports;
+  rejectLoadedTwice =
+    listName: loadedElsewhere: names:
+    let
+      repeated = lib.intersectLists loadedElsewhere names;
+    in
+    if repeated == [ ] then
+      names
+    else
+      throw "${listName} repeats Home Manager apps that already load elsewhere, which evaluates their modules twice: ${lib.concatStringsSep ", " repeated}";
+
+  sharedAppModules = map getAppModule (
+    rejectLoadedTwice "sharedAppNames" defaultAppNames sharedAppNames
+  );
 
   # Browsers register under flake.homeManagerModules.browsers (see
   # modules/browsers/); they are composed through sharedModules only because
@@ -102,7 +115,9 @@ let
     { hostName, ... }:
     let
       hostAppNames = (hostsRegistry.${hostName} or { }).extraHomeApps or [ ];
-      hostAppModules = map getAppModule hostAppNames;
+      hostAppModules = map getAppModule (
+        rejectLoadedTwice "hosts.${hostName}.extraHomeApps" (defaultAppNames ++ sharedAppNames) hostAppNames
+      );
     in
     {
       config = {

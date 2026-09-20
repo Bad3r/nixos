@@ -177,6 +177,9 @@ let
 
 in
 {
+  # modules/hosts/common/home-manager-apps.nix rejects shared and host app lists that repeat these.
+  flake.lib.homeManager.defaultAppImports = defaultAppImports;
+
   flake.nixosModules = {
     base = {
       imports = [ inputs.home-manager.nixosModules.home-manager ];
