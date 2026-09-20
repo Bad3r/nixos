@@ -359,10 +359,18 @@ in
           # Set dark mode preference for GNOME/libadwaita apps
           dconf.settings."org/gnome/desktop/interface".color-scheme = "prefer-dark";
 
-          # Legacy GTK3 apps still use this key for dark theme variants
-          gtk.gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
-          # GTK settings.ini drives plain GTK apps that do not consume GNOME dconf
-          gtk.colorScheme = "dark";
+          gtk = {
+            # Legacy GTK3 apps still use this key for dark theme variants
+            gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
+            # Read-only at runtime: bookmarks added from a file chooser do not persist.
+            gtk3.bookmarks = [
+              "file:///data/Docs Docs"
+              "file:///data data"
+              "file:///data/Projects Projects"
+            ];
+            # GTK settings.ini drives plain GTK apps that do not consume GNOME dconf
+            colorScheme = "dark";
+          };
         };
     };
 
