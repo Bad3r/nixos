@@ -51,39 +51,47 @@ _: {
               sukitty = "sudo setsid kitty";
             };
 
+            # As an alias, kssh inherited _kitty through alias substitution; a function
+            # gets _default (plain files) instead, and it forwards ssh's own arguments.
             initContent = ''
-              kssh() {
-                emulate -L zsh
-                setopt pipe_fail
+              compdef kssh=ssh
+            '';
 
-                local cache="''${XDG_CACHE_HOME:-$HOME/.cache}/kitty/kitty-themes.zip"
-                local theme
+            siteFunctions.kssh = ''
+              emulate -L zsh
+              setopt pipe_fail
 
-                if [[ ! -r "$cache" ]]; then
-                  print -u2 'Initializing Kitty theme catalog...'
-                  if ! command kitty +kitten themes --dump-theme Default >/dev/null; then
-                    print -u2 'kssh: failed to initialize the Kitty theme catalog'
-                    return 1
-                  fi
-                fi
+              local cache="''${XDG_CACHE_HOME:-$HOME/.cache}/kitty/kitty-themes.zip"
+              local theme
 
+              # -r alone accepts a truncated archive, which would then fail every call.
+              if [[ ! -r "$cache" ]] || ! ${lib.getExe pkgs.unzip} -l "$cache" >/dev/null 2>&1; then
+                print -u2 -- 'kssh: initializing the Kitty theme catalog'
+                command rm -f -- "$cache"
+                command kitty +kitten themes --dump-theme Default >/dev/null ||
+                  print -u2 -- 'kssh: failed to initialize the Kitty theme catalog'
+              fi
+
+              if [[ -r "$cache" ]]; then
                 if ! theme="$(
-                  ${pkgs.unzip}/bin/unzip -p "$cache" '*/themes.json' |
-                    ${pkgs.jq}/bin/jq -r '.[] | select(.name != "Default") | .name' |
-                    ${pkgs.coreutils}/bin/shuf -n 1
+                  ${lib.getExe pkgs.unzip} -p "$cache" '*/themes.json' |
+                    ${lib.getExe pkgs.jq} -r '.[] | select(.name != "Default") | .name' |
+                    ${lib.getExe' pkgs.coreutils "shuf"} -n 1
                 )"; then
-                  print -u2 "kssh: failed to read the Kitty theme catalog: $cache"
-                  return 1
+                  print -u2 -- "kssh: failed to read the Kitty theme catalog: $cache"
+                elif [[ -z "$theme" ]]; then
+                  print -u2 -- "kssh: no non-default themes found in the Kitty theme catalog: $cache"
                 fi
+              fi
 
-                if [[ -z "$theme" ]]; then
-                  print -u2 "kssh: no non-default themes found in the Kitty theme catalog: $cache"
-                  return 1
-                fi
-
-                print -u2 "Kitty SSH theme: $theme"
+              # A theme-catalog failure degrades to an unthemed session rather than
+              # blocking the connection: cosmetics never gate SSH connectivity.
+              if [[ -n "$theme" ]]; then
+                print -u2 -- "kssh: theme $theme"
                 command kitty +kitten ssh --kitten "color_scheme=$theme" "$@"
-              }
+              else
+                command kitty +kitten ssh "$@"
+              fi
             '';
           };
 
