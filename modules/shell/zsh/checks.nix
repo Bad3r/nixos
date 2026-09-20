@@ -25,12 +25,15 @@
               enable = true;
               package = pkgs.lazygit;
             };
+            kitty.extended.enable = true;
           };
         };
         modules = [
           config.flake.homeManagerModules.zsh
           # Its `lg` wrapper is an autoloaded function of its own.
           config.flake.homeManagerModules.apps.lazygit
+          # Same for its `kssh` wrapper.
+          config.flake.homeManagerModules.apps.kitty
           {
             home = {
               inherit homeDirectory;
