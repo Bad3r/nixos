@@ -1411,8 +1411,10 @@ _: {
                   action = "<gv";
                   options.desc = "Indent left";
                 }
+                # x, not v: v also claims Select mode, where cmp's own Tab/S-Tab
+                # mapping (modes i and s) lives.
                 {
-                  mode = "v";
+                  mode = "x";
                   key = "<S-Tab>";
                   action = "<gv";
                   options.desc = "Indent left";
@@ -1424,7 +1426,7 @@ _: {
                   options.desc = "Indent right";
                 }
                 {
-                  mode = "v";
+                  mode = "x";
                   key = "<Tab>";
                   action = ">gv";
                   options.desc = "Indent right";
