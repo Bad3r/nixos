@@ -551,6 +551,7 @@ let
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
       "input-remapper".extended.enable = lib.mkOverride 1100 true;
+      "nextcloud-client".extended.enable = lib.mkOverride 1100 false;
       pcscd.extended.enable = lib.mkOverride 1100 true;
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 false;
       thinkfan.extended.enable = lib.mkOverride 1100 false;

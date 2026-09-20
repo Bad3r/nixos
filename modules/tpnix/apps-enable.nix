@@ -46,6 +46,7 @@ let
     "minio-client" = false;
     mpv = false;
     "msgraph-cli" = false;
+    "nextcloud-client" = true;
     onlyoffice-desktopeditors = false;
     opendirectorydownloader = false;
     parted = false;
