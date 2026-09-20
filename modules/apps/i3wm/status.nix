@@ -22,6 +22,10 @@
       i3statusBlocks = [
         netBlock
         {
+          block = "uptime";
+          interval = 3600;
+        }
+        {
           block = "disk_space";
           path = "/";
           info_type = "available";
