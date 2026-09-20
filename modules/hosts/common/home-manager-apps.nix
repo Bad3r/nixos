@@ -14,6 +14,7 @@ let
     "dive"
     "docker-compose"
     "doom-emacs"
+    "dunst"
     "element-desktop"
     "espanso"
     "fd"
