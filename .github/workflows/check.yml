@@ -40,7 +40,9 @@ jobs:
     # the six hour job default.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      # yamllint disable rule:line-length
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # yamllint enable rule:line-length
         with:
           # Full history: the hook scans commits, not the worktree.
           fetch-depth: 0
@@ -65,11 +67,13 @@ jobs:
   flake-lock-health:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      # yamllint disable rule:line-length
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
         with:
           persist-credentials: false
       - name: Check Nixpkgs lock health
-        uses: DeterminateSystems/flake-checker-action@v13
+        uses: DeterminateSystems/flake-checker-action@de924abd783455e8429c858962b9e43062d19da1  # v13
+      # yamllint enable rule:line-length
         with:
           send-statistics: false
           fail-mode: true
@@ -87,7 +91,9 @@ jobs:
     # job default.
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      # yamllint disable rule:line-length
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # yamllint enable rule:line-length
         with:
           persist-credentials: false
       - name: Install Lix
@@ -168,7 +174,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      # yamllint disable rule:line-length
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # yamllint enable rule:line-length
         with:
           persist-credentials: false
       - name: Install Lix
@@ -187,7 +195,9 @@ jobs:
     runs-on: ubuntu-latest
     # No Nix here: every step is plain grep/awk/find over the checkout.
     steps:
-      - uses: actions/checkout@v7
+      # yamllint disable rule:line-length
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # yamllint enable rule:line-length
         with:
           persist-credentials: false
       - name: Validate namespaces
