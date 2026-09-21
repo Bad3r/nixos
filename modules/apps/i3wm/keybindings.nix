@@ -191,6 +191,7 @@
               "${mod}+Shift+e" = "exec systemctl suspend";
               "${mod}+Control+l" = "exec ${lockCommand}";
               "${mod}+Shift+p" = "exec --no-startup-id ${commands.powerProfile}";
+              "${mod}+x" = "exec --no-startup-id ${commands.powerMenu}";
 
               # Layout
               "${mod}+semicolon" = "split horizontal";
