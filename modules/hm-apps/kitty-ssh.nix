@@ -111,7 +111,7 @@ _: {
             case "$port" in
               0?*) reject "port must not have a leading zero" ;;
               *[!0-9]*) reject "port must be numeric" ;;
-              ?????*) reject "port out of range" ;;
+              ??????*) reject "port out of range" ;;
             esac
             if [ "$port" -lt 1 ] || [ "$port" -gt 65535 ]; then
               reject "port out of range"
