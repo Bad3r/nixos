@@ -22,7 +22,17 @@
     * `kitty @ set-font-size 14` -- Adjust the font size of a running instance via remote control.
 */
 
-_: {
+{ inputs, lib, ... }:
+let
+  # kssh's randomized theme set: tinted-kitty's pre-built kitty confs, already in the lock graph via stylix.
+  kittyThemesDir = "${inputs.stylix.inputs.tinted-kitty}/colors";
+  kittyThemeFiles = lib.pipe (builtins.readDir kittyThemesDir) [
+    (lib.filterAttrs (name: type: type == "regular" && lib.hasSuffix ".conf" name))
+    lib.attrNames
+    (map (name: "${kittyThemesDir}/${name}"))
+  ];
+in
+{
   flake.homeManagerModules.apps.kitty =
     {
       osConfig,
@@ -59,39 +69,11 @@ _: {
 
             siteFunctions.kssh = ''
               emulate -L zsh
-              setopt pipe_fail
 
-              local cache="''${XDG_CACHE_HOME:-$HOME/.cache}/kitty/kitty-themes.zip"
-              local theme
-
-              # -r alone accepts a truncated archive, which would then fail every call.
-              if [[ ! -r "$cache" ]] || ! ${lib.getExe pkgs.unzip} -l "$cache" >/dev/null 2>&1; then
-                print -u2 -- 'kssh: initializing the Kitty theme catalog'
-                command rm -f -- "$cache"
-                command kitty +kitten themes --dump-theme Default >/dev/null ||
-                  print -u2 -- 'kssh: failed to initialize the Kitty theme catalog'
-              fi
-
-              if [[ -r "$cache" ]]; then
-                if ! theme="$(
-                  ${lib.getExe pkgs.unzip} -p "$cache" '*/themes.json' |
-                    ${lib.getExe pkgs.jq} -r '.[] | select(.name != "Default") | .name' |
-                    ${lib.getExe' pkgs.coreutils "shuf"} -n 1
-                )"; then
-                  print -u2 -- "kssh: failed to read the Kitty theme catalog: $cache"
-                elif [[ -z "$theme" ]]; then
-                  print -u2 -- "kssh: no non-default themes found in the Kitty theme catalog: $cache"
-                fi
-              fi
-
-              # A theme-catalog failure degrades to an unthemed session rather than
-              # blocking the connection: cosmetics never gate SSH connectivity.
-              if [[ -n "$theme" ]]; then
-                print -u2 -- "kssh: theme $theme"
-                command kitty +kitten ssh --kitten "color_scheme=$theme" "$@"
-              else
-                command kitty +kitten ssh "$@"
-              fi
+              local -a themes=(${lib.concatMapStringsSep " " (path: "'${path}'") kittyThemeFiles})
+              local theme="$(${lib.getExe' pkgs.coreutils "shuf"} -n1 -e -- "''${themes[@]}")"
+              print -u2 -- "kssh: theme ''${theme:t:r}"
+              command kitty +kitten ssh --kitten "color_scheme=$theme" "$@"
             '';
           };
 
