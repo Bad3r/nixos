@@ -11,7 +11,8 @@
         enable = true;
         package = config.boot.kernelPackages.nvidiaPackages.production;
         open = false;
-        vaapi.backend = "nvidia";
+        # T500 (TU117GLM, 10de:1fbb) has 0 NVDEC engines; route decode to the Iris Xe iGPU.
+        vaapi.backend = "intel-media";
         # PRIME sync with the chassis default bus IDs (PCI:0:2:0 / PCI:1:0:0).
         prime.enable = true;
       };
