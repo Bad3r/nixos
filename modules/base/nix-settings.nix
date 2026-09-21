@@ -1,8 +1,8 @@
 { lib, ... }:
 let
   settings = {
-    # Auto-trust flake nixConfig settings (safe for own repositories)
-    accept-flake-config = true;
+    # Decline flake nixConfig; owner keeps trusted-user status (issue #345).
+    accept-flake-config = false;
     # Disabled due to upstream nixpkgs warning in make-options-doc
     # See: https://github.com/NixOS/nixpkgs/issues/485682
     abort-on-warn = false;
