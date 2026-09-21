@@ -10,7 +10,6 @@ Run the following before every push:
 nix run path:.#treefmt -- .
 nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh
 nix develop path:. -c pre-commit run --all-files --hook-stage manual
-nix run path:.#generation-manager -- score   # target: 20/20
 nix flake check path:. --accept-flake-config --no-build --offline
 ```
 
@@ -54,7 +53,6 @@ review and cannot be turned off.
 | `nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh`    | Sync shared git hooks and absolute config for all linked worktrees |
 | `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, gitleaks)          |
 | `nix run path:.#hook-gitleaks`                                         | Sweep the full history for credentials, the scan CI runs           |
-| `nix run path:.#generation-manager -- score`                           | Evaluate Dendritic pattern compliance                              |
 | `nix flake check path:. --accept-flake-config`                         | Full flake validation (with builds/checks)                         |
 | `nix flake check path:. --accept-flake-config --no-build --offline`    | Fast offline evaluation-only check                                 |
 
@@ -98,13 +96,12 @@ nix eval "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
 
 Available after `nix develop path:.`:
 
-| Command                    | Purpose                                |
-| -------------------------- | -------------------------------------- |
-| `write-files`              | Regenerate README.md, .sops.yaml, etc. |
-| `gh-actions-list`          | List available GitHub Actions jobs     |
-| `gh-actions-run`           | Run GitHub Actions locally via act     |
-| `gh-actions-run -n`        | Dry-run GitHub Actions                 |
-| `generation-manager score` | Check Dendritic pattern compliance     |
+| Command             | Purpose                                |
+| ------------------- | -------------------------------------- |
+| `write-files`       | Regenerate README.md, .sops.yaml, etc. |
+| `gh-actions-list`   | List available GitHub Actions jobs     |
+| `gh-actions-run`    | Run GitHub Actions locally via act     |
+| `gh-actions-run -n` | Dry-run GitHub Actions                 |
 
 ## Glossary
 

@@ -207,11 +207,9 @@ jobs:
         run: grep -q "import-tree.*modules" flake.nix || exit 1
       - name: Check no literal imports
         run: |
-          # Same multi-line detector as the generation-manager score check
-          # (modules/apps/generation-manager.nix); keep the two in sync.
-          # The previous single-line grep missed every path placed on a line
-          # after "imports = [". Paths with any segment starting with "_"
-          # are outside import-tree discovery and stay exempt.
+          # Multi-line-aware detector: a single-line grep missed every path
+          # placed on a line after "imports = [". Paths with any segment
+          # starting with "_" are outside import-tree discovery and stay exempt.
           # shellcheck disable=SC2016
           detector='
             FNR == 1 { inblock = 0; depth = 0 }

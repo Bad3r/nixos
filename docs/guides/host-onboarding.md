@@ -110,12 +110,6 @@ Precondition: the host is registered, with a module directory and policy flags i
    `NH_BYPASS_ROOT_CHECK=1` is required because `nh os` refuses to run as an effective uid of 0, and a freshly installed target has no other account to run it from.
    `modules/meta/owner.nix` declares the owner account, so this same activation creates it; no manual user setup precedes it.
 
-4. Score Dendritic Pattern compliance:
-
-   ```sh
-   guarded_nix run path:.#generation-manager -- score
-   ```
-
 [Songbird runbook: reinstall](../songbird/songbird-runbook-reinstall.md) works through this same ladder for one host, starting at its first switch after a reinstall.
 
 Verification: the target machine reboots into the new generation, and step 1's flake check reports no assertion failures for the new host.
