@@ -45,14 +45,15 @@ Scope:
 - Packet capture:
   - `wireshark`
   - `tcpdump`
-  - selected `aircrack-ng` capture and injection binaries
   - mechanism:
     - `security.wrappers` with `CAP_NET_RAW` and `CAP_NET_ADMIN`
     - available to users in the `wheel` group
   - compatibility:
     - a `wireshark` group is also created and assigned to the owner user for tooling or policy that still expects it
   - limitation:
-    - monitor-mode setup via `airmon-ng` is not capability-wrapped and still requires elevated setup
+    - `aircrack-ng`'s live-capture and injection binaries are not wrapped, because their shared Linux osdep backend shells out with the caller-supplied interface name on every card open (`do_linux_open()`), which would hand that shell the wrapper's ambient capabilities (`modules/apps/aircrack-ng.nix`, issue #475).
+    - use `sudo` for `airbase-ng`, `aireplay-ng`, `airodump-ng`, `airserv-ng`, `airtun-ng`, `besside-ng`, `easside-ng`, `tkiptun-ng`, and `wesside-ng`.
+    - `airmon-ng` is also unwrapped and still requires elevated setup for monitor mode.
     - the `tcpdump` wrapper source is an argv filter that refuses `-z` for
       non-root callers. `tcpdump.c:3173` runs the postrotate command through
       `execlp()`, and the wrapper's ambient `CAP_NET_RAW` and `CAP_NET_ADMIN`
