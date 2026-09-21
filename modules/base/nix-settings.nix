@@ -1,7 +1,7 @@
 { lib, ... }:
 let
   settings = {
-    # Decline flake nixConfig; owner keeps trusted-user status (issue #345).
+    # Lix ignores untrusted flake nixConfig with a warning in this mode and never prompts.
     accept-flake-config = false;
     # Disabled due to upstream nixpkgs warning in make-options-doc
     # See: https://github.com/NixOS/nixpkgs/issues/485682
