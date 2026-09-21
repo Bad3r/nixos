@@ -1,13 +1,12 @@
 /*
   Package: generation-manager
-  Description: Manage NixOS generations and score Dendritic Pattern compliance.
+  Description: Manage NixOS generations.
   Homepage: nil
   Documentation: docs/architecture/06-reference.md
   Repository: https://github.com/Bad3r/nixos
 
   Summary:
     * Lists, cleans, rolls back, diffs, and inspects NixOS system generations.
-    * Scores Dendritic Pattern compliance for this repository.
 
   Options:
     list: List all system generations.
@@ -17,9 +16,7 @@
     diff <g1> <g2>: Compare two generations.
     current: Show current generation information.
     gc: Garbage collect after cleaning.
-    score: Calculate Dendritic Pattern compliance score.
     info <gen>: Show detailed information about a generation.
-    -v, --verbose: Show detailed score violations.
 
   Notes:
     * The flake package output is retained for `nix run .#generation-manager -- ...`.
@@ -49,9 +46,6 @@ let
 
                 # Dry run support
                 DRY_RUN="''${DRY_RUN:-false}"
-
-                # Verbose output support
-                VERBOSE="''${VERBOSE:-false}"
 
                 # Color codes for output
                 RED='\033[0;31m'
@@ -84,33 +78,12 @@ let
           ''${GREEN}diff <g1> <g2>''${NC}    Compare two generations
           ''${GREEN}current''${NC}           Show current generation info
           ''${GREEN}gc''${NC}                Garbage collect after cleaning
-          ''${GREEN}score''${NC}             Calculate Dendritic Pattern compliance score
           ''${GREEN}info <gen>''${NC}        Show detailed info about a generation
-
-        Options:
-          ''${GREEN}-v, --verbose''${NC}     Show detailed output for violations in score
 
         Environment:
           ''${YELLOW}DRY_RUN=true''${NC}      Show what would be done without doing it
-          ''${YELLOW}VERBOSE=true''${NC}      Same as -v flag
         HELP
                 }
-
-                # Handle verbose flag
-                args=()
-                while [ $# -gt 0 ]; do
-                  case "$1" in
-                    -v|--verbose)
-                      VERBOSE="true"
-                      shift
-                      ;;
-                    *)
-                      args+=("$1")
-                      shift
-                      ;;
-                  esac
-                done
-                set -- "''${args[@]}"
 
                 case "''${1:-help}" in
                   list)
@@ -198,112 +171,6 @@ let
                     else
                       echo -e "''${YELLOW}nix-diff not installed, showing basic diff...''${NC}"
                       diff -u <(nix-store -qR "$gen1" | sort) <(nix-store -qR "$gen2" | sort) || true
-                    fi
-                    ;;
-
-                  score)
-                    echo -e "''${BLUE}Calculating Dendritic Pattern compliance score...''${NC}"
-                    SCORE=0
-                    MAX_SCORE=20
-
-                    echo -e "\n''${YELLOW}Checking compliance metrics:''${NC}"
-
-                    # Check for literal path imports (20 points)
-                    echo -n "1. No literal path imports: "
-                    if [ -d modules ]; then
-                      # Track imports = [ ... ] blocks across lines so the
-                      # idiomatic multi-line style is caught too; the previous
-                      # single-line grep only flagged ./ on the imports line
-                      # itself and missed every path on a following line.
-                      # Paths with any segment starting with "_" are outside
-                      # import-tree discovery (hasInfix "/_"), so importing
-                      # them literally is the sanctioned pattern; exempt them.
-                      # shellcheck disable=SC2016
-                      literal_imports=$(find modules/ -name '*.nix' -print0 2>/dev/null | \
-                        xargs -0 -r awk '
-                          FNR == 1 { inblock = 0; depth = 0 }
-                          {
-                            line = $0
-                            sub(/#.*/, "", line)
-                            if (!inblock && line ~ /^[[:space:]]*imports[[:space:]]*=/) {
-                              inblock = 1
-                              depth = 0
-                            }
-                            if (inblock) {
-                              tmp = line
-                              while (match(tmp, "\\.\\.?/[A-Za-z0-9_./-]+")) {
-                                p = substr(tmp, RSTART, RLENGTH)
-                                n = split(p, parts, "/")
-                                exempt = 0
-                                for (i = 1; i <= n; i++) {
-                                  if (substr(parts[i], 1, 1) == "_") {
-                                    exempt = 1
-                                    break
-                                  }
-                                }
-                                if (!exempt) {
-                                  printf "%s:%d:%s\n", FILENAME, FNR, $0
-                                  break
-                                }
-                                tmp = substr(tmp, RSTART + RLENGTH)
-                              }
-                              depth += gsub(/\[/, "", line)
-                              depth -= gsub(/\]/, "", line)
-                              if (depth <= 0 && line ~ /;/) inblock = 0
-                            }
-                          }
-                        ' || true)
-                      if [ -z "$literal_imports" ]; then
-                        import_count=0
-                      else
-                        import_count=$(echo "$literal_imports" | wc -l)
-                      fi
-
-                      if [ "$import_count" -eq 0 ] || [ -z "$literal_imports" ]; then
-                        echo -e "''${GREEN}✓ (20/20)''${NC}"
-                        SCORE=$((SCORE + 20))
-                      else
-                        echo -e "''${RED}✗ (0/20) - Found $import_count violations''${NC}"
-                        if [ "$VERBOSE" = "true" ] && [ -n "$literal_imports" ]; then
-                          echo -e "''${RED}  Violations found:''${NC}"
-                          echo "$literal_imports" | while IFS=: read -r file line content; do
-                            echo -e "    ''${YELLOW}$file:$line''${NC}: $content"
-                          done
-                        fi
-                      fi
-                    else
-                      echo -e "''${YELLOW}? modules directory not found''${NC}"
-                    fi
-
-                    # Check TODOs (warning only, no points)
-                    echo -n "2. TODO Comments: "
-                    if [ -d modules ]; then
-                      todo_list=$(grep -Hn -r --exclude=generation-manager.nix "TODO" modules/ 2>/dev/null || true)
-                      if [ -z "$todo_list" ]; then
-                        todo_count=0
-                      else
-                        todo_count=$(echo "$todo_list" | wc -l)
-                      fi
-
-                      if [ "$todo_count" -eq 0 ] || [ -z "$todo_list" ]; then
-                        echo -e "''${GREEN}✓ None found''${NC}"
-                      else
-                        echo -e "''${YELLOW}⚠ $todo_count reminder(s) found''${NC}"
-                        # Print each TODO as: path:line TODO: ...
-                        echo "$todo_list" | while IFS=: read -r file line content; do
-                          todo_text=$(printf "%s" "$content" | sed -E 's/.*(TODO.*)/\1/')
-                          echo "$file:$line $todo_text"
-                        done
-                      fi
-                    fi
-
-                    echo -e "\n''${BLUE}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━''${NC}"
-                    echo -e "''${BLUE}Dendritic Pattern Compliance:''${NC} ''${YELLOW}''${SCORE}/''${MAX_SCORE}''${NC}"
-
-                    if [ $SCORE -eq $MAX_SCORE ]; then
-                      echo -e "''${GREEN}✅ PERFECT COMPLIANCE!''${NC}"
-                    else
-                      echo -e "''${RED}❌ Significant improvements required''${NC}"
                     fi
                     ;;
 
