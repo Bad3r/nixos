@@ -1,6 +1,9 @@
 _: {
   configurations.nixos.tpnix.module =
     { pkgs, lib, ... }:
+    let
+      powerProfile = import ../hosts/common/_power-profile-unit.nix pkgs;
+    in
     {
       # logind lid/power-key behavior lives in modules/tpnix/power.nix.
       services = {
@@ -47,11 +50,11 @@ _: {
           # fatal: nixpkgs concatenates powerUpCommands after this in the same
           # set -e sleep-actions preStop script, so an unguarded failure here
           # would skip it. The journal line keeps the failure visible.
-          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance || echo "tpnix resume: powerprofilesctl set performance failed" >&2
+          ${powerProfile.command} || echo "tpnix resume: powerprofilesctl set performance failed" >&2
         '';
       };
 
-      systemd.services.tpnix-power-profile = import ../hosts/common/_power-profile-unit.nix pkgs;
+      systemd.services.tpnix-power-profile = powerProfile.unit;
 
       # espanso's Wayland/X11 split is decided per host; this chassis runs X11.
       home-manager.sharedModules = lib.mkAfter [
