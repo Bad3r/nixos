@@ -13,6 +13,7 @@
     let
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
       powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
+      enforcedPowerProfile = (import ../../hosts/common/_power-profile-unit.nix pkgs).profile;
       sessionMetadata = {
         DESKTOP_SESSION = "none+i3";
         # `i3` is included as a standalone token so xdg-desktop-portal picks up
@@ -287,7 +288,7 @@
           current=$(powerprofilesctl get 2>/dev/null || echo "unknown")
 
           if [ "$selection_allowed" != "true" ]; then
-            powerprofilesctl set performance
+            powerprofilesctl set ${enforcedPowerProfile}
             notify-send -i battery "Power Profile" "Performance mode is enforced on this host"
             exit 0
           fi
@@ -332,7 +333,7 @@
               notify-send -i battery "Power Profile" "Switched to Balanced mode"
               ;;
             *Performance*)
-              powerprofilesctl set performance
+              powerprofilesctl set ${enforcedPowerProfile}
               notify-send -i battery "Power Profile" "Switched to Performance mode"
               ;;
           esac
