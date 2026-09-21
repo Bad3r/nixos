@@ -32,11 +32,7 @@ let
       runtimeInputs = with pkgs; [
         nix
         coreutils
-        jq
         nixos-rebuild
-        gnugrep
-        gawk
-        gnused
         diffutils
         findutils
       ];
@@ -68,7 +64,7 @@ let
                   cat <<HELP
         ''${BLUE}Generation Manager - NixOS generation management tool''${NC}
 
-        Usage: generation-manager [options] <command> [args]
+        Usage: generation-manager <command> [args]
 
         Commands:
           ''${GREEN}list''${NC}              List all system generations
