@@ -28,6 +28,7 @@ zap* # modules/apps/zap.nix
 # Deliberate feature or environment overrides.
 nixos-icons* # stylix.targets.nixos-icons recolors the logo source (leaf package)
 nixos-option* # rebuilt against the host nix package (Lix, modules/base/nix-package.nix)
+python3.11-xmldiff* # NixVirt builds its helper on python311 (modules/hosts/common/windows-guest.nix)
 
 # Configuration wrappers around substituted unwrapped packages; only the
 # small wrapper derivation rebuilds locally.
