@@ -305,6 +305,15 @@
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
   - Pentesting tools devshell usage including desktop launchers and adding new tools.
 
+## WinApps
+
+- [winapps/README.md](winapps/README.md)
+  - NixVirt-declared Windows guest on libvirt: declared objects, lifecycle, the rules that prevent data loss, state locations, and guest isolation.
+- [winapps/provisioning.md](winapps/provisioning.md)
+  - Runbooks for the first switch, install media, Windows installation, guest tools, the isolation check, and detaching the media.
+- [winapps/storage.md](winapps/storage.md)
+  - Runbooks for the guest baseline copy, restoring it, and growing the disk.
+
 ## Keyboards
 
 - [keyboards/fc660c/README.md](keyboards/fc660c/README.md)
