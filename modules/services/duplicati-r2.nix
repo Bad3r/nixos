@@ -511,7 +511,8 @@ let
 
                     if [ ! -s "$config_dest" ]; then
                       systemctl daemon-reload
-                      exit 0
+                      echo "duplicati-r2 generator: enabled but manifest $config_dest is missing or empty" >&2
+                      exit 1
                     fi
 
                     mapfile -t entries < <(jq -r '.targets // {} | to_entries[] | @base64' "$config_dest")
