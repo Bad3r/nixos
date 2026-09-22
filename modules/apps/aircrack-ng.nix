@@ -20,23 +20,11 @@
     * `aircrack-ng -w wordlist.txt handshake.cap` -- Crack a WPA2-PSK handshake using a wordlist.
 
   Notes:
-    * Capability wrappers are installed for selected live capture and injection commands so `wheel` users can use them without `sudo`.
-    * `airmon-ng` remains an upstream shell script, so monitor-mode setup still requires elevated setup.
+    * No capability wrappers: every live-capture and injection binary here links aircrack-ng's Linux osdep backend, which shells out with the caller-supplied interface name on every card open (`lib/osdep/linux.c` `do_linux_open()`, an unconditional `system()` with no prior privilege drop), so a wrapper would hand that shell CAP_NET_RAW/CAP_NET_ADMIN through the interface argument (issue #475). Use `sudo` for `airbase-ng`, `aireplay-ng`, `airodump-ng`, `airserv-ng`, `airtun-ng`, `besside-ng`, `easside-ng`, `tkiptun-ng`, and `wesside-ng`.
+    * `airmon-ng` is an upstream shell script and was never wrapped; monitor-mode setup already requires elevated setup.
 */
 _:
 let
-  aircrackWheelTools = [
-    "airbase-ng"
-    "aireplay-ng"
-    "airodump-ng"
-    "airserv-ng"
-    "airtun-ng"
-    "besside-ng"
-    "easside-ng"
-    "tkiptun-ng"
-    "wesside-ng"
-  ];
-
   AircrackNgModule =
     {
       config,
@@ -60,14 +48,6 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
-
-        security.wrappers = lib.genAttrs aircrackWheelTools (tool: {
-          source = "${cfg.package}/bin/${tool}";
-          capabilities = "cap_net_raw,cap_net_admin+ep";
-          owner = "root";
-          group = "wheel";
-          permissions = "u+rx,g+x";
-        });
       };
     };
 in

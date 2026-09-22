@@ -97,6 +97,17 @@ let
             description = "Enable PRIME sync so the iGPU drives the panel while NVIDIA renders (dual-GPU laptops).";
           };
 
+          syncActive = lib.mkOption {
+            type = lib.types.bool;
+            readOnly = true;
+            default = cfg.enable && cfg.prime.enable;
+            description = ''
+              Resolved PRIME-sync state: true exactly when this module sets
+              hardware.nvidia.prime.sync.enable. Consumers read this instead of
+              the nixpkgs option or the enable/prime.enable pair.
+            '';
+          };
+
           intelBusId = lib.mkOption {
             type = lib.types.str;
             default = "PCI:0:2:0";
