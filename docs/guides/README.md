@@ -10,6 +10,7 @@ Style guides, coding standards, and how-to documentation.
 | [Host Onboarding Runbook](host-onboarding.md)                 | Checklist for adding a NixOS host                        |
 | [Host Secrets and Handoff](host-onboarding-secrets.md)        | Age identity, secrets, SSH host key pin, primary handoff |
 | [Nix Debugging Manual](nix-debugging-manual.md)               | General Nix/NixOS/Home Manager debugging techniques      |
+| [Nix Null Coercion](nix-null-coercion.md)                     | Null coercion diagnosis and repair patterns              |
 | [qBittorrent Web UI Setup](qbittorrent-web-ui-setup.md)       | Web UI setup with optional desktop profile import        |
 | [Stylix Integration](stylix-integration.md)                   | Theming constraints for module authors                   |
 | [Tray Icon Theming (i3/i3bar)](tray-icon-theming.md)          | Runtime tray ownership and icon theming remediation      |

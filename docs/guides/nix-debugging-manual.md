@@ -39,93 +39,12 @@ in traced
 ### 2.3 Common Errors and Pitfalls
 
 - Infinite recursion typically arises when option definitions depend on themselves; convert conditionals into `lib.mkIf` or restructure module arguments to break cycles.
+
 - Missing attributes and type mismatches surface clearer diagnostics when rerun with `--show-trace`, which expands stack frames to the originating file and option definition.
+
 - Avoid accessing `pkgs.lib` inside module arguments--import `lib` explicitly to prevent recursion through package set initialization.
 
-#### Debugging "Cannot Coerce Null to String" Errors
-
-This error occurs during module evaluation when a configuration option receives `null` but its type requires a string or other coercible value.
-
-**Error Characteristics:**
-
-```
-error: cannot coerce null to a string: null
-
-... while checking flake output 'nixosConfigurations'
-... while checking the NixOS configuration 'nixosConfigurations.songbird'
-... while calling the 'seq' builtin
-  at «github:NixOS/nixpkgs/.../lib/modules.nix:361:18
-```
-
-**What This Means:**
-
-- The error occurs during final validation of the merged configuration (not initial evaluation)
-- A configuration option is set to `null` when it expects a non-null value
-- The null value is being coerced to string during the module system's validation phase
-
-**Common Causes:**
-
-1. Accessing `config` values in top-level `let` bindings before the module system initializes them
-2. Module evaluation order issues where one module depends on another's not-yet-set values
-3. Missing required options or incorrect default values
-4. Flake-parts context confusion (accessing `config.flake.*` in wrong context)
-
-**Debugging Strategy:**
-
-1. **Use `--show-trace`** to get the full evaluation stack:
-
-   ```bash
-   nix flake check --show-trace
-   ```
-
-2. **Binary Search for Problematic Modules**:
-   When the error occurs in a complex configuration with many modules, use systematic bisection:
-
-   ```bash
-   # Disable half the modules and test
-   # If error disappears, the problem is in the disabled half
-   # If error persists, the problem is in the enabled half
-   # Repeat until you isolate the specific module(s)
-   ```
-
-   Example process:
-
-   ```
-   Step 1: Disable modules 1-25 → PASS    (error in first half)
-   Step 2: Disable modules 1-13 → FAIL    (error persists)
-   Step 3: Disable modules 14-25 → PASS   (error in range 14-25)
-   Step 4: Disable modules 14-19 → FAIL   (error persists)
-   Step 5: Disable modules 20-25 → PASS   (isolated to range 20-25)
-   ```
-
-3. **Use Trace vs Or-Fallbacks**:
-
-   - **Use `builtins.trace`** to debug evaluation order and see what values exist at different points
-
-   - **Avoid `or` fallbacks** during initial debugging - they mask the actual problem
-
-   - Once you've identified the issue, `or` fallbacks can provide graceful degradation:
-
-     ```nix
-     # During debugging: Let it fail clearly
-     username = config.flake.lib.meta.owner.username;
-
-     # After fix: Add fallback if truly optional
-     username = config.flake.lib.meta.owner.username or "default";
-     ```
-
-4. **Check Module Context**:
-
-   - Verify you're accessing `config.flake.*` in flake-parts context (outer scope)
-   - Verify you're accessing `config.home.*` or `config.services.*` in module context (inner scope)
-   - See [`docs/architecture/02-module-authoring.md`](../architecture/02-module-authoring.md) for the two-context pattern
-
-**Resolution Patterns:**
-
-- Move config access from top-level `let` to inside `config` blocks
-- Use `lib.mkIf` or `lib.mkMerge` to defer evaluation
-- Pass values via module arguments (`specialArgs` or `_module.args`) instead of accessing `config` early
-- Ensure proper evaluation order with `imports` or explicit dependencies
+- [Null coercion errors](nix-null-coercion.md) covers trace reading, module bisection, evaluation context, and repair patterns.
 
 ### 2.4 Language-Level Debugging Tools (e.g., `nix eval`, `nix-tree`)
 
@@ -189,6 +108,16 @@ journalctl -fu "home-manager-$USER.service"
 - On this NixOS repo, inspect `~/.local/state/home-manager/gcroots/current-home/home-files` for the active Home Manager files. The standalone `~/.local/state/nix/profiles/home-manager` profile can be stale.
 - If managed files were deleted and the NixOS generation did not change, rerun `sudo systemctl restart home-manager-$USER.service`; a same-generation switch may only run NixOS activation units and leave deleted Home Manager links absent.
 - Firefox and LibreWolf profiles are rooted under `~/.mozilla/firefox` and `~/.librewolf`; `~/.config/mozilla/firefox` and `~/.config/librewolf/librewolf` are managed compatibility symlinks. Real directories at those XDG leaves are unmanaged drift and should be moved recoverably with `rip` before relinking.
+
+Inspect this repository's NixOS-integrated Home Manager tree through a host:
+
+```bash
+nix eval "path:.#nixosConfigurations.<host>.config.home-manager.users.vx.home.packages" --apply builtins.length
+nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
+nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames
+```
+
+Add `home-manager` to `modules/devshell.nix` if a standalone CLI is needed for ad hoc diagnostics.
 
 ### 4.3 Debugging Modules
 

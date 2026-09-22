@@ -1,6 +1,6 @@
 # Home Manager Modules
 
-This document covers the Home Manager aggregator namespace and app loading mechanism.
+Home Manager modules use an aggregator namespace and a shared app-loading mechanism.
 
 ## The `flake.homeManagerModules` Namespace
 
@@ -9,7 +9,7 @@ Home Manager modules feed into `flake.homeManagerModules` for user-level configu
 | Key                                                                 | Type             | Description                                                                  |
 | ------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
 | `base`                                                              | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
-| `gui`                                                               | Deferred module  | Reserved GUI aggregation point (currently an empty merge root)               |
+| `gui`                                                               | Deferred module  | Reserved GUI aggregation point                                               |
 | `apps.<name>`                                                       | Deferred module  | Individual app modules loaded by key                                         |
 | `browsers.<name>`                                                   | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
 | `sopsRuntime`                                                       | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
@@ -126,67 +126,11 @@ defaults in the common baseline and add only host-specific overrides locally.
 
 ## Secrets Integration
 
-Home-level secrets helpers guard SOPS declarations behind `builtins.pathExists`:
-
-```nix
-# modules/home/context7-secrets.nix (excerpt)
-{
-  flake.homeManagerModules.context7Secrets =
-    { lib, config, secretsRoot, ... }:
-    let
-      cfg = config.home.context7Secrets;
-      ctxFile = secretsRoot + "/context7.yaml";
-    in
-    {
-      config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {
-        sops.secrets."context7/api-key" = {
-          sopsFile = ctxFile;
-          # ...
-        };
-      };
-    };
-}
-```
-
-This ensures evaluation succeeds even when secret files are absent.
+[SOPS usage](../sops/README.md) covers guarded Home Manager declarations and runtime behavior.
 
 ## HM Diagnostics
 
-Home Manager runs as a NixOS module per host (no standalone HM configuration). To inspect or build a host's HM tree, substitute the host name:
-
-```bash
-# Evaluate a host's HM users tree
-nix eval "path:.#nixosConfigurations.<host>.config.home-manager.users.vx.home.packages" --apply builtins.length
-
-# Build the host closure (HM activation runs on switch)
-nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
-
-# List the hosts available in the current checkout
-nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames
-```
-
-For NixOS-managed Home Manager, inspect the active generation through
-`~/.local/state/home-manager/gcroots/current-home/home-files`. The standalone
-`~/.local/state/nix/profiles/home-manager` profile can be stale and should not
-be used as the source of truth for NixOS module activation.
-
-If a Home Manager-managed file or directory is removed but the system
-generation does not change, `nh os switch` / `switch-to-configuration` may not
-rerun `home-manager-<user>.service`. Restart the system service directly to
-relink the active generation:
-
-```bash
-sudo systemctl restart home-manager-$USER.service
-```
-
-Gecko browser profiles are intentionally rooted at `~/.mozilla/firefox` and
-`~/.librewolf`. Home Manager also manages compatibility symlinks from
-`~/.config/mozilla/firefox` to `~/.mozilla/firefox` and from
-`~/.config/librewolf/librewolf` to `~/.librewolf`. Real directories at those XDG
-leaves are unmanaged drift; activation refuses them so they can be moved
-recoverably with `rip` before relinking the Home Manager generation.
-
-Add `home-manager` to `modules/devshell.nix` if a standalone CLI is needed for ad-hoc diagnostics.
+[Home Manager debugging](../guides/nix-debugging-manual.md#4-debugging-home-manager) covers activation, generated files, and module inspection.
 
 ## Next Steps
 

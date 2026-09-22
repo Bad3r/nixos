@@ -128,6 +128,8 @@
   - Age identity, secrets submodule, backup manifest, SSH host key pin, and primary handoff for a new host.
 - [guides/nix-debugging-manual.md](guides/nix-debugging-manual.md)
   - Debugging techniques for Nix expressions, NixOS modules, and Home Manager including REPL, tracing, and common errors.
+- [guides/nix-null-coercion.md](guides/nix-null-coercion.md)
+  - Diagnosing and repairing null coercion failures in Nix module evaluation.
 - [guides/qbittorrent-web-ui-setup.md](guides/qbittorrent-web-ui-setup.md)
   - Setting up the qBittorrent Web UI, with optional desktop profile import and Songbird as the host example.
 - [guides/stylix-integration.md](guides/stylix-integration.md)
