@@ -293,7 +293,7 @@ let
         # every firewall start, which is the cleanup. Only the refuse rule takes
         # both families: DHCPv4 and the network's dnsmasq listener are IPv4 only,
         # so the accepts follow it in reverse order at position 1 each, landing
-        # ahead of it on IPv4 while the refuse heads the accept-less IPv6 chain.
+        # ahead of it on IPv4, while IPv6 gets only the refuse, at the head.
         networking.firewall.extraCommands = ''
           ip46tables -I nixos-fw 1 -i ${bridge} -m conntrack --ctstate NEW -j nixos-fw-refuse
           iptables -I nixos-fw 1 -i ${bridge} -p tcp --dport 53 -j nixos-fw-accept
