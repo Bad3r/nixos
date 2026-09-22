@@ -288,12 +288,13 @@ let
         # Head of the chain: nixos-fw accepts the open ports and LAN sources
         # before anything appended here. NEW only, so replies to host-initiated
         # connections still reach the ESTABLISHED rule. The chain is rebuilt on
-        # every firewall start, which is the cleanup.
+        # every firewall start, which is the cleanup. Only the refuse rule takes
+        # both families: DHCPv4 and the network's dnsmasq listener are IPv4 only.
         networking.firewall.extraCommands = ''
           iptables -I nixos-fw 1 -i ${bridge} -p udp --dport 67 -j nixos-fw-accept
           iptables -I nixos-fw 2 -i ${bridge} -p udp --dport 53 -j nixos-fw-accept
           iptables -I nixos-fw 3 -i ${bridge} -p tcp --dport 53 -j nixos-fw-accept
-          iptables -I nixos-fw 4 -i ${bridge} -m conntrack --ctstate NEW -j nixos-fw-refuse
+          ip46tables -I nixos-fw 4 -i ${bridge} -m conntrack --ctstate NEW -j nixos-fw-refuse
         '';
 
         # The guest clock stops while the host sleeps. --now sets it from the
