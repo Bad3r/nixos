@@ -79,7 +79,6 @@ defaultAppImports = [
   "fzf"
   "git-mirror"
   "kitty"
-  "kitty-ssh"
 ];
 ```
 

@@ -161,7 +161,6 @@ let
     "fzf"
     "git-mirror"
     "kitty"
-    "kitty-ssh"
   ];
   extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
   allAppImports = lib.unique (defaultAppImports ++ extraAppImports);

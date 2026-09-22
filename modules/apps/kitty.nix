@@ -8,7 +8,7 @@
   Summary:
     * Renders text using OpenGL for high performance and ligature support, offering layout splits, kitten extensions, and remote control sockets.
     * Provides built-in features like Unicode input, graphics protocol, session management, and `kitty +kitten` helper commands.
-    * Installs the ssh:// handler package and registers its desktop entry at the NixOS MIME layer.
+    * Installs the ssh:// handler package and registers its desktop entry at the NixOS and Home Manager MIME layers.
     * The handler uses an absolute store path, notifies on rejected URLs, discards opaque URL paths,
       and keeps every SSH window open with `kitty --hold` after the SSH kitten exits.
 
@@ -51,14 +51,30 @@ let
         package = lib.mkPackageOption pkgs "kitty" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [
-          cfg.package
-          sshUrlHandler
-        ];
-        xdg.mime.defaultApplications."x-scheme-handler/ssh" = sshUrlHandlerDesktop;
-        xdg.mime.addedAssociations."x-scheme-handler/ssh" = sshUrlHandlerDesktop;
-      };
+      config = lib.mkIf cfg.enable (
+        lib.mkMerge [
+          {
+            environment.systemPackages = [
+              cfg.package
+              sshUrlHandler
+            ];
+            xdg.mime.defaultApplications."x-scheme-handler/ssh" = sshUrlHandlerDesktop;
+            xdg.mime.addedAssociations."x-scheme-handler/ssh" = sshUrlHandlerDesktop;
+          }
+          {
+            home-manager.sharedModules = [
+              {
+                home.packages = [ sshUrlHandler ];
+                xdg.mimeApps = {
+                  enable = true;
+                  defaultApplications."x-scheme-handler/ssh" = sshUrlHandlerDesktop;
+                  associations.added."x-scheme-handler/ssh" = sshUrlHandlerDesktop;
+                };
+              }
+            ];
+          }
+        ]
+      );
     };
 in
 {
