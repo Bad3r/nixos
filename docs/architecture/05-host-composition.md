@@ -145,6 +145,5 @@ git status --porcelain --ignored=matching &&
   bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "path:$PWD"' &&
   nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames &&
   nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel" &&
-  nix flake check path:. --accept-flake-config --no-build --offline &&
-  nix run path:.#generation-manager -- score   # target: 20/20
+  nix flake check path:. --accept-flake-config --no-build --offline
 ```

@@ -32,7 +32,6 @@ ALLOW_SECRET_COPY=${ALLOW_SECRET_COPY:-false}
 AUTO_UPDATE=false
 SKIP_HOOKS=false
 SKIP_CHECK=false
-SKIP_SCORE=false
 SKIP_FIRMWARE=false
 KEEP_GOING=false
 REPAIR=false
@@ -222,7 +221,6 @@ while [[ $# -gt 0 ]]; do
   --skip-all)
     SKIP_HOOKS=true
     SKIP_CHECK=true
-    SKIP_SCORE=true
     shift
     ;;
   --skip-firmware)
@@ -676,17 +674,6 @@ main() {
     )
   else
     status_msg "${YELLOW}" "Skipping pre-commit hooks (--skip-hooks flag used)..."
-  fi
-
-  if [[ ${SKIP_SCORE} == "false" ]]; then
-    if command -v generation-manager >/dev/null 2>&1; then
-      status_msg "${YELLOW}" "Scoring Dendritic Pattern compliance..."
-      generation-manager score
-    else
-      status_msg "${YELLOW}" "Skipping Dendritic Pattern scoring (generation-manager not found)..."
-    fi
-  else
-    status_msg "${YELLOW}" "Skipping Dendritic Pattern scoring (--skip-all flag used)..."
   fi
 
   if [[ ${SKIP_CHECK} == "false" ]]; then

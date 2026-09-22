@@ -13,10 +13,7 @@
       i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
       xfsettingsdEnabled = lib.attrByPath [ "integrations" "xfsettingsd" "enable" ] true hostI3Cfg;
-      # Both halves gate hardware.nvidia.prime.sync.enable in modules/hardware/nvidia-gpu.nix.
-      primeSyncEnabled =
-        lib.attrByPath [ "gpu" "nvidia" "enable" ] false osConfig
-        && lib.attrByPath [ "gpu" "nvidia" "prime" "enable" ] false osConfig;
+      primeSyncEnabled = lib.attrByPath [ "gpu" "nvidia" "prime" "syncActive" ] false osConfig;
     in
     {
       config = lib.mkIf i3Enabled (
