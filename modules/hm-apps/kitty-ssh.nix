@@ -1,18 +1,18 @@
 /*
   Package: kitty-ssh-url-handler
-  Description: x-scheme-handler/ssh handler that opens ssh:// links through kitty +kitten ssh.
+  Description: x-scheme-handler/ssh handler that opens ssh:// links in a Kitty window running kitten ssh.
   Homepage: https://sw.kovidgoyal.net/kitty/kittens/ssh/
   Documentation: https://sw.kovidgoyal.net/kitty/kittens/ssh/
 
   Summary:
     * Parses an ssh://[user@]host[:port][/path] URL with bash pattern matching only: no shell
       parser, no percent-decoding; a leading '-' on user or host is rejected outright.
-    * Execs `kitty +kitten ssh [-p port] -- [user@]host` from an argv array; the path component
+    * Execs `kitty kitten ssh [-p port] -- [user@]host` from an argv array; the path component
       is dropped since the ssh kitten takes none.
     * Registers kitty-ssh-url-handler.desktop as the default x-scheme-handler/ssh application.
 
   Example Usage:
-    * `kitty-ssh-url-handler ssh://user@host:2222/path` -- runs kitty +kitten ssh -p 2222 -- user@host
+    * `kitty-ssh-url-handler ssh://user@host:2222/path` -- runs kitty kitten ssh -p 2222 -- user@host
 */
 _: {
   flake.homeManagerModules.apps."kitty-ssh" =
@@ -124,7 +124,7 @@ _: {
           fi
 
           # -- marks the end of kitten options so a validated-but-odd destination can never be read as one.
-          args=(+kitten ssh)
+          args=(kitten ssh)
           if [ "$have_port" -eq 1 ]; then
             args+=(-p "$port")
           fi
@@ -146,7 +146,7 @@ _: {
         xdg.desktopEntries."kitty-ssh-url-handler" = {
           name = "Kitty SSH";
           genericName = "SSH Client";
-          comment = "Open ssh:// links with kitty +kitten ssh";
+          comment = "Open ssh:// links in a Kitty window with kitten ssh";
           exec = "kitty-ssh-url-handler %u";
           icon = "kitty";
           terminal = false;
