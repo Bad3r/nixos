@@ -24,6 +24,8 @@ A host opts in with `host.virtualization.windowsGuest.enable`.
   It is the one NixVirt setting that deletes the disk image.
 - The domain UUID, the NVRAM path, the pool path, and the volume name are identity.
   libvirt keys the TPM state, the UEFI variable store, and the disk on them, so a change strands guest state.
+- The `winapps` network UUID is identity as well.
+  NixVirt destroys every domain on a network it replaces, so a change powers a running guest off once and loses no data.
 - NixVirt treats its lists as exhaustive.
   At every boot and every switch it powers off and undefines each domain, network, and pool that the module does not declare.
   Their disks, NVRAM files, and TPM state stay on disk.

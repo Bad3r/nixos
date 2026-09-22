@@ -1,6 +1,6 @@
 # WinApps guest storage
 
-The rules that keep guest state safe are in [README.md](README.md).
+Read the [rules that prevent data loss](README.md#rules-that-prevent-data-loss) before copying over or deleting guest state.
 Commands run on the host unless a step names the guest.
 
 ## Record a baseline
@@ -22,17 +22,18 @@ Precondition: the guest is shut off, and the target directory leaves `/` with 20
    df -h /
    ```
 
-3. Copy the disk, the UEFI variable store, the TPM state, and the definition together.
-   `qemu-img convert -c` writes a compressed copy, which is the form to pick when space is short:
+3. Copy the disk, the UEFI variable store, the TPM state, and the definition together:
 
    ```sh
    dest=<baseline-directory>
    sudo mkdir -p "$dest"
-   sudo qemu-img convert -c -O qcow2 "$disk" "$dest/RDPWindows.qcow2"
+   sudo cp -a --sparse=always "$disk" "$dest/RDPWindows.qcow2"
    sudo cp -a "$nvram" "$dest/"
    sudo cp -a "/var/lib/libvirt/swtpm/$uuid" "$dest/swtpm"
    virsh --connect qemu:///system dumpxml --inactive RDPWindows | sudo tee "$dest/RDPWindows.xml" >/dev/null
    ```
+
+   When space is short, write the disk with `sudo qemu-img convert -c -O qcow2 "$disk" "$dest/RDPWindows.qcow2"` instead, which compresses it.
 
 Verification: `sudo qemu-img check "$dest/RDPWindows.qcow2"` reports no errors, and `$dest` holds the four parts.
 

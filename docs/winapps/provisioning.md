@@ -1,6 +1,6 @@
 # WinApps guest provisioning
 
-The rules that keep guest state safe are in [README.md](README.md), and baseline and disk procedures in [storage.md](storage.md).
+Read the [rules that prevent data loss](README.md#rules-that-prevent-data-loss) before running a step here.
 Commands run on the host unless a step names the guest.
 
 ## Apply the declaration

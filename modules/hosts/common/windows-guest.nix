@@ -17,6 +17,8 @@ let
       # Identity. libvirt keys guest state on these, so a change strands it: the
       # domain UUID names the swtpm state directory, nvramPath holds the UEFI
       # variable store, and a volume name NixVirt cannot find is created empty.
+      # The network UUID is identity too: NixVirt undefines by UUID and destroys
+      # every domain on a network it replaces, so a change powers the guest off.
       domainUuid = "d40dd3b2-a6ad-4136-89d8-120cb5d3c098";
       winappsNetworkUuid = "44d27dc5-b0b5-4673-9c6b-2cceb995b733";
       defaultNetworkUuid = "84712988-20f5-4ffa-b6a2-acb45df49078";
