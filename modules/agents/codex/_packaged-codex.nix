@@ -31,7 +31,7 @@ pkgs.runCommandLocal "${pname}-packaged-${version}"
     # execve must canonicalise inside $out so CodexPackageLayout::from_exe
     # locates $out/codex-package.json (the trampoline would leave it pointing
     # at upstream's store path, which has no metadata file).
-    cp -L ${codexPkg}/bin/.codex-wrapped $out/bin/.codex-wrapped
+    cp -L ${codexPkg}/libexec/codex/bin/codex $out/bin/.codex-wrapped
     chmod +w $out/bin/.codex-wrapped
 
     # Unlike .codex-wrapped, the host never resolves its own current_exe, and
@@ -45,7 +45,7 @@ pkgs.runCommandLocal "${pname}-packaged-${version}"
     ln -s ${codexPkg}/bin/codex-code-mode-host $out/bin/codex-code-mode-host
 
     # New trampoline preserves the bubblewrap PATH prepend that upstream's
-    # wrapProgram adds, so the default Linux sandbox keeps finding bwrap.
+    # launcher adds, so the default Linux sandbox keeps finding bwrap.
     cat > $out/bin/codex << EOF
     #!${pkgs.bash}/bin/bash -e
     PATH='${pkgs.bubblewrap}/bin'\''${PATH:+:\$PATH}
