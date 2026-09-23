@@ -115,9 +115,26 @@ let
     | .extraKnownMarketplaces = (($existing.extraKnownMarketplaces // {}) + ($nix.extraKnownMarketplaces // {}))
     | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}
   '';
+  # The ~/.claude.json merge filter, lifted the same way as settingsMergeJq
+  # and for the same reason: its mcpServers rule (per-entry wholesale
+  # replace, dropping stale command/args pairs a changed transport type
+  # leaves behind) and retiredJsonJq (live: claudeDefaults.retired.claudeJson
+  # is non-empty) are exactly the class of rule that shipped as a no-op once
+  # already (16e377d9); checks."claude-code/settings-merge" exercises this
+  # filter too, not a hand-copied approximation of it.
+  claudeJsonMergeJq = ''
+    . as $existing
+    | $nixConfig[0] as $nix
+    | ($existing * $nix)
+    | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))${retiredJsonJq}
+  '';
 in
 {
-  inherit settingsMergeJq settingsMergeJqArgs;
+  inherit
+    settingsMergeJq
+    settingsMergeJqArgs
+    claudeJsonMergeJq
+    ;
   activation = {
     claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       CLAUDE_SETTINGS="$HOME/.claude/settings.json"
@@ -160,11 +177,7 @@ in
       # Nix-managed MCP server entries wholesale to avoid stale per-server
       # keys like old command/args transport fallbacks lingering forever.
       if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
-        '. as $existing
-        | $nixConfig[0] as $nix
-        | ($existing * $nix)
-        | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))
-        ${retiredJsonJq}' \
+        '${claudeJsonMergeJq}' \
         "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
         echo "ERROR: jq failed to merge config" >&2
         exit 1
