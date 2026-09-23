@@ -31,4 +31,7 @@ A skill's own frontmatter, such as `commit`'s `disable-model-invocation`, is a s
 Plugin-owned skill bundles are controlled through `programs.claude-code.extended.extraPlugins`.
 `skillOverrides` does not affect plugin-provided skills.
 
+Enabling `cloudflare@cloudflare` also requires dropping `sparsePaths` from its `extraKnownMarketplaces` entry in `modules/agents/claude-code/_default-settings.nix`.
+The sparse clone carries only the marketplace manifest, so the plugin payload is absent until the full clone is restored.
+
 Cloudflare's [Claude Code plugin](https://github.com/cloudflare/skills) documents the bundled skills and MCP server.
