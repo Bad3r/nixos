@@ -280,7 +280,6 @@
       plugins = import ./_plugins.nix { inherit lib osConfig; };
       registryClaudeSkills = lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list;
       managedClaudeSkillNames = lib.attrNames registryClaudeSkills;
-      defaultSkillOverrides = lib.genAttrs managedClaudeSkillNames (_: "on");
       configuredSkillOverrides = lib.attrByPath [
         "programs"
         "claude-code"
@@ -290,7 +289,10 @@
       unknownSkillOverrides = lib.attrNames (
         builtins.removeAttrs configuredSkillOverrides managedClaudeSkillNames
       );
-      skillOverrides = defaultSkillOverrides // configuredSkillOverrides;
+      # settings.json has no "on" value for skillOverrides entries; absence
+      # means on (_default-settings.nix skillOverrides schema note), so an
+      # explicit "on" is dropped rather than written literally.
+      skillOverrides = lib.filterAttrs (_name: value: value != "on") configuredSkillOverrides;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
@@ -339,6 +341,7 @@
           osConfig
           config
           claudeEnv
+          managedClaudeSkillNames
           ;
         claudeDefaults = defaults;
         inherit (settings) claudeSettingsFile claudeJsonConfigFile;

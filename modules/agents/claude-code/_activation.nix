@@ -5,7 +5,10 @@
     - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
       ~/.claude.json, preserving user keys while deleting source-declared
       retired keys, invalid legacy environment values, and wholly replacing
-      Nix-managed mcpServers entries.
+      Nix-managed mcpServers entries. skillOverrides entries for managed
+      skill names are fully owned by Nix, so a name dropped from
+      programs.claude-code.extended.skillOverrides clears rather than
+      lingers; entries for unmanaged names are preserved.
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 
@@ -23,6 +26,7 @@
   claudeJsonConfigFile,
   claudeEnv,
   claudeDefaults,
+  managedClaudeSkillNames,
 }:
 let
   retiredSettingsJq = lib.optionalString (claudeDefaults.retired.settings != [ ]) (
@@ -78,12 +82,14 @@ in
     fi
 
     if ! ${pkgs.jq}/bin/jq \
+      --argjson managedSkills '${builtins.toJSON managedClaudeSkillNames}' \
       --slurpfile nixSettings ${claudeSettingsFile} \
       '. as $existing
       | $nixSettings[0] as $nix
       | ($existing * $nix)
       | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
       | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
+      | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
       | .env = (($existing.env // {}) + ($nix.env // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}' \
       "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
       echo "ERROR: jq failed to merge Claude Code settings" >&2

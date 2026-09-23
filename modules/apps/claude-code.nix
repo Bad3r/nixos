@@ -229,7 +229,6 @@ in
           default = { };
           example = lib.literalExpression ''
             {
-              "commit" = "user-invocable-only";
               "nixos-hm-post-switch-repair" = "off";
             }
           '';
