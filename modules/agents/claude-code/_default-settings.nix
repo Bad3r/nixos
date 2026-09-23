@@ -251,6 +251,15 @@ let
   retiredSettingsButLive = builtins.filter (
     name: builtins.hasAttr name claudeSettingsBase || builtins.elem name injectedSettings
   ) retired.settings;
+  # A key both here and in injectedSettings would be silently overridden by
+  # _settings.nix's `//` merge.
+  injectedButStatic = builtins.filter (
+    name: builtins.hasAttr name claudeSettingsBase
+  ) injectedSettings;
+  # Same check, claudeJsonConfigBase/injectedClaudeJson side.
+  injectedJsonButStatic = builtins.filter (
+    name: builtins.hasAttr name claudeJsonConfigBase
+  ) injectedClaudeJson;
 in
 assert
   deadAllow == [ ]
@@ -261,6 +270,12 @@ assert
 assert
   retiredSettingsButLive == [ ]
   || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredSettingsButLive} are both retired and live; remove the name from retired, claudeSettingsBase, or the _settings.nix injected keys";
+assert
+  injectedButStatic == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " injectedButStatic} are both runtime-injected by _settings.nix and statically set in claudeSettingsBase; drop the static definition so the injected value cannot be silently shadowed";
+assert
+  injectedJsonButStatic == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " injectedJsonButStatic} are both runtime-injected by _settings.nix and statically set in claudeJsonConfigBase; drop the static definition so the injected value cannot be silently shadowed";
 {
   inherit claudeJsonConfigBase claudeSettingsBase retired;
 
