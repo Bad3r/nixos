@@ -576,9 +576,10 @@
         else
           configuredExternalBinary;
 
-      # settingsMergeJq is unused here; checks."claude-code/settings-merge"
-      # below imports _activation.nix separately to exercise it against a
-      # fixture.
+      # settingsMergeJq, settingsMergeJqArgs, and claudeJsonMergeJq are all
+      # unused here; checks."claude-code/settings-merge" and
+      # checks."claude-code/claude-json-merge" above import _activation.nix
+      # separately to exercise them against fixtures.
       activationResult = import ./_activation.nix {
         inherit
           lib

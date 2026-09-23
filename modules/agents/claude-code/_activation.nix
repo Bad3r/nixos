@@ -120,7 +120,7 @@ let
   # replace, dropping stale command/args pairs a changed transport type
   # leaves behind) and retiredJsonJq (live: claudeDefaults.retired.claudeJson
   # is non-empty) are exactly the class of rule that shipped as a no-op once
-  # already (16e377d9); checks."claude-code/settings-merge" exercises this
+  # already (16e377d9); checks."claude-code/claude-json-merge" exercises this
   # filter too, not a hand-copied approximation of it.
   claudeJsonMergeJq = ''
     . as $existing
