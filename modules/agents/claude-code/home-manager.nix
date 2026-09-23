@@ -309,6 +309,7 @@
 
       settings = import ./_settings.nix {
         inherit
+          lib
           pkgs
           defaults
           mcpServers

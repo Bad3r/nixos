@@ -282,7 +282,13 @@ assert
   injectedJsonButStatic == [ ]
   || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " injectedJsonButStatic} are both runtime-injected by _settings.nix and statically set in claudeJsonConfigBase; drop the static definition so the injected value cannot be silently shadowed";
 {
-  inherit claudeJsonConfigBase claudeSettingsBase retired;
+  inherit
+    claudeJsonConfigBase
+    claudeSettingsBase
+    retired
+    injectedSettings
+    injectedClaudeJson
+    ;
 
   # === Undocumented settings.json keys (2.1.222 binary schema) ==============
   # Present in the binary's settings schema but absent from the published settings
