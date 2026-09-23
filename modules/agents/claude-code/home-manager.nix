@@ -255,6 +255,95 @@
             NODE
             echo "ok: Claude wrapper and shell-wrapper.patch contracts" > $out
           '';
+
+      # Regression coverage for _activation.nix's settingsMergeJq: a prior
+      # round of this same jq program shipped a byte-for-byte no-op fix that
+      # passed `nix flake check` and needed a human read to catch (16e377d9,
+      # reverted in f17e65de). This exercises the real production filter
+      # (not a hand-copied approximation) against a fixture covering the
+      # three merge policies documented in _activation.nix's header:
+      # skillOverrides full ownership, extraKnownMarketplaces per-entry
+      # wholesale replace, and enabledPlugins plain union.
+      checks."claude-code/settings-merge" =
+        let
+          activationFixture = import ./_activation.nix {
+            inherit lib pkgs;
+            osConfig = { };
+            config.xdg.dataHome = "/var/empty";
+            claudeEnv = import ./_env.nix;
+            claudeDefaults = import ./_default-settings.nix;
+            managedClaudeSkillNames = [ "commit" ];
+            claudeSettingsFile = pkgs.writeText "settings-merge-fixture-nix-unused.json" "{}";
+            claudeJsonConfigFile = pkgs.writeText "settings-merge-fixture-json-unused.json" "{}";
+          };
+          existingFixture = {
+            enabledPlugins = {
+              "gone@mkt" = true;
+              "kept@mkt" = false;
+            };
+            extraKnownMarketplaces.cloudflare.source = {
+              source = "git";
+              url = "https://github.com/cloudflare/skills.git";
+              sparsePaths = [ ".claude-plugin" ];
+            };
+            skillOverrides = {
+              commit = "off";
+              "some-plugin-skill" = "off";
+            };
+            deniedMcpServers = [ ];
+            env = { };
+          };
+          nixFixture = {
+            enabledPlugins."kept@mkt" = true;
+            extraKnownMarketplaces.cloudflare.source = {
+              source = "git";
+              url = "https://github.com/cloudflare/skills.git";
+            };
+            skillOverrides = { };
+            deniedMcpServers = [ ];
+            env = { };
+          };
+        in
+        pkgs.runCommandLocal "claude-code-settings-merge"
+          {
+            existingJson = builtins.toJSON existingFixture;
+            nixJson = builtins.toJSON nixFixture;
+            passAsFile = [
+              "existingJson"
+              "nixJson"
+            ];
+            mergeFilter = activationFixture.settingsMergeJq;
+          }
+          ''
+            merged=$(${lib.getExe pkgs.jq} \
+              --argjson managedSkills '["commit"]' \
+              --slurpfile nixSettings "$nixJsonPath" \
+              "$mergeFilter" \
+              "$existingJsonPath")
+
+            check() {
+              local desc="$1" query="$2" expected="$3"
+              local actual
+              actual=$(echo "$merged" | ${lib.getExe pkgs.jq} -c "$query")
+              if [ "$actual" != "$expected" ]; then
+                echo "FAIL: $desc: query $query expected $expected, got $actual" >&2
+                echo "$merged" >&2
+                exit 1
+              fi
+            }
+
+            # skillOverrides: a managed name absent from $nix is cleared, not carried over.
+            check "managed skillOverrides name cleared" '.skillOverrides | has("commit")' "false"
+            # skillOverrides: an unmanaged name is preserved though $nix never touches it.
+            check "unmanaged skillOverrides name preserved" '.skillOverrides."some-plugin-skill"' '"off"'
+            # extraKnownMarketplaces: per-entry wholesale replace drops a subkey $nix omits.
+            check "extraKnownMarketplaces entry replaced wholesale" \
+              '.extraKnownMarketplaces.cloudflare.source | has("sparsePaths")' "false"
+            # enabledPlugins: plain union preserves a key $nix no longer declares.
+            check "enabledPlugins stale key preserved by union" '.enabledPlugins."gone@mkt"' "true"
+
+            echo "ok: claude-code settings-merge jq contract" > $out
+          '';
     };
 
   flake.homeManagerModules.apps."claude-code" =
@@ -336,7 +425,10 @@
         else
           configuredExternalBinary;
 
-      activation = import ./_activation.nix {
+      # settingsMergeJq is unused here; checks."claude-code/settings-merge"
+      # below imports _activation.nix separately to exercise it against a
+      # fixture.
+      activationResult = import ./_activation.nix {
         inherit
           lib
           pkgs
@@ -348,6 +440,7 @@
         claudeDefaults = defaults;
         inherit (settings) claudeSettingsFile claudeJsonConfigFile;
       };
+      inherit (activationResult) activation;
 
       claudeRuntime = import ./_wrapper.nix {
         inherit

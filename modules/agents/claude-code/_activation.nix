@@ -77,96 +77,106 @@ let
   ] false osConfig;
   bunInstallDir = "${config.xdg.dataHome}/bun";
   bunBin = lib.getExe osConfig.programs.bun.extended.package;
+  # The settings.json merge filter, lifted out of claudeCodeSetup's script so
+  # checks."claude-code/settings-merge" (modules/agents/claude-code/home-manager.nix)
+  # can exercise the actual production filter against a fixture instead of a
+  # hand-copied approximation that could silently drift from it.
+  settingsMergeJq = ''
+    . as $existing
+    | $nixSettings[0] as $nix
+    | ($existing * $nix)
+    | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
+    | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
+    | .extraKnownMarketplaces = (($existing.extraKnownMarketplaces // {}) + ($nix.extraKnownMarketplaces // {}))
+    | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
+    | .env = (($existing.env // {}) + ($nix.env // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}
+  '';
 in
 {
-  claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-    CLAUDE_SETTINGS_TMP="$(mktemp)"
-    CLAUDE_CONFIG="$HOME/.claude.json"
-    CLAUDE_CONFIG_TMP="$(mktemp)"
-    trap 'rm -f "$CLAUDE_SETTINGS_TMP" "$CLAUDE_CONFIG_TMP"' EXIT
+  inherit settingsMergeJq;
+  activation = {
+    claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      CLAUDE_SETTINGS="$HOME/.claude/settings.json"
+      CLAUDE_SETTINGS_TMP="$(mktemp)"
+      CLAUDE_CONFIG="$HOME/.claude.json"
+      CLAUDE_CONFIG_TMP="$(mktemp)"
+      trap 'rm -f "$CLAUDE_SETTINGS_TMP" "$CLAUDE_CONFIG_TMP"' EXIT
 
-    mkdir -p "$HOME/.claude"
+      mkdir -p "$HOME/.claude"
 
-    if [ -r "$CLAUDE_SETTINGS" ]; then
-      existing_settings="$CLAUDE_SETTINGS"
-    else
-      existing_settings="${pkgs.writeText "empty-json.json" "{}"}"
-    fi
+      if [ -r "$CLAUDE_SETTINGS" ]; then
+        existing_settings="$CLAUDE_SETTINGS"
+      else
+        existing_settings="${pkgs.writeText "empty-json.json" "{}"}"
+      fi
 
-    if ! ${pkgs.jq}/bin/jq \
-      --argjson managedSkills '${builtins.toJSON managedClaudeSkillNames}' \
-      --slurpfile nixSettings ${claudeSettingsFile} \
-      '. as $existing
-      | $nixSettings[0] as $nix
-      | ($existing * $nix)
-      | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
-      | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
-      | .extraKnownMarketplaces = (($existing.extraKnownMarketplaces // {}) + ($nix.extraKnownMarketplaces // {}))
-      | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
-      | .env = (($existing.env // {}) + ($nix.env // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}' \
-      "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
-      echo "ERROR: jq failed to merge Claude Code settings" >&2
-      exit 1
-    fi
+      if ! ${pkgs.jq}/bin/jq \
+        --argjson managedSkills '${builtins.toJSON managedClaudeSkillNames}' \
+        --slurpfile nixSettings ${claudeSettingsFile} \
+        '${settingsMergeJq}' \
+        "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
+        echo "ERROR: jq failed to merge Claude Code settings" >&2
+        exit 1
+      fi
 
-    if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_SETTINGS_TMP" 2>/dev/null; then
-      echo "ERROR: resulting Claude Code settings are not valid JSON" >&2
-      exit 1
-    fi
+      if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_SETTINGS_TMP" 2>/dev/null; then
+        echo "ERROR: resulting Claude Code settings are not valid JSON" >&2
+        exit 1
+      fi
 
-    mv "$CLAUDE_SETTINGS_TMP" "$CLAUDE_SETTINGS"
-    chmod 600 "$CLAUDE_SETTINGS"
+      mv "$CLAUDE_SETTINGS_TMP" "$CLAUDE_SETTINGS"
+      chmod 600 "$CLAUDE_SETTINGS"
 
-    # Ensure the file exists
-    if [ ! -f "$CLAUDE_CONFIG" ]; then
-      echo "{}" > "$CLAUDE_CONFIG"
-    fi
+      # Ensure the file exists
+      if [ ! -f "$CLAUDE_CONFIG" ]; then
+        echo "{}" > "$CLAUDE_CONFIG"
+      fi
 
-    # Merge Nix-managed settings into existing config while replacing
-    # Nix-managed MCP server entries wholesale to avoid stale per-server
-    # keys like old command/args transport fallbacks lingering forever.
-    if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
-      '. as $existing
-      | $nixConfig[0] as $nix
-      | ($existing * $nix)
-      | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))
-      ${retiredJsonJq}' \
-      "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
-      echo "ERROR: jq failed to merge config" >&2
-      exit 1
-    fi
+      # Merge Nix-managed settings into existing config while replacing
+      # Nix-managed MCP server entries wholesale to avoid stale per-server
+      # keys like old command/args transport fallbacks lingering forever.
+      if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
+        '. as $existing
+        | $nixConfig[0] as $nix
+        | ($existing * $nix)
+        | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))
+        ${retiredJsonJq}' \
+        "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
+        echo "ERROR: jq failed to merge config" >&2
+        exit 1
+      fi
 
-    # Validate result is valid JSON
-    if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_CONFIG_TMP" 2>/dev/null; then
-      echo "ERROR: resulting config is not valid JSON" >&2
-      exit 1
-    fi
+      # Validate result is valid JSON
+      if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_CONFIG_TMP" 2>/dev/null; then
+        echo "ERROR: resulting config is not valid JSON" >&2
+        exit 1
+      fi
 
-    mv "$CLAUDE_CONFIG_TMP" "$CLAUDE_CONFIG"
-    chmod 600 "$CLAUDE_CONFIG"
+      mv "$CLAUDE_CONFIG_TMP" "$CLAUDE_CONFIG"
+      chmod 600 "$CLAUDE_CONFIG"
 
-    echo "✢ Claude Code: config applied (MCP via agents.mcp)"
-  '';
-}
-// lib.optionalAttrs bunInstallEnabled {
-  # The probe URL is pinned to the public npm registry because every
-  # host in this repo runs bun against the default registry. If a
-  # future host points bun at a private mirror via `~/.bunfig.toml`
-  # or `BUN_CONFIG_REGISTRY`, this probe will check the wrong
-  # endpoint and either skip a working install or run an install
-  # that fails immediately. Update the URL alongside the bun config
-  # if that ever happens.
-  installClaudeCodeViaBun = lib.hm.dag.entryAfter [ "writeBoundary" "createBunDir" ] ''
-    export BUN_INSTALL="${bunInstallDir}"
-    if ${pkgs.curl}/bin/curl --silent --show-error --fail --max-time 5 \
-        --output /dev/null \
-        https://registry.npmjs.org/@anthropic-ai/claude-code/latest; then
-      run ${bunBin} install -g @anthropic-ai/claude-code
-    elif [ -x "$BUN_INSTALL/bin/claude" ]; then
-      echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above), keeping existing install at $BUN_INSTALL/bin/claude" >&2
-    else
-      echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above) and no existing claude-code binary at $BUN_INSTALL/bin/claude; rerun home-manager switch once the registry is reachable" >&2
-    fi
-  '';
+      echo "✢ Claude Code: config applied (MCP via agents.mcp)"
+    '';
+  }
+  // lib.optionalAttrs bunInstallEnabled {
+    # The probe URL is pinned to the public npm registry because every
+    # host in this repo runs bun against the default registry. If a
+    # future host points bun at a private mirror via `~/.bunfig.toml`
+    # or `BUN_CONFIG_REGISTRY`, this probe will check the wrong
+    # endpoint and either skip a working install or run an install
+    # that fails immediately. Update the URL alongside the bun config
+    # if that ever happens.
+    installClaudeCodeViaBun = lib.hm.dag.entryAfter [ "writeBoundary" "createBunDir" ] ''
+      export BUN_INSTALL="${bunInstallDir}"
+      if ${pkgs.curl}/bin/curl --silent --show-error --fail --max-time 5 \
+          --output /dev/null \
+          https://registry.npmjs.org/@anthropic-ai/claude-code/latest; then
+        run ${bunBin} install -g @anthropic-ai/claude-code
+      elif [ -x "$BUN_INSTALL/bin/claude" ]; then
+        echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above), keeping existing install at $BUN_INSTALL/bin/claude" >&2
+      else
+        echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above) and no existing claude-code binary at $BUN_INSTALL/bin/claude; rerun home-manager switch once the registry is reachable" >&2
+      fi
+    '';
+  };
 }
