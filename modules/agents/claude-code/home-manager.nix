@@ -316,7 +316,7 @@
           }
           ''
             merged=$(${lib.getExe pkgs.jq} \
-              --argjson managedSkills '["commit"]' \
+              ${lib.escapeShellArgs activationFixture.settingsMergeJqArgs} \
               --slurpfile nixSettings "$nixJsonPath" \
               "$mergeFilter" \
               "$existingJsonPath")

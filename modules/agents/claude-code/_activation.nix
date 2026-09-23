@@ -77,10 +77,20 @@ let
   ] false osConfig;
   bunInstallDir = "${config.xdg.dataHome}/bun";
   bunBin = lib.getExe osConfig.programs.bun.extended.package;
-  # The settings.json merge filter, lifted out of claudeCodeSetup's script so
-  # checks."claude-code/settings-merge" (modules/agents/claude-code/home-manager.nix)
-  # can exercise the actual production filter against a fixture instead of a
-  # hand-copied approximation that could silently drift from it.
+  # The settings.json merge filter and its jq variable bindings, lifted out of
+  # claudeCodeSetup's script so checks."claude-code/settings-merge"
+  # (modules/agents/claude-code/home-manager.nix) can exercise the actual
+  # production filter, invoked with its actual production arguments, against
+  # a fixture instead of a hand-copied approximation of either that could
+  # silently drift from it. settingsMergeJq references $managedSkills, so
+  # settingsMergeJqArgs is the one source of truth for the flag that binds it;
+  # a check that reconstructed its own --argjson instead would not catch a
+  # rename on either side.
+  settingsMergeJqArgs = [
+    "--argjson"
+    "managedSkills"
+    (builtins.toJSON managedClaudeSkillNames)
+  ];
   settingsMergeJq = ''
     . as $existing
     | $nixSettings[0] as $nix
@@ -93,7 +103,7 @@ let
   '';
 in
 {
-  inherit settingsMergeJq;
+  inherit settingsMergeJq settingsMergeJqArgs;
   activation = {
     claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
       CLAUDE_SETTINGS="$HOME/.claude/settings.json"
@@ -111,7 +121,7 @@ in
       fi
 
       if ! ${pkgs.jq}/bin/jq \
-        --argjson managedSkills '${builtins.toJSON managedClaudeSkillNames}' \
+        ${lib.escapeShellArgs settingsMergeJqArgs} \
         --slurpfile nixSettings ${claudeSettingsFile} \
         '${settingsMergeJq}' \
         "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
