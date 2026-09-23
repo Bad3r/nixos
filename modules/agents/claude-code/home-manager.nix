@@ -332,8 +332,6 @@
         else
           configuredExternalBinary;
 
-      managedPluginKeys = lib.attrNames plugins.enabledPlugins;
-
       activation = import ./_activation.nix {
         inherit
           lib
@@ -342,7 +340,6 @@
           config
           claudeEnv
           managedClaudeSkillNames
-          managedPluginKeys
           ;
         claudeDefaults = defaults;
         inherit (settings) claudeSettingsFile claudeJsonConfigFile;
