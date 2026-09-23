@@ -448,12 +448,17 @@
               };
               # In claudeDefaults.retired.claudeJson (_default-settings.nix): deleted unconditionally.
               autocheckpointingEnabled = true;
+              # $nix sets this key too, to a different value: pins the ambient
+              # merge direction, since no explicit rule in claudeJsonMergeJq
+              # touches it.
+              theme = "light";
             };
             nixFixture = {
               mcpServers.ctx7 = {
                 type = "http";
                 url = "https://example.invalid/mcp";
               };
+              theme = "dark";
             };
           in
           pkgs.runCommandLocal "claude-code-claude-json-merge"
@@ -491,6 +496,10 @@
               check "mcpServers existing-only entry preserved" '.mcpServers."existing-only".command' '"keep-me"'
               # retired claudeJson keys (claudeDefaults.retired.claudeJson) are deleted unconditionally.
               check "retired claudeJson key deleted" 'has("autocheckpointingEnabled")' "false"
+              # $nix wins a same-key conflict, the same property 661d1099 pins
+              # for settings-merge: without this, a reversed ambient merge
+              # would leave every claudeJsonConfigBase value stale and still pass.
+              check "claude.json nix value wins" '.theme' '"dark"'
 
               echo "ok: claude-code claude-json-merge jq contract" > $out
             '';
