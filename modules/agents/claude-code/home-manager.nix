@@ -20,11 +20,15 @@
       programs.claude-code.extended.deniedMcpServers in modules/apps/claude-code.nix.
     * Per-skill availability for standalone Claude Code skills is governed by
       programs.claude-code.extended.skillOverrides in modules/apps/claude-code.nix.
-    * `enabledPlugins` keys end with `@<marketplace>` (see
-      ~/.claude/plugins/known_marketplaces.json). Default plugins assume the
-      `claude-plugins-official` marketplace is registered (install once with
-      `claude-plugins install anthropics/claude-plugins-official`); entries
-      that reference an unregistered marketplace are silently ignored.
+    * `enabledPlugins` keys end with `@<marketplace>`. The marketplace must be
+      registered first: declaratively via _default-settings.nix's
+      claudeSettingsBase.extraKnownMarketplaces (as chrome-devtools-plugins
+      and cloudflare are), or out of band in
+      ~/.claude/plugins/known_marketplaces.json (as claude-plugins-official
+      is, installed once with
+      `claude-plugins install anthropics/claude-plugins-official`). `builtin`
+      needs no registration; entries naming an unregistered marketplace are
+      silently ignored.
     * Config is split across private helpers in modules/agents/claude-code/:
         _default-settings.nix  static defaults for settings.json, .claude.json,
                                and keybindings.json

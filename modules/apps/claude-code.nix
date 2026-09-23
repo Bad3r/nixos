@@ -384,8 +384,10 @@ in
                       programs.claude-code.extended.extraPlugins keys must follow the
                       "<plugin>@<marketplace>" form (matching the suffix used in
                       ~/.claude/settings.json's enabledPlugins and the marketplace name
-                      in ~/.claude/plugins/known_marketplaces.json). A key without an
-                      "@" suffix is silently ignored by Claude Code at runtime.
+                      registered via claudeSettingsBase.extraKnownMarketplaces in
+                      _default-settings.nix or ~/.claude/plugins/known_marketplaces.json).
+                      A key without an "@" suffix is silently ignored by Claude Code at
+                      runtime.
                       Invalid keys: ${toString malformedKeys}
                     '';
                   }
