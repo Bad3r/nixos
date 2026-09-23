@@ -208,16 +208,21 @@ let
     enableAllProjectMcpServers = true;
     syncClaudeAiPlugins = false;
     syncClaudeAiSkills = false;
-    # Registers plugin marketplaces referenced by extraPlugins at startup.
-    # Chrome DevTools is sparse because its full clone pulls a large submodule.
+    # Registers the marketplaces behind the chrome-devtools-mcp and cloudflare
+    # extraPlugins keys at startup. claude-plugins-official installs out of
+    # band (see home-manager.nix's module header); builtin needs no
+    # registration.
     extraKnownMarketplaces."chrome-devtools-plugins".source = {
       source = "git";
+      # Sparse because its full clone pulls a large submodule.
       url = "https://github.com/ChromeDevTools/chrome-devtools-mcp.git";
       sparsePaths = [ ".claude-plugin" ];
     };
     extraKnownMarketplaces."cloudflare".source = {
       source = "git";
       url = "https://github.com/cloudflare/skills.git";
+      # Sparse while cloudflare@cloudflare stays disabled; drop this if enabled.
+      sparsePaths = [ ".claude-plugin" ];
     };
     fileCheckpointingEnabled = true; # Snapshot files before edits so /rewind can restore them
     language = "en"; # Language
