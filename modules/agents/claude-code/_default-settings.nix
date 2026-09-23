@@ -388,11 +388,14 @@ assert
   #   totalTokensReminderBudget = 0;  # [number]
   #
 
-  # === Documented settings.json keys not set above (2.1.222 schema) =========
-  # Every remaining top-level key in the binary's settings schema. Descriptions
-  # are the schema's own .describe() text, falling back to the published docs.
-  # Activate a key by moving the line into claudeSettingsBase above; omitting
-  # keeps the default.
+  # === Documented settings.json keys (2.1.222 schema) =======================
+  # Every top-level key in the binary's settings schema that is not spelled out
+  # in claudeSettingsBase above, plus keys marked `ACTIVE in claudeSettingsBase`
+  # / `ACTIVE in claudeJsonConfigBase` / `SET BY _settings.nix`, which are live
+  # and retain their schema description here. Descriptions are the schema's own
+  # .describe() text, falling back to the published docs. Activate an
+  # unannotated key by setting it in claudeSettingsBase above and annotating
+  # the line; omitting keeps the default.
   #   Advisor model for the server-side advisor tool.
   #   advisorModel = "";                                # [string]
   #
