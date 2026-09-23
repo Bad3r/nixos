@@ -615,7 +615,7 @@ assert
   #   Additional marketplaces to make available for this repository. Typically
   #   used in repository .claude/settings.json to ensure team members have
   #   required plugin sources.
-  #   extraKnownMarketplaces = { };                     # [record]
+  #   extraKnownMarketplaces = { };                     # [record]  ACTIVE in claudeSettingsBase
   #
   #   Fallback model(s) tried in order when the primary model is overloaded or
   #   unavailable. Each element accepts a model name or alias; "default" expands
@@ -866,14 +866,14 @@ assert
   #   re-sync each launch and are removed when disabled on claude.ai (a
   #   same-named local plugin still takes precedence). Not read from
   #   project settings (.claude/settings.json).
-  #   syncClaudeAiPlugins = false;                      # [boolean] ACTIVE in claudeSettingsBase
+  #   syncClaudeAiPlugins = false;                      # [boolean] ACTIVE in claudeSettingsBase, since 2.1.280
   #
   #   Set to false to turn off syncing of skills enabled on claude.ai; only
   #   false is honored, since the sync feature itself is controlled
   #   server-side. While on (the default when signed in), synced skills
   #   re-sync every 10 minutes and are removed when disabled on claude.ai.
   #   Not read from project settings (.claude/settings.json).
-  #   syncClaudeAiSkills = false;                       # [boolean] ACTIVE in claudeSettingsBase
+  #   syncClaudeAiSkills = false;                       # [boolean] ACTIVE in claudeSettingsBase, since 2.1.280
   #
   #   Whether to disable syntax highlighting in diffs
   #   syntaxHighlightingDisabled = true;                # [boolean]
