@@ -8,8 +8,12 @@
       Nix-managed mcpServers and, per marketplace name, extraKnownMarketplaces
       entries (jq's recursive `*` never drops a subkey such as sparsePaths
       once written, so each declared marketplace is replaced wholesale
-      instead of deep-merged). skillOverrides entries for managed skill names
-      are fully owned by Nix, so a name dropped from
+      instead of deep-merged). extraKnownMarketplaces stays union-only at the
+      entry level, like enabledPlugins: the CLI's own `/plugin marketplace
+      add` writes directly into this key (userSettings scope by default), so
+      a marketplace name dropped from claudeSettingsBase is not deleted from
+      settings.json; remove it there by hand. skillOverrides entries for
+      managed skill names are fully owned by Nix, so a name dropped from
       programs.claude-code.extended.skillOverrides clears rather than
       lingers; entries for unmanaged names are preserved. enabledPlugins
       stays union-only by design (modules/apps/claude-code.nix's extraPlugins
