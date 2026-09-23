@@ -36,10 +36,12 @@ let
     inherit enabledPlugins skillOverrides;
     deniedMcpServers = map (serverName: { inherit serverName; }) deniedMcpServers;
   };
+  injectedSettingsNames = sorted (builtins.attrNames injectedSettingsValues);
+  declaredSettingsNames = sorted defaults.injectedSettings;
   claudeSettings =
     assert
-      sorted (builtins.attrNames injectedSettingsValues) == sorted defaults.injectedSettings
-      || throw "modules/agents/claude-code/_settings.nix: injects keys not listed in _default-settings.nix injectedSettings";
+      injectedSettingsNames == declaredSettingsNames
+      || throw "modules/agents/claude-code/_settings.nix: injected settings keys ${builtins.toJSON injectedSettingsNames} do not match _default-settings.nix injectedSettings ${builtins.toJSON declaredSettingsNames}";
     defaults.claudeSettingsBase // injectedSettingsValues;
 
   claudeSettingsFile = pkgs.writeText "claude-settings.json" (builtins.toJSON claudeSettings);
@@ -47,10 +49,12 @@ let
   injectedClaudeJsonValues = {
     inherit mcpServers;
   };
+  injectedClaudeJsonNames = sorted (builtins.attrNames injectedClaudeJsonValues);
+  declaredClaudeJsonNames = sorted defaults.injectedClaudeJson;
   claudeJsonConfig =
     assert
-      sorted (builtins.attrNames injectedClaudeJsonValues) == sorted defaults.injectedClaudeJson
-      || throw "modules/agents/claude-code/_settings.nix: injects keys not listed in _default-settings.nix injectedClaudeJson";
+      injectedClaudeJsonNames == declaredClaudeJsonNames
+      || throw "modules/agents/claude-code/_settings.nix: injected claude.json keys ${builtins.toJSON injectedClaudeJsonNames} do not match _default-settings.nix injectedClaudeJson ${builtins.toJSON declaredClaudeJsonNames}";
     defaults.claudeJsonConfigBase // injectedClaudeJsonValues;
 
   claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJsonConfig);
