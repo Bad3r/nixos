@@ -25,6 +25,7 @@ let
     inkscape = true;
     ytubic = true;
     stash = true;
+    websocat = true;
   };
 
   # Nested toggles cannot go through appEnable, which routes every entry to a
