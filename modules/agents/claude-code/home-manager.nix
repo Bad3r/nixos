@@ -80,11 +80,11 @@
       # writeShellScriptBin prepends "#!${pkgs.runtimeShell}", so the shebang
       # the classifier sees is never part of wrapperBody.
       wrapperShebangLine = "#!${pkgs.runtimeShell}";
-      # Every regex the build script recovers from shell-wrapper.patch. CI
-      # forces each check's drvPath but never builds one
-      # (.github/workflows/check.yml), so the script is unreachable in CI;
-      # pinning each literal here makes a patch-side edit fail eval instead of
-      # silently drifting from targetLinePattern and the unexercised script.
+      # Every regex the build script recovers from shell-wrapper.patch. The
+      # check below opts into CI's runtime build (passthru.runtimeCheck), so
+      # the script does run there, but only on `nix build`; pinning each
+      # literal here additionally fails eval, catching a patch-side drift in
+      # `nix flake check --no-build` without waiting on a full build.
       patchRegexLiterals = {
         shebang = ''/(?:^|[/\s])(?:bash|dash|zsh|ksh|ash|sh)(?:\s|$)/'';
         target = ''/^\s*target=(?:"([^"]+)"|'([^']+)'|([^\s#]+))\s*$/m'';
@@ -111,6 +111,7 @@
           "claude-code wrapper lost its single standalone absolute target assignment consumed by packages/tweakcc/shell-wrapper.patch";
         pkgs.runCommandLocal "claude-code-wrapper-target-contract"
           {
+            passthru.runtimeCheck = true;
             nativeBuildInputs = [ pkgs.makeWrapper ];
           }
           ''
