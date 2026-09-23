@@ -1,6 +1,6 @@
 # Chromium Web Apps, Phase 2: Remove firefoxpwa
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. `superpowers@claude-plugins-official` defaults to disabled (`modules/apps/claude-code.nix`); enable it before starting. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Phase 2 of 3.** The series replaces the firefoxpwa subsystem with a declarative Chromium web-app module on brave-origin, one PR per phase:
 
