@@ -19,13 +19,21 @@
       safe here: unlike enabledPlugins and extraKnownMarketplaces, the CLI's
       interactive skill-override toggle (verified against 2.1.280) writes
       only to the localSettings scope (.claude/settings.local.json), never to
-      the userSettings scope this activation manages. enabledPlugins needs no
-      explicit rule: it is a flat `{ "<plugin>@<marketplace>" = bool; }` map
-      on both sides (_plugins.nix), always present in $nix (_settings.nix
-      injects it unconditionally), so the ambient recursive `*` merge above
-      already unions it per key, right side winning, which is the
+      the userSettings scope this activation manages. enabledPlugins and env
+      need no explicit rule: both are flat maps (`{ "<plugin>@<marketplace>"
+      = bool; }`, `{ <NAME> = string; }`) on both sides (_plugins.nix,
+      _env.nix), always present in $nix (_settings.nix and claudeSettingsBase
+      inject them unconditionally), so the ambient recursive `*` merge above
+      already unions each per key, right side winning; that is also the
       union-only contract modules/apps/claude-code.nix's extraPlugins option
-      documents (removing a plugin is a manual settings.json edit there).
+      documents for enabledPlugins (removing a plugin is a manual
+      settings.json edit there). An explicit rule for either would be
+      redundant when both sides are well-formed and strictly worse when
+      `$existing`'s value is a corrupted non-object: `*` degrades to picking
+      $nix, while `("str" // {}) + $nix.thing` hard-errors, aborting
+      activation. The retired-key, legacy-env-value, and env-name deletions
+      below still need their own pipeline stage, since nothing else performs
+      them.
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 
@@ -101,8 +109,7 @@ let
     | ($existing * $nix)
     | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
     | .extraKnownMarketplaces = (($existing.extraKnownMarketplaces // {}) + ($nix.extraKnownMarketplaces // {}))
-    | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
-    | .env = (($existing.env // {}) + ($nix.env // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}
+    | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}
   '';
 in
 {
