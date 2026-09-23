@@ -5,10 +5,11 @@
     - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
       ~/.claude.json, preserving user keys while deleting source-declared
       retired keys, invalid legacy environment values, and wholly replacing
-      Nix-managed mcpServers entries. skillOverrides entries for managed
-      skill names are fully owned by Nix, so a name dropped from
-      programs.claude-code.extended.skillOverrides clears rather than
-      lingers; entries for unmanaged names are preserved.
+      Nix-managed mcpServers entries. skillOverrides and enabledPlugins
+      entries for managed skill/plugin names are fully owned by Nix, so a
+      name dropped from programs.claude-code.extended.skillOverrides,
+      extraPlugins, or lspPlugins clears rather than lingers; entries for
+      unmanaged names are preserved.
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 
@@ -27,6 +28,7 @@
   claudeEnv,
   claudeDefaults,
   managedClaudeSkillNames,
+  managedPluginKeys,
 }:
 let
   retiredSettingsJq = lib.optionalString (claudeDefaults.retired.settings != [ ]) (
@@ -83,12 +85,13 @@ in
 
     if ! ${pkgs.jq}/bin/jq \
       --argjson managedSkills '${builtins.toJSON managedClaudeSkillNames}' \
+      --argjson managedPlugins '${builtins.toJSON managedPluginKeys}' \
       --slurpfile nixSettings ${claudeSettingsFile} \
       '. as $existing
       | $nixSettings[0] as $nix
       | ($existing * $nix)
       | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
-      | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
+      | .enabledPlugins = ((($existing.enabledPlugins // {}) | with_entries(select(.key as $k | ($managedPlugins | index($k)) | not))) + ($nix.enabledPlugins // {}))
       | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
       | .env = (($existing.env // {}) + ($nix.env // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}' \
       "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
