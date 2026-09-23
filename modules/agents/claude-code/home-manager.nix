@@ -275,7 +275,16 @@
       # enabledPlugins alone has now shipped a no-op fix twice for two
       # different reasons (16e377d9's, and the redundant rule bfb8d432
       # removed), so both observable contracts keep a regression check
-      # independent of which mechanism currently provides them.
+      # independent of which mechanism currently provides them. Both fixtures
+      # also stage one key each ("kept@mkt", CONTESTED) present on both sides
+      # with conflicting values, asserted to resolve to $nix's: this pins the
+      # merge's precedence direction, not just its union of keys, which is
+      # what lets a declared change actually take effect on a machine that
+      # already switched (this PR's own extraPlugins default flips depend on
+      # it). This check opts into
+      # .github/workflows/check.yml's "Run runtime check suites" step via
+      # passthru.runtimeCheck below; without that, its assertions evaluate
+      # here but CI never builds this derivation, so none of them run there.
       checks."claude-code/settings-merge" =
         let
           activationFixture = import ./_activation.nix {
@@ -291,6 +300,8 @@
           existingFixture = {
             enabledPlugins = {
               "gone@mkt" = true;
+              # $nix sets this key too, to a different value: pins $nix
+              # winning the conflict, not just the union of keys.
               "kept@mkt" = false;
             };
             extraKnownMarketplaces.cloudflare.source = {
@@ -320,6 +331,9 @@
               # does not override it.
               CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
               USER_KEPT = "keep";
+              # $nix sets this key too, to a different value: pins $nix
+              # winning the conflict, not just the union of keys.
+              CONTESTED = "existing";
             };
           };
           nixFixture = {
@@ -333,11 +347,16 @@
               { serverName = "claude.ai Todoist"; }
               { serverName = "claude.ai Cloudflare Developer Platform"; }
             ];
-            env = { };
+            env.CONTESTED = "nix";
           };
         in
         pkgs.runCommandLocal "claude-code-settings-merge"
           {
+            # .github/workflows/check.yml's "Check flake" step only forces
+            # drvPaths; a check's assertions only run in CI if its name
+            # matches script-tests-.* or it opts in here (see that workflow's
+            # "Run runtime check suites" step and modules/meta/script-tests.nix).
+            passthru.runtimeCheck = true;
             existingJson = builtins.toJSON existingFixture;
             nixJson = builtins.toJSON nixFixture;
             passAsFile = [
@@ -373,6 +392,10 @@
               '.extraKnownMarketplaces.cloudflare.source | has("sparsePaths")' "false"
             # enabledPlugins: the ambient `*` merge preserves a key $nix no longer declares.
             check "enabledPlugins stale key preserved by union" '.enabledPlugins."gone@mkt"' "true"
+            # enabledPlugins: $nix's value wins a same-key conflict; this is what
+            # lets extraPlugins actually flip a previously-true default to false
+            # on a machine that already switched.
+            check "enabledPlugins nix value wins" '.enabledPlugins."kept@mkt"' "true"
             # deniedMcpServers: explicit union-and-dedupe, not `*`'s whole-array replace.
             # Without `| unique` this is 4, since "claude.ai Todoist" appears on both sides.
             check "deniedMcpServers unions and dedupes both sides" '.deniedMcpServers | length' "3"
@@ -382,6 +405,8 @@
             check "retired env name deleted" '.env | has("CLAUDE_CODE_ENABLE_TELEMETRY")' "false"
             # env keys neither side's rules touch are preserved.
             check "user env preserved" '.env.USER_KEPT' '"keep"'
+            # env: $nix's value wins a same-key conflict, same property as enabledPlugins above.
+            check "env nix value wins" '.env.CONTESTED' '"nix"'
             # legacy env values are deleted when the merged value still equals
             # the legacy value $nix never sets (see existingFixture's comment).
             check "legacy env value deleted" '.env | has("CLAUDE_CODE_DISABLE_TERMINAL_TITLE")' "false"
