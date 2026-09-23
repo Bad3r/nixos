@@ -860,6 +860,21 @@ assert
   #   to keep chatting. When off, your session will pause instead.
   #   switchModelsOnFlag = true;                        # [boolean]
   #
+  #   Set to false to turn off syncing of plugins enabled on claude.ai; only
+  #   false is honored, since the sync feature itself is controlled
+  #   server-side. While on (the default when signed in), synced plugins
+  #   re-sync each launch and are removed when disabled on claude.ai (a
+  #   same-named local plugin still takes precedence). Not read from
+  #   project settings (.claude/settings.json).
+  #   syncClaudeAiPlugins = false;                      # [boolean] ACTIVE in claudeSettingsBase
+  #
+  #   Set to false to turn off syncing of skills enabled on claude.ai; only
+  #   false is honored, since the sync feature itself is controlled
+  #   server-side. While on (the default when signed in), synced skills
+  #   re-sync every 10 minutes and are removed when disabled on claude.ai.
+  #   Not read from project settings (.claude/settings.json).
+  #   syncClaudeAiSkills = false;                       # [boolean] ACTIVE in claudeSettingsBase
+  #
   #   Whether to disable syntax highlighting in diffs
   #   syntaxHighlightingDisabled = true;                # [boolean]
   #
