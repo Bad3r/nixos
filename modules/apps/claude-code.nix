@@ -221,8 +221,11 @@ in
           type = lib.types.attrsOf lib.types.bool;
           default = {
             "chrome-devtools-mcp@chrome-devtools-plugins" = true;
-            "code-review@claude-plugins-official" = true;
-            "superpowers@claude-plugins-official" = true;
+            "telemetry@builtin" = false;
+            "code-review@claude-plugins-official" = false;
+            "superpowers@claude-plugins-official" = false;
+            # Bundled MCP server would duplicate modules/agents/mcp/servers.nix's per-endpoint ones.
+            "cloudflare@cloudflare" = false;
             # Registered but disabled: keeps the key visible in settings.json so
             # toggling back on is a one-line Nix change without a reinstall.
             "frontend-design@claude-plugins-official" = false;

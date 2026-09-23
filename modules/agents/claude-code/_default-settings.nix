@@ -199,17 +199,24 @@ let
     };
     model = "claude-opus-5"; # Default model
     alwaysThinkingEnabled = true;
+    disableBundledSkills = true;
     # Persisted effort accepts low|medium|high|xhigh only; `max` is silently
     # dropped by the schema's .catch(). CLAUDE_CODE_EFFORT_LEVEL in `env` pins
     # max and outranks this, which stays as the floor if that var is unset.
     effortLevel = "xhigh";
     enableAllProjectMcpServers = true;
-    # Registers the marketplace behind the chrome-devtools-mcp extraPlugins key at
-    # startup. Sparse because a full clone pulls the devtools-frontend submodule.
+    syncClaudeAiPlugins = false;
+    syncClaudeAiSkills = false;
+    # Registers plugin marketplaces referenced by extraPlugins at startup.
+    # Chrome DevTools is sparse because its full clone pulls a large submodule.
     extraKnownMarketplaces."chrome-devtools-plugins".source = {
       source = "git";
       url = "https://github.com/ChromeDevTools/chrome-devtools-mcp.git";
       sparsePaths = [ ".claude-plugin" ];
+    };
+    extraKnownMarketplaces."cloudflare".source = {
+      source = "git";
+      url = "https://github.com/cloudflare/skills.git";
     };
     fileCheckpointingEnabled = true; # Snapshot files before edits so /rewind can restore them
     language = "en"; # Language
@@ -517,7 +524,7 @@ assert
   #   typable but are hidden from the model. Plugins, .claude/skills/, and
   #   .claude/commands/ are unaffected. Equivalent to
   #   CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1.
-  #   disableBundledSkills = true;                      # [boolean]
+  #   disableBundledSkills = true;                      # [boolean] ACTIVE in claudeSettingsBase
   #
   #   When true in any settings source, claude.ai MCP cloud connectors are not
   #   auto-fetched or connected. Only gates auto-fetched connectors - a
