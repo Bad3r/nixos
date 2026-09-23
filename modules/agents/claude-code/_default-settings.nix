@@ -208,22 +208,24 @@ let
     enableAllProjectMcpServers = true;
     syncClaudeAiPlugins = false;
     syncClaudeAiSkills = false;
-    # Registers the marketplaces behind the chrome-devtools-mcp and cloudflare
-    # extraPlugins keys at startup. claude-plugins-official installs out of
-    # band (see home-manager.nix's module header); builtin needs no
-    # registration.
+    # Registers the marketplace behind the chrome-devtools-mcp extraPlugins
+    # key at startup. claude-plugins-official installs out of band (see
+    # home-manager.nix's module header); builtin needs no registration.
     extraKnownMarketplaces."chrome-devtools-plugins".source = {
       source = "git";
       # Sparse because its full clone pulls a large submodule.
       url = "https://github.com/ChromeDevTools/chrome-devtools-mcp.git";
       sparsePaths = [ ".claude-plugin" ];
     };
-    extraKnownMarketplaces."cloudflare".source = {
-      source = "git";
-      url = "https://github.com/cloudflare/skills.git";
-      # Sparse while cloudflare@cloudflare stays disabled; drop this if enabled.
-      sparsePaths = [ ".claude-plugin" ];
-    };
+    # cloudflare@cloudflare is disabled (modules/apps/claude-code.nix), and
+    # enabling it requires editing this block anyway to widen sparsePaths past
+    # .claude-plugin (docs/claude-code/skill-providers.md). Registering it
+    # early would only add a startup clone that activation's entry-level union
+    # can never take back (_activation.nix):
+    #   extraKnownMarketplaces."cloudflare".source = {
+    #     source = "git";
+    #     url = "https://github.com/cloudflare/skills.git";
+    #   };
     fileCheckpointingEnabled = true; # Snapshot files before edits so /rewind can restore them
     language = "en"; # Language
     outputStyle = "Proactive"; # Output style

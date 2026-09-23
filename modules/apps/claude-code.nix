@@ -285,8 +285,8 @@ in
             when removing a plugin. The marketplace named in the suffix must
             be registered before the entry takes effect: declare it in
             `_default-settings.nix`'s `claudeSettingsBase.extraKnownMarketplaces`
-            (as `chrome-devtools-plugins` and `cloudflare` are), or install it
-            out of band into `~/.claude/plugins/known_marketplaces.json` (as
+            (as `chrome-devtools-plugins` is), or install it out of band into
+            `~/.claude/plugins/known_marketplaces.json` (as
             `claude-plugins-official` is). `builtin` needs no registration.
             LSP plugin keys (those that would collide with
             `lspPlugins.<key>@claude-plugins-official`) are rejected by

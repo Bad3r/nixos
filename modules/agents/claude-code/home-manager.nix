@@ -23,9 +23,8 @@
     * `enabledPlugins` keys end with `@<marketplace>`. The marketplace must be
       registered first: declaratively via _default-settings.nix's
       claudeSettingsBase.extraKnownMarketplaces (as chrome-devtools-plugins
-      and cloudflare are), or out of band in
-      ~/.claude/plugins/known_marketplaces.json (as claude-plugins-official
-      is, installed once with
+      is), or out of band in ~/.claude/plugins/known_marketplaces.json (as
+      claude-plugins-official is, installed once with
       `claude-plugins install anthropics/claude-plugins-official`). `builtin`
       needs no registration; entries naming an unregistered marketplace are
       silently ignored.
