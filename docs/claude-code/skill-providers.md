@@ -9,7 +9,7 @@ Standalone skills and plugin skills use different controls.
   The plugin enablement entry controls the skills and any MCP servers bundled by that plugin.
 - MCP servers in `modules/agents/mcp/servers.nix` remain independent unless a plugin manifest bundles the same provider.
 
-The Cloudflare plugin is registered as `cloudflare@cloudflare` from the Cloudflare Skills marketplace.
+The Cloudflare plugin is declared as `cloudflare@cloudflare` from the Cloudflare Skills marketplace, which is not registered by default (see below).
 It bundles Cloudflare skills and its API MCP server, so the individual upstream skills are not copied into the Nix skill registry.
 Its plugin entry is disabled by default.
 
