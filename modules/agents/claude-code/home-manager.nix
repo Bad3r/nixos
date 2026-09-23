@@ -18,6 +18,8 @@
     * Blocked MCP servers, mainly the claude.ai account connectors that local
       config cannot otherwise remove, are governed by
       programs.claude-code.extended.deniedMcpServers in modules/apps/claude-code.nix.
+    * Per-skill availability for standalone Claude Code skills is governed by
+      programs.claude-code.extended.skillOverrides in modules/apps/claude-code.nix.
     * `enabledPlugins` keys end with `@<marketplace>` (see
       ~/.claude/plugins/known_marketplaces.json). Default plugins assume the
       `claude-plugins-official` marketplace is registered (install once with
@@ -27,7 +29,7 @@
         _default-settings.nix  static defaults for settings.json, .claude.json,
                                and keybindings.json
         _plugins.nix           enabledPlugins composition from osConfig
-        _settings.nix          merges defaults + plugins + mcpServers
+        _settings.nix          merges defaults + plugins + skillOverrides + mcpServers
         _activation.nix        activation snippets (jq merge + optional bun install)
         _wrapper.nix           shell launcher environment and binary selection
 */
@@ -276,6 +278,19 @@
       defaults = import ./_default-settings.nix;
       claudeEnv = import ./_env.nix;
       plugins = import ./_plugins.nix { inherit lib osConfig; };
+      registryClaudeSkills = lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list;
+      managedClaudeSkillNames = lib.attrNames registryClaudeSkills;
+      defaultSkillOverrides = lib.genAttrs managedClaudeSkillNames (_: "on");
+      configuredSkillOverrides = lib.attrByPath [
+        "programs"
+        "claude-code"
+        "extended"
+        "skillOverrides"
+      ] { } osConfig;
+      unknownSkillOverrides = lib.attrNames (
+        builtins.removeAttrs configuredSkillOverrides managedClaudeSkillNames
+      );
+      skillOverrides = defaultSkillOverrides // configuredSkillOverrides;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
@@ -299,6 +314,7 @@
           defaults
           mcpServers
           deniedMcpServers
+          skillOverrides
           ;
         inherit (plugins) enabledPlugins;
       };
@@ -348,10 +364,17 @@
       # skills need no per-client wiring here.
       claudeSkillFiles = lib.mapAttrs' (
         name: skill: lib.nameValuePair ".claude/skills/${name}/SKILL.md" { text = skill.claude; }
-      ) (lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list);
+      ) registryClaudeSkills;
     in
     {
       config = lib.mkIf nixosEnabled {
+        assertions = [
+          {
+            assertion = unknownSkillOverrides == [ ];
+            message = "programs.claude-code.extended.skillOverrides has unknown skill names: ${lib.concatStringsSep ", " unknownSkillOverrides}. Managed Claude Code skills: ${lib.concatStringsSep ", " managedClaudeSkillNames}.";
+          }
+        ];
+
         home = {
           file = {
             ".claude/CLAUDE.md".text = claudeInstructions;

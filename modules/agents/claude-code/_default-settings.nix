@@ -182,6 +182,7 @@ let
   injectedSettings = [
     "enabledPlugins"
     "deniedMcpServers"
+    "skillOverrides"
   ];
   injectedClaudeJson = [ "mcpServers" ];
 
@@ -796,7 +797,7 @@ assert
   #   Per-skill listing overrides keyed by skill name. "name-only" lists the
   #   skill without its description; "user-invocable-only" hides it from the
   #   model but keeps /name; "off" hides it from both. Absent = on.
-  #   skillOverrides = { };                             # [record]
+  #   skillOverrides = { };                             # [record]   SET BY _settings.nix (programs.claude-code.extended.skillOverrides)
   #
   #   Whether the user has accepted the bypass permissions mode dialog
   #   skipDangerousModePermissionPrompt = true;         # [boolean]

@@ -217,6 +217,34 @@ in
           }
         ) lspPluginProgramMap;
 
+        skillOverrides = lib.mkOption {
+          type = lib.types.attrsOf (
+            lib.types.enum [
+              "on"
+              "name-only"
+              "user-invocable-only"
+              "off"
+            ]
+          );
+          default = { };
+          example = lib.literalExpression ''
+            {
+              "commit" = "user-invocable-only";
+              "nixos-hm-post-switch-repair" = "off";
+            }
+          '';
+          description = ''
+            Per-skill availability overrides for standalone Claude Code skills,
+            keyed by managed skill name; an unknown name fails evaluation.
+            "name-only" lists a skill without its description,
+            "user-invocable-only" hides it from the model but keeps /name, and
+            "off" hides it from both. Managed standalone skills are enabled by
+            default. Plugin-provided skills are controlled by the corresponding
+            extraPlugins entry because Claude Code does not apply skillOverrides
+            to plugin skills.
+          '';
+        };
+
         extraPlugins = lib.mkOption {
           type = lib.types.attrsOf lib.types.bool;
           default = {
