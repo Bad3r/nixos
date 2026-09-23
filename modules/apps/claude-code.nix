@@ -239,7 +239,10 @@ in
             "off" hides it from both. Managed standalone skills are enabled by
             default. Plugin-provided skills are controlled by the corresponding
             extraPlugins entry because Claude Code does not apply skillOverrides
-            to plugin skills.
+            to plugin skills. Activation fully owns the managed skill names, so
+            removing a key here also removes it from `~/.claude/settings.json`;
+            entries for unmanaged names, such as plugin or hand-written skills,
+            are left alone. This differs from `extraPlugins`, which only unions.
           '';
         };
 
