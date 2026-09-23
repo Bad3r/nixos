@@ -220,7 +220,6 @@ in
         skillOverrides = lib.mkOption {
           type = lib.types.attrsOf (
             lib.types.enum [
-              "on"
               "name-only"
               "user-invocable-only"
               "off"

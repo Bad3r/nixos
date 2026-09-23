@@ -289,10 +289,7 @@
       unknownSkillOverrides = lib.attrNames (
         builtins.removeAttrs configuredSkillOverrides managedClaudeSkillNames
       );
-      # settings.json has no "on" value for skillOverrides entries; absence
-      # means on (_default-settings.nix skillOverrides schema note), so an
-      # explicit "on" is dropped rather than written literally.
-      skillOverrides = lib.filterAttrs (_name: value: value != "on") configuredSkillOverrides;
+      skillOverrides = configuredSkillOverrides;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
