@@ -18,8 +18,11 @@
       a marketplace name dropped from claudeSettingsBase is not deleted from
       settings.json; remove it there by hand. skillOverrides entries for
       managed skill names are fully owned by Nix, so a name dropped from
-      programs.claude-code.extended.skillOverrides clears rather than
-      lingers; entries for unmanaged names are preserved. Full ownership is
+      programs.claude-code.extended.skillOverrides while its skill stays
+      registered clears rather than lingers; entries for unmanaged names,
+      including a name whose skill left the registry first, are preserved
+      (modules/apps/claude-code.nix's skillOverrides option documents the
+      resulting one-way trap and its manual cleanup). Full ownership is
       safe here: unlike enabledPlugins and extraKnownMarketplaces, the CLI's
       interactive skill-override toggle (verified against 2.1.280) writes
       only to the localSettings scope (.claude/settings.local.json), never to

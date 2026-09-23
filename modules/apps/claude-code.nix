@@ -239,10 +239,16 @@ in
             "off" hides it from both. Managed standalone skills are enabled by
             default. Plugin-provided skills are controlled by the corresponding
             extraPlugins entry because Claude Code does not apply skillOverrides
-            to plugin skills. Activation fully owns the managed skill names, so
-            removing a key here also removes it from `~/.claude/settings.json`;
-            entries for unmanaged names, such as plugin or hand-written skills,
-            are left alone. This differs from `extraPlugins`, which only unions.
+            to plugin skills. Activation fully owns the skill names currently
+            in the managed registry, so removing a key here also removes it
+            from `~/.claude/settings.json`; entries for unmanaged names, such
+            as plugin or hand-written skills, are left alone. A name that
+            leaves the registry (a skill deleted or renamed in
+            modules/agents/skills/) becomes unmanaged from that switch
+            onward, so the clearing guarantee only applies if the override is
+            removed in an earlier switch while the skill is still managed;
+            otherwise delete the stale entry from settings.json by hand. This
+            differs from `extraPlugins`, which only unions.
           '';
         };
 
