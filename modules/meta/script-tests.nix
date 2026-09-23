@@ -130,7 +130,39 @@ let
           dest = "docs/technical-writing/banned-phrases.txt";
         }
       ];
-      packages = config: [ config.packages.hook-docs-style ];
+      packages = { config, ... }: [ config.packages.hook-docs-style ];
+      extraInputs = pkgs: [ pkgs.gnugrep ];
+    };
+    kitty-ssh-url-handler = {
+      dir = ../../tests/kitty-ssh-url-handler;
+      subjects = [ ];
+      packages =
+        { config, pkgs }:
+        let
+          kittyStub = pkgs.writeShellApplication {
+            name = "kitty";
+            text = ''
+              : "''${KITTY_SSH_KITTY_LOG:?KITTY_SSH_KITTY_LOG is not set}"
+              printf '%s\0' "$@" >>"$KITTY_SSH_KITTY_LOG"
+            '';
+          };
+          notifyStub = pkgs.writeShellApplication {
+            name = "notify-send";
+            text = ''
+              : "''${KITTY_SSH_NOTIFY_LOG:?KITTY_SSH_NOTIFY_LOG is not set}"
+              printf '%s\0' "$@" >>"$KITTY_SSH_NOTIFY_LOG"
+              if [ "''${KITTY_SSH_NOTIFY_FAIL:-0}" = 1 ]; then
+                exit 1
+              fi
+            '';
+          };
+        in
+        [
+          (config.packages.kitty-ssh-url-handler.override {
+            kitty = kittyStub;
+            libnotify = notifyStub;
+          })
+        ];
       extraInputs = pkgs: [ pkgs.gnugrep ];
     };
   };
@@ -382,7 +414,7 @@ in
                   git
                 ])
                 ++ suite.extraInputs pkgs
-                ++ (suite.packages or (_: [ ])) config;
+                ++ (suite.packages or (_: [ ])) { inherit config pkgs; };
             }
             ''
               mkdir -p tests

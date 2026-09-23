@@ -1,8 +1,8 @@
 { lib, ... }:
 let
   settings = {
-    # Auto-trust flake nixConfig settings (safe for own repositories)
-    accept-flake-config = true;
+    # Lix ignores untrusted flake nixConfig with a warning in this mode and never prompts.
+    accept-flake-config = false;
     # Disabled due to upstream nixpkgs warning in make-options-doc
     # See: https://github.com/NixOS/nixpkgs/issues/485682
     abort-on-warn = false;

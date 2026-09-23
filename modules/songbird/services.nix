@@ -50,6 +50,7 @@ in
         && songbirdSopsRuntimeReady
         && cloudflareWarpSecretExists;
       sambaMeshAccessTemplatePath = config.sops.templates.${sambaMeshAccessTemplate}.path;
+      powerProfile = import ../hosts/common/_power-profile-unit.nix pkgs;
     in
     {
       imports =
@@ -131,7 +132,7 @@ in
         };
 
         # Force the power-profiles-daemon profile to performance at boot.
-        services.songbird-power-profile = import ../hosts/common/_power-profile-unit.nix pkgs;
+        services.songbird-power-profile = powerProfile.unit;
       };
 
       # lock = logind signal -> xss-lock --transfer-sleep-lock (i3lock-stylix).
@@ -196,7 +197,7 @@ in
           # fatal: nixpkgs concatenates powerUpCommands after this in the same
           # set -e sleep-actions preStop script, so an unguarded failure here
           # would skip it. The journal line keeps the failure visible.
-          ${pkgs.power-profiles-daemon}/bin/powerprofilesctl set performance || echo "songbird resume: powerprofilesctl set performance failed" >&2
+          ${powerProfile.command} || echo "songbird resume: powerprofilesctl set performance failed" >&2
         '';
       };
 
