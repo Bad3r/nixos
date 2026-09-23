@@ -182,6 +182,7 @@ let
   injectedSettings = [
     "enabledPlugins"
     "deniedMcpServers"
+    "skillOverrides"
   ];
   injectedClaudeJson = [ "mcpServers" ];
 
@@ -199,18 +200,32 @@ let
     };
     model = "claude-opus-5"; # Default model
     alwaysThinkingEnabled = true;
+    disableBundledSkills = true;
     # Persisted effort accepts low|medium|high|xhigh only; `max` is silently
     # dropped by the schema's .catch(). CLAUDE_CODE_EFFORT_LEVEL in `env` pins
     # max and outranks this, which stays as the floor if that var is unset.
     effortLevel = "xhigh";
     enableAllProjectMcpServers = true;
-    # Registers the marketplace behind the chrome-devtools-mcp extraPlugins key at
-    # startup. Sparse because a full clone pulls the devtools-frontend submodule.
+    syncClaudeAiPlugins = false;
+    syncClaudeAiSkills = false;
+    # Registers the marketplace behind the chrome-devtools-mcp extraPlugins
+    # key at startup. claude-plugins-official installs out of band (see
+    # home-manager.nix's module header); builtin needs no registration.
     extraKnownMarketplaces."chrome-devtools-plugins".source = {
       source = "git";
+      # Sparse because its full clone pulls a large submodule.
       url = "https://github.com/ChromeDevTools/chrome-devtools-mcp.git";
       sparsePaths = [ ".claude-plugin" ];
     };
+    # cloudflare@cloudflare is disabled (modules/apps/claude-code.nix), and
+    # enabling it requires editing this block anyway to widen sparsePaths past
+    # .claude-plugin (docs/claude-code/skill-providers.md). Registering it
+    # early would only add a startup clone that activation's entry-level union
+    # can never take back (_activation.nix):
+    #   extraKnownMarketplaces."cloudflare".source = {
+    #     source = "git";
+    #     url = "https://github.com/cloudflare/skills.git";
+    #   };
     fileCheckpointingEnabled = true; # Snapshot files before edits so /rewind can restore them
     language = "en"; # Language
     outputStyle = "Proactive"; # Output style
@@ -243,6 +258,15 @@ let
   retiredSettingsButLive = builtins.filter (
     name: builtins.hasAttr name claudeSettingsBase || builtins.elem name injectedSettings
   ) retired.settings;
+  # A key both here and in injectedSettings would be silently overridden by
+  # _settings.nix's `//` merge.
+  injectedButStatic = builtins.filter (
+    name: builtins.hasAttr name claudeSettingsBase
+  ) injectedSettings;
+  # Same check, claudeJsonConfigBase/injectedClaudeJson side.
+  injectedJsonButStatic = builtins.filter (
+    name: builtins.hasAttr name claudeJsonConfigBase
+  ) injectedClaudeJson;
 in
 assert
   deadAllow == [ ]
@@ -253,8 +277,20 @@ assert
 assert
   retiredSettingsButLive == [ ]
   || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredSettingsButLive} are both retired and live; remove the name from retired, claudeSettingsBase, or the _settings.nix injected keys";
+assert
+  injectedButStatic == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " injectedButStatic} are both runtime-injected by _settings.nix and statically set in claudeSettingsBase; drop the static definition so the injected value cannot be silently shadowed";
+assert
+  injectedJsonButStatic == [ ]
+  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " injectedJsonButStatic} are both runtime-injected by _settings.nix and statically set in claudeJsonConfigBase; drop the static definition so the injected value cannot be silently shadowed";
 {
-  inherit claudeJsonConfigBase claudeSettingsBase retired;
+  inherit
+    claudeJsonConfigBase
+    claudeSettingsBase
+    retired
+    injectedSettings
+    injectedClaudeJson
+    ;
 
   # === Undocumented settings.json keys (2.1.222 binary schema) ==============
   # Present in the binary's settings schema but absent from the published settings
@@ -354,11 +390,14 @@ assert
   #   totalTokensReminderBudget = 0;  # [number]
   #
 
-  # === Documented settings.json keys not set above (2.1.222 schema) =========
-  # Every remaining top-level key in the binary's settings schema. Descriptions
-  # are the schema's own .describe() text, falling back to the published docs.
-  # Activate a key by moving the line into claudeSettingsBase above; omitting
-  # keeps the default.
+  # === Documented settings.json keys (2.1.222 schema) =======================
+  # Every top-level key in the binary's settings schema that is not spelled out
+  # in claudeSettingsBase above, plus keys marked `ACTIVE in claudeSettingsBase`
+  # / `ACTIVE in claudeJsonConfigBase` / `SET BY _settings.nix`, which are live
+  # and retain their schema description here. Descriptions are the schema's own
+  # .describe() text, falling back to the published docs. Activate an
+  # unannotated key by setting it in claudeSettingsBase above and annotating
+  # the line; omitting keeps the default.
   #   Advisor model for the server-side advisor tool.
   #   advisorModel = "";                                # [string]
   #
@@ -517,7 +556,7 @@ assert
   #   typable but are hidden from the model. Plugins, .claude/skills/, and
   #   .claude/commands/ are unaffected. Equivalent to
   #   CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1.
-  #   disableBundledSkills = true;                      # [boolean]
+  #   disableBundledSkills = true;                      # [boolean] ACTIVE in claudeSettingsBase
   #
   #   When true in any settings source, claude.ai MCP cloud connectors are not
   #   auto-fetched or connected. Only gates auto-fetched connectors - a
@@ -587,7 +626,7 @@ assert
   #   Additional marketplaces to make available for this repository. Typically
   #   used in repository .claude/settings.json to ensure team members have
   #   required plugin sources.
-  #   extraKnownMarketplaces = { };                     # [record]
+  #   extraKnownMarketplaces = { };                     # [record]  ACTIVE in claudeSettingsBase
   #
   #   Fallback model(s) tried in order when the primary model is overloaded or
   #   unavailable. Each element accepts a model name or alias; "default" expands
@@ -789,7 +828,7 @@ assert
   #   Per-skill listing overrides keyed by skill name. "name-only" lists the
   #   skill without its description; "user-invocable-only" hides it from the
   #   model but keeps /name; "off" hides it from both. Absent = on.
-  #   skillOverrides = { };                             # [record]
+  #   skillOverrides = { };                             # [record]   SET BY _settings.nix (programs.claude-code.extended.skillOverrides)
   #
   #   Whether the user has accepted the bypass permissions mode dialog
   #   skipDangerousModePermissionPrompt = true;         # [boolean]
@@ -831,6 +870,21 @@ assert
   #   When safeguards flag a message, automatically switch to a different model
   #   to keep chatting. When off, your session will pause instead.
   #   switchModelsOnFlag = true;                        # [boolean]
+  #
+  #   Set to false to turn off syncing of plugins enabled on claude.ai; only
+  #   false is honored, since the sync feature itself is controlled
+  #   server-side. While on (the default when signed in), synced plugins
+  #   re-sync each launch and are removed when disabled on claude.ai (a
+  #   same-named local plugin still takes precedence). Not read from
+  #   project settings (.claude/settings.json).
+  #   syncClaudeAiPlugins = false;                      # [boolean] ACTIVE in claudeSettingsBase, since 2.1.280
+  #
+  #   Set to false to turn off syncing of skills enabled on claude.ai; only
+  #   false is honored, since the sync feature itself is controlled
+  #   server-side. While on (the default when signed in), synced skills
+  #   re-sync every 10 minutes and are removed when disabled on claude.ai.
+  #   Not read from project settings (.claude/settings.json).
+  #   syncClaudeAiSkills = false;                       # [boolean] ACTIVE in claudeSettingsBase, since 2.1.280
   #
   #   Whether to disable syntax highlighting in diffs
   #   syntaxHighlightingDisabled = true;                # [boolean]

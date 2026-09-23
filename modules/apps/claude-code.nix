@@ -217,12 +217,54 @@ in
           }
         ) lspPluginProgramMap;
 
+        skillOverrides = lib.mkOption {
+          type = lib.types.attrsOf (
+            lib.types.enum [
+              "name-only"
+              "user-invocable-only"
+              "off"
+            ]
+          );
+          default = { };
+          example = lib.literalExpression ''
+            {
+              "nixos-hm-post-switch-repair" = "off";
+            }
+          '';
+          description = ''
+            Per-skill availability overrides for standalone Claude Code skills,
+            keyed by managed skill name; an unknown name fails evaluation.
+            "name-only" lists a skill without its description,
+            "user-invocable-only" hides it from the model but keeps /name, and
+            "off" hides it from both. Managed standalone skills are enabled by
+            default. Plugin-provided skills are controlled by the corresponding
+            extraPlugins entry because Claude Code does not apply skillOverrides
+            to plugin skills. Activation fully owns the skill names currently
+            in the managed registry, so removing a key here also removes it
+            from `~/.claude/settings.json`; entries for unmanaged names, such
+            as plugin or hand-written skills, are left alone. A name that
+            leaves the registry (a skill deleted or renamed in
+            modules/agents/skills/) becomes unmanaged from that switch
+            onward, so the clearing guarantee only applies if the override is
+            removed in an earlier switch while the skill is still managed;
+            otherwise delete the stale entry from settings.json by hand. This
+            differs from `extraPlugins`, which only unions.
+          '';
+        };
+
         extraPlugins = lib.mkOption {
           type = lib.types.attrsOf lib.types.bool;
           default = {
             "chrome-devtools-mcp@chrome-devtools-plugins" = true;
-            "code-review@claude-plugins-official" = true;
-            "superpowers@claude-plugins-official" = true;
+            # Off by default: this repo curates which plugins reach the model
+            # rather than keeping Claude Code's bundled/official defaults.
+            "telemetry@builtin" = false;
+            "code-review@claude-plugins-official" = false;
+            # Off by default per the two entries above; enable per task, e.g.
+            # docs/drafts/chromium-webapps-plan-*.md require it.
+            "superpowers@claude-plugins-official" = false;
+            # Bundled MCP server would duplicate modules/agents/mcp/servers.nix's per-endpoint ones.
+            "cloudflare@cloudflare" = false;
             # Registered but disabled: keeps the key visible in settings.json so
             # toggling back on is a one-line Nix change without a reinstall.
             "frontend-design@claude-plugins-official" = false;
@@ -247,9 +289,12 @@ in
             key here does not remove a previously written key from
             `~/.claude/settings.json`; delete stale entries there explicitly
             when removing a plugin. The marketplace named in the suffix must
-            already be registered in
-            `~/.claude/plugins/known_marketplaces.json` for the entry to take
-            effect. LSP plugin keys (those that would collide with
+            be registered before the entry takes effect: declare it in
+            `_default-settings.nix`'s `claudeSettingsBase.extraKnownMarketplaces`
+            (as `chrome-devtools-plugins` is), or install it out of band into
+            `~/.claude/plugins/known_marketplaces.json` (as
+            `claude-plugins-official` is). `builtin` needs no registration.
+            LSP plugin keys (those that would collide with
             `lspPlugins.<key>@claude-plugins-official`) are rejected by
             assertion to avoid silently masking the LSP-managed enable state.
           '';
@@ -349,8 +394,10 @@ in
                       programs.claude-code.extended.extraPlugins keys must follow the
                       "<plugin>@<marketplace>" form (matching the suffix used in
                       ~/.claude/settings.json's enabledPlugins and the marketplace name
-                      in ~/.claude/plugins/known_marketplaces.json). A key without an
-                      "@" suffix is silently ignored by Claude Code at runtime.
+                      registered via claudeSettingsBase.extraKnownMarketplaces in
+                      _default-settings.nix or ~/.claude/plugins/known_marketplaces.json).
+                      A key without an "@" suffix is silently ignored by Claude Code at
+                      runtime.
                       Invalid keys: ${toString malformedKeys}
                     '';
                   }
