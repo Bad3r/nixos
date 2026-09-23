@@ -279,9 +279,12 @@ in
             key here does not remove a previously written key from
             `~/.claude/settings.json`; delete stale entries there explicitly
             when removing a plugin. The marketplace named in the suffix must
-            already be registered in
-            `~/.claude/plugins/known_marketplaces.json` for the entry to take
-            effect. LSP plugin keys (those that would collide with
+            be registered before the entry takes effect: declare it in
+            `_default-settings.nix`'s `claudeSettingsBase.extraKnownMarketplaces`
+            (as `chrome-devtools-plugins` and `cloudflare` are), or install it
+            out of band into `~/.claude/plugins/known_marketplaces.json` (as
+            `claude-plugins-official` is). `builtin` needs no registration.
+            LSP plugin keys (those that would collide with
             `lspPlugins.<key>@claude-plugins-official`) are rejected by
             assertion to avoid silently masking the LSP-managed enable state.
           '';
