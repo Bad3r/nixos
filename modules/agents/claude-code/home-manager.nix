@@ -263,14 +263,19 @@
       # (not a hand-copied approximation) against a fixture covering the two
       # merge policies _activation.nix's header documents an explicit rule
       # for (skillOverrides full ownership, extraKnownMarketplaces per-entry
-      # wholesale replace), plus deniedMcpServers' union-and-dedupe and the
-      # retired/legacy env var deletions. enabledPlugins' union is asserted
-      # too, even though it comes from the ambient `*` merge rather than an
-      # explicit rule (a second explicit rule for it was dead code, removed
-      # here): this exact key has now shipped a no-op fix twice for two
-      # different reasons (16e377d9's, and the redundant rule this round
-      # removed), so the observable contract keeps a regression check
-      # independent of which mechanism currently provides it.
+      # wholesale replace), plus deniedMcpServers' union-and-dedupe (in the
+      # real [{serverName = "…";}] shape _settings.nix renders, with an
+      # overlapping entry so `| unique` is actually exercised) and the
+      # retired/legacy env var deletions (using the only arm production can
+      # reach: $nix never sets a legacy-named key, so the fixture tests the
+      # deletion firing, not a same-key override surviving). enabledPlugins'
+      # and env's unions are asserted too, even though both come from the
+      # ambient `*` merge rather than an explicit rule (a second explicit
+      # rule for either was dead code, removed here and in bfb8d432):
+      # enabledPlugins alone has now shipped a no-op fix twice for two
+      # different reasons (16e377d9's, and the redundant rule bfb8d432
+      # removed), so both observable contracts keep a regression check
+      # independent of which mechanism currently provides them.
       checks."claude-code/settings-merge" =
         let
           activationFixture = import ./_activation.nix {
@@ -297,12 +302,22 @@
               commit = "off";
               "some-plugin-skill" = "off";
             };
-            deniedMcpServers = [ "claude.ai Kept By User" ];
+            # _settings.nix renders deniedMcpServers as [{ serverName = "…"; }],
+            # not bare strings; "claude.ai Todoist" overlaps with nixFixture's
+            # entry below to exercise `| unique`, since two disjoint one-entry
+            # arrays would union to the same length with or without it.
+            deniedMcpServers = [
+              { serverName = "claude.ai Kept By User"; }
+              { serverName = "claude.ai Todoist"; }
+            ];
             env = {
               # In claudeEnv.stripped (_env.nix): unconditionally deleted.
               CLAUDE_CODE_ENABLE_TELEMETRY = "1";
               # In claudeEnv.legacyEnvValues (_env.nix): deleted only if the
-              # merged value still equals this legacy value.
+              # merged value still equals this legacy value. $nix never sets
+              # this key (claudeEnv.settings does not carry it), so this is
+              # the only arm production can reach; nixFixture deliberately
+              # does not override it.
               CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
               USER_KEPT = "keep";
             };
@@ -314,10 +329,11 @@
               url = "https://github.com/cloudflare/skills.git";
             };
             skillOverrides = { };
-            deniedMcpServers = [ "claude.ai Cloudflare Developer Platform" ];
-            # A non-legacy value: the conditional legacy-value deletion must
-            # not fire just because the key is the same.
-            env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
+            deniedMcpServers = [
+              { serverName = "claude.ai Todoist"; }
+              { serverName = "claude.ai Cloudflare Developer Platform"; }
+            ];
+            env = { };
           };
         in
         pkgs.runCommandLocal "claude-code-settings-merge"
@@ -358,13 +374,17 @@
             # enabledPlugins: the ambient `*` merge preserves a key $nix no longer declares.
             check "enabledPlugins stale key preserved by union" '.enabledPlugins."gone@mkt"' "true"
             # deniedMcpServers: explicit union-and-dedupe, not `*`'s whole-array replace.
-            check "deniedMcpServers unions both sides" '.deniedMcpServers | length' "2"
+            # Without `| unique` this is 4, since "claude.ai Todoist" appears on both sides.
+            check "deniedMcpServers unions and dedupes both sides" '.deniedMcpServers | length' "3"
+            check "deniedMcpServers keeps the user-only entry" \
+              '[.deniedMcpServers[].serverName] | index("claude.ai Kept By User") != null' "true"
             # retired env names (claudeEnv.stripped) are deleted unconditionally.
             check "retired env name deleted" '.env | has("CLAUDE_CODE_ENABLE_TELEMETRY")' "false"
             # env keys neither side's rules touch are preserved.
             check "user env preserved" '.env.USER_KEPT' '"keep"'
-            # legacy value deletion is conditional: a non-legacy value must survive.
-            check "non-legacy env value kept" '.env.CLAUDE_CODE_DISABLE_TERMINAL_TITLE' '"1"'
+            # legacy env values are deleted when the merged value still equals
+            # the legacy value $nix never sets (see existingFixture's comment).
+            check "legacy env value deleted" '.env | has("CLAUDE_CODE_DISABLE_TERMINAL_TITLE")' "false"
 
             echo "ok: claude-code settings-merge jq contract" > $out
           '';
