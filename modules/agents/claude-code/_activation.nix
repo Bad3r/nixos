@@ -5,8 +5,11 @@
     - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
       ~/.claude.json, preserving user keys while deleting source-declared
       retired keys, invalid legacy environment values, and wholly replacing
-      Nix-managed mcpServers entries. skillOverrides entries for managed
-      skill names are fully owned by Nix, so a name dropped from
+      Nix-managed mcpServers and, per marketplace name, extraKnownMarketplaces
+      entries (jq's recursive `*` never drops a subkey such as sparsePaths
+      once written, so each declared marketplace is replaced wholesale
+      instead of deep-merged). skillOverrides entries for managed skill names
+      are fully owned by Nix, so a name dropped from
       programs.claude-code.extended.skillOverrides clears rather than
       lingers; entries for unmanaged names are preserved. enabledPlugins
       stays union-only by design (modules/apps/claude-code.nix's extraPlugins
@@ -91,6 +94,7 @@ in
       | ($existing * $nix)
       | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
       | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
+      | .extraKnownMarketplaces = (($existing.extraKnownMarketplaces // {}) + ($nix.extraKnownMarketplaces // {}))
       | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
       | .env = (($existing.env // {}) + ($nix.env // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}' \
       "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
