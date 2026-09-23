@@ -19,9 +19,13 @@
       safe here: unlike enabledPlugins and extraKnownMarketplaces, the CLI's
       interactive skill-override toggle (verified against 2.1.280) writes
       only to the localSettings scope (.claude/settings.local.json), never to
-      the userSettings scope this activation manages. enabledPlugins stays
-      union-only by design (modules/apps/claude-code.nix's extraPlugins
-      option documents removing a plugin as a manual settings.json edit).
+      the userSettings scope this activation manages. enabledPlugins needs no
+      explicit rule: it is a flat `{ "<plugin>@<marketplace>" = bool; }` map
+      on both sides (_plugins.nix), always present in $nix (_settings.nix
+      injects it unconditionally), so the ambient recursive `*` merge above
+      already unions it per key, right side winning, which is the
+      union-only contract modules/apps/claude-code.nix's extraPlugins option
+      documents (removing a plugin is a manual settings.json edit there).
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 
@@ -96,7 +100,6 @@ let
     | $nixSettings[0] as $nix
     | ($existing * $nix)
     | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
-    | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
     | .extraKnownMarketplaces = (($existing.extraKnownMarketplaces // {}) + ($nix.extraKnownMarketplaces // {}))
     | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
     | .env = (($existing.env // {}) + ($nix.env // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}
