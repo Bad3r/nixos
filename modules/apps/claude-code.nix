@@ -250,8 +250,12 @@ in
           type = lib.types.attrsOf lib.types.bool;
           default = {
             "chrome-devtools-mcp@chrome-devtools-plugins" = true;
+            # Off by default: this repo curates which plugins reach the model
+            # rather than keeping Claude Code's bundled/official defaults.
             "telemetry@builtin" = false;
             "code-review@claude-plugins-official" = false;
+            # Off by default per the two entries above; enable per task, e.g.
+            # docs/drafts/chromium-webapps-plan-*.md require it.
             "superpowers@claude-plugins-official" = false;
             # Bundled MCP server would duplicate modules/agents/mcp/servers.nix's per-endpoint ones.
             "cloudflare@cloudflare" = false;
