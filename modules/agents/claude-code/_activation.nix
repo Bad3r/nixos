@@ -15,8 +15,12 @@
       settings.json; remove it there by hand. skillOverrides entries for
       managed skill names are fully owned by Nix, so a name dropped from
       programs.claude-code.extended.skillOverrides clears rather than
-      lingers; entries for unmanaged names are preserved. enabledPlugins
-      stays union-only by design (modules/apps/claude-code.nix's extraPlugins
+      lingers; entries for unmanaged names are preserved. Full ownership is
+      safe here: unlike enabledPlugins and extraKnownMarketplaces, the CLI's
+      interactive skill-override toggle (verified against 2.1.280) writes
+      only to the localSettings scope (.claude/settings.local.json), never to
+      the userSettings scope this activation manages. enabledPlugins stays
+      union-only by design (modules/apps/claude-code.nix's extraPlugins
       option documents removing a plugin as a manual settings.json edit).
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
