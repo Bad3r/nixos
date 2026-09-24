@@ -175,7 +175,7 @@ in
   # disabledMcpjsonServers = [ ]; # [array]
 
   # Whether to automatically approve all MCP servers in the project
-  enableAllProjectMcpServers = true;
+  enableAllProjectMcpServers = false;
 
   # List of approved MCP servers from .mcp.json
   # enabledMcpjsonServers = [ ]; # [array]
