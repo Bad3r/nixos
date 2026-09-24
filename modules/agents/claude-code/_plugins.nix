@@ -7,21 +7,56 @@
   # are unaffected. Equivalent to CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1.
   disableBundledSkills = true;
 
+  # Enabled plugins using plugin-id@marketplace-id format. Example: {
+  # "formatter@anthropic-tools": true }. Also supports extended format with
+  # version constraints. Settings precedence is user < project < local < flag
+  # < policy, so to disable a plugin that project settings enable, set it to
+  # false in .claude/settings.local.json - setting false in
+  # ~/.claude/settings.json is overridden by the project.
+  #
+  # false keeps a plugin installed but disabled. The marketplace after `@` must
+  # be registered: extraKnownMarketplaces below, or out of band.
+  enabledPlugins = {
+    "chrome-devtools-mcp@chrome-devtools-plugins" = true;
+    "claude-code-setup@claude-plugins-official" = true;
+    # Its bundled MCP server would duplicate the per-endpoint servers in
+    # modules/agents/mcp/servers.nix.
+    "cloudflare@cloudflare" = false;
+    "code-review@claude-plugins-official" = true;
+    "frontend-design@claude-plugins-official" = false;
+    "pr-review-toolkit@claude-plugins-official" = false;
+    # docs/drafts/chromium-webapps-plan-*.md need it; enable per task.
+    "superpowers@claude-plugins-official" = false;
+    "telemetry@builtin" = false;
+
+    # Each enabled *-lsp entry also installs its language server
+    # (lspPluginProgramMap in modules/apps/claude-code.nix).
+    "clangd-lsp@claude-plugins-official" = true;
+    "csharp-lsp@claude-plugins-official" = true;
+    "gopls-lsp@claude-plugins-official" = true;
+    "jdtls-lsp@claude-plugins-official" = true;
+    "lua-lsp@claude-plugins-official" = true;
+    "php-lsp@claude-plugins-official" = true;
+    "pyright-lsp@claude-plugins-official" = true;
+    "rust-analyzer-lsp@claude-plugins-official" = true;
+    "swift-lsp@claude-plugins-official" = false;
+    "typescript-lsp@claude-plugins-official" = true;
+  };
+
   # Additional marketplaces to make available for this repository. Typically
   # used in repository .claude/settings.json to ensure team members have
   # required plugin sources.
   #
-  # Registers marketplaces for extraPlugins/lspPlugins keys at startup.
-  # claude-plugins-official installs out of band via
-  # `claude-plugins install anthropics/claude-plugins-official`; builtin needs
-  # no registration.
+  # Registers the marketplaces enabledPlugins keys name, at
+  # startup. claude-plugins-official installs out of band via `claude-plugins
+  # install anthropics/claude-plugins-official`; builtin needs no registration.
   extraKnownMarketplaces."chrome-devtools-plugins".source = {
     source = "git";
     # Sparse: a full clone pulls a large submodule.
     url = "https://github.com/ChromeDevTools/chrome-devtools-mcp.git";
     sparsePaths = [ ".claude-plugin" ];
   };
-  # cloudflare@cloudflare is disabled (modules/apps/claude-code.nix). Enabling
+  # cloudflare@cloudflare is disabled in enabledPlugins above. Enabling
   # it needs "skills" added to sparsePaths here, next to .claude-plugin
   # (docs/claude-code/skill-providers.md), or no sparsePaths for a full clone.
   #   extraKnownMarketplaces."cloudflare".source = {
@@ -42,6 +77,14 @@
   # (default: 1536). Descriptions longer than this are truncated. Raise to opt
   # in to higher per-turn context cost.
   # skillListingMaxDescChars = 0; # [number]
+
+  # Per-skill listing overrides keyed by skill name. "name-only" lists the
+  # skill without its description; "user-invocable-only" hides it from the
+  # model but keeps /name; "off" hides it from both. Absent = on.
+  #
+  # Keys are any installed skill name. Plugin skills follow their
+  # enabledPlugins entry instead.
+  skillOverrides = { };
 
   # Set to false to turn off syncing of plugins enabled on claude.ai; only
   # false is honored, since the sync feature itself is controlled server-side.

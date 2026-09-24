@@ -17,11 +17,9 @@
       a marketplace name dropped from _plugins.nix is not deleted from
       settings.json; remove it there by hand. skillOverrides entries for
       managed skill names are fully owned by Nix, so a name dropped from
-      programs.claude-code.extended.skillOverrides while its skill stays
-      registered clears rather than lingers; entries for unmanaged names,
-      including a name whose skill left the registry first, are preserved
-      (modules/apps/claude-code.nix's skillOverrides option documents the
-      resulting one-way trap and its manual cleanup). Full ownership is
+      skillOverrides in _plugins.nix while its skill stays registered clears
+      rather than lingers; entries for unmanaged names, including a name
+      whose skill left the registry first, are preserved. Full ownership is
       safe here: unlike enabledPlugins and extraKnownMarketplaces, the CLI's
       interactive skill-override toggle (verified against 2.1.280) writes
       only to the localSettings scope (.claude/settings.local.json), never to
@@ -31,13 +29,12 @@
       _env.nix), always present in $nix (home-manager.nix injects them
       unconditionally), so the ambient recursive `*` merge above
       already unions each per key, right side winning; that is also the
-      union-only contract modules/apps/claude-code.nix's extraPlugins option
-      documents for enabledPlugins (removing a plugin is a manual
-      settings.json edit there). An explicit rule for either would be
-      redundant when both sides are well-formed and strictly worse when
-      `$existing`'s value is a corrupted non-object: `*` degrades to picking
-      $nix, while `("str" // {}) + $nix.thing` hard-errors, aborting
-      activation.
+      union-only contract enabledPlugins in _plugins.nix documents (removing
+      a plugin is a manual settings.json edit there). An explicit rule
+      for either would be redundant when both sides are well-formed and
+      strictly worse when `$existing`'s value is a corrupted non-object:
+      `*` degrades to picking $nix, while `("str" // {}) + $nix.thing`
+      hard-errors, aborting activation.
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 

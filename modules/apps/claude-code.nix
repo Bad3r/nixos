@@ -21,10 +21,9 @@
 */
 { inputs, ... }:
 let
-  # Maps each Claude Code LSP plugin key → the NixOS programs.<name> option name.
-  # Used both to declare lspPlugins options and to generate priority-1050 enable
-  # overrides when a plugin is active, beating the catalog's 1100 false without
-  # suppressing a catalog true (we only ever assert true here, never false).
+  # Language server behind each LSP plugin. An enabledPlugins entry set to true in
+  # modules/agents/claude-code/_plugins.nix enables its program at priority 1050,
+  # above the apps-enable.nix baseline (1100); false leaves the baseline alone.
   lspPluginProgramMap = {
     "clangd-lsp" = "clangd";
     "csharp-lsp" = "csharp-ls";
@@ -37,6 +36,8 @@ let
     "swift-lsp" = "sourcekit-lsp";
     "typescript-lsp" = "typescript-language-server";
   };
+
+  inherit (import ../agents/claude-code/_plugins.nix) enabledPlugins;
 in
 {
   nixpkgs.allowedUnfreePackages = [ "claude-code" ];
@@ -160,142 +161,6 @@ in
             '';
           };
         };
-
-        lspPlugins = lib.mapAttrs (
-          pluginKey: _:
-          lib.mkOption {
-            type = lib.types.bool;
-            default = true;
-            description = ''
-              Whether to enable the ${pluginKey} Claude Code LSP plugin and ensure
-              its binary is installed. When true, overrides the catalog at priority
-              1050 so the package is installed even if apps-enable.nix says false.
-            '';
-          }
-        ) lspPluginProgramMap;
-
-        skillOverrides = lib.mkOption {
-          type = lib.types.attrsOf (
-            lib.types.enum [
-              "name-only"
-              "user-invocable-only"
-              "off"
-            ]
-          );
-          default = { };
-          example = lib.literalExpression ''
-            {
-              "nixos-hm-post-switch-repair" = "off";
-            }
-          '';
-          description = ''
-            Per-skill availability overrides for standalone Claude Code skills,
-            keyed by managed skill name; an unknown name fails evaluation.
-            "name-only" lists a skill without its description,
-            "user-invocable-only" hides it from the model but keeps /name, and
-            "off" hides it from both. Managed standalone skills are enabled by
-            default. Plugin-provided skills are controlled by the corresponding
-            extraPlugins entry because Claude Code does not apply skillOverrides
-            to plugin skills. Activation fully owns the skill names currently
-            in the managed registry, so removing a key here also removes it
-            from `~/.claude/settings.json`; entries for unmanaged names, such
-            as plugin or hand-written skills, are left alone. A name that
-            leaves the registry (a skill deleted or renamed in
-            modules/agents/skills/) becomes unmanaged from that switch
-            onward, so the clearing guarantee only applies if the override is
-            removed in an earlier switch while the skill is still managed;
-            otherwise delete the stale entry from settings.json by hand. This
-            differs from `extraPlugins`, which only unions.
-          '';
-        };
-
-        extraPlugins = lib.mkOption {
-          type = lib.types.attrsOf lib.types.bool;
-          default = {
-            "chrome-devtools-mcp@chrome-devtools-plugins" = true;
-            # Off by default: this repo curates which plugins reach the model
-            # rather than keeping Claude Code's bundled/official defaults.
-            "telemetry@builtin" = false;
-            "code-review@claude-plugins-official" = true;
-            # Off by default per the two entries above; enable per task, e.g.
-            # docs/drafts/chromium-webapps-plan-*.md require it.
-            "superpowers@claude-plugins-official" = false;
-            # Bundled MCP server would duplicate modules/agents/mcp/servers.nix's per-endpoint ones.
-            "cloudflare@cloudflare" = false;
-            # Registered but disabled: keeps the key visible in settings.json so
-            # toggling back on is a one-line Nix change without a reinstall.
-            "frontend-design@claude-plugins-official" = false;
-            "pr-review-toolkit@claude-plugins-official" = false;
-            "claude-code-setup@claude-plugins-official" = true;
-          };
-          example = lib.literalExpression ''
-            {
-              # Enable an extra plugin from a registered marketplace:
-              "design-system@some-marketplace" = true;
-              # Keep an entry registered in settings.json but disabled
-              # (per-key override; differs from omitting the entry entirely):
-              "frontend-design@claude-plugins-official" = false;
-            }
-          '';
-          description = ''
-            Additional non-LSP Claude Code plugins to enable, keyed by the
-            `"<plugin>@<marketplace>"` identifier used in
-            `~/.claude/settings.json`'s `enabledPlugins`. Set an entry to
-            `false` to keep the key registered but disabled. Activation unions
-            this attrset with existing `enabledPlugins` entries, so removing a
-            key here does not remove a previously written key from
-            `~/.claude/settings.json`; delete stale entries there explicitly
-            when removing a plugin. The marketplace named in the suffix must
-            be registered before the entry takes effect: declare it in
-            `extraKnownMarketplaces` in `modules/agents/claude-code/_plugins.nix`
-            (as `chrome-devtools-plugins` is), or install it out of band into
-            `~/.claude/plugins/known_marketplaces.json` (as
-            `claude-plugins-official` is). `builtin` needs no registration.
-            LSP plugin keys (those that would collide with
-            `lspPlugins.<key>@claude-plugins-official`) are rejected by
-            assertion to avoid silently masking the LSP-managed enable state.
-          '';
-        };
-
-        deniedMcpServers = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [
-            "claude.ai Cloudflare Developer Platform"
-            "claude.ai Gmail"
-            "claude.ai Google Calendar"
-            "claude.ai Google Drive"
-            "claude.ai Indeed"
-            "claude.ai JobDataLake"
-            "claude.ai Jobs and Careers"
-            "claude.ai Todoist"
-          ];
-          example = lib.literalExpression ''
-            [
-              "claude.ai Todoist"
-              "some-stdio-server"
-            ]
-          '';
-          description = ''
-            Display names of MCP servers to block for Claude Code, rendered into
-            `~/.claude/settings.json` as `deniedMcpServers` entries of the form
-            `{ serverName = <name>; }`. The denylist merges across every settings
-            scope and always wins, so a listed server never loads its tools.
-
-            Use this to switch off claude.ai account connectors (the
-            `claude.ai <Name>` entries in `/mcp`) that cannot be removed from Nix
-            any other way, since the logged-in account provisions them rather
-            than local config. Activation unions this list with the
-            `deniedMcpServers` already in `~/.claude/settings.json`, so a deny
-            added out of band survives a switch and is never silently dropped;
-            because of that union, a name a previous switch wrote stays denied
-            until it is removed from `~/.claude/settings.json` too, not only from
-            this list. `serverName` matching needs Claude Code
-            `>= 2.1.182` and compares the exact display name, so a connector
-            renamed on claude.ai (or suffixed ` (N)` after a name collision) must
-            be updated here too. The account stays the source of truth:
-            disconnect a connector at claude.ai to stop it everywhere.
-          '';
-        };
       };
 
       config = lib.mkIf cfg.enable (
@@ -309,10 +174,8 @@ in
 
               assertions =
                 let
-                  extraKeys = lib.attrNames cfg.extraPlugins;
-                  malformedKeys = lib.filter (k: builtins.match ".+@.+" k == null) extraKeys;
-                  lspKeysWithMarket = map (k: "${k}@claude-plugins-official") (lib.attrNames cfg.lspPlugins);
-                  lspCollisions = lib.intersectLists extraKeys lspKeysWithMarket;
+                  pluginKeys = lib.attrNames enabledPlugins;
+                  malformedKeys = lib.filter (k: builtins.match ".+@.+" k == null) pluginKeys;
                   delegatesToBunGlobal =
                     (!cfg.installMethods.nix.enable) && (!cfg.installMethods.bun.enable) && cfg.externalBinary == null;
                 in
@@ -348,7 +211,7 @@ in
                   {
                     assertion = malformedKeys == [ ];
                     message = ''
-                      programs.claude-code.extended.extraPlugins keys must follow the
+                      enabledPlugins keys in modules/agents/claude-code/_plugins.nix must follow the
                       "<plugin>@<marketplace>" form (matching the suffix used in
                       ~/.claude/settings.json's enabledPlugins and the marketplace name
                       registered via extraKnownMarketplaces in
@@ -359,25 +222,12 @@ in
                       Invalid keys: ${toString malformedKeys}
                     '';
                   }
-                  {
-                    assertion = lspCollisions == [ ];
-                    message = ''
-                      programs.claude-code.extended.extraPlugins must not include LSP
-                      plugin keys. LSP plugins are managed by
-                      programs.claude-code.extended.lspPlugins.<key> and are merged
-                      into ~/.claude/settings.json with the @claude-plugins-official
-                      marketplace suffix; placing them under extraPlugins would
-                      disable them in settings.json without removing the installed
-                      binary, producing a confusing inconsistency.
-                      Conflicting keys: ${toString lspCollisions}
-                    '';
-                  }
                 ];
             }
           ]
           ++ lib.mapAttrsToList (
             pluginKey: programName:
-            lib.mkIf cfg.lspPlugins.${pluginKey} {
+            lib.mkIf (enabledPlugins."${pluginKey}@claude-plugins-official" or false) {
               programs.${programName}.extended.enable = lib.mkOverride 1050 true;
             }
           ) lspPluginProgramMap

@@ -239,7 +239,7 @@
         # with conflicting values, asserted to resolve to $nix's: this pins the
         # merge's precedence direction, not just its union of keys, which is
         # what lets a declared change actually take effect on a machine that
-        # already switched (this PR's own extraPlugins default flips depend on
+        # already switched (this PR's own enabledPlugins default flips depend on
         # it). This check opts into
         # .github/workflows/check.yml's "Run runtime check suites" step via
         # passthru.runtimeCheck below; without that, its assertions evaluate

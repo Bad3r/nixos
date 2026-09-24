@@ -11,15 +11,11 @@
     * User-level instructions generated via flake.lib.agents.systemPrompt
       (modules/agents/system-prompt.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
-    * LSP plugin enablement and binary installation are governed by
-      programs.claude-code.extended.lspPlugins in modules/apps/claude-code.nix.
-    * Additional non-LSP plugins are governed by
-      programs.claude-code.extended.extraPlugins in modules/apps/claude-code.nix.
+    * Plugins, LSP plugins included, are enabledPlugins in _plugins.nix; an
+      enabled *-lsp entry also installs its language server
+      (modules/apps/claude-code.nix). skillOverrides sits in the same file.
     * Blocked MCP servers, mainly the claude.ai account connectors that local
-      config cannot otherwise remove, are governed by
-      programs.claude-code.extended.deniedMcpServers in modules/apps/claude-code.nix.
-    * Per-skill availability for standalone Claude Code skills is governed by
-      programs.claude-code.extended.skillOverrides in modules/apps/claude-code.nix.
+      config cannot otherwise remove, are deniedMcpServers in _permissions.nix.
     * `enabledPlugins` keys end with `@<marketplace>`. The marketplace must be
       registered first: declaratively via extraKnownMarketplaces in
       _plugins.nix (as chrome-devtools-plugins is), or out of band in
@@ -65,32 +61,9 @@ _: {
       claudeEnv = import ./_env.nix;
       registryClaudeSkills = lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list;
       managedClaudeSkillNames = lib.attrNames registryClaudeSkills;
-      configuredSkillOverrides = lib.attrByPath [
-        "programs"
-        "claude-code"
-        "extended"
-        "skillOverrides"
-      ] { } osConfig;
-      unknownSkillOverrides = lib.attrNames (
-        builtins.removeAttrs configuredSkillOverrides managedClaudeSkillNames
-      );
-      skillOverrides = configuredSkillOverrides;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
-
-      # Display names blocked via settings.json deniedMcpServers, mainly the
-      # claude.ai account connectors that local config cannot otherwise remove.
-      deniedMcpServers =
-        lib.attrByPath
-          [
-            "programs"
-            "claude-code"
-            "extended"
-            "deniedMcpServers"
-          ]
-          [ ]
-          osConfig;
 
       # Merges parts that must not declare the same top-level key.
       mergeParts =
@@ -104,20 +77,11 @@ _: {
         ) "claude-code: ${lib.concatStringsSep ", " duplicates} declared by more than one settings part";
         lib.foldl' (acc: part: acc // part) { } parts;
 
-      lspPlugins = lib.attrByPath [ "programs" "claude-code" "extended" "lspPlugins" ] { } osConfig;
-      extraPlugins = lib.attrByPath [ "programs" "claude-code" "extended" "extraPlugins" ] { } osConfig;
-      enabledPlugins =
-        lib.mapAttrs' (key: lib.nameValuePair "${key}@claude-plugins-official") lspPlugins // extraPlugins;
-
       settingsJson = mergeParts [
         (import ./_settings.nix)
         (import ./_plugins.nix)
         (import ./_permissions.nix)
-        {
-          env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly;
-          inherit enabledPlugins skillOverrides;
-          deniedMcpServers = map (serverName: { inherit serverName; }) deniedMcpServers;
-        }
+        { env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly; }
       ];
       claudeJson = mergeParts [
         (import ./_claude-json.nix)
@@ -181,10 +145,6 @@ _: {
     {
       config = lib.mkIf nixosEnabled {
         assertions = [
-          {
-            assertion = unknownSkillOverrides == [ ];
-            message = "programs.claude-code.extended.skillOverrides has unknown skill names: ${lib.concatStringsSep ", " unknownSkillOverrides}. Managed Claude Code skills: ${lib.concatStringsSep ", " managedClaudeSkillNames}.";
-          }
           {
             assertion = !(claudeEnv.vars ? CLAUDE_CODE_SHELL);
             message = "modules/agents/claude-code/_env.nix sets CLAUDE_CODE_SHELL, which the launcher points at the controlled bash; a settings.json value is applied in-process and would bypass the rm shim.";

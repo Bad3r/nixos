@@ -135,6 +135,25 @@ in
   # takes precedence - if a server is on both lists, it is denied.
   # allowedMcpServers = [ ]; # [array]
 
+  # Enterprise denylist of MCP servers that are explicitly blocked. If a server
+  # is on the denylist, it will be blocked across all scopes including
+  # enterprise. Denylist takes precedence over allowlist - if a server is on
+  # both lists, it is denied.
+  #
+  # Blocks claude.ai account connectors that local config cannot otherwise
+  # remove. serverName is the exact display name in /mcp, so a connector
+  # renamed on claude.ai, or suffixed " (N)" after a collision, needs updating.
+  deniedMcpServers = map (serverName: { inherit serverName; }) [
+    "claude.ai Cloudflare Developer Platform"
+    "claude.ai Gmail"
+    "claude.ai Google Calendar"
+    "claude.ai Google Drive"
+    "claude.ai Indeed"
+    "claude.ai JobDataLake"
+    "claude.ai Jobs and Careers"
+    "claude.ai Todoist"
+  ];
+
   # Disable auto mode
   # disableAutoMode = "disable"; # [disable]
 
