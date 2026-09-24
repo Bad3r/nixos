@@ -392,7 +392,7 @@ let
   # Code bypasses execution policy at process scope. [1 or unset]
   # CLAUDE_CODE_POWERSHELL_RESPECT_EXECUTION_POLICY = "1";
   # Set the shell Claude Code uses to run Bash tool commands.
-  # CLAUDE_CODE_SHELL = "";   # SET BY _wrapper.nix (controlled bash + rm shim); do not activate here
+  # CLAUDE_CODE_SHELL = "";   # SET BY _launcher.nix (controlled bash + rm shim); do not activate here
   # Command prefix that wraps shell commands Claude Code spawns: Bash tool
   # calls, hook commands, status line commands, and stdio MCP server startup
   # commands. Useful for logging or auditing.

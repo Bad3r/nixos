@@ -34,7 +34,7 @@
         _plugins.nix           enabledPlugins composition from osConfig
         _settings.nix          merges defaults + plugins + skillOverrides + mcpServers
         _activation.nix        activation snippets (jq merge + optional bun install)
-        _wrapper.nix           shell launcher environment and binary selection
+        _launcher.nix          shell launcher environment and binary selection
 */
 
 _: {
@@ -135,7 +135,7 @@ _: {
       };
       inherit (activationResult) activation;
 
-      claudeRuntime = import ./_wrapper.nix {
+      claudeRuntime = import ./_launcher.nix {
         inherit
           lib
           pkgs

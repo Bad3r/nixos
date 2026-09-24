@@ -5,7 +5,7 @@
     let
       renderWrapper =
         { installMethods }:
-        import ./_wrapper.nix {
+        import ./_launcher.nix {
           inherit
             lib
             pkgs
