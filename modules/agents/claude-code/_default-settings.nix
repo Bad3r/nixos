@@ -156,15 +156,7 @@ let
   # `bash -c` in bashAsk are different rules, and both are live.
   deadAllow = builtins.filter (cmd: builtins.elem cmd bashAsk) bashAllow;
 
-  # Keys retired from existing ~/.claude/settings.json and ~/.claude.json files.
-  retired = {
-    settings = [ ];
-    claudeJson = [ "autocheckpointingEnabled" ];
-  };
-
   # Runtime-owned keys are merged over these static bases by _settings.nix.
-  # Keep these lists aligned with that producer so retirement cannot delete a
-  # key that the same activation pass just injected.
   injectedSettings = [
     "enabledPlugins"
     "deniedMcpServers"
@@ -238,12 +230,6 @@ let
     theme = "dark"; # Theme
     verbose = true; # Verbose output
   };
-  retiredJsonButLive = builtins.filter (
-    name: builtins.hasAttr name claudeJsonConfigBase || builtins.elem name injectedClaudeJson
-  ) retired.claudeJson;
-  retiredSettingsButLive = builtins.filter (
-    name: builtins.hasAttr name claudeSettingsBase || builtins.elem name injectedSettings
-  ) retired.settings;
   # A key both here and in injectedSettings would be silently overridden by
   # _settings.nix's `//` merge.
   injectedButStatic = builtins.filter (
@@ -258,12 +244,6 @@ assert
   deadAllow == [ ]
   || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " deadAllow} are in both bashAllow and bashAsk; ask wins, so drop them from bashAllow rather than leaving the two lists disagreeing";
 assert
-  retiredJsonButLive == [ ]
-  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredJsonButLive} are both retired and live; remove the name from retired, claudeJsonConfigBase, or the _settings.nix injected keys";
-assert
-  retiredSettingsButLive == [ ]
-  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " retiredSettingsButLive} are both retired and live; remove the name from retired, claudeSettingsBase, or the _settings.nix injected keys";
-assert
   injectedButStatic == [ ]
   || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " injectedButStatic} are both runtime-injected by _settings.nix and statically set in claudeSettingsBase; drop the static definition so the injected value cannot be silently shadowed";
 assert
@@ -273,7 +253,6 @@ assert
   inherit
     claudeJsonConfigBase
     claudeSettingsBase
-    retired
     injectedSettings
     injectedClaudeJson
     ;

@@ -88,37 +88,13 @@ let
     USE_BUILTIN_RIPGREP = "0";
   };
 
-  # Names permanently removed from managed environment groups. These stay out
-  # of `settings` and `all`; activation and launch wrappers always remove them.
-  retired = [
-    "CLAUDE_CODE_ENABLE_TELEMETRY"
-    "DISABLE_NON_ESSENTIAL_MODEL_CALLS"
-  ];
-  # Invalid values from older generations are removed only when they match
-  # exactly, so documented user values remain available to Claude.
-  legacyEnvValues = {
-    CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
-  };
   activeEnv = binary // bashRuntime // modelRouting // shellOnly;
-  retiredButLive = builtins.filter (name: builtins.hasAttr name activeEnv) retired;
-  # Names the binary wrapper and settings.json must never carry: `retired`
-  # because it is gone for good, `launchOnly` because an in-process assignment
-  # outranks the wrapper guard that is supposed to lift it.
-  stripped = retired ++ builtins.attrNames launchOnly;
-  launchOnlyButLive = builtins.filter (
-    name: builtins.hasAttr name activeEnv || builtins.elem name retired
-  ) (builtins.attrNames launchOnly);
-  # A legacy name may be active with a replacement value, but an active value
-  # equal to its legacy value would be removed by every migration consumer.
-  legacyEnvValueConflicts = builtins.filter (
-    name:
-    builtins.hasAttr name activeEnv
-    && builtins.getAttr name activeEnv == builtins.getAttr name legacyEnvValues
-  ) (builtins.attrNames legacyEnvValues);
+  launchOnlyButLive = builtins.filter (name: builtins.hasAttr name activeEnv) (
+    builtins.attrNames launchOnly
+  );
 
   # === Catalog: every documented Claude Code environment variable ===========
-  # Entries marked ACTIVE are already set in a group above. Entries marked
-  # RETIRED are intentionally removed from managed environments and old files.
+  # Entries marked ACTIVE are already set in a group above.
 
   # Authentication and providers (30)
   # ------------------------------------
@@ -295,7 +271,7 @@ let
   # it again.
   # CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "";   # ACTIVE above, via launchOnly
   # Set to 1 to enable OpenTelemetry data collection for metrics and logging. [1 or unset]
-  # CLAUDE_CODE_ENABLE_TELEMETRY = "1";   # RETIRED below
+  # CLAUDE_CODE_ENABLE_TELEMETRY = "1";
   # Maximum length of content-bearing OpenTelemetry attributes (model
   # responses, tool content, system prompts, raw API bodies), including the
   # truncation marker, in UTF-16 code units (default: 61440, or 60 KB).
@@ -509,7 +485,7 @@ let
   # Set to 1 to disable fullscreen rendering and use the classic main-screen renderer. [1 or unset]
   # CLAUDE_CODE_DISABLE_ALTERNATE_SCREEN = "1";
   # Set to 1 to disable automatic terminal title updates based on conversation context. [1 or unset]
-  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";   # LEGACY "0" migrated below; documented values are 1 or unset
+  # CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "1";
   # Set to 1 to hide the working directory in the startup logo. [1 or unset]
   # CLAUDE_CODE_HIDE_CWD = "1";
   # Override the host address used to connect to the IDE extension.
@@ -1310,22 +1286,13 @@ let
 
 in
 assert
-  retiredButLive == [ ]
-  || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " retiredButLive} are both retired and live; remove the name from retired or its live group";
-assert
-  legacyEnvValueConflicts == [ ]
-  || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " legacyEnvValueConflicts} are live with their legacy value; remove the name from its live group or update legacyEnvValues";
-assert
   launchOnlyButLive == [ ]
-  || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " launchOnlyButLive} are in launchOnly and also live or retired; launchOnly owns the name alone or the wrapper guard cannot lift it";
+  || throw "modules/agents/claude-code/_env.nix: ${builtins.concatStringsSep ", " launchOnlyButLive} are in launchOnly and also live; launchOnly owns the name alone or the wrapper guard cannot lift it";
 {
   inherit
     binary
     launchOnly
     launchOnlyEscape
-    legacyEnvValues
-    retired
-    stripped
     ;
   settings = binary // bashRuntime // modelRouting;
   all = binary // bashRuntime // modelRouting // shellOnly;

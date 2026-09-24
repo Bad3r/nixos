@@ -127,10 +127,8 @@ _: {
           pkgs
           osConfig
           config
-          claudeEnv
           managedClaudeSkillNames
           ;
-        claudeDefaults = defaults;
         inherit (settings) claudeSettingsFile claudeJsonConfigFile;
       };
       inherit (activationResult) activation;

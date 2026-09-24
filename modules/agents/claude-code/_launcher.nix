@@ -23,7 +23,9 @@ let
   envExports = lib.concatStringsSep "\n" (
     lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") claudeEnv.all
   );
-  retiredUnsets = lib.concatMapStringsSep "\n" (name: "unset ${name}") claudeEnv.stripped;
+  launchOnlyUnsets = lib.concatMapStringsSep "\n" (name: "unset ${name}") (
+    lib.attrNames claudeEnv.launchOnly
+  );
   # Guarded rather than unconditional: claude-rc sets the escape variable to
   # keep DISABLE_TELEMETRY out of the launch, which is what re-enables the
   # GrowthBook evaluation Remote Control requires.
@@ -36,12 +38,6 @@ let
     )}
     fi
   '';
-  legacyEnvValueUnsets = lib.concatStringsSep "\n" (
-    lib.mapAttrsToList (
-      name: value:
-      "if [ \"" + "$" + "{${name}:-}\" = ${lib.escapeShellArg value} ]; then unset ${name}; fi"
-    ) claudeEnv.legacyEnvValues
-  );
 
   # Claude runs its shell tool through this via CLAUDE_CODE_SHELL, which requires
   # the path to contain "bash" or "zsh", hence the `bash` name.
@@ -136,8 +132,7 @@ let
     set -euo pipefail
 
     ${envExports}
-    ${retiredUnsets}
-    ${legacyEnvValueUnsets}
+    ${launchOnlyUnsets}
     ${launchOnlyExports}
 
     # Shared scratch root for agent temp files.

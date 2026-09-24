@@ -227,10 +227,7 @@
         # for (skillOverrides full ownership, extraKnownMarketplaces per-entry
         # wholesale replace), plus deniedMcpServers' union-and-dedupe (in the
         # real [{serverName = "…";}] shape _settings.nix renders, with an
-        # overlapping entry so `| unique` is actually exercised) and the
-        # retired/legacy env var deletions (using the only arm production can
-        # reach: $nix never sets a legacy-named key, so the fixture tests the
-        # deletion firing, not a same-key override surviving). enabledPlugins'
+        # overlapping entry so `| unique` is actually exercised). enabledPlugins'
         # and env's unions are asserted too, even though both come from the
         # ambient `*` merge rather than an explicit rule (a second explicit
         # rule for either was dead code, removed here and in bfb8d432):
@@ -253,8 +250,6 @@
               inherit lib pkgs;
               osConfig = { };
               config.xdg.dataHome = "/var/empty";
-              claudeEnv = import ./_env.nix;
-              claudeDefaults = import ./_default-settings.nix;
               managedClaudeSkillNames = [ "commit" ];
               claudeSettingsFile = pkgs.writeText "settings-merge-fixture-nix-unused.json" "{}";
               claudeJsonConfigFile = pkgs.writeText "settings-merge-fixture-json-unused.json" "{}";
@@ -284,14 +279,6 @@
                 { serverName = "claude.ai Todoist"; }
               ];
               env = {
-                # In claudeEnv.stripped (_env.nix): unconditionally deleted.
-                CLAUDE_CODE_ENABLE_TELEMETRY = "1";
-                # In claudeEnv.legacyEnvValues (_env.nix): deleted only if the
-                # merged value still equals this legacy value. $nix never sets
-                # this key (claudeEnv.settings does not carry it), so this is
-                # the only arm production can reach; nixFixture deliberately
-                # does not override it.
-                CLAUDE_CODE_DISABLE_TERMINAL_TITLE = "0";
                 USER_KEPT = "keep";
                 # $nix sets this key too, to a different value: pins $nix
                 # winning the conflict, not just the union of keys.
@@ -363,15 +350,10 @@
               check "deniedMcpServers unions and dedupes both sides" '.deniedMcpServers | length' "3"
               check "deniedMcpServers keeps the user-only entry" \
                 '[.deniedMcpServers[].serverName] | index("claude.ai Kept By User") != null' "true"
-              # retired env names (claudeEnv.stripped) are deleted unconditionally.
-              check "retired env name deleted" '.env | has("CLAUDE_CODE_ENABLE_TELEMETRY")' "false"
               # env keys neither side's rules touch are preserved.
               check "user env preserved" '.env.USER_KEPT' '"keep"'
               # env: $nix's value wins a same-key conflict, same property as enabledPlugins above.
               check "env nix value wins" '.env.CONTESTED' '"nix"'
-              # legacy env values are deleted when the merged value still equals
-              # the legacy value $nix never sets (see existingFixture's comment).
-              check "legacy env value deleted" '.env | has("CLAUDE_CODE_DISABLE_TERMINAL_TITLE")' "false"
 
               echo "ok: claude-code settings-merge jq contract" > $out
             '';
@@ -380,16 +362,13 @@
         # ~/.claude.json sibling of settingsMergeJq above and covering the
         # same risk: mcpServers' per-entry wholesale replace (dropping a stale
         # command/args pair a changed transport type leaves behind, the same
-        # shape as extraKnownMarketplaces) and retiredJsonJq (live:
-        # claudeDefaults.retired.claudeJson is non-empty).
+        # shape as extraKnownMarketplaces).
         "claude-code/claude-json-merge" =
           let
             activationFixture = import ./_activation.nix {
               inherit lib pkgs;
               osConfig = { };
               config.xdg.dataHome = "/var/empty";
-              claudeEnv = import ./_env.nix;
-              claudeDefaults = import ./_default-settings.nix;
               managedClaudeSkillNames = [ ];
               claudeSettingsFile = pkgs.writeText "claude-json-merge-fixture-settings-unused.json" "{}";
               claudeJsonConfigFile = pkgs.writeText "claude-json-merge-fixture-unused.json" "{}";
@@ -406,8 +385,6 @@
                   command = "keep-me";
                 };
               };
-              # In claudeDefaults.retired.claudeJson (_default-settings.nix): deleted unconditionally.
-              autocheckpointingEnabled = true;
               # $nix sets this key too, to a different value: pins the ambient
               # merge direction, since no explicit rule in claudeJsonMergeJq
               # touches it.
@@ -454,8 +431,6 @@
               check "mcpServers nix value present" '.mcpServers.ctx7.type' '"http"'
               # mcpServers: an existing-only entry survives the per-entry union.
               check "mcpServers existing-only entry preserved" '.mcpServers."existing-only".command' '"keep-me"'
-              # retired claudeJson keys (claudeDefaults.retired.claudeJson) are deleted unconditionally.
-              check "retired claudeJson key deleted" 'has("autocheckpointingEnabled")' "false"
               # $nix wins a same-key conflict, the same property 661d1099 pins
               # for settings-merge: without this, a reversed ambient merge
               # would leave every claudeJsonConfigBase value stale and still pass.

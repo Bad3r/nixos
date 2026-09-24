@@ -3,8 +3,7 @@
 
   Produces:
     - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
-      ~/.claude.json, preserving user keys while deleting source-declared
-      retired keys, invalid legacy environment values, and wholly replacing
+      ~/.claude.json, preserving user keys while wholly replacing
       Nix-managed mcpServers and, per marketplace name, extraKnownMarketplaces
       entries (jq's recursive `*` never drops a subkey such as sparsePaths
       once written, so each declared marketplace is replaced wholesale
@@ -38,9 +37,7 @@
       redundant when both sides are well-formed and strictly worse when
       `$existing`'s value is a corrupted non-object: `*` degrades to picking
       $nix, while `("str" // {}) + $nix.thing` hard-errors, aborting
-      activation. The retired-key, legacy-env-value, and env-name deletions
-      below still need their own pipeline stage, since nothing else performs
-      them.
+      activation.
     - installClaudeCodeViaBun: optional, only when
       programs.claude-code.extended.installMethods.bun.enable is true.
 
@@ -56,36 +53,9 @@
   config,
   claudeSettingsFile,
   claudeJsonConfigFile,
-  claudeEnv,
-  claudeDefaults,
   managedClaudeSkillNames,
 }:
 let
-  retiredSettingsJq = lib.optionalString (claudeDefaults.retired.settings != [ ]) (
-    " | "
-    + lib.concatMapStringsSep " | " (
-      name: "del(.[${builtins.toJSON name}])"
-    ) claudeDefaults.retired.settings
-  );
-  retiredEnvJq = lib.optionalString (claudeEnv.stripped != [ ]) (
-    " | "
-    + lib.concatMapStringsSep " | " (name: "del(.env[${builtins.toJSON name}])") claudeEnv.stripped
-  );
-  legacyEnvValuesJq = lib.optionalString (claudeEnv.legacyEnvValues != { }) (
-    " | "
-    + lib.concatStringsSep " | " (
-      lib.mapAttrsToList (
-        name: value:
-        "if .env[${builtins.toJSON name}] == ${builtins.toJSON value} then del(.env[${builtins.toJSON name}]) else . end"
-      ) claudeEnv.legacyEnvValues
-    )
-  );
-  retiredJsonJq = lib.optionalString (claudeDefaults.retired.claudeJson != [ ]) (
-    " | "
-    + lib.concatMapStringsSep " | " (
-      name: "del(.[${builtins.toJSON name}])"
-    ) claudeDefaults.retired.claudeJson
-  );
   bunInstallEnabled = lib.attrByPath [
     "programs"
     "claude-code"
@@ -116,20 +86,19 @@ let
     | ($existing * $nix)
     | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
     | .extraKnownMarketplaces = (($existing.extraKnownMarketplaces // {}) + ($nix.extraKnownMarketplaces // {}))
-    | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}
+    | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
   '';
   # The ~/.claude.json merge filter, lifted the same way as settingsMergeJq
   # and for the same reason: its mcpServers rule (per-entry wholesale
   # replace, dropping stale command/args pairs a changed transport type
-  # leaves behind) and retiredJsonJq (live: claudeDefaults.retired.claudeJson
-  # is non-empty) are exactly the class of rule that shipped as a no-op once
+  # leaves behind) is exactly the class of rule that shipped as a no-op once
   # already (16e377d9); checks."claude-code/claude-json-merge" exercises this
   # filter too, not a hand-copied approximation of it.
   claudeJsonMergeJq = ''
     . as $existing
     | $nixConfig[0] as $nix
     | ($existing * $nix)
-    | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))${retiredJsonJq}
+    | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))
   '';
 in
 {

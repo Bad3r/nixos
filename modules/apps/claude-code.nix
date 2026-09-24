@@ -60,9 +60,9 @@ in
       binaryEnvFlags = lib.concatStringsSep " " (
         lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") claudeEnv.binary
       );
-      retiredEnvFlags = lib.concatMapStringsSep " " (
-        name: "--unset ${lib.escapeShellArg name}"
-      ) claudeEnv.stripped;
+      launchOnlyUnsetFlags = lib.concatMapStringsSep " " (name: "--unset ${lib.escapeShellArg name}") (
+        lib.attrNames claudeEnv.launchOnly
+      );
       # Guarded, not --set: claude-rc lifts these for one launch, and a plain
       # --set here would be applied in-process where no outer wrapper reaches.
       launchOnlyRuns = lib.concatStringsSep " " (
@@ -76,72 +76,32 @@ in
           )
         ) claudeEnv.launchOnly
       );
-      legacyEnvValueRuns = lib.concatStringsSep " " (
-        lib.mapAttrsToList (
-          name: value:
-          "--run "
-          + lib.escapeShellArg (
-            "if [ \"" + "$" + "{${name}:-}\" = ${lib.escapeShellArg value} ]; then unset ${name}; fi"
-          )
-        ) claudeEnv.legacyEnvValues
-      );
-      legacyEnvCleanup = lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (
-          name: value:
-          let
-            assignment = "export ${name}=${lib.escapeShellArg value}";
-            assignmentPattern = ''(^|[[:space:];])${name}=[\"']?${lib.escapeRegex value}[\"']?([[:space:];]|$)'';
-            sedPattern = lib.replaceStrings [ "/" ] [ "\\/" ] (lib.escapeRegex assignment);
-            sedExpression = "/^${sedPattern}$/d";
-          in
-          ''
-            sed -i -E ${lib.escapeShellArg sedExpression} "$out/bin/claude"
-            if grep -qE ${lib.escapeShellArg assignmentPattern} "$out/bin/claude"; then
-              echo "claude-code: inner wrapper still assigns legacy value ${name}=${value} after strip; the pinned llm-agents wrapper shape changed" >&2
-              exit 1
-            fi
-          ''
-        ) claudeEnv.legacyEnvValues
-      );
       binaryNames = lib.attrNames claudeEnv.binary;
+      strippedNames =
+        binaryNames ++ lib.attrNames claudeEnv.launchOnly ++ [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
 
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
-          # The pinned llm-agents package wraps bin/claude before this hook and
-          # can export retired, legacy, and shared binary names. Strip names
-          # owned by this module from the inner wrapper before applying shared
-          # flags. Permanent retired assignments fail closed because an outer
-          # unset cannot override an inner export. Legacy assignments are
-          # removed for their exact value, then checked in shell assignment
-          # forms so wrapper serialization drift fails before a legacy value
-          # can survive the conditional outer run.
+          # The pinned llm-agents package wraps bin/claude before this hook, exporting
+          # DISABLE_AUTOUPDATER and DISABLE_INSTALLATION_CHECKS and defaulting
+          # DISABLE_NON_ESSENTIAL_MODEL_CALLS to 1, a name 2.1.281 never reads. Each
+          # inner assignment of a name listed here is deleted so the flags below alone
+          # decide it, and a leftover one fails the build.
           if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
             echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1
           fi
-          ${lib.optionalString (claudeEnv.stripped != [ ]) ''
-            for name in ${lib.escapeShellArgs claudeEnv.stripped}; do
-              sed -i "/^export $name=/c\unset $name" "$out/bin/claude"
-              if grep -qF "$name=" "$out/bin/claude"; then
-                echo "claude-code: inner wrapper still assigns retired name $name after strip; the pinned llm-agents wrapper shape changed" >&2
-                exit 1
-              fi
-            done
-          ''}
-          ${legacyEnvCleanup}
-          ${lib.optionalString (binaryNames != [ ]) ''
-            for name in ${lib.escapeShellArgs binaryNames}; do
-              sed -i "/^export $name=/d" "$out/bin/claude"
-            done
-            for name in ${lib.escapeShellArgs binaryNames}; do
-              if grep -qF "$name=" "$out/bin/claude"; then
-                echo "claude-code: inner wrapper still assigns $name after strip; the pinned llm-agents wrapper shape changed" >&2
-                exit 1
-              fi
-            done
-          ''}
+          for name in ${lib.escapeShellArgs strippedNames}; do
+            sed -i "/^export $name=/d" "$out/bin/claude"
+          done
+          for name in ${lib.escapeShellArgs strippedNames}; do
+            if grep -qF "$name=" "$out/bin/claude"; then
+              echo "claude-code: inner wrapper still assigns $name after strip; the pinned llm-agents wrapper shape changed" >&2
+              exit 1
+            fi
+          done
           wrapProgram $out/bin/claude \
-            ${binaryEnvFlags} ${retiredEnvFlags} ${legacyEnvValueRuns} ${launchOnlyRuns}
+            ${binaryEnvFlags} ${launchOnlyUnsetFlags} ${launchOnlyRuns}
         '';
       });
     in
