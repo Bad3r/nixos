@@ -24,6 +24,16 @@
   - Repo.: <https://github.com/NationalSecurityAgency/ghidra>
   - Docs.: <https://ghidra-sre.org/>
   - Desc.: NSA reverse engineering platform with decompiler.
+- ilspycmd
+  - run..: `ilspycmd $assembly.dll`
+  - Repo.: <https://github.com/icsharpcode/ILSpy>
+  - Docs.: <https://github.com/icsharpcode/ILSpy/blob/master/ICSharpCode.ILSpyCmd/README.md>
+  - Desc.: Command-line decompiler for .NET assemblies that can generate portable PDBs.
+- imhex
+  - run..: `imhex $binary`
+  - Repo.: <https://github.com/WerWolv/ImHex>
+  - Docs.: <https://imhex.org/>
+  - Desc.: Hex editor for reverse engineers and programmers.
 - ltrace
   - run..: `ltrace $binary`
   - Repo.: <https://gitlab.com/cespedes/ltrace>

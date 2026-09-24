@@ -74,6 +74,11 @@
   - Repo.: <https://github.com/sqlmapproject/sqlmap>
   - Docs.: <https://github.com/sqlmapproject/sqlmap/wiki>
   - Desc.: Automated SQL injection detection and exploitation.
+- websocat
+  - run..: `websocat ws://$host:$port`
+  - Repo.: <https://github.com/vi/websocat>
+  - Docs.: <https://github.com/vi/websocat/blob/master/doc.md>
+  - Desc.: Command-line WebSocket client and relay for streaming between sockets, processes, and WebSocket endpoints.
 - wfuzz
   - run..: `wfuzz -w $wordlist $url/FUZZ`
   - Repo.: <https://github.com/xmendez/wfuzz>

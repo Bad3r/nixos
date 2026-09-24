@@ -12,12 +12,6 @@ Tools support reconnaissance, web testing, reverse engineering, forensics, and i
 
 ## Web Application Testing & Proxies
 
-- websocat
-  - run..: `websocat ws://$host:$port`
-  - Repo.: <https://github.com/vi/websocat>
-  - Docs.: <https://github.com/vi/websocat/blob/master/doc.md>
-  - Desc.: Command-line WebSocket client and relay for streaming between sockets, processes, and WebSocket endpoints.
-
 [Web application testing catalog](toolkit/web-application-testing-proxies.md#web-application-testing--proxies)
 
 ## Credential Attacks & Wordlists
@@ -33,20 +27,6 @@ Tools support reconnaissance, web testing, reverse engineering, forensics, and i
 [Exploitation framework catalog](toolkit/exploitation-frameworks.md#exploitation-frameworks)
 
 ## Reverse Engineering & Dynamic Analysis
-
-- imhex
-
-  - run..: `imhex $binary`
-  - Repo.: <https://github.com/WerWolv/ImHex>
-  - Docs.: <https://imhex.org/>
-  - Desc.: Hex editor for reverse engineers and programmers.
-
-- ilspycmd
-
-  - run..: `ilspycmd $assembly.dll`
-  - Repo.: <https://github.com/icsharpcode/ILSpy>
-  - Docs.: <https://github.com/icsharpcode/ILSpy/blob/master/ICSharpCode.ILSpyCmd/README.md>
-  - Desc.: Command-line decompiler for .NET assemblies that can generate portable PDBs.
 
 [Reverse engineering catalog](toolkit/reverse-engineering-dynamic-analysis.md#reverse-engineering--dynamic-analysis)
 
