@@ -70,17 +70,17 @@ let
   # lever that reaches them. CLAUDE_CODE_EFFORT_LEVEL carries `max`, which the
   # persisted `effortLevel` schema rejects (see _default-settings.nix).
   modelRouting = {
-    CLAUDE_CODE_SUBAGENT_MODEL = "claude-sonnet-5";
+    CLAUDE_CODE_SUBAGENT_MODEL = "sonnet";
     CLAUDE_CODE_EFFORT_LEVEL = "max";
     # Repoints the `haiku` alias, which also backs background work the subagent
     # override does not reach (titles, summarization, classifiers).
-    ANTHROPIC_DEFAULT_HAIKU_MODEL = "claude-sonnet-5";
-    ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "Sonnet 5";
+    ANTHROPIC_DEFAULT_HAIKU_MODEL = "sonnet";
+    ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "Sonnet";
   };
 
   # Shell-level vars not needed in settings.json.
   shellOnly = {
-    BASH_MAX_OUTPUT_LENGTH = "1024";
+    BASH_MAX_OUTPUT_LENGTH = "2048";
     CLAUDE_CODE_IDE_SKIP_AUTO_INSTALL = "1";
     USE_BUILTIN_RIPGREP = "0";
   };

@@ -259,7 +259,7 @@ in
             # Off by default: this repo curates which plugins reach the model
             # rather than keeping Claude Code's bundled/official defaults.
             "telemetry@builtin" = false;
-            "code-review@claude-plugins-official" = false;
+            "code-review@claude-plugins-official" = true;
             # Off by default per the two entries above; enable per task, e.g.
             # docs/drafts/chromium-webapps-plan-*.md require it.
             "superpowers@claude-plugins-official" = false;
@@ -269,7 +269,7 @@ in
             # toggling back on is a one-line Nix change without a reinstall.
             "frontend-design@claude-plugins-official" = false;
             "pr-review-toolkit@claude-plugins-official" = false;
-            "claude-code-setup@claude-plugins-official" = false;
+            "claude-code-setup@claude-plugins-official" = true;
           };
           example = lib.literalExpression ''
             {
