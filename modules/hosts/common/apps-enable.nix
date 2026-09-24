@@ -44,6 +44,7 @@ let
       antimicrox.extended.enable = lib.mkOverride 1100 true;
       "arp-scan-rs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
+      assetripper.extended.enable = lib.mkOverride 1100 false;
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
@@ -288,6 +289,7 @@ let
       mkcert.extended.enable = lib.mkOverride 1100 true;
       mlr.extended.enable = lib.mkOverride 1100 true;
       "monitor-query".extended.enable = lib.mkOverride 1100 false;
+      mono.extended.enable = lib.mkOverride 1100 false;
       moreutils.extended.enable = lib.mkOverride 1100 true;
       mosh.extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;

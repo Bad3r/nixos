@@ -17,6 +17,7 @@
 let
   appEnable = {
     "cloudflare-warp" = true;
+    assetripper = true;
     "protonmail-bridge" = true;
     # The Qt client gives way to the namespaced service, whose module
     # (qbittorrent-webui.nix) enables the Web UI handler together with the
@@ -28,6 +29,7 @@ let
     imhex = true;
     jadx = true;
     malimite = true;
+    mono = true;
     radare2 = true;
     rizin = true;
     inkscape = true;

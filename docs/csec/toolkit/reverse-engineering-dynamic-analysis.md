@@ -4,6 +4,11 @@
 
 ## Reverse Engineering & Dynamic Analysis
 
+- assetripper
+  - run..: `AssetRipper`
+  - Repo.: <https://github.com/AssetRipper/AssetRipper>
+  - Docs.: <https://assetripper.github.io/AssetRipper/>
+  - Desc.: GUI application for analyzing Unity game files and extracting assets.
 - cutter
   - run..: `cutter $binary`
   - Repo.: <https://github.com/rizinorg/cutter>
@@ -59,6 +64,11 @@
   - Repo.: <https://github.com/LaurieWired/Malimite>
   - Docs.: <https://github.com/LaurieWired/Malimite/wiki>
   - Desc.: Ghidra-based decompiler for iOS and macOS IPA files and application bundles, with Swift and Objective-C support.
+- mono
+  - run..: `mono program.exe`
+  - Repo.: <https://gitlab.winehq.org/mono/mono>
+  - Docs.: <https://www.mono-project.com/docs/>
+  - Desc.: Cross-platform runtime and developer tools for running .NET Framework assemblies.
 - patchelf
   - run..: `patchelf --print-interpreter --print-rpath --print-needed $binary`
   - Repo.: <https://github.com/NixOS/patchelf>
