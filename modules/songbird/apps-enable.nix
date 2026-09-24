@@ -22,8 +22,14 @@ let
     # (qbittorrent-webui.nix) enables the Web UI handler together with the
     # service.
     qbittorrent = false;
+    hopper = true;
+    iaito = true;
     ilspycmd = true;
     imhex = true;
+    jadx = true;
+    malimite = true;
+    radare2 = true;
+    rizin = true;
     inkscape = true;
     ytubic = true;
     stash = true;
