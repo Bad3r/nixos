@@ -166,9 +166,8 @@ let
 
   claudeSettingsBase = {
     cleanupPeriodDays = 30;
-    # Disables + bash knobs from the shared source
-    # (modules/agents/claude-code/_env.nix).
-    env = claudeEnv.settings;
+    # _env.nix vars minus launchOnly, which only the launchers may set.
+    env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly;
     includeCoAuthoredBy = false;
     permissions = {
       allow = fileWebAllow ++ map bashPrefix bashAllow;

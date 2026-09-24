@@ -53,32 +53,29 @@ in
 
       basePackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
 
-      # Privacy/update disables baked into the binary so a bare `claude` that
-      # bypasses the ~/.local/bin wrapper still gets them. Shared source:
-      # modules/agents/claude-code/_env.nix (also feeds settings.json + wrapper).
+      # Baked into the binary so a bare claude that bypasses ~/.local/bin/claude
+      # still gets every _env.nix var.
       claudeEnv = import ../agents/claude-code/_env.nix;
-      binaryEnvFlags = lib.concatStringsSep " " (
-        lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") claudeEnv.binary
-      );
-      launchOnlyUnsetFlags = lib.concatMapStringsSep " " (name: "--unset ${lib.escapeShellArg name}") (
-        lib.attrNames claudeEnv.launchOnly
+      setFlags = lib.concatStringsSep " " (
+        lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") (
+          builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly
+        )
       );
       # Guarded, not --set: claude-rc lifts these for one launch, and a plain
       # --set here would be applied in-process where no outer wrapper reaches.
-      launchOnlyRuns = lib.concatStringsSep " " (
-        lib.mapAttrsToList (
-          name: value:
-          "--run "
-          + lib.escapeShellArg (
-            "if [ -z \""
-            + "$"
-            + "{${claudeEnv.launchOnlyEscape}:-}\" ]; then export ${name}=${lib.escapeShellArg value}; fi"
+      launchOnlyRun = lib.optionalString (claudeEnv.launchOnly != [ ]) (
+        "--run "
+        + lib.escapeShellArg (
+          "if [ -z \""
+          + "$"
+          + "{${claudeEnv.launchOnlyEscape}:-}\" ]; then export "
+          + lib.concatStringsSep " " (
+            map (name: "${name}=${lib.escapeShellArg claudeEnv.vars.${name}}") claudeEnv.launchOnly
           )
-        ) claudeEnv.launchOnly
+          + "; else unset ${lib.concatStringsSep " " claudeEnv.launchOnly}; fi"
+        )
       );
-      binaryNames = lib.attrNames claudeEnv.binary;
-      strippedNames =
-        binaryNames ++ lib.attrNames claudeEnv.launchOnly ++ [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
+      strippedNames = lib.attrNames claudeEnv.vars ++ [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
 
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
@@ -101,7 +98,7 @@ in
             fi
           done
           wrapProgram $out/bin/claude \
-            ${binaryEnvFlags} ${launchOnlyUnsetFlags} ${launchOnlyRuns}
+            ${setFlags} ${launchOnlyRun}
         '';
       });
     in

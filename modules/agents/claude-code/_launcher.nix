@@ -16,26 +16,23 @@
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
 
-  # Full env from the shared source (modules/agents/claude-code/_env.nix),
-  # rendered as shell exports; belt-and-suspenders with home.sessionVariables,
-  # the binary postFixup, and settings.json `env`.
+  # _env.nix vars minus launchOnly, rendered as shell exports.
   claudeEnv = import ./_env.nix;
   envExports = lib.concatStringsSep "\n" (
-    lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") claudeEnv.all
-  );
-  launchOnlyUnsets = lib.concatMapStringsSep "\n" (name: "unset ${name}") (
-    lib.attrNames claudeEnv.launchOnly
+    lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") (
+      builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly
+    )
   );
   # Guarded rather than unconditional: claude-rc sets the escape variable to
   # keep DISABLE_TELEMETRY out of the launch, which is what re-enables the
   # GrowthBook evaluation Remote Control requires.
-  launchOnlyExports = lib.optionalString (claudeEnv.launchOnly != { }) ''
+  launchOnlyBlock = lib.optionalString (claudeEnv.launchOnly != [ ]) ''
     if [ -z "''${${claudeEnv.launchOnlyEscape}:-}" ]; then
-    ${lib.concatStringsSep "\n" (
-      lib.mapAttrsToList (
-        name: value: "  export ${name}=${lib.escapeShellArg value}"
-      ) claudeEnv.launchOnly
-    )}
+    ${lib.concatMapStringsSep "\n" (
+      name: "  export ${name}=${lib.escapeShellArg claudeEnv.vars.${name}}"
+    ) claudeEnv.launchOnly}
+    else
+      unset ${lib.concatStringsSep " " claudeEnv.launchOnly}
     fi
   '';
 
@@ -132,8 +129,7 @@ let
     set -euo pipefail
 
     ${envExports}
-    ${launchOnlyUnsets}
-    ${launchOnlyExports}
+    ${launchOnlyBlock}
 
     # Shared scratch root for agent temp files.
     tmpDir="/tmp/agents"
@@ -162,11 +158,11 @@ let
   # 2.1.247 binary, which is false when DISABLE_GROWTHBOOK is set or when x()
   # leaves "default"; x() reads the three names cleared here. Deliberately not
   # the default launcher: it trades the telemetry and nonessential-traffic
-  # opt-outs for feature flags. Everything in `binary` still applies.
+  # opt-outs for feature flags. Every other _env.nix var still applies.
   claudeRcWrapped = pkgs.writeShellScriptBin "claude-rc" ''
     set -euo pipefail
 
-    unset CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC DISABLE_TELEMETRY DO_NOT_TRACK
+    unset ${lib.concatStringsSep " " claudeEnv.launchOnly} DO_NOT_TRACK
     unset DISABLE_GROWTHBOOK
     export ${claudeEnv.launchOnlyEscape}=1
 

@@ -162,6 +162,10 @@ _: {
             assertion = unknownSkillOverrides == [ ];
             message = "programs.claude-code.extended.skillOverrides has unknown skill names: ${lib.concatStringsSep ", " unknownSkillOverrides}. Managed Claude Code skills: ${lib.concatStringsSep ", " managedClaudeSkillNames}.";
           }
+          {
+            assertion = !(claudeEnv.vars ? CLAUDE_CODE_SHELL);
+            message = "modules/agents/claude-code/_env.nix sets CLAUDE_CODE_SHELL, which the launcher points at the controlled bash; a settings.json value is applied in-process and would bypass the rm shim.";
+          }
         ];
 
         home = {
@@ -190,12 +194,9 @@ _: {
           # ~/.local/bin ahead of it so the wrapper shadows a bun-global claude.
           sessionPath = lib.mkBefore [ "${config.home.homeDirectory}/.local/bin" ];
 
-          # Full env from the shared source (modules/agents/claude-code/_env.nix);
-          # belt-and-suspenders with the binary postFixup and settings.json `env`.
-          # launchOnly is safe to add here, unlike in `settings` or `binary`,
-          # because claude-rc unsets it before exec and so still starts clean;
-          # this keeps the opt-out on a bun binary invoked outside the wrapper.
-          sessionVariables = claudeEnv.all // claudeEnv.launchOnly;
+          # launchOnly names stay included: claude-rc unsets them before exec, so
+          # this keeps the opt-out live for a bun binary run outside the launcher.
+          sessionVariables = claudeEnv.vars;
         };
       };
     };
