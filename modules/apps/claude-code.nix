@@ -21,10 +21,9 @@
 */
 { inputs, ... }:
 let
-  # Maps each Claude Code LSP plugin key → the NixOS programs.<name> option name.
-  # Used both to declare lspPlugins options and to generate priority-1050 enable
-  # overrides when a plugin is active, beating the catalog's 1100 false without
-  # suppressing a catalog true (we only ever assert true here, never false).
+  # Language server behind each LSP plugin. An enabledPlugins entry set to true in
+  # modules/agents/claude-code/_plugins.nix enables its program at priority 1050,
+  # above the apps-enable.nix baseline (1100); false leaves the baseline alone.
   lspPluginProgramMap = {
     "clangd-lsp" = "clangd";
     "csharp-lsp" = "csharp-ls";
@@ -37,6 +36,8 @@ let
     "swift-lsp" = "sourcekit-lsp";
     "typescript-lsp" = "typescript-language-server";
   };
+
+  inherit (import ../agents/claude-code/_plugins.nix) enabledPlugins;
 in
 {
   nixpkgs.allowedUnfreePackages = [ "claude-code" ];
@@ -53,95 +54,52 @@ in
 
       basePackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-code;
 
-      # Privacy/update disables baked into the binary so a bare `claude` that
-      # bypasses the ~/.local/bin wrapper still gets them. Shared source:
-      # modules/agents/claude-code/_env.nix (also feeds settings.json + wrapper).
+      # Baked into the binary so a bare claude that bypasses ~/.local/bin/claude
+      # still gets every _env.nix var.
       claudeEnv = import ../agents/claude-code/_env.nix;
-      binaryEnvFlags = lib.concatStringsSep " " (
-        lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") claudeEnv.binary
+      setFlags = lib.concatStringsSep " " (
+        lib.mapAttrsToList (name: value: "--set ${name} ${lib.escapeShellArg value}") (
+          builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly
+        )
       );
-      retiredEnvFlags = lib.concatMapStringsSep " " (
-        name: "--unset ${lib.escapeShellArg name}"
-      ) claudeEnv.stripped;
       # Guarded, not --set: claude-rc lifts these for one launch, and a plain
       # --set here would be applied in-process where no outer wrapper reaches.
-      launchOnlyRuns = lib.concatStringsSep " " (
-        lib.mapAttrsToList (
-          name: value:
-          "--run "
-          + lib.escapeShellArg (
-            "if [ -z \""
-            + "$"
-            + "{${claudeEnv.launchOnlyEscape}:-}\" ]; then export ${name}=${lib.escapeShellArg value}; fi"
+      launchOnlyRun = lib.optionalString (claudeEnv.launchOnly != [ ]) (
+        "--run "
+        + lib.escapeShellArg (
+          "if [ -z \""
+          + "$"
+          + "{${claudeEnv.launchOnlyEscape}:-}\" ]; then export "
+          + lib.concatStringsSep " " (
+            map (name: "${name}=${lib.escapeShellArg claudeEnv.vars.${name}}") claudeEnv.launchOnly
           )
-        ) claudeEnv.launchOnly
+          + "; else unset ${lib.concatStringsSep " " claudeEnv.launchOnly}; fi"
+        )
       );
-      legacyEnvValueRuns = lib.concatStringsSep " " (
-        lib.mapAttrsToList (
-          name: value:
-          "--run "
-          + lib.escapeShellArg (
-            "if [ \"" + "$" + "{${name}:-}\" = ${lib.escapeShellArg value} ]; then unset ${name}; fi"
-          )
-        ) claudeEnv.legacyEnvValues
-      );
-      legacyEnvCleanup = lib.concatStringsSep "\n" (
-        lib.mapAttrsToList (
-          name: value:
-          let
-            assignment = "export ${name}=${lib.escapeShellArg value}";
-            assignmentPattern = ''(^|[[:space:];])${name}=[\"']?${lib.escapeRegex value}[\"']?([[:space:];]|$)'';
-            sedPattern = lib.replaceStrings [ "/" ] [ "\\/" ] (lib.escapeRegex assignment);
-            sedExpression = "/^${sedPattern}$/d";
-          in
-          ''
-            sed -i -E ${lib.escapeShellArg sedExpression} "$out/bin/claude"
-            if grep -qE ${lib.escapeShellArg assignmentPattern} "$out/bin/claude"; then
-              echo "claude-code: inner wrapper still assigns legacy value ${name}=${value} after strip; the pinned llm-agents wrapper shape changed" >&2
-              exit 1
-            fi
-          ''
-        ) claudeEnv.legacyEnvValues
-      );
-      binaryNames = lib.attrNames claudeEnv.binary;
+      strippedNames = lib.attrNames claudeEnv.vars ++ [ "DISABLE_NON_ESSENTIAL_MODEL_CALLS" ];
 
       wrappedPackage = basePackage.overrideAttrs (old: {
         postFixup = (old.postFixup or "") + ''
-          # The pinned llm-agents package wraps bin/claude before this hook and
-          # can export retired, legacy, and shared binary names. Strip names
-          # owned by this module from the inner wrapper before applying shared
-          # flags. Permanent retired assignments fail closed because an outer
-          # unset cannot override an inner export. Legacy assignments are
-          # removed for their exact value, then checked in shell assignment
-          # forms so wrapper serialization drift fails before a legacy value
-          # can survive the conditional outer run.
+          # The pinned llm-agents package wraps bin/claude before this hook, exporting
+          # DISABLE_AUTOUPDATER and DISABLE_INSTALLATION_CHECKS and defaulting
+          # DISABLE_NON_ESSENTIAL_MODEL_CALLS to 1, a name 2.1.281 never reads. Each
+          # inner assignment of a name listed here is deleted so the flags below alone
+          # decide it, and a leftover one fails the build.
           if [ "$(head -c 2 "$out/bin/claude")" != '#!' ]; then
             echo "claude-code: expected a textual inner wrapper at bin/claude; the pinned llm-agents wrapper shape changed" >&2
             exit 1
           fi
-          ${lib.optionalString (claudeEnv.stripped != [ ]) ''
-            for name in ${lib.escapeShellArgs claudeEnv.stripped}; do
-              sed -i "/^export $name=/c\unset $name" "$out/bin/claude"
-              if grep -qF "$name=" "$out/bin/claude"; then
-                echo "claude-code: inner wrapper still assigns retired name $name after strip; the pinned llm-agents wrapper shape changed" >&2
-                exit 1
-              fi
-            done
-          ''}
-          ${legacyEnvCleanup}
-          ${lib.optionalString (binaryNames != [ ]) ''
-            for name in ${lib.escapeShellArgs binaryNames}; do
-              sed -i "/^export $name=/d" "$out/bin/claude"
-            done
-            for name in ${lib.escapeShellArgs binaryNames}; do
-              if grep -qF "$name=" "$out/bin/claude"; then
-                echo "claude-code: inner wrapper still assigns $name after strip; the pinned llm-agents wrapper shape changed" >&2
-                exit 1
-              fi
-            done
-          ''}
+          for name in ${lib.escapeShellArgs strippedNames}; do
+            sed -i "/^export $name=/d" "$out/bin/claude"
+          done
+          for name in ${lib.escapeShellArgs strippedNames}; do
+            if grep -qF "$name=" "$out/bin/claude"; then
+              echo "claude-code: inner wrapper still assigns $name after strip; the pinned llm-agents wrapper shape changed" >&2
+              exit 1
+            fi
+          done
           wrapProgram $out/bin/claude \
-            ${binaryEnvFlags} ${retiredEnvFlags} ${legacyEnvValueRuns} ${launchOnlyRuns}
+            ${setFlags} ${launchOnlyRun}
         '';
       });
     in
@@ -203,142 +161,6 @@ in
             '';
           };
         };
-
-        lspPlugins = lib.mapAttrs (
-          pluginKey: _:
-          lib.mkOption {
-            type = lib.types.bool;
-            default = true;
-            description = ''
-              Whether to enable the ${pluginKey} Claude Code LSP plugin and ensure
-              its binary is installed. When true, overrides the catalog at priority
-              1050 so the package is installed even if apps-enable.nix says false.
-            '';
-          }
-        ) lspPluginProgramMap;
-
-        skillOverrides = lib.mkOption {
-          type = lib.types.attrsOf (
-            lib.types.enum [
-              "name-only"
-              "user-invocable-only"
-              "off"
-            ]
-          );
-          default = { };
-          example = lib.literalExpression ''
-            {
-              "nixos-hm-post-switch-repair" = "off";
-            }
-          '';
-          description = ''
-            Per-skill availability overrides for standalone Claude Code skills,
-            keyed by managed skill name; an unknown name fails evaluation.
-            "name-only" lists a skill without its description,
-            "user-invocable-only" hides it from the model but keeps /name, and
-            "off" hides it from both. Managed standalone skills are enabled by
-            default. Plugin-provided skills are controlled by the corresponding
-            extraPlugins entry because Claude Code does not apply skillOverrides
-            to plugin skills. Activation fully owns the skill names currently
-            in the managed registry, so removing a key here also removes it
-            from `~/.claude/settings.json`; entries for unmanaged names, such
-            as plugin or hand-written skills, are left alone. A name that
-            leaves the registry (a skill deleted or renamed in
-            modules/agents/skills/) becomes unmanaged from that switch
-            onward, so the clearing guarantee only applies if the override is
-            removed in an earlier switch while the skill is still managed;
-            otherwise delete the stale entry from settings.json by hand. This
-            differs from `extraPlugins`, which only unions.
-          '';
-        };
-
-        extraPlugins = lib.mkOption {
-          type = lib.types.attrsOf lib.types.bool;
-          default = {
-            "chrome-devtools-mcp@chrome-devtools-plugins" = true;
-            # Off by default: this repo curates which plugins reach the model
-            # rather than keeping Claude Code's bundled/official defaults.
-            "telemetry@builtin" = false;
-            "code-review@claude-plugins-official" = true;
-            # Off by default per the two entries above; enable per task, e.g.
-            # docs/drafts/chromium-webapps-plan-*.md require it.
-            "superpowers@claude-plugins-official" = false;
-            # Bundled MCP server would duplicate modules/agents/mcp/servers.nix's per-endpoint ones.
-            "cloudflare@cloudflare" = false;
-            # Registered but disabled: keeps the key visible in settings.json so
-            # toggling back on is a one-line Nix change without a reinstall.
-            "frontend-design@claude-plugins-official" = false;
-            "pr-review-toolkit@claude-plugins-official" = false;
-            "claude-code-setup@claude-plugins-official" = true;
-          };
-          example = lib.literalExpression ''
-            {
-              # Enable an extra plugin from a registered marketplace:
-              "design-system@some-marketplace" = true;
-              # Keep an entry registered in settings.json but disabled
-              # (per-key override; differs from omitting the entry entirely):
-              "frontend-design@claude-plugins-official" = false;
-            }
-          '';
-          description = ''
-            Additional non-LSP Claude Code plugins to enable, keyed by the
-            `"<plugin>@<marketplace>"` identifier used in
-            `~/.claude/settings.json`'s `enabledPlugins`. Set an entry to
-            `false` to keep the key registered but disabled. Activation unions
-            this attrset with existing `enabledPlugins` entries, so removing a
-            key here does not remove a previously written key from
-            `~/.claude/settings.json`; delete stale entries there explicitly
-            when removing a plugin. The marketplace named in the suffix must
-            be registered before the entry takes effect: declare it in
-            `_default-settings.nix`'s `claudeSettingsBase.extraKnownMarketplaces`
-            (as `chrome-devtools-plugins` is), or install it out of band into
-            `~/.claude/plugins/known_marketplaces.json` (as
-            `claude-plugins-official` is). `builtin` needs no registration.
-            LSP plugin keys (those that would collide with
-            `lspPlugins.<key>@claude-plugins-official`) are rejected by
-            assertion to avoid silently masking the LSP-managed enable state.
-          '';
-        };
-
-        deniedMcpServers = lib.mkOption {
-          type = lib.types.listOf lib.types.str;
-          default = [
-            "claude.ai Cloudflare Developer Platform"
-            "claude.ai Gmail"
-            "claude.ai Google Calendar"
-            "claude.ai Google Drive"
-            "claude.ai Indeed"
-            "claude.ai JobDataLake"
-            "claude.ai Jobs and Careers"
-            "claude.ai Todoist"
-          ];
-          example = lib.literalExpression ''
-            [
-              "claude.ai Todoist"
-              "some-stdio-server"
-            ]
-          '';
-          description = ''
-            Display names of MCP servers to block for Claude Code, rendered into
-            `~/.claude/settings.json` as `deniedMcpServers` entries of the form
-            `{ serverName = <name>; }`. The denylist merges across every settings
-            scope and always wins, so a listed server never loads its tools.
-
-            Use this to switch off claude.ai account connectors (the
-            `claude.ai <Name>` entries in `/mcp`) that cannot be removed from Nix
-            any other way, since the logged-in account provisions them rather
-            than local config. Activation unions this list with the
-            `deniedMcpServers` already in `~/.claude/settings.json`, so a deny
-            added out of band survives a switch and is never silently dropped;
-            because of that union, a name a previous switch wrote stays denied
-            until it is removed from `~/.claude/settings.json` too, not only from
-            this list. `serverName` matching needs Claude Code
-            `>= 2.1.182` and compares the exact display name, so a connector
-            renamed on claude.ai (or suffixed ` (N)` after a name collision) must
-            be updated here too. The account stays the source of truth:
-            disconnect a connector at claude.ai to stop it everywhere.
-          '';
-        };
       };
 
       config = lib.mkIf cfg.enable (
@@ -352,10 +174,8 @@ in
 
               assertions =
                 let
-                  extraKeys = lib.attrNames cfg.extraPlugins;
-                  malformedKeys = lib.filter (k: builtins.match ".+@.+" k == null) extraKeys;
-                  lspKeysWithMarket = map (k: "${k}@claude-plugins-official") (lib.attrNames cfg.lspPlugins);
-                  lspCollisions = lib.intersectLists extraKeys lspKeysWithMarket;
+                  pluginKeys = lib.attrNames enabledPlugins;
+                  malformedKeys = lib.filter (k: builtins.match ".+@.+" k == null) pluginKeys;
                   delegatesToBunGlobal =
                     (!cfg.installMethods.nix.enable) && (!cfg.installMethods.bun.enable) && cfg.externalBinary == null;
                 in
@@ -391,27 +211,15 @@ in
                   {
                     assertion = malformedKeys == [ ];
                     message = ''
-                      programs.claude-code.extended.extraPlugins keys must follow the
+                      enabledPlugins keys in modules/agents/claude-code/_plugins.nix must follow the
                       "<plugin>@<marketplace>" form (matching the suffix used in
                       ~/.claude/settings.json's enabledPlugins and the marketplace name
-                      registered via claudeSettingsBase.extraKnownMarketplaces in
-                      _default-settings.nix or ~/.claude/plugins/known_marketplaces.json).
+                      registered via extraKnownMarketplaces in
+                      modules/agents/claude-code/_plugins.nix or
+                      ~/.claude/plugins/known_marketplaces.json).
                       A key without an "@" suffix is silently ignored by Claude Code at
                       runtime.
                       Invalid keys: ${toString malformedKeys}
-                    '';
-                  }
-                  {
-                    assertion = lspCollisions == [ ];
-                    message = ''
-                      programs.claude-code.extended.extraPlugins must not include LSP
-                      plugin keys. LSP plugins are managed by
-                      programs.claude-code.extended.lspPlugins.<key> and are merged
-                      into ~/.claude/settings.json with the @claude-plugins-official
-                      marketplace suffix; placing them under extraPlugins would
-                      disable them in settings.json without removing the installed
-                      binary, producing a confusing inconsistency.
-                      Conflicting keys: ${toString lspCollisions}
                     '';
                   }
                 ];
@@ -419,7 +227,7 @@ in
           ]
           ++ lib.mapAttrsToList (
             pluginKey: programName:
-            lib.mkIf cfg.lspPlugins.${pluginKey} {
+            lib.mkIf (enabledPlugins."${pluginKey}@claude-plugins-official" or false) {
               programs.${programName}.extended.enable = lib.mkOverride 1050 true;
             }
           ) lspPluginProgramMap

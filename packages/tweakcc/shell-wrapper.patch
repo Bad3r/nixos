@@ -36,7 +36,7 @@ index c0f8978..f8fb855 100644
 + * Resolves static targets used by shell launchers. Home Manager wrappers use
 + * `target=/absolute/path/to/claude`, while makeWrapper uses
 + * `exec -a "<argv0>" "/absolute/path/to/.name-wrapped"`.
-+ * The producer is `modules/agents/claude-code/_wrapper.nix`.
++ * The producer is `modules/agents/claude-code/_launcher.nix`.
 + */
 +async function resolveShellWrapper(wrapperPath: string): Promise<string | null> {
 +  try {
