@@ -125,20 +125,6 @@ let
     "bash -lc"
     "zsh -c"
     "zsh -lc"
-    # The same bypass without a shell: each takes a program name as its first
-    # operand, so `timeout 60 <cmd>` reaches every rule above without matching
-    # any of them. Gated here and absent from bashAllow, since ask wins and an
-    # allow entry for the same prefix would only be a dead rule claiming the
-    # opposite.
-    #
-    # Best-effort, like the shared invocation list: `find -exec`, `make`,
-    # `nix develop -c`, `nix run`, `nvim`, `python` and `source` reach an
-    # arbitrary program too and stay allowed, because gating them would prompt
-    # on this repo's ordinary use of each. The three below are the ones whose
-    # only purpose is to run one.
-    "timeout"
-    "time"
-    "xargs"
   ];
 
   # coreutils rm bypasses the PATH shim that routes bare `rm` to trash-cli, so
