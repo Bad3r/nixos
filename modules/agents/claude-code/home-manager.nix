@@ -31,8 +31,6 @@
     * Config is split across private helpers in modules/agents/claude-code/:
         _default-settings.nix  static defaults for settings.json, .claude.json,
                                and keybindings.json
-        _plugins.nix           enabledPlugins composition from osConfig
-        _settings.nix          merges defaults + plugins + skillOverrides + mcpServers
         _activation.nix        activation snippets (jq merge + optional bun install)
         _launcher.nix          shell launcher environment and binary selection
 */
@@ -62,7 +60,6 @@ _: {
 
       defaults = import ./_default-settings.nix;
       claudeEnv = import ./_env.nix;
-      plugins = import ./_plugins.nix { inherit lib osConfig; };
       registryClaudeSkills = lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list;
       managedClaudeSkillNames = lib.attrNames registryClaudeSkills;
       configuredSkillOverrides = lib.attrByPath [
@@ -92,17 +89,36 @@ _: {
           [ ]
           osConfig;
 
-      settings = import ./_settings.nix {
-        inherit
-          lib
-          pkgs
-          defaults
-          mcpServers
-          deniedMcpServers
-          skillOverrides
-          ;
-        inherit (plugins) enabledPlugins;
-      };
+      # Merges parts that must not declare the same top-level key.
+      mergeParts =
+        parts:
+        let
+          names = lib.concatMap lib.attrNames parts;
+          duplicates = lib.unique (lib.filter (name: lib.count (n: n == name) names > 1) names);
+        in
+        assert lib.assertMsg (
+          duplicates == [ ]
+        ) "claude-code: ${lib.concatStringsSep ", " duplicates} declared by more than one settings part";
+        lib.foldl' (acc: part: acc // part) { } parts;
+
+      lspPlugins = lib.attrByPath [ "programs" "claude-code" "extended" "lspPlugins" ] { } osConfig;
+      extraPlugins = lib.attrByPath [ "programs" "claude-code" "extended" "extraPlugins" ] { } osConfig;
+      enabledPlugins =
+        lib.mapAttrs' (key: lib.nameValuePair "${key}@claude-plugins-official") lspPlugins // extraPlugins;
+
+      settingsJson = mergeParts [
+        defaults.claudeSettingsBase
+        {
+          inherit enabledPlugins skillOverrides;
+          deniedMcpServers = map (serverName: { inherit serverName; }) deniedMcpServers;
+        }
+      ];
+      claudeJson = mergeParts [
+        defaults.claudeJsonConfigBase
+        { inherit mcpServers; }
+      ];
+      claudeSettingsFile = pkgs.writeText "claude-settings.json" (builtins.toJSON settingsJson);
+      claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJson);
 
       bunInstallDir = "${config.xdg.dataHome}/bun";
       configuredExternalBinary = lib.attrByPath [
@@ -119,7 +135,7 @@ _: {
 
       # settingsMergeJq, settingsMergeJqArgs, and claudeJsonMergeJq are all
       # unused here; checks."claude-code/settings-merge" and
-      # checks."claude-code/claude-json-merge" above import _activation.nix
+      # checks."claude-code/claude-json-merge" in checks.nix import _activation.nix
       # separately to exercise them against fixtures.
       activationResult = import ./_activation.nix {
         inherit
@@ -128,8 +144,9 @@ _: {
           osConfig
           config
           managedClaudeSkillNames
+          claudeSettingsFile
+          claudeJsonConfigFile
           ;
-        inherit (settings) claudeSettingsFile claudeJsonConfigFile;
       };
       inherit (activationResult) activation;
 

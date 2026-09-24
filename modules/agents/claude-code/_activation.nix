@@ -27,8 +27,8 @@
       only to the localSettings scope (.claude/settings.local.json), never to
       the userSettings scope this activation manages. enabledPlugins and env
       need no explicit rule: both are flat maps (`{ "<plugin>@<marketplace>"
-      = bool; }`, `{ <NAME> = string; }`) on both sides (_plugins.nix,
-      _env.nix), always present in $nix (_settings.nix and claudeSettingsBase
+      = bool; }`, `{ <NAME> = string; }`) on both sides (home-manager.nix,
+      _env.nix), always present in $nix (home-manager.nix and claudeSettingsBase
       inject them unconditionally), so the ambient recursive `*` merge above
       already unions each per key, right side winning; that is also the
       union-only contract modules/apps/claude-code.nix's extraPlugins option

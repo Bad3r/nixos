@@ -3,8 +3,8 @@
 
   Source of truth for default ~/.claude/settings.json keys, ~/.claude.json
   UI preferences, and ~/.claude/keybindings.json. Values that depend on runtime
-  evaluation (enabledPlugins, deniedMcpServers, mcpServers) are injected by
-  _settings.nix; this attrset only carries the static portion shared across
+  evaluation (enabledPlugins, deniedMcpServers, mcpServers) are added by
+  home-manager.nix; this attrset only carries the static portion shared across
   hosts.
 
   Permission rule semantics (code.claude.com/docs/en/permissions):
@@ -156,14 +156,6 @@ let
   # `bash -c` in bashAsk are different rules, and both are live.
   deadAllow = builtins.filter (cmd: builtins.elem cmd bashAsk) bashAllow;
 
-  # Runtime-owned keys are merged over these static bases by _settings.nix.
-  injectedSettings = [
-    "enabledPlugins"
-    "deniedMcpServers"
-    "skillOverrides"
-  ];
-  injectedClaudeJson = [ "mcpServers" ];
-
   claudeSettingsBase = {
     cleanupPeriodDays = 30;
     # _env.nix vars minus launchOnly, which only the launchers may set.
@@ -212,7 +204,7 @@ let
     useAutoModeDuringPlan = false; # Use auto mode during plan
   };
 
-  # UI preferences for ~/.claude.json (merged with existing config in _settings.nix)
+  # UI preferences for ~/.claude.json.
   claudeJsonConfigBase = {
     hasTrustDialogAccepted = true;
     hasCompletedProjectOnboarding = true;
@@ -229,31 +221,14 @@ let
     theme = "dark"; # Theme
     verbose = true; # Verbose output
   };
-  # A key both here and in injectedSettings would be silently overridden by
-  # _settings.nix's `//` merge.
-  injectedButStatic = builtins.filter (
-    name: builtins.hasAttr name claudeSettingsBase
-  ) injectedSettings;
-  # Same check, claudeJsonConfigBase/injectedClaudeJson side.
-  injectedJsonButStatic = builtins.filter (
-    name: builtins.hasAttr name claudeJsonConfigBase
-  ) injectedClaudeJson;
 in
 assert
   deadAllow == [ ]
   || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " deadAllow} are in both bashAllow and bashAsk; ask wins, so drop them from bashAllow rather than leaving the two lists disagreeing";
-assert
-  injectedButStatic == [ ]
-  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " injectedButStatic} are both runtime-injected by _settings.nix and statically set in claudeSettingsBase; drop the static definition so the injected value cannot be silently shadowed";
-assert
-  injectedJsonButStatic == [ ]
-  || throw "modules/agents/claude-code/_default-settings.nix: ${builtins.concatStringsSep ", " injectedJsonButStatic} are both runtime-injected by _settings.nix and statically set in claudeJsonConfigBase; drop the static definition so the injected value cannot be silently shadowed";
 {
   inherit
     claudeJsonConfigBase
     claudeSettingsBase
-    injectedSettings
-    injectedClaudeJson
     ;
 
   # === Undocumented settings.json keys (2.1.222 binary schema) ==============
@@ -357,7 +332,7 @@ assert
   # === Documented settings.json keys (2.1.222 schema) =======================
   # Every top-level key in the binary's settings schema that is not spelled out
   # in claudeSettingsBase above, plus keys marked `ACTIVE in claudeSettingsBase`
-  # / `ACTIVE in claudeJsonConfigBase` / `SET BY _settings.nix`, which are live
+  # / `ACTIVE in claudeJsonConfigBase` / `SET BY home-manager.nix`, which are live
   # and retain their schema description here. Descriptions are the schema's own
   # .describe() text, falling back to the published docs. Activate an
   # unannotated key by setting it in claudeSettingsBase above and annotating
@@ -499,7 +474,7 @@ assert
   #   server is on the denylist, it will be blocked across all scopes including
   #   enterprise. Denylist takes precedence over allowlist - if a server is on
   #   both lists, it is denied.
-  #   deniedMcpServers = [ ];                           # [array]    SET BY _settings.nix (programs.claude-code.extended.deniedMcpServers)
+  #   deniedMcpServers = [ ];                           # [array]    SET BY home-manager.nix (programs.claude-code.extended.deniedMcpServers)
   #
   #   Disable agent view (`claude agents`, `--bg`, /background, the on-demand
   #   daemon). Typically set in managed settings. Equivalent to
@@ -577,7 +552,7 @@ assert
   #   < policy, so to disable a plugin that project settings enable, set it to
   #   false in .claude/settings.local.json - setting false in
   #   ~/.claude/settings.json is overridden by the project.
-  #   enabledPlugins = { };                             # [record]   SET BY _settings.nix (programs.claude-code.extended.extraPlugins / lspPlugins)
+  #   enabledPlugins = { };                             # [record]   SET BY home-manager.nix (programs.claude-code.extended.extraPlugins / lspPlugins)
   #
   #   When true and availableModels is a non-empty array, the Default model
   #   selection is also constrained: if the default model for the user tier is
@@ -792,7 +767,7 @@ assert
   #   Per-skill listing overrides keyed by skill name. "name-only" lists the
   #   skill without its description; "user-invocable-only" hides it from the
   #   model but keeps /name; "off" hides it from both. Absent = on.
-  #   skillOverrides = { };                             # [record]   SET BY _settings.nix (programs.claude-code.extended.skillOverrides)
+  #   skillOverrides = { };                             # [record]   SET BY home-manager.nix (programs.claude-code.extended.skillOverrides)
   #
   #   Whether the user has accepted the bypass permissions mode dialog
   #   skipDangerousModePermissionPrompt = true;         # [boolean]

@@ -226,7 +226,7 @@
         # merge policies _activation.nix's header documents an explicit rule
         # for (skillOverrides full ownership, extraKnownMarketplaces per-entry
         # wholesale replace), plus deniedMcpServers' union-and-dedupe (in the
-        # real [{serverName = "…";}] shape _settings.nix renders, with an
+        # real [{serverName = "…";}] shape home-manager.nix renders, with an
         # overlapping entry so `| unique` is actually exercised). enabledPlugins'
         # and env's unions are asserted too, even though both come from the
         # ambient `*` merge rather than an explicit rule (a second explicit
@@ -270,7 +270,7 @@
                 commit = "off";
                 "some-plugin-skill" = "off";
               };
-              # _settings.nix renders deniedMcpServers as [{ serverName = "…"; }],
+              # home-manager.nix renders deniedMcpServers as [{ serverName = "…"; }],
               # not bare strings; "claude.ai Todoist" overlaps with nixFixture's
               # entry below to exercise `| unique`, since two disjoint one-entry
               # arrays would union to the same length with or without it.
