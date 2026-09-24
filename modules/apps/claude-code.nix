@@ -247,7 +247,7 @@ in
             `~/.claude/settings.json`; delete stale entries there explicitly
             when removing a plugin. The marketplace named in the suffix must
             be registered before the entry takes effect: declare it in
-            `_default-settings.nix`'s `claudeSettingsBase.extraKnownMarketplaces`
+            `extraKnownMarketplaces` in `modules/agents/claude-code/_plugins.nix`
             (as `chrome-devtools-plugins` is), or install it out of band into
             `~/.claude/plugins/known_marketplaces.json` (as
             `claude-plugins-official` is). `builtin` needs no registration.
@@ -351,8 +351,9 @@ in
                       programs.claude-code.extended.extraPlugins keys must follow the
                       "<plugin>@<marketplace>" form (matching the suffix used in
                       ~/.claude/settings.json's enabledPlugins and the marketplace name
-                      registered via claudeSettingsBase.extraKnownMarketplaces in
-                      _default-settings.nix or ~/.claude/plugins/known_marketplaces.json).
+                      registered via extraKnownMarketplaces in
+                      modules/agents/claude-code/_plugins.nix or
+                      ~/.claude/plugins/known_marketplaces.json).
                       A key without an "@" suffix is silently ignored by Claude Code at
                       runtime.
                       Invalid keys: ${toString malformedKeys}

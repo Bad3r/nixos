@@ -21,18 +21,22 @@
     * Per-skill availability for standalone Claude Code skills is governed by
       programs.claude-code.extended.skillOverrides in modules/apps/claude-code.nix.
     * `enabledPlugins` keys end with `@<marketplace>`. The marketplace must be
-      registered first: declaratively via _default-settings.nix's
-      claudeSettingsBase.extraKnownMarketplaces (as chrome-devtools-plugins
-      is), or out of band in ~/.claude/plugins/known_marketplaces.json (as
-      claude-plugins-official is, installed once with
+      registered first: declaratively via extraKnownMarketplaces in
+      _plugins.nix (as chrome-devtools-plugins is), or out of band in
+      ~/.claude/plugins/known_marketplaces.json (as claude-plugins-official
+      is, installed once with
       `claude-plugins install anthropics/claude-plugins-official`). `builtin`
       needs no registration; entries naming an unregistered marketplace are
       silently ignored.
-    * Config is split across private helpers in modules/agents/claude-code/:
-        _default-settings.nix  static defaults for settings.json, .claude.json,
-                               and keybindings.json
-        _activation.nix        activation snippets (jq merge + optional bun install)
-        _launcher.nix          shell launcher environment and binary selection
+    * Data files in modules/agents/claude-code/, one per concern:
+        _settings.nix          settings.json keys the next two files do not hold
+        _plugins.nix           plugins, marketplaces, and skill settings
+        _permissions.nix       permissions and MCP server policy
+        _env.nix               environment variables
+        _claude-json.nix       ~/.claude.json preferences
+        _keybindings.nix       ~/.claude/keybindings.json
+      Plumbing: _activation.nix (jq merge and optional bun install) and
+      _launcher.nix (launcher environment and binary selection).
 */
 
 _: {
@@ -58,7 +62,6 @@ _: {
         bun.enable = false;
       } osConfig;
 
-      defaults = import ./_default-settings.nix;
       claudeEnv = import ./_env.nix;
       registryClaudeSkills = lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list;
       managedClaudeSkillNames = lib.attrNames registryClaudeSkills;
@@ -107,14 +110,17 @@ _: {
         lib.mapAttrs' (key: lib.nameValuePair "${key}@claude-plugins-official") lspPlugins // extraPlugins;
 
       settingsJson = mergeParts [
-        defaults.claudeSettingsBase
+        (import ./_settings.nix)
+        (import ./_plugins.nix)
+        (import ./_permissions.nix)
         {
+          env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly;
           inherit enabledPlugins skillOverrides;
           deniedMcpServers = map (serverName: { inherit serverName; }) deniedMcpServers;
         }
       ];
       claudeJson = mergeParts [
-        defaults.claudeJsonConfigBase
+        (import ./_claude-json.nix)
         { inherit mcpServers; }
       ];
       claudeSettingsFile = pkgs.writeText "claude-settings.json" (builtins.toJSON settingsJson);
@@ -189,7 +195,7 @@ _: {
           file = {
             ".claude/CLAUDE.md".text = claudeInstructions;
 
-            ".claude/keybindings.json".text = builtins.toJSON defaults.claudeKeybindingsBase;
+            ".claude/keybindings.json".text = builtins.toJSON (import ./_keybindings.nix);
 
             ".local/bin/claude" = {
               source = lib.getExe claudeRuntime.claudeWrapped;

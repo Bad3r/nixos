@@ -433,7 +433,7 @@
               check "mcpServers existing-only entry preserved" '.mcpServers."existing-only".command' '"keep-me"'
               # $nix wins a same-key conflict, the same property 661d1099 pins
               # for settings-merge: without this, a reversed ambient merge
-              # would leave every claudeJsonConfigBase value stale and still pass.
+              # would leave every _claude-json.nix value stale and still pass.
               check "claude.json nix value wins" '.theme' '"dark"'
 
               echo "ok: claude-code claude-json-merge jq contract" > $out

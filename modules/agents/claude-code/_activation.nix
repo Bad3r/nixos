@@ -14,7 +14,7 @@
       is removed there by hand. extraKnownMarketplaces stays union-only at the
       entry level, like enabledPlugins: the CLI's own `/plugin marketplace
       add` writes directly into this key (userSettings scope by default), so
-      a marketplace name dropped from claudeSettingsBase is not deleted from
+      a marketplace name dropped from _plugins.nix is not deleted from
       settings.json; remove it there by hand. skillOverrides entries for
       managed skill names are fully owned by Nix, so a name dropped from
       programs.claude-code.extended.skillOverrides while its skill stays
@@ -28,8 +28,8 @@
       the userSettings scope this activation manages. enabledPlugins and env
       need no explicit rule: both are flat maps (`{ "<plugin>@<marketplace>"
       = bool; }`, `{ <NAME> = string; }`) on both sides (home-manager.nix,
-      _env.nix), always present in $nix (home-manager.nix and claudeSettingsBase
-      inject them unconditionally), so the ambient recursive `*` merge above
+      _env.nix), always present in $nix (home-manager.nix injects them
+      unconditionally), so the ambient recursive `*` merge above
       already unions each per key, right side winning; that is also the
       union-only contract modules/apps/claude-code.nix's extraPlugins option
       documents for enabledPlugins (removing a plugin is a manual
