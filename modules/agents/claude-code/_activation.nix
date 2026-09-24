@@ -98,7 +98,7 @@ let
   bunBin = lib.getExe osConfig.programs.bun.extended.package;
   # The settings.json merge filter and its jq variable bindings, lifted out of
   # claudeCodeSetup's script so checks."claude-code/settings-merge"
-  # (modules/agents/claude-code/home-manager.nix) can exercise the actual
+  # (modules/agents/claude-code/checks.nix) can exercise the actual
   # production filter, invoked with its actual production arguments, against
   # a fixture instead of a hand-copied approximation of either that could
   # silently drift from it. settingsMergeJq references $managedSkills, so
