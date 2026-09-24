@@ -1,0 +1,66 @@
+# Pentesting Toolkit: Anonymity, VPN & Tunneling
+
+[Back to Pentesting Toolkit](../toolkit.md)
+
+## Anonymity, VPN & Tunneling
+
+- cloudflare-warp
+  - run..: `warp-cli connect`
+  - Repo.: <https://1.1.1.1/>
+  - Docs.: <https://developers.cloudflare.com/warp-client/>
+  - Desc.: Cloudflare WARP client (1.1.1.1 over WireGuard).
+- cloudflared
+  - run..: `cloudflared tunnel --url http://localhost:8000`
+  - Repo.: <https://github.com/cloudflare/cloudflared>
+  - Docs.: <https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/>
+  - Desc.: Cloudflare Tunnel client; useful for routing lab traffic.
+- dnsleak
+  - run..: `dnsleak`
+  - Repo.: <https://github.com/macvk/dnsleaktest>
+  - Docs.: <https://github.com/macvk/dnsleaktest#readme>
+  - Desc.: DNS leak testing utility.
+- networkmanager-openvpn
+  - run..: `nm-connection-editor`
+  - Repo.: <https://gitlab.gnome.org/GNOME/NetworkManager-openvpn>
+  - Docs.: <https://networkmanager.dev/docs/>
+  - Desc.: NetworkManager OpenVPN plugin for managing `.ovpn` profiles from the desktop.
+- openvpn
+  - run..: `openvpn --config $cfg.ovpn`
+  - Repo.: <https://github.com/OpenVPN/openvpn>
+  - Docs.: <https://openvpn.net/community-resources/>
+  - Desc.: OpenVPN userspace client and server for TLS-based VPN tunnels.
+- proton-vpn
+  - run..: `protonvpn-app`
+  - Repo.: <https://github.com/ProtonVPN/linux-app>
+  - Docs.: <https://protonvpn.com/support/linux-vpn-tool/>
+  - Desc.: Proton VPN client.
+- tailscale
+  - run..: `tailscale up`
+  - Repo.: <https://github.com/tailscale/tailscale>
+  - Docs.: <https://tailscale.com/kb/>
+  - Desc.: Mesh VPN built on WireGuard for lab and operator networks.
+- tor
+  - run..: `tor`
+  - Repo.: <https://gitlab.torproject.org/tpo/core/tor>
+  - Docs.: <https://community.torproject.org/onion-services/setup/>
+  - Desc.: Tor daemon and CLI controller.
+- tor-browser
+  - run..: `tor-browser`
+  - Repo.: <https://gitlab.torproject.org/tpo/applications/tor-browser>
+  - Docs.: <https://tb-manual.torproject.org/>
+  - Desc.: Hardened Firefox routed over Tor.
+- torsocks
+  - run..: `torsocks $command`
+  - Repo.: <https://gitlab.torproject.org/tpo/core/torsocks>
+  - Docs.: <https://gitlab.torproject.org/tpo/core/torsocks#readme>
+  - Desc.: Wraps unaware programs through the Tor SOCKS proxy.
+- wgcf
+  - run..: `wgcf register`
+  - Repo.: <https://github.com/ViRb3/wgcf>
+  - Docs.: <https://github.com/ViRb3/wgcf#readme>
+  - Desc.: Cloudflare WARP/WireGuard registration client.
+- wireguard-tools
+  - run..: `wg-quick up $iface`
+  - Repo.: <https://git.zx2c4.com/wireguard-tools/>
+  - Docs.: <https://www.wireguard.com/quickstart/>
+  - Desc.: WireGuard userspace utilities.

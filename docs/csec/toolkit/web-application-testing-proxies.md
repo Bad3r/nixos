@@ -1,0 +1,96 @@
+# Pentesting Toolkit: Web Application Testing & Proxies
+
+[Back to Pentesting Toolkit](../toolkit.md)
+
+## Web Application Testing & Proxies
+
+- burpsuite
+  - run..: `burpsuite`
+  - Repo.: <https://portswigger.net/burp>
+  - Docs.: <https://portswigger.net/burp/documentation>
+  - Desc.: PortSwigger Burp Suite Community edition.
+- burpsuite-loader
+  - run..: `burpsuite-loader`
+  - Repo.: <https://portswigger.net/burp>
+  - Docs.: <https://portswigger.net/burp/documentation>
+  - Desc.: Loader companion for Burp extensions and licensed builds.
+- burpsuitepro
+  - run..: `burpsuitepro`
+  - Repo.: <https://portswigger.net/burp/pro>
+  - Docs.: <https://portswigger.net/burp/documentation/desktop>
+  - Desc.: PortSwigger Burp Suite Professional.
+- charles
+  - run..: `charles`
+  - Repo.: <https://www.charlesproxy.com/>
+  - Docs.: <https://www.charlesproxy.com/documentation/>
+  - Desc.: HTTP/HTTPS debugging proxy with SSL interception.
+- dirbuster
+  - run..: `dirbuster`
+  - Repo.: <https://gitlab.com/kalilinux/packages/dirbuster>
+  - Docs.: <https://www.kali.org/tools/dirbuster/>
+  - Desc.: Multi-threaded directory and file brute forcer.
+- feroxbuster
+  - run..: `feroxbuster -u $url -w $wordlist`
+  - Repo.: <https://github.com/epi052/feroxbuster>
+  - Docs.: <https://epi052.github.io/feroxbuster-docs/>
+  - Desc.: Rust-based content discovery scanner.
+- ffuf
+  - run..: `ffuf -u $url/FUZZ -w $wordlist`
+  - Repo.: <https://github.com/ffuf/ffuf>
+  - Docs.: <https://github.com/ffuf/ffuf/wiki>
+  - Desc.: Fast Go-based web fuzzer for content discovery, vhost, and parameter brute forcing.
+- gau
+  - run..: `gau $domain`
+  - Repo.: <https://github.com/lc/gau>
+  - Docs.: <https://github.com/lc/gau#readme>
+  - Desc.: Fetches known URLs for a domain from the Wayback Machine, Common Crawl, OTX, and URLScan for passive endpoint discovery.
+- gobuster
+  - run..: `gobuster dir -u $url -w $wordlist`
+  - Repo.: <https://github.com/OJ/gobuster>
+  - Docs.: <https://github.com/OJ/gobuster#readme>
+  - Desc.: Go-based directory, DNS, and vhost brute forcer.
+- gowitness
+  - run..: `gowitness scan single --url $url`
+  - Repo.: <https://github.com/sensepost/gowitness>
+  - Docs.: <https://github.com/sensepost/gowitness/wiki>
+  - Desc.: Headless-Chrome web screenshotter with a reporting UI for triaging large host lists.
+- katana
+  - run..: `katana -u $url`
+  - Repo.: <https://github.com/projectdiscovery/katana>
+  - Docs.: <https://docs.projectdiscovery.io/tools/katana>
+  - Desc.: JavaScript-aware crawler with headless and standard modes for endpoint discovery; slots into the ProjectDiscovery recon pipeline.
+- mitmproxy
+  - run..: `mitmproxy`
+  - Repo.: <https://github.com/mitmproxy/mitmproxy>
+  - Docs.: <https://docs.mitmproxy.org/>
+  - Desc.: Interactive HTTPS interception proxy with Python scripting.
+- nikto
+  - run..: `nikto -h $url`
+  - Repo.: <https://github.com/sullo/nikto>
+  - Docs.: <https://github.com/sullo/nikto/wiki>
+  - Desc.: Long-running web server scanner with thousands of misconfiguration and dangerous-file checks; prefer nuclei for template-based coverage and reach for nikto's classic default-file and outdated-server signature checks.
+- sqlmap
+  - run..: `sqlmap -u $url`
+  - Repo.: <https://github.com/sqlmapproject/sqlmap>
+  - Docs.: <https://github.com/sqlmapproject/sqlmap/wiki>
+  - Desc.: Automated SQL injection detection and exploitation.
+- wfuzz
+  - run..: `wfuzz -w $wordlist $url/FUZZ`
+  - Repo.: <https://github.com/xmendez/wfuzz>
+  - Docs.: <https://wfuzz.readthedocs.io/>
+  - Desc.: Python web application fuzzer with payload encoders, iterators, and matchers.
+- wpscan
+  - run..: `wpscan --url $url`
+  - Repo.: <https://github.com/wpscanteam/wpscan>
+  - Docs.: <https://github.com/wpscanteam/wpscan/wiki>
+  - Desc.: Black box WordPress security scanner for plugins, themes, users, and credentials.
+- xnlinkfinder
+  - run..: `xnlinkfinder -i $url`
+  - Repo.: <https://github.com/xnl-h4ck3r/xnLinkFinder>
+  - Docs.: <https://github.com/xnl-h4ck3r/xnLinkFinder#readme>
+  - Desc.: Endpoint, parameter, and target-specific wordlist extractor from URLs, JS, and proxy logs.
+- zap
+  - run..: `zap`
+  - Repo.: <https://github.com/zaproxy/zaproxy>
+  - Docs.: <https://www.zaproxy.org/docs/>
+  - Desc.: OWASP ZAP web application scanner and intercept proxy.

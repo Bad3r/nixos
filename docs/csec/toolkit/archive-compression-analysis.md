@@ -1,0 +1,61 @@
+# Pentesting Toolkit: Archive & Compression Analysis
+
+[Back to Pentesting Toolkit](../toolkit.md)
+
+## Archive & Compression Analysis
+
+- bzip2
+  - run..: `bzip2 -d $file.bz2`
+  - Repo.: <https://gitlab.com/bzip2/bzip2>
+  - Docs.: <https://sourceware.org/bzip2/docs.html>
+  - Desc.: BZ2 compression utility used in CTF unpacking and malware triage.
+- gzip
+  - run..: `gzip -d $file.gz`
+  - Repo.: <https://git.savannah.gnu.org/cgit/gzip.git>
+  - Docs.: <https://www.gnu.org/software/gzip/manual/>
+  - Desc.: GZIP compression utility used in CTF unpacking and malware triage.
+- xz
+  - run..: `xz -d $file.xz`
+  - Repo.: <https://github.com/tukaani-project/xz>
+  - Docs.: <https://tukaani.org/xz/>
+  - Desc.: XZ/LZMA compression utility used in CTF unpacking and malware triage.
+- zstd
+  - run..: `zstd -d $file.zst`
+  - Repo.: <https://github.com/facebook/zstd>
+  - Docs.: <https://facebook.github.io/zstd/>
+  - Desc.: Zstandard compression utility used in CTF unpacking and malware triage.
+- p7zip
+  - run..: `7z x $archive`
+  - Repo.: <https://github.com/p7zip-project/p7zip>
+  - Docs.: <https://github.com/p7zip-project/p7zip#readme>
+  - Desc.: 7-zip implementation for nested archive extraction.
+- p7zip-rar
+  - run..: `7z x $archive.rar`
+  - Repo.: <https://github.com/p7zip-project/p7zip>
+  - Docs.: <https://github.com/p7zip-project/p7zip#readme>
+  - Desc.: 7-zip with RAR codec for nested archive extraction.
+- rar
+  - run..: `rar a $archive.rar $files`
+  - Repo.: <https://www.rarlab.com/>
+  - Docs.: <https://www.rarlab.com/rar_archiver.htm>
+  - Desc.: RAR archive creation utility.
+- unrar
+  - run..: `unrar x $archive.rar`
+  - Repo.: <https://www.rarlab.com/>
+  - Docs.: <https://www.rarlab.com/rar_archiver.htm>
+  - Desc.: RAR archive extraction utility.
+- tar
+  - run..: `tar -xvf $archive.tar`
+  - Repo.: <https://git.savannah.gnu.org/cgit/tar.git>
+  - Docs.: <https://www.gnu.org/software/tar/manual/>
+  - Desc.: Tarball handling for evidence packaging and unpacking.
+- unzip
+  - run..: `unzip $archive.zip`
+  - Repo.: <https://infozip.sourceforge.net/UnZip.html>
+  - Docs.: <https://infozip.sourceforge.net/UnZip.html>
+  - Desc.: ZIP archive extraction utility.
+- zip
+  - run..: `zip -r $archive.zip $dir`
+  - Repo.: <https://infozip.sourceforge.net/Zip.html>
+  - Docs.: <https://infozip.sourceforge.net/Zip.html>
+  - Desc.: ZIP archive creation utility.

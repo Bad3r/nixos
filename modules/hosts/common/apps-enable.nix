@@ -223,6 +223,8 @@ let
       i7z.extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
       ifuse.extended.enable = lib.mkOverride 1100 true;
+      ilspycmd.extended.enable = lib.mkOverride 1100 false;
+      imhex.extended.enable = lib.mkOverride 1100 false;
       inkscape.extended.enable = lib.mkOverride 1100 false;
       intelephense.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
