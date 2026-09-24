@@ -21,13 +21,12 @@
   enabledPlugins = {
     "chrome-devtools-mcp@chrome-devtools-plugins" = true;
     "claude-code-setup@claude-plugins-official" = true;
-    # Its bundled MCP server would duplicate the per-endpoint servers in
+    # CF bundled MCP server would duplicate the per-endpoint servers in
     # modules/agents/mcp/servers.nix.
     "cloudflare@cloudflare" = false;
     "code-review@claude-plugins-official" = true;
     "frontend-design@claude-plugins-official" = false;
-    "pr-review-toolkit@claude-plugins-official" = false;
-    # docs/drafts/chromium-webapps-plan-*.md need it; enable per task.
+    "pr-review-toolkit@claude-plugins-official" = true;
     "superpowers@claude-plugins-official" = false;
     "telemetry@builtin" = false;
 
