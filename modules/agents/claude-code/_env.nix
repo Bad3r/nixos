@@ -64,18 +64,21 @@ let
     BASH_MAX_TIMEOUT_MS = "4800000";
   };
 
+  # claude-sonnet-5 is Anthropic's current undated Sonnet identifier.
+  sonnetModel = "claude-sonnet-5";
+
   # Model/effort routing. CLAUDE_CODE_SUBAGENT_MODEL overrides every spawned
   # subagent, including built-in agents whose definition pins `model: haiku`
   # (review, claude-code-guide); it beats agent frontmatter, which is the only
   # lever that reaches them. CLAUDE_CODE_EFFORT_LEVEL carries `max`, which the
   # persisted `effortLevel` schema rejects (see _default-settings.nix).
   modelRouting = {
-    CLAUDE_CODE_SUBAGENT_MODEL = "sonnet";
+    CLAUDE_CODE_SUBAGENT_MODEL = sonnetModel;
     CLAUDE_CODE_EFFORT_LEVEL = "max";
     # Repoints the `haiku` alias, which also backs background work the subagent
     # override does not reach (titles, summarization, classifiers).
-    ANTHROPIC_DEFAULT_HAIKU_MODEL = "sonnet";
-    ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "Sonnet";
+    ANTHROPIC_DEFAULT_HAIKU_MODEL = sonnetModel;
+    ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "Sonnet 5";
   };
 
   # Shell-level vars not needed in settings.json.
