@@ -128,6 +128,13 @@
       };
     };
 
+    nixvirt = {
+      # Rev in the URL: the daily lock update would otherwise move it, and its
+      # templates shape the persistent definition of a stateful guest.
+      url = "github:AshleyYakeley/NixVirt/6d213ab42f72ba41c2eb4e6bdb97581c0642d942";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+
     refjump-nvim = {
       flake = false;
       url = "github:mawkler/refjump.nvim";
