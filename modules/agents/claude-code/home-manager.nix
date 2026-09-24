@@ -60,7 +60,6 @@ _: {
 
       claudeEnv = import ./_env.nix;
       registryClaudeSkills = lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list;
-      managedClaudeSkillNames = lib.attrNames registryClaudeSkills;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
@@ -90,6 +89,17 @@ _: {
       claudeSettingsFile = pkgs.writeText "claude-settings.json" (builtins.toJSON settingsJson);
       claudeJsonConfigFile = pkgs.writeText "claude-json-config.json" (builtins.toJSON claudeJson);
 
+      # The top-level keys this switch writes; the next switch deletes any it
+      # no longer declares.
+      stateFile = pkgs.writeText "claude-nix-managed.json" (
+        builtins.toJSON {
+          version = 1;
+          settings = lib.attrNames settingsJson;
+          claudeJson = lib.attrNames (builtins.removeAttrs claudeJson [ "mcpServers" ]);
+          mcpServers = lib.attrNames mcpServers;
+        }
+      );
+
       bunInstallDir = "${config.xdg.dataHome}/bun";
       configuredExternalBinary = lib.attrByPath [
         "programs"
@@ -103,17 +113,13 @@ _: {
         else
           configuredExternalBinary;
 
-      # settingsMergeJq, settingsMergeJqArgs, and claudeJsonMergeJq are all
-      # unused here; checks."claude-code/settings-merge" and
-      # checks."claude-code/claude-json-merge" in checks.nix import _activation.nix
-      # separately to exercise them against fixtures.
       activationResult = import ./_activation.nix {
         inherit
           lib
           pkgs
           osConfig
           config
-          managedClaudeSkillNames
+          stateFile
           claudeSettingsFile
           claudeJsonConfigFile
           ;

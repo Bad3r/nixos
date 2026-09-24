@@ -1,5 +1,6 @@
 # Permission and MCP server policy keys for ~/.claude/settings.json.
-# Uncomment a key and set its value to enable it.
+# Uncomment a key and set its value to enable it. Every key set here replaces
+# Claude's copy on each switch; commenting it out again removes it.
 #
 # Rules evaluate deny -> ask -> allow; first match wins, so an ask/deny rule
 # overrides a broader allow. `Edit(path)` covers every file-editing tool

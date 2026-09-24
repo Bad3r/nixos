@@ -1,5 +1,6 @@
 # ~/.claude/settings.json keys that _plugins.nix and _permissions.nix do not
-# hold. Uncomment a key and set its value to enable it.
+# hold. Uncomment a key and set its value to enable it. Every key set here
+# replaces Claude's copy on each switch; commenting it out again removes it.
 #
 # autoCompactEnabled, editorMode, preferredNotifChannel, theme, and verbose
 # stay commented below; their live values are in _claude-json.nix.

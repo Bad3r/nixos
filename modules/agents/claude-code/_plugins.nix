@@ -1,5 +1,7 @@
 # Plugin, marketplace, and skill keys for ~/.claude/settings.json. Uncomment
-# a key and set its value to enable it.
+# a key and set its value to enable it. Every key set here replaces Claude's
+# copy on each switch, and commenting it out again removes it, so /plugin and
+# claude-plugins changes to enabledPlugins last only until the next switch.
 {
   # Disable the skills and workflows that ship with Claude Code: bundled skills
   # and workflows are removed entirely; built-in slash commands stay typable but

@@ -1,47 +1,15 @@
 /*
-  Activation snippets for Claude Code.
+  Home Manager activation for Claude Code.
 
-  Produces:
-    - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
-      ~/.claude.json, preserving user keys while wholly replacing
-      Nix-managed mcpServers and, per marketplace name, extraKnownMarketplaces
-      entries (jq's recursive `*` never drops a subkey such as sparsePaths
-      once written, so each declared marketplace is replaced wholesale
-      instead of deep-merged). mcpServers is union-only at the entry level
-      for the same reason as enabledPlugins (`claude mcp add`'s "user" scope
-      writes directly into this key), so a server dropped from
-      modules/agents/mcp/servers.nix keeps its ~/.claude.json entry until it
-      is removed there by hand. extraKnownMarketplaces stays union-only at the
-      entry level, like enabledPlugins: the CLI's own `/plugin marketplace
-      add` writes directly into this key (userSettings scope by default), so
-      a marketplace name dropped from _plugins.nix is not deleted from
-      settings.json; remove it there by hand. skillOverrides entries for
-      managed skill names are fully owned by Nix, so a name dropped from
-      skillOverrides in _plugins.nix while its skill stays registered clears
-      rather than lingers; entries for unmanaged names, including a name
-      whose skill left the registry first, are preserved. Full ownership is
-      safe here: unlike enabledPlugins and extraKnownMarketplaces, the CLI's
-      interactive skill-override toggle (verified against 2.1.280) writes
-      only to the localSettings scope (.claude/settings.local.json), never to
-      the userSettings scope this activation manages. enabledPlugins and env
-      need no explicit rule: both are flat maps (`{ "<plugin>@<marketplace>"
-      = bool; }`, `{ <NAME> = string; }`) on both sides (home-manager.nix,
-      _env.nix), always present in $nix (home-manager.nix injects them
-      unconditionally), so the ambient recursive `*` merge above
-      already unions each per key, right side winning; that is also the
-      union-only contract enabledPlugins in _plugins.nix documents (removing
-      a plugin is a manual settings.json edit there). An explicit rule
-      for either would be redundant when both sides are well-formed and
-      strictly worse when `$existing`'s value is a corrupted non-object:
-      `*` degrades to picking $nix, while `("str" // {}) + $nix.thing`
-      hard-errors, aborting activation.
-    - installClaudeCodeViaBun: optional, only when
-      programs.claude-code.extended.installMethods.bun.enable is true.
+  claude-code-apply-config merges the Nix templates into ~/.claude/settings.json
+  and ~/.claude.json, files Claude Code also writes itself. Every top-level key
+  a template declares is written exactly as declared, a key the previous switch
+  wrote and the template no longer declares is deleted (the record lives in
+  ~/.claude/.nix-managed.json), and keys only Claude wrote are left alone.
+  ~/.claude.json's mcpServers applies the same rule per server.
 
-  The bun-related let bindings are intentionally lazy: when bunInstallEnabled
-  is false, neither bunInstallDir nor bunBin is forced, so reading
-  osConfig.programs.bun.extended.package is safe even on hosts where the bun
-  options namespace is absent.
+  The bun bindings stay lazy: with the bun install method off,
+  osConfig.programs.bun is never read, so hosts without that option evaluate.
 */
 {
   lib,
@@ -50,9 +18,102 @@
   config,
   claudeSettingsFile,
   claudeJsonConfigFile,
-  managedClaudeSkillNames,
+  stateFile,
 }:
 let
+  applyConfig = pkgs.writeShellApplication {
+    name = "claude-code-apply-config";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.jq
+    ];
+    # The single-quoted $names in the jq filters are jq variables.
+    excludeShellChecks = [ "SC2016" ];
+    text = ''
+      settings_template=$1
+      claude_json_template=$2
+      state_template=$3
+
+      settings="$HOME/.claude/settings.json"
+      claude_json="$HOME/.claude.json"
+      state="$HOME/.claude/.nix-managed.json"
+
+      tmp_files=()
+      cleanup() {
+        if [ "''${#tmp_files[@]}" -gt 0 ]; then
+          rm -f -- "''${tmp_files[@]}"
+        fi
+      }
+      trap cleanup EXIT
+
+      mkdir -p "$HOME/.claude"
+
+      # The keys the previous switch wrote. Without a record nothing is deleted, so
+      # the first run only adds and overwrites.
+      if [ -e "$state" ]; then
+        if ! jq -e --slurp '
+            length == 1
+            and (.[0] | type == "object" and .version == 1
+              and ([.settings, .claudeJson, .mcpServers]
+                | all(type == "array" and all(.[]; type == "string"))))
+          ' "$state" >/dev/null 2>&1; then
+          echo "claude-code-apply-config: $state is not a version 1 record; fix it, or delete it to reseed" >&2
+          exit 1
+        fi
+        previous=$state
+      else
+        previous=$(mktemp)
+        tmp_files+=("$previous")
+        printf '%s\n' '{"version":1,"settings":[],"claudeJson":[],"mcpServers":[]}' >"$previous"
+      fi
+
+      # merge TARGET TEMPLATE FILTER: a missing or empty TARGET reads as {}; anything
+      # but one JSON object aborts before TARGET is replaced.
+      merge() {
+        local target=$1 template=$2 filter=$3 tmp
+        tmp=$(mktemp "$target.nix-XXXXXX")
+        tmp_files+=("$tmp")
+        if ! {
+          if [ -s "$target" ]; then cat -- "$target"; else printf '{}\n'; fi
+        } | jq --slurp --arg target "$target" \
+          --slurpfile nix "$template" --slurpfile state "$previous" '
+            if length == 1 and (.[0] | type) == "object" then .[0]
+            else error("\($target) is not a single JSON object") end
+            | '"$filter" >"$tmp"; then
+          echo "claude-code-apply-config: $target left unchanged" >&2
+          exit 1
+        fi
+        mv -f -- "$tmp" "$target"
+      }
+
+      merge "$settings" "$settings_template" '
+        $nix[0] as $declared
+        | reduce (($state[0].settings) - ($declared | keys))[] as $key (.; del(.[$key]))
+        | . + $declared
+      '
+
+      merge "$claude_json" "$claude_json_template" '
+        ($nix[0] | del(.mcpServers)) as $declared
+        | ($nix[0].mcpServers // {}) as $servers
+        | reduce (($state[0].claudeJson) - ($declared | keys))[] as $key (.; del(.[$key]))
+        | . + $declared
+        | .mcpServers |= (
+            (. // {})
+            | if type == "object" then . else error("mcpServers is not an object") end
+            | reduce (($state[0].mcpServers) - ($servers | keys))[] as $name (.; del(.[$name]))
+            | . + $servers
+          )
+      '
+
+      tmp=$(mktemp "$state.nix-XXXXXX")
+      tmp_files+=("$tmp")
+      cat -- "$state_template" >"$tmp"
+      mv -f -- "$tmp" "$state"
+
+      echo "Claude Code: settings.json and .claude.json updated"
+    '';
+  };
+
   bunInstallEnabled = lib.attrByPath [
     "programs"
     "claude-code"
@@ -63,105 +124,12 @@ let
   ] false osConfig;
   bunInstallDir = "${config.xdg.dataHome}/bun";
   bunBin = lib.getExe osConfig.programs.bun.extended.package;
-  # The settings.json merge filter and its jq variable bindings, lifted out of
-  # claudeCodeSetup's script so checks."claude-code/settings-merge"
-  # (modules/agents/claude-code/checks.nix) can exercise the actual
-  # production filter, invoked with its actual production arguments, against
-  # a fixture instead of a hand-copied approximation of either that could
-  # silently drift from it. settingsMergeJq references $managedSkills, so
-  # settingsMergeJqArgs is the one source of truth for the flag that binds it;
-  # a check that reconstructed its own --argjson instead would not catch a
-  # rename on either side.
-  settingsMergeJqArgs = [
-    "--argjson"
-    "managedSkills"
-    (builtins.toJSON managedClaudeSkillNames)
-  ];
-  settingsMergeJq = ''
-    . as $existing
-    | $nixSettings[0] as $nix
-    | ($existing * $nix)
-    | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
-    | .extraKnownMarketplaces = (($existing.extraKnownMarketplaces // {}) + ($nix.extraKnownMarketplaces // {}))
-    | .skillOverrides = ((($existing.skillOverrides // {}) | with_entries(select(.key as $k | ($managedSkills | index($k)) | not))) + ($nix.skillOverrides // {}))
-  '';
-  # The ~/.claude.json merge filter, lifted the same way as settingsMergeJq
-  # and for the same reason: its mcpServers rule (per-entry wholesale
-  # replace, dropping stale command/args pairs a changed transport type
-  # leaves behind) is exactly the class of rule that shipped as a no-op once
-  # already (16e377d9); checks."claude-code/claude-json-merge" exercises this
-  # filter too, not a hand-copied approximation of it.
-  claudeJsonMergeJq = ''
-    . as $existing
-    | $nixConfig[0] as $nix
-    | ($existing * $nix)
-    | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))
-  '';
 in
 {
-  inherit
-    settingsMergeJq
-    settingsMergeJqArgs
-    claudeJsonMergeJq
-    ;
+  inherit applyConfig;
   activation = {
     claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-      CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-      CLAUDE_SETTINGS_TMP="$(mktemp)"
-      CLAUDE_CONFIG="$HOME/.claude.json"
-      CLAUDE_CONFIG_TMP="$(mktemp)"
-      trap 'rm -f "$CLAUDE_SETTINGS_TMP" "$CLAUDE_CONFIG_TMP"' EXIT
-
-      mkdir -p "$HOME/.claude"
-
-      if [ -r "$CLAUDE_SETTINGS" ]; then
-        existing_settings="$CLAUDE_SETTINGS"
-      else
-        existing_settings="${pkgs.writeText "empty-json.json" "{}"}"
-      fi
-
-      if ! ${pkgs.jq}/bin/jq \
-        ${lib.escapeShellArgs settingsMergeJqArgs} \
-        --slurpfile nixSettings ${claudeSettingsFile} \
-        '${settingsMergeJq}' \
-        "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
-        echo "ERROR: jq failed to merge Claude Code settings" >&2
-        exit 1
-      fi
-
-      if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_SETTINGS_TMP" 2>/dev/null; then
-        echo "ERROR: resulting Claude Code settings are not valid JSON" >&2
-        exit 1
-      fi
-
-      mv "$CLAUDE_SETTINGS_TMP" "$CLAUDE_SETTINGS"
-      chmod 600 "$CLAUDE_SETTINGS"
-
-      # Ensure the file exists
-      if [ ! -f "$CLAUDE_CONFIG" ]; then
-        echo "{}" > "$CLAUDE_CONFIG"
-      fi
-
-      # Merge Nix-managed settings into existing config while replacing
-      # Nix-managed MCP server entries wholesale to avoid stale per-server
-      # keys like old command/args transport fallbacks lingering forever.
-      if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
-        '${claudeJsonMergeJq}' \
-        "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
-        echo "ERROR: jq failed to merge config" >&2
-        exit 1
-      fi
-
-      # Validate result is valid JSON
-      if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_CONFIG_TMP" 2>/dev/null; then
-        echo "ERROR: resulting config is not valid JSON" >&2
-        exit 1
-      fi
-
-      mv "$CLAUDE_CONFIG_TMP" "$CLAUDE_CONFIG"
-      chmod 600 "$CLAUDE_CONFIG"
-
-      echo "✢ Claude Code: config applied (MCP via agents.mcp)"
+      run ${lib.getExe applyConfig} ${claudeSettingsFile} ${claudeJsonConfigFile} ${stateFile}
     '';
   }
   // lib.optionalAttrs bunInstallEnabled {

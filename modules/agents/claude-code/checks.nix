@@ -218,225 +218,186 @@
               echo "ok: Claude wrapper and shell-wrapper.patch contracts" > $out
             '';
 
-        # Regression coverage for _activation.nix's settingsMergeJq: a prior
-        # round of this same jq program shipped a byte-for-byte no-op fix that
-        # passed `nix flake check` and needed a human read to catch (16e377d9,
-        # reverted in f17e65de). This exercises the real production filter
-        # (not a hand-copied approximation) against a fixture covering the two
-        # merge policies _activation.nix's header documents an explicit rule
-        # for (skillOverrides full ownership, extraKnownMarketplaces per-entry
-        # wholesale replace), plus deniedMcpServers' union-and-dedupe (in the
-        # real [{serverName = "…";}] shape home-manager.nix renders, with an
-        # overlapping entry so `| unique` is actually exercised). enabledPlugins'
-        # and env's unions are asserted too, even though both come from the
-        # ambient `*` merge rather than an explicit rule (a second explicit
-        # rule for either was dead code, removed here and in bfb8d432):
-        # enabledPlugins alone has now shipped a no-op fix twice for two
-        # different reasons (16e377d9's, and the redundant rule bfb8d432
-        # removed), so both observable contracts keep a regression check
-        # independent of which mechanism currently provides them. Both fixtures
-        # also stage one key each ("kept@mkt", CONTESTED) present on both sides
-        # with conflicting values, asserted to resolve to $nix's: this pins the
-        # merge's precedence direction, not just its union of keys, which is
-        # what lets a declared change actually take effect on a machine that
-        # already switched (this PR's own enabledPlugins default flips depend on
-        # it). This check opts into
-        # .github/workflows/check.yml's "Run runtime check suites" step via
-        # passthru.runtimeCheck below; without that, its assertions evaluate
-        # here but CI never builds this derivation, so none of them run there.
-        "claude-code/settings-merge" =
+        # Runs the real claude-code-apply-config against a fake HOME. This opts
+        # into .github/workflows/check.yml's "Run runtime check suites" step via
+        # passthru.runtimeCheck; without it CI only forces the drvPath.
+        "claude-code/activation-merge" =
           let
-            activationFixture = import ./_activation.nix {
-              inherit lib pkgs;
-              osConfig = { };
-              config.xdg.dataHome = "/var/empty";
-              managedClaudeSkillNames = [ "commit" ];
-              claudeSettingsFile = pkgs.writeText "settings-merge-fixture-nix-unused.json" "{}";
-              claudeJsonConfigFile = pkgs.writeText "settings-merge-fixture-json-unused.json" "{}";
-            };
-            existingFixture = {
-              enabledPlugins = {
-                "gone@mkt" = true;
-                # $nix sets this key too, to a different value: pins $nix
-                # winning the conflict, not just the union of keys.
-                "kept@mkt" = false;
-              };
-              extraKnownMarketplaces.cloudflare.source = {
-                source = "git";
-                url = "https://github.com/cloudflare/skills.git";
-                sparsePaths = [ ".claude-plugin" ];
-              };
-              skillOverrides = {
-                commit = "off";
-                "some-plugin-skill" = "off";
-              };
-              # home-manager.nix renders deniedMcpServers as [{ serverName = "…"; }],
-              # not bare strings; "claude.ai Todoist" overlaps with nixFixture's
-              # entry below to exercise `| unique`, since two disjoint one-entry
-              # arrays would union to the same length with or without it.
-              deniedMcpServers = [
-                { serverName = "claude.ai Kept By User"; }
-                { serverName = "claude.ai Todoist"; }
-              ];
-              env = {
-                USER_KEPT = "keep";
-                # $nix sets this key too, to a different value: pins $nix
-                # winning the conflict, not just the union of keys.
-                CONTESTED = "existing";
-              };
-            };
-            nixFixture = {
+            inherit
+              (import ./_activation.nix {
+                inherit lib pkgs;
+                osConfig = { };
+                config.xdg.dataHome = "/var/empty";
+                claudeSettingsFile = null;
+                claudeJsonConfigFile = null;
+                stateFile = null;
+              })
+              applyConfig
+              ;
+            json = name: value: pkgs.writeText name (builtins.toJSON value);
+            settingsTemplate = json "settings-template.json" {
               enabledPlugins."kept@mkt" = true;
-              extraKnownMarketplaces.cloudflare.source = {
-                source = "git";
-                url = "https://github.com/cloudflare/skills.git";
-              };
-              skillOverrides = { };
-              deniedMcpServers = [
-                { serverName = "claude.ai Todoist"; }
-                { serverName = "claude.ai Cloudflare Developer Platform"; }
-              ];
-              env.CONTESTED = "nix";
+              model = "nix-model";
+              permissions.allow = [ "Read(**)" ];
             };
-          in
-          pkgs.runCommandLocal "claude-code-settings-merge"
-            {
-              # .github/workflows/check.yml's "Check flake" step only forces
-              # drvPaths; a check's assertions only run in CI if its name
-              # matches script-tests-.* or it opts in here (see that workflow's
-              # "Run runtime check suites" step and modules/meta/script-tests.nix).
-              passthru.runtimeCheck = true;
-              existingJson = builtins.toJSON existingFixture;
-              nixJson = builtins.toJSON nixFixture;
-              passAsFile = [
-                "existingJson"
-                "nixJson"
-              ];
-              mergeFilter = activationFixture.settingsMergeJq;
-            }
-            ''
-              merged=$(${lib.getExe pkgs.jq} \
-                ${lib.escapeShellArgs activationFixture.settingsMergeJqArgs} \
-                --slurpfile nixSettings "$nixJsonPath" \
-                "$mergeFilter" \
-                "$existingJsonPath")
-
-              check() {
-                local desc="$1" query="$2" expected="$3"
-                local actual
-                actual=$(echo "$merged" | ${lib.getExe pkgs.jq} -c "$query")
-                if [ "$actual" != "$expected" ]; then
-                  echo "FAIL: $desc: query $query expected $expected, got $actual" >&2
-                  echo "$merged" >&2
-                  exit 1
-                fi
-              }
-
-              # skillOverrides: a managed name absent from $nix is cleared, not carried over.
-              check "managed skillOverrides name cleared" '.skillOverrides | has("commit")' "false"
-              # skillOverrides: an unmanaged name is preserved though $nix never touches it.
-              check "unmanaged skillOverrides name preserved" '.skillOverrides."some-plugin-skill"' '"off"'
-              # extraKnownMarketplaces: per-entry wholesale replace drops a subkey $nix omits.
-              check "extraKnownMarketplaces entry replaced wholesale" \
-                '.extraKnownMarketplaces.cloudflare.source | has("sparsePaths")' "false"
-              # enabledPlugins: the ambient `*` merge preserves a key $nix no longer declares.
-              check "enabledPlugins stale key preserved by union" '.enabledPlugins."gone@mkt"' "true"
-              # enabledPlugins: $nix's value wins a same-key conflict; this is what
-              # lets extraPlugins actually flip a previously-true default to false
-              # on a machine that already switched.
-              check "enabledPlugins nix value wins" '.enabledPlugins."kept@mkt"' "true"
-              # deniedMcpServers: explicit union-and-dedupe, not `*`'s whole-array replace.
-              # Without `| unique` this is 4, since "claude.ai Todoist" appears on both sides.
-              check "deniedMcpServers unions and dedupes both sides" '.deniedMcpServers | length' "3"
-              check "deniedMcpServers keeps the user-only entry" \
-                '[.deniedMcpServers[].serverName] | index("claude.ai Kept By User") != null' "true"
-              # env keys neither side's rules touch are preserved.
-              check "user env preserved" '.env.USER_KEPT' '"keep"'
-              # env: $nix's value wins a same-key conflict, same property as enabledPlugins above.
-              check "env nix value wins" '.env.CONTESTED' '"nix"'
-
-              echo "ok: claude-code settings-merge jq contract" > $out
-            '';
-
-        # Regression coverage for _activation.nix's claudeJsonMergeJq, the
-        # ~/.claude.json sibling of settingsMergeJq above and covering the
-        # same risk: mcpServers' per-entry wholesale replace (dropping a stale
-        # command/args pair a changed transport type leaves behind, the same
-        # shape as extraKnownMarketplaces).
-        "claude-code/claude-json-merge" =
-          let
-            activationFixture = import ./_activation.nix {
-              inherit lib pkgs;
-              osConfig = { };
-              config.xdg.dataHome = "/var/empty";
-              managedClaudeSkillNames = [ ];
-              claudeSettingsFile = pkgs.writeText "claude-json-merge-fixture-settings-unused.json" "{}";
-              claudeJsonConfigFile = pkgs.writeText "claude-json-merge-fixture-unused.json" "{}";
-            };
-            existingFixture = {
-              mcpServers = {
-                # Stale transport fields a changed server type leaves behind;
-                # $nix's entry below omits them entirely.
-                ctx7 = {
-                  command = "old-command";
-                  args = [ "old-arg" ];
-                };
-                "existing-only" = {
-                  command = "keep-me";
-                };
-              };
-              # $nix sets this key too, to a different value: pins the ambient
-              # merge direction, since no explicit rule in claudeJsonMergeJq
-              # touches it.
-              theme = "light";
-            };
-            nixFixture = {
+            claudeJsonTemplate = json "claude-json-template.json" {
               mcpServers.ctx7 = {
                 type = "http";
                 url = "https://example.invalid/mcp";
               };
               theme = "dark";
             };
+            stateTemplate = json "state-template.json" {
+              version = 1;
+              settings = [
+                "enabledPlugins"
+                "model"
+                "permissions"
+              ];
+              claudeJson = [ "theme" ];
+              mcpServers = [ "ctx7" ];
+            };
+            liveSettings = json "live-settings.json" {
+              enabledPlugins = {
+                "gone@mkt" = true;
+                "kept@mkt" = false;
+              };
+              model = "user-model";
+              permissions = {
+                additionalDirectories = [ "/tmp" ];
+                allow = [ "Bash(ls *)" ];
+              };
+              # Recorded by the previous switch, no longer declared.
+              staleKey = true;
+              # Written by Claude, never recorded.
+              tui = "fullscreen";
+            };
+            liveClaudeJson = json "live-claude-json.json" {
+              mcpServers = {
+                ctx7 = {
+                  command = "old";
+                  args = [ "old" ];
+                };
+                mine.command = "keep-me";
+                oldNix.command = "gone";
+              };
+              numStartups = 7;
+              staleUi = "x";
+              theme = "light";
+            };
+            previousState = json "previous-state.json" {
+              version = 1;
+              settings = [
+                "enabledPlugins"
+                "model"
+                "permissions"
+                "staleKey"
+              ];
+              claudeJson = [
+                "staleUi"
+                "theme"
+              ];
+              mcpServers = [
+                "ctx7"
+                "oldNix"
+              ];
+            };
           in
-          pkgs.runCommandLocal "claude-code-claude-json-merge"
+          pkgs.runCommandLocal "claude-code-activation-merge"
             {
               passthru.runtimeCheck = true;
-              existingJson = builtins.toJSON existingFixture;
-              nixJson = builtins.toJSON nixFixture;
-              passAsFile = [
-                "existingJson"
-                "nixJson"
-              ];
-              mergeFilter = activationFixture.claudeJsonMergeJq;
+              nativeBuildInputs = [ pkgs.jq ];
             }
             ''
-              merged=$(${lib.getExe pkgs.jq} \
-                --slurpfile nixConfig "$nixJsonPath" \
-                "$mergeFilter" \
-                "$existingJsonPath")
-
+              apply() {
+                ${lib.getExe applyConfig} ${settingsTemplate} ${claudeJsonTemplate} ${stateTemplate}
+              }
               check() {
-                local desc="$1" query="$2" expected="$3"
-                local actual
-                actual=$(echo "$merged" | ${lib.getExe pkgs.jq} -c "$query")
+                local file=$1 query=$2 expected=$3 actual
+                actual=$(jq -cS "$query" "$file")
                 if [ "$actual" != "$expected" ]; then
-                  echo "FAIL: $desc: query $query expected $expected, got $actual" >&2
-                  echo "$merged" >&2
+                  echo "FAIL: $file: $query: expected $expected, got $actual" >&2
                   exit 1
                 fi
               }
+              seed() {
+                export HOME=$PWD/$1
+                mkdir -p "$HOME/.claude"
+              }
+              put() {
+                install -m 600 "$1" "$2"
+              }
 
-              # mcpServers: per-entry wholesale replace drops stale fields $nix omits.
-              check "mcpServers entry replaced wholesale" '.mcpServers.ctx7 | has("command")' "false"
-              check "mcpServers nix value present" '.mcpServers.ctx7.type' '"http"'
-              # mcpServers: an existing-only entry survives the per-entry union.
-              check "mcpServers existing-only entry preserved" '.mcpServers."existing-only".command' '"keep-me"'
-              # $nix wins a same-key conflict, the same property 661d1099 pins
-              # for settings-merge: without this, a reversed ambient merge
-              # would leave every _claude-json.nix value stale and still pass.
-              check "claude.json nix value wins" '.theme' '"dark"'
+              # A record from the previous switch.
+              seed recorded
+              put ${liveSettings} "$HOME/.claude/settings.json"
+              put ${liveClaudeJson} "$HOME/.claude.json"
+              put ${previousState} "$HOME/.claude/.nix-managed.json"
+              apply
+              s=$HOME/.claude/settings.json
+              c=$HOME/.claude.json
+              check "$s" 'has("staleKey")' false
+              check "$s" '.tui' '"fullscreen"'
+              check "$s" '.model' '"nix-model"'
+              check "$s" '.enabledPlugins' '{"kept@mkt":true}'
+              check "$s" '.permissions' '{"allow":["Read(**)"]}'
+              check "$c" 'has("staleUi")' false
+              check "$c" '.numStartups' 7
+              check "$c" '.theme' '"dark"'
+              check "$c" '.mcpServers.ctx7' '{"type":"http","url":"https://example.invalid/mcp"}'
+              check "$c" '.mcpServers | has("oldNix")' false
+              check "$c" '.mcpServers.mine' '{"command":"keep-me"}'
+              cmp ${stateTemplate} "$HOME/.claude/.nix-managed.json"
 
-              echo "ok: claude-code claude-json-merge jq contract" > $out
+              # A second run changes nothing.
+              cp "$s" settings.first
+              cp "$c" claude-json.first
+              apply
+              cmp settings.first "$s"
+              cmp claude-json.first "$c"
+
+              # Without a record nothing is deleted, and the record is seeded.
+              seed first-run
+              put ${liveSettings} "$HOME/.claude/settings.json"
+              put ${liveClaudeJson} "$HOME/.claude.json"
+              apply
+              check "$HOME/.claude/settings.json" 'has("staleKey")' true
+              check "$HOME/.claude/settings.json" '.model' '"nix-model"'
+              check "$HOME/.claude.json" '.mcpServers | has("oldNix")' true
+              cmp ${stateTemplate} "$HOME/.claude/.nix-managed.json"
+
+              # An empty settings.json and a missing ~/.claude.json read as {}.
+              seed empty
+              : >"$HOME/.claude/settings.json"
+              apply
+              check "$HOME/.claude/settings.json" '.model' '"nix-model"'
+              check "$HOME/.claude.json" '.mcpServers.ctx7.type' '"http"'
+
+              # A record that is not version 1 aborts before any file changes.
+              n=0
+              for record in 'not json' "" '{"version":2,"settings":[],"claudeJson":[],"mcpServers":[]}'; do
+                n=$((n + 1))
+                seed "corrupt-$n"
+                put ${liveSettings} "$HOME/.claude/settings.json"
+                printf '%s' "$record" >"$HOME/.claude/.nix-managed.json"
+                if apply; then
+                  echo "FAIL: record accepted: $record" >&2
+                  exit 1
+                fi
+                cmp ${liveSettings} "$HOME/.claude/settings.json"
+                [ ! -e "$HOME/.claude.json" ]
+              done
+
+              # A live file that is not one JSON object aborts and stays as is.
+              seed not-object
+              printf '[]' >"$HOME/.claude/settings.json"
+              if apply; then
+                echo "FAIL: array settings.json accepted" >&2
+                exit 1
+              fi
+              [ "$(cat "$HOME/.claude/settings.json")" = "[]" ]
+
+              echo "ok: claude-code-apply-config contract" >$out
             '';
       };
     };

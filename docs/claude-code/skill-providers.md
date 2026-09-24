@@ -31,7 +31,7 @@ A skill's own frontmatter, such as `commit`'s `disable-model-invocation`, is a s
 Plugin-owned skill bundles follow their `enabledPlugins` entry in the same file.
 `skillOverrides` does not affect plugin-provided skills.
 
-The `cloudflare` marketplace's `extraKnownMarketplaces` entry in `modules/agents/claude-code/_plugins.nix` is left as a commented template while `cloudflare@cloudflare` stays disabled, since a disabled plugin gains nothing from a registered marketplace and the entry can never be retracted once written.
+The `cloudflare` marketplace's `extraKnownMarketplaces` entry in `modules/agents/claude-code/_plugins.nix` is left as a commented template while `cloudflare@cloudflare` stays disabled, since a disabled plugin gains nothing from a registered marketplace.
 Enabling `cloudflare@cloudflare` means uncommenting that entry with `sparsePaths` covering `skills` as well as `.claude-plugin`, or no `sparsePaths` at all for a full clone.
 The `cloudflare/skills` repository keeps its skill bundle in a top-level `skills/` directory that a `.claude-plugin`-only sparse clone would exclude; only its MCP server manifest, a root-level file, would register.
 This is a property of that repository's layout, not of sparse clones in general: `chrome-devtools-plugins` stays sparse to `.claude-plugin` because its plugin is MCP-only and fetched via `npx` at runtime, with nothing else needed from the clone.

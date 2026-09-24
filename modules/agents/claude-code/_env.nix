@@ -3,8 +3,10 @@
   ~/.claude/settings.json `env` (launchOnly names excepted), the
   ~/.local/bin/claude launcher, login shells (Home Manager sessionVariables),
   and the Nix-installed binary. Uncomment a line and set its value to enable
-  it. `vars` lists https://code.claude.com/docs/en/env-vars as of 2.1.222,
-  then names only the 2.1.222 binary reads, then unresolved identifiers.
+  it; commenting it out again removes it on the next switch (login shells at
+  the next login). `vars` lists https://code.claude.com/docs/en/env-vars as
+  of 2.1.222, then names only the 2.1.222 binary reads, then unresolved
+  identifiers.
 */
 let
   # claude-sonnet-5 is Anthropic's current undated Sonnet identifier.

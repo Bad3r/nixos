@@ -1,5 +1,6 @@
-# UI preferences for ~/.claude.json. Merged with the existing file and with
-# mcpServers (from modules/agents/mcp/servers.nix) by the settings producer.
+# ~/.claude.json keys; mcpServers comes from modules/agents/mcp/servers.nix.
+# Every key set here replaces Claude's copy on each switch; commenting it out
+# again removes it.
 {
   hasTrustDialogAccepted = true;
   hasCompletedProjectOnboarding = true;
