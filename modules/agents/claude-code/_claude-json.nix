@@ -2,18 +2,11 @@
 # Every key set here replaces Claude's copy on each switch; commenting it out
 # again removes it.
 {
-  hasTrustDialogAccepted = true;
-  hasCompletedProjectOnboarding = true;
-  bypassPermissionsModeAccepted = true;
-  autoCompactEnabled = true;
   autoConnectIde = false;
   autoUpdates = false;
+  bypassPermissionsModeAccepted = true;
   claudeInChromeDefaultEnabled = true;
   defaultToAgentsView = true;
   diffTool = "diff";
-  editorMode = "vim";
   externalEditorContext = true;
-  preferredNotifChannel = "iterm2_with_bell";
-  theme = "dark";
-  verbose = true;
 }

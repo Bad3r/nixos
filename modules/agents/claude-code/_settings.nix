@@ -1,9 +1,6 @@
 # ~/.claude/settings.json keys that _plugins.nix and _permissions.nix do not
 # hold. Uncomment a key and set its value to enable it. Every key set here
 # replaces Claude's copy on each switch; commenting it out again removes it.
-#
-# autoCompactEnabled, editorMode, preferredNotifChannel, theme, and verbose
-# stay commented below; their live values are in _claude-json.nix.
 {
   # Advisor model for the server-side advisor tool.
   # advisorModel = ""; # [string]
@@ -39,7 +36,7 @@
   # attribution = { }; # [object]
 
   # Automatically compact conversation when context fills
-  # autoCompactEnabled = true; # [boolean]
+  autoCompactEnabled = true;
 
   # Auto-compact window size
   # autoCompactWindow = 0; # [number]
@@ -118,7 +115,7 @@
   # disableWorkflows = true; # [boolean]
 
   # Key binding mode for the prompt input
-  # editorMode = ""; # [enum]
+  editorMode = "vim";
 
   # Accepts low|medium|high|xhigh only; CLAUDE_CODE_EFFORT_LEVEL in _env.nix pins max and outranks it.
   effortLevel = "xhigh";
@@ -237,7 +234,7 @@
   # prUrlTemplate = ""; # [string]
 
   # Preferred OS notification channel
-  # preferredNotifChannel = ""; # [enum]
+  preferredNotifChannel = "iterm2_with_bell";
 
   # Reduce or disable animations for accessibility (spinner shimmer, flash
   # effects, etc.)
@@ -312,7 +309,7 @@
   terminalProgressBarEnabled = true;
 
   # Color theme for the UI
-  # theme = ""; # [union]
+  theme = "dark";
 
   # Terminal UI renderer. "fullscreen" uses the flicker-free alt-screen
   # renderer with virtualized scrollback (equivalent to
@@ -332,7 +329,7 @@
   useAutoModeDuringPlan = false;
 
   # Show full tool output instead of truncated summaries
-  # verbose = true; # [boolean]
+  verbose = true;
 
   # Default transcript view mode on startup
   # viewMode = "default"; # [default | verbose | focus]
