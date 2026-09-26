@@ -64,6 +64,12 @@ Scope:
       reach the unwrapped `/run/current-system/sw/bin/tcpdump` without
       capabilities.
   - available without sudo because packet capture is granted through capability-wrapped binaries rather than `sudo`.
+- Per-process bandwidth monitoring:
+  - `bandwhich`
+  - mechanism:
+    - `security.wrappers` in `modules/apps/bandwhich.nix` with `CAP_NET_RAW`, `CAP_NET_ADMIN`, `CAP_SYS_PTRACE`, and `CAP_DAC_READ_SEARCH`
+    - available to users in the `wheel` group
+  - `CAP_SYS_PTRACE` and `CAP_DAC_READ_SEARCH` cover reading every process's `/proc/<pid>/fd`, which maps sockets to processes.
 
 ## Commands That Are Passwordless With `sudo-rs`
 

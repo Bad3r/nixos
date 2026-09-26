@@ -55,6 +55,7 @@ let
       "azure-cli".extended.enable = lib.mkOverride 1100 true;
       b3sum.extended.enable = lib.mkOverride 1100 true;
       babashka.extended.enable = lib.mkOverride 1100 false;
+      bandwhich.extended.enable = lib.mkOverride 1100 true;
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
