@@ -132,6 +132,7 @@ let
       dmidecode.extended.enable = lib.mkOverride 1100 true;
       dnsenum.extended.enable = lib.mkOverride 1100 true;
       dnsleak.extended.enable = lib.mkOverride 1100 true;
+      dnsutils.extended.enable = lib.mkOverride 1100 true;
       dnsx.extended.enable = lib.mkOverride 1100 true;
       docker.extended.enable = lib.mkOverride 1100 true;
       dolphin.extended.enable = lib.mkOverride 1100 false;
@@ -149,6 +150,7 @@ let
       "electron-mail".extended.enable = lib.mkOverride 1100 true;
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 true;
+      ethtool.extended.enable = lib.mkOverride 1100 true;
       exiftool.extended.enable = lib.mkOverride 1100 true;
       exploitdb.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 true;
@@ -226,9 +228,11 @@ let
       ifuse.extended.enable = lib.mkOverride 1100 true;
       ilspycmd.extended.enable = lib.mkOverride 1100 false;
       imhex.extended.enable = lib.mkOverride 1100 false;
+      inetutils.extended.enable = lib.mkOverride 1100 true;
       inkscape.extended.enable = lib.mkOverride 1100 false;
       intelephense.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
+      iproute2.extended.enable = lib.mkOverride 1100 true;
       iptables.extended.enable = lib.mkOverride 1100 true;
       jadx.extended.enable = lib.mkOverride 1100 false;
       "jdt-language-server".extended.enable = lib.mkOverride 1100 false;
