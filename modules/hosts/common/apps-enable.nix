@@ -304,6 +304,7 @@ let
       neovim.extended.enable = lib.mkOverride 1100 true;
       netcat.extended.enable = lib.mkOverride 1100 true;
       netexec.extended.enable = lib.mkOverride 1100 true;
+      nethogs.extended.enable = lib.mkOverride 1100 true;
       "networkmanager-dmenu".extended.enable = lib.mkOverride 1100 true;
       "networkmanager-openvpn".extended.enable = lib.mkOverride 1100 true;
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
