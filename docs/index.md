@@ -34,6 +34,11 @@
 - [claude-code/scratchpad.md](claude-code/scratchpad.md)
   - scratchpad
 
+## Codex
+
+- [codex/configuration.md](codex/configuration.md)
+  - Configure Nix settings, feature flags, launch environment, and project trust; diagnose rejected configuration fields.
+
 ## Cloudflare
 
 - [cloudflare/README.md](cloudflare/README.md)
