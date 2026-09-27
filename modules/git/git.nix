@@ -155,6 +155,8 @@
               # Misc
               ".envrc.local"
               ".direnv/"
+              # codegraph's own .gitignore there leaves itself untracked.
+              ".codegraph/"
             ];
           }
 
