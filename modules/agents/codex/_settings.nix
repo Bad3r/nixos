@@ -33,19 +33,16 @@ let
   codexMcpNetworkMode =
     if lib.any codexMcpNeedsLocalFullNetwork codexMcpServerMeta then "full" else "limited";
 
-  # Codex defaults (all available non-Windows options).
-  # `null` means "unset": Codex uses its built-in default for that key.
+  # Commented entries in the catalog leave the upstream default in effect.
   codexDefaultSettings = import ./_default-settings.nix;
 
-  # Existing non-default values (kept as-is).
+  # Site policy layered over the settings catalog.
   codexSettingsOverrides = {
     # Core settings
     model = "gpt-5.6-luna";
     review_model = "gpt-5.6-sol";
-    commit_attribution = "";
     approval_policy = "on-request";
     default_permissions = "workspace";
-    personality = "pragmatic";
     web_search = "live";
 
     # Developer instructions for security research context
@@ -68,7 +65,6 @@ let
     '';
 
     # Reasoning settings
-    # model_supports_reasoning_summaries = true; # Avoid sending reasoning.summary.
     model_reasoning_effort = "max";
     plan_mode_reasoning_effort = "max"; # none|minimal|low|medium|high|xhigh|max|ultra
     model_verbosity = "high";
@@ -93,22 +89,7 @@ let
     suppress_unstable_features_warning = true;
 
     # Feature flags
-    features = {
-      # Spawns bin/codex-code-mode-host, installed by ./_packaged-codex.nix.
-      # Pinned here rather than inherited from the upstream default mirrored in
-      # ./_default-settings.nix, so a defaults resync cannot silently drop it.
-      code_mode_host = true;
-      default_mode_request_user_input = true;
-      enable_request_compression = false;
-      memories = true;
-      external_migration = true;
-      mentions_v2 = true;
-      realtime_conversation = true;
-      exec_permission_approvals = true;
-      # Codex does not expose a config key for shell selection; ./_wrapper.nix
-      # supplies bash as the detected passwd shell instead.
-      shell_zsh_fork = false;
-    };
+    features = import ./_features.nix;
 
     memories = {
       use_memories = true;
@@ -139,8 +120,8 @@ let
         network = {
           enabled = true;
           mode = codexMcpNetworkMode;
-          allowed_domains = codexMcpAllowedDomains;
-          allow_unix_sockets = [ "/nix/var/nix/daemon-socket/socket" ];
+          domains = lib.genAttrs codexMcpAllowedDomains (_: "allow");
+          unix_sockets."/nix/var/nix/daemon-socket/socket" = "allow";
         };
       };
     };
@@ -149,12 +130,12 @@ let
     shell_environment_policy = {
       "inherit" = "all";
       ignore_default_excludes = true;
-      exclude = [
-        "AWS_*"
-        "AZURE_*"
-        "LD_PRELOAD"
-        "NSS_WRAPPER_*"
-      ];
+      filters = {
+        "AWS_*" = "exclude";
+        "AZURE_*" = "exclude";
+        LD_PRELOAD = "exclude";
+        "NSS_WRAPPER_*" = "exclude";
+      };
     };
 
     # TUI settings

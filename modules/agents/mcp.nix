@@ -371,8 +371,21 @@ let
       result;
 
   mkClientServers =
-    _: pkgs: enabled:
-    mkServers pkgs enabled;
+    client: pkgs: enabled:
+    let
+      servers = mkServers pkgs enabled;
+    in
+    # Codex infers transport from command/url and uses seconds for timeouts.
+    if client == "codex" then
+      lib.mapAttrs (
+        _: server:
+        builtins.removeAttrs server [
+          "type"
+          "startup_timeout_ms"
+        ]
+      ) servers
+    else
+      servers;
 
   clientServerNames =
     client:

@@ -12,15 +12,18 @@
   Options:
     --cd <path>: Set the working directory Codex should operate in before executing tasks.
     --profile <name>: Layer `$CODEX_HOME/<name>.config.toml` on top of the base user config for the session.
-    --approval-policy <mode>: Override the approval policy (for example `never`, `always`, `manual`).
-    --sandbox-mode <mode>: Adjust the sandbox level for commands launched by Codex.
+    --ask-for-approval <mode>: Override command approval policy.
+    --sandbox <mode>: Override command sandbox policy.
+    --strict-config: Reject unrecognized configuration fields.
 
   Notes:
     * MCP servers configured via flake.lib.agents.mcp (modules/agents/mcp.nix)
     * Skills configured via flake.lib.agents.skills (modules/agents/skills.nix)
     * User-level instructions generated via flake.lib.agents.systemPrompt
       (modules/agents/system-prompt.nix)
-    * Config is split across private helpers in modules/agents/codex/
+    * Private helpers: _default-settings.nix (settings catalog), _settings.nix
+      (site policy and MCP composition), _features.nix (feature flags),
+      _env.nix (process environment), _wrapper.nix (runtime config merge).
     * Package installation handled by NixOS module (modules/apps/codex.nix) via llm-agents.nix.
     * Config is split into three TOML files merged at launch by the codex wrapper:
       - config.base.toml: nix-managed base settings (read-only)
@@ -49,6 +52,7 @@ _: {
       homeDir = config.home.homeDirectory;
       configDir = "${config.xdg.configHome}/codex";
       agentsDir = "${config.xdg.configHome}/agents";
+      codexEnv = import ./_env.nix;
 
       execPolicy = import ./_exec-policy.nix {
         inherit lib pkgs;
@@ -187,9 +191,8 @@ _: {
             '';
           };
 
-          sessionVariables = {
+          sessionVariables = codexEnv.vars // {
             CODEX_HOME = lib.mkDefault configDir;
-            CODEX_DISABLE_UPDATE_CHECK = "1";
           };
         };
 
