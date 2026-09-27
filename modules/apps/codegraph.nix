@@ -26,6 +26,11 @@
 
   Notes:
     * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
+    * Claude Code and Codex integration is declarative: the MCP server lives in
+      modules/agents/mcp/servers.nix, the agent instructions in
+      modules/agents/system-prompt.nix, and the Claude prompt hook and tool
+      permission in modules/agents/claude-code/. `codegraph install` edits files
+      Home Manager owns; a repository needs only `codegraph init`.
 */
 { inputs, ... }:
 {
@@ -38,6 +43,21 @@
     }:
     let
       cfg = config.programs.codegraph.extended;
+
+      # Defaults reach every entry point, including MCP servers that Codex
+      # starts with a filtered environment. Direct mode keeps the daemon socket
+      # out of .codegraph/, where it fails every `path:` flake fetch of the tree.
+      wrappedPackage = pkgs.symlinkJoin {
+        name = "codegraph-wrapped";
+        paths = [ cfg.package ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram $out/bin/codegraph \
+            --set-default CODEGRAPH_TELEMETRY 0 \
+            --set-default CODEGRAPH_NO_UPDATE_CHECK 1 \
+            --set-default CODEGRAPH_NO_DAEMON 1
+        '';
+      };
     in
     {
       options.programs.codegraph.extended = {
@@ -56,7 +76,7 @@
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment.systemPackages = [ wrappedPackage ];
       };
     };
 }

@@ -54,7 +54,8 @@ let
       ''
         ## Tool Use
 
-        - Use `rg` or `rg --files` first for search.
+        - Use `rg` or `rg --files` first for search, except where the CodeGraph
+          section below applies.
       ''
       + builtins.concatStringsSep "" vars.shellRules
       + ''
@@ -91,6 +92,25 @@ let
         skill, read and follow that skill before improvising. Keep always-active
         conventions in this file, not inside ad hoc task plans.
       '';
+
+    codegraph = _vars: ''
+      ## CodeGraph
+
+      In a repository with a `.codegraph/` directory at its root, query CodeGraph
+      before `rg`, `find`, or file reads when locating code or tracing how it fits
+      together:
+
+      - MCP tool `codegraph_explore`, when listed: returns the verbatim,
+        line-numbered source of the relevant symbols and the call paths between
+        them, including dynamic-dispatch hops text search cannot follow. Name a
+        file or symbol in the query to read its current source. When the tool is
+        deferred, load it by name through tool search.
+      - Shell: `codegraph explore "<symbol names or question>"` prints the same
+        output.
+
+      Without a `.codegraph/` directory, skip CodeGraph; indexing a repository with
+      `codegraph init` is the user's decision.
+    '';
 
     editingRules = _vars: ''
       ## Editing Rules
@@ -345,6 +365,7 @@ let
     "agentContract"
     "operatingLoop"
     "toolUse"
+    "codegraph"
     "editingRules"
     "safety"
     "failureHandling"

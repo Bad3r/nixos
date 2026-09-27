@@ -9,6 +9,7 @@ let
 
   validSources = [
     "nix"
+    "command"
     "http"
     "sse"
     "npx"
@@ -36,6 +37,7 @@ let
 
   requiredFields = {
     nix = [ "package" ];
+    command = [ "command" ];
     http = [ "url" ];
     sse = [ "url" ];
     npx = [ "package" ];
@@ -43,6 +45,10 @@ let
 
   optionalFields = {
     nix = [ "secretEnvVar" ];
+    command = [
+      "timeout"
+      "args"
+    ];
     http = [ "timeout" ];
     sse = [ "timeout" ];
     npx = [
@@ -246,6 +252,15 @@ let
               type = "stdio";
             }
             // timeouts;
+
+        # Resolved from PATH at launch, so the server runs the same binary a
+        # host app module installs for the CLI instead of a separate pin.
+        command = {
+          inherit (meta) command;
+          args = meta.args or [ ];
+          type = "stdio";
+        }
+        // timeouts;
 
         http = {
           inherit (meta) url;

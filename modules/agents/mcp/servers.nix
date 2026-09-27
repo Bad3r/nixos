@@ -37,6 +37,24 @@ _: {
       };
     };
 
+    codegraph = {
+      source = "command";
+      command = "codegraph";
+      args = [
+        "serve"
+        "--mcp"
+      ];
+      clients = [
+        "claude"
+        "codex"
+      ];
+      docs = {
+        primaryUse = "Answer code-structure questions from a prebuilt symbol and call graph.";
+        accessNotes = "Runs `codegraph` from PATH, installed by `programs.codegraph.extended`. Outside a repository indexed by `codegraph init`, tool calls return indexing guidance instead of results.";
+        example = "`codegraph explore \"<symbols or question>\"`";
+      };
+    };
+
     cfdocs = {
       source = "http";
       url = "https://docs.mcp.cloudflare.com/mcp";

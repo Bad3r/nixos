@@ -128,6 +128,10 @@ let
     "Read(**)"
     "Edit(**)"
   ];
+
+  # codegraph's MCP tools are read-only; `projectPath` reaches any indexed
+  # repository on the host.
+  mcpAllow = [ "mcp__codegraph__*" ];
 in
 {
   # Enterprise allowlist of MCP servers that can be used. Applies to all
@@ -182,7 +186,7 @@ in
 
   # Set allow, ask, and deny rules and the starting permission mode
   permissions = {
-    allow = fileWebAllow ++ map bash bashAllow;
+    allow = fileWebAllow ++ mcpAllow ++ map bash bashAllow;
     ask = map bash bashAsk;
     deny = map bash bashDeny;
     defaultMode = "auto";
