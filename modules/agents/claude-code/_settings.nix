@@ -75,6 +75,12 @@
   # Path to a script that exports AWS credentials
   # awsCredentialExport = ""; # [string]
 
+  # Characters of a successful Bash or PowerShell command's output Claude
+  # receives inline (default: 30000; clamped to 4000-128000). Past it, the
+  # result is saved to a file and Claude gets a 2000-character preview plus the
+  # path. When set, BASH_MAX_OUTPUT_LENGTH (_env.nix) is ignored.
+  bashOutputMaxChars = 32768;
+
   # Glob patterns or absolute paths of CLAUDE.md files to exclude from
   # loading. Patterns are matched against absolute file paths using picomatch.
   # Only applies to User, Project, and Local memory types (Managed/policy
