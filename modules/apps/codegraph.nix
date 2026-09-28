@@ -28,9 +28,10 @@
     * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
     * Claude Code and Codex integration is declarative: the MCP server lives in
       modules/agents/mcp/servers.nix, the agent instructions in
-      modules/agents/system-prompt.nix, and the Claude prompt hook and tool
-      permission in modules/agents/claude-code/. `codegraph install` edits files
-      Home Manager owns; a repository needs only `codegraph init`.
+      modules/agents/system-prompt.nix, the Claude prompt hook and tool
+      permission in modules/agents/claude-code/, and the Codex prompt hook in
+      /etc/codex/hooks.json below. `codegraph install` edits files Home Manager
+      owns; a repository needs only `codegraph init`.
 */
 { inputs, ... }:
 {
@@ -77,6 +78,25 @@
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ wrappedPackage ];
+
+        # Only /etc/codex hooks run without a /hooks-approved trusted_hash.
+        environment.etc."codex/hooks.json" = lib.mkIf config.programs.codex.extended.enable {
+          text = builtins.toJSON {
+            hooks.UserPromptSubmit = [
+              {
+                hooks = [
+                  {
+                    type = "command";
+                    command = "${wrappedPackage}/bin/codegraph prompt-hook";
+                    timeout = 30;
+                    # The 2,500-token default would spill prompt-hook's 16 KB output.
+                    additionalContextLimit = 4500;
+                  }
+                ];
+              }
+            ];
+          };
+        };
       };
     };
 }
