@@ -12,8 +12,17 @@ in
     { pkgs, system, ... }:
     let
       codexPkg = inputs.llm-agents.packages.${system}.codex;
+      # Every app the catalog names is enabled, so the check covers every server.
+      osConfig.programs = lib.genAttrs (lib.catAttrs "app" (lib.attrValues agents.mcp.servers)) (_: {
+        extended.enable = true;
+      });
       settings = import ./_settings.nix {
-        inherit agents lib pkgs;
+        inherit
+          agents
+          lib
+          osConfig
+          pkgs
+          ;
         homeDir = "/home/codex-config-check";
       };
       execPolicy = import ./_exec-policy.nix { inherit lib pkgs; };
@@ -25,7 +34,7 @@ in
         configDir = "/home/codex-config-check/.config/codex";
       };
       codexServers = settings.baseSettings.mcp_servers;
-      claudeServers = agents.mcp.clients.claude.servers pkgs;
+      claudeServers = agents.mcp.clients.claude.servers pkgs osConfig;
       sharedNames = lib.intersectLists (lib.attrNames codexServers) (lib.attrNames claudeServers);
       validCodexServer = server: !(server ? type) && !(server ? startup_timeout_ms);
       sharedServerMatches =

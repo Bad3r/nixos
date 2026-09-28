@@ -182,20 +182,7 @@
   # gcpAuthRefresh = ""; # [string]
 
   # Custom commands to run before/after tool executions
-  hooks = {
-    # Adds CodeGraph context to prompts it can tie to a repository indexed by
-    # `codegraph init`; prints nothing otherwise.
-    UserPromptSubmit = [
-      {
-        hooks = [
-          {
-            type = "command";
-            command = "codegraph prompt-hook";
-          }
-        ];
-      }
-    ];
-  };
+  # hooks = ""; # [?]
 
   # Allowlist of environment variable names HTTP hooks may interpolate into
   # headers. When set, each hook's effective allowedEnvVars is the

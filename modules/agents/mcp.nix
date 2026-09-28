@@ -37,7 +37,10 @@ let
 
   requiredFields = {
     nix = [ "package" ];
-    command = [ "command" ];
+    command = [
+      "command"
+      "app"
+    ];
     http = [ "url" ];
     sse = [ "url" ];
     npx = [ "package" ];
@@ -408,10 +411,24 @@ let
       builtins.sort builtins.lessThan (lib.attrNames validatedServers)
     );
 
-  compiledClients = lib.genAttrs validClients (client: {
-    names = clientServerNames client;
-    servers = pkgs: mkClientServers client pkgs (clientServerNames client);
-  });
+  # A `command` server needs its app module to put the command on PATH.
+  onHost =
+    osConfig: name:
+    let
+      server = validatedServers.${name};
+    in
+    !(server ? app) || lib.attrByPath [ "programs" server.app "extended" "enable" ] false osConfig;
+
+  compiledClients = lib.genAttrs validClients (
+    client:
+    let
+      names = osConfig: lib.filter (onHost osConfig) (clientServerNames client);
+    in
+    {
+      inherit names;
+      servers = pkgs: osConfig: mkClientServers client pkgs (names osConfig);
+    }
+  );
 
   renderClientList =
     clients:

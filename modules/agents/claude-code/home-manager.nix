@@ -62,7 +62,7 @@ _: {
       registryClaudeSkills = lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list;
 
       # MCP servers via compiled agents.mcp client profile
-      mcpServers = agents.mcp.clients.claude.servers pkgs;
+      mcpServers = agents.mcp.clients.claude.servers pkgs osConfig;
 
       # Merges parts that must not declare the same top-level key.
       mergeParts =
@@ -81,6 +81,19 @@ _: {
         (import ./_plugins.nix)
         (import ./_permissions.nix)
         { env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly; }
+        # Prints nothing outside a repository indexed by `codegraph init`.
+        (lib.optionalAttrs (mcpServers ? codegraph) {
+          hooks.UserPromptSubmit = [
+            {
+              hooks = [
+                {
+                  type = "command";
+                  command = "codegraph prompt-hook";
+                }
+              ];
+            }
+          ];
+        })
       ];
       claudeJson = mergeParts [
         (import ./_claude-json.nix)

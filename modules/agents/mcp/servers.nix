@@ -40,6 +40,7 @@ _: {
     codegraph = {
       source = "command";
       command = "codegraph";
+      app = "codegraph";
       args = [
         "serve"
         "--mcp"
@@ -50,7 +51,7 @@ _: {
       ];
       docs = {
         primaryUse = "Answer code-structure questions from a prebuilt symbol and call graph.";
-        accessNotes = "Runs `codegraph` from PATH, installed by `programs.codegraph.extended`. Outside a repository indexed by `codegraph init`, tool calls return indexing guidance instead of results.";
+        accessNotes = "Registered only on hosts that enable `programs.codegraph.extended`, which puts `codegraph` on PATH. Outside a repository indexed by `codegraph init`, tool calls return indexing guidance instead of results.";
         example = "`codegraph explore \"<symbols or question>\"`";
       };
     };
