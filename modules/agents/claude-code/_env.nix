@@ -141,9 +141,12 @@ in
     # Off by default because a shared gateway key could expose every model it can
     # access. [1 or unset]
     # CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
-    # The model Claude Code uses for all subagents, agent teams, and agents in a workflow.
-    # Beats agent frontmatter, so it also reaches built-in agents pinned to haiku (review, claude-code-guide).
-    CLAUDE_CODE_SUBAGENT_MODEL = sonnetModel;
+    # The default model for subagents, agent team teammates, and workflow agents that nothing else assigns a model.
+    # A model Claude passes when it spawns the agent and an agent definition's `model` field take precedence.
+    CLAUDE_CODE_SUBAGENT_MODEL = "opus";
+    # Set to 1 to force CLAUDE_CODE_SUBAGENT_MODEL onto every subagent, teammate, and workflow agent, overriding both
+    # of those, including Explore and Plan, which otherwise inherit the main conversation's model. [1 or unset]
+    # CLAUDE_CODE_SUBAGENT_MODEL_FORCE = "1";
     # Set to any non-empty value, such as 1, to make every model stop retrying
     # with a repeated-overload error when no fallback model is configured.
     # Setting it to 0 or false still enables this, unlike most on/off variables;
@@ -262,8 +265,9 @@ in
     # Bash, tools, sandbox
     # Default timeout for long-running bash commands (default: 120000, or 2 minutes).
     BASH_DEFAULT_TIMEOUT_MS = "240000";
-    # Maximum number of characters of bash output that Claude Code reads back into a command's result (default: 30000; maximum: 150000).
-    BASH_MAX_OUTPUT_LENGTH = "2048";
+    # Maximum number of characters of bash output that Claude Code reads back into a command's result (default: 30000; maximum: 150000; no minimum).
+    # Ignored once bashOutputMaxChars is set in _settings.nix; while that key is unset it still caps the result at 30000, so raising this alone does nothing.
+    # BASH_MAX_OUTPUT_LENGTH = "30000";
     # Maximum timeout the model can set for long-running bash commands (default: 600000, or 10 minutes).
     BASH_MAX_TIMEOUT_MS = "4800000";
     # Maximum number of read-only tools and subagents that can execute in
