@@ -143,7 +143,7 @@ in
     # CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
     # The default model for subagents, agent team teammates, and workflow agents that nothing else assigns a model.
     # A model Claude passes when it spawns the agent and an agent definition's `model` field take precedence.
-    CLAUDE_CODE_SUBAGENT_MODEL = "sonnet";
+    CLAUDE_CODE_SUBAGENT_MODEL = "opus";
     # Set to 1 to force CLAUDE_CODE_SUBAGENT_MODEL onto every subagent, teammate, and workflow agent, overriding both
     # of those, including Explore and Plan, which otherwise inherit the main conversation's model. [1 or unset]
     # CLAUDE_CODE_SUBAGENT_MODEL_FORCE = "1";
