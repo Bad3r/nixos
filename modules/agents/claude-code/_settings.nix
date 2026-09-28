@@ -216,7 +216,7 @@
   # minimumVersion = ""; # [string]
 
   # Override the default model used by Claude Code
-  model = "claude-opus-5";
+  model = "opus";
 
   # Override mapping from Anthropic model ID (e.g. "claude-opus-4-6") to
   # provider-specific model ID (e.g. a Bedrock inference profile ARN).
