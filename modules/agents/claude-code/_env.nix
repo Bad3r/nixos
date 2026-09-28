@@ -263,7 +263,7 @@ in
     # Default timeout for long-running bash commands (default: 120000, or 2 minutes).
     BASH_DEFAULT_TIMEOUT_MS = "240000";
     # Maximum number of characters of bash output that Claude Code reads back into a command's result (default: 30000; maximum: 150000).
-    BASH_MAX_OUTPUT_LENGTH = "2048";
+    BASH_MAX_OUTPUT_LENGTH = "32768";
     # Maximum timeout the model can set for long-running bash commands (default: 600000, or 10 minutes).
     BASH_MAX_TIMEOUT_MS = "4800000";
     # Maximum number of read-only tools and subagents that can execute in
