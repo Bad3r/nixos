@@ -47,7 +47,8 @@ Windows regenerates the certificate when it expires, so the procedure repeats th
    FREERDP_ASKPASS="$RDP_ASKPASS" xfreerdp /d:"" /u:"$RDP_USER" /v:"$RDP_IP"
    ```
 
-   The session shares no drive, and the desktop window can close as soon as it appears.
+   The session shares no drive.
+   End it with `Sign out` in the Windows Start menu instead of closing the window, so no session stays behind for the launcher to reconnect to.
 
 Verification: `openssl x509 -in ~/.config/freerdp/server/"$RDP_IP"_3389.pem -noout -fingerprint -sha256` prints the hex pairs from step 1 in upper case.
 
@@ -57,6 +58,8 @@ Precondition: the password is stored and the certificate is trusted.
 
 1. Pick `Outlook Classic` in the application launcher.
    The launcher starts the guest when it is shut off, waits for the RDP port, and reports each stage through a notification.
+   A launch while Outlook is open moves the Windows session to the new connection and leaves the previous `xfreerdp` running idle.
+   `pgrep -a xfreerdp` lists the idle process, and `kill` with its process ID ends it.
 2. Keep `Hide When Minimized` off in the Outlook tray settings, since RemoteApp forwards windows and no tray icon.
    Outlook syncs mail only while it runs, and closing its main window exits it.
 
