@@ -499,9 +499,8 @@ in
     { pkgs, ... }:
     {
       checks.secrets-no-cleartext =
-        # throw, not a failing derivation: CI evaluates check drvPaths with
-        # --no-build, so only an eval-time failure gates it (same rationale
-        # as modules/meta/ci-lix-parity.nix).
+        # throw, not a failing derivation: CI only forces check drvPaths, so
+        # only an eval-time failure gates it.
         if policyDrift != [ ] then
           throw (
             "sops-cleartext-check.nix policy security contract drifted: "

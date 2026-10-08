@@ -402,7 +402,7 @@ in
         host-apps-baseline-present =
           # throw, not a failing derivation: CI forces each check's drvPath
           # with `nix eval` and never builds checks, so only an eval-time
-          # failure gates CI (same rationale as modules/meta/ci-lix-parity.nix).
+          # failure gates CI.
           if baselineMissing then
             throw baselineMissingMessage
           else

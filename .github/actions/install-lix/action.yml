@@ -1,6 +1,6 @@
 name: Install Lix
 description: >-
-  Install the digest-pinned Lix release with this flake's nix.conf and caches.
+  Install the flake.lock-pinned Lix with this flake's nix.conf and caches.
 inputs:
   github-token:
     description: Token recorded as the github.com access-tokens conf entry.
@@ -8,16 +8,14 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Lix
+    - name: Install bootstrap Lix
       shell: bash
       env:
-        # The pinned installer release also pins the Lix version. Keep
-        # LIX_VERSION and INSTALLER_SHA256 at parity with
-        # lixPackageSets.latest in the nixpkgs pin: the
-        # ci-lix-installer-parity flake check fails when they drift.
-        # install.lix.systems publishes no digest sidecar, so the sha256
-        # is pinned first-use from the fetched 2.95.2 binary.
-        LIX_VERSION: 2.95.2
+        # Bootstrap only: its bundled Lix runs just long enough to realise the
+        # pinned one in the switch step, so this pin never tracks nixpkgs.
+        # install.lix.systems publishes no digest sidecar, so the sha256 is
+        # pinned first-use.
+        INSTALLER_URL: https://install.lix.systems/lix/2.95.2/lix-installer-x86_64-linux
         INSTALLER_SHA256: 57564e78a6d57126661fe5e793de70a72bacf9835ddb7c5c0cbfadf3db21545e
         # flake-self-attrs is required for this flake's
         # self.submodules = true and must be ambient: Lix enforces it
@@ -35,7 +33,7 @@ runs:
           access-tokens = github.com=${{ inputs.github-token }}
       run: |-
         curl --proto '=https' --tlsv1.2 -sSf -o /tmp/lix-installer \
-          "https://install.lix.systems/lix/$LIX_VERSION/lix-installer-x86_64-linux"
+          "$INSTALLER_URL"
         echo "$INSTALLER_SHA256  /tmp/lix-installer" | sha256sum -c -
         chmod +x /tmp/lix-installer
         # act containers have no systemd; fall back to a root-only install.
@@ -80,3 +78,27 @@ runs:
             fi
           done
         done
+    - name: Switch to the pinned Lix
+      shell: bash
+      # The attribute modules/base/nix-package.nix gives every host, read from
+      # the nixpkgs node of this checkout's flake.lock, so the lock is the one
+      # place the Lix version is set. ^out: outputsToInstall adds man.
+      run: |-
+        profile=/nix/var/nix/profiles/default
+        lix=$(nix build --no-link --print-out-paths --inputs-from path:. \
+          'nixpkgs#lixPackageSets.latest.lix^out')
+        # The installer links the daemon units through this profile and the
+        # socket has Accept=yes, so every connection loads its unit from the
+        # profile. One --install swaps Lix within a single generation;
+        # nix upgrade-nix uninstalls first, which leaves the unit dangling
+        # for its own install step.
+        sudo "$lix/bin/nix-env" --profile "$profile" --install "$lix"
+        if [ -z "${ACT:-}" ]; then sudo systemctl daemon-reload; fi
+        version=$(nix --version)
+        version=${version%%$'\n'*}
+        daemon=$(nix store ping --json | jq -r .version)
+        if [ "$(readlink -f "$(command -v nix)")" != "$lix/bin/nix" ] \
+          || [[ "$version" != *" $daemon" ]]; then
+          echo "::error::expected $lix, got '$version' with daemon $daemon"
+          exit 1
+        fi

@@ -8,8 +8,8 @@
   hour earlier. This module generates that file from the host cache list that
   modules/hosts/common/nix-substituters.nix exports, and fails evaluation when
   the action stops appending it or drops the step that verifies the installed
-  result. throw, not a failing derivation, for the reason ci-lix-parity gives:
-  CI runs `nix flake check --no-build`.
+  result. throw, not a failing derivation: CI only forces each check's
+  drvPath, so only an eval-time failure gates it.
 */
 { config, lib, ... }:
 let
