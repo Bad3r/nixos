@@ -10,6 +10,12 @@ name: Update Flake Inputs
 permissions:
   contents: read
 
+# An explicit bash shell runs with -eo pipefail; the implicit default is
+# bash -e, so a failing command on the left of a pipe would pass.
+defaults:
+  run:
+    shell: bash
+
 jobs:
   update-flake:
     runs-on: ubuntu-latest
@@ -157,8 +163,12 @@ jobs:
         if: steps.update.outputs.changed == 'true'
         run: |
           git add --all
-          echo "patch=$(git diff --cached --binary | base64 -w0)" \
-            >> "$GITHUB_OUTPUT"
+          patch=$(git diff --cached --binary | base64 -w0)
+          if [ -z "$patch" ]; then
+            echo "::error::flake.lock changed but the staged diff is empty"
+            exit 1
+          fi
+          echo "patch=$patch" >> "$GITHUB_OUTPUT"
 
   # Gates the auto-merged PR on actual builds: a lock bump that evaluates but
   # fails to build (broken patch, a package that no longer compiles) fails
