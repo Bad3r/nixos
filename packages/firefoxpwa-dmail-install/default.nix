@@ -9,13 +9,19 @@
 
   Returns a function: the caller supplies the firefoxpwa package and the runtime
   path of the decrypted URL secret.
+
+  Built through ../firefoxpwa-site-installer, which supplies the prelude every
+  site installer needs and takes the lock that keeps two of them off
+  config.json at once. Only what is specific to this site lives here.
 */
 {
   lib,
-  writeShellApplication,
+  callPackage,
   jq,
-  coreutils,
 }:
+let
+  mkSiteInstaller = callPackage ../firefoxpwa-site-installer { };
+in
 {
   firefoxpwa,
   urlPath,
@@ -26,32 +32,16 @@
   # three real 5-second sleeps per run.
   retryDelay ? 5,
 }:
-writeShellApplication {
+mkSiteInstaller {
   name = "firefoxpwa-install-dmail";
+  inherit dataDir xdgDataHome;
   runtimeInputs = [
     firefoxpwa
     jq
-    coreutils
   ];
   text = ''
     url_file=${lib.escapeShellArg urlPath}
     app_name=${lib.escapeShellArg appName}
-    # Passed in rather than re-derived from XDG_DATA_HOME: the caller uses this
-    # same value for the sops secret path and the 0700 activation step, and a
-    # second rule here would put the marker and config.json outside the
-    # directory those protect whenever xdg.dataHome is not at its default.
-    data_dir=${lib.escapeShellArg dataDir}
-    # Exported, not just read: firefoxpwa resolves its own userdata tree from
-    # FFPWA_USERDATA and, separately, its system-integration directory (the
-    # .desktop entry and icon, through directories::BaseDirs) from
-    # XDG_DATA_HOME. Neither is read by this script, but both are read by the
-    # site install / site update calls it makes below, so pinning them from
-    # the values the caller already chose makes the binary and this script
-    # agree by construction, rather than depending on a systemd unit's
-    # Environment= staying in sync with this file from the outside.
-    export FFPWA_USERDATA="$data_dir"
-    export XDG_DATA_HOME=${lib.escapeShellArg xdgDataHome}
-    config_file="$data_dir/config.json"
     retry_delay=${lib.escapeShellArg (toString retryDelay)}
 
     # firefoxpwa deserializes start_url into the Rust url crate's Url
@@ -105,6 +95,10 @@ writeShellApplication {
     # which pipefail then reports as failure.
     site_ulid() {
       [ -f "$config_file" ] || return 0
+      # File::create truncates before writing, so zero bytes is a mid-write
+      # config rather than an empty site list. jq otherwise exits 0 without
+      # producing a value, which callers would take as "no site".
+      [ -s "$config_file" ] || return 1
       jq -r --arg n "$app_name" \
         'first((.sites // {}) | to_entries[] | select(.value.config.name == $n) | .key) // empty' \
         "$config_file" 2>/dev/null
@@ -279,10 +273,21 @@ writeShellApplication {
         # then yields empty output too) would otherwise compare "" = "" and
         # adopt regardless. Requiring non-empty here is enough on its own:
         # equality against a non-empty marker already implies the jq read
-        # produced that same non-empty value.
-        if [ -s "$pending_file" ] \
-          && [ "$(jq -r --arg u "$ulid" '.sites[$u].config.manifest_url // empty' \
-                "$config_file" 2>/dev/null)" = "$(<"$pending_file")" ]; then
+        # produced that same non-empty value. A jq read failure is a transient
+        # fault, not proof of a foreign site.
+        installed_manifest=""
+        if [ -s "$pending_file" ]; then
+          if [ ! -s "$config_file" ]; then
+            echo "firefoxpwa-dmail: cannot read $config_file; not installing a second '$app_name'" >&2
+            exit 1
+          fi
+          if ! installed_manifest=$(jq -r --arg u "$ulid" \
+            '.sites[$u].config.manifest_url // empty' "$config_file" 2>/dev/null); then
+            echo "firefoxpwa-dmail: cannot read $config_file; not installing a second '$app_name'" >&2
+            exit 1
+          fi
+        fi
+        if [ -s "$pending_file" ] && [ "$installed_manifest" = "$(<"$pending_file")" ]; then
           record_ulid
           rm -f "$pending_file"
         else
@@ -304,6 +309,37 @@ writeShellApplication {
       fi
       echo "firefoxpwa-dmail: failed to update start URL for '$app_name'" >&2
       exit 1
+    fi
+
+    # A rename changes the launcher name while this installer's records keep
+    # their fixed dmail-* paths, so the lookup above misses the site it already
+    # installed and this branch would register a second one under the new name
+    # while overwriting the only records of the first, leaving the original app
+    # and its .desktop entry with nothing pointing at them. Unlike the m365
+    # installer, whose records are keyed by the entry's slug, there is not even
+    # a missing record here to refuse on. Told apart from the documented
+    # uninstall, which leaves the records behind but takes the site with it, by
+    # the site still being there.
+    if [ -r "$ulid_file" ] && [ -f "$config_file" ]; then
+      if [ ! -s "$config_file" ]; then
+        echo "firefoxpwa-dmail: cannot read $config_file; not installing a second '$app_name'" >&2
+        exit 1
+      fi
+      # jq's failure separated from "no such site", the way site_ulid's caller
+      # above separates it from "no site": a read racing firefoxpwa connector's
+      # own rewrite exits non-zero, and treating that as "the recorded site is
+      # gone" falls into the install below with the dmail-* records fixed, so
+      # the second site takes them. The -f test keeps a config.json that is gone
+      # entirely installing, which is what site_ulid's own [ -f ] does with it.
+      if ! recorded=$(jq -r --arg u "$(<"$ulid_file")" \
+        'if ((.sites // {}) | has($u)) then "yes" else "" end' "$config_file" 2>/dev/null); then
+        echo "firefoxpwa-dmail: cannot read $config_file; not installing a second '$app_name'" >&2
+        exit 1
+      fi
+      if [ -n "$recorded" ]; then
+        echo "firefoxpwa-dmail: '$app_name' is a new name for the site this unit installed as $(<"$ulid_file"); uninstall that site so this unit can reinstall it under the new name" >&2
+        exit 1
+      fi
     fi
 
     # A data: manifest keeps the install self-contained: firefoxpwa does not

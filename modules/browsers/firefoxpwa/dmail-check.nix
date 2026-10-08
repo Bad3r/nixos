@@ -191,15 +191,23 @@
       # through unread.
       pinnedXdgDataHome = "${secretDir}/xdg-pinned";
 
-      installer = (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
-        firefoxpwa = stub;
-        urlPath = "${secretDir}/url";
-        xdgDataHome = pinnedXdgDataHome;
-        inherit dataDir;
-        # Exercises the retry loop's control flow without three real 5-second
-        # sleeps per check run.
-        retryDelay = 0;
-      };
+      mkInstaller =
+        appName:
+        (pkgs.callPackage ../../../packages/firefoxpwa-dmail-install { }) {
+          firefoxpwa = stub;
+          urlPath = "${secretDir}/url";
+          xdgDataHome = pinnedXdgDataHome;
+          inherit dataDir appName;
+          # Exercises the retry loop's control flow without three real 5-second
+          # sleeps per check run.
+          retryDelay = 0;
+        };
+
+      installer = mkInstaller "DMail";
+      # programs.firefoxpwa.dmail.name edited on a host that already installed
+      # the site: the records keep their fixed dmail-* paths, so the lookup
+      # misses and nothing but the guard stops a second site being registered.
+      renamed = mkInstaller "Work Mail";
     in
     {
       checks."browsers/firefoxpwa-dmail" =
@@ -220,6 +228,8 @@
             nativeBuildInputs = [
               pkgs.jq
               pkgs.coreutils
+              pkgs.gnugrep
+              pkgs.gnused
             ];
           }
           ''
@@ -240,6 +250,7 @@
             install -d "$HOME" "$XDG_DATA_HOME" "$secret_dir"
 
             installer=${lib.getExe installer}
+            renamed=${lib.getExe renamed}
             failures=0
 
             reset() {
@@ -253,16 +264,24 @@
             # Matched with case, not piped into grep: under pipefail, grep -q
             # exiting on first match can SIGPIPE the producer and flip a real
             # match into a reported failure.
+            #
+            # A matching fragment with the wrong status leaves the case arm, and
+            # so the case, returning 1, which does not trip errexit: bash
+            # ignores -e for the left side of an && list and the enclosing
+            # compound inherits that, so the FAIL branch below still reports the
+            # mismatch and the assertions after it still run.
             expect() {
-              local label="$1" want_rc="$2" want_text="$3" out rc=0 ok=1
-              out=$("$installer" 2>&1) || rc=$?
+              # Fourth argument, defaulting to the DMail installer: a variant
+              # built with another launcher name drives the same assertions.
+              local label="$1" want_rc="$2" want_text="$3" runner="''${4:-$installer}" out rc=0 ok=1
+              out=$("$runner" 2>&1) || rc=$?
               case "$out" in
                 *"$want_text"*) [ "$rc" = "$want_rc" ] && ok=0 ;;
               esac
               if [ "$ok" = 0 ]; then
                 echo "PASS  $label"
               else
-                echo "FAIL  $label (rc=$rc, expected $want_rc)"
+                echo "FAIL  $label (rc=$rc, expected $want_rc; wanted output containing '$want_text')"
                 printf '%s\n' "$out" | sed 's/^/      /'
                 failures=$((failures + 1))
               fi
@@ -565,6 +584,13 @@
             "$installer" >/dev/null
             printf 'not valid json' >"$config_file"
             expect "unreadable config.json refuses rather than risking a duplicate" 1 \
+              "not installing a second"
+
+            reset
+            set_url 'https://mail.example.com/x'
+            "$installer" >/dev/null
+            : >"$config_file"
+            expect "zero-byte config.json refuses rather than risking a duplicate" 1 \
               "not installing a second"
 
             # Following the refusal's own remedy: installed at A, rotated to B,
@@ -915,6 +941,56 @@
               echo "PASS  marker write leaves no temporary"
             fi
 
+            echo
+            echo "-- renaming the site is refused rather than orphaning it --"
+            reset
+            set_url 'https://mail.example.com/a'
+            "$installer" >/dev/null
+            expect "rename refused" 1 "is a new name for the site this unit installed" "$renamed"
+            assert_equal "no second site registered under the new name" \
+              "$(jq -r '(.sites // {}) | length' "$config_file")" 1
+            # The site's own name, not the count or the ulid record: this stub
+            # writes every install to .sites["01STUB"], so without the guard the
+            # renamed run overwrites the original rather than adding one, and
+            # both of those read identically either way.
+            assert_equal "the installed site still carries the original name" \
+              "$(jq -r '.sites["01STUB"].config.name' "$config_file")" "DMail"
+            # config.json gone entirely rather than the site removed from it:
+            # the rename guard reads that file, so it has to tell "no file" from
+            # "cannot read this file" and let the first install.
+            rm -f "$config_file"
+            # The full message, not just "installed": that substring also matches
+            # "already installed with current URL", so the loose form pins
+            # neither the branch that ran nor the name it installed under.
+            expect "a config.json that is gone does not block the install" 0 "installed 'Work Mail'" "$renamed"
+
+            reset
+            set_url 'https://mail.example.com/a'
+            "$installer" >/dev/null
+            expect "rename still refused after the reset" 1 "is a new name for the site this unit installed" "$renamed"
+            # An uninstall leaves the same record but takes the site, and that
+            # case must still install: the guard is on the site being there.
+            jq 'del(.sites["01STUB"])' "$config_file" >"$config_file.next"
+            mv "$config_file.next" "$config_file"
+            expect "an uninstalled site is reinstalled under the new name" 0 "installed 'Work Mail'" "$renamed"
+            assert_equal "the reinstalled site carries the new name" \
+              "$(jq -r '.sites["01STUB"].config.name' "$config_file")" "Work Mail"
+
+            echo
+            echo "-- the installer is built through the shared site installer --"
+            # ./site-lock-check.nix proves the builder serializes, but nothing
+            # there names this derivation: rewriting default.nix back to a
+            # direct writeShellApplication would keep that check green while
+            # losing the mutual exclusion it exists to provide. The lock path is
+            # the tie, since it is the shared resource rather than the mechanism.
+            if grep -q '\.config-lock' "$installer"; then
+              echo "PASS  takes the shared site lock"
+            else
+              echo "FAIL  no shared site lock in the installer text; it was not built through packages/firefoxpwa-site-installer"
+              failures=$((failures + 1))
+            fi
+
+            echo
             echo "-- the installer uses the directory it is given --"
             if [ -e "$XDG_DATA_HOME/firefoxpwa" ]; then
               echo "FAIL  installer re-derived a path under XDG_DATA_HOME"
