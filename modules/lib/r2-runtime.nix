@@ -241,6 +241,18 @@ in
           # conditionally imported r2-flake modules, so the definitions must
           # vanish entirely when the modules are absent.
           (lib.optionalAttrs runtimeEnabled {
+            # Temporary: bup 0.34 rejects the local path used by this test.
+            # Remove the filter when git-annex supports bup 0.34.
+            nixpkgs.overlays = [
+              (_final: prev: {
+                git-annex = prev.git-annex.overrideAttrs (oldAttrs: {
+                  preCheck = (oldAttrs.preCheck or "") + ''
+                    checkFlagsArray+=(--pattern '$NF !~ /bup remote/')
+                  '';
+                });
+              })
+            ];
+
             # Allow non-root mounts to use `--allow-other`.
             programs.fuse.userAllowOther = true;
 

@@ -25,12 +25,19 @@
 
 - [claude-code/plugins.md](claude-code/plugins.md)
   - Technical reference for the claude-plugins project covering architecture, registry API, installation flows, and CLI commands.
+- [claude-code/skill-providers.md](claude-code/skill-providers.md)
+  - Declarative ownership and default availability for Claude Code skill providers.
 - [claude-code/skills.md](claude-code/skills.md)
   - Technical manual for SKILL.md files covering frontmatter fields, invocation methods, execution lifecycle, and best practices.
 - [claude-code/writing-CLAUDE.md](claude-code/writing-CLAUDE.md)
   - How to write CLAUDE.md files: persistent, always-active agent instructions loaded at session start.
 - [claude-code/scratchpad.md](claude-code/scratchpad.md)
   - scratchpad
+
+## Codex
+
+- [codex/configuration.md](codex/configuration.md)
+  - Configure Nix settings, feature flags, launch environment, and project trust; diagnose rejected configuration fields.
 
 ## Cloudflare
 
@@ -193,6 +200,52 @@
 
 - [csec/toolkit.md](csec/toolkit.md)
   - Catalog of cybersecurity-relevant apps managed by this configuration covering recon, web testing, credential attacks, RE, forensics, and dual-use utilities.
+- [csec/toolkit/network-reconnaissance-enumeration.md](csec/toolkit/network-reconnaissance-enumeration.md)
+  - DNS enumeration, asset discovery, and service reconnaissance tools.
+- [csec/toolkit/active-directory-smb-enumeration.md](csec/toolkit/active-directory-smb-enumeration.md)
+  - Active Directory and SMB discovery and assessment utilities.
+- [csec/toolkit/web-application-testing-proxies.md](csec/toolkit/web-application-testing-proxies.md)
+  - Web application scanners, proxies, fuzzers, and WebSocket clients.
+- [csec/toolkit/credential-attacks-wordlists.md](csec/toolkit/credential-attacks-wordlists.md)
+  - Password auditing tools and credential attack wordlists.
+- [csec/toolkit/wireless-auditing.md](csec/toolkit/wireless-auditing.md)
+  - Wireless network discovery and security assessment utilities.
+- [csec/toolkit/exploitation-frameworks.md](csec/toolkit/exploitation-frameworks.md)
+  - Exploitation frameworks and payload development tools.
+- [csec/toolkit/reverse-engineering-dynamic-analysis.md](csec/toolkit/reverse-engineering-dynamic-analysis.md)
+  - Binary analysis, decompilation, and dynamic instrumentation tools.
+- [csec/toolkit/javascript-reversing-source-recovery.md](csec/toolkit/javascript-reversing-source-recovery.md)
+  - JavaScript deobfuscation, source recovery, and analysis utilities.
+- [csec/toolkit/anonymity-vpn-tunneling.md](csec/toolkit/anonymity-vpn-tunneling.md)
+  - Anonymity networks, VPN clients, and tunneling tools.
+- [csec/toolkit/forensics-recovery-imaging.md](csec/toolkit/forensics-recovery-imaging.md)
+  - Forensic collection, recovery, and imaging utilities.
+- [csec/toolkit/auditing-vulnerability-assessment.md](csec/toolkit/auditing-vulnerability-assessment.md)
+  - Host and infrastructure auditing and vulnerability assessment tools.
+- [csec/toolkit/cryptography-secrets-credential-management.md](csec/toolkit/cryptography-secrets-credential-management.md)
+  - Cryptography, secret handling, and credential management utilities.
+- [csec/toolkit/disk-storage-inspection.md](csec/toolkit/disk-storage-inspection.md)
+  - Disk and storage inspection tools.
+- [csec/toolkit/document-pdf-analysis.md](csec/toolkit/document-pdf-analysis.md)
+  - Document and PDF inspection and extraction utilities.
+- [csec/toolkit/database-clients.md](csec/toolkit/database-clients.md)
+  - Database clients for service testing and artifact inspection.
+- [csec/toolkit/traffic-capture-network-diagnostics.md](csec/toolkit/traffic-capture-network-diagnostics.md)
+  - Packet capture, socket relays, and network diagnostics tools.
+- [csec/toolkit/system-internals-incident-response.md](csec/toolkit/system-internals-incident-response.md)
+  - System inspection and incident response utilities.
+- [csec/toolkit/archive-compression-analysis.md](csec/toolkit/archive-compression-analysis.md)
+  - Archive and compression analysis tools.
+- [csec/toolkit/qr-encoded-payload-handling.md](csec/toolkit/qr-encoded-payload-handling.md)
+  - QR code and encoded payload handling utilities.
+- [csec/toolkit/containers-virtualization-cloud-labs.md](csec/toolkit/containers-virtualization-cloud-labs.md)
+  - Container, virtualization, and cloud lab tools.
+- [csec/toolkit/privacy-focused-research-browsers.md](csec/toolkit/privacy-focused-research-browsers.md)
+  - Privacy-focused and research web browsers.
+- [csec/toolkit/browser-api-automation.md](csec/toolkit/browser-api-automation.md)
+  - Browser and API automation utilities.
+- [csec/toolkit/remote-access.md](csec/toolkit/remote-access.md)
+  - Remote shell and desktop access clients.
 - [csec/glossary.md](csec/glossary.md)
   - Reference glossary for cybersecurity and software-engineering acronyms and concepts.
 - [csec/additional-tools-reference.md](csec/additional-tools-reference.md)

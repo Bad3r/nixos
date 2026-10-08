@@ -64,6 +64,16 @@ Scope:
       reach the unwrapped `/run/current-system/sw/bin/tcpdump` without
       capabilities.
   - available without sudo because packet capture is granted through capability-wrapped binaries rather than `sudo`.
+- Per-process bandwidth monitoring:
+  - `bandwhich`
+  - `nethogs`
+  - mechanism:
+    - `security.wrappers` in `modules/apps/bandwhich.nix` and `modules/apps/nethogs.nix` with `CAP_NET_RAW`, `CAP_NET_ADMIN`, `CAP_SYS_PTRACE`, and `CAP_DAC_READ_SEARCH`
+    - available to users in the `wheel` group
+  - `CAP_SYS_PTRACE` and `CAP_DAC_READ_SEARCH` cover reading every process's `/proc/<pid>/fd`, which maps sockets to processes.
+  - limitation:
+    - the `nethogs` wrapper source passes only `TERM` and a `TERMINFO_DIRS` pinned to `/run/current-system/sw/share/terminfo`, since ambient capabilities leave ncurses honoring caller-set terminfo paths.
+      A terminal entry that only `~/.terminfo` or a per-user profile provides fails to load.
 
 ## Commands That Are Passwordless With `sudo-rs`
 

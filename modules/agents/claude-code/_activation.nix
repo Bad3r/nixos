@@ -1,18 +1,15 @@
 /*
-  Activation snippets for Claude Code.
+  Home Manager activation for Claude Code.
 
-  Produces:
-    - claudeCodeSetup: idempotent jq merge into ~/.claude/settings.json and
-      ~/.claude.json, preserving user keys while deleting source-declared
-      retired keys, invalid legacy environment values, and wholly replacing
-      Nix-managed mcpServers entries.
-    - installClaudeCodeViaBun: optional, only when
-      programs.claude-code.extended.installMethods.bun.enable is true.
+  claude-code-apply-config merges the Nix templates into ~/.claude/settings.json
+  and ~/.claude.json, files Claude Code also writes itself. Every top-level key
+  a template declares is written exactly as declared, a key the previous switch
+  wrote and the template no longer declares is deleted (the record lives in
+  ~/.claude/.nix-managed.json), and keys only Claude wrote are left alone.
+  ~/.claude.json's mcpServers applies the same rule per server.
 
-  The bun-related let bindings are intentionally lazy: when bunInstallEnabled
-  is false, neither bunInstallDir nor bunBin is forced, so reading
-  osConfig.programs.bun.extended.package is safe even on hosts where the bun
-  options namespace is absent.
+  The bun bindings stay lazy: with the bun install method off,
+  osConfig.programs.bun is never read, so hosts without that option evaluate.
 */
 {
   lib,
@@ -21,35 +18,102 @@
   config,
   claudeSettingsFile,
   claudeJsonConfigFile,
-  claudeEnv,
-  claudeDefaults,
+  stateFile,
 }:
 let
-  retiredSettingsJq = lib.optionalString (claudeDefaults.retired.settings != [ ]) (
-    " | "
-    + lib.concatMapStringsSep " | " (
-      name: "del(.[${builtins.toJSON name}])"
-    ) claudeDefaults.retired.settings
-  );
-  retiredEnvJq = lib.optionalString (claudeEnv.stripped != [ ]) (
-    " | "
-    + lib.concatMapStringsSep " | " (name: "del(.env[${builtins.toJSON name}])") claudeEnv.stripped
-  );
-  legacyEnvValuesJq = lib.optionalString (claudeEnv.legacyEnvValues != { }) (
-    " | "
-    + lib.concatStringsSep " | " (
-      lib.mapAttrsToList (
-        name: value:
-        "if .env[${builtins.toJSON name}] == ${builtins.toJSON value} then del(.env[${builtins.toJSON name}]) else . end"
-      ) claudeEnv.legacyEnvValues
-    )
-  );
-  retiredJsonJq = lib.optionalString (claudeDefaults.retired.claudeJson != [ ]) (
-    " | "
-    + lib.concatMapStringsSep " | " (
-      name: "del(.[${builtins.toJSON name}])"
-    ) claudeDefaults.retired.claudeJson
-  );
+  applyConfig = pkgs.writeShellApplication {
+    name = "claude-code-apply-config";
+    runtimeInputs = [
+      pkgs.coreutils
+      pkgs.jq
+    ];
+    # The single-quoted $names in the jq filters are jq variables.
+    excludeShellChecks = [ "SC2016" ];
+    text = ''
+      settings_template=$1
+      claude_json_template=$2
+      state_template=$3
+
+      settings="$HOME/.claude/settings.json"
+      claude_json="$HOME/.claude.json"
+      state="$HOME/.claude/.nix-managed.json"
+
+      tmp_files=()
+      cleanup() {
+        if [ "''${#tmp_files[@]}" -gt 0 ]; then
+          rm -f -- "''${tmp_files[@]}"
+        fi
+      }
+      trap cleanup EXIT
+
+      mkdir -p "$HOME/.claude"
+
+      # The keys the previous switch wrote. Without a record nothing is deleted, so
+      # the first run only adds and overwrites.
+      if [ -e "$state" ]; then
+        if ! jq -e --slurp '
+            length == 1
+            and (.[0] | type == "object" and .version == 1
+              and ([.settings, .claudeJson, .mcpServers]
+                | all(type == "array" and all(.[]; type == "string"))))
+          ' "$state" >/dev/null 2>&1; then
+          echo "claude-code-apply-config: $state is not a version 1 record; fix it, or delete it to reseed" >&2
+          exit 1
+        fi
+        previous=$state
+      else
+        previous=$(mktemp)
+        tmp_files+=("$previous")
+        printf '%s\n' '{"version":1,"settings":[],"claudeJson":[],"mcpServers":[]}' >"$previous"
+      fi
+
+      # merge TARGET TEMPLATE FILTER: a missing or empty TARGET reads as {}; anything
+      # but one JSON object aborts before TARGET is replaced.
+      merge() {
+        local target=$1 template=$2 filter=$3 tmp
+        tmp=$(mktemp "$target.nix-XXXXXX")
+        tmp_files+=("$tmp")
+        if ! {
+          if [ -s "$target" ]; then cat -- "$target"; else printf '{}\n'; fi
+        } | jq --slurp --arg target "$target" \
+          --slurpfile nix "$template" --slurpfile state "$previous" '
+            if length == 1 and (.[0] | type) == "object" then .[0]
+            else error("\($target) is not a single JSON object") end
+            | '"$filter" >"$tmp"; then
+          echo "claude-code-apply-config: $target left unchanged" >&2
+          exit 1
+        fi
+        mv -f -- "$tmp" "$target"
+      }
+
+      merge "$settings" "$settings_template" '
+        $nix[0] as $declared
+        | reduce (($state[0].settings) - ($declared | keys))[] as $key (.; del(.[$key]))
+        | . + $declared
+      '
+
+      merge "$claude_json" "$claude_json_template" '
+        ($nix[0] | del(.mcpServers)) as $declared
+        | ($nix[0].mcpServers // {}) as $servers
+        | reduce (($state[0].claudeJson) - ($declared | keys))[] as $key (.; del(.[$key]))
+        | . + $declared
+        | .mcpServers |= (
+            (. // {})
+            | if type == "object" then . else error("mcpServers is not an object") end
+            | reduce (($state[0].mcpServers) - ($servers | keys))[] as $name (.; del(.[$name]))
+            | . + $servers
+          )
+      '
+
+      tmp=$(mktemp "$state.nix-XXXXXX")
+      tmp_files+=("$tmp")
+      cat -- "$state_template" >"$tmp"
+      mv -f -- "$tmp" "$state"
+
+      echo "Claude Code: settings.json and .claude.json updated"
+    '';
+  };
+
   bunInstallEnabled = lib.attrByPath [
     "programs"
     "claude-code"
@@ -62,91 +126,31 @@ let
   bunBin = lib.getExe osConfig.programs.bun.extended.package;
 in
 {
-  claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-    CLAUDE_SETTINGS="$HOME/.claude/settings.json"
-    CLAUDE_SETTINGS_TMP="$(mktemp)"
-    CLAUDE_CONFIG="$HOME/.claude.json"
-    CLAUDE_CONFIG_TMP="$(mktemp)"
-    trap 'rm -f "$CLAUDE_SETTINGS_TMP" "$CLAUDE_CONFIG_TMP"' EXIT
-
-    mkdir -p "$HOME/.claude"
-
-    if [ -r "$CLAUDE_SETTINGS" ]; then
-      existing_settings="$CLAUDE_SETTINGS"
-    else
-      existing_settings="${pkgs.writeText "empty-json.json" "{}"}"
-    fi
-
-    if ! ${pkgs.jq}/bin/jq \
-      --slurpfile nixSettings ${claudeSettingsFile} \
-      '. as $existing
-      | $nixSettings[0] as $nix
-      | ($existing * $nix)
-      | .deniedMcpServers = ((($existing.deniedMcpServers // []) + ($nix.deniedMcpServers // [])) | unique)
-      | .enabledPlugins = (($existing.enabledPlugins // {}) + ($nix.enabledPlugins // {}))
-      | .env = (($existing.env // {}) + ($nix.env // {}))${legacyEnvValuesJq}${retiredEnvJq}${retiredSettingsJq}' \
-      "$existing_settings" > "$CLAUDE_SETTINGS_TMP"; then
-      echo "ERROR: jq failed to merge Claude Code settings" >&2
-      exit 1
-    fi
-
-    if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_SETTINGS_TMP" 2>/dev/null; then
-      echo "ERROR: resulting Claude Code settings are not valid JSON" >&2
-      exit 1
-    fi
-
-    mv "$CLAUDE_SETTINGS_TMP" "$CLAUDE_SETTINGS"
-    chmod 600 "$CLAUDE_SETTINGS"
-
-    # Ensure the file exists
-    if [ ! -f "$CLAUDE_CONFIG" ]; then
-      echo "{}" > "$CLAUDE_CONFIG"
-    fi
-
-    # Merge Nix-managed settings into existing config while replacing
-    # Nix-managed MCP server entries wholesale to avoid stale per-server
-    # keys like old command/args transport fallbacks lingering forever.
-    if ! ${pkgs.jq}/bin/jq --slurpfile nixConfig ${claudeJsonConfigFile} \
-      '. as $existing
-      | $nixConfig[0] as $nix
-      | ($existing * $nix)
-      | .mcpServers = (($existing.mcpServers // {}) + ($nix.mcpServers // {}))
-      ${retiredJsonJq}' \
-      "$CLAUDE_CONFIG" > "$CLAUDE_CONFIG_TMP"; then
-      echo "ERROR: jq failed to merge config" >&2
-      exit 1
-    fi
-
-    # Validate result is valid JSON
-    if ! ${pkgs.jq}/bin/jq empty "$CLAUDE_CONFIG_TMP" 2>/dev/null; then
-      echo "ERROR: resulting config is not valid JSON" >&2
-      exit 1
-    fi
-
-    mv "$CLAUDE_CONFIG_TMP" "$CLAUDE_CONFIG"
-    chmod 600 "$CLAUDE_CONFIG"
-
-    echo "✢ Claude Code: config applied (MCP via agents.mcp)"
-  '';
-}
-// lib.optionalAttrs bunInstallEnabled {
-  # The probe URL is pinned to the public npm registry because every
-  # host in this repo runs bun against the default registry. If a
-  # future host points bun at a private mirror via `~/.bunfig.toml`
-  # or `BUN_CONFIG_REGISTRY`, this probe will check the wrong
-  # endpoint and either skip a working install or run an install
-  # that fails immediately. Update the URL alongside the bun config
-  # if that ever happens.
-  installClaudeCodeViaBun = lib.hm.dag.entryAfter [ "writeBoundary" "createBunDir" ] ''
-    export BUN_INSTALL="${bunInstallDir}"
-    if ${pkgs.curl}/bin/curl --silent --show-error --fail --max-time 5 \
-        --output /dev/null \
-        https://registry.npmjs.org/@anthropic-ai/claude-code/latest; then
-      run ${bunBin} install -g @anthropic-ai/claude-code
-    elif [ -x "$BUN_INSTALL/bin/claude" ]; then
-      echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above), keeping existing install at $BUN_INSTALL/bin/claude" >&2
-    else
-      echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above) and no existing claude-code binary at $BUN_INSTALL/bin/claude; rerun home-manager switch once the registry is reachable" >&2
-    fi
-  '';
+  inherit applyConfig;
+  activation = {
+    claudeCodeSetup = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+      run ${lib.getExe applyConfig} ${claudeSettingsFile} ${claudeJsonConfigFile} ${stateFile}
+    '';
+  }
+  // lib.optionalAttrs bunInstallEnabled {
+    # The probe URL is pinned to the public npm registry because every
+    # host in this repo runs bun against the default registry. If a
+    # future host points bun at a private mirror via `~/.bunfig.toml`
+    # or `BUN_CONFIG_REGISTRY`, this probe will check the wrong
+    # endpoint and either skip a working install or run an install
+    # that fails immediately. Update the URL alongside the bun config
+    # if that ever happens.
+    installClaudeCodeViaBun = lib.hm.dag.entryAfter [ "writeBoundary" "createBunDir" ] ''
+      export BUN_INSTALL="${bunInstallDir}"
+      if ${pkgs.curl}/bin/curl --silent --show-error --fail --max-time 5 \
+          --output /dev/null \
+          https://registry.npmjs.org/@anthropic-ai/claude-code/latest; then
+        run ${bunBin} install -g @anthropic-ai/claude-code
+      elif [ -x "$BUN_INSTALL/bin/claude" ]; then
+        echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above), keeping existing install at $BUN_INSTALL/bin/claude" >&2
+      else
+        echo "warning: installClaudeCodeViaBun: npm registry probe failed (see curl error above) and no existing claude-code binary at $BUN_INSTALL/bin/claude; rerun home-manager switch once the registry is reachable" >&2
+      fi
+    '';
+  };
 }

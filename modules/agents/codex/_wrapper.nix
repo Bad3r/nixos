@@ -9,6 +9,11 @@
   pkgs,
 }:
 let
+  codexEnv = import ./_env.nix;
+  envExports = lib.concatStringsSep "\n" (
+    lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") codexEnv.vars
+  );
+
   # Repackaged codex closure that exposes codex-package.json for
   # InstallContext::from_exe without enabling upstream's zsh fork path.
   codexPackaged = import ./_packaged-codex.nix {
@@ -82,7 +87,9 @@ let
   # Execpolicy is not merged here; Codex loads rules separately from CODEX_HOME/rules/.
   # Re-merges only when the input file hashes change.
   codexWrapped = pkgs.writeShellScriptBin "codex" ''
+    ${envExports}
     cfgDir="''${CODEX_HOME:-${configDir}}"
+    export CODEX_HOME="$cfgDir"
     base="$cfgDir/config.base.toml"
     nixProjects="$cfgDir/projects.nix.toml"
     userProjects="$cfgDir/trusted-projects.toml"

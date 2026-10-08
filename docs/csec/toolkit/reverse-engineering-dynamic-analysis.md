@@ -1,0 +1,96 @@
+# Pentesting Toolkit: Reverse Engineering & Dynamic Analysis
+
+[Back to Pentesting Toolkit](../toolkit.md)
+
+## Reverse Engineering & Dynamic Analysis
+
+- assetripper
+  - run..: `AssetRipper`
+  - Repo.: <https://github.com/AssetRipper/AssetRipper>
+  - Docs.: <https://assetripper.github.io/AssetRipper/>
+  - Desc.: GUI application for analyzing Unity game files and extracting assets.
+- cutter
+  - run..: `cutter $binary`
+  - Repo.: <https://github.com/rizinorg/cutter>
+  - Docs.: <https://cutter.re/>
+  - Desc.: Rizin-powered reverse engineering GUI with decompiler, graph view, and integrated debugger.
+- frida-tools
+  - run..: `frida -U $process`
+  - Repo.: <https://github.com/frida/frida-tools>
+  - Docs.: <https://frida.re/docs/>
+  - Desc.: Dynamic instrumentation of native and managed runtimes.
+- gdb
+  - run..: `gdb $binary`
+  - Repo.: <https://sourceware.org/git/binutils-gdb.git>
+  - Docs.: <https://sourceware.org/gdb/documentation/>
+  - Desc.: GNU debugger for native binary inspection and exploit development.
+- ghidra
+  - run..: `ghidra`
+  - Repo.: <https://github.com/NationalSecurityAgency/ghidra>
+  - Docs.: <https://ghidra-sre.org/>
+  - Desc.: NSA reverse engineering platform with decompiler.
+- hopper
+  - run..: `hopper`
+  - Repo.: <https://www.hopperapp.com/>
+  - Docs.: <https://www.hopperapp.com/tutorial.html>
+  - Desc.: Commercial disassembler and decompiler for ELF and Mach-O binaries.
+- iaito
+  - run..: `iaito $binary`
+  - Repo.: <https://github.com/radareorg/iaito>
+  - Docs.: <https://rada.re/n/iaito.html>
+  - Desc.: Official Qt GUI for radare2 with disassembly, graph, and hex views.
+- ilspycmd
+  - run..: `ilspycmd $assembly.dll`
+  - Repo.: <https://github.com/icsharpcode/ILSpy>
+  - Docs.: <https://github.com/icsharpcode/ILSpy/blob/master/ICSharpCode.ILSpyCmd/README.md>
+  - Desc.: Command-line decompiler for .NET assemblies that can generate portable PDBs.
+- imhex
+  - run..: `imhex $binary`
+  - Repo.: <https://github.com/WerWolv/ImHex>
+  - Docs.: <https://imhex.org/>
+  - Desc.: Hex editor for reverse engineers and programmers.
+- jadx
+  - run..: `jadx -d out/ $apk`
+  - Repo.: <https://github.com/skylot/jadx>
+  - Docs.: <https://github.com/skylot/jadx/wiki>
+  - Desc.: Dex to Java decompiler for APK and DEX files, with a companion GUI for browsing decompiled sources.
+- ltrace
+  - run..: `ltrace $binary`
+  - Repo.: <https://gitlab.com/cespedes/ltrace>
+  - Docs.: <https://www.ltrace.org/>
+  - Desc.: Library call tracer.
+- malimite
+  - run..: `malimite`
+  - Repo.: <https://github.com/LaurieWired/Malimite>
+  - Docs.: <https://github.com/LaurieWired/Malimite/wiki>
+  - Desc.: Ghidra-based decompiler for iOS and macOS IPA files and application bundles, with Swift and Objective-C support.
+- mono
+  - run..: `mono program.exe`
+  - Repo.: <https://gitlab.winehq.org/mono/mono>
+  - Docs.: <https://www.mono-project.com/docs/>
+  - Desc.: Cross-platform runtime and developer tools for running .NET Framework assemblies.
+- patchelf
+  - run..: `patchelf --print-interpreter --print-rpath --print-needed $binary`
+  - Repo.: <https://github.com/NixOS/patchelf>
+  - Docs.: <https://github.com/NixOS/patchelf#readme>
+  - Desc.: Rewrites the ELF interpreter, RPATH/RUNPATH, and DT_NEEDED records of prebuilt binaries so foreign or stripped samples load under a chosen loader and library set; nixpkgs pins this attribute to the 0.15.x stdenv series while `patchelfUnstable` carries the newer snapshot.
+- radare2
+  - run..: `r2 -A $binary`
+  - Repo.: <https://github.com/radareorg/radare2>
+  - Docs.: <https://book.rada.re/>
+  - Desc.: Command-line reverse engineering framework with disassembler, debugger, hex editor, and binary patching.
+- rizin
+  - run..: `rizin -A $binary`
+  - Repo.: <https://github.com/rizinorg/rizin>
+  - Docs.: <https://book.rizin.re/>
+  - Desc.: Reverse engineering framework forked from radare2 and used as the analysis engine behind Cutter.
+- strace
+  - run..: `strace $binary`
+  - Repo.: <https://github.com/strace/strace>
+  - Docs.: <https://strace.io/>
+  - Desc.: System call tracer.
+- valgrind
+  - run..: `valgrind $binary`
+  - Repo.: <https://sourceware.org/git/valgrind.git>
+  - Docs.: <https://valgrind.org/docs/>
+  - Desc.: Memory error and vulnerability inspection toolkit.

@@ -69,6 +69,8 @@ in
         "/data/Gaming"
         "/data/media"
         torrentDir
+        "/games"
+        "/media"
       ];
       inherit (config.services.qbittorrent) profileDir;
       # Shared by every unit that runs inside the namespace as an unprivileged,

@@ -1,0 +1,106 @@
+# Pentesting Toolkit: Network Reconnaissance & Enumeration
+
+[Back to Pentesting Toolkit](../toolkit.md)
+
+## Network Reconnaissance & Enumeration
+
+- amass
+  - run..: `amass enum -d $domain`
+  - Repo.: <https://github.com/owasp-amass/amass>
+  - Docs.: <https://github.com/owasp-amass/amass/blob/master/doc/user_guide.md>
+  - Desc.: OWASP attack-surface mapping and subdomain enumeration.
+- assetfinder
+  - run..: `assetfinder --subs-only $domain`
+  - Repo.: <https://github.com/tomnomnom/assetfinder>
+  - Docs.: <https://github.com/tomnomnom/assetfinder#readme>
+  - Desc.: Lightweight passive subdomain finder that emits pipeline-friendly domain lists.
+- arp-scan-rs
+  - run..: `arp-scan --profile default`
+  - Repo.: <https://github.com/kongbytes/arp-scan-rs>
+  - Docs.: <https://github.com/kongbytes/arp-scan-rs#readme>
+  - Desc.: Rust ARP sweeper for local Layer-2 host discovery with profiles, VLAN support, and structured output.
+- cdncheck
+  - run..: `cdncheck -i $host -silent`
+  - Repo.: <https://github.com/projectdiscovery/cdncheck>
+  - Docs.: <https://github.com/projectdiscovery/cdncheck#readme>
+  - Desc.: Identifies CDN, cloud, and WAF providers for DNS names or IP addresses.
+- dnsenum
+  - run..: `dnsenum $domain`
+  - Repo.: <https://github.com/SparrowOchon/dnsenum2>
+  - Docs.: <https://github.com/SparrowOchon/dnsenum2#readme>
+  - Desc.: Multi-purpose Perl DNS enumeration toolkit with AXFR, brute force, and Google scraping.
+- dnsx
+  - run..: `dnsx -l hosts.txt -resp`
+  - Repo.: <https://github.com/projectdiscovery/dnsx>
+  - Docs.: <https://docs.projectdiscovery.io/tools/dnsx>
+  - Desc.: Concurrent DNS toolkit for resolving and probing host lists.
+- findomain
+  - run..: `findomain -t $domain`
+  - Repo.: <https://github.com/Findomain/Findomain>
+  - Docs.: <https://github.com/Findomain/Findomain/tree/master/docs>
+  - Desc.: Fast subdomain enumerator backed by Certificate Transparency logs and public APIs.
+- httpx
+  - run..: `httpx -l hosts.txt`
+  - Repo.: <https://github.com/projectdiscovery/httpx>
+  - Docs.: <https://docs.projectdiscovery.io/tools/httpx>
+  - Desc.: Fast HTTP toolkit for probing, fingerprinting, and triage.
+- masscan
+  - run..: `masscan -p1-65535 $target --rate 10000`
+  - Repo.: <https://github.com/robertdavidgraham/masscan>
+  - Docs.: <https://github.com/robertdavidgraham/masscan#readme>
+  - Desc.: Asynchronous Internet-scale TCP port scanner.
+- naabu
+  - run..: `naabu -host $target`
+  - Repo.: <https://github.com/projectdiscovery/naabu>
+  - Docs.: <https://docs.projectdiscovery.io/tools/naabu>
+  - Desc.: Fast SYN, CONNECT, and UDP port scanner that streams into httpx/dnsx-style recon pipelines.
+- nbtscan
+  - run..: `nbtscan -v $target_range`
+  - Repo.: <https://github.com/resurrecting-open-source-projects/nbtscan>
+  - Docs.: <https://github.com/resurrecting-open-source-projects/nbtscan#readme>
+  - Desc.: Sends NetBIOS status queries across an IP range and reports host names, logged-in users, and MAC addresses.
+- nmap
+  - run..: `nmap -sV -sC $target`
+  - Repo.: <https://github.com/nmap/nmap>
+  - Docs.: <https://nmap.org/book/>
+  - Desc.: Network mapper, port scanner, and NSE scripting host.
+- opendirectorydownloader
+  - run..: `OpenDirectoryDownloader --url $url`
+  - Repo.: <https://github.com/KoalaBear84/OpenDirectoryDownloader>
+  - Docs.: <https://github.com/KoalaBear84/OpenDirectoryDownloader#readme>
+  - Desc.: Crawls and exports public open directories for OSINT collection.
+- subfinder
+  - run..: `subfinder -d $domain`
+  - Repo.: <https://github.com/projectdiscovery/subfinder>
+  - Docs.: <https://docs.projectdiscovery.io/tools/subfinder>
+  - Desc.: Passive subdomain discovery aggregator.
+- subjack
+  - run..: `subjack -w subs.txt -ssl`
+  - Repo.: <https://github.com/haccer/subjack>
+  - Docs.: <https://github.com/haccer/subjack#usage>
+  - Desc.: DNS takeover scanner for dangling CNAME, stale cloud record, NS, AXFR, and mail-related findings.
+- tlsx
+  - run..: `tlsx -u $target -san -cn`
+  - Repo.: <https://github.com/projectdiscovery/tlsx>
+  - Docs.: <https://docs.projectdiscovery.io/tools/tlsx>
+  - Desc.: TLS certificate, handshake, cipher, and fingerprint data collector for host triage.
+- wafw00f
+  - run..: `wafw00f $url`
+  - Repo.: <https://github.com/EnableSecurity/wafw00f>
+  - Docs.: <https://github.com/EnableSecurity/wafw00f#readme>
+  - Desc.: Fingerprints the Web Application Firewall (if any) fronting a target; complements cdncheck's passive detection with active probing.
+- wappalyzer-next
+  - run..: `wappalyzer -i $url`
+  - Repo.: <https://github.com/s0md3v/wappalyzer-next>
+  - Docs.: <https://github.com/s0md3v/wappalyzer-next#readme>
+  - Desc.: Identifies frameworks, CMSes, and libraries behind web pages.
+- whatweb
+  - run..: `whatweb $url`
+  - Repo.: <https://github.com/urbanadventurer/WhatWeb>
+  - Docs.: <https://github.com/urbanadventurer/WhatWeb/wiki>
+  - Desc.: Fingerprints web servers, plugins, and content management systems.
+- whois
+  - run..: `whois $domain`
+  - Repo.: <https://github.com/rfc1036/whois>
+  - Docs.: <https://github.com/rfc1036/whois#readme>
+  - Desc.: Domain registration and ownership lookups.

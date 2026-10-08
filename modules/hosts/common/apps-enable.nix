@@ -44,6 +44,7 @@ let
       antimicrox.extended.enable = lib.mkOverride 1100 true;
       "arp-scan-rs".extended.enable = lib.mkOverride 1100 true;
       arandr.extended.enable = lib.mkOverride 1100 true;
+      assetripper.extended.enable = lib.mkOverride 1100 false;
       "ast-grep".extended.enable = lib.mkOverride 1100 true;
       atuin.extended.enable = lib.mkOverride 1100 true;
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
@@ -54,6 +55,7 @@ let
       "azure-cli".extended.enable = lib.mkOverride 1100 true;
       b3sum.extended.enable = lib.mkOverride 1100 true;
       babashka.extended.enable = lib.mkOverride 1100 false;
+      bandwhich.extended.enable = lib.mkOverride 1100 true;
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
@@ -90,7 +92,6 @@ let
       "claude-code".extended.enable = lib.mkOverride 1100 true;
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
-      "claude-code".extended.lspPlugins."swift-lsp" = lib.mkOverride 1100 false;
       "claude-desktop".extended.enable = lib.mkOverride 1100 true;
       "claude-plugins".extended.enable = lib.mkOverride 1100 true;
       "claude-wpa".extended.enable = lib.mkOverride 1100 false; # Deprecated: use claude-desktop
@@ -103,7 +104,6 @@ let
       "cloudflare-warp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 true;
       cmake.extended.enable = lib.mkOverride 1100 true;
-      codegraph.extended.enable = lib.mkOverride 1100 true;
       "coderabbit-cli".extended.enable = lib.mkOverride 1100 true;
       codex.extended.enable = lib.mkOverride 1100 true;
       "codex-desktop".extended.enable = lib.mkOverride 1100 false;
@@ -131,6 +131,7 @@ let
       dmidecode.extended.enable = lib.mkOverride 1100 true;
       dnsenum.extended.enable = lib.mkOverride 1100 true;
       dnsleak.extended.enable = lib.mkOverride 1100 true;
+      dnsutils.extended.enable = lib.mkOverride 1100 true;
       dnsx.extended.enable = lib.mkOverride 1100 true;
       docker.extended.enable = lib.mkOverride 1100 true;
       dolphin.extended.enable = lib.mkOverride 1100 false;
@@ -148,6 +149,7 @@ let
       "electron-mail".extended.enable = lib.mkOverride 1100 true;
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 true;
+      ethtool.extended.enable = lib.mkOverride 1100 true;
       exiftool.extended.enable = lib.mkOverride 1100 true;
       exploitdb.extended.enable = lib.mkOverride 1100 true;
       f3.extended.enable = lib.mkOverride 1100 true;
@@ -223,9 +225,13 @@ let
       i7z.extended.enable = lib.mkOverride 1100 true;
       iaito.extended.enable = lib.mkOverride 1100 false;
       ifuse.extended.enable = lib.mkOverride 1100 true;
+      ilspycmd.extended.enable = lib.mkOverride 1100 false;
+      imhex.extended.enable = lib.mkOverride 1100 false;
+      inetutils.extended.enable = lib.mkOverride 1100 true;
       inkscape.extended.enable = lib.mkOverride 1100 false;
       intelephense.extended.enable = lib.mkOverride 1100 false;
       iotop.extended.enable = lib.mkOverride 1100 true;
+      iproute2.extended.enable = lib.mkOverride 1100 true;
       iptables.extended.enable = lib.mkOverride 1100 true;
       jadx.extended.enable = lib.mkOverride 1100 false;
       "jdt-language-server".extended.enable = lib.mkOverride 1100 false;
@@ -286,6 +292,7 @@ let
       mkcert.extended.enable = lib.mkOverride 1100 true;
       mlr.extended.enable = lib.mkOverride 1100 true;
       "monitor-query".extended.enable = lib.mkOverride 1100 false;
+      mono.extended.enable = lib.mkOverride 1100 false;
       moreutils.extended.enable = lib.mkOverride 1100 true;
       mosh.extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
@@ -300,6 +307,7 @@ let
       neovim.extended.enable = lib.mkOverride 1100 true;
       netcat.extended.enable = lib.mkOverride 1100 true;
       netexec.extended.enable = lib.mkOverride 1100 true;
+      nethogs.extended.enable = lib.mkOverride 1100 true;
       "networkmanager-dmenu".extended.enable = lib.mkOverride 1100 true;
       "networkmanager-openvpn".extended.enable = lib.mkOverride 1100 true;
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
@@ -498,6 +506,7 @@ let
       weasyprint.extended.enable = lib.mkOverride 1100 true;
       webcrack.extended.enable = lib.mkOverride 1100 false;
       webex.extended.enable = lib.mkOverride 1100 true;
+      websocat.extended.enable = lib.mkOverride 1100 false;
       wezterm.extended.enable = lib.mkOverride 1100 false;
       wfuzz.extended.enable = lib.mkOverride 1100 false;
       wgcf.extended.enable = lib.mkOverride 1100 true;

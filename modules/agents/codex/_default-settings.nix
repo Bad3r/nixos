@@ -1,158 +1,176 @@
+/*
+  Codex config.toml catalog. Uncomment an optional setting and supply its value;
+  commented settings use Codex's default. _settings.nix owns site overrides,
+  _features.nix owns feature flags, and _env.nix owns launch environment values.
+
+  Source: openai/codex 58670eeac4b0bdb9fcb86929d8631c14aee0d9f6,
+  codex-rs/config/src/{config_toml,types}.rs and core/config.schema.json.
+  The pinned executable is checked by codex/config at build time.
+*/
 {
-  # agents = null;
-  allow_login_shell = true;
-  analytics = {
-    enabled = true;
-  };
-  approval_policy = "on-request";
-  apps = { };
-  background_terminal_max_timeout = 300000;
-  # chatgpt_base_url = null;
-  check_for_update_on_startup = true;
-  cli_auth_credentials_store = "auto";
-  # commit_attribution = null;
-  # compact_prompt = null;
-  # developer_instructions = null;
-  disable_paste_burst = false;
-  # experimental_compact_prompt_file = null;
-  # experimental_realtime_ws_backend_prompt = null;
-  # experimental_realtime_ws_base_url = null;
-  # experimental_use_freeform_apply_patch = null;
-  # experimental_use_unified_exec_tool = null;
-  features = {
-    shell_tool = true;
-    unified_exec = true;
-    shell_zsh_fork = false;
-    shell_snapshot = true;
-    code_mode = false;
-    code_mode_only = false;
-    code_mode_host = true;
-    terminal_resize_reflow = true;
-    standalone_web_search = false;
-    runtime_metrics = false;
-    memories = false;
-    chronicle = false;
-    apply_patch_streaming_events = false;
-    exec_permission_approvals = false;
-    hooks = true;
-    request_permissions_tool = false;
-    enable_request_compression = true;
-    network_proxy = false;
-    multi_agent = true;
-    multi_agent_v2 = false;
-    enable_fanout = false;
-    apps = true;
-    enable_mcp_apps = false;
-    apps_mcp_path_override = false;
-    tool_search_always_defer_mcp_tools = false;
-    non_prefixed_mcp_tool_names = false;
-    tool_suggest = true;
-    plugins = true;
-    in_app_browser = true;
-    browser_use = true;
-    browser_use_external = true;
-    computer_use = true;
-    remote_plugin = false;
-    plugin_sharing = true;
-    external_migration = false;
-    image_generation = true;
-    skill_mcp_dependency_install = true;
-    mentions_v2 = false;
-    default_mode_request_user_input = false;
-    guardian_approval = true;
-    goals = true;
-    tool_call_mcp_elicitation = true;
-    auth_elicitation = false;
-    personality = true;
-    artifact = false;
-    fast_mode = true;
-    realtime_conversation = false;
-    prevent_idle_sleep = false;
-    workspace_dependencies = true;
-  };
-  feedback = {
-    enabled = true;
-  };
-  file_opener = "vscode";
-  # forced_chatgpt_workspace_id = null;
-  # forced_login_method = null;
-  # ghost_snapshot = null;
-  hide_agent_reasoning = false;
-  history = {
-    # max_bytes = null;
-    persistence = "save-all";
-  };
-  # instructions = null;
-  # js_repl_node_module_dirs = null;
-  # js_repl_node_path = null;
-  # log_dir = null;
-  # mcp_oauth_callback_port = null;
-  # mcp_oauth_callback_url = null;
-  mcp_oauth_credentials_store = "auto";
-  mcp_servers = { };
-  # memories = null;
-  # model = null;
-  # model_auto_compact_token_limit = null;
-  # model_catalog_json = null;
-  # model_context_window = null;
-  # model_instructions_file = null;
+  # Models and providers
+  # Model identifiers and effort levels depend on the active provider's catalog.
+  # model = "";
+  # review_model = "";
   model_provider = "openai";
   model_providers = { };
-  # model_reasoning_effort = null;
-  # model_reasoning_summary = "auto";
-  # model_supports_reasoning_summaries = null;
-  model_verbosity = "medium";
-  # notice = null;
-  # notify = null;
-  # oss_provider = null;
+  # openai_base_url = "https://api.openai.com/v1";
+  # chatgpt_base_url = "https://chatgpt.com/backend-api";
+  # oss_provider = "ollama"; # ollama | lmstudio
+  # model_catalog_json = "/absolute/path/models.json";
+  # model_reasoning_effort = "high";
+  # plan_mode_reasoning_effort = "high";
+  # Reasoning summaries require model support; omission avoids forcing a format.
+  # model_reasoning_summary = "auto"; # auto | concise | detailed | none
+  model_verbosity = "medium"; # low | medium | high
+  # service_tier = "priority"; # default | priority | flex
+  # Additional metadata attached to Responses requests.
+  # responses_api_metadata = { };
+
+  # Context and instructions
+  # model_context_window = 200000;
+  # model_auto_compact_token_limit = 180000;
+  # model_auto_compact_token_limit_scope = "total"; # total | body_after_prefix
+  # model_post_turn_compact_threshold_percent = 90;
+  # Replaces the model's instructions; developer_instructions adds another layer.
+  # model_instructions_file = "/absolute/path/instructions.md";
+  # developer_instructions = "";
+  # instructions = "";
+  # compact_prompt = "";
+  # experimental_compact_prompt_file = "/absolute/path/compact.md";
+  # Controls which context sections are included in the model prompt.
+  # include_permissions_instructions = true;
+  # include_apps_instructions = true;
+  # include_collaboration_mode_instructions = true;
+  # include_environment_context = true;
+  # project_doc_max_bytes = 32768;
+  # project_doc_fallback_filenames = [ ];
+  project_root_markers = [ ".git" ];
+  projects = { };
+  # tool_output_token_limit = 10000;
+
+  # Approval and execution policy
+  approval_policy = "on-request";
+  # approvals_reviewer = "user"; # user | guardian
+  # auto_review = { policy = ""; };
+  # Selects a named permissions profile; definitions are composed in _settings.nix.
+  # default_permissions = "workspace";
+  # permissions = { };
+  allow_login_shell = true;
+  background_terminal_max_timeout = 300000;
+  # Shell tool inheritance is independent of the Codex launch environment.
+  # shell_environment_policy = {
+  #   "inherit" = "all"; # all | core | none
+  #   ignore_default_excludes = true;
+  #   filters = { "EXAMPLE_*" = "exclude"; }; # include | exclude
+  #   set = { };
+  #   experimental_use_profile = false;
+  # };
+
+  # Authentication and storage
+  cli_auth_credentials_store = "auto"; # auto | file | keyring | ephemeral
+  # forced_login_method = "chatgpt"; # chatgpt | api
+  # forced_chatgpt_workspace_id = "";
+  # sqlite_home = "/absolute/path/state";
+  # log_dir = "/absolute/path/logs";
+  # Seconds before app-server unloads an idle thread; requires a server restart.
+  # thread_unload_delay_secs = 60;
+  history = {
+    persistence = "save-all"; # save-all | none
+    # max_bytes = 104857600;
+  };
+
+  # MCP and integrations
+  # Server records are compiled per client by ../mcp.nix.
+  # Codex accepts command/args for stdio or url for HTTP, with no type field.
+  mcp_servers = { };
+  mcp_oauth_credentials_store = "auto"; # auto | file | keyring
+  # mcp_oauth_callback_port = 0;
+  # mcp_oauth_callback_url = "https://example.com/callback";
+  # Initial tool-catalog grace period; zero waits for each server's timeout.
+  # mcp_optional_startup_grace_ms = 1000;
+  # mcp_enterprise_managed_auth = { };
+  apps = { };
+  # apps_mcp_product_sku = "";
+  # Plugin enablement and per-server tool policies, keyed by name@marketplace.
+  # plugins = { };
+  # marketplaces = { };
+  # tool_suggest = { disabled_tools = [ ]; discoverables = [ ]; };
+  # Account-provided skills and MCP controls.
+  # cloud = { skills.enabled = true; };
+  # orchestrator = { mcp.enabled = true; };
+
+  # Agents, skills, memory, and hooks
+  # agents = { };
+  # goals = { };
+  # memories = { };
+  # skills = { config = [ ]; };
+  # Inline lifecycle hooks use the hooks.json event schema.
+  # hooks = { };
+
+  # Browser, computer, and web tools
+  web_search = "cached"; # disabled | cached | indexed | live
+  # tools = { view_image = true; };
+  # browser_use = { };
+  # computer_use = { };
+
+  # Realtime and experimental storage
+  # audio = { };
+  # realtime = { };
+  # experimental_realtime_ws_base_url = "";
+  # experimental_realtime_webrtc_call_base_url = "";
+  # experimental_realtime_ws_model = "";
+  # experimental_realtime_ws_backend_prompt = "";
+  # experimental_realtime_ws_startup_context = "";
+  # experimental_realtime_start_instructions = "";
+  # experimental_thread_store = { type = "local"; };
+
+  # Telemetry and maintenance
+  analytics.enabled = true;
+  feedback.enabled = true;
+  check_for_update_on_startup = true;
+  suppress_unstable_features_warning = false;
   otel = {
     environment = "dev";
     exporter = "none";
-    log_user_prompt = false;
     trace_exporter = "none";
+    log_user_prompt = false;
   };
-  # default_permissions = null;
-  # permissions = null;
-  # personality = null;
-  # plan_mode_reasoning_effort = null;
-  # project_doc_fallback_filenames = null;
-  # project_doc_max_bytes = null;
-  project_root_markers = [ ".git" ];
-  projects = { };
-  # review_model = null;
-  # sandbox_mode = "workspace-write"; # Legacy syntax; prefer default_permissions.
-  # sandbox_workspace_write = { # Legacy syntax; prefer default_permissions.
-  #   exclude_slash_tmp = null;
-  #   exclude_tmpdir_env_var = null;
-  #   network_access = null;
-  #   writable_roots = null;
-  # };
-  # shell_environment_policy = {
-  #   exclude = null;
-  #   experimental_use_profile = null;
-  #   ignore_default_excludes = null;
-  #   include_only = null;
-  #   "inherit" = null;
-  #   set = null;
-  # };
+
+  # Terminal UI
+  file_opener = "vscode";
+  hide_agent_reasoning = false;
   show_raw_agent_reasoning = false;
-  # skills = null;
-  # sqlite_home = null;
-  suppress_unstable_features_warning = false;
-  # tool_output_token_limit = null;
-  # tools = null;
+  # notify = [ "notify-send" ];
+  # Notice acknowledgements and desktop state are written by Codex itself.
+  # notice = { };
+  # desktop = { };
   tui = {
-    alternate_screen = "auto";
+    alternate_screen = "auto"; # auto | always | never
     animations = true;
-    notification_method = "auto";
-    # notifications = null;
+    disable_paste_burst = false;
+    notification_method = "auto"; # auto | osc9 | bel
+    # notification_condition = "unfocused"; # unfocused | always
+    # notifications = true; # Boolean or list of event names.
     raw_output_mode = false;
     show_tooltips = true;
-    # status_line = null;
     status_line_use_colors = true;
-    # terminal_title = null;
-    # theme = null;
     vim_mode_default = false;
+    # status_line = [ "model-with-reasoning" "current-dir" "thread-name" ];
+    # terminal_title = [ "activity" "thread-name" "project-name" ];
+    # theme = "one-half-dark";
+    # resume_cwd = "current"; # current | session
+    # auto_recap = true;
+    # prompt_suggestions = false;
+    # fullscreen_transcript = true;
+    # copy_on_select = "auto"; # auto | on | off
+    # right_click_paste = "auto"; # auto | on | off
+    # Set zero for unlimited resize replay; omission selects a terminal default.
+    # terminal_resize_reflow_max_rows = 0;
+    # Individual effects also require animations; content rendering is separate.
+    # effects = { shimmer = true; progress = true; };
+    # rendering = { mermaid = true; math = true; tables = true; lists = true; };
+    # Keymap contexts and action names come from config/src/tui_keymap.rs.
+    # keymap = { global.toggle_vim_mode = "alt-v"; };
   };
-  web_search = "cached";
 }

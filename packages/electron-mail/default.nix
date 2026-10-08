@@ -18,7 +18,7 @@
 
 let
   pname = "electron-mail";
-  version = "5.3.8";
+  version = "5.3.9";
   passthru = {
     updateScript = ./update.py;
   };
@@ -26,15 +26,15 @@ let
   sources = {
     x86_64-linux = fetchurl {
       url = "https://github.com/vladimiry/ElectronMail/releases/download/v${version}/electron-mail-${version}-linux-x86_64.AppImage";
-      hash = "sha256-twqB1D3zLlZJuxQWD4dGF70w57yYv6i3abGBidERsss=";
+      hash = "sha256-hZxcodnfQ4iyLaXE04QgIjOJs+3NJ7Ukckk71DqnRy0=";
     };
     aarch64-darwin = fetchurl {
       url = "https://github.com/vladimiry/ElectronMail/releases/download/v${version}/electron-mail-${version}-mac-arm64.dmg";
-      hash = "sha256-V32Wi0oCU9dLfzqxg3OdseiILX7wPiBGNz7KuG0vlZY=";
+      hash = "sha256-2CRUEif7UMsZgDWw3HiUEip68wXd0AUPPHdo712ZnYc=";
     };
     x86_64-darwin = fetchurl {
       url = "https://github.com/vladimiry/ElectronMail/releases/download/v${version}/electron-mail-${version}-mac-x64.dmg";
-      hash = "sha256-I1UvFMSdAwkqgkhn+mkBGslA8v+VTajO/Za0lJ5uYZ8=";
+      hash = "sha256-FyxOmOqloMwjs+qS93H6tQbQVCbln+RIwtf0oTSY5cA=";
     };
   };
 

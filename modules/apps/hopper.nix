@@ -2,7 +2,7 @@
   Package: hopper
   Description: MacOS and Linux Disassembler for reverse engineering Mach-O and other binary formats.
   Homepage: https://www.hopperapp.com/
-  Documentation: https://www.hopperapp.com/documentation.html
+  Documentation: https://www.hopperapp.com/tutorial.html
 
   Summary:
     * Disassembler and decompiler for macOS and Linux binaries

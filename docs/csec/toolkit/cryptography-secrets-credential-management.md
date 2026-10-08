@@ -1,0 +1,106 @@
+# Pentesting Toolkit: Cryptography, Secrets & Credential Management
+
+[Back to Pentesting Toolkit](../toolkit.md)
+
+## Cryptography, Secrets & Credential Management
+
+- age
+  - run..: `age -r $recipient -o out.age $file`
+  - Repo.: <https://github.com/FiloSottile/age>
+  - Docs.: <https://age-encryption.org/>
+  - Desc.: Modern file encryption tool with small key format.
+- age-plugin-fido2prf
+  - run..: `age-plugin-fido2prf`
+  - Repo.: <https://github.com/Fl1ger/age-plugin-fido2prf>
+  - Docs.: <https://github.com/Fl1ger/age-plugin-fido2prf#readme>
+  - Desc.: FIDO2 PRF plugin for hardware-backed age encryption.
+- b3sum
+  - run..: `b3sum $file`
+  - Repo.: <https://github.com/BLAKE3-team/BLAKE3>
+  - Docs.: <https://github.com/BLAKE3-team/BLAKE3#readme>
+  - Desc.: BLAKE3 hashing utility for fast integrity and forensic hashing.
+- bitwarden-cli
+  - run..: `bw login`
+  - Repo.: <https://github.com/bitwarden/clients>
+  - Docs.: <https://bitwarden.com/help/cli/>
+  - Desc.: Bitwarden vault CLI.
+- certbot
+  - run..: `certbot certonly`
+  - Repo.: <https://github.com/certbot/certbot>
+  - Docs.: <https://eff-certbot.readthedocs.io/>
+  - Desc.: Let's Encrypt ACME client.
+- cryptsetup
+  - run..: `cryptsetup luksOpen $device $name`
+  - Repo.: <https://gitlab.com/cryptsetup/cryptsetup>
+  - Docs.: <https://gitlab.com/cryptsetup/cryptsetup/-/wikis/home>
+  - Desc.: LUKS disk encryption userspace.
+- gopass
+  - run..: `gopass list`
+  - Repo.: <https://github.com/gopasspw/gopass>
+  - Docs.: <https://github.com/gopasspw/gopass/blob/master/docs/index.md>
+  - Desc.: Pass-compatible password store.
+- gpg-tui
+  - run..: `gpg-tui`
+  - Repo.: <https://github.com/orhun/gpg-tui>
+  - Docs.: <https://github.com/orhun/gpg-tui#readme>
+  - Desc.: TUI GPG keyring manager.
+- keepassxc
+  - run..: `keepassxc`
+  - Repo.: <https://github.com/keepassxreboot/keepassxc>
+  - Docs.: <https://keepassxc.org/docs/>
+  - Desc.: KeePassXC password manager (KDBX databases).
+- mkcert
+  - run..: `mkcert example.com`
+  - Repo.: <https://github.com/FiloSottile/mkcert>
+  - Docs.: <https://github.com/FiloSottile/mkcert#readme>
+  - Desc.: Local development certificate authority.
+- openssl
+  - run..: `openssl s_client -connect $host:443`
+  - Repo.: <https://github.com/openssl/openssl>
+  - Docs.: <https://docs.openssl.org/>
+  - Desc.: TLS/SSL toolkit and cryptographic CLI.
+- pwgen
+  - run..: `pwgen 32 1`
+  - Repo.: <https://github.com/tytso/pwgen>
+  - Docs.: <https://github.com/tytso/pwgen#readme>
+  - Desc.: Random password generator.
+- sops
+  - run..: `sops $file`
+  - Repo.: <https://github.com/getsops/sops>
+  - Docs.: <https://github.com/getsops/sops#readme>
+  - Desc.: Secrets-OPS encrypted config files (used by `sops-nix`).
+- ssh-to-age
+  - run..: `ssh-to-age < ~/.ssh/id_ed25519.pub`
+  - Repo.: <https://github.com/Mic92/ssh-to-age>
+  - Docs.: <https://github.com/Mic92/ssh-to-age#readme>
+  - Desc.: Convert SSH host keys to age recipients.
+- ssh-to-pgp
+  - run..: `ssh-to-pgp -i ~/.ssh/id_ed25519 -o key.gpg`
+  - Repo.: <https://github.com/Mic92/ssh-to-pgp>
+  - Docs.: <https://github.com/Mic92/ssh-to-pgp#readme>
+  - Desc.: Convert SSH host keys to PGP keys.
+- veracrypt
+  - run..: `veracrypt`
+  - Repo.: <https://github.com/veracrypt/VeraCrypt>
+  - Docs.: <https://www.veracrypt.fr/en/Documentation.html>
+  - Desc.: TrueCrypt-compatible disk encryption with hidden volumes.
+- xkcdpass
+  - run..: `xkcdpass`
+  - Repo.: <https://github.com/redacted/XKCD-password-generator>
+  - Docs.: <https://github.com/redacted/XKCD-password-generator#readme>
+  - Desc.: Memorable passphrase generator.
+- yubico-piv-tool
+  - run..: `yubico-piv-tool -a status`
+  - Repo.: <https://github.com/Yubico/yubico-piv-tool>
+  - Docs.: <https://developers.yubico.com/yubico-piv-tool/>
+  - Desc.: PIV smartcard configuration for YubiKey.
+- yubikey-manager
+  - run..: `ykman info`
+  - Repo.: <https://github.com/Yubico/yubikey-manager>
+  - Docs.: <https://developers.yubico.com/yubikey-manager/>
+  - Desc.: YubiKey configuration utility.
+- yubikey-personalization
+  - run..: `ykpersonalize -y -1`
+  - Repo.: <https://github.com/Yubico/yubikey-personalization>
+  - Docs.: <https://developers.yubico.com/yubikey-personalization/>
+  - Desc.: YubiKey OTP and challenge-response setup.

@@ -83,3 +83,9 @@ Fix: set `serviceMode = "tunnelonly"` in `modules/tpnix/cloudflare-warp.nix` and
 Cause: warp-svc 2026.7.1343.0 can keep a changed profile's previous settings past Cloudflare's ten-minute propagation window, or the match names the token instead of its id.
 Diagnostic: `warp-cli --accept-tos settings` prints the profile id and the exclude list; compare both with the dashboard.
 Fix: `sudo systemctl restart cloudflare-warp.service`; correct the profile's match expression when the id differs.
+
+## Updating the default profile returns 405 or rejects a field
+
+Cause: the default profile has no policy id, so it is addressed at `/devices/policy` directly instead of `/devices/policy/<id>`, and that path only accepts `PATCH`; `PUT` returns `405 method_not_allowed`.
+Diagnostic: a `PATCH` built from the full `GET` response rejects `policy_id`, `default`, `gateway_unique_id`, `enabled`, and `profile_type` in turn, each with `invalid policy request: cannot set '<field>'` (code 2612).
+Fix: send only the field being changed, for example `--data '{"tunnel_protocol": "wireguard"}'`; a follow-up `GET` confirms the new value with every other field unchanged.

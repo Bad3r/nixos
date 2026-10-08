@@ -188,31 +188,9 @@ git worktree add "$HOME/trees/nixos/<type>-<name>" -b "<type>/<name>"
 ```
 
 In a linked worktree, give flake commands an explicit `path:.` installable
-(`nix develop path:.`, `nix flake check path:.`, `nix eval "path:.#..."`):
-Lix cannot fetch a clean linked worktree as a `git+file` flake because `.git`
-is a file there, not a directory. The repo hooks already do this.
-
-Two cases take a different form, because appending `path:.` does not fix
-them:
-
-- `nix fmt`. Lix hardcodes the `.` installable in `lix/nix/fmt.cc`, so
-  `nix fmt path:.` passes `path:.` to treefmt as a path argument and still
-  resolves `.` as the flake. The formatter is also a package, so run
-  `nix run path:.#treefmt -- .` instead, or `-- <file>` for a targeted run.
-- Anything that writes `flake.lock` back. That write goes through Lix's
-  `getAbsPath` (`lix/libfetchers/path.cc`), which throws
-  `cannot fetch input 'path:.' because it uses a relative path`, so the ref
-  must be absolute. This covers `nix flake metadata --refresh "path:$PWD"`,
-  which locks the flake, as well as `nix flake update --flake "path:$PWD"`;
-  `nix flake update` also reads positional arguments as input names, which is
-  why the flake goes in `--flake` there. A run that resolves to no lock change
-  never writes and so never throws, which is why the relative form can look
-  like it works. It fails exactly when the lock is out of sync, which is the
-  state the input-update ladder is run in.
-
-A dirty worktree hides all of this, because Lix copies the working tree instead
-of fetching the revision, so a command that happens to run with uncommitted
-changes present works and the same command run on a clean tree exits 1.
+(`nix develop path:.`, `nix flake check path:.`, `nix eval "path:.#..."`).
+The repo hooks already do this; see `## Validation` below for the `nix fmt`,
+`flake.lock`-write, and dirty-worktree exceptions.
 
 Work in that tree, then create a PR:
 
@@ -385,51 +363,3 @@ sops.secrets."context7/api-key" = {
   mode = "0400";
 };
 ```
-
-## Troubleshooting
-
-- Unfree package blocked:
-  Add the package to the flake-parts `nixpkgs.allowedUnfreePackages` option
-  from the module that needs it (option declared in
-  `modules/meta/nixpkgs-allowed-unfree.nix`). There is no NixOS-scope
-  allowlist option; host-level `nixpkgs.allowedUnfreePackages` fails eval.
-- Missing reference:
-  Ensure the file is tracked by git. That fixes it only under the bare `.`
-  form, whose `git+file` fetcher cannot see untracked files. `path:.` dumps
-  the directory unfiltered, so it discovers an untracked module and evaluates
-  it. The hazard there runs the other way: a check that passes locally on
-  `path:.` fails in CI, which fetches the pushed revision. Run
-  `git status --short` before trusting a `path:.` pass.
-- Ignored files under `path:.`:
-  Unfiltered also means the `.gitignore` secrets block (`*.agekey`, `*.key`,
-  `*.pem`, `*.p12`, `*.pfx`, `.env`, `.env.*`, `id_*`, plus `decrypted_*` and
-  `*.dec.*`) protects nothing: those files are copied
-  into the world-readable store. The last two carry a `secrets/` prefix in the
-  block so git applies them only under the gitlink, which leaves a stray copy
-  at the superproject root untracked and visible instead of ignored; the guard
-  matches both names anywhere it scans, so the anchor scopes git's ignore rule
-  and not the guard, and `git check-ignore` does not confirm such a hit.
-  `git status --short` does
-  not surface them, since ignored files are not reported; use
-  `git status --porcelain --ignored=matching`, then
-  `git submodule foreach --recursive 'git status --porcelain --ignored=matching'`,
-  because the superproject form stops at the `secrets/` gitlink and so misses
-  the decrypted SOPS output that submodule ignores through its own
-  `.gitignore`. `./build.sh` and `scripts/cache-coverage.sh` run both sweeps
-  and abort before evaluating, through the guard they share in
-  `scripts/lib/secrets-guard.sh`, on the same two conditions that select the
-  `path:` ref: a linked worktree and `--allow-dirty`. That guard matches the
-  block against every untracked path rather than the ignored subset, since
-  `git+file` carries only the tracked tree and `path:` copies the rest. An
-  untracked directory that is itself a git repository is a hit on its name
-  alone: `ls-files` stops at that boundary and never opens it, so nothing
-  inside reaches the block, while `path:` copies it whole. A primary checkout on the
-  default path never makes the copy in the first place. `--allow-secret-copy`
-  (`ALLOW_SECRET_COPY=1`) overrides either. The guard covers the ref a script
-  evaluates, not the one that delivered it, so any `path:.` installable typed by
-  hand copies first: `nix run path:.#cache-coverage` is unguarded by
-  construction even though the app is built from the guarded script, and so is
-  every other bare `nix` command.
-- Need to explore config:
-  Run `nix develop path:. --accept-flake-config -c nix repl --expr 'import ./.'`,
-  then inspect config module imports.
