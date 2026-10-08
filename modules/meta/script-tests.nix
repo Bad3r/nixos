@@ -119,6 +119,46 @@ let
         pkgs.gnused
       ];
     };
+    python-docs-publisher = {
+      dir = ../../tests/python-docs-publisher;
+      subjects = [ ];
+      packages =
+        { pkgs, ... }:
+        let
+          curlStub = pkgs.writeShellApplication {
+            name = "curl";
+            text = ''
+              printf '%s\n' 'Python 3.14 Documentation'
+              printf '%s\n' 'curl: (18) transfer closed with 4 bytes remaining' >&2
+              exit 18
+            '';
+          };
+        in
+        [
+          (import ../../modules/hm-apps/_python-docs-publisher.nix {
+            inherit (pkgs) lib;
+            pkgs = pkgs // {
+              curl = curlStub;
+            };
+            pythonDocs = {
+              repoPath = "repo";
+              outputRoot = "output";
+              versionUrl = "https://example.invalid/3/";
+              maxRevisions = 3;
+              lockPath = "output.git-mirror.lock";
+            };
+            mirrorRoot = ".";
+            stampName = ".test-root-stamp";
+            mkStampGuard =
+              { rootRef, stampRef }:
+              ''
+                [ -n "${rootRef}" ]
+                [ -n "${stampRef}" ]
+              '';
+          })
+        ];
+      extraInputs = _: [ ];
+    };
     docs-style = {
       dir = ../../tests/docs-style;
       # The hook reads the phrase list from the tree at run time, so the list

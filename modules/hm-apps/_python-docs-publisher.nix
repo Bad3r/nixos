@@ -60,7 +60,7 @@ pkgs.writeShellApplication {
     }
 
     resolve_stable_branch() {
-      version_page=$(curl --fail --location --silent --show-error "$version_url")
+      version_page=$(curl --fail --location --silent --show-error "$version_url") || return "$?"
       sed -nE '/Python 3\.[0-9]+(\.[0-9]+)? [Dd]ocumentation/ {
           s/.*Python (3\.[0-9]+)(\.[0-9]+)? [Dd]ocumentation.*/\1/p
           q
