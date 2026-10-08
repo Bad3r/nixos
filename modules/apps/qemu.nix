@@ -75,7 +75,8 @@ let
                   runAsRoot = false;
                 };
               };
-              home-manager.extraAppImports = lib.mkAfter [ "virt-manager" ];
+              # Session scope: graphical launchers read it too, not only shells.
+              environment.sessionVariables.LIBVIRT_DEFAULT_URI = "qemu:///system";
             }
             {
               users.users.${owner}.extraGroups = lib.mkAfter [

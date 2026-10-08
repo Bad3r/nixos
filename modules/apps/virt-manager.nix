@@ -47,7 +47,12 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ] ++ cfg.extraPackages;
+        # The nixpkgs module also seeds the qemu:///system connection through dconf.
+        programs."virt-manager" = {
+          enable = true;
+          inherit (cfg) package;
+        };
+        environment.systemPackages = cfg.extraPackages;
       };
     };
 in

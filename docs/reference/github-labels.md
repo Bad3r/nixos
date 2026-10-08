@@ -22,7 +22,7 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | `type(bug)`               | Use for a broken behavior or regression that needs fixing; not for questions or planned changes.         |
 | `type(fix)`               | Use for a corrective change that resolves broken behavior, configuration, or wiring; mirrors `fix(...)`. |
 | `type(enhancement)`       | Use for net-new capability or an intentional improvement; not for refactors or routine bumps.            |
-| `type(question)`          | Use when the issue is asking for clarification or design input; not for confirmed implementation work.   |
+| `type(question)`          | Use when the issue is asking for clarification or design input; not for work already decided.            |
 | `type(docs)`              | Use for documentation-only work or missing documentation; not for code changes that merely include docs. |
 | `type(refactor)`          | Use for internal structural cleanup without intended behavior change; not for feature work.              |
 | `type(migration)`         | Use for moving systems, data, ownership, or integrations across boundaries; not for local cleanup.       |
@@ -98,6 +98,7 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | `input(nixos-hardware)`             | Use for the `NixOS/nixos-hardware` input and its integration.              |
 | `input(nixpkgs)`                    | Use for the `NixOS/nixpkgs` input and its integration.                     |
 | `input(nixvim)`                     | Use for the `nix-community/nixvim` input and its integration.              |
+| `input(nixvirt)`                    | Use for the `AshleyYakeley/NixVirt` input and its integration.             |
 | `input(node-cloudflare)`            | Use for the `cloudflare/node-cloudflare` input and its integration.        |
 | `input(nur)`                        | Use for the `nix-community/NUR` input and dedupe aliases.                  |
 | `input(r2-flake)`                   | Use for the `Bad3r/nix-R2-CloudFlare-Flake` input and its integration.     |
