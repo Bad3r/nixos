@@ -171,6 +171,7 @@ let
       fonttools.extended.enable = lib.mkOverride 1100 true;
       foremost.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
+      freerdp.extended.enable = lib.mkOverride 1100 false;
       "frida-tools".extended.enable = lib.mkOverride 1100 true;
       "fuse-overlayfs".extended.enable = lib.mkOverride 1100 true;
       fzf.extended.enable = lib.mkOverride 1100 true;
@@ -260,6 +261,7 @@ let
       libreoffice.extended.enable = lib.mkOverride 1100 true;
       librepods.extended.enable = lib.mkOverride 1100 true;
       librewolf.extended.enable = lib.mkOverride 1100 true;
+      libsecret.extended.enable = lib.mkOverride 1100 false;
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
       localsend.extended.enable = lib.mkOverride 1100 true;
       # Normal GPU compositing is the common default; tpnix enables the
@@ -514,6 +516,7 @@ let
       whatweb.extended.enable = lib.mkOverride 1100 true;
       which.extended.enable = lib.mkOverride 1100 true;
       whois.extended.enable = lib.mkOverride 1100 true;
+      winapps.extended.enable = lib.mkOverride 1100 false;
       "wine-tools".extended.enable = lib.mkOverride 1100 true;
       "wireguard-tools".extended.enable = lib.mkOverride 1100 true;
       wireshark.extended.enable = lib.mkOverride 1100 true;
