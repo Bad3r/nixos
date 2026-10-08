@@ -111,6 +111,7 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | `input(tinted-schemes)`             | Use for the `tinted-theming/schemes` input and its integration.            |
 | `input(treefmt-nix)`                | Use for the `numtide/treefmt-nix` input and its integration.               |
 | `input(vim-autoread)`               | Use for the `djoshea/vim-autoread` input and its integration.              |
+| `input(winapps)`                    | Use for the `winapps-org/winapps` input and its integration.               |
 | `input(workers-rs)`                 | Use for the `cloudflare/workers-rs` input and its integration.             |
 | `input(zsh-auto-notify)`            | Use for the `MichaelAquilina/zsh-auto-notify` input and its integration.   |
 
