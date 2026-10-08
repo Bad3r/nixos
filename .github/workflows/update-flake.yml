@@ -268,8 +268,10 @@ jobs:
 
             ### Validation
             - ✅ Flake inputs updated successfully
-            - ✅ `nix flake check --accept-flake-config --no-build "path:."`
-              passed (secretless evaluation, issue #327)
+            - ✅ Every `checks.x86_64-linux` drvPath evaluated through
+              `nix eval "path:."` (secretless evaluation, issue #327)
+            - ✅ Every host's kernel and `system.build.toplevel` built, one
+              runner per host
 
             ### Changed Inputs
             See the commit diff for detailed changes to `flake.lock`.
