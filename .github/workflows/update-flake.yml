@@ -5,13 +5,18 @@ name: Update Flake Inputs
     - cron: "0 2 * * *" # Daily at 2 AM UTC
   workflow_dispatch: # Allow manual trigger
 
+# Only the pull-request job writes; the build jobs run every host's source
+# builds.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   update-flake:
     runs-on: ubuntu-latest
+    outputs:
+      changed: ${{ steps.update.outputs.changed }}
+      hosts: ${{ steps.hosts.outputs.hosts }}
+      patch: ${{ steps.patch.outputs.patch }}
     steps:
       # yamllint disable rule:line-length
       - name: Checkout repository
@@ -116,39 +121,19 @@ jobs:
             "path:.#checks.x86_64-linux" \
             --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
 
-      - name: Free disk space
-        if: steps.update.outputs.changed == 'true'
-        # Reclaim ~15 GB of preinstalled toolchains so a host closure fits.
-        run: sudo rm -rf /usr/local/lib/android /usr/share/dotnet /opt/ghc
-
-      # Realise every host closure, one at a time (a single closure fits the
-      # runner disk, several at once do not, hence --no-build on the flake
-      # check and the garbage collection between hosts). Gates the
-      # auto-merged PR on actual builds: a lock bump that evaluates but fails
-      # to build (broken patch, a package that no longer compiles) fails the
-      # run before the PR is created and merged. The host list comes from the
-      # flake, so a new host is covered without editing this workflow.
-      - name: Build host closures
+      # The host list comes from the flake, so a new host is covered without
+      # editing this workflow.
+      - name: List hosts
+        id: hosts
         if: steps.update.outputs.changed == 'true'
         run: |
           hosts=$(nix eval --accept-flake-config --json \
-            "path:.#nixosConfigurations" --apply builtins.attrNames \
-            | jq -r '.[]')
-          if [ -z "$hosts" ]; then
+            "path:.#nixosConfigurations" --apply builtins.attrNames)
+          if [ "$hosts" = "[]" ]; then
             echo "no nixosConfigurations found" >&2
             exit 1
           fi
-          first=1
-          for host in $hosts; do
-            if [ "$first" -eq 1 ]; then
-              first=0
-            else
-              nix store gc
-            fi
-            echo "Building $host closure..."
-            nix build --accept-flake-config --no-link -L \
-              "path:.#nixosConfigurations.$host.config.system.build.toplevel"
-          done
+          echo "hosts=$hosts" >> "$GITHUB_OUTPUT"
 
       - name: Show updated inputs
         if: steps.update.outputs.changed == 'true'
@@ -165,9 +150,100 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # The later jobs check out the same commit and apply this patch, so each
+      # host builds exactly the tree the PR commits.
+      - name: Export updated files
+        id: patch
+        if: steps.update.outputs.changed == 'true'
+        run: |
+          git add --all
+          echo "patch=$(git diff --cached --binary | base64 -w0)" \
+            >> "$GITHUB_OUTPUT"
+
+  # Gates the auto-merged PR on actual builds: a lock bump that evaluates but
+  # fails to build (broken patch, a package that no longer compiles) fails
+  # the run before the PR is created and merged. One runner per host: a
+  # desktop closure with its source builds takes most of the runner disk and
+  # of the six hour job limit on its own.
+  build-host:
+    needs: update-flake
+    if: needs.update-flake.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        host: ${{ fromJSON(needs.update-flake.outputs.hosts) }}
+    env:
+      HOST: ${{ matrix.host }}
+    steps:
+      # yamllint disable rule:line-length
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # yamllint enable rule:line-length
+        with:
+          persist-credentials: false
+
+      - name: Apply updated files
+        env:
+          PATCH: ${{ needs.update-flake.outputs.patch }}
+        run: base64 -d <<< "$PATCH" | git apply
+
+      - name: Free disk space
+        # Preinstalled toolchains the build never uses.
+        run: |
+          sudo rm -rf /usr/local/lib/android /usr/share/dotnet \
+            /opt/ghc /usr/local/.ghcup /opt/hostedtoolcache
+          df -h /
+
+      - name: Install Lix
+        uses: ./.github/actions/install-lix
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Prefer HTTPS for GitHub
+        run: |
+          URL="https://github.com/"
+          git config --global url."$URL".insteadOf git@github.com:
+          git config --global url."$URL".insteadOf ssh://git@github.com/
+
+      # A source-built kernel's build tree does not fit beside the rest of a
+      # closure: songbird's linux-cachyos ran out of disk at its module link
+      # once everything else was realised. Built first, it has the disk to
+      # itself and leaves only its outputs behind.
+      - name: Build kernel
+        run: |
+          nix build --accept-flake-config --no-link -L \
+            "path:.#nixosConfigurations.$HOST.config.boot.kernelPackages.kernel"
+
+      - name: Build closure
+        run: |
+          nix build --accept-flake-config --no-link -L \
+            "path:.#nixosConfigurations.$HOST.config.system.build.toplevel"
+
+  pull-request:
+    needs: [update-flake, build-host]
+    # A dispatch on another branch validates the builds without opening a PR
+    # against that branch.
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      # yamllint disable rule:line-length
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+      # yamllint enable rule:line-length
+        with:
+          persist-credentials: false
+
+      - name: Apply updated files
+        env:
+          PATCH: ${{ needs.update-flake.outputs.patch }}
+        run: base64 -d <<< "$PATCH" | git apply
+
       - name: Create Pull Request
         id: cpr
-        if: steps.update.outputs.changed == 'true'
         # yamllint disable rule:line-length
         uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1  # v8.1.1
         # yamllint enable rule:line-length
