@@ -511,15 +511,11 @@ let
 
                     if [ ! -s "$config_dest" ]; then
                       systemctl daemon-reload
-                      exit 0
+                      echo "duplicati-r2 generator: enabled but manifest $config_dest is missing or empty" >&2
+                      exit 1
                     fi
 
                     mapfile -t entries < <(jq -r '.targets // {} | to_entries[] | @base64' "$config_dest")
-
-                    if [ "''${#entries[@]}" -eq 0 ]; then
-                      systemctl daemon-reload
-                      exit 0
-                    fi
 
                     bucket=$(jq -r '.bucket // empty' "$config_dest")
                     if [ -z "$bucket" ] || [ "$bucket" = "null" ]; then
@@ -655,6 +651,11 @@ let
                     done
 
                     systemctl daemon-reload
+
+                    if [ "''${#backup_timers[@]}" -eq 0 ]; then
+                      echo "duplicati-r2 generator: enabled but generated zero backup timers, check manifest targets" >&2
+                      exit 1
+                    fi
 
                     for timer in "''${backup_timers[@]}"; do
                       if ! systemctl enable --runtime "$timer" >/dev/null; then
