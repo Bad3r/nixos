@@ -60,6 +60,7 @@ let
     "ventoy-full" = false;
     veracrypt = false;
     "video-cache" = false;
+    "virt-manager" = true;
     vulnix = false;
     "xfce4-settings" = false;
     yarn = false;
