@@ -60,11 +60,11 @@ pkgs.writeShellApplication {
     }
 
     resolve_stable_branch() {
-      curl --fail --location --silent --show-error "$version_url" |
-        sed -nE '/Python 3\.[0-9]+(\.[0-9]+)? [Dd]ocumentation/ {
+      version_page=$(curl --fail --location --silent --show-error "$version_url")
+      sed -nE '/Python 3\.[0-9]+(\.[0-9]+)? [Dd]ocumentation/ {
           s/.*Python (3\.[0-9]+)(\.[0-9]+)? [Dd]ocumentation.*/\1/p
           q
-        }'
+        }' <<< "$version_page"
     }
 
     trap cleanup_tmp EXIT
