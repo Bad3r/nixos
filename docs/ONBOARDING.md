@@ -240,6 +240,8 @@ load-bearing ones.
 - `modules/meta/hooks/apps-catalog-sync.nix`: verifies `apps-enable.nix` stays in
   sync with `modules/apps/`.
 - `.github/workflows/check.yml`: CI Dendritic-compliance pipeline.
+- `.github/workflows/vulnix-scan.yml`: weekly vulnix CVE scan of each host's
+  toplevel derivation closure, filtered through `vulnix-whitelist.toml`.
 
 ### Documentation & Project Config
 

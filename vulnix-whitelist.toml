@@ -1,58 +1,153 @@
-# vulnix false-positive whitelist
-# Generated: 2026-02-07
-# These are CPE name collisions — the CVEs target different products
-# that happen to share the same package name in Nix.
+# vulnix false-positive / accepted-risk whitelist
+# Regenerated 2026-07-09 from a full per-CVE triage of both host closures.
+#
+# Permanent false positives (name collisions, build-time artifacts, not-affected)
+# use version-independent [pname] keys so nixpkgs auto-sync bumps do not re-break
+# CI. Genuine unfixed / awaiting-nixpkgs-bump CVEs use exact name-version keys with
+# an `until` review date and a note recording the fixed version.
 
-# --- Haskell library bindings (not the C/system libs they wrap) ---
+# === Name collisions (CVE targets a different product) ===
 
-["async-2.2.5"]
-# Haskell async (not Node.js async)
+[async]
+# Haskell async lib; CVE-2021-43138 is npm async prototype pollution
 cve = "CVE-2021-43138"
 
-["async-2.2.5-r3.cabal"]
-cve = "CVE-2021-43138"
+[websockets]
+# Haskell websockets lib; CVE-2021-33880 is the npm websockets package
+cve = "CVE-2021-33880"
 
-["curl-0.4.49"]
-# Haskell curl binding (not curl 7.x/8.x C library)
+[tar]
+# Haskell Codec.Archive.Tar; CVEs are GNU tar (C) / node-tar (npm)
 cve = [
-  "CVE-2022-27776",
-  "CVE-2022-27781",
-  "CVE-2022-27782",
-  "CVE-2022-32206",
-  "CVE-2022-32221",
-  "CVE-2022-35252",
-  "CVE-2022-43552",
-  "CVE-2023-28319",
-  "CVE-2023-28320",
-  "CVE-2023-28321",
-  "CVE-2023-28322",
+  "CVE-2021-20193",
+  "CVE-2021-32803",
+  "CVE-2021-32804",
+  "CVE-2021-37701",
+  "CVE-2021-37712",
+  "CVE-2021-37713",
+  "CVE-2022-48303",
+  "CVE-2023-39804",
+  "CVE-2024-28863",
+  "CVE-2025-45582",
+  "CVE-2026-23745",
+  "CVE-2026-23950",
+  "CVE-2026-24842",
+  "CVE-2026-26960",
+  "CVE-2026-29786",
+  "CVE-2026-31802",
+  "CVE-2026-53655",
 ]
 
-["dbus-0.9.7"]
-# Haskell dbus binding (not dbus-daemon/libdbus)
+[dbus]
+# Haskell dbus binding; CVEs target libdbus/dbus-daemon (patched in nixpkgs dbus)
 cve = ["CVE-2022-42010", "CVE-2022-42011", "CVE-2022-42012"]
 
-["Diff-1.0.2"]
-# Haskell Diff lib (CVE is for a WordPress plugin)
+[commonmark]
+# Haskell commonmark + Java commonmark-java; CVE-2026-30838 is PHP league/commonmark
+cve = "CVE-2026-30838"
+
+[filelock]
+# Haskell filelock lib; CVEs target the Python PyPI filelock (3.x)
+cve = ["CVE-2025-68146", "CVE-2026-22701"]
+
+[uuid]
+# Rust/Haskell uuid libs; CVEs target the npm uuidjs/uuid JS package
+cve = ["CVE-2026-41907", "CVE-2026-41988"]
+
+[semver]
+# Rust semver crate; CVE-2022-25883 is the npm semver ReDoS
+cve = "CVE-2022-25883"
+
+[yoke]
+# Rust yoke crate (icu4x); CVEs target the yokecd/yoke Go k8s deployer
+cve = ["CVE-2026-26055", "CVE-2026-26056"]
+
+[cargo]
+# Rust cargo; all CVEs target the MediaWiki Cargo extension (<3.9.1)
+cve = [
+  "CVE-2026-14363",
+  "CVE-2026-39837",
+  "CVE-2026-39839",
+  "CVE-2026-39840",
+  "CVE-2026-39841",
+  "CVE-2026-58519",
+  "CVE-2026-58521",
+]
+
+[ada]
+# ada-url C++ URL parser; CVE-2024-9410 is the Ada Support chatbot platform
+cve = "CVE-2024-9410"
+
+[codex]
+# OpenAI Codex CLI; CVE-2021-43635 is OpenText/EMC Codex document mgmt
+cve = "CVE-2021-43635"
+
+[malcontent]
+# GNOME parental-controls malcontent; CVEs target the Chainguard malcontent scanner
+cve = ["CVE-2026-24845", "CVE-2026-28407"]
+
+[memcached]
+# memcached server; CVE-2022-26635 is the php-pecl-memcached client (disputed)
+cve = "CVE-2022-26635"
+
+[libmemcached]
+# C libmemcached client; CVE-2023-27478 is the memcachier Node.js client
+cve = "CVE-2023-27478"
+
+[swift]
+# Apple Swift toolchain; CVE-2023-26154 is the PubNub Swift SDK
+cve = "CVE-2023-26154"
+
+[git]
+# CVEs are the Jenkins Git Plugin, not git itself
+cve = ["CVE-2021-21684", "CVE-2022-30947", "CVE-2022-36882", "CVE-2022-36883", "CVE-2022-36884", "CVE-2022-38663"]
+
+[mercurial]
+# CVE-2022-43410 is the Jenkins Mercurial Plugin, not Mercurial SCM
+cve = "CVE-2022-43410"
+
+[subversion]
+# CVEs are the Jenkins Subversion Plugin, not Apache Subversion
+cve = ["CVE-2021-21698", "CVE-2022-29046", "CVE-2022-29048"]
+
+[junit]
+# CVEs are the Jenkins JUnit Plugin, not the JUnit framework
+cve = ["CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761"]
+
+[xunit]
+# CVE-2022-34181 is the Jenkins xUnit Plugin, not .NET xUnit
+cve = "CVE-2022-34181"
+
+[nemo]
+# Cinnamon Nemo file manager; CVEs target the NVIDIA NeMo AI framework
+cve = ["CVE-2025-23249", "CVE-2025-23250", "CVE-2025-23251", "CVE-2025-23360"]
+
+[dash]
+# POSIX dash shell; CVE-2024-21485 is an npm dashboard package
+cve = "CVE-2024-21485"
+
+[ninja]
+# Ninja build system; CVE-2021-4336 is an unrelated 'ninja' product
+cve = "CVE-2021-4336"
+
+[lychee]
+# lycheeverse Rust link checker; CVEs target LycheeOrg PHP photo app (v7.x)
+cve = ["CVE-2026-22784", "CVE-2026-33537", "CVE-2026-33644", "CVE-2026-33738", "CVE-2026-39957"]
+
+[Diff]
+# Haskell Diff lib; CVE-2024-13278 is a WordPress plugin
 cve = "CVE-2024-13278"
 
-["discord-0.0.121"]
-# Haskell discord-haskell binding (not Discord desktop app)
-cve = "CVE-2024-23739"
-
-["hedgehog-1.5"]
-# Haskell property testing lib (CVE is for hedgehog-lab JS project)
+[hedgehog]
+# Haskell property-testing lib; CVE-2021-4276 is the hedgehog-lab JS project
 cve = "CVE-2021-4276"
 
-["hedgehog-1.5-r2.cabal"]
-cve = "CVE-2021-4276"
-
-["jose-0.11"]
-# Haskell jose lib (CVEs are for node-jose / panva/jose JS libs)
+[jose]
+# Haskell jose lib; CVEs are node-jose / panva/jose JS libs
 cve = ["CVE-2023-50967", "CVE-2024-28176"]
 
-["network-3.2.8.0"]
-# Haskell network socket lib (CVEs are for router/appliance products)
+[network]
+# Haskell network socket lib; CVEs are router/appliance products
 cve = [
   "CVE-2021-35047",
   "CVE-2021-35048",
@@ -69,8 +164,8 @@ cve = [
   "CVE-2022-24394",
 ]
 
-["safe-0.3.21"]
-# Haskell safe lib (CVEs are for F-Secure SAFE antivirus)
+[safe]
+# Haskell safe lib; CVEs are F-Secure SAFE antivirus
 cve = [
   "CVE-2021-33594",
   "CVE-2021-33595",
@@ -88,52 +183,8 @@ cve = [
   "CVE-2022-47524",
 ]
 
-["safe-0.3.21-r1.cabal"]
-cve = [
-  "CVE-2021-33594",
-  "CVE-2021-33595",
-  "CVE-2021-33596",
-  "CVE-2021-40834",
-  "CVE-2021-40835",
-  "CVE-2021-44751",
-  "CVE-2022-28868",
-  "CVE-2022-28869",
-  "CVE-2022-28870",
-  "CVE-2022-28872",
-  "CVE-2022-28873",
-  "CVE-2022-38163",
-  "CVE-2022-38164",
-  "CVE-2022-47524",
-]
-
-["systemd-2.4.0"]
-# Haskell systemd binding (not systemd init system)
-cve = ["CVE-2021-33910", "CVE-2022-3821", "CVE-2023-26604", "CVE-2025-4598"]
-
-["vault-0.3.1.6"]
-# Haskell vault (type-safe persistent store, not HashiCorp Vault)
-cve = [
-  "CVE-2021-27400",
-  "CVE-2021-3024",
-  "CVE-2021-38554",
-  "CVE-2021-41802",
-  "CVE-2022-41316",
-  "CVE-2023-0620",
-  "CVE-2023-0665",
-  "CVE-2023-2121",
-  "CVE-2023-24999",
-  "CVE-2023-25000",
-  "CVE-2023-6337",
-  "CVE-2024-2048",
-  "CVE-2024-8365",
-  "CVE-2025-4166",
-  "CVE-2025-6011",
-  "CVE-2025-6014",
-  "CVE-2025-6037",
-]
-
-["warp-3.4.9"]
-# Haskell warp WAI server (CVEs are for Cloudflare WARP VPN)
+[warp]
+# Haskell warp WAI server; CVEs are Cloudflare WARP VPN
 cve = [
   "CVE-2022-2145",
   "CVE-2022-2225",
@@ -150,366 +201,168 @@ cve = [
   "CVE-2025-0651",
 ]
 
-["websockets-0.13.0.0"]
-# Haskell websockets lib (CVE is for npm websockets)
-cve = "CVE-2021-33880"
-
-["websockets-0.13.0.0-r5.cabal"]
-cve = "CVE-2021-33880"
-
-["word-wrap-0.5"]
-# Haskell word-wrap (CVE is for npm word-wrap ReDoS)
+[word-wrap]
+# Haskell word-wrap; CVE-2023-26115 is the npm word-wrap ReDoS
 cve = "CVE-2023-26115"
 
-["yaml-0.11.11.2"]
-# Haskell yaml (CVEs are for Go go-yaml)
+[yaml]
+# Haskell yaml lib; CVEs are Go go-yaml
 cve = ["CVE-2021-4235", "CVE-2022-3064"]
 
-["yaml-0.11.11.2-r2.cabal"]
-cve = ["CVE-2021-4235", "CVE-2022-3064"]
-
-["zlib-0.7.1.1"]
-# Haskell zlib binding (CVEs are for the C zlib, scanned separately)
-cve = ["CVE-2022-37434", "CVE-2023-45853", "CVE-2023-6992", "CVE-2026-22184"]
-
-["stringbuilder-0.5.1"]
-# Haskell stringbuilder (CVE is for npm stringbuilder)
+[stringbuilder]
+# Haskell stringbuilder; CVE-2024-21524 is the npm stringbuilder
 cve = "CVE-2024-21524"
 
-# --- Rust crate name collisions ---
-
-["semver-1.0.24"]
-# Rust semver crate (CVE is for npm semver ReDoS)
-cve = "CVE-2022-25883"
-
-["paste-1.0.15"]
-# Rust paste crate by dtolnay (CVE is for SUSE Paste)
+[paste]
+# Rust paste crate (dtolnay); CVE-2022-21948 is SUSE Paste
 cve = "CVE-2022-21948"
 
-["nix-0.30.1"]
-# Rust nix crate (Unix API bindings, not Nix package manager)
-cve = "CVE-2024-27297"
-
-["tap-1.0.1"]
-# Rust tap crate (CVE is for Jenkins TAP Plugin)
+[tap]
+# Rust tap crate; CVE-2023-41940 is the Jenkins TAP Plugin
 cve = "CVE-2023-41940"
 
-# --- Jenkins plugin CVEs matching VCS tool names ---
-
-["git-2.52.0"]
-# CVEs are for Jenkins Git Plugin, not git itself
-cve = ["CVE-2021-21684", "CVE-2022-30947", "CVE-2022-36882", "CVE-2022-36883", "CVE-2022-36884", "CVE-2022-38663"]
-
-["subversion-1.14.5"]
-# CVEs are for Jenkins Subversion Plugin, not Apache Subversion
-cve = ["CVE-2021-21698", "CVE-2022-29046", "CVE-2022-29048"]
-
-["mercurial-7.1"]
-# CVE is for Jenkins Mercurial Plugin, not Mercurial SCM
-cve = "CVE-2022-43410"
-
-["mercurial-7.1-vendor"]
-cve = "CVE-2022-43410"
-
-["mercurial-7.1-vendor-staging"]
-cve = "CVE-2022-43410"
-
-["junit-4.13.2.jar"]
-# CVEs are for Jenkins JUnit Plugin, not JUnit framework
-cve = ["CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761"]
-
-["junit-4.13.2.pom"]
-cve = ["CVE-2022-34176", "CVE-2022-45380", "CVE-2023-25761"]
-
-["xunit-2.9.3"]
-# CVE is for Jenkins xUnit Plugin, not .NET xUnit
-cve = "CVE-2022-34181"
-
-# --- Other name collisions ---
-
-["ShellCheck-0.11.0"]
-# CVE is for Pax8 shellcheck product, not koalaman's ShellCheck linter
-cve = "CVE-2021-28794"
-
-["shellcheck-0.11.0"]
-cve = "CVE-2021-28794"
-
-["ada-3.4.1"]
-# ada-url C++ parser (CVE is for Ada Support chatbot platform)
-cve = "CVE-2024-9410"
-
-["immer-0.9.1"]
-# C++ immer persistent data structures (CVEs are for JS immer npm)
-cve = ["CVE-2021-23436", "CVE-2021-3757"]
-
-["snappy-1.2.2"]
-# Google C++ Snappy compression (CVEs are for PHP/Java snappy)
+[snappy]
+# Google C++ Snappy; CVEs are PHP/Java snappy
 cve = ["CVE-2023-28115", "CVE-2023-41330"]
 
-["rubygems-3.7.2"]
-# CVE is for sigstore cosign, not RubyGems
-cve = "CVE-2022-36073"
-
-["codex-0.98.0"]
-# NixOS codex (CVE is for Opentext Codex document mgmt)
-cve = "CVE-2021-43635"
-
-["dash-0.5.13.1"]
-# POSIX dash shell (CVE is for an npm dashboard package)
-cve = "CVE-2024-21485"
-
-["ninja-1.13.2"]
-# Ninja build system (CVE is for a different "ninja" product)
-cve = "CVE-2021-4336"
-
-["openmp-21.1.8"]
-# LLVM OpenMP runtime (CVE is for Intel oneAPI DPC++ compiler)
-cve = "CVE-2022-26345"
-
-["memcached-1.6.40"]
-# CVE is misattributed / for a different product
-cve = "CVE-2022-26635"
-
-["httpclient-4.5.14.jar"]
-# Apache HttpClient Java (CVE is for Symfony HttpClient PHP)
-cve = "CVE-2024-50342"
-
-["httpclient-4.5.14.pom"]
-cve = "CVE-2024-50342"
-
-["thrift-0.22.0"]
-# Apache Thrift 0.22.0 (CVE-2021-24028 was fixed in 0.14.0)
-cve = "CVE-2021-24028"
-
-["image-viewer-1.2.3.jar"]
-# Generic name collision — CVEs are for a different image viewer product
-cve = ["CVE-2021-26233", "CVE-2021-26234", "CVE-2021-26235", "CVE-2021-26236", "CVE-2021-26237", "CVE-2022-36947"]
-
-["image-viewer-1.2.3.pom"]
-cve = ["CVE-2021-26233", "CVE-2021-26234", "CVE-2021-26235", "CVE-2021-26236", "CVE-2021-26237", "CVE-2022-36947"]
-
-["log4j-2.17.1.pom"]
-# Phantom CVE — does not correspond to a real Log4j vulnerability
-cve = "CVE-2025-68161"
-
-["log4j-2.24.1.pom"]
-cve = "CVE-2025-68161"
-
-["nemo-6.6.3"]
-# Cinnamon Nemo file manager (CVEs are for NVIDIA Nemo AI framework)
-cve = ["CVE-2025-23249", "CVE-2025-23250", "CVE-2025-23251", "CVE-2025-23360"]
-
-["Minio-6.0.0"]
-# Haskell MinIO client library (CVEs are for MinIO server)
-cve = [
-  "CVE-2021-21287",
-  "CVE-2021-21362",
-  "CVE-2021-21390",
-  "CVE-2021-43858",
-  "CVE-2022-35919",
-  "CVE-2023-28433",
-  "CVE-2023-28434",
-]
-
-["libmemcached-1.0.18"]
-# C libmemcached client lib (CVE is for memcachier Node.js client)
-cve = "CVE-2023-27478"
-
-["orc-0.4.41"]
-# GStreamer Optimized Inner Loop Compiler (CVE is for Apache ORC columnar format)
+[orc]
+# GStreamer orc compiler; CVE-2025-47436 is Apache ORC columnar format
 cve = "CVE-2025-47436"
 
-["jam-2.6.1"]
-# Perforce Jam build tool (CVE is for wix-incubator/jam Python Jinja2 tool)
+[openmp]
+# LLVM OpenMP runtime; CVE-2022-26345 is Intel oneAPI DPC++
+cve = "CVE-2022-26345"
+
+[rubygems]
+# RubyGems; CVE-2022-36073 is sigstore cosign
+cve = "CVE-2022-36073"
+
+[jam]
+# Perforce Jam build tool; CVE-2025-3841 is the wix-incubator/jam Jinja2 tool
 cve = "CVE-2025-3841"
 
-["jam-2.6.1.tar"]
-cve = "CVE-2025-3841"
-
-["libmpeg2-0.5.1"]
-# Original libmpeg2 MPEG-2 decoder (CVE is for Ittiam's Android libmpeg2 fork)
+[libmpeg2]
+# Original libmpeg2 decoder; CVE-2022-37416 is Ittiam's Android fork
 cve = "CVE-2022-37416"
 
-# --- Already patched in nixpkgs (vulnix version-string mismatch) ---
+[ShellCheck]
+# koalaman ShellCheck linter; CVE-2021-28794 is the Pax8 shellcheck product
+cve = "CVE-2021-28794"
 
-["polkit-1.pam"]
-# "1" is the polkit API version, not pkg version. PwnKit fixed years ago.
-cve = "CVE-2021-4034"
+[shellcheck]
+# koalaman ShellCheck linter; CVE-2021-28794 is the Pax8 shellcheck product
+cve = "CVE-2021-28794"
 
-[dbus-1]
-# "1" is the D-Bus spec version. CVEs fixed in dbus 1.14.4+, nixpkgs is patched.
-cve = ["CVE-2022-42010", "CVE-2022-42011", "CVE-2022-42012"]
-
-["cups-2.4.16"]
-# CVE fixed in CUPS 2.4.2; version 2.4.16 already includes the fix.
-cve = "CVE-2022-26691"
-
-["obsidian-1.11.5"]
-# CVE fixed in Obsidian 1.1.5; version 1.11.5 already includes the fix.
-cve = "CVE-2023-24044"
-
-["kitty-0.45.0"]
-# CVE-2024-23749/25003/25004 fixed in 0.31+. Terrapin is SSH protocol-level, mitigated.
-cve = ["CVE-2023-48795", "CVE-2024-23749", "CVE-2024-25003", "CVE-2024-25004"]
-
-[lapack-3]
-# "3" is the major version; nixpkgs ships 3.12.x which includes the fix (3.10.1+).
-cve = "CVE-2021-4048"
-
-["accountsservice-23.13.9"]
-# CVE introduced by Ubuntu's 0010-set-language.patch, not present in upstream GNOME
-cve = "CVE-2023-3297"
-
-["avahi-0.8"]
-# CVE-2021-26720 affects avahi-daemon-check-dns.sh, a Debian-only packaging script
-cve = "CVE-2021-26720"
-
-["libcdio-2.3.0"]
-# Buffer overflow fixed in 2.3.0 per NVD description; CPE range including 2.3.0 is incorrect
-cve = "CVE-2024-36600"
-
-["libpng-1.2.59"]
-# Both CVEs target the simplified API introduced in libpng 1.6.0; not present in 1.2.x
-cve = ["CVE-2025-66293", "CVE-2025-64505"]
-
-["zlib-1.3.1"]
-# CVE-2026-22184 is in contrib/untgz utility, not installed by NixOS
-# CVE-2023-6992 affects Cloudflare's zlib fork only, not upstream zlib
-cve = ["CVE-2026-22184", "CVE-2023-6992"]
-
-# --- Not applicable to this platform ---
-
-["gcc-15.2.0"]
-# CVE-2023-4039 is AArch64-only stack protector bypass; this is x86_64.
+[gcc]
+# CVE-2023-4039 is an AArch64-only stack-protector bypass; hosts are x86_64
 cve = "CVE-2023-4039"
 
-["openvpn-2.6.14"]
-# CVE-2025-13751 affects the Windows interactive service component only
-cve = "CVE-2025-13751"
+# === Not affected (fixed at/below this version, platform N/A, or disputed) ===
 
-["marktext-0.17.0-unstable-2025-11-19"]
-# CVE-2023-1004 relies on Windows Script Host JScript handler; Linux not affected
-cve = "CVE-2023-1004"
+[kitty]
+# CVE-2023-48795/2024-23749/25003/25004 fixed in kitty 0.31+; Terrapin is SSH protocol-level
+cve = ["CVE-2023-48795", "CVE-2024-23749", "CVE-2024-25003", "CVE-2024-25004"]
 
-["capstone-5.0.1-py3-none-win_amd64.whl"]
-# Windows Python wheel; not applicable on Linux
+[cups]
+# CVE-2022-26691 fixed in CUPS 2.4.2
+cve = "CVE-2022-26691"
+
+[samba]
+# CVE-2026-2340 fixed in samba 4.23.8; also needs non-default worm vfs
+cve = "CVE-2026-2340"
+
+[exiv2]
+# CVE-2026-27631 fixed in exiv2 0.28.8 (uncaught-exception DoS via -pp)
+cve = "CVE-2026-27631"
+
+[libraw]
+# CVE-2026-20884/20911/21413/24450 are the Talos fixes shipped in LibRaw 0.22.1
+cve = ["CVE-2026-20884", "CVE-2026-20911", "CVE-2026-21413", "CVE-2026-24450"]
+
+[capstone]
+# Windows wheel N/A on Linux; C capstone CVE-2025-67873/68114 backported to 5.0.7
 cve = ["CVE-2025-67873", "CVE-2025-68114"]
 
-# --- Build-time only dependencies (not in runtime closure) ---
+[obsidian]
+# CVE-2023-24044 fixed in Obsidian 1.1.5
+cve = "CVE-2023-24044"
 
-["go-1.22.12-linux-386-bootstrap"]
-# Bootstrap compiler, only used to build Go itself
-cve = [
-  "CVE-2023-49292",
-  "CVE-2025-0913",
-  "CVE-2025-4674",
-  "CVE-2025-47906",
-  "CVE-2025-47907",
-  "CVE-2025-47912",
-  "CVE-2025-58185",
-  "CVE-2025-58187",
-  "CVE-2025-58188",
-  "CVE-2025-58189",
-  "CVE-2025-61723",
-  "CVE-2025-61724",
-  "CVE-2025-61726",
-  "CVE-2025-61727",
-  "CVE-2025-61728",
-  "CVE-2025-61729",
-  "CVE-2025-61730",
-  "CVE-2025-61731",
-  "CVE-2025-61732",
-  "CVE-2025-68119",
-  "CVE-2025-68121",
-]
+[gimp]
+# CVE-2025-8672 is a macOS-only TCC/app-bundle bypass; Linux build unaffected
+cve = "CVE-2025-8672"
 
-["go-1.22.12-linux-amd64-bootstrap"]
-# Bootstrap compiler, only used to build Go itself
-cve = [
-  "CVE-2023-49292",
-  "CVE-2025-0913",
-  "CVE-2025-4674",
-  "CVE-2025-47906",
-  "CVE-2025-47907",
-  "CVE-2025-47912",
-  "CVE-2025-58185",
-  "CVE-2025-58187",
-  "CVE-2025-58188",
-  "CVE-2025-58189",
-  "CVE-2025-61723",
-  "CVE-2025-61724",
-  "CVE-2025-61726",
-  "CVE-2025-61727",
-  "CVE-2025-61728",
-  "CVE-2025-61729",
-  "CVE-2025-61730",
-  "CVE-2025-61731",
-  "CVE-2025-61732",
-  "CVE-2025-68119",
-  "CVE-2025-68121",
-]
+[firefox]
+# CVE-2026-13356 is Firefox-for-iOS only (address-bar spoof); desktop Linux unaffected
+cve = "CVE-2026-13356"
 
-["go-1.24.13"]
-# CVE-2023-49292 is for ecies/go (third-party ECIES package), not the Go compiler
-cve = "CVE-2023-49292"
+[claude-desktop]
+# CVE-2026-44470 is a Windows SYSTEM-service EoP; Linux build unaffected
+cve = "CVE-2026-44470"
 
-["go-1.25.5"]
-# CVE-2023-49292 is for ecies/go (third-party ECIES package), not the Go compiler
-cve = "CVE-2023-49292"
+[terraform]
+# CVE-2021-36230 targets Terraform Enterprise, not the terraform CLI
+cve = "CVE-2021-36230"
 
-["python-2.7.18.12"]
-# EOL Python 2.7, used only as build-time bootstrap dependency in nixpkgs
-cve = [
-  "CVE-2021-23336",
-  "CVE-2021-3733",
-  "CVE-2022-0391",
-  "CVE-2022-26488",
-  "CVE-2022-45061",
-  "CVE-2022-48560",
-  "CVE-2022-48564",
-  "CVE-2022-48565",
-  "CVE-2022-48566",
-  "CVE-2023-24329",
-  "CVE-2023-36632",
-  "CVE-2023-40217",
-  "CVE-2024-49050",
-  "CVE-2024-6232",
-  "CVE-2024-7592",
-  "CVE-2024-9287",
-  "CVE-2025-12084",
-  "CVE-2025-12781",
-  "CVE-2025-13836",
-  "CVE-2025-13837",
-  "CVE-2025-49714",
-  "CVE-2025-6075",
-]
+[libiff]
+# CVE-2021-32298 affects libiff <=20190123; the 2024-03-02 rev bounds IFF_errorId
+cve = "CVE-2021-32298"
 
-["pip-20.3.4-source"]
-# Bundled with Python 2.7 bootstrap, build-time only
-cve = ["CVE-2021-3572", "CVE-2023-5752"]
+[lua]
+# CVE-2021-43519 is a disputed by-design deep-recursion DoS needing untrusted Lua; no fix
+cve = "CVE-2021-43519"
 
-["setuptools-44.0.0-source"]
-# Build-time Python packaging tool
+# === Build-time-only artifacts (Maven .jar/.pom, bundled source, bootstrap tools) ===
+
+[snakeyaml]
+# Maven .jar/.pom build artifact (SnakeYAML <2.0 RCE is real but build-time)
+cve = "CVE-2022-1471"
+
+[protobuf-java]
+# Maven .jar/.pom build artifact (protobuf-java parser DoS, build-time)
+cve = "CVE-2024-7254"
+
+[plexus-utils]
+# Maven .jar/.pom build artifact
+cve = "CVE-2025-67030"
+
+[log4j]
+# Maven .pom XML metadata build artifact (no executable code)
+cve = ["CVE-2025-68161", "CVE-2026-34477", "CVE-2026-34479", "CVE-2026-34480", "CVE-2026-34481"]
+
+[commons-io]
+# Maven .pom build artifact
+cve = "CVE-2024-47554"
+
+[commons-beanutils]
+# Maven .jar/.pom build artifact
+cve = "CVE-2025-48734"
+
+[commons-text]
+# Maven .pom build artifact
+cve = "CVE-2022-42889"
+
+[guava]
+# Maven .jar/.pom build artifact
+cve = "CVE-2023-2976"
+
+[pip]
+# pip source bundled with the Python 2.7 bootstrap; build-time only
+cve = ["CVE-2021-3572", "CVE-2023-5752", "CVE-2026-8643"]
+
+[wheel]
+# build-time Python packaging tool
+cve = ["CVE-2022-40898", "CVE-2026-24049"]
+
+[setuptools]
+# build-time Python packaging tool
 cve = ["CVE-2022-40897", "CVE-2025-47273"]
 
-["setuptools-68.0.0-py3-none-any.whl"]
-# Build-time Python packaging tool
-cve = "CVE-2025-47273"
+[sassc]
+# build-time Sass compiler
+cve = "CVE-2022-43357"
 
-["wheel-0.37.1-py2.py3-none-any.whl"]
-# Build-time Python packaging tool
-cve = "CVE-2022-40898"
-
-["wheel-0.37.1-source"]
-# Build-time Python packaging tool
-cve = "CVE-2022-40898"
-
-["binutils-2.44"]
-# Build-time linker/assembler, low-severity crash-on-malformed-input
-cve = ["CVE-2025-1153", "CVE-2025-3198", "CVE-2025-8224", "CVE-2025-8225"]
-
-["yasm-1.3.0"]
-# Build-time assembler, all CVEs are crash-on-crafted-input
+[yasm]
+# build-time assembler; all CVEs are crash-on-crafted-input
 cve = [
   "CVE-2021-33454",
   "CVE-2021-33455",
@@ -534,135 +387,761 @@ cve = [
   "CVE-2023-51258",
 ]
 
-["sassc-3.6.2"]
-# Build-time Sass compiler
-cve = "CVE-2022-43357"
+# === Exact-version whitelist (shared pname with a real package, or bootstrap) ===
 
-# --- FFmpeg version-string mismatches (already fixed or never affected a release) ---
+["go-1.22.12-linux-amd64-bootstrap"]
+# Bootstrap Go compiler, build-time only (+ CVE-2023-49292 ecies/go)
+cve = [
+  "CVE-2023-49292",
+  "CVE-2025-0913",
+  "CVE-2025-22873",
+  "CVE-2025-4674",
+  "CVE-2025-47906",
+  "CVE-2025-47907",
+  "CVE-2025-47912",
+  "CVE-2025-58185",
+  "CVE-2025-58187",
+  "CVE-2025-58188",
+  "CVE-2025-58189",
+  "CVE-2025-61723",
+  "CVE-2025-61724",
+  "CVE-2025-61726",
+  "CVE-2025-61727",
+  "CVE-2025-61728",
+  "CVE-2025-61729",
+  "CVE-2025-61730",
+  "CVE-2025-61731",
+  "CVE-2025-61732",
+  "CVE-2025-68119",
+  "CVE-2025-68121",
+  "CVE-2026-25679",
+  "CVE-2026-27139",
+  "CVE-2026-27140",
+  "CVE-2026-27142",
+  "CVE-2026-27143",
+  "CVE-2026-27144",
+  "CVE-2026-32280",
+  "CVE-2026-32281",
+  "CVE-2026-32282",
+  "CVE-2026-32283",
+  "CVE-2026-32288",
+  "CVE-2026-32289",
+  "CVE-2026-33811",
+  "CVE-2026-33814",
+  "CVE-2026-39817",
+  "CVE-2026-39819",
+  "CVE-2026-39820",
+  "CVE-2026-39823",
+  "CVE-2026-39825",
+  "CVE-2026-39826",
+  "CVE-2026-39836",
+  "CVE-2026-42499",
+  "CVE-2026-42501",
+]
 
-["ffmpeg-6.1.4"]
-# Fixed in 6.1.3 (included in 6.1.4), git-master-only, or never affected a release
+["go-1.24.13-linux-386-bootstrap"]
+# Bootstrap Go compiler, build-time only (+ CVE-2023-49292 ecies/go)
+cve = [
+  "CVE-2023-49292",
+  "CVE-2026-25679",
+  "CVE-2026-27139",
+  "CVE-2026-27140",
+  "CVE-2026-27142",
+  "CVE-2026-27143",
+  "CVE-2026-27144",
+  "CVE-2026-32280",
+  "CVE-2026-32281",
+  "CVE-2026-32282",
+  "CVE-2026-32283",
+  "CVE-2026-32288",
+  "CVE-2026-32289",
+  "CVE-2026-33811",
+  "CVE-2026-33814",
+  "CVE-2026-39817",
+  "CVE-2026-39819",
+  "CVE-2026-39820",
+  "CVE-2026-39823",
+  "CVE-2026-39825",
+  "CVE-2026-39826",
+  "CVE-2026-39836",
+  "CVE-2026-42499",
+  "CVE-2026-42501",
+]
+
+["go-1.24.13-linux-amd64-bootstrap"]
+# Bootstrap Go compiler, build-time only (+ CVE-2023-49292 ecies/go)
+cve = [
+  "CVE-2023-49292",
+  "CVE-2026-25679",
+  "CVE-2026-27139",
+  "CVE-2026-27140",
+  "CVE-2026-27142",
+  "CVE-2026-27143",
+  "CVE-2026-27144",
+  "CVE-2026-32280",
+  "CVE-2026-32281",
+  "CVE-2026-32282",
+  "CVE-2026-32283",
+  "CVE-2026-32288",
+  "CVE-2026-32289",
+  "CVE-2026-33811",
+  "CVE-2026-33814",
+  "CVE-2026-39817",
+  "CVE-2026-39819",
+  "CVE-2026-39820",
+  "CVE-2026-39823",
+  "CVE-2026-39825",
+  "CVE-2026-39826",
+  "CVE-2026-39836",
+  "CVE-2026-42499",
+  "CVE-2026-42501",
+]
+
+["go-1.25.11"]
+# CVE-2023-49292 is ecies/go, not the Go toolchain
+cve = "CVE-2023-49292"
+
+["go-1.26.4"]
+# CVE-2023-49292 is ecies/go, not the Go toolchain
+cve = "CVE-2023-49292"
+
+["gcc-4.6.4"]
+# minimal-bootstrap gcc, build-time only (CVE-2021-37322); CVE-2023-4039 also AArch64-only
+cve = ["CVE-2021-37322", "CVE-2023-4039"]
+
+["binutils-2.46"]
+# linker/readelf crash on crafted object files; build-time only
+cve = ["CVE-2025-69649", "CVE-2025-69650", "CVE-2025-69651", "CVE-2025-69652", "CVE-2026-6846"]
+
+["python-2.7.18.12"]
+# EOL Python 2.7, build-time bootstrap dependency only
+cve = [
+  "CVE-2021-23336",
+  "CVE-2021-3733",
+  "CVE-2022-0391",
+  "CVE-2022-26488",
+  "CVE-2022-45061",
+  "CVE-2022-48560",
+  "CVE-2022-48564",
+  "CVE-2022-48565",
+  "CVE-2022-48566",
+  "CVE-2023-24329",
+  "CVE-2023-36632",
+  "CVE-2023-40217",
+  "CVE-2024-49050",
+  "CVE-2024-6232",
+  "CVE-2024-7592",
+  "CVE-2024-9287",
+  "CVE-2025-12084",
+  "CVE-2025-12781",
+  "CVE-2025-13462",
+  "CVE-2025-13836",
+  "CVE-2025-13837",
+  "CVE-2025-49714",
+  "CVE-2025-6075",
+  "CVE-2026-3087",
+  "CVE-2026-3644",
+  "CVE-2026-4224",
+  "CVE-2026-4360",
+  "CVE-2026-4519",
+  "CVE-2026-6019",
+  "CVE-2026-7210",
+]
+
+["gzip-1.2.4"]
+# minimal-bootstrap gzip, stdenv bootstrap, build-time only
+cve = ["CVE-2022-1271", "CVE-2026-41991", "CVE-2026-41992"]
+
+["nix-0.29.0"]
+# Rust nix crate (Unix API bindings); CVE-2024-27297 is the Nix package manager
+cve = "CVE-2024-27297"
+
+["nix-0.31.1"]
+# Rust nix crate (Unix API bindings); CVE-2024-27297 is the Nix package manager
+cve = "CVE-2024-27297"
+
+["systemd-2.4.0"]
+# Haskell systemd binding; CVE-2026-40225 targets systemd/udev (<260)
+cve = ["CVE-2021-33910", "CVE-2022-3821", "CVE-2023-26604", "CVE-2025-4598", "CVE-2026-40225"]
+
+["vault-0.3.1.6"]
+# Haskell vault type-safe store; CVEs target HashiCorp Vault
+cve = [
+  "CVE-2021-27400",
+  "CVE-2021-3024",
+  "CVE-2021-38554",
+  "CVE-2021-41802",
+  "CVE-2022-41316",
+  "CVE-2023-0620",
+  "CVE-2023-0665",
+  "CVE-2023-2121",
+  "CVE-2023-24999",
+  "CVE-2023-25000",
+  "CVE-2023-6337",
+  "CVE-2024-2048",
+  "CVE-2024-8365",
+  "CVE-2025-4166",
+  "CVE-2025-6011",
+  "CVE-2025-6014",
+  "CVE-2025-6037",
+  "CVE-2026-5807",
+]
+
+["curl-0.4.49"]
+# Haskell curl binding; CVEs target the curl C library (scanned as curl-8.x)
+cve = [
+  "CVE-2022-27776",
+  "CVE-2022-27781",
+  "CVE-2022-27782",
+  "CVE-2022-32206",
+  "CVE-2022-32221",
+  "CVE-2022-35252",
+  "CVE-2022-43552",
+  "CVE-2023-28319",
+  "CVE-2023-28320",
+  "CVE-2023-28321",
+  "CVE-2023-28322",
+]
+
+["gmp-1.0-tex"]
+# TeXLive gmp CTAN package; CVE-2021-43618 is the GNU MP C library
+cve = "CVE-2021-43618"
+
+["fancybox-1.4-tex"]
+# TeXLive fancybox package; CVE-2025-3662 is the FancyBox WordPress plugin
+cve = "CVE-2025-3662"
+
+["slideshow-1.0-tex"]
+# TeXLive slideshow package; CVE-2022-1299 is the Slideshow WordPress plugin
+cve = "CVE-2022-1299"
+
+["xz-1.9.jar"]
+# XZ-for-Java Maven artifact; CVE-2026-34743 is the C xz-utils liblzma
+cve = ["CVE-2022-1271", "CVE-2026-34743"]
+
+["xz-1.9.pom"]
+# XZ-for-Java Maven artifact; CVE-2026-34743 is the C xz-utils liblzma
+cve = ["CVE-2022-1271", "CVE-2026-34743"]
+
+["zlib-0.7.1.1"]
+# Haskell zlib binding; CVEs target the C zlib / Ruby zlib gem
+cve = ["CVE-2022-37434", "CVE-2023-45853", "CVE-2023-6992", "CVE-2026-22184", "CVE-2026-27820"]
+
+["zlib-1.3.2"]
+# Upstream C zlib unaffected: CVE-2023-6992 is the Cloudflare fork, CVE-2026-27820 the Ruby gem
+cve = ["CVE-2023-6992", "CVE-2026-27820"]
+
+[lapack-3]
+# "3" is the major version; nixpkgs ships 3.12.x which includes the CVE-2021-4048 fix
+cve = "CVE-2021-4048"
+
+["polkit-1.pam"]
+# "1" is the polkit API version; PwnKit CVE-2021-4034 fixed years ago
+cve = "CVE-2021-4034"
+
+["lychee-0.24.2-vendor"]
+# cargo-vendored source dir, build-time only
+cve = ["CVE-2026-22784", "CVE-2026-33537", "CVE-2026-33644", "CVE-2026-33738", "CVE-2026-39957"]
+
+["lychee-0.24.2-vendor-staging"]
+# cargo-vendored source staging dir, build-time only
+cve = ["CVE-2026-22784", "CVE-2026-33537", "CVE-2026-33644", "CVE-2026-33738", "CVE-2026-39957"]
+
+["codex-0.143.0-vendor"]
+# OpenAI Codex CLI vendored crates, build-time only
+cve = "CVE-2021-43635"
+
+["codex-0.143.0-vendor-staging"]
+# OpenAI Codex CLI vendored crates staging, build-time only
+cve = "CVE-2021-43635"
+
+["mercurial-7.1.2-vendor"]
+# vendored build artifact; CVE-2022-43410 is the Jenkins Mercurial Plugin
+cve = "CVE-2022-43410"
+
+["mercurial-7.1.2-vendor-staging"]
+# vendored build artifact; CVE-2022-43410 is the Jenkins Mercurial Plugin
+cve = "CVE-2022-43410"
+
+["terraform-1.15.7-go-modules"]
+# vendored go-modules build artifact; CVE-2021-36230 is Terraform Enterprise
+cve = "CVE-2021-36230"
+
+["swift-5.10.1-src"]
+# Swift compiler source tarball; CVE-2023-26154 is the PubNub SDK
+cve = "CVE-2023-26154"
+
+["protobuf-21.12"]
+# C++ libprotobuf; CVE-2026-0994 is Python-only json_format recursion
+cve = "CVE-2026-0994"
+
+["ffmpeg-8.1.1"]
+# CVE-2025-25468/25469 are git-master-only, never affected a release
+cve = ["CVE-2025-25468", "CVE-2025-25469"]
+
+# === Real vulnerabilities: fix pending nixpkgs bump / no upstream fix (review at `until`) ===
+
+["curl-8.20.0"]
+# fixed in curl 8.21.0 (nixpkgs HEAD); resolves on nixpkgs bump
+until = "2026-10-08"
+cve = [
+  "CVE-2026-10536",
+  "CVE-2026-11352",
+  "CVE-2026-11564",
+  "CVE-2026-11586",
+  "CVE-2026-11856",
+  "CVE-2026-12064",
+  "CVE-2026-8286",
+  "CVE-2026-8924",
+  "CVE-2026-8925",
+  "CVE-2026-8926",
+  "CVE-2026-8927",
+  "CVE-2026-8932",
+  "CVE-2026-9079",
+  "CVE-2026-9080",
+  "CVE-2026-9545",
+  "CVE-2026-9546",
+  "CVE-2026-9547",
+]
+
+["openssl-3.6.2"]
+# fixed in openssl 3.6.3 (nixpkgs HEAD; incl High CVE-2026-45447)
+until = "2026-10-08"
+cve = [
+  "CVE-2026-34180",
+  "CVE-2026-34181",
+  "CVE-2026-34182",
+  "CVE-2026-34183",
+  "CVE-2026-35188",
+  "CVE-2026-42764",
+  "CVE-2026-42765",
+  "CVE-2026-42766",
+  "CVE-2026-42767",
+  "CVE-2026-42768",
+  "CVE-2026-42769",
+  "CVE-2026-42770",
+  "CVE-2026-45445",
+  "CVE-2026-45446",
+  "CVE-2026-45447",
+  "CVE-2026-7383",
+  "CVE-2026-9076",
+]
+
+["jq-1.8.1"]
+# fixed in jq 1.8.2 (nixpkgs HEAD)
+until = "2026-10-08"
+cve = [
+  "CVE-2026-40612",
+  "CVE-2026-41256",
+  "CVE-2026-41257",
+  "CVE-2026-43894",
+  "CVE-2026-43895",
+  "CVE-2026-43896",
+  "CVE-2026-44777",
+  "CVE-2026-47770",
+  "CVE-2026-49839",
+  "CVE-2026-54679",
+]
+
+["jq-1.8.1-binlore"]
+# fixed in jq 1.8.2 (nixpkgs HEAD)
+until = "2026-10-08"
+cve = ["CVE-2026-33948", "CVE-2026-39979", "CVE-2026-44777", "CVE-2026-47770", "CVE-2026-49839", "CVE-2026-54679"]
+
+["libidn-1.43"]
+# fixed in libidn 1.44 (nixpkgs HEAD)
+until = "2026-10-08"
+cve = "CVE-2026-57053"
+
+["flutter-3.29.3-unwrapped"]
+# CVE-2026-27704 fixed in Flutter 3.41 (nixpkgs HEAD)
+until = "2026-10-08"
+cve = "CVE-2026-27704"
+
+["imagemagick-7.1.2-24"]
+# fixed in ImageMagick 7.1.2-26 (nixpkgs HEAD 7.1.2-27)
+until = "2026-10-08"
+cve = [
+  "CVE-2026-53460",
+  "CVE-2026-53461",
+  "CVE-2026-53462",
+  "CVE-2026-53463",
+  "CVE-2026-53464",
+  "CVE-2026-53465",
+  "CVE-2026-53466",
+  "CVE-2026-53467",
+  "CVE-2026-55510",
+  "CVE-2026-55577",
+  "CVE-2026-55594",
+  "CVE-2026-55595",
+  "CVE-2026-55597",
+]
+
+["util-linux-2.42"]
+# CVE-2026-13595 fixed in util-linux 2.42.2 (nixpkgs HEAD)
+until = "2026-10-08"
+cve = "CVE-2026-13595"
+
+["ocaml-5.4.0"]
+# CVE-2026-28364 fixed in OCaml 5.4.1 (nixpkgs HEAD)
+until = "2026-10-08"
+cve = "CVE-2026-28364"
+
+["gstreamer-1.26.11"]
+# 11 parser CVEs fixed in GStreamer 1.28.1 (nixpkgs HEAD 1.28.4)
+until = "2026-10-08"
+cve = [
+  "CVE-2026-1940",
+  "CVE-2026-2920",
+  "CVE-2026-2921",
+  "CVE-2026-2922",
+  "CVE-2026-2923",
+  "CVE-2026-3081",
+  "CVE-2026-3082",
+  "CVE-2026-3083",
+  "CVE-2026-3084",
+  "CVE-2026-3085",
+  "CVE-2026-3086",
+]
+
+["gst-plugins-good-1.26.11"]
+# CVE-2026-46469/46470 fixed in 1.28.2 (nixpkgs HEAD 1.28.4)
+until = "2026-10-08"
+cve = ["CVE-2026-46469", "CVE-2026-46470"]
+
+["socat-1.8.1.1"]
+# CVE-2026-56123 fixed in socat 1.8.1.2 (nixpkgs HEAD 1.8.1.3)
+until = "2026-10-08"
+cve = "CVE-2026-56123"
+
+["libusb-1.0.29"]
+# CVE-2026-23679/47104 fixed in libusb 1.0.30 (nixpkgs HEAD)
+until = "2026-10-08"
+cve = ["CVE-2026-23679", "CVE-2026-47104"]
+
+["giflib-5.2.2"]
+# overflow/double-free CVEs fixed by nixpkgs giflib 6.1.3
+until = "2026-10-08"
+cve = ["CVE-2024-45993", "CVE-2026-23868", "CVE-2026-26740"]
+
+["libmicrohttpd-1.0.2"]
+# CVE-2025-59777/62689 fixed post-1.0.2 (nixpkgs HEAD 1.0.5)
+until = "2026-10-08"
+cve = ["CVE-2025-59777", "CVE-2025-62689"]
+
+["ldns-1.9.0"]
+# CVE-2026-10846 off-path DNS poisoning fixed in ldns 1.9.1 (nixpkgs HEAD 1.9.2)
+until = "2026-10-08"
+cve = "CVE-2026-10846"
+
+["vim-9.2.0389"]
+# 17 vim 2026 patch CVEs; nixpkgs HEAD 9.2.0541 covers <=0541, remainder need upstream bump
+until = "2026-10-08"
+cve = [
+  "CVE-2026-44656",
+  "CVE-2026-45130",
+  "CVE-2026-46483",
+  "CVE-2026-47162",
+  "CVE-2026-47167",
+  "CVE-2026-52858",
+  "CVE-2026-52859",
+  "CVE-2026-52860",
+  "CVE-2026-55693",
+  "CVE-2026-55892",
+  "CVE-2026-55895",
+  "CVE-2026-57451",
+  "CVE-2026-57452",
+  "CVE-2026-57453",
+  "CVE-2026-57454",
+  "CVE-2026-57455",
+  "CVE-2026-57456",
+]
+
+["perl-5.42.0"]
+# CVE-2026-4176 (bundled Compress::Raw::Zlib) fixed in perl 5.42.2; not yet in nixpkgs
+until = "2026-10-08"
+cve = "CVE-2026-4176"
+
+["libreoffice-25.8.5.2"]
+# CVE-2026-4430 (OOXML OOB write) fixed in LibreOffice 25.8.7; not yet in nixpkgs
+until = "2026-10-08"
+cve = "CVE-2026-4430"
+
+["libreoffice-25.8.5.2-wrapped"]
+# CVE-2026-4430 fixed in LibreOffice 25.8.7; not yet in nixpkgs
+until = "2026-10-08"
+cve = "CVE-2026-4430"
+
+["openexr-3.4.11"]
+# CVE-2026-44663/45696 (HTJ2K heap overflow) fixed in OpenEXR 3.4.12; not yet in nixpkgs
+until = "2026-10-08"
+cve = ["CVE-2026-44663", "CVE-2026-45696"]
+
+["MessagePack-2.5.192"]
+# deserialization DoS cluster fixed in MessagePack-C# 2.5.301; bundled .NET dep
+until = "2026-10-08"
+cve = [
+  "CVE-2026-48109",
+  "CVE-2026-48502",
+  "CVE-2026-48506",
+  "CVE-2026-48509",
+  "CVE-2026-48510",
+  "CVE-2026-48511",
+  "CVE-2026-48512",
+  "CVE-2026-48513",
+  "CVE-2026-48514",
+  "CVE-2026-48515",
+  "CVE-2026-48516",
+  "CVE-2026-48517",
+]
+
+["libvpx-1.12.0"]
+# codec CVEs fixed by libvpx 1.14.1; bundled/pinned copy (nixpkgs main libvpx 1.16.0)
+until = "2026-10-08"
+cve = ["CVE-2023-44488", "CVE-2023-5217", "CVE-2023-6349", "CVE-2024-5197"]
+
+["libjxl-0.8.2"]
+# CVE-2024-11403/11498/2025-12474 fixed in libjxl 0.11.x; webkit-bundled copy needs override bump
+until = "2026-10-08"
+cve = ["CVE-2024-11403", "CVE-2024-11498", "CVE-2025-12474"]
+
+["protobuf-6.31.0-py3-none-any.whl"]
+# CVE-2026-0994 (JSON recursion DoS) fixed in Python protobuf 6.33.5
+until = "2026-10-08"
+cve = "CVE-2026-0994"
+
+["bytes-1.11.0"]
+# CVE-2026-25541 (BytesMut::reserve overflow) fixed in Rust bytes 1.11.1; bundled crate
+until = "2026-10-08"
+cve = "CVE-2026-25541"
+
+["sqlite-3.51.2"]
+# CVE-2026-11822/11824 (FTS5) fixed in SQLite 3.53.2; nixpkgs HEAD 3.53.1 still needs a bump
+until = "2026-10-08"
+cve = ["CVE-2026-11822", "CVE-2026-11824"]
+
+["rhino-1.8.0"]
+# CVE-2025-66453 (toFixed DoS) fixed in Rhino 1.8.1; not yet in nixpkgs
+until = "2026-10-08"
+cve = "CVE-2025-66453"
+
+["ghidra-12.1.2"]
+# CVE-2026-52756 (IsfServer path traversal, off by default) fixed in Ghidra 12.2; not yet in nixpkgs
+until = "2026-10-08"
+cve = "CVE-2026-52756"
+
+["gzip-1.14"]
+# CVE-2026-41991/41992 fixed by upstream commits; no tagged release
+until = "2026-10-08"
+cve = ["CVE-2026-41991", "CVE-2026-41992"]
+
+["cups-filters-2.0.1"]
+# CVE-2025-64524 (rastertopclx overflow) fixed by upstream commit 956283c
+until = "2026-10-08"
+cve = "CVE-2025-64524"
+
+["nghttp2-1.69.0"]
+# CVE-2026-58055 (nghttpx smuggling; libnghttp2 consumers unaffected) fixed by commit ab28105
+until = "2026-10-08"
+cve = "CVE-2026-58055"
+
+["inetutils-2.7"]
+# CVE-2026-32772 (telnet env-var leak, low sev) fixed by DSA-6193-1 patch; not yet in nixpkgs
+until = "2026-10-08"
+cve = "CVE-2026-32772"
+
+["libsndfile-1.2.2"]
+# multiple heap/int-overflow CVEs; fixes are upstream/distro patch commits, no release >1.2.2
+until = "2026-10-08"
+cve = ["CVE-2024-50612", "CVE-2024-50613", "CVE-2025-52194", "CVE-2025-56226", "CVE-2026-37555"]
+
+["dhcpcd-10.3.2"]
+# CVE-2026-56113/56114/56116/56117 fixed by upstream commits; no tagged release yet
+until = "2026-10-08"
+cve = ["CVE-2026-56113", "CVE-2026-56114", "CVE-2026-56116", "CVE-2026-56117"]
+
+["jbig2dec-0.20"]
+# CVE-2023-46361 (low-sev SEGV) fixed by upstream commit ee53a7e; nixpkgs still 0.20
+until = "2026-10-08"
+cve = "CVE-2023-46361"
+
+["hashcat-7.1.2"]
+# 3 overflows via crafted rule/hash files; Debian carries downstream patches, no upstream release
+until = "2026-10-08"
+cve = ["CVE-2026-42482", "CVE-2026-42483", "CVE-2026-42484"]
+
+["mupdf-1.27.2"]
+# CVE-2026-7233 (CFF subset OOB read, CVSS 3.3 local); no upstream fix
+until = "2026-10-08"
+cve = "CVE-2026-7233"
+
+["nmap-7.99"]
+# CVE-2026-58058 IPv6 OOB read on raw scans of hostile targets; no fixed release >7.99
+until = "2026-10-08"
+cve = "CVE-2026-58058"
+
+[fontforge-20251009]
+# CVE-2025-15276/15277/15278 parser RCEs; no upstream fix (nixpkgs patches only siblings)
+until = "2026-10-08"
+cve = ["CVE-2025-15276", "CVE-2025-15277", "CVE-2025-15278"]
+
+["localsend-1.17.0"]
+# CVE-2026-25154 stored XSS; 1.17.0 is latest release, fix is an unreleased main commit
+until = "2026-10-08"
+cve = "CVE-2026-25154"
+
+["yarn-1.22.22"]
+# CVE-2025-8262/9308 ReDoS; Yarn Classic 1.22.22 is the final EOL release, no fix release
+until = "2026-10-08"
+cve = ["CVE-2025-8262", "CVE-2025-9308"]
+
+["busybox-1.37.0"]
+# CVE-2025-46394 tar listing escape (CVSS 3.2 cosmetic); 1.37.0 latest, no fix packaged
+until = "2026-10-08"
+cve = "CVE-2025-46394"
+
+# === Mixed: some CVEs not-affected, some real (single key, `until` when real) ===
+
+["python-3.14.4"]
+# real (CPython DoS/XSS fixed in 3.14.5/3.14.6 (nixpkgs HEAD); resolves on nixpkgs bump); not-affected (CVE-2024-49050/2025-49714 target the VS Code Python extension; CVE-2026-3087 is Windows-only)
+until = "2026-10-08"
+cve = ["CVE-2024-49050", "CVE-2025-49714", "CVE-2026-3087", "CVE-2026-6019", "CVE-2026-7210"]
+
+["ffmpeg-6.1.6"]
+# real (genuinely affect 6.1.6 (CVE-2026-40962 MP4 CENC OOB write worst); fixed in ffmpeg 8.x (nixpkgs ffmpeg_8 8.1.2)); not-affected (git-master-only / fixed <=6.1.6 / TensorFlow+zmqsend features off in nixpkgs)
+until = "2026-10-08"
 cve = [
   "CVE-2023-49502",
   "CVE-2023-50007",
   "CVE-2023-50008",
   "CVE-2023-50009",
+  "CVE-2023-50010",
   "CVE-2024-31578",
   "CVE-2024-31582",
+  "CVE-2024-31585",
+  "CVE-2025-10256",
+  "CVE-2025-12343",
   "CVE-2025-1373",
+  "CVE-2025-1594",
   "CVE-2025-25468",
   "CVE-2025-25469",
+  "CVE-2026-30997",
+  "CVE-2026-30998",
+  "CVE-2026-30999",
+  "CVE-2026-40962",
 ]
 
-["ffmpeg-7.1.3"]
-# CVE-2023-5179x series fixed in 7.0 (predates 7.1.x); git-master-only CVEs
+["ffmpeg-7.1.5"]
+# real (genuinely affect 7.1.5; fixed in ffmpeg 8.x (nixpkgs ffmpeg_8 8.1.2)); not-affected (git-master-only / zmqsend feature off in nixpkgs)
+until = "2026-10-08"
 cve = [
-  "CVE-2023-51791",
-  "CVE-2023-51793",
-  "CVE-2023-51794",
-  "CVE-2023-51795",
-  "CVE-2023-51796",
-  "CVE-2023-51797",
-  "CVE-2023-51798",
+  "CVE-2025-10256",
+  "CVE-2025-12343",
   "CVE-2025-25468",
   "CVE-2025-25469",
+  "CVE-2026-30997",
+  "CVE-2026-30998",
+  "CVE-2026-30999",
+  "CVE-2026-40962",
 ]
 
-["ffmpeg-8.0.1"]
-# CVE-2023-5179x series fixed in 7.0 (predates 8.x); git-master-only CVEs
+["glibc-2.42"]
+# real (deprecated ns_printrr/fp_nquery debug funcs, not in resolver path; no upstream fix); not-affected (backported via nixpkgs 2.42-master.patch (incl 9.8 CVE-2026-5450 scanf %mc))
+until = "2026-10-08"
 cve = [
-  "CVE-2023-51791",
-  "CVE-2023-51793",
-  "CVE-2023-51794",
-  "CVE-2023-51795",
-  "CVE-2023-51796",
-  "CVE-2023-51797",
-  "CVE-2023-51798",
-  "CVE-2025-25468",
-  "CVE-2025-25469",
+  "CVE-2025-15281",
+  "CVE-2026-0861",
+  "CVE-2026-0915",
+  "CVE-2026-4046",
+  "CVE-2026-4437",
+  "CVE-2026-4438",
+  "CVE-2026-5435",
+  "CVE-2026-5450",
+  "CVE-2026-5928",
+  "CVE-2026-6238",
 ]
 
-# --- Java/Maven build artifacts (fetched sources, not runtime services) ---
-
-["commons-beanutils-1.9.4.jar"]
-# Maven artifact, build dependency
-cve = "CVE-2025-48734"
-
-["commons-beanutils-1.9.4.pom"]
-cve = "CVE-2025-48734"
-
-["commons-io-2.11.0.jar"]
-# Maven artifact, build dependency
-cve = "CVE-2024-47554"
-
-["commons-io-2.11.0.pom"]
-cve = "CVE-2024-47554"
-
-["commons-text-1.8.pom"]
-# Maven artifact, build dependency
-cve = "CVE-2022-42889"
-
-["commons-text-1.9.pom"]
-cve = "CVE-2022-42889"
-
-["guava-19.0.pom"]
-# Maven artifact, build dependency
-cve = "CVE-2023-2976"
-
-["guava-27.0.1-jre.jar"]
-cve = "CVE-2023-2976"
-
-["guava-27.0.1-jre.pom"]
-cve = "CVE-2023-2976"
-
-["guava-27.1-android.pom"]
-cve = "CVE-2023-2976"
-
-["guava-31.0.1-jre.jar"]
-cve = "CVE-2023-2976"
-
-["guava-31.0.1-jre.pom"]
-cve = "CVE-2023-2976"
-
-["protobuf-java-3.17.3.jar"]
-# Maven artifact, build dependency
-cve = ["CVE-2022-3171", "CVE-2024-7254"]
-
-["protobuf-java-3.17.3.pom"]
-cve = ["CVE-2022-3171", "CVE-2024-7254"]
-
-["protobuf-java-3.25.3.jar"]
-cve = "CVE-2024-7254"
-
-["protobuf-java-3.25.3.pom"]
-cve = "CVE-2024-7254"
-
-["snakeyaml-1.23-android.jar"]
-# Maven artifact, build dependency
+["glibc-2.42-67"]
+# real (deprecated ns_printrr/fp_nquery debug funcs; no upstream fix); not-affected (backported via nixpkgs 2.42-master.patch)
+until = "2026-10-08"
 cve = [
-  "CVE-2022-1471",
-  "CVE-2022-25857",
-  "CVE-2022-38749",
-  "CVE-2022-38750",
-  "CVE-2022-38751",
-  "CVE-2022-38752",
-  "CVE-2022-41854",
+  "CVE-2025-15281",
+  "CVE-2026-4046",
+  "CVE-2026-4437",
+  "CVE-2026-4438",
+  "CVE-2026-5435",
+  "CVE-2026-5450",
+  "CVE-2026-5928",
+  "CVE-2026-6238",
 ]
 
-["snakeyaml-1.23.pom"]
+["glibc-2.42-67-source-unsecvars"]
+# real (deprecated ns_printrr/fp_nquery debug funcs; no upstream fix); not-affected (backported via nixpkgs 2.42-master.patch)
+until = "2026-10-08"
 cve = [
-  "CVE-2022-1471",
-  "CVE-2022-25857",
-  "CVE-2022-38749",
-  "CVE-2022-38750",
-  "CVE-2022-38751",
-  "CVE-2022-38752",
-  "CVE-2022-41854",
+  "CVE-2025-15281",
+  "CVE-2026-4046",
+  "CVE-2026-4437",
+  "CVE-2026-4438",
+  "CVE-2026-5435",
+  "CVE-2026-5450",
+  "CVE-2026-5928",
+  "CVE-2026-6238",
 ]
 
-["xz-1.9.jar"]
-# Maven artifact, build dependency
-cve = "CVE-2022-1271"
+["libxml2-2.13.9"]
+# real (XSD type-confusion DoS fixed in 2.14.5 (nixpkgs also ships 2.15.3)); not-affected (CVE-2025-6021 already fixed in 2.13.8; CVE-2025-8732 disputed SGML-catalog recursion)
+until = "2026-10-08"
+cve = ["CVE-2025-6021", "CVE-2025-8732", "CVE-2026-6732"]
 
-["xz-1.9.pom"]
-cve = "CVE-2022-1271"
+["libxml2-2.15.3"]
+# not-affected: CVE-2026-11979 xmlcatalog --shell overflow (CVSS 1.8, maintainer-disputed, interactive CLI only)
+cve = "CVE-2026-11979"
+
+["thrift-0.22.0"]
+# real (C++ TJSONProtocol OOB read fixed in Thrift 0.23.0; not yet in nixpkgs); not-affected (other CVEs are Go/Java/Node/Rust/Swift/c_glib bindings not built by nixpkgs (C++-only); CVE-2021-24028 fixed <=0.14)
+until = "2026-10-08"
+cve = [
+  "CVE-2021-24028",
+  "CVE-2025-48431",
+  "CVE-2026-41602",
+  "CVE-2026-41603",
+  "CVE-2026-41604",
+  "CVE-2026-41605",
+  "CVE-2026-41606",
+  "CVE-2026-41607",
+  "CVE-2026-41636",
+  "CVE-2026-43868",
+  "CVE-2026-43869",
+  "CVE-2026-43870",
+]
+
+["libssh2-1.11.1"]
+# real (publickey uninitialized-ptr free (malicious server); no release/patch yet); not-affected (CVE-2025-15661/2026-55199/55200 backported in nixpkgs; CVE-2026-58050 is 32-bit-only)
+until = "2026-10-08"
+cve = ["CVE-2025-15661", "CVE-2026-55199", "CVE-2026-55200", "CVE-2026-58050", "CVE-2026-58051"]
+
+["perl-5.42.0-binlore"]
+# real (bundled Compress::Raw::Zlib fixed in perl 5.42.2; not yet in nixpkgs); not-affected (CVE-2026-8376 (regex compile overflow) is 32-bit-builds-only; hosts are x86_64)
+until = "2026-10-08"
+cve = ["CVE-2026-4176", "CVE-2026-8376"]
+
+["perl-5.42.0-env"]
+# real (bundled Compress::Raw::Zlib fixed in perl 5.42.2; not yet in nixpkgs); not-affected (CVE-2026-8376 (regex compile overflow) is 32-bit-builds-only; hosts are x86_64)
+until = "2026-10-08"
+cve = ["CVE-2026-4176", "CVE-2026-8376"]
+
+["avahi-0.8"]
+# real (local UNIX-socket DoS (simple protocol ignores CLIENTS_MAX); no upstream fix (PR 808 unmerged)); not-affected (CVE-2021-26720 affects a Debian-only packaging script (avahi-daemon-check-dns.sh))
+until = "2026-10-08"
+cve = ["CVE-2021-26720", "CVE-2025-59529"]
+
+["libpng-1.2.59"]
+# real (libpng12 (EOL 1.2.x); fixed only in libpng 1.6.55/1.6.56, no 1.2.x backport); not-affected (CVE-2025-64505/66293 target the simplified API introduced in libpng 1.6.0, absent from 1.2.x)
+until = "2026-10-08"
+cve = ["CVE-2025-64505", "CVE-2025-66293", "CVE-2026-25646", "CVE-2026-33416", "CVE-2026-34757"]
+
+["marktext-0.17.0-unstable-2025-11-19"]
+# real (DOM-XSS via paste; vendor-disputed, project dormant, no fix); not-affected (CVE-2023-1004 relies on the Windows Script Host JScript handler; Linux not affected)
+until = "2026-10-08"
+cve = ["CVE-2023-1004", "CVE-2023-2318"]
