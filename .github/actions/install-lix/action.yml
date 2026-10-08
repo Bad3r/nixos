@@ -1,6 +1,6 @@
 name: Install Lix
 description: >-
-  Install the digest-pinned Lix release with this flake's nix.conf and caches.
+  Install the flake.lock-pinned Lix with this flake's nix.conf and caches.
 inputs:
   github-token:
     description: Token recorded as the github.com access-tokens conf entry.
@@ -8,18 +8,14 @@ inputs:
 runs:
   using: composite
   steps:
-    - name: Install Lix
+    - name: Install bootstrap Lix
       shell: bash
       env:
-        # The Lix that CI installs. The ci-lix-installer-parity flake check
-        # fails when LIX_VERSION drifts from lixPackageSets.latest in the
-        # nixpkgs pin; LIX_TARBALL_SHA256 is the release's .sha256 sidecar.
-        LIX_VERSION: 2.95.3
-        LIX_TARBALL_SHA256: 84a25e2adef9540fa61f77f5ed998c36337751ca27cea6aa6438f83eb38bf0d3
-        # install.lix.systems skips some Lix releases and publishes no
-        # digest sidecar, so the installer is pinned on its own, first-use,
-        # and installs the tarball above through --nix-package-url.
-        INSTALLER_VERSION: 2.95.2
+        # Bootstrap only: its bundled Lix runs just long enough to realise the
+        # pinned one in the switch step, so this pin never tracks nixpkgs.
+        # install.lix.systems publishes no digest sidecar, so the sha256 is
+        # pinned first-use.
+        INSTALLER_URL: https://install.lix.systems/lix/2.95.2/lix-installer-x86_64-linux
         INSTALLER_SHA256: 57564e78a6d57126661fe5e793de70a72bacf9835ddb7c5c0cbfadf3db21545e
         # flake-self-attrs is required for this flake's
         # self.submodules = true and must be ambient: Lix enforces it
@@ -37,13 +33,9 @@ runs:
           access-tokens = github.com=${{ inputs.github-token }}
       run: |-
         curl --proto '=https' --tlsv1.2 -sSf -o /tmp/lix-installer \
-          "https://install.lix.systems/lix/$INSTALLER_VERSION/lix-installer-x86_64-linux"
+          "$INSTALLER_URL"
         echo "$INSTALLER_SHA256  /tmp/lix-installer" | sha256sum -c -
         chmod +x /tmp/lix-installer
-        tarball=/tmp/lix-x86_64-linux.tar.xz
-        curl --proto '=https' --tlsv1.2 -sSf -o "$tarball" \
-          "https://releases.lix.systems/lix/lix-$LIX_VERSION/lix-$LIX_VERSION-x86_64-linux.tar.xz"
-        echo "$LIX_TARBALL_SHA256  $tarball" | sha256sum -c -
         # act containers have no systemd; fall back to a root-only install.
         extra_args=()
         if [ -n "${ACT:-}" ]; then extra_args+=(--init none); fi
@@ -65,13 +57,7 @@ runs:
         # GITHUB_PATH itself (ConfigureShellProfile); sudo -E keeps the
         # variable visible to it.
         sudo -E /tmp/lix-installer install linux --no-confirm \
-          --nix-package-url "$tarball" "${extra_args[@]}"
-        # Without --nix-package-url the installer falls back to its own release.
-        read -r installed < <(/nix/var/nix/profiles/default/bin/nix --version)
-        if [[ "$installed" != *" $LIX_VERSION" ]]; then
-          echo "::error::installed '$installed', expected Lix $LIX_VERSION"
-          exit 1
-        fi
+          "${extra_args[@]}"
     - name: Verify substituters
       shell: bash
       # The installer rewrites the extra conf from a parsed key map, so the
@@ -92,3 +78,26 @@ runs:
             fi
           done
         done
+    - name: Switch to the pinned Lix
+      shell: bash
+      # The attribute modules/base/nix-package.nix gives every host, read from
+      # the nixpkgs node of this checkout's flake.lock, so the lock is the one
+      # place the Lix version is set. ^out: outputsToInstall adds man.
+      run: |-
+        profile=/nix/var/nix/profiles/default
+        lix=$(nix build --no-link --print-out-paths --inputs-from path:. \
+          'nixpkgs#lixPackageSets.latest.lix^out')
+        sudo "$profile/bin/nix" upgrade-nix --profile "$profile" \
+          --store-path "$lix"
+        # The installer links the daemon units through the profile and the
+        # socket has Accept=yes, so after a reload each new connection runs
+        # the new nix-daemon.
+        if [ -z "${ACT:-}" ]; then sudo systemctl daemon-reload; fi
+        version=$(nix --version)
+        version=${version%%$'\n'*}
+        daemon=$(nix store ping --json | jq -r .version)
+        if [ "$(readlink -f "$(command -v nix)")" != "$lix/bin/nix" ] \
+          || [[ "$version" != *" $daemon" ]]; then
+          echo "::error::expected $lix, got '$version' with daemon $daemon"
+          exit 1
+        fi
