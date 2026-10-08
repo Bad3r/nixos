@@ -87,11 +87,12 @@ runs:
         profile=/nix/var/nix/profiles/default
         lix=$(nix build --no-link --print-out-paths --inputs-from path:. \
           'nixpkgs#lixPackageSets.latest.lix^out')
-        sudo "$profile/bin/nix" upgrade-nix --profile "$profile" \
-          --store-path "$lix"
-        # The installer links the daemon units through the profile and the
-        # socket has Accept=yes, so after a reload each new connection runs
-        # the new nix-daemon.
+        # The installer links the daemon units through this profile and the
+        # socket has Accept=yes, so every connection loads its unit from the
+        # profile. One --install swaps Lix within a single generation;
+        # nix upgrade-nix uninstalls first, which leaves the unit dangling
+        # for its own install step.
+        sudo "$lix/bin/nix-env" --profile "$profile" --install "$lix"
         if [ -z "${ACT:-}" ]; then sudo systemctl daemon-reload; fi
         version=$(nix --version)
         version=${version%%$'\n'*}
