@@ -39,8 +39,8 @@ let
   # Site policy layered over the settings catalog.
   codexSettingsOverrides = {
     # Core settings
-    model = "gpt-5.6-luna";
-    review_model = "gpt-5.6-sol";
+    model = "gpt-6-luna";
+    review_model = "gpt-6-sol";
     approval_policy = "on-request";
     default_permissions = "workspace";
     web_search = "live";
