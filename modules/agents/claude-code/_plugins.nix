@@ -7,7 +7,10 @@
   # and workflows are removed entirely; built-in slash commands stay typable but
   # are hidden from the model. Plugins, .claude/skills/, and .claude/commands/
   # are unaffected. Equivalent to CLAUDE_CODE_DISABLE_BUNDLED_SKILLS=1.
-  disableBundledSkills = true;
+  #
+  # Unset: /code-review, and /review as its alias, are bundled skills that this
+  # removes too; skillOverrides hides a bundled skill by name instead.
+  # disableBundledSkills = true; # [boolean]
 
   # Enabled plugins using plugin-id@marketplace-id format. Example: {
   # "formatter@anthropic-tools": true }. Also supports extended format with

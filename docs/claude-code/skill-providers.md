@@ -15,12 +15,11 @@ Its plugin entry is disabled by default.
 
 ## Default Availability
 
-Claude Code's bundled skills and workflows are removed entirely by `disableBundledSkills`.
-Its built-in slash commands, `/doctor` and `/checkup` included, stay typable but are hidden from the model.
+Claude Code's bundled skills and workflows load, since `disableBundledSkills` would also remove `/code-review` and its `/review` alias.
 Nix-managed standalone skills are enabled by default.
 Account-synced skills and plugins are disabled in the Claude settings.
 
-Hide a standalone skill through `skillOverrides` in `modules/agents/claude-code/_plugins.nix`:
+Hide a standalone or bundled skill through `skillOverrides` in `modules/agents/claude-code/_plugins.nix`:
 
 ```nix
 skillOverrides.commit = "off";
