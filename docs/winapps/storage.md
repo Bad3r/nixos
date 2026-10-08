@@ -70,7 +70,7 @@ Precondition: the guest is shut off and a baseline exists.
    virsh --connect qemu:///system vol-resize --pool winapps RDPWindows.qcow2 <new-capacity>G
    ```
 
-2. Set the same capacity on the volume in `modules/hosts/common/windows-guest.nix`, so the declaration matches the disk.
+2. Set `host.virtualization.windowsGuest.diskSize` in the host module to the new capacity in GiB, so the declaration matches the disk.
 
 3. Start the guest, and in an elevated prompt remove the recovery partition that sits behind `C:`:
 

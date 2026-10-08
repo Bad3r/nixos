@@ -74,7 +74,7 @@ let
       volume = {
         name = volumeName;
         capacity = {
-          count = 64;
+          count = cfg.diskSize;
           unit = "GiB";
         };
         allocation = {
@@ -220,6 +220,16 @@ let
             Windows installation ISO, readable by the qemu-libvirtd user. A value attaches it together
             with the virtio-win driver ISO; null leaves the drive empty. A change applies at the next
             guest start.
+          '';
+        };
+
+        diskSize = lib.mkOption {
+          type = lib.types.ints.positive;
+          default = 64;
+          description = ''
+            Capacity in GiB of the guest volume. NixVirt creates the volume at this size and never
+            resizes an existing one, so raise it after `virsh vol-resize` to keep the declaration
+            matching the disk.
           '';
         };
       };
