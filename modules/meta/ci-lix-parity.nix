@@ -1,11 +1,12 @@
 # RFC #282: hosts take Lix from the nixpkgs pin (lixPackageSets.latest.lix,
-# modules/base/nix-package.nix) while CI installs a pinned install.lix.systems
-# release (.github/actions/install-lix/action.yml). Nothing else couples the
-# two version sources, so either bump alone would silently desync what CI
-# validates from what hosts run. This check compares every pinned installer
-# version (the action's LIX_VERSION plus any inline install.lix.systems URL
-# in a workflow) against the host package version, and fails when the action
-# pin cannot be found at all so a rename cannot make the comparison vacuous.
+# modules/base/nix-package.nix) while CI installs a pinned Lix release tarball
+# (.github/actions/install-lix/action.yml). Nothing else couples the two
+# version sources, so either bump alone would silently desync what CI
+# validates from what hosts run. This check compares every Lix version CI
+# pins (the action's LIX_VERSION plus any inline install.lix.systems URL in a
+# workflow, which installs its own release) against the host package version,
+# and fails when the action pin cannot be found at all so a rename cannot
+# make the comparison vacuous.
 # throw, not a failing derivation: CI runs `nix flake check --no-build`,
 # which evaluates check attrs but never builds them, so only an eval-time
 # failure gates CI.
@@ -55,7 +56,7 @@ in
           throw (
             "ci-lix-installer-parity: CI pins Lix ${lib.concatStringsSep ", " stale} "
             + "but lixPackageSets.latest.lix is ${hostVersion}; bump LIX_VERSION and "
-            + "INSTALLER_SHA256 in .github/actions/install-lix/action.yml together "
+            + "LIX_TARBALL_SHA256 in .github/actions/install-lix/action.yml together "
             + "with the nixpkgs pin"
           )
         else
