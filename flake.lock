@@ -1003,6 +1003,21 @@
         "type": "github"
       }
     },
+    "nix-filter": {
+      "locked": {
+        "lastModified": 1757882181,
+        "narHash": "sha256-+cCxYIh2UNalTz364p+QYmWHs0P+6wDhiWR4jDIKQIU=",
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "rev": "59c44d1909c72441144b93cf0f054be7fe764de5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "type": "github"
+      }
+    },
     "nix-index-database": {
       "inputs": {
         "nixpkgs": [
@@ -1421,6 +1436,7 @@
         "tinted-schemes": "tinted-schemes",
         "treefmt-nix": "treefmt-nix_2",
         "vim-autoread": "vim-autoread",
+        "winapps": "winapps",
         "workers-rs": "workers-rs",
         "zsh-auto-notify": "zsh-auto-notify"
       }
@@ -1759,6 +1775,33 @@
         "owner": "djoshea",
         "repo": "vim-autoread",
         "rev": "24061f84652d768bfb85d222c88580b3af138dab",
+        "type": "github"
+      }
+    },
+    "winapps": {
+      "inputs": {
+        "flake-compat": [
+          "dedupe_flake-compat"
+        ],
+        "flake-utils": [
+          "dedupe_flake-utils"
+        ],
+        "nix-filter": "nix-filter",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789407052,
+        "narHash": "sha256-eSUFY+u9Xq9/i/0/OH5JhVzTvG+eiOEvUErAmfBzaBE=",
+        "owner": "winapps-org",
+        "repo": "winapps",
+        "rev": "42c7e8318280c6fc3426c7afebfc7f43b895f4c8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "winapps-org",
+        "repo": "winapps",
         "type": "github"
       }
     },

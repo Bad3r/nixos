@@ -174,6 +174,15 @@
       };
     };
 
+    winapps = {
+      url = "github:winapps-org/winapps";
+      inputs = {
+        flake-compat.follows = "dedupe_flake-compat";
+        flake-utils.follows = "dedupe_flake-utils";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
+
     smart-scrolloff-nvim = {
       flake = false;
       url = "github:tonymajestro/smart-scrolloff.nvim";
