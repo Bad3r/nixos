@@ -17,6 +17,15 @@ Uncomment an optional setting and supply its value to configure it.
 Site policy overrides catalog values.
 Keep credentials in runtime secrets or Codex's login store because Nix configuration becomes readable in the store.
 
+## Desktop application
+
+The [ChatGPT app module](../../modules/apps/chatgpt.nix) installs OpenAI's Linux desktop application from the pinned `llm-agents` input.
+Use `programs.chatgpt.extended.enable` to control installation and `programs.chatgpt.extended.package` to select its package.
+The [shared app catalog](../../modules/hosts/common/apps-enable.nix) owns its default enablement.
+After rebuilding and switching NixOS, launch the application from the desktop menu or run `chatgpt`.
+Sign in with a ChatGPT account and choose ChatGPT or Codex in the application.
+The `codex` command continues to launch the separately configured terminal agent.
+
 ## Runtime files
 
 The [launcher](../../modules/agents/codex/_wrapper.nix) merges these files in order:

@@ -84,6 +84,7 @@ let
       cdncheck.extended.enable = lib.mkOverride 1100 true;
       "cf-terraforming".extended.enable = lib.mkOverride 1100 true;
       charles.extended.enable = lib.mkOverride 1100 true;
+      chatgpt.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
       clangd.extended.enable = lib.mkOverride 1100 false;
       # Both install methods off: delegate to the bun global path by default;
