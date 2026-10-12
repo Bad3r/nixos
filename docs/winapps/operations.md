@@ -38,7 +38,7 @@ Windows regenerates the certificate when it expires, so the procedure repeats th
 2. Remove the stored entry for the guest:
 
    ```sh
-   rm -f ~/.config/freerdp/server/"$RDP_IP"_3389.pem
+   rip ~/.config/freerdp/server/"$RDP_IP"_3389.pem
    ```
 
 3. Connect from a terminal, compare the fingerprint, and answer `Y`:
@@ -130,8 +130,7 @@ Precondition: the guest is shut off.
 
    ```sh
    secret-tool clear service winapps account rdp
-   rm -r ~/.local/share/winapps
-   rm -f ~/.config/freerdp/server/"$RDP_IP"_3389.pem
+   rip ~/.local/share/winapps ~/.config/freerdp/server/"$RDP_IP"_3389.pem
    ```
 
 2. Remove the `freerdp`, `libsecret`, and `winapps` entries from `modules/tpnix/apps-enable.nix` and `"winapps"` from `extraHomeApps` in `modules/tpnix/policy.nix`, then run `./build.sh`.
