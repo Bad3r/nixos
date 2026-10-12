@@ -127,14 +127,14 @@ virsh dompmwakeup "$VM_NAME"
 
 ## The transfer folder is missing in Windows
 
-Cause: the session shares `~/Documents/Outlook-Transfer` as `\\tsclient\transfer` only when the directory exists at launch.
+Cause: the active domain lacks the virtiofs device, or Windows has no running VirtioFsSvc service with WinFsp installed.
 Diagnostic:
 
 ```sh
-stat -c %a ~/Documents/Outlook-Transfer
+virsh --connect qemu:///system dumpxml RDPWindows --xpath '//devices/filesystem'
 ```
 
-In the guest, `net view \\tsclient` lists the shares the session carries.
-Fix: create the directory with `mkdir -m 700 ~/Documents/Outlook-Transfer`, which the Home Manager activation step also does at every switch, then relaunch.
+In elevated guest PowerShell, run `Get-Service VirtioFsSvc`.
+Fix: complete the [shared folder setup](shared-folder.md), including a full guest shutdown after applying the host declaration.
 
 Sources: [FreeRDP RAIL popup freeze](https://github.com/FreeRDP/FreeRDP/issues/12453), [WinApps Office RAIL freeze](https://github.com/winapps-org/winapps/issues/953), [WinApps tray icons](https://github.com/winapps-org/winapps/issues/34), [WinApps shared WM_CLASS](https://github.com/winapps-org/winapps/issues/267).

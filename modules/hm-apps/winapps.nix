@@ -7,18 +7,18 @@
 
   Summary:
     * Writes ~/.config/winapps/winapps.conf from the guest module's name, address and account, with the password read through packages/winapps-askpass.
-    * Installs an Outlook Classic desktop entry that runs `winapps manual` on the Outlook executable, and creates the one host directory the session shares.
+    * Installs an Outlook Classic desktop entry that runs `winapps manual` on the Outlook executable, and creates the transfer directory the guest mounts over virtiofs.
 
   Notes:
     * Gated on programs.winapps.extended.enable from the NixOS scope and loaded per host through extraHomeApps.
-    * No RDP_PASS, +home-drive, /drives or /cert: flag: the launcher inherits nothing beyond the values written here.
+    * No RDP_PASS, /drive, +home-drive, /drives or /cert: flag: the launcher inherits nothing beyond the values written here.
+    * The guest mounts the transfer directory in every session, console included, so RDP redirects no drive.
     * The guest path of OUTLOOK.EXE is checked in docs/winapps/remoteapp-setup.md.
 */
 _: {
   flake.homeManagerModules.apps.winapps =
     {
       osConfig,
-      config,
       lib,
       pkgs,
       ...
@@ -33,7 +33,7 @@ _: {
       inherit (osConfig.programs.winapps.extended) package;
       guest = osConfig.host.virtualization.windowsGuest;
       askpass = pkgs.callPackage ../../packages/winapps-askpass { };
-      transferDir = "${config.home.homeDirectory}/Documents/Outlook-Transfer";
+      inherit (guest) transferDir;
       wmClass = "outlook-classic";
       # Click-to-Run layout of Office; docs/winapps/remoteapp-setup.md compares it with the guest.
       outlookExe = "C:\\Program Files\\Microsoft Office\\root\\Office16\\OUTLOOK.EXE";
@@ -60,15 +60,15 @@ _: {
           RDP_ASKPASS="${lib.getExe askpass}"
           RDP_SCALE="100"
           AUTOPAUSE="off"
-          RDP_FLAGS="/sound /drive:transfer,${transferDir}"
+          RDP_FLAGS="/sound"
           RDP_FLAGS_NON_WINDOWS="/wm-class:${wmClass}"
           RDP_FLAGS_WINDOWS="-grab-keyboard"
           REMOVABLE_MEDIA="${transferDir}"
         '';
 
         home.activation.ensureOutlookTransferDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          mkdir -p '${transferDir}'
-          chmod 700 '${transferDir}'
+          mkdir -p ${lib.escapeShellArg transferDir}
+          chmod 700 ${lib.escapeShellArg transferDir}
         '';
 
         xdg.desktopEntries.outlook-classic = {

@@ -1,7 +1,7 @@
 # WinApps Outlook Classic operations
 
 `modules/apps/winapps.nix` installs the WinApps launcher.
-`modules/hm-apps/winapps.nix` writes its configuration, the `Outlook Classic` menu entry, and the transfer directory the session shares with the guest.
+`modules/hm-apps/winapps.nix` writes its configuration, the `Outlook Classic` menu entry, and creates the [shared folder](shared-folder.md).
 The RDP password lives in the login keyring, where `packages/winapps-askpass` reads it for FreeRDP, so it sits in no file and on no command line.
 Load the guest name, address, account, and askpass command into the shell before a procedure:
 
@@ -96,7 +96,7 @@ The `winapps` input moves with the daily lock update, so the check runs after ea
    rg -F -c -f <(secret-tool lookup service winapps account rdp) ~/.config/winapps/winapps.conf ~/.local/share/winapps/winapps.log "$RDP_ASKPASS" /etc/profiles/per-user/"$USER"/share/applications/outlook-classic.desktop
    ```
 
-Verification: step 1 prints one `/drive:` line naming the transfer directory and one `FREERDP_ASKPASS=` line, and step 2 prints nothing and exits 1.
+Verification: the argument search prints nothing and exits 1, the environment search prints one `FREERDP_ASKPASS=` line, and step 2 exits 1.
 
 ## Shut Windows down
 

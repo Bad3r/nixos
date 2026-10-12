@@ -370,6 +370,8 @@
   - Guest-side RemoteApp setup: the registry import from the locked WinApps revision, the firewall scope, and the Outlook path check.
 - [winapps/storage.md](winapps/storage.md)
   - Runbooks for the guest baseline copy, restoring it, and growing the disk.
+- [winapps/shared-folder.md](winapps/shared-folder.md)
+  - Persistent virtiofs sharing, Windows service setup, and host ownership verification.
 - [winapps/operations.md](winapps/operations.md)
   - Runbooks for the RDP password, certificate trust, launching Outlook Classic, the full desktop, the launcher boundary check, shutdown, updates, and discontinuing.
 - [winapps/troubleshooting.md](winapps/troubleshooting.md)
