@@ -134,7 +134,7 @@ Diagnostic:
 virsh --connect qemu:///system dumpxml RDPWindows --xpath '//devices/filesystem'
 ```
 
-In elevated guest PowerShell, run `Get-Service VirtioFsSvc`.
-Fix: complete the [shared folder setup](shared-folder.md), including a full guest shutdown after applying the host declaration.
+Read `journalctl -u windows-guest-filesystem.service -n 50 --no-pager` on the host for provisioning failures.
+Fix: follow the [shared folder setup](shared-folder.md), including the agent prerequisite and a full shutdown after applying the declaration.
 
 Sources: [FreeRDP RAIL popup freeze](https://github.com/FreeRDP/FreeRDP/issues/12453), [WinApps Office RAIL freeze](https://github.com/winapps-org/winapps/issues/953), [WinApps tray icons](https://github.com/winapps-org/winapps/issues/34), [WinApps shared WM_CLASS](https://github.com/winapps-org/winapps/issues/267).
