@@ -5,7 +5,8 @@ Commands run on the host unless a step names the guest.
 
 ## Apply the declaration
 
-Precondition: the host module sets `host.virtualization.windowsGuest.enable`, and `/` has room for the declared volume capacity plus 20 GiB.
+Precondition: the option is enabled, `/` has room, and `RDPWindows` plus every guest on `default` are shut off.
+Run `virsh shutdown <domain>` for each running guest and wait for `virsh domstate <domain>` to show `shut off`.
 
 1. Check the free space:
 
@@ -31,7 +32,7 @@ Precondition: the host module sets `host.virtualization.windowsGuest.enable`, an
    virsh --connect qemu:///system list --all
    ```
 
-Verification: the unit result is `success`, the `winapps` network and pool are active, the volume allocation is far below its capacity, and `RDPWindows` is shut off.
+Verification: the unit result is `success`, the `default` network and `winapps` pool are active, the volume allocation is far below its capacity, and `RDPWindows` is shut off.
 
 ## Attach the install media
 
@@ -79,7 +80,7 @@ Precondition: Windows is at the desktop and the virtio-win CD is attached.
    ```sh
    virsh --connect qemu:///system qemu-agent-command RDPWindows '{"execute":"guest-ping"}'
    virsh --connect qemu:///system domifaddr RDPWindows --source agent
-   virsh --connect qemu:///system net-dhcp-leases winapps
+   virsh --connect qemu:///system net-dhcp-leases default
    ```
 
 Verification: the agent answers `{"return":{}}`, and the lease holds the address of `host.virtualization.windowsGuest.network.guestAddress`.
@@ -103,27 +104,28 @@ Precondition: the guest tools are installed and the guest reaches the internet.
 
 Verification: `powercfg /a` in the guest lists hibernation as unavailable, and Windows Update reports the guest up to date.
 
-## Check guest isolation
+## Check shared guest access
 
 Precondition: the guest is running with network access.
 
 1. Read the host address on the guest bridge:
 
    ```sh
-   ip -4 -br addr show virbr-winapps
+   ip -4 -br addr show virbr0
    ```
 
-2. In a PowerShell in the guest, probe the host and the internet:
+2. In a PowerShell in the guest, probe a listening host service in the allowed range, SSH, and outbound access:
 
    ```powershell
-   Test-NetConnection <host-bridge-address> -Port 22
+   Test-NetConnection 10.11.11.1 -Port <host-service-port>
+   Test-NetConnection 10.11.11.1 -Port 22
    Resolve-DnsName example.com
    Test-NetConnection example.com -Port 443
    ```
 
-3. On a host that runs a VPN or WARP tunnel, repeat step 2 with the tunnel connected and disconnected.
+3. With another VM attached to `default`, probe a listening service on that VM using its DHCP address and a port from `8000` through `9999`.
 
-Verification: the probe of the host fails, while the name lookup and the outbound connection succeed in every tunnel state.
+Verification: host and peer services accept TCP in the allowed range, host SSH fails, and DNS plus outbound TCP 443 succeed.
 
 ## Detach the install media
 

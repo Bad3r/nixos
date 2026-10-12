@@ -11,7 +11,7 @@ Precondition: Windows, the guest tools, the updates, and the Windows application
 
    ```sh
    jq -r '.nodes.winapps.locked.rev' flake.lock
-   ip -4 -br addr show virbr-winapps
+   ip -4 -br addr show virbr0
    ```
 
 2. In the guest, import the registry file of that revision; it turns Remote Desktop on with NLA and lets unlisted programs run as RemoteApps:

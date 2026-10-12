@@ -1,7 +1,7 @@
 # WinApps Windows guest
 
 `modules/hosts/common/windows-guest.nix` declares a Windows guest on libvirt `qemu:///system` through NixVirt.
-The declaration covers two NAT networks, a storage pool, the disk volume, and the domain `RDPWindows`.
+The declaration covers the shared NAT network, a storage pool, the disk volume, and the domain `RDPWindows`.
 A host opts in with `host.virtualization.windowsGuest.enable`.
 
 `modules/apps/winapps.nix` installs the WinApps launcher that presents the guest's programs over FreeRDP RemoteApp.
@@ -9,7 +9,7 @@ A host opts in with `host.virtualization.windowsGuest.enable`.
 
 ## Pages
 
-- [provisioning.md](provisioning.md): first switch, install media, Windows installation, guest tools, isolation check, media detach.
+- [provisioning.md](provisioning.md): first switch, install media, Windows installation, guest tools, shared-network check, media detach.
 - [remoteapp-setup.md](remoteapp-setup.md): the guest-side registry import, the firewall scope, and the Outlook path check.
 - [storage.md](storage.md): baseline copy, restore, and disk growth.
 - [shared-folder.md](shared-folder.md): persistent file sharing, Windows service setup, and host ownership checks.
@@ -31,8 +31,12 @@ A host opts in with `host.virtualization.windowsGuest.enable`.
   It is the one NixVirt setting that deletes the disk image.
 - The domain UUID, the NVRAM path, the pool path, and the volume name are identity.
   libvirt keys the TPM state, the UEFI variable store, and the disk on them, so a change strands guest state.
-- The `winapps` network UUID is identity as well.
-  NixVirt destroys every domain on a network it replaces, so a change powers a running guest off once and keeps its disk, NVRAM, and TPM state.
+- The `default` network UUID remains stable when its address changes.
+- The first switch to the shared network removes the old `winapps` network.
+  Gracefully shut down `RDPWindows` first; otherwise NixVirt powers it off while removing the network.
+  The disk, NVRAM, and TPM state stay on disk.
+- Stop every guest attached to `default` before changing its subnet.
+  NixVirt restarts the bridge when its network definition changes.
 - NixVirt treats its lists as exhaustive.
   At every boot and every switch it powers off and undefines each domain, network, and pool that the module does not declare.
   Their disks, NVRAM files, and TPM state stay on disk.
@@ -54,10 +58,23 @@ virsh --connect qemu:///system domuuid RDPWindows
 
 The TPM state sits in `/var/lib/libvirt/swtpm/` under the domain UUID.
 
-## Isolation
+## Shared VM network
 
-The guest network is a NAT network on a subnet outside the sources that `modules/hosts/common/firewall.nix` trusts.
-The host refuses new connections from the guest except DHCP and DNS, so the guest reaches the internet and no host service.
-Replies to connections the host opens, such as RDP, still pass.
+The `default` libvirt NAT network uses `10.11.11.0/24` on host bridge `virbr0`.
+The host uses `10.11.11.1`, `RDPWindows` reserves `10.11.11.2`, and DHCP leases `.3` through `.254` to other VMs.
+
+Attach additional VMs to `default` in virt-manager.
+Guests on the bridge can reach one another directly over TCP ports `8000` through `9999`.
+The host accepts that range on `virbr0` only from `10.11.11.0/24`.
+The QEMU guest-agent reconciler installs the matching inbound rule in `RDPWindows`.
+Configure the same guest firewall rule on each additional VM that needs to accept connections:
+
+```powershell
+New-NetFirewallRule -Name 'NixOS-Guest-Services-TCP-8000-9999' -DisplayName 'NixOS guest services TCP 8000-9999' -Direction Inbound -Action Allow -Enabled True -Profile Any -Protocol TCP -LocalPort '8000-9999' -RemoteAddress '10.11.11.0/24'
+```
+
+The host still refuses other new connections from the bridge, including SSH.
+The range `10.11.0.0/16` is excluded from the trusted local source CIDRs used for SSH, Samba, and the qBittorrent UI.
+DHCP, DNS, outbound NAT, and replies to host-initiated connections remain available.
 
 Sources: [NixVirt](https://github.com/AshleyYakeley/NixVirt), [libvirt domain XML](https://libvirt.org/formatdomain.html), [WinApps libvirt guide](https://github.com/winapps-org/winapps/blob/main/docs/libvirt.md).
