@@ -4,10 +4,16 @@
 The declaration covers two NAT networks, a storage pool, the disk volume, and the domain `RDPWindows`.
 A host opts in with `host.virtualization.windowsGuest.enable`.
 
+`modules/apps/winapps.nix` installs the WinApps launcher that presents the guest's programs over FreeRDP RemoteApp.
+`modules/hm-apps/winapps.nix` writes the launcher configuration and the `Outlook Classic` menu entry.
+
 ## Pages
 
 - [provisioning.md](provisioning.md): first switch, install media, Windows installation, guest tools, isolation check, media detach.
+- [remoteapp-setup.md](remoteapp-setup.md): the guest-side registry import, the firewall scope, and the Outlook path check.
 - [storage.md](storage.md): baseline copy, restore, and disk growth.
+- [operations.md](operations.md): the RDP password, certificate trust, launching Outlook Classic, the full desktop, the launcher boundary, shutdown, updates, and discontinuing.
+- [troubleshooting.md](troubleshooting.md): launcher and RemoteApp failures, each with a diagnostic and a fix.
 
 ## Lifecycle
 
