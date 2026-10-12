@@ -6,12 +6,12 @@
 }:
 
 let
-  version = "3.7.0.1";
+  version = "4.1.0.0";
 
   downloads = {
     x86_64-linux = {
       url = "https://github.com/KoalaBear84/OpenDirectoryDownloader/releases/download/v${version}/OpenDirectoryDownloader-${version}-linux-x64-self-contained.zip";
-      sha256 = "sha256-I7LPFlFccAsw/jvNzL5ci2XoSDOHbbdY+0wxiTHvuL4=";
+      sha256 = "sha256-lIaoEQdI9jHcn5ijvc2CJrXg4hMGMELLV68BFJ8Dn4g=";
     };
   };
 

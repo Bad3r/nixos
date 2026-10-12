@@ -5,18 +5,18 @@
 }:
 
 let
-  version = "1.34.2";
+  version = "1.35.1";
 
   downloads = {
     x86_64-linux = {
       url = "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${version}/azd-linux-amd64.tar.gz";
-      hash = "sha256-/gHjlNQ4OAxn3dGDLIWPuiaIvtGBXB6YXyHOrdGddmE=";
+      hash = "sha256-G0hE4ZW2yg2o2dKmFfH8DJ6o4QkgaQZSyvkOQu36U4U=";
       binary = "azd-linux-amd64";
     };
 
     aarch64-linux = {
       url = "https://github.com/Azure/azure-dev/releases/download/azure-dev-cli_${version}/azd-linux-arm64.tar.gz";
-      hash = "sha256-VdYaRv2G9iFYpd0Qp5LJTlyprmD7DVr1omMVycInSTQ=";
+      hash = "sha256-6TOQk9RqsivmJCpHXuNcB0A/9EQ4MosQqo8KopTxSCc=";
       binary = "azd-linux-arm64";
     };
   };

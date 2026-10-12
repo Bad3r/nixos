@@ -6,7 +6,7 @@
 
 python3Packages.buildPythonApplication rec {
   pname = "wappalyzer-next";
-  version = "2.0.2";
+  version = "2.0.4";
 
   format = "setuptools";
 
@@ -14,7 +14,7 @@ python3Packages.buildPythonApplication rec {
     owner = "s0md3v";
     repo = "wappalyzer-next";
     tag = version;
-    hash = "sha256-1fL+1hrcj8QX1OVGTX5unAb5MSt7xxIL7iXVcnbkpeY=";
+    hash = "sha256-D8+x9zROPwaRxzl2EZMCfhQAo38EdDdW/SAK63cz0cI=";
   };
 
   propagatedBuildInputs = with python3Packages; [
