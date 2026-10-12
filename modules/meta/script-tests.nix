@@ -119,6 +119,59 @@ let
         pkgs.gnused
       ];
     };
+    python-docs-publisher = {
+      dir = ../../tests/python-docs-publisher;
+      subjects = [ ];
+      packages =
+        { pkgs, ... }:
+        let
+          curlStub = pkgs.writeShellApplication {
+            name = "curl";
+            runtimeInputs = [ pkgs.coreutils ];
+            text = ''
+              case "''${PYTHON_DOCS_CURL_MODE:-truncated}" in
+                truncated)
+                  printf '%s\n' 'Python 3.14 Documentation'
+                  printf '%s\n' 'curl: (18) transfer closed with 4 bytes remaining' >&2
+                  exit 18
+                  ;;
+                large)
+                  printf '%s\n' 'Python 3.14 Documentation'
+                  head -c 131072 /dev/zero | tr '\000' 'x'
+                  ;;
+                *)
+                  printf 'unknown curl test mode: %s\n' "$PYTHON_DOCS_CURL_MODE" >&2
+                  exit 2
+                  ;;
+              esac
+            '';
+          };
+        in
+        [
+          (import ../../modules/hm-apps/_python-docs-publisher.nix {
+            inherit (pkgs) lib;
+            pkgs = pkgs // {
+              curl = curlStub;
+            };
+            pythonDocs = {
+              repoPath = "../repo";
+              outputRoot = ".";
+              versionUrl = "https://example.invalid/3/";
+              maxRevisions = 3;
+              lockPath = "git-mirror.lock";
+            };
+            mirrorRoot = ".";
+            stampName = ".test-root-stamp";
+            mkStampGuard =
+              { rootRef, stampRef }:
+              ''
+                [ -n "${rootRef}" ]
+                [ -n "${stampRef}" ]
+              '';
+          })
+        ];
+      extraInputs = _: [ ];
+    };
     docs-style = {
       dir = ../../tests/docs-style;
       # The hook reads the phrase list from the tree at run time, so the list
