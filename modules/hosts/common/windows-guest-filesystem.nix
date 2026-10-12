@@ -29,6 +29,7 @@ let
           transfer_dir = cfg.transferDir;
           script = ../../../scripts/windows-guest/shared-folder.ps1;
           quick_access_script = ../../../scripts/windows-guest/quick-access.ps1;
+          guest_services_firewall_script = ../../../scripts/windows-guest/guest-services-firewall.ps1;
           winfsp_version = winfspVersion;
           files = {
             "winfsp.msi" = winfsp;
@@ -49,7 +50,7 @@ let
     {
       config = lib.mkIf cfg.enable {
         systemd.services.windows-guest-filesystem = {
-          description = "Reconcile the Windows virtiofs drive through the QEMU guest agent";
+          description = "Reconcile Windows guest firewall and virtiofs access through the QEMU guest agent";
           after = [
             "libvirtd.service"
             "nixvirt.service"
@@ -69,7 +70,7 @@ let
           };
         };
         systemd.timers.windows-guest-filesystem = {
-          description = "Check Windows filesystem provisioning when the guest is running";
+          description = "Check Windows guest provisioning when the guest is running";
           wantedBy = [ "timers.target" ];
           timerConfig = {
             OnBootSec = "30s";

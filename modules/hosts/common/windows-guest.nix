@@ -17,10 +17,7 @@ let
       # Identity. libvirt keys guest state on these, so a change strands it: the
       # domain UUID names the swtpm state directory, nvramPath holds the UEFI
       # variable store, and a volume name NixVirt cannot find is created empty.
-      # The network UUID is identity too: NixVirt undefines by UUID and destroys
-      # every domain on a network it replaces, so a change powers the guest off.
       domainUuid = "d40dd3b2-a6ad-4136-89d8-120cb5d3c098";
-      winappsNetworkUuid = "44d27dc5-b0b5-4673-9c6b-2cceb995b733";
       defaultNetworkUuid = "84712988-20f5-4ffa-b6a2-acb45df49078";
       poolUuid = "7355d2f6-f1ff-4057-b6c8-a72475c936d4";
       nvramPath = "/var/lib/libvirt/qemu/nvram/${name}_VARS.fd";
@@ -33,33 +30,30 @@ let
       # agree and the DHCP reservation holds.
       guestMac = "52:54:00:93:d8:09";
 
-      # Outside the sources modules/hosts/common/firewall.nix trusts, Docker's
-      # default address pools, and the CGNAT range the mesh and tailnet use.
-      networkName = "winapps";
-      bridge = "virbr-winapps";
-      hostAddress = "172.16.213.1";
-      guestAddress = "172.16.213.10";
+      networkName = "default";
+      bridge = "virbr0";
+      hostAddress = "10.11.11.1";
+      guestAddress = "10.11.11.2";
 
-      winappsNetwork = {
-        name = networkName;
-        uuid = winappsNetworkUuid;
-        forward.mode = "nat";
-        bridge.name = bridge;
+      defaultNetworkTemplate = nixvirt.network.templates.bridge {
+        uuid = defaultNetworkUuid;
+        subnet_byte = 0;
+      };
+      defaultNetwork = defaultNetworkTemplate // {
         ip = {
           address = hostAddress;
           netmask = "255.255.255.0";
-          # No range: dnsmasq serves the reservation only, so a guest with
-          # another MAC gets no address instead of a wrong one.
-          dhcp.host = {
-            mac = guestMac;
-            ip = guestAddress;
+          dhcp = {
+            range = {
+              start = "10.11.11.3";
+              end = "10.11.11.254";
+            };
+            host = {
+              mac = guestMac;
+              ip = guestAddress;
+            };
           };
         };
-      };
-
-      defaultNetwork = nixvirt.network.templates.bridge {
-        uuid = defaultNetworkUuid;
-        subnet_byte = 122;
       };
 
       pool = {
@@ -285,22 +279,15 @@ let
             swtpm.enable = true;
             # The lists are exhaustive: NixVirt powers off and undefines every
             # object on the connection that is not declared here.
-            # restart = false throughout: definitions embed store paths that move
-            # with nixpkgs, and NixVirt's default powers an object off on any
-            # change. A change applies at the object's next start.
+            # The domain embeds store paths that move with nixpkgs, so changes
+            # apply on its next start. Network XML has no store paths and restarts
+            # only when its definition changes.
             connections.${uri} = {
               networks = [
                 {
-                  definition = nixvirt.network.writeXML winappsNetwork;
-                  active = true;
-                  restart = false;
-                }
-                # For ad-hoc virt-manager guests; started on demand so no idle
-                # bridge sits inside the range the host firewall trusts.
-                {
                   definition = nixvirt.network.writeXML defaultNetwork;
-                  active = null;
-                  restart = false;
+                  active = true;
+                  restart = null;
                 }
               ];
               pools = [
@@ -363,6 +350,7 @@ let
         # ahead of it on IPv4, while IPv6 gets only the refuse, at the head.
         networking.firewall.extraCommands = ''
           ip46tables -I nixos-fw 1 -i ${bridge} -m conntrack --ctstate NEW -j nixos-fw-refuse
+          iptables -I nixos-fw 1 -i ${bridge} -s 10.11.11.0/24 -p tcp --dport 8000:9999 -m conntrack --ctstate NEW -j nixos-fw-accept
           iptables -I nixos-fw 1 -i ${bridge} -p tcp --dport 53 -j nixos-fw-accept
           iptables -I nixos-fw 1 -i ${bridge} -p udp --dport 53 -j nixos-fw-accept
           iptables -I nixos-fw 1 -i ${bridge} -p udp --dport 67 -j nixos-fw-accept

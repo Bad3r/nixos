@@ -4,7 +4,7 @@
 # requires-python = ">=3.14"
 # dependencies = []
 # ///
-"""Reconcile a Windows virtiofs mount without starting or restarting its VM."""
+"""Reconcile Windows guest firewall and virtiofs policy without restarting its VM."""
 
 from __future__ import annotations
 
@@ -176,11 +176,27 @@ def checked_powershell(agent: Agent, command: str) -> str:
     return output
 
 
+def reconcile_guest_services_firewall(agent: Agent, script_path: Path, staging: str) -> None:
+    """Converge the bounded inbound service rule and retain guest failures."""
+    guest_script = staging + r"\guest-services-firewall.ps1"
+    agent.write_file(guest_script, script_path.read_bytes())
+    command = f"$ErrorActionPreference = 'Stop'; & {ps_quote(guest_script)} -Mode "
+    code, output = agent.powershell(command + "Probe; exit $LASTEXITCODE")
+    if code == 0:
+        print(output)
+    elif code == NEEDS_APPLY:
+        print(f"Windows guest firewall setup needed: {output}", flush=True)
+        print(checked_powershell(agent, command + "Apply; exit $LASTEXITCODE"))
+    else:
+        msg = f"Windows guest firewall probe failed ({code}): {output}"
+        raise RuntimeError(msg)
+
+
 def reconcile(config: Object, agent: Agent) -> None:
     """Inspect real state before transferring payloads or invoking installation."""
     state = agent.virsh("domstate", agent.domain)
     if state != "running":
-        print(f"Windows filesystem setup deferred: guest is {state}")
+        print(f"Windows guest provisioning deferred: guest is {state}")
         return
     domain = ET.fromstring(agent.virsh("dumpxml", agent.domain))  # noqa: S314
     filesystems = domain.findall("./devices/filesystem")
@@ -236,6 +252,12 @@ def reconcile(config: Object, agent: Agent) -> None:
     agent.write_file(
         staging + r"\shared-folder.ps1", Path(string_value(config.get("script"))).read_bytes()
     )
+    reconcile_guest_services_firewall(
+        agent,
+        Path(string_value(config.get("guest_services_firewall_script"))),
+        staging,
+    )
+
     command = (
         "$ErrorActionPreference = 'Stop'; "
         f"& {ps_quote(staging + chr(92) + 'shared-folder.ps1')} "
@@ -290,7 +312,7 @@ def main() -> int:
         ET.ParseError,
         subprocess.SubprocessError,
     ) as error:
-        print(f"Windows filesystem setup failed: {error}", file=sys.stderr)
+        print(f"Windows guest provisioning failed: {error}", file=sys.stderr)
         return 1
     return 0
 

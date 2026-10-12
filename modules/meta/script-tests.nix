@@ -50,6 +50,10 @@ let
           dest = "scripts/windows-guest/shared-folder.ps1";
         }
         {
+          src = ../../scripts/windows-guest/guest-services-firewall.ps1;
+          dest = "scripts/windows-guest/guest-services-firewall.ps1";
+        }
+        {
           src = ../../scripts/windows-guest/pin-quick-access.ps1;
           dest = "scripts/windows-guest/pin-quick-access.ps1";
         }
