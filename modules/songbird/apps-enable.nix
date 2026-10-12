@@ -28,6 +28,7 @@ let
     ilspycmd = true;
     imhex = true;
     jadx = true;
+    magnitude = true;
     malimite = true;
     mono = true;
     radare2 = true;
