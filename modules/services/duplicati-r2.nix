@@ -653,6 +653,10 @@ let
                     systemctl daemon-reload
 
                     if [ "''${#backup_timers[@]}" -eq 0 ]; then
+                      if jq -e '.targets | type == "object" and length > 0 and all(.[]; .enable == false)' "$config_dest" >/dev/null; then
+                        echo "duplicati-r2 generator: all targets explicitly disabled, backups paused" >&2
+                        exit 0
+                      fi
                       echo "duplicati-r2 generator: enabled but generated zero backup timers, check manifest targets" >&2
                       exit 1
                     fi

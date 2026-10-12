@@ -8,8 +8,9 @@
 # name, which is what actually executes them: it selects on the script-tests-
 # prefix or on passthru.runtimeCheck, so anything named here is picked up
 # without a workflow edit.
-_:
+{ config, ... }:
 let
+  nixosConfigurations = config.flake.nixosConfigurations;
   # Each suite resolves its subject relative to its own directory, so `dest` is
   # the path under the build root that the harness expects to find. A subject
   # that is a flake package rather than a file in the tree goes in `packages`,
@@ -22,6 +23,21 @@ let
   # break the check itself. Declaring all of them keeps the list a readable
   # inventory of what a suite needs rather than of what stdenv forgot.
   suites = {
+    duplicati-r2-generator = {
+      dir = ../../tests/duplicati-r2-generator;
+      subjects = [ ];
+      extraInputs = pkgs: [
+        pkgs.jq
+        pkgs.gnused
+        pkgs.gnugrep
+      ];
+      packages = { pkgs, ... }: [
+        (pkgs.runCommand "duplicati-r2-generator-test-subject" { } ''
+          mkdir -p "$out/bin"
+          cp ${nixosConfigurations.songbird.config.systemd.services.duplicati-r2-generate-units.serviceConfig.ExecStart} "$out/bin/duplicati-r2-generator-test-subject"
+        '')
+      ];
+    };
     prune-old-stashes = {
       dir = ../../tests/prune-old-stashes;
       subjects = [
