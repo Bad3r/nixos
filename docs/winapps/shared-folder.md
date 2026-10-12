@@ -1,11 +1,13 @@
 # Windows shared folder
 
 Virtiofs exposes the host transfer directory as a Windows drive across console and RDP sessions.
-The host path comes from `modules/hosts/common/windows-guest.nix`; Home Manager creates it during activation.
+The host path comes from `modules/hosts/common/windows-guest.nix`; NixOS creates it with the host owner's permissions.
 The file server runs as the host owner, so Windows cannot create files owned by another host account.
 Every Windows account that can access the drive can modify its contents.
 `modules/hosts/common/windows-guest-filesystem.nix` provisions WinFsp Core, the signed VirtIO filesystem driver, and the Windows service through the QEMU guest agent.
 Windows needs no internet access for this setup; the host sends pinned payloads through the guest agent.
+An interactive logon task pins the drive to File Explorer Quick access for Windows users.
+The host service also restores that pin in a running Explorer session.
 
 ## Enable the Windows drive
 
@@ -37,7 +39,20 @@ Precondition: the [guest tools](provisioning.md#install-guest-tools) are install
 The declaration removes the Windows `Owner` override so ownership comes from the share root inside the file server's user namespace.
 
 Verification: `Get-Volume -DriveLetter T` reports the transfer volume in both the virt-manager console and a `winapps windows` session.
+File Explorer lists the drive in Quick access.
 Shut Windows down and start it again; the drive must mount without launching Outlook.
+
+## Move existing transfer files
+
+Precondition: the destination path declared in the guest module is unoccupied.
+
+1. Apply the host configuration with `./build.sh`.
+   Activation renames the existing transfer directory, preserving its contents and open file handles.
+   An existing destination or a move across filesystems fails without replacing files.
+
+2. Shut Windows down fully and start the guest to apply the new filesystem source.
+
+Verification: the files appear at the declared host path and remain accessible through the Windows drive.
 
 ## Verify access from both sides
 
@@ -52,8 +67,8 @@ Precondition: the Windows drive is mounted.
 2. On the host, check ownership and append data:
 
    ```sh
-   stat -c '%U:%G %a %n' ~/Documents/Outlook-Transfer/ownership-check.txt
-   printf '%s\n' 'appended on host' >> ~/Documents/Outlook-Transfer/ownership-check.txt
+   stat -c '%U:%G %a %n' /mnt/outlook/ownership-check.txt
+   printf '%s\n' 'appended on host' >> /mnt/outlook/ownership-check.txt
    ```
 
 3. In guest PowerShell, read the result:

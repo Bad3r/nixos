@@ -7,7 +7,7 @@
 
   Summary:
     * Writes ~/.config/winapps/winapps.conf from the guest module's name, address and account, with the password read through packages/winapps-askpass.
-    * Installs an Outlook Classic desktop entry that runs `winapps manual` on the Outlook executable, and creates the transfer directory the guest mounts over virtiofs.
+    * Installs an Outlook Classic desktop entry that runs `winapps manual` on the Outlook executable.
 
   Notes:
     * Gated on programs.winapps.extended.enable from the NixOS scope and loaded per host through extraHomeApps.
@@ -64,11 +64,6 @@ _: {
           RDP_FLAGS_NON_WINDOWS="/wm-class:${wmClass}"
           RDP_FLAGS_WINDOWS="-grab-keyboard"
           REMOVABLE_MEDIA="${transferDir}"
-        '';
-
-        home.activation.ensureOutlookTransferDir = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-          mkdir -p ${lib.escapeShellArg transferDir}
-          chmod 700 ${lib.escapeShellArg transferDir}
         '';
 
         xdg.desktopEntries.outlook-classic = {

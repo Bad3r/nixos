@@ -35,7 +35,7 @@ COMMANDS = [
 ]
 ROOT = r"C:\Program Files\NixOS\VirtioFS"
 XML = """<domain><devices><filesystem><driver type='virtiofs'/>
-<source dir='/home/vx/Documents/Outlook-Transfer'/><target dir='transfer'/>
+<source dir='/mnt/outlook'/><target dir='transfer'/>
 </filesystem></devices></domain>"""
 
 
@@ -52,10 +52,14 @@ class ReconcileTests(unittest.TestCase):
         self.script = directory / "script.ps1"
         self.script.write_text("exit 0")
         self.config = {
-            "transfer_dir": "/home/vx/Documents/Outlook-Transfer",
+            "transfer_dir": "/mnt/outlook",
             "winfsp_version": "2.1.25156",
-            "files": {"virtiofs.exe": str(self.payload)},
+            "files": {
+                "virtiofs.exe": str(self.payload),
+                "pin-quick-access.ps1": str(self.script),
+            },
             "script": str(self.script),
+            "quick_access_script": str(self.script),
         }
         self.agent = unittest.mock.create_autospec(provision.Agent, instance=True)
         self.agent.domain = "RDPWindows"
@@ -63,7 +67,7 @@ class ReconcileTests(unittest.TestCase):
         self.agent.request.return_value = {
             "supported_commands": [{"name": command, "enabled": True} for command in COMMANDS]
         }
-        self.agent.powershell.side_effect = [(0, ROOT), (0, "ready")]
+        self.agent.powershell.side_effect = [(0, ROOT), (0, "ready"), (0, "pinned")]
 
     def test_offline_guest_is_not_started(self) -> None:
         """An inactive domain requires no agent request or guest write."""
@@ -88,23 +92,43 @@ class ReconcileTests(unittest.TestCase):
         self.agent.write_file.assert_not_called()
 
     def test_ready_guest_does_not_receive_installers(self) -> None:
-        """A converged system receives a probe, with no installation payload."""
+        """A mounted drive refreshes Quick access without reinstalling Windows files."""
         provision.reconcile(self.config, self.agent)
         destinations = [call.args[0] for call in self.agent.write_file.call_args_list]
         self.assertEqual(
-            destinations, [ROOT + r"\staging\manifest.json", ROOT + r"\staging\shared-folder.ps1"]
+            destinations,
+            [
+                ROOT + r"\staging\manifest.json",
+                ROOT + r"\staging\shared-folder.ps1",
+                ROOT + r"\staging\pin-quick-access.ps1",
+                ROOT + r"\staging\quick-access.ps1",
+            ],
         )
-        self.assertEqual(self.agent.powershell.call_count, 2)
+        self.assertEqual(self.agent.powershell.call_count, 3)
 
     def test_apply_transfers_binary_bytes_only_to_staging(self) -> None:
         """An executable update must not overwrite the running service binary."""
-        self.agent.powershell.side_effect = [(0, ROOT), (10, "needs setup"), (0, "ready")]
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (10, "needs setup"),
+            (0, "ready"),
+            (0, "pinned"),
+        ]
         provision.reconcile(self.config, self.agent)
         self.agent.write_file.assert_any_call(
             ROOT + r"\staging\virtiofs.exe", self.payload.read_bytes()
         )
         self.assertTrue(
-            self.agent.powershell.call_args.args[0].endswith("Apply; exit $LASTEXITCODE")
+            self.agent.powershell.call_args_list[2].args[0].endswith("Apply; exit $LASTEXITCODE")
+        )
+
+    def test_pin_failure_surfaces_without_reinstalling_filesystem(self) -> None:
+        """A failed user-session task remains visible in the host service result."""
+        self.agent.powershell.side_effect = [(0, ROOT), (0, "ready"), (1, "pin failed")]
+        with self.assertRaisesRegex(RuntimeError, "pin failed"):
+            provision.reconcile(self.config, self.agent)
+        self.assertFalse(
+            any("-Mode Apply" in call.args[0] for call in self.agent.powershell.call_args_list)
         )
 
     def test_probe_failure_is_not_treated_as_install_request(self) -> None:
@@ -266,6 +290,161 @@ class WindowsScriptTests(unittest.TestCase):
         result = self.run_case("bad-hash", "Apply")
         self.assertEqual(result.returncode, 1)
         self.assertIn("Payload hash mismatch", result.stderr)
+
+
+class QuickAccessTests(unittest.TestCase):
+    """Exercise task policy and per-user Shell pinning without a desktop."""
+
+    def run_case(self, script: str, case: str) -> subprocess.CompletedProcess[str]:
+        """Execute the production scripts against task and Shell API fixtures."""
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "staging/manifest.json"
+            manifest.parent.mkdir()
+            manifest.write_text(
+                json.dumps({"hashes": {"pin-quick-access.ps1": "pin-quick-access.ps1"}})
+            )
+            return subprocess.run(
+                [
+                    "pwsh",
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-File",
+                    str(REPO / "tests/windows-guest-filesystem/mock-quick-access.ps1"),
+                    str(REPO / "scripts/windows-guest" / script),
+                    str(manifest),
+                    case,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+
+    def test_new_pin_is_verified(self) -> None:
+        """A new Shell entry is pinned through the canonical verb."""
+        result = self.run_case("pin-quick-access.ps1", "new")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("pin invoked", result.stdout)
+
+    def test_existing_pin_is_not_toggled_off(self) -> None:
+        """An existing Quick access item must never receive the toggle verb."""
+        result = self.run_case("pin-quick-access.ps1", "ready")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("pin invoked", result.stdout)
+
+    def test_failed_shell_pin_is_reported(self) -> None:
+        """Invoking a verb alone is insufficient to report a successful pin."""
+        result = self.run_case("pin-quick-access.ps1", "pin-failure")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("was not added", result.stderr)
+
+    def test_task_is_registered_for_interactive_users(self) -> None:
+        """Registration must use the Users group with limited privileges."""
+        result = self.run_case("quick-access.ps1", "new")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("task registered", result.stdout)
+
+    def test_healthy_task_is_not_reregistered(self) -> None:
+        """An unchanged policy only refreshes the user's pin."""
+        result = self.run_case("quick-access.ps1", "ready")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("task registered", result.stdout)
+
+    def test_disabled_task_is_repaired(self) -> None:
+        """Policy drift must restore an enabled logon trigger."""
+        result = self.run_case("quick-access.ps1", "disabled")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("task registered", result.stdout)
+
+    def test_no_user_session_defers_pinning(self) -> None:
+        """A headless guest receives the policy and waits for user logon."""
+        result = self.run_case("quick-access.ps1", "no-session")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("awaits an interactive", result.stdout)
+
+    def test_task_failure_is_reported(self) -> None:
+        """A failed scheduled execution cannot become a ready result."""
+        result = self.run_case("quick-access.ps1", "pin-failure")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("task failed", result.stderr)
+
+    def test_already_running_task_is_awaited(self) -> None:
+        """A logon-triggered pin can finish without being restarted or timing out."""
+        result = self.run_case("quick-access.ps1", "already-running")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("present in File Explorer", result.stdout)
+
+    def test_corrupt_pin_payload_is_rejected(self) -> None:
+        """A hash mismatch stops task registration and execution."""
+        result = self.run_case("quick-access.ps1", "bad-hash")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("hash mismatch", result.stderr)
+
+
+class MigrationTests(unittest.TestCase):
+    """Preserve existing transfer files while moving the owning directory."""
+
+    def migrate(self, source: Path, destination: Path) -> subprocess.CompletedProcess[str]:
+        """Run the activation helper on temporary directories."""
+        return subprocess.run(
+            [
+                "bash",
+                str(REPO / "scripts/windows-guest/migrate-transfer.sh"),
+                str(source),
+                str(destination),
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=10,
+        )
+
+    def test_move_preserves_files_permissions_and_open_handles(self) -> None:
+        """Rename keeps the same inode and an already opened file writable."""
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "old"
+            destination = Path(directory) / "outlook"
+            source.mkdir(mode=0o700)
+            data = source / "file"
+            data.write_text("before")
+            inode = source.stat().st_ino
+            with data.open("a") as opened:
+                result = self.migrate(source, destination)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                opened.write("after")
+            self.assertEqual(destination.stat().st_ino, inode)
+            self.assertEqual(destination.stat().st_mode & 0o777, 0o700)
+            self.assertEqual((destination / "file").read_text(), "beforeafter")
+            self.assertFalse(source.exists())
+            self.assertEqual(self.migrate(source, destination).returncode, 0)
+
+    def test_existing_destination_keeps_both_directories(self) -> None:
+        """Never merge or replace an occupied target path."""
+        with tempfile.TemporaryDirectory() as directory:
+            source = Path(directory) / "old"
+            destination = Path(directory) / "outlook"
+            source.mkdir()
+            destination.mkdir()
+            (source / "file").write_text("source")
+            (destination / "file").write_text("destination")
+            result = self.migrate(source, destination)
+            self.assertEqual(result.returncode, 1)
+            self.assertEqual((source / "file").read_text(), "source")
+            self.assertEqual((destination / "file").read_text(), "destination")
+
+    def test_source_symlink_is_rejected(self) -> None:
+        """Do not relocate an unexpected link or its target."""
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            target = root / "target"
+            target.mkdir()
+            source = root / "old"
+            source.symlink_to(target)
+            result = self.migrate(source, root / "outlook")
+            self.assertEqual(result.returncode, 1)
+            self.assertTrue(source.is_symlink())
+            self.assertTrue(target.is_dir())
 
 
 if __name__ == "__main__":

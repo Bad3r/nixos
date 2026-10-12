@@ -28,6 +28,7 @@ let
           domain = cfg.name;
           transfer_dir = cfg.transferDir;
           script = ../../../scripts/windows-guest/shared-folder.ps1;
+          quick_access_script = ../../../scripts/windows-guest/quick-access.ps1;
           winfsp_version = winfspVersion;
           files = {
             "winfsp.msi" = winfsp;
@@ -35,6 +36,7 @@ let
             "viofs.cat" = "${driver}/viofs.cat";
             "viofs.sys" = "${driver}/viofs.sys";
             "virtiofs.exe" = "${driver}/virtiofs.exe";
+            "pin-quick-access.ps1" = ../../../scripts/windows-guest/pin-quick-access.ps1;
           };
         }
       );

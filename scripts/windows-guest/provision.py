@@ -244,14 +244,29 @@ def reconcile(config: Object, agent: Agent) -> None:
     code, output = agent.powershell(command + "Probe; exit $LASTEXITCODE")
     if code == 0:
         print(output)
-        return
-    if code != NEEDS_APPLY:
+    elif code != NEEDS_APPLY:
         msg = f"Windows filesystem probe failed ({code}): {output}"
         raise RuntimeError(msg)
-    print(f"Windows filesystem setup needed: {output}", flush=True)
-    for name, path in payloads.items():
-        agent.write_file(staging + "\\" + name, path.read_bytes())
-    print(checked_powershell(agent, command + "Apply; exit $LASTEXITCODE"))
+    else:
+        print(f"Windows filesystem setup needed: {output}", flush=True)
+        for name, path in payloads.items():
+            agent.write_file(staging + "\\" + name, path.read_bytes())
+        print(checked_powershell(agent, command + "Apply; exit $LASTEXITCODE"))
+    agent.write_file(
+        staging + r"\pin-quick-access.ps1", payloads["pin-quick-access.ps1"].read_bytes()
+    )
+    agent.write_file(
+        staging + r"\quick-access.ps1",
+        Path(string_value(config.get("quick_access_script"))).read_bytes(),
+    )
+    print(
+        checked_powershell(
+            agent,
+            "$ErrorActionPreference = 'Stop'; "
+            f"& {ps_quote(staging + chr(92) + 'quick-access.ps1')} "
+            f"-ManifestPath {ps_quote(staging + chr(92) + 'manifest.json')}; exit $LASTEXITCODE",
+        )
+    )
 
 
 def main() -> int:

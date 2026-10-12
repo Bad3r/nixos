@@ -244,8 +244,7 @@ let
 
         transferDir = lib.mkOption {
           type = lib.types.str;
-          default = "${owner.home}/Documents/Outlook-Transfer";
-          defaultText = lib.literalExpression ''"''${config.users.users.<owner>.home}/Documents/Outlook-Transfer"'';
+          default = "/mnt/outlook";
           readOnly = true;
           description = ''
             Host directory the guest mounts over virtiofs, so every guest session sees it, the
@@ -332,10 +331,27 @@ let
         };
 
         # NixVirt starts the pool without building it, so the target has to exist.
-        systemd.tmpfiles.settings."10-windows-guest".${poolPath}.d = {
-          user = "root";
-          group = "root";
-          mode = "0711";
+        systemd.tmpfiles.settings."10-windows-guest" = {
+          ${poolPath}.d = {
+            user = "root";
+            group = "root";
+            mode = "0711";
+          };
+          ${cfg.transferDir}.d = {
+            inherit (owner) group;
+            user = metaOwner.username;
+            mode = "0700";
+          };
+        };
+
+        system.activationScripts.windows-guest-transfer = {
+          deps = [ "users" ];
+          text = ''
+            PATH=${lib.makeBinPath [ pkgs.coreutils ]} ${lib.getExe pkgs.bash} \
+              ${../../../scripts/windows-guest/migrate-transfer.sh} \
+              ${lib.escapeShellArg "${owner.home}/Documents/Outlook-Transfer"} \
+              ${lib.escapeShellArg cfg.transferDir}
+          '';
         };
 
         # Head of the chain: nixos-fw accepts the open ports and LAN sources
