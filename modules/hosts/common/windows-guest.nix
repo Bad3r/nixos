@@ -212,6 +212,13 @@ let
           description = "IPv4 address the guest network reserves for the guest.";
         };
 
+        rdpUser = lib.mkOption {
+          type = lib.types.str;
+          default = "outlook";
+          readOnly = true;
+          description = "Local Windows account the RemoteApp launcher signs in as.";
+        };
+
         installIso = lib.mkOption {
           type = lib.types.nullOr lib.types.str;
           default = null;
