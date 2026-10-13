@@ -63,7 +63,7 @@ systemctl --user start magnitude
 ## Fix connection errors
 
 - Connection refused from another host: the service is stopped on songbird, or it started before the switch that enabled Mesh access.
-- HTTP 401: the client and server keys differ; both hosts read the same sops secret after a switch.
+- HTTP 401: the client key is missing or differs from the server's; both hosts read the same sops secret after a switch, and a build without `secrets/magnitude.yaml` warns about the missing key.
 - HTTP 421: the request named a host Magnitude does not accept; use `songbird.internal`.
 
 [Magnitude documentation](https://docs.magnitude.dev)

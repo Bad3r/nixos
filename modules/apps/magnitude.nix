@@ -186,6 +186,12 @@ in
             "programs.magnitude.extended.enable is true but ${toString apiKeySecretFile} is missing or repo secrets are disabled; Magnitude serves loopback only."
           ];
         })
+
+        (lib.mkIf (!cfg.enable && cfg.client.endpoint != null && cfg.client.apiKeyFile == null) {
+          warnings = [
+            "programs.magnitude.extended.client.endpoint is ${cfg.client.endpoint} but client.apiKeyFile is null, which is the default when ${toString apiKeySecretFile} is missing or repo secrets are disabled; a remote Magnitude answers requests without a key with 401."
+          ];
+        })
       ];
     };
 }
