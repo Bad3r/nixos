@@ -24,25 +24,18 @@ Precondition: the Zero Trust team exists and the account holds the `Warp Login A
    ```
 
 3. Create the device profile `nixos-<host>`, matched on the token, with the host's mode (`warp` or
-   `warp_tunnel_only`), WireGuard, `auto_connect` at zero, and the split-tunnel exclude list.
+   `warp_tunnel_only`), WireGuard, and `auto_connect` at zero.
+   Its exclude list is set once the token is in sops.
 
    ```sh
    curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy" \
      -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
-     --data '{"name": "nixos-<host>", "match": "identity.service_token_uuid == \"<token id>\"", "precedence": <unique integer>, "enabled": true, "service_mode_v2": {"mode": "<mode>"}, "tunnel_protocol": "wireguard", "auto_connect": 0, "switch_locked": false, "allow_mode_switch": true, "allowed_to_leave": false, "captive_portal": 180, "exclude": [{"address": "10.0.0.0/8"}, {"address": "100.64.0.0/11", "description": "CGNAT below the Cloudflare Mesh range"}, {"address": "100.112.0.0/12", "description": "CGNAT above the Cloudflare Mesh range"}, {"address": "169.254.0.0/16"}, {"address": "172.16.0.0/12"}, {"address": "192.0.0.0/24"}, {"address": "192.168.0.0/16"}, {"address": "224.0.0.0/24"}, {"address": "240.0.0.0/4"}, {"address": "255.255.255.255/32"}, {"address": "fe80::/10"}, {"address": "fd00::/8"}, {"address": "ff01::/16"}, {"address": "ff02::/16"}, {"address": "ff03::/16"}, {"address": "ff04::/16"}, {"address": "ff05::/16"}, {"address": "239.255.255.250/32", "description": "SSDP"}, {"address": "fc00::/7"}, {"address": "17.249.0.0/16", "description": "Apple services"}, {"address": "17.252.0.0/16", "description": "Apple services"}, {"address": "17.57.144.0/22", "description": "Apple services"}, {"address": "17.188.128.0/18", "description": "Apple services"}, {"address": "17.188.20.0/23", "description": "Apple services"}]}'
+     --data '{"name": "nixos-<host>", "match": "identity.service_token_uuid == \"<token id>\"", "precedence": <unique integer>, "enabled": true, "service_mode_v2": {"mode": "<mode>"}, "tunnel_protocol": "wireguard", "auto_connect": 0, "switch_locked": false, "allow_mode_switch": true, "allowed_to_leave": false, "captive_portal": 180}'
    ```
 
-4. Set the default profile's exclude list to the same 24 entries: everything Cloudflare serves by default, with the stock `100.64.0.0/10` split into `100.64.0.0/11` and `100.112.0.0/12`; `exclude.json` holds that array.
+4. In the dashboard, check that Mesh connectivity is on under Team & Resources, Devices, Management, and that the ICMP proxy is on next to TCP and UDP under Traffic policies, Traffic settings.
 
-   ```sh
-   curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/exclude" \
-     -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
-     --data @exclude.json
-   ```
-
-5. In the dashboard, check that Mesh connectivity is on under Team & Resources, Devices, Management, and that the ICMP proxy is on next to TCP and UDP under Traffic policies, Traffic settings.
-
-Verification: `GET /accounts/$ACCOUNT/devices/policies` lists the profile with the host's mode and a 24-entry exclude list, and the app's policies include the token id.
+Verification: `GET /accounts/$ACCOUNT/devices/policies` lists the profile with the host's mode, and the app's policies include the token id.
 
 ## Put the token into sops
 
@@ -63,6 +56,8 @@ Precondition: the shared host age key is in `.sops.yaml`; its catch-all `secrets
    git -C secrets push origin main
    git add secrets
    ```
+
+4. Set the new profile's exclude list per [Change an exclude list](#change-an-exclude-list).
 
 Verification: `nix flake check path:. --accept-flake-config --no-build --offline` passes, including the cleartext guard.
 
@@ -113,23 +108,26 @@ command from the same approved terminal tab may not prompt again until 1Password
 session expires. When the installed 1Password version offers `For each new request`, select it in
 Settings, Developer, SSH Agent, Advanced to require approval for every SSH signature request.
 
-## Change a profile's exclude list
+## Change an exclude list
 
-Precondition: `exclude.json` holds the full 24-entry array from the profile step above, since the call replaces the whole list.
+Precondition: the base list in `modules/apps/cloudflare-warp/excludes-package.nix` and each `<host>.exclude` list in `secrets/cloudflare-warp.yaml` hold the wanted entries.
 
-No host adds entries: the Proton VPN WireGuard endpoint in [qbittorrent.nix](../../../modules/songbird/qbittorrent.nix) stays inside the WARP tunnel, because the ISP drops a WireGuard flow it can see and an excluded endpoint gets no handshake.
+`cloudflare-warp-excludes` gives the default profile the base list and each `nixos-<host>` profile the base list plus that host's entries.
+An entry added only in the dashboard shows as `-` in the comparison and is dropped on `--apply`.
+A `warp_tunnel_only` profile ignores `host` entries, since domain excludes need the client's DNS proxy, so such a host lists the destination's address range.
+The Proton VPN WireGuard endpoint in [qbittorrent.nix](../../../modules/songbird/qbittorrent.nix) stays inside the WARP tunnel, because the ISP drops a WireGuard flow it can see and an excluded endpoint gets no handshake.
 
-1. Set the list on a custom profile, with the id from `GET /accounts/$ACCOUNT/devices/policies`; the default profile takes the same body at `/devices/policy/exclude`.
+1. From the repository root, compare each profile with its declared list:
 
    ```sh
-   curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/<profile id>/exclude" \
-     -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
-     --data @exclude.json
+   nix run path:.#cloudflare-warp-excludes
    ```
 
-2. Run `sudo systemctl restart cloudflare-warp.service` on each host: warp-svc 2026.7.1343.0 can keep the previous list past Cloudflare's ten-minute propagation window.
+2. Replace every list that differs: `nix run path:.#cloudflare-warp-excludes -- --apply`.
 
-Verification: `warp-cli --accept-tos settings` lists every entry under `Exclude mode`.
+3. Run `sudo systemctl restart cloudflare-warp.service` on each changed host: warp-svc 2026.7.1343.0 can keep the previous list past Cloudflare's ten-minute propagation window.
+
+Verification: a second comparison reports every profile up to date, and `warp-cli --accept-tos settings` on the host lists every entry under `Exclude mode`.
 
 ## Rotate a token
 
