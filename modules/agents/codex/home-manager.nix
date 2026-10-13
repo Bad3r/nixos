@@ -29,6 +29,8 @@
       - config.base.toml: nix-managed base settings (read-only)
       - projects.nix.toml: nix-managed trusted project paths (read-only)
       - trusted-projects.toml: user-managed trusted project paths (mutable)
+    * `codex -p local` layers local.config.toml, a copy generated from the Magnitude endpoint in
+      programs.magnitude.extended.client (modules/apps/magnitude.nix).
     * Execpolicy is separate from config.toml and is loaded from the rules/ directory under CODEX_HOME.
       The nix-managed layer is written to codex/rules/20-managed.rules.
     * To trust a new project, add it to ~/.config/codex/trusted-projects.toml:
@@ -100,6 +102,32 @@ _: {
       codexSkillDirs = lib.mapAttrs' (
         name: skill: lib.nameValuePair "agents/skills/${name}" { source = (skill.codex pkgs).dir; }
       ) (lib.filterAttrs (_name: skill: skill ? codex) agents.skills.list);
+
+      magnitudeClient = lib.attrByPath [ "programs" "magnitude" "extended" "client" ] {
+        endpoint = null;
+      } osConfig;
+
+      # Layered over config.toml by `codex -p local`. Codex has no metadata for
+      # Magnitude model IDs and otherwise assumes a cloud-sized context window.
+      codexLocalProfile = (pkgs.formats.toml { }).generate "codex-local.config.toml" {
+        inherit (magnitudeClient) model;
+        review_model = magnitudeClient.model;
+        model_provider = "magnitude";
+        model_context_window = magnitudeClient.contextWindow;
+        # Startup extraction would summarize past cloud sessions with the local model.
+        memories.generate_memories = false;
+        model_providers.magnitude = {
+          name = "Magnitude";
+          base_url = "${magnitudeClient.endpoint}/inference/v1";
+          wire_api = "responses";
+        }
+        // lib.optionalAttrs (magnitudeClient.apiKeyFile != null) {
+          auth = {
+            command = lib.getExe' pkgs.coreutils "cat";
+            args = [ magnitudeClient.apiKeyFile ];
+          };
+        };
+      };
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -188,6 +216,12 @@ _: {
 
               run mkdir -p "${agentsDir}/skills"
               run ln -sfnT "${agentsDir}" "$agentsHome"
+            '';
+          }
+          // lib.optionalAttrs (magnitudeClient.endpoint != null) {
+            # A copy, not a store link: under `-p local` Codex saves config edits to the profile.
+            codexLocalProfile = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
+              run install -D -m 0644 ${codexLocalProfile} "${configDir}/local.config.toml"
             '';
           };
 
