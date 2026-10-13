@@ -76,10 +76,6 @@
             command = "floating enable, focus";
           }
           {
-            criteria.class = "(?i)^claude-wpa$";
-            command = "floating enable, ${topRight}";
-          }
-          {
             criteria.class = "(?i)^bitwarden$";
             command = "floating enable, ${topRight}";
           }
