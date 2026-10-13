@@ -76,10 +76,6 @@
             command = "floating enable, focus";
           }
           {
-            criteria.class = "(?i)^claude-wpa$";
-            command = "floating enable, ${topRight}";
-          }
-          {
             criteria.class = "(?i)^bitwarden$";
             command = "floating enable, ${topRight}";
           }
@@ -138,8 +134,9 @@
           }
         ]
         ++ lib.optional claudeDesktopEnabled {
-          criteria.class = "(?i)^claude$";
-          command = "border none";
+          # WM_CLASS follows package.json desktopName: "com.anthropic.Claude"
+          criteria.class = "(?i)^com\\.anthropic\\.claude$";
+          command = "floating enable, border none, ${topRight}";
         }
         ++ lib.optional codexDesktopEnabled {
           criteria.class = "(?i)^codex-desktop$";
