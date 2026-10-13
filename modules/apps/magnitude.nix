@@ -23,8 +23,8 @@
     * The bundled desktop-host.node refuses `magnitude serve` and the desktop app until
       /var/lib/magnitude-desktop/installation.lock exists, root-owned and mode 0444, as the
       upstream deb's preinst creates it.
-    * The `magnitude` user service runs `magnitude serve`. Opening Desktop ends it with a
-      successful exit, so it stays stopped until `systemctl --user start magnitude`.
+    * The `magnitude-server` user service runs `magnitude serve`. Opening Desktop ends it with a
+      successful exit, so it stays stopped until `systemctl --user start magnitude-server`.
     * Magnitude binds a single listener address and serves its CLI on loopback, so mesh access
       listens on every interface and the firewall opens the port only on the mesh interface.
       Remote inference requests must carry the API key from secrets/magnitude.yaml.
@@ -155,7 +155,8 @@ in
             };
           };
 
-          systemd.user.services.magnitude = {
+          # Magnitude and Desktop refuse to start while a magnitude.service loads from outside ~/.config/systemd/user.
+          systemd.user.services.magnitude-server = {
             description = "Magnitude inference server";
             wantedBy = [ "default.target" ];
             unitConfig.ConditionUser = owner;

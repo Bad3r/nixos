@@ -45,17 +45,17 @@ A model whose context is smaller than `client.contextWindow` needs that option l
 
 ## Manage the service
 
-The `magnitude` user service starts with the owner's login session on songbird, and other hosts reach it only while that session runs:
+The `magnitude-server` user service starts with the owner's login session on songbird, and other hosts reach it only while that session runs:
 
 ```sh
-systemctl --user status magnitude
-journalctl --user -u magnitude
+systemctl --user status magnitude-server
+journalctl --user -u magnitude-server
 ```
 
 Opening Magnitude Desktop ends the service, so start it again after quitting Desktop:
 
 ```sh
-systemctl --user start magnitude
+systemctl --user start magnitude-server
 ```
 
 `magnitude connections` rewrites the Nix-managed Claude Code and Codex configuration, so leave it unused.
@@ -65,5 +65,10 @@ systemctl --user start magnitude
 - Connection refused from another host: the service is stopped on songbird, or it started before the switch that enabled Mesh access.
 - HTTP 401: the client key is missing or differs from the server's; both hosts read the same sops secret after a switch, and a build without `secrets/magnitude.yaml` warns about the missing key.
 - HTTP 421: the request named a host Magnitude does not accept; use `songbird.internal`.
+
+## Fix startup errors
+
+- `Legacy user service is loaded without its verified source file`: a unit named `magnitude.service` is loaded or failed in the user manager, and Magnitude reserves that name for its own startup entry.
+  Clear a failed one with `systemctl --user reset-failed magnitude.service`.
 
 [Magnitude documentation](https://docs.magnitude.dev)
