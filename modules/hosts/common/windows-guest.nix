@@ -331,16 +331,6 @@ let
           };
         };
 
-        system.activationScripts.windows-guest-transfer = {
-          deps = [ "users" ];
-          text = ''
-            PATH=${lib.makeBinPath [ pkgs.coreutils ]} ${lib.getExe pkgs.bash} \
-              ${../../../scripts/windows-guest/migrate-transfer.sh} \
-              ${lib.escapeShellArg "${owner.home}/Documents/Outlook-Transfer"} \
-              ${lib.escapeShellArg cfg.transferDir}
-          '';
-        };
-
         # Head of the chain: nixos-fw accepts the open ports and LAN sources
         # before anything appended here. NEW only, so replies to host-initiated
         # connections still reach the ESTABLISHED rule. The chain is rebuilt on

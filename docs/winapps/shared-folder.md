@@ -42,18 +42,6 @@ Verification: `Get-Volume -DriveLetter T` reports the transfer volume in both th
 File Explorer lists the drive in Quick access.
 Shut Windows down and start it again; the drive must mount without launching Outlook.
 
-## Move existing transfer files
-
-Precondition: the destination path declared in the guest module is unoccupied.
-
-1. Apply the host configuration with `./build.sh`.
-   Activation renames the existing transfer directory, preserving its contents and open file handles.
-   An existing destination or a move across filesystems fails without replacing files.
-
-2. Shut Windows down fully and start the guest to apply the new filesystem source.
-
-Verification: the files appear at the declared host path and remain accessible through the Windows drive.
-
 ## Verify access from both sides
 
 Precondition: the Windows drive is mounted.

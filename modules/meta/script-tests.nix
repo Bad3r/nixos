@@ -61,10 +61,6 @@ let
           src = ../../scripts/windows-guest/quick-access.ps1;
           dest = "scripts/windows-guest/quick-access.ps1";
         }
-        {
-          src = ../../scripts/windows-guest/migrate-transfer.sh;
-          dest = "scripts/windows-guest/migrate-transfer.sh";
-        }
       ];
       extraInputs = pkgs: [
         pkgs.python314
