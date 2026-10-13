@@ -16,7 +16,13 @@ function Test-PinScript([string] $Path) {
 }
 
 function Get-PinTask {
-    return Get-ScheduledTask -TaskPath '\' | Where-Object { $_.TaskName -eq $taskName }
+    try {
+        return Get-ScheduledTask -TaskPath '\' -TaskName $taskName
+    } catch {
+        # Windows reports a query that matches no task as ObjectNotFound instead of an empty result.
+        if ($_.CategoryInfo.Category -ne 'ObjectNotFound') { throw }
+        return $null
+    }
 }
 
 function Test-PinTask($Task) {

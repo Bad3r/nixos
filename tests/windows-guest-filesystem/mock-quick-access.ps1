@@ -42,8 +42,15 @@ function Get-FileHash($LiteralPath, $Algorithm) {
 function New-Item { }
 function Copy-Item { }
 function Start-Sleep { }
-function Get-ScheduledTask($TaskPath) {
-    if (-not $global:fixtureRegistered) { return }
+function Get-ScheduledTask {
+    [CmdletBinding()]
+    param([string] $TaskPath, [string] $TaskName)
+    if (-not $global:fixtureRegistered) {
+        # Windows reports a query that matches no task as an error, not as an empty result.
+        Write-Error -Category ObjectNotFound -TargetObject $TaskName -ErrorId 'CmdletizationQuery_NotFound_TaskName' `
+            -Message "No MSFT_ScheduledTask objects found with property 'TaskName' equal to '$TaskName'.  Verify the value of the property and retry."
+        return
+    }
     return [pscustomobject] @{
         TaskName = 'NixOS Outlook Quick Access'
         State = $(if ($global:fixtureRunning) { 'Running' } else { 'Ready' })

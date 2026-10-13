@@ -13,7 +13,13 @@ function Test-SingleValue([object[]] $Values, [string] $Expected) {
 }
 
 function Get-GuestServicesRule {
-    $rules = @(Get-NetFirewallRule -Name $ruleName -PolicyStore PersistentStore)
+    try {
+        $rules = @(Get-NetFirewallRule -Name $ruleName -PolicyStore PersistentStore)
+    } catch {
+        # Windows reports an unmatched -Name as ObjectNotFound instead of an empty result.
+        if ($_.CategoryInfo.Category -ne 'ObjectNotFound') { throw }
+        $rules = @()
+    }
     if ($rules.Count -gt 1) {
         throw "Multiple persistent firewall rules use the managed name '$ruleName'."
     }

@@ -51,7 +51,14 @@ function Get-NetFirewallRule {
     [CmdletBinding()]
     param([string] $Name, [string] $PolicyStore)
     if ($PolicyStore -ne 'PersistentStore') { throw "Unexpected policy store $PolicyStore." }
-    return @($global:fixtureRules | Where-Object { $_.Name -eq $Name })
+    $rules = @($global:fixtureRules | Where-Object { $_.Name -eq $Name })
+    if ($rules.Count -eq 0) {
+        # Windows reports an unmatched -Name as an error, not as an empty result.
+        Write-Error -Category ObjectNotFound -TargetObject $Name -ErrorId 'CmdletizationQuery_NotFound_InstanceID' `
+            -Message "No MSFT_NetFirewallRule objects found with property 'InstanceID' equal to '$Name'.  Verify the value of the property and retry."
+        return
+    }
+    return $rules
 }
 
 function Get-NetFirewallPortFilter {
