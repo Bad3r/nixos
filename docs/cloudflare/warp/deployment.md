@@ -25,7 +25,7 @@ Precondition: the Zero Trust team exists and the account holds the `Warp Login A
 
 3. Create the device profile `nixos-<host>`, matched on the token, with the host's mode (`warp` or
    `warp_tunnel_only`), WireGuard, and `auto_connect` at zero.
-   Its exclude list is set once the token is in sops.
+   The host's first switch after enrollment sets its exclude list.
 
    ```sh
    curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy" \
@@ -44,7 +44,7 @@ Precondition: the shared host age key is in `.sops.yaml`; its catch-all `secrets
 1. In the secrets repository, copy `cloudflare-warp.yaml.example` to `cloudflare-warp.yaml` for a first host, or open the existing file with `sops secrets/cloudflare-warp.yaml`.
 
 2. Set `organization` to the team name, set `mesh.cidr` to the account's Mesh allocation, and add a
-   `<host>` section with `auth_client_id` and `auth_client_secret`.
+   `<host>` section with `auth_client_id`, `auth_client_secret`, and `exclude` set to `"[]"`.
    Existing enrolled hosts keep one address each under `mesh.hosts.<host>`.
 
 3. Encrypt from the repository root, then commit and push the secrets repository and bump the gitlink.
@@ -56,8 +56,6 @@ Precondition: the shared host age key is in `.sops.yaml`; its catch-all `secrets
    git -C secrets push origin main
    git add secrets
    ```
-
-4. Set the new profile's exclude list per [Change an exclude list](#change-an-exclude-list).
 
 Verification: `nix flake check path:. --accept-flake-config --no-build --offline` passes, including the cleartext guard.
 
@@ -110,24 +108,31 @@ Settings, Developer, SSH Agent, Advanced to require approval for every SSH signa
 
 ## Change an exclude list
 
-Precondition: the base list in `modules/apps/cloudflare-warp/excludes-package.nix` and each `<host>.exclude` list in `secrets/cloudflare-warp.yaml` hold the wanted entries.
+Precondition: the host is enrolled.
 
-`cloudflare-warp-excludes` gives the default profile the base list and each `nixos-<host>` profile the base list plus that host's entries.
-An entry added only in the dashboard shows as `-` in the comparison and is dropped on `--apply`.
+The `cloudflare-warp-excludes` unit gives the host's `nixos-<host>` profile the base list in `modules/apps/cloudflare-warp.nix` plus the JSON array at `<host>.exclude` in `secrets/cloudflare-warp.yaml`.
+It runs at boot and on every switch, drops entries added only in the dashboard, and restarts warp-svc while the daemon applies a different list, since warp-svc 2026.7.1343.0 can keep a previous one.
+Each enrolled host therefore decrypts `zero_trust_api_token`, which its shared host age key could already read.
+
 A `warp_tunnel_only` profile ignores `host` entries, since domain excludes need the client's DNS proxy, so such a host lists the destination's address range.
 The Proton VPN WireGuard endpoint in [qbittorrent.nix](../../../modules/songbird/qbittorrent.nix) stays inside the WARP tunnel, because the ISP drops a WireGuard flow it can see and an excluded endpoint gets no handshake.
 
-1. From the repository root, compare each profile with its declared list:
+1. Edit the base list, or the host's entries with `sops secrets/cloudflare-warp.yaml` and then commit, push, and bump the secrets gitlink as in [Put the token into sops](#put-the-token-into-sops).
+
+2. Build and switch the host: `./build.sh`.
+
+3. Read the run: `journalctl -b -u cloudflare-warp-excludes` prints each added and dropped entry, or that the list matches.
+
+4. A base list change also goes to the default profile, which no host owns:
 
    ```sh
-   nix run path:.#cloudflare-warp-excludes
+   nix eval --json path:.#lib.nixos._cloudflareWarpBaseExcludes > exclude.json
+   curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/exclude" \
+     -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" \
+     --data @exclude.json
    ```
 
-2. Replace every list that differs: `nix run path:.#cloudflare-warp-excludes -- --apply`.
-
-3. Run `sudo systemctl restart cloudflare-warp.service` on each changed host: warp-svc 2026.7.1343.0 can keep the previous list past Cloudflare's ten-minute propagation window.
-
-Verification: a second comparison reports every profile up to date, and `warp-cli --accept-tos settings` on the host lists every entry under `Exclude mode`.
+Verification: `warp-cli --accept-tos settings` on the host lists every declared entry under `Exclude mode`.
 
 ## Rotate a token
 
