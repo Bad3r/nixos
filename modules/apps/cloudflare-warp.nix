@@ -152,12 +152,30 @@ let
         name = "cloudflare-warp-excludes";
         runtimeInputs = [
           cfg.package
+          pkgs.coreutils
           pkgs.curl
           pkgs.jq
           config.systemd.package
         ];
         text = ''
           shopt -s inherit_errexit
+
+          # A connecting warp-svc holds traffic outside the tunnel, and its
+          # applied list is current only once it is Connected.
+          warp_active=false
+          if systemctl is-active --quiet cloudflare-warp.service; then
+            warp_active=true
+            for ((try = 1; ; try++)); do
+              status=$(warp-cli --accept-tos -j status 2>/dev/null | jq -r '.status // empty') || status=
+              [[ $status == Connected ]] && break
+              if ((try == 30)); then
+                echo "warp-svc did not reach Connected within 60 s, last status: $status" >&2
+                exit 1
+              fi
+              sleep 2
+            done
+          fi
+
           api="https://api.cloudflare.com/client/v4/accounts/$(<${secretPath "account_id"})/devices"
 
           # The bearer header goes through a file descriptor so the token stays out of argv.
@@ -182,9 +200,10 @@ let
             exit 1
           fi
           have=$(cf GET "/policy/$id/exclude")
-          # Cloudflare returns the list in its own order, so the two compare as sets.
+          # Cloudflare returns the list and each entry's keys in its own order;
+          # jq compares objects by key, so the two compare as sets of entries.
           changes=$(jq -rs '
-            def canon: map(with_entries(select(.value != null and .value != "")) | tojson) | sort;
+            def canon: map(with_entries(select(.value != null and .value != ""))) | sort;
             (.[0] | canon) as $want | (.[1] | canon) as $have
             | (($want - $have)[] | "+ \(.)"), (($have - $want)[] | "- \(.)")
           ' <<<"$want$have")
@@ -198,7 +217,7 @@ let
 
           # warp-svc can keep a previous list past Cloudflare's propagation
           # window; a daemon that is not running loads the current one at start.
-          if systemctl is-active --quiet cloudflare-warp.service; then
+          if $warp_active; then
             ips=$(warp-cli --accept-tos -j tunnel ip list)
             hosts=$(warp-cli --accept-tos -j tunnel host list)
             applied=$(jq -sc '[.[0].routes[].value, .[1].hosts[].value] | unique' <<<"$ips$hosts")
@@ -378,7 +397,11 @@ let
             description = "Replace the ${profileName} WARP exclude list when it differs from the declared one";
             wantedBy = [ "multi-user.target" ];
             wants = [ "network-online.target" ];
-            after = [ "network-online.target" ] ++ installSecretsDeps;
+            after = [
+              "network-online.target"
+              "cloudflare-warp.service"
+            ]
+            ++ installSecretsDeps;
             requires = installSecretsDeps;
             # No RemainAfterExit: switch-to-configuration starts every active
             # target, which reruns this inactive oneshot, so each switch

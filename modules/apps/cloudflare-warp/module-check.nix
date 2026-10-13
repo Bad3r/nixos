@@ -188,6 +188,9 @@
           in
           lib.elem "multi-user.target" unit.wantedBy && !(unit.serviceConfig.RemainAfterExit or false)
         );
+        assert check "the sync starts after warp-svc" (
+          lib.elem "cloudflare-warp.service" enrolled.config.systemd.services.cloudflare-warp-excludes.after
+        );
         assert check "an unenrolled host runs no sync" (
           !(unenrolled.config.systemd.services ? cloudflare-warp-excludes)
         );
