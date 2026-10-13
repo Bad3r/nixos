@@ -357,6 +357,8 @@
   - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
 - [usage/espanso-usage.md](usage/espanso-usage.md)
   - Espanso text expander usage including default triggers, custom matches, and troubleshooting.
+- [usage/magnitude.md](usage/magnitude.md)
+  - Running Claude Code and Codex on local models served by Magnitude on songbird.
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
   - Pentesting tools devshell usage including desktop launchers and adding new tools.
 
