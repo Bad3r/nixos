@@ -10,6 +10,9 @@
     * Runs warp-svc as a Zero Trust device enrolled with a per-host Access service token, no browser login.
     * Renders the managed deployment file (mdm.xml) from sops secrets, so the token stays on tmpfs.
     * Starts Connected at boot; the per-host mode decides whether WARP also becomes the system resolver.
+    * Replaces the host's nixos-<host> device profile exclude list at boot and on every switch when it
+      differs from the base list below plus the host's encrypted <host>.exclude entries, and restarts
+      warp-svc while the daemon still applies another list.
 
   Options:
     enable: Whether this host enrolls and runs warp-svc (the common baseline leaves it off).
@@ -28,6 +31,55 @@ let
   # so both consume the same "cloudflare-warp/<key>" naming and mesh-ready host
   # list this module already computes, instead of retyping either.
   secretName = key: "cloudflare-warp/${key}";
+  # Cloudflare's stock split-tunnel exclude list, with 100.64.0.0/10 split
+  # around the Mesh allocation so Mesh traffic stays in the tunnel
+  # (modules/hosts/common/firewall.nix).
+  baseExcludes =
+    map (address: { inherit address; }) [
+      "10.0.0.0/8"
+      "169.254.0.0/16"
+      "172.16.0.0/12"
+      "192.0.0.0/24"
+      "192.168.0.0/16"
+      "224.0.0.0/24"
+      "240.0.0.0/4"
+      "255.255.255.255/32"
+      "fc00::/7"
+      "fd00::/8"
+      "fe80::/10"
+      "ff01::/16"
+      "ff02::/16"
+      "ff03::/16"
+      "ff04::/16"
+      "ff05::/16"
+    ]
+    ++ [
+      {
+        address = "100.64.0.0/11";
+        description = "CGNAT below the Cloudflare Mesh range";
+      }
+      {
+        address = "100.112.0.0/12";
+        description = "CGNAT above the Cloudflare Mesh range";
+      }
+      {
+        address = "239.255.255.250/32";
+        description = "SSDP";
+      }
+    ]
+    ++
+      map
+        (address: {
+          inherit address;
+          description = "Apple services";
+        })
+        [
+          "17.57.144.0/22"
+          "17.188.20.0/23"
+          "17.188.128.0/18"
+          "17.249.0.0/16"
+          "17.252.0.0/16"
+        ];
 
   CloudflareWarpModule =
     {
@@ -94,6 +146,88 @@ let
       '';
       # `all`, unlike `main`, exits 0 while resolved has no process to signal.
       reloadResolved = "${config.systemd.package}/bin/systemctl kill --kill-whom=all --signal=SIGHUP systemd-resolved.service";
+      profileName = "nixos-${hostName}";
+      secretPath = key: config.sops.secrets.${secretName key}.path;
+      syncExcludes = pkgs.writeShellApplication {
+        name = "cloudflare-warp-excludes";
+        runtimeInputs = [
+          cfg.package
+          pkgs.coreutils
+          pkgs.curl
+          pkgs.jq
+          config.systemd.package
+        ];
+        text = ''
+          shopt -s inherit_errexit
+
+          # A connecting warp-svc holds traffic outside the tunnel, and its
+          # applied list is current only once it is Connected.
+          warp_active=false
+          if systemctl is-active --quiet cloudflare-warp.service; then
+            warp_active=true
+            for ((try = 1; ; try++)); do
+              status=$(warp-cli --accept-tos -j status 2>/dev/null | jq -r '.status // empty') || status=
+              [[ $status == Connected ]] && break
+              if ((try == 30)); then
+                echo "warp-svc did not reach Connected within 60 s, last status: $status" >&2
+                exit 1
+              fi
+              sleep 2
+            done
+          fi
+
+          api="https://api.cloudflare.com/client/v4/accounts/$(<${secretPath "account_id"})/devices"
+
+          # The bearer header goes through a file descriptor so the token stays out of argv.
+          cf() {
+            local method=$1 path=$2 response
+            shift 2
+            response=$(curl -sS --max-time 30 -X "$method" "$@" \
+              -H @<(printf 'Authorization: Bearer %s\n' "$(<${secretPath "zero_trust_api_token"})") \
+              -H 'Content-Type: application/json' "$api$path")
+            if ! jq -e .success <<<"$response" >/dev/null; then
+              echo "$method $path failed: $(jq -c .errors <<<"$response")" >&2
+              return 1
+            fi
+            jq -c .result <<<"$response"
+          }
+
+          want=$(jq -c --slurpfile base ${pkgs.writeText "cloudflare-warp-base-excludes.json" (builtins.toJSON baseExcludes)} \
+            '$base[0] + .' ${secretPath "exclude"})
+          id=$(cf GET /policies | jq -r --arg name '${profileName}' '.[] | select(.name == $name) | .policy_id')
+          if [[ -z $id ]]; then
+            echo "no device profile named ${profileName}" >&2
+            exit 1
+          fi
+          have=$(cf GET "/policy/$id/exclude")
+          # Cloudflare returns the list and each entry's keys in its own order;
+          # jq compares objects by key, so the two compare as sets of entries.
+          changes=$(jq -rs '
+            def canon: map(with_entries(select(.value != null and .value != ""))) | sort;
+            (.[0] | canon) as $want | (.[1] | canon) as $have
+            | (($want - $have)[] | "+ \(.)"), (($have - $want)[] | "- \(.)")
+          ' <<<"$want$have")
+          if [[ -z $changes ]]; then
+            echo "${profileName} exclude list matches the declared one"
+          else
+            echo "$changes"
+            cf PUT "/policy/$id/exclude" --data-binary @- <<<"$want" >/dev/null
+            echo "replaced the ${profileName} exclude list"
+          fi
+
+          # warp-svc can keep a previous list past Cloudflare's propagation
+          # window; a daemon that is not running loads the current one at start.
+          if $warp_active; then
+            ips=$(warp-cli --accept-tos -j tunnel ip list)
+            hosts=$(warp-cli --accept-tos -j tunnel host list)
+            applied=$(jq -sc '[.[0].routes[].value, .[1].hosts[].value] | unique' <<<"$ips$hosts")
+            if [[ $applied != "$(jq -c 'map(.address // .host) | unique' <<<"$want")" ]]; then
+              echo "warp-svc applies a different exclude list; restarting it"
+              systemctl try-restart --no-block cloudflare-warp.service
+            fi
+          fi
+        '';
+      };
     in
     {
       options.programs.cloudflare-warp.extended = {
@@ -193,6 +327,22 @@ let
               format = "yaml";
               key = "mesh/cidr";
             };
+            ${secretName "account_id"} = {
+              sopsFile = secretFile;
+              format = "yaml";
+              key = "account_id";
+            };
+            ${secretName "zero_trust_api_token"} = {
+              sopsFile = secretFile;
+              format = "yaml";
+              key = "zero_trust_api_token";
+            };
+            # A JSON array string: sops-nix decrypts only string leaves.
+            ${secretName "exclude"} = {
+              sopsFile = secretFile;
+              format = "yaml";
+              key = "${hostName}/exclude";
+            };
           }
           // meshHostSecrets;
 
@@ -241,6 +391,29 @@ let
             serviceConfig.BindReadOnlyPaths = [
               "${config.sops.templates.${templateName}.path}:${config.services.cloudflare-warp.rootDir}/mdm.xml"
             ];
+          };
+
+          systemd.services.cloudflare-warp-excludes = {
+            description = "Replace the ${profileName} WARP exclude list when it differs from the declared one";
+            wantedBy = [ "multi-user.target" ];
+            wants = [ "network-online.target" ];
+            after = [
+              "network-online.target"
+              "cloudflare-warp.service"
+            ]
+            ++ installSecretsDeps;
+            requires = installSecretsDeps;
+            # No RemainAfterExit: switch-to-configuration starts every active
+            # target, which reruns this inactive oneshot, so each switch
+            # reapplies the declared list and reverts dashboard edits.
+            serviceConfig = {
+              Type = "oneshot";
+              ExecStart = lib.getExe syncExcludes;
+              # A run at boot can fail before the uplink or the WARP tunnel
+              # carries traffic.
+              Restart = "on-failure";
+              RestartSec = "5min";
+            };
           };
         })
 
@@ -315,8 +488,11 @@ in
   ];
 
   flake = {
-    lib.nixos._cloudflareWarpMeshHostNames = meshHostNames;
-    lib.nixos._cloudflareWarpSecretName = secretName;
+    lib.nixos = {
+      _cloudflareWarpBaseExcludes = baseExcludes;
+      _cloudflareWarpMeshHostNames = meshHostNames;
+      _cloudflareWarpSecretName = secretName;
+    };
     nixosModules.apps.cloudflare-warp = CloudflareWarpModule;
   };
 }

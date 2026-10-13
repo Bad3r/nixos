@@ -178,6 +178,22 @@
         assert check "songbird Mesh address is read from SOPS" (
           (secretOf "mesh-host-songbird").key == "mesh/hosts/songbird"
         );
+        assert check "exclude list key is per host" ((secretOf "exclude").key == "tpnix/exclude");
+        # switch-to-configuration reruns an inactive oneshot through the active
+        # target that wants it; RemainAfterExit would keep it active and skip
+        # every switch that leaves the unit file unchanged.
+        assert check "every switch reruns the sync" (
+          let
+            unit = enrolled.config.systemd.services.cloudflare-warp-excludes;
+          in
+          lib.elem "multi-user.target" unit.wantedBy && !(unit.serviceConfig.RemainAfterExit or false)
+        );
+        assert check "the sync starts after warp-svc" (
+          lib.elem "cloudflare-warp.service" enrolled.config.systemd.services.cloudflare-warp-excludes.after
+        );
+        assert check "an unenrolled host runs no sync" (
+          !(unenrolled.config.systemd.services ? cloudflare-warp-excludes)
+        );
         assert check "enrolled host runs the service" enrolled.config.services.cloudflare-warp.enable;
         assert check "enrolled host keeps the upstream UDP opening off" (
           !enrolled.config.services.cloudflare-warp.openFirewall
