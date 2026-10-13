@@ -76,43 +76,42 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 
 ## Input Labels
 
-| Label                               | Description                                                                |
-| ----------------------------------- | -------------------------------------------------------------------------- |
-| `input(burpsuite-pro-flake)`        | Use for the `_VX3r/burpsuite-pro-flake` input and its integration.         |
-| `input(claude-desktop-linux-flake)` | Use for the `k3d3/claude-desktop-linux-flake` input and its integration.   |
-| `input(cloudflare-go)`              | Use for the `cloudflare/cloudflare-go` input and its integration.          |
-| `input(cloudflare-python)`          | Use for the `cloudflare/cloudflare-python` input and its integration.      |
-| `input(cloudflare-rs)`              | Use for the `cloudflare/cloudflare-rs` input and its integration.          |
-| `input(files)`                      | Use for the `mightyiam/files` input and its integration.                   |
-| `input(flake-compat)`               | Use for the `edolstra/flake-compat` input and dedupe aliases.              |
-| `input(flake-parts)`                | Use for the `hercules-ci/flake-parts` input and its integration.           |
-| `input(flake-utils)`                | Use for the `numtide/flake-utils` input and dedupe aliases.                |
-| `input(git-hooks)`                  | Use for the `cachix/git-hooks.nix` input and its integration.              |
-| `input(home-manager)`               | Use for the `nix-community/home-manager` input and its integration.        |
-| `input(import-tree)`                | Use for the `vic/import-tree` input and its integration.                   |
-| `input(llm-agents)`                 | Use for the `numtide/llm-agents.nix` input and its integration.            |
-| `input(make-shell)`                 | Use for the `nicknovitski/make-shell` input and its integration.           |
-| `input(mcp-servers-nix)`            | Use for the `natsukium/mcp-servers-nix` input and its integration.         |
-| `input(nix-index-database)`         | Use for the `nix-community/nix-index-database` input and its integration.  |
-| `input(nix-logseq-git-flake)`       | Use for the `Bad3r/nix-logseq-git-flake` input and its integration.        |
-| `input(nixos-hardware)`             | Use for the `NixOS/nixos-hardware` input and its integration.              |
-| `input(nixpkgs)`                    | Use for the `NixOS/nixpkgs` input and its integration.                     |
-| `input(nixvim)`                     | Use for the `nix-community/nixvim` input and its integration.              |
-| `input(nixvirt)`                    | Use for the `AshleyYakeley/NixVirt` input and its integration.             |
-| `input(node-cloudflare)`            | Use for the `cloudflare/node-cloudflare` input and its integration.        |
-| `input(nur)`                        | Use for the `nix-community/NUR` input and dedupe aliases.                  |
-| `input(r2-flake)`                   | Use for the `Bad3r/nix-R2-CloudFlare-Flake` input and its integration.     |
-| `input(refjump-nvim)`               | Use for the `mawkler/refjump.nvim` input and its integration.              |
-| `input(sink-rotate)`                | Use for the `mightyiam/sink-rotate` input and its integration.             |
-| `input(smart-scrolloff-nvim)`       | Use for the `tonymajestro/smart-scrolloff.nvim` input and its integration. |
-| `input(sops-nix)`                   | Use for the `Mic92/sops-nix` input and its integration.                    |
-| `input(stylix)`                     | Use for the `nix-community/stylix` input and its integration.              |
-| `input(systems)`                    | Use for the `nix-systems/default` input and dedupe aliases.                |
-| `input(tinted-schemes)`             | Use for the `tinted-theming/schemes` input and its integration.            |
-| `input(treefmt-nix)`                | Use for the `numtide/treefmt-nix` input and its integration.               |
-| `input(vim-autoread)`               | Use for the `djoshea/vim-autoread` input and its integration.              |
-| `input(workers-rs)`                 | Use for the `cloudflare/workers-rs` input and its integration.             |
-| `input(zsh-auto-notify)`            | Use for the `MichaelAquilina/zsh-auto-notify` input and its integration.   |
+| Label                         | Description                                                                |
+| ----------------------------- | -------------------------------------------------------------------------- |
+| `input(burpsuite-pro-flake)`  | Use for the `_VX3r/burpsuite-pro-flake` input and its integration.         |
+| `input(cloudflare-go)`        | Use for the `cloudflare/cloudflare-go` input and its integration.          |
+| `input(cloudflare-python)`    | Use for the `cloudflare/cloudflare-python` input and its integration.      |
+| `input(cloudflare-rs)`        | Use for the `cloudflare/cloudflare-rs` input and its integration.          |
+| `input(files)`                | Use for the `mightyiam/files` input and its integration.                   |
+| `input(flake-compat)`         | Use for the `edolstra/flake-compat` input and dedupe aliases.              |
+| `input(flake-parts)`          | Use for the `hercules-ci/flake-parts` input and its integration.           |
+| `input(flake-utils)`          | Use for the `numtide/flake-utils` input and dedupe aliases.                |
+| `input(git-hooks)`            | Use for the `cachix/git-hooks.nix` input and its integration.              |
+| `input(home-manager)`         | Use for the `nix-community/home-manager` input and its integration.        |
+| `input(import-tree)`          | Use for the `vic/import-tree` input and its integration.                   |
+| `input(llm-agents)`           | Use for the `numtide/llm-agents.nix` input and its integration.            |
+| `input(make-shell)`           | Use for the `nicknovitski/make-shell` input and its integration.           |
+| `input(mcp-servers-nix)`      | Use for the `natsukium/mcp-servers-nix` input and its integration.         |
+| `input(nix-index-database)`   | Use for the `nix-community/nix-index-database` input and its integration.  |
+| `input(nix-logseq-git-flake)` | Use for the `Bad3r/nix-logseq-git-flake` input and its integration.        |
+| `input(nixos-hardware)`       | Use for the `NixOS/nixos-hardware` input and its integration.              |
+| `input(nixpkgs)`              | Use for the `NixOS/nixpkgs` input and its integration.                     |
+| `input(nixvim)`               | Use for the `nix-community/nixvim` input and its integration.              |
+| `input(nixvirt)`              | Use for the `AshleyYakeley/NixVirt` input and its integration.             |
+| `input(node-cloudflare)`      | Use for the `cloudflare/node-cloudflare` input and its integration.        |
+| `input(nur)`                  | Use for the `nix-community/NUR` input and dedupe aliases.                  |
+| `input(r2-flake)`             | Use for the `Bad3r/nix-R2-CloudFlare-Flake` input and its integration.     |
+| `input(refjump-nvim)`         | Use for the `mawkler/refjump.nvim` input and its integration.              |
+| `input(sink-rotate)`          | Use for the `mightyiam/sink-rotate` input and its integration.             |
+| `input(smart-scrolloff-nvim)` | Use for the `tonymajestro/smart-scrolloff.nvim` input and its integration. |
+| `input(sops-nix)`             | Use for the `Mic92/sops-nix` input and its integration.                    |
+| `input(stylix)`               | Use for the `nix-community/stylix` input and its integration.              |
+| `input(systems)`              | Use for the `nix-systems/default` input and dedupe aliases.                |
+| `input(tinted-schemes)`       | Use for the `tinted-theming/schemes` input and its integration.            |
+| `input(treefmt-nix)`          | Use for the `numtide/treefmt-nix` input and its integration.               |
+| `input(vim-autoread)`         | Use for the `djoshea/vim-autoread` input and its integration.              |
+| `input(workers-rs)`           | Use for the `cloudflare/workers-rs` input and its integration.             |
+| `input(zsh-auto-notify)`      | Use for the `MichaelAquilina/zsh-auto-notify` input and its integration.   |
 
 ## Host Labels
 

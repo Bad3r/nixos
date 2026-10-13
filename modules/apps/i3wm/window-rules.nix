@@ -138,7 +138,8 @@
           }
         ]
         ++ lib.optional claudeDesktopEnabled {
-          criteria.class = "(?i)^claude$";
+          # WM_CLASS follows package.json desktopName: "com.anthropic.Claude"
+          criteria.class = "(?i)^com\\.anthropic\\.claude$";
           command = "border none";
         }
         ++ lib.optional codexDesktopEnabled {

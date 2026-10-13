@@ -158,14 +158,6 @@
       };
     };
 
-    claude-desktop-linux-flake = {
-      url = "github:k3d3/claude-desktop-linux-flake";
-      inputs = {
-        nixpkgs.follows = "nixpkgs";
-        flake-utils.follows = "dedupe_flake-utils";
-      };
-    };
-
     codex-desktop-linux = {
       url = "github:ilysenko/codex-desktop-linux";
       inputs = {

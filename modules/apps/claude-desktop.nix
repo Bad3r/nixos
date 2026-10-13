@@ -1,65 +1,26 @@
 /*
   Package: claude-desktop
-  Description: Official Claude AI desktop application for Linux with MCP support.
+  Description: Official desktop application for Claude.
   Homepage: https://claude.ai/
-  Documentation: https://docs.anthropic.com/en/docs
-  Repository: https://github.com/k3d3/claude-desktop-linux-flake
+  Documentation: https://support.claude.com/en/articles/10065433-installing-claude-for-desktop
+  Repository: nil
 
   Summary:
-    * Provides native Claude AI desktop interface with conversation history and file attachments.
-    * Supports MCP (Model Context Protocol) servers for extensible tool integrations.
+    * Provides Claude chat, Cowork, and Claude Code sessions with MCP server and desktop extension support.
+    * Installs Anthropic's Linux build, repackaged from its APT repository.
 
   Options:
-    claude-desktop: Launch Claude Desktop with the default UI.
-    claude-desktop %u: Open with a custom URI handler.
+    claude-desktop: Launch the desktop application.
+    claude-desktop claude://claude.ai/new: Open a new chat.
+    claude-desktop claude://code/new: Open a new Claude Code session.
 
   Notes:
-    * Uses FHS wrapper (claude-desktop-with-fhs) to support MCP tools via npx, uvx, or docker.
-    * Package is unfree; the build script is MIT/Apache-2.0 licensed.
+    * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
+    * The package's FHS environment keeps the host PATH, so MCP servers launched through npx, uvx, or docker use the system profile's tools.
 */
 { inputs, ... }:
-let
-  upstreamSrc = inputs."claude-desktop-linux-flake";
-
-  packageFor =
-    pkgs:
-    let
-      patchy-cnb = pkgs.callPackage "${upstreamSrc}/pkgs/patchy-cnb.nix" { };
-
-      claude-desktop = pkgs.callPackage "${upstreamSrc}/pkgs/claude-desktop.nix" {
-        inherit patchy-cnb;
-        # TODO: Remove this compatibility shim once upstream stops referencing
-        # nodePackages.asar and uses pkgs.asar directly.
-        # Upstream still expects nodePackages.asar, but nixpkgs moved asar top-level.
-        nodePackages = {
-          inherit (pkgs) asar;
-        };
-      };
-    in
-    {
-      inherit claude-desktop;
-      claude-desktop-with-fhs = pkgs.buildFHSEnv {
-        name = "claude-desktop";
-        targetPkgs =
-          pkgs': with pkgs'; [
-            docker
-            glibc
-            openssl
-            nodejs
-            uv
-          ];
-        runScript = "${claude-desktop}/bin/claude-desktop";
-        extraInstallCommands = ''
-          mkdir -p $out/share/applications
-          cp ${claude-desktop}/share/applications/claude.desktop $out/share/applications/
-
-          mkdir -p $out/share/icons
-          cp -r ${claude-desktop}/share/icons/* $out/share/icons/
-        '';
-      };
-    };
-
-  ClaudeDesktopModule =
+{
+  flake.nixosModules.apps.claude-desktop =
     {
       config,
       lib,
@@ -77,23 +38,16 @@ let
           description = "Whether to enable Claude Desktop.";
         };
 
-        package = lib.mkPackageOption pkgs "claude-desktop-with-fhs" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.claude-desktop;
+          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.claude-desktop";
+          description = "The Claude Desktop package to use.";
+        };
       };
 
-      config = {
-        # Add overlay to make claude-desktop-with-fhs available in pkgs
-        # Must be unconditional so the package option can resolve
-        nixpkgs.overlays = [
-          (_final: prev: {
-            inherit (packageFor prev) claude-desktop claude-desktop-with-fhs;
-          })
-        ];
-
-        environment.systemPackages = lib.mkIf cfg.enable [ cfg.package ];
+      config = lib.mkIf cfg.enable {
+        environment.systemPackages = [ cfg.package ];
       };
     };
-in
-{
-  nixpkgs.allowedUnfreePackages = [ "claude-desktop" ];
-  flake.nixosModules.apps.claude-desktop = ClaudeDesktopModule;
 }
