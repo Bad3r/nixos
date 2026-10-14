@@ -304,10 +304,12 @@
   - Validation procedure for a `songbird` change.
 - [hosts/songbird/songbird-runbook-local-ai.md](hosts/songbird/songbird-runbook-local-ai.md)
   - Magnitude models, Claude Code and Codex on local models, CUDA llama.cpp, iPhone access, and freeing the GPU on `songbird`.
+- [hosts/songbird/songbird-runbook-portal.md](hosts/songbird/songbird-runbook-portal.md)
+  - Converting the `/portal` drive to BitLocker and unlocking it from NixOS on `songbird`.
 - [hosts/songbird/songbird-runbook-reinstall.md](hosts/songbird/songbird-runbook-reinstall.md)
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
-  - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+  - Booting Windows once, installing Windows on disk W, and moving Windows Boot Manager to its own ESP on disk W.
 - [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)
   - Running an ad-hoc virt-manager guest from a staged ISO, and dropping the ISO.
 - [hosts/songbird/songbird-runbook-win11.md](hosts/songbird/songbird-runbook-win11.md)
