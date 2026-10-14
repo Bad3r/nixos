@@ -1157,17 +1157,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1783240168,
-        "narHash": "sha256-9zaLOKal8uI+ecKaOBCOfGcZe/HG1xQQnlDDjPoOmwE=",
+        "lastModified": 1791744226,
+        "narHash": "sha256-zQk2GSBO4hkq75PbtpgJHwupFHD0qaQDJiP15GTmstQ=",
         "owner": "AshleyYakeley",
         "repo": "NixVirt",
-        "rev": "6d213ab42f72ba41c2eb4e6bdb97581c0642d942",
+        "rev": "11e2b2c0492aeff3fe3dea9000832d7694c47dfe",
         "type": "github"
       },
       "original": {
         "owner": "AshleyYakeley",
         "repo": "NixVirt",
-        "rev": "6d213ab42f72ba41c2eb4e6bdb97581c0642d942",
         "type": "github"
       }
     },
