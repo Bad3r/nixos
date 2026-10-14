@@ -44,7 +44,7 @@ _: {
           # profile (hosts-common) would only derive this from
           # enableRedistributableFirmware, so pin it.
           updateMicrocode = true;
-          # NPU 4 at 0000:00:0b.0 (intel_vpu): firmware plus the Level Zero
+          # NPU 37xx at 0000:00:0b.0 (intel_vpu): firmware plus the Level Zero
           # driver, as nixos-generate-config reports for this CPU.
           npu.enable = true;
         };

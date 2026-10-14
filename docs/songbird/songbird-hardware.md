@@ -31,7 +31,7 @@
 | Device                   | Id          | Address               | Driver                |
 | ------------------------ | ----------- | --------------------- | --------------------- |
 | iGPU (Xe-LPG)            | `8086:7d67` | `0000:00:02.0`        | i915 (xe also loaded) |
-| NPU 4                    | `8086:ad1d` | `0000:00:0b.0`        | intel_vpu             |
+| NPU (37xx, AI Boost)     | `8086:ad1d` | `0000:00:0b.0`        | intel_vpu             |
 | Thunderbolt 4 / USB4     | `8086:7ec2` | `0000:00:0d.2`        | thunderbolt           |
 | RTX 5080                 | `10de:2c02` | `0000:02:00.0`        | nvidia                |
 | RTX 5080 HDMI audio      | `10de:22e9` | `0000:02:00.1`        | snd_hda_intel         |
@@ -48,6 +48,7 @@
 ## Constraints
 
 - M.2_3 and M.2_4 stay empty; populating either drops the GPU slot from PCIe 5.0 x16 to x8.
+- The GPU root port `0000:00:06.0` advertises 16 GT/s, so the RTX 5080 links at PCIe 4.0 x16 with all 16 lanes.
 - Disk A sits under the motherboard's M.2_1 heatsink; without it, sustained writes throttle.
 - `/dev/nvmeN` indices reshuffle across boots. Address a drive by PCI address or serial, never by index.
 - DDR5-8400 is an XMP profile above the CPU's native DDR5-6400. The fallback ladder is 8000, 7600, 6400; four DIMMs forfeit 8400.

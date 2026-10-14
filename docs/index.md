@@ -76,14 +76,20 @@
   - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
 - [songbird/songbird-configuration.md](songbird/songbird-configuration.md)
   - Non-obvious operational deviations from the hosts-common baseline.
+- [songbird/songbird-local-ai.md](songbird/songbird-local-ai.md)
+  - Model fit across VRAM and RAM, decode speeds, uses, and limits of local AI on the `songbird` RTX 5080.
 - [songbird/songbird-runbook.md](songbird/songbird-runbook.md)
   - Validation procedure for a `songbird` change.
+- [songbird/songbird-runbook-local-ai.md](songbird/songbird-runbook-local-ai.md)
+  - Magnitude models, Claude Code and Codex on local models, CUDA llama.cpp, iPhone access, and freeing the GPU on `songbird`.
 - [songbird/songbird-runbook-reinstall.md](songbird/songbird-runbook-reinstall.md)
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
 - [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [songbird/songbird-troubleshooting-local-ai.md](songbird/songbird-troubleshooting-local-ai.md)
+  - Local AI failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [songbird/songbird-troubleshooting-windows.md](songbird/songbird-troubleshooting-windows.md)
   - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
