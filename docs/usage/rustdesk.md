@@ -7,7 +7,8 @@ No device contacts RustDesk's public servers.
 
 ## Privacy model
 
-- hbbs and hbbr answer on the [Cloudflare Mesh](../cloudflare/warp/README.md) interface only, and every session runs through the relay.
+- hbbs and hbbr answer on the [Cloudflare Mesh](../cloudflare/warp/README.md) interface only.
+- A session connects the two devices directly over Mesh and falls back to the relay when that connection fails.
 - hbbs signs each device's key with the pair in `secrets/rustdesk.yaml`, which lets peers encrypt each session end to end.
   Neither the relay nor Cloudflare's edge sees the screen or the clipboard.
 - Direct IP sessions are off, since they skip that key exchange and would cross Cloudflare in the clear.
@@ -46,7 +47,7 @@ The password and the two-factor secret live in RustDesk's own configuration unde
 ## Connect
 
 Enter the other device's ID in the main window and log in with its permanent password.
-A session between two devices other than the server host still passes through its relay and loads that host's uplink.
+A session that cannot connect directly runs through the relay and loads the server host's uplink.
 
 ## Set up the iPhone
 

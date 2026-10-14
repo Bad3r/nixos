@@ -7,7 +7,7 @@
 
   Summary:
     * Shares the live X11 session and the login screen with clipboard, audio, and file transfer, encoding through ffmpeg's hardware codecs.
-    * Registers with the fleet's own ID server (hbbs) and relays every session through its relay (hbbr), both reachable over Cloudflare Mesh only.
+    * Registers with the fleet's own ID server (hbbs) and connects peers directly over Cloudflare Mesh, falling back to its relay (hbbr).
 
   Options:
     --service: Root service that starts a server process for the active seat session, the login greeter included.
@@ -293,8 +293,6 @@ let
             rustdesk-signal = {
               after = installSecretsDeps;
               requires = installSecretsDeps;
-              # Every session goes through hbbr here instead of a punched path.
-              environment.ALWAYS_USE_RELAY = "Y";
               serviceConfig = meshOnly // {
                 EnvironmentFile = config.sops.templates.${hbbsEnvTemplate}.path;
               };
