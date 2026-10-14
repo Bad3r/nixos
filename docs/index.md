@@ -298,8 +298,12 @@
   - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
 - [hosts/songbird/songbird-configuration.md](hosts/songbird/songbird-configuration.md)
   - Non-obvious operational deviations from the hosts-common baseline.
+- [hosts/songbird/songbird-local-ai.md](hosts/songbird/songbird-local-ai.md)
+  - Model fit across VRAM and RAM, decode speeds, uses, and limits of local AI on the `songbird` RTX 5080.
 - [hosts/songbird/songbird-runbook.md](hosts/songbird/songbird-runbook.md)
   - Validation procedure for a `songbird` change.
+- [hosts/songbird/songbird-runbook-local-ai.md](hosts/songbird/songbird-runbook-local-ai.md)
+  - Magnitude models, Claude Code and Codex on local models, CUDA llama.cpp, iPhone access, and freeing the GPU on `songbird`.
 - [hosts/songbird/songbird-runbook-reinstall.md](hosts/songbird/songbird-runbook-reinstall.md)
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
@@ -310,6 +314,8 @@
   - Installing, activating, adding Office to, and finishing the `win11` guest.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [hosts/songbird/songbird-troubleshooting-local-ai.md](hosts/songbird/songbird-troubleshooting-local-ai.md)
+  - Local AI failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
   - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
