@@ -23,7 +23,8 @@
       host's login and the owner's peer list carries it.
     * The registry host that sets rustdeskServer runs hbbs and hbbr with the key pair in secrets/rustdesk.yaml.
     * IPAddressAllow confines the client service, its server processes, hbbs, and hbbr to loopback and the CGNAT
-      block that holds the Mesh.
+      block that holds the Mesh. A GUI started from the user's session sits outside that cgroup, so only its
+      settings keep its traffic on Mesh.
 */
 { config, ... }:
 let

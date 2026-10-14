@@ -3,7 +3,7 @@
 RustDesk shares each host's live X11 session and its login screen with the other hosts and the iPhone, with clipboard, audio, and file transfer.
 [rustdesk.nix](../../modules/apps/rustdesk.nix) runs the client service on every host.
 The ID server (hbbs) and relay (hbbr) run on the host whose `modules/<host>/policy.nix` sets `rustdeskServer`.
-No device contacts RustDesk's public servers.
+No host contacts RustDesk's public servers.
 
 ## Privacy model
 
@@ -16,7 +16,8 @@ No device contacts RustDesk's public servers.
 - One-time passwords and RustDesk's own TCP tunnels, remote terminal, and camera are off.
 - Remote restart is off, since a restarted host waits at its LUKS passphrase prompt.
 - The client service, the session processes it starts, and both servers reach only loopback and the CGNAT block holding the Mesh.
-  A fallback to a public server or any other call home fails in the kernel.
+  Their fallback to a public server or any other call home fails in the kernel.
+- The GUI runs in the user's session without that kernel limit, so only its settings keep its traffic on Mesh.
 - The client's heartbeat, sysinfo, and audit uploads, its update check, and LAN discovery are off, and the hbbs build has no update check.
 - Each host's ID derives from the server key, where RustDesk's default ID encodes part of the MAC address.
 
