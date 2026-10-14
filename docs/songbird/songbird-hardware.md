@@ -21,7 +21,7 @@
 
 | Disk | Model                 | Slot or bus                          | Serial          | Role                            |
 | ---- | --------------------- | ------------------------------------ | --------------- | ------------------------------- |
-| A    | WD_BLACK SN8100 4TB   | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`) | 252415800489    | NixOS root, swap, ESP           |
+| A    | WD_BLACK SN8100 4TB   | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`) | 252415800489    | NixOS root, swap, shared ESP    |
 | S    | Samsung 860 PRO 2TB   | SATA, chipset (`0000:80:17.0`)       | S45DNF0K503930R | LUKS data volume at `/data`     |
 | W    | WDC PC SN720 1TB      | M.2_2, CPU PCIe 4.0 (`0000:03:00.0`) | 192461421492    | Windows                         |
 | P    | Samsung 970 PRO 512GB | Chipset M.2 (`0000:82:00.0`)         | S469NF0K509254D | NTFS portal shared with Windows |
@@ -55,7 +55,8 @@
 - Case fans and the AIO pump follow BIOS Q-Fan curves, and the RTX 5080's fans follow the card's own curve.
 - Use only the PSU's own modular cables. A cable from another unit can damage drives.
 - Remove the GPU with Q-Release Slim: lift the rear-I/O end at an angle, never pull it straight out.
-- Each OS keeps its own ESP on its own disk, so Windows updates cannot touch the NixOS boot chain.
+- Windows Boot Manager shares disk A's ESP, so a reinstall that reformats it leaves Windows unbootable: [songbird-runbook-windows.md](songbird-runbook-windows.md#move-windows-boot-manager-to-disk-w).
+- systemd-boot lists Windows from that ESP, and booting it through that entry triggers a BitLocker recovery prompt.
 
 ### UEFI settings
 
