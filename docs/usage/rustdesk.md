@@ -63,6 +63,7 @@ Precondition: the iPhone is connected to the Zero Trust team and reaches the Mes
 
 Repeat step 2 after the server host's Mesh address changes or the key pair is replaced, and step 3 after the password or the key pair is replaced.
 A new key pair also gives every host a new ID.
+Delete the entries with the old IDs under Recent sessions on each host and on the iPhone, which also clears them from Favorites.
 
 ## Troubleshooting
 
@@ -78,7 +79,7 @@ Fix: cancel the connection, since continuing sends the session unencrypted over 
 
 ### Password prompt for another host
 
-Cause: that host's entry left the peer list, for example through Remove in the main window.
+Cause: that host's entry left the peer list, for example through Delete in the main window.
 Fix: restart the service, which writes the entry again:
 
 ```sh
