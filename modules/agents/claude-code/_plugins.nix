@@ -1,7 +1,7 @@
 # Plugin, marketplace, and skill keys for ~/.claude/settings.json. Uncomment
 # a key and set its value to enable it. Every key set here replaces Claude's
 # copy on each switch, and commenting it out again removes it, so /plugin and
-# claude-plugins changes to enabledPlugins last only until the next switch.
+# `claude plugin` changes to enabledPlugins last only until the next switch.
 {
   # Disable the skills and workflows that ship with Claude Code: bundled skills
   # and workflows are removed entirely; built-in slash commands stay typable but
@@ -52,8 +52,9 @@
   # required plugin sources.
   #
   # Registers the marketplaces enabledPlugins keys name, at
-  # startup. claude-plugins-official installs out of band via `claude-plugins
-  # install anthropics/claude-plugins-official`; builtin needs no registration.
+  # startup. claude-plugins-official is added out of band via `claude plugin
+  # marketplace add anthropics/claude-plugins-official`; builtin needs no
+  # registration.
   extraKnownMarketplaces."chrome-devtools-plugins".source = {
     source = "git";
     # Sparse: a full clone pulls a large submodule.

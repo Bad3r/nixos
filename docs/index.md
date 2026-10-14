@@ -23,8 +23,6 @@
 
 ## Claude Code
 
-- [claude-code/plugins.md](claude-code/plugins.md)
-  - Technical reference for the claude-plugins project covering architecture, registry API, installation flows, and CLI commands.
 - [claude-code/skill-providers.md](claude-code/skill-providers.md)
   - Declarative ownership and default availability for Claude Code skill providers.
 - [claude-code/skills.md](claude-code/skills.md)
