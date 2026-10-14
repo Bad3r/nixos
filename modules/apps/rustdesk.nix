@@ -240,10 +240,23 @@ let
             if peer_h1(config.get("password")) != h1:
                 config["password"] = list(b"00" + base64.b64encode(seal(h1)))
                 changed = True
+            # PeerConfig::batch_peers deletes a peer file whose info.platform is empty.
             if "info" not in config:
                 config["info"] = login["info"]
                 changed = True
+            # The card title; a rename in the GUI stays.
+            options = config.setdefault("options", {})
+            if not options.get("alias"):
+                options["alias"] = login["info"]["hostname"]
+                changed = True
             return changed
+
+
+        def apply_favorites(config, ids):
+            favorites = config.setdefault("fav", [])
+            missing = [rid for rid in ids if rid not in favorites]
+            favorites.extend(missing)
+            return bool(missing)
 
 
         def plan(password_file, key_file, me, owner, *hosts):
@@ -285,7 +298,12 @@ let
             if mode == "plan":
                 plan(*args)
                 return
-            apply = {"options": apply_options, "identity": apply_identity, "peer": apply_peer}[mode]
+            apply = {
+                "options": apply_options,
+                "identity": apply_identity,
+                "peer": apply_peer,
+                "favorites": apply_favorites,
+            }[mode]
             path = Path(args[0])
             try:
                 raw = path.read_text(encoding="utf-8")
@@ -335,6 +353,8 @@ let
             seed_as ${owner.name} ${owner.group} peer \
               "${owner.home}/.config/rustdesk/peers/$(jq -r .id <<<"$peer").toml" <<<"$peer"
           done
+          jq -c '[.peers[].id]' <<<"$plan" |
+            seed_as ${owner.name} ${owner.group} favorites ${owner.home}/.config/rustdesk/RustDesk_local.toml
           ${lib.optionalString config.services.xserver.displayManager.lightdm.enable ''
             seed_as ${greeter.name} ${greeter.group} options ${greeter.home}/.config/rustdesk/RustDesk2.toml <"$options"
             seed_as ${greeter.name} ${greeter.group} identity ${greeter.home}/.config/rustdesk/RustDesk.toml <<<"$login"

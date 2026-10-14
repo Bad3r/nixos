@@ -28,8 +28,9 @@ Some traffic stays visible:
 ## Logins
 
 Every host accepts the password in `secrets/rustdesk.yaml`, kept in RustDesk's configuration as a salted hash.
-The owner's peer list on each host holds the other hosts with that login, so a session between hosts opens without a prompt.
-The service rewrites the ID, the password, and the managed settings at every start, so a GUI change to one of them lasts until the next restart.
+Every other host appears by name under Favorites and Recent sessions, carrying that login, so a session between hosts opens without a prompt.
+The service rewrites the ID, the password, the stored logins, the favorites, and the managed settings at every start.
+A GUI change to one of them lasts until the next restart.
 Change those settings in `rustdesk.nix` instead.
 
 Print a host's ID on that host:
@@ -40,7 +41,7 @@ rustdesk --get-id
 
 ## Connect
 
-Pick the host in the main window's peer list, or enter its ID.
+Pick the host under Favorites, or type part of its name or ID in the ID field and take the suggestion.
 A session that cannot connect directly runs through the relay and loads the server host's uplink.
 
 ## Set up the iPhone
