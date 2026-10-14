@@ -92,7 +92,6 @@ _: {
       ];
 
       codexInstructions = agents.systemPrompt.render {
-        vars.questionTool = "request_user_input";
         vars.shellRules = codexShellRules;
       };
 
