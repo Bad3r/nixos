@@ -71,6 +71,9 @@ let
         - When a command is missing, try `nix run nixpkgs#<pkg> -- <flags>` before
           asking the user to install software. Use `nix search nixpkgs <term>` when the
           package attribute is unclear.
+        - Run commands that conventionally need root as the current user, without
+          checking `sudo` first; this host grants many of them to its owner. If one
+          fails for lack of privileges, ask the user to run the exact `sudo` command.
 
         Use ${questionToolText vars.questionTool} only when progress is blocked by
         information or approval that cannot be recovered from local context. Good uses
