@@ -51,8 +51,8 @@
 - The GPU root port `0000:00:06.0` advertises 16 GT/s, so the RTX 5080 links at PCIe 4.0 x16 with all 16 lanes.
 - Disk A sits under the motherboard's M.2_1 heatsink; without it, sustained writes throttle.
 - `/dev/nvmeN` indices reshuffle across boots. Address a drive by PCI address or serial, never by index.
-- DDR5-8400 is an XMP profile above the CPU's native DDR5-6400. The fallback ladder is 8000, 7600, 6400; four DIMMs forfeit 8400.
-- All fan and pump control runs through BIOS Q-Fan; no OS-side fan software exists.
+- The DIMMs run at 7400 MT/s because their DDR5-8400 XMP profile is unstable on this host. The fallback ladder runs down to the CPU's native DDR5-6400; four DIMMs forfeit 8400.
+- Case fans and the AIO pump follow BIOS Q-Fan curves, and the RTX 5080's fans follow the card's own curve.
 - Use only the PSU's own modular cables. A cable from another unit can damage drives.
 - Remove the GPU with Q-Release Slim: lift the rear-I/O end at an angle, never pull it straight out.
 - Each OS keeps its own ESP on its own disk, so Windows updates cannot touch the NixOS boot chain.
@@ -65,7 +65,7 @@
 | Intel PTT                        | On                           | BitLocker                  |
 | Above 4G Decoding, Resizable BAR | On                           | GPU requires it            |
 | VT-x, VT-d                       | On                           | KVM                        |
-| XMP                              | On                           | DDR5-8400 profile          |
+| DRAM frequency                   | DDR5-7400                    | XMP 8400 is unstable       |
 | Fast Boot                        | Off                          | USB and initrd reliability |
 | Boot order                       | systemd-boot on disk A first | default OS                 |
 
