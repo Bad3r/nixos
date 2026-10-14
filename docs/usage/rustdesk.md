@@ -14,6 +14,7 @@ No device contacts RustDesk's public servers.
 - Direct IP sessions are off, since they skip that key exchange and would cross Cloudflare in the clear.
 - A host refuses sessions from addresses outside the Mesh allocation and accepts only the fleet password.
 - One-time passwords and RustDesk's own TCP tunnels, remote terminal, and camera are off.
+- Remote restart is off, since a restarted host waits at its LUKS passphrase prompt.
 - The client service, the session processes it starts, and both servers reach only loopback and the CGNAT block holding the Mesh.
   A fallback to a public server or any other call home fails in the kernel.
 - The client's heartbeat, sysinfo, and audit uploads, its update check, and LAN discovery are off, and the hbbs build has no update check.

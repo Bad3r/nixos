@@ -57,6 +57,8 @@ let
     "enable-tunnel" = "N";
     "enable-terminal" = "N";
     "enable-camera" = "N";
+    # A rebooted host waits at its LUKS passphrase prompt, out of every session's reach.
+    "enable-remote-restart" = "N";
     "allow-scope-violation-close" = "Y";
     # The GUI's stop toggle sets this, and the service then disables its own unit at every start.
     "stop-service" = "N";
