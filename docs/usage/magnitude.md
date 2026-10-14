@@ -19,6 +19,7 @@ codex -p local
 ```
 
 Both keep the usual settings, hooks, and MCP servers, while plain `claude` and `codex` stay on the cloud models.
+Codex turns memories off under `local`, so the local model neither reads memories nor extracts them from past sessions.
 Pick another downloaded model per launch:
 
 ```sh

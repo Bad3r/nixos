@@ -114,7 +114,8 @@ _: {
         review_model = magnitudeClient.model;
         model_provider = "magnitude";
         model_context_window = magnitudeClient.contextWindow;
-        # Startup extraction would summarize past cloud sessions with the local model.
+        # The flag gates startup extraction; generate_memories excludes local threads from it.
+        features.memories = false;
         memories.generate_memories = false;
         model_providers.magnitude = {
           name = "Magnitude";
