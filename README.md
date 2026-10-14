@@ -83,9 +83,8 @@ These root inputs pin shared dependencies used through `.follows` declarations. 
 | Input                 | Followed By                                                  |
 | --------------------- | ------------------------------------------------------------ |
 | `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat` |
-| `dedupe_flake-utils`  | `codex-desktop-linux.inputs.flake-utils`                     |
 | `dedupe_nur`          | `stylix.inputs.nur`                                          |
-| `systems`             | `dedupe_flake-utils.inputs.systems`, `stylix.inputs.systems` |
+| `systems`             | `stylix.inputs.systems`                                     |
 
 ## Generated Files
 

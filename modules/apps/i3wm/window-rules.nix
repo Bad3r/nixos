@@ -16,13 +16,6 @@
         "extended"
         "enable"
       ] false osConfig;
-      codexDesktopEnabled = lib.attrByPath [
-        "programs"
-        "codex-desktop"
-        "extended"
-        "enable"
-      ] false osConfig;
-
       # Quarter-screen geometry calculations (all derived from config options)
       # Width:  screenWidth/2 - borderWidth*2  (gap on both sides of center split)
       # Height: screenHeight/2 - fontSize*2 - 1  (account for bar area)
@@ -137,10 +130,6 @@
           # WM_CLASS follows package.json desktopName: "com.anthropic.Claude"
           criteria.class = "(?i)^com\\.anthropic\\.claude$";
           command = "floating enable, border none, ${topRight}";
-        }
-        ++ lib.optional codexDesktopEnabled {
-          criteria.class = "(?i)^codex-desktop$";
-          command = "border none";
         };
       };
     };

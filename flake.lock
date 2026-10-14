@@ -173,29 +173,6 @@
         "type": "github"
       }
     },
-    "codex-desktop-linux": {
-      "inputs": {
-        "flake-utils": [
-          "dedupe_flake-utils"
-        ],
-        "nixpkgs": [
-          "nixpkgs"
-        ]
-      },
-      "locked": {
-        "lastModified": 1791871480,
-        "narHash": "sha256-6AWH4nqesYtuiH0iECGlvwvdl9Jlcrg0hIhuOEvJFo0=",
-        "owner": "ilysenko",
-        "repo": "codex-desktop-linux",
-        "rev": "b9b59e536acdb229569d557b87cf90802c89ac8c",
-        "type": "github"
-      },
-      "original": {
-        "owner": "ilysenko",
-        "repo": "codex-desktop-linux",
-        "type": "github"
-      }
-    },
     "dedupe_flake-compat": {
       "locked": {
         "lastModified": 1767039857,
@@ -208,26 +185,6 @@
       "original": {
         "owner": "edolstra",
         "repo": "flake-compat",
-        "type": "github"
-      }
-    },
-    "dedupe_flake-utils": {
-      "inputs": {
-        "systems": [
-          "systems"
-        ]
-      },
-      "locked": {
-        "lastModified": 1731533236,
-        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
-        "owner": "numtide",
-        "repo": "flake-utils",
-        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
-        "type": "github"
-      },
-      "original": {
-        "owner": "numtide",
-        "repo": "flake-utils",
         "type": "github"
       }
     },
@@ -826,11 +783,11 @@
         ]
       },
       "locked": {
-        "lastModified": 1791912678,
-        "narHash": "sha256-jm/+S9LVqHVLEjY0r7wpyQFkVYL+UoIJJ/XEehpPeOQ=",
+        "lastModified": 1791953548,
+        "narHash": "sha256-h0Tj7pXTXzy2rPVMXPLFjHYSQrjBzF8PrLRGvzw0jJQ=",
         "owner": "Bad3r",
         "repo": "llm-agents.nix",
-        "rev": "0b54a6ef5dd91c6bc4703d71bbf45b567e6c2e7e",
+        "rev": "c6c2ef86f172e70cbb90a0a79cbec0e875cc9085",
         "type": "github"
       },
       "original": {
@@ -1364,9 +1321,7 @@
         "cloudflare-go": "cloudflare-go",
         "cloudflare-python": "cloudflare-python",
         "cloudflare-rs": "cloudflare-rs",
-        "codex-desktop-linux": "codex-desktop-linux",
         "dedupe_flake-compat": "dedupe_flake-compat",
-        "dedupe_flake-utils": "dedupe_flake-utils",
         "dedupe_nur": "dedupe_nur",
         "emacs-overlay": "emacs-overlay",
         "files": "files",

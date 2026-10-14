@@ -106,7 +106,6 @@ let
       cmake.extended.enable = lib.mkOverride 1100 true;
       "coderabbit-cli".extended.enable = lib.mkOverride 1100 true;
       codex.extended.enable = lib.mkOverride 1100 true;
-      "codex-desktop".extended.enable = lib.mkOverride 1100 false;
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
       cpc.extended.enable = lib.mkOverride 1100 true;
