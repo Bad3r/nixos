@@ -22,10 +22,10 @@
       registered first: declaratively via extraKnownMarketplaces in
       _plugins.nix (as chrome-devtools-plugins is), or out of band in
       ~/.claude/plugins/known_marketplaces.json (as claude-plugins-official
-      is, installed once with
-      `claude-plugins install anthropics/claude-plugins-official`). `builtin`
-      needs no registration; entries naming an unregistered marketplace are
-      silently ignored.
+      is, added once with
+      `claude plugin marketplace add anthropics/claude-plugins-official`).
+      `builtin` needs no registration; entries naming an unregistered
+      marketplace are silently ignored.
     * Data files in modules/agents/claude-code/, one per concern:
         _settings.nix          settings.json keys the next two files do not hold
         _plugins.nix           plugins, marketplaces, and skill settings
