@@ -45,10 +45,10 @@ let
   # Pinned in every RustDesk2.toml at service start, next to the server address,
   # key, and Mesh allocation that sops supplies.
   managedOptions = {
-    # is_public() treats any URL ending in rustdesk.com as the public API and then
-    # skips the heartbeat, sysinfo, and audit posts that a custom ID server would
-    # otherwise draw in plaintext to its port 21114.
-    "api-server" = "http://127.0.0.1:9/rustdesk.com";
+    # is_public() takes this for RustDesk's own API (1.5.0 by host, 1.4.9 by suffix)
+    # and skips the heartbeat, sysinfo, and audit posts a custom server would draw,
+    # with their fallback through hbbs. The name does not resolve.
+    "api-server" = "http://off.rustdesk.com:9/rustdesk.com";
     # Direct IP sessions skip the key exchange and run unencrypted.
     "direct-server" = "N";
     "enable-lan-discovery" = "N";
