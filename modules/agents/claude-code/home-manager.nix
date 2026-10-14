@@ -144,7 +144,9 @@ _: {
           ;
       };
 
-      claudeInstructions = agents.systemPrompt.default;
+      claudeInstructions = agents.systemPrompt.render {
+        vars.questionTool = "AskUserQuestion";
+      };
 
       # Install every compiled skill that ships a Claude profile at
       # ~/.claude/skills/<name>/SKILL.md, keyed off the shared registry so new
