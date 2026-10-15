@@ -53,6 +53,8 @@ class ReconcileTests(unittest.TestCase):
         self.payload.write_bytes(b"\x00\xffdriver")
         self.script = directory / "script.ps1"
         self.script.write_text("exit 0")
+        self.firewall_script = directory / "guest-services-firewall.ps1"
+        self.firewall_script.write_text("exit 0")
         self.stamp = directory / "converged"
         self.config_path = Path("/nix/store/0-windows-guest-filesystem.json")
         self.config = {
@@ -64,6 +66,7 @@ class ReconcileTests(unittest.TestCase):
                 "pin-quick-access.ps1": str(self.script),
             },
             "script": str(self.script),
+            "guest_services_firewall_script": str(self.firewall_script),
             "quick_access_script": str(self.script),
         }
         self.agent = unittest.mock.create_autospec(provision.Agent, instance=True)
@@ -74,6 +77,7 @@ class ReconcileTests(unittest.TestCase):
         }
         self.agent.powershell.side_effect = [
             (0, ROOT),
+            (0, "firewall ready"),
             (0, "ready"),
             (0, "pinned"),
         ]
@@ -132,6 +136,7 @@ class ReconcileTests(unittest.TestCase):
         """A failed step leaves no stamp, so the next timer run checks again."""
         self.agent.powershell.side_effect = [
             (0, ROOT),
+            (0, "firewall ready"),
             (10, "needs setup"),
             (1, "installer failed"),
         ]
@@ -146,8 +151,10 @@ class ReconcileTests(unittest.TestCase):
         self.agent.virsh.side_effect = ["5", "running", XML, "5", "running", XML]
         self.agent.powershell.side_effect = [
             (0, ROOT),
+            (0, "firewall ready"),
             (1, "occupied"),
             (0, ROOT),
+            (0, "firewall ready"),
             (0, "ready"),
             (0, "pinned"),
         ]
@@ -184,6 +191,7 @@ class ReconcileTests(unittest.TestCase):
             [
                 ROOT + r"\staging\manifest.json",
                 ROOT + r"\staging\shared-folder.ps1",
+                ROOT + r"\staging\guest-services-firewall.ps1",
                 ROOT + r"\staging\pin-quick-access.ps1",
                 ROOT + r"\staging\quick-access.ps1",
             ],
@@ -195,6 +203,8 @@ class ReconcileTests(unittest.TestCase):
         """An executable update must not overwrite the running service binary."""
         self.agent.powershell.side_effect = [
             (0, ROOT),
+            (10, "firewall setup needed"),
+            (0, "firewall ready"),
             (10, "needs setup"),
             (0, "ready"),
             (0, "pinned"),
@@ -215,6 +225,7 @@ class ReconcileTests(unittest.TestCase):
         """A collision, reboot requirement or exception must remain a failure."""
         self.agent.powershell.side_effect = [
             (0, ROOT),
+            (0, "firewall ready"),
             (1, "occupied"),
         ]
         with self.assertRaisesRegex(RuntimeError, "^filesystem: .*occupied$"):
@@ -228,6 +239,7 @@ class ReconcileTests(unittest.TestCase):
         """A failed filesystem step skips the pin, which needs the transfer drive."""
         self.agent.powershell.side_effect = [
             (0, ROOT),
+            (0, "firewall ready"),
             (1, "occupied"),
         ]
         output = io.StringIO()
@@ -244,6 +256,7 @@ class ReconcileTests(unittest.TestCase):
         """A failed user-session task remains visible in the host service result."""
         self.agent.powershell.side_effect = [
             (0, ROOT),
+            (0, "firewall ready"),
             (0, "ready"),
             (1, "pin failed"),
         ]
@@ -252,6 +265,52 @@ class ReconcileTests(unittest.TestCase):
         self.assertFalse(
             any("-Mode Apply" in call.args[0] for call in self.agent.powershell.call_args_list)
         )
+
+    def test_guest_firewall_is_reconciled_before_filesystem_setup(self) -> None:
+        """A missing managed service rule is applied before filesystem work continues."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (10, "rule missing"),
+            (0, "firewall ready"),
+            (0, "ready"),
+            (0, "pinned"),
+        ]
+        provision.reconcile(self.config, self.agent, self.config_path)
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
+        self.assertIn("guest-services-firewall.ps1", calls[1])
+        self.assertTrue(calls[1].endswith("Probe; exit $LASTEXITCODE"))
+        self.assertTrue(calls[2].endswith("Apply; exit $LASTEXITCODE"))
+        self.assertIn("shared-folder.ps1", calls[3])
+
+    def test_guest_firewall_failure_does_not_block_other_steps(self) -> None:
+        """A policy error fails the run only after the filesystem and Quick access steps ran."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (1, "firewall query failed"),
+            (0, "ready"),
+            (0, "pinned"),
+        ]
+        with self.assertRaisesRegex(
+            RuntimeError, "^guest firewall: Windows guest firewall probe failed.*query failed$"
+        ):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
+        self.assertEqual(len(calls), 4)
+        self.assertIn("shared-folder.ps1", calls[2])
+        self.assertIn("quick-access.ps1", calls[3])
+
+    def test_every_failed_step_is_named(self) -> None:
+        """One failure message lists each failed step."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (1, "firewall query failed"),
+            (1, "occupied"),
+        ]
+        with self.assertRaisesRegex(
+            RuntimeError, "^guest firewall: .*query failed; filesystem: .*occupied$"
+        ):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertEqual(self.agent.powershell.call_count, 3)
 
 
 class ProtocolTests(unittest.TestCase):
@@ -405,6 +464,62 @@ class WindowsScriptTests(unittest.TestCase):
         result = self.run_case("bad-hash", "Apply")
         self.assertEqual(result.returncode, 1)
         self.assertIn("Payload hash mismatch", result.stderr)
+
+
+class GuestServicesFirewallTests(unittest.TestCase):
+    """Exercise the guest firewall policy without touching a Windows host."""
+
+    def run_case(self, case: str, mode: str = "Probe") -> subprocess.CompletedProcess[str]:
+        """Run the production policy against an isolated NetSecurity fixture."""
+        return subprocess.run(
+            [
+                "pwsh",
+                "-NoLogo",
+                "-NoProfile",
+                "-NonInteractive",
+                "-File",
+                str(REPO / "tests/windows-guest-filesystem/mock-guest-firewall.ps1"),
+                str(REPO / "scripts/windows-guest/guest-services-firewall.ps1"),
+                case,
+                mode,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
+
+    def test_missing_policy_requests_apply_without_mutation(self) -> None:
+        """Probe reports drift with the designated status and performs no repair."""
+        result = self.run_case("missing")
+        self.assertEqual(result.returncode, 10, result.stderr)
+        self.assertIn("missing or differs", result.stdout)
+
+    def test_ready_policy_probe_is_read_only(self) -> None:
+        """The intended port and subnet pass without replacing the existing rule."""
+        result = self.run_case("ready")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("TCP 8000-9999 from 10.11.11.0/24", result.stdout)
+
+    def test_missing_policy_is_created(self) -> None:
+        """Apply creates an enabled inbound TCP rule with the declared scope."""
+        result = self.run_case("missing", "Apply")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("firewall rule created", result.stdout)
+        self.assertIn("TCP 8000-9999 from 10.11.11.0/24", result.stdout)
+
+    def test_stale_policy_is_replaced(self) -> None:
+        """Apply repairs a stale protocol, port range, and remote subnet."""
+        result = self.run_case("stale", "Apply")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("firewall rule replaced", result.stdout)
+        self.assertIn("TCP 8000-9999 from 10.11.11.0/24", result.stdout)
+
+    def test_repair_failure_is_reported(self) -> None:
+        """A guest firewall API failure exits 1 with only its message on stderr."""
+        result = self.run_case("apply-failure", "Apply")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr.strip(), "fixture firewall operation failed.")
 
 
 class QuickAccessTests(unittest.TestCase):

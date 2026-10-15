@@ -35,6 +35,7 @@ let
           stamp = "/run/${runtimeDirectory}/converged";
           script = ../../../scripts/windows-guest/shared-folder.ps1;
           quick_access_script = ../../../scripts/windows-guest/quick-access.ps1;
+          guest_services_firewall_script = ../../../scripts/windows-guest/guest-services-firewall.ps1;
           winfsp_version = winfspVersion;
           files = {
             "winfsp.msi" = winfsp;
@@ -55,7 +56,7 @@ let
     {
       config = lib.mkIf cfg.enable {
         systemd.services.windows-guest-filesystem = {
-          description = "Reconcile Windows guest virtiofs access through the QEMU guest agent";
+          description = "Reconcile Windows guest firewall and virtiofs access through the QEMU guest agent";
           after = [
             "libvirtd.service"
             "nixvirt.service"
