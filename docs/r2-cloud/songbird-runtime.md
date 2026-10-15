@@ -16,7 +16,7 @@ runtime contract applied by the shared builder.
 ## Not Covered
 
 - Producer option defaults and full schema table
-  (see upstream `docs/reference/index.md`)
+  ([upstream reference](https://github.com/Bad3r/nix-R2-CloudFlare-Flake/blob/main/docs/reference/index.md))
 - Duplicati backup service (`services.duplicati-r2`)
 
 ## Current Host Policy
@@ -58,29 +58,7 @@ The following contract is configured in `modules/lib/r2-runtime.nix`:
 
 ## Sync Mount Profiles
 
-Configured mounts (in `modules/lib/r2-runtime.nix`):
-
-1. `workspace`
-   - bucket: `nix-r2-cf-r2e-files-prod`
-   - remote prefix: `workspace`
-   - mount point: `/data/r2/mount/workspace`
-   - local path: `/data/r2/workspace`
-   - sync interval: `5m`
-   - bisync start timeout: `20m`
-2. `fonts`
-   - bucket: `nix-r2-cf-r2e-files-prod`
-   - remote prefix: `fonts`
-   - mount point: `/data/r2/mount/fonts`
-   - local path: `/data/fonts`
-   - sync interval: `30m`
-   - bisync start timeout: `20m`
-3. `docs`
-   - bucket: `nix-r2-cf-r2e-files-prod`
-   - remote prefix: `docs`
-   - mount point: `/data/r2/mount/docs`
-   - local path: `/data/Docs`
-   - sync interval: `5m`
-   - bisync start timeout: `6h`
+`r2Profiles` in `modules/lib/r2-runtime.nix` defines each mount's bucket, paths, sync interval, bisync options, and start timeout.
 
 ## Restic Profile
 
