@@ -252,6 +252,8 @@
   - Smoke-test report for the additional-tools reference; records which entries launched cleanly on the active flake pin and which failed with build, attribute, or invocation issues.
 - [csec/protocol-aware-firewall.md](csec/protocol-aware-firewall.md)
   - Packet-signature and conntrack-mark techniques for detecting and blocking application protocol mismatches on a firewall port, with iptables and nftables examples.
+- [csec/hdiffpatch.md](csec/hdiffpatch.md)
+  - Binary delta work with hdiffz and hpatchz: format magics, deltas from bsdiff and xdelta3, how much substitution of the old file each format catches, and directory deltas.
 
 ## RDP
 
