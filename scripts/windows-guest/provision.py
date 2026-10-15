@@ -230,6 +230,18 @@ def reconcile_filesystem(
         print(checked_powershell(agent, command + "Apply; exit $LASTEXITCODE"))
 
 
+def reconcile_quick_access(agent: Agent, staging: str) -> None:
+    """Keep the transfer drive pinned in File Explorer for interactive users."""
+    print(
+        checked_powershell(
+            agent,
+            "$ErrorActionPreference = 'Stop'; "
+            f"& {ps_quote(staging + chr(92) + 'quick-access.ps1')} "
+            f"-ManifestPath {ps_quote(staging + chr(92) + 'manifest.json')}; exit $LASTEXITCODE",
+        )
+    )
+
+
 def pending_check(agent: Agent, stamp: Path, config_path: Path) -> str | None:
     """Return the stamp a successful check records, or None when no check is due."""
     domain_id = agent.virsh("domid", agent.domain)
@@ -308,9 +320,21 @@ def reconcile(config: Object, agent: Agent, config_path: Path) -> None:
     agent.write_file(
         staging + r"\shared-folder.ps1", Path(string_value(config.get("script"))).read_bytes()
     )
+    agent.write_file(
+        staging + r"\pin-quick-access.ps1", payloads["pin-quick-access.ps1"].read_bytes()
+    )
+    agent.write_file(
+        staging + r"\quick-access.ps1",
+        Path(string_value(config.get("quick_access_script"))).read_bytes(),
+    )
 
     failures: list[str] = []
-    run_step("filesystem", failures, lambda: reconcile_filesystem(config, agent, staging, payloads))
+    if run_step(
+        "filesystem", failures, lambda: reconcile_filesystem(config, agent, staging, payloads)
+    ):
+        run_step("Quick access", failures, lambda: reconcile_quick_access(agent, staging))
+    else:
+        print("Windows Quick access pinning skipped: the transfer drive needs the filesystem step")
     if failures:
         raise RuntimeError("; ".join(failures))
     stamp.write_text(converged)

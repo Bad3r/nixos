@@ -9,7 +9,9 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import importlib.util
+import io
 import json
 import subprocess
 import tempfile
@@ -59,8 +61,10 @@ class ReconcileTests(unittest.TestCase):
             "winfsp_version": "2.1.25156",
             "files": {
                 "virtiofs.exe": str(self.payload),
+                "pin-quick-access.ps1": str(self.script),
             },
             "script": str(self.script),
+            "quick_access_script": str(self.script),
         }
         self.agent = unittest.mock.create_autospec(provision.Agent, instance=True)
         self.agent.domain = "RDPWindows"
@@ -71,6 +75,7 @@ class ReconcileTests(unittest.TestCase):
         self.agent.powershell.side_effect = [
             (0, ROOT),
             (0, "ready"),
+            (0, "pinned"),
         ]
 
     def test_offline_guest_is_not_started(self) -> None:
@@ -144,6 +149,7 @@ class ReconcileTests(unittest.TestCase):
             (1, "occupied"),
             (0, ROOT),
             (0, "ready"),
+            (0, "pinned"),
         ]
         with self.assertRaisesRegex(RuntimeError, "occupied"):
             provision.reconcile(self.config, self.agent, self.config_path)
@@ -178,6 +184,8 @@ class ReconcileTests(unittest.TestCase):
             [
                 ROOT + r"\staging\manifest.json",
                 ROOT + r"\staging\shared-folder.ps1",
+                ROOT + r"\staging\pin-quick-access.ps1",
+                ROOT + r"\staging\quick-access.ps1",
             ],
         )
         calls = [call.args[0] for call in self.agent.powershell.call_args_list]
@@ -189,6 +197,7 @@ class ReconcileTests(unittest.TestCase):
             (0, ROOT),
             (10, "needs setup"),
             (0, "ready"),
+            (0, "pinned"),
         ]
         provision.reconcile(self.config, self.agent, self.config_path)
         self.agent.write_file.assert_any_call(
@@ -214,6 +223,35 @@ class ReconcileTests(unittest.TestCase):
         self.assertNotIn(ROOT + r"\staging\virtiofs.exe", destinations)
         calls = [call.args[0] for call in self.agent.powershell.call_args_list]
         self.assertFalse(any(call.endswith("Apply; exit $LASTEXITCODE") for call in calls))
+
+    def test_quick_access_waits_for_the_filesystem_step(self) -> None:
+        """A failed filesystem step skips the pin, which needs the transfer drive."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (1, "occupied"),
+        ]
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            self.assertRaisesRegex(RuntimeError, "^filesystem: .*occupied$"),
+        ):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
+        self.assertFalse(any("quick-access.ps1" in call for call in calls))
+        self.assertIn("Quick access pinning skipped", output.getvalue())
+
+    def test_pin_failure_surfaces_without_reinstalling_filesystem(self) -> None:
+        """A failed user-session task remains visible in the host service result."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (0, "ready"),
+            (1, "pin failed"),
+        ]
+        with self.assertRaisesRegex(RuntimeError, "^Quick access: .*pin failed$"):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertFalse(
+            any("-Mode Apply" in call.args[0] for call in self.agent.powershell.call_args_list)
+        )
 
 
 class ProtocolTests(unittest.TestCase):
@@ -367,6 +405,117 @@ class WindowsScriptTests(unittest.TestCase):
         result = self.run_case("bad-hash", "Apply")
         self.assertEqual(result.returncode, 1)
         self.assertIn("Payload hash mismatch", result.stderr)
+
+
+class QuickAccessTests(unittest.TestCase):
+    """Exercise task policy and per-user Shell pinning without a desktop."""
+
+    def run_case(self, script: str, case: str) -> subprocess.CompletedProcess[str]:
+        """Execute the production scripts against task and Shell API fixtures."""
+        with tempfile.TemporaryDirectory() as directory:
+            manifest = Path(directory) / "staging/manifest.json"
+            manifest.parent.mkdir()
+            manifest.write_text(
+                json.dumps({"hashes": {"pin-quick-access.ps1": "pin-quick-access.ps1"}})
+            )
+            return subprocess.run(
+                [
+                    "pwsh",
+                    "-NoLogo",
+                    "-NoProfile",
+                    "-NonInteractive",
+                    "-File",
+                    str(REPO / "tests/windows-guest-filesystem/mock-quick-access.ps1"),
+                    str(REPO / "scripts/windows-guest" / script),
+                    str(manifest),
+                    case,
+                ],
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=30,
+            )
+
+    def test_new_pin_is_verified(self) -> None:
+        """A new Shell entry is pinned through the canonical verb."""
+        result = self.run_case("pin-quick-access.ps1", "new")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("pin invoked", result.stdout)
+
+    def test_existing_pin_is_not_toggled_off(self) -> None:
+        """An existing Quick access item must never receive the toggle verb."""
+        result = self.run_case("pin-quick-access.ps1", "ready")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("pin invoked", result.stdout)
+
+    def test_failed_shell_pin_is_reported(self) -> None:
+        """Invoking a verb alone is insufficient to report a successful pin."""
+        result = self.run_case("pin-quick-access.ps1", "pin-failure")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("was not added", result.stderr)
+
+    def test_task_is_registered_for_interactive_users(self) -> None:
+        """Registration uses the Users group and pins the running session once."""
+        result = self.run_case("quick-access.ps1", "new")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("task registered", result.stdout)
+        self.assertEqual(result.stdout.count("task started"), 1)
+        self.assertIn("present in File Explorer", result.stdout)
+
+    def test_converged_task_starts_nothing(self) -> None:
+        """An unchanged task whose last run succeeded leaves the user session alone."""
+        result = self.run_case("quick-access.ps1", "ready")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("task registered", result.stdout)
+        self.assertNotIn("task started", result.stdout)
+        self.assertIn("pin task is current", result.stdout)
+
+    def test_disabled_task_is_repaired(self) -> None:
+        """Policy drift restores the logon trigger and reruns the pin once."""
+        result = self.run_case("quick-access.ps1", "disabled")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("task registered", result.stdout)
+        self.assertEqual(result.stdout.count("task started"), 1)
+
+    def test_replaced_pin_script_reruns_task(self) -> None:
+        """A new pin script runs once without re-registering the task."""
+        result = self.run_case("quick-access.ps1", "script-changed")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("pin script replaced", result.stdout)
+        self.assertNotIn("task registered", result.stdout)
+        self.assertEqual(result.stdout.count("task started"), 1)
+
+    def test_no_user_session_defers_pinning(self) -> None:
+        """A headless guest receives the policy and waits for user logon."""
+        result = self.run_case("quick-access.ps1", "no-session")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("awaits an interactive", result.stdout)
+
+    def test_task_failure_is_reported(self) -> None:
+        """A failed last run is retried, and a repeated failure cannot become a ready result."""
+        result = self.run_case("quick-access.ps1", "pin-failure")
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout.count("task started"), 1)
+        self.assertIn("task failed", result.stderr)
+
+    def test_already_running_task_is_awaited(self) -> None:
+        """A logon-triggered pin can finish without being restarted or timing out."""
+        result = self.run_case("quick-access.ps1", "already-running")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("present in File Explorer", result.stdout)
+
+    def test_trigger_started_task_is_awaited(self) -> None:
+        """A logon run that starts after the first state read is awaited instead of timing out."""
+        result = self.run_case("quick-access.ps1", "trigger-race")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("task started", result.stdout)
+        self.assertIn("present in File Explorer", result.stdout)
+
+    def test_corrupt_pin_payload_is_rejected(self) -> None:
+        """A hash mismatch stops task registration and execution."""
+        result = self.run_case("quick-access.ps1", "bad-hash")
+        self.assertEqual(result.returncode, 1)
+        self.assertIn("hash mismatch", result.stderr)
 
 
 if __name__ == "__main__":

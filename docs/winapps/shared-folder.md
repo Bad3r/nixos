@@ -8,6 +8,9 @@ Every Windows account that can access the drive can modify its contents.
 `modules/hosts/common/windows-guest-filesystem.nix` provisions WinFsp Core, the signed VirtIO filesystem driver, and the Windows service through the QEMU guest agent.
 Windows needs no internet access for this setup; the host sends pinned payloads through the guest agent.
 
+A logon task pins the drive to File Explorer Quick access each time a Windows user logs on.
+The host service starts that task itself only after registering or updating it, or after a failed pin.
+
 ## Enable the Windows drive
 
 Precondition: the [guest tools](provisioning.md#install-guest-tools) are installed, and Windows has an unused drive letter `T:`.
@@ -36,6 +39,7 @@ Precondition: the [guest tools](provisioning.md#install-guest-tools) are install
 The declaration removes the Windows `Owner` override so ownership comes from the share root inside the file server's user namespace.
 
 Verification: `Get-Volume -DriveLetter T` reports the transfer volume in the virt-manager console.
+File Explorer lists the drive in Quick access.
 Shut Windows down and start it again; the drive must mount without launching Outlook.
 
 ## Verify access from both sides

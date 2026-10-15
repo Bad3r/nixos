@@ -49,6 +49,14 @@ let
           src = ../../scripts/windows-guest/shared-folder.ps1;
           dest = "scripts/windows-guest/shared-folder.ps1";
         }
+        {
+          src = ../../scripts/windows-guest/pin-quick-access.ps1;
+          dest = "scripts/windows-guest/pin-quick-access.ps1";
+        }
+        {
+          src = ../../scripts/windows-guest/quick-access.ps1;
+          dest = "scripts/windows-guest/quick-access.ps1";
+        }
       ];
       extraInputs = pkgs: [
         pkgs.python314
