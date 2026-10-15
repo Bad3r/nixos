@@ -123,7 +123,7 @@
   # Key binding mode for the prompt input
   editorMode = "vim";
 
-  # Accepts low|medium|high|xhigh only; CLAUDE_CODE_EFFORT_LEVEL in _env.nix pins max and outranks it.
+  # Accepts low|medium|high|xhigh only; max is session-only (/effort max).
   effortLevel = "xhigh";
 
   # When false, the :emoji: shortcode typeahead (the suggestion popup and the

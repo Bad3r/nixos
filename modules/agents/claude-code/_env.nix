@@ -171,8 +171,7 @@ in
     # Set to 1 to omit the thinking parameter from API requests entirely. [1 or unset]
     # CLAUDE_CODE_DISABLE_THINKING = "1";
     # Set the effort level for supported models.
-    # Carries max, which the persisted effortLevel setting rejects.
-    CLAUDE_CODE_EFFORT_LEVEL = "max";
+    # CLAUDE_CODE_EFFORT_LEVEL = "";
     # Override the default token limit for file reads.
     # CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS = "";
     # Override the context window size Claude Code assumes for the active model.
