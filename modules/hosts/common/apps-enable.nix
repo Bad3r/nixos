@@ -523,6 +523,7 @@ let
       whatweb.extended.enable = lib.mkOverride 1100 true;
       which.extended.enable = lib.mkOverride 1100 false;
       whois.extended.enable = lib.mkOverride 1100 true;
+      winapps.extended.enable = lib.mkOverride 1100 false;
       "wine-tools".extended.enable = lib.mkOverride 1100 true;
       "wireguard-tools".extended.enable = lib.mkOverride 1100 true;
       wireshark.extended.enable = lib.mkOverride 1100 true;
