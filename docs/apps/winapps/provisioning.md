@@ -60,9 +60,10 @@ Precondition: the install media is attached.
 2. At the disk selection screen choose `Load driver`, browse the virtio-win CD to `viostor\w11\amd64`, and install the storage driver.
    The disk appears once the driver loads.
 
-3. Create a local account named after the Linux user, and give it a password; RDP refuses an account without one.
-   Pick `Domain join instead` under the sign-in options, or stay offline and pick `I don't have internet`.
+3. At the sign-in screen, pick `Domain join instead` under the sign-in options, or stay offline and pick `I don't have internet`.
    If setup offers neither, press Shift+F10, run `oobe\bypassnro`, and repeat the step after the restart.
+
+4. Create a local account named after `host.virtualization.windowsGuest.rdpUser` in `modules/hosts/common/windows-guest.nix`, the account the launcher signs in as, and give it the password RDP requires.
 
 Verification: at the desktop, in an elevated PowerShell in the guest, `Confirm-SecureBootUEFI` prints `True` and `Get-Tpm` reports `TpmPresent : True`.
 
