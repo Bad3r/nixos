@@ -65,8 +65,8 @@ let
     '';
 
     # Reasoning settings
-    model_reasoning_effort = "max";
-    plan_mode_reasoning_effort = "max"; # none|minimal|low|medium|high|xhigh|max|ultra
+    # model_reasoning_effort = "max";
+    # plan_mode_reasoning_effort = "max"; # none|minimal|low|medium|high|xhigh|max|ultra
     model_verbosity = "high";
 
     # Reasoning visibility

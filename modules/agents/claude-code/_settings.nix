@@ -123,9 +123,6 @@
   # Key binding mode for the prompt input
   editorMode = "vim";
 
-  # Accepts low|medium|high|xhigh only; max is session-only (/effort max).
-  effortLevel = "xhigh";
-
   # When false, the :emoji: shortcode typeahead (the suggestion popup and the
   # :name: inline replacement) is disabled. When absent or true, it is
   # enabled.
@@ -222,6 +219,9 @@
   # provider-specific model ID (e.g. a Bedrock inference profile ARN).
   # Typically set in managed settings by enterprise administrators.
   # modelOverrides = { }; # [record]
+
+  # /effort writes each pick here as that model's default for new sessions.
+  modelSettings = { };
 
   # Path to a script that outputs OpenTelemetry headers
   # otelHeadersHelper = ""; # [string]
