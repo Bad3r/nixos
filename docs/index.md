@@ -446,3 +446,5 @@
   - Runbooks for the first switch, install media, Windows installation, guest tools, the isolation check, and detaching the media.
 - [apps/winapps/storage.md](apps/winapps/storage.md)
   - Runbooks for the guest baseline copy, restoring it, and growing the disk.
+- [apps/winapps/shared-folder.md](apps/winapps/shared-folder.md)
+  - Persistent virtiofs sharing, Windows service setup, and host ownership verification.

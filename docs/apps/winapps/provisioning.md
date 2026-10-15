@@ -82,6 +82,7 @@ Precondition: Windows is at the desktop and the virtio-win CD is attached.
    ```
 
 Verification: the agent answers `{"return":{}}`, and the lease holds the address of `host.virtualization.windowsGuest.network.guestAddress`.
+The [shared folder](shared-folder.md) provisions automatically after the agent responds and the virtiofs device is active.
 
 ## Configure Windows
 

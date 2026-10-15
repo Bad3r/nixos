@@ -38,6 +38,24 @@ let
         '')
       ];
     };
+    windows-guest-filesystem = {
+      dir = ../../tests/windows-guest-filesystem;
+      subjects = [
+        {
+          src = ../../scripts/windows-guest/provision.py;
+          dest = "scripts/windows-guest/provision.py";
+        }
+        {
+          src = ../../scripts/windows-guest/shared-folder.ps1;
+          dest = "scripts/windows-guest/shared-folder.ps1";
+        }
+      ];
+      extraInputs = pkgs: [
+        pkgs.python314
+        pkgs.uv
+        pkgs.powershell
+      ];
+    };
     prune-old-stashes = {
       dir = ../../tests/prune-old-stashes;
       subjects = [

@@ -8,6 +8,7 @@ A host opts in with `host.virtualization.windowsGuest.enable`.
 
 - [provisioning.md](provisioning.md): first switch, install media, Windows installation, guest tools, isolation check, media detach.
 - [storage.md](storage.md): baseline copy, restore, and disk growth.
+- [shared-folder.md](shared-folder.md): persistent file sharing, Windows service setup, and host ownership checks.
 
 ## Lifecycle
 
