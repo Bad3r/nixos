@@ -304,6 +304,7 @@ in
               // lib.mapAttrs' (
                 name: profile:
                 lib.nameValuePair (bisyncServiceNameOf name) {
+                  restartIfChanged = false;
                   serviceConfig = {
                     User = username;
                     Group = group;

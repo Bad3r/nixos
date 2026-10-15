@@ -81,7 +81,7 @@ systemctl status r2-bisync-docs.service
 journalctl -u r2-bisync-docs.service
 ```
 
-Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`, then switch and start the unit again.
+Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`, then switch and restart the unit, because a switch leaves the bisync units untouched.
 
 ## The Samba media share is missing
 
