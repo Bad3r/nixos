@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, metaOwner, ... }:
 let
   body =
     {
@@ -84,6 +84,16 @@ let
         target.format.type = "qcow2";
       };
 
+      owner = config.users.users.${metaOwner.username};
+
+      # Drop host privileges before virtiofsd creates its user namespace so guest
+      # ownership requests cannot create files owned by another host account.
+      virtiofsd = pkgs.writeShellScript "virtiofsd-transfer" ''
+        exec ${lib.getExe' pkgs.util-linux "setpriv"} --reuid=${toString owner.uid} \
+          --regid=${toString config.users.groups.${owner.group}.gid} --clear-groups --no-new-privs \
+          ${lib.getExe pkgs.virtiofsd} "$@"
+      '';
+
       template = nixvirt.domain.templates.windows {
         inherit name;
         uuid = domainUuid;
@@ -154,6 +164,11 @@ let
             }
           ];
         };
+        # vhost-user hands guest RAM to virtiofsd, so it has to be shared.
+        memoryBacking = {
+          source.type = "memfd";
+          access.mode = "shared";
+        };
         devices = template.devices // {
           # nixpkgs' libvirtd-config keeps this link pointed at
           # libvirtd.qemu.package; the template's value is NixVirt's own qemu.
@@ -187,6 +202,14 @@ let
           graphics = template.devices.graphics // {
             listen.type = "none";
           };
+          filesystem = {
+            type = "mount";
+            accessmode = "passthrough";
+            driver.type = "virtiofs";
+            binary.path = "${virtiofsd}";
+            source.dir = cfg.transferDir;
+            target.dir = "transfer";
+          };
         };
       };
 
@@ -210,6 +233,16 @@ let
           default = guestAddress;
           readOnly = true;
           description = "IPv4 address the guest network reserves for the guest.";
+        };
+
+        transferDir = lib.mkOption {
+          type = lib.types.str;
+          default = "/mnt/outlook";
+          readOnly = true;
+          description = ''
+            Host directory the guest mounts over virtiofs, so every guest session sees it, the
+            virt-manager console as well as RDP.
+          '';
         };
 
         installIso = lib.mkOption {
@@ -291,10 +324,17 @@ let
         };
 
         # NixVirt starts the pool without building it, so the target has to exist.
-        systemd.tmpfiles.settings."10-windows-guest".${poolPath}.d = {
-          user = "root";
-          group = "root";
-          mode = "0711";
+        systemd.tmpfiles.settings."10-windows-guest" = {
+          ${poolPath}.d = {
+            user = "root";
+            group = "root";
+            mode = "0711";
+          };
+          ${cfg.transferDir}.d = {
+            inherit (owner) group;
+            user = metaOwner.username;
+            mode = "0700";
+          };
         };
 
         # Head of the chain: nixos-fw accepts the open ports and LAN sources
