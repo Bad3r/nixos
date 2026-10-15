@@ -4,7 +4,7 @@
 # requires-python = ">=3.14"
 # dependencies = []
 # ///
-"""Reconcile Windows guest virtiofs policy without restarting its VM."""
+"""Reconcile Windows guest firewall and virtiofs policy without restarting its VM."""
 
 from __future__ import annotations
 
@@ -197,6 +197,23 @@ def run_step(name: str, failures: list[str], step: Callable[[], None]) -> bool:
     return True
 
 
+def reconcile_guest_services_firewall(agent: Agent, staging: str) -> None:
+    """Converge the bounded inbound service rule and retain guest failures."""
+    command = (
+        "$ErrorActionPreference = 'Stop'; "
+        f"& {ps_quote(staging + chr(92) + 'guest-services-firewall.ps1')} -Mode "
+    )
+    code, output = agent.powershell(command + "Probe; exit $LASTEXITCODE")
+    if code == 0:
+        print(output)
+    elif code == NEEDS_APPLY:
+        print(f"Windows guest firewall setup needed: {output}", flush=True)
+        print(checked_powershell(agent, command + "Apply; exit $LASTEXITCODE"))
+    else:
+        msg = f"Windows guest firewall probe failed ({code}): {output}"
+        raise RuntimeError(msg)
+
+
 def reconcile_filesystem(
     config: Object, agent: Agent, staging: str, payloads: dict[str, Path]
 ) -> None:
@@ -321,6 +338,10 @@ def reconcile(config: Object, agent: Agent, config_path: Path) -> None:
         staging + r"\shared-folder.ps1", Path(string_value(config.get("script"))).read_bytes()
     )
     agent.write_file(
+        staging + r"\guest-services-firewall.ps1",
+        Path(string_value(config.get("guest_services_firewall_script"))).read_bytes(),
+    )
+    agent.write_file(
         staging + r"\pin-quick-access.ps1", payloads["pin-quick-access.ps1"].read_bytes()
     )
     agent.write_file(
@@ -329,6 +350,7 @@ def reconcile(config: Object, agent: Agent, config_path: Path) -> None:
     )
 
     failures: list[str] = []
+    run_step("guest firewall", failures, lambda: reconcile_guest_services_firewall(agent, staging))
     if run_step(
         "filesystem", failures, lambda: reconcile_filesystem(config, agent, staging, payloads)
     ):

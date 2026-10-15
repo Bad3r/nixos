@@ -441,9 +441,9 @@
 ### WinApps
 
 - [apps/winapps/README.md](apps/winapps/README.md)
-  - NixVirt-declared Windows guest on libvirt: declared objects, lifecycle, the rules that prevent data loss, state locations, and guest isolation.
+  - NixVirt-declared Windows guest on libvirt: declared objects, lifecycle, the rules that prevent data loss, state locations, and the shared VM network.
 - [apps/winapps/provisioning.md](apps/winapps/provisioning.md)
-  - Runbooks for the first switch, install media, Windows installation, guest tools, the isolation check, and detaching the media.
+  - Runbooks for the first switch, install media, Windows installation, guest tools, the shared-network check, and detaching the media.
 - [apps/winapps/storage.md](apps/winapps/storage.md)
   - Runbooks for the guest baseline copy, restoring it, and growing the disk.
 - [apps/winapps/shared-folder.md](apps/winapps/shared-folder.md)
