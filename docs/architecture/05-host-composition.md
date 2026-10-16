@@ -72,7 +72,8 @@ in
 
 `firewallExtraTcpPortRanges` maps to NixOS's normal globally reachable TCP ranges. `firewallLocalTcpPortRanges` is separate: `modules/hosts/common/firewall.nix` emits IPv4 `iptables` rules for source addresses in `10.0.0.0/8` and `192.168.0.0/16`, and on a host that enables `cloudflare-warp` it opens the same ranges on `CloudflareWARP` to every Mesh device. It neither includes `172.16.0.0/12` nor establishes an IPv6 or trusted-network boundary.
 
-Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules or `modules/meta/cache-roots.nix`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, `privateDnsHostsSecretKeys`, and `cacheRoots`. `cacheRoots.nvidiaKernelModules` is a Boolean required on every NVIDIA-enabled host: `true` publishes the installed module and `false` excludes it. Missing, empty, non-Boolean, or unknown cache-root policy values fail evaluation. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules or `modules/meta/cache-roots.nix`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, `privateDnsHostsSecretKeys`, `cloudflareWarpMeshAddressReady`, `rustdeskServer`, and `cacheRoots`. `cacheRoots.nvidiaKernelModules` is a Boolean required on every NVIDIA-enabled host: `true` publishes the installed module and `false` excludes it. Missing, empty, non-Boolean, or unknown cache-root policy values fail evaluation. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+`rustdeskServer` marks the one host that runs hbbs and hbbr; with none or several, [RustDesk](../usage/rustdesk.md) stays off everywhere and each RustDesk-enabled host warns.
 
 ### Private DNS Host Pinning
 
@@ -109,7 +110,7 @@ mode `0440`, readable after the privilege drop and on SIGHUP re-reads.
 secret's ownership triple, because sops-nix restarts units only when decrypted
 bytes change.
 
-Cloudflare Mesh endpoints stay encrypted in `secrets/cloudflare-warp.yaml` and render as local `<host>.internal` mappings after the registry readiness flag is set; see [WARP on the fleet](../cloudflare/warp/README.md).
+Cloudflare Mesh endpoints stay encrypted in `secrets/cloudflare-warp.yaml` and render as local `<host>.internal` mappings after their registry entry sets `cloudflareWarpMeshAddressReady`; see [WARP on the fleet](../cloudflare/warp/README.md).
 The Tailscale `primary` and `tailnetIp` mechanism remains separate and permits at most one primary.
 
 ## App and Home Manager Wiring

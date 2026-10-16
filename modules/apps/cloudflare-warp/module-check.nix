@@ -171,7 +171,6 @@
         assert check "auth_client_secret key is per host" (
           (secretOf "auth_client_secret").key == "tpnix/auth_client_secret"
         );
-        assert check "Mesh CIDR is read from SOPS" ((secretOf "mesh-cidr").key == "mesh/cidr");
         assert check "tpnix Mesh address is read from SOPS" (
           (secretOf "mesh-host-tpnix").key == "mesh/hosts/tpnix"
         );
@@ -217,7 +216,6 @@
         );
         assert check "unenrolled host preserves NixOS's store-backed hosts file" (
           lib.hasPrefix "/nix/store/" (toString unenrolled.config.environment.etc.hosts.source)
-          && !(unenrolled.config.sops.secrets ? "cloudflare-warp/mesh-cidr")
           && !(unenrolled.config.sops.secrets ? "cloudflare-warp/mesh-host-tpnix")
         );
         # A static global route would outlive the tunnel and leave no resolver

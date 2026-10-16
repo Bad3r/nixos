@@ -1,38 +1,23 @@
-{
-  config,
-  lib,
-  secretsRoot,
-  ...
-}:
+{ config, secretsRoot, ... }:
 let
   sambaSecretFile = secretsRoot + "/songbird.yaml";
   sambaSecretExists = builtins.pathExists sambaSecretFile;
-  cloudflareWarpSecretFile = secretsRoot + "/cloudflare-warp.yaml";
-  cloudflareWarpSecretExists = builtins.pathExists cloudflareWarpSecretFile;
   songbirdSopsRuntimeReady = config.flake.lib.nixos.hosts.songbird.sopsRuntimeReady;
   # The LAN CIDRs firewallLocalTcpPortRanges admits, applied at the Samba layer
-  # because openFirewall opens 139/445 on every interface. The Mesh allocation
-  # is appended from SOPS at runtime. hosts deny = ALL also closes the IPv6
-  # path, matching that IPv4-only scoping.
-  sambaHostsAllow = lib.concatStringsSep " " (
-    [
-      "127.0.0.1"
-      "::1"
-    ]
-    ++ config.flake.lib.nixos._firewallLocalNetworkCidrs
-  );
+  # because openFirewall opens 139/445 on every interface. hosts deny = ALL also
+  # closes the IPv6 path, matching that IPv4-only scoping.
+  sambaHostsAllow = [
+    "127.0.0.1"
+    "::1"
+  ]
+  ++ config.flake.lib.nixos._firewallLocalNetworkCidrs;
+  meshRange = config.flake.lib.nixos._cloudflareWarpMeshRange;
   # Both halves, as every other secret consumer here gates: the file arriving
   # before the age identity would activate sops.secrets with no key to decrypt
   # and fail sops-nix.service mid-switch.
   sambaSecretsReady = songbirdSopsRuntimeReady && sambaSecretExists;
   sambaMediaPathSecret = "songbird/samba-media-path";
   sambaMediaShareTemplate = "songbird/samba-media-share.conf";
-  meshCidrSecret =
-    (config.flake.lib.nixos._cloudflareWarpSecretName
-      or (throw "modules/apps/cloudflare-warp.nix no longer exports flake.lib.nixos._cloudflareWarpSecretName")
-    )
-      "mesh-cidr";
-  sambaMeshAccessTemplate = "songbird/samba-mesh-access.conf";
 in
 {
   configurations.nixos.songbird.module =
@@ -45,11 +30,6 @@ in
     }:
     let
       sambaMediaShareTemplatePath = config.sops.templates.${sambaMediaShareTemplate}.path;
-      meshAccessReady =
-        config.programs.cloudflare-warp.extended.enable
-        && songbirdSopsRuntimeReady
-        && cloudflareWarpSecretExists;
-      sambaMeshAccessTemplatePath = config.sops.templates.${sambaMeshAccessTemplate}.path;
       powerProfile = import ../hosts/common/_power-profile-unit.nix pkgs;
     in
     {
@@ -97,21 +77,6 @@ in
           }
         ];
 
-      sops.templates = lib.mkIf meshAccessReady {
-        ${sambaMeshAccessTemplate} = {
-          content = ''
-            hosts allow = ${sambaHostsAllow} ${config.sops.placeholder.${meshCidrSecret}}
-          '';
-          owner = "root";
-          group = "root";
-          mode = "0400";
-          reloadUnits = [
-            "samba-smbd.service"
-            "samba-nmbd.service"
-          ];
-        };
-      };
-
       systemd = {
         # Local crash-triage retention on top of the shared coredump baseline.
         coredump.settings.Coredump.MaxRetentionSec = "3d";
@@ -155,13 +120,10 @@ in
               "map to guest" = "Bad User";
               "server min protocol" = "SMB3";
               "hosts deny" = "ALL";
-            }
-            // (
-              if meshAccessReady then
-                { include = sambaMeshAccessTemplatePath; }
-              else
-                { "hosts allow" = sambaHostsAllow; }
-            );
+              "hosts allow" = lib.concatStringsSep " " (
+                sambaHostsAllow ++ lib.optional config.programs.cloudflare-warp.extended.enable meshRange
+              );
+            };
           };
         };
 

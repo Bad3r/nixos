@@ -13,6 +13,10 @@ _: {
     # its kernel module local while retaining nvidia-x11 and nvidia-settings.
     cacheRoots.nvidiaKernelModules = false;
 
+    # Runs the fleet's RustDesk ID and relay servers, read by
+    # modules/apps/rustdesk.nix on every host.
+    rustdeskServer = true;
+
     # Per-host values consumed by modules/hosts/common/*.
     duplicatiStateDirReadable = true;
     cloudflareWarpMeshAddressReady = true;

@@ -27,10 +27,13 @@ let
   meshHostNames = builtins.filter (
     name: hostsRegistry.${name}.cloudflareWarpMeshAddressReady or false
   ) (builtins.attrNames hostsRegistry);
-  # Shared with modules/songbird/services.nix and modules/networking/ssh-hosts.nix
-  # so both consume the same "cloudflare-warp/<key>" naming and mesh-ready host
+  # Shared with modules/apps/rustdesk.nix and modules/networking/ssh-hosts.nix
+  # so they consume the same "cloudflare-warp/<key>" naming and mesh-ready host
   # list this module already computes, instead of retyping either.
   secretName = key: "cloudflare-warp/${key}";
+  # The part of 100.64.0.0/10 that the two CGNAT excludes below leave in the
+  # tunnel; Samba and RustDesk admit Mesh peers by it.
+  meshRange = "100.96.0.0/12";
   # Cloudflare's stock split-tunnel exclude list, with 100.64.0.0/10 split
   # around the Mesh allocation so Mesh traffic stays in the tunnel
   # (modules/hosts/common/firewall.nix).
@@ -322,11 +325,6 @@ let
               format = "yaml";
               key = "${hostName}/auth_client_secret";
             };
-            ${secretName "mesh-cidr"} = {
-              sopsFile = secretFile;
-              format = "yaml";
-              key = "mesh/cidr";
-            };
             ${secretName "account_id"} = {
               sopsFile = secretFile;
               format = "yaml";
@@ -491,6 +489,7 @@ in
     lib.nixos = {
       _cloudflareWarpBaseExcludes = baseExcludes;
       _cloudflareWarpMeshHostNames = meshHostNames;
+      _cloudflareWarpMeshRange = meshRange;
       _cloudflareWarpSecretName = secretName;
     };
     nixosModules.apps.cloudflare-warp = CloudflareWarpModule;

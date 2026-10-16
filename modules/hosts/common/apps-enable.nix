@@ -408,6 +408,7 @@ let
       "rust-analyzer".extended.enable = lib.mkOverride 1100 false;
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
       rustc.extended.enable = lib.mkOverride 1100 false;
+      rustdesk.extended.enable = lib.mkOverride 1100 true;
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       "s-tui".extended.enable = lib.mkOverride 1100 true;
       s5cmd.extended.enable = lib.mkOverride 1100 true;

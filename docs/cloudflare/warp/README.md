@@ -63,10 +63,11 @@ aliases continue to route directly to the recorded IPv4 Mesh addresses.
 
 ## Secrets
 
-`secrets/cloudflare-warp.yaml` holds `organization`, `mesh.cidr`, each `mesh.hosts.<host>` address,
+`secrets/cloudflare-warp.yaml` holds `organization`, each `mesh.hosts.<host>` address,
 and one token section per host named after its `networking.hostName`; the `.example` file beside it
 in the secrets repository shows the shape.
-The team name, Mesh network values, and tokens remain encrypted in the repository.
+The team name, Mesh host addresses, and tokens remain encrypted in the repository.
+The Mesh range itself is public: `meshRange` in `cloudflare-warp.nix` sits between the two CGNAT excludes.
 
 ## Pages
 
