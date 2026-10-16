@@ -230,9 +230,6 @@
   # Enable the default shell tool.
   shell_tool = true; # Stable; upstream: true
 
-  # Use the zsh fork execution path. _wrapper.nix supplies a controlled bash shell.
-  shell_zsh_fork = false; # UnderDevelopment; upstream: false
-
   # Allow prompting and installing missing MCP dependencies.
   skill_mcp_dependency_install = true; # Stable; upstream: true
 
