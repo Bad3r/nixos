@@ -122,16 +122,151 @@ in
             "pentesting"
             "work"
           ];
-          # Sidebery paints its background with the theme's frame color, not its sidebar color.
-          geckoFrameProfiles = lib.genAttrs geckoProfileNames (_: {
-            extensions.settings."FirefoxColor@mozilla.com".settings.theme.colors.frame = lib.mkForce (
-              with config.lib.stylix.colors;
-              {
-                r = base00-rgb-r;
-                g = base00-rgb-g;
-                b = base00-rgb-b;
-              }
-            );
+          # Sidebery maps only a few Firefox theme colors (none on its settings
+          # page) and hardcodes the rest: status, badge, and named colors, and
+          # neutral white/black hover, selection, and scrollbar overlays.
+          sideberyUserContent = with config.lib.stylix.colors.withHashtag; ''
+            @-moz-document regexp("moz-extension://[^/]+/(sidebar|sidebery|page\\.[a-z]+|popup\\.[a-z-]+)/[a-z-]+\\.html.*") {
+            	#root {
+            		--status-ok: ${base0B} !important;
+            		--status-err: ${base08} !important;
+            		--status-active: ${base0D} !important;
+            		--status-notice: ${base0C} !important;
+            		--badge-bg: ${base0D} !important;
+            		--badge-fg: ${base00} !important;
+            		--badge-urgent-bg: ${base08} !important;
+            		--badge-urgent-fg: ${base00} !important;
+            		--frame-bg: ${base00} !important;
+            		--frame-fg: ${base05} !important;
+            		--frame-el-overlay-hover-bg: ${base01} !important;
+            		--frame-el-overlay-clicked-bg: ${base02} !important;
+            		--frame-el-overlay-selected-bg: ${base02} !important;
+            		--frame-scrollbar-color: ${base03} !important;
+            		--toolbar-bg: ${base00} !important;
+            		--toolbar-fg: ${base05} !important;
+            		--toolbar-fg-active: ${base0D} !important;
+            		--toolbar-el-overlay-hover-bg: ${base01} !important;
+            		--toolbar-el-overlay-clicked-bg: ${base02} !important;
+            		--toolbar-el-overlay-active-bg: ${base02} !important;
+            		--toolbar-el-overlay-selected-bg: ${base02} !important;
+            		--toolbar-scrollbar-color: ${base03} !important;
+            		--active-el-bg: ${base02} !important;
+            		--active-el-fg: ${base05} !important;
+            		--active-el-overlay-hover-bg: ${base03} !important;
+            		--active-el-overlay-clicked-bg: ${base04} !important;
+            		--popup-bg: ${base01} !important;
+            		--popup-fg: ${base05} !important;
+            		--popup-scrollbar-color: ${base03} !important;
+            		--scroll-color: ${base03} !important;
+            		--scroll-progress-bg: ${base0D} !important;
+            		--tabs-progress-bg: ${base02} !important;
+            		--tabs-notification-badge-dot-bg: ${base08} !important;
+            		--tabs-notification-badge-count-bg: ${base08} !important;
+            		--tabs-notification-badge-count-fg: ${base00} !important;
+            		--btn-fg: ${base05} !important;
+            	}
+
+            	/* Bookmarks, history, and bottom-bar buttons share --frame-el-shadow;
+            	   colorized tabs redeclare --tabs-activated-shadow on .Tab. */
+            	.Tab {
+            		--frame-el-shadow: inset 0 0 0 1px ${base00} !important;
+            		--tabs-activated-shadow: inset 0 0 0 1px ${base03} !important;
+            	}
+
+            	#root.Setup {
+            		--popup-shadow: 0 0 0 1px ${base02}, 0 1px 16px 0 #00000048 !important;
+            		--border: ${base01} !important;
+            	}
+
+            	[data-color="inactive"] { --color: color-mix(in oklab, ${base05} 75%, ${base00}) !important; }
+            	[data-color="blue"] { --color: ${base0D} !important; }
+            	[data-color="turquoise"], [data-color="cyan"] { --color: ${base0C} !important; }
+            	[data-color="green"] { --color: ${base0B} !important; }
+            	[data-color="yellow"] { --color: ${base0A} !important; }
+            	[data-color="orange"] { --color: ${base09} !important; }
+            	[data-color="red"] { --color: ${base08} !important; }
+            	[data-color="purple"] { --color: ${base0E} !important; }
+            	/* Base16 has no pink; base0F is brown in most schemes and collides with red. */
+            	[data-color="pink"] { --color: color-mix(in oklab, ${base08}, ${base0E}) !important; }
+
+            	.ToggleInput .opt.-false::after,
+            	.SelectInput .opt[data-none="true"]::after,
+            	.btn.-warn::after {
+            		background-color: ${base08} !important;
+            	}
+
+            	.ToggleInput .opt.-true::after {
+            		background-color: ${base0B} !important;
+            	}
+
+            	/* The neutral underlay greys out the status tint. */
+            	.ToggleInput .opt::before {
+            		opacity: 0 !important;
+            	}
+
+            	.ToggleInput[data-active="true"] .opt.-true {
+            		color: ${base0B} !important;
+            	}
+
+            	.ToggleInput[data-active="false"] .opt.-false {
+            		color: ${base08} !important;
+            	}
+
+            	/* GitHub's black favicon as Gecko inlines it; CI-status variants differ and keep
+            	   their colors. The mask is mark-github-16 from @primer/octicons (MIT). */
+            	.Tab img.fav-icon[src^="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHBhdGggZmlsbC1ydWxlPSJldmVub2RkIiBjbGlwLXJ1bGU9ImV2ZW5vZGQiIGQ9Ik0xNiAwQzcuMTYgMCAwIDcuMTYgMCAxNkMwIDIzLjA4"] {
+            		object-position: -100vw 0 !important;
+            		background-color: ${base05} !important;
+            		mask:
+            			url('data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"%3E%3Cpath d="M6.766 11.328c-2.063-.25-3.516-1.734-3.516-3.656 0-.781.281-1.625.75-2.188-.203-.515-.172-1.609.063-2.062.625-.078 1.468.25 1.968.703.594-.187 1.219-.281 1.985-.281.765 0 1.39.094 1.953.265.484-.437 1.344-.765 1.969-.687.218.422.25 1.515.046 2.047.5.593.766 1.39.766 2.203 0 1.922-1.453 3.375-3.547 3.64.531.344.89 1.094.89 1.954v1.625c0 .468.391.734.86.547C13.781 14.359 16 11.53 16 8.03 16 3.61 12.406 0 7.984 0 3.563 0 0 3.61 0 8.031a7.88 7.88 0 0 0 5.172 7.422c.422.156.828-.125.828-.547v-1.25c-.219.094-.5.156-.75.156-1.031 0-1.64-.562-2.078-1.609-.172-.422-.36-.672-.719-.719-.187-.015-.25-.093-.25-.187 0-.188.313-.328.625-.328.453 0 .844.281 1.25.86.313.452.64.655 1.031.655s.641-.14 1-.5c.266-.265.47-.5.657-.656"/%3E%3C/svg%3E')
+            			center / contain no-repeat !important;
+            	}
+            }
+
+            @-moz-document regexp("moz-extension://[^/]+/sidebery/group\\.html.*") {
+            	.tab,
+            	.new-tab,
+            	.pinned-tab {
+            		background-color: ${base01} !important;
+            		box-shadow: 0 0 0 1px ${base02} !important;
+            	}
+
+            	.tab:hover,
+            	.new-tab:hover,
+            	.pinned-tab:hover {
+            		box-shadow: 0 0 0 1px ${base03} !important;
+            	}
+            }
+          '';
+          # Nova tints URL bar boxes (identity label, page and extension actions)
+          # with currentColor, which reads lighter than the field.
+          urlbarUserChrome = with config.lib.stylix.colors.withHashtag; ''
+            :root {
+            	--urlbar-box-background-color: ${base02} !important;
+            	--urlbar-box-background-color-focus: ${base02} !important;
+            	--urlbar-box-background-color-hover: ${base03} !important;
+            	--urlbar-box-background-color-active: ${base04} !important;
+            }
+          '';
+          mkThemeColor = name: {
+            r = config.lib.stylix.colors."${name}-rgb-r";
+            g = config.lib.stylix.colors."${name}-rgb-g";
+            b = config.lib.stylix.colors."${name}-rgb-b";
+          };
+          geckoProfiles = lib.genAttrs geckoProfileNames (_: {
+            extensions.settings."FirefoxColor@mozilla.com".settings.theme.colors = {
+              # Sidebery paints its background with the theme's frame color, not its sidebar color.
+              frame = lib.mkForce (mkThemeColor "base00");
+              toolbar_field = lib.mkForce (mkThemeColor "base00");
+              toolbar_field_border = lib.mkForce (mkThemeColor "base02");
+              toolbar_field_border_focus = lib.mkForce (mkThemeColor "base03");
+              # Nova outlines #sidebar-box in this color under a theme.
+              sidebar_border = lib.mkForce (mkThemeColor "base00");
+              # Sidebery outlines its menus and draws their separators in this color.
+              popup_border = lib.mkForce (mkThemeColor "base02");
+            };
+            userChrome = lib.mkAfter urlbarUserChrome;
+            userContent = lib.mkAfter sideberyUserContent;
           });
           qogirDarkFixedIconSizes = {
             "16/apps" = 16;
@@ -336,8 +471,8 @@ in
           ) qogirDarkThemedIconFiles;
 
           programs = {
-            firefox.profiles = lib.mkIf firefoxEnabled geckoFrameProfiles;
-            librewolf.profiles = lib.mkIf librewolfEnabled geckoFrameProfiles;
+            firefox.profiles = lib.mkIf firefoxEnabled geckoProfiles;
+            librewolf.profiles = lib.mkIf librewolfEnabled geckoProfiles;
 
             mpv.scriptOpts.modernz =
               lib.mkIf (mpvEnabled && config.stylix.enable && config.stylix.targets.mpv.enable)
