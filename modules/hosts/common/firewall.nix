@@ -7,6 +7,8 @@
 { config, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
+  # 10.0.0.0/8 minus 10.11.0.0/16: libvirt guests on the shared VM network
+  # (modules/hosts/common/windows-guest.nix) must not count as LAN sources.
   localNetworkCidrs = [
     "10.0.0.0/13"
     "10.8.0.0/15"

@@ -84,16 +84,8 @@ _: {
           ;
       };
 
-      codexShellRules = [
-        ''
-          - Set `timeout_ms` explicitly for shell commands to `60000` ms,
-          and increase it further for builds, installs, tests, or other long-running commands.
-        ''
-      ];
-
       codexInstructions = agents.systemPrompt.render {
         vars.questionTool = "request_user_input";
-        vars.shellRules = codexShellRules;
       };
 
       # Install every compiled skill that ships a Codex profile under

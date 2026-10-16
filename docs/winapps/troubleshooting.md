@@ -1,7 +1,6 @@
 # WinApps troubleshooting
 
 The `Outlook Classic` launcher hides FreeRDP's output, so a failed launch shows a notification or no window at all.
-Most diagnostics repeat the connection from a terminal, where FreeRDP prints its errors.
 Load the guest name, address, and account into the shell before a diagnostic:
 
 ```sh
@@ -29,9 +28,10 @@ Diagnostic:
 secret-tool lookup service winapps account rdp | wc -c
 ```
 
-Fix: a `0` means the item is missing or the keyring stayed locked; store the password again, or log out and back in so the login password unlocks the keyring.
+Fix: a `0` means the item is missing or the keyring stayed locked.
+Store the password again, or log out and back in so the login password unlocks the keyring.
 
-## Notification: RDP port closed
+## Notification: The Windows RDP port '3389' is closed
 
 Cause: the guest firewall blocks the port, Remote Desktop is off, or Windows is still booting.
 Diagnostic:
@@ -43,7 +43,7 @@ nc -zv "$RDP_IP" 3389
 
 Fix: when the port stays closed on a running guest, repeat [Enable RemoteApp in the guest](remoteapp-setup.md#enable-remoteapp-in-the-guest); when the guest was still booting, relaunch.
 
-## Notification: timeout waiting for Windows
+## Notification: Timeout waiting for Windows to be ready
 
 Cause: the launcher booted the guest, and the RDP port stayed closed for longer than the launcher waits.
 Diagnostic:
@@ -53,19 +53,21 @@ virsh domstate "$VM_NAME" --reason
 nc -zv "$RDP_IP" 3389
 ```
 
-Fix: relaunch once the port answers, since the guest keeps booting after the launcher gives up; a port that stays closed has its fix under [RDP port closed](#notification-rdp-port-closed).
+Fix: relaunch once the port answers, since the guest keeps booting after the launcher gives up.
+A port that stays closed has its fix under [the closed RDP port](#notification-the-windows-rdp-port-3389-is-closed).
 
-## Notification: the Windows VM does not exist
+## Notification: Windows VM named 'RDPWindows' does not exist
 
-Cause: `virsh` is missing from `PATH`, which the launcher reports as a missing domain; a configuration whose `VM_NAME` differs from the declared guest gives the same message.
+Cause: `virsh` is missing from `PATH`, or `VM_NAME` in the configuration differs from the declared guest; the launcher reports both as a missing domain.
 Diagnostic:
 
 ```sh
 command -v virsh
-virsh list --all --name
+virsh --connect qemu:///system list --all --name
 ```
 
-Fix: `virsh` comes from `virtualisation.libvirtd`, which the guest module enables; run the launcher from a session that has the system profile on `PATH`.
+Fix: run the launcher from a session with the system profile on `PATH`, where `virtualisation.libvirtd` installs `virsh`.
+A `VM_NAME` that differs from the listed guest returns to the declared name after `./build.sh`, since `modules/hm-apps/winapps.nix` writes it.
 
 ## A popup or menu freezes the window
 
@@ -135,6 +137,6 @@ virsh --connect qemu:///system dumpxml RDPWindows --xpath '//devices/filesystem'
 ```
 
 Read `journalctl -u windows-guest-filesystem.service -n 50 --no-pager` on the host for provisioning failures.
-Fix: follow the [shared folder setup](shared-folder.md), including the agent prerequisite and a full shutdown after applying the declaration.
+Fix: follow the [shared folder setup](shared-folder.md), and [force a full check](shared-folder.md#force-a-full-check) when the journal shows the guest as current.
 
 Sources: [FreeRDP RAIL popup freeze](https://github.com/FreeRDP/FreeRDP/issues/12453), [WinApps Office RAIL freeze](https://github.com/winapps-org/winapps/issues/953), [WinApps tray icons](https://github.com/winapps-org/winapps/issues/34), [WinApps shared WM_CLASS](https://github.com/winapps-org/winapps/issues/267).

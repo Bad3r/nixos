@@ -17,9 +17,9 @@
 
   Notes:
     * Package sourced from the winapps flake (github:winapps-org/winapps), lock-only.
-    * Only bin/winapps reaches PATH: the package also installs winapps-setup (setup.sh), whose connection test shares the whole home directory (+home-drive) and trusts any certificate (/cert:tofu).
+    * Only bin/winapps reaches PATH: the package also installs winapps-setup (setup.sh), whose connection test shares the whole home directory (+home-drive) and accepts the first certificate without asking (/cert:tofu).
     * The configuration file and the Outlook Classic desktop entry come from modules/hm-apps/winapps.nix.
-    * The wrapper's PATH prefix carries FreeRDP only; virsh comes from the libvirt package that virtualisation.libvirtd installs.
+    * The package wrapper puts FreeRDP, libnotify, dialog, netcat and iproute2 on PATH but not virsh, which comes from the libvirt package that virtualisation.libvirtd installs.
 */
 { inputs, ... }:
 {
@@ -32,7 +32,6 @@
     }:
     let
       cfg = config.programs.winapps.extended;
-      # winapps-setup stays out of the profile: setup.sh connects with +home-drive and /cert:tofu.
       launcher = pkgs.runCommandLocal "winapps-cli" { } ''
         mkdir -p $out/bin
         ln -s ${cfg.package}/bin/winapps $out/bin/winapps

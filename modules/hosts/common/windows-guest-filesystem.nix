@@ -9,6 +9,8 @@ let
     }:
     let
       cfg = config.host.virtualization.windowsGuest;
+      runtimeDirectory = "windows-guest-filesystem";
+      provisioner = ../../../scripts/windows-guest/provision.py;
       winfspVersion = "2.1.25156";
       winfsp = pkgs.fetchurl {
         url = "https://github.com/winfsp/winfsp/releases/download/v2.1/winfsp-${winfspVersion}.msi";
@@ -27,6 +29,10 @@ let
           uri = "qemu:///system";
           domain = cfg.name;
           transfer_dir = cfg.transferDir;
+          # A run skips a guest whose stamp holds this manifest's path, so the manifest names every
+          # file a run uses, the provisioner included.
+          inherit provisioner;
+          stamp = "/run/${runtimeDirectory}/converged";
           script = ../../../scripts/windows-guest/shared-folder.ps1;
           quick_access_script = ../../../scripts/windows-guest/quick-access.ps1;
           guest_services_firewall_script = ../../../scripts/windows-guest/guest-services-firewall.ps1;
@@ -44,7 +50,7 @@ let
       provision = pkgs.writeShellScript "windows-guest-filesystem" ''
         exec ${lib.getExe pkgs.uv} run --offline --no-project --no-managed-python \
           --python ${pkgs.python314}/bin/python3 \
-          ${../../../scripts/windows-guest/provision.py} --config ${manifest}
+          ${provisioner} --config ${manifest}
       '';
     in
     {
@@ -62,6 +68,8 @@ let
             ExecStart = provision;
             TimeoutStartSec = "15min";
             CacheDirectory = "windows-guest-filesystem";
+            RuntimeDirectory = runtimeDirectory;
+            RuntimeDirectoryPreserve = "yes";
             UMask = "0077";
             NoNewPrivileges = true;
             PrivateTmp = true;

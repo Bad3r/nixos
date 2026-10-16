@@ -17,7 +17,10 @@ import sys
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import cast
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 type Json = bool | int | float | str | list[Json] | dict[str, Json] | None
 type Object = dict[str, Json]
@@ -25,6 +28,14 @@ type Object = dict[str, Json]
 CHUNK_SIZE = 48 * 1024
 NEEDS_APPLY = 10
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
+FAILURES = (
+    OSError,
+    TypeError,
+    ValueError,
+    RuntimeError,
+    ET.ParseError,
+    subprocess.SubprocessError,
+)
 
 
 def object_value(value: Json) -> Object:
@@ -142,7 +153,7 @@ class Agent:
                     raise RuntimeError(msg)
                 return integer_value(status.get("exitcode")), "\n".join(output).strip()
             time.sleep(1)
-        msg = f"Guest PowerShell PID {pid} timed out; the guest mutex prevents overlapping setup"
+        msg = f"Guest PowerShell PID {pid} timed out and may still be running"
         raise TimeoutError(msg)
 
     def write_file(self, destination: str, data: bytes) -> None:
@@ -176,11 +187,22 @@ def checked_powershell(agent: Agent, command: str) -> str:
     return output
 
 
-def reconcile_guest_services_firewall(agent: Agent, script_path: Path, staging: str) -> None:
+def run_step(name: str, failures: list[str], step: Callable[[], None]) -> bool:
+    """Record a failed step so the remaining independent steps still run."""
+    try:
+        step()
+    except FAILURES as error:
+        failures.append(f"{name}: {error}")
+        return False
+    return True
+
+
+def reconcile_guest_services_firewall(agent: Agent, staging: str) -> None:
     """Converge the bounded inbound service rule and retain guest failures."""
-    guest_script = staging + r"\guest-services-firewall.ps1"
-    agent.write_file(guest_script, script_path.read_bytes())
-    command = f"$ErrorActionPreference = 'Stop'; & {ps_quote(guest_script)} -Mode "
+    command = (
+        "$ErrorActionPreference = 'Stop'; "
+        f"& {ps_quote(staging + chr(92) + 'guest-services-firewall.ps1')} -Mode "
+    )
     code, output = agent.powershell(command + "Probe; exit $LASTEXITCODE")
     if code == 0:
         print(output)
@@ -192,12 +214,10 @@ def reconcile_guest_services_firewall(agent: Agent, script_path: Path, staging: 
         raise RuntimeError(msg)
 
 
-def reconcile(config: Object, agent: Agent) -> None:
-    """Inspect real state before transferring payloads or invoking installation."""
-    state = agent.virsh("domstate", agent.domain)
-    if state != "running":
-        print(f"Windows guest provisioning deferred: guest is {state}")
-        return
+def reconcile_filesystem(
+    config: Object, agent: Agent, staging: str, payloads: dict[str, Path]
+) -> None:
+    """Install the virtiofs prerequisites only after the probe reports drift."""
     domain = ET.fromstring(agent.virsh("dumpxml", agent.domain))  # noqa: S314
     filesystems = domain.findall("./devices/filesystem")
     if not any(
@@ -209,6 +229,70 @@ def reconcile(config: Object, agent: Agent) -> None:
     ):
         msg = "Active guest lacks the declared virtiofs share; fully shut Windows down and start it"
         raise RuntimeError(msg)
+    command = (
+        "$ErrorActionPreference = 'Stop'; "
+        f"& {ps_quote(staging + chr(92) + 'shared-folder.ps1')} "
+        f"-ManifestPath {ps_quote(staging + chr(92) + 'manifest.json')} -Mode "
+    )
+    code, output = agent.powershell(command + "Probe; exit $LASTEXITCODE")
+    if code == 0:
+        print(output)
+    elif code != NEEDS_APPLY:
+        msg = f"Windows filesystem probe failed ({code}): {output}"
+        raise RuntimeError(msg)
+    else:
+        print(f"Windows filesystem setup needed: {output}", flush=True)
+        for name, path in payloads.items():
+            agent.write_file(staging + "\\" + name, path.read_bytes())
+        print(checked_powershell(agent, command + "Apply; exit $LASTEXITCODE"))
+
+
+def reconcile_quick_access(agent: Agent, staging: str) -> None:
+    """Keep the transfer drive pinned in File Explorer for interactive users."""
+    print(
+        checked_powershell(
+            agent,
+            "$ErrorActionPreference = 'Stop'; "
+            f"& {ps_quote(staging + chr(92) + 'quick-access.ps1')} "
+            f"-ManifestPath {ps_quote(staging + chr(92) + 'manifest.json')}; exit $LASTEXITCODE",
+        )
+    )
+
+
+def pending_check(agent: Agent, stamp: Path, config_path: Path) -> str | None:
+    """Return the stamp a successful check records, or None when no check is due."""
+    domain_id = agent.virsh("domid", agent.domain)
+    if domain_id == "-":
+        # A libvirtd restart can hand out a domain ID again, so a stopped guest drops its stamp.
+        stamp.unlink(missing_ok=True)
+        print("Windows guest provisioning deferred: guest is shut off")
+        return None
+    if not domain_id.isdigit():
+        msg = f"Unexpected virsh domid output: {domain_id!r}"
+        raise ValueError(msg)
+    converged = f"{domain_id} {config_path}\n"
+    try:
+        current = stamp.read_text()
+    except FileNotFoundError:
+        current = None
+    if current == converged:
+        print(f"Windows guest provisioning is current for domain ID {domain_id}")
+        return None
+    state = agent.virsh("domstate", agent.domain)
+    if state != "running":
+        print(f"Windows guest provisioning deferred: guest is {state}")
+        return None
+    # A check that fails after changing the guest must not leave a stamp that a rollback matches.
+    stamp.unlink(missing_ok=True)
+    return converged
+
+
+def reconcile(config: Object, agent: Agent, config_path: Path) -> None:
+    """Check each guest start once per declaration, and retry until a check succeeds."""
+    stamp = Path(string_value(config.get("stamp")))
+    converged = pending_check(agent, stamp, config_path)
+    if converged is None:
+        return
     info = object_value(agent.request("guest-info"))
     commands = info.get("supported_commands")
     if not isinstance(commands, list):
@@ -232,10 +316,11 @@ def reconcile(config: Object, agent: Agent) -> None:
         raise RuntimeError(msg)
     root = checked_powershell(
         agent,
-        "$ErrorActionPreference = 'Stop'; "
+        "$ErrorActionPreference = 'Stop'; try { "
         r"$root = Join-Path $env:ProgramFiles 'NixOS\VirtioFS'; "
         "$null = New-Item -ItemType Directory -Force -Path (Join-Path $root 'staging'); "
-        "[Console]::WriteLine($root)",
+        "[Console]::WriteLine($root) "
+        "} catch { [Console]::Error.WriteLine($_.Exception.Message); exit 1 }",
     )
     if not root.startswith("C:\\Program Files\\") or "\n" in root or "\r" in root:
         msg = f"Unexpected guest provisioning directory: {root!r}"
@@ -252,28 +337,10 @@ def reconcile(config: Object, agent: Agent) -> None:
     agent.write_file(
         staging + r"\shared-folder.ps1", Path(string_value(config.get("script"))).read_bytes()
     )
-    reconcile_guest_services_firewall(
-        agent,
-        Path(string_value(config.get("guest_services_firewall_script"))),
-        staging,
+    agent.write_file(
+        staging + r"\guest-services-firewall.ps1",
+        Path(string_value(config.get("guest_services_firewall_script"))).read_bytes(),
     )
-
-    command = (
-        "$ErrorActionPreference = 'Stop'; "
-        f"& {ps_quote(staging + chr(92) + 'shared-folder.ps1')} "
-        f"-ManifestPath {ps_quote(staging + chr(92) + 'manifest.json')} -Mode "
-    )
-    code, output = agent.powershell(command + "Probe; exit $LASTEXITCODE")
-    if code == 0:
-        print(output)
-    elif code != NEEDS_APPLY:
-        msg = f"Windows filesystem probe failed ({code}): {output}"
-        raise RuntimeError(msg)
-    else:
-        print(f"Windows filesystem setup needed: {output}", flush=True)
-        for name, path in payloads.items():
-            agent.write_file(staging + "\\" + name, path.read_bytes())
-        print(checked_powershell(agent, command + "Apply; exit $LASTEXITCODE"))
     agent.write_file(
         staging + r"\pin-quick-access.ps1", payloads["pin-quick-access.ps1"].read_bytes()
     )
@@ -281,14 +348,18 @@ def reconcile(config: Object, agent: Agent) -> None:
         staging + r"\quick-access.ps1",
         Path(string_value(config.get("quick_access_script"))).read_bytes(),
     )
-    print(
-        checked_powershell(
-            agent,
-            "$ErrorActionPreference = 'Stop'; "
-            f"& {ps_quote(staging + chr(92) + 'quick-access.ps1')} "
-            f"-ManifestPath {ps_quote(staging + chr(92) + 'manifest.json')}; exit $LASTEXITCODE",
-        )
-    )
+
+    failures: list[str] = []
+    run_step("guest firewall", failures, lambda: reconcile_guest_services_firewall(agent, staging))
+    if run_step(
+        "filesystem", failures, lambda: reconcile_filesystem(config, agent, staging, payloads)
+    ):
+        run_step("Quick access", failures, lambda: reconcile_quick_access(agent, staging))
+    else:
+        print("Windows Quick access pinning skipped: the transfer drive needs the filesystem step")
+    if failures:
+        raise RuntimeError("; ".join(failures))
+    stamp.write_text(converged)
 
 
 def main() -> int:
@@ -303,15 +374,8 @@ def main() -> int:
             string_value(config.get("uri")),
             string_value(config.get("domain")),
         )
-        reconcile(config, agent)
-    except (
-        OSError,
-        TypeError,
-        ValueError,
-        RuntimeError,
-        ET.ParseError,
-        subprocess.SubprocessError,
-    ) as error:
+        reconcile(config, agent, arguments.config)
+    except FAILURES as error:
         print(f"Windows guest provisioning failed: {error}", file=sys.stderr)
         return 1
     return 0

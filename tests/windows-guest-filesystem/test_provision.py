@@ -9,7 +9,9 @@
 from __future__ import annotations
 
 import base64
+import contextlib
 import importlib.util
+import io
 import json
 import subprocess
 import tempfile
@@ -53,7 +55,10 @@ class ReconcileTests(unittest.TestCase):
         self.script.write_text("exit 0")
         self.firewall_script = directory / "guest-services-firewall.ps1"
         self.firewall_script.write_text("exit 0")
+        self.stamp = directory / "converged"
+        self.config_path = Path("/nix/store/0-windows-guest-filesystem.json")
         self.config = {
+            "stamp": str(self.stamp),
             "transfer_dir": "/mnt/outlook",
             "winfsp_version": "2.1.25156",
             "files": {
@@ -66,7 +71,7 @@ class ReconcileTests(unittest.TestCase):
         }
         self.agent = unittest.mock.create_autospec(provision.Agent, instance=True)
         self.agent.domain = "RDPWindows"
-        self.agent.virsh.side_effect = ["running", XML]
+        self.agent.virsh.side_effect = ["5", "running", XML]
         self.agent.request.return_value = {
             "supported_commands": [{"name": command, "enabled": True} for command in COMMANDS]
         }
@@ -79,29 +84,107 @@ class ReconcileTests(unittest.TestCase):
 
     def test_offline_guest_is_not_started(self) -> None:
         """An inactive domain requires no agent request or guest write."""
-        self.agent.virsh.side_effect = ["shut off"]
-        provision.reconcile(self.config, self.agent)
+        self.agent.virsh.side_effect = ["-"]
+        provision.reconcile(self.config, self.agent, self.config_path)
         self.agent.request.assert_not_called()
         self.agent.write_file.assert_not_called()
         self.agent.powershell.assert_not_called()
 
-    def test_missing_live_filesystem_requires_power_cycle(self) -> None:
-        """A stale active XML must fail before installing anything."""
-        self.agent.virsh.side_effect = ["running", "<domain><devices/></domain>"]
-        with self.assertRaisesRegex(RuntimeError, "fully shut Windows down"):
-            provision.reconcile(self.config, self.agent)
+    def test_offline_guest_clears_stamp(self) -> None:
+        """A stopped guest forgets its check, so a reused domain ID cannot skip one."""
+        self.stamp.write_text(f"5 {self.config_path}\n")
+        self.agent.virsh.side_effect = ["-"]
+        provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertFalse(self.stamp.exists())
+
+    def test_paused_guest_is_deferred(self) -> None:
+        """A guest that holds a domain ID but is not running receives no agent request."""
+        self.agent.virsh.side_effect = ["5", "paused"]
+        provision.reconcile(self.config, self.agent, self.config_path)
         self.agent.request.assert_not_called()
+        self.assertFalse(self.stamp.exists())
+
+    def test_converged_run_writes_stamp(self) -> None:
+        """A run whose steps all succeed records the domain ID and the declaration."""
+        provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertEqual(self.stamp.read_text(), f"5 {self.config_path}\n")
+
+    def test_matching_stamp_skips_guest_calls(self) -> None:
+        """A checked guest start costs one virsh call and nothing in the guest."""
+        self.stamp.write_text(f"5 {self.config_path}\n")
+        provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertEqual(self.agent.virsh.call_count, 1)
+        self.agent.request.assert_not_called()
+        self.agent.write_file.assert_not_called()
+        self.agent.powershell.assert_not_called()
+
+    def test_new_guest_start_forces_full_run(self) -> None:
+        """A domain ID from an earlier start does not cover the running guest."""
+        self.stamp.write_text(f"4 {self.config_path}\n")
+        provision.reconcile(self.config, self.agent, self.config_path)
+        self.agent.request.assert_called_once_with("guest-info")
+        self.assertEqual(self.stamp.read_text(), f"5 {self.config_path}\n")
+
+    def test_changed_declaration_forces_full_run(self) -> None:
+        """A switch to another manifest checks the running guest again."""
+        self.stamp.write_text("5 /nix/store/1-windows-guest-filesystem.json\n")
+        provision.reconcile(self.config, self.agent, self.config_path)
+        self.agent.request.assert_called_once_with("guest-info")
+        self.assertEqual(self.stamp.read_text(), f"5 {self.config_path}\n")
+
+    def test_failed_run_writes_no_stamp(self) -> None:
+        """A failed step leaves no stamp, so the next timer run checks again."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (0, "firewall ready"),
+            (10, "needs setup"),
+            (1, "installer failed"),
+        ]
+        with self.assertRaisesRegex(RuntimeError, "installer failed"):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertFalse(self.stamp.exists())
+
+    def test_failed_check_leaves_no_stamp_for_a_rollback(self) -> None:
+        """A failed check of a new declaration cannot let a rollback skip the guest."""
+        previous = Path("/nix/store/1-windows-guest-filesystem.json")
+        self.stamp.write_text(f"5 {previous}\n")
+        self.agent.virsh.side_effect = ["5", "running", XML, "5", "running", XML]
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (0, "firewall ready"),
+            (1, "occupied"),
+            (0, ROOT),
+            (0, "firewall ready"),
+            (0, "ready"),
+            (0, "pinned"),
+        ]
+        with self.assertRaisesRegex(RuntimeError, "occupied"):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertFalse(self.stamp.exists())
+        provision.reconcile(self.config, self.agent, previous)
+        self.assertEqual(self.agent.request.call_count, 2)
+        self.assertEqual(self.stamp.read_text(), f"5 {previous}\n")
+
+    def test_missing_live_filesystem_requires_power_cycle(self) -> None:
+        """A stale active XML fails the filesystem step before any installer reaches the guest."""
+        self.agent.virsh.side_effect = ["5", "running", "<domain><devices/></domain>"]
+        with self.assertRaisesRegex(RuntimeError, "^filesystem: .*fully shut Windows down"):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        destinations = [call.args[0] for call in self.agent.write_file.call_args_list]
+        self.assertNotIn(ROOT + r"\staging\virtiofs.exe", destinations)
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
+        self.assertFalse(any("shared-folder.ps1" in call for call in calls))
 
     def test_disabled_command_fails_before_upload(self) -> None:
         """Do not start setup through a partially enabled guest agent."""
         self.agent.request.return_value = {"supported_commands": []}
         with self.assertRaisesRegex(RuntimeError, "guest-file-write"):
-            provision.reconcile(self.config, self.agent)
+            provision.reconcile(self.config, self.agent, self.config_path)
         self.agent.write_file.assert_not_called()
 
     def test_ready_guest_does_not_receive_installers(self) -> None:
-        """A mounted drive refreshes Quick access without reinstalling Windows files."""
-        provision.reconcile(self.config, self.agent)
+        """A ready guest receives the scripts and no installer payload or Apply run."""
+        provision.reconcile(self.config, self.agent, self.config_path)
         destinations = [call.args[0] for call in self.agent.write_file.call_args_list]
         self.assertEqual(
             destinations,
@@ -113,7 +196,8 @@ class ReconcileTests(unittest.TestCase):
                 ROOT + r"\staging\quick-access.ps1",
             ],
         )
-        self.assertEqual(self.agent.powershell.call_count, 4)
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
+        self.assertFalse(any(call.endswith("Apply; exit $LASTEXITCODE") for call in calls))
 
     def test_apply_transfers_binary_bytes_only_to_staging(self) -> None:
         """An executable update must not overwrite the running service binary."""
@@ -125,12 +209,61 @@ class ReconcileTests(unittest.TestCase):
             (0, "ready"),
             (0, "pinned"),
         ]
-        provision.reconcile(self.config, self.agent)
+        provision.reconcile(self.config, self.agent, self.config_path)
         self.agent.write_file.assert_any_call(
             ROOT + r"\staging\virtiofs.exe", self.payload.read_bytes()
         )
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
         self.assertTrue(
-            self.agent.powershell.call_args_list[4].args[0].endswith("Apply; exit $LASTEXITCODE")
+            any(
+                "shared-folder.ps1" in call and call.endswith("Apply; exit $LASTEXITCODE")
+                for call in calls
+            )
+        )
+
+    def test_probe_failure_is_not_treated_as_install_request(self) -> None:
+        """A collision, reboot requirement or exception must remain a failure."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (0, "firewall ready"),
+            (1, "occupied"),
+        ]
+        with self.assertRaisesRegex(RuntimeError, "^filesystem: .*occupied$"):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        destinations = [call.args[0] for call in self.agent.write_file.call_args_list]
+        self.assertNotIn(ROOT + r"\staging\virtiofs.exe", destinations)
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
+        self.assertFalse(any(call.endswith("Apply; exit $LASTEXITCODE") for call in calls))
+
+    def test_quick_access_waits_for_the_filesystem_step(self) -> None:
+        """A failed filesystem step skips the pin, which needs the transfer drive."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (0, "firewall ready"),
+            (1, "occupied"),
+        ]
+        output = io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            self.assertRaisesRegex(RuntimeError, "^filesystem: .*occupied$"),
+        ):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
+        self.assertFalse(any("quick-access.ps1" in call for call in calls))
+        self.assertIn("Quick access pinning skipped", output.getvalue())
+
+    def test_pin_failure_surfaces_without_reinstalling_filesystem(self) -> None:
+        """A failed user-session task remains visible in the host service result."""
+        self.agent.powershell.side_effect = [
+            (0, ROOT),
+            (0, "firewall ready"),
+            (0, "ready"),
+            (1, "pin failed"),
+        ]
+        with self.assertRaisesRegex(RuntimeError, "^Quick access: .*pin failed$"):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertFalse(
+            any("-Mode Apply" in call.args[0] for call in self.agent.powershell.call_args_list)
         )
 
     def test_guest_firewall_is_reconciled_before_filesystem_setup(self) -> None:
@@ -142,47 +275,42 @@ class ReconcileTests(unittest.TestCase):
             (0, "ready"),
             (0, "pinned"),
         ]
-        provision.reconcile(self.config, self.agent)
+        provision.reconcile(self.config, self.agent, self.config_path)
         calls = [call.args[0] for call in self.agent.powershell.call_args_list]
         self.assertIn("guest-services-firewall.ps1", calls[1])
         self.assertTrue(calls[1].endswith("Probe; exit $LASTEXITCODE"))
         self.assertTrue(calls[2].endswith("Apply; exit $LASTEXITCODE"))
         self.assertIn("shared-folder.ps1", calls[3])
 
-    def test_guest_firewall_probe_failure_surfaces(self) -> None:
-        """A policy error stops the timer with its guest diagnostic intact."""
-        self.agent.powershell.side_effect = [(0, ROOT), (1, "firewall query failed")]
-        with self.assertRaisesRegex(
-            RuntimeError, "Windows guest firewall probe failed.*query failed"
-        ):
-            provision.reconcile(self.config, self.agent)
-        self.assertEqual(self.agent.powershell.call_count, 2)
-        self.assertEqual(self.agent.write_file.call_count, 3)
-
-    def test_pin_failure_surfaces_without_reinstalling_filesystem(self) -> None:
-        """A failed user-session task remains visible in the host service result."""
+    def test_guest_firewall_failure_does_not_block_other_steps(self) -> None:
+        """A policy error fails the run only after the filesystem and Quick access steps ran."""
         self.agent.powershell.side_effect = [
             (0, ROOT),
-            (0, "firewall ready"),
+            (1, "firewall query failed"),
             (0, "ready"),
-            (1, "pin failed"),
+            (0, "pinned"),
         ]
-        with self.assertRaisesRegex(RuntimeError, "pin failed"):
-            provision.reconcile(self.config, self.agent)
-        self.assertFalse(
-            any("-Mode Apply" in call.args[0] for call in self.agent.powershell.call_args_list)
-        )
+        with self.assertRaisesRegex(
+            RuntimeError, "^guest firewall: Windows guest firewall probe failed.*query failed$"
+        ):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        calls = [call.args[0] for call in self.agent.powershell.call_args_list]
+        self.assertEqual(len(calls), 4)
+        self.assertIn("shared-folder.ps1", calls[2])
+        self.assertIn("quick-access.ps1", calls[3])
 
-    def test_probe_failure_is_not_treated_as_install_request(self) -> None:
-        """A collision, reboot requirement or exception must remain a failure."""
+    def test_every_failed_step_is_named(self) -> None:
+        """One failure message lists each failed step."""
         self.agent.powershell.side_effect = [
             (0, ROOT),
-            (0, "firewall ready"),
+            (1, "firewall query failed"),
             (1, "occupied"),
         ]
-        with self.assertRaisesRegex(RuntimeError, "occupied"):
-            provision.reconcile(self.config, self.agent)
-        self.assertEqual(self.agent.write_file.call_count, 3)
+        with self.assertRaisesRegex(
+            RuntimeError, "^guest firewall: .*query failed; filesystem: .*occupied$"
+        ):
+            provision.reconcile(self.config, self.agent, self.config_path)
+        self.assertEqual(self.agent.powershell.call_count, 3)
 
 
 class ProtocolTests(unittest.TestCase):
@@ -388,10 +516,10 @@ class GuestServicesFirewallTests(unittest.TestCase):
         self.assertIn("TCP 8000-9999 from 10.11.11.0/24", result.stdout)
 
     def test_repair_failure_is_reported(self) -> None:
-        """A guest firewall API failure remains a nonzero provisioning result."""
+        """A guest firewall API failure exits 1 with only its message on stderr."""
         result = self.run_case("apply-failure", "Apply")
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn("fixture firewall operation failed", result.stderr)
+        self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stderr.strip(), "fixture firewall operation failed.")
 
 
 class QuickAccessTests(unittest.TestCase):
@@ -442,22 +570,35 @@ class QuickAccessTests(unittest.TestCase):
         self.assertIn("was not added", result.stderr)
 
     def test_task_is_registered_for_interactive_users(self) -> None:
-        """Registration must use the Users group with limited privileges."""
+        """Registration uses the Users group and pins the running session once."""
         result = self.run_case("quick-access.ps1", "new")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("task registered", result.stdout)
+        self.assertEqual(result.stdout.count("task started"), 1)
+        self.assertIn("present in File Explorer", result.stdout)
 
-    def test_healthy_task_is_not_reregistered(self) -> None:
-        """An unchanged policy only refreshes the user's pin."""
+    def test_converged_task_starts_nothing(self) -> None:
+        """An unchanged task whose last run succeeded leaves the user session alone."""
         result = self.run_case("quick-access.ps1", "ready")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertNotIn("task registered", result.stdout)
+        self.assertNotIn("task started", result.stdout)
+        self.assertIn("pin task is current", result.stdout)
 
     def test_disabled_task_is_repaired(self) -> None:
-        """Policy drift must restore an enabled logon trigger."""
+        """Policy drift restores the logon trigger and reruns the pin once."""
         result = self.run_case("quick-access.ps1", "disabled")
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("task registered", result.stdout)
+        self.assertEqual(result.stdout.count("task started"), 1)
+
+    def test_replaced_pin_script_reruns_task(self) -> None:
+        """A new pin script runs once without re-registering the task."""
+        result = self.run_case("quick-access.ps1", "script-changed")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("pin script replaced", result.stdout)
+        self.assertNotIn("task registered", result.stdout)
+        self.assertEqual(result.stdout.count("task started"), 1)
 
     def test_no_user_session_defers_pinning(self) -> None:
         """A headless guest receives the policy and waits for user logon."""
@@ -466,15 +607,23 @@ class QuickAccessTests(unittest.TestCase):
         self.assertIn("awaits an interactive", result.stdout)
 
     def test_task_failure_is_reported(self) -> None:
-        """A failed scheduled execution cannot become a ready result."""
+        """A failed last run is retried, and a repeated failure cannot become a ready result."""
         result = self.run_case("quick-access.ps1", "pin-failure")
         self.assertEqual(result.returncode, 1)
+        self.assertEqual(result.stdout.count("task started"), 1)
         self.assertIn("task failed", result.stderr)
 
     def test_already_running_task_is_awaited(self) -> None:
         """A logon-triggered pin can finish without being restarted or timing out."""
         result = self.run_case("quick-access.ps1", "already-running")
         self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("present in File Explorer", result.stdout)
+
+    def test_trigger_started_task_is_awaited(self) -> None:
+        """A logon run that starts after the first state read is awaited instead of timing out."""
+        result = self.run_case("quick-access.ps1", "trigger-race")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertNotIn("task started", result.stdout)
         self.assertIn("present in File Explorer", result.stdout)
 
     def test_corrupt_pin_payload_is_rejected(self) -> None:

@@ -363,9 +363,9 @@
 ## WinApps
 
 - [winapps/README.md](winapps/README.md)
-  - NixVirt-declared Windows guest on libvirt: declared objects, lifecycle, the rules that prevent data loss, state locations, and guest isolation.
+  - NixVirt-declared Windows guest on libvirt: declared objects, lifecycle, the rules that prevent data loss, state locations, and the shared VM network.
 - [winapps/provisioning.md](winapps/provisioning.md)
-  - Runbooks for the first switch, install media, Windows installation, guest tools, the isolation check, and detaching the media.
+  - Runbooks for the first switch, install media, Windows installation, guest tools, the shared-network check, and detaching the media.
 - [winapps/remoteapp-setup.md](winapps/remoteapp-setup.md)
   - Guest-side RemoteApp setup: the registry import from the locked WinApps revision, the firewall scope, and the Outlook path check.
 - [winapps/storage.md](winapps/storage.md)

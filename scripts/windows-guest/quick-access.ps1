@@ -46,8 +46,10 @@ try {
     $source = Join-Path $staging 'pin-quick-access.ps1'
     if (-not (Test-PinScript $source)) { throw 'Quick access pin script payload hash mismatch.' }
     $null = New-Item -ItemType Directory -Path (Split-Path -Parent $scriptPath) -Force
+    $changed = $false
     if (-not (Test-PinScript $scriptPath)) {
         Copy-Item -LiteralPath $source -Destination $scriptPath -Force
+        $changed = $true
     }
     if (-not (Test-PinTask (Get-PinTask))) {
         $action = New-ScheduledTaskAction -Execute $command -Argument $arguments
@@ -55,23 +57,35 @@ try {
         $trigger.Delay = 'PT30S'
         $principal = New-ScheduledTaskPrincipal -GroupId 'S-1-5-32-545' -RunLevel Limited
         $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -StartWhenAvailable -MultipleInstances IgnoreNew -ExecutionTimeLimit ([TimeSpan]::FromMinutes(3))
-        $null = Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
+        $null = Register-ScheduledTask -TaskPath '\' -TaskName $taskName -Action $action -Trigger $trigger -Principal $principal -Settings $settings -Force
         if (-not (Test-PinTask (Get-PinTask))) { throw 'Quick access logon task did not match the declaration.' }
+        $changed = $true
+    }
+    # A run the logon trigger starts after this point satisfies the wait even when IgnoreNew drops
+    # the Start-ScheduledTask below; a run already in progress is awaited by its own start time.
+    $started = [DateTime]::Now.AddSeconds(-1)
+    $task = Get-PinTask
+    $info = Get-ScheduledTaskInfo -TaskPath '\' -TaskName $taskName
+    if ($task.State -eq 'Running') { $started = $info.LastRunTime }
+    # Every start runs PowerShell in the user session, so an unchanged task that last
+    # succeeded is left to its logon trigger.
+    if (-not $changed -and $task.State -ne 'Running' -and $info.LastTaskResult -eq 0) {
+        [Console]::WriteLine('Windows Quick access pin task is current; it pins the transfer drive at each logon.')
+        exit 0
     }
     $explorers = @(Get-CimInstance Win32_Process -Filter "Name='explorer.exe'" | Where-Object { $_.SessionId -ne 0 })
     if ($explorers.Count -eq 0) {
         [Console]::WriteLine('Windows Quick access pinning awaits an interactive File Explorer session.')
         exit 0
     }
-    if ((Get-PinTask).State -eq 'Running') {
-        $started = (Get-ScheduledTaskInfo -TaskName $taskName).LastRunTime
-    } else {
-        $started = [DateTime]::Now.AddSeconds(-1)
-        Start-ScheduledTask -TaskName $taskName
+    if ($task.State -ne 'Running') {
+        Start-ScheduledTask -TaskPath '\' -TaskName $taskName
     }
     for ($attempt = 0; $attempt -lt 120; $attempt++) {
-        $info = Get-ScheduledTaskInfo -TaskName $taskName
-        if ($info.LastRunTime -ge $started -and (Get-PinTask).State -ne 'Running') {
+        $info = Get-ScheduledTaskInfo -TaskPath '\' -TaskName $taskName
+        # 267009 (SCHED_S_TASK_RUNNING) marks a run that ended only after this snapshot.
+        if ($info.LastRunTime -ge $started -and $info.LastTaskResult -ne 267009 -and
+            (Get-PinTask).State -ne 'Running') {
             if ($info.LastTaskResult -ne 0) { throw "Quick access pin task failed with result $($info.LastTaskResult)." }
             [Console]::WriteLine('Windows transfer drive is present in File Explorer Quick access.')
             exit 0

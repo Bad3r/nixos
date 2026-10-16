@@ -7,7 +7,7 @@
 
   Summary:
     * Installs the FreeRDP 3 client so RemoteApp diagnostics and the certificate prompt run in a terminal with visible output.
-    * Provides the same xfreerdp binary the WinApps launcher wraps, so a diagnostic session and a launcher session behave alike.
+    * WinApps wraps freerdp from its own overlay-free `import nixpkgs` of the same lock, so both clients match unless an overlay replaces freerdp.
 
   Options:
     xfreerdp /v:<address> /u:<user>: Open a desktop session; FreeRDP asks for the password and for an unknown certificate on the terminal.

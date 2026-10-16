@@ -1,9 +1,7 @@
 # WinApps Outlook Classic operations
 
-`modules/apps/winapps.nix` installs the WinApps launcher.
-`modules/hm-apps/winapps.nix` writes its configuration, the `Outlook Classic` menu entry, and creates the [shared folder](shared-folder.md).
 The RDP password lives in the login keyring, where `packages/winapps-askpass` reads it for FreeRDP, so it sits in no file and on no command line.
-Load the guest name, address, account, and askpass command into the shell before a procedure:
+Load the guest name, address, account, and askpass command from the configuration that `modules/hm-apps/winapps.nix` writes:
 
 ```sh
 . ~/.config/winapps/winapps.conf
@@ -47,7 +45,6 @@ Windows regenerates the certificate when it expires, so the procedure repeats th
    FREERDP_ASKPASS="$RDP_ASKPASS" xfreerdp /d:"" /u:"$RDP_USER" /v:"$RDP_IP"
    ```
 
-   The session shares no drive.
    End it with `Sign out` in the Windows Start menu instead of closing the window, so no session stays behind for the launcher to reconnect to.
 
 Verification: `openssl x509 -in ~/.config/freerdp/server/"$RDP_IP"_3389.pem -noout -fingerprint -sha256` prints the hex pairs from step 1 in upper case.
@@ -58,11 +55,11 @@ Precondition: the password is stored and the certificate is trusted.
 
 1. Pick `Outlook Classic` in the application launcher.
    The launcher starts the guest when it is shut off, waits for the RDP port, and reports each stage through a notification.
-   A launch while Outlook is open moves the Windows session to the new connection and shows the running Outlook instead of opening a second main window.
-   The previous `xfreerdp` can stay running idle, and it ignores `SIGTERM`.
-   `pgrep -a xfreerdp` lists the idle process, and `kill -KILL` with its process ID ends it.
 2. Keep `Hide When Minimized` off in the Outlook tray settings, since RemoteApp forwards windows and no tray icon.
    Outlook syncs mail only while it runs, and closing its main window exits it.
+
+A launch while Outlook is open moves the Windows session to the new connection and shows the running Outlook window.
+The previous `xfreerdp` can stay behind idle and ignores `SIGTERM`; `kill -KILL` with its process ID from `pgrep -a xfreerdp` ends it.
 
 Verification: `xprop WM_CLASS` on the Outlook window prints the class that `RDP_FLAGS_NON_WINDOWS` sets, and `virsh domstate "$VM_NAME"` prints `running`.
 
@@ -113,14 +110,15 @@ Verification: `virsh domstate "$VM_NAME"` prints `shut off`.
 
 ## Apply Windows and Office updates
 
-Precondition: Outlook is closed, and no host shutdown is due within the hour, since the host powers the guest off once the libvirt shutdown timeout passes.
+Precondition: Outlook is closed and no host shutdown is due within the hour, since a host shutdown powers the guest off after its timeout.
 
 1. Open the full desktop with `winapps windows`.
 2. Run Windows Update until it offers nothing more, then in any Office application pick `File`, `Account`, `Update Options`, `Update Now`.
 3. Restart the guest from the Start menu.
 4. Start Outlook Classic from the menu.
+5. [Force a full check](shared-folder.md#force-a-full-check); a restart from inside Windows keeps the guest's domain ID, so the provisioner treats it as checked.
 
-Verification: Windows Update reports the guest up to date, and Outlook opens from the menu.
+Verification: Windows Update reports the guest up to date, Outlook opens from the menu, and the full check succeeds.
 
 ## Discontinue
 

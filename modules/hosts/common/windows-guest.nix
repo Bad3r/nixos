@@ -17,6 +17,8 @@ let
       # Identity. libvirt keys guest state on these, so a change strands it: the
       # domain UUID names the swtpm state directory, nvramPath holds the UEFI
       # variable store, and a volume name NixVirt cannot find is created empty.
+      # The network UUID is identity too: NixVirt undefines by UUID and destroys
+      # every domain on a network it replaces, so a change powers the guest off.
       domainUuid = "d40dd3b2-a6ad-4136-89d8-120cb5d3c098";
       defaultNetworkUuid = "84712988-20f5-4ffa-b6a2-acb45df49078";
       poolUuid = "7355d2f6-f1ff-4057-b6c8-a72475c936d4";
@@ -37,6 +39,7 @@ let
 
       defaultNetworkTemplate = nixvirt.network.templates.bridge {
         uuid = defaultNetworkUuid;
+        # Only the template's ip block reads subnet_byte, and defaultNetwork replaces it.
         subnet_byte = 0;
       };
       defaultNetwork = defaultNetworkTemplate // {
@@ -281,7 +284,9 @@ let
             # object on the connection that is not declared here.
             # The domain embeds store paths that move with nixpkgs, so changes
             # apply on its next start. Network XML has no store paths and restarts
-            # only when its definition changes.
+            # only when its definition changes; that restart hard powers off every
+            # running guest on the network, and RDPWindows boots again because
+            # active = null keeps the state NixVirt found before the switch.
             connections.${uri} = {
               networks = [
                 {
@@ -298,7 +303,8 @@ let
                   volumes = [ { definition = nixvirt.volume.writeXML volume; } ];
                 }
               ];
-              # active = null: started on demand, never by NixVirt.
+              # active = null keeps the run state NixVirt finds before a switch: the guest
+              # starts on demand, and NixVirt boots it only after powering it off itself.
               domains = [
                 {
                   definition = nixvirt.domain.writeXML domain;
