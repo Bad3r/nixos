@@ -691,6 +691,15 @@ let
 
         package = mkPackageOption pkgs "duplicati" { };
 
+        # Set on every host so tests reach the generator without the secrets that enable the service.
+        generatorPackage = mkOption {
+          type = types.package;
+          internal = true;
+          readOnly = true;
+          default = generatorScript;
+          description = "Script that renders the backup and verify units from the manifest.";
+        };
+
         configFile = mkOption {
           type = types.nullOr types.path;
           default = null;
@@ -902,7 +911,7 @@ let
             };
             serviceConfig = {
               Type = "oneshot";
-              ExecStart = "${generatorScript}/bin/duplicati-r2-generate-units";
+              ExecStart = "${cfg.generatorPackage}/bin/duplicati-r2-generate-units";
               Restart = "on-failure";
               RestartSec = "30s";
             };
