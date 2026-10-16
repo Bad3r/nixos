@@ -253,13 +253,16 @@ in
             g = config.lib.stylix.colors."${name}-rgb-g";
             b = config.lib.stylix.colors."${name}-rgb-b";
           };
+          # Base16 has no slot darker than base00; mix it 12% toward black.
+          urlbarFill = lib.mapAttrs (_: c: toString ((lib.toInt c * 88 + 50) / 100)) (mkThemeColor "base00");
           geckoProfiles = lib.genAttrs geckoProfileNames (_: {
             extensions.settings."FirefoxColor@mozilla.com".settings.theme.colors = {
               # Sidebery paints its background with the theme's frame color, not its sidebar color.
               frame = lib.mkForce (mkThemeColor "base00");
-              toolbar_field = lib.mkForce (mkThemeColor "base00");
-              toolbar_field_border = lib.mkForce (mkThemeColor "base02");
-              toolbar_field_border_focus = lib.mkForce (mkThemeColor "base03");
+              toolbar_field = lib.mkForce urlbarFill;
+              toolbar_field_focus = lib.mkForce urlbarFill;
+              toolbar_field_border = lib.mkForce (mkThemeColor "base00");
+              toolbar_field_border_focus = lib.mkForce (mkThemeColor "base00");
               # Nova outlines #sidebar-box in this color under a theme.
               sidebar_border = lib.mkForce (mkThemeColor "base00");
               # Sidebery outlines its menus and draws their separators in this color.
