@@ -3,8 +3,8 @@ let
   # The profile definitions are the source of truth for the producer's mount,
   # bisync, provisioning, and identity settings. The upstream unit names are
   # derived from each profile name, so an upstream naming change is asserted below.
-  # `mount` goes to services.r2-sync.mounts verbatim, and that submodule has
-  # fixed options, so settings local to this file sit beside it.
+  # `mount` goes to services.r2-sync.mounts verbatim. Every bisync.timeout
+  # stays above the module's default --max-lock=15m.
   r2Profiles = {
     workspace = {
       mount = {
@@ -13,8 +13,8 @@ let
         mountPoint = "/data/r2/mount/workspace";
         localPath = "/data/r2/workspace";
         syncInterval = "5m";
+        bisync.timeout = "20m";
       };
-      bisyncStartTimeout = "20m";
     };
 
     fonts = {
@@ -24,8 +24,8 @@ let
         mountPoint = "/data/r2/mount/fonts";
         localPath = "/data/fonts";
         syncInterval = "30m";
+        bisync.timeout = "20m";
       };
-      bisyncStartTimeout = "20m";
     };
 
     docs = {
@@ -46,9 +46,9 @@ let
             "node_modules/**"
             ".venv/**"
           ];
+          timeout = "20m";
         };
       };
-      bisyncStartTimeout = "20m";
     };
   };
   r2Mounts = lib.mapAttrs (_: profile: profile.mount) r2Profiles;
@@ -300,7 +300,7 @@ in
             };
 
             # Derive all writer settings from the profile names. A new profile
-            # then receives the gate, identity, and bisync timeout together.
+            # then receives the gate and identity together.
             systemd.services =
               lib.genAttrs r2MountServiceNames (_: {
                 serviceConfig = {
@@ -308,20 +308,13 @@ in
                   Group = group;
                 };
               })
-              // lib.mapAttrs' (
-                name: profile:
-                lib.nameValuePair (bisyncServiceNameOf name) {
-                  restartIfChanged = false;
-                  serviceConfig = {
-                    User = username;
-                    Group = group;
-                    # The base unit sets TimeoutStartUSec=infinity. Per profile
-                    # rather than shared, and every value stays above bisync's
-                    # --max-lock=15m.
-                    TimeoutStartSec = profile.bisyncStartTimeout;
-                  };
-                }
-              ) r2Profiles
+              // lib.genAttrs r2BisyncServiceNames (_: {
+                restartIfChanged = false;
+                serviceConfig = {
+                  User = username;
+                  Group = group;
+                };
+              })
               // {
                 "r2-restic-backup".serviceConfig = {
                   User = username;
