@@ -43,7 +43,7 @@ Precondition: the shared host age key is in `.sops.yaml`; its catch-all `secrets
 
 1. In the secrets repository, copy `cloudflare-warp.yaml.example` to `cloudflare-warp.yaml` for a first host, or open the existing file with `sops secrets/cloudflare-warp.yaml`.
 
-2. Set `organization` to the team name, set `mesh.cidr` to the account's Mesh allocation, and add a
+2. Set `organization` to the team name and add a
    `<host>` section with `auth_client_id`, `auth_client_secret`, and `exclude` set to `"[]"`.
    Existing enrolled hosts keep one address each under `mesh.hosts.<host>`.
 
