@@ -117,6 +117,22 @@ in
           mpvEnabled = lib.attrByPath [ "programs" "mpv" "extended" "enable" ] false osConfig;
           nushellEnabled = lib.attrByPath [ "programs" "nushell" "extended" "enable" ] false osConfig;
           zathuraEnabled = lib.attrByPath [ "programs" "zathura" "extended" "enable" ] false osConfig;
+          geckoProfileNames = [
+            "primary"
+            "pentesting"
+            "work"
+          ];
+          # Sidebery paints its background with the theme's frame color, not its sidebar color.
+          geckoFrameProfiles = lib.genAttrs geckoProfileNames (_: {
+            extensions.settings."FirefoxColor@mozilla.com".settings.theme.colors.frame = lib.mkForce (
+              with config.lib.stylix.colors;
+              {
+                r = base00-rgb-r;
+                g = base00-rgb-g;
+                b = base00-rgb-b;
+              }
+            );
+          });
           qogirDarkFixedIconSizes = {
             "16/apps" = 16;
             "22/apps" = 22;
@@ -285,11 +301,7 @@ in
 
               # Firefox profile theming (only if enabled)
               firefox = lib.mkIf firefoxEnabled {
-                profileNames = [
-                  "primary"
-                  "pentesting"
-                  "work"
-                ];
+                profileNames = geckoProfileNames;
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
                 fonts.enable = false;
@@ -297,11 +309,7 @@ in
 
               # LibreWolf profile theming (only if enabled)
               librewolf = lib.mkIf librewolfEnabled {
-                profileNames = [
-                  "primary"
-                  "pentesting"
-                  "work"
-                ];
+                profileNames = geckoProfileNames;
                 colorTheme.enable = true; # uses Firefox Color extension from NUR
                 firefoxGnomeTheme.enable = false;
                 fonts.enable = false;
@@ -328,6 +336,9 @@ in
           ) qogirDarkThemedIconFiles;
 
           programs = {
+            firefox.profiles = lib.mkIf firefoxEnabled geckoFrameProfiles;
+            librewolf.profiles = lib.mkIf librewolfEnabled geckoFrameProfiles;
+
             mpv.scriptOpts.modernz =
               lib.mkIf (mpvEnabled && config.stylix.enable && config.stylix.targets.mpv.enable)
                 (
