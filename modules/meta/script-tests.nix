@@ -34,7 +34,7 @@ let
       packages = { pkgs, ... }: [
         (pkgs.runCommand "duplicati-r2-generator-test-subject" { } ''
           mkdir -p "$out/bin"
-          cp ${nixosConfigurations.songbird.config.systemd.services.duplicati-r2-generate-units.serviceConfig.ExecStart} "$out/bin/duplicati-r2-generator-test-subject"
+          cp ${nixosConfigurations.songbird.config.services.duplicati-r2.generatorPackage}/bin/duplicati-r2-generate-units "$out/bin/duplicati-r2-generator-test-subject"
         '')
       ];
     };

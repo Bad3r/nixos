@@ -4,7 +4,7 @@
 # shareCommon = false is a deliberate opt-out, not the default.
 _: {
   flake.lib.nixos.hosts = {
-    songbird.shareCommon = true; ## hostname: songbird.internal
-    tpnix.shareCommon = true; ## hostname: tpnix.internal
+    songbird.shareCommon = true; # hostname: songbird.internal
+    tpnix.shareCommon = true; # hostname: tpnix.internal
   };
 }
