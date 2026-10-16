@@ -30,6 +30,7 @@ let
     ent = false;
     f3 = false;
     filezilla = false;
+    freerdp = true;
     "frida-tools" = false;
     ghidra = false;
     "gnome-disk-utility" = false;
@@ -40,6 +41,7 @@ let
     iotop = false;
     kdiskmark = false;
     "kiro-fhs" = false;
+    libsecret = true;
     lxsession = false;
     "maestral-gui" = false;
     markitdown = false;
@@ -62,6 +64,7 @@ let
     "video-cache" = false;
     "virt-manager" = true;
     vulnix = false;
+    winapps = true;
     "xfce4-settings" = false;
     yarn = false;
   };

@@ -148,9 +148,10 @@
 
           | Input                 | Followed By                                                  |
           | --------------------- | ------------------------------------------------------------ |
-          | `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat` |
+          | `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat`, `winapps.inputs.flake-compat` |
+          | `dedupe_flake-utils`  | `winapps.inputs.flake-utils`                                |
           | `dedupe_nur`          | `stylix.inputs.nur`                                          |
-          | `systems`             | `stylix.inputs.systems`                                     |
+          | `systems`             | `dedupe_flake-utils.inputs.systems`, `stylix.inputs.systems` |
 
         '';
 

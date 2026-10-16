@@ -15,6 +15,7 @@ _: {
     extraHomeApps = [
       "libreoffice"
       "nextcloud-client"
+      "winapps"
     ];
     firewallLocalTcpPortRanges = [
       {
