@@ -35,13 +35,17 @@ let
         mountPoint = "/data/r2/mount/docs";
         localPath = "/data/Docs";
         syncInterval = "5m";
+        bisync = {
+          # Comparing modtime costs one HEAD request per R2 object, while
+          # size and ETag come with the listing.
+          compare = "size,checksum";
+          excludes = [
+            "node_modules/**"
+            ".venv/**"
+          ];
+        };
       };
-      # Temporary mitigation. The initial listing sends one HEAD request per
-      # object; at 20m every run died mid-listing. The pinned r2-flake revision
-      # (63b2dd47) now exposes compare and excludes options that would remove
-      # the need for this bound, but this profile does not set them yet. Keep
-      # 6h until Bad3r/nixos#477 applies them and right-sizes this value.
-      bisyncStartTimeout = "6h";
+      bisyncStartTimeout = "20m";
     };
   };
   r2Mounts = lib.mapAttrs (_: profile: profile.mount) r2Profiles;
@@ -304,6 +308,7 @@ in
               // lib.mapAttrs' (
                 name: profile:
                 lib.nameValuePair (bisyncServiceNameOf name) {
+                  restartIfChanged = false;
                   serviceConfig = {
                     User = username;
                     Group = group;

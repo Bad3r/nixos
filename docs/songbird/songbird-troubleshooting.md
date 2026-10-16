@@ -74,14 +74,33 @@ rip ~/.gnupg/public-keys.d/pubring.db.lock
 
 ## The r2-bisync-docs service never finishes
 
-`r2-bisync-docs.service` lists `/data/Docs` with one HEAD request per object, and even the longer start timeout the docs profile sets in `modules/lib/r2-runtime.nix` can run out on a large enough tree.
+A run that outlasts the `docs` profile's `bisyncStartTimeout` in `modules/lib/r2-runtime.nix` is stopped, and the next run starts its transfer over.
 
 ```sh
 systemctl status r2-bisync-docs.service
 journalctl -u r2-bisync-docs.service
 ```
 
-Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`, then switch and start the unit again.
+Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`, then switch and restart the unit, because a switch leaves the bisync units untouched.
+
+## r2-bisync-docs warns `hash unexpectedly blank`
+
+Objects uploaded through the R2 explorer carry no MD5, so the `docs` profile's checksum comparison falls back to size for them and warns on every run.
+
+```sh
+(set -a; . /run/secrets/r2/credentials.env; set +a
+  rclone lsjson -R --fast-list --files-only --no-modtime --no-mimetype --hash \
+    --exclude 'node_modules/**' --exclude '.venv/**' r2:nix-r2-cf-r2e-files-prod/docs) |
+  jq -r '.[] | select(.Hashes.md5 == null) | .Path' > /tmp/r2-docs-no-md5.txt
+```
+
+Upload the listed files again from `/data/Docs` once `rclone check` finds them identical, since an rclone upload stores the MD5.
+
+```sh
+(set -a; . /run/secrets/r2/credentials.env; set +a
+  rclone check --download --files-from /tmp/r2-docs-no-md5.txt /data/Docs r2:nix-r2-cf-r2e-files-prod/docs &&
+  rclone copy --ignore-times --files-from /tmp/r2-docs-no-md5.txt /data/Docs r2:nix-r2-cf-r2e-files-prod/docs)
+```
 
 ## The Samba media share is missing
 
