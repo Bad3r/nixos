@@ -74,14 +74,14 @@ rip ~/.gnupg/public-keys.d/pubring.db.lock
 
 ## The r2-bisync-docs service never finishes
 
-A run that outlasts the `docs` profile's `bisyncStartTimeout` in `modules/lib/r2-runtime.nix` is stopped, and the next run starts its transfer over.
+A run that outlasts the `docs` profile's `bisync.timeout` in `modules/lib/r2-runtime.nix` is stopped, and the next run starts its transfer over.
 
 ```sh
 systemctl status r2-bisync-docs.service
 journalctl -u r2-bisync-docs.service
 ```
 
-Raise `bisyncStartTimeout` on the `docs` profile in `modules/lib/r2-runtime.nix`, then switch and restart the unit, because a switch leaves the bisync units untouched.
+Raise `bisync.timeout` on the `docs` profile in `modules/lib/r2-runtime.nix`, then switch and restart the unit, because a switch leaves the bisync units untouched.
 
 ## r2-bisync-docs warns `hash unexpectedly blank`
 
