@@ -57,6 +57,7 @@ let
     "p7zip-rar"
     "planify"
     "proton-vpn"
+    "rustdesk"
     "searchfox-cli"
     "source-map-explorer"
     "tweakcc"

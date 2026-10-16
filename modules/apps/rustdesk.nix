@@ -22,37 +22,32 @@
     * The ID, salt, and permanent password derive from secrets/rustdesk.yaml, so every host knows every other
       host's login and the owner's peer list carries it.
     * The registry host that sets rustdeskServer runs hbbs and hbbr with the key pair in secrets/rustdesk.yaml.
-    * IPAddressAllow confines the client service, its server processes, hbbs, and hbbr to loopback and the CGNAT
-      block that holds the Mesh. A GUI started from the user's session sits outside that cgroup, so only its
-      settings keep its traffic on Mesh.
+    * IPAddressAllow confines the client service, its server processes, hbbs, and hbbr to loopback and the Mesh
+      range. A GUI started from the user's session sits outside that cgroup, so only its settings keep its
+      traffic on Mesh.
 */
 { config, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
   inherit (config.flake.lib.security) sopsInstallSecretsDeps;
   meshInterface = config.flake.lib.nixos._firewallMeshInterface;
-  meshHostNames =
-    config.flake.lib.nixos._cloudflareWarpMeshHostNames
-      or (throw "modules/apps/cloudflare-warp.nix no longer exports flake.lib.nixos._cloudflareWarpMeshHostNames");
-  warpSecretName =
-    config.flake.lib.nixos._cloudflareWarpSecretName
-      or (throw "modules/apps/cloudflare-warp.nix no longer exports flake.lib.nixos._cloudflareWarpSecretName");
+  meshRange = config.flake.lib.nixos._cloudflareWarpMeshRange;
+  meshHostNames = config.flake.lib.nixos._cloudflareWarpMeshHostNames;
+  warpSecretName = config.flake.lib.nixos._cloudflareWarpSecretName;
   serverHosts = builtins.filter (name: hostsRegistry.${name}.rustdeskServer or false) (
     builtins.attrNames hostsRegistry
   );
   # NixOS Mesh hosts, which the hosts-common baseline gives this client; the iPhone only controls.
   clientHosts = builtins.filter (name: hostsRegistry.${name}.shareCommon or false) meshHostNames;
 
-  # Pinned in every RustDesk2.toml at service start, next to the server address,
-  # key, and Mesh allocation that sops supplies.
+  # Pinned in each RustDesk2.toml at every start; a dropped entry keeps its last value.
   managedOptions = {
-    # is_public() takes this for RustDesk's own API (1.5.0 by host, 1.4.9 by suffix)
-    # and skips the heartbeat, sysinfo, and audit posts a custom server would draw,
-    # with their fallback through hbbs. The name does not resolve.
-    "api-server" = "http://off.rustdesk.com:9/rustdesk.com";
+    # A rustdesk.com host makes is_public() skip the API posts; this name does not resolve.
+    "api-server" = "http://off.rustdesk.com:9";
     # Direct IP sessions skip the key exchange and run unencrypted.
     "direct-server" = "N";
     "enable-lan-discovery" = "N";
+    whitelist = meshRange;
     "verification-method" = "use-permanent-password";
     "approve-mode" = "password";
     "enable-tunnel" = "N";
@@ -70,12 +65,12 @@ let
     "disable-discovery-panel" = "Y";
   };
 
-  # Loopback carries hbbs's self-test; 100.64.0.0/10 holds every Mesh address.
+  # Loopback carries hbbs's self-test.
   meshOnly = {
     IPAddressDeny = "any";
     IPAddressAllow = [
       "localhost"
-      "100.64.0.0/10"
+      meshRange
     ];
   };
 
@@ -121,7 +116,7 @@ let
 
       seedPython = pkgs.python3.withPackages (ps: [
         ps.pynacl
-        ps.tomlkit
+        ps.tomli-w
       ]);
       # Mirrors hbb_common in rustdesk-flutter 1.5.0: symmetric_crypt and its "00"
       # framing in password_security.rs, the "01" storage in config/permanent_password.rs.
@@ -138,11 +133,7 @@ let
 
         import nacl.exceptions
         import nacl.secret
-        import nacl.utils
-        import tomlkit
-
-        NONCE = nacl.secret.SecretBox.NONCE_SIZE
-        MAC = nacl.secret.SecretBox.MACBYTES
+        import tomli_w
 
 
         @functools.cache
@@ -165,19 +156,14 @@ let
 
 
         def seal(data):
-            nonce = nacl.utils.random(NONCE)
-            return b"\x01" + nonce + machine_box().encrypt(data, nonce).ciphertext
+            return b"\x01" + machine_box().encrypt(data)
 
 
         def unseal(data):
-            box = machine_box()
-            if data[:1] == b"\x01" and len(data) >= 1 + NONCE + MAC:
-                try:
-                    return box.decrypt(data[1 + NONCE :], data[1 : 1 + NONCE])
-                except nacl.exceptions.CryptoError:
-                    pass
+            if data[:1] != b"\x01":
+                return None
             try:
-                return box.decrypt(data, bytes(NONCE))
+                return machine_box().decrypt(data[1:])
             except nacl.exceptions.CryptoError:
                 return None
 
@@ -200,16 +186,6 @@ let
             return b64decode(inner[2:])
 
 
-        def peer_h1(value):
-            raw = bytes(value) if isinstance(value, list) else b""
-            if raw.startswith(b"00"):
-                data = b64decode(raw[2:])
-                plain = None if data is None else unseal(data)
-                if plain is not None:
-                    return plain
-            return raw
-
-
         def apply_options(config, managed):
             options = config.setdefault("options", {})
             if all(options.get(key) == value for key, value in managed.items()):
@@ -218,31 +194,34 @@ let
             return True
 
 
-        def apply_identity(config, login):
+        def apply_id(config, login):
+            if open_text(config.get("enc_id"), "00") == login["id"].encode():
+                return False
+            config["enc_id"] = seal_text("00", login["id"].encode())
+            # As ipc::get_id() does on an ID change, so hbbs registers the key anew.
+            config["key_confirmed"] = False
+            config.pop("keys_confirmed", None)
+            return True
+
+
+        def apply_secret(config, login):
             h1 = base64.b64decode(login["h1"])
-            changed = False
-            if open_text(config.get("enc_id"), "00") != login["id"].encode():
-                config["enc_id"] = seal_text("00", login["id"].encode())
-                config.pop("id", None)
-                # As ipc::get_id() does on an ID change, so hbbs registers the key anew.
-                config["key_confirmed"] = False
-                config.pop("keys_confirmed", None)
-                changed = True
-            if config.get("salt") != login["salt"] or stored_h1(config.get("password")) != h1:
-                config["salt"] = login["salt"]
-                config["password"] = seal_text("01", b"00" + base64.b64encode(h1))
-                changed = True
-            return changed
+            if config.get("salt") == login["salt"] and stored_h1(config.get("password")) == h1:
+                return False
+            config["salt"] = login["salt"]
+            config["password"] = seal_text("01", b"00" + base64.b64encode(h1))
+            return True
 
 
         def apply_peer(config, login):
             h1 = base64.b64decode(login["h1"])
             changed = False
-            if peer_h1(config.get("password")) != h1:
-                config["password"] = list(b"00" + base64.b64encode(seal(h1)))
+            stored = bytes(config.get("password", [])).decode("latin-1")
+            if open_text(stored, "00") != h1:
+                config["password"] = list(seal_text("00", h1).encode())
                 changed = True
             # PeerConfig::batch_peers deletes a peer file whose info.platform is empty.
-            if "info" not in config:
+            if not config.get("info", {}).get("platform"):
                 config["info"] = login["info"]
                 changed = True
             # The card title; a rename in the GUI stays.
@@ -260,7 +239,7 @@ let
             return bool(missing)
 
 
-        def plan(password_file, key_file, me, owner, *hosts):
+        def plan(password_file, key_file, me, user, *hosts):
             password = Path(password_file).read_bytes()
             key = Path(key_file).read_bytes()
             if not password or not key:
@@ -277,42 +256,63 @@ let
                 return {"id": str(rid), "salt": salt, "h1": base64.b64encode(h1).decode()}
 
             logins = {host: login(host) for host in hosts}
-            if len({entry["id"] for entry in logins.values()}) != len(logins):
-                sys.exit("rustdesk-seed: two hosts derive the same ID")
-            info = {"username": owner, "platform": "Linux"}
+            info = {"username": user, "platform": "Linux"}
             peers = [
                 logins[host] | {"info": info | {"hostname": host}} for host in hosts if host != me
             ]
             json.dump({"self": logins[me], "peers": peers}, sys.stdout)
 
 
+        def load(path):
+            try:
+                return tomllib.loads(path.read_text(encoding="utf-8"))
+            except FileNotFoundError:
+                return {}
+
+
+        # A TOML 1.0 writer: RustDesk parses with toml 0.5, which rejects TOML 1.1 escapes such as \e.
         def write_toml(path, config):
             path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
             tmp = path.with_name(f".{path.name}.seed")
             fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o600)
             with os.fdopen(fd, "w", encoding="utf-8") as out:
-                out.write(tomlkit.dumps(config))
+                out.write(tomli_w.dumps(config))
             os.replace(tmp, path)
 
 
+        def account(directory):
+            directory = Path(directory)
+            managed = json.load(sys.stdin)
+            options_path = directory / "RustDesk2.toml"
+            options = load(options_path)
+            if apply_options(options, managed["options"]):
+                write_toml(options_path, options)
+            identity_path = directory / "RustDesk.toml"
+            identity = load(identity_path)
+            changed = apply_id(identity, managed["login"])
+            changed |= apply_secret(identity, managed["login"])
+            if changed:
+                write_toml(identity_path, identity)
+
+
+        def owner(directory, local_options_file):
+            directory = Path(directory)
+            peers = json.load(sys.stdin)["peers"]
+            local_path = directory / "RustDesk_local.toml"
+            local = load(local_path)
+            changed = apply_options(local, json.loads(Path(local_options_file).read_text()))
+            changed |= apply_favorites(local, [peer["id"] for peer in peers])
+            if changed:
+                write_toml(local_path, local)
+            for peer in peers:
+                path = directory / "peers" / f"{peer['id']}.toml"
+                config = load(path)
+                if apply_peer(config, peer):
+                    write_toml(path, config)
+
+
         def main(mode, *args):
-            if mode == "plan":
-                plan(*args)
-                return
-            apply = {
-                "options": apply_options,
-                "identity": apply_identity,
-                "peer": apply_peer,
-                "favorites": apply_favorites,
-            }[mode]
-            path = Path(args[0])
-            try:
-                raw = path.read_text(encoding="utf-8")
-            except FileNotFoundError:
-                raw = ""
-            config = tomllib.loads(raw) if raw.strip() else {}
-            if apply(config, json.load(sys.stdin)):
-                write_toml(path, config)
+            {"plan": plan, "account": account, "owner": owner}[mode](*args)
 
 
         main(*sys.argv[1:])
@@ -334,7 +334,7 @@ let
             ${seedPython}/bin/python3 -I ${seedHelper} "$@"
           }
 
-          # <user> <group> <mode> <file>, the managed values on stdin
+          # <user> <group> <mode> <args>, the managed values on stdin
           seed_as() {
             setpriv --reuid="$1" --regid="$2" --init-groups -- \
               ${seedPython}/bin/python3 -I ${seedHelper} "''${@:3}"
@@ -342,23 +342,14 @@ let
 
           plan=$(seed plan ${config.sops.secrets.${passwordSecret}.path} \
             ${config.sops.secrets.${publicKeySecret}.path} \
-            ${hostName} ${owner.name} ${lib.escapeShellArgs (lib.unique ([ hostName ] ++ clientHosts))})
-          login=$(jq -c .self <<<"$plan")
+            ${hostName} ${owner.name} ${lib.escapeShellArgs ([ hostName ] ++ clientHosts)})
+          account=$(jq -c --slurpfile options "$options" '{options: $options[0], login: .self}' <<<"$plan")
 
-          seed options /root/.config/rustdesk/RustDesk2.toml <"$options"
-          seed identity /root/.config/rustdesk/RustDesk.toml <<<"$login"
-          seed_as ${owner.name} ${owner.group} options ${owner.home}/.config/rustdesk/RustDesk2.toml <"$options"
-          seed_as ${owner.name} ${owner.group} options ${owner.home}/.config/rustdesk/RustDesk_local.toml <"$local_options"
-          seed_as ${owner.name} ${owner.group} identity ${owner.home}/.config/rustdesk/RustDesk.toml <<<"$login"
-          jq -c '.peers[]' <<<"$plan" | while read -r peer; do
-            seed_as ${owner.name} ${owner.group} peer \
-              "${owner.home}/.config/rustdesk/peers/$(jq -r .id <<<"$peer").toml" <<<"$peer"
-          done
-          jq -c '[.peers[].id]' <<<"$plan" |
-            seed_as ${owner.name} ${owner.group} favorites ${owner.home}/.config/rustdesk/RustDesk_local.toml
+          seed account /root/.config/rustdesk <<<"$account"
+          seed_as ${owner.name} ${owner.group} account ${owner.home}/.config/rustdesk <<<"$account"
+          seed_as ${owner.name} ${owner.group} owner ${owner.home}/.config/rustdesk "$local_options" <<<"$plan"
           ${lib.optionalString config.services.xserver.displayManager.lightdm.enable ''
-            seed_as ${greeter.name} ${greeter.group} options ${greeter.home}/.config/rustdesk/RustDesk2.toml <"$options"
-            seed_as ${greeter.name} ${greeter.group} identity ${greeter.home}/.config/rustdesk/RustDesk.toml <<<"$login"
+            seed_as ${greeter.name} ${greeter.group} account ${greeter.home}/.config/rustdesk <<<"$account"
           ''}
         '';
       };
@@ -417,7 +408,6 @@ let
                 "custom-rendezvous-server" = placeholder serverAddressSecret;
                 "relay-server" = placeholder serverAddressSecret;
                 key = placeholder publicKeySecret;
-                whitelist = placeholder (warpSecretName "mesh-cidr");
               }
             );
             restartUnits = [ "rustdesk.service" ];
@@ -444,10 +434,7 @@ let
               pkgs.xdg-utils
               pkgs.xrandr
             ];
-            environment = {
-              PULSE_LATENCY_MSEC = "60";
-              PIPEWIRE_LATENCY = "1024/48000";
-            };
+            environment.PULSE_LATENCY_MSEC = "60";
             serviceConfig = meshOnly // {
               ExecStartPre = lib.getExe seedConfig;
               ExecStart = "${lib.getExe cfg.package} --service";
@@ -461,12 +448,7 @@ let
         })
 
         (lib.mkIf serverActive {
-          services.rustdesk-server = {
-            enable = true;
-            # Used only for a peer that pins no relay of its own. The env file
-            # supplies the address, so it stays out of the store.
-            signal.relayHosts = [ "\${RELAY_SERVER}" ];
-          };
+          services.rustdesk-server.enable = true;
 
           sops = {
             secrets.${secretKeySecret} = {
@@ -479,7 +461,6 @@ let
             templates.${hbbsEnvTemplate} = {
               content = ''
                 KEY=${placeholder secretKeySecret}
-                RELAY_SERVER=${placeholder serverAddressSecret}
               '';
               restartUnits = [ "rustdesk-signal.service" ];
             };

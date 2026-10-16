@@ -31,6 +31,8 @@ let
   # so both consume the same "cloudflare-warp/<key>" naming and mesh-ready host
   # list this module already computes, instead of retyping either.
   secretName = key: "cloudflare-warp/${key}";
+  # The part of 100.64.0.0/10 that the two CGNAT excludes below leave in the tunnel.
+  meshRange = "100.96.0.0/12";
   # Cloudflare's stock split-tunnel exclude list, with 100.64.0.0/10 split
   # around the Mesh allocation so Mesh traffic stays in the tunnel
   # (modules/hosts/common/firewall.nix).
@@ -491,6 +493,7 @@ in
     lib.nixos = {
       _cloudflareWarpBaseExcludes = baseExcludes;
       _cloudflareWarpMeshHostNames = meshHostNames;
+      _cloudflareWarpMeshRange = meshRange;
       _cloudflareWarpSecretName = secretName;
     };
     nixosModules.apps.cloudflare-warp = CloudflareWarpModule;

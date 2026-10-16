@@ -15,7 +15,7 @@ No host contacts RustDesk's public servers.
 - A host refuses sessions from addresses outside the Mesh allocation and accepts only the fleet password.
 - One-time passwords and RustDesk's own TCP tunnels, remote terminal, and camera are off.
 - Remote restart is off, since a restarted host waits at its LUKS passphrase prompt.
-- The client service, the session processes it starts, and both servers reach only loopback and the CGNAT block holding the Mesh.
+- The client service, the session processes it starts, and both servers reach only loopback and the Mesh range.
   Their fallback to a public server or any other call home fails in the kernel.
 - The GUI runs in the user's session without that kernel limit, so only its settings keep its traffic on Mesh.
 - The client's heartbeat, sysinfo, and audit uploads, its update check, and LAN discovery are off, and the hbbs build has no update check.
@@ -23,16 +23,19 @@ No host contacts RustDesk's public servers.
 
 Some traffic stays visible:
 
-- Registration with hbbs is plaintext UDP inside the tunnel, so Cloudflare can read each device's RustDesk ID and, at first registration, its machine ID.
+- Registration with hbbs is plaintext UDP inside the tunnel, so Cloudflare can read each device's RustDesk ID and machine ID.
 - The iOS app checks for updates and probes public STUN servers at launch, and no setting stops either.
 
 ## Logins
 
 Every host accepts the password in `secrets/rustdesk.yaml`, kept in RustDesk's configuration as a salted hash.
 Every other host appears by name under Favorites and Recent sessions, carrying that login, so a session between hosts opens without a prompt.
+Those entries skip the default codec, frame rate, and a few other Display settings, so set them per host from the session toolbar.
+
 The service rewrites the ID, the password, the stored logins, the favorites, and the managed settings at every start.
 A GUI change to one of them lasts until the next restart.
 Change those settings in `rustdesk.nix` instead.
+A RustDesk window open across a restart writes back the favorites and GUI settings it loaded, so close RustDesk windows before restarting the service.
 
 Print a host's ID on that host:
 
@@ -86,21 +89,21 @@ Fix: restart the service, which writes the entry again:
 sudo systemctl restart rustdesk
 ```
 
-### Pointer moves but clicks and keys do nothing
-
-Cause: the session process cannot load libxdo, which RustDesk opens at runtime for X11 input.
-Diagnose with `grep -r "xdo context" ~/.local/share/logs/RustDesk/server/`.
-Fix: the `rustdesk-flutter` package needs xdotool's library directory in the rpath of `librustdesk.so`.
-
 ### A reinstalled host comes up under a random ID
 
 Cause: hbbs ties each ID to the machine ID that first registered it, and a reinstall brings a new machine ID.
-Fix: on the server host, drop the old registration, then restart `rustdesk` on the reinstalled host:
+Fix: on the server host, drop the old registration, where `<id>` is the ID the other hosts list for the reinstalled host, not the random one:
 
 ```sh
 sudo systemctl stop rustdesk-signal
 sudo sqlite3 /var/lib/rustdesk/db_v2.sqlite3 "delete from peer where id = '<id>'"
 sudo systemctl start rustdesk-signal
+```
+
+Then, on the reinstalled host, restart the service, which writes the derived ID again:
+
+```sh
+sudo systemctl restart rustdesk
 ```
 
 [RustDesk documentation](https://rustdesk.com/docs/en/)
