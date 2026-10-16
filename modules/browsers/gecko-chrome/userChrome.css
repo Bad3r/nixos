@@ -171,6 +171,14 @@ menuitem[disabled="true"] {
 	--popup-border-radius: 0 !important;
 }
 
+#sidebar-splitter:not(:hover) {
+	background-color: var(--sidebar-background-color) !important;
+}
+
+#tabbrowser-tabbox .browserContainer {
+	border-inline-start: none !important;
+}
+
 /* Matches the Bookmarks panel header only; History and Open Tabs render a <sidebar-panel-header> element. */
 #sidebar-panel-header {
 	display: none !important;
