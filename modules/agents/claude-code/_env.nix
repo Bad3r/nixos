@@ -8,10 +8,6 @@
   of 2.1.222, then names only the 2.1.222 binary reads, then unresolved
   identifiers.
 */
-let
-  # claude-sonnet-5 is Anthropic's current undated Sonnet identifier.
-  sonnetModel = "claude-sonnet-5";
-in
 {
   # Exported by the launchers unless launchOnlyEscape is set, never written to
   # settings.json: either name blocks the feature-flag evaluation `claude rc`
@@ -105,11 +101,11 @@ in
     # ANTHROPIC_DEFAULT_FABLE_MODEL_SUPPORTED_CAPABILITIES = "";
     # Model ID that the haiku alias resolves to, also used for background functionality.
     # Repoints the haiku alias, which also backs titles, summarization, and classifiers.
-    ANTHROPIC_DEFAULT_HAIKU_MODEL = sonnetModel;
+    # ANTHROPIC_DEFAULT_HAIKU_MODEL = "claude-sonnet";
     # Display description for the pinned Haiku model in the /model picker.
     # ANTHROPIC_DEFAULT_HAIKU_MODEL_DESCRIPTION = "";
     # Display name for the pinned Haiku model in the /model picker.
-    ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "Sonnet 5";
+    # ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME = "";
     # Comma-separated list of capabilities the pinned Haiku model supports, for example effort,thinking.
     # ANTHROPIC_DEFAULT_HAIKU_MODEL_SUPPORTED_CAPABILITIES = "";
     # Model ID that the opus alias resolves to, and that opusplan uses while Plan Mode is active.
@@ -143,7 +139,7 @@ in
     # CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY = "1";
     # The default model for subagents, agent team teammates, and workflow agents that nothing else assigns a model.
     # A model Claude passes when it spawns the agent and an agent definition's `model` field take precedence.
-    CLAUDE_CODE_SUBAGENT_MODEL = "opus";
+    # CLAUDE_CODE_SUBAGENT_MODEL = "claude-sonnet";
     # Set to 1 to force CLAUDE_CODE_SUBAGENT_MODEL onto every subagent, teammate, and workflow agent, overriding both
     # of those, including Explore and Plan, which otherwise inherit the main conversation's model. [1 or unset]
     # CLAUDE_CODE_SUBAGENT_MODEL_FORCE = "1";
@@ -201,7 +197,7 @@ in
     # Launch-only: see launchOnly.
     CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC = "1";
     # Set to 1 to enable OpenTelemetry data collection for metrics and logging. [1 or unset]
-    # CLAUDE_CODE_ENABLE_TELEMETRY = "1";
+    CLAUDE_CODE_ENABLE_TELEMETRY = ""; # force it just in case
     # Maximum length of content-bearing OpenTelemetry attributes (model
     # responses, tool content, system prompts, raw API bodies), including the
     # truncation marker, in UTF-16 code units (default: 61440, or 60 KB).
