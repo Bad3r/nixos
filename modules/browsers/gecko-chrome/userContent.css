@@ -1,0 +1,7 @@
+/* Sidebery's panel; the moz-extension UUID differs per profile. */
+@-moz-document regexp("moz-extension://[^/]+/sidebar/sidebar\\.html.*") {
+	.Tab[data-active="true"] .body {
+		background-color: transparent !important;
+		box-shadow: none !important;
+	}
+}

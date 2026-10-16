@@ -70,6 +70,7 @@ let
       # Imported dotfiles chrome first; the extension fragment appends so its
       # widget-specific icon override wins the cascade.
       userChrome = geckoChrome.userChrome + geckoExtensions.userChrome;
+      inherit (geckoChrome) userContent;
       extensions = {
         force = true;
         inherit packages;

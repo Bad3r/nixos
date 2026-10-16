@@ -24,7 +24,12 @@ toolbar#nav-bar::after {
 }
 
 #TabsToolbar {
-	visibility: collapse !important;
+	display: none !important;
+}
+
+/* Gecko drops this tab-strip separator only under vertical tabs ([tabs-hidden]). */
+#nav-bar {
+	border-top: none !important;
 }
 
 :root:not([inFullscreen]) #nav-bar {
@@ -61,51 +66,6 @@ toolbar#nav-bar::after {
 
 #navigator-toolbox {
 	border-bottom: none !important;
-}
-
-/* Autohide Sidebar */
-#sidebar {
-	max-width: none !important;
-	min-width: 0px !important;
-}
-/* Hide splitter, when using Tree Style Tab. */
-#sidebar-box[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"]
-+ #sidebar-splitter {
-	display: none !important;
-}
-/* Hide sidebar header, when using Tree Style Tab. */
-#sidebar-box[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"]
-#sidebar-header {
-	visibility: collapse;
-}
-/* Shrink sidebar until hovered, when using Tree Style Tab. */
-:root {
-	--thin-tab-width: 38px;
-	--wide-tab-width: 200px;
-}
-#sidebar-box:not(
-	[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"]
-) {
-	min-width: var(--wide-tab-width) !important;
-	max-width: none !important;
-}
-#sidebar-box[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"] {
-	overflow: hidden !important;
-	position: relative !important;
-	transition: all 300ms !important;
-	min-width: var(--thin-tab-width) !important;
-	max-width: var(--thin-tab-width) !important;
-}
-#sidebar-box[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"]:hover,
-#sidebar-box[sidebarcommand="treestyletab_piro_sakura_ne_jp-sidebar-action"]
-	#sidebar {
-	transition: all 300ms !important;
-	min-width: var(--wide-tab-width) !important;
-	max-width: var(--wide-tab-width) !important;
-
-	/* Negative right-margin to keep page from being pushed to the side. */
-	margin-right: calc(var(--thin-tab-width) - var(--wide-tab-width)) !important;
-	z-index: 1;
 }
 
 /* Stylix feeds these browser theme variables through Firefox Color. */
@@ -200,4 +160,18 @@ menuitem[_moz-menuactive] {
 menu[disabled="true"],
 menuitem[disabled="true"] {
 	color: var(--uc-menu-disabled) !important;
+}
+
+:root,
+:host {
+	--button-border-radius: 0 !important;
+	--toolbarbutton-border-radius: 0 !important;
+	--panel-border-radius: 0 !important;
+	--panel-menuitem-border-radius: 0 !important;
+	--popup-border-radius: 0 !important;
+}
+
+/* Matches the Bookmarks panel header only; History and Open Tabs render a <sidebar-panel-header> element. */
+#sidebar-panel-header {
+	display: none !important;
 }

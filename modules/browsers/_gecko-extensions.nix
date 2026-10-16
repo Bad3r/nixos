@@ -28,6 +28,7 @@ let
     printEdit
     raindrop
     savePage
+    sidebery
     svgGobbler
     tabStash
     tridactyl
@@ -91,6 +92,7 @@ let
     (toWidgetId printEdit)
     (toWidgetId savePage)
     (toWidgetId foxyproxy)
+    (toWidgetId sidebery)
   ];
 
   navBarWidgets = [
@@ -116,8 +118,12 @@ let
     "unified-extensions-area" = unifiedExtensionsArea;
     "nav-bar" = navBarWidgets;
     "toolbar-menubar" = [ "menubar-items" ];
-    TabsToolbar = [ ];
-    "vertical-tabs" = [ "tabbrowser-tabs" ];
+    # userChrome.css hides this strip; Sidebery lists the tabs in the sidebar.
+    TabsToolbar = [
+      "tabbrowser-tabs"
+      "new-tab-button"
+    ];
+    "vertical-tabs" = [ ];
     PersonalToolbar = [ "personal-bookmarks" ];
   };
 
@@ -151,16 +157,6 @@ let
       list-style-image: url("file://${onePasswordToolbarIcon}") !important;
     }
   '';
-
-  horizontalTabsBackup = toolbarState // {
-    placements = toolbarPlacements // {
-      TabsToolbar = [
-        "tabbrowser-tabs"
-        "new-tab-button"
-      ];
-      "vertical-tabs" = [ ];
-    };
-  };
 
   pageActionsPersistedActions = {
     ids = [
@@ -293,10 +289,12 @@ in
     let
       sidebarExtensionIds = [
         raindrop
+        sidebery
         tabStash
         tridactyl
       ];
       sidebarTools = [
+        sidebery
         raindrop
         tabStash
         "history"
@@ -309,8 +307,6 @@ in
 
   toolbarSettings = {
     "browser.pageActions.persistedActions" = builtins.toJSON pageActionsPersistedActions;
-    "browser.uiCustomization.horizontalTabsBackup" = builtins.toJSON horizontalTabsBackup;
-    "browser.uiCustomization.navBarWhenVerticalTabs" = builtins.toJSON navBarWidgets;
     "browser.uiCustomization.state" = builtins.toJSON toolbarState;
   };
 

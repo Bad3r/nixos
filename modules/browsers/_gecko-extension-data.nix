@@ -34,6 +34,7 @@ let
   printEdit = "printedit-we@DW-dev";
   raindrop = "jid0-adyhmvsP91nUO8pRv0Mn2VKeB84@jetpack";
   savePage = "savepage-we@DW-dev";
+  sidebery = "{3c078156-979c-498b-8990-85f7987dd929}";
   svgGobbler = "{7962ff4a-5985-4cf2-9777-4bb642ad05b8}";
   tabStash = "tab-stash@condordes.net";
   tridactyl = "tridactyl.vim@cmcaine.co.uk";
@@ -81,6 +82,7 @@ let
     printEdit
     raindrop
     savePage
+    sidebery
     svgGobbler
     tabStash
     tridactyl
@@ -149,6 +151,7 @@ in
     printEdit
     raindrop
     savePage
+    sidebery
     svgGobbler
     tabStash
     tridactyl

@@ -117,14 +117,12 @@ in
       #   0 = dark, 1 = light, 2 = system, 3 = browser theme.
       "layout.css.prefers-color-scheme.content-override" = 0;
 
-      # Vertical tabs sidebar. sidebar.revamp is required on Firefox 131+ for
-      # sidebar.verticalTabs to actually apply.
-      "sidebar.verticalTabs" = true;
+      # Sidebery replaces the native tab strip. "hide-launcher" is the
+      # horizontal-tabs mode that shows the panel without the launcher column.
+      "sidebar.verticalTabs" = false;
       "sidebar.revamp" = true;
-      "sidebar.open" = true;
+      "sidebar.visibility" = "hide-launcher";
       "sidebar.position_start" = true;
-      "sidebar.command" = "viewTabsSidebar";
-      "sidebar.verticalTabs.dragToPinPromo.dismissed" = true;
 
       # Keep the bookmarks toolbar hidden.
       "browser.toolbars.bookmarks.visibility" = "never";
