@@ -39,6 +39,9 @@ let
           # Comparing modtime costs one HEAD request per R2 object, while
           # size and ETag come with the listing.
           compare = "size,checksum";
+          # Keeps local MD5s between runs, so a pass hashes only new or
+          # changed files instead of the whole tree.
+          checksumCache = true;
           excludes = [
             "node_modules/**"
             ".venv/**"
