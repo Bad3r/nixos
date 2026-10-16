@@ -150,13 +150,28 @@ let
     newElementCount = 4;
   };
 
-  onePasswordToolbarIcon = ../stylix/icons/1password-outline.svg;
-  userChrome = ''
-    #${toWidgetId onePassword} > .toolbarbutton-icon,
-    #${toWidgetId onePassword} > .toolbarbutton-badge-stack > .toolbarbutton-icon {
-      list-style-image: url("file://${onePasswordToolbarIcon}") !important;
-    }
-  '';
+  # Monochrome toolbar icons recolored to the stylix foreground; each one
+  # replaces every state icon the extension sets (locked, disabled, ...).
+  toolbarIcons = {
+    "${onePassword}" = "1password";
+    "${ublockOrigin}" = "ublock-origin";
+    "${raindrop}" = "raindrop";
+    "${tridactyl}" = "tridactyl";
+  };
+  mkToolbarIcon =
+    name:
+    pkgs.writeText "${name}-toolbar.svg" (
+      builtins.replaceStrings [ "#d3dae3" ] [ (getStylixColor "base05" "#d3dae3") ] (
+        builtins.readFile ../stylix/icons/${name}-outline.svg
+      )
+    );
+  userChrome = lib.concatStrings (
+    lib.mapAttrsToList (extension: name: ''
+      #${toWidgetId extension} .unified-extensions-item-action-button {
+        list-style-image: url("file://${mkToolbarIcon name}") !important;
+      }
+    '') toolbarIcons
+  );
 
   pageActionsPersistedActions = {
     ids = [
