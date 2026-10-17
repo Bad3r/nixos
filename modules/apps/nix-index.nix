@@ -1,47 +1,54 @@
 /*
   Package: nix-index
-  Description: Offline index and search utility for locating files in Nix packages.
+  Description: File database for nixpkgs that answers which package provides a file or command.
   Homepage: https://github.com/nix-community/nix-index
   Documentation: https://github.com/nix-community/nix-index#usage
   Repository: https://github.com/nix-community/nix-index
 
   Summary:
-    * Builds an index of the binary cache so you can quickly discover which package provides a file or command.
-    * Integrates with shell completions and `nix-locate` for humans and scripts.
+    * Installs nix-index wrapped with the prebuilt database from nix-index-database, so `nix-locate` works without a local `nix-index` run.
+    * Hooks bash and zsh so an unknown command prints the packages that provide it, in place of command-not-found.
 
   Options:
-    nix-index: Refresh the local index database (typically after `nix-index-update`).
-    nix-locate <pattern>: Query the index for packages containing a file.
+    nix-locate <pattern>: Query the database for packages containing a file.
+    nix-locate --top-level <pattern>: Report only top-level package attributes.
+    nix-locate --whole-name <pattern>: Match the whole file name rather than a substring.
 
   Example Usage:
     * `nix-locate bin/terraform` -- Find which derivations ship a `terraform` binary.
-    * `nix-index` -- Rebuild the index using the current substituter set.
+    * `nix-locate --top-level --whole-name libssl.so.3` -- Find the packages that ship a shared library.
 */
-_:
+{ inputs, ... }:
 let
   NixIndexModule =
     {
       config,
       lib,
-      pkgs,
       ...
     }:
     let
       cfg = config.programs."nix-index".extended;
     in
     {
+      imports = [ inputs.nix-index-database.nixosModules.nix-index ];
+
       options.programs.nix-index.extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
           description = "Whether to enable nix-index.";
         };
-
-        package = lib.mkPackageOption pkgs "nix-index" { };
       };
 
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+      config = {
+        # The database module enables nix-index and its own package by default.
+        programs.nix-index-database.enable = cfg.enable;
+
+        programs.nix-index = lib.mkIf cfg.enable {
+          enable = true;
+          enableBashIntegration = true;
+          enableZshIntegration = true;
+        };
       };
     };
 in

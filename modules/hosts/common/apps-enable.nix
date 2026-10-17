@@ -316,7 +316,7 @@ let
       "nix-diff".extended.enable = lib.mkOverride 1100 true;
       "nix-direnv".extended.enable = lib.mkOverride 1100 true;
       "nix-eval-jobs".extended.enable = lib.mkOverride 1100 true;
-      "nix-index".extended.enable = lib.mkOverride 1100 false;
+      "nix-index".extended.enable = lib.mkOverride 1100 true;
       "nix-output-monitor".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-git".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-github".extended.enable = lib.mkOverride 1100 true;
