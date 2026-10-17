@@ -11,6 +11,10 @@
     }:
     let
       i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
+      autotilingCfg = lib.attrByPath [ "programs" "autotiling-rs" "extended" ] {
+        enable = false;
+        package = pkgs.autotiling-rs;
+      } osConfig;
       primeSyncEnabled = lib.attrByPath [ "gpu" "nvidia" "prime" "syncActive" ] false osConfig;
       brightnessctlPackage = lib.attrByPath [
         "programs"
@@ -185,7 +189,8 @@
                 Restart = "always";
               };
             };
-
+          }
+          // lib.optionalAttrs autotilingCfg.enable {
             autotiling-rs = {
               Unit = {
                 Description = "Autotiling for i3";
@@ -194,7 +199,7 @@
               };
               Install.WantedBy = [ "i3-session.target" ];
               Service = {
-                ExecStart = lib.getExe pkgs.autotiling-rs;
+                ExecStart = lib.getExe autotilingCfg.package;
                 Restart = "on-failure";
               };
             };

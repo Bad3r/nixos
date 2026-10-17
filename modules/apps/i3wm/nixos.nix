@@ -69,7 +69,6 @@ let
         # Provide core tools referenced by the i3 session.
         environment.systemPackages = with pkgs; [
           arandr
-          autotiling-rs
           dunst
           hsetroot
           i3lock-color
