@@ -539,11 +539,7 @@
         gui.i3.commands = lib.mkDefault commandsDefault;
 
         home.packages = [
-          pkgs.gsimplecal
           calendarDropdownScript
-          pkgs.rofimoji
-          pkgs.i3-scratchpad-show-or-create
-          pkgs.i3-focus-or-launch
           toggleLogseqScript
           toggleRaindropScript
         ];

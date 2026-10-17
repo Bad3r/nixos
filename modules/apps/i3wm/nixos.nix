@@ -1,5 +1,5 @@
 # i3 NixOS module
-# Enables X11 with i3 window manager and provides core system packages
+# Enables X11 with the i3 window manager
 let
   i3SessionModule =
     { pkgs, lib, ... }:
@@ -43,6 +43,8 @@ let
             windowManager.i3 = {
               enable = true;
               package = pkgs.i3;
+              # Upstream adds dmenu and i3status; dmenu has its own app row and the bar runs i3status-rust.
+              extraPackages = [ ];
             };
             displayManager.lightdm.enable = true;
           };
@@ -59,22 +61,6 @@ let
           "monitor-query".extended.enable = lib.mkOverride 1050 true;
           snixembed.extended.enable = lib.mkOverride 1050 true;
         };
-
-        # Provide core tools referenced by the i3 session.
-        environment.systemPackages = with pkgs; [
-          arandr
-          dunst
-          hsetroot
-          i3lock-color
-          i3status-rust
-          maim
-          # picom is installed by modules/apps/picom.nix under
-          # programs.picom.extended, which the app baseline turns on. Listing
-          # it here as well installed a second, stock derivation that shadowed
-          # an overridden package on PATH and survived turning the app off.
-          rofi
-          xclip
-        ];
       };
     };
 in
