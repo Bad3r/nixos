@@ -6,18 +6,11 @@ let
       environment.systemPackages = lib.mkAfter (
         with pkgs;
         [
-          # Audio production and codecs
+          # ALSA mixer and playback tools
           alsa-utils
-          gst_all_1.gstreamer
-          gst_all_1.gst-plugins-base
-          gst_all_1.gst-plugins-good
-          gst_all_1.gst-plugins-bad
-          gst_all_1.gst-plugins-ugly
 
           # Diagnostics and stress testing utilities for crash triage
           lm_sensors
-          smartmontools
-          nvme-cli
           stress-ng
           memtester
           glmark2
