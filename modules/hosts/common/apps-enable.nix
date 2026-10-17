@@ -396,6 +396,7 @@ let
       rclone.extended.protonDrive.enable = lib.mkOverride 1100 true;
       readpdf.extended.enable = lib.mkOverride 1100 true;
       remmina.extended.enable = lib.mkOverride 1100 true;
+      restic.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
       resvg.extended.enable = lib.mkOverride 1100 true;
       rg-fzf.extended.enable = lib.mkOverride 1100 true;
