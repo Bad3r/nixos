@@ -122,7 +122,15 @@
 - [guides/README.md](guides/README.md)
   - Index of style guides, coding standards, and how-to documentation.
 - [guides/apps-module-style-guide.md](guides/apps-module-style-guide.md)
-  - Comprehensive style guide for modules/apps/ including header format, module structure, and HM integration workflow.
+  - File layout, module body, namespace selection, and the steps for adding a `modules/apps/` module.
+- [guides/apps-module-header.md](guides/apps-module-header.md)
+  - Header block fields, sections, option documentation, and the sources behind each field.
+- [guides/apps-module-package-sources.md](guides/apps-module-package-sources.md)
+  - Package options for nixpkgs, external flake input, and Python packages.
+- [guides/apps-module-registry.md](guides/apps-module-registry.md)
+  - Baseline and host rows, prerequisite rows, the registry checks, and which module installs a package.
+- [guides/apps-module-home-manager.md](guides/apps-module-home-manager.md)
+  - Home Manager app modules gated on the NixOS row, package handling, import lists, and theming.
 - [guides/custom-packages-style-guide.md](guides/custom-packages-style-guide.md)
   - Conventions for packages/ directory including templates for Rust, Go, Python, and binary downloads.
 - [guides/github-deployments.md](guides/github-deployments.md)
