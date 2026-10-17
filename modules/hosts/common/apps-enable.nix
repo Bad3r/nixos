@@ -120,6 +120,7 @@ let
       dirbuster.extended.enable = lib.mkOverride 1100 true;
       direnv.extended.enable = lib.mkOverride 1100 true;
       discord.extended.enable = lib.mkOverride 1100 true;
+      discordo.extended.enable = lib.mkOverride 1100 false;
       dmenu.extended.enable = lib.mkOverride 1100 true;
       dmidecode.extended.enable = lib.mkOverride 1100 true;
       dnsenum.extended.enable = lib.mkOverride 1100 true;

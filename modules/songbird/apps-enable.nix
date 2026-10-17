@@ -24,6 +24,7 @@ let
     "clojure-lsp" = true;
     leiningen = true;
     delve = true;
+    discordo = true;
     go = true;
     "golangci-lint" = true;
     gopls = true;
