@@ -553,6 +553,7 @@ let
       zap.extended.enable = lib.mkOverride 1100 false;
       zathura.extended.enable = lib.mkOverride 1100 true;
       zbar.extended.enable = lib.mkOverride 1100 true;
+      zenity.extended.enable = lib.mkOverride 1100 true;
       zip.extended.enable = lib.mkOverride 1100 true;
       "zoom-us".extended.enable = lib.mkOverride 1100 false;
       zoxide.extended.enable = lib.mkOverride 1100 true;
