@@ -177,6 +177,8 @@
                   Type = "forking";
                   ExecStart = lockCommand;
                   Restart = "on-failure";
+                  # A killed locker must relock, not count as a clean unlock.
+                  RestartForceExitStatus = "SIGHUP SIGINT SIGTERM SIGPIPE";
                   RestartSec = 0;
                 };
               };
