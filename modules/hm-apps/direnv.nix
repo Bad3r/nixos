@@ -12,7 +12,7 @@
 
   Features:
     * nix-direnv integration for cached Nix shells
-    * Automatic shell integration (Zsh, Bash)
+    * Shell integration for the shells Home Manager manages (zsh)
     * Silent loading to reduce noise
     * Custom stdlib additions for enhanced functionality
 
@@ -24,7 +24,12 @@
 
 _: {
   flake.homeManagerModules.apps.direnv =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "direnv" "extended" "enable" ] false osConfig;
     in
@@ -32,9 +37,18 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.direnv = {
           enable = true;
+          package = lib.attrByPath [ "programs" "direnv" "extended" "package" ] pkgs.direnv osConfig;
 
-          # nix-direnv: Faster, cached Nix shell loading
-          nix-direnv.enable = true;
+          # Sourced from the store path; only the nix-direnv row installs the package.
+          nix-direnv = {
+            enable = lib.attrByPath [ "programs" "nix-direnv" "extended" "enable" ] false osConfig;
+            package = lib.attrByPath [
+              "programs"
+              "nix-direnv"
+              "extended"
+              "package"
+            ] pkgs.nix-direnv osConfig;
+          };
 
           # Shell integrations
           enableZshIntegration = true;
@@ -48,16 +62,6 @@ _: {
 
               # Disable hints for common commands
               hide_env_diff = false;
-            };
-
-            whitelist = {
-              # Allow direnv in home directory projects
-              prefix = [
-                "~/git"
-                "/data/git"
-                "~/projects"
-                "~/src"
-              ];
             };
           };
 
@@ -92,9 +96,7 @@ _: {
           '';
         };
 
-        # Environment variables
         home.sessionVariables = {
-          # Direnv layout directory (cached builds)
           DIRENV_LOG_FORMAT = lib.mkDefault ""; # Silent by default, set to show logs if needed
         };
       };

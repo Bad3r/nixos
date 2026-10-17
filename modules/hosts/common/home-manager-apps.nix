@@ -11,6 +11,7 @@ let
     "bun"
     "claude-code"
     "davmail"
+    "direnv"
     "doom-emacs"
     "dunst"
     "element-desktop"
