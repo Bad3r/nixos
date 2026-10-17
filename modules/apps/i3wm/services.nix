@@ -52,13 +52,21 @@
             "--ring-width=10"
             "--clock"
           ];
-          dimWarningScript = pkgs.writeShellApplication {
-            name = "i3-dim-warning";
+          lockWarningSeconds = 60;
+          lockWarningScript = pkgs.writeShellApplication {
+            name = "i3-idle-lock-warning";
             runtimeInputs = [
+              (appRows.package "libnotify")
               (appRows.package "brightnessctl")
               pkgs.coreutils
             ];
             text = /* bash */ ''
+              notify-send --app-name=i3-idle-lock-warning \
+                --urgency=critical --expire-time=${toString (lockWarningSeconds * 1000)} \
+                --transient --icon=system-lock-screen \
+                "Screen locks in ${toString lockWarningSeconds} seconds" \
+                "Move the mouse or press a key to cancel and reset the idle timer."
+
               target=80
 
               # Hosts without a backlight (songbird) have nothing to dim.
@@ -70,7 +78,7 @@
 
               brightnessctl --class=backlight --quiet --save set "$target%"
               (
-                sleep 60
+                sleep ${toString lockWarningSeconds}
                 brightnessctl --class=backlight --quiet --restore
               ) &
             '';
@@ -81,6 +89,11 @@
             dunst = {
               enable = lib.mkDefault (appRows.enabled "dunst");
               package = lib.mkDefault (appRows.package "dunst");
+              settings.i3-idle-lock-warning = {
+                appname = "i3-idle-lock-warning";
+                fullscreen = "show";
+                override_pause_level = 100;
+              };
             };
             # i3 does not composite, so without picom every GL/video present
             # reaches the scanout unsynchronised and tears. glx+vSync is the
@@ -177,8 +190,8 @@
                   "-time 15"
                   "-locker '${pkgs.systemd}/bin/loginctl lock-session \${XDG_SESSION_ID}'"
                   "-detectsleep"
-                  "-notify 60"
-                  "-notifier ${lib.getExe dimWarningScript}"
+                  "-notify ${toString lockWarningSeconds}"
+                  "-notifier ${lib.getExe lockWarningScript}"
                 ];
                 Restart = "always";
               };

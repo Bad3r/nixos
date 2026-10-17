@@ -1,6 +1,13 @@
 # Useful Commands
 
-This document contains a collection of useful commands that might not be directly related to NixOS or this repository, but are handy to have around.
+## i3 idle locking
+
+Move the mouse or press a key when the screen-lock warning appears to restart the idle timer.
+The warning also appears over fullscreen windows and while notifications are paused.
+Use the mouse or a modifier key such as Shift to avoid typing into the focused application.
+The warning is transient, so it expires even while the session stays idle.
+
+The warning and idle locker are configured in [i3 session services](../../modules/apps/i3wm/services.nix).
 
 ## General CLI
 
