@@ -48,15 +48,15 @@ These carry the explicit `path:.` installable because the branch workflow in [`A
 
 ## Home Manager Package Pattern
 
-This repo uses a dual-module approach: NixOS modules install packages, HM modules configure them. To avoid duplicate installation, HM modules set `package = null` when supported.
+NixOS app modules own each app's row and package. Home Manager modules configure the app, gate on its row, and set `package = null` where Home Manager supports it or take the package from the row otherwise.
 
-See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md#6-create-home-manager-module) for details.
+See [Home Manager app modules](docs/guides/apps-module-home-manager.md#package) for details.
 
 ## App Wiring
 
 Nested host app overrides register full option paths and route them through `programs` first, then `services` for services-only paths. A path absent from both baseline namespaces fails the host evaluation, so it cannot be dropped by a switch that never runs the FR-5 check.
 
-See the [App Modules Style Guide](docs/guides/apps-module-style-guide.md) for the routing and validation contract.
+See [App registry](docs/guides/apps-module-registry.md) for the routing and validation contract.
 
 ## Storage Boundaries
 
