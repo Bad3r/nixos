@@ -42,7 +42,6 @@ let
     "nushell"
     "onlyoffice-desktopeditors"
     "obsidian"
-    "pandoc"
     "pcmanfm"
     "proton-drive"
     "rclone"

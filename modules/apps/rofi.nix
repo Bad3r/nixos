@@ -20,19 +20,14 @@
     * `rofi -show drun` -- Display the application launcher.
     * `rofi -show ssh` -- Quickly SSH into hosts listed in `~/.ssh/config`.
     * `echo -e "Option1\nOption2" | rofi -dmenu -p "Choose:"` -- Use rofi as an interactive selection menu in scripts.
+
+  Notes:
+    * Home Manager installs `package` with the rofi-calc plugin (modules/hm-apps/rofi.nix).
 */
 _:
 let
   RofiModule =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
-    let
-      cfg = config.programs.rofi.extended;
-    in
+    { lib, pkgs, ... }:
     {
       options.programs.rofi.extended = {
         enable = lib.mkOption {
@@ -42,10 +37,6 @@ let
         };
 
         package = lib.mkPackageOption pkgs "rofi" { };
-      };
-
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
       };
     };
 in
