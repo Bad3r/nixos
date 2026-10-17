@@ -12,10 +12,7 @@ _: {
 
     # Per-host values consumed by modules/hosts/common/*.
     cloudflareWarpMeshAddressReady = true;
-    extraHomeApps = [
-      "libreoffice"
-      "nextcloud-client"
-    ];
+    extraHomeApps = [ "nextcloud-client" ];
     firewallLocalTcpPortRanges = [
       {
         from = 8000;
