@@ -132,7 +132,15 @@
 - [guides/apps-module-home-manager.md](guides/apps-module-home-manager.md)
   - Home Manager app modules gated on the NixOS row, package handling, import lists, and theming.
 - [guides/custom-packages-style-guide.md](guides/custom-packages-style-guide.md)
-  - Conventions for packages/ directory including templates for Rust, Go, Python, and binary downloads.
+  - When to create a package under `packages/`, file structure, meta fields, app modules, and validation.
+- [guides/custom-packages-source-builds.md](guides/custom-packages-source-builds.md)
+  - Rust, Go, and Python package templates.
+- [guides/custom-packages-binaries-and-scripts.md](guides/custom-packages-binaries-and-scripts.md)
+  - Binary download and shell wrapper package templates.
+- [guides/custom-packages-overlays.md](guides/custom-packages-overlays.md)
+  - Exposing an in-tree package as `pkgs.<name>` through a gated overlay, or as a flake output.
+- [guides/custom-packages-hashes.md](guides/custom-packages-hashes.md)
+  - Source, cargo, and vendor hash workflows, updater hash helpers, and mismatch recovery.
 - [guides/github-deployments.md](guides/github-deployments.md)
   - Using GitHub's Deployments API via gh CLI for tracking deployments (metadata only, not actual deployment).
 - [guides/host-onboarding.md](guides/host-onboarding.md)
