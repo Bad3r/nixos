@@ -50,6 +50,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "telegram-desktop" ];
   flake.nixosModules.apps.telegram-desktop = TelegramDesktopModule;
 }

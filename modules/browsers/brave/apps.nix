@@ -236,6 +236,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "brave" ];
   flake.nixosModules.browsers.brave = BraveModule;
 }

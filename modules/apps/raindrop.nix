@@ -41,6 +41,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "raindrop" ];
   flake.nixosModules.apps.raindrop = RaindropModule;
 }
