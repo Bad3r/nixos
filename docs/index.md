@@ -415,7 +415,9 @@
 - [keyboards/fc660c/identification-hid.md](keyboards/fc660c/identification-hid.md)
   - The three HID interfaces, resolving a hidraw node, and decoding the raw HID report descriptor.
 - [keyboards/fc660c/configuration.md](keyboards/fc660c/configuration.md)
-  - The NixOS module and its udev rule, day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
+  - The NixOS module, its board-scoped udev rule, the rule file's sort window, and bootloader access.
+- [keyboards/fc660c/configuration-vial.md](keyboards/fc660c/configuration-vial.md)
+  - Day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
 - [keyboards/fc660c/flashing.md](keyboards/fc660c/flashing.md)
   - Entering the DFU bootloader, flashing with vial-qmk or dfu-programmer, and recovering from a bad flash.
 - [keyboards/fc660c/firmware/README.md](keyboards/fc660c/firmware/README.md)

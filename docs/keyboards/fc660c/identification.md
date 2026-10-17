@@ -109,6 +109,6 @@ The committed `vial-gaming` overlay in [firmware/](firmware/README.md) then repl
 - The base `rules.mk` enables `VIA_ENABLE`, `VIAL_ENABLE`, `LTO_ENABLE`, and `TAP_DANCE_ENABLE`, and disables `QMK_SETTINGS`, `CONSOLE_ENABLE`, and `REPEAT_KEY_ENABLE`.
 - The base `vial.json` declares a 5-row, 16-column matrix, no lighting, and vendor and product IDs `0x4853` and `0x660C`.
 - Its visual `keymap` layout marks exactly two keys with the highlight color `#777777`: matrix positions `1,3` and `4,14`, the two the unlock combo names.
-  [configuration.md](configuration.md#the-escenter-unlock-combo) derives which physical keys those are and how to use the combo.
+  [configuration-vial.md](configuration-vial.md#the-escenter-unlock-combo) derives which physical keys those are and how to use the combo.
 
 Vial's Linux udev documentation: <https://get.vial.today/manual/linux-udev.html>
