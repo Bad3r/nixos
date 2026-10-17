@@ -43,13 +43,13 @@ let
       };
 
       config = lib.mkMerge [
-        (lib.mkIf cfg.enable {
+        (lib.mkIf (cfg.enable && !cfg.enableHost) {
           environment.systemPackages = [ cfg.package ];
         })
         (lib.mkIf cfg.enableHost {
           virtualisation.vmware.host = {
             enable = true;
-            package = pkgs.vmware-workstation;
+            inherit (cfg) package;
           };
         })
       ];
