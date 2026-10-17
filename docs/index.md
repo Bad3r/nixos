@@ -1,5 +1,12 @@
 # Documentation Index
 
+## Onboarding
+
+- [ONBOARDING.md](ONBOARDING.md)
+  - Project overview, key concepts, the guided reading path, and the complexity hotspots.
+- [onboarding-layers.md](onboarding-layers.md)
+  - The repository layers and the load-bearing files in each.
+
 ## Architecture
 
 - [architecture/README.md](architecture/README.md)
