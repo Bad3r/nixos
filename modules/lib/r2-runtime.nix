@@ -297,6 +297,8 @@ in
               # is set (the common-host default); its assertion rejects the
               # colliding combination.
               enableRcloneRemote = false;
+              # rclone, restic, and wrangler come from their app rows, git-annex from programs.git-annex-r2.
+              installTools = false;
             };
 
             # Derive all writer settings from the profile names. A new profile
