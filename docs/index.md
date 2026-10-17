@@ -411,7 +411,9 @@
 - [keyboards/fc660c/README.md](keyboards/fc660c/README.md)
   - Leopold FC660C with the Hasu (TMK) Alt Controller: quick identification facts, the NixOS switch, and links to the rest of the set.
 - [keyboards/fc660c/identification.md](keyboards/fc660c/identification.md)
-  - Reproducible USB and HID commands to confirm the Hasu Alt Controller and tell Vial firmware apart from stock TMK or plain QMK/VIA.
+  - Reproducible USB commands to confirm the Hasu Alt Controller and tell Vial firmware apart from stock TMK or plain QMK/VIA.
+- [keyboards/fc660c/identification-hid.md](keyboards/fc660c/identification-hid.md)
+  - The three HID interfaces, resolving a hidraw node, and decoding the raw HID report descriptor.
 - [keyboards/fc660c/configuration.md](keyboards/fc660c/configuration.md)
   - The NixOS module and its udev rule, day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
 - [keyboards/fc660c/flashing.md](keyboards/fc660c/flashing.md)
