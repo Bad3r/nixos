@@ -60,6 +60,8 @@ let
           "i3-scratchpad-show-or-create".extended.enable = lib.mkOverride 1050 true;
           "monitor-query".extended.enable = lib.mkOverride 1050 true;
           snixembed.extended.enable = lib.mkOverride 1050 true;
+          # lock.target's only locker is the unit this row gates.
+          "i3lock-color".extended.enable = lib.mkOverride 1050 true;
         };
       };
     };
