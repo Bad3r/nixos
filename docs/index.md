@@ -336,7 +336,13 @@
 ## SOPS
 
 - [sops/README.md](sops/README.md)
-  - sops-nix secrets management including host preparation, adding secrets, templates, and common issues.
+  - sops-nix policy, what ships in the repo, host key preparation and rotation, and editing encrypted files safely.
+- [sops/adding-secrets.md](sops/adding-secrets.md)
+  - Adding a secret: the YAML shape, explicit key declarations, and runtime consumers.
+- [sops/ci-evaluation.md](sops/ci-evaluation.md)
+  - Secretless CI evaluation through `path:`, and the local store-copy hazard of `path:` commands.
+- [sops/troubleshooting.md](sops/troubleshooting.md)
+  - sops-nix error messages with their cause and fix.
 - [sops/secrets-act.md](sops/secrets-act.md)
   - GitHub personal access token setup for act (local GitHub Actions runner) via sops-nix.
 
