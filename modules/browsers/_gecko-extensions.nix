@@ -294,6 +294,9 @@ in
         assetsBootstrapLocation = librewolfUblockOriginListData.source;
       };
     };
+
+    # Managed keys override Sidebery's own settings.
+    "3rdparty".Extensions."${sidebery}".settings.previewTabsMode = "i";
   };
 
   inherit primaryPackages pentestingPackages workPackages;
