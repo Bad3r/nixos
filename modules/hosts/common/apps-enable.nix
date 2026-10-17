@@ -6,8 +6,9 @@
   represents the common baseline; per-host files (e.g. modules/tpnix/apps-enable.nix)
   layer overrides for entries that diverge.
 
-  Uses lib.mkOverride 1100 (low priority) to allow user overrides and specialized
-  modules to take precedence when needed.
+  Rows sit at lib.mkOverride 1100 and host rows at 1000. A module that needs
+  another app turns that app's row on at lib.mkOverride 1050, so a host row
+  still decides; host-<host>-apps-match-registry fails on any other deviation.
 */
 { lib, ... }:
 let
