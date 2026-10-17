@@ -8,12 +8,6 @@
 
   Uses lib.mkOverride 1100 (low priority) to allow user overrides and specialized
   modules to take precedence when needed.
-
-  NOTE: Some apps are managed by specialized modules and excluded from this catalog:
-  - qemu, vmware-workstation, ovftool: managed in modules/hosts/common/virtualization.nix
-    (Virtualization tools are controlled via host.virtualization.* options)
-
-  This separation eliminates priority conflicts and provides clear domain boundaries.
 */
 { lib, ... }:
 let
@@ -354,6 +348,7 @@ let
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
       overskride.extended.enable = lib.mkOverride 1100 true;
+      ovftool.extended.enable = lib.mkOverride 1100 false;
       p7zip.extended.enable = lib.mkOverride 1100 false;
       "p7zip-rar".extended.enable = lib.mkOverride 1100 true;
       pamixer.extended.enable = lib.mkOverride 1100 true;
@@ -386,6 +381,7 @@ let
       pyyaml.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
       "qbittorrent-webui".extended.enable = lib.mkOverride 1100 false;
+      qemu.extended.enable = lib.mkOverride 1100 false;
       qpdf.extended.enable = lib.mkOverride 1100 true;
       qrencode.extended.enable = lib.mkOverride 1100 true;
       quarto.extended.enable = lib.mkOverride 1100 true;
@@ -497,6 +493,7 @@ let
       "virt-manager".extended.enable = lib.mkOverride 1100 false;
       virtualbox.extended.enable = lib.mkOverride 1100 false;
       vlc.extended.enable = lib.mkOverride 1100 false;
+      "vmware-workstation".extended.enable = lib.mkOverride 1100 false;
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       "vt-cli".extended.enable = lib.mkOverride 1100 true;
       vtracer.extended.enable = lib.mkOverride 1100 true;

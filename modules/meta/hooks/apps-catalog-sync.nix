@@ -22,12 +22,6 @@ _: {
             apps_dir="modules/apps"
             browsers_dir="modules/browsers"
 
-            excluded_apps=(
-              "qemu"
-              "vmware-workstation"
-              "ovftool"
-            )
-
             # Browser modules live under modules/browsers/<name>/apps.nix
             # since the browsers consolidation; their catalog entries use the
             # directory name.
@@ -40,19 +34,6 @@ _: {
                   | sed 's|.*/||'
               } | sort -u
             )
-
-            declare -A excluded_map
-            for excluded in "''${excluded_apps[@]}"; do
-              excluded_map["$excluded"]=1
-            done
-
-            declare -a filtered_fs_apps=()
-            for app in "''${filesystem_apps[@]}"; do
-              if [ -z "''${excluded_map[$app]:-}" ]; then
-                filtered_fs_apps+=("$app")
-              fi
-            done
-            filesystem_apps=("''${filtered_fs_apps[@]}")
 
             declare -A fs_map=()
             for app in "''${filesystem_apps[@]}"; do
@@ -228,9 +209,6 @@ _: {
                 echo "   Catalog:    ''${#catalog_apps[@]} apps" >&2
                 echo "   Missing:    ''${#missing[@]} entries" >&2
                 echo "   Stale:      ''${#stale[@]} entries" >&2
-                if [ "''${#excluded_apps[@]}" -gt 0 ]; then
-                  echo "   Excluded:   ''${#excluded_apps[@]} apps (managed by specialized modules)" >&2
-                fi
                 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" >&2
                 echo "" >&2
                 overall_exit=1
