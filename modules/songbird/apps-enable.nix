@@ -19,6 +19,18 @@ let
     "cloudflare-warp" = true;
     assetripper = true;
     "protonmail-bridge" = true;
+    babashka = true;
+    "clojure-cli" = true;
+    "clojure-lsp" = true;
+    leiningen = true;
+    delve = true;
+    go = true;
+    "golangci-lint" = true;
+    gopls = true;
+    "rust-analyzer" = true;
+    "rust-clippy" = true;
+    rustc = true;
+    rustfmt = true;
     # The Qt client gives way to the namespaced service, whose module
     # (qbittorrent-webui.nix) enables the Web UI handler together with the
     # service.

@@ -68,7 +68,6 @@ in
     config.flake.csec.wordlists
     config.flake.nixosModules.sopsRuntime
     config.flake.nixosModules.repoSecrets
-    config.flake.nixosModules.lang
     config.flake.nixosModules.ssh
     config.flake.nixosModules.bluetooth
     config.flake.nixosModules.nvidia-gpu
