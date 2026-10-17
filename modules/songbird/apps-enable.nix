@@ -18,6 +18,7 @@ let
     "cloudflare-warp" = true;
     assetripper = true;
     "protonmail-bridge" = true;
+    lact = true;
     babashka = true;
     "clojure-cli" = true;
     "clojure-lsp" = true;

@@ -52,7 +52,6 @@
         };
 
         power-profiles-daemon.enable = true;
-        lact.enable = lib.mkForce false;
 
         logind.settings.Login = {
           HandlePowerKey = "lock";
