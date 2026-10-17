@@ -20,15 +20,10 @@ Home Manager modules feed into `flake.homeManagerModules` for user-level configu
 Multiple files can extend shared namespaces. Common patterns in this repo:
 
 ```nix
-# modules/files/fzf.nix
+# modules/files/eza.nix
 {
   flake.homeManagerModules.base = _: {
-    programs.fzf = {
-      enable = true;
-      enableZshIntegration = true;
-      enableBashIntegration = true;
-      enableFishIntegration = false;
-    };
+    programs.eza.enable = true;
   };
 }
 
@@ -69,18 +64,7 @@ loadAppModule = name:
 
 ### Default App Imports
 
-The following apps are loaded by default for `vx` on each NixOS host (defined in `modules/home-manager/nixos.nix`):
-
-```nix
-defaultAppImports = [
-  "codex"
-  "bat"
-  "eza"
-  "fzf"
-  "git-mirror"
-  "kitty"
-];
-```
+`defaultAppImports` in `modules/home-manager/nixos.nix` names the apps loaded for `vx` on every NixOS host.
 
 ### Adding Extra Apps
 
