@@ -1,6 +1,7 @@
 # Songbird runbook: Windows
 
-NixOS procedures are in [songbird-runbook.md](songbird-runbook.md), and the reinstall in [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md).
+- [songbird-runbook.md](songbird-runbook.md)
+- [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md)
 
 ## Boot Windows once from NixOS
 
@@ -20,7 +21,8 @@ Precondition: NixOS is running normally; resume a hibernated system instead of b
    sudo efibootmgr --bootnext 0002 && systemctl reboot
    ```
 
-   `--bootnext` boots Windows through its own firmware entry exactly once instead of chainloading via systemd-boot, which would change PCR 4 and trigger a BitLocker recovery prompt.
+   `--bootnext` boots Windows through its own firmware entry exactly once.
+   Chainloading through systemd-boot instead would change PCR 4 and trigger a BitLocker recovery prompt.
 
 3. After Windows reorders the boot entries, restore the default:
 
@@ -56,33 +58,72 @@ Precondition: disk A is protected from the Windows installer, which drops its bo
 
 Verification: both `Linux Boot Manager` and `Windows Boot Manager` boot cleanly from the F8 firmware boot menu.
 
-## Convert portal to BitLocker
+## Move Windows Boot Manager to disk W
 
-Precondition: `/portal` is the plain NTFS volume declared in `modules/songbird/hardware-config.nix`.
+Precondition: Windows boots through the `Windows Boot Manager` firmware entry, disk W has no `EFI System` partition, and the C: recovery key is in the password manager.
 
-1. In Windows: back up the portal volume's contents, wipe it, and create a single GPT NTFS volume labeled `portal`.
-
-2. Enable BitLocker on it with a password protector and a recovery key, then turn on autounlock:
+1. Boot Windows once as in [Boot Windows once from NixOS](#boot-windows-once-from-nixos), then suspend BitLocker on C: in an elevated shell until step 7 resumes it:
 
    ```sh
-   manage-bde -autounlock -enable <drive>:
+   manage-bde -protectors -disable C: -RebootCount 0
    ```
 
-   Store both the password and the recovery key in the password manager.
+2. In an elevated `diskpart`, find disk W's number with `list disk` (the 953 GB disk), then shrink C: and create an ESP in the freed space:
 
-3. In NixOS, place the BitLocker password with no trailing newline at `/var/lib/secrets/portal-bitlk.key`, root owned, mode 0400.
-   No module recreates this file, and it lives on disk A's root filesystem, which the reinstall procedure wipes; restore it from the password manager after every reinstall or `/portal` stays locked.
-
-   A plain root-owned file replaces a sops runtime path because `systemd-cryptsetup@portal` runs from `cryptsetup.target`, before sops-nix activation writes `/run/secrets`.
-
-4. Add the crypttab entry and point `/portal` at the mapped device in `modules/songbird/hardware-config.nix`:
-
-   ```nix
-   environment.etc."crypttab".text = ''
-     portal /dev/disk/by-partuuid/<portal-partuuid> /var/lib/secrets/portal-bitlk.key bitlk,nofail
-   '';
+   ```sh
+   select volume C
+   shrink desired=300
+   select disk <disk-w-number>
+   create partition efi size=260
+   format quick fs=fat32 label=SYSTEM
+   assign letter=S
+   exit
    ```
 
-   Set `fileSystems."/portal".device` to `/dev/mapper/portal`.
+3. Copy the boot files and a new BCD store onto the ESP, then remove its drive letter:
 
-Verification: reboot; `/portal` mounts owner-readable, and Windows still auto-unlocks it.
+   ```sh
+   bcdboot C:\Windows /s S: /f UEFI
+   mountvol S: /d
+   ```
+
+   With `/s`, `bcdboot` writes no firmware entry, so NixOS creates it in step 5.
+
+4. Reboot into NixOS and read the ESP's partition number on disk W:
+
+   ```sh
+   lsblk -o NAME,PARTTYPENAME /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492
+   ```
+
+5. Replace the old firmware entry with one on disk W's ESP, then set the order to `Linux Boot Manager`, the new entry, and the remaining entries:
+
+   ```sh
+   sudo efibootmgr --bootnum <old-windows-entry> --delete-bootnum
+   sudo efibootmgr --create-only --disk /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492 --part <esp-partition-number> --label 'Windows Boot Manager' --loader '\EFI\Microsoft\Boot\bootmgfw.efi'
+   sudo efibootmgr --bootorder <linux-entry>,<new-windows-entry>,<remaining-entries>
+   ```
+
+6. Boot Windows through the new entry:
+
+   ```sh
+   sudo efibootmgr --bootnext <new-windows-entry> && systemctl reboot
+   ```
+
+7. In an elevated shell, resume BitLocker and register the recovery environment in the new BCD store:
+
+   ```sh
+   manage-bde -protectors -enable C:
+   reagentc /disable
+   reagentc /enable
+   ```
+
+8. Back in NixOS, remove the old boot files from disk A's ESP, which also drops the Windows entry from the systemd-boot menu:
+
+   ```sh
+   sudo rip /boot/EFI/Microsoft
+   ```
+
+Verification:
+
+- `efibootmgr -v` shows `Windows Boot Manager` on the PARTUUID that `lsblk -o NAME,PARTUUID` reports for disk W's ESP.
+- In Windows, `manage-bde -status C:` reports `Protection On`, and `reagentc /info` reports `Enabled`.

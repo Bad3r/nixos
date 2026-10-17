@@ -90,6 +90,7 @@ Longer rationale belongs in the commit body, in the code comment at the option, 
 Each host has four pages under `docs/<host>/`.
 They are named `<host>-hardware.md`, `<host>-configuration.md`, `<host>-runbook.md`, and `<host>-troubleshooting.md`.
 A runbook or troubleshooting page that outgrows the cap splits by topic into `<host>-runbook-<topic>.md` or `<host>-troubleshooting-<topic>.md`.
+A topic whose host facts fit none of the four, such as measured performance, adds a `<host>-<topic>.md` overview beside its splits.
 
 ### Hardware
 
@@ -115,6 +116,12 @@ A procedure written before its first run reads exactly like one that has run.
 
 One `##` section per known failure, named by the symptom the reader sees.
 Each section gives the cause in one sentence, the diagnostic command, and the fix.
+
+### Topic overview
+
+It opens on the subject in one sentence, then links the topic's runbook and troubleshooting splits.
+Its sections cover what the topic does on this host's hardware: how it works, measured numbers, uses, and limits.
+A measurement names the workload and the engine it ran on; procedures and failures stay in the splits.
 
 ## Enforcement
 

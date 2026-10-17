@@ -74,14 +74,22 @@
   - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
 - [songbird/songbird-configuration.md](songbird/songbird-configuration.md)
   - Non-obvious operational deviations from the hosts-common baseline.
+- [songbird/songbird-local-ai.md](songbird/songbird-local-ai.md)
+  - Model fit across VRAM and RAM, decode speeds, uses, and limits of local AI on the `songbird` RTX 5080.
 - [songbird/songbird-runbook.md](songbird/songbird-runbook.md)
   - Validation procedure for a `songbird` change.
+- [songbird/songbird-runbook-local-ai.md](songbird/songbird-runbook-local-ai.md)
+  - Magnitude models, Claude Code and Codex on local models, CUDA llama.cpp, iPhone access, and freeing the GPU on `songbird`.
+- [songbird/songbird-runbook-portal.md](songbird/songbird-runbook-portal.md)
+  - Converting the `/portal` drive to BitLocker and unlocking it from NixOS on `songbird`.
 - [songbird/songbird-runbook-reinstall.md](songbird/songbird-runbook-reinstall.md)
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
-  - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+  - Booting Windows once, installing Windows on disk W, and moving Windows Boot Manager to its own ESP on disk W.
 - [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [songbird/songbird-troubleshooting-local-ai.md](songbird/songbird-troubleshooting-local-ai.md)
+  - Local AI failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [songbird/songbird-troubleshooting-windows.md](songbird/songbird-troubleshooting-windows.md)
   - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
@@ -114,6 +122,8 @@
   - Phase 3 of the Chromium web-app migration: the `programs.webapps` module on brave-origin, plus the decisions table, the fact table, and the self-review for the series.
 - [drafts/duplicati-r2-readonly-mount-investigation.md](drafts/duplicati-r2-readonly-mount-investigation.md)
   - Investigation into a read-only mount for encrypted R2 backup archives (issue #204).
+- [drafts/songbird-local-ai-plan.md](drafts/songbird-local-ai-plan.md)
+  - Draft plan for replacing Magnitude with llama.cpp on `songbird` and declaring LACT, with the decisions taken and the ones still open.
 - [drafts/tpnix-cryptographic-identity-bootstrap-plan.md](drafts/tpnix-cryptographic-identity-bootstrap-plan.md)
   - Draft plan for bootstrapping cryptographic identity on the tpnix host.
 
