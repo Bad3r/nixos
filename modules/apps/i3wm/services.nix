@@ -31,7 +31,7 @@
           };
           # i3lock-color forks once its window is mapped, which is the
           # readiness point Type=forking waits for.
-          lockCommand = lib.escapeShellArgs [
+          lockArgs = [
             (lib.getExe osConfig.programs.i3lock.package)
             "--color=${lockPalette.background}"
             "--inside-color=${lockPalette.background}"
@@ -46,54 +46,38 @@
             "--time-color=${lockPalette.text}"
             "--date-color=${lockPalette.text}"
             "--layout-color=${lockPalette.text}"
-            "--time-str=%%H:%%M:%%S"
-            "--date-str=%%A, %%d %%B %%Y"
+            "--time-str=%H:%M:%S"
+            "--date-str=%A, %d %B %Y"
             "--radius=120"
             "--ring-width=10"
             "--clock"
           ];
-          lockWarningSeconds = 60;
-          lockWarningScript = pkgs.writeShellApplication {
-            name = "i3-idle-lock-warning";
+          lockCommand = lib.replaceStrings [ "%" ] [ "%%" ] (lib.escapeShellArgs lockArgs);
+          screensaverSeconds = 60;
+          screensaverScript = pkgs.writeShellApplication {
+            name = "i3-idle-screensaver";
             runtimeInputs = [
-              (appRows.package "libnotify")
-              (appRows.package "brightnessctl")
-              pkgs.coreutils
+              pkgs.python3
+              pkgs.xprintidle
             ];
             text = /* bash */ ''
-              notify-send --app-name=i3-idle-lock-warning \
-                --urgency=critical --expire-time=${toString (lockWarningSeconds * 1000)} \
-                --transient --icon=system-lock-screen \
-                "Screen locks in ${toString lockWarningSeconds} seconds" \
-                "Move the mouse or press a key to cancel and reset the idle timer."
-
-              target=80
-
-              # Hosts without a backlight (songbird) have nothing to dim.
-              info=$(brightnessctl --class=backlight --machine-readable info 2>/dev/null) || exit 0
-              IFS=, read -r _ _ _ current _ <<<"$info"
-              if [ "''${current%\%}" -le "$target" ]; then
-                exit 0
-              fi
-
-              brightnessctl --class=backlight --quiet --save set "$target%"
-              (
-                sleep ${toString lockWarningSeconds}
-                brightnessctl --class=backlight --quiet --restore
-              ) &
+              exec python3 ${./_idle-screensaver.py} ${toString screensaverSeconds} \
+                ${lib.escapeShellArgs lockArgs} --nofork --no-verify
             '';
           };
+          screensaverCondition = pkgs.writeShellScript "i3-idle-screensaver-condition" ''
+            state=$(${pkgs.systemd}/bin/systemctl --user show i3lock.service --property=ActiveState --value) || exit 255
+            case "$state" in
+              inactive|failed) exit 0 ;;
+              *) exit 1 ;;
+            esac
+          '';
         in
         {
           services = {
             dunst = {
               enable = lib.mkDefault (appRows.enabled "dunst");
               package = lib.mkDefault (appRows.package "dunst");
-              settings.i3-idle-lock-warning = {
-                appname = "i3-idle-lock-warning";
-                fullscreen = "show";
-                override_pause_level = 100;
-              };
             };
             # i3 does not composite, so without picom every GL/video present
             # reaches the scanout unsynchronised and tears. glx+vSync is the
@@ -169,11 +153,23 @@
               Install.WantedBy = [ "lock.target" ];
               Service = {
                 Type = "forking";
+                ExecStartPre = "${pkgs.systemd}/bin/systemctl --user stop i3-idle-screensaver.service";
                 ExecStart = lockCommand;
                 Restart = "on-failure";
                 # A killed locker must relock, not count as a clean unlock.
                 RestartForceExitStatus = "SIGHUP SIGINT SIGTERM SIGPIPE";
                 RestartSec = 0;
+              };
+            };
+
+            i3-idle-screensaver = {
+              Unit = {
+                Description = "Dismissible i3 idle screensaver";
+                PartOf = [ "graphical-session.target" ];
+              };
+              Service = {
+                ExecCondition = screensaverCondition;
+                ExecStart = lib.getExe screensaverScript;
               };
             };
 
@@ -190,8 +186,8 @@
                   "-time 15"
                   "-locker '${pkgs.systemd}/bin/loginctl lock-session \${XDG_SESSION_ID}'"
                   "-detectsleep"
-                  "-notify ${toString lockWarningSeconds}"
-                  "-notifier ${lib.getExe lockWarningScript}"
+                  "-notify ${toString screensaverSeconds}"
+                  "-notifier '${pkgs.systemd}/bin/systemctl --user start --no-block i3-idle-screensaver.service'"
                 ];
                 Restart = "always";
               };
