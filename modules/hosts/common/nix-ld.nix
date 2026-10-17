@@ -83,24 +83,6 @@ let
       };
 
       environment = {
-        systemPackages = with pkgs; [
-          bash
-          gnutar
-          curl
-          wget
-          git
-          nodejs_24
-          gcc
-          gnumake
-          binutils
-          coreutils
-          gzip
-          xz
-          python3
-          procps
-          lsof
-        ];
-
         variables = {
           VSCODE_SERVER_TAR = "${pkgs.gnutar}/bin/tar";
           NODE_PATH = "${pkgs.nodejs_24}/lib/node_modules";
