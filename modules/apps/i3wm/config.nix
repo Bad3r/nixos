@@ -12,6 +12,12 @@
     }:
     let
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
+      brightnessctlPackage = lib.attrByPath [
+        "programs"
+        "brightnessctl"
+        "extended"
+        "package"
+      ] pkgs.brightnessctl osConfig;
       powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
       enforcedPowerProfile = (import ../../hosts/common/_power-profile-unit.nix pkgs).profile;
       sessionMetadata = {
@@ -355,7 +361,7 @@
             rofi -dmenu -i -config "$HOME/.config/rofi/powermenu.rasi" || true)
 
           case "$chosen" in
-            Lock) exec ${lockCommandValue} ;;
+            Lock) loginctl lock-session ;;
             Logout) i3-msg exit ;;
             Suspend) systemctl suspend ;;
             Hibernate) systemctl hibernate ;;
@@ -373,7 +379,7 @@
         bluetoothMenu = "${lib.getExe pkgs.bzmenu} --launcher rofi";
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
-        brightness = lib.getExe pkgs.xbacklight;
+        brightness = "${lib.getExe brightnessctlPackage} --class=backlight";
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
         ocr = lib.getExe pkgs.normcap;
         logseqToggle = lib.getExe toggleLogseqScript;
@@ -385,80 +391,6 @@
 
       # Use the already-defined stylixColors for consistency
       stylixColorsStrictWithHash = stylixColors;
-
-      toLockColor =
-        colorHex:
-        let
-          trimmed = lib.removePrefix "#" colorHex;
-          normalized = if builtins.stringLength trimmed == 8 then trimmed else trimmed + "FF";
-        in
-        lib.strings.toUpper normalized;
-
-      # Build lock palette directly from Stylix colors (no fallbacks)
-      lockPalette = {
-        background = toLockColor stylixColorsStrictWithHash.base00;
-        ring = toLockColor stylixColorsStrictWithHash.base04;
-        ringWrong = toLockColor stylixColorsStrictWithHash.base08;
-        ringVerify = toLockColor stylixColorsStrictWithHash.base0B;
-        line = toLockColor stylixColorsStrictWithHash.base03;
-        text = toLockColor stylixColorsStrictWithHash.base05;
-      };
-
-      lockScript = pkgs.writeShellApplication {
-        name = "i3lock-stylix";
-        runtimeInputs = [
-          pkgs.i3lock-color
-          pkgs.procps
-          pkgs.xbacklight
-        ];
-        text = ''
-          set -eu
-
-          cache_dir="''${XDG_CACHE_HOME:-$HOME/.cache}/i3lock"
-          brightness_file="$cache_dir/brightness"
-
-          restore_brightness() {
-            if [ -f "$brightness_file" ]; then
-              target=$(cat "$brightness_file")
-              xbacklight -set "$target" >/dev/null 2>&1 || true
-              rm -f "$brightness_file"
-            fi
-          }
-
-          if pgrep -x i3lock-color > /dev/null; then
-            exit 0
-          fi
-
-          mkdir -p "$cache_dir"
-          restore_brightness
-
-          exec i3lock-color \
-            --color=${lockPalette.background} \
-            --inside-color=${lockPalette.background} \
-            --ring-color=${lockPalette.ring} \
-            --insidewrong-color=${lockPalette.background} \
-            --ringwrong-color=${lockPalette.ringWrong} \
-            --insidever-color=${lockPalette.background} \
-            --ringver-color=${lockPalette.ringVerify} \
-            --line-color=${lockPalette.line} \
-            --keyhl-color=${lockPalette.ringVerify} \
-            --bshl-color=${lockPalette.ringWrong} \
-            --time-color=${lockPalette.text} \
-            --date-color=${lockPalette.text} \
-            --layout-color=${lockPalette.text} \
-            --time-str="%H:%M:%S" \
-            --date-str="%A, %d %B %Y" \
-            --radius=120 \
-            --ring-width=10 \
-            --clock "$@"
-        '';
-      };
-
-      lockCommandDefault = lib.getExe lockScript;
-
-      # Handle null defaults from options - use our defaults if option is null
-      lockCommandValue =
-        if config.gui.i3.lockCommand != null then config.gui.i3.lockCommand else lockCommandDefault;
 
       i3Commands = if config.gui.i3.commands != null then config.gui.i3.commands else commandsDefault;
 
@@ -519,14 +451,6 @@
           type = lib.types.nullOr lib.types.str;
           default = null;
           example = "eth0";
-        };
-
-        lockCommand = lib.mkOption {
-          description = "Command used to lock the screen within the i3 session.";
-          type = lib.types.nullOr lib.types.str;
-          default = null;
-          defaultText = lib.literalExpression "lib.getExe lockScript";
-          example = "i3lock";
         };
 
         commands = lib.mkOption {
@@ -609,7 +533,6 @@
           pkgs.gsimplecal
           calendarDropdownScript
           pkgs.rofimoji
-          lockScript
           pkgs.i3-scratchpad-show-or-create
           pkgs.i3-focus-or-launch
           toggleLogseqScript
@@ -617,22 +540,6 @@
         ];
 
         xdg.configFile = {
-          "i3/scripts/i3lock-stylix" = {
-            executable = true;
-            text = ''
-              #!/usr/bin/env bash
-              exec ${lockCommandValue} "$@"
-            '';
-          };
-
-          "i3/scripts/blur-lock" = {
-            executable = true;
-            text = ''
-              #!/usr/bin/env bash
-              exec ${lockCommandValue} "$@"
-            '';
-          };
-
           "i3/scripts/toggle_logseq.sh" = {
             executable = true;
             source = "${toggleLogseqScript}/bin/toggle-logseq";

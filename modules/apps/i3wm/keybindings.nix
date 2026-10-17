@@ -15,13 +15,6 @@
       # Get commands from gui.i3.commands (defaults set in config.nix)
       inherit (config.gui.i3) commands;
 
-      # Lock command
-      lockCommand =
-        if config.gui.i3.lockCommand != null then
-          config.gui.i3.lockCommand
-        else
-          lib.getExe pkgs.i3lock-color;
-
       # Workspace bindings (1-10, using 0 for workspace 10)
       workspaceNumbers = map toString (lib.range 1 10);
       toWorkspaceKey = ws: if ws == "10" then "0" else ws;
@@ -189,7 +182,7 @@
               "${mod}+Shift+c" = "reload";
               "${mod}+Shift+r" = "restart";
               "${mod}+Shift+e" = "exec systemctl suspend";
-              "${mod}+Control+l" = "exec ${lockCommand}";
+              "${mod}+Control+l" = "exec --no-startup-id ${pkgs.systemd}/bin/loginctl lock-session";
               "${mod}+Shift+p" = "exec --no-startup-id ${commands.powerProfile}";
               "${mod}+x" = "exec --no-startup-id ${commands.powerMenu}";
 
@@ -250,8 +243,8 @@
               "XF86AudioMute" = "exec ${commands.volume} -t";
               "XF86AudioRaiseVolume" = "exec ${commands.volume} -i 2";
               "XF86AudioLowerVolume" = "exec ${commands.volume} -d 2";
-              "XF86MonBrightnessUp" = "exec ${commands.brightness} -inc 10";
-              "XF86MonBrightnessDown" = "exec ${commands.brightness} -dec 10";
+              "XF86MonBrightnessUp" = "exec --no-startup-id ${commands.brightness} set 10%+";
+              "XF86MonBrightnessDown" = "exec --no-startup-id ${commands.brightness} set 10%-";
 
               # Modes
               "${mod}+Shift+g" = "mode \"${gapsModeName}\"";

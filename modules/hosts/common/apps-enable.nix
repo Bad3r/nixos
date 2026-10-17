@@ -522,7 +522,6 @@ let
       wpscan.extended.enable = lib.mkOverride 1100 true;
       wpsoffice.extended.enable = lib.mkOverride 1100 false;
       wrangler.extended.enable = lib.mkOverride 1100 true;
-      xbacklight.extended.enable = lib.mkOverride 1100 true;
       xclip.extended.enable = lib.mkOverride 1100 true;
       xdotool.extended.enable = lib.mkOverride 1100 true;
       "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
