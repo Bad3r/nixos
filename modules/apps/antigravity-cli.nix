@@ -18,7 +18,6 @@
 
   Notes:
     * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
-    * Package is unfree and must remain in `nixpkgs.allowedUnfreePackages`.
 */
 { inputs, ... }:
 let
@@ -54,7 +53,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "antigravity-cli" ];
-
   flake.nixosModules.apps."antigravity-cli" = AntigravityCliModule;
 }

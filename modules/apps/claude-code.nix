@@ -40,8 +40,6 @@ let
   inherit (import ../agents/claude-code/_plugins.nix) enabledPlugins;
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "claude-code" ];
-
   flake.nixosModules.apps.claude-code =
     {
       config,

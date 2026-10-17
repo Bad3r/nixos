@@ -17,11 +17,6 @@
 */
 { inputs, ... }:
 {
-  nixpkgs.allowedUnfreePackages = [
-    "chatgpt"
-    "chatgpt-unwrapped"
-  ];
-
   flake.nixosModules.apps.chatgpt =
     {
       config,
