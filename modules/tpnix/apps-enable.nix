@@ -25,7 +25,7 @@ let
     discord = false;
     dropbox = false;
     dualsensectl = false;
-    dwarfs = false; # Default dependency of steam extraTools
+    dwarfs = false;
     ent = false;
     f3 = false;
     filezilla = false;
