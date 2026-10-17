@@ -10,7 +10,12 @@
 */
 _: {
   flake.homeManagerModules.apps.thunderbird =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "thunderbird" "extended" "enable" ] false osConfig;
     in
@@ -18,6 +23,12 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.thunderbird = {
           enable = true;
+          package = lib.attrByPath [
+            "programs"
+            "thunderbird"
+            "extended"
+            "package"
+          ] pkgs.thunderbird osConfig;
           profiles.main = {
             isDefault = true;
             withExternalGnupg = true;

@@ -74,7 +74,7 @@ _: {
       r2SecretsEnabled = lib.attrByPath [ "home" "r2Secrets" "enable" ] false config;
       r2EndpointAvailable = r2SecretsEnabled && r2SecretExists;
       renderedRcloneConfig = "${config.xdg.configHome}/rclone/rclone.conf";
-      rclonePackage = lib.attrByPath [ "programs" "rclone" "package" ] pkgs.rclone config;
+      rclonePackage = lib.attrByPath [ "programs" "rclone" "extended" "package" ] pkgs.rclone osConfig;
       rcloneExecutable = lib.getExe' rclonePackage "rclone";
       # The 1Password desktop app authorizes CLI integration by the caller's
       # effective onepassword-cli group, which only the setgid wrapper from
@@ -117,6 +117,7 @@ _: {
 
             programs.rclone = {
               enable = true;
+              package = rclonePackage;
             };
 
             home.activation.configureRcloneConfig = lib.hm.dag.entryAfter [ "reloadSystemd" ] ''

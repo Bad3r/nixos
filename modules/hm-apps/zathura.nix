@@ -30,7 +30,10 @@ _: {
     in
     {
       config = lib.mkIf nixosEnabled {
-        programs.zathura.enable = true;
+        programs.zathura = {
+          enable = true;
+          package = null;
+        };
       };
     };
 }

@@ -6,7 +6,12 @@
 
 _: {
   flake.homeManagerModules.apps.zoxide =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "zoxide" "extended" "enable" ] false osConfig;
     in
@@ -14,6 +19,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.zoxide = {
           enable = true;
+          package = lib.attrByPath [ "programs" "zoxide" "extended" "package" ] pkgs.zoxide osConfig;
           # `j` and `ji` instead of `z` and `zi`.
           options = [
             "--cmd"

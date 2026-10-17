@@ -23,13 +23,21 @@
 
 _: {
   flake.homeManagerModules.apps.wezterm =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "wezterm" "extended" "enable" ] false osConfig;
     in
     {
       config = lib.mkIf nixosEnabled {
-        programs.wezterm.enable = true;
+        programs.wezterm = {
+          enable = true;
+          package = lib.attrByPath [ "programs" "wezterm" "extended" "package" ] pkgs.wezterm osConfig;
+        };
       };
     };
 }

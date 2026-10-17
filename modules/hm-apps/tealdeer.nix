@@ -6,7 +6,12 @@
 
 _: {
   flake.homeManagerModules.apps.tealdeer =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "tealdeer" "extended" "enable" ] false osConfig;
     in
@@ -14,6 +19,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.tealdeer = {
           enable = true;
+          package = lib.attrByPath [ "programs" "tealdeer" "extended" "package" ] pkgs.tealdeer osConfig;
         };
       };
     };
