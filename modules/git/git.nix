@@ -24,11 +24,10 @@
       '';
 
       programs = {
+        # Enabled by modules/hm-apps/git.nix while the git row is on.
         git = lib.mkMerge [
           # Base git configuration
           {
-            enable = true;
-
             # Git configuration settings
             settings = {
               # Common aliases for faster workflow
