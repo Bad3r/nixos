@@ -839,7 +839,9 @@ let
           # Read-only path/snapshot CLI for maintainers granted the state-dir
           # ACL. Implements Cut A of
           # docs/drafts/duplicati-r2-readonly-mount-investigation.md.
-          programs.duplicati-r2-tools.extended.enable = mkIf (cfg.stateDirReadableBy != [ ]) true;
+          programs.duplicati-r2-tools.extended.enable = mkIf (cfg.stateDirReadableBy != [ ]) (
+            lib.mkOverride 1050 true
+          );
 
           sops.secrets = lib.mkMerge [
             secretsDeclared
