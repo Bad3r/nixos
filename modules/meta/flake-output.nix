@@ -67,11 +67,6 @@
               default = { };
               description = "Base Home Manager module (merged)";
             };
-            gui = lib.mkOption {
-              type = lib.types.deferredModule;
-              default = { };
-              description = "GUI Home Manager module (merged)";
-            };
             apps = lib.mkOption {
               type = lib.types.attrsOf lib.types.deferredModule;
               default = { };
