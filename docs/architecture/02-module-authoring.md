@@ -1,173 +1,30 @@
 # Module Authoring
 
-This document covers how to write modules correctly in this flake-parts + import-tree repository.
+Every `.nix` file under `modules/` is a flake-parts module that import-tree loads; these rules place and write one.
+
+- [Authoring Patterns](02-module-authoring-patterns.md): module shapes with and without `pkgs`, across namespaces, and for hosts.
+- [Custom Module Arguments](02-module-authoring-arguments.md): the repo-specific arguments every host module receives.
 
 ## File Placement
 
-| Location                     | Purpose               | Export Pattern                                                                                             |
-| ---------------------------- | --------------------- | ---------------------------------------------------------------------------------------------------------- |
-| `modules/apps/<name>.nix`    | Per-app modules       | `flake.nixosModules.apps.<name>`                                                                           |
-| `modules/hm-apps/<name>.nix` | Per-app HM modules    | `flake.homeManagerModules.apps.<name>`                                                                     |
-| `modules/browsers/<name>/`   | Per-browser modules   | `flake.nixosModules.browsers.<name>` (`apps.nix`), `flake.homeManagerModules.browsers.<name>` (`home.nix`) |
-| `modules/<domain>/`          | Higher-level features | `flake.nixosModules.<feature>`                                                                             |
-| `modules/<host>/`            | Host-specific config  | `configurations.nixos.<host>.module` (e.g. `modules/songbird/`, `modules/tpnix/`)                          |
+| Location                           | Purpose                | Export Pattern                             |
+| ---------------------------------- | ---------------------- | ------------------------------------------ |
+| `modules/apps/<name>.nix`          | Per-app modules        | `flake.nixosModules.apps.<name>`           |
+| `modules/hm-apps/<name>.nix`       | Per-app HM modules     | `flake.homeManagerModules.apps.<name>`     |
+| `modules/browsers/<name>/apps.nix` | Per-browser modules    | `flake.nixosModules.browsers.<name>`       |
+| `modules/browsers/<name>/home.nix` | Per-browser HM modules | `flake.homeManagerModules.browsers.<name>` |
+| `modules/<domain>/`                | Higher-level features  | `flake.nixosModules.<feature>`             |
+| `modules/<host>/`                  | Host-specific config   | `configurations.nixos.<host>.module`       |
 
-**Rule:** If a module only installs packages, put it in `modules/apps/`. If it configures services or composes multiple apps, use a domain directory.
-
-## Authoring Patterns
-
-### Pattern 1: Module That Needs `pkgs`
-
-```nix
-# modules/development/json-tools.nix
-{
-  flake.homeManagerModules.base =
-    { pkgs, ... }:
-    {
-      home.packages = [
-        pkgs.jq
-        pkgs.jq-lsp
-      ];
-    };
-}
-```
-
-flake-parts does **not** provide `pkgs` at the file's top level. The exported value must be a function that receives `{ pkgs, ... }`.
-
-### Pattern 2: Module Without `pkgs`
-
-```nix
-# modules/files/fzf.nix
-{
-  flake.homeManagerModules.base = _: {
-    programs.fzf = {
-      enable = true;
-      enableZshIntegration = true;
-      enableBashIntegration = true;
-      enableFishIntegration = false;
-    };
-  };
-}
-```
-
-Return an attribute set directly when you don't need extra arguments.
-
-### Pattern 3: Multi-Namespace Module
-
-```nix
-# modules/stylix/stylix.nix (excerpt)
-{ inputs, lib, ... }:
-{
-  flake.nixosModules.base = {
-    imports = [ inputs.stylix.nixosModules.stylix ];
-  };
-
-  flake.homeManagerModules.base = {
-    imports = [ inputs.stylix.homeModules.stylix ];
-  };
-
-  flake.homeManagerModules.apps.stylix-gui = { ... }: {
-    # GUI-only HM theming
-  };
-}
-```
-
-One file can populate both aggregators. Keep the scopes independent.
-
-### Pattern 4: Extending Existing Namespaces
-
-```nix
-# modules/base/nix-settings.nix (excerpt)
-{ lib, ... }:
-let
-  settings = {
-    experimental-features = [ "nix-command" "flakes" "pipe-operator" "flake-self-attrs" ];
-    auto-optimise-store = lib.mkDefault true;
-  };
-in
-{
-  config = {
-    nix.settings = settings;
-    flake.nixosModules.base.nix.settings = settings;
-
-    flake.homeManagerModules.base = _: {
-      nix.settings = settings;
-    };
-  };
-}
-```
-
-Use `lib.mkIf`, `lib.mkMerge`, and other option helpers to extend shared modules without clobbering defaults.
-
-Keep general Nix daemon and evaluator settings in `modules/base/nix-settings.nix`.
-Cache topology and download retry settings belong in `modules/hosts/common/nix-substituters.nix`.
-
-### Pattern 5: Host Module
-
-```nix
-# modules/songbird/imports.nix (simplified)
-_: {
-  configurations.nixos.songbird.module = {
-    languages.rust.extended.enable = true;
-  };
-}
-```
-
-See [Host Composition](05-host-composition.md) for details.
-
-## Custom Module Arguments
-
-NixOS modules can receive a small set of repo-specific arguments as ordinary
-function parameters. They reach the host evaluation through the shared host
-helper:
-
-The shared host helper `modules/configurations/nixos.nix` injects `hostName`,
-`inputs`, `metaOwner`, and `secretsRoot` into every deferred host module through
-both `_module.args` and the wrapping `nixosSystem` `specialArgs`. New hosts get
-these arguments without re-declaring them.
-
-| Arg           | Type   | Source                                                                       | Available where                                                                                                                     |
-| ------------- | ------ | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- |
-| `metaOwner`   | attrs  | `lib/meta-owner-profile.nix` via `flake.nix`, forwarded by the shared helper | Every NixOS module (HM users, secrets); owner identity (`username`, `sshKeys`).                                                     |
-| `secretsRoot` | path   | Repo `secrets/` directory via the shared helper                              | Every NixOS module; base for `sopsFile` references and `pathExists` guards.                                                         |
-| `inputs`      | attrs  | Shared helper (`_module.args` + `nixosSystem` `specialArgs`)                 | Every NixOS module reached through the host closure; lets modules use `inputs.<flake>.nixosModules` without re-importing the flake. |
-| `hostName`    | string | Shared helper (`_module.args` + `nixosSystem` `specialArgs`)                 | Every NixOS module; the host attribute name (consumed by `modules/hosts/common/hostname.nix`).                                      |
-
-Home Manager modules receive `inputs`, `metaOwner`, and `secretsRoot` through `home-manager.extraSpecialArgs` (set in `modules/home-manager/nixos.nix`), as in this HM-side consumer:
-
-```nix
-# modules/home/context7-secrets.nix (excerpt)
-{
-  flake.homeManagerModules.context7Secrets =
-    { lib, config, metaOwner, secretsRoot, ... }:
-    let
-      cfg = config.home.context7Secrets;
-      ctxFile = secretsRoot + "/context7.yaml";
-    in
-    {
-      config = lib.mkIf (cfg.enable && builtins.pathExists ctxFile) {
-        sops.secrets."context7/api-key" = {
-          sopsFile = ctxFile;
-          path = "/home/${metaOwner.username}/.local/share/context7/api-key";
-          # ...
-        };
-      };
-    };
-}
-```
-
-`config.flake.lib.nixos` (the `hasApp`, `getApp`, `getApps`, `getAllApps`, `getAppOr` helpers) is a separate flake-parts helper, not a NixOS module argument. Read it from the flake-parts outer scope when authoring host-side modules. The same helpers are also published as `_module.args.nixosAppHelpers` at flake-parts scope only, so a NixOS module that declares `{ nixosAppHelpers, ... }:` will fail to evaluate.
-
-Treat custom args as the contract between hosts and downstream modules. Adding a shared arg means updating both `_module.args` and `specialArgs` in `modules/configurations/nixos.nix`; any future host-specific arg belongs in a host-owned module. Missing args surface as evaluation-time errors that name the missing parameter.
+A module that only installs a package belongs in `modules/apps/`; one that configures services or composes several apps belongs in a domain directory.
+A domain, host, or hardware module that needs a program turns the program's row on instead of installing it, per [Package ownership](../guides/apps-module-registry.md#package-ownership).
 
 ## Common Pitfalls
 
-| Mistake                                   | Fix                                                                     |
-| ----------------------------------------- | ----------------------------------------------------------------------- |
-| `{ config, lib, pkgs, ... }:` at file top | Remove `pkgs` from outer scope; wrap exported value in `{ pkgs, ... }:` |
-| `imports = [ ./path/to/module.nix ]`      | Use `config.flake.nixosModules.<name>` instead                          |
-| `with config.flake.nixosModules.apps;`    | Use `config.flake.lib.nixos.getApps` / `getAllApps` helpers             |
-| Forgetting to guard optional modules      | Wrap with `lib.mkIf` or `lib.optionals`                                 |
+- `{ config, lib, pkgs, ... }:` at the file top: remove `pkgs` from the outer scope and wrap the exported value in `{ pkgs, ... }:`.
+- `imports = [ ./path/to/module.nix ]`: use `config.flake.nixosModules.<name>` instead.
+- `with config.flake.nixosModules.apps;`: use the `config.flake.lib.nixos.getApps` or `getAllApps` helpers.
+- An unguarded optional module: wrap it with `lib.mkIf` or `lib.optionals`.
 
 ## The Two-Context Problem
 
@@ -178,7 +35,7 @@ Modules that export `flake.homeManagerModules.*` or `flake.nixosModules.*` are e
 | **Flake-parts** (outer scope) | Flake-level config | `config.flake.*`                     |
 | **Module** (inner definition) | NixOS/HM config    | `config.home.*`, `config.services.*` |
 
-Accessing `config.flake.*` inside the exported module definition **will fail** because that context doesn't have flake-level config.
+Accessing `config.flake.*` inside the exported module definition **fails**, because that context has no flake-level config.
 
 ### Anti-Patterns
 
@@ -234,28 +91,12 @@ in
 
 ### Rule of Thumb
 
-| Location                 | Safe to Access                                              |
-| ------------------------ | ----------------------------------------------------------- |
-| Top-level `let` bindings | Constants, inputs, `config.flake.*`                         |
-| Inner module `config`    | NixOS/HM options (`config.home.*`, `config.services.*`)     |
-| String interpolations    | Defer to option definitions or use `lib.mkMerge`/`lib.mkIf` |
-
-## Introspection & Debugging
-
-```bash
-# List module namespaces
-nix eval --accept-flake-config --json "path:.#nixosModules" --apply builtins.attrNames
-nix eval --accept-flake-config --json "path:.#homeManagerModules.apps" --apply builtins.attrNames
-
-# Evaluate a specific host option (substitute the host name)
-nix eval "path:.#nixosConfigurations.<host>.config.boot.loader"
-
-# List the hosts available in the current checkout
-nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames
-```
+- Top-level `let` bindings: constants, inputs, and `config.flake.*`.
+- The inner module's `config`: NixOS and Home Manager options, such as `config.home.*` and `config.services.*`.
+- String interpolations: defer them to option definitions, or wrap them in `lib.mkMerge` or `lib.mkIf`.
 
 ## Next Steps
 
 - [NixOS Modules](03-nixos-modules.md) -- system aggregator details
 - [Home Manager](04-home-manager.md) -- HM aggregator details
-- [Reference](06-reference.md) -- validation commands
+- [Reference](06-reference.md) -- validation commands and [introspection](06-reference.md#introspection)

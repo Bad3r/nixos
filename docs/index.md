@@ -7,7 +7,11 @@
 - [architecture/01-pattern-overview.md](architecture/01-pattern-overview.md)
   - Explains the Dendritic Pattern's automatic module discovery, aggregator namespaces, and organic configuration growth.
 - [architecture/02-module-authoring.md](architecture/02-module-authoring.md)
-  - Covers module writing patterns, file placement conventions, the two-context problem, and common pitfalls.
+  - Covers file placement conventions, common pitfalls, and the two-context problem.
+- [architecture/02-module-authoring-patterns.md](architecture/02-module-authoring-patterns.md)
+  - Module shapes with and without `pkgs`, multi-namespace modules, namespace extensions, and host modules.
+- [architecture/02-module-authoring-arguments.md](architecture/02-module-authoring-arguments.md)
+  - The `metaOwner`, `secretsRoot`, `inputs`, and `hostName` arguments, their Home Manager counterparts, and the app helpers.
 - [architecture/03-nixos-modules.md](architecture/03-nixos-modules.md)
   - Documents the flake.nixosModules namespace, app registry helpers (hasApp, getApp, getApps), overlay packages, and unfree packages.
 - [architecture/03-nixos-modules-namespaces.md](architecture/03-nixos-modules-namespaces.md)
