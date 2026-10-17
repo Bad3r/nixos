@@ -207,7 +207,9 @@
 - [mpv/4-integrations.md](mpv/4-integrations.md)
   - XDG MIME defaults, MPRIS via playerctl, the `open-in-mpv` browser bridge, and the `video-cache` helper.
 - [mpv/5-customizing.md](mpv/5-customizing.md)
-  - Patterns for adding scripts, overriding configuration keys, replacing the package, layering personal overrides, and opting out per host.
+  - Choosing the layer, overriding configuration keys, replacing the package, adjacent tools, personal overrides, and opting out per host.
+- [mpv/5-customizing-scripts.md](mpv/5-customizing-scripts.md)
+  - Adding packaged scripts through `extraScripts`, raw Lua files, and keybindings on one host.
 - [mpv/6-troubleshooting.md](mpv/6-troubleshooting.md)
   - MIME default-assertion failures, codec gaps, and silent hwdec fallback.
 
