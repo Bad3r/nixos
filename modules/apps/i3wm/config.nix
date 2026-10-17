@@ -12,6 +12,12 @@
     }:
     let
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
+      brightnessctlPackage = lib.attrByPath [
+        "programs"
+        "brightnessctl"
+        "extended"
+        "package"
+      ] pkgs.brightnessctl osConfig;
       powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
       enforcedPowerProfile = (import ../../hosts/common/_power-profile-unit.nix pkgs).profile;
       sessionMetadata = {
@@ -373,7 +379,7 @@
         bluetoothMenu = "${lib.getExe pkgs.bzmenu} --launcher rofi";
         playerctl = lib.getExe pkgs.playerctl;
         volume = lib.getExe pkgs.pamixer;
-        brightness = "${lib.getExe pkgs.brightnessctl} --class=backlight";
+        brightness = "${lib.getExe brightnessctlPackage} --class=backlight";
         screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
         ocr = lib.getExe pkgs.normcap;
         logseqToggle = lib.getExe toggleLogseqScript;

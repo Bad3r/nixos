@@ -14,6 +14,12 @@
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
       xfsettingsdEnabled = lib.attrByPath [ "integrations" "xfsettingsd" "enable" ] true hostI3Cfg;
       primeSyncEnabled = lib.attrByPath [ "gpu" "nvidia" "prime" "syncActive" ] false osConfig;
+      brightnessctlPackage = lib.attrByPath [
+        "programs"
+        "brightnessctl"
+        "extended"
+        "package"
+      ] pkgs.brightnessctl osConfig;
     in
     {
       config = lib.mkIf i3Enabled (
@@ -57,7 +63,7 @@
           dimWarningScript = pkgs.writeShellApplication {
             name = "i3-dim-warning";
             runtimeInputs = [
-              pkgs.brightnessctl
+              brightnessctlPackage
               pkgs.coreutils
             ];
             text = /* bash */ ''

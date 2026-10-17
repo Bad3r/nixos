@@ -88,7 +88,6 @@ let
           [
             arandr
             autotiling-rs
-            brightnessctl
             dunst
             hsetroot
             i3lock-color
