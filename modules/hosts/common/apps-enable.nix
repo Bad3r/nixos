@@ -202,6 +202,7 @@ let
       "gpg-tui".extended.enable = lib.mkOverride 1100 true;
       gphoto2.extended.enable = lib.mkOverride 1100 true;
       greenclip.extended.enable = lib.mkOverride 1100 true;
+      gucharmap.extended.enable = lib.mkOverride 1100 true;
       gwenview.extended.enable = lib.mkOverride 1100 false;
       gzip.extended.enable = lib.mkOverride 1100 true;
       hashcat.extended.enable = lib.mkOverride 1100 true;
