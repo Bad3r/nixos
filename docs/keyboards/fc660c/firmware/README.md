@@ -16,7 +16,7 @@ dropped into a `vial-qmk` checkout.
 
 ## Two things that break the obvious build
 
-**The bundled Python does not run on 3.12 or newer.** `lib/python/qmk/math.py`
+**The bundled Python does not run on 3.12 or newer.** [lib/python/qmk/math.py](https://github.com/vial-kb/vial-qmk/blob/vial/lib/python/qmk/math.py)
 calls `ast.Num`, removed in Python 3.12, while nixpkgs' `qmk` package runs on
 3.14. `make` fails with `AttributeError: module 'ast' has no attribute 'Num'`
 before compiling anything. Install the CLI under an older interpreter instead:
@@ -56,8 +56,9 @@ Output lands at `fc660c_vial-gaming.hex` in the checkout root. Flash it with
 [flash-fc660c.sh](flash-fc660c.sh); see [../flashing.md](../flashing.md) for
 bootloader entry and recovery.
 
-The flash helper requires `dfu-programmer` and `lsusb` on `PATH`. Both are
-installed by the FC660C NixOS module. On another system, provide them through
+The flash helper requires `dfu-programmer` and `lsusb` on `PATH`. The FC660C
+NixOS module installs `dfu-programmer`, and `lsusb` comes from the `usbutils`
+app row. On another system, provide them through
 the `dfu-programmer` and `usbutils` packages before running the helper; it does
 not resolve a package fallback during a flash.
 After reset, the helper waits for USB re-enumeration and checks the normal-mode
@@ -86,10 +87,9 @@ all with `LTO_ENABLE = yes`:
 | `vial-gaming` (this overlay)               | 24130 (84%) | fits, 4542 free |
 
 The practical consequence: the Vial GUI's QMK Settings tab and
-`ACTUATION_DEPTH_ADJUSTMENT` cannot coexist on this MCU. Upstream disabled
-`QMK_SETTINGS` for this board in commit `e6dee240` (2025-06-22), titled
-"mass disable qmk settings on too big keyboards", which is why a board flashed
-from current upstream loses the tab that older builds had.
+`ACTUATION_DEPTH_ADJUSTMENT` cannot coexist on this MCU. Upstream disables
+`QMK_SETTINGS` for this board, so a board flashed from upstream has no QMK
+Settings tab.
 
 ## Why each override
 

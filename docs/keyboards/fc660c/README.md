@@ -23,12 +23,14 @@ This keyboard is attached to `songbird`.
 
 ## Documentation
 
-| Page                                   | Read when                                                                                                                                               |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [identification.md](identification.md) | Confirming this is the Hasu Alt Controller, checking whether Vial or stock TMK firmware is flashed, or resolving a hidraw node to a specific interface. |
-| [configuration.md](configuration.md)   | Enabling the NixOS module, remapping keys in Vial, using the Esc+Enter unlock combo, or hitting the actuation-point limitation.                         |
-| [flashing.md](flashing.md)             | Reflashing firmware, or recovering an unresponsive or badly flashed controller.                                                                         |
-| [firmware/](firmware/README.md)        | Building firmware on NixOS, the local keymap overlay (NKRO, actuation point), the flash script, and the ATmega32U4 flash budget.                        |
+| Page                                           | Read when                                                                                                                        |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [identification.md](identification.md)         | Confirming this is the Hasu Alt Controller, or checking whether Vial or stock TMK firmware is flashed.                           |
+| [identification-hid.md](identification-hid.md) | Resolving a hidraw node to a specific HID interface.                                                                             |
+| [configuration.md](configuration.md)           | Enabling the NixOS module, its udev rules, or bootloader access.                                                                 |
+| [configuration-vial.md](configuration-vial.md) | Remapping keys in Vial, using the Esc+Enter unlock combo, or hitting the actuation-point limitation.                             |
+| [flashing.md](flashing.md)                     | Reflashing firmware, or recovering an unresponsive or badly flashed controller.                                                  |
+| [firmware/](firmware/README.md)                | Building firmware on NixOS, the local keymap overlay (NKRO, actuation point), the flash script, and the ATmega32U4 flash budget. |
 
 ## NixOS integration
 

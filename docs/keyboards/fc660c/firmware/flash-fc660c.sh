@@ -3,8 +3,8 @@
 #
 # Usage: flash-fc660c.sh <path-to-hex>
 #
-# The NixOS module supplies dfu-programmer and lsusb; no package-resolution
-# fallback is used during a flash.
+# The NixOS module supplies dfu-programmer and the usbutils app row supplies
+# lsusb; no package-resolution fallback is used during a flash.
 #
 # Run as a normal user. Elevation is applied per dfu-programmer call, so wrapping
 # the whole script in sudo is unnecessary. With hardware.keyboards.fc660c.enable
@@ -30,7 +30,7 @@ if [ "$(tail -1 "$HEX" | tr -d '\r\n')" != ":00000001FF" ]; then
 fi
 
 if ! command -v lsusb >/dev/null 2>&1; then
-  echo "lsusb not found. Enable hardware.keyboards.fc660c, or run" >&2
+  echo "lsusb not found. Enable the usbutils app row, or run" >&2
   echo "inside 'nix shell nixpkgs#usbutils'." >&2
   exit 1
 fi
