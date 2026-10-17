@@ -16,7 +16,6 @@ let
     "dunst"
     "element-desktop"
     "espanso"
-    "fd"
     "flameshot"
     "gcc"
     "gemini-cli"
