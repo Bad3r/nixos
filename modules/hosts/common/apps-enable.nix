@@ -525,7 +525,7 @@ let
       xclip.extended.enable = lib.mkOverride 1100 true;
       xdotool.extended.enable = lib.mkOverride 1100 true;
       "xfce4-power-manager".extended.enable = lib.mkOverride 1100 false;
-      "xfce4-settings".extended.enable = lib.mkOverride 1100 true;
+      "xfce4-settings".extended.enable = lib.mkOverride 1100 false;
       xh.extended.enable = lib.mkOverride 1100 true;
       xkcdpass.extended.enable = lib.mkOverride 1100 true;
       xkill.extended.enable = lib.mkOverride 1100 true;

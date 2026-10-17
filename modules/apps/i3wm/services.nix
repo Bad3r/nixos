@@ -11,8 +11,6 @@
     }:
     let
       i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
-      hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
-      xfsettingsdEnabled = lib.attrByPath [ "integrations" "xfsettingsd" "enable" ] true hostI3Cfg;
       primeSyncEnabled = lib.attrByPath [ "gpu" "nvidia" "prime" "syncActive" ] false osConfig;
       brightnessctlPackage = lib.attrByPath [
         "programs"
@@ -26,7 +24,6 @@
         let
           kittyCommand = lib.getExe pkgs.kitty;
           nemoCommand = lib.getExe' pkgs.nemo "nemo";
-          xfsettingsdCommand = "${pkgs.xfce4-settings}/bin/xfsettingsd";
           stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
           toLockColor = colorHex: lib.strings.toUpper (lib.removePrefix "#" colorHex + "FF");
           lockPalette = lib.mapAttrs (_: toLockColor) {
@@ -83,33 +80,6 @@
               ) &
             '';
           };
-          autotilingLauncher = pkgs.writeShellApplication {
-            name = "autotiling-rs-launcher";
-            runtimeInputs = [
-              pkgs.coreutils
-              pkgs.i3
-              pkgs.autotiling-rs
-            ];
-            text = /* bash */ ''
-              set -euo pipefail
-
-              socket=""
-              for _ in $(seq 30); do
-                socket="$(${lib.getExe pkgs.i3} --get-socketpath 2>/dev/null || true)"
-                if [ -n "$socket" ] && [ -S "$socket" ]; then
-                  break
-                fi
-                sleep 1
-              done
-
-              if [ -z "$socket" ] || [ ! -S "$socket" ]; then
-                echo "autotiling-rs: failed to locate i3 socket" >&2
-                exit 1
-              fi
-
-              exec env I3SOCK="$socket" ${lib.getExe pkgs.autotiling-rs}
-            '';
-          };
         in
         {
           services = {
@@ -149,94 +119,86 @@
             network-manager-applet.enable = lib.mkDefault true;
           };
 
-          systemd.user.services = lib.mkMerge [
-            {
-              snixembed = {
-                Unit = {
-                  Description = "snixembed SNI-to-XEmbed tray bridge";
-                  PartOf = [ "tray.target" ];
-                  After = [ "graphical-session-pre.target" ];
-                  Before = [ "tray.target" ];
-                };
-                Install.WantedBy = [ "tray.target" ];
-                Service = {
-                  Type = "dbus";
-                  BusName = "org.kde.StatusNotifierWatcher";
-                  ExecStart = lib.getExe pkgs.snixembed;
-                  Restart = "on-failure";
-                };
-              };
+          # Started by i3 itself (startup.nix), so units wanted by it run only
+          # once the window manager is up.
+          systemd.user.targets.i3-session.Unit = {
+            Description = "i3 window manager session";
+            BindsTo = [ "graphical-session.target" ];
+            After = [ "graphical-session.target" ];
+          };
 
-              # Unit layout from the nixpkgs systemd-lock-handler docs; the
-              # OnFailure release keeps lock.target startable after the
-              # locker exhausts its restarts.
-              i3lock = {
-                Unit = {
-                  Description = "i3lock-color screen locker";
-                  Before = [ "lock.target" ];
-                  PartOf = [ "lock.target" ];
-                  OnSuccess = [ "unlock.target" ];
-                  OnFailure = [ "unlock.target" ];
-                };
-                Install.WantedBy = [ "lock.target" ];
-                Service = {
-                  Type = "forking";
-                  ExecStart = lockCommand;
-                  Restart = "on-failure";
-                  # A killed locker must relock, not count as a clean unlock.
-                  RestartForceExitStatus = "SIGHUP SIGINT SIGTERM SIGPIPE";
-                  RestartSec = 0;
-                };
+          systemd.user.services = {
+            snixembed = {
+              Unit = {
+                Description = "snixembed SNI-to-XEmbed tray bridge";
+                PartOf = [ "tray.target" ];
+                After = [ "graphical-session-pre.target" ];
+                Before = [ "tray.target" ];
               };
+              Install.WantedBy = [ "tray.target" ];
+              Service = {
+                Type = "dbus";
+                BusName = "org.kde.StatusNotifierWatcher";
+                ExecStart = lib.getExe pkgs.snixembed;
+                Restart = "on-failure";
+              };
+            };
 
-              xautolock = {
-                Unit = {
-                  Description = "xautolock idle locker";
-                  After = [ "graphical-session.target" ];
-                  PartOf = [ "graphical-session.target" ];
-                };
-                Install.WantedBy = [ "graphical-session.target" ];
-                Service = {
-                  ExecStart = lib.concatStringsSep " " [
-                    (lib.getExe pkgs.xautolock)
-                    "-time 15"
-                    "-locker '${pkgs.systemd}/bin/loginctl lock-session \${XDG_SESSION_ID}'"
-                    "-detectsleep"
-                    "-notify 60"
-                    "-notifier ${lib.getExe dimWarningScript}"
-                  ];
-                  Restart = "always";
-                };
+            # Unit layout from the nixpkgs systemd-lock-handler docs; the
+            # OnFailure release keeps lock.target startable after the
+            # locker exhausts its restarts.
+            i3lock = {
+              Unit = {
+                Description = "i3lock-color screen locker";
+                Before = [ "lock.target" ];
+                PartOf = [ "lock.target" ];
+                OnSuccess = [ "unlock.target" ];
+                OnFailure = [ "unlock.target" ];
               };
+              Install.WantedBy = [ "lock.target" ];
+              Service = {
+                Type = "forking";
+                ExecStart = lockCommand;
+                Restart = "on-failure";
+                # A killed locker must relock, not count as a clean unlock.
+                RestartForceExitStatus = "SIGHUP SIGINT SIGTERM SIGPIPE";
+                RestartSec = 0;
+              };
+            };
 
-              autotiling-rs = {
-                Unit = {
-                  Description = "Autotiling for i3";
-                  After = [ "graphical-session.target" ];
-                  PartOf = [ "graphical-session.target" ];
-                };
-                Install.WantedBy = [ "graphical-session.target" ];
-                Service = {
-                  ExecStart = lib.getExe autotilingLauncher;
-                  Restart = "on-failure";
-                };
+            xautolock = {
+              Unit = {
+                Description = "xautolock idle locker";
+                After = [ "graphical-session.target" ];
+                PartOf = [ "graphical-session.target" ];
               };
-            }
-            (lib.optionalAttrs xfsettingsdEnabled {
-              xfsettingsd = {
-                Unit = {
-                  Description = "Xfce settings daemon";
-                  After = [ "graphical-session.target" ];
-                  PartOf = [ "graphical-session.target" ];
-                };
-                Install.WantedBy = [ "graphical-session.target" ];
-                Service = {
-                  ExecStart = xfsettingsdCommand;
-                  Restart = "on-failure";
-                };
+              Install.WantedBy = [ "graphical-session.target" ];
+              Service = {
+                ExecStart = lib.concatStringsSep " " [
+                  (lib.getExe pkgs.xautolock)
+                  "-time 15"
+                  "-locker '${pkgs.systemd}/bin/loginctl lock-session \${XDG_SESSION_ID}'"
+                  "-detectsleep"
+                  "-notify 60"
+                  "-notifier ${lib.getExe dimWarningScript}"
+                ];
+                Restart = "always";
               };
-            })
-          ];
+            };
+
+            autotiling-rs = {
+              Unit = {
+                Description = "Autotiling for i3";
+                After = [ "i3-session.target" ];
+                PartOf = [ "i3-session.target" ];
+              };
+              Install.WantedBy = [ "i3-session.target" ];
+              Service = {
+                ExecStart = lib.getExe pkgs.autotiling-rs;
+                Restart = "on-failure";
+              };
+            };
+          };
         }
       );
     };
