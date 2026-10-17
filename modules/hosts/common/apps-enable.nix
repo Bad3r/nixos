@@ -94,7 +94,6 @@ let
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
       "claude-desktop".extended.enable = lib.mkOverride 1100 true;
-      clawdbot.extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
       "clojure-lsp".extended.enable = lib.mkOverride 1100 false;
       "cloudflare-go-sdk".extended.enable = lib.mkOverride 1100 false;
