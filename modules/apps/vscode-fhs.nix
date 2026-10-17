@@ -50,6 +50,9 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "vscode-fhs" ];
+  nixpkgs.allowedUnfreePackages = [
+    "code"
+    "vscode"
+  ];
   flake.nixosModules.apps.vscode-fhs = VscodeFhsModule;
 }

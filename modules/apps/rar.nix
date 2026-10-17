@@ -50,5 +50,7 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "rar" ];
+
   flake.nixosModules.apps.rar = RarModule;
 }

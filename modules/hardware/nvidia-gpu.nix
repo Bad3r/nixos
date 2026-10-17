@@ -207,5 +207,11 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [
+    "nvidia-kernel-modules"
+    "nvidia-x11"
+    "nvidia-settings"
+  ];
+
   flake.nixosModules.nvidia-gpu = NvidiaGpuModule;
 }
