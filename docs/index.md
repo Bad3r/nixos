@@ -393,7 +393,11 @@
 - [duplicati/security.md](duplicati/security.md)
   - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
 - [usage/espanso-usage.md](usage/espanso-usage.md)
-  - Espanso text expander usage including default triggers, custom matches, and troubleshooting.
+  - Espanso text expander usage including enabling, default triggers, service management, and troubleshooting.
+- [usage/espanso-matches.md](usage/espanso-matches.md)
+  - Custom espanso matches, form, shell, and clipboard variables, and regex triggers.
+- [usage/espanso-configuration.md](usage/espanso-configuration.md)
+  - App-specific espanso configs, X11 and Wayland support, and the package override.
 - [usage/magnitude.md](usage/magnitude.md)
   - Running Claude Code and Codex on local models served by Magnitude on songbird.
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
