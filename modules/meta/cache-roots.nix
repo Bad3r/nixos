@@ -46,6 +46,7 @@ let
   hostPackageNames = [
     "burpsuite"
     "charles"
+    "czkawka-cli"
     "discord"
     "dropbox"
     "electron-mail"
