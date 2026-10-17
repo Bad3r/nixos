@@ -203,7 +203,9 @@
 - [mpv/2-configuration.md](mpv/2-configuration.md)
   - Reference for every key the Home Manager mpv module writes to `mpv.conf` with rationale for non-default values.
 - [mpv/3-scripts-and-bindings.md](mpv/3-scripts-and-bindings.md)
-  - Script loading model (the `extraScripts` vs HM `scripts` distinction), bundled scripts, the inline Lua hooks, and the keybindings table.
+  - Script loading model through `extraScripts` and the rewrapped package, bundled scripts, and the keybinding conventions.
+- [mpv/3-lua-hooks.md](mpv/3-lua-hooks.md)
+  - The repo-local `playlist_filter.lua` and `ytdlp_cookies.lua` scripts, their modes, and browser resolution.
 - [mpv/4-integrations.md](mpv/4-integrations.md)
   - XDG MIME defaults, MPRIS via playerctl, the `open-in-mpv` browser bridge, and the `video-cache` helper.
 - [mpv/5-customizing.md](mpv/5-customizing.md)
