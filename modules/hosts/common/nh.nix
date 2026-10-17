@@ -2,8 +2,8 @@
   NH Integration (shared hosts)
 
   NH is host workflow infrastructure (deployment + cleanup), not a generic
-  package-only app toggle. This module wires native NixOS and Home Manager
-  `programs.nh` options with owner-derived paths.
+  package-only app toggle. This module wires the native NixOS `programs.nh`
+  options with owner-derived paths.
 */
 {
   lib,
@@ -28,23 +28,6 @@ let
           extraArgs = lib.mkDefault "--keep-since 14d --keep 3";
         };
       };
-
-      home-manager.sharedModules = lib.mkAfter [
-        (
-          { osConfig, lib, ... }:
-          let
-            defaultFlake = "${osConfig.users.users.${metaOwner.username}.home}/nixos";
-            osFlake = lib.attrByPath [ "programs" "nh" "flake" ] defaultFlake osConfig;
-          in
-          {
-            programs.nh = {
-              enable = lib.mkDefault true;
-              flake = lib.mkDefault osFlake;
-              clean.enable = lib.mkDefault false;
-            };
-          }
-        )
-      ];
     };
 in
 {
