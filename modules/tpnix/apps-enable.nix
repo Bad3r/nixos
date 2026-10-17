@@ -33,7 +33,6 @@ let
     ghidra = false;
     "gnome-disk-utility" = false;
     gnumake = false;
-    gnused = false;
     gparted = false;
     hdparm = false;
     iotop = false;
