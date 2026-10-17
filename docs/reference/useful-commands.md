@@ -1,6 +1,6 @@
 # Useful Commands
 
-This document contains a collection of useful commands that might not be directly related to NixOS or this repository, but are handy to have around.
+Use these commands for common shell tasks.
 
 ## General CLI
 
