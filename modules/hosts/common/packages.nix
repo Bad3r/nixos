@@ -6,13 +6,6 @@ let
       environment.systemPackages = lib.mkAfter (
         with pkgs;
         [
-          # Firmware tooling
-          firmware-manager
-
-          # PipeWire controls for selecting outputs and adjusting volume
-          pwvucontrol
-          qpwgraph
-
           # Audio production and codecs
           alsa-utils
           gst_all_1.gstreamer

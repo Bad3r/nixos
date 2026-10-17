@@ -159,6 +159,7 @@ let
       # turns it on has a baseline value to be compared against; without one
       # tpnix fails to evaluate, since the toggle would have nowhere to land.
       firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
+      "firmware-manager".extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
       fonttools.extended.enable = lib.mkOverride 1100 true;
@@ -378,6 +379,7 @@ let
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pwgen.extended.enable = lib.mkOverride 1100 true;
+      pwvucontrol.extended.enable = lib.mkOverride 1100 true;
       pymupdf.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 true;
       python.extended.enable = lib.mkOverride 1100 true;
@@ -386,6 +388,7 @@ let
       "qbittorrent-webui".extended.enable = lib.mkOverride 1100 false;
       qemu.extended.enable = lib.mkOverride 1100 false;
       qpdf.extended.enable = lib.mkOverride 1100 true;
+      qpwgraph.extended.enable = lib.mkOverride 1100 true;
       qrencode.extended.enable = lib.mkOverride 1100 true;
       quarto.extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
