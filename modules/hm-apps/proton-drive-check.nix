@@ -10,8 +10,9 @@
   Builds a standalone Home Manager configuration the way
   modules/browsers/firefoxpwa/module-check.nix does, with osConfig stubbed to
   make the remote ready and secretsRoot pointed at an in-repo fixture, then
-  replaces programs.rclone.package with a stub replaying a scripted exit code
-  and stderr so the script's control flow, not rclone, is under test.
+  points programs.rclone.extended.package in that osConfig at a stub replaying
+  a scripted exit code and stderr so the script's control flow, not rclone, is
+  under test.
 
   Both credential sources gate the same script, so the op:// source is asserted
   to install it without any secret present, while protonDrive.enable = false and
@@ -87,7 +88,6 @@
                     enableNixpkgsReleaseCheck = false;
                   };
                   programs.home-manager.enable = true;
-                  programs.rclone.package = rcloneStub;
                   xdg.stateHome = "${root}/state";
                   xdg.configHome = "${root}/config";
                   services.protonDriveSync = {
@@ -100,6 +100,7 @@
                 osConfig = {
                   programs.rclone.extended = {
                     enable = rcloneEnabled;
+                    package = rcloneStub;
                     inherit protonDrive;
                   };
                   security.repoSecrets.enable = true;

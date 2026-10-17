@@ -1,103 +1,25 @@
 # Customizing
 
-This page documents the supported ways to extend, override, or opt out of the
-mpv setup without touching the shared modules. The core principle is: change
-the smallest scope that achieves the goal.
+The mpv setup extends, overrides, and opts out per host or per user without touching the shared modules.
+The core principle is to change the smallest scope that achieves the goal.
+
+- [Adding scripts and bindings](5-customizing-scripts.md): packaged scripts, raw Lua files, and keybindings.
 
 ## Choosing the Right Layer
 
-- Toggle a bundled extra (shaders, browser bridge, Jellyfin shim): `programs.mpv.extended.extras.<name>.enable`
-- Install a tool not covered by the named extras: `programs.mpv.extended.extraPackages` (additive)
-- Add an mpv script that should load at startup: `programs.mpv.extended.extraScripts` (NixOS layer, bridged to HM automatically), or a per-host `home-manager.sharedModules` block targeting `programs.mpv.scripts`
-- Change a single mpv config key for one host: A per-host `home-manager.sharedModules` block setting `programs.mpv.config.<key>`
-- Add or change a keybinding: A per-host `home-manager.sharedModules` block setting `programs.mpv.bindings.<key>`
-- Replace the mpv package itself: `programs.mpv.extended.package = ...` per host
-- Add a one-off Lua snippet: `xdg.configFile."mpv/scripts/<name>.lua"` in HM
-- Disable mpv entirely on a host: Set `programs.mpv.extended.enable = lib.mkOverride <prio> false;` in the host's `apps-enable.nix`
-
-## Adding Scripts, Lua Hooks, or Keybindings
-
-For a packaged mpv script, add it to `programs.mpv.extended.extraScripts` in the
-host's NixOS configuration. The HM module reads this list and passes it to
-`programs.mpv.scripts`, so the script is loaded at runtime without any further
-wiring. Alternatively, use a per-host `home-manager.sharedModules` block to add
-directly to `programs.mpv.scripts`:
-
-Packaged script via extraScripts (NixOS layer):
-
-```nix
-{ pkgs, ... }:
-{
-  programs.mpv.extended.extraScripts = with pkgs.mpvScripts; [
-    thumbfast
-    uosc
-  ];
-}
-```
-
-Setting the option replaces the default list, so re-list any defaults
-(`thumbfast`) alongside the additions.
-
-Packaged script via HM (per-host, additive):
-
-```nix
-{ pkgs, ... }:
-{
-  home-manager.sharedModules = [
-    {
-      programs.mpv.scripts = with pkgs.mpvScripts; [ uosc ];
-    }
-  ];
-}
-```
-
-The list merges with the values set by the shared HM mpv module, so the
-scripts hardcoded by that module remain active alongside the additions; see
-[scripts-and-bindings.md](3-scripts-and-bindings.md) for the canonical
-list. Note that `modernz` is already an OSC replacement, so adding `uosc`
-would stack two OSC implementations; pick one or disable the other.
-
-Raw Lua file (no nixpkgs package):
-
-```nix
-_:
-{
-  home-manager.sharedModules = [
-    {
-      xdg.configFile."mpv/scripts/my-hook.lua".text = ''
-        mp.register_event("file-loaded", function()
-          mp.msg.info("loaded: " .. (mp.get_property("path") or ""))
-        end)
-      '';
-    }
-  ];
-}
-```
-
-This suits one-off user hooks. The shared HM module instead packages its
-local scripts (`playlist_filter`, `ytdlp_cookies`) in
-`modules/hm-apps/mpv/scripts.nix` and loads them through
-`programs.mpv.scripts`.
-
-Keybinding:
-
-```nix
-_:
-{
-  home-manager.sharedModules = [
-    {
-      programs.mpv.bindings."Ctrl+r" = "playlist-shuffle";
-    }
-  ];
-}
-```
-
-Consult mpv's input command reference for the action string.
+- Toggle a bundled extra (shaders, browser bridge, Jellyfin shim): `programs.mpv.extended.extras.<name>.enable`.
+- Install a tool not covered by the named extras: `programs.mpv.extended.extraPackages`, which is additive.
+- Add an mpv script that loads at startup: `programs.mpv.extended.extraScripts`, which the HM module builds into the user's mpv.
+- Change a single mpv config key for one host: a per-host `home-manager.sharedModules` block setting `programs.mpv.config.<key>`.
+- Add or change a keybinding: a per-host `home-manager.sharedModules` block setting `programs.mpv.bindings.<key>`.
+- Replace the mpv package itself: `programs.mpv.extended.package` per host.
+- Add a one-off Lua snippet: `xdg.configFile."mpv/scripts/<name>.lua"` in Home Manager.
+- Disable mpv entirely on a host: `mpv = false` in the host's app rows, as [App registry](../guides/apps-module-registry.md) describes.
 
 ## Overriding a Configuration Key
 
-mpv's HM module exposes `programs.mpv.config` as a free-form attrset, so any
-mpv option name works. To override a single value on one host:
+mpv's HM module exposes `programs.mpv.config` as a free-form attrset, so any mpv option name works.
+To override a single value on one host:
 
 ```nix
 _:
@@ -115,7 +37,7 @@ _:
 
 ## Replacing the mpv Package
 
-To swap in a custom build for the system-wide install:
+The HM module builds the user's mpv from `programs.mpv.extended.package`, so setting it per host swaps in a custom build without a `pkgs.mpv` overlay:
 
 ```nix
 { pkgs, ... }:
@@ -126,20 +48,13 @@ To swap in a custom build for the system-wide install:
 }
 ```
 
-Only the NixOS layer installs from `cfg.package`. The HM layer installs
-`programs.mpv.finalPackage`, which always rewraps `pkgs.mpv` because the
-shared module sets `programs.mpv.scripts` (upstream Home Manager asserts
-that `programs.mpv.package` stays at its default whenever `scripts` is
-set). To replace mpv in both layers, override `pkgs.mpv` itself in an
-overlay.
-
 ## Adding mpv-Adjacent Tools
 
-Three bundled extras are controlled by named enable options:
+Three bundled extras have named enable options:
 
-- `extras.defaultShaders.enable` (default `true`): `mpv-shim-default-shaders` -- shader presets
-- `extras.openInMpv.enable` (default `true`): `open-in-mpv` -- browser-to-mpv bridge
-- `extras.jellyfinShim.enable` (default `false`): `jellyfin-mpv-shim` -- cast from Jellyfin clients
+- `extras.defaultShaders.enable` (default `true`): `mpv-shim-default-shaders`, the shader presets.
+- `extras.openInMpv.enable` (default `true`): `open-in-mpv`, the browser-to-mpv bridge.
+- `extras.jellyfinShim.enable` (default `false`): `jellyfin-mpv-shim`, for casting from Jellyfin clients.
 
 Toggle any of them per host:
 
@@ -151,8 +66,7 @@ Toggle any of them per host:
 }
 ```
 
-For packages not covered by the named options, use `extraPackages`. Entries there
-are additive; no need to re-list the named extras:
+Packages the named options do not cover go in `extraPackages`, whose entries are additive, so the named extras need no re-listing:
 
 ```nix
 { pkgs, ... }:
@@ -163,8 +77,7 @@ are additive; no need to re-list the named extras:
 
 ## Adding a User-Specific Override
 
-If a change should apply only to a specific user, layer it inside the
-user's home-manager block rather than the shared module:
+A change for one user only goes inside that user's home-manager block rather than the shared module:
 
 ```nix
 { metaOwner, ... }:
@@ -173,7 +86,7 @@ user's home-manager block rather than the shared module:
 }
 ```
 
-This is appropriate for taste-driven knobs (volume, OSC behavior).
+That suits taste-driven knobs such as volume and OSC behavior.
 
 ## Where to Look Next
 

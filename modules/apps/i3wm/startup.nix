@@ -4,12 +4,14 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
+      osConfig ? { },
       pkgs,
       lib,
       ...
     }:
     let
       stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
+      appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
     in
     {
       config.xsession.windowManager.i3.config.startup = lib.mkAfter [
@@ -18,7 +20,7 @@
           notification = false;
         }
         {
-          command = "${lib.getExe' pkgs.hsetroot "hsetroot"} -solid '${stylixColors.base00}'";
+          command = "${lib.getExe' (appRows.package "hsetroot") "hsetroot"} -solid '${stylixColors.base00}'";
           always = true;
           notification = false;
         }

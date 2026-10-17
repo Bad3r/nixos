@@ -79,6 +79,7 @@ in
 
           kitty = {
             enable = true;
+            package = null;
             # Ensure kitty is set as default terminal in user session
             settings = {
               # Font and glyph handling

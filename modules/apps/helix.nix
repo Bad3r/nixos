@@ -12,19 +12,14 @@
   Options:
     -h: Print help.
     -c: Specify a config file.
+
+  Notes:
+    * Home Manager installs `package` wrapped with its language servers and formatters (modules/hm-apps/helix.nix).
 */
 _:
 let
   HelixModule =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
-    let
-      cfg = config.programs.helix.extended;
-    in
+    { lib, pkgs, ... }:
     {
       options.programs.helix.extended = {
         enable = lib.mkOption {
@@ -34,10 +29,6 @@ let
         };
 
         package = lib.mkPackageOption pkgs "helix" { };
-      };
-
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
       };
     };
 in

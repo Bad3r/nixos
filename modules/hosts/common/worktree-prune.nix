@@ -16,7 +16,6 @@ let
   body = _: {
     config = {
       home-manager = {
-        extraAppImports = lib.mkAfter [ "worktree-prune" ];
         sharedModules = lib.mkAfter [ worktreePruneModule ];
 
         users.${metaOwner.username}.programs.worktreePrune = {

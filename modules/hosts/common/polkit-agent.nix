@@ -13,8 +13,6 @@ let
     in
     {
       config = lib.mkIf polkitEnabled {
-        home.packages = [ pkgs.polkit_gnome ];
-
         systemd.user.services.polkit-gnome-authentication-agent-1 = {
           Unit = {
             Description = "Polkit authentication agent";

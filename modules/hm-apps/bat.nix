@@ -40,11 +40,13 @@ _: {
     }:
     let
       enabled = lib.attrByPath [ "programs" "bat" "extended" "enable" ] false osConfig;
+      package = lib.attrByPath [ "programs" "bat" "extended" "package" ] pkgs.bat osConfig;
     in
     {
       config = lib.mkIf enabled {
         programs.bat = {
           enable = true;
+          inherit package;
 
           config = {
             # Theme managed by Stylix via stylix.targets.bat

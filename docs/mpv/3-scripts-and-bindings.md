@@ -1,148 +1,48 @@
 # Scripts and Bindings
 
-mpv loads scripts only from a small set of well-known locations. This page
-explains the loading model used in this NixOS configuration, the scripts that ship enabled,
-the inline Lua hooks, and the keybindings written to `~/.config/mpv/input.conf`.
+mpv auto-loads scripts only from `~/.config/mpv/scripts/` or from explicit `--script=<path>` flags baked into the binary.
+The HM module builds the user's mpv from the row's package rewrapped with a script list, as the [package install contract](1-architecture.md#package-install-contract) describes, so every listed script loads through those flags.
+
+- [Lua hooks](3-lua-hooks.md): the two repo-local scripts, `playlist_filter.lua` and `ytdlp_cookies.lua`.
 
 ## Script Loading Model
 
-mpv only auto-loads scripts from `~/.config/mpv/scripts/` or from explicit
-`--script=<path>` flags baked into the binary. This configuration exposes two
-knobs for script packages:
+- `programs.mpv.extended.extraScripts` (NixOS): script packages the HM module appends to that script list, so they load at runtime.
+- `programs.mpv.extended.extras.*` (NixOS): named enable options for bundled tools (`defaultShaders`, `openInMpv`, `jellyfinShim`), each installed through `environment.systemPackages`; not for scripts.
+- `programs.mpv.extended.extraPackages` (NixOS): the additive escape hatch for tools not covered by `extras.*`, also installed through `environment.systemPackages`.
+- `xdg.configFile."mpv/scripts/<name>.lua"` (HM): a raw Lua file dropped into `~/.config/mpv/scripts/`, which mpv loads at startup.
 
-- `programs.mpv.extended.extraScripts` (NixOS): Declares script packages. The HM
-  module reads this list via `osConfig` and appends it to `programs.mpv.scripts`,
-  which wraps the mpv binary with `--script=` flags. Scripts declared here load
-  at runtime.
-- `programs.mpv.extended.extras.*` (NixOS): Named enable options for bundled
-  tools (`defaultShaders`, `openInMpv`, `jellyfinShim`). Each installs its package
-  via `environment.systemPackages`. Not for scripts.
-- `programs.mpv.extended.extraPackages` (NixOS): Additive escape hatch for tools
-  not covered by `extras.*`. Also installs via `environment.systemPackages`.
-- `programs.mpv.scripts` (HM): Appends script packages directly. Extends the list
-  set by the shared module; use in per-host `home-manager.sharedModules` blocks
-  for host-specific additions.
-- `xdg.configFile."mpv/scripts/<name>.lua"` (HM): Drops a raw Lua file into
-  `~/.config/mpv/scripts/`. mpv loads it at startup.
-
-See [customizing.md](5-customizing.md) for usage patterns.
+Home Manager's own `programs.mpv.scripts` stays empty, and a host that sets it fails the upstream assertion, so per-host scripts go through `extraScripts`.
+[Adding scripts and bindings](5-customizing-scripts.md) has the usage patterns.
 
 ## MPV Bundled Scripts
 
-The following scripts load at startup. `modernz`, `mpv-cheatsheet-ng`,
-`mpris`, `reload`, and the `mpv-image-viewer` sub-scripts are hardcoded in
-the HM module's `programs.mpv.scripts` list. `thumbfast` comes from the
-NixOS module's `extraScripts` default and is bridged into
-`programs.mpv.scripts` by the HM module at build time.
+These scripts load at startup.
+`modernz`, `mpv-cheatsheet-ng`, `mpris`, `reload`, and the `mpv-image-viewer` sub-scripts are fixed in the HM module's script list, and `thumbfast` comes from the NixOS module's `extraScripts` default.
 
-- `mpvScripts.modernz`: Replacement OSC. Draws the seek bar, volume control, and playback buttons. Disables the built-in OSC and renders thumbnail previews using thumbfast when the cursor hovers over the seek bar.
-- `mpvScripts.mpv-cheatsheet-ng`: Overlay listing all active keybindings. Open with `?`.
-- `mpvScripts.mpris`: Exports the standard MPRIS DBus interface. Allows desktop environments and `playerctl` to control playback and read metadata.
-- `mpvScripts.reload`: Watches stalled streams and re-issues the load when buffering hangs, instead of leaving mpv frozen on a dead segment.
-- `mpvScripts.thumbfast`: Generates seek-bar thumbnail previews on demand. modernz reads from thumbfast's socket and draws the previews inline.
-- `mpvScripts.mpv-image-viewer.freeze-window`: Prevents the window from closing after the last image in a playlist.
-- `mpvScripts.mpv-image-viewer.image-positioning`: Adds pan, zoom, and rotate controls for image files.
-- `mpvScripts.mpv-image-viewer.status-line`: Persistent ASS overlay showing filename, playlist position (`[N/M]`), and image dimensions (`[WxH]`) at the bottom of the window. The script never auto-hides, so the HM module sets `programs.mpv.scriptOpts.status_line.enabled = "no"` to keep it dormant during regular video playback. The `img` profile re-enables it via `script-opts=...,status_line-enabled=yes`.
+- `mpvScripts.modernz`: the replacement OSC, which draws the seek bar, volume control, and playback buttons.
+  It replaces the built-in OSC and renders thumbnail previews from thumbfast when the cursor hovers over the seek bar.
+- `mpvScripts.mpv-cheatsheet-ng`: an overlay listing all active keybindings, opened with `?`.
+- `mpvScripts.mpris`: exports the standard MPRIS DBus interface, so desktop environments and `playerctl` can control playback and read metadata.
+- `mpvScripts.reload`: watches stalled streams and re-issues the load when buffering hangs, instead of leaving mpv frozen on a dead segment.
+- `mpvScripts.thumbfast`: generates seek-bar thumbnail previews on demand, which modernz reads from thumbfast's socket and draws inline.
+- `mpvScripts.mpv-image-viewer.freeze-window`: keeps the window open after the last image in a playlist.
+- `mpvScripts.mpv-image-viewer.image-positioning`: adds pan, zoom, and rotate controls for image files.
+- `mpvScripts.mpv-image-viewer.status-line`: a persistent ASS overlay with the filename, playlist position (`[N/M]`), and image dimensions (`[WxH]`).
+  It never auto-hides, so it stays dormant outside the `img` profile, as [Script Options](2-configuration.md#script-options) describes.
 
-One package is listed in the HM `scripts` block but commented out pending
-follow-up evaluation: `mpvScripts.autoload` (auto-queue the next file in the
-directory). It does not load until the comment is removed.
-
-To enable or disable any of them or add more, see [customizing.md](5-customizing.md).
-
-## Inline Lua Hooks
-
-The HM module ships two repo-local Lua scripts. Their source is rendered by
-`modules/hm-apps/mpv/scripts.nix` into script packages
-(`flake.lib.homeManager.mpvScripts`) that the HM module appends to
-`programs.mpv.scripts`, so both load alongside the bundled `mpvScripts.*`
-packages through the same `--script=` wrapper flags. Nothing is written to
-`~/.config/mpv/scripts/`.
-
-### `playlist_filter.lua`
-
-Filters playlist entries by file type. Starts in `off` mode (no filtering);
-cycle through modes at runtime with `F3`, or set the startup mode without
-rebuilding Nix:
-
-**Named profiles (defined in `mpv.conf`):**
-
-- `mpv --profile=vid ...` / `mpv -p vid ...`: skip image files in playlists
-- `mpv --profile=img ...` / `mpv -p img ...`: image viewer: skip non-image files, hold each image until manual advance, loop playlist
-
-**Dedicated wrappers (installed as user packages):**
-
-- `mpv-vid`: shorthand for `mpv --profile=vid`
-- `mpv-img`: shorthand for `mpv --profile=img`
-
-**Direct flag:**
-
-- `mpv --script-opts=playlist_filter-mode=block-images ...`
-- `mpv --script-opts=playlist_filter-mode=images-only ...`
-
-**Persistent default** (optional, not written by the module):
-Create `~/.config/mpv/script-opts/playlist_filter.conf` with:
-
-```
-mode=block-images
-```
-
-Modes: `off` (default), `block-images`, `images-only`. The `F3` runtime
-cycle works on top of whichever startup mode is active. Mode resets to the
-startup value on the next mpv invocation.
-
-Override the keybinding in `input.conf`:
-
-```
-F3 script-binding playlist_filter-cycle
-```
-
-### `ytdlp_cookies.lua`
-
-The script resolves a browser at mpv startup and appends
-`cookies-from-browser=<browser>` to `ytdl-raw-options`, so streaming URLs
-that need session cookies (members-only videos, region-locked content, etc.)
-authenticate with the active browser profile. Resolution order:
-
-- `MPV_YTDLP_BROWSER` (dedicated override): Set to a browser name to force
-  the value, or to the empty string to disable cookie passthrough entirely.
-- `$BROWSER` (set by the XDG defaults machinery): Used as a fallback when
-  `MPV_YTDLP_BROWSER` is unset. Picks up whatever the host configured as the
-  default web browser.
-- `--ytdl-raw-options=cookies-from-browser=<browser>` on the mpv command
-  line: Detected by the script and treated as authoritative; the script
-  suppresses its own append in this case.
-
-If neither env var is set and no CLI flag is passed, the script logs at
-verbose level and leaves `ytdl-raw-options` untouched, so mpv runs without
-cookies rather than failing.
+`mpvScripts.autoload`, which auto-queues the next file in the directory, sits commented out in the script list and loads only once the comment is removed.
+[Adding scripts and bindings](5-customizing-scripts.md) covers enabling, disabling, or adding scripts.
 
 ## Keybindings
 
-The HM module writes the following entries to `~/.config/mpv/input.conf` via
-`programs.mpv.bindings`.
+The HM module writes its bindings to `~/.config/mpv/input.conf` through `programs.mpv.bindings` in `modules/hm-apps/mpv/mpv.nix`, and mpv's other defaults stay available.
 
-- `q`: `quit`
-- `n`: `playlist-next`
-- `p`: `playlist-prev`
-- `m`: `cycle mute`
-- `v`: `cycle video`
-- `a`: `cycle audio`
-- `j`: `seek 5`
-- `h`: `seek 5`
-- `k`: `seek -5`
-- `l`: `seek -5`
-- `[`: `add speed -0.1`
-- `]`: `add speed 0.1`
+### Mapping Conventions
 
-### Notes on the Mapping
-
-- `j`/`k` intentionally duplicate `h`/`l`: all four vim-direction keys seek ±5 s.
-  Volume is handled via the scroll wheel and does not need a keyboard binding.
-- `h`/`l` are inverted relative to standard vim direction (`h` seeks forward,
-  `l` seeks backward). `j`/`k` follow the same convention (`j` forward, `k` backward).
-- `[`/`]` follow mpv upstream defaults: `[` slows playback, `]` speeds it up.
-- mpv's non-overridden defaults remain accessible.
+- `j` and `k` duplicate `h` and `l`, so all four vim-direction keys seek 5 seconds; volume stays on the scroll wheel.
+- `h` and `l` are inverted relative to vim direction: `h` seeks forward and `l` backward, and `j` forward and `k` backward follow the same convention.
+- `[` and `]` follow mpv's upstream defaults: `[` slows playback, and `]` speeds it up.
 
 ## Where to Look Next
 

@@ -2,9 +2,9 @@
 
 Operator documentation for Remote Desktop (RDP) access that this workstation
 uses through One Identity Safeguard for Privileged Sessions (SPS). The local
-client is Remmina (with FreeRDP), configured under `modules/apps/remmina.nix`
-and `modules/hm-apps/remmina.nix`; the remote side is a Safeguard-brokered
-RemoteApp published by the target firewall's jump host.
+client is Remmina (with FreeRDP), configured under `modules/apps/remmina.nix`;
+the remote side is a Safeguard-brokered RemoteApp published by the target
+firewall's jump host.
 
 ## Scope
 
@@ -23,7 +23,6 @@ RemoteApp published by the target firewall's jump host.
 
 - `modules/apps/remmina.nix`: system-level Remmina client and the
   `application/x-rdp` MIME package.
-- `modules/hm-apps/remmina.nix`: Home Manager Remmina integration.
 - `modules/xdg/mime.nix`: routes `.rdp` profile files to Remmina.
 
 ## Upstream documentation

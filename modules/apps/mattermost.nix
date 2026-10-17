@@ -48,6 +48,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "mattermost-desktop" ];
   flake.nixosModules.apps.mattermost = MattermostDesktopModule;
 }

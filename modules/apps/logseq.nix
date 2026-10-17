@@ -31,13 +31,13 @@ let
       basePackage = inputs.nix-logseq-git-flake.packages.${pkgs.stdenv.hostPlatform.system}.logseq;
       # Wrap with --disable-gpu-compositing for NVIDIA PRIME sync compatibility
       wrappedPackage = pkgs.writeShellScriptBin "logseq" ''
-        exec ${basePackage}/bin/logseq --disable-gpu-compositing "$@"
+        exec ${cfg.package}/bin/logseq --disable-gpu-compositing "$@"
       '';
       finalPackage = pkgs.symlinkJoin {
         name = "logseq-wrapped";
         paths = [
           wrappedPackage
-          basePackage
+          cfg.package
         ];
         # Ensure the wrapper takes precedence
         postBuild = ''

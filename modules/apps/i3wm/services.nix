@@ -11,23 +11,14 @@
     }:
     let
       i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
-      autotilingCfg = lib.attrByPath [ "programs" "autotiling-rs" "extended" ] {
-        enable = false;
-        package = pkgs.autotiling-rs;
-      } osConfig;
+      appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
       primeSyncEnabled = lib.attrByPath [ "gpu" "nvidia" "prime" "syncActive" ] false osConfig;
-      brightnessctlPackage = lib.attrByPath [
-        "programs"
-        "brightnessctl"
-        "extended"
-        "package"
-      ] pkgs.brightnessctl osConfig;
     in
     {
       config = lib.mkIf i3Enabled (
         let
-          kittyCommand = lib.getExe pkgs.kitty;
-          nemoCommand = lib.getExe' pkgs.nemo "nemo";
+          kittyCommand = lib.getExe (appRows.package "kitty");
+          nemoCommand = lib.getExe' (appRows.package "nemo") "nemo";
           stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
           toLockColor = colorHex: lib.strings.toUpper (lib.removePrefix "#" colorHex + "FF");
           lockPalette = lib.mapAttrs (_: toLockColor) {
@@ -41,7 +32,7 @@
           # i3lock-color forks once its window is mapped, which is the
           # readiness point Type=forking waits for.
           lockCommand = lib.escapeShellArgs [
-            (lib.getExe pkgs.i3lock-color)
+            (lib.getExe osConfig.programs.i3lock.package)
             "--color=${lockPalette.background}"
             "--inside-color=${lockPalette.background}"
             "--ring-color=${lockPalette.ring}"
@@ -64,7 +55,7 @@
           dimWarningScript = pkgs.writeShellApplication {
             name = "i3-dim-warning";
             runtimeInputs = [
-              brightnessctlPackage
+              (appRows.package "brightnessctl")
               pkgs.coreutils
             ];
             text = /* bash */ ''
@@ -88,7 +79,8 @@
         {
           services = {
             dunst = {
-              enable = lib.mkDefault true;
+              enable = lib.mkDefault (appRows.enabled "dunst");
+              package = lib.mkDefault (appRows.package "dunst");
             };
             # i3 does not composite, so without picom every GL/video present
             # reaches the scanout unsynchronised and tears. glx+vSync is the
@@ -103,15 +95,14 @@
             # compositor, and one from home-manager's own pkgs.picom rather
             # than the package the app module installs.
             picom = {
-              enable = lib.mkDefault (lib.attrByPath [ "programs" "picom" "extended" "enable" ] false osConfig);
-              package = lib.mkDefault (
-                lib.attrByPath [ "programs" "picom" "extended" "package" ] pkgs.picom osConfig
-              );
+              enable = lib.mkDefault (appRows.enabled "picom");
+              package = lib.mkDefault (appRows.package "picom");
               backend = lib.mkDefault "glx";
               vSync = lib.mkDefault (!primeSyncEnabled);
             };
             udiskie = {
-              enable = lib.mkDefault true;
+              enable = lib.mkDefault (appRows.enabled "udiskie");
+              package = lib.mkDefault (appRows.package "udiskie");
               tray = lib.mkDefault "always";
               settings = lib.mkDefault {
                 program_options = {
@@ -120,7 +111,10 @@
                 };
               };
             };
-            network-manager-applet.enable = lib.mkDefault true;
+            network-manager-applet = {
+              enable = lib.mkDefault (appRows.enabled "networkmanagerapplet");
+              package = lib.mkDefault (appRows.package "networkmanagerapplet");
+            };
           };
 
           # Started by i3 itself (startup.nix), so units wanted by it run only
@@ -132,7 +126,7 @@
           };
 
           systemd.user.services = {
-            snixembed = {
+            snixembed = lib.mkIf (appRows.enabled "snixembed") {
               Unit = {
                 Description = "snixembed SNI-to-XEmbed tray bridge";
                 PartOf = [ "tray.target" ];
@@ -143,7 +137,7 @@
               Service = {
                 Type = "dbus";
                 BusName = "org.kde.StatusNotifierWatcher";
-                ExecStart = lib.getExe pkgs.snixembed;
+                ExecStart = lib.getExe (appRows.package "snixembed");
                 Restart = "on-failure";
               };
             };
@@ -151,7 +145,7 @@
             # Unit layout from the nixpkgs systemd-lock-handler docs; the
             # OnFailure release keeps lock.target startable after the
             # locker exhausts its restarts.
-            i3lock = {
+            i3lock = lib.mkIf (appRows.enabled "i3lock-color") {
               Unit = {
                 Description = "i3lock-color screen locker";
                 Before = [ "lock.target" ];
@@ -190,7 +184,7 @@
               };
             };
           }
-          // lib.optionalAttrs autotilingCfg.enable {
+          // lib.optionalAttrs (appRows.enabled "autotiling-rs") {
             autotiling-rs = {
               Unit = {
                 Description = "Autotiling for i3";
@@ -199,7 +193,7 @@
               };
               Install.WantedBy = [ "i3-session.target" ];
               Service = {
-                ExecStart = lib.getExe autotilingCfg.package;
+                ExecStart = lib.getExe (appRows.package "autotiling-rs");
                 Restart = "on-failure";
               };
             };

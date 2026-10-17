@@ -3,9 +3,8 @@
 A Leopold FC660C (Topre capacitive, 66-key 60%) fitted with a Hasu (TMK) FC660C
 Alt Controller: a solderless drop-in replacement PCB for the stock controller.
 The stock board is not programmable; the alt controller replaces it with an
-ATmega32U4 running QMK-family firmware, currently Vial. The unit documented
-here is the keyboard attached to `songbird`, verified from sysfs, `lsusb -v`,
-`/proc/bus/input/devices`, and live HID report descriptors on 2026-08-29.
+ATmega32U4 running QMK-family firmware.
+This keyboard is attached to `songbird`.
 
 ## Quick facts
 
@@ -24,23 +23,22 @@ here is the keyboard attached to `songbird`, verified from sysfs, `lsusb -v`,
 
 ## Documentation
 
-| Page                                   | Read when                                                                                                                                               |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| [identification.md](identification.md) | Confirming this is the Hasu Alt Controller, checking whether Vial or stock TMK firmware is flashed, or resolving a hidraw node to a specific interface. |
-| [configuration.md](configuration.md)   | Enabling the NixOS module, remapping keys in Vial, using the Esc+Enter unlock combo, or hitting the actuation-point limitation.                         |
-| [flashing.md](flashing.md)             | Reflashing firmware, or recovering an unresponsive or badly flashed controller.                                                                         |
-| [firmware/](firmware/README.md)        | Building firmware on NixOS, the local keymap overlay (NKRO, actuation point), the flash script, and the ATmega32U4 flash budget.                        |
+| Page                                           | Read when                                                                                                                        |
+| ---------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| [identification.md](identification.md)         | Confirming this is the Hasu Alt Controller, or checking whether Vial or stock TMK firmware is flashed.                           |
+| [identification-hid.md](identification-hid.md) | Resolving a hidraw node to a specific HID interface.                                                                             |
+| [configuration.md](configuration.md)           | Enabling the NixOS module, its udev rules, or bootloader access.                                                                 |
+| [configuration-vial.md](configuration-vial.md) | Remapping keys in Vial, using the Esc+Enter unlock combo, or hitting the actuation-point limitation.                             |
+| [flashing.md](flashing.md)                     | Reflashing firmware, or recovering an unresponsive or badly flashed controller.                                                  |
+| [firmware/](firmware/README.md)                | Building firmware on NixOS, the local keymap overlay (NKRO, actuation point), the flash script, and the ATmega32U4 flash budget. |
 
 ## NixOS integration
 
 `modules/hardware/keyboards/fc660c.nix` exposes `hardware.keyboards.fc660c.enable`.
-Enabling it installs the Vial GUI, `dfu-programmer`, `usbutils` for `lsusb`, and
-a udev rule covering both the board's normal-mode Vial interface and its Atmel
-DFU bootloader identity, scoped narrowly enough to avoid either upstream
-option's blanket hidraw rule. See
-[configuration.md](configuration.md#nixos-module) for the rule content and how
-it differs from `hardware.keyboard.qmk.enable` and the nixpkgs `vial` package's
-own bundled rule.
+Enabling it installs `dfu-programmer` and a udev rule, and turns on the `vial` app, which a host's app overrides can still turn off.
+The rule covers both the board's normal-mode Vial interface and its Atmel DFU bootloader identity, scoped narrowly enough to avoid either upstream option's blanket hidraw rule.
+See [configuration.md](configuration.md#nixos-module) for the rule content and how it differs from `hardware.keyboard.qmk.enable` and the nixpkgs `vial` package's own bundled rule.
+`lsusb` comes from the `usbutils` app.
 
 ## External references
 
@@ -52,5 +50,5 @@ own bundled rule.
 - TMK project page: <http://www.tmk-kbd.com/tmk_keyboard/>
 - Hasu's original build thread, "[TMK] FC660C Alt Controller": <https://geekhack.org/index.php?topic=88439.0>
 - The 2017 group buy thread, "[GB] TMK FC660C Alt Controller": <https://geekhack.org/index.php?topic=88720.0>
-- FCC filing for the stock Leopold FC660C (grantee Leopold Co., Ltd., granted 2013-01-28; schematic, part list, internal photos): <https://fccid.io/RPKFC660C>
+- FCC filing for the stock Leopold FC660C (grantee Leopold Co., Ltd.; schematic, part list, internal photos): <https://fccid.io/RPKFC660C>
 - 1upkeyboards assembled USB-C controller (ships TMK by default per its listing; reflash with vial-qmk for Vial): <https://1upkeyboards.com/shop/controllers/fc660c-controller/>

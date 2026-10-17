@@ -1,5 +1,12 @@
 # Documentation Index
 
+## Onboarding
+
+- [ONBOARDING.md](ONBOARDING.md)
+  - Project overview, key concepts, the guided reading path, and the complexity hotspots.
+- [onboarding-layers.md](onboarding-layers.md)
+  - The repository layers and the load-bearing files in each.
+
 ## Architecture
 
 - [architecture/README.md](architecture/README.md)
@@ -7,9 +14,15 @@
 - [architecture/01-pattern-overview.md](architecture/01-pattern-overview.md)
   - Explains the Dendritic Pattern's automatic module discovery, aggregator namespaces, and organic configuration growth.
 - [architecture/02-module-authoring.md](architecture/02-module-authoring.md)
-  - Covers module writing patterns, file placement conventions, the two-context problem, and common pitfalls.
+  - Covers file placement conventions, common pitfalls, and the two-context problem.
+- [architecture/02-module-authoring-patterns.md](architecture/02-module-authoring-patterns.md)
+  - Module shapes with and without `pkgs`, multi-namespace modules, namespace extensions, and host modules.
+- [architecture/02-module-authoring-arguments.md](architecture/02-module-authoring-arguments.md)
+  - The `metaOwner`, `secretsRoot`, `inputs`, and `hostName` arguments, their Home Manager counterparts, and the app helpers.
 - [architecture/03-nixos-modules.md](architecture/03-nixos-modules.md)
-  - Documents the flake.nixosModules namespace, app registry helpers (hasApp, getApp, getApps), and custom packages.
+  - Documents the flake.nixosModules namespace, app registry helpers (hasApp, getApp, getApps), overlay packages, and unfree packages.
+- [architecture/03-nixos-modules-namespaces.md](architecture/03-nixos-modules-namespaces.md)
+  - The `flake.lib` sub-namespaces and the `flake.csec` feature modules.
 - [architecture/04-home-manager.md](architecture/04-home-manager.md)
   - Covers the flake.homeManagerModules namespace, app loading mechanism, and secrets integration for user configuration.
 - [architecture/05-host-composition.md](architecture/05-host-composition.md)
@@ -122,9 +135,25 @@
 - [guides/README.md](guides/README.md)
   - Index of style guides, coding standards, and how-to documentation.
 - [guides/apps-module-style-guide.md](guides/apps-module-style-guide.md)
-  - Comprehensive style guide for modules/apps/ including header format, module structure, and HM integration workflow.
+  - File layout, module body, namespace selection, and the steps for adding a `modules/apps/` module.
+- [guides/apps-module-header.md](guides/apps-module-header.md)
+  - Header block fields, sections, option documentation, and the sources behind each field.
+- [guides/apps-module-package-sources.md](guides/apps-module-package-sources.md)
+  - Package options for nixpkgs, external flake input, and Python packages.
+- [guides/apps-module-registry.md](guides/apps-module-registry.md)
+  - Baseline and host rows, prerequisite rows, the registry checks, and which module installs a package.
+- [guides/apps-module-home-manager.md](guides/apps-module-home-manager.md)
+  - Home Manager app modules gated on the NixOS row, package handling, import lists, and theming.
 - [guides/custom-packages-style-guide.md](guides/custom-packages-style-guide.md)
-  - Conventions for packages/ directory including templates for Rust, Go, Python, and binary downloads.
+  - When to create a package under `packages/`, file structure, meta fields, app modules, and validation.
+- [guides/custom-packages-source-builds.md](guides/custom-packages-source-builds.md)
+  - Rust, Go, and Python package templates.
+- [guides/custom-packages-binaries-and-scripts.md](guides/custom-packages-binaries-and-scripts.md)
+  - Binary download and shell wrapper package templates.
+- [guides/custom-packages-overlays.md](guides/custom-packages-overlays.md)
+  - Exposing an in-tree package as `pkgs.<name>` through a gated overlay, or as a flake output.
+- [guides/custom-packages-hashes.md](guides/custom-packages-hashes.md)
+  - Source, cargo, and vendor hash workflows, updater hash helpers, and mismatch recovery.
 - [guides/github-deployments.md](guides/github-deployments.md)
   - Using GitHub's Deployments API via gh CLI for tracking deployments (metadata only, not actual deployment).
 - [guides/host-onboarding.md](guides/host-onboarding.md)
@@ -174,11 +203,15 @@
 - [mpv/2-configuration.md](mpv/2-configuration.md)
   - Reference for every key the Home Manager mpv module writes to `mpv.conf` with rationale for non-default values.
 - [mpv/3-scripts-and-bindings.md](mpv/3-scripts-and-bindings.md)
-  - Script loading model (the `extraScripts` vs HM `scripts` distinction), bundled scripts, the inline Lua hooks, and the keybindings table.
+  - Script loading model through `extraScripts` and the rewrapped package, bundled scripts, and the keybinding conventions.
+- [mpv/3-lua-hooks.md](mpv/3-lua-hooks.md)
+  - The repo-local `playlist_filter.lua` and `ytdlp_cookies.lua` scripts, their modes, and browser resolution.
 - [mpv/4-integrations.md](mpv/4-integrations.md)
-  - XDG MIME defaults, MPRIS via playerctl, the orthogonal `media-toolchain` bundle, the `open-in-mpv` browser bridge, and the `video-cache` helper.
+  - XDG MIME defaults, MPRIS via playerctl, the `open-in-mpv` browser bridge, and the `video-cache` helper.
 - [mpv/5-customizing.md](mpv/5-customizing.md)
-  - Patterns for adding scripts, overriding configuration keys, replacing the package, layering personal overrides, and opting out per host.
+  - Choosing the layer, overriding configuration keys, replacing the package, adjacent tools, personal overrides, and opting out per host.
+- [mpv/5-customizing-scripts.md](mpv/5-customizing-scripts.md)
+  - Adding packaged scripts through `extraScripts`, raw Lua files, and keybindings on one host.
 - [mpv/6-troubleshooting.md](mpv/6-troubleshooting.md)
   - MIME default-assertion failures, codec gaps, and silent hwdec fallback.
 
@@ -307,7 +340,13 @@
 ## SOPS
 
 - [sops/README.md](sops/README.md)
-  - sops-nix secrets management including host preparation, adding secrets, templates, and common issues.
+  - sops-nix policy, what ships in the repo, host key preparation and rotation, and editing encrypted files safely.
+- [sops/adding-secrets.md](sops/adding-secrets.md)
+  - Adding a secret: the YAML shape, explicit key declarations, and runtime consumers.
+- [sops/ci-evaluation.md](sops/ci-evaluation.md)
+  - Secretless CI evaluation through `path:`, and the local store-copy hazard of `path:` commands.
+- [sops/troubleshooting.md](sops/troubleshooting.md)
+  - sops-nix error messages with their cause and fix.
 - [sops/secrets-act.md](sops/secrets-act.md)
   - GitHub personal access token setup for act (local GitHub Actions runner) via sops-nix.
 
@@ -354,7 +393,11 @@
 - [duplicati/security.md](duplicati/security.md)
   - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
 - [usage/espanso-usage.md](usage/espanso-usage.md)
-  - Espanso text expander usage including default triggers, custom matches, and troubleshooting.
+  - Espanso text expander usage including enabling, default triggers, service management, and troubleshooting.
+- [usage/espanso-matches.md](usage/espanso-matches.md)
+  - Custom espanso matches, form, shell, and clipboard variables, and regex triggers.
+- [usage/espanso-configuration.md](usage/espanso-configuration.md)
+  - App-specific espanso configs, X11 and Wayland support, and the package override.
 - [usage/magnitude.md](usage/magnitude.md)
   - Running Claude Code and Codex on local models served by Magnitude on songbird.
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
@@ -376,9 +419,13 @@
 - [keyboards/fc660c/README.md](keyboards/fc660c/README.md)
   - Leopold FC660C with the Hasu (TMK) Alt Controller: quick identification facts, the NixOS switch, and links to the rest of the set.
 - [keyboards/fc660c/identification.md](keyboards/fc660c/identification.md)
-  - Reproducible USB and HID commands to confirm the Hasu Alt Controller and tell Vial firmware apart from stock TMK or plain QMK/VIA.
+  - Reproducible USB commands to confirm the Hasu Alt Controller and tell Vial firmware apart from stock TMK or plain QMK/VIA.
+- [keyboards/fc660c/identification-hid.md](keyboards/fc660c/identification-hid.md)
+  - The three HID interfaces, resolving a hidraw node, and decoding the raw HID report descriptor.
 - [keyboards/fc660c/configuration.md](keyboards/fc660c/configuration.md)
-  - The NixOS module and its udev rule, day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
+  - The NixOS module, its board-scoped udev rule, the rule file's sort window, and bootloader access.
+- [keyboards/fc660c/configuration-vial.md](keyboards/fc660c/configuration-vial.md)
+  - Day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
 - [keyboards/fc660c/flashing.md](keyboards/fc660c/flashing.md)
   - Entering the DFU bootloader, flashing with vial-qmk or dfu-programmer, and recovering from a bad flash.
 - [keyboards/fc660c/firmware/README.md](keyboards/fc660c/firmware/README.md)

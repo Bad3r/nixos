@@ -66,10 +66,9 @@ current derivations do not require the CachyOS kernel build. The evaluated
 misspelled, unknown-key, and non-Boolean policy cases, then reads the
 publisher's actual host-qualified entries for each exclusion. It fails if the
 module is published again, `nvidia-x11` is absent, or `nvidia-settings` is
-absent while the evaluated host configuration enables it. A host that instead
-sets `hardware.nvidia.nvidiaSettings = false` is not required to publish
-`nvidia-settings`: the check reads that option's evaluated value rather than
-assuming every host enables it.
+absent while the evaluated host configuration enables it.
+A host that turns the `nvidia-settings` app off is not required to publish `nvidia-settings`.
+The check reads the evaluated `hardware.nvidia.nvidiaSettings`, which that app sets, rather than assuming every host enables it.
 
 The full closure detector classifies the source-built CachyOS kernel and its
 modules as `local-only`, not `unexpected-local`, because stock nixpkgs has no

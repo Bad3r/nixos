@@ -1,11 +1,9 @@
 # mpv
 
-Last Update: 2026-08-13
-
 This directory documents how `mpv` is composed and managed in this NixOS
 configuration: the NixOS app module, the Home Manager app module, the XDG
-default-app integration, the MPRIS controller, the orthogonal `media-toolchain`
-bundle, and the `video-cache` shell helper.
+default-app integration, the MPRIS controller, and the `video-cache` shell
+helper.
 
 ## Scope
 
@@ -19,9 +17,11 @@ for offline reference.
 
 - [Architecture](1-architecture.md): Module layering, aggregator namespaces, host gating, NixOS-to-HM activation contract.
 - [Configuration](2-configuration.md): Every key the HM module writes, what it does, and why.
-- [Scripts and Bindings](3-scripts-and-bindings.md): Script loading model, bundled scripts, the Lua hooks, keybindings.
-- [Integrations](4-integrations.md): XDG MIME defaults, MPRIS/playerctl, the media bundle, browser bridge, video-cache.
-- [Customizing](5-customizing.md): Adding scripts, packages, Lua hooks, keybindings, opting out per host.
+- [Scripts and Bindings](3-scripts-and-bindings.md): Script loading model, bundled scripts, keybindings.
+- [Lua Hooks](3-lua-hooks.md): The two repo-local Lua scripts.
+- [Integrations](4-integrations.md): XDG MIME defaults, MPRIS/playerctl, browser bridge, video-cache.
+- [Customizing](5-customizing.md): Packages, extras, opting out per host.
+- [Adding Scripts and Bindings](5-customizing-scripts.md): Per-host scripts, Lua hooks, and keybindings.
 - [Troubleshooting](6-troubleshooting.md): MIME default-assertion failures, codec gaps, silent hwdec fallback.
 
 ## Navigation

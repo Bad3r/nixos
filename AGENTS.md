@@ -25,13 +25,19 @@ never a goal: remove legacy support instead of carrying both paths.
 - `modules/hosts/common/apps-enable.nix` sets app defaults at
   `lib.mkOverride 1100` and per-host files override at 1000; a flake check
   fails on a host override that repeats the baseline value.
+- A program reaches PATH only through its own app module, built from that
+  module's `package` option. A module that needs another app turns the app's
+  row on with `lib.mkOverride 1050 true` rather than installing it, and
+  `host-<host>-apps-match-registry` fails when a row evaluates to anything
+  else or another module installs the package of an app whose row is off.
 - Everything runs Lix from the nixpkgs pin (`modules/base/nix-package.nix`).
   `flake.nix#nixConfig` carries only what Lix needs before the module graph
   loads; `modules/base/nix-settings.nix` owns the rest, and cache topology sits
   in `modules/hosts/common/nix-substituters.nix` and
   `modules/meta/cache-roots.nix`. Adding a cache is a policy decision for the
   user.
-- Unfree packages are allowlisted in `modules/meta/nixpkgs-allowed-unfree.nix`.
+- Unfree packages are allowlisted with `nixpkgs.allowedUnfreePackages` next to
+  the module that installs them.
 - Generated files (`README.md`, `.gitignore`, the gitleaks and sops configs,
   and the rest declared in `modules/files.nix`) are compared byte for byte by
   a check: edit the Nix source, then run

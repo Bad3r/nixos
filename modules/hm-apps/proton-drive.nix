@@ -162,7 +162,7 @@ _: {
         );
 
       cfg = config.services.protonDriveSync;
-      rclonePackage = lib.attrByPath [ "programs" "rclone" "package" ] pkgs.rclone config;
+      rclonePackage = lib.attrByPath [ "programs" "rclone" "extended" "package" ] pkgs.rclone osConfig;
 
       # extraArgs is appended last on every invocation and rclone's parser takes
       # the last occurrence of a flag, so an extraArg silently replaces the same

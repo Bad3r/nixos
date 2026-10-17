@@ -3,8 +3,7 @@
 #
 # Priority: the common baseline uses `lib.mkOverride 1100` (low priority).
 # The builder applies these at `lib.mkOverride 1000` so the per-host override
-# wins over the common baseline at evaluation time while still permitting
-# normal user overrides at default priority (100).
+# wins over the common baseline and over 1050 prerequisites.
 #
 # `appEnable` is a flat override list. Entries are routed to
 # `programs.<name>.extended.enable` or `services.<name>.extended.enable` based
@@ -26,7 +25,7 @@ let
     discord = false;
     dropbox = false;
     dualsensectl = false;
-    dwarfs = false; # Default dependency of steam extraTools
+    dwarfs = false;
     ent = false;
     f3 = false;
     filezilla = false;
@@ -34,7 +33,6 @@ let
     ghidra = false;
     "gnome-disk-utility" = false;
     gnumake = false;
-    gnused = false;
     gparted = false;
     hdparm = false;
     iotop = false;

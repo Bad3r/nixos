@@ -12,10 +12,10 @@
 
   The activation text is parameterized entirely through shell variables assigned
   at its top, so it runs here unmodified. security.wrapperDir selects the op
-  binary and programs.rclone.package selects the rclone binary, so pointing both
-  at stubs puts the parsing under test rather than 1Password or rclone. The op
-  stub replays a scripted field value, and the rclone obscure stub is
-  deterministic where the real one draws a random IV per call.
+  binary and programs.rclone.extended.package selects the rclone binary, so
+  pointing both at stubs puts the parsing under test rather than 1Password or
+  rclone. The op stub replays a scripted field value, and the rclone obscure
+  stub is deterministic where the real one draws a random IV per call.
 
   Both credential sources are driven, not just the op:// one the check is named
   for. The entry assembles its credential fingerprint per source, from plaintext
@@ -117,7 +117,6 @@
                     enableNixpkgsReleaseCheck = false;
                   };
                   programs.home-manager.enable = true;
-                  programs.rclone.package = rcloneStub;
                   xdg.configHome = "${root}/config";
                 }
               ];
@@ -138,6 +137,7 @@
                   sops.secrets."rclone/protondrive-env".path = sopsEnv;
                   programs.rclone.extended = {
                     enable = true;
+                    package = rcloneStub;
                     protonDrive = {
                       enable = true;
                       inherit authSource;

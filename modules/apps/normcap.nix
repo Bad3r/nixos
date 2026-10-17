@@ -43,7 +43,7 @@ let
         "-l ${lib.concatStringsSep " " cfg.languages}"
       ];
 
-      finalPackage = cfg.package.overrideAttrs (old: {
+      configuredPackage = cfg.package.overrideAttrs (old: {
         nativeBuildInputs = (old.nativeBuildInputs or [ ]) ++ [
           pkgs.librsvg
         ];
@@ -125,10 +125,19 @@ let
             tessdata directory; otherwise OCR fails at runtime.
           '';
         };
+
+        # Set only under config, so a read with the module off fails.
+        finalPackage = lib.mkOption {
+          type = lib.types.package;
+          readOnly = true;
+          description = "Resolved normcap package installed by this module, with the tray icons and the TESSDATA_PREFIX wrapper applied.";
+        };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ finalPackage ];
+        programs.normcap.extended.finalPackage = configuredPackage;
+
+        environment.systemPackages = [ cfg.finalPackage ];
       };
     };
 in

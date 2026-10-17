@@ -206,6 +206,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.rofi = {
           enable = true;
+          package = lib.attrByPath [ "programs" "rofi" "extended" "package" ] pkgs.rofi osConfig;
 
           # Terminal for running console applications
           inherit terminal;

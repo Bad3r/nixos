@@ -24,7 +24,12 @@
 
 _: {
   flake.homeManagerModules.apps.skim =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "skim" "extended" "enable" ] false osConfig;
     in
@@ -32,6 +37,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.skim = {
           enable = true;
+          package = lib.attrByPath [ "programs" "skim" "extended" "package" ] pkgs.skim osConfig;
           enableZshIntegration = true;
           enableBashIntegration = true;
         };

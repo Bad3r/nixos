@@ -44,9 +44,7 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        # hiPrio so the clean python3 interpreter wins over jupyter-all's
-        # bundled python3 in system-path (avoids buildEnv subpath collisions).
-        environment.systemPackages = [ (lib.hiPrio cfg.package) ];
+        environment.systemPackages = [ cfg.package ];
       };
     };
 in

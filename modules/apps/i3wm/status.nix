@@ -4,11 +4,14 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
+      osConfig ? { },
+      pkgs,
       lib,
       ...
     }:
     let
       inherit (config.gui.i3) netInterface;
+      appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
 
       netBlockBase = {
         block = "net";
@@ -71,7 +74,7 @@
           click = [
             {
               button = "left";
-              cmd = "pwvucontrol";
+              cmd = lib.getExe (appRows.package "pwvucontrol");
             }
           ];
         }
@@ -137,12 +140,14 @@
     {
       config = {
         programs.i3status-rust = {
-          enable = true;
+          enable = appRows.enabled "i3status-rust";
+          package = appRows.package "i3status-rust";
           bars.default = i3statusBarConfig;
         };
 
-        xdg.configFile."i3status-rust/config.toml".source =
-          config.xdg.configFile."i3status-rust/config-default.toml".source;
+        xdg.configFile."i3status-rust/config.toml" = lib.mkIf config.programs.i3status-rust.enable {
+          source = config.xdg.configFile."i3status-rust/config-default.toml".source;
+        };
       };
     };
 }

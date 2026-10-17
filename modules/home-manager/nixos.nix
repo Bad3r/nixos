@@ -157,14 +157,11 @@ let
   defaultAppImports = [
     "codex"
     "bat"
-    "eza"
     "fzf"
     "git-mirror"
     "kitty"
   ];
-  extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
-  allAppImports = lib.unique (defaultAppImports ++ extraAppImports);
-  appModules = map loadAppModule allAppImports;
+  appModules = map loadAppModule defaultAppImports;
   coreModules = [
     stateVersionModule
     baseModule
@@ -177,18 +174,12 @@ let
 
 in
 {
-  # modules/hosts/common/home-manager-apps.nix rejects shared and host app lists that repeat these.
+  # modules/hosts/common/home-manager-apps.nix rejects sharedAppNames entries that repeat these.
   flake.lib.homeManager.defaultAppImports = defaultAppImports;
 
   flake.nixosModules = {
     base = {
       imports = [ inputs.home-manager.nixosModules.home-manager ];
-
-      options.home-manager.extraAppImports = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-        description = "Additional Home Manager app keys appended to the default app list.";
-      };
 
       config.home-manager = {
         useGlobalPkgs = true;

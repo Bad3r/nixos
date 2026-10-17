@@ -36,6 +36,7 @@ in
     }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "mpv" "extended" "enable" ] false osConfig;
+      mpvPackage = lib.attrByPath [ "programs" "mpv" "extended" "package" ] pkgs.mpv osConfig;
       extraScripts = lib.attrByPath [ "programs" "mpv" "extended" "extraScripts" ] [ ] osConfig;
       localScripts = mpvScripts { inherit lib pkgs; };
     in
@@ -43,6 +44,28 @@ in
       config = lib.mkIf nixosEnabled {
         programs.mpv = {
           enable = true;
+          # programs.mpv.scripts would rewrap pkgs.mpv and ignore the row's package.
+          package = mpvPackage.override {
+            scripts =
+              (with pkgs.mpvScripts; [
+                modernz # OSC replacement; works with thumbfast for seek previews
+                mpv-cheatsheet-ng # overlay listing all active keybindings; open with ?
+                mpris # use standard media keys
+                # autoload # auto load previous/next file in playlist
+                reload # reload streamed file when stuck buffering
+              ])
+              ++ (with pkgs.mpvScripts.mpv-image-viewer; [
+                freeze-window # prevent window close after the last image
+                image-positioning # pan, zoom, and rotate controls for images
+                status-line # image dimensions and zoom level overlay
+              ])
+              ++ [
+                localScripts.scripts.playlistFilter
+                localScripts.scripts.ytdlpCookies
+              ]
+              ++ extraScripts;
+          };
+
           config = {
             osc = "no"; # disabled; modernz provides the OSC
             pause = "no"; # Start the player in paused state
@@ -94,25 +117,6 @@ in
               osd-level = 0;
             };
           };
-
-          scripts =
-            (with pkgs.mpvScripts; [
-              modernz # OSC replacement; works with thumbfast for seek previews
-              mpv-cheatsheet-ng # overlay listing all active keybindings; open with ?
-              mpris # use standard media keys
-              # autoload # auto load previous/next file in playlist
-              reload # reload streamed file when stuck buffering
-            ])
-            ++ (with pkgs.mpvScripts.mpv-image-viewer; [
-              freeze-window # prevent window close after the last image
-              image-positioning # pan, zoom, and rotate controls for images
-              status-line # image dimensions and zoom level overlay
-            ])
-            ++ [
-              localScripts.scripts.playlistFilter
-              localScripts.scripts.ytdlpCookies
-            ]
-            ++ extraScripts;
         };
 
         home.packages =

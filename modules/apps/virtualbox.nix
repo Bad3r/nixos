@@ -45,7 +45,7 @@ let
       };
 
       config = lib.mkMerge [
-        (lib.mkIf cfg.enable {
+        (lib.mkIf (cfg.enable && !cfg.enableHost) {
           environment.systemPackages = [ cfg.package ];
         })
         (lib.mkIf cfg.enableHost (
@@ -53,7 +53,7 @@ let
             {
               virtualisation.virtualbox.host = {
                 enable = true;
-                package = pkgs.virtualbox;
+                inherit (cfg) package;
               };
             }
             {
@@ -65,9 +65,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [
-    "virtualbox"
-    "virtualbox-extpack"
-  ];
   flake.nixosModules.apps.virtualbox = VirtualboxModule;
 }

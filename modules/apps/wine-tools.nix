@@ -279,5 +279,6 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "steam-unwrapped" ];
   flake.nixosModules.apps."wine-tools" = WineToolsModule;
 }

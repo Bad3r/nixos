@@ -1,5 +1,5 @@
 # i3 NixOS module
-# Enables X11 with i3 window manager and provides core system packages
+# Enables X11 with the i3 window manager
 let
   i3SessionModule =
     { pkgs, lib, ... }:
@@ -43,6 +43,8 @@ let
             windowManager.i3 = {
               enable = true;
               package = pkgs.i3;
+              # Upstream adds dmenu and i3status; dmenu has its own app row and the bar runs i3status-rust.
+              extraPackages = [ ];
             };
             displayManager.lightdm.enable = true;
           };
@@ -52,35 +54,15 @@ let
           "systemd-lock-handler".enable = lib.mkDefault true;
         };
 
-        # Auto-enable the i3 session's hard package dependencies so their
-        # gated overlays in modules/custom-overlays/ register on this host.
-        # Without this, modules/apps/i3wm/{config,scratchpad,services}.nix
-        # would reference `pkgs.<helper>` attributes that never get added,
-        # producing "attribute missing" eval errors. Uses `lib.mkDefault` so
-        # a host can still disable a specific helper with a higher-priority
-        # override (`= false` or `lib.mkForce false`).
+        # The i3 Home Manager config needs the packages these rows' gated overlays provide.
         programs = {
-          "i3-focus-or-launch".extended.enable = lib.mkDefault true;
-          "i3-scratchpad-show-or-create".extended.enable = lib.mkDefault true;
-          "monitor-query".extended.enable = lib.mkDefault true;
-          snixembed.extended.enable = lib.mkDefault true;
+          "i3-focus-or-launch".extended.enable = lib.mkOverride 1050 true;
+          "i3-scratchpad-show-or-create".extended.enable = lib.mkOverride 1050 true;
+          "monitor-query".extended.enable = lib.mkOverride 1050 true;
+          snixembed.extended.enable = lib.mkOverride 1050 true;
+          # lock.target's only locker is the unit this row gates.
+          "i3lock-color".extended.enable = lib.mkOverride 1050 true;
         };
-
-        # Provide core tools referenced by the i3 session.
-        environment.systemPackages = with pkgs; [
-          arandr
-          dunst
-          hsetroot
-          i3lock-color
-          i3status-rust
-          maim
-          # picom is installed by modules/apps/picom.nix under
-          # programs.picom.extended, which the app baseline turns on. Listing
-          # it here as well installed a second, stock derivation that shadowed
-          # an overridden package on PATH and survived turning the app off.
-          rofi
-          xclip
-        ];
       };
     };
 in

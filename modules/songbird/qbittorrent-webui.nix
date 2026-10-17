@@ -81,7 +81,7 @@ in
         # them.
         host.defaults.torrentClient = "qbittorrent-webui";
         programs."qbittorrent-webui".extended = {
-          enable = lib.mkOverride 1000 true;
+          enable = lib.mkOverride 1050 true;
           # The proxy listens on the host under the service's own port.
           url = "http://127.0.0.1:${toString cfg.webuiPort}";
           inherit stagingDir;

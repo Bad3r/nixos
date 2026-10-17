@@ -19,8 +19,6 @@
 */
 { inputs, ... }:
 {
-  nixpkgs.allowedUnfreePackages = [ "coderabbit-cli" ];
-
   flake.nixosModules.apps."coderabbit-cli" =
     {
       config,

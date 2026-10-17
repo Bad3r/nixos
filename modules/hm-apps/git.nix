@@ -14,6 +14,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.git = {
           enable = true;
+          package = null;
         };
       };
     };
