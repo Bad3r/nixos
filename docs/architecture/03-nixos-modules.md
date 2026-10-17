@@ -1,10 +1,11 @@
 # NixOS Modules
 
-This document covers the system-level aggregator namespace and app registry helpers.
+System modules register under the `flake.nixosModules` aggregator, and their helpers sit in `flake.lib`.
+The `flake.lib` and `flake.csec` namespaces are in [flake.lib and flake.csec Namespaces](03-nixos-modules-namespaces.md).
 
 ## The `flake.nixosModules` Namespace
 
-All system modules feed into `flake.nixosModules` so that hosts compose features by name rather than by path.
+All system modules feed into `flake.nixosModules`, so hosts compose features by name rather than by path.
 
 ```nix
 # Structure
@@ -25,13 +26,16 @@ flake.nixosModules = {
 
 ## App Registry
 
-Per-app modules live under `flake.nixosModules.apps.<name>` and follow the pattern in [Apps Module Style Guide](../guides/apps-module-style-guide.md).
+Per-app modules live under `flake.nixosModules.apps.<name>` and follow the [Apps Module Style Guide](../guides/apps-module-style-guide.md).
+Rows in the [App registry](../guides/apps-module-registry.md) switch them on per host.
 
-Browsers are the exception: they live under `flake.nixosModules.browsers.<name>` from `modules/browsers/<name>/apps.nix`, with Home Manager counterparts at `modules/browsers/<name>/home.nix`. The pair `modules/meta/nixos-browser-helpers.nix` (exposed via `config.flake.lib.nixosBrowsers`) and `modules/hosts/common/browsers-base.nix` mirrors the app registry, importing every browser module into `flake.nixosModules.hosts-common`. Browser enablement still goes through `programs.<name>.extended.enable` in `apps-enable.nix`.
+Browsers live under `flake.nixosModules.browsers.<name>` instead, from `modules/browsers/<name>/apps.nix`, with Home Manager counterparts in `modules/browsers/<name>/home.nix`.
+`modules/meta/nixos-browser-helpers.nix`, exposed as `config.flake.lib.nixosBrowsers`, and `modules/hosts/common/browsers-base.nix` mirror the app registry, importing every browser module into `flake.nixosModules.hosts-common`.
+A browser's row is a `programs.<name>.extended.enable` row like any other app's.
 
 ### Helper Functions
 
-The module `modules/meta/nixos-app-helpers.nix` exposes helpers via `config.flake.lib.nixos`:
+`modules/meta/nixos-app-helpers.nix` exposes these helpers through `config.flake.lib.nixos`:
 
 | Helper       | Signature                     | Purpose                            |
 | ------------ | ----------------------------- | ---------------------------------- |
@@ -44,7 +48,7 @@ The module `modules/meta/nixos-app-helpers.nix` exposes helpers via `config.flak
 ### Usage Example
 
 ```nix
-# modules/hosts/common/apps-base.nix
+# modules/hosts/common/apps-base.nix (simplified)
 { config, ... }:
 let
   helpers = config._module.args.nixosAppHelpers;
@@ -71,82 +75,35 @@ in
 }
 ```
 
-## `flake.lib` Namespaces
-
-`flake.lib` exposes pure helper data and small utilities. Sub-namespaces are declared in `modules/meta/flake-output.nix` and populated by individual modules; `nixosBrowsers` is the exception, published as a freeform entry by `modules/meta/nixos-browser-helpers.nix`.
-
-| Namespace                 | Type                               | Purpose                                                                                         |
-| ------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------- |
-| `flake.lib.meta`          | `anything`                         | Repo metadata (owner identity, input branch pins; surface for the `metaOwner` arg).             |
-| `flake.lib.nixos`         | `lazyAttrsOf anything`             | App-registry helpers (`hasApp`, `getApp`, ...) and host-conditional flags under `hosts.<name>`. |
-| `flake.lib.nixosBrowsers` | attrs (freeform)                   | Browser-registry helpers (`hasBrowser`, `getBrowser`, ...) for `modules/browsers/`.             |
-| `flake.lib.homeManager`   | `attrsOf anything` (via submodule) | Helpers and metadata used by Home Manager modules.                                              |
-| `flake.lib.security`      | `attrsOf anything`                 | Shared SOPS helpers (e.g. `sopsInstallSecretsService`).                                         |
-| `flake.lib.nixvim`        | `attrsOf anything`                 | Helpers for NixVim integrations and shared module shape.                                        |
-| `flake.lib.xdg`           | `attrsOf anything`                 | Desktop file mappings, MIME helpers (consumed by `modules/meta/ci.nix`).                        |
-| `flake.lib.agents`        | `attrsOf anything` (via submodule) | Registry and compiled outputs for MCP servers and skills (`modules/agents/*.nix`).              |
-| `flake.lib.checks`        | `attrsOf anything`                 | Lightweight evaluation-only checks (no derivation builds).                                      |
-
-Helpers should stay pure and idempotent; anything that needs heavy evaluation belongs in a module rather than a `flake.lib.*` entry.
-
 ## `perSystem` vs host overlays
 
-This repository uses both patterns, for different purposes:
-
-- `perSystem.packages` is used for flake-exposed tooling packages (for example, `generation-manager` from `modules/apps/generation-manager.nix` and the hook helpers in `modules/devshell.nix`).
-- App packages in `packages/<name>/default.nix` are injected through per-app overlay modules under `modules/custom-overlays/<name>.nix`. Each registers `flake.customOverlays.<name>` and adds an overlay to `nixpkgs.overlays` that returns `<name> = final.callPackage ../../packages/<name> { }`, making the package available as `pkgs.<name>` when gated on the matching `programs.<name>.extended.enable`. `modules/hosts/common/custom-overlays-base.nix` imports every registered overlay into the shared `flake.nixosModules.hosts-common` aggregate, so an overlay only takes effect on hosts where its app is enabled.
-
-This means these packages are **not** exposed under `.#packages.<system>.<name>`; they materialize as `pkgs.<name>` only inside a `nixosConfigurations.<host>` evaluation where the matching app is enabled.
+- `perSystem.packages` holds flake-exposed tooling packages, for example `generation-manager` from `modules/apps/generation-manager.nix` and the hook helpers in `modules/devshell.nix`.
+- App packages under `packages/<name>/default.nix` reach `pkgs` only through overlay modules gated on their app's row, never as `.#packages.<system>.<name>`; [Custom package overlays](../guides/custom-packages-overlays.md) covers the wiring.
 
 ## Shared System Helpers
 
-| Module                                         | Export                                         | Scope           | Purpose                                       |
-| ---------------------------------------------- | ---------------------------------------------- | --------------- | --------------------------------------------- |
-| `modules/tpnix/support.nix`                    | `flake.nixosModules."tpnix-support"`           | tpnix only      | Stub for future tpnix hardware-support hooks  |
-| `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile                               |
-| `modules/hosts/common/virtualization.nix`      | host options under `host.virtualization.*`     | shared          | Virtualization app toggles                    |
-| `modules/<host>/policy.nix`                    | `flake.lib.nixos.hosts.<host>.*` data          | per host        | Host readiness gates and common-module values |
+| Module                                         | Export                                         | Scope           | Purpose                     |
+| ---------------------------------------------- | ---------------------------------------------- | --------------- | --------------------------- |
+| `modules/tpnix/support.nix`                    | `flake.nixosModules."tpnix-support"`           | tpnix only      | Empty hardware-support hook |
+| `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile             |
+| `modules/hosts/common/windows-guest.nix`       | `host.virtualization.windowsGuest.*` options   | shared          | Windows guest               |
+| `modules/<host>/policy.nix`                    | `flake.lib.nixos.hosts.<host>.*` data          | per host        | Gates and common values     |
 
-## The `flake.csec` Namespace
-
-Cybersecurity-tooling NixOS modules register under `flake.csec.<feature>`, declared in `modules/meta/flake-output.nix` as `attrsOf deferredModule`. Each feature is a first-class entry rather than collapsing into a parent module like sub-keys under `flake.nixosModules.*` would (`lazyAttrsOf raw` does not give per-feature merge semantics without flat name mangling).
-
-```nix
-flake.csec = {
-  wordlists = { ... };  # Kali-style symlinks under /usr/share/wordlists/
-  # Future feature modules register here.
-};
-```
-
-The common host aggregate imports the module and enables it for every
-`shareCommon` host:
-
-```nix
-# modules/hosts/common/imports.nix
-flake.nixosModules.hosts-common.imports = [
-  config.flake.csec.wordlists
-  # ...
-  { csec.wordlists.enable = true; }
-];
-```
-
-| Module                       | Export                 | Purpose                                                                                               |
-| ---------------------------- | ---------------------- | ----------------------------------------------------------------------------------------------------- |
-| `modules/csec/wordlists.nix` | `flake.csec.wordlists` | Kali-style wordlist symlinks populated at activation from `pkgs.wordlists` and app-owned manual links |
+`host.virtualization.windowsGuest.*` turns the `qemu` row and `qemu.extended.enableLibvirt` on as [prerequisites](../guides/apps-module-registry.md#prerequisites).
+A host's `policy.nix` carries its readiness gates and the values common modules read.
 
 ## System-Level Utilities
 
-| Module                                      | Purpose                                        |
-| ------------------------------------------- | ---------------------------------------------- |
-| `modules/meta/ci.nix`                       | Validates app helper namespace                 |
-| `modules/files.nix`                         | Regenerates managed files (README, .sops.yaml) |
-| `modules/meta/nixpkgs-allowed-unfree.nix`   | Unfree package allowlist                       |
-| `modules/meta/nixpkgs-allowed-insecure.nix` | Aggregates NixOS insecure package allowances   |
+| Module                                    | Purpose                                        |
+| ----------------------------------------- | ---------------------------------------------- |
+| `modules/meta/ci.nix`                     | Validates app helper namespace                 |
+| `modules/files.nix`                       | Regenerates managed files (README, .sops.yaml) |
+| `modules/meta/nixpkgs-allowed-unfree.nix` | Builds the unfree predicate                    |
 
-`modules/configurations/nixos.nix` imports the named insecure-package module
-before the optional `hosts-common` aggregate, so app modules can use
-`nixpkgs.extraPermittedInsecurePackages` on both common-baseline and deliberate
-`shareCommon = false` hosts.
+## Unfree Packages
+
+An unfree package is declared with `nixpkgs.allowedUnfreePackages` next to the module that installs it.
+`modules/meta/nixpkgs-allowed-unfree.nix` declares that option at flake-parts scope and only builds the predicate from it; no NixOS-scope allowlist exists.
 
 ## Next Steps
 

@@ -9,7 +9,9 @@
 - [architecture/02-module-authoring.md](architecture/02-module-authoring.md)
   - Covers module writing patterns, file placement conventions, the two-context problem, and common pitfalls.
 - [architecture/03-nixos-modules.md](architecture/03-nixos-modules.md)
-  - Documents the flake.nixosModules namespace, app registry helpers (hasApp, getApp, getApps), and custom packages.
+  - Documents the flake.nixosModules namespace, app registry helpers (hasApp, getApp, getApps), overlay packages, and unfree packages.
+- [architecture/03-nixos-modules-namespaces.md](architecture/03-nixos-modules-namespaces.md)
+  - The `flake.lib` sub-namespaces and the `flake.csec` feature modules.
 - [architecture/04-home-manager.md](architecture/04-home-manager.md)
   - Covers the flake.homeManagerModules namespace, app loading mechanism, and secrets integration for user configuration.
 - [architecture/05-host-composition.md](architecture/05-host-composition.md)
