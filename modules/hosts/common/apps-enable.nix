@@ -495,6 +495,7 @@ let
       "ventoy-full".extended.enable = lib.mkOverride 1100 true;
       veracrypt.extended.enable = lib.mkOverride 1100 true;
       "vex-tui".extended.enable = lib.mkOverride 1100 true;
+      vial.extended.enable = lib.mkOverride 1100 false;
       "video-cache".extended.enable = lib.mkOverride 1100 true;
       vim.extended.enable = lib.mkOverride 1100 false; # Provided by nixvim (vimAlias = true)
       "virt-manager".extended.enable = lib.mkOverride 1100 false;
