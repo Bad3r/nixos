@@ -65,9 +65,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [
-    "virtualbox"
-    "virtualbox-extpack"
-  ];
   flake.nixosModules.apps.virtualbox = VirtualboxModule;
 }
