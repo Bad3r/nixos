@@ -99,7 +99,6 @@ let
             # an overridden package on PATH and survived turning the app off.
             rofi
             xclip
-            xbacklight
           ]
           ++ lib.optionals cfg.integrations.xfsettingsd.enable [
             xfce4-power-manager
