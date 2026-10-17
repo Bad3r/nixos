@@ -45,8 +45,8 @@ DBus MPRIS interface. Pairing it with the `playerctl` app module gives:
 - A `playerctl` CLI that can target mpv by name (`playerctl --player=mpv ...`).
 - Metadata templates for status bars (`playerctl metadata --format ...`).
 
-`mpvScripts.mpris` is declared in the HM module's `programs.mpv.scripts` list,
-which wraps the mpv binary with `--script=` flags so the script loads at runtime.
+`mpvScripts.mpris` is in the script list the HM module rewraps mpv with, which
+adds `--script=` flags so the script loads at runtime.
 See [scripts-and-bindings.md](3-scripts-and-bindings.md) for the full script
 loading model.
 

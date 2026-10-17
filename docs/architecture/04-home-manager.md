@@ -70,8 +70,8 @@ loadAppModule = name:
 
 `modules/hosts/common/home-manager-apps.nix` appends the shared app set to
 `home-manager.extraAppImports` and mirrors the matching modules into
-`home-manager.sharedModules`. Host-only extras come from
-`flake.lib.nixos.hosts.<host>.extraHomeApps` in that host's `policy.nix`.
+`home-manager.sharedModules`.
+Every host loads that set, and each module gates on its NixOS app row through `osConfig`, so the app registry decides where an app runs.
 
 ### Browser Modules
 

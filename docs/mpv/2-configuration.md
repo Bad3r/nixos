@@ -1,17 +1,15 @@
 # Configuration
 
 When a host has `programs.mpv.extended.enable = true`, the Home Manager app
-module activates and writes a managed `~/.config/mpv/mpv.conf`. This page
-documents every key set by the module, what it does, and the rationale for
-values that diverge from upstream defaults. Cross-link the canonical mpv manual
-at <https://mpv.io/manual/stable/> for option semantics.
+module activates and writes a managed `~/.config/mpv/mpv.conf`.
+The mpv manual at <https://mpv.io/manual/stable/> defines each option's semantics.
 
 ## Files Produced
 
 - `~/.config/mpv/mpv.conf`: `programs.mpv.config` and `programs.mpv.profiles` in the HM module
 - `~/.config/mpv/input.conf`: `programs.mpv.bindings` in the HM module (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
 - `~/.config/mpv/script-opts/status_line.conf`: `programs.mpv.scriptOpts.status_line` in the HM module (see [Script Options](#script-options))
-- Loaded scripts: `programs.mpv.scripts` wraps the mpv binary with `--script=` flags; the list includes the packaged scripts plus the two repo-local Lua scripts (`playlist_filter`, `ytdlp_cookies`) built by `modules/hm-apps/mpv/scripts.nix`. Nothing is written under `~/.config/mpv/scripts/` (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
+- Loaded scripts: the HM module rewraps `programs.mpv.extended.package` with `--script=` flags; the list includes the packaged scripts plus the two repo-local Lua scripts (`playlist_filter`, `ytdlp_cookies`) built by `modules/hm-apps/mpv/scripts.nix`. Nothing is written under `~/.config/mpv/scripts/` (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
 
 ## Settings Reference
 

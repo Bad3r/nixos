@@ -1,22 +1,21 @@
 # Architecture
 
-mpv is composed in two cooperating layers: a NixOS app module that manages
-system-wide install and a Home Manager app module that writes the user-level
-configuration. A third orthogonal layer, the `media-toolchain` bundle, can
-install mpv even when the dedicated app module is disabled. This page explains
-the layering, the namespaces involved, and the gating contract that connects
-them.
+mpv is composed in two cooperating layers: a NixOS app module that owns the
+app row, its options, and the system-wide extras, and a Home Manager app module
+that installs mpv and writes the user-level configuration. A third orthogonal
+layer, the `media-toolchain` bundle, can install mpv even when the dedicated
+app module is disabled.
 
 ## Layered Composition
 
 - **NixOS app module**
   - Location: `modules/apps/mpv.nix`
   - Namespace: `flake.nixosModules.apps.mpv`
-  - Role: Adds `pkgs.mpv` and a small set of extras to `environment.systemPackages` when `programs.mpv.extended.enable` is true.
+  - Role: Declares the row and its options, and adds the extras to `environment.systemPackages` when `programs.mpv.extended.enable` is true.
 - **HM app module**
   - Location: `modules/hm-apps/mpv/mpv.nix`
   - Namespace: `flake.homeManagerModules.apps.mpv`
-  - Role: Writes `mpv.conf`, `input.conf`, and a `script-opts` file, and wraps the mpv binary with a script list (packaged scripts plus two repo-local Lua scripts) when the NixOS layer is enabled.
+  - Role: Installs `programs.mpv.extended.package` rewrapped with a script list (packaged scripts plus two repo-local Lua scripts), and writes `mpv.conf`, `input.conf`, and a `script-opts` file, when the NixOS layer is enabled.
 - **Media bundle**
   - Location: `modules/apps/media-toolchain.nix`
   - Namespace: `flake.nixosModules.apps.media-toolchain`
@@ -45,11 +44,11 @@ this repo uses for app modules:
 - `programs.mpv.extended.package`
   - Type: package option
   - Default: `pkgs.mpv`
-  - Purpose: The mpv package to install.
+  - Purpose: The mpv package the HM module rewraps and installs.
 - `programs.mpv.extended.extraScripts`
   - Type: list of packages
   - Default: `[ pkgs.mpvScripts.thumbfast ]`
-  - Purpose: Declares mpv script packages. The HM module reads this list via `osConfig` and passes it to `programs.mpv.scripts`, which wraps the mpv binary with `--script=` flags so the scripts load at runtime. These packages are not added to `environment.systemPackages`.
+  - Purpose: Declares mpv script packages. The HM module reads this list via `osConfig` and rewraps the row's package with it, adding `--script=` flags so the scripts load at runtime. These packages are not added to `environment.systemPackages`.
 - `programs.mpv.extended.extras.defaultShaders.enable`
   - Type: bool, default `true`
   - Purpose: Installs `pkgs.mpv-shim-default-shaders` via `environment.systemPackages`.
@@ -70,16 +69,10 @@ directly.
 
 ### Package install contract
 
-Both layers install mpv: the NixOS module via `environment.systemPackages` and
-the HM module via `home.packages` (through `programs.mpv.finalPackage`). HM's
-`programs.mpv.package` option is typed `types.package` (not nullable), so
-setting it to `null` to suppress the user-profile entry is not valid. Because
-the HM module sets `programs.mpv.scripts`, `finalPackage` is
-`pkgs.mpv.override { scripts = ...; }`: a rewrapped mpv whose wrapper adds
-`--script=` flags. The two profiles therefore carry different wrapper store
-paths, but both wrap the same `mpv-unwrapped` build, so mpv itself is not
-built twice, and the script-aware user-profile wrapper takes precedence on
-`PATH`.
+Only the HM module installs mpv, through `home.packages` and `programs.mpv.finalPackage`.
+It sets `programs.mpv.package` to `programs.mpv.extended.package` rewrapped with `override { scripts = ...; }`, which adds the `--script=` flags.
+Upstream `programs.mpv.scripts` stays empty: setting it rewraps `pkgs.mpv`, and Home Manager then asserts that `programs.mpv.package` is the default.
+The NixOS module installs only the extras.
 
 ### Activation contract
 
