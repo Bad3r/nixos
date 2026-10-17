@@ -2,9 +2,7 @@
 
 mpv is composed in two cooperating layers: a NixOS app module that owns the
 app row, its options, and the system-wide extras, and a Home Manager app module
-that installs mpv and writes the user-level configuration. A third orthogonal
-layer, the `media-toolchain` bundle, can install mpv even when the dedicated
-app module is disabled.
+that installs mpv and writes the user-level configuration.
 
 ## Layered Composition
 
@@ -16,10 +14,6 @@ app module is disabled.
   - Location: `modules/hm-apps/mpv/mpv.nix`
   - Namespace: `flake.homeManagerModules.apps.mpv`
   - Role: Installs `programs.mpv.extended.package` rewrapped with a script list (packaged scripts plus two repo-local Lua scripts), and writes `mpv.conf`, `input.conf`, and a `script-opts` file, when the NixOS layer is enabled.
-- **Media bundle**
-  - Location: `modules/apps/media-toolchain.nix`
-  - Namespace: `flake.nixosModules.apps.media-toolchain`
-  - Role: Installs `pkgs.mpv` plus codecs and helpers. Independent of the dedicated mpv enable bit.
 
 ## Aggregator Namespaces
 
@@ -107,23 +101,12 @@ Two consequences follow:
 The common baseline pins app-enable bits with `lib.mkOverride 1100` in
 `modules/hosts/common/apps-enable.nix`, which sets
 `mpv.extended.enable = true`. Per-host override files such as
-`modules/tpnix/apps-enable.nix` layer `lib.mkOverride 1000` on top (tpnix
-sets `mpv = false` there), so the host value wins over the baseline.
+`modules/tpnix/apps-enable.nix` layer `lib.mkOverride 1000` on top, so the
+host value wins over the baseline.
 Priority `1100` sits between `mkDefault` (priority `1000`) and
 `mkOptionDefault` (priority `1500`), so the baseline overrides the option's
 declared default while still yielding to per-host overrides and to explicit
 user-level definitions (priority `100`).
-
-## Relation to the Media Bundle
-
-`modules/apps/media-toolchain.nix` is an orthogonal app module that installs
-`pkgs.mpv` along with `ffmpeg-full`, `imagemagick`, `ghostscript`, and the
-GStreamer plugin sets. It is enabled on hosts that want a broad codec
-toolchain. Because it adds `mpv` directly to `environment.systemPackages`, the
-mpv binary is present even on hosts where `programs.mpv.extended.enable` is
-`false`. In that scenario the user runs upstream-default mpv with no managed
-configuration files. See [integrations.md](4-integrations.md) for the
-implications.
 
 ## Where to Look Next
 

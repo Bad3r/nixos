@@ -176,7 +176,7 @@
 - [mpv/3-scripts-and-bindings.md](mpv/3-scripts-and-bindings.md)
   - Script loading model (the `extraScripts` vs HM `scripts` distinction), bundled scripts, the inline Lua hooks, and the keybindings table.
 - [mpv/4-integrations.md](mpv/4-integrations.md)
-  - XDG MIME defaults, MPRIS via playerctl, the orthogonal `media-toolchain` bundle, the `open-in-mpv` browser bridge, and the `video-cache` helper.
+  - XDG MIME defaults, MPRIS via playerctl, the `open-in-mpv` browser bridge, and the `video-cache` helper.
 - [mpv/5-customizing.md](mpv/5-customizing.md)
   - Patterns for adding scripts, overriding configuration keys, replacing the package, layering personal overrides, and opting out per host.
 - [mpv/6-troubleshooting.md](mpv/6-troubleshooting.md)
