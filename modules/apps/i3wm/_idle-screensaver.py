@@ -1,5 +1,11 @@
-# Copyright (c) 2026 Bad3r
-"""Dismiss the unauthenticated screensaver when X11 activity resumes."""
+"""Show an unauthenticated screensaver until activity resumes or its time expires.
+
+Pass a duration in seconds followed by a screensaver command that stays in the
+foreground. Requires xprintidle and the screensaver command on PATH.
+
+Usage from the repository root:
+    python3 modules/apps/i3wm/_idle-screensaver.py 60 i3lock-color --nofork --no-verify --clock
+"""
 
 import signal
 import subprocess
