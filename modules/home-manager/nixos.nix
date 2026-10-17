@@ -157,7 +157,6 @@ let
   defaultAppImports = [
     "codex"
     "bat"
-    "eza"
     "fzf"
     "git-mirror"
     "kitty"
