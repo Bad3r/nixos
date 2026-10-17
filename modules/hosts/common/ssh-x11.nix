@@ -9,10 +9,7 @@ let
         X11UseLocalhost = true;
       };
 
-      environment.systemPackages = lib.mkAfter [
-        pkgs.xauth
-        pkgs.xhost
-      ];
+      environment.systemPackages = lib.mkAfter [ pkgs.xhost ];
     };
 in
 {
