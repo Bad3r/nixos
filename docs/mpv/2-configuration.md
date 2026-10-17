@@ -61,7 +61,7 @@ key, regardless of the file-side key spelling).
 The HM module declares two named profiles via `programs.mpv.profiles`. They are
 inactive by default and activate with `--profile=<name>` (or the `-p` short
 form). For runtime mode cycling and the underlying `playlist_filter.lua`, see
-[scripts-and-bindings.md](3-scripts-and-bindings.md).
+[Lua Hooks](3-lua-hooks.md).
 
 - `vid` (skip image files in playlists)
   - `script-opts = playlist_filter-mode=block-images`: Sets the `playlist_filter` script's startup mode to drop image entries from the playlist, leaving videos and audio.
