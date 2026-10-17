@@ -24,7 +24,7 @@
     * Private helpers: _default-settings.nix (settings catalog), _settings.nix
       (site policy and MCP composition), _features.nix (feature flags),
       _env.nix (process environment), _wrapper.nix (runtime config merge).
-    * Package installation handled by NixOS module (modules/apps/codex.nix) via llm-agents.nix.
+    * Installs the wrapper around programs.codex.extended.package (modules/apps/codex.nix), which comes from llm-agents.nix.
     * Config is split into three TOML files merged at launch by the codex wrapper:
       - config.base.toml: nix-managed base settings (read-only)
       - projects.nix.toml: nix-managed trusted project paths (read-only)

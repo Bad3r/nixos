@@ -16,19 +16,13 @@
 
   Notes:
     * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
-    * Configuration managed by Home Manager module (modules/agents/codex/home-manager.nix).
+    * Home Manager installs a wrapper around `package` and manages the configuration (modules/agents/codex/home-manager.nix).
 */
 { inputs, ... }:
 {
   flake.nixosModules.apps.codex =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { lib, pkgs, ... }:
     let
-      cfg = config.programs.codex.extended;
       defaultPackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
     in
     {
@@ -45,10 +39,6 @@
           defaultText = lib.literalExpression "defaultPackage";
           description = "The codex package to use.";
         };
-      };
-
-      config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
       };
     };
 }

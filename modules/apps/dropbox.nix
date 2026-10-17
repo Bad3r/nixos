@@ -49,6 +49,11 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "dropbox" ];
+  # nixpkgs' dropbox FHS env includes firefox-bin.
+  nixpkgs.allowedUnfreePackages = [
+    "dropbox"
+    "firefox-bin"
+    "firefox-bin-unwrapped"
+  ];
   flake.nixosModules.apps.dropbox = DropboxModule;
 }

@@ -140,10 +140,6 @@ in
         # Desktop K-SKU under a 360 mm AIO with BIOS Q-Fan curves: thermald has
         # no platform to manage here.
         thermald.enable = false;
-
-        # LACT: GPU control and monitoring (power limits, fan curves, clocks)
-        # over NVML for the RTX 5080.
-        lact.enable = true;
       };
 
       # No cpuFreqGovernor pin here: ppd's intel_pstate probe force-writes

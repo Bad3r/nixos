@@ -50,5 +50,7 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [ "unrar" ];
+
   flake.nixosModules.apps.unrar = UnrarModule;
 }

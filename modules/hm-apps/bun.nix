@@ -31,6 +31,7 @@ _: {
       osConfig,
       lib,
       config,
+      pkgs,
       ...
     }:
     let
@@ -41,6 +42,8 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.bun = {
           enable = true;
+          # enableGitIntegration needs the package for the lockb diff driver.
+          package = lib.attrByPath [ "programs" "bun" "extended" "package" ] pkgs.bun osConfig;
           enableGitIntegration = true;
           settings.telemetry = false;
         };

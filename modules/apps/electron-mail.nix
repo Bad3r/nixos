@@ -51,6 +51,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "electron-mail" ];
   flake.nixosModules.apps.electron-mail = ElectronMailModule;
 }

@@ -12,12 +12,10 @@
     }:
     let
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
-      brightnessctlPackage = lib.attrByPath [
-        "programs"
-        "brightnessctl"
-        "extended"
-        "package"
-      ] pkgs.brightnessctl osConfig;
+      appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
+      # Home Manager's rofi carries the plugins; its finalPackage exists only while the rofi row is on.
+      rofiPackage =
+        if config.programs.rofi.enable then config.programs.rofi.finalPackage else appRows.package "rofi";
       powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
       enforcedPowerProfile = (import ../../hosts/common/_power-profile-unit.nix pkgs).profile;
       sessionMetadata = {
@@ -293,7 +291,7 @@
         runtimeInputs = [
           pkgs.libnotify
           pkgs.power-profiles-daemon
-          pkgs.rofi
+          rofiPackage
         ];
         text = ''
           set -euo pipefail
@@ -360,7 +358,7 @@
         name = "power-menu-rofi";
         runtimeInputs = [
           pkgs.i3
-          pkgs.rofi
+          rofiPackage
           pkgs.systemd
         ];
         text = ''
@@ -381,21 +379,21 @@
       };
 
       commandsDefault = {
-        launcher = "${lib.getExe pkgs.rofi} -config ~/.config/rofi/rofidmenu.rasi -modi drun -show drun";
-        terminal = lib.getExe pkgs.kitty;
+        launcher = "${lib.getExe rofiPackage} -config ~/.config/rofi/rofidmenu.rasi -modi drun -show drun";
+        terminal = lib.getExe (appRows.package "kitty");
         browser = lib.getExe config.programs.librewolf.finalPackage;
         emoji = "${lib.getExe pkgs.rofimoji} --selector rofi";
-        bluetoothMenu = "${lib.getExe pkgs.bzmenu} --launcher rofi";
-        playerctl = lib.getExe pkgs.playerctl;
-        volume = lib.getExe pkgs.pamixer;
-        brightness = "${lib.getExe brightnessctlPackage} --class=backlight";
-        screenshot = "${lib.getExe pkgs.maim} -s -u | ${lib.getExe pkgs.xclip} -selection clipboard -t image/png -i";
-        ocr = lib.getExe pkgs.normcap;
+        bluetoothMenu = "${lib.getExe (appRows.package "bzmenu")} --launcher rofi";
+        playerctl = lib.getExe (appRows.package "playerctl");
+        volume = lib.getExe (appRows.package "pamixer");
+        brightness = "${lib.getExe (appRows.package "brightnessctl")} --class=backlight";
+        screenshot = "${lib.getExe (appRows.package "maim")} -s -u | ${lib.getExe (appRows.package "xclip")} -selection clipboard -t image/png -i";
+        ocr = lib.getExe (appRows.package "normcap");
         logseqToggle = lib.getExe toggleLogseqScript;
         raindropToggle = lib.getExe toggleRaindropScript;
         powerProfile = lib.getExe powerProfileScript;
         powerMenu = lib.getExe powerMenuScript;
-        focusOrLaunch = lib.getExe pkgs.i3-focus-or-launch;
+        focusOrLaunch = lib.getExe (appRows.package "i3-focus-or-launch");
       };
 
       # Use the already-defined stylixColors for consistency
@@ -539,11 +537,7 @@
         gui.i3.commands = lib.mkDefault commandsDefault;
 
         home.packages = [
-          pkgs.gsimplecal
           calendarDropdownScript
-          pkgs.rofimoji
-          pkgs.i3-scratchpad-show-or-create
-          pkgs.i3-focus-or-launch
           toggleLogseqScript
           toggleRaindropScript
         ];
@@ -654,7 +648,11 @@
                     trayOutput = "primary";
                     workspaceButtons = true;
                     workspaceNumbers = true;
-                    statusCommand = lib.getExe pkgs.i3status-rust;
+                    statusCommand =
+                      if config.programs.i3status-rust.enable then
+                        lib.getExe config.programs.i3status-rust.package
+                      else
+                        null;
                   }
                   // config.stylix.targets.i3.exportedBarConfig
                 )

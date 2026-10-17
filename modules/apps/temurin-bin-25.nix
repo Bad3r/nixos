@@ -50,6 +50,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "temurin-bin-25" ];
   flake.nixosModules.apps."temurin-bin-25" = TemurinBin25Module;
 }

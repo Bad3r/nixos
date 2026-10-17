@@ -11,16 +11,20 @@ play correctly.
 
 ### Cause
 
-The minimal nixpkgs `mpv` build covers the common open codec set but not
-every patent-encumbered or downstream-distributed codec. The
-`media-toolchain` module installs a broader stack (ffmpeg-full, GStreamer
-plugin sets) that fills most gaps.
+mpv decodes through the FFmpeg it is built against, so codecs installed on
+`PATH` do not change what it can play.
 
 ### Resolution
 
-Enable the `media-toolchain` app module on the host. See
-[integrations.md](4-integrations.md). If the file still fails, it is likely a
-codec that is not in nixpkgs at all and must be supplied via a custom build.
+Build mpv against `ffmpeg-full` through the row's package option:
+
+```nix
+programs.mpv.extended.package = pkgs.mpv.override {
+  mpv-unwrapped = pkgs.mpv-unwrapped.override { ffmpeg = pkgs.ffmpeg-full; };
+};
+```
+
+A codec that nixpkgs does not package at all needs a custom FFmpeg build.
 
 ## MIME Default Assertion Fails
 

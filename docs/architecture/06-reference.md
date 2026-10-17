@@ -105,15 +105,15 @@ Available after `nix develop path:.`:
 
 ## Glossary
 
-| Term                    | Definition                                                                                                                                                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Aggregator**          | Attribute subtree (e.g., `flake.nixosModules.apps`) that collects modules merged via flake-parts                                                                                                                       |
-| **Custom module args**  | Per-host arguments injected via `_module.args` (`metaOwner`, `secretsRoot`, `inputs`, `hostName`; `nixosAppHelpers` at flake-parts scope only); see [Module Authoring](02-module-authoring.md#custom-module-arguments) |
-| **Deferred module**     | Value of type `lib.types.deferredModule`, allowing later import into submodule fixpoints                                                                                                                               |
-| **Dendritic Pattern**   | Repository pattern coupling import-tree auto-discovery with aggregator-based composition                                                                                                                               |
-| **import-tree**         | Function that recursively imports all `.nix` files under a directory                                                                                                                                                   |
-| **perSystem**           | flake-parts construct yielding system-specific attrsets (packages, dev shells, checks)                                                                                                                                 |
-| **Two-Context Problem** | Issue where `config.flake.*` and `config.home.*` exist in different evaluation contexts                                                                                                                                |
+| Term                    | Definition                                                                                                                                                                                                      |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Aggregator**          | Attribute subtree (e.g., `flake.nixosModules.apps`) that collects modules merged via flake-parts                                                                                                                |
+| **Custom module args**  | Per-host arguments injected via `_module.args` (`metaOwner`, `secretsRoot`, `inputs`, `hostName`; `nixosAppHelpers` at flake-parts scope only); see [Custom Module Arguments](02-module-authoring-arguments.md) |
+| **Deferred module**     | Value of type `lib.types.deferredModule`, allowing later import into submodule fixpoints                                                                                                                        |
+| **Dendritic Pattern**   | Repository pattern coupling import-tree auto-discovery with aggregator-based composition                                                                                                                        |
+| **import-tree**         | Function that recursively imports all `.nix` files under a directory                                                                                                                                            |
+| **perSystem**           | flake-parts construct yielding system-specific attrsets (packages, dev shells, checks)                                                                                                                          |
+| **Two-Context Problem** | Issue where `config.flake.*` and `config.home.*` exist in different evaluation contexts                                                                                                                         |
 
 ## Next Steps
 

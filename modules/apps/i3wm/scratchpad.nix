@@ -5,12 +5,14 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
+      osConfig ? { },
       pkgs,
       lib,
       ...
     }:
     let
       cfg = config.gui.scratchpad;
+      appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
 
       # Create the geometry calculator package with injected options
       scratchpadGeometryPackage = pkgs.writeShellApplication {
@@ -48,7 +50,7 @@
 
           # Source monitor detection library (from overlay: pkgs.monitor-query)
           # shellcheck source=/dev/null
-          . "${pkgs.monitor-query}"
+          . "${appRows.package "monitor-query"}"
 
           # Nix-injected configuration (build-time constants)
           # All values are integers for pure bash arithmetic

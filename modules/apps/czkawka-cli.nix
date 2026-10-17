@@ -30,7 +30,7 @@
     --dry-run: Preview deletions without modifying files.
 
   Notes:
-    * Part of the czkawka package which includes both CLI and GUI binaries.
+    * Built with `withGui = false`, so only `czkawka_cli` is installed.
     * Polish word "czkawka" means "hiccup".
 */
 _:
@@ -53,7 +53,12 @@ let
           description = "Whether to enable czkawka-cli.";
         };
 
-        package = lib.mkPackageOption pkgs "czkawka" { };
+        package = lib.mkOption {
+          type = lib.types.package;
+          default = pkgs.czkawka.override { withGui = false; };
+          defaultText = lib.literalExpression "pkgs.czkawka.override { withGui = false; }";
+          description = "czkawka build that ships only `czkawka_cli`; the GUIs belong to the czkawka-gui row.";
+        };
       };
 
       config = lib.mkIf cfg.enable {

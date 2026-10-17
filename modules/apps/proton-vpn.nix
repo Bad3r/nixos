@@ -48,6 +48,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "proton-vpn" ];
   flake.nixosModules.apps."proton-vpn" = ProtonVpnModule;
 }

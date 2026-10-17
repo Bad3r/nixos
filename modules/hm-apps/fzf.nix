@@ -26,6 +26,7 @@
 _: {
   flake.homeManagerModules.apps.fzf =
     {
+      config,
       osConfig,
       pkgs,
       lib,
@@ -33,6 +34,7 @@ _: {
     }:
     let
       enabled = lib.attrByPath [ "programs" "fzf" "extended" "enable" ] false osConfig;
+      batExe = lib.getExe config.programs.bat.package;
     in
     {
       config = lib.mkIf enabled {
@@ -78,7 +80,7 @@ _: {
 
           # File preview with bat
           fileWidget.options = [
-            "--preview '${pkgs.bat}/bin/bat --style=numbers --color=always --line-range=:500 {}'"
+            "--preview '${batExe} --style=numbers --color=always --line-range=:500 {}'"
           ];
 
           # Directory preview with eza or tree
@@ -110,7 +112,7 @@ _: {
           FZF_CTRL_T_COMMAND = lib.mkDefault "${pkgs.fd}/bin/fd --type f --hidden --follow --exclude .git";
           FZF_CTRL_T_OPTS = lib.mkDefault (
             lib.concatStringsSep " " [
-              "--preview '${pkgs.bat}/bin/bat --style=numbers --color=always --line-range=:500 {}'"
+              "--preview '${batExe} --style=numbers --color=always --line-range=:500 {}'"
               "--preview-window=right:60%"
             ]
           );

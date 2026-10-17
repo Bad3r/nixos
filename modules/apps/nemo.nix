@@ -80,7 +80,7 @@ let
 
       seahorseGSettingsPackages = [
         cfg.package
-        pkgs.gcr
+        pkgs.gcr_3
         pkgs.libcryptui
         cfg.seahorse.package
       ];

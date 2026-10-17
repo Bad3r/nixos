@@ -45,30 +45,10 @@ DBus MPRIS interface. Pairing it with the `playerctl` app module gives:
 - A `playerctl` CLI that can target mpv by name (`playerctl --player=mpv ...`).
 - Metadata templates for status bars (`playerctl metadata --format ...`).
 
-`mpvScripts.mpris` is declared in the HM module's `programs.mpv.scripts` list,
-which wraps the mpv binary with `--script=` flags so the script loads at runtime.
+`mpvScripts.mpris` is in the script list the HM module rewraps mpv with, which
+adds `--script=` flags so the script loads at runtime.
 See [scripts-and-bindings.md](3-scripts-and-bindings.md) for the full script
 loading model.
-
-## The `media-toolchain` Bundle
-
-`modules/apps/media-toolchain.nix` installs a broad codec stack as a single
-toggle:
-
-- `pkgs.mpv`
-- `pkgs.ffmpeg-full`
-- `pkgs.imagemagick`, `pkgs.ghostscript`
-- The `gst_all_1` plugin set (`gstreamer`, `gst-plugins-base`, `gst-plugins-good`, `gst-plugins-bad`, `gst-plugins-ugly`, `gst-libav`, `gst-vaapi`)
-
-It is independent of the dedicated mpv app module. On hosts that enable the
-bundle but disable the dedicated mpv module, the `mpv` binary is on `PATH` but
-runs against upstream defaults with no managed `~/.config/mpv/` files. This
-asymmetry is deliberate: the bundle exists to guarantee codec coverage for
-ad-hoc workflows even where the curated mpv setup is not desired.
-
-If a host needs both broad codec coverage and the managed mpv configuration,
-enable both modules. The duplicate `pkgs.mpv` reference resolves to the same
-store path; nothing is built twice.
 
 ## Browser Bridge: `open-in-mpv`
 
@@ -117,9 +97,8 @@ The helper is exposed as a custom package via
 `modules/custom-overlays/video-cache.nix` (registering
 `flake.customOverlays.video-cache`) and gated behind the standard
 `programs.video-cache.extended.enable` option in `modules/apps/video-cache.nix`.
-It is independent of the mpv app module: enabling `video-cache` on a host that
-has mpv disabled installs the helper but `mpv` itself comes from
-`media-toolchain` or the system path.
+It is independent of the mpv app module: the helper runs its own `pkgs.mpv`,
+which loads `~/.config/mpv/` but not the scripts the Home Manager build adds.
 
 Run `video-cache --help` for the full list of flags. The cache and error log
 live under `<video_dir>/.cache/`.

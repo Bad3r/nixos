@@ -68,6 +68,7 @@ let
       config = lib.mkIf cfg.enable {
         programs.steam = {
           enable = true;
+          inherit (cfg) package;
           extraCompatPackages = [ pkgs.proton-ge-bin ];
           extraPackages = cfg.extraTools;
         };

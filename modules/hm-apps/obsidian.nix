@@ -14,6 +14,7 @@ _: {
       config = lib.mkIf nixosEnabled {
         programs.obsidian = {
           enable = true;
+          package = null;
         };
       };
     };

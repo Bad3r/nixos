@@ -21,12 +21,7 @@
 _:
 let
   AutorandrModule =
-    {
-      config,
-      lib,
-      pkgs,
-      ...
-    }:
+    { config, lib, ... }:
     let
       cfg = config.services.autorandr.extended;
     in
@@ -37,14 +32,10 @@ let
           default = false;
           description = "Whether to enable autorandr.";
         };
-
-        package = lib.mkPackageOption pkgs "autorandr" { };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
-
-        # Enable the autorandr service for automatic profile switching
+        # Upstream installs pkgs.autorandr itself and has no package option.
         services.autorandr.enable = true;
       };
     };

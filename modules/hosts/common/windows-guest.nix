@@ -235,7 +235,10 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        host.virtualization.libvirt.enable = true;
+        programs.qemu.extended = {
+          enable = lib.mkOverride 1050 true;
+          enableLibvirt = lib.mkOverride 1050 true;
+        };
 
         virtualisation = {
           libvirt = {

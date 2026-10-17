@@ -44,10 +44,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [
-    "firefox-bin"
-    "firefox-bin-unwrapped"
-  ];
-
   flake.nixosModules.browsers.firefox = FirefoxModule;
 }

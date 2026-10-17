@@ -85,6 +85,13 @@ let
     let
       cfg = config.programs."jupyter-all".extended;
       kernelspecs = mkKernelspecs pkgs cfg.package;
+      # cfg.package's bin also carries its python3 and every library's scripts.
+      entryPoints = pkgs.runCommandLocal "jupyter-all" { } ''
+        shopt -s failglob
+        mkdir -p $out/bin
+        ln -s ${cfg.package}/bin/jupyter* ${cfg.package}/bin/ipython* ${cfg.package}/bin/jlpm $out/bin/
+        ln -s ${cfg.package}/share $out/share
+      '';
     in
     {
       options.programs."jupyter-all".extended = {
@@ -99,14 +106,14 @@ let
 
       config = lib.mkIf cfg.enable {
         environment = {
-          systemPackages = [ cfg.package ];
+          systemPackages = [ entryPoints ];
 
           # Named by absolute path rather than linked into the profiles through
           # environment.pathsToLink: cfg.package's own share/jupyter/kernels is
           # a symlink to ipykernel's directory, whose sole python3 spec carries
           # the bare argv[0] "python". Linking that subpath would export it, and
           # outside the wrapper it resolves through PATH to
-          # programs.python.extended's hiPrio pkgs.python3, which has no
+          # programs.python.extended's pkgs.python3, which has no
           # ipykernel. Publish the generated directory through a stable /etc
           # symlink so an existing PAM session does not retain a collectable
           # store path after a generation switch. The session variable feeds

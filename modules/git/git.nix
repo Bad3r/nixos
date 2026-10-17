@@ -4,16 +4,12 @@
     {
       config,
       osConfig ? { },
-      pkgs,
       ...
     }:
     let
-      onePasswordPackage = lib.attrByPath [
-        "programs"
-        "1password-gui-beta"
-        "extended"
-        "package"
-      ] pkgs._1password-gui osConfig;
+      onePassword = lib.attrByPath [ "programs" "1password-gui-beta" "extended" ] {
+        enable = false;
+      } osConfig;
       githubUnsignedEmail = "github@unsigned.sh";
       githubUnsignedSigningKey = metaOwner.gitSigningPublicKey;
       gitAllowedSignersPath = "${config.xdg.configHome}/git/allowed_signers";
@@ -24,11 +20,10 @@
       '';
 
       programs = {
+        # Enabled by modules/hm-apps/git.nix while the git row is on.
         git = lib.mkMerge [
           # Base git configuration
           {
-            enable = true;
-
             # Git configuration settings
             settings = {
               # Common aliases for faster workflow
@@ -167,13 +162,17 @@
           }
 
           # SSH commit and tag signing through 1Password.
-          {
+          (lib.mkIf onePassword.enable {
             signing = {
               key = githubUnsignedSigningKey;
               signByDefault = true;
               format = "ssh";
-              signer = lib.getExe' onePasswordPackage "op-ssh-sign";
+              signer = lib.getExe' onePassword.package "op-ssh-sign";
             };
+          })
+
+          # Verification runs ssh-keygen, so it needs no 1Password.
+          {
             settings.gpg.ssh.allowedSignersFile = gitAllowedSignersPath;
           }
         ];

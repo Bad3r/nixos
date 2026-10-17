@@ -12,7 +12,6 @@
   Notes:
     * Part of the czkawka package which includes both CLI and GUI binaries.
     * Also includes Krokiet, an experimental Slint-based GUI alternative.
-    * If czkawka-cli is also enabled, both modules reference the same store path.
 */
 _:
 let

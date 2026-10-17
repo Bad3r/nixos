@@ -91,6 +91,5 @@ let
     };
 in
 {
-  nixpkgs.allowedUnfreePackages = [ "burpsuitepro" ];
   flake.nixosModules.apps.burpsuitepro = BurpsuiteProModule;
 }

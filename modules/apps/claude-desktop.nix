@@ -17,8 +17,9 @@
   Notes:
     * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
     * The package's FHS environment keeps the host PATH, so MCP servers launched through npx, uvx, or docker use the system profile's tools.
-    * Cowork's precheck finds qemu-system-x86_64 on the host PATH (OVMF firmware and virtiofsd come from the FHS environment)
-      and needs read-write /dev/kvm and /dev/vhost-vsock.
+    * Cowork's precheck finds qemu-system-x86_64 on PATH: the installed launcher prefixes PATH with qemu_kvm, which stays off the
+      system profile. OVMF firmware and virtiofsd come from the FHS environment.
+    * Cowork needs read-write /dev/kvm and /dev/vhost-vsock.
 */
 { inputs, ... }:
 {
@@ -33,6 +34,14 @@
     let
       cfg = config.programs.claude-desktop.extended;
       owner = metaOwner.username;
+      package = pkgs.symlinkJoin {
+        inherit (cfg.package) name;
+        paths = [ cfg.package ];
+        nativeBuildInputs = [ pkgs.makeWrapper ];
+        postBuild = ''
+          wrapProgram $out/bin/claude-desktop --prefix PATH : ${lib.makeBinPath [ pkgs.qemu_kvm ]}
+        '';
+      };
     in
     {
       options.programs.claude-desktop.extended = {
@@ -51,10 +60,7 @@
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [
-          cfg.package
-          pkgs.qemu_kvm
-        ];
+        environment.systemPackages = [ package ];
 
         boot.kernelModules = [ "vhost_vsock" ];
 

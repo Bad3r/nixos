@@ -66,7 +66,7 @@ let
 
       config = lib.mkMerge [
         (lib.mkIf cfg.enable {
-          environment.systemPackages = [ cfg.package ] ++ cfg.extraTools;
+          environment.systemPackages = lib.optional (!cfg.enableDaemon) cfg.package ++ cfg.extraTools;
         })
         (lib.mkIf cfg.enableDaemon (
           lib.mkMerge [
@@ -74,9 +74,8 @@ let
               virtualisation.docker = {
                 enable = true;
                 enableOnBoot = false;
+                inherit (cfg) package;
               };
-
-              home-manager.extraAppImports = lib.mkAfter [ "lazydocker" ];
             }
             {
               users.users.${owner}.extraGroups = lib.mkAfter [ "docker" ];

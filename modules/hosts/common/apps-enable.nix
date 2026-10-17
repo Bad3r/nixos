@@ -6,14 +6,9 @@
   represents the common baseline; per-host files (e.g. modules/tpnix/apps-enable.nix)
   layer overrides for entries that diverge.
 
-  Uses lib.mkOverride 1100 (low priority) to allow user overrides and specialized
-  modules to take precedence when needed.
-
-  NOTE: Some apps are managed by specialized modules and excluded from this catalog:
-  - qemu, vmware-workstation, ovftool: managed in modules/hosts/common/virtualization.nix
-    (Virtualization tools are controlled via host.virtualization.* options)
-
-  This separation eliminates priority conflicts and provides clear domain boundaries.
+  Rows sit at lib.mkOverride 1100 and host rows at 1000. A module that needs
+  another app turns that app's row on at lib.mkOverride 1050, so a host row
+  still decides; host-<host>-apps-match-registry fails on any other deviation.
 */
 { lib, ... }:
 let
@@ -59,6 +54,7 @@ let
       "bash-completion".extended.enable = lib.mkOverride 1100 true;
       bat.extended.enable = lib.mkOverride 1100 true;
       bc.extended.enable = lib.mkOverride 1100 true;
+      binutils.extended.enable = lib.mkOverride 1100 true;
       biome.extended.enable = lib.mkOverride 1100 true;
       "bitwarden-cli".extended.enable = lib.mkOverride 1100 false;
       "bitwarden-desktop".extended.enable = lib.mkOverride 1100 false;
@@ -94,7 +90,6 @@ let
       "claude-code".extended.installMethods.nix.enable = lib.mkOverride 1100 false;
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
       "claude-desktop".extended.enable = lib.mkOverride 1100 true;
-      clawdbot.extended.enable = lib.mkOverride 1100 false;
       "clojure-cli".extended.enable = lib.mkOverride 1100 false;
       "clojure-lsp".extended.enable = lib.mkOverride 1100 false;
       "cloudflare-go-sdk".extended.enable = lib.mkOverride 1100 false;
@@ -143,7 +138,7 @@ let
       dunst.extended.enable = lib.mkOverride 1100 true;
       "duplicati-r2-tools".extended.enable = lib.mkOverride 1100 false;
       dust.extended.enable = lib.mkOverride 1100 true;
-      dwarfs.extended.enable = lib.mkOverride 1100 true; # Default dependency of steam extraTools
+      dwarfs.extended.enable = lib.mkOverride 1100 true;
       "electron-mail".extended.enable = lib.mkOverride 1100 true;
       "element-desktop".extended.enable = lib.mkOverride 1100 false;
       ent.extended.enable = lib.mkOverride 1100 true;
@@ -164,6 +159,7 @@ let
       # turns it on has a baseline value to be compared against; without one
       # tpnix fails to evaluate, since the toggle would have nowhere to land.
       firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
+      "firmware-manager".extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 true;
       fonttools.extended.enable = lib.mkOverride 1100 true;
@@ -203,6 +199,7 @@ let
       "gpg-tui".extended.enable = lib.mkOverride 1100 true;
       gphoto2.extended.enable = lib.mkOverride 1100 true;
       greenclip.extended.enable = lib.mkOverride 1100 true;
+      gucharmap.extended.enable = lib.mkOverride 1100 true;
       gwenview.extended.enable = lib.mkOverride 1100 false;
       gzip.extended.enable = lib.mkOverride 1100 true;
       hashcat.extended.enable = lib.mkOverride 1100 true;
@@ -319,7 +316,7 @@ let
       "nix-diff".extended.enable = lib.mkOverride 1100 true;
       "nix-direnv".extended.enable = lib.mkOverride 1100 true;
       "nix-eval-jobs".extended.enable = lib.mkOverride 1100 true;
-      "nix-index".extended.enable = lib.mkOverride 1100 false;
+      "nix-index".extended.enable = lib.mkOverride 1100 true;
       "nix-output-monitor".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-git".extended.enable = lib.mkOverride 1100 true;
       "nix-prefetch-github".extended.enable = lib.mkOverride 1100 true;
@@ -340,6 +337,7 @@ let
       "nuclei-templates".extended.enable = lib.mkOverride 1100 true;
       nushell.extended.enable = lib.mkOverride 1100 true;
       nvd.extended.enable = lib.mkOverride 1100 true;
+      "nvidia-settings".extended.enable = lib.mkOverride 1100 true;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
       ocrmypdf.extended.enable = lib.mkOverride 1100 true;
@@ -354,6 +352,7 @@ let
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
       overskride.extended.enable = lib.mkOverride 1100 true;
+      ovftool.extended.enable = lib.mkOverride 1100 false;
       p7zip.extended.enable = lib.mkOverride 1100 false;
       "p7zip-rar".extended.enable = lib.mkOverride 1100 true;
       pamixer.extended.enable = lib.mkOverride 1100 true;
@@ -363,6 +362,7 @@ let
       patchelf.extended.enable = lib.mkOverride 1100 true;
       path.extended.enable = lib.mkOverride 1100 true;
       pciutils.extended.enable = lib.mkOverride 1100 true;
+      "pentesting-devshell".extended.enable = lib.mkOverride 1100 false;
       picom.extended.enable = lib.mkOverride 1100 true;
       pixman.extended.enable = lib.mkOverride 1100 true;
       "pkg-config".extended.enable = lib.mkOverride 1100 true;
@@ -380,13 +380,16 @@ let
       "proton-vpn".extended.enable = lib.mkOverride 1100 true;
       psmisc.extended.enable = lib.mkOverride 1100 true;
       pwgen.extended.enable = lib.mkOverride 1100 true;
+      pwvucontrol.extended.enable = lib.mkOverride 1100 true;
       pymupdf.extended.enable = lib.mkOverride 1100 true;
       pyright.extended.enable = lib.mkOverride 1100 true;
       python.extended.enable = lib.mkOverride 1100 true;
       pyyaml.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
       "qbittorrent-webui".extended.enable = lib.mkOverride 1100 false;
+      qemu.extended.enable = lib.mkOverride 1100 false;
       qpdf.extended.enable = lib.mkOverride 1100 true;
+      qpwgraph.extended.enable = lib.mkOverride 1100 true;
       qrencode.extended.enable = lib.mkOverride 1100 true;
       quarto.extended.enable = lib.mkOverride 1100 true;
       radare2.extended.enable = lib.mkOverride 1100 false;
@@ -396,6 +399,7 @@ let
       rclone.extended.protonDrive.enable = lib.mkOverride 1100 true;
       readpdf.extended.enable = lib.mkOverride 1100 true;
       remmina.extended.enable = lib.mkOverride 1100 true;
+      restic.extended.enable = lib.mkOverride 1100 true;
       restringer.extended.enable = lib.mkOverride 1100 false; # Produces incorrect results, use webcrack
       resvg.extended.enable = lib.mkOverride 1100 true;
       rg-fzf.extended.enable = lib.mkOverride 1100 true;
@@ -491,11 +495,13 @@ let
       "ventoy-full".extended.enable = lib.mkOverride 1100 true;
       veracrypt.extended.enable = lib.mkOverride 1100 true;
       "vex-tui".extended.enable = lib.mkOverride 1100 true;
+      vial.extended.enable = lib.mkOverride 1100 false;
       "video-cache".extended.enable = lib.mkOverride 1100 true;
       vim.extended.enable = lib.mkOverride 1100 false; # Provided by nixvim (vimAlias = true)
       "virt-manager".extended.enable = lib.mkOverride 1100 false;
       virtualbox.extended.enable = lib.mkOverride 1100 false;
       vlc.extended.enable = lib.mkOverride 1100 false;
+      "vmware-workstation".extended.enable = lib.mkOverride 1100 false;
       "vscode-fhs".extended.enable = lib.mkOverride 1100 true;
       "vt-cli".extended.enable = lib.mkOverride 1100 true;
       vtracer.extended.enable = lib.mkOverride 1100 true;
@@ -560,6 +566,7 @@ let
       espanso.extended.enable = lib.mkOverride 1100 true;
       flameshot.extended.enable = lib.mkOverride 1100 true;
       "input-remapper".extended.enable = lib.mkOverride 1100 true;
+      lact.extended.enable = lib.mkOverride 1100 false;
       "nextcloud-client".extended.enable = lib.mkOverride 1100 false;
       pcscd.extended.enable = lib.mkOverride 1100 true;
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 false;

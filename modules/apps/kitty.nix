@@ -64,7 +64,6 @@ let
           {
             home-manager.sharedModules = [
               {
-                home.packages = [ sshUrlHandler ];
                 xdg.mimeApps = {
                   enable = true;
                   defaultApplications."x-scheme-handler/ssh" = sshUrlHandlerDesktop;

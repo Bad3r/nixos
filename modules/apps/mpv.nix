@@ -6,7 +6,7 @@
   Repository: https://github.com/mpv-player/mpv
 
   Summary:
-    * Installs mpv with shader presets and `open-in-mpv` system-wide by default; the HM layer loads `thumbfast` (consumed by modernz for seek-bar previews) as an mpv script via `extraScripts`.
+    * Home Manager installs `package` rewrapped with the script list (modules/hm-apps/mpv/mpv.nix), which takes `thumbfast` (consumed by modernz for seek-bar previews) from `extraScripts`; this module installs the shader presets and `open-in-mpv` system-wide by default.
     * Supports advanced playback via GPU acceleration, scripting (Lua/Python), configurable keybindings, and remote control via JSON IPC or `mpv` sockets.
 
   Options:
@@ -52,9 +52,9 @@ let
           description = ''
             mpv scripts to load at startup.
 
-            The HM app module reads this list via osConfig and passes it to
-            programs.mpv.scripts, which wraps the mpv binary with --script= flags
-            so the scripts are loaded at runtime.
+            The HM app module reads this list via osConfig and rewraps
+            `package` with it, adding --script= flags so the scripts are loaded
+            at runtime.
 
             Included by default:
             - thumbfast: Fast thumbnail preview on seek
@@ -97,13 +97,11 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [
-          cfg.package
-        ]
-        ++ lib.optional cfg.extras.defaultShaders.enable pkgs.mpv-shim-default-shaders
-        ++ lib.optional cfg.extras.openInMpv.enable pkgs.open-in-mpv
-        ++ lib.optional cfg.extras.jellyfinShim.enable pkgs.jellyfin-mpv-shim
-        ++ cfg.extraPackages;
+        environment.systemPackages =
+          lib.optional cfg.extras.defaultShaders.enable pkgs.mpv-shim-default-shaders
+          ++ lib.optional cfg.extras.openInMpv.enable pkgs.open-in-mpv
+          ++ lib.optional cfg.extras.jellyfinShim.enable pkgs.jellyfin-mpv-shim
+          ++ cfg.extraPackages;
       };
     };
 in

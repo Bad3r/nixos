@@ -36,8 +36,6 @@ let
       environment.systemPackages = with pkgs; [
         gsettings-desktop-schemas
         glib
-        gtk3
-        gtk4
         hicolor-icon-theme
       ];
 

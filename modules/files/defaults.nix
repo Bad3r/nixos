@@ -6,10 +6,7 @@
       home.packages = lib.mkBefore (
         with pkgs;
         [
-          bat
-          eza
           fd
-          ripgrep
           tree
         ]
       );

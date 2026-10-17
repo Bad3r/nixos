@@ -3,8 +3,7 @@
 #
 # Priority: the common baseline uses `lib.mkOverride 1100` (low priority).
 # The builder applies these at `lib.mkOverride 1000` so the per-host override
-# wins over the common baseline at evaluation time while still permitting
-# normal user overrides at default priority (100).
+# wins over the common baseline and over 1050 prerequisites.
 #
 # `appEnable` is a flat override list. Entries are routed to
 # `programs.<name>.extended.enable` or `services.<name>.extended.enable` based
@@ -19,6 +18,19 @@ let
     "cloudflare-warp" = true;
     assetripper = true;
     "protonmail-bridge" = true;
+    lact = true;
+    babashka = true;
+    "clojure-cli" = true;
+    "clojure-lsp" = true;
+    leiningen = true;
+    delve = true;
+    go = true;
+    "golangci-lint" = true;
+    gopls = true;
+    "rust-analyzer" = true;
+    "rust-clippy" = true;
+    rustc = true;
+    rustfmt = true;
     # The Qt client gives way to the namespaced service, whose module
     # (qbittorrent-webui.nix) enables the Web UI handler together with the
     # service.
@@ -31,6 +43,7 @@ let
     magnitude = true;
     malimite = true;
     mono = true;
+    "pentesting-devshell" = true;
     radare2 = true;
     rizin = true;
     inkscape = true;

@@ -8,9 +8,6 @@
   Summary:
     * Prints files with syntax highlighting, line numbers, Git integration, and automatic paging.
     * Supports multiple themes, custom highlighting assets, and convenient diff/line filtering switches.
-
-  Notes:
-    * HM programs.bat does not support nullable package - HM handles installation.
 */
 _:
 let
@@ -27,6 +24,8 @@ let
     in
     {
       options.programs.bat.extended = {
+        package = lib.mkPackageOption pkgs "bat" { };
+
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;

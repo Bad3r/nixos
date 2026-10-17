@@ -87,7 +87,6 @@ in
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ pkgs.git ];
         environment.sessionVariables.LOCAL_MIRRORS = cfg.root;
 
         # A oneshot unit, not tmpfiles.rules, so an absent volume leaves this

@@ -164,7 +164,6 @@ let
                 # Fine-grained power management (D3 power gating) is incompatible
                 # with PRIME sync and only useful on offload setups.
                 powerManagement.finegrained = lib.mkDefault false;
-                nvidiaSettings = lib.mkDefault true;
               };
 
               # Containers: NVIDIA container toolkit for GPU passthrough
@@ -208,5 +207,11 @@ let
     };
 in
 {
+  nixpkgs.allowedUnfreePackages = [
+    "nvidia-kernel-modules"
+    "nvidia-x11"
+    "nvidia-settings"
+  ];
+
   flake.nixosModules.nvidia-gpu = NvidiaGpuModule;
 }

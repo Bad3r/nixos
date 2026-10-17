@@ -51,11 +51,11 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    | `networking.nix`   | DNS, routing, pinned interface names                       |
    | `services.nix`     | Host-divergent services                                    |
    | `support.nix`      | Vendor firmware and kernel modules                         |
-   | `imports.nix`      | Host-only module imports or grouped toolchain enables      |
+   | `imports.nix`      | Host-only module imports                                   |
    | GPU module         | `gpu.nvidia.*` wiring, named per host, if the host has one |
 
-   The `apps-enable.nix` override pattern, including the no-op check that rejects redundant entries, is in [Apps Module Style Guide](apps-module-style-guide.md).
-   Unfree packages go through `nixpkgs.allowedUnfreePackages` in `modules/meta/nixpkgs-allowed-unfree.nix`; the same option inside a host module fails evaluation.
+   The `apps-enable.nix` override pattern, including the no-op check that rejects redundant entries, is in [App registry](apps-module-registry.md).
+   An unfree package is declared with `nixpkgs.allowedUnfreePackages` next to the module that installs it, per [Unfree Packages](../architecture/03-nixos-modules.md#unfree-packages); the same option inside a host module fails evaluation.
 
 Verification: `guarded_nix flake check path:. --accept-flake-config --no-build --offline` passes the registry check in `modules/configurations/nixos.nix`.
 

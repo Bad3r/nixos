@@ -501,7 +501,6 @@ in
           # Additional font packages
           home.packages = [
             pkgs.google-fonts
-            pkgs.gucharmap
             pkgs.maple-mono.NF
           ];
 

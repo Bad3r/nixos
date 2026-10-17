@@ -4,7 +4,7 @@
 
 Complete hosts live under `configurations.nixos.<name>.module`. The helper in `modules/configurations/nixos.nix` maps each entry to a `nixosConfigurations.<name>` output by wrapping the deferred module in `inputs.nixpkgs.lib.nixosSystem`.
 
-Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, lang, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files extend `configurations.nixos.<host>.module` directly for anything that does not belong in the shared aggregate; `modules/songbird/imports.nix` is the current example:
+Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files extend `configurations.nixos.<host>.module` directly for anything that does not belong in the shared aggregate, as `modules/songbird/support.nix` does:
 
 ```nix
 # modules/hosts/common/imports.nix (excerpt)
@@ -21,16 +21,10 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
   ];
 }
 
-# modules/songbird/imports.nix (excerpt)
+# modules/songbird/support.nix (excerpt)
 _: {
   configurations.nixos.songbird.module = {
-    languages = {
-      clojure.extended.enable = true;
-      rust.extended.enable = true;
-      java.extended.enable = true;
-      python.extended.enable = true;
-      go.extended.enable = true;
-    };
+    services.fwupd.enable = true;
   };
 }
 ```
@@ -72,7 +66,7 @@ in
 
 `firewallExtraTcpPortRanges` maps to NixOS's normal globally reachable TCP ranges. `firewallLocalTcpPortRanges` is separate: `modules/hosts/common/firewall.nix` emits IPv4 `iptables` rules for source addresses in `10.0.0.0/8` and `192.168.0.0/16`, and on a host that enables `cloudflare-warp` it opens the same ranges on `CloudflareWARP` to every Mesh device. It neither includes `172.16.0.0/12` nor establishes an IPv6 or trusted-network boundary.
 
-Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules or `modules/meta/cache-roots.nix`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `extraHomeApps`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, `privateDnsHostsSecretKeys`, `cloudflareWarpMeshAddressReady`, `rustdeskServer`, and `cacheRoots`. `cacheRoots.nvidiaKernelModules` is a Boolean required on every NVIDIA-enabled host: `true` publishes the installed module and `false` excludes it. Missing, empty, non-Boolean, or unknown cache-root policy values fail evaluation. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules or `modules/meta/cache-roots.nix`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `lenovoMonitorAttached`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, `privateDnsHostsSecretKeys`, `cloudflareWarpMeshAddressReady`, `rustdeskServer`, and `cacheRoots`. `cacheRoots.nvidiaKernelModules` is a Boolean required on every NVIDIA-enabled host: `true` publishes the installed module and `false` excludes it. Missing, empty, non-Boolean, or unknown cache-root policy values fail evaluation. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
 `rustdeskServer` marks the one host that runs hbbs and hbbr; with none or several, [RustDesk](../usage/rustdesk.md) stays off everywhere and each RustDesk-enabled host warns.
 
 ### Private DNS Host Pinning
@@ -131,7 +125,7 @@ Each host uses the same two-stage app model:
 Home Manager wiring follows the same shape:
 
 - `modules/home-manager/nixos.nix` provides the shared HM base and default app imports for any host.
-- `modules/hosts/common/home-manager-apps.nix` imports the shared app and browser set and appends host-only extras from the `extraHomeApps` registry list.
+- `modules/hosts/common/home-manager-apps.nix` imports the shared app and browser set on every host; each app module gates on its app row.
 - `modules/<host>/r2-runtime.nix` binds the external R2 module chain per host.
 
 For integration-specific details of the external R2 module chain, see [`../r2-cloud/input-and-module-wiring.md`](../r2-cloud/input-and-module-wiring.md). For tpnix-specific implementation notes, see [`../tpnix/IMPLEMENTATION_PLAN.md`](../tpnix/IMPLEMENTATION_PLAN.md).
