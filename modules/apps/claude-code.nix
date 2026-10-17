@@ -166,9 +166,6 @@ in
           [
             {
               environment.systemPackages = lib.optional cfg.installMethods.nix.enable cfg.package;
-              # Import by Home Manager app key so import-tree resolves the module location.
-              # The bun HM module owns BUN_INSTALL/PATH setup and the createBunDir DAG node.
-              home-manager.extraAppImports = lib.mkAfter (lib.optional cfg.installMethods.bun.enable "bun");
 
               assertions =
                 let

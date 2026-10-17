@@ -68,14 +68,13 @@ loadAppModule = name:
 
 ### Adding Extra Apps
 
-`modules/hosts/common/home-manager-apps.nix` appends the shared app set to
-`home-manager.extraAppImports` and mirrors the matching modules into
-`home-manager.sharedModules`.
+`modules/hosts/common/home-manager-apps.nix` adds the modules named in
+`sharedAppNames` to `home-manager.sharedModules`.
 Every host loads that set, and each module gates on its NixOS app row through `osConfig`, so the app registry decides where an app runs.
 
 ### Browser Modules
 
-Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix`. `modules/hosts/common/home-manager-apps.nix` resolves the shared browser set from that namespace directly into `home-manager.sharedModules`; browser names never go through `extraAppImports`, which only resolves the `apps` namespace and the `modules/hm-apps/` fallback path. A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/firefoxpwa/home.nix` pins the userdata directory for every firefoxpwa site, and `modules/browsers/firefoxpwa/dmail.nix` layers the DMail-specific install onto the same `browsers.firefoxpwa` key.
+Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix`. `modules/hosts/common/home-manager-apps.nix` resolves the shared browser set from that namespace directly into `home-manager.sharedModules`. A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/firefoxpwa/home.nix` pins the userdata directory for every firefoxpwa site, and `modules/browsers/firefoxpwa/dmail.nix` layers the DMail-specific install onto the same `browsers.firefoxpwa` key.
 
 ### Per-Host Divergences
 

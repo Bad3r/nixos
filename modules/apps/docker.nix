@@ -76,8 +76,6 @@ let
                 enableOnBoot = false;
                 inherit (cfg) package;
               };
-
-              home-manager.extraAppImports = lib.mkAfter [ "lazydocker" ];
             }
             {
               users.users.${owner}.extraGroups = lib.mkAfter [ "docker" ];

@@ -161,9 +161,7 @@ let
     "git-mirror"
     "kitty"
   ];
-  extraAppImports = lib.attrByPath [ "home-manager" "extraAppImports" ] [ ] config;
-  allAppImports = lib.unique (defaultAppImports ++ extraAppImports);
-  appModules = map loadAppModule allAppImports;
+  appModules = map loadAppModule defaultAppImports;
   coreModules = [
     stateVersionModule
     baseModule
@@ -182,12 +180,6 @@ in
   flake.nixosModules = {
     base = {
       imports = [ inputs.home-manager.nixosModules.home-manager ];
-
-      options.home-manager.extraAppImports = lib.mkOption {
-        type = lib.types.listOf lib.types.str;
-        default = [ ];
-        description = "Additional Home Manager app keys appended to the default app list.";
-      };
 
       config.home-manager = {
         useGlobalPkgs = true;

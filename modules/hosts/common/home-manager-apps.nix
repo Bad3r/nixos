@@ -70,10 +70,7 @@ let
     else
       throw "sharedAppNames repeats Home Manager apps that already load elsewhere, which evaluates their modules twice: ${lib.concatStringsSep ", " repeatedAppNames}";
 
-  # Browsers register under flake.homeManagerModules.browsers (see
-  # modules/browsers/); they are composed through sharedModules only because
-  # home-manager.extraAppImports can resolve names from the apps namespace
-  # alone.
+  # Browsers register under flake.homeManagerModules.browsers (modules/browsers/).
   sharedBrowserNames = [
     "firefox"
     "firefoxpwa"
@@ -90,7 +87,6 @@ let
   sharedBrowserModules = map getBrowserModule sharedBrowserNames;
 
   body = {
-    home-manager.extraAppImports = lib.mkAfter sharedAppNames;
     home-manager.sharedModules = lib.mkAfter (sharedAppModules ++ sharedBrowserModules);
   };
 in
