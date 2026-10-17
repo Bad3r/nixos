@@ -49,6 +49,15 @@
         "XDG_SESSION_TYPE"
       ];
       graphicalEnvArgs = lib.concatStringsSep " " graphicalEnvVars;
+      dbusImplementation = lib.attrByPath [ "services" "dbus" "implementation" ] "dbus" osConfig;
+      # HM's own import-environment runs before profileExtra exports the
+      # session metadata, so the variables are imported again here.
+      activationEnvCommand =
+        {
+          broker = "${lib.getExe' pkgs.systemd "systemctl"} --user import-environment ${graphicalEnvArgs}";
+          dbus = "${lib.getExe' pkgs.dbus "dbus-update-activation-environment"} --systemd ${graphicalEnvArgs}";
+        }
+        .${dbusImplementation};
 
       # Stylix colors (defined early for use in scripts)
       stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
@@ -575,7 +584,7 @@
           importedVariables = lib.mkAfter graphicalEnvVars;
           profileExtra = lib.mkAfter ''
             ${sessionMetadataExports}
-            ${lib.getExe' pkgs.dbus "dbus-update-activation-environment"} --systemd ${graphicalEnvArgs}
+            ${activationEnvCommand}
           '';
           windowManager.i3 = {
             enable = true;

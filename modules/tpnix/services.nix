@@ -29,9 +29,6 @@ _: {
         screenWidth = 1920;
         screenHeight = 1080;
         barHeight = 24;
-        integrations = {
-          xfsettingsd.enable = false;
-        };
         powerProfiles = {
           allowSelection = false;
         };

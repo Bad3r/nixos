@@ -2,25 +2,9 @@
 # Enables X11 with i3 window manager and provides core system packages
 let
   i3SessionModule =
-    {
-      config,
-      pkgs,
-      lib,
-      ...
-    }:
-    let
-      cfg = config.gui.i3;
-    in
+    { pkgs, lib, ... }:
     {
       options.gui.i3 = {
-        integrations = {
-          xfsettingsd.enable = lib.mkOption {
-            type = lib.types.bool;
-            default = true;
-            description = "Whether the i3 session should run xfsettingsd and ship the related Xfce tooling.";
-          };
-        };
-
         powerProfiles.allowSelection = lib.mkOption {
           type = lib.types.bool;
           default = true;
@@ -83,27 +67,20 @@ let
         };
 
         # Provide core tools referenced by the i3 session.
-        environment.systemPackages =
-          with pkgs;
-          [
-            arandr
-            autotiling-rs
-            dunst
-            hsetroot
-            i3lock-color
-            i3status-rust
-            maim
-            # picom is installed by modules/apps/picom.nix under
-            # programs.picom.extended, which the app baseline turns on. Listing
-            # it here as well installed a second, stock derivation that shadowed
-            # an overridden package on PATH and survived turning the app off.
-            rofi
-            xclip
-          ]
-          ++ lib.optionals cfg.integrations.xfsettingsd.enable [
-            xfce4-power-manager
-            xfce4-settings
-          ];
+        environment.systemPackages = with pkgs; [
+          arandr
+          dunst
+          hsetroot
+          i3lock-color
+          i3status-rust
+          maim
+          # picom is installed by modules/apps/picom.nix under
+          # programs.picom.extended, which the app baseline turns on. Listing
+          # it here as well installed a second, stock derivation that shadowed
+          # an overridden package on PATH and survived turning the app off.
+          rofi
+          xclip
+        ];
       };
     };
 in
