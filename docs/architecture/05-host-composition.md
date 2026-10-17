@@ -4,7 +4,7 @@
 
 Complete hosts live under `configurations.nixos.<name>.module`. The helper in `modules/configurations/nixos.nix` maps each entry to a `nixosConfigurations.<name>` output by wrapping the deferred module in `inputs.nixpkgs.lib.nixosSystem`.
 
-Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, lang, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files extend `configurations.nixos.<host>.module` directly for anything that does not belong in the shared aggregate, as `modules/songbird/services.nix` does:
+Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files extend `configurations.nixos.<host>.module` directly for anything that does not belong in the shared aggregate, as `modules/songbird/support.nix` does:
 
 ```nix
 # modules/hosts/common/imports.nix (excerpt)
@@ -21,16 +21,10 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
   ];
 }
 
-# modules/songbird/imports.nix (excerpt)
+# modules/songbird/support.nix (excerpt)
 _: {
   configurations.nixos.songbird.module = {
-    languages = {
-      clojure.extended.enable = true;
-      rust.extended.enable = true;
-      java.extended.enable = true;
-      python.extended.enable = true;
-      go.extended.enable = true;
-    };
+    services.fwupd.enable = true;
   };
 }
 ```
