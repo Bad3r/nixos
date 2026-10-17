@@ -88,6 +88,7 @@ let
           [
             arandr
             autotiling-rs
+            brightnessctl
             dunst
             hsetroot
             i3lock-color
@@ -99,7 +100,6 @@ let
             # an overridden package on PATH and survived turning the app off.
             rofi
             xclip
-            xbacklight
           ]
           ++ lib.optionals cfg.integrations.xfsettingsd.enable [
             xfce4-power-manager

@@ -100,7 +100,7 @@ in
         services.songbird-power-profile = powerProfile.unit;
       };
 
-      # lock = logind signal -> xss-lock --transfer-sleep-lock (i3lock-stylix).
+      # lock = logind Lock signal -> systemd-lock-handler -> lock.target (i3lock).
       # Desktop chassis: no lid switch to handle.
       services.logind.settings.Login.HandlePowerKey = "lock";
 
@@ -152,7 +152,7 @@ in
       # songbird-power-profile drives the EPP instead.
       powerManagement = {
         resumeCommands = ''
-          # Lock screen on resume via logind signal -> xss-lock (i3lock-stylix).
+          # Lock screen on resume via logind Lock signal -> lock.target (i3lock).
           # Guarded for the same set -e reason as the reassert below.
           ${pkgs.systemd}/bin/loginctl lock-sessions || echo "songbird resume: loginctl lock-sessions failed" >&2
           # Re-assert the daemon profile after resume. Suppressed rather than

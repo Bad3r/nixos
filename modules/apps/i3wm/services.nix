@@ -21,60 +21,59 @@
           kittyCommand = lib.getExe pkgs.kitty;
           nemoCommand = lib.getExe' pkgs.nemo "nemo";
           xfsettingsdCommand = "${pkgs.xfce4-settings}/bin/xfsettingsd";
-          lockCommand = lib.attrByPath [ "gui" "i3" "lockCommand" ] null config;
-          xssLockPackage = pkgs.xss-lock.overrideAttrs (old: {
-            cmakeFlags = (old.cmakeFlags or [ ]) ++ [ "-DCMAKE_POLICY_VERSION_MINIMUM=3.5" ];
-          });
+          stylixColors = config.lib.stylix.colors.withHashtag or config.lib.stylix.colors;
+          toLockColor = colorHex: lib.strings.toUpper (lib.removePrefix "#" colorHex + "FF");
+          lockPalette = lib.mapAttrs (_: toLockColor) {
+            background = stylixColors.base00;
+            ring = stylixColors.base04;
+            ringWrong = stylixColors.base08;
+            ringVerify = stylixColors.base0B;
+            line = stylixColors.base03;
+            text = stylixColors.base05;
+          };
+          # i3lock-color forks once its window is mapped, which is the
+          # readiness point Type=forking waits for.
+          lockCommand = lib.escapeShellArgs [
+            (lib.getExe pkgs.i3lock-color)
+            "--color=${lockPalette.background}"
+            "--inside-color=${lockPalette.background}"
+            "--ring-color=${lockPalette.ring}"
+            "--insidewrong-color=${lockPalette.background}"
+            "--ringwrong-color=${lockPalette.ringWrong}"
+            "--insidever-color=${lockPalette.background}"
+            "--ringver-color=${lockPalette.ringVerify}"
+            "--line-color=${lockPalette.line}"
+            "--keyhl-color=${lockPalette.ringVerify}"
+            "--bshl-color=${lockPalette.ringWrong}"
+            "--time-color=${lockPalette.text}"
+            "--date-color=${lockPalette.text}"
+            "--layout-color=${lockPalette.text}"
+            "--time-str=%%H:%%M:%%S"
+            "--date-str=%%A, %%d %%B %%Y"
+            "--radius=120"
+            "--ring-width=10"
+            "--clock"
+          ];
           dimWarningScript = pkgs.writeShellApplication {
             name = "i3-dim-warning";
             runtimeInputs = [
+              pkgs.brightnessctl
               pkgs.coreutils
-              pkgs.procps
-              pkgs.gawk
-              pkgs.xbacklight
             ];
             text = /* bash */ ''
-              set -eu
-
               target=80
-              cache_dir="''${XDG_CACHE_HOME:-$HOME/.cache}/i3lock"
-              brightness_file="$cache_dir/brightness"
 
-              current=$(xbacklight -get 2>/dev/null || printf "")
-              if [ -z "$current" ]; then
+              # Hosts without a backlight (songbird) have nothing to dim.
+              info=$(brightnessctl --class=backlight --machine-readable info 2>/dev/null) || exit 0
+              IFS=, read -r _ _ _ current _ <<<"$info"
+              if [ "''${current%\%}" -le "$target" ]; then
                 exit 0
               fi
 
-              if ! awk "BEGIN {exit !($current > $target)}"; then
-                exit 0
-              fi
-
-              mkdir -p "$cache_dir"
-              printf '%s\n' "$current" > "$brightness_file"
-
-              xbacklight -set "$target" >/dev/null 2>&1 || true
-
-              restore_brightness() {
-                if [ -f "$brightness_file" ]; then
-                  target_restore=$(cat "$brightness_file")
-                  xbacklight -set "$target_restore" >/dev/null 2>&1 || true
-                  rm -f "$brightness_file"
-                fi
-              }
-
+              brightnessctl --class=backlight --quiet --save set "$target%"
               (
-                set +e
-                set +u
-                for _ in $(seq 60); do
-                  sleep 1
-                  if pgrep -x i3lock-color >/dev/null; then
-                    exit 0
-                  fi
-                done
-
-                if ! pgrep -x i3lock-color >/dev/null; then
-                  restore_brightness
-                fi
+                sleep 60
+                brightnessctl --class=backlight --quiet --restore
               ) &
             '';
           };
@@ -107,65 +106,42 @@
           };
         in
         {
-          services = lib.mkMerge [
-            {
-              dunst = {
-                enable = lib.mkDefault true;
-              };
-              # i3 does not composite, so without picom every GL/video present
-              # reaches the scanout unsynchronised and tears. glx+vSync is the
-              # backend pair NVIDIA needs; xrender (the module default) ignores
-              # vSync entirely. PRIME-sync hosts disable vSync instead: their
-              # NVIDIA screen has no CRTC, so picom's NVIDIA vblank wait never
-              # returns once the panel blanks (tpnix froze hard on this), and
-              # PRIME sync already keeps the sink scanout tear-free without it.
-              # Follows the app registry rather than enabling unconditionally:
-              # programs.picom.extended is the switch that installs picom, so a
-              # host turning the app off would otherwise still run a
-              # compositor, and one from home-manager's own pkgs.picom rather
-              # than the package the app module installs.
-              picom = {
-                enable = lib.mkDefault (lib.attrByPath [ "programs" "picom" "extended" "enable" ] false osConfig);
-                package = lib.mkDefault (
-                  lib.attrByPath [ "programs" "picom" "extended" "package" ] pkgs.picom osConfig
-                );
-                backend = lib.mkDefault "glx";
-                vSync = lib.mkDefault (!primeSyncEnabled);
-              };
-              udiskie = {
-                enable = lib.mkDefault true;
-                tray = lib.mkDefault "always";
-                settings = lib.mkDefault {
-                  program_options = {
-                    file_manager = nemoCommand;
-                    terminal = kittyCommand;
-                  };
+          services = {
+            dunst = {
+              enable = lib.mkDefault true;
+            };
+            # i3 does not composite, so without picom every GL/video present
+            # reaches the scanout unsynchronised and tears. glx+vSync is the
+            # backend pair NVIDIA needs; xrender (the module default) ignores
+            # vSync entirely. PRIME-sync hosts disable vSync instead: their
+            # NVIDIA screen has no CRTC, so picom's NVIDIA vblank wait never
+            # returns once the panel blanks (tpnix froze hard on this), and
+            # PRIME sync already keeps the sink scanout tear-free without it.
+            # Follows the app registry rather than enabling unconditionally:
+            # programs.picom.extended is the switch that installs picom, so a
+            # host turning the app off would otherwise still run a
+            # compositor, and one from home-manager's own pkgs.picom rather
+            # than the package the app module installs.
+            picom = {
+              enable = lib.mkDefault (lib.attrByPath [ "programs" "picom" "extended" "enable" ] false osConfig);
+              package = lib.mkDefault (
+                lib.attrByPath [ "programs" "picom" "extended" "package" ] pkgs.picom osConfig
+              );
+              backend = lib.mkDefault "glx";
+              vSync = lib.mkDefault (!primeSyncEnabled);
+            };
+            udiskie = {
+              enable = lib.mkDefault true;
+              tray = lib.mkDefault "always";
+              settings = lib.mkDefault {
+                program_options = {
+                  file_manager = nemoCommand;
+                  terminal = kittyCommand;
                 };
               };
-              network-manager-applet.enable = lib.mkDefault true;
-            }
-            (lib.optionalAttrs (lockCommand != null) {
-              screen-locker = {
-                enable = true;
-                lockCmd = lockCommand;
-                inactiveInterval = 15;
-                xss-lock = {
-                  package = xssLockPackage; # CMake 3.5+ compatibility flag
-                  extraOptions = [ "-l" ]; # --transfer-sleep-lock: lock before suspend
-                };
-                xautolock = {
-                  enable = true;
-                  detectSleep = true;
-                  extraOptions = [
-                    "-notify"
-                    "60"
-                    "-notifier"
-                    (lib.getExe dimWarningScript)
-                  ];
-                };
-              };
-            })
-          ];
+            };
+            network-manager-applet.enable = lib.mkDefault true;
+          };
 
           systemd.user.services = lib.mkMerge [
             {
@@ -182,6 +158,46 @@
                   BusName = "org.kde.StatusNotifierWatcher";
                   ExecStart = lib.getExe pkgs.snixembed;
                   Restart = "on-failure";
+                };
+              };
+
+              # Unit layout from the nixpkgs systemd-lock-handler docs; the
+              # OnFailure release keeps lock.target startable after the
+              # locker exhausts its restarts.
+              i3lock = {
+                Unit = {
+                  Description = "i3lock-color screen locker";
+                  Before = [ "lock.target" ];
+                  PartOf = [ "lock.target" ];
+                  OnSuccess = [ "unlock.target" ];
+                  OnFailure = [ "unlock.target" ];
+                };
+                Install.WantedBy = [ "lock.target" ];
+                Service = {
+                  Type = "forking";
+                  ExecStart = lockCommand;
+                  Restart = "on-failure";
+                  RestartSec = 0;
+                };
+              };
+
+              xautolock = {
+                Unit = {
+                  Description = "xautolock idle locker";
+                  After = [ "graphical-session.target" ];
+                  PartOf = [ "graphical-session.target" ];
+                };
+                Install.WantedBy = [ "graphical-session.target" ];
+                Service = {
+                  ExecStart = lib.concatStringsSep " " [
+                    (lib.getExe pkgs.xautolock)
+                    "-time 15"
+                    "-locker '${pkgs.systemd}/bin/loginctl lock-session \${XDG_SESSION_ID}'"
+                    "-detectsleep"
+                    "-notify 60"
+                    "-notifier ${lib.getExe dimWarningScript}"
+                  ];
+                  Restart = "always";
                 };
               };
 
