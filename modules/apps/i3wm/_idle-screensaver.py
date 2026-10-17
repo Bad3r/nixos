@@ -1,10 +1,11 @@
-"""Show an unauthenticated screensaver until activity resumes or its time expires.
+r"""A helper that runs a provided screensaver command until user input or timeout.
 
-Pass a duration in seconds followed by a screensaver command that stays in the
-foreground. Requires xprintidle and the screensaver command on PATH.
+Args:
+    seconds: Maximum time to display the screensaver.
+    command: Foreground screensaver command and its arguments.
 
-Usage from the repository root:
-    python3 modules/apps/i3wm/_idle-screensaver.py 60 i3lock-color --nofork --no-verify --clock
+Usage:
+    python3 _idle-screensaver.py 60 i3lock-color --nofork --no-verify --clock
 """
 
 import signal
