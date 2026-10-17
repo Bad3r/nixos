@@ -52,18 +52,12 @@ let
           "systemd-lock-handler".enable = lib.mkDefault true;
         };
 
-        # Auto-enable the i3 session's hard package dependencies so their
-        # gated overlays in modules/custom-overlays/ register on this host.
-        # Without this, modules/apps/i3wm/{config,scratchpad,services}.nix
-        # would reference `pkgs.<helper>` attributes that never get added,
-        # producing "attribute missing" eval errors. Uses `lib.mkDefault` so
-        # a host can still disable a specific helper with a higher-priority
-        # override (`= false` or `lib.mkForce false`).
+        # The i3 Home Manager config needs the packages these rows' gated overlays provide.
         programs = {
-          "i3-focus-or-launch".extended.enable = lib.mkDefault true;
-          "i3-scratchpad-show-or-create".extended.enable = lib.mkDefault true;
-          "monitor-query".extended.enable = lib.mkDefault true;
-          snixembed.extended.enable = lib.mkDefault true;
+          "i3-focus-or-launch".extended.enable = lib.mkOverride 1050 true;
+          "i3-scratchpad-show-or-create".extended.enable = lib.mkOverride 1050 true;
+          "monitor-query".extended.enable = lib.mkOverride 1050 true;
+          snixembed.extended.enable = lib.mkOverride 1050 true;
         };
 
         # Provide core tools referenced by the i3 session.
