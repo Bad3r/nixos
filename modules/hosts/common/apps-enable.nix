@@ -359,6 +359,7 @@ let
       patchelf.extended.enable = lib.mkOverride 1100 true;
       path.extended.enable = lib.mkOverride 1100 true;
       pciutils.extended.enable = lib.mkOverride 1100 true;
+      "pentesting-devshell".extended.enable = lib.mkOverride 1100 false;
       picom.extended.enable = lib.mkOverride 1100 true;
       pixman.extended.enable = lib.mkOverride 1100 true;
       "pkg-config".extended.enable = lib.mkOverride 1100 true;

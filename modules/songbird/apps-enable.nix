@@ -42,6 +42,7 @@ let
     magnitude = true;
     malimite = true;
     mono = true;
+    "pentesting-devshell" = true;
     radare2 = true;
     rizin = true;
     inkscape = true;

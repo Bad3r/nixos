@@ -30,11 +30,13 @@ let
     "lazygit"
     "less"
     "mpv"
+    "nextcloud-client"
     "nixvim"
     "npm"
     "nushell"
     "onlyoffice-desktopeditors"
     "obsidian"
+    "pentesting-devshell"
     "proton-drive"
     "rclone"
     "ripgrep"
@@ -61,21 +63,13 @@ let
       or (throw "Home Manager app module '${name}' not found in flake.homeManagerModules.apps");
 
   # modules/home-manager/nixos.nix already imports these for the owner, and sharedModules imports
-  # the lists below too: a name in both evaluates its module twice, doubling list and `lines` options.
-  defaultAppNames = config.flake.lib.homeManager.defaultAppImports;
-  rejectLoadedTwice =
-    listName: loadedElsewhere: names:
-    let
-      repeated = lib.intersectLists loadedElsewhere names;
-    in
-    if repeated == [ ] then
-      names
+  # sharedAppNames too: a name in both evaluates its module twice, doubling list and `lines` options.
+  repeatedAppNames = lib.intersectLists config.flake.lib.homeManager.defaultAppImports sharedAppNames;
+  sharedAppModules =
+    if repeatedAppNames == [ ] then
+      map getAppModule sharedAppNames
     else
-      throw "${listName} repeats Home Manager apps that already load elsewhere, which evaluates their modules twice: ${lib.concatStringsSep ", " repeated}";
-
-  sharedAppModules = map getAppModule (
-    rejectLoadedTwice "sharedAppNames" defaultAppNames sharedAppNames
-  );
+      throw "sharedAppNames repeats Home Manager apps that already load elsewhere, which evaluates their modules twice: ${lib.concatStringsSep ", " repeatedAppNames}";
 
   # Browsers register under flake.homeManagerModules.browsers (see
   # modules/browsers/); they are composed through sharedModules only because
@@ -96,26 +90,10 @@ let
       or (throw "Home Manager browser module '${name}' not found in flake.homeManagerModules.browsers");
   sharedBrowserModules = map getBrowserModule sharedBrowserNames;
 
-  # Host-only extras come from the registry:
-  #   flake.lib.nixos.hosts.<host>.extraHomeApps = [ "<app>" ... ];
-  hostsRegistry = config.flake.lib.nixos.hosts or { };
-
-  body =
-    { hostName, ... }:
-    let
-      hostAppNames = (hostsRegistry.${hostName} or { }).extraHomeApps or [ ];
-      hostAppModules = map getAppModule (
-        rejectLoadedTwice "hosts.${hostName}.extraHomeApps" (defaultAppNames ++ sharedAppNames) hostAppNames
-      );
-    in
-    {
-      config = {
-        home-manager.extraAppImports = lib.mkAfter (sharedAppNames ++ hostAppNames);
-        home-manager.sharedModules = lib.mkAfter (
-          sharedAppModules ++ sharedBrowserModules ++ hostAppModules
-        );
-      };
-    };
+  body = {
+    home-manager.extraAppImports = lib.mkAfter sharedAppNames;
+    home-manager.sharedModules = lib.mkAfter (sharedAppModules ++ sharedBrowserModules);
+  };
 in
 {
   flake.nixosModules.hosts-common.imports = [ body ];
