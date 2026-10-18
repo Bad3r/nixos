@@ -13,7 +13,7 @@ inputs for user `vx`.
 - `modules/home-manager/nixos.nix`
 - `modules/home/r2-secrets.nix`
 - `modules/apps/rclone/home.nix`
-- `modules/home-manager/rclone-config-ownership.nix`
+- `modules/apps/rclone/config-ownership.nix`
 
 ## Not Covered
 
@@ -73,7 +73,7 @@ the upstream rclone-config generator cannot become another writer.
 
 The boundary is regression-checked by
 `checks.<system>."home-manager/rclone-config-ownership"` from
-`modules/home-manager/rclone-config-ownership.nix`, which evaluates the safe
+`modules/apps/rclone/config-ownership.nix`, which evaluates the safe
 split, the colliding combination, and a relocated `rcloneConfigPath`.
 
 ## Relationship to HM Env Template
