@@ -38,7 +38,19 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.package ];
+        environment = {
+          systemPackages = [ cfg.package ];
+          etc."cloudflare-r2/s5cmd.env.example".text = ''
+            # Copy to a safe location and source before using s5cmd
+            # export AWS_ACCESS_KEY_ID=...
+            # export AWS_SECRET_ACCESS_KEY=...
+            # For R2 set a custom endpoint URL (per-bucket or account level)
+            # s5cmd takes endpoints as part of the URL you use, e.g.:
+            #   s5cmd ls s3://<bucket>/ --endpoint-url https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+            # Or set AWS_ENDPOINT_URL to avoid repeating:
+            # export AWS_ENDPOINT_URL=https://<ACCOUNT_ID>.r2.cloudflarestorage.com
+          '';
+        };
       };
     };
 in
