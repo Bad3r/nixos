@@ -53,7 +53,7 @@ let
         http-connections = lib.mkDefault 0; # unlimited
         http2 = lib.mkDefault true;
         narinfo-cache-negative-ttl = lib.mkDefault 60;
-        stalled-download-timeout = lib.mkDefault (lib.toInt (confValue "stalled-download-timeout")); # nix default; fail a stalled download instead of freezing the build
+        stalled-download-timeout = lib.mkDefault (lib.toInt (confValue "stalled-download-timeout"));
 
       };
 
