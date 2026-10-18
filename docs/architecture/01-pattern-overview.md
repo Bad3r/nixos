@@ -13,7 +13,10 @@ The `import-tree` function (see `flake.nix`) recursively imports every `.nix` fi
 ```
 modules/
 ├── apps/
-│   ├── jq.nix           ← Imported automatically
+│   ├── ent.nix          ← Imported automatically
+│   ├── jq/
+│   │   ├── nixos.nix    ← Imported automatically
+│   │   └── home.nix     ← Imported automatically
 │   └── _experimental.nix ← Ignored (underscore prefix)
 ├── songbird/
 │   └── hardware-config.nix ← Imported automatically (songbird host)
@@ -27,14 +30,14 @@ modules/
 - Prefix experimental or parked files with `_` to exclude them without deleting history
 - Put unfinished work under `_scratch/` or `_archive/` directories
 - Prefer aggregator references (`config.flake.nixosModules.*`, `config.flake.homeManagerModules.*`) in host/app composition instead of literal path imports
-- `_`-prefixed files can still be imported explicitly from a non-underscored module when you intentionally want private building blocks (for example, `modules/hm-apps/git-mirror.nix` importing `./_firefox-docs-builder.nix`)
+- `_`-prefixed files can still be imported explicitly from a non-underscored module when you intentionally want private building blocks (for example, `modules/git/git-mirror.nix` importing `./_firefox-docs-builder.nix`)
 
 ## How Files Become Modules
 
 Each `.nix` file is a flake-parts module that registers itself under one or more aggregator namespaces:
 
 ```nix
-# modules/apps/jq.nix
+# modules/apps/jq/nixos.nix
 _:
 let
   JqModule =

@@ -78,7 +78,8 @@ in
 ## `perSystem` vs host overlays
 
 - `perSystem.packages` holds flake-exposed tooling packages, for example `generation-manager` from `modules/apps/generation-manager.nix` and the hook helpers in `modules/devshell.nix`.
-- App packages under `packages/<name>/default.nix` reach `pkgs` only through overlay modules gated on their app's row, never as `.#packages.<system>.<name>`; [Custom package overlays](../guides/custom-packages-overlays.md) covers the wiring.
+- App packages under `packages/<name>/default.nix` reach `pkgs` through overlay modules gated on their app's row; [Custom package overlays](../guides/custom-packages-overlays.md) covers the wiring.
+  An app folder's `package.nix`, such as `modules/apps/restringer/package.nix`, also exposes the package as `.#packages.<system>.<name>`.
 
 ## Shared System Helpers
 

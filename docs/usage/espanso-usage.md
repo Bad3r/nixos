@@ -9,8 +9,8 @@ The espanso module configures the cross-platform text expander declaratively, th
 
 Two modules cooperate behind a single system-level toggle:
 
-- `flake.nixosModules.apps.espanso`, from `modules/apps/espanso.nix`, declares the row's option `services.espanso.extended.enable`, default `false`.
-- `flake.homeManagerModules.apps.espanso`, from `modules/hm-apps/espanso.nix`, reads that toggle from `osConfig` and configures `services.espanso` only when it is `true`.
+- `flake.nixosModules.apps.espanso`, from `modules/apps/espanso/nixos.nix`, declares the row's option `services.espanso.extended.enable`, default `false`.
+- `flake.homeManagerModules.apps.espanso`, from `modules/apps/espanso/home.nix`, reads that toggle from `osConfig` and configures `services.espanso` only when it is `true`.
 
 Importing the Home Manager module alone does nothing, because the toggle must be on at the system level.
 

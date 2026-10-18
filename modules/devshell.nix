@@ -1,6 +1,6 @@
 { inputs, ... }:
 {
-  # devshell/pentesting.nix is auto-imported by import-tree like every other
+  # apps/pentesting-devshell/package.nix is auto-imported by import-tree like every other
   # non-underscore module; listing it here again was a redundant literal
   # path import.
   imports = [ inputs.make-shell.flakeModules.default ];

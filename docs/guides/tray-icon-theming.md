@@ -1,7 +1,6 @@
 # Tray Icon Theming (i3/i3bar)
 
-This guide documents how tray icons are managed on each i3-based host in this
-repo and how to make them match the active theme.
+Each i3-based host draws tray icons in `i3bar`, and whether an icon follows the active theme depends on how its app publishes it.
 
 Scope: every host that runs the i3 session and the `vx` user. The i3 session is
 enabled by importing `flake.nixosModules.i3` (wired in through
@@ -11,7 +10,7 @@ session sub-options.
 
 ## Runtime Model
 
-Tray management is done by `i3bar`, not by `i3status-rust`:
+`i3bar` manages the tray, not `i3status-rust`:
 
 - i3 bar config enables tray output on primary monitor:
   - `~/.config/i3/config` (`tray_output primary`)
@@ -104,111 +103,6 @@ On the i3-based hosts, keep XEmbed-compatible launch mode for native tray apps
 (for example plain `nm-applet`) and use the SNI bridge for apps that only
 publish StatusNotifierItem icons.
 
-## ProtonVPN Tray Icon
-
-Upstream ProtonVPN starts with `IconName = proton-vpn-sign`, then switches tray
-states to bundled absolute SVG paths such as `state-disconnected.svg`. Absolute
-paths bypass Gtk icon-theme lookup, so they do not pick up the Qogir-Dark panel
-style used by `flameshot-tray`.
-
-The local ProtonVPN overlay (`modules/custom-overlays/proton-vpn.nix`) rewrites
-the tray startup and connection-state icons to the theme-provided
-`protonvpn-tray` icon name. `snixembed` then resolves that name through the
-active Gtk icon theme, matching the same color/style path used by themed SNI
-icons such as Flameshot.
-
-The custom `protonvpn-tray` source lives at
-`modules/stylix/icons/protonvpn-tray.svg`.
-
-## NormCap Tray Icon
-
-NormCap uses Qt resource aliases for the tray:
-
-- `:tray`
-- `:tray_done`
-
-Those aliases are generated from `normcap/resources/icons/resources.qrc` into
-`normcap/gui/resources.py`. Replacing the loose PNG files alone is not enough
-because `QIcon(":tray")` and `QIcon(":tray_done")` read from the compiled Qt
-resource data.
-
-The local NormCap module (`modules/apps/normcap.nix`) renders the OneDark
-sources from `modules/stylix/icons/normcap-tray.svg` and
-`modules/stylix/icons/normcap-tray-done.svg` into the installed
-`tray.png`/`tray_done.png` files, then regenerates `resources.py` with Qt's
-resource compiler. The PNG render uses the same `11/16` glyph scale as the
-Qogir-Dark panel icon generation so the tray glyph fits the rest of the custom
-tray icon set.
-
-## Teams for Linux Tray Icon
-
-teams-for-linux has two icon surfaces:
-
-- Launcher/window icons use the desktop icon name `teams-for-linux`. nixpkgs
-  installs PNGs under `$out/share/icons/hicolor/<size>/apps/teams-for-linux.png`.
-- Tray icons are selected by the Electron app from bundled files under
-  `app/assets/icons/`. On Linux the default tray path uses `icon-96x96.png`;
-  `appIconType = "light"` and `appIconType = "dark"` use the matching
-  `icon-monochrome-*-96x96.png` files. The 16px variants are kept for the same
-  selector on macOS and for completeness when upstream code paths change.
-
-The local teams-for-linux module (`modules/apps/teams-for-linux.nix`) patches
-the configured package after install. It renders the OneDark-adjusted source
-logo from `modules/stylix/icons/teams-for-linux.svg` into hicolor launcher
-sizes `16`, `24`, `32`, `48`, `64`, `96`, `128`, `256`, `512`, and `1024`,
-and installs the scalable SVG variant.
-
-The same override extracts and repacks `app.asar`, replacing all bundled tray
-base icons with the panel-oriented OneDark source at
-`modules/stylix/icons/teams-for-linux-tray.svg`. That tray source uses
-OneDark `base05` (`#abb2bf`) for the glyph and `base00` (`#282c34`) for the
-front tile letter, so it stays legible against the dark i3bar panel while
-still matching the active palette. The tray PNG render uses the same `11/16`
-glyph scale as the Qogir-Dark panel icon generation so the Electron tray image
-does not fill the entire icon frame.
-
-## udiskie Tray Icon
-
-udiskie looks up tray icons through `Gtk.IconTheme`. Its default `media` icon
-list starts with `drive-removable-media-usb-panel`, then falls back to the
-stock Qogir-Dark removable-device icons.
-
-The custom `drive-removable-media-usb-panel` source lives at
-`modules/stylix/icons/udiskie-tray.svg`. It is derived from
-`~/Downloads/usb.svg` and uses Qogir-Dark's panel text color (`#d3dae3`).
-Its stroke is thickened before rendering so antialiasing does not make the tray
-icon look dimmer than filled panel icons.
-
-## Bridge Patches
-
-`snixembed` is pinned to upstream 0.3.3 in nixpkgs. The custom overlay
-(`modules/custom-overlays/snixembed.nix`) layers
-`packages/snixembed/icon-resolution.patch` on top and wraps the binary with SVG
-pixbuf support. The override addresses five defects:
-
-1. `set_icon_pixmap` iterates the ARGB->RGBA conversion with `i += 3` over a
-   4-byte buffer. The first pixel converts in place, then every later
-   iteration overwrites the previous pixel's alpha with the next pixel's
-   data. Fix: stride 4.
-2. `set_icon` falls through to the pixmap path whenever
-   `theme.has_icon(name)` returns false. Some SNI items omit `IconPixmap` or
-   expose it with the wrong D-Bus type, and snixembed's generated Vala proxy
-   can crash just by reading the property. Fix: only use the pixmap fallback
-   when `IconPixmap` is already cached with the expected SNI array type.
-3. ProtonVPN starts with a missing theme icon name (`proton-vpn-sign`) and
-   later switches to an absolute SVG path. The guarded pixmap fallback lets Gtk
-   render the named/file icon instead of aborting while probing ProtonVPN's
-   malformed `IconPixmap`.
-4. ProtonVPN can expose `ToolTip` as an empty string variant instead of the SNI
-   tooltip tuple. The guarded tooltip read avoids aborting while the item is
-   proxied into `i3bar`.
-5. The upstream nixpkgs package is not wrapped with `librsvg`, so gdk-pixbuf
-   cannot decode SVG status icons. The overlay adds `wrapGAppsHook3` and
-   `librsvg`.
-
-Drop the override once upstream `~steef/snixembed` ships a release past
-0.3.3 with the equivalent fixes.
-
 ## Verification Commands
 
 ```bash
@@ -233,6 +127,7 @@ busctl --user list | rg -i 'statusnotifierwatcher|snixembed|indicator|proton'
 
 ## Related
 
+- [Tray icon overrides](tray-icon-overrides.md)
 - [Stylix Integration](stylix-integration.md)
 - [Status Notifier Item Specification](https://specifications.freedesktop.org/status-notifier-item-spec/latest-single/)
 - [Icon Theme Specification](https://xdg.pages.freedesktop.org/xdg-specs/icon-theme-spec/latest/)

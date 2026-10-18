@@ -43,7 +43,6 @@ ______________________________________________________________________
 
 - `modules/browsers/firefoxpwa/` (entire directory)
 - `packages/firefoxpwa-dmail-install/`
-- `modules/custom-overlays/firefoxpwa.nix`
 - `modules/browsers/_firefoxpwa-extension-pin.json`
 - `scripts/update-firefoxpwa-extension.py`
 - `.github/workflows/update-firefoxpwa-extension.yml`
@@ -60,7 +59,7 @@ ______________________________________________________________________
 - `modules/meta/cache-roots.nix:52`: drop `"firefoxpwa"`
 - `.github/workflows/update-flake.yml:88-92`: drop the pin sync step
 - `pyproject.toml`: drop the script references
-- `modules/hm-apps/proton-drive-check.nix`: drop the `modules/browsers/firefoxpwa/module-check.nix` citation from the header comment
+- `modules/apps/rclone/proton-drive-check.nix`: drop the `modules/browsers/firefoxpwa/module-check.nix` citation from the header comment
 - `docs/architecture/04-home-manager.md:94`, `docs/reference/binary-cache-coverage.md:73,159`
 
 ______________________________________________________________________
@@ -73,7 +72,7 @@ Do not start until the phase 1 PR (`docs/drafts/chromium-webapps-plan-1-salvage.
 
 **Files:**
 
-- Delete: `modules/browsers/firefoxpwa/`, `packages/firefoxpwa-dmail-install/`, `modules/custom-overlays/firefoxpwa.nix`, `modules/browsers/_firefoxpwa-extension-pin.json`, `scripts/update-firefoxpwa-extension.py`, `.github/workflows/update-firefoxpwa-extension.yml`
+- Delete: `modules/browsers/firefoxpwa/`, `packages/firefoxpwa-dmail-install/`, `modules/browsers/_firefoxpwa-extension-pin.json`, `scripts/update-firefoxpwa-extension.py`, `.github/workflows/update-firefoxpwa-extension.yml`
 
 - [ ] **Step 1: Create the worktree**
 
@@ -113,7 +112,6 @@ saved file is the checklist Task 4 Step 7 `comm`s its own sweep against; nothing
 ```bash
 rip modules/browsers/firefoxpwa \
     packages/firefoxpwa-dmail-install \
-    modules/custom-overlays/firefoxpwa.nix \
     modules/browsers/_firefoxpwa-extension-pin.json \
     scripts/update-firefoxpwa-extension.py \
     .github/workflows/update-firefoxpwa-extension.yml
@@ -125,13 +123,13 @@ rip modules/browsers/firefoxpwa \
 git status --short
 ```
 
-Expected: only `D ` entries for the six paths above, nothing else.
+Expected: only `D ` entries for the five paths above, nothing else.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add -A modules/browsers/firefoxpwa packages/firefoxpwa-dmail-install \
-  modules/custom-overlays/firefoxpwa.nix modules/browsers/_firefoxpwa-extension-pin.json \
+  modules/browsers/_firefoxpwa-extension-pin.json \
   scripts/update-firefoxpwa-extension.py .github/workflows/update-firefoxpwa-extension.yml
 git commit -m "refactor(firefoxpwa)!: delete the firefoxpwa module tree
 
@@ -304,11 +302,11 @@ comm -23 <(cut -d: -f1 /tmp/firefoxpwa-before.txt | sort -u) \
 ```
 
 Expected: the first command prints only `docs/architecture/04-home-manager.md`,
-`docs/reference/binary-cache-coverage.md` and `modules/hm-apps/proton-drive-check.nix`, all three handled in Task 5.
+`docs/reference/binary-cache-coverage.md` and `modules/apps/rclone/proton-drive-check.nix`, all three handled in Task 5.
 The `comm` prints every other file the baseline held, which is the checklist Task 2 Step 2 recorded: a file listed
 there and absent from this output is one the removal missed.
 
-`modules/hm-apps/proton-drive-check.nix` is in that list rather than in this task because its only match is a prose
+`modules/apps/rclone/proton-drive-check.nix` is in that list rather than in this task because its only match is a prose
 citation inside a header comment. It is not host wiring, it does not affect evaluation, and folding it into this
 task's `refactor(hosts)!` commit would misstate that commit's scope.
 
@@ -336,7 +334,7 @@ Validation: nix flake check path:. --accept-flake-config --no-build --offline"
 
 - Modify: `docs/reference/binary-cache-coverage.md:73,159`
 
-- Modify: `modules/hm-apps/proton-drive-check.nix`
+- Modify: `modules/apps/rclone/proton-drive-check.nix`
 
 - Modify: `README.md` (only when Step 4 finds a match)
 
@@ -360,7 +358,7 @@ In `docs/reference/binary-cache-coverage.md`, change the parenthetical on line 7
 
 - [ ] **Step 3: Drop the module-check cross-reference**
 
-`modules/hm-apps/proton-drive-check.nix` names the file Task 2 deleted, in the header sentence that describes how the
+`modules/apps/rclone/proton-drive-check.nix` names the file Task 2 deleted, in the header sentence that describes how the
 check is built:
 
 ```
@@ -412,7 +410,7 @@ Expected: both succeed.
 
 ```bash
 git add docs/architecture/04-home-manager.md docs/reference/binary-cache-coverage.md \
-  modules/hm-apps/proton-drive-check.nix README.md
+  modules/apps/rclone/proton-drive-check.nix README.md
 git commit -m "docs(browsers): retire the firefoxpwa references
 
 Drops the worked example from the browser-modules paragraph, the policy-injection parenthetical and cache-root row

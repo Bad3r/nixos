@@ -7,11 +7,11 @@ that installs mpv and writes the user-level configuration.
 ## Layered Composition
 
 - **NixOS app module**
-  - Location: `modules/apps/mpv.nix`
+  - Location: `modules/apps/mpv/nixos.nix`
   - Namespace: `flake.nixosModules.apps.mpv`
   - Role: Declares the row and its options, and adds the extras to `environment.systemPackages` when `programs.mpv.extended.enable` is true.
 - **HM app module**
-  - Location: `modules/hm-apps/mpv/mpv.nix`
+  - Location: `modules/apps/mpv/home.nix`
   - Namespace: `flake.homeManagerModules.apps.mpv`
   - Role: Installs `programs.mpv.extended.package` rewrapped with a script list (packaged scripts plus two repo-local Lua scripts), and writes `mpv.conf`, `input.conf`, and a `script-opts` file, when the NixOS layer is enabled.
 
@@ -71,7 +71,7 @@ The NixOS module installs only the extras.
 ### Activation contract
 
 The HM module reads the NixOS-side `enable` flag rather than declaring its own.
-The pattern at `modules/hm-apps/mpv/mpv.nix`:
+The pattern at `modules/apps/mpv/home.nix`:
 
 ```nix
 { osConfig, lib, pkgs, ... }:
@@ -95,7 +95,7 @@ Two consequences follow:
   drops both layers in lockstep, so the user profile is never left with an
   active `programs.mpv` block pointing at a stale config.
 - `lib.attrByPath` tolerates the option being absent on hosts that do not
-  import `modules/apps/mpv.nix` at all, defaulting to `false` rather than
+  import `modules/apps/mpv/nixos.nix` at all, defaulting to `false` rather than
   throwing.
 
 The common baseline pins app-enable bits with `lib.mkOverride 1100` in

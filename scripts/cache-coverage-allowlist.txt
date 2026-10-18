@@ -34,6 +34,6 @@ python3.11-xmldiff* # NixVirt builds its helper on python311 (modules/hosts/comm
 # small wrapper derivation rebuilds locally.
 firefox-[0-9]* # policy/extension wrapper (modules/browsers)
 librewolf-[0-9]* # policy/extension wrapper (modules/browsers)
-neovim-[0-9]* # plugin wrapper (modules/apps/neovim.nix)
-rofi-[0-9]* # plugin wrapper with rofi-calc (modules/hm-apps/rofi.nix)
+neovim-[0-9]* # plugin wrapper (modules/apps/neovim/nixos.nix)
+rofi-[0-9]* # plugin wrapper with rofi-calc (modules/apps/rofi/home.nix)
 mdformat-wrapped* # mdformat.withPlugins gfm wrapper (modules/apps/mdformat.nix)

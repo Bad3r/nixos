@@ -1,6 +1,6 @@
 # Cloudflare WARP on the fleet
 
-`modules/apps/cloudflare-warp.nix` enrolls a host into the Zero Trust team with a per-host Access service token and runs `warp-svc` as a managed client.
+`modules/apps/cloudflare-warp/nixos.nix` enrolls a host into the Zero Trust team with a per-host Access service token and runs `warp-svc` as a managed client.
 No browser login happens on the host: sops-nix renders the team name, the token, and the mode into the managed deployment file `mdm.xml` from `secrets/cloudflare-warp.yaml`.
 
 ## Behavior

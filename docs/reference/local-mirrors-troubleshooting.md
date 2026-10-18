@@ -130,4 +130,4 @@ An unreachable page fails the service with curl's own error instead, and a later
 curl -fsSL https://docs.python.org/3/ | grep -oE 'Python 3\.[0-9]+(\.[0-9]+)? [Dd]ocumentation'
 ```
 
-A changed page needs the pattern in `modules/hm-apps/_python-docs-publisher.nix` updated.
+A changed page needs the pattern in `modules/git/_python-docs-publisher.nix` updated.

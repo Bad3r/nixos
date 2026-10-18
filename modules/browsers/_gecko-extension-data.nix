@@ -121,7 +121,7 @@ let
     };
 
   # Enterprise policy applied to the firefoxpwa runtime (every PWA profile) by
-  # modules/custom-overlays/firefoxpwa.nix. The declared add-ons are installed
+  # modules/browsers/firefoxpwa/overlay.nix. The declared add-ons are installed
   # as user-disableable defaults; 1Password reaches its desktop app through the
   # native-messaging host the firefox module already drops in
   # ~/.mozilla/native-messaging-hosts, which the runtime reads

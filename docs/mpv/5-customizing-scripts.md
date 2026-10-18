@@ -43,7 +43,7 @@ _:
 ```
 
 This suits one-off user hooks.
-The shared HM module instead packages its local scripts, `playlist_filter` and `ytdlp_cookies`, in `modules/hm-apps/mpv/scripts.nix` and adds them to the script list of the mpv it builds.
+The shared HM module instead packages its local scripts, `playlist_filter` and `ytdlp_cookies`, in `modules/apps/mpv/scripts.nix` and adds them to the script list of the mpv it builds.
 
 ## Keybindings
 

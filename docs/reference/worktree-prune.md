@@ -3,7 +3,7 @@
 `scripts/prune-stale-worktrees.sh` detects local branches whose upstream
 tracking branch is gone after `git fetch --all --prune`, removes the worktree
 backing each branch under the scanned roots, and deletes the local branch. A
-Home Manager timer (`modules/hm-apps/worktree-prune.nix`, enabled for shared
+Home Manager timer (`modules/git/worktree-prune.nix`, enabled for shared
 hosts by `modules/hosts/common/worktree-prune.nix`) runs the safe apply mode
 twice a month. Issue tracking:
 `https://github.com/Bad3r/nixos/issues/201`.

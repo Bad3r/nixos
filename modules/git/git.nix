@@ -51,7 +51,7 @@
       };
 
       programs = {
-        # Enabled by modules/hm-apps/git.nix while the git row is on.
+        # Enabled by modules/git/home.nix while the git row is on.
         git = lib.mkMerge [
           # Base git configuration
           {

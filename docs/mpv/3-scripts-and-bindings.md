@@ -36,7 +36,7 @@ These scripts load at startup.
 
 ## Keybindings
 
-The HM module writes its bindings to `~/.config/mpv/input.conf` through `programs.mpv.bindings` in `modules/hm-apps/mpv/mpv.nix`, and mpv's other defaults stay available.
+The HM module writes its bindings to `~/.config/mpv/input.conf` through `programs.mpv.bindings` in `modules/apps/mpv/home.nix`, and mpv's other defaults stay available.
 
 ### Mapping Conventions
 

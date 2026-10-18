@@ -158,7 +158,7 @@ Expected: `declare -F` present in the test runner; no output from the second com
 The second command is the detector's own predicate from `modules/meta/build-time-shell.nix`, not a bare
 `rg -n 'compgen'`, so the sweep and the check cannot report different things. A bare string search has no pass
 condition here: `modules/meta/build-time-shell.nix` carries the literal it scans for, its planted-lint fixtures pass
-`compgen` to `printf` as an argument, and `modules/hm-apps/proton-drive.nix` has carried a comment naming the builtin
+`compgen` to `printf` as an argument, and `modules/apps/rclone/proton-drive.nix` has carried a comment naming the builtin
 since before this branch existed. Excluding paths one at a time hides real reintroductions in whatever file is
 excluded next; matching a command position instead reports the one thing that matters. Verified both ways: on `main`
 the predicate matches exactly `tests/prune-old-stashes/run.sh`, the site Step 3 replaces, and on the rescued branch it

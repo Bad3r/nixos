@@ -1,6 +1,6 @@
 # WARP deployment runbook
 
-Procedures for enrolling a fleet host with the module in `modules/apps/cloudflare-warp.nix`.
+Procedures for enrolling a fleet host with the module in `modules/apps/cloudflare-warp/nixos.nix`.
 API calls below use `curl` with `ACCOUNT` and `CF_API_TOKEN` taken from `secrets/cloudflare-warp.yaml` through `sops -d --extract` on `account_id` and `zero_trust_api_token`, an account-owned token holding Zero Trust Write that verifies at `/accounts/$ACCOUNT/tokens/verify` rather than `/user/tokens/verify`; the dashboard shows the same objects.
 
 ## Create the Cloudflare objects for a host
@@ -110,7 +110,7 @@ Settings, Developer, SSH Agent, Advanced to require approval for every SSH signa
 
 Precondition: the host is enrolled.
 
-The `cloudflare-warp-excludes` unit gives the host's `nixos-<host>` profile the base list in `modules/apps/cloudflare-warp.nix` plus the JSON array at `<host>.exclude` in `secrets/cloudflare-warp.yaml`.
+The `cloudflare-warp-excludes` unit gives the host's `nixos-<host>` profile the base list in `modules/apps/cloudflare-warp/nixos.nix` plus the JSON array at `<host>.exclude` in `secrets/cloudflare-warp.yaml`.
 It runs at boot and on every switch, drops entries added only in the dashboard, and restarts warp-svc while the daemon applies a different list, since warp-svc 2026.7.1343.0 can keep a previous one.
 Each enrolled host therefore decrypts `zero_trust_api_token`, which its shared host age key could already read.
 

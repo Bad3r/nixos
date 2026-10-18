@@ -1,6 +1,7 @@
 # Apps module Home Manager integration
 
-A program that Home Manager has a module for gets a second file, `modules/hm-apps/<tool>.nix`, exported as `flake.homeManagerModules.apps.<tool>`.
+A program that Home Manager has a module for gets an app folder, with its NixOS module moved to `modules/apps/<tool>/nixos.nix`.
+The Home Manager module sits beside it as `home.nix`, exported as `flake.homeManagerModules.apps.<tool>`.
 The NixOS row installs the program and switches the Home Manager module on; the Home Manager module only configures it.
 
 ## Home Manager support
@@ -68,6 +69,7 @@ A Home Manager feature that needs the package reference, such as `enableGitInteg
 Every module registered under `flake.homeManagerModules.apps` loads on every host, as [Home Manager](../architecture/04-home-manager.md#app-loading) describes, so the file is the only step.
 The gate keeps a loaded module inert, so hosts differ only through their NixOS rows.
 A module without a row gates on its own enable option, or on the NixOS setting it configures, as `i3-config` does with the i3 window manager.
+A module gated on another app's row lives in that app's folder, as `npm` does in `modules/apps/nodejs_24/`.
 
 ## Theming
 

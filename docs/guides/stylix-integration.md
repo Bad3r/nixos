@@ -1,6 +1,6 @@
 # Stylix Integration
 
-This document covers how Stylix theming integrates with the Dendritic Pattern and the key constraints module authors must understand.
+Stylix themes both NixOS and Home Manager applications in this repository, and each Stylix target exists in only one of those contexts.
 
 ## Overview
 
@@ -64,7 +64,7 @@ stylix.targets.fzf.enable = lib.mkDefault true;
 3. Let Home Manager modules handle user-level theming
 
 ```nix
-# Correct NixOS app module (mirrors modules/apps/dunst.nix)
+# Correct NixOS app module (mirrors modules/apps/dunst/nixos.nix)
 _:
 let
   DunstModule =
@@ -94,7 +94,7 @@ in
 }
 ```
 
-### Home Manager Modules (`modules/hm-apps/`)
+### Home Manager Modules (`modules/apps/<name>/home.nix`)
 
 1. **Do NOT manually set `stylix.targets.*`** -- let `autoEnable` handle it
 2. Only set targets if you need to **disable** theming for a specific app
@@ -102,7 +102,7 @@ in
 
 ```nix
 # Correct HM app module -- let autoEnable work
-# (mirrors modules/hm-apps/fzf.nix, abridged)
+# (mirrors modules/apps/fzf/home.nix, abridged)
 {
   flake.homeManagerModules.apps.fzf =
     { osConfig, lib, ... }:
@@ -129,70 +129,6 @@ in
 }
 ```
 
-## Common Pitfalls
-
-### Pitfall 1: Setting HM Targets in NixOS Modules
-
-```nix
-# WRONG -- dunst target only exists in Home Manager
-flake.nixosModules.apps.dunst = { ... }: {
-  stylix.targets.dunst.enable = lib.mkDefault true;  # ERROR: undefined option
-};
-```
-
-This causes evaluation errors unless `_module.check = false` is set, which masks the problem.
-
-### Pitfall 2: Redundant Target Enables
-
-```nix
-# WRONG -- redundant and potentially buggy
-flake.homeManagerModules.apps.fzf = { lib, ... }: {
-  programs.fzf.enable = true;
-  stylix.targets.fzf.enable = lib.mkDefault true;  # Redundant!
-};
-```
-
-Stylix already enables this automatically. The `lib.mkDefault` can override user's `stylix.autoEnable = false`.
-
-### Pitfall 3: Using \_module.check = false
-
-Never use `_module.check = false` to silence option errors. This masks real problems:
-
-```nix
-# WRONG -- hides undefined option errors
-configurations.nixos.myhost.module = {
-  _module.check = false;  # Don't do this
-  imports = [ ... ];
-};
-```
-
-Instead, fix the root cause by ensuring options are only set in their valid context.
-
-## Debugging Stylix Issues
-
-### Check Which Targets Exist
-
-```bash
-# List NixOS stylix targets
-nix eval .#nixosConfigurations.songbird.options.stylix.targets \
-  --apply builtins.attrNames 2>/dev/null | tr ',' '\n' | tr -d '[]" '
-```
-
-### Verify Target State
-
-```bash
-# Check if a specific target is enabled in the final config
-nix eval .#nixosConfigurations.songbird.config.stylix.targets.console.enable
-```
-
-### Trace autoEnable Behavior
-
-If theming isn't applying, verify:
-
-1. `stylix.autoEnable` is `true` (or not explicitly `false`)
-2. The corresponding `programs.<app>.enable` is `true`
-3. The target exists in the current context (NixOS vs HM)
-
 ## Tray Icon Theming
 
 Tray icon behavior is host/protocol dependent and can diverge from Stylix target
@@ -206,5 +142,6 @@ ownership, and package-level remediation patterns:
 - [`docs/architecture/01-pattern-overview.md`](../architecture/01-pattern-overview.md) -- module discovery and aggregator patterns
 - [`docs/architecture/04-home-manager.md`](../architecture/04-home-manager.md) -- how Home Manager modules are composed
 - [Apps Module Style Guide](apps-module-style-guide.md) -- per-app module authoring conventions
+- [Stylix troubleshooting](stylix-troubleshooting.md) -- common pitfalls and debugging commands
 - [Stylix Documentation](https://nix-community.github.io/stylix/) -- upstream reference
 - [Tray Icon Theming (i3/i3bar)](tray-icon-theming.md) -- protocol classification and tray icon remediation on this host

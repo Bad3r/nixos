@@ -19,16 +19,19 @@ _: {
             root=$(git rev-parse --show-toplevel)
             cd "$root"
 
-            apps_dir="modules/apps"
             browsers_dir="modules/browsers"
+
+            # App modules sit in flat files, app folders, and feature folders, so apps are found by registration.
+            app_registration='nixosModules\.apps\.("[^"]+"|[[:alnum:]_-]+)[[:space:]]*=([^=]|$)'
 
             # Browser modules live under modules/browsers/<name>/apps.nix
             # since the browsers consolidation; their catalog entries use the
             # directory name.
             mapfile -t filesystem_apps < <(
               {
-                find "$apps_dir" -maxdepth 1 -type f -name "*.nix" ! -name "_*.nix" -printf "%f\n" \
-                  | sed 's/\.nix$//'
+                find modules -name "*.nix" ! -path "*/_*" -print0 \
+                  | xargs -0 grep -hoE "$app_registration" \
+                  | sed -E 's/^nixosModules\.apps\.//; s/[[:space:]]*=.*$//; s/"//g'
                 find "$browsers_dir" -mindepth 2 -maxdepth 2 -type f -name "apps.nix" \
                   ! -path "*/_*/*" -printf "%h\n" \
                   | sed 's|.*/||'
@@ -41,8 +44,8 @@ _: {
             done
 
             # The common baseline at modules/hosts/common/apps-enable.nix is
-            # the canonical catalog and must list every app from modules/apps/
-            # and every browser module from modules/browsers/.
+            # the canonical catalog and must list every registered app and
+            # every browser module from modules/browsers/.
             # Per-host files (modules/<host>/apps-enable.nix) only carry
             # overrides for entries that diverge from the baseline; they are
             # not required to be complete and must only reference apps that
@@ -84,14 +87,20 @@ _: {
                 fi
               fi
               app_modules_changed=0
+              # Captured so a failing diff aborts under set -e instead of reading as no change.
+              changed_files=$(git diff --name-only "''${from_ref}..''${to_ref}")
               while IFS= read -r changed_file; do
                 if [[ "$changed_file" =~ ^modules/.+/apps-enable\.nix$ ]]; then
                   catalog_files_to_check["$changed_file"]=1
-                elif [[ "$changed_file" =~ ^modules/apps/[^_/][^/]*\.nix$ ]] \
-                  || [[ "$changed_file" =~ ^modules/browsers/[^_/][^/]*/apps\.nix$ ]]; then
+                elif [[ "$changed_file" =~ ^modules/browsers/[^_/][^/]*/apps\.nix$ ]]; then
                   app_modules_changed=1
                 fi
-              done < <(git diff --name-only "''${from_ref}..''${to_ref}" 2>/dev/null || true)
+              done <<<"$changed_files"
+              # Moving an app module changes no registration line, so only an added or removed app counts.
+              module_diff=$(git diff --no-textconv --no-ext-diff -U0 "''${from_ref}..''${to_ref}" -- modules)
+              if grep -E "^[+-].*$app_registration" <<<"$module_diff" >/dev/null; then
+                app_modules_changed=1
+              fi
               if [ "$app_modules_changed" -eq 1 ]; then
                 add_all_catalog_files
               elif [ "''${#catalog_files_to_check[@]}" -eq 0 ]; then

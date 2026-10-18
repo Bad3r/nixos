@@ -38,7 +38,7 @@ Multiple files can extend shared namespaces. Common patterns in this repo:
 
 ## Per-App Modules
 
-Most app modules live under `modules/hm-apps/<name>.nix`, but any auto-imported module can export `flake.homeManagerModules.apps.<name>` (for example, `modules/apps/i3wm/*.nix` exporting `apps.i3-config`).
+An app's Home Manager module lives in its app folder as `modules/apps/<name>/home.nix`, but any auto-imported module can export `flake.homeManagerModules.apps.<name>` (for example, `modules/apps/i3wm/*.nix` exporting `apps.i3-config`).
 
 ## App Loading
 

@@ -2,7 +2,7 @@
 
 `git-mirror.service` brings every spec in `programs.gitMirror.repos` up to date under the [mirror root](local-mirrors.md#mirror-root), `programs.gitMirror.jobs` specs at a time.
 `git-mirror.timer` starts it on the `programs.gitMirror.timer` calendar and catches up on a missed start the next time the user manager runs.
-Both units, and the docs services a sync starts, are defined in `modules/hm-apps/git-mirror.nix`.
+Both units, and the docs services a sync starts, are defined in `modules/git/git-mirror.nix`.
 
 Start a sync and read its log, as the owner:
 

@@ -1,7 +1,7 @@
 # Remote desktop with RustDesk
 
 RustDesk shares each host's live X11 session and its login screen with the other hosts and the iPhone, with clipboard, audio, and file transfer.
-[rustdesk.nix](../../modules/apps/rustdesk.nix) runs the client service on every host.
+[rustdesk/nixos.nix](../../modules/apps/rustdesk/nixos.nix) runs the client service on every host.
 The ID server (hbbs) and relay (hbbr) run on the host whose `modules/<host>/policy.nix` sets `rustdeskServer`.
 No host contacts RustDesk's public servers.
 

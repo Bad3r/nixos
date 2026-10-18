@@ -1,6 +1,6 @@
 /*
   Optional Codex process environment, exported by the launch wrapper and Home
-  Manager login sessions. CODEX_HOME is computed by home-manager.nix and the
+  Manager login sessions. CODEX_HOME is computed by home.nix and the
   wrapper; shell_environment_policy in _settings.nix controls tool subprocesses.
 
   Source: openai/codex 58670eeac4b0bdb9fcb86929d8631c14aee0d9f6.
