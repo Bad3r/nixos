@@ -16,9 +16,6 @@
 let
   appEnable = {
     antimicrox = false;
-    azd = false;
-    "azure-cli" = false;
-    "cf-terraforming" = false;
     "cloudflare-warp" = true;
     cloudflared = false;
     "coderabbit-cli" = false;
@@ -41,9 +38,7 @@ let
     lxsession = false;
     "maestral-gui" = false;
     markitdown = false;
-    "minio-client" = false;
     mpv = false;
-    "msgraph-cli" = false;
     "nextcloud-client" = true;
     onlyoffice-desktopeditors = false;
     opendirectorydownloader = false;
@@ -51,7 +46,6 @@ let
     projectlibre = true;
     "spec-kit" = false;
     steam = false;
-    terraform = false;
     thinkfan = true;
     upscayl = false;
     valgrind = false;

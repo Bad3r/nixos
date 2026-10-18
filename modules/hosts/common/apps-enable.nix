@@ -45,9 +45,9 @@ let
       "autotiling-rs".extended.enable = lib.mkOverride 1100 true;
       autotrace.extended.enable = lib.mkOverride 1100 true;
       assetfinder.extended.enable = lib.mkOverride 1100 true;
-      awscli2.extended.enable = lib.mkOverride 1100 true;
-      azd.extended.enable = lib.mkOverride 1100 true;
-      "azure-cli".extended.enable = lib.mkOverride 1100 true;
+      awscli2.extended.enable = lib.mkOverride 1100 false;
+      azd.extended.enable = lib.mkOverride 1100 false;
+      "azure-cli".extended.enable = lib.mkOverride 1100 false;
       b3sum.extended.enable = lib.mkOverride 1100 true;
       babashka.extended.enable = lib.mkOverride 1100 false;
       bandwhich.extended.enable = lib.mkOverride 1100 true;
@@ -78,7 +78,7 @@ let
       certbot.extended.enable = lib.mkOverride 1100 true;
       cewl.extended.enable = lib.mkOverride 1100 true;
       cdncheck.extended.enable = lib.mkOverride 1100 true;
-      "cf-terraforming".extended.enable = lib.mkOverride 1100 true;
+      "cf-terraforming".extended.enable = lib.mkOverride 1100 false;
       charles.extended.enable = lib.mkOverride 1100 true;
       chatgpt.extended.enable = lib.mkOverride 1100 true;
       circumflex.extended.enable = lib.mkOverride 1100 true;
@@ -162,7 +162,7 @@ let
       firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
       "firmware-manager".extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
-      flarectl.extended.enable = lib.mkOverride 1100 true;
+      flarectl.extended.enable = lib.mkOverride 1100 false;
       fonttools.extended.enable = lib.mkOverride 1100 true;
       foremost.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
@@ -284,7 +284,7 @@ let
       mdformat.extended.enable = lib.mkOverride 1100 true;
       "media-toolchain".extended.enable = lib.mkOverride 1100 true;
       metasploit.extended.enable = lib.mkOverride 1100 true;
-      "minio-client".extended.enable = lib.mkOverride 1100 true;
+      "minio-client".extended.enable = lib.mkOverride 1100 false;
       mitmproxy.extended.enable = lib.mkOverride 1100 false;
       mkcert.extended.enable = lib.mkOverride 1100 true;
       mlr.extended.enable = lib.mkOverride 1100 true;
@@ -293,7 +293,7 @@ let
       moreutils.extended.enable = lib.mkOverride 1100 true;
       mosh.extended.enable = lib.mkOverride 1100 true;
       mpv.extended.enable = lib.mkOverride 1100 true;
-      "msgraph-cli".extended.enable = lib.mkOverride 1100 true;
+      "msgraph-cli".extended.enable = lib.mkOverride 1100 false;
       mtdev.extended.enable = lib.mkOverride 1100 true;
       "mullvad-browser".extended.enable = lib.mkOverride 1100 true;
       mupdf.extended.enable = lib.mkOverride 1100 true;
@@ -416,7 +416,7 @@ let
       rustdesk.extended.enable = lib.mkOverride 1100 true;
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       "s-tui".extended.enable = lib.mkOverride 1100 true;
-      s5cmd.extended.enable = lib.mkOverride 1100 true;
+      s5cmd.extended.enable = lib.mkOverride 1100 false;
       "safeguard-rdp".extended.enable = lib.mkOverride 1100 true;
       samba.extended.enable = lib.mkOverride 1100 true;
       "sc-controller".extended.enable = lib.mkOverride 1100 false;
@@ -472,7 +472,7 @@ let
       "teams-for-linux".extended.enable = lib.mkOverride 1100 false;
       "telegram-desktop".extended.enable = lib.mkOverride 1100 true;
       "temurin-bin-25".extended.enable = lib.mkOverride 1100 true;
-      terraform.extended.enable = lib.mkOverride 1100 true;
+      terraform.extended.enable = lib.mkOverride 1100 false;
       tesseract.extended.enable = lib.mkOverride 1100 true;
       testdisk.extended.enable = lib.mkOverride 1100 true;
       thunderbird.extended.enable = lib.mkOverride 1100 true;
@@ -525,7 +525,7 @@ let
       "wine-tools".extended.enable = lib.mkOverride 1100 true;
       "wireguard-tools".extended.enable = lib.mkOverride 1100 true;
       wireshark.extended.enable = lib.mkOverride 1100 true;
-      "worker-build".extended.enable = lib.mkOverride 1100 true;
+      "worker-build".extended.enable = lib.mkOverride 1100 false;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
       wpscan.extended.enable = lib.mkOverride 1100 true;
       wpsoffice.extended.enable = lib.mkOverride 1100 false;
