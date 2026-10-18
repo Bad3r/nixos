@@ -73,9 +73,9 @@ A moved, deleted, or private repository needs its spec replaced or removed in `m
 The mirror path holds a directory without `.git`.
 Move it out of the root and start a sync, which clones the spec into the freed path.
 
-## `<spec>: stash failed` or `backup branch failed`
+## `<spec>: stash failed`
 
-Git could not save the mirror's local work, so the sync stopped before the reset.
+Git could not stash the mirror's local changes, so the sync stopped before the reset.
 Unmerged paths from a conflicted merge, rebase, or cherry-pick block the stash, and git's own error sits just above this line.
 
 ```sh
@@ -83,6 +83,18 @@ git -C "$LOCAL_MIRRORS/<dir>" status
 ```
 
 Finish or abort that operation, or move the work into a separate clone, then start a sync.
+
+## `<spec>: backup branch failed`
+
+Git could not write the backup branch, so the sync stopped before the reset with the diverged commits still on `HEAD`.
+Git's error above this line names the cause, such as a full filesystem or an unwritable `.git/refs` directory.
+Uncommitted changes from that run already sit in the newest `git-mirror:` stash:
+
+```sh
+git -C "$LOCAL_MIRRORS/<dir>" stash list
+```
+
+Free space or fix the permissions, then start a sync.
 
 ## `git-mirror.service` fails with `start-limit-hit`
 
