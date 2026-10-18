@@ -8,7 +8,6 @@
   </a>
 </p>
 
-
 # NixOS Configuration
 
 NixOS Infrastructure as Code using the [Dendritic Pattern](https://github.com/mightyiam/dendritic), an organic configuration growth pattern with automatic module discovery. Powered by [flake-parts](https://flake.parts/).
@@ -38,9 +37,9 @@ It refuses to run on a dirty worktree by default; use `--allow-dirty` to overrid
 
 **Development commands:**
 
-| Command                                                               | Description     |
-| --------------------------------------------------------------------- | --------------- |
-| `nix develop path:.`                                                  | Enter dev shell |
+| Command                                                                | Description     |
+| ---------------------------------------------------------------------- | --------------- |
+| `nix develop path:.`                                                   | Enter dev shell |
 | `nix run path:.#treefmt -- .`                                          | Format files    |
 | `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run all hooks   |
 
@@ -80,8 +79,8 @@ See the [sops documentation](docs/sops/README.md) for usage instructions.
 
 These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it. The table lists dedicated dedupe roots and canonical non-nixpkgs roots; ordinary root followers such as `nixpkgs` are declared beside each dependent input. Remove any `dedupe_*` input once no `.follows` declaration references it.
 
-| Input                 | Followed By                                                  |
-| --------------------- | ------------------------------------------------------------ |
+| Input                 | Followed By                                                                |
+| --------------------- | -------------------------------------------------------------------------- |
 | `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat` |
-| `dedupe_nur`          | `stylix.inputs.nur`                                          |
-| `systems`             | `stylix.inputs.systems`                                     |
+| `dedupe_nur`          | `stylix.inputs.nur`                                                        |
+| `systems`             | `stylix.inputs.systems`                                                    |

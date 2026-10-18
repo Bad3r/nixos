@@ -32,17 +32,13 @@ let
       "go.sum"
       "package-lock.json"
       "LICENSE"
-      "README.md"
     ]
     ++ (map (file: ".${file}") [
-      "actrc"
       "gitattributes"
       "gitignore"
-      "gitleaks*.toml"
       "gitmodules"
       "hgignore"
       "pre-commit-config.yaml"
-      "sops.yaml"
       "svnignore"
     ]);
 in
