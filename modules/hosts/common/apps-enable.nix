@@ -121,7 +121,7 @@ let
       direnv.extended.enable = lib.mkOverride 1100 true;
       discord.extended.enable = lib.mkOverride 1100 true;
       discordo.extended.enable = lib.mkOverride 1100 false;
-      dmenu.extended.enable = lib.mkOverride 1100 true;
+      dmenu.extended.enable = lib.mkOverride 1100 false;
       dmidecode.extended.enable = lib.mkOverride 1100 true;
       dnsenum.extended.enable = lib.mkOverride 1100 true;
       dnsleak.extended.enable = lib.mkOverride 1100 true;
@@ -268,7 +268,7 @@ let
       ltrace.extended.enable = lib.mkOverride 1100 true;
       "lua-language-server".extended.enable = lib.mkOverride 1100 false;
       lutris.extended.enable = lib.mkOverride 1100 false;
-      lxsession.extended.enable = lib.mkOverride 1100 true;
+      lxsession.extended.enable = lib.mkOverride 1100 false;
       lychee.extended.enable = lib.mkOverride 1100 true;
       lynis.extended.enable = lib.mkOverride 1100 true;
       maestral.extended.enable = lib.mkOverride 1100 false;
@@ -305,7 +305,7 @@ let
       netcat.extended.enable = lib.mkOverride 1100 false;
       netexec.extended.enable = lib.mkOverride 1100 true;
       nethogs.extended.enable = lib.mkOverride 1100 true;
-      "networkmanager-dmenu".extended.enable = lib.mkOverride 1100 true;
+      "networkmanager-dmenu".extended.enable = lib.mkOverride 1100 false;
       "networkmanager-openvpn".extended.enable = lib.mkOverride 1100 true;
       networkmanagerapplet.extended.enable = lib.mkOverride 1100 true;
       nftables.extended.enable = lib.mkOverride 1100 true;
@@ -420,7 +420,7 @@ let
       "safeguard-rdp".extended.enable = lib.mkOverride 1100 true;
       samba.extended.enable = lib.mkOverride 1100 true;
       "sc-controller".extended.enable = lib.mkOverride 1100 false;
-      screenkey.extended.enable = lib.mkOverride 1100 true;
+      screenkey.extended.enable = lib.mkOverride 1100 false;
       "searchfox-cli".extended.enable = lib.mkOverride 1100 true;
       seclists.extended.enable = lib.mkOverride 1100 true;
       sedutil.extended.enable = lib.mkOverride 1100 true;

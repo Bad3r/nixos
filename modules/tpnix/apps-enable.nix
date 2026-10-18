@@ -35,7 +35,6 @@ let
     iotop = false;
     kdiskmark = false;
     "kiro-fhs" = false;
-    lxsession = false;
     "maestral-gui" = false;
     markitdown = false;
     mpv = false;
