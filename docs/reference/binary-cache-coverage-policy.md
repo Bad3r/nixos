@@ -5,7 +5,7 @@
 The cache carries unfree packages. This rests on the cache being consumed by
 its operator alone, not on any redistribution grant: most entries below
 (vscode, google-chrome, webex, charles, obsidian, veracrypt, ventoy-full,
-discord, dropbox, burpsuite) are `unfree` with
+dropbox, burpsuite) are `unfree` with
 `redistributable = false` in nixpkgs, so publishing them to an audience would
 violate their licenses. `nvidia-x11`, `firefox-bin`, and `steam` are the only
 unfree entries nixpkgs marks redistributable.
