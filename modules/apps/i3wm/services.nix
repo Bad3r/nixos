@@ -10,9 +10,9 @@
       ...
     }:
     let
-      i3Enabled = lib.attrByPath [ "xsession" "windowManager" "i3" "enable" ] false config;
+      i3Enabled = config.xsession.windowManager.i3.enable;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
-      primeSyncEnabled = lib.attrByPath [ "gpu" "nvidia" "prime" "syncActive" ] false osConfig;
+      primeSyncEnabled = osConfig.gpu.nvidia.prime.syncActive;
     in
     {
       config = lib.mkIf i3Enabled (

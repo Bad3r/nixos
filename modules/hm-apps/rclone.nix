@@ -19,7 +19,7 @@ _: {
       gdriveSecretFile = secretsRoot + "/rclone_gdrive.env";
       gdriveSecretExists = builtins.pathExists gdriveSecretFile;
       gdriveEnvPath = lib.attrByPath [ "sops" "secrets" "rclone/gdrive-env" "path" ] null osConfig;
-      repoSecretsEnabled = lib.attrByPath [ "security" "repoSecrets" "enable" ] true osConfig;
+      repoSecretsEnabled = osConfig.security.repoSecrets.enable;
       gdriveSecretContents = if gdriveSecretExists then builtins.readFile gdriveSecretFile else "";
       gdriveTokenExists = lib.hasInfix "GDRIVE_TOKEN=" gdriveSecretContents;
       gdriveReady = gdriveSecretExists && repoSecretsEnabled && gdriveEnvPath != null;

@@ -12,12 +12,12 @@
     }:
     let
       nixosEnabled = osConfig != null && osConfig.services.xserver.windowManager.i3.enable;
-      hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
+      hostI3Cfg = osConfig.gui.i3;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
       # Home Manager's rofi carries the plugins; its finalPackage exists only while the rofi row is on.
       rofiPackage =
         if config.programs.rofi.enable then config.programs.rofi.finalPackage else appRows.package "rofi";
-      powerProfileSelectionAllowed = lib.attrByPath [ "powerProfiles" "allowSelection" ] true hostI3Cfg;
+      powerProfileSelectionAllowed = hostI3Cfg.powerProfiles.allowSelection;
       enforcedPowerProfile = (import ../../hosts/common/_power-profile-unit.nix pkgs).profile;
       sessionMetadata = {
         DESKTOP_SESSION = "none+i3";
@@ -48,7 +48,7 @@
         "XDG_SESSION_TYPE"
       ];
       graphicalEnvArgs = lib.concatStringsSep " " graphicalEnvVars;
-      dbusImplementation = lib.attrByPath [ "services" "dbus" "implementation" ] "dbus" osConfig;
+      dbusImplementation = osConfig.services.dbus.implementation;
       # HM's own import-environment runs before profileExtra exports the
       # session metadata, so the variables are imported again here.
       activationEnvCommand =
@@ -489,16 +489,16 @@
         screenWidth = lib.mkOption {
           description = "Primary screen width in pixels for window positioning calculations. Host sets it via NixOS gui.i3.screenWidth.";
           type = lib.types.int;
-          default = lib.attrByPath [ "screenWidth" ] 2560 hostI3Cfg;
-          defaultText = lib.literalExpression "osConfig.gui.i3.screenWidth or 2560";
+          default = hostI3Cfg.screenWidth;
+          defaultText = lib.literalExpression "osConfig.gui.i3.screenWidth";
           example = 1920;
         };
 
         screenHeight = lib.mkOption {
           description = "Primary screen height in pixels for window positioning calculations. Host sets it via NixOS gui.i3.screenHeight.";
           type = lib.types.int;
-          default = lib.attrByPath [ "screenHeight" ] 1440 hostI3Cfg;
-          defaultText = lib.literalExpression "osConfig.gui.i3.screenHeight or 1440";
+          default = hostI3Cfg.screenHeight;
+          defaultText = lib.literalExpression "osConfig.gui.i3.screenHeight";
           example = 1080;
         };
 
@@ -514,14 +514,11 @@
           description = "Rendered i3bar height in pixels. Host sets it via NixOS gui.i3.barHeight; otherwise derived from fontSize plus border padding (an overestimate of the real bar on some fonts).";
           type = lib.types.int;
           default =
-            let
-              hostBarHeight = lib.attrByPath [ "barHeight" ] null hostI3Cfg;
-            in
-            if hostBarHeight != null then
-              hostBarHeight
+            if hostI3Cfg.barHeight != null then
+              hostI3Cfg.barHeight
             else
               (config.gui.i3.fontSize * 2) + (config.gui.i3.borderWidth * 2);
-          defaultText = lib.literalExpression "osConfig.gui.i3.barHeight or ((fontSize * 2) + (borderWidth * 2))";
+          defaultText = lib.literalExpression "if osConfig.gui.i3.barHeight != null then osConfig.gui.i3.barHeight else (fontSize * 2) + (borderWidth * 2)";
           example = 34;
         };
 
