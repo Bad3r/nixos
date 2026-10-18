@@ -223,8 +223,7 @@
 
           if [ "$local_sha" != "$remote_sha" ]; then
             # Backup diverging history
-            base_sha=$(git -C "$dir" merge-base HEAD "$tracking" 2>/dev/null || true)
-            if [ -z "$base_sha" ] || [ "$base_sha" != "$remote_sha" ]; then
+            if ! git -C "$dir" merge-base --is-ancestor HEAD "$tracking"; then
               git -C "$dir" branch "git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
               # Prune old backups
               git -C "$dir" for-each-ref --sort=-committerdate --format='%(refname:short)' \
