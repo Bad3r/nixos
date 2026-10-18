@@ -113,7 +113,21 @@
 
               # Rebase settings
               rebase.autoStash = true;
+
+              # Later writes keep filters once a graph has them; this covers the first write.
+              commitGraph.changedPaths = true;
             };
+
+            # Matches nixpkgs clones and their linked worktrees by remote, wherever they live.
+            includes =
+              [
+                "https://github.com/*/nixpkgs"
+                "https://github.com/*/nixpkgs.git"
+              ]
+              |> map (url: {
+                condition = "hasconfig:remote.*.url:${url}";
+                contents.feature.manyFiles = true;
+              });
 
             # LFS configuration
             lfs = {
