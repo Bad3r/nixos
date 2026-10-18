@@ -33,7 +33,8 @@ never a goal: remove legacy support instead of carrying both paths.
 - Everything runs Lix from the nixpkgs pin (`modules/base/nix-package.nix`).
   `flake.nix#nixConfig` carries only what Lix needs before the module graph
   loads; `modules/base/nix-settings.nix` owns the rest, and cache topology sits
-  in `modules/hosts/common/nix-substituters.nix` and
+  in `.github/actions/install-lix/substituters.conf` (read by
+  `modules/hosts/common/nix-substituters.nix`) and
   `modules/meta/cache-roots.nix`. Adding a cache is a policy decision for the
   user.
 - Unfree packages are allowlisted with `nixpkgs.allowedUnfreePackages` next to

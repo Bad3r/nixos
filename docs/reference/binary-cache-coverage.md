@@ -2,15 +2,16 @@
 
 Operator surface for serving custom derivations from a binary cache instead
 of rebuilding them on every host switch (issue
-https://github.com/Bad3r/nixos/issues/382). Cache topology and substituter
-wiring live in `modules/hosts/common/nix-substituters.nix`; the build surface
-lives in `modules/meta/cache-roots.nix`; the CI publisher is
+https://github.com/Bad3r/nixos/issues/382). Cache topology lives in
+`.github/actions/install-lix/substituters.conf` and substituter wiring in
+`modules/hosts/common/nix-substituters.nix`; the build surface lives in
+`modules/meta/cache-roots.nix`; the CI publisher is
 `.github/workflows/cache-push.yml`.
 
-This file documents the publisher. The detector that reports which closure
-paths still build locally is `scripts/cache-coverage.sh`, documented in
-`docs/reference/cache-coverage.md`. The two are halves of one mechanism:
-the detector names what is uncovered, the publisher covers it.
+The detector that reports which closure paths still build locally is
+`scripts/cache-coverage.sh`, documented in `docs/reference/cache-coverage.md`.
+The two are halves of one mechanism: the detector names what is uncovered, the
+publisher covers it.
 
 ## Garnix (retired)
 
@@ -20,7 +21,7 @@ answer HTTP 502. It never covered this repository in any case: the GitHub app
 was never installed, and `self.submodules = true` in `flake.nix` makes any
 git-based fetch of the flake pull the private `secrets/` submodule that
 external CI cannot read. The substituter and its trusted key are gone from
-`modules/hosts/common/nix-substituters.nix` and the `build.sh` bootstrap
+`.github/actions/install-lix/substituters.conf` and the `build.sh` bootstrap
 lists. Do not re-add them, and do not stand up a self-hosted instance: what it
 would have contributed here is output enumeration, not hosting, and the
 "Coverage gaps" section below tracks that.
@@ -34,7 +35,7 @@ trust and wiring pattern was proven in this configuration before being
 generalized.
 
 CI reads from the same caches hosts trust. `.github/actions/install-lix`
-appends the generated `substituters.conf` beside it to the runner's
+appends the `substituters.conf` beside it to the runner's
 `nix.conf`, so a run builds only the roots no configured cache serves and
 `cachix push` uploads only what `bad3r-nixos` lacks. The
 `ci-substituter-parity` check fails when the action stops appending that file
