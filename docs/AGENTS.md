@@ -16,7 +16,7 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 Prefer updating an existing page over adding a new one. Update `index.md` when
 adding, removing, or moving documentation pages. Use clear, repo-relative links
 (for example `../architecture/README.md`) and keep host/user assumptions aligned
-to the per-host model under `modules/<host>/` and the `vx` user model. To
+to the per-host model under `modules/hosts/<host>/` and the `vx` user model. To
 enumerate the active hosts, run
 `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`.
 

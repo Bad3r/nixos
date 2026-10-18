@@ -5,7 +5,7 @@
 ## The switch warns that enrollment is disabled
 
 Cause: `secrets/cloudflare-warp.yaml` is absent from the checkout, or the host's registry entry has `sopsRuntimeReady = false`.
-Diagnostic: `ls secrets/cloudflare-warp.yaml` and `grep sopsRuntimeReady modules/<host>/policy.nix`.
+Diagnostic: `ls secrets/cloudflare-warp.yaml` and `grep sopsRuntimeReady modules/hosts/<host>/policy.nix`.
 Fix: `git submodule update --init secrets`, or install the age identity per [host secrets and handoff](../../guides/host-onboarding-secrets.md).
 
 ## Registration missing after the switch
@@ -76,7 +76,7 @@ Fix: turn on the ICMP proxy next to TCP and UDP under Traffic policies, Traffic 
 
 Cause: the host runs in `warp` mode, so WARP replaced NetworkManager's dnsmasq as the resolver.
 Diagnostic: `warp-cli --accept-tos settings` and `cat /etc/resolv.conf`.
-Fix: set `serviceMode = "tunnelonly"` in `modules/tpnix/cloudflare-warp.nix` and `warp_tunnel_only` on the `nixos-tpnix` profile, then switch.
+Fix: set `serviceMode = "tunnelonly"` in `modules/hosts/tpnix/cloudflare-warp.nix` and `warp_tunnel_only` on the `nixos-tpnix` profile, then switch.
 
 ## The device profile does not apply
 

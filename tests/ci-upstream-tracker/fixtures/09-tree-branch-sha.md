@@ -28,7 +28,7 @@ blocker https://github.com/NixOS/nixpkgs/tree/nixpkgs-unstable - contains NixOS/
 
 ### Local workaround / affected code
 
-modules/songbird/apps-enable.nix
+modules/hosts/songbird/apps-enable.nix
 
 ### Exit criteria
 

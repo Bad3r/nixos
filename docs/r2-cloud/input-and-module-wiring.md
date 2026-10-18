@@ -9,7 +9,7 @@ repository.
 
 - `flake.nix`
 - `modules/lib/r2-runtime.nix`
-- per-host `modules/<host>/r2-runtime.nix`
+- per-host `modules/hosts/<host>/r2-runtime.nix`
 - `modules/home-manager/nixos.nix`
 
 ## Not Covered
@@ -25,7 +25,7 @@ repository.
 2. Each host builds its R2 module through the shared helper:
    - `configurations.nixos.<host>.module = config.flake.lib.nixos.r2.mkHostR2Module { ... }`
    - policy fields: `enableExternalFlake`, `sopsRuntimeReady`, `disabledReason`
-   - Files: per-host `modules/<host>/r2-runtime.nix`
+   - Files: per-host `modules/hosts/<host>/r2-runtime.nix`
 3. The helper imports producer module surfaces only when
    `policy.enableExternalFlake` is true and the input exposes them:
    - `inputs."r2-flake".nixosModules.default` via `imports`

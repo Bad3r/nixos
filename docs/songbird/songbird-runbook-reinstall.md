@@ -48,7 +48,7 @@ Precondition: a NixOS installer image is booted with network access, and the she
 
 3. Record where each partition identifier goes.
 
-   Each option holds a device path, not a bare UUID: write the vfat UUID as `/dev/disk/by-uuid/<uuid>` into `fileSystems."/boot".device` in `modules/songbird/hardware-config.nix`.
+   Each option holds a device path, not a bare UUID: write the vfat UUID as `/dev/disk/by-uuid/<uuid>` into `fileSystems."/boot".device` in `modules/hosts/songbird/hardware-config.nix`.
    Write the two `crypto_LUKS` UUIDs the same way into `boot.initrd.luks.devices.cryptroot.device` and `.cryptswap.device`.
    Root and swap mount through `/dev/mapper`, so the ext4 and swap UUIDs inside the containers are not used.
    The first-switch section below reads the three values and applies this edit in the clone before its build; a generation staged from the pre-reinstall UUIDs drops the next boot into the initrd emergency shell.
@@ -67,7 +67,7 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
 
    `secrets/` stays uninitialized until the age identity exists, and holding that through the build takes `--allow-dirty` on the command below.
    That flag selects the `path:` reference, whose per-file `builtins.pathExists` guards evaluate the secretless configuration as in CI; the bare `git+file` reference would pull the private secrets submodule, which this machine has no credentials for.
-   Read the three disk-A partition UUIDs and apply the reinstall step's mapping to `modules/songbird/hardware-config.nix` in this clone now, before the build below:
+   Read the three disk-A partition UUIDs and apply the reinstall step's mapping to `modules/hosts/songbird/hardware-config.nix` in this clone now, before the build below:
 
    ```sh
    blkid /dev/disk/by-id/nvme-WD_BLACK_SN8100_4000GB_252415800489-part{1,2,3}
@@ -108,8 +108,8 @@ The stock configuration has only root, so the clone above sits at `/root/nixos`;
    git submodule update --init --recursive
    ```
 
-3. Replace the stale host key pin in `modules/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
-   Replace the host id in `modules/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit the pin, the id, and the UUID edit; `build.sh` refuses an uncommitted tree.
+3. Replace the stale host key pin in `modules/hosts/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
+   Replace the host id in `modules/hosts/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit the pin, the id, and the UUID edit; `build.sh` refuses an uncommitted tree.
    `modules/git/git.nix` signs every commit through 1Password's `op-ssh-sign`, which has no signed-in app behind it on a machine this fresh, so sign in to 1Password first or make this commit with `git -c commit.gpgsign=false commit`.
    Push that commit before step 4 so the other fleet hosts can reach it: their `/etc/ssh/ssh_known_hosts` is rendered from `fleetHostKeys` at build time, and until they switch onto the new pin `ssh songbird` fails there with `REMOTE HOST IDENTIFICATION HAS CHANGED`.
 
@@ -122,12 +122,12 @@ The stock configuration has only root, so the clone above sits at `/root/nixos`;
    `--skip-hooks` keeps the same devshell build off this switch that the first-switch build above avoided; the ordinary `./build.sh` a reader runs afterward for routine changes is what exercises those hooks against the step-3 commit.
    Step 2 already fetched the private submodule with this machine's credentials and step 3 leaves the tree clean, so the bare `git+file` reference resolves and keeps `self.rev`, which `path:` unsets along with `system.configurationRevision`.
 
-Verification: `ls /run/secrets` lists the host secrets, and `modules/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
+Verification: `ls /run/secrets` lists the host secrets, and `modules/hosts/songbird/ssh.nix` carries the key `/etc/ssh/ssh_host_ed25519_key.pub` holds.
 `systemctl status r2-runtime-paths.service` shows the `/data` tree only once that volume is mounted, which after a reinstall waits on the second initrd prompt or the key-slot procedure below.
 
 ## Give the /data volume the root passphrase key slot
 
-Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/songbird/hardware-config.nix`.
+Precondition: the `data` LUKS container sits at the device path recorded in `boot.initrd.luks.devices.data.device` in `modules/hosts/songbird/hardware-config.nix`.
 A volume created from scratch needs the container and the XFS filesystem `data.mount` expects first; never run these on a volume whose contents stay:
 
 ```sh

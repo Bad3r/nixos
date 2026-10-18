@@ -5,7 +5,7 @@ _: {
     # ~/.config/sops/age/keys.txt (docs/sops/README.md, Host Preparation).
     sopsRuntimeReady = true;
 
-    # Host runtime gate read by modules/songbird/r2-runtime.nix.
+    # Host runtime gate read by modules/hosts/songbird/r2-runtime.nix.
     r2RuntimeReady = true;
 
     # NVIDIA-enabled hosts must declare this Boolean. The CachyOS kernel is

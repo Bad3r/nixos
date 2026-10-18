@@ -17,7 +17,7 @@ Every `.nix` file under `modules/` is a flake-parts module that import-tree load
 | `modules/browsers/<name>/apps.nix` | Per-browser modules    | `flake.nixosModules.browsers.<name>`       |
 | `modules/browsers/<name>/home.nix` | Per-browser HM modules | `flake.homeManagerModules.browsers.<name>` |
 | `modules/<domain>/`                | Higher-level features  | `flake.nixosModules.<feature>`             |
-| `modules/<host>/`                  | Host-specific config   | `configurations.nixos.<host>.module`       |
+| `modules/hosts/<host>/`            | Host-specific config   | `configurations.nixos.<host>.module`       |
 
 A module that only installs a package belongs in `modules/apps/`; one that configures services or composes several apps belongs in a domain directory.
 An app gets a folder once it has more than one module file, as [File layout](../guides/apps-module-style-guide.md#file-layout) describes.

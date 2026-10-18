@@ -117,7 +117,7 @@ nix build "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
 nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames
 ```
 
-Add `home-manager` to `modules/devshell.nix` if a standalone CLI is needed for ad hoc diagnostics.
+Add `home-manager` to `modules/meta/devshell.nix` if a standalone CLI is needed for ad hoc diagnostics.
 
 ### 4.3 Debugging Modules
 

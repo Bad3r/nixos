@@ -77,7 +77,7 @@ in
 
 ## `perSystem` vs host overlays
 
-- `perSystem.packages` holds flake-exposed tooling packages, for example `generation-manager` from `modules/apps/generation-manager.nix` and the hook helpers in `modules/devshell.nix`.
+- `perSystem.packages` holds flake-exposed tooling packages, for example `generation-manager` from `modules/apps/generation-manager.nix` and the hook helpers in `modules/meta/devshell.nix`.
 - App packages under `packages/<name>/default.nix` reach `pkgs` through overlay modules gated on their app's row; [Custom package overlays](../guides/custom-packages-overlays.md) covers the wiring.
   An app folder's `package.nix`, such as `modules/apps/restringer/package.nix`, also exposes the package as `.#packages.<system>.<name>`.
 
@@ -85,10 +85,10 @@ in
 
 | Module                                         | Export                                         | Scope           | Purpose                     |
 | ---------------------------------------------- | ---------------------------------------------- | --------------- | --------------------------- |
-| `modules/tpnix/support.nix`                    | `flake.nixosModules."tpnix-support"`           | tpnix only      | Empty hardware-support hook |
+| `modules/hosts/tpnix/support.nix`              | `flake.nixosModules."tpnix-support"`           | tpnix only      | Empty hardware-support hook |
 | `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile             |
 | `modules/hosts/common/windows-guest.nix`       | `host.virtualization.windowsGuest.*` options   | shared          | Windows guest               |
-| `modules/<host>/policy.nix`                    | `flake.lib.nixos.hosts.<host>.*` data          | per host        | Gates and common values     |
+| `modules/hosts/<host>/policy.nix`              | `flake.lib.nixos.hosts.<host>.*` data          | per host        | Gates and common values     |
 
 `host.virtualization.windowsGuest.*` turns the `qemu` row and `qemu.extended.enableLibvirt` on as [prerequisites](../guides/apps-module-registry.md#prerequisites).
 A host's `policy.nix` carries its readiness gates and the values common modules read.

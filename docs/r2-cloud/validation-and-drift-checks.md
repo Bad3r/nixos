@@ -9,7 +9,7 @@ expected files/options in this repository.
 
 - `flake.nix`
 - `modules/lib/r2-runtime.nix`
-- per-host `modules/<host>/r2-runtime.nix`
+- per-host `modules/hosts/<host>/r2-runtime.nix`
 - `modules/hosts/common/imports.nix`
 - `modules/security/r2-cloud-secrets.nix`
 - `modules/home/r2-secrets.nix`
@@ -95,6 +95,6 @@ Expected result (on a host with the runtime enabled):
 - the `rclone.conf` ownership assertions removed from
   `modules/apps/rclone/home.nix` (caught by
   `checks.<system>."apps/rclone-config-ownership"`)
-- the `mkHostR2Module` call removed from a host's `modules/<host>/r2-runtime.nix`
+- the `mkHostR2Module` call removed from a host's `modules/hosts/<host>/r2-runtime.nix`
 - `secrets/r2.yaml` creation rule removed from `.sops.yaml`
 - secret template paths changed without consumer path updates

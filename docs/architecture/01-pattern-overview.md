@@ -18,10 +18,12 @@ modules/
 │   │   ├── nixos.nix    ← Imported automatically
 │   │   └── home.nix     ← Imported automatically
 │   └── _experimental.nix ← Ignored (underscore prefix)
-├── songbird/
-│   └── hardware-config.nix ← Imported automatically (songbird host)
-├── tpnix/
-│   └── hardware-config.nix ← Imported automatically (tpnix host)
+├── hosts/
+│   ├── common/          ← Cross-host baseline (hosts-common aggregate)
+│   ├── songbird/
+│   │   └── hardware-config.nix ← Imported automatically (songbird host)
+│   └── tpnix/
+│       └── hardware-config.nix ← Imported automatically (tpnix host)
 └── _scratch/            ← Entire directory ignored
 ```
 

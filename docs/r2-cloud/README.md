@@ -23,7 +23,7 @@ readiness flag and the encrypted `secrets/r2.yaml` payload.
 - `flake.nix` (`inputs.r2-flake`)
 - `modules/lib/r2-runtime.nix` (shared builder: gated producer module imports
   and runtime consumers)
-- per-host `modules/<host>/r2-runtime.nix` (policy passed to the builder)
+- per-host `modules/hosts/<host>/r2-runtime.nix` (policy passed to the builder)
 - `modules/hosts/common/imports.nix` (`security.r2CloudSecrets.enable` and
   `home.r2Secrets.enable` defaults)
 - `modules/security/r2-cloud-secrets.nix` (system secrets/templates)

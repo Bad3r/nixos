@@ -101,7 +101,7 @@ Two consequences follow:
 The common baseline pins app-enable bits with `lib.mkOverride 1100` in
 `modules/hosts/common/apps-enable.nix`, which sets
 `mpv.extended.enable = true`. Per-host override files such as
-`modules/tpnix/apps-enable.nix` layer `lib.mkOverride 1000` on top, so the
+`modules/hosts/tpnix/apps-enable.nix` layer `lib.mkOverride 1000` on top, so the
 host value wins over the baseline.
 Priority `1100` sits between `mkDefault` (priority `1000`) and
 `mkOptionDefault` (priority `1500`), so the baseline overrides the option's

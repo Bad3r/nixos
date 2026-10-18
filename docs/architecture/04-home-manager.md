@@ -72,7 +72,7 @@ On the NixOS side, every host defaults `security.repoSecrets.enable` and
 payloads decrypt once the shared age key is installed.
 
 The common defaults in `modules/hosts/common/imports.nix` are authoritative;
-host-owned modules such as `modules/tpnix/services.nix` carry explicit
+host-owned modules such as `modules/hosts/tpnix/services.nix` carry explicit
 divergences. When adding a shared secret module, set both NixOS- and HM-side
 defaults in the common baseline and add only host-specific overrides locally.
 

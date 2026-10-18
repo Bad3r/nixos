@@ -2,7 +2,7 @@
 
 Hosts here boot with `net.ifnames=0`, so kernel names such as `eth0` and `wlan0` follow the order the kernel discovers the devices, which is not guaranteed across boots.
 A host with two interfaces of the same class, or with a removable adapter, can see the numbering move between devices.
-`modules/tpnix/networking.nix` pins that laptop's internal Wi-Fi card to `wifi0`, so a rule keyed to that name follows the card rather than a USB adapter that registered first.
+`modules/hosts/tpnix/networking.nix` pins that laptop's internal Wi-Fi card to `wifi0`, so a rule keyed to that name follows the card rather than a USB adapter that registered first.
 
 songbird carries no pin: its two onboard NICs are read as `eth0` and `eth1` in kernel enumeration order, and no rule is keyed to a wired name.
 Pin the device before adding one.
@@ -11,7 +11,7 @@ Link files follow the matching and apply rules in [Configure a systemd-udevd lin
 ## Pin an interface name
 
 A firewall rule keyed to a name applies to whatever device holds the name, and a removable adapter is absent on some boots by definition.
-Pin the device with `linkConfig.Name` matched on its path, as `modules/tpnix/networking.nix` does for the internal Wi-Fi card:
+Pin the device with `linkConfig.Name` matched on its path, as `modules/hosts/tpnix/networking.nix` does for the internal Wi-Fi card:
 
 ```nix
 systemd.network.links."10-wifi0" = {
@@ -63,7 +63,7 @@ systemd.network.links."10-<device>" = {
 };
 ```
 
-This is the shape `modules/songbird/networking.nix` uses, and it renames nothing, so it is not a pin.
+This is the shape `modules/hosts/songbird/networking.nix` uses, and it renames nothing, so it is not a pin.
 A broad, empty, globbed, or multi-valued match applies to every device no earlier file matched, renaming each of them if it carries a `Name=`.
 udev merges `/etc/systemd/network` with `/usr/lib/systemd/network` by basename, and `99-default.link` matches every device, so a file whose basename sorts after it is never read.
 

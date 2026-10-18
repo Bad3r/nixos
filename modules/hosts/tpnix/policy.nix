@@ -3,7 +3,7 @@ _: {
     # Shared readiness gate read by modules/hosts/common/*.
     sopsRuntimeReady = true;
 
-    # Host runtime gate read by modules/tpnix/r2-runtime.nix.
+    # Host runtime gate read by modules/hosts/tpnix/r2-runtime.nix.
     r2RuntimeReady = true;
 
     # All NVIDIA-enabled hosts must choose this cache-root policy explicitly.

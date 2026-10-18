@@ -48,7 +48,7 @@ A sentence whose subject is the page, the section, or the documentation set is r
 A page opens on its subject, never on a sentence about the page.
 A pointer to another page is a plain link, never a sentence about where the fact lives.
 Contrast between subjects is deleted whole, never trimmed to its positive half.
-`enabled on tpnix` restates `modules/tpnix/apps-enable.nix` exactly as `but not songbird` restates songbird's, so the shorter sentence is the same violation with one subject instead of two.
+`enabled on tpnix` restates `modules/hosts/tpnix/apps-enable.nix` exactly as `but not songbird` restates songbird's, so the shorter sentence is the same violation with one subject instead of two.
 The page names the file the reader opens.
 
 ## Rationale

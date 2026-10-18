@@ -13,7 +13,7 @@ guarded_nix() { git status --porcelain --ignored=matching &&
 
 ## Register the host and create its module directory
 
-Precondition: a hostname is chosen, and no `modules/<host>/` directory exists yet.
+Precondition: a hostname is chosen, and no `modules/hosts/<host>/` directory exists yet.
 
 1. Add the registry entry in `modules/hosts/common/registry.nix`:
 
@@ -24,7 +24,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
    `shareCommon = true` imports the `hosts-common` aggregate before the host module; `false` is a deliberate opt-out, never a default.
    `modules/configurations/nixos.nix` throws for any host under `configurations.nixos` with no entry here, naming the exact line to add.
 
-2. Create `modules/<host>/` with the files below; import-tree discovers each one automatically, with no import to register.
+2. Create `modules/hosts/<host>/` with the files below; import-tree discovers each one automatically, with no import to register.
 
    | File                  | Purpose                                                 |
    | --------------------- | ------------------------------------------------------- |
@@ -37,7 +37,7 @@ Precondition: a hostname is chosen, and no `modules/<host>/` directory exists ye
 
    `networking.hostName` and the default kernel package already come from hosts-common; add a per-host file only to override them.
    `nix-settings.nix` is not optional: `modules/hosts/common/nix-substituters.nix` asserts `max-substitution-jobs` is an integer at least 1 on every `shareCommon` host, since Nix has no `auto` for it; pin `nproc - 1`.
-   Create `modules/<host>/ssh.nix` now with a plain `services.openssh.enable = true` when remote first-boot administration is required, or `false` when local-console access makes it unnecessary.
+   Create `modules/hosts/<host>/ssh.nix` now with a plain `services.openssh.enable = true` when remote first-boot administration is required, or `false` when local-console access makes it unnecessary.
    Without that explicit choice, `modules/networking/ssh.nix` defaults sshd on with `lib.mkDefault true`.
    The hosts-common firewall is independent: `false` stops sshd while its TCP 22 rules for `tailscale0` and `10.0.0.0/8` remain, as does the `CloudflareWARP` rule on a host that enables `cloudflare-warp`.
    Only `services.openssh.publicKey` waits for first boot; [Host secrets and handoff](host-onboarding-secrets.md) adds the generated key and its `fleetHostKeys` pin together.
@@ -61,7 +61,7 @@ Verification: `guarded_nix flake check path:. --accept-flake-config --no-build -
 
 ## Set the policy flags
 
-Precondition: `modules/<host>/policy.nix` exists with a `flake.lib.nixos.hosts.<host>` attrset.
+Precondition: `modules/hosts/<host>/policy.nix` exists with a `flake.lib.nixos.hosts.<host>` attrset.
 
 1. Set `firewallLocalTcpPortRanges` for TCP ranges the host serves locally; it scopes to `10.0.0.0/8` and `192.168.0.0/16` IPv4 sources, and with `cloudflare-warp` on also to every Mesh device.
    `firewallExtraTcpPortRanges` opens a range globally instead, and a host that sets neither opens no extra ports.
