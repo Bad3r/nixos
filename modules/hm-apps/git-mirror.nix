@@ -75,6 +75,7 @@
           git
           coreutils
           gawk
+          psmisc
           util-linux
         ];
         text = ''
@@ -111,8 +112,13 @@
           run_maintenance() {
             # maintenance run exits 0 without running any task while this lock exists.
             lock="$(git -C "$dir" rev-parse --path-format=absolute --git-path objects/maintenance.lock)"
+            # git holds the lock open for its whole run.
+            if [ -e "$lock" ] && ! fuser -s "$lock"; then
+              log "$spec: removing stale maintenance lock $lock"
+              rm -f "$lock"
+            fi
             if [ -e "$lock" ]; then
-              log "$spec: maintenance lock $lock exists"
+              log "$spec: maintenance lock $lock is held by a running process"
               exit 1
             fi
             git -C "$dir" maintenance run || { log "$spec: maintenance failed"; exit 1; }
