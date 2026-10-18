@@ -213,7 +213,7 @@
 
           # Stash dirty work
           if [ -n "$(git -C "$dir" status -s)" ]; then
-            git -C "$dir" stash push -u -m "git-mirror: $(date -u +%Y%m%dT%H%M%SZ)" || true
+            git -C "$dir" stash push -u -m "git-mirror: $(date -u +%Y%m%dT%H%M%SZ)" || { log "$spec: stash failed"; exit 1; }
             # Prune old stashes (reverse order to avoid index shifting)
             git -C "$dir" stash list | awk -F: '/git-mirror:/ {print $1}' | tail -n +"$((max_backups + 1))" | \
               tac | xargs -r -I{} git -C "$dir" stash drop {} 2>/dev/null || true
@@ -229,7 +229,7 @@
           if [ "$local_sha" != "$remote_sha" ]; then
             # Backup diverging history
             if ! git -C "$dir" merge-base --is-ancestor HEAD "$tracking"; then
-              git -C "$dir" branch "git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
+              git -C "$dir" branch "git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)" || { log "$spec: backup branch failed"; exit 1; }
               # Prune old backups
               git -C "$dir" for-each-ref --sort=-committerdate --format='%(refname:short)' \
                 refs/heads/git-mirror/backup-* | tail -n +"$((max_backups + 1))" | \

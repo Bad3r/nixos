@@ -29,7 +29,9 @@ Any failed spec fails the whole run once the other specs finish.
 ## Local work
 
 Changes made inside a mirror survive a sync only as a stash or a backup branch.
+A stash or backup branch that git cannot create, as during a conflicted merge, fails the spec before anything is reset.
 `programs.gitMirror.maxBackups` caps each kind per mirror.
+
 Ignored files never reach a stash, so build output inside a mirror is gone after the next sync.
 The sync resets whichever branch is checked out, including one created inside the mirror.
 

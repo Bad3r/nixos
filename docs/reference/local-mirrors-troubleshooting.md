@@ -73,6 +73,17 @@ A moved, deleted, or private repository needs its spec replaced or removed in `m
 The mirror path holds a directory without `.git`.
 Move it out of the root and start a sync, which clones the spec into the freed path.
 
+## `<spec>: stash failed` or `backup branch failed`
+
+Git could not save the mirror's local work, so the sync stopped before the reset.
+Unmerged paths from a conflicted merge, rebase, or cherry-pick block the stash, and git's own error sits just above this line.
+
+```sh
+git -C "$LOCAL_MIRRORS/<dir>" status
+```
+
+Finish or abort that operation, or move the work into a separate clone, then start a sync.
+
 ## `git-mirror.service` fails with `start-limit-hit`
 
 Repeated failures used up the unit's start limit, so neither a restart nor the timer starts it until the limit interval passes.
