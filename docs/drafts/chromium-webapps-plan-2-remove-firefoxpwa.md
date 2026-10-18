@@ -86,7 +86,7 @@ cd "$HOME/trees/nixos/refactor-drop-firefoxpwa"
 - [ ] **Step 2: Record the pre-removal reference set**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/drafts' \
   | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan' \
   > /tmp/firefoxpwa-before.txt
 wc -l /tmp/firefoxpwa-before.txt
@@ -290,7 +290,7 @@ In `pyproject.toml`, delete the `update-firefoxpwa-extension.py` mention from th
 - [ ] **Step 7: Verify nothing references the deleted paths**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/drafts' \
   | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan' \
   > /tmp/firefoxpwa-after.txt
 cat /tmp/firefoxpwa-after.txt
@@ -389,7 +389,7 @@ Expected: no output. Edit any line it reports before staging.
 - [ ] **Step 5: Confirm the reference set is empty**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/drafts' \
   | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan'
 ```
 
@@ -437,9 +437,8 @@ Replaced in the following PR by a Chromium web-app module on brave-origin. Plan:
 
 - `nix flake check path:. --accept-flake-config --no-build --offline`
 - `nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel`
-- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/nixos-manual/`, `docs/drafts/` and the
-  `docs/index.md` rows that link them: the manual mirror, this migration plan, and the index entry `docs/AGENTS.md`
-  requires for it
+- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/drafts/` and the `docs/index.md` rows that link
+  them: this migration plan and the index entry `docs/AGENTS.md` requires for it
 EOF
 )"
 ```

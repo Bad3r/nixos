@@ -211,8 +211,8 @@ reported a pass while checking nothing. tests/prune-old-stashes/run.sh used the 
 defined-but-never-ran guard and passes today only because modules/meta/script-tests.nix puts pkgs.bash on PATH.
 Replaced with \`declare -F\`, and checks.build-time-shell now scans modules/, packages/ and tests/ for the builtin at a
 command position, including negated and compound positions, and it no longer reads grep exit 2 as a clean tree.
-statix reached only staged files, so checks.statix-tree runs hook-statix with no arguments, skipping the vendored
-docs/nixos-manual mirror, and plants a lint so a clean \$out cannot mean a run that walked nothing.
+statix reached only staged files, so checks.statix-tree runs hook-statix with no arguments and plants a lint so a
+clean \$out cannot mean a run that walked nothing.
 
 Validation: nix run path:.#treefmt -- .;
 nix flake check path:. --accept-flake-config --no-build --offline"
@@ -228,8 +228,7 @@ gh pr create --title "fix(checks): stop trusting compgen in build-time shell tex
   checking anything. Replaced with `declare -F`.
 - `checks.build-time-shell` scans `modules/`, `packages/` and `tests/` for the builtin at a command position, plain,
   negated and compound, and treats `grep` exit 2 as an error rather than a clean tree.
-- `checks.statix-tree` runs `hook-statix` with no arguments so lints in unstaged files are reachable in CI, skipping
-  the vendored `docs/nixos-manual` mirror.
+- `checks.statix-tree` runs `hook-statix` with no arguments so lints in unstaged files are reachable in CI.
 
 Rescued from #435, which is being closed unmerged.
 

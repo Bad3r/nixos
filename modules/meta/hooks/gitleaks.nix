@@ -10,7 +10,7 @@
       # Listed from the tree rather than restated: gitleaks-guards.nix lists
       # the same configs for its managed-config contract, and
       # gitleaks-allowlist-scope.nix derives managedGitleaksFiles the same
-      # way. A fourth managed config left out of a hand-typed copy here would
+      # way. A third managed config left out of a hand-typed copy here would
       # never be checked for presence; for a gitlink pass, which never
       # executes in CI, its absence would produce no error and no diagnostic,
       # so the run would stay green with the config that governs that pass
@@ -56,14 +56,9 @@
             # repository deciding what the public one reports, the same reach
             # the .gitleaksignore guard below refuses. Git tracks this
             # file, so its absence is a broken checkout, never a state to scan.
-            # One config per pass, because a paths allowlist is matched against a
-            # File rooted at the tree being scanned: for `gitleaks git secrets`
-            # that root is the submodule, so File comes back as
-            # "nixos-manual/leak.txt" and the superproject's anchored
-            # "^nixos-manual/" would skip a top-level directory of that name
-            # inside the private repository, before scanning it and invisibly
-            # from here. .gitleaks/secrets.toml carries the content-scoped
-            # allowlists and no paths key at all.
+            # Two configs, because the KV allowlist in .gitleaks/secrets.toml
+            # must reach neither the superproject pass nor any gitlink pass
+            # outside private_config_gitlinks.
             for config_file in ${lib.escapeShellArgs managedConfigNames}; do
               if [ ! -f "$config_file" ]; then
                 echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; restore it from git instead of scanning unreviewed" >&2
@@ -151,9 +146,9 @@
             # read from an entry above.
             #
             # In place, not through printf/awk: a newline is as legal in a
-            # git path as the non-ASCII and space-containing names fixtures
-            # 19 and 25 already cover, and round-tripping through
-            # newline-delimited text split one such gitlink into two
+            # git path as the non-ASCII, space-containing and dash-prefixed
+            # names fixtures 17 and 23 already cover, and round-tripping
+            # through newline-delimited text split one such gitlink into two
             # entries that exist on neither disk nor index, so the real one
             # was scanned by nothing while the run printed two spurious
             # "not checked out" warnings and exited 0. A subprocess
@@ -178,9 +173,9 @@
             fi
 
             # Only this private gitlink owns the operational note covered by
-            # .gitleaks/secrets.toml. Every other gitlink gets the generic
-            # content-only config, so a future repository cannot inherit the
-            # private KV suppression by appearing in the index.
+            # .gitleaks/secrets.toml. Every other gitlink gets the superproject's
+            # config, .gitleaks/default.toml, so a future repository cannot
+            # inherit the private KV suppression by appearing in the index.
             private_config_gitlinks=(secrets)
 
             # writeShellApplication prepends set -e, so without collecting the
@@ -311,17 +306,17 @@
             # the submodule is checked out, which is already the pass's guard.
             # Record a new entry with the same flags this hook uses:
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks/superproject.toml \
+            #     --config .gitleaks/default.toml \
             #     --report-path .gitleaks/baseline.json .
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
             #     --config .gitleaks/secrets.toml \
             #     --report-path secrets/.gitleaks-baseline.json ./secrets
             # Any gitlink outside private_config_gitlinks is scanned with
-            # .gitleaks/gitlink.toml, so record its baseline with that config:
-            # .gitleaks/secrets.toml suppresses the KV note the generic pass
+            # .gitleaks/default.toml, so record its baseline with that config:
+            # .gitleaks/secrets.toml suppresses the KV note the default pass
             # reports, and the resulting baseline would lack that fingerprint.
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks/gitlink.toml \
+            #     --config .gitleaks/default.toml \
             #     --report-path <gitlink>/.gitleaks-baseline.json ./<gitlink>
             # Matching is by fingerprint, so a raw baseline would still suppress,
             # but it commits the credential in plaintext. Dropping
@@ -336,7 +331,7 @@
             # rather than before them: all three exit 1 without running this
             # pass, and announcing a filtered scan first would print that line
             # ahead of a refusal saying the pass never ran at all.
-            git_args=("''${common[@]}" --config ".gitleaks/superproject.toml")
+            git_args=("''${common[@]}" --config ".gitleaks/default.toml")
             if [ -n "$range_to" ]; then
               # --full-history spelled out: supplying --log-opts replaces
               # gitleaks' whole default argument list, `--full-history --all`
@@ -377,7 +372,7 @@
             # because the submodule may not be checked out; .git is a file there,
             # not a directory, so -e not -d.
             for sm in "''${submodules[@]}"; do
-            submodule_config=".gitleaks/gitlink.toml"
+            submodule_config=".gitleaks/default.toml"
             for private_gitlink in "''${private_config_gitlinks[@]}"; do
               if [ "$sm" = "$private_gitlink" ]; then
                 submodule_config=".gitleaks/secrets.toml"

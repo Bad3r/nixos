@@ -4,10 +4,9 @@
 # gitleaks 8.30.1: allowlisting secrets/private-ops/.* dropped the scan of that
 # file to 0 bytes and a planted Stripe live key and Slack bot token in it both
 # went undetected. Entries are compiled as unanchored regexes, so a pattern
-# neither has to name the tree it reaches ("private-ops/.*" skips the same file)
-# nor stop at one tree ("nixos-manual/.*|secrets/.*" reaches both). The guard is
-# therefore an exact-match allowlist: only the reviewed nixos-manual pattern
-# may path-scope, and every other false positive is scoped by content.
+# need not name the tree it reaches ("private-ops/.*" skips the same file). The
+# guard therefore rejects every paths entry, and false positives are scoped by
+# content.
 # [extend] is covered too, because it suppresses more broadly than any paths
 # entry: disabledRules silences a rule across the whole repo and
 # useDefault = false drops the default ruleset outright.
@@ -23,44 +22,21 @@
     { pkgs, ... }:
     let
       # Each entry keeps its origin so a throw names the file that carries it.
-      # reviewedPaths is per source, not global: a paths pattern is matched
-      # against a File rooted at the tree being scanned, and the submodule pass
-      # scans secrets/, where File comes back submodule-relative. The
-      # documentation pattern is a superproject tree, so the config that governs
-      # the submodule pass may carry no paths entry at all and its reviewed set
-      # is empty.
-      #
-      # No "^nixos-manual/" root-level entry: that directory does not exist in
-      # the worktree, so the pattern's only live effect would be to path-scope
-      # one a future commit creates, before gitleaks ever reads its contents.
-      # The three historical findings under the old root path are already in
-      # .gitleaks/baseline.json by fingerprint.
-      superprojectPaths = [
-        "^docs/nixos-manual/"
-      ];
-
       managedConfigs = [
         {
-          file = ".gitleaks/superproject.toml";
-          reviewedPaths = superprojectPaths;
+          file = ".gitleaks/default.toml";
           kvAllowed = false;
         }
         {
           file = ".gitleaks/secrets.toml";
-          reviewedPaths = [ ];
           kvAllowed = true;
-        }
-        {
-          file = ".gitleaks/gitlink.toml";
-          reviewedPaths = [ ];
-          kvAllowed = false;
         }
       ];
 
       sources = map (c: {
         origin = c.file;
         text = builtins.readFile (lib.path.append ../.. c.file);
-        inherit (c) file reviewedPaths kvAllowed;
+        inherit (c) file kvAllowed;
       }) managedConfigs;
 
       # Quantified over the configs in the tree, not over managedConfigs:
@@ -133,8 +109,8 @@
       # passes it, and the values were pinned nowhere else: regexTarget = "line"
       # plus targetRules = ["stripe-access-token"] on the reviewed DNSCrypt entry
       # passes all nine other branches and silences stripe-access-token on every
-      # line carrying the minisign key text. Same shape as reviewedPaths,
-      # reviewedRegexes and reviewedRuleIds.
+      # line carrying the minisign key text. Same shape as reviewedRegexes and
+      # reviewedRuleIds.
       # Deliberately not an alias of kvTargetRules despite the equal value:
       # kvUntargeted tests the KV entry for exact equality with kvTargetRules, so
       # widening the repo-wide reviewed set through an alias would silently
@@ -188,7 +164,7 @@
               a
               // {
                 tomlKeys = lib.attrNames a;
-                inherit (p) origin reviewedPaths kvAllowed;
+                inherit (p) origin kvAllowed;
               }
             ) (tablesOf p.cfg ++ lib.concatMap tablesOf (p.cfg.rules or [ ]))
           ) parsed;
@@ -197,9 +173,7 @@
             lib.concatMap (p: map (r: r // { inherit (p) origin; }) (p.cfg.rules or [ ])) parsed
           );
 
-          unreviewedPathScope = lib.filter (
-            a: lib.any (p: !lib.elem p a.reviewedPaths) (a.paths or [ ])
-          ) allowlists;
+          pathScoped = lib.filter (a: (a.paths or [ ]) != [ ]) allowlists;
 
           weakenedExtend = lib.filter (
             p:
@@ -256,8 +230,9 @@
           # The KV note exists only in the private submodule, so its allowlist is
           # permitted only in the source governing that pass. Check both
           # directions: a missing private entry breaks the false-positive fix,
-          # while an unexpected superproject entry creates a suppression channel
-          # for public files that the note does not justify.
+          # while an unexpected entry elsewhere creates a suppression channel
+          # for the superproject or another gitlink that the note does not
+          # justify.
           kvMissingIn = lib.filter (p: p.kvAllowed && !lib.any (a: a.origin == p.origin) kvBlocks) parsed;
           kvUnexpectedIn = lib.filter (p: !p.kvAllowed && lib.any (a: a.origin == p.origin) kvBlocks) parsed;
           kvUnscoped = lib.filter (a: (a.regextarget or "secret") != "line") kvBlocks;
@@ -337,18 +312,12 @@
           }
           {
             id = "path-scope";
-            hits = unreviewedPathScope;
+            hits = pathScoped;
             message =
-              "gitleaks-allowlist-scope: allowlist ${describe unreviewedPathScope} carries a paths entry "
-              + "outside the reviewed set for its file (${
-                let
-                  reviewed = lib.unique (lib.concatMap (a: a.reviewedPaths) unreviewedPathScope);
-                in
-                if reviewed == [ ] then "none permitted in this file" else lib.concatStringsSep ", " reviewed
-              }). A paths entry makes "
-              + "gitleaks skip those files entirely, hiding real leaks in them, and entries are unanchored "
-              + "regexes so one can reach a tree it does not name. Scope by content with "
-              + "regexTarget = \"line\" instead, or widen reviewedPaths deliberately";
+              "gitleaks-allowlist-scope: allowlist ${describe pathScoped} carries a paths entry. "
+              + "A paths entry makes gitleaks skip those files entirely, hiding real leaks in them, and "
+              + "entries are unanchored regexes so one can reach a tree it does not name. Scope the "
+              + "false positive by content instead";
           }
           {
             id = "extend";
@@ -398,8 +367,9 @@
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is present in "
               + "${lib.concatStringsSep ", " (map (p: p.origin) kvUnexpectedIn)} even though those "
-              + "sources scan public superproject files. Keep this content-scoped suppression in "
-              + ".gitleaks/secrets.toml, which scans the private operational note";
+              + "sources scan the superproject or gitlinks other than the private one. Keep this "
+              + "content-scoped suppression in .gitleaks/secrets.toml, which scans the private "
+              + "operational note";
           }
           {
             id = "kv-missing";
@@ -478,7 +448,7 @@
       # Collisions are refused rather than folded. TOML keys are case-sensitive,
       # so one table may carry both spellings, and mapAttrs' is listToAttrs over
       # attrNames, which keeps the first: attrNames sorts "Paths" before "paths"
-      # (0x50 < 0x70), so a reviewed Paths would survive and a malicious
+      # (0x50 < 0x70), so an empty Paths = [ ] would survive and a non-empty
       # lowercase paths would be discarded before any branch saw it. gitleaks
       # resolves the same table through viper's insensitiviseMap, which deletes
       # and re-inserts each key while ranging over a Go map, so which value
@@ -524,11 +494,6 @@
       # one: kv-untargeted names a rule other than generic-api-key rather than
       # dropping targetRules, because an empty targetRules trips untargeted-scope
       # first, and kv-unscoped keeps targetRules so it reaches the last branch.
-      # Takes the case, not just its toml, so a case can drive the empty reviewed
-      # set that .gitleaks/secrets.toml carries. Hardcoding superprojectPaths
-      # here left the per-source split asserted by nothing: reverting it to a
-      # single global binding kept every fixture green, because the real submodule
-      # config happens to carry no paths key.
       # A case may supply several sources through `tomls`. kvMissingIn is the one
       # predicate that quantifies across them, and a single-source fixture cannot
       # tell it apart from the global existence test it replaced: the kv-missing
@@ -543,17 +508,12 @@
           in
           {
             inherit origin;
-            reviewedPaths = c.reviewedPaths or superprojectPaths;
             kvAllowed = c.kvAllowed or true;
             cfg = lowerKeys origin (builtins.fromTOML toml);
           }
         ) (c.tomls or [ c.toml ]);
 
       okAllowlists = ''
-        [[allowlists]]
-        description = "docs"
-        paths = ["^docs/nixos-manual/"]
-
         [[allowlists]]
         description = "dnscrypt"
         regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]
@@ -621,20 +581,6 @@
             [[allowlists]]
             description = "reaches a tree it does not name"
             paths = ["private-ops/.*"]
-          '';
-        }
-        # The reviewed superproject scope, in a source whose reviewed set is
-        # empty. Only the per-source split rejects this: with reviewedPaths
-        # global again it is the approved pattern and passes.
-        {
-          id = "path-scope";
-          reviewedPaths = [ ];
-          toml = ''
-            ${okExtend}
-            ${okKv}
-            [[allowlists]]
-            description = "superproject documentation scope in the submodule config"
-            paths = ["^docs/nixos-manual/"]
           '';
         }
         # The singular table gitleaks still accepts, and a rule-scoped allowlist.
@@ -915,8 +861,8 @@
           ${okKv}
           [[allowlists]]
           description = "one table, two spellings of the same key"
-          Paths = ["nixos-manual/.*"]
-          paths = ["secrets/.*"]
+          Paths = [ ]
+          paths = ["private-ops/.*"]
         ''
         # And at the top level, where the colliding tables are lists.
         ''
@@ -941,7 +887,7 @@
               lib.concatStringsSep ", " (map (s: s.origin) unjudgedSources)
             } is no longer "
             + "judged by this check, so every suppression field in it is unbounded; restore it to "
-            + "managedConfigs with its reviewedPaths and kvAllowed declarations"
+            + "managedConfigs with its kvAllowed declaration"
           )
         else if missedManagedConfigCases != [ ] then
           throw (
@@ -970,7 +916,7 @@
           )
         else
           pkgs.runCommandLocal "gitleaks-allowlist-scope-ok" { } ''
-            echo "ok: every gitleaks allowlist path entry is in the reviewed set" > $out
+            echo "ok: no gitleaks allowlist carries a paths entry or an unreviewed suppression" > $out
           '';
     };
 }

@@ -407,15 +407,14 @@ _: {
               done <"$hits"
             }
 
-            # The root README.md is the GitHub landing page; the mirrored
-            # manual, drafts, test fixtures and agent instruction files are not
-            # pages. Matched here rather than in a pre-commit exclude so
-            # tests/docs-style pins the anchors (the docs/ READMEs and
-            # docs/claude-code/writing-CLAUDE.md are pages) and so a hand run
-            # skips the same paths.
+            # The root README.md is the GitHub landing page; drafts, test
+            # fixtures and agent instruction files are not pages. Matched here
+            # rather than in a pre-commit exclude so tests/docs-style pins the
+            # anchors (the docs/ READMEs and docs/claude-code/writing-CLAUDE.md
+            # are pages) and so a hand run skips the same paths.
             is_exempt() {
               case "$1" in
-              README.md | docs/drafts/* | docs/nixos-manual/* | tests/* | CLAUDE.md | AGENTS.md | */CLAUDE.md | */AGENTS.md) return 0 ;;
+              README.md | docs/drafts/* | tests/* | CLAUDE.md | AGENTS.md | */CLAUDE.md | */AGENTS.md) return 0 ;;
               esac
               return 1
             }

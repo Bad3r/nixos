@@ -246,5 +246,6 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
     https://raw.githubusercontent.com/NixOS/nixpkgs/master/nixos/modules/programs/ssh.nix
 10. Local docs\
     `docs/sops/README.md`\
-    `docs/index.md`\
-    `docs/nixos-manual/configuration/ssh.section.md`
+    `docs/index.md`
+11. NixOS manual: Secure Shell Access\
+    https://nixos.org/manual/nixos/unstable/#sec-ssh
