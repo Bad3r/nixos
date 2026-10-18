@@ -6,7 +6,6 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 
 - `architecture/`: canonical design docs for module system and composition.
 - `guides/`, `usage/`, `reference/`: task-oriented instructions and reference material.
-- `nixos-manual/`: mirrored upstream NixOS manual sources.
 - `technical-writing/`: the documentation style guide and the writing
   rules that support it.
 - Host and domain folders (for example `cloudflare/`, `songbird/`,
@@ -23,8 +22,6 @@ enumerate the active hosts, run
 Use lowercase directory names for provider and product folders. Cloudflare docs
 belong under `cloudflare/`, including Containers material under
 `cloudflare/containers/`; do not recreate case variants such as `CloudFlare/`.
-The mirrored NixOS manual belongs under `docs/nixos-manual/`; do not recreate a
-root-level `nixos-manual/` tree.
 
 ## Build, Test, and Development Commands
 
@@ -73,8 +70,8 @@ There is no docs-only test framework. Validation is done through:
 - pre-commit hooks
 - `docs-style`, which checks staged Markdown for the 150-line cap, banned
   phrases, and unresolved links and backticked paths; exempt for the
-  root `README.md` (the GitHub landing page), `docs/drafts/`,
-  `docs/nixos-manual/`, `tests/`, and any `CLAUDE.md` or `AGENTS.md`;
+  root `README.md` (the GitHub landing page), `docs/drafts/`, `tests/`, and
+  any `CLAUDE.md` or `AGENTS.md`;
   `docs/index.md` is exempt from the line cap only; pinned to the pre-commit
   stage, so the `--hook-stage manual` sweep skips it
 - flake checks

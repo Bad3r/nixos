@@ -39,7 +39,6 @@ HDA = "HDA"                   # Intel High Definition Audio controller
 [files]
 extend-exclude = [
   "secrets/**",
-  "docs/nixos-manual/**/*.md",
   "flake.lock",
   ".clj-kondo/**",
   "**/.clj-kondo/**",

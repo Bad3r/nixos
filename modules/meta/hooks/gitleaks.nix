@@ -56,14 +56,8 @@
             # repository deciding what the public one reports, the same reach
             # the .gitleaksignore guard below refuses. Git tracks this
             # file, so its absence is a broken checkout, never a state to scan.
-            # One config per pass, because a paths allowlist is matched against a
-            # File rooted at the tree being scanned: for `gitleaks git secrets`
-            # that root is the submodule, so File comes back as
-            # "nixos-manual/leak.txt" and the superproject's anchored
-            # "^nixos-manual/" would skip a top-level directory of that name
-            # inside the private repository, before scanning it and invisibly
-            # from here. .gitleaks/secrets.toml carries the content-scoped
-            # allowlists and no paths key at all.
+            # One config per pass, because .gitleaks/secrets.toml carries the
+            # KV allowlist that the public superproject pass must not inherit.
             for config_file in ${lib.escapeShellArgs managedConfigNames}; do
               if [ ! -f "$config_file" ]; then
                 echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; restore it from git instead of scanning unreviewed" >&2

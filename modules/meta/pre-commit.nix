@@ -21,7 +21,6 @@ _: {
 
           excludes = [
             "^inputs/"
-            "^docs/nixos-manual/"
           ];
 
           default_stages = [
@@ -88,8 +87,7 @@ _: {
               # pre-commit only: the manual sweep passes every tracked page, not just staged ones.
               stages = [ "pre-commit" ];
               # Exempt paths are matched inside the hook, where tests/docs-style
-              # pins them; the repo-wide docs/nixos-manual exclude above serves
-              # the other hooks.
+              # pins them.
             };
 
             luacheck = {
