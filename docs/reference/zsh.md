@@ -14,7 +14,7 @@ Inside `.zshrc`, blocks are ordered with `lib.mkOrder`; the header of `modules/s
 
 - A shell option, history setting, or shell variable: `modules/shell/zsh/core.nix`.
 - A general alias: the matching group in `modules/shell/zsh/aliases.nix`, gated on the app's enable flag when the alias names one tool.
-- An alias, variable, or hook for a tool that has a Home Manager app module: that module under `modules/hm-apps/`.
+- An alias, variable, or hook for a tool that has a Home Manager app module: that module, in the tool's app or feature folder.
 - A function: one file under `modules/shell/zsh/functions/`, named after the function and holding only its body.
 - A key binding or zle widget: `modules/shell/zsh/keybindings.nix`.
 - A plugin: `modules/shell/zsh/plugins.nix`, sourced from its nixpkgs package.

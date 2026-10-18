@@ -43,7 +43,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 
 - A Samba media share renders from a host secret and starts only on demand; `openFirewall` opens its ports on every interface, so Samba's own `hosts allow` and `hosts deny` pair limits clients to loopback, the LAN, and Cloudflare Mesh: [services.nix](../../modules/songbird/services.nix).
 - Samba WSDD runs beside it with its own `openFirewall`, opening TCP 5357 and UDP 3702 (WS-Discovery) on every interface as well: [services.nix](../../modules/songbird/services.nix).
-- The fleet's RustDesk ID server and relay run here on the Mesh interface alone, so no device needs RustDesk's public servers, and a session that cannot connect directly falls back to the relay: [rustdesk.nix](../../modules/apps/rustdesk.nix).
+- The fleet's RustDesk ID server and relay run here on the Mesh interface alone, so no device needs RustDesk's public servers, and a session that cannot connect directly falls back to the relay: [rustdesk/nixos.nix](../../modules/apps/rustdesk/nixos.nix).
 - cloudflared runs as a tunnel service, beyond the CLI package the baseline installs: [services.nix](../../modules/songbird/services.nix).
 - Magnitude serves local models from a user service that starts with the owner's login, so Mesh clients reach it only during that session; its port opens on the Mesh interface alone and remote requests need the sops API key: [magnitude.nix](../../modules/apps/magnitude.nix).
 - Cloudflare WARP enrolls with the host's service token in `warp` mode, so systemd-resolved sends every lookup to the WARP resolver while its tunnel is up, since nothing here serves private-host mappings: [cloudflare-warp.nix](../../modules/songbird/cloudflare-warp.nix).

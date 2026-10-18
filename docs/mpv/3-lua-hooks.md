@@ -1,6 +1,6 @@
 # Lua Hooks
 
-The HM module ships two repo-local Lua scripts, rendered by `modules/hm-apps/mpv/scripts.nix` into script packages (`flake.lib.homeManager.mpvScripts`).
+The HM module ships two repo-local Lua scripts, rendered by `modules/apps/mpv/scripts.nix` into script packages (`flake.lib.homeManager.mpvScripts`).
 The HM module adds both to the script list it rewraps the row's package with, so they load alongside the bundled `mpvScripts.*` packages through the same `--script=` flags.
 Nothing is written to `~/.config/mpv/scripts/`; the loading model is in [Scripts and Bindings](3-scripts-and-bindings.md).
 

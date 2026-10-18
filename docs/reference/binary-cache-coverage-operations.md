@@ -24,7 +24,7 @@ The operator setup is complete:
    the primary, because `build.sh` bootstraps whichever host it runs on.
    `extra-substituters` counts the
    same as `substituters`, because the bootstrap write replaces the whole list
-   and a cache wired the way `modules/apps/doom-emacs.nix` and
+   and a cache wired the way `modules/apps/doom-emacs/nixos.nix` and
    `modules/apps/logseq.nix` wire theirs is just as unreachable. The comparison
    is directional, so the region mirrors for other networks do not trip it, and
    an array that is missing, unclosed, or empty fails rather than comparing

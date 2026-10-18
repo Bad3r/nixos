@@ -167,7 +167,11 @@
 - [guides/qbittorrent-web-ui-setup.md](guides/qbittorrent-web-ui-setup.md)
   - Setting up the qBittorrent Web UI, with optional desktop profile import and Songbird as the host example.
 - [guides/stylix-integration.md](guides/stylix-integration.md)
-  - Stylix theming integration covering NixOS vs Home Manager targets, autoEnable behavior, and common pitfalls.
+  - Stylix theming integration covering NixOS vs Home Manager targets, autoEnable behavior, and module author rules.
+- [guides/stylix-troubleshooting.md](guides/stylix-troubleshooting.md)
+  - Stylix pitfalls, from Home Manager targets set in NixOS modules to `_module.check`, and the debugging commands.
+- [guides/tray-icon-overrides.md](guides/tray-icon-overrides.md)
+  - Package-level tray icon overrides for ProtonVPN, NormCap, Teams for Linux, and udiskie, and the snixembed bridge patches.
 - [guides/tray-icon-theming.md](guides/tray-icon-theming.md)
   - i3/i3bar tray icon theming guide with protocol classification, runtime verification, and remediation workflow.
 

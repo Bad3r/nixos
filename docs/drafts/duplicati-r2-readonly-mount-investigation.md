@@ -377,7 +377,7 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 - The mount derivation includes `pyfuse3`, the existing R2/AES dependencies, and `fuse3` for the unmount helper. Mark it Linux-only with package metadata such as `meta.platforms = lib.platforms.linux`; list/extract remain mostly portable Python.
 - Add flake output `.#duplicati-r2-mount`.
 - Add `pkgs.duplicati-r2-tools.mount` to the default `programs.duplicati-r2-tools.extended.packages` list so enabling the tools installs list, extract, and mount.
-- `modules/apps/duplicati-r2-tools.nix` only installs binaries on `PATH`; it must not set host-wide FUSE policy merely because the package is installed.
+- `modules/apps/duplicati-r2-tools/nixos.nix` only installs binaries on `PATH`; it must not set host-wide FUSE policy merely because the package is installed.
 - `modules/services/duplicati-r2.nix` owns the mount runtime options and host policy. Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}`.
 - `services.duplicati-r2.mount.allowOther` defaults to `false`. Only when `cfg.mount.enable && cfg.mount.allowOther` should the service module set `programs.fuse.userAllowOther = true;` and pass `--allow-other` to the mount command.
 - The service passes `--debug` only when `services.duplicati-r2.mount.debug = true`. Debug mode improves busy-unmount and dead-mount diagnostics, but still redacts credentials and passphrases.

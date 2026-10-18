@@ -1,12 +1,12 @@
 # Apps module header block
 
-Every file under `modules/apps/` opens with a C-style block comment, `/* ... */`, as `modules/apps/ent.nix` does.
+Every NixOS app module, such as `modules/apps/<tool>.nix` or `modules/apps/<tool>/nixos.nix`, opens with a C-style block comment, `/* ... */`, as `modules/apps/ent.nix` does.
 
 ## Fields
 
 The fields come first, in this order:
 
-- `Package:` the app name matching the filename.
+- `Package:` the app name, matching the file or folder name.
 - `Description:` a one-sentence summary.
 - `Homepage:` the primary product landing page.
 - `Documentation:` the canonical manual, user guide, or reference docs.

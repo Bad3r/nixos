@@ -16,7 +16,7 @@ The repository's directories fall into layers, from the flake root outward to do
     Domain modules configuring system services and the desktop.
 06. **AI agents configuration** (`modules/agents`).
     Developer AI tooling and agent prompts for claude-code and codex, with system prompts and tool settings generated from a single source.
-07. **Local packages and overlays** (`packages/`, `modules/custom-overlays`).
+07. **Local packages and overlays** (`packages/`, `modules/hosts/common/custom-overlays-base.nix`).
     Local derivations, with pin hashes, fixtures, and docs, and the overlay layer that injects each into nixpkgs.
 08. **Repo tooling, meta, and CI** (`scripts/`, `modules/meta`, `modules/packages`, `.github/`).
     Operational scripts, evaluation logic such as the unfree predicate and the README and package checks, and CI pipelines.
@@ -64,18 +64,18 @@ The repository's directories fall into layers, from the flake root outward to do
 
 - `modules/agents/system-prompt.nix`: `flake.lib.agents.systemPrompt`, its ordered sections, and the render function for the user-level `~/.claude/CLAUDE.md` and `~/.config/codex/AGENTS.md`.
 - `modules/agents/mcp.nix`: validates and compiles the per-client MCP server lists.
-- `modules/agents/claude-code/home-manager.nix` and `modules/agents/codex/home-manager.nix`: the per-client Home Manager modules.
+- `modules/agents/claude-code/home.nix` and `modules/agents/codex/home.nix`: the per-client Home Manager modules.
 
 ## Packages and overlays
 
 - `modules/hosts/common/custom-overlays-base.nix`: derives the overlay for each app package and imports every self-gating overlay.
-- `modules/apps/restringer.nix`, `packages/restringer/default.nix`, and `packages/restringer/hashes.json`: the local-package chain to trace.
+- `modules/apps/restringer/`, `packages/restringer/default.nix`, and `packages/restringer/hashes.json`: the local-package chain to trace.
 - `packages/<name>/update.py`: the per-package pin updaters.
 - `scripts/updater/`: the shared updater library.
 
 ## Tooling and CI
 
-- `modules/devshell.nix` and `modules/devshell/pentesting.nix`: the dev shells, with the formatter toolchain, Nix LSP, lint and security tools, SOPS helpers, and act wrappers.
+- `modules/devshell.nix` and `modules/apps/pentesting-devshell/package.nix`: the dev shells, with the formatter toolchain, Nix LSP, lint and security tools, SOPS helpers, and act wrappers.
 - `modules/meta/treefmt.nix`: the formatter configuration.
 - `modules/meta/pre-commit.nix`: the git hook set.
 - `modules/meta/hooks/apps-catalog-sync.nix`: keeps `modules/hosts/common/apps-enable.nix` in sync with the registered app and browser modules.

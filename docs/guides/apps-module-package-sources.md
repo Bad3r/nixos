@@ -37,7 +37,7 @@ nix eval github:<owner>/<repo>#packages.x86_64-linux.<name>.meta.homepage --raw
 
 - The header's `Notes:` section names the source flake.
 
-`modules/apps/claude-code.nix`, `modules/apps/spec-kit.nix`, and `modules/apps/codex.nix` are complete examples.
+`modules/agents/claude-code/nixos.nix`, `modules/apps/spec-kit.nix`, and `modules/agents/codex/nixos.nix` are complete examples.
 
 ## Python packages
 

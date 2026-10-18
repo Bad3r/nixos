@@ -9,7 +9,7 @@ The mpv manual at <https://mpv.io/manual/stable/> defines each option's semantic
 - `~/.config/mpv/mpv.conf`: `programs.mpv.config` and `programs.mpv.profiles` in the HM module
 - `~/.config/mpv/input.conf`: `programs.mpv.bindings` in the HM module (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
 - `~/.config/mpv/script-opts/status_line.conf`: `programs.mpv.scriptOpts.status_line` in the HM module (see [Script Options](#script-options))
-- Loaded scripts: the HM module rewraps `programs.mpv.extended.package` with `--script=` flags; the list includes the packaged scripts plus the two repo-local Lua scripts (`playlist_filter`, `ytdlp_cookies`) built by `modules/hm-apps/mpv/scripts.nix`. Nothing is written under `~/.config/mpv/scripts/` (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
+- Loaded scripts: the HM module rewraps `programs.mpv.extended.package` with `--script=` flags; the list includes the packaged scripts plus the two repo-local Lua scripts (`playlist_filter`, `ytdlp_cookies`) built by `modules/apps/mpv/scripts.nix`. Nothing is written under `~/.config/mpv/scripts/` (see [scripts-and-bindings.md](3-scripts-and-bindings.md))
 
 ## Settings Reference
 

@@ -9,14 +9,18 @@ Every `.nix` file under `modules/` is a flake-parts module that import-tree load
 
 | Location                           | Purpose                | Export Pattern                             |
 | ---------------------------------- | ---------------------- | ------------------------------------------ |
-| `modules/apps/<name>.nix`          | Per-app modules        | `flake.nixosModules.apps.<name>`           |
-| `modules/hm-apps/<name>.nix`       | Per-app HM modules     | `flake.homeManagerModules.apps.<name>`     |
+| `modules/apps/<name>.nix`          | Single-file app        | `flake.nixosModules.apps.<name>`           |
+| `modules/apps/<name>/nixos.nix`    | App folder: NixOS      | `flake.nixosModules.apps.<name>`           |
+| `modules/apps/<name>/home.nix`     | App folder: HM         | `flake.homeManagerModules.apps.<name>`     |
+| `modules/apps/<name>/overlay.nix`  | App folder: overlay    | `flake.customOverlays.<name>`              |
+| `modules/apps/<name>/package.nix`  | App folder: flake pkgs | `perSystem.packages.*`                     |
 | `modules/browsers/<name>/apps.nix` | Per-browser modules    | `flake.nixosModules.browsers.<name>`       |
 | `modules/browsers/<name>/home.nix` | Per-browser HM modules | `flake.homeManagerModules.browsers.<name>` |
 | `modules/<domain>/`                | Higher-level features  | `flake.nixosModules.<feature>`             |
 | `modules/<host>/`                  | Host-specific config   | `configurations.nixos.<host>.module`       |
 
 A module that only installs a package belongs in `modules/apps/`; one that configures services or composes several apps belongs in a domain directory.
+An app gets a folder once it has more than one module file, as [File layout](../guides/apps-module-style-guide.md#file-layout) describes.
 A domain, host, or hardware module that needs a program turns the program's row on instead of installing it, per [Package ownership](../guides/apps-module-registry.md#package-ownership).
 
 ## Common Pitfalls

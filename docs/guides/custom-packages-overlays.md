@@ -4,7 +4,8 @@ A user-facing in-tree package at `packages/<name>/default.nix` becomes `pkgs.<na
 `modules/hosts/common/custom-overlays-base.nix` derives that overlay for every `packages/` directory named after an app registered under `flake.nixosModules.apps`, so the package directory and the app module are the only files to create.
 The derived overlay calls `final.callPackage` on the directory with no arguments and gates itself on `programs.<name>.extended.enable`; rows are in [App registry](apps-module-registry.md).
 
-A package that needs more, such as a `callPackage` argument or a patch on a nixpkgs package, registers its own overlay module as `flake.customOverlays.<name>`, which takes the place of a derived one:
+A package that needs more, such as a `callPackage` argument or a patch on a nixpkgs package, registers its own overlay module as `flake.customOverlays.<name>`, which takes the place of a derived one.
+The overlay sits in the app's folder as `modules/apps/<name>/overlay.nix`, next to its `nixos.nix`:
 
 ```nix
 _: {
@@ -31,15 +32,17 @@ Its directory name matches no app, so it gets no overlay, and the module calls `
 
 ## Flake outputs
 
-A derivation that is not user-facing and is exposed as a flake output registers through a `perSystem` module under `modules/packages/` instead:
+A derivation exposed as a flake output registers through a `perSystem` module instead.
+An app's derivation registers in `modules/apps/<name>/package.nix`, and repo tooling with no app registers in its own module, such as `modules/packages/cache-coverage.nix` or a hook under `modules/meta/hooks/`:
 
 ```nix
+# modules/apps/my-tool/package.nix
 { ... }:
 {
   perSystem =
     { pkgs, ... }:
     {
-      packages.my-tool = pkgs.callPackage ../../packages/my-tool { };
+      packages.my-tool = pkgs.callPackage ../../../packages/my-tool { };
     };
 }
 ```

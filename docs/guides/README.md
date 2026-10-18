@@ -13,6 +13,8 @@ Style guides, coding standards, and how-to documentation.
 | [Nix Null Coercion](nix-null-coercion.md)                     | Null coercion diagnosis and repair patterns              |
 | [qBittorrent Web UI Setup](qbittorrent-web-ui-setup.md)       | Web UI setup with optional desktop profile import        |
 | [Stylix Integration](stylix-integration.md)                   | Theming constraints for module authors                   |
+| [Stylix Troubleshooting](stylix-troubleshooting.md)           | Stylix pitfalls and debugging commands                   |
+| [Tray Icon Overrides](tray-icon-overrides.md)                 | Package-level tray icon overrides and bridge patches     |
 | [Tray Icon Theming (i3/i3bar)](tray-icon-theming.md)          | Runtime tray ownership and icon theming remediation      |
 
 ## Related

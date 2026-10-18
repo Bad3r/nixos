@@ -4,15 +4,13 @@ Catalog of PDF-focused applications managed by this configuration.\
 The list covers viewers, structural inspectors, content extractors, OCR engines,\
 and authoring tools whose primary or substantial purpose is working with PDF documents.
 
-**Source of truth**: each host's `apps-enable.nix`. Per-tool option flags live in `modules/apps/<name>.nix`.\
+**Source of truth**: each host's `apps-enable.nix`. Per-tool option flags live in each tool's app module, `modules/apps/<name>.nix` or `modules/apps/<name>/nixos.nix`.\
 A given entry may be enabled on one host and disabled on another;\
 consult the host catalog to confirm availability before relying on a specific binary.
 
-Each entry below lists a representative invocation, optional additional invocations, upstream repository, official documentation, a one-line description, a one-line decision hint, and an upstream maintenance classification.
+Each entry below lists a representative invocation, optional additional invocations, upstream repository, official documentation, a one-line description, and a one-line decision hint.
 
-`Stat.` classifies upstream health as of 2026-05-09: **Maintained** (release on/after 2025-01-01), **Maintenance mode** (mature/stable; active commits but no recent tagged release), **Core utility** (foundational tooling whose release cadence does not map to the other categories), or **Deprecated** (archived, abandoned, or superseded).
-
-Tools that complement this toolkit but do not yet have a `modules/apps/` module are catalogued in [`additional-tools-reference.md`](additional-tools-reference.md).
+Tools that complement this toolkit without an app module are catalogued in [`additional-tools-reference.md`](additional-tools-reference.md).
 
 ## View And Review
 
@@ -26,7 +24,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://mupdf.com/docs>
   - Desc.: Lightweight PDF, XPS, and e-book viewer plus the `mutool` toolkit for scriptable inspection and rendering.
   - Use..: Small viewer plus low-level utilities in one package; reach for `mutool` when shell-scripting render or extract steps.
-  - Stat.: Maintained (1.27.2, 2026-02-18).
 - okular
   - run..: `okular report.pdf`
   - More..:
@@ -37,7 +34,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://docs.kde.org/stable5/en/okular/okular/>
   - Desc.: KDE universal document viewer with annotations, forms, presentation mode, and broad format support.
   - Use..: GUI-first review with annotations and forms; prefer over `zathura` when not keyboard-driven.
-  - Stat.: Maintained (v26.04.0, 2026-04-16).
 - zathura
   - run..: `zathura report.pdf`
   - More..:
@@ -48,7 +44,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://pwmt.org/projects/zathura/documentation>
   - Desc.: Keyboard-driven document viewer with vim-like bindings, fast search, bookmarks, and SyncTeX support.
   - Use..: Long technical PDFs and LaTeX-heavy reading; prefer over `okular` when keyboard navigation matters more than annotation UI.
-  - Stat.: Maintained (2026.03.27, 2026-03-27).
 
 ## Inspect And Extract
 
@@ -62,7 +57,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://poppler.freedesktop.org/>
   - Desc.: Bundle of PDF utilities (`pdfinfo`, `pdftotext`, `pdftoppm`, `pdfimages`, `pdfunite`) for shell pipelines.
   - Use..: General-purpose toolbox for metadata, text, image extraction, splitting, and merging; reach for first.
-  - Stat.: Maintained (poppler-26.05.0, 2026-05-03).
 - pymupdf
   - run..: `pymupdf show -metadata report.pdf`
   - More..:
@@ -72,7 +66,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://pymupdf.readthedocs.io/en/latest/>
   - Desc.: Python bindings for MuPDF that extract, render, and modify PDFs; CLI plus library API.
   - Use..: Layout-aware extraction and embedded-object inspection; the bridge into Python automation when shell tools fall short.
-  - Stat.: Maintained (1.27.2.3, 2026-04-24).
 - qpdf
   - run..: `qpdf --check report.pdf`
   - More..:
@@ -83,7 +76,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://qpdf.readthedocs.io/en/stable/>
   - Desc.: C++ library and CLI for inspecting, validating, encrypting, and rewriting PDF structure with object-level fidelity.
   - Use..: Structural rewrites and validation; prefer over `poppler-utils` when preserving or rewriting PDF structure rather than rendering content.
-  - Stat.: Maintained (v12.3.2, 2026-01-24).
 
 ## OCR And Searchable Output
 
@@ -97,7 +89,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://ocrmypdf.readthedocs.io/en/latest/>
   - Desc.: Adds a searchable OCR text layer to scanned PDFs while preserving the original page image.
   - Use..: Scanned PDF input; prefer over raw `tesseract` when the source is already a PDF.
-  - Stat.: Maintained (v17.4.1, 2025-04-06).
 - readpdf
   - run..: `readpdf report.pdf`
   - More..:
@@ -107,7 +98,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: Module header in `modules/apps/readpdf.nix`.
   - Desc.: Force-OCR text extractor that wraps `ocrmypdf` for image-based or broken-text-layer PDFs; prints to stdout and adds `pdf-cat`/`cat-pdf` aliases.
   - Use..: Pull plain text from a scanned or bad-text-layer PDF without producing a searchable PDF; prefer over `ocrmypdf` when only the text is needed.
-  - Stat.: Maintained (repo-local wrapper; tracks `ocrmypdf`).
 - tesseract
   - run..: `tesseract receipt.png stdout`
   - More..:
@@ -118,7 +108,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://tesseract-ocr.github.io/tessdoc/>
   - Desc.: Open-source OCR engine with 100+ language models, page segmentation modes, and hOCR/TSV/ALTO/PDF output.
   - Use..: Image-first OCR or OCR debugging; prefer over `ocrmypdf` when the input is a cropped image or you want raw OCR formats.
-  - Stat.: Maintained (5.5.2, 2025-12-26).
 
 ## Generate From Other Sources
 
@@ -132,7 +121,6 @@ Tools that complement this toolkit but do not yet have a `modules/apps/` module 
   - Docs.: <https://pandoc.org/MANUAL.html>
   - Desc.: Universal document converter between Markdown, LaTeX, HTML, DOCX, PDF, and many more formats with citation and template support.
   - Use..: Source is Markdown, HTML, or citation-heavy prose and a PDF is the target; not for editing an existing PDF in place.
-  - Stat.: Maintained (3.9.0.2, 2026-03-19).
 
 ## Decision Guide
 

@@ -41,7 +41,7 @@ A path absent from both namespaces fails the host evaluation, since no switch ru
 
 A module that needs another app turns that app's row on with `lib.mkOverride 1050 true`, between the baseline and the host rows, so a host row still decides.
 That priority is the only way a module outside the registry sets a row.
-`modules/apps/claude-code.nix` turns on the language server behind each enabled LSP plugin this way.
+`modules/agents/claude-code/nixos.nix` turns on the language server behind each enabled LSP plugin this way.
 
 ## Package ownership
 

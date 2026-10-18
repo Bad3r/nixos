@@ -1,6 +1,6 @@
 # Apps Module Style Guide
 
-Conventions for the NixOS app modules under `modules/apps/`, one program per file.
+Conventions for the NixOS app modules under `modules/apps/`, one program per file or folder.
 `modules/apps/ent.nix` is the canonical template, and [Architecture](../architecture/README.md) covers the aggregators and helpers around it.
 
 - [Header block](apps-module-header.md): the top-of-file comment and the sources behind each field.
@@ -16,6 +16,11 @@ Conventions for the NixOS app modules under `modules/apps/`, one program per fil
 ## File layout
 
 - Store each app module at `modules/apps/<tool>.nix` and export it as `flake.nixosModules.apps.<tool>`.
+- An app with more than one module file keeps them in `modules/apps/<tool>/`: `nixos.nix`, `home.nix`, `overlay.nix`, and `package.nix`, each only when the app has that piece.
+  `home.nix` is the [Home Manager module](apps-module-home-manager.md), `overlay.nix` the [overlay](custom-packages-overlays.md), and `package.nix` the `perSystem.packages` registration.
+- A check, fixture, or `_`-prefixed helper of an app with a folder sits in that folder.
+- An app that has a feature folder, such as `modules/agents/<tool>/`, `modules/browsers/<tool>/`, or `modules/git/`, keeps its files there instead.
+- A Home Manager module without its own row sits in the folder of the row that gates it, as `nixvim` does in `modules/apps/neovim/`.
 - Provide additional bundles, for example `base`, only when they are meaningful.
 - Keep an app module to package enablement and lightweight configuration.
   Compose higher-level behaviour in a domain module, for example under `modules/networking/`.
