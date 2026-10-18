@@ -37,6 +37,7 @@ let
         direct = lib.filterAttrs (
           name: _:
           !(lib.elem name [
+            "_class"
             "_file"
             "imports"
           ])
@@ -49,98 +50,18 @@ let
     else
       { };
 
-  browsersDir = ../browsers;
-
-  baseBrowsers =
-    if lib.hasAttrByPath [ "browsers" ] config.flake.nixosModules then
-      flattenBrowsers config.flake.nixosModules.browsers
-    else
-      { };
-
-  browserDirs = builtins.readDir browsersDir;
-
-  # Browsers live in per-browser subdirectories whose NixOS entry point is
-  # `<name>/apps.nix`, unlike the flat `modules/apps/*.nix` layout.
-  generatedBrowsers = lib.foldlAttrs (
-    acc: dirName: dirInfo:
-    if dirInfo == "directory" && !(lib.hasPrefix "_" dirName) then
-      if builtins.hasAttr dirName baseBrowsers then
-        acc
-      else
-        let
-          filePath = browsersDir + "/${dirName}/apps.nix";
-          path = [
-            "flake"
-            "nixosModules"
-            "browsers"
-            dirName
-          ];
-        in
-        if builtins.pathExists filePath then
-          let
-            imported = import filePath;
-          in
-          if lib.hasAttrByPath path imported then
-            acc
-            // builtins.listToAttrs [
-              (lib.nameValuePair dirName (lib.getAttrFromPath path imported))
-            ]
-          else
-            acc
-        else
-          acc
-    else
-      acc
-  ) { } browserDirs;
-
-  availableBrowsers = baseBrowsers // generatedBrowsers;
-
-  browserKeys = lib.filter (name: name != "_file" && name != "imports") (
-    lib.attrNames availableBrowsers
-  );
+  availableBrowsers = flattenBrowsers config.flake.nixosModules.browsers;
 
   helpers = rec {
-    hasBrowser = name: builtins.hasAttr name availableBrowsers;
+    hasBrowser = name: availableBrowsers ? ${name};
 
-    getBrowser =
-      name:
-      if hasBrowser name then
-        builtins.getAttr name availableBrowsers
-      else
-        let
-          maybeFile = browsersDir + "/${name}/apps.nix";
-          fallbackModule =
-            if builtins.pathExists maybeFile then
-              let
-                imported = import maybeFile;
-                path = [
-                  "flake"
-                  "nixosModules"
-                  "browsers"
-                  name
-                ];
-              in
-              if lib.hasAttrByPath path imported then
-                lib.getAttrFromPath path imported
-              else
-                lib.trace "nixos-browser-helpers: browser module missing path ${builtins.concatStringsSep "." path}" null
-            else
-              lib.trace "nixos-browser-helpers: missing browser file ${toString maybeFile}" null;
-          previewList = lib.take 20 browserKeys;
-          preview = lib.concatStringsSep ", " previewList;
-          ellipsis = if lib.length browserKeys > 20 then ", ..." else "";
-          suggestion = if browserKeys == [ ] then "" else " Known keys (partial): ${preview}${ellipsis}";
-        in
-        if fallbackModule != null then
-          lib.trace "nixos-browser-helpers: fallback loaded ${name}" fallbackModule
-        else
-          throw ("Unknown NixOS browser '" + name + "'" + suggestion);
+    getBrowser = name: availableBrowsers.${name} or (throw "Unknown NixOS browser '${name}'");
 
     getBrowsers = names: map getBrowser names;
 
-    getAllBrowsers = lib.filter (m: m != null) (getBrowsers browserKeys);
+    getAllBrowsers = lib.attrValues availableBrowsers;
 
-    getBrowserOr = name: default: if hasBrowser name then getBrowser name else default;
+    getBrowserOr = name: default: availableBrowsers.${name} or default;
   };
 in
 {
