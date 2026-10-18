@@ -181,10 +181,9 @@
               # i3 control
               "${mod}+Shift+c" = "reload";
               "${mod}+Shift+r" = "restart";
-              "${mod}+Shift+e" = "exec systemctl suspend";
+              "${mod}+Shift+e" = "exec --no-startup-id ${commands.powerMenu}";
               "${mod}+Control+l" = "exec --no-startup-id ${pkgs.systemd}/bin/loginctl lock-session";
               "${mod}+Shift+p" = "exec --no-startup-id ${commands.powerProfile}";
-              "${mod}+x" = "exec --no-startup-id ${commands.powerMenu}";
 
               # Layout
               "${mod}+semicolon" = "split horizontal";

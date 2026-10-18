@@ -65,6 +65,10 @@
                 ${lib.escapeShellArgs lockArgs} --nofork --no-verify
             '';
           };
+          # Shadows the unthemed i3lock binary; the service execs it by store path.
+          lockSessionCommand = pkgs.writeShellScriptBin "i3lock" ''
+            exec ${pkgs.systemd}/bin/loginctl lock-session
+          '';
           screensaverCondition = pkgs.writeShellScript "i3-idle-screensaver-condition" ''
             state=$(${pkgs.systemd}/bin/systemctl --user show i3lock.service --property=ActiveState --value) || exit 255
             case "$state" in
@@ -116,6 +120,8 @@
 
           # Started by i3 itself (startup.nix), so units wanted by it run only
           # once the window manager is up.
+          home.packages = lib.mkIf (appRows.enabled "i3lock-color") [ (lib.hiPrio lockSessionCommand) ];
+
           systemd.user.targets.i3-session.Unit = {
             Description = "i3 window manager session";
             BindsTo = [ "graphical-session.target" ];
