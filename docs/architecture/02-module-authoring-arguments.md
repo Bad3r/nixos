@@ -8,7 +8,7 @@ New hosts get these arguments without declaring them again.
 
 Every NixOS module reached through the host closure can take each of these:
 
-- `metaOwner` (attrs): owner identity, `username` and `sshKeys`, from `lib/meta-owner-profile.nix` through `flake.nix` and the shared helper; consumed by Home Manager users and secrets.
+- `metaOwner` (attrs): owner identity, `username` and `sshKeys`, from `modules/meta/_owner-profile.nix` through `flake.nix` and the shared helper; consumed by Home Manager users and secrets.
 - `secretsRoot` (path): the repo `secrets/` directory, the base for `sopsFile` references and `pathExists` guards.
 - `inputs` (attrs): the flake inputs, so a module uses `inputs.<flake>.nixosModules` without importing the flake again.
 - `hostName` (string): the host attribute name, consumed by `modules/hosts/common/hostname.nix`.

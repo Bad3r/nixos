@@ -18,14 +18,14 @@ main() {
 
   cd "${repo_root}"
 
-  if [[ ! -d .githooks ]]; then
+  if [[ ! -d scripts/hooks/git ]]; then
     return 0
   fi
 
   mkdir -p "${hooks_dir}"
 
   shopt -s nullglob
-  for src in .githooks/*; do
+  for src in scripts/hooks/git/*; do
     [[ -f ${src} ]] || continue
     name="$(basename "${src}")"
     case "${name}" in

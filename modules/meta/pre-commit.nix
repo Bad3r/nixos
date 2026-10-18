@@ -191,7 +191,6 @@ _: {
               files = builtins.concatStringsSep "|" [
                 "^(flake\\.nix"
                 "flake\\.lock"
-                "\\.githooks/"
                 "scripts/hooks/"
                 "modules/devshell\\.nix"
                 "modules/meta/pre-commit\\.nix"

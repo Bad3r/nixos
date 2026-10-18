@@ -18,7 +18,7 @@
     -D: Show descriptions of vulnerabilities.
 
   Notes:
-    * A repo-level whitelist (vulnix-whitelist.toml) is bundled via the whitelistFile option.
+    * A repo-level whitelist (whitelist.toml) is bundled via the whitelistFile option.
     * The whitelist covers CPE name collisions for Haskell bindings, Rust crates,
       Jenkins plugins, and other packages that share names with unrelated products.
     * When whitelistFile is set, vulnix is wrapped to auto-pass -w on every invocation.
@@ -56,7 +56,7 @@ let
 
         whitelistFile = lib.mkOption {
           type = lib.types.nullOr lib.types.path;
-          default = ./../../vulnix-whitelist.toml;
+          default = ./whitelist.toml;
           description = "Path to the TOML whitelist file for suppressing false-positive CVEs. Set to null to disable.";
         };
       };

@@ -9,7 +9,7 @@ let
       config = lib.mkIf cfg.enable {
         nixpkgs.overlays = [
           (final: _prev: {
-            "monitor-query" = import ../../../lib/shell/monitor-query.nix {
+            "monitor-query" = import ./_script.nix {
               inherit (final) writeText;
             };
           })

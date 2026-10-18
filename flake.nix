@@ -243,7 +243,7 @@
   outputs =
     inputs:
     let
-      ownerProfile = import ./lib/meta-owner-profile.nix;
+      ownerProfile = import ./modules/meta/_owner-profile.nix;
       rootPath = ./.;
       # Keep secretsRoot as a path so sopsFile values preserve path/store context.
       secretsRoot = rootPath + "/secrets";

@@ -5,7 +5,7 @@
   Repository: https://github.com/Bad3r/nixos
 
   Notes:
-    * Generated via writeText from lib/shell/monitor-query.nix and exposed by
+    * Generated via writeText from _script.nix and exposed by
       modules/apps/monitor-query/overlay.nix.
     * Sourced by modules/apps/i3wm/scratchpad.nix as a path
       (`. "${pkgs.monitor-query}"`); it is a single file, not a derivation

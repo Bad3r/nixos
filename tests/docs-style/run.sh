@@ -759,11 +759,11 @@ test_a_dead_backticked_path_fails_under_every_claimed_prefix() {
 
 `modules/present.nix` exists; `modules/missing.nix` does not.
 `docs/missing.md` `scripts/missing.sh` `packages/missing.nix` `tests/missing/run.sh`
-`lib/missing.nix` `.github/workflows/missing.yml` `flake.nix` `build.sh`
+`.github/workflows/missing.yml` `flake.nix` `build.sh`
 PAGE
 
   run_hook "${repo}" docs/page.md
-  assert_violations 9 "claimed prefixes"
+  assert_violations 8 "claimed prefixes"
   assert_err_has "docs/page.md:3: backticked path does not exist: modules/missing.nix" "modules"
   assert_err_has "does not exist: .github/workflows/missing.yml" ".github"
   assert_err_has "does not exist: flake.nix" "flake.nix"

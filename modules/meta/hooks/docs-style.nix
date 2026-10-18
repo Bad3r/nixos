@@ -394,7 +394,7 @@ _: {
                 target=''${target%%#*}
                 target=''${target%%:[0-9]*}
                 case "$target" in
-                modules/* | docs/* | scripts/* | packages/* | tests/* | lib/* | .github/* | flake.nix | build.sh) ;;
+                modules/* | docs/* | scripts/* | packages/* | tests/* | .github/* | flake.nix | build.sh) ;;
                 *) continue ;;
                 esac
                 if has_excluded_chars "$target"; then
