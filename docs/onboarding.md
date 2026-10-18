@@ -4,8 +4,6 @@
 Files prefixed with `_` are omitted, and nothing imports a module by literal path.
 It composes per-host system and Home Manager configurations with sops-nix secrets, Stylix theming, and a `build.sh` validate-and-deploy pipeline.
 
-- [Architecture](architecture/README.md): the Dendritic Pattern reference, in reading order.
-
 ## Project Overview
 
 - **Languages**: Nix first, then Python and Shell, plus JSON, YAML, TOML, SQL, and Markdown data.
@@ -21,7 +19,7 @@ The directories fall into layers, from the flake root outward to documentation.
 02. **Host definitions and baseline** (`modules/<host>/`, `modules/hosts/common`).
     Per-host configuration, hardware profiles, the cross-host shared baseline, and the registry that every opted-in host composes.
 03. **Base system and boot** (`modules/base`, `modules/boot`).
-    Foundational settings shared by all hosts: core Nix settings, users, locale, bootloader, and kernel.
+    Foundational settings shared by all hosts: core Nix settings, locale, console and shell defaults, and boot compression and visuals.
 04. **Home Manager** (`modules/home-manager`, `modules/home`, `modules/files`).
     The Home Manager integration glue, per-user home configuration, and base package defaults.
 05. **System services and desktop domains** (`modules/networking`, `security`, `services`, `stylix`, `git`, `xdg`, `csec`, ...).
@@ -31,7 +29,7 @@ The directories fall into layers, from the flake root outward to documentation.
 07. **Local packages and overlays** (`packages/`, `modules/hosts/common/custom-overlays-base.nix`).
     Local derivations, with pin hashes, fixtures, and docs, and the overlay layer that injects each into nixpkgs.
 08. **Repo tooling, meta, and CI** (`scripts/`, `modules/meta`, `modules/packages`, `.github/`).
-    Operational scripts, evaluation logic such as the unfree predicate and the README and package checks, and CI pipelines.
+    Operational scripts, evaluation logic such as the unfree predicate and the package checks, and CI pipelines.
 09. **Documentation** (`docs/` and the root `README.md`, `CLAUDE.md`, and `AGENTS.md`).
     Long-form references and agent prompt guides.
 10. **Project configuration** (`pyproject.toml`, git attributes, and the sops, gitleaks, and typos policies).
@@ -67,7 +65,7 @@ The reading path runs from what the project is to how it ships, each step buildi
 06. Assembling a host: [Host Composition](architecture/05-host-composition.md), `modules/configurations/nixos.nix`, and `modules/hosts/common/registry.nix`.
 07. Per-host composition and rows: `modules/hosts/common/imports.nix`, `modules/songbird/apps-enable.nix`, and `modules/tpnix/apps-enable.nix`.
     The imports hub wires base, SSH, sops, Duplicati, and the shared nixos-hardware profiles into every host.
-08. Base system and boot: `modules/base/` for core Nix settings, users, and locale, `modules/boot/` for boot compression and visuals, and `modules/hosts/common/boot.nix`.
+08. Base system and boot: `modules/base/` for core Nix settings and locale, `modules/boot/` for boot compression and visuals, and `modules/hosts/common/boot.nix`.
     The last carries the shared kernel, initrd, systemd-boot, crash dump, and sysctl policy.
 09. Home Manager, the dual-module pattern: [Home Manager](architecture/04-home-manager.md), `modules/home-manager/nixos.nix`, and `modules/home-manager/base.nix`.
 10. Secrets with sops-nix: `modules/security/sops-runtime.nix`, `modules/hosts/common/sops.nix`, and `modules/security/secrets.nix`.

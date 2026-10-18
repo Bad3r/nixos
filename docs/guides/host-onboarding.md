@@ -126,7 +126,7 @@ Precondition: the host boots through the ladder above.
 
 2. Add `<host>` to the fleet inventories in `docs/onboarding.md`, `docs/architecture/01-pattern-overview.md`, `docs/architecture/04-home-manager.md`, and `docs/architecture/host-file-inventory.md`.
    Add host-specific module exports to `docs/architecture/03-nixos-modules.md` only when the host introduces them.
-   If the host adds documentation pages, they go under `docs/hosts/<host>/`; add that directory to `docs/architecture/README.md` and its pages to `docs/index.md`.
+   Its host pages go under `docs/hosts/<host>/`; add that directory to `docs/architecture/README.md` and its pages to `docs/index.md`.
 
 3. No workflow edits are needed. `.github/workflows/check.yml` and `.github/workflows/update-flake.yml` derive the host list from `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`, so the new host is covered without touching either. `check.yml` only forces each host's `system.build.toplevel.drvPath` through `nix eval`, not `nix build --dry-run`, because Lix forces read-only store mode for `--dry-run` and that breaks eval-time store writes on the fresh runner; a compliance run proves the host evaluates to a derivation, not that its closure builds or substitutes. `update-flake.yml` is what builds each host closure: its `build-host` matrix gives every host its own runner and builds the host's kernel before `system.build.toplevel`, so a source-built kernel's build tree has the runner disk to itself.
 
