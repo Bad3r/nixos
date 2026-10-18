@@ -56,7 +56,7 @@ Rotation updates the policy and re-encrypts every managed secret, so no file sta
    sudo age-keygen -y /var/lib/sops-nix/key.txt.next
    ```
 
-2. Replace `host_pub_key` in `.sops.yaml` and the matching `hostPubKey` literal in `modules/security/sops-cleartext-check.nix` with the printed public key.
+2. Replace `host_pub_key` in `.sops.yaml` with the printed public key.
 
 3. Run `sops updatekeys` for every encrypted file under `secrets/`.
    Until it finishes, `secrets-no-cleartext` reports the existing payloads as cleartext, because their metadata still names the retired recipient.

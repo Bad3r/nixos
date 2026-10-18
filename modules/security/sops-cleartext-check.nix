@@ -33,11 +33,34 @@ let
     line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
   ) policyContentLines;
   recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyContentLines;
-  # Keep this literal synchronized with .sops.yaml.
-  # Key Rotation must update both before `sops updatekeys` re-encrypts payloads.
-  hostPubKey = "age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf";
+  # .sops.yaml is the only place the recipient is written; the marker detector
+  # below requires it in every encrypted payload.
+  hostKeyLines = lib.filter (lib.hasInfix "&host_pub_key") policyContentLines;
+  hostKeyLine =
+    if hostKeyLines == [ ] then
+      throw (
+        "sops-cleartext-check.nix: .sops.yaml has no `  - &host_pub_key <age recipient>` line "
+        + "under keys:, so the check has no host recipient to require in encrypted payloads."
+      )
+    else if builtins.length hostKeyLines > 1 then
+      throw (
+        "sops-cleartext-check.nix: .sops.yaml carries ${toString (builtins.length hostKeyLines)} "
+        + "&host_pub_key lines; keep exactly one, so the host recipient is unambiguous."
+      )
+    else
+      builtins.head hostKeyLines;
+  hostKeyValue = builtins.match "[[:space:]]*-[[:space:]]+&host_pub_key[[:space:]]+([^[:space:]]+)[[:space:]]*" hostKeyLine;
+  hostPubKey =
+    if hostKeyValue == null then
+      throw (
+        "sops-cleartext-check.nix: the &host_pub_key line in .sops.yaml is malformed: "
+        + "'${hostKeyLine}'. Write it as `  - &host_pub_key <age recipient>`."
+      )
+    else
+      builtins.head hostKeyValue;
   hostKey = "  - &host_pub_key " + hostPubKey;
-  hostKeyLine = hostKey + "\n";
+  # age X25519 recipients are Bech32: the age1 prefix, then 58 data characters.
+  bech32Chars = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
   expectedNestedLines = [
     "    encrypted_regex: \"^(github_token)$\""
     "    key_groups:"
@@ -75,7 +98,7 @@ let
     }
     {
       name = "host-key-anchor";
-      want = lib.hasInfix hostKeyLine policyContent;
+      want = builtins.match "  - &host_pub_key age1[${bech32Chars}]{58}" hostKeyLine != null;
     }
     {
       name = "act-yaml-field-policy";
