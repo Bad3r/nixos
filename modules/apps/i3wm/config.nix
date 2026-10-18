@@ -5,12 +5,13 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
-      osConfig ? { },
+      osConfig,
       pkgs,
       lib,
       ...
     }:
     let
+      nixosEnabled = osConfig != null && osConfig.services.xserver.windowManager.i3.enable;
       hostI3Cfg = lib.attrByPath [ "gui" "i3" ] { } osConfig;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
       # Home Manager's rofi carries the plugins; its finalPackage exists only while the rofi row is on.
@@ -532,7 +533,7 @@
         };
       };
 
-      config = {
+      config = lib.mkIf nixosEnabled {
         # Expose resolved commands for other modules (e.g., keybindings.nix)
         gui.i3.commands = lib.mkDefault commandsDefault;
 

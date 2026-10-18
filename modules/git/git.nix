@@ -4,7 +4,7 @@
     {
       config,
       pkgs,
-      osConfig ? { },
+      osConfig,
       ...
     }:
     let

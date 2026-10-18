@@ -18,7 +18,7 @@ Importing the Home Manager module alone does nothing, because the toggle must be
 
 Hosts whose registry entry has `shareCommon = true` receive espanso through the common host modules:
 
-- `modules/hosts/common/home-manager-apps.nix` adds `flake.homeManagerModules.apps.espanso` to `home-manager.sharedModules` through `sharedAppNames`.
+- `modules/hosts/common/home-manager-apps.nix` adds `flake.homeManagerModules.apps.espanso`, with every other Home Manager app module, to `home-manager.sharedModules`.
 - `modules/hosts/common/apps-enable.nix` turns the `espanso` row on in its `services` block at `lib.mkOverride 1100`.
 
 Those hosts need no separate Home Manager import.

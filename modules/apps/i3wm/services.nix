@@ -4,7 +4,7 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
-      osConfig ? { },
+      osConfig,
       pkgs,
       lib,
       ...

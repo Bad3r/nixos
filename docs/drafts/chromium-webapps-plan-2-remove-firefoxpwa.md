@@ -55,7 +55,6 @@ ______________________________________________________________________
 - `modules/browsers/_gecko-mk-profile.nix`: drop the two pass-through arguments
 - `modules/browsers/firefox/home.nix`: drop the osConfig lookups and the native-messaging host
 - `modules/browsers/librewolf/home.nix`: same
-- `modules/hosts/common/home-manager-apps.nix:84`: drop `"firefoxpwa"`
 - `modules/hosts/common/apps-enable.nix:155`: drop the catalog entry
 - `modules/tpnix/apps-enable.nix:79-84`: drop the `dmail.enable` override block
 - `modules/meta/cache-roots.nix:52`: drop `"firefoxpwa"`
@@ -194,10 +193,9 @@ In each, delete the `firefoxpwaEnabled` / `firefoxpwaPackage` `lib.attrByPath` l
 
 `nix flake check` cannot pass here, so do not run it. Task 2 deleted
 `modules/browsers/firefoxpwa/` while every host-side reference to it is still in the tree:
-`modules/hosts/common/home-manager-apps.nix` lists `"firefoxpwa"` in `sharedBrowserNames` and its
-`getBrowserModule` throws when the module is absent, `modules/hosts/common/apps-enable.nix` and
-`modules/tpnix/apps-enable.nix` assign `programs.firefoxpwa.*` options that no longer exist, and
-`modules/meta/cache-roots.nix` resolves `programs.firefoxpwa.extended.package`. Task 4 removes all four and runs the
+`modules/hosts/common/apps-enable.nix` and `modules/tpnix/apps-enable.nix` assign `programs.firefoxpwa.*` options
+that no longer exist, and `modules/meta/cache-roots.nix` resolves `programs.firefoxpwa.extended.package`. Task 4
+removes all three and runs the
 full check at its Step 8. Running it here reports Task 4's outstanding work as a failure of this task and sends the
 operator into the `_gecko-*.nix` files for an error that is not there.
 
@@ -243,8 +241,6 @@ removes the host-side references that still name the module tree deleted in the 
 
 **Files:**
 
-- Modify: `modules/hosts/common/home-manager-apps.nix:84`
-
 - Modify: `modules/hosts/common/apps-enable.nix:155`
 
 - Modify: `modules/tpnix/apps-enable.nix:79-84`
@@ -255,18 +251,10 @@ removes the host-side references that still name the module tree deleted in the 
 
 - Modify: `pyproject.toml:13-14,36`
 
-- [ ] **Step 1: Remove the shared browser registration**
+- [ ] **Step 1: Confirm the browser module is gone from Home Manager**
 
-In `modules/hosts/common/home-manager-apps.nix`, delete the `"firefoxpwa"` element from `sharedBrowserNames` so the list reads:
-
-```nix
-  sharedBrowserNames = [
-    "firefox"
-    "google-chrome"
-    "librewolf"
-    "ungoogled-chromium"
-  ];
-```
+`modules/hosts/common/home-manager-apps.nix` loads every `flake.homeManagerModules.browsers` module that exists, so
+deleting `modules/browsers/firefoxpwa/` in Task 2 already removed `browsers.firefoxpwa`; nothing changes here.
 
 - [ ] **Step 2: Remove the catalog entry**
 
@@ -329,11 +317,11 @@ task's `refactor(hosts)!` commit would misstate that commit's scope.
 ```bash
 nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
-git add modules/hosts/common/home-manager-apps.nix modules/hosts/common/apps-enable.nix \
+git add modules/hosts/common/apps-enable.nix \
   modules/tpnix/apps-enable.nix modules/meta/cache-roots.nix .github/workflows/update-flake.yml pyproject.toml
 git commit -m "refactor(hosts)!: drop firefoxpwa from the app catalog and CI
 
-Removes the shared browser registration, the common baseline and tpnix dmail override, the cache root that existed
+Removes the common baseline and tpnix dmail override, the cache root that existed
 only because the deleted overlay forced a firefoxpwa-unwrapped rebuild, the update-flake pin sync step and the ruff
 target for the deleted script.
 

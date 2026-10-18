@@ -80,7 +80,7 @@
           };
         };
         default = { };
-        description = "Aggregated Home Manager modules loaded into each NixOS host's `home-manager.users.<owner>.imports` via `modules/home-manager/nixos.nix`";
+        description = "Aggregated Home Manager modules: `modules/home-manager/nixos.nix` imports the core ones for the owner, and `modules/hosts/common/home-manager-apps.nix` adds every `apps` and `browsers` module to `home-manager.sharedModules`";
       };
 
       # Cybersecurity-tooling NixOS modules. Declared with attrsOf

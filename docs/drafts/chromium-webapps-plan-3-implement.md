@@ -191,7 +191,6 @@ ______________________________________________________________________
 
 - `modules/browsers/brave/apps.nix`: import the shared hardened set instead of defining it inline
 - `modules/browsers/brave-origin/apps.nix`: gain `enableManagedPolicies` / `managedPolicies`, write `/etc/brave/policies/managed/extended.json`
-- `modules/hosts/common/home-manager-apps.nix`: add `"webapps"` to `sharedBrowserNames`
 - `modules/meta/cache-roots.nix`: add `"brave-origin"`
 - `docs/reference/binary-cache-coverage.md`: add the matching `brave-origin` inventory row
 - `docs/architecture/04-home-manager.md`: add a sentence for the webapps pair spanning both scopes, after the
@@ -224,9 +223,8 @@ cd "$HOME/trees/nixos/feat-chromium-webapps"
 ```
 
 `origin/main`, not `main`. This phase assumes phase 2 has landed, and a local `main` that has not been pulled since
-that merge still carries `modules/browsers/firefoxpwa/` and still lists `"firefoxpwa"` in `sharedBrowserNames`. Cut
-from there, Task 12 Step 2 adds `"webapps"` to a list that still holds the deleted browser and `getBrowserModule`
-throws for it, and Task 15 Step 1's `git log --diff-filter=D` finds no deletion commit, leaving `git show "^:<path>"`
+that merge still carries `modules/browsers/firefoxpwa/`. Cut from there, Task 15 Step 1's
+`git log --diff-filter=D` finds no deletion commit, leaving `git show "^:<path>"`
 as the recovery command. Naming a remote-tracking start point also removes the case where the primary checkout is on
 some other branch entirely.
 
@@ -1830,8 +1828,6 @@ nix build path:.#checks.x86_64-linux.\"browsers/webapps-keepalive-id\", proven r
 
 - Create: `modules/browsers/webapps/enable.nix`
 
-- Modify: `modules/hosts/common/home-manager-apps.nix`
-
 - [ ] **Step 1: Write the Home Manager module**
 
 Create `modules/browsers/webapps/home.nix`:
@@ -2103,19 +2099,10 @@ Create `modules/browsers/webapps/home.nix`:
 }
 ```
 
-- [ ] **Step 2: Register the module with the shared browser set**
+- [ ] **Step 2: Confirm the module loads**
 
-In `modules/hosts/common/home-manager-apps.nix`, add `"webapps"` to `sharedBrowserNames`:
-
-```nix
-  sharedBrowserNames = [
-    "firefox"
-    "google-chrome"
-    "librewolf"
-    "ungoogled-chromium"
-    "webapps"
-  ];
-```
+`modules/hosts/common/home-manager-apps.nix` loads every `flake.homeManagerModules.browsers` module, so
+`browsers.webapps` needs no registration, and its `programs.webapps.enable` guard keeps it inert until Step 3.
 
 - [ ] **Step 3: Turn the module on**
 
@@ -2222,8 +2209,7 @@ drops every URL `xdg-open` hands it, silently.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add modules/browsers/webapps/home.nix modules/browsers/webapps/enable.nix \
-  modules/hosts/common/home-manager-apps.nix
+git add modules/browsers/webapps/home.nix modules/browsers/webapps/enable.nix
 git commit -m "feat(webapps): build per-app launchers, profiles and tray entries
 
 Each launcher runs the browser against its own --user-data-dir, which is the isolation the firefoxpwa installer never

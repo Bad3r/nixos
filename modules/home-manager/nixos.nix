@@ -58,12 +58,8 @@ let
 
       # Helper for better error messages
       availableModules = builtins.attrNames hmModules;
-      availableApps =
-        if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
       formatModuleList =
         modules: lib.concatMapStringsSep "\n          - " (m: "homeManagerModules.${m}") modules;
-      formatAppList =
-        apps: lib.concatMapStringsSep "\n          - " (a: "homeManagerModules.apps.${a}") apps;
     in
     if module != null then
       module
@@ -74,47 +70,10 @@ let
         Available top-level modules:
           - ${formatModuleList availableModules}
 
-        Available app modules:
-          - ${formatAppList availableApps}
-
         Searched in:
           - config.flake.homeManagerModules.${builtins.concatStringsSep "." (map toString hmAttrPath)}
           - inputs.self.homeManagerModules.${builtins.concatStringsSep "." (map toString hmAttrPath)}
           - File: ${toString path}
-      '';
-
-  loadAppModule =
-    name:
-    let
-      filePath = ../hm-apps + "/${name}.nix";
-      moduleFromConfig = lib.attrByPath [ "apps" name ] null hmModules;
-      availableApps =
-        if builtins.hasAttr "apps" hmModules then builtins.attrNames hmModules.apps else [ ];
-      formatAppList =
-        apps: lib.concatMapStringsSep "\n          - " (a: "homeManagerModules.apps.${a}") apps;
-    in
-    if moduleFromConfig != null then
-      moduleFromConfig
-    else if builtins.pathExists filePath then
-      loadHomeModule filePath [
-        "flake"
-        "homeManagerModules"
-        "apps"
-        name
-      ]
-    else
-      throw ''
-        Home Manager app module not found: ${name}
-
-        Expected locations:
-          - config.flake.homeManagerModules.apps.${name}
-          - File: ${toString filePath}
-
-        Available app modules:
-          - ${formatAppList availableApps}
-
-        Hint: Ensure the module file exists at modules/hm-apps/${name}.nix
-              or is exported via flake.homeManagerModules.apps.${name}
       '';
 
   stateVersionModule =
@@ -154,14 +113,6 @@ let
     "virustotalSecrets"
   ];
 
-  defaultAppImports = [
-    "codex"
-    "bat"
-    "fzf"
-    "git-mirror"
-    "kitty"
-  ];
-  appModules = map loadAppModule defaultAppImports;
   coreModules = [
     stateVersionModule
     baseModule
@@ -174,9 +125,6 @@ let
 
 in
 {
-  # modules/hosts/common/home-manager-apps.nix rejects sharedAppNames entries that repeat these.
-  flake.lib.homeManager.defaultAppImports = defaultAppImports;
-
   flake.nixosModules = {
     base = {
       imports = [ inputs.home-manager.nixosModules.home-manager ];
@@ -200,7 +148,7 @@ in
           home.username = ownerName;
           home.homeDirectory = "/home/${ownerName}";
 
-          imports = coreModules ++ appModules;
+          imports = coreModules;
         };
       };
     };
