@@ -28,7 +28,7 @@ readiness flag and the encrypted `secrets/r2.yaml` payload.
   `home.r2Secrets.enable` defaults)
 - `modules/security/r2-cloud-secrets.nix` (system secrets/templates)
 - `modules/home/r2-secrets.nix` (HM secrets/template)
-- `modules/security/sops-policy.nix` (SOPS creation rule for `secrets/r2.yaml`)
+- `.sops.yaml` (SOPS creation rule for `secrets/r2.yaml`)
 
 ## Not Covered
 

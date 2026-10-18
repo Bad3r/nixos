@@ -58,11 +58,11 @@ repository-wide workflow, commit, PR, safety, and Nix module rules.
   covered separately, under a scrubbed `PATH`, by the
   `script-tests-cache-coverage-wrapper-inputs` check, since no suite exercises
   them. Both suites write their own copy of the `.gitignore` secrets block, so
-  the ten patterns `secrets_guard_paths` requires are pinned to
-  `modules/development/gitignore.nix` by a third check,
+  the ten patterns `secrets_guard_paths` requires are pinned to the committed
+  `.gitignore` by a third check,
   `script-tests-secrets-guard-gitignore-contract`, which runs that parser over
-  the committed file: a generator edit that drops one otherwise leaves every
-  gate green and takes the guard down on the next real run.
+  that file: an edit that drops one otherwise leaves every gate green and
+  takes the guard down on the next real run.
 - `updater/`: shared Python library for package updater scripts. Reuse these
   helpers instead of duplicating HTTP, hash, Nix, npm, or version parsing logic.
   Nix invocations must use spellings Lix implements: `nix hash to-sri`, not the

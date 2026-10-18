@@ -36,7 +36,7 @@ rg -n 'enableExternalFlake' modules/lib/r2-runtime.nix modules/songbird/r2-runti
 Fix:
 
 - restore the gated imports in `modules/lib/r2-runtime.nix`
-- note that `mkHostR2Module` assigns producer options only when
+- `mkHostR2Module` assigns producer options only when
   `policy.enableExternalFlake` is true, so a missing-option error usually
   means an `r2` option is referenced outside the gated helper
 
@@ -46,7 +46,7 @@ Checks:
 
 ```bash
 test -f secrets/r2.yaml && echo present || echo missing
-rg -n 'path_regex: secrets/r2\\.yaml' modules/security/sops-policy.nix
+rg -n 'path_regex: secrets/r2\\.yaml' .sops.yaml
 rg -n 'r2SecretExists|builtins\.pathExists' modules/security/r2-cloud-secrets.nix
 rg -n 'r2CloudSecrets\.enable' modules/hosts/common/imports.nix modules/songbird modules/tpnix
 ```

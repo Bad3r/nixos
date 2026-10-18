@@ -38,10 +38,6 @@ never a goal: remove legacy support instead of carrying both paths.
   user.
 - Unfree packages are allowlisted with `nixpkgs.allowedUnfreePackages` next to
   the module that installs them.
-- Generated files (`README.md`, `.gitignore`, the gitleaks and sops configs,
-  and the rest declared in `modules/files.nix`) are compared byte for byte by
-  a check: edit the Nix source, then run
-  `nix develop path:. --accept-flake-config -c write-files --offline`.
 - Local mirrors are listed in `modules/hosts/common/mirrors.nix` by GitHub
   `owner/repo` shorthand (`tridactyl/tridactyl` lands at
   `/data/git/tridactyl-tridactyl`); `docs/reference/local-mirrors.md` covers

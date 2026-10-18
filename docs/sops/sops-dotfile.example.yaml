@@ -1,11 +1,10 @@
 # .sops.yaml -- EXAMPLE recipient policy
 # Generic template, not this repo's live policy.
 #
-# The live policy for this repository is the generated `.sops.yaml` at the repo
-# root (source: modules/security/sops-policy.nix). It currently uses a single
-# host Age recipient (`host_pub_key`). This example shows a broader
-# multi-recipient, multi-environment layout for reference only; its keys are
-# placeholders.
+# The live policy for this repository is the `.sops.yaml` at the repo root.
+# It currently uses a single host Age recipient (`host_pub_key`). This example
+# shows a broader multi-recipient, multi-environment layout for reference only;
+# its keys are placeholders.
 #
 # Purpose
 # - Define who (recipients) can encrypt/decrypt new secrets

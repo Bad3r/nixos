@@ -3,7 +3,7 @@
 A secret is an encrypted YAML file under `secrets/`, one declaration per consumed key in the module that owns it, and a consumer that reads the runtime path.
 The policy and the age key are in [sops-nix Usage](README.md).
 
-1. Confirm the recipient exists in `.sops.yaml`, regenerating it with `nix develop path:. -c write-files` after an edit to the policy module.
+1. Confirm the recipient exists in `.sops.yaml`.
 
 2. Create or edit the encrypted file:
 
