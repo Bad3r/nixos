@@ -86,7 +86,7 @@ in
 
 `lib.mkIf`, `lib.mkMerge`, and the other option helpers extend shared modules without clobbering their defaults.
 General Nix daemon and evaluator settings stay in `modules/base/nix-settings.nix`.
-Cache topology and download retry settings belong in `modules/hosts/common/nix-substituters.nix`.
+Cache topology and download retry settings belong in `.github/actions/install-lix/substituters.conf`, which `modules/hosts/common/nix-substituters.nix` applies to every common host.
 
 ## Host Module
 

@@ -33,15 +33,12 @@ never a goal: remove legacy support instead of carrying both paths.
 - Everything runs Lix from the nixpkgs pin (`modules/base/nix-package.nix`).
   `flake.nix#nixConfig` carries only what Lix needs before the module graph
   loads; `modules/base/nix-settings.nix` owns the rest, and cache topology sits
-  in `modules/hosts/common/nix-substituters.nix` and
+  in `.github/actions/install-lix/substituters.conf` (read by
+  `modules/hosts/common/nix-substituters.nix`) and
   `modules/meta/cache-roots.nix`. Adding a cache is a policy decision for the
   user.
 - Unfree packages are allowlisted with `nixpkgs.allowedUnfreePackages` next to
   the module that installs them.
-- Generated files (`README.md`, `.gitignore`, the gitleaks and sops configs,
-  and the rest declared in `modules/files.nix`) are compared byte for byte by
-  a check: edit the Nix source, then run
-  `nix develop path:. --accept-flake-config -c write-files --offline`.
 - Local mirrors are listed in `modules/hosts/common/mirrors.nix` by GitHub
   `owner/repo` shorthand (`tridactyl/tridactyl` lands at
   `/data/git/tridactyl-tridactyl`); `docs/reference/local-mirrors.md` covers

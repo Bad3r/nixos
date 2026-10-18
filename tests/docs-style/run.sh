@@ -271,9 +271,9 @@ test_option_and_assignment_shaped_filenames_are_checked() {
 # a page skipped when it should be checked or checked when it should be
 # skipped. Each fixture is over the cap, so being checked is visible.
 
-# Only the root README.md is generated; the ones under docs/ are hand-written
+# The root README.md is the GitHub landing page; the ones under docs/ are
 # index pages, and a basename match once exempted all of them.
-test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not() {
+test_the_root_readme_is_exempt_and_the_docs_readmes_are_not() {
   local repo
   repo="$(make_repo readme)"
   write_lines "${repo}/README.md" 151
@@ -930,7 +930,7 @@ test_an_argument_that_is_not_a_file_is_a_violation
 test_a_path_outside_the_repository_is_one_report
 test_an_empty_argument_is_a_violation_not_an_abort
 test_option_and_assignment_shaped_filenames_are_checked
-test_the_generated_root_readme_is_exempt_and_the_docs_readmes_are_not
+test_the_root_readme_is_exempt_and_the_docs_readmes_are_not
 test_agent_instruction_files_are_exempt_by_exact_name
 test_drafts_the_manual_and_test_fixtures_are_exempt_by_directory
 test_an_exempt_path_is_matched_however_it_is_spelled

@@ -55,7 +55,6 @@ let
             "evilmartians/lefthook"
             "hercules-ci/flake-parts"
             "hercules-ci/flake.parts-website"
-            "mightyiam/files"
             "numtide/treefmt"
             "numtide/treefmt-nix"
             "vic/import-tree"

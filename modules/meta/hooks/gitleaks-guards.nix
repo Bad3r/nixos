@@ -11,7 +11,8 @@
 # check-compliance forces drvPaths and never builds check outputs, so this
 # derivation is built explicitly by the gitleaks-scan job. Adding it to `checks`
 # alone would assert nothing.
-_: {
+{ rootPath, ... }:
+{
   perSystem =
     {
       config,
@@ -21,7 +22,7 @@ _: {
     }:
     let
       managedConfigNames = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
-        lib.attrNames config.files.file
+        lib.attrNames (builtins.readDir rootPath)
       );
     in
     {
@@ -111,9 +112,9 @@ _: {
               printf '%s' "$hook_out" | grep -q 'leaks found:' || fail "$1: credential went undetected"
             }
 
-            # The source contract check quantifies over generated files, while
-            # the hook selects configs through shell literals. Keep the two
-            # directions load-bearing: a generated config with a contract must
+            # The source contract check quantifies over the configs in the
+            # tree, while the hook selects configs through shell literals. Keep
+            # the two directions load-bearing: a config with a contract must
             # reach a --config branch or it would read as reviewed while
             # governing no scan.
             hook_selections=$(
@@ -122,7 +123,7 @@ _: {
             )
             for cfg in ${lib.escapeShellArgs managedConfigNames}; do
               printf '%s\n' "$hook_selections" | grep -qF -- "$cfg" \
-                || fail "managed config $cfg is generated but never reaches a --config branch"
+                || fail "managed config $cfg is in the tree but never reaches a --config branch"
             done
 
             # The converse direction, argument side: every --config/-c
@@ -136,12 +137,6 @@ _: {
             # the value instead of pinning the argument token itself. This
             # bounds which variable may reach --config/-c; it does not bound
             # what that variable is assigned, which the next check covers.
-            # Matching an unquoted value here once misread the presence-check
-            # message's "nix develop --accept-flake-config -c write-files" as
-            # a second -c token; that instruction is spelled --command below
-            # instead, since nix develop's -c is short for --command, so no
-            # remaining text in the hook contains an unrelated -c to collide
-            # with matching both quoting styles.
             # -c[ =]* alone, without also requiring the flag to start a
             # shell word, would match inside --count on the two rev-list
             # --all --count lines below (the '-c' at its second and third
@@ -164,7 +159,7 @@ _: {
             # reaching --config, not that every value ever assigned to it is
             # a managed config. A third branch assigning
             # submodule_config="ci/rogue.toml" passes the pin above (the
-            # token is still "$submodule_config") and the generated->hook
+            # token is still "$submodule_config") and the config->hook
             # loop before it (both existing managed names still reach a
             # branch), so nothing else catches it. Extraction accepts an
             # unquoted or $-valued right-hand side rather than excluding
@@ -177,7 +172,7 @@ _: {
             # a membership loop over an empty result runs zero iterations and
             # reports success. Renaming submodule_config to a name not ending
             # in _config would have emptied this extraction while the
-            # argument pin and the generated->hook loop both stayed green,
+            # argument pin and the config->hook loop both stayed green,
             # since neither reads this variable's name. The unquoted `for val
             # in $hook_config_values` this replaces was also subject to glob
             # expansion against the build directory's own files.
@@ -242,7 +237,7 @@ _: {
             # nothing.
             write_config() {
               ${lib.concatMapStringsSep "\n              " (
-                n: "printf '%s' ${lib.escapeShellArg config.files.file.${n}.text} > \"$1/${n}\""
+                n: "printf '%s' ${lib.escapeShellArg (builtins.readFile (rootPath + "/${n}"))} > \"$1/${n}\""
               ) managedConfigNames}
             }
 

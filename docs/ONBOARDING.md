@@ -28,8 +28,6 @@ These patterns recur everywhere:
 - [Secrets](sops/README.md): sops-nix payloads in the `secrets/` submodule, decrypted by one age key.
 - `modules/agents/system-prompt.nix` renders the shared agent baseline into the user-level `~/.claude/CLAUDE.md` and `~/.config/codex/AGENTS.md`, and `modules/agents/mcp.nix` compiles the per-client MCP server lists.
   Edit the source, not the rendered output.
-- `.gitignore`, `README.md`, `.sops.yaml`, and `.actrc` belong to the files module.
-  Edit their source definitions and regenerate them with `write-files`; drift hooks fail the build on a hand-edited output.
 - `build.sh` runs the git hooks and `nix flake check`, then switches or boots through `nh os`, and refuses a dirty tree without `--allow-dirty`.
   `.github/workflows/check.yml` enforces the same Dendritic compliance in CI.
 

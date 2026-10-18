@@ -22,10 +22,6 @@
 
   inputs = {
     self.submodules = true;
-    files = {
-      url = "github:mightyiam/files";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
 
     flake-parts = {
       url = "github:hercules-ci/flake-parts";

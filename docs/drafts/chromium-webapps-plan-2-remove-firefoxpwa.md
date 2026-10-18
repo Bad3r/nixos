@@ -326,7 +326,7 @@ target for the deleted script.
 Validation: nix flake check path:. --accept-flake-config --no-build --offline"
 ```
 
-### Task 5: Update documentation and regenerate managed artifacts
+### Task 5: Update documentation and README.md
 
 **Files:**
 
@@ -336,7 +336,7 @@ Validation: nix flake check path:. --accept-flake-config --no-build --offline"
 
 - Modify: `modules/apps/rclone/proton-drive-check.nix`
 
-- Regenerate: `README.md`
+- Modify: `README.md` (only when Step 4 finds a match)
 
 - [ ] **Step 1: Rewrite the browser-modules paragraph**
 
@@ -378,14 +378,13 @@ Do not repoint it at `modules/browsers/webapps/module-check.nix`. That file does
 naming it here is the same defect Step 1 avoids in `04-home-manager.md`. The clause only recorded design lineage; the
 sentence still describes the mechanism correctly without it.
 
-- [ ] **Step 4: Regenerate managed artifacts**
+- [ ] **Step 4: Check `README.md`**
 
 ```bash
-nix develop path:. --accept-flake-config -c write-files --offline
-git diff --stat
+rg -n -i firefoxpwa README.md
 ```
 
-Expected: a `README.md` diff only if firefoxpwa appeared in generated output. Review it before staging.
+Expected: no output. Edit any line it reports before staging.
 
 - [ ] **Step 5: Confirm the reference set is empty**
 

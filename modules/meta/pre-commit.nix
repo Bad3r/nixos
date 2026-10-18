@@ -143,19 +143,6 @@ _: {
               ];
             };
 
-            managed-files-drift = {
-              enable = true;
-              name = "managed-files-drift";
-              description = "Ensure managed files are synced with Nix definitions.";
-              entry = "${config.packages.hook-managed-files-drift}/bin/hook-managed-files-drift";
-              pass_filenames = false;
-              always_run = true;
-              stages = [
-                "pre-push"
-                "manual"
-              ];
-            };
-
             apps-catalog-sync = {
               enable = true;
               name = "apps-catalog-sync";

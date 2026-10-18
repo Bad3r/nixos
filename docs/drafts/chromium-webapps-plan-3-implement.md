@@ -195,9 +195,9 @@ ______________________________________________________________________
 - `docs/reference/binary-cache-coverage.md`: add the matching `brave-origin` inventory row
 - `docs/architecture/04-home-manager.md`: add a sentence for the webapps pair spanning both scopes, after the
   sibling-merge sentence phase 2 left without a worked example
-- `docs/index.md`: add the `reference/webapps.md` row `docs/AGENTS.md` requires, which `write-files` cannot generate
+- `docs/index.md`: add the `reference/webapps.md` row `docs/AGENTS.md` requires
 - `secrets/gecko.yaml`: add `gecko_work_bookmark_origin_1`, committed and pushed inside the submodule (Task 16)
-- `docs/reference/local-mirrors.md` is untouched; `README.md` is regenerated
+- `docs/reference/local-mirrors.md` is untouched
 
 ______________________________________________________________________
 
@@ -2935,8 +2935,6 @@ launcher opens a URL the policy grants nothing to.
 
 - Modify: `docs/index.md`
 
-- Regenerate: `README.md`
-
 - [ ] **Step 1: Write the operator reference**
 
 Create `docs/reference/webapps.md`:
@@ -3159,8 +3157,7 @@ ls modules/browsers/webapps/home.nix modules/browsers/webapps/nixos.nix
 
 Expected: the sentence names both files, and both exist.
 
-`docs/index.md` is hand-maintained and `docs/AGENTS.md` requires an entry for every page. It is not a
-`config.files.file` artifact, so Step 3's `write-files` cannot add the row. Add it under `## Reference`,
+`docs/index.md` is hand-maintained and `docs/AGENTS.md` requires an entry for every page. Add it under `## Reference`,
 alphabetically between `useful-commands.md` and `worktree-prune.md`, as a link line plus its indented summary:
 
 ```markdown
@@ -3177,10 +3174,9 @@ Expected: no output. The check reports `< webapps.md` while the row is missing. 
 hook that reads `docs/` is `modules/meta/hooks/mcp-docs-sync.nix`, and it checks `docs/reference/mcp-tools.md` alone.
 Commit `78b1f775` exists because PR #383 shipped two reference pages without their index rows.
 
-- [ ] **Step 3: Regenerate managed artifacts**
+- [ ] **Step 3: Review the diff**
 
 ```bash
-nix develop path:. --accept-flake-config -c write-files --offline
 git diff --stat
 ```
 

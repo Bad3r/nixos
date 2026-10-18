@@ -2,23 +2,19 @@
   CI substituter parity (issue #382)
 
   The Lix installer writes no substituters, so a runner reads cache.nixos.org
-  alone unless .github/actions/install-lix appends the generated
+  alone unless .github/actions/install-lix appends its
   substituters.conf to NIX_INSTALLER_EXTRA_CONF. Without it cache-push
   rebuilds every cache root on each push, including the closure it pushed an
-  hour earlier. This module generates that file from the host cache list that
-  modules/hosts/common/nix-substituters.nix exports, and fails evaluation when
+  hour earlier. Hosts read the same file through
+  modules/hosts/common/nix-substituters.nix. This module fails evaluation when
   the action stops appending it or drops the step that verifies the installed
   result. throw, not a failing derivation: CI only forces each check's
   drvPath, so only an eval-time failure gates it.
 */
-{ config, lib, ... }:
+{ lib, ... }:
 let
   substituterConfPath = ".github/actions/install-lix/substituters.conf";
   actionFile = ../../.github/actions/install-lix/action.yml;
-
-  caches =
-    config.flake.lib.nixos.substituterCaches
-      or (throw "modules/hosts/common/nix-substituters.nix no longer exports flake.lib.nixos.substituterCaches");
 
   # Uncommented lines only: commenting the append out is how it gets disabled,
   # and every infix below survives inside a comment. Same hazard
@@ -42,14 +38,6 @@ in
   perSystem =
     { pkgs, ... }:
     {
-      files.file.${substituterConfPath}.text = ''
-        extra-substituters = ${lib.concatMapStringsSep " " (cache: cache.url) caches}
-        extra-trusted-public-keys = ${lib.concatMapStringsSep " " (cache: cache.key) caches}
-        connect-timeout = 30
-        download-attempts = 3
-        stalled-download-timeout = 300
-      '';
-
       checks.ci-substituter-parity =
         if appendsConf then
           pkgs.runCommandLocal "ci-substituter-parity" { } "touch $out"

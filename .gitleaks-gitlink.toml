@@ -5,7 +5,4 @@ useDefault = true
 
 [[allowlists]]
 description = "DNSCrypt resolvers-list public minisign verification key"
-regexes = [
-  "RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3",
-]
-
+regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]

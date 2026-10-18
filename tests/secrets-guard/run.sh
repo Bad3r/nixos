@@ -67,7 +67,7 @@ init_repo() {
   git -C "${repo}" config user.name "secrets-guard tests"
 }
 
-# The block as modules/development/gitignore.nix emits it, comments included:
+# The block as the committed .gitignore carries it, comments included:
 # the parser skips comment lines and stops at the first blank one, and the two
 # secrets/ entries are what it reduces to decrypted_* and *.dec.*. Written out
 # rather than read from the repo's own .gitignore so a mutation test can change
@@ -653,15 +653,15 @@ test_enforce_honours_the_override() {
   pass
 }
 
-# A tree that owns the generator and has lost the heading has drifted, and that
+# A tree that tracks the guard and has lost the heading has drifted, and that
 # has to fail closed rather than read as a repository that never had the block.
-test_enforce_fails_closed_when_the_generator_is_tracked() {
+test_enforce_fails_closed_when_the_guard_is_tracked() {
   local repo
   repo="$(make_repo enforce-drift)"
-  mkdir -p "${repo}/modules/development"
-  : >"${repo}/modules/development/gitignore.nix"
-  git -C "${repo}" add modules/development/gitignore.nix
-  git -C "${repo}" commit -q -m "add the generator"
+  mkdir -p "${repo}/scripts/lib"
+  : >"${repo}/scripts/lib/secrets-guard.sh"
+  git -C "${repo}" add scripts/lib/secrets-guard.sh
+  git -C "${repo}" commit -q -m "add the guard"
   sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
 
   enforce "${repo}"
@@ -672,16 +672,16 @@ test_enforce_fails_closed_when_the_generator_is_tracked() {
 # grep answers 0 match, 1 no match and 2 could not read, and -f is true for a
 # file the process cannot open, so folding 2 into "no heading" was wrong both
 # ways. A foreign tree took the skip and returned 0 with path: already selected,
-# which is the fail-open, and a tree owning the generator reached the parser,
+# which is the fail-open, and a tree tracking the guard reached the parser,
 # which blamed drift in a block awk could not read either.
 test_enforce_splits_an_unreadable_gitignore_from_a_missing_block() {
   local repo foreign
 
   repo="$(make_repo enforce-unreadable)"
-  mkdir -p "${repo}/modules/development"
-  : >"${repo}/modules/development/gitignore.nix"
-  git -C "${repo}" add modules/development/gitignore.nix
-  git -C "${repo}" commit -q -m "add the generator"
+  mkdir -p "${repo}/scripts/lib"
+  : >"${repo}/scripts/lib/secrets-guard.sh"
+  git -C "${repo}" add scripts/lib/secrets-guard.sh
+  git -C "${repo}" commit -q -m "add the guard"
   : >"${repo}/id_ed25519"
   chmod 000 "${repo}/.gitignore"
 
@@ -693,7 +693,7 @@ test_enforce_splits_an_unreadable_gitignore_from_a_missing_block() {
   ! grep -q 'did not yield the expected patterns' "${tmpdir}/enforce.err" ||
     fail "unreadable gitignore: blamed the block it never read" "${tmpdir}/enforce.err"
 
-  # The same file, in a tree that does not own the generator, is where the old
+  # The same file, in a tree that does not track the guard, is where the old
   # collapse returned 0 and copied the probe unscanned.
   foreign="$(make_repo enforce-unreadable-foreign)"
   : >"${foreign}/id_ed25519"
@@ -702,15 +702,14 @@ test_enforce_splits_an_unreadable_gitignore_from_a_missing_block() {
   enforce "${foreign}"
   [[ ${enforce_rc} -eq 2 ]] ||
     fail "unreadable gitignore, foreign tree: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  ! grep -q 'does not own modules/development/gitignore.nix' "${tmpdir}/enforce.err" ||
+  ! grep -q 'does not track scripts/lib/secrets-guard.sh' "${tmpdir}/enforce.err" ||
     fail "unreadable gitignore, foreign tree: skipped a file it could not read" "${tmpdir}/enforce.err"
   pass
 }
 
-# The same shape without the generator is an ordinary repository whose
-# .gitignore was never emitted from here, so aborting would name a module it
-# does not contain.
-test_enforce_skips_a_tree_that_does_not_own_the_generator() {
+# The same shape without the guard is an ordinary repository whose .gitignore
+# never carried the block, so aborting would demand a block it never had.
+test_enforce_skips_a_tree_that_does_not_track_the_guard() {
   local repo
   repo="$(make_repo enforce-foreign)"
   sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
@@ -718,7 +717,7 @@ test_enforce_skips_a_tree_that_does_not_own_the_generator() {
 
   enforce "${repo}"
   [[ ${enforce_rc} -eq 0 ]] || fail "foreign tree: expected rc 0, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'is not generated from this repo' "${tmpdir}/enforce.err" ||
+  grep -q 'is not this repository' "${tmpdir}/enforce.err" ||
     fail "foreign tree: no skip notice" "${tmpdir}/enforce.err"
   pass
 }
@@ -914,8 +913,8 @@ test_enforce_fails_closed_on_an_unopenable_repository() {
   pass
 }
 
-# Tracked but absent is the state the generator can produce, so it fails closed
-# where a tree that simply never had one is skipped.
+# Tracked but absent is drift, so it fails closed where a tree that simply
+# never had one is skipped.
 test_enforce_splits_a_missing_gitignore_by_tracked_state() {
   local repo bare
   repo="$(make_repo enforce-absent)"
@@ -939,26 +938,26 @@ test_enforce_splits_a_missing_gitignore_by_tracked_state() {
 
 # Every discriminator below the subdirectory branch resolves its pathspec
 # against ${dir}, so one level down they asked about sub/.gitignore and
-# sub/modules/development/gitignore.nix, which are never tracked, and each drift
+# sub/scripts/lib/secrets-guard.sh, which are never tracked, and each drift
 # state at the root read as a foreign tree and skipped. Both states abort from
 # the root itself, so the two answers have to agree; the probe is what the skip
 # would have let path: copy.
 test_enforce_fails_closed_on_drift_above_a_subdirectory() {
   local repo
   repo="$(make_repo enforce-subdir-drift)"
-  mkdir -p "${repo}/modules/development" "${repo}/sub"
-  : >"${repo}/modules/development/gitignore.nix"
+  mkdir -p "${repo}/scripts/lib" "${repo}/sub"
+  : >"${repo}/scripts/lib/secrets-guard.sh"
   : >"${repo}/sub/flake.nix"
-  git -C "${repo}" add modules/development/gitignore.nix sub/flake.nix
-  git -C "${repo}" commit -q -m "the generator and a subdirectory flake"
+  git -C "${repo}" add scripts/lib/secrets-guard.sh sub/flake.nix
+  git -C "${repo}" commit -q -m "the guard and a subdirectory flake"
   : >"${repo}/sub/id_ed25519"
 
   sed -i 's/^# Secrets safety (defense-in-depth)$/# Secrets safety/' "${repo}/.gitignore"
   enforce "${repo}/sub"
   [[ ${enforce_rc} -eq 2 ]] ||
     fail "renamed heading above: expected rc 2, got ${enforce_rc}" "${tmpdir}/enforce.err"
-  grep -q 'has no secrets block while that tree owns' "${tmpdir}/enforce.err" ||
-    fail "renamed heading above: the abort did not name the generator" "${tmpdir}/enforce.err"
+  grep -q 'has no secrets block while that tree tracks' "${tmpdir}/enforce.err" ||
+    fail "renamed heading above: the abort did not name the guard" "${tmpdir}/enforce.err"
 
   git -C "${repo}" checkout -q -- .gitignore
   rm "${repo}/.gitignore"
@@ -1064,8 +1063,8 @@ test_enforce_returns_zero_on_a_clean_tree
 test_enforce_reports_a_hit_and_names_the_copier
 test_enforce_keeps_stdout_clear
 test_enforce_honours_the_override
-test_enforce_fails_closed_when_the_generator_is_tracked
-test_enforce_skips_a_tree_that_does_not_own_the_generator
+test_enforce_fails_closed_when_the_guard_is_tracked
+test_enforce_skips_a_tree_that_does_not_track_the_guard
 test_enforce_splits_an_unreadable_gitignore_from_a_missing_block
 test_enforce_fails_closed_on_a_missing_external
 test_scan_survives_a_failing_cleanup

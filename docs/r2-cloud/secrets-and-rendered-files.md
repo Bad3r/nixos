@@ -7,7 +7,7 @@ system services and the `r2` CLI wrapper.
 
 ## Source of Truth
 
-- `modules/security/sops-policy.nix`
+- `.sops.yaml`
 - `modules/security/r2-cloud-secrets.nix`
 - `modules/home/r2-secrets.nix`
 - `modules/lib/r2-runtime.nix`
@@ -71,7 +71,7 @@ enables the runtime) explicitly point to `/run/secrets/r2/credentials.env`.
 ## Quick Verification
 
 ```bash
-rg -n 'path_regex: secrets/r2\\.yaml' modules/security/sops-policy.nix
+rg -n 'path_regex: secrets/r2\\.yaml' .sops.yaml
 rg -n 'r2/(account-id|access-key-id|secret-access-key|restic-password|explorer-admin-kid|explorer-admin-secret)' modules/security/r2-cloud-secrets.nix
 rg -n 'templates\."(r2-credentials\.env|r2-explorer\.env|cloudflare/r2/env)"' modules/security/r2-cloud-secrets.nix modules/home/r2-secrets.nix
 ```

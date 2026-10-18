@@ -82,7 +82,6 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | `input(cloudflare-go)`        | Use for the `cloudflare/cloudflare-go` input and its integration.          |
 | `input(cloudflare-python)`    | Use for the `cloudflare/cloudflare-python` input and its integration.      |
 | `input(cloudflare-rs)`        | Use for the `cloudflare/cloudflare-rs` input and its integration.          |
-| `input(files)`                | Use for the `mightyiam/files` input and its integration.                   |
 | `input(flake-compat)`         | Use for the `edolstra/flake-compat` input and dedupe aliases.              |
 | `input(flake-parts)`          | Use for the `hercules-ci/flake-parts` input and its integration.           |
 | `input(flake-utils)`          | Use for the `numtide/flake-utils` input and dedupe aliases.                |
