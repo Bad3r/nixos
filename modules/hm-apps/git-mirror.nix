@@ -229,10 +229,11 @@
           if [ "$local_sha" != "$remote_sha" ]; then
             # Backup diverging history
             if ! git -C "$dir" merge-base --is-ancestor HEAD "$tracking"; then
-              git -C "$dir" branch "git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)" || { log "$spec: backup branch failed"; exit 1; }
-              # Prune old backups; the UTC stamp in the name orders them by creation.
-              git -C "$dir" for-each-ref --sort=-refname --format='%(refname:short)' \
-                refs/heads/git-mirror/backup-* | tail -n +"$((max_backups + 1))" | \
+              backup="git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)"
+              git -C "$dir" branch "$backup" || { log "$spec: backup branch failed"; exit 1; }
+              # A clock that stepped back would sort the new backup oldest.
+              git -C "$dir" for-each-ref --sort=-refname --exclude="refs/heads/$backup" --format='%(refname:short)' \
+                refs/heads/git-mirror/backup-* | tail -n +"$max_backups" | \
                 xargs -r -I{} git -C "$dir" branch -D {} 2>/dev/null || true
             fi
             git -C "$dir" reset --hard "$tracking"
