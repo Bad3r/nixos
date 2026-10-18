@@ -1,6 +1,6 @@
 # Local mirror troubleshooting
 
-The sync logs one line per spec and step to the user journal, and each docs service logs under its own unit:
+The sync logs each spec's progress and failures to the user journal, and each docs service logs under its own unit:
 
 ```sh
 journalctl --user -u git-mirror.service -n 100 --no-pager
@@ -17,7 +17,7 @@ systemctl status local-mirrors-root.service
 Mount the volume, then provision the root and sync:
 
 ```sh
-sudo systemctl start local-mirrors-root.service
+sudo systemctl restart local-mirrors-root.service
 systemctl --user start git-mirror.service
 ```
 
@@ -32,7 +32,7 @@ systemctl status local-mirrors-root.service
 Mount the volume if it is missing, then provision the root in place and sync:
 
 ```sh
-sudo systemctl start local-mirrors-root.service
+sudo systemctl restart local-mirrors-root.service
 systemctl --user start git-mirror.service
 ```
 
@@ -45,7 +45,6 @@ fuser -v <lock>
 ```
 
 Let that process finish or stop it, then start a sync.
-A lock that no process holds needs nothing, since the sync removes it.
 
 ## `<spec>: maintenance failed`
 
@@ -66,7 +65,8 @@ The upstream is unreachable, has moved, or asks for credentials, which the sync 
 git ls-remote <url>
 ```
 
-A network outage clears on a later run; a moved repository needs its new spec in `modules/hosts/common/mirrors.nix`.
+A network outage clears on a later run.
+A moved, deleted, or private repository needs its spec replaced or removed in `modules/hosts/common/mirrors.nix`.
 
 ## `<spec>: not a git repo`
 
@@ -100,10 +100,11 @@ Start a sync, which starts the docs service when it succeeds.
 
 ## `failed to resolve current stable Python branch`
 
-The `versionUrl` page was unreachable, or its title lacks the `Python 3.<minor> documentation` pattern the publisher parses.
+The `versionUrl` page loaded, but no line on it holds the `Python 3.<minor> documentation` phrase the publisher parses.
+An unreachable page fails the service with curl's own error instead, and a later run tries again.
 
 ```sh
-curl -fsSL https://docs.python.org/3/ | grep -o 'Python 3[.0-9]* [Dd]ocumentation'
+curl -fsSL https://docs.python.org/3/ | grep -oE 'Python 3\.[0-9]+(\.[0-9]+)? [Dd]ocumentation'
 ```
 
-A fetch failure clears on a later run; a changed title needs the pattern in `modules/hm-apps/_python-docs-publisher.nix` updated.
+A changed page needs the pattern in `modules/hm-apps/_python-docs-publisher.nix` updated.

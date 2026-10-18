@@ -15,7 +15,6 @@ Each repository spec lands in one flat directory under the root:
 - GitHub shorthand `owner/repo` lands in `owner-repo`, so `NixOS/nixpkgs` is `$LOCAL_MIRRORS/NixOS-nixpkgs`.
 - An HTTP(S) URL lands in its host and path joined by dashes, minus `.git`, a leading `www.`, and a `.com`, `.org`, or `.net` suffix.
   `https://codeberg.org/librewolf/settings.git` lands in `$LOCAL_MIRRORS/codeberg-librewolf-settings`.
-- A generated docs tree sits beside its source mirror with a `-docs` suffix, and its `current` entry points at the newest build.
 
 ## Adding a mirror
 
@@ -43,7 +42,8 @@ Removing a spec stops its sync and leaves its directory in place until it is del
 `modules/hosts/common/mirrors.nix` passes `localMirrors.root` to `programs.gitMirror.root`, so the provisioner and the sync share one path.
 `local-mirrors-root.service`, defined in `modules/git/mirror-root.nix`, creates the root as a setgid directory with group `localMirrors.group`.
 It then writes the `localMirrors.stampName` stamp into the root.
-When a declared mount encloses the root, the unit waits for that mount and runs only while it is mounted.
+When a declared mount encloses the root, the unit starts after that mount and skips its run unless the mount is in place.
 
 The sync and both docs services refuse to run without the stamp, so an unmounted volume never gets a stray root on `/`.
 A root with no enclosing mount is created unconditionally at boot.
+The `local-mirrors-enclosing-mount` flake check tests the enclosing-mount lookup, including roots without one.
