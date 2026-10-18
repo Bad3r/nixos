@@ -14,9 +14,10 @@
     ~/.charles.config: User-level configuration directory consumed by the packaged launcher.
 
   Notes:
-    * Provides `pkgs.charles` via `modules/custom-overlays/charles.nix`,
-      which only registers the overlay when `programs.charles.extended.enable`
-      is true.
+    * `pkgs.charles` comes from the overlay that
+      `modules/hosts/common/custom-overlays-base.nix` derives from
+      `packages/charles`, which applies only while
+      `programs.charles.extended.enable` is true.
 */
 _:
 let

@@ -1,36 +1,33 @@
 # Custom package overlays
 
-A user-facing in-tree package reaches `pkgs` through one overlay module per package under `modules/custom-overlays/`, named after the package:
+A user-facing in-tree package at `packages/<name>/default.nix` becomes `pkgs.<name>` on every host whose `<name>` app row is on.
+`modules/hosts/common/custom-overlays-base.nix` derives that overlay for every `packages/` directory named after an app registered under `flake.nixosModules.apps`, so the package directory and the app module are the only files to create.
+The derived overlay calls `final.callPackage` on the directory with no arguments and gates itself on `programs.<name>.extended.enable`; rows are in [App registry](apps-module-registry.md).
+
+A package that needs more, such as a `callPackage` argument or a patch on a nixpkgs package, registers its own overlay module as `flake.customOverlays.<name>`, which takes the place of a derived one:
 
 ```nix
-_:
-let
-  Overlay =
+_: {
+  flake.customOverlays.my-package =
     { config, lib, ... }:
-    let
-      cfg = config.programs."my-new-package".extended;
-    in
     {
-      config = lib.mkIf cfg.enable {
+      config = lib.mkIf config.programs.my-package.extended.enable {
         nixpkgs.overlays = [
-          (final: _prev: {
-            "my-new-package" = final.callPackage ../../packages/my-new-package { };
+          (_final: prev: {
+            my-package = prev.my-package.overrideAttrs (old: {
+              patches = (old.patches or [ ]) ++ [ ./my-package-fix.patch ];
+            });
           })
         ];
       };
     };
-in
-{
-  flake.customOverlays."my-new-package" = Overlay;
 }
 ```
 
-`modules/hosts/common/custom-overlays-base.nix` imports every module registered under `flake.customOverlays.*`.
-Each overlay gates itself on the matching `programs.<name>.extended.enable` option, so the package joins `pkgs` only where the app's row turns it on.
-The package is then `pkgs.my-new-package` on every host whose row is on; rows are in [App registry](apps-module-registry.md).
+`modules/hosts/common/custom-overlays-base.nix` imports every module registered under `flake.customOverlays.*` into each host.
 
-A custom overlay is only for packages that must exist in `pkgs` for host builds or app modules.
-A package used inside one module alone, with no need for a reusable `pkgs.<name>` attribute, can be a local `pkgs.callPackage ../../packages/<name> { }` in that module.
+A package used inside one module alone needs no `pkgs.<name>` attribute.
+Its directory name matches no app, so it gets no overlay, and the module calls `pkgs.callPackage ../../packages/<name> { }` itself.
 
 ## Flake outputs
 
@@ -56,8 +53,8 @@ Build through a host's `pkgs`, which applies the host overlays:
 nix build "path:.#nixosConfigurations.<host>.pkgs.my-package"
 ```
 
-New app and overlay modules must be tracked before that evaluation:
+New package and app files must be tracked before a `git+file` evaluation:
 
 ```sh
-git add -N packages/my-package/default.nix modules/apps/my-package.nix modules/custom-overlays/my-package.nix
+git add -N packages/my-package/default.nix modules/apps/my-package.nix
 ```

@@ -13,7 +13,7 @@
   See docs/drafts/duplicati-r2-readonly-mount-investigation.md for the design.
 
   This module declares the standard programs.duplicati-r2-tools.extended.{enable,packages}
-  options. The companion overlay in modules/custom-overlays/duplicati-r2-tools.nix
+  options. The overlay derived from packages/duplicati-r2-tools
   exposes pkgs.duplicati-r2-tools.{list,extract}. The service module
   modules/services/duplicati-r2.nix auto-enables this when
   services.duplicati-r2.stateDirReadableBy is non-empty.

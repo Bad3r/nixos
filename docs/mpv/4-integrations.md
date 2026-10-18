@@ -93,9 +93,8 @@ one-locale glibc archive rather than realizing the full locale set. It stubs
 `ffprobe` and `mpv` through `callPackage`, so it builds neither, and it is the
 only place CI reaches this package's `writeShellApplication` shellcheck pass.
 
-The helper is exposed as a custom package via
-`modules/custom-overlays/video-cache.nix` (registering
-`flake.customOverlays.video-cache`) and gated behind the standard
+The helper reaches `pkgs.video-cache` through the overlay derived from
+`packages/video-cache/`, gated behind the standard
 `programs.video-cache.extended.enable` option in `modules/apps/video-cache.nix`.
 It is independent of the mpv app module: the helper runs its own `pkgs.mpv`,
 which loads `~/.config/mpv/` but not the scripts the Home Manager build adds.

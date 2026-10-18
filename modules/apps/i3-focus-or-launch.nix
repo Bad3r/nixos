@@ -5,8 +5,8 @@
   Repository: https://github.com/Bad3r/nixos
 
   Notes:
-    * Built from packages/i3-focus-or-launch via the overlay in
-      modules/custom-overlays/i3-focus-or-launch.nix.
+    * Built from packages/i3-focus-or-launch via the overlay that
+      modules/hosts/common/custom-overlays-base.nix derives.
     * Consumed by modules/apps/i3wm/config.nix to bind focus-or-launch shortcuts.
 */
 _:

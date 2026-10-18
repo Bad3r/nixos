@@ -93,11 +93,10 @@
         description = "Per-feature csec NixOS modules (merged by name).";
       };
 
-      # Per-app nixpkgs overlay modules, auto-discovered from
-      # `modules/custom-overlays/`. Declared with attrsOf deferredModule for
-      # the same reason as `flake.csec` above: each entry must be a
-      # first-class submodule rather than collapse into the parent.
-      # Imported into each host by `modules/hosts/common/custom-overlays-base.nix`.
+      # Declared with attrsOf deferredModule for the same reason as
+      # `flake.csec` above: each entry must be a first-class submodule rather
+      # than collapse into the parent. `modules/hosts/common/custom-overlays-base.nix`
+      # derives one per app package and imports every entry into each host.
       customOverlays = lib.mkOption {
         type = lib.types.attrsOf lib.types.deferredModule;
         default = { };
