@@ -208,8 +208,7 @@
 
           [ -d "$dir/.git" ] || { log "$spec: not a git repo"; exit 1; }
 
-          # Fetch's auto-maintenance detaches, so its failures never reach this unit;
-          # the foreground run after the reset replaces it.
+          # Fetch's auto-maintenance detaches.
           retry_git "fetch" git -C "$dir" -c maintenance.auto=false remote update --prune || exit 1
 
           # Stash dirty work

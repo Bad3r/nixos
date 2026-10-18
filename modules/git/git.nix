@@ -145,14 +145,14 @@
               # Rebase settings
               rebase.autoStash = true;
 
-              # Later writes keep filters once a graph has them; this covers the first write.
+              # Only `git commit-graph write` reads this; gc and fetch writes keep filters a graph already has.
               commitGraph.changedPaths = true;
 
               # Scheduled `git maintenance run` runs no tasks until a strategy is set.
               maintenance.strategy = "geometric";
             };
 
-            # Matches nixpkgs clones and their linked worktrees by remote, wherever they live.
+            # Linked worktrees match too.
             includes =
               [
                 "https://github.com/*/nixpkgs"
