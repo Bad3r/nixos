@@ -75,6 +75,7 @@
           git
           coreutils
           gawk
+          psmisc
           util-linux
         ];
         text = ''
@@ -106,6 +107,21 @@
               attempt=$((attempt + 1))
               delay=$((delay * 2))
             done
+          }
+
+          run_maintenance() {
+            # maintenance run exits 0 without running any task while this lock exists.
+            lock="$(git -C "$dir" rev-parse --path-format=absolute --git-path objects/maintenance.lock)"
+            # git holds the lock open for its whole run.
+            if [ -e "$lock" ] && ! fuser -s "$lock"; then
+              log "$spec: removing stale maintenance lock $lock"
+              rm -f "$lock"
+            fi
+            if [ -e "$lock" ]; then
+              log "$spec: maintenance lock $lock is held by a running process"
+              exit 1
+            fi
+            git -C "$dir" -c maintenance.commit-graph.auto=1 maintenance run --auto || { log "$spec: maintenance failed"; exit 1; }
           }
 
           url_to_dir_name() {
@@ -185,13 +201,15 @@
           if [ ! -d "$dir" ]; then
             retry_git "clone" git clone "$url" "$dir" || exit 1
             chmod g+s "$dir" || { log "$spec: chmod failed"; exit 1; }
+            run_maintenance
             log "$spec: cloned"
             exit 0
           fi
 
           [ -d "$dir/.git" ] || { log "$spec: not a git repo"; exit 1; }
 
-          retry_git "fetch" git -C "$dir" remote update --prune || exit 1
+          # Fetch's auto-maintenance detaches.
+          retry_git "fetch" git -C "$dir" -c maintenance.auto=false remote update --prune || exit 1
 
           # Stash dirty work
           if [ -n "$(git -C "$dir" status -s)" ]; then
@@ -210,8 +228,7 @@
 
           if [ "$local_sha" != "$remote_sha" ]; then
             # Backup diverging history
-            base_sha=$(git -C "$dir" merge-base HEAD "$tracking" 2>/dev/null || true)
-            if [ -z "$base_sha" ] || [ "$base_sha" != "$remote_sha" ]; then
+            if ! git -C "$dir" merge-base --is-ancestor HEAD "$tracking"; then
               git -C "$dir" branch "git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)" 2>/dev/null || true
               # Prune old backups
               git -C "$dir" for-each-ref --sort=-committerdate --format='%(refname:short)' \
@@ -222,6 +239,7 @@
           fi
 
           git -C "$dir" clean -fdx >/dev/null
+          run_maintenance
           log "$spec: up to date"
         '';
       };
@@ -497,6 +515,8 @@
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
                 Restart = "on-failure";
                 RestartSec = "5m";
+                Slice = "background.slice";
+                IOSchedulingClass = "idle";
               };
             };
 
@@ -511,7 +531,7 @@
                 ExecStart = "${firefoxDocsScript}/bin/git-mirror-build-firefox-docs";
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
                 TimeoutStartSec = "6h";
-                Nice = 10;
+                Slice = "background.slice";
                 IOSchedulingClass = "idle";
               };
             };
@@ -527,7 +547,7 @@
                 ExecStart = "${pythonDocsScript}/bin/git-mirror-publish-python-docs";
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
                 TimeoutStartSec = "30m";
-                Nice = 10;
+                Slice = "background.slice";
                 IOSchedulingClass = "idle";
               };
             };
