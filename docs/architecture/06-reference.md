@@ -84,24 +84,22 @@ nix eval "path:.#nixosConfigurations.<host>.config.system.build.toplevel"
 
 ## External Tooling
 
-| Tool                       | Purpose                  | Example                                     |
-| -------------------------- | ------------------------ | ------------------------------------------- |
-| Context7 MCP               | Documentation lookups    | Configured via `flake.lib.agents.mcp`       |
-| DeepWiki MCP               | GitHub repo exploration  | Pass `owner/repo` to the DeepWiki MCP tools |
-| `nix-index` / `nix-locate` | Find packaged binaries   | `nix-locate 'bin/act'`                      |
-| `write-files`              | Regenerate managed files | `nix develop path:. -c write-files`         |
-| `gh-actions-run`           | Local GitHub Actions     | `nix develop path:. -c gh-actions-run -n`   |
+| Tool                       | Purpose                 | Example                                     |
+| -------------------------- | ----------------------- | ------------------------------------------- |
+| Context7 MCP               | Documentation lookups   | Configured via `flake.lib.agents.mcp`       |
+| DeepWiki MCP               | GitHub repo exploration | Pass `owner/repo` to the DeepWiki MCP tools |
+| `nix-index` / `nix-locate` | Find packaged binaries  | `nix-locate 'bin/act'`                      |
+| `gh-actions-run`           | Local GitHub Actions    | `nix develop path:. -c gh-actions-run -n`   |
 
 ## Dev Shell Helpers
 
 Available after `nix develop path:.`:
 
-| Command             | Purpose                                |
-| ------------------- | -------------------------------------- |
-| `write-files`       | Regenerate README.md, .sops.yaml, etc. |
-| `gh-actions-list`   | List available GitHub Actions jobs     |
-| `gh-actions-run`    | Run GitHub Actions locally via act     |
-| `gh-actions-run -n` | Dry-run GitHub Actions                 |
+| Command             | Purpose                            |
+| ------------------- | ---------------------------------- |
+| `gh-actions-list`   | List available GitHub Actions jobs |
+| `gh-actions-run`    | Run GitHub Actions locally via act |
+| `gh-actions-run -n` | Dry-run GitHub Actions             |
 
 ## Glossary
 

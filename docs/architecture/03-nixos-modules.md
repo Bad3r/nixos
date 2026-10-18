@@ -94,11 +94,10 @@ A host's `policy.nix` carries its readiness gates and the values common modules 
 
 ## System-Level Utilities
 
-| Module                                    | Purpose                                        |
-| ----------------------------------------- | ---------------------------------------------- |
-| `modules/meta/ci.nix`                     | Validates app helper namespace                 |
-| `modules/files.nix`                       | Regenerates managed files (README, .sops.yaml) |
-| `modules/meta/nixpkgs-allowed-unfree.nix` | Builds the unfree predicate                    |
+| Module                                    | Purpose                        |
+| ----------------------------------------- | ------------------------------ |
+| `modules/meta/ci.nix`                     | Validates app helper namespace |
+| `modules/meta/nixpkgs-allowed-unfree.nix` | Builds the unfree predicate    |
 
 ## Unfree Packages
 

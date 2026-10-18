@@ -15,7 +15,7 @@ The `secrets/` content comes from a git submodule.
 Direct local evaluation uses the checked-out worktree Nix was given, so the submodule stays initialized locally, or the repository is referenced with a Git flake URI that includes `?submodules=1`.
 Either way, the `builtins.pathExists` guards evaluate against the real checkout content.
 
-- `.sops.yaml` is generated from `modules/security/sops-policy.nix` through the `files` module, with one age recipient, `host_pub_key`, that both edits secrets and decrypts them at activation.
+- `.sops.yaml` holds the policy, with one age recipient, `host_pub_key`, that both edits secrets and decrypts them at activation.
   The maintainer holds the matching private key in `~/.config/sops/age/keys.txt` (Home Manager) and `/var/lib/sops-nix/key.txt` (system).
 - Its creation rules end in a deny-by-default rule covering every path under `secrets/`, and SOPS applies the first matching rule, so that rule stays last.
 - `checks.<system>.secrets-no-cleartext` (`modules/security/sops-cleartext-check.nix`) is the evaluation-time gate for an initialized `secrets/` tree, failing on non-exempt cleartext and on drift in the policy contract.
@@ -38,7 +38,7 @@ The repository uses one canonical age recipient, so preparing a host means insta
    sudo age-keygen -y /var/lib/sops-nix/key.txt
    ```
 
-2. Confirm the printed public key matches `host_pub_key` in `.sops.yaml` and `modules/security/sops-policy.nix`.
+2. Confirm the printed public key matches `host_pub_key` in `.sops.yaml`.
 
 3. Keep a secure offline copy of `/var/lib/sops-nix/key.txt`.
 
@@ -56,8 +56,7 @@ Rotation updates the policy and re-encrypts every managed secret, so no file sta
    sudo age-keygen -y /var/lib/sops-nix/key.txt.next
    ```
 
-2. Replace `host_pub_key` in `modules/security/sops-policy.nix` and the matching `hostPubKey` literal in `modules/security/sops-cleartext-check.nix` with the printed public key.
-   Then regenerate `.sops.yaml` with `nix develop path:. --accept-flake-config -c write-files --offline`.
+2. Replace `host_pub_key` in `.sops.yaml` with the printed public key.
 
 3. Run `sops updatekeys` for every encrypted file under `secrets/`.
    Until it finishes, `secrets-no-cleartext` reports the existing payloads as cleartext, because their metadata still names the retired recipient.

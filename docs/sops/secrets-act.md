@@ -4,16 +4,17 @@ This repository stores the personal access token used by `act` in `secrets/act.y
 
 ## Overview
 
-- The `.sops.yaml` policy (generated from `modules/security/sops-policy.nix`) already targets `secrets/act.yaml` and encrypts only the `github_token` field.
+- The `.sops.yaml` policy already targets `secrets/act.yaml` and encrypts only the `github_token` field.
 - `modules/security/secrets.nix` declares `sops.secrets."act/github_token"` and a template `sops.templates."act-env"` that becomes `/etc/act/secrets.env`.
 - The development shell command `gh-actions-run` automatically passes `--secret-file /etc/act/secrets.env` when the file exists. Override the path with `ACT_SECRETS_FILE=/path/to/env`.
 
 ## Host Setup (one-time)
 
 1. Install the canonical Age host key at `/var/lib/sops-nix/key.txt` if it is not already present (see `docs/sops/README.md`).
-2. Ensure the host key is listed in `modules/security/sops-policy.nix` (it is named `host_pub_key` by default). Run `nix develop path:. -c write-files` to refresh `.sops.yaml`.
+2. Ensure the host key is listed in `.sops.yaml` (it is named `host_pub_key` by default).
 
-Commands on this page carry the explicit `path:.` installable because the branch workflow in `AGENTS.md` puts the work in a linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not a directory. Dropping `path:.` gives the primary-checkout form.
+The `nix` commands take the explicit `path:.` installable because the branch workflow in `AGENTS.md` puts the work in a linked worktree, where Lix cannot fetch a clean checkout as a `git+file` flake: `.git` is a file there, not a directory.
+Dropping `path:.` gives the primary-checkout form.
 
 ## Adding or Rotating the Token
 

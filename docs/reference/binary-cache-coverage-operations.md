@@ -11,8 +11,9 @@ The operator setup is complete:
    (`gh secret set CACHIX_AUTH_TOKEN --repo Bad3r/nixos`; rotate the same
    way). Whenever the secret is absent, the workflow builds cache-roots
    and emits a warning instead of pushing.
-3. Common hosts trust the cache: `modules/hosts/common/nix-substituters.nix`
-   carries `https://bad3r-nixos.cachix.org` and its public key.
+3. Common hosts trust the cache: `.github/actions/install-lix/substituters.conf`
+   carries `https://bad3r-nixos.cachix.org` and its public key, and
+   `modules/hosts/common/nix-substituters.nix` applies it.
 4. `build.sh` carries the same URL and key in `BOOTSTRAP_SUBSTITUTERS` and
    `BOOTSTRAP_TRUSTED_KEYS`. That path writes `substituters =`, replacing the
    list rather than extending it, so a cache missing there is unreachable for

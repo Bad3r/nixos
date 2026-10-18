@@ -94,7 +94,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
      - `PasswordAuthentication = false`
      - `PermitRootLogin = "no"`
 
-6. `modules/security/sops-policy.nix`
+6. `.sops.yaml`
 
    - Expand recipients to include:
      - owner/editor key
@@ -124,7 +124,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 4. Verify:
    - `sudo test -r /var/lib/sops-nix/key.txt`
    - `sudo age-keygen -y /var/lib/sops-nix/key.txt`
-5. Add printed recipient to `modules/security/sops-policy.nix`.
+5. Add printed recipient to `.sops.yaml`.
 
 ## 6.2 OpenPGP Key for Git Signing
 
@@ -161,8 +161,8 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 ## 7. SOPS Encryption and Re-Key Workflow
 
-1. Regenerate generated policy file:
-   - `nix develop -c write-files`
+1. Review the edited policy file:
+   - `git diff .sops.yaml`
 2. One-time migration for current `songbird` GPG file (required in current repo state):
    - `test -f secrets/gpg/vx.asc && cp secrets/gpg/vx.asc secrets/gpg/songbird.asc`
    - Keep `secrets/gpg/vx.asc` until `songbird` validation is complete, then remove legacy file in a follow-up cleanup with `rip secrets/gpg/vx.asc`.
@@ -215,10 +215,9 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
    - `modules/tpnix/git.nix`
    - `modules/security/secrets.nix`
    - `modules/tpnix/ssh.nix`
-   - `modules/security/sops-policy.nix`
+   - `.sops.yaml`
 2. Remove newly registered GitHub keys by title if rollout is abandoned.
 3. Restore previous encrypted secret files if host-scoped split is rolled back.
-4. Re-run `nix develop -c write-files` after rollback to resync generated policy.
 
 ## 10. Primary Sources
 

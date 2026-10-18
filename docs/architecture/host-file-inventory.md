@@ -63,5 +63,5 @@ The host constructor imports that aggregate before each host-specific module whe
 Host-specific modules can disable a storage-dependent baseline when the hardware lacks its required mount.
 
 General Nix daemon and evaluator settings live in `modules/base/nix-settings.nix`.
-The common `nix-substituters` module owns cache topology and download retry settings only.
+The common `nix-substituters` module owns substitution settings only, and reads cache topology and download retry values from `.github/actions/install-lix/substituters.conf`.
 Per-host `nix-settings.nix` files stay limited to hardware-tuned values such as `max-jobs`, `max-substitution-jobs` (`nproc - 1`), and `min-free`.

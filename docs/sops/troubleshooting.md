@@ -9,8 +9,8 @@ Check that the encrypted file exists under `secrets/`, with the submodule initia
 
 ## `Unknown recipient` while editing
 
-`.sops.yaml` is stale, or the key is not in the policy.
-Regenerate it with `nix develop path:. -c write-files`, or add the key to `modules/security/sops-policy.nix`.
+The key is not in the `.sops.yaml` policy.
+Add it to `.sops.yaml`.
 
 ## `Permission denied` reading a secret
 
@@ -24,8 +24,8 @@ Rerun `./build.sh --host <host> --boot`, or the approved deployment helper, afte
 
 ## `no matching creation rules found`
 
-The file path is outside `secrets/`, or `.sops.yaml` is stale.
-Regenerate the policy with `nix develop path:. -c write-files`; every path under `secrets/` is covered regardless of extension.
+The file path is outside `secrets/`.
+Move the file under `secrets/`, where every path is covered regardless of extension.
 
 ## `sops metadata not found`
 

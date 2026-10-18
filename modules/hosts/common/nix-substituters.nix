@@ -1,26 +1,28 @@
-_:
+{ lib, rootPath, ... }:
 let
-  # One list for the host daemon and for CI: modules/meta/ci-substituter-parity.nix
-  # generates the install-lix substituters.conf from the export below, so a
-  # cache-roots build substitutes every root a cache already serves instead
-  # of rebuilding the whole set on each push.
-  caches = [
-    {
-      url = "https://cache.numtide.com";
-      key = "niks3.numtide.com-1:DTx8wZduET09hRmMtKdQDxNNthLQETkc/yaX7M4qK0g=";
-    }
-    {
-      # unfree packages (unrar, etc.)
-      url = "https://nixpkgs-unfree.cachix.org";
-      key = "nixpkgs-unfree.cachix.org-1:hqvoInulhbV4nJ9yJOEr+4wxhDV4xq2d1DK7S6Nj6rs=";
-    }
-    {
-      # CI-built custom derivations (cache-roots); see
-      # docs/reference/binary-cache-coverage.md
-      url = "https://bad3r-nixos.cachix.org";
-      key = "bad3r-nixos.cachix.org-1:CWwJIEV6kogZP/xZPRXdT6hkKvs84haLxYgK9oF59JE=";
-    }
-  ];
+  # One substituter conf for the host daemon and for CI: .github/actions/install-lix
+  # appends this file to the runner's daemon conf, so a cache-roots build
+  # substitutes every root a cache already serves instead of rebuilding the
+  # whole set on each push.
+  confPath = ".github/actions/install-lix/substituters.conf";
+  confValue =
+    key:
+    let
+      prefix = "${key} = ";
+      matches = lib.filter (lib.hasPrefix prefix) (
+        lib.splitString "\n" (builtins.readFile (rootPath + "/${confPath}"))
+      );
+    in
+    if matches == [ ] then
+      throw "${confPath} has no `${prefix}` line, so no value reaches this setting."
+    else if builtins.length matches > 1 then
+      throw (
+        "${confPath} carries ${toString (builtins.length matches)} `${prefix}` lines; keep exactly "
+        + "one. nix.conf accepts repeats and the Lix installer keeps the last, so a host would read "
+        + "a different value than the CI daemon."
+      )
+    else
+      lib.removePrefix prefix (builtins.head matches);
 
   body =
     {
@@ -38,11 +40,11 @@ let
         # and doubles narinfo misses.
         # nix-community.cachix.org / doom-emacs-unstraightened.cachix.org are
         # appended by modules/apps/doom-emacs.nix when the module is enabled.
-        substituters = lib.mkAfter (map (cache: cache.url) caches);
-        trusted-public-keys = lib.mkAfter (map (cache: cache.key) caches);
+        substituters = lib.mkAfter (lib.splitString " " (confValue "extra-substituters"));
+        trusted-public-keys = lib.mkAfter (lib.splitString " " (confValue "extra-trusted-public-keys"));
 
-        download-attempts = lib.mkDefault 3;
-        connect-timeout = lib.mkDefault 30;
+        download-attempts = lib.mkDefault (lib.toInt (confValue "download-attempts"));
+        connect-timeout = lib.mkDefault (lib.toInt (confValue "connect-timeout"));
         # max-substitution-jobs has no "auto": each host pins nproc - 1 in its
         # nix-settings.nix next to max-jobs, required by the assertion below.
         # Both Lix and CppNix clamp values below 1 to 1, so 0 would serialize
@@ -51,7 +53,7 @@ let
         http-connections = lib.mkDefault 0; # unlimited
         http2 = lib.mkDefault true;
         narinfo-cache-negative-ttl = lib.mkDefault 60;
-        stalled-download-timeout = lib.mkDefault 300; # nix default; fail a stalled download instead of freezing the build
+        stalled-download-timeout = lib.mkDefault (lib.toInt (confValue "stalled-download-timeout"));
 
       };
 
@@ -80,6 +82,5 @@ let
     };
 in
 {
-  flake.lib.nixos.substituterCaches = caches;
   flake.nixosModules.hosts-common.imports = [ body ];
 }
