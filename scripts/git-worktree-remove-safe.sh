@@ -13,7 +13,7 @@ error_msg() {
 }
 
 # Keep untracked state, ignored secrets, and local config visible; drop only ignored cleanup noise.
-readonly disposable_status_sed_script='/^!! \.pre-commit-config\.yaml$/d
+readonly disposable_status_sed_script='\#^!! (scripts/hooks/pre-commit-config\.yaml|\.pre-commit-config\.yaml)$#d
 \#^!! result([.-][^/]*)?(/.*)?/?$#d
 \#^!! (.*/)?[^/]*\.log$#d
 \#^!! (.*/)?\.?log(/.*)?/?$#d

@@ -26,7 +26,7 @@ _: {
             # retry. Auxiliary hooks such as post-checkout are refreshed by
             # the same sync but never participate in the current commit.
             targets=(
-              "$root/.pre-commit-config.yaml"
+              "$root/scripts/hooks/pre-commit-config.yaml"
               "$hooks_dir/pre-commit-config.yaml"
               "$hooks_dir/pre-commit"
               "$hooks_dir/pre-push"

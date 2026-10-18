@@ -129,17 +129,39 @@
         # derives its own db as xdg.CacheFile("treefmt/eval-cache/" +
         # sha256(treeRoot) + ".db") (walk/cache/cache.go Path), so every tree
         # root is already isolated and a worktree cannot reach another's cache.
-        shellHook = ''
-          ${config.pre-commit.shellHook}
+        shellHook =
+          let
+            preCommit = lib.getExe config.pre-commit.settings.package;
+            # pre-commit run reads only ./.pre-commit-config.yaml unless told otherwise.
+            preCommitRun = pkgs.writeShellApplication {
+              name = "pre-commit";
+              runtimeInputs = [ pkgs.git ];
+              text = ''
+                if [ "''${1-}" = run ]; then
+                  for arg in "$@"; do
+                    case "$arg" in
+                    -c | --config | --config=*) exec ${preCommit} "$@" ;;
+                    esac
+                  done
+                  shift
+                  exec ${preCommit} run --config "$(git rev-parse --show-toplevel)/${config.pre-commit.settings.configPath}" "$@"
+                fi
+                exec ${preCommit} "$@"
+              '';
+            };
+          in
+          ''
+              ${config.pre-commit.shellHook}
+              export PATH=${preCommitRun}/bin:$PATH
 
-          repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
-          if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh" ]; then
-            "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh"
-          fi
-          if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/install-git-hooks.sh" ]; then
-            "''${repo_root}/scripts/hooks/install-git-hooks.sh"
-          fi
-        '';
+            repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+            if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh" ]; then
+              "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh"
+            fi
+            if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/install-git-hooks.sh" ]; then
+              "''${repo_root}/scripts/hooks/install-git-hooks.sh"
+            fi
+          '';
       };
     };
 }

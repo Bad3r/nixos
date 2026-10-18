@@ -16,6 +16,9 @@ _: {
         check.enable = false;
 
         settings = {
+          # Out of the repository root, where the store-path symlink target crowds listings.
+          configPath = "scripts/hooks/pre-commit-config.yaml";
+
           excludes = [
             "^inputs/"
             "^docs/nixos-manual/"

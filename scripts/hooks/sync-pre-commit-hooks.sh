@@ -40,14 +40,14 @@ rewrite_hook_script() {
         print "# start templated"
         print install_line
         print "REPO_TOP=\"$(git rev-parse --show-toplevel 2>/dev/null || pwd)\""
-        print "LOCAL_CONFIG=\"${REPO_TOP}/.pre-commit-config.yaml\""
+        print "LOCAL_CONFIG=\"${REPO_TOP}/scripts/hooks/pre-commit-config.yaml\""
         print "FALLBACK_CONFIG=\"$(git rev-parse --git-path hooks)/pre-commit-config.yaml\""
         print "if [[ -f \"${LOCAL_CONFIG}\" ]]; then"
         print "  HOOK_CONFIG=\"${LOCAL_CONFIG}\""
         print "elif [[ -f \"${FALLBACK_CONFIG}\" ]]; then"
         print "  HOOK_CONFIG=\"${FALLBACK_CONFIG}\""
         print "else"
-        print "  printf '\''%s\\n'\'' \"pre-commit hook: missing .pre-commit-config.yaml; run '\''nix develop path:.'\'' in this worktree ('\''nix develop'\'' in the primary checkout).\" >&2"
+        print "  printf '\''%s\\n'\'' \"pre-commit hook: missing scripts/hooks/pre-commit-config.yaml; run '\''nix develop path:.'\'' in this worktree ('\''nix develop'\'' in the primary checkout).\" >&2"
         print "  exit 1"
         print "fi"
         print "ARGS=(hook-impl --config=\"${HOOK_CONFIG}\" --hook-type=" hook_type ")"
@@ -95,7 +95,7 @@ main() {
   repo_root="$(git rev-parse --show-toplevel)"
   git_common_dir="$(readlink -f "$(git rev-parse --git-common-dir)")"
   hooks_dir="${git_common_dir}/hooks"
-  config_file=".pre-commit-config.yaml"
+  config_file="scripts/hooks/pre-commit-config.yaml"
 
   cd "${repo_root}"
 
@@ -139,7 +139,7 @@ main() {
 
     rewrite_hook_script "${hook_file}" "${hook}"
 
-    if ! rg -F --quiet -- 'LOCAL_CONFIG="${REPO_TOP}/.pre-commit-config.yaml"' "${hook_file}"; then
+    if ! rg -F --quiet -- 'LOCAL_CONFIG="${REPO_TOP}/scripts/hooks/pre-commit-config.yaml"' "${hook_file}"; then
       error_msg "hook ${hook_file} missing local config resolution logic"
       exit 1
     fi
