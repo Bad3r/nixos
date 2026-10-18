@@ -1,6 +1,6 @@
 { lib, rootPath, ... }:
 let
-  # One cache list for the host daemon and for CI: .github/actions/install-lix
+  # One substituter conf for the host daemon and for CI: .github/actions/install-lix
   # appends this file to the runner's daemon conf, so a cache-roots build
   # substitutes every root a cache already serves instead of rebuilding the
   # whole set on each push.
@@ -43,8 +43,8 @@ let
         substituters = lib.mkAfter (lib.splitString " " (confValue "extra-substituters"));
         trusted-public-keys = lib.mkAfter (lib.splitString " " (confValue "extra-trusted-public-keys"));
 
-        download-attempts = lib.mkDefault 3;
-        connect-timeout = lib.mkDefault 30;
+        download-attempts = lib.mkDefault (lib.toInt (confValue "download-attempts"));
+        connect-timeout = lib.mkDefault (lib.toInt (confValue "connect-timeout"));
         # max-substitution-jobs has no "auto": each host pins nproc - 1 in its
         # nix-settings.nix next to max-jobs, required by the assertion below.
         # Both Lix and CppNix clamp values below 1 to 1, so 0 would serialize
@@ -53,7 +53,7 @@ let
         http-connections = lib.mkDefault 0; # unlimited
         http2 = lib.mkDefault true;
         narinfo-cache-negative-ttl = lib.mkDefault 60;
-        stalled-download-timeout = lib.mkDefault 300; # nix default; fail a stalled download instead of freezing the build
+        stalled-download-timeout = lib.mkDefault (lib.toInt (confValue "stalled-download-timeout")); # nix default; fail a stalled download instead of freezing the build
 
       };
 
