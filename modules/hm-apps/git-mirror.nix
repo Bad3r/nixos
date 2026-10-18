@@ -108,6 +108,16 @@
             done
           }
 
+          run_maintenance() {
+            # maintenance run exits 0 without running any task while this lock exists.
+            lock="$(git -C "$dir" rev-parse --path-format=absolute --git-path objects/maintenance.lock)"
+            if [ -e "$lock" ]; then
+              log "$spec: maintenance lock $lock exists"
+              exit 1
+            fi
+            git -C "$dir" maintenance run || { log "$spec: maintenance failed"; exit 1; }
+          }
+
           url_to_dir_name() {
             printf '%s\n' "$1" | awk '
               {
@@ -185,13 +195,16 @@
           if [ ! -d "$dir" ]; then
             retry_git "clone" git clone "$url" "$dir" || exit 1
             chmod g+s "$dir" || { log "$spec: chmod failed"; exit 1; }
+            run_maintenance
             log "$spec: cloned"
             exit 0
           fi
 
           [ -d "$dir/.git" ] || { log "$spec: not a git repo"; exit 1; }
 
-          retry_git "fetch" git -C "$dir" remote update --prune || exit 1
+          # Fetch's auto-maintenance detaches, so its failures never reach this unit;
+          # the foreground run after the reset replaces it.
+          retry_git "fetch" git -C "$dir" -c maintenance.auto=false remote update --prune || exit 1
 
           # Stash dirty work
           if [ -n "$(git -C "$dir" status -s)" ]; then
@@ -222,6 +235,7 @@
           fi
 
           git -C "$dir" clean -fdx >/dev/null
+          run_maintenance
           log "$spec: up to date"
         '';
       };
@@ -497,6 +511,8 @@
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
                 Restart = "on-failure";
                 RestartSec = "5m";
+                Nice = 10;
+                IOSchedulingClass = "idle";
               };
             };
 
