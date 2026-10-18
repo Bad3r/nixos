@@ -354,7 +354,7 @@
         '';
       };
 
-      # Session power menu, laid out by ~/.config/rofi/powermenu.rasi (modules/hm-apps/rofi.nix)
+      # Session power menu, laid out by ~/.config/rofi/powermenu.rasi (modules/apps/rofi/home.nix)
       powerMenuScript = pkgs.writeShellApplication {
         name = "power-menu-rofi";
         runtimeInputs = [

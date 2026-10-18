@@ -34,7 +34,7 @@
     "telemetry@builtin" = false;
 
     # Each enabled *-lsp entry also installs its language server
-    # (lspPluginProgramMap in modules/apps/claude-code.nix).
+    # (lspPluginProgramMap in modules/agents/claude-code/nixos.nix).
     "clangd-lsp@claude-plugins-official" = true;
     "csharp-lsp@claude-plugins-official" = true;
     "gopls-lsp@claude-plugins-official" = true;

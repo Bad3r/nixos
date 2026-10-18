@@ -19,7 +19,7 @@
 
   extra-substituters counts the same as substituters. configure_nix_config
   replaces the whole list, so a cache that reaches the daemon through
-  `nix.settings.extra-substituters` (how modules/apps/doom-emacs.nix and
+  `nix.settings.extra-substituters` (how modules/apps/doom-emacs/nixos.nix and
   modules/apps/logseq.nix wire theirs) is exactly as unreachable during
   bootstrap as one reaching it through `substituters`.
 */

@@ -164,7 +164,7 @@ let
           };
         in
         [
-          (import ../../modules/hm-apps/_python-docs-publisher.nix {
+          (import ../../modules/git/_python-docs-publisher.nix {
             inherit (pkgs) lib;
             pkgs = pkgs // {
               curl = curlStub;

@@ -11,7 +11,7 @@
       gecko browsers in modules/browsers/{firefox,librewolf}/home.nix.
     * Extensions for the isolated PWA runtime profiles are installed as
       user-disableable defaults through a policy file injected by
-      modules/custom-overlays/firefoxpwa.nix.
+      modules/browsers/firefoxpwa/overlay.nix.
 */
 _:
 let

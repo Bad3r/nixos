@@ -207,7 +207,6 @@ _: {
                 "\\.githooks/"
                 "scripts/hooks/"
                 "modules/devshell\\.nix"
-                "modules/devshell/"
                 "modules/meta/pre-commit\\.nix"
                 "modules/meta/treefmt\\.nix"
                 "modules/meta/hooks/)"

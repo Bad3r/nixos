@@ -37,7 +37,7 @@ let
         # exact URI strings), so it opens a second store against the same host
         # and doubles narinfo misses.
         # nix-community.cachix.org / doom-emacs-unstraightened.cachix.org are
-        # appended by modules/apps/doom-emacs.nix when the module is enabled.
+        # appended by modules/apps/doom-emacs/nixos.nix when the module is enabled.
         substituters = lib.mkAfter (map (cache: cache.url) caches);
         trusted-public-keys = lib.mkAfter (map (cache: cache.key) caches);
 

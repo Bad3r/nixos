@@ -1,7 +1,7 @@
 /*
   Check: rclone.conf ownership boundary (issue #121).
 
-  modules/hm-apps/rclone.nix owns ~/.config/rclone/rclone.conf whenever
+  modules/apps/rclone/home.nix owns ~/.config/rclone/rclone.conf whenever
   programs.rclone.extended.enable is set. The r2-flake Home Manager module can
   render the same path through programs.r2-cloud.enableRcloneRemote (upstream
   default: true). These checks evaluate synthetic Home Manager configurations
@@ -64,7 +64,7 @@ in
           ++ scenarioModules;
           extraSpecialArgs = {
             inherit secretsRoot;
-            # Mirrors the host shape from modules/apps/rclone.nix: extended
+            # Mirrors the host shape from modules/apps/rclone/nixos.nix: extended
             # rclone enabled with the gdrive env secret declared system-side.
             osConfig = {
               programs.rclone.extended.enable = true;
@@ -118,7 +118,7 @@ in
       # Uses the upstream option shape (remotes.<name>.config, with the
       # required "type" key) so the scenario is valid for the Home Manager
       # rclone module and the only eval failure it can hit is the
-      # remotes-ownership assertion in modules/hm-apps/rclone.nix.
+      # remotes-ownership assertion in modules/apps/rclone/home.nix.
       remotesConflict = mkRcloneHome [
         {
           programs.rclone.remotes.smoke.config = {
@@ -136,7 +136,7 @@ in
       checks."home-manager/rclone-config-ownership" =
         assert lib.assertMsg (
           safeSplit.config.home.activation ? configureRcloneConfig
-        ) "rclone.conf safe split lost the modules/hm-apps/rclone.nix activation writer";
+        ) "rclone.conf safe split lost the modules/apps/rclone/home.nix activation writer";
         assert lib.assertMsg (
           !(safeSplit.config.xdg.configFile ? "rclone/rclone.conf")
         ) "rclone.conf safe split unexpectedly manages rclone.conf through xdg.configFile";

@@ -14,7 +14,7 @@ _: {
     cacheRoots.nvidiaKernelModules = false;
 
     # Runs the fleet's RustDesk ID and relay servers, read by
-    # modules/apps/rustdesk.nix on every host.
+    # modules/apps/rustdesk/nixos.nix on every host.
     rustdeskServer = true;
 
     # Per-host values consumed by modules/hosts/common/*.
