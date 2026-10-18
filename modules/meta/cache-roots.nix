@@ -47,7 +47,6 @@ let
     "burpsuite"
     "charles"
     "czkawka-cli"
-    "discord"
     "dropbox"
     "electron-mail"
     "firefoxpwa"

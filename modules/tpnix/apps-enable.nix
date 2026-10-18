@@ -18,8 +18,6 @@ let
     antimicrox = false;
     "cloudflare-warp" = true;
     cloudflared = false;
-    "coderabbit-cli" = false;
-    discord = false;
     dropbox = false;
     dualsensectl = false;
     dwarfs = false;

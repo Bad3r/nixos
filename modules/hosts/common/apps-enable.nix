@@ -98,7 +98,7 @@ let
       "cloudflare-warp".extended.enable = lib.mkOverride 1100 false;
       cloudflared.extended.enable = lib.mkOverride 1100 true;
       cmake.extended.enable = lib.mkOverride 1100 true;
-      "coderabbit-cli".extended.enable = lib.mkOverride 1100 true;
+      "coderabbit-cli".extended.enable = lib.mkOverride 1100 false;
       codex.extended.enable = lib.mkOverride 1100 true;
       coreutils.extended.enable = lib.mkOverride 1100 true;
       "cosmic-term".extended.enable = lib.mkOverride 1100 false;
@@ -119,7 +119,7 @@ let
       diffutils.extended.enable = lib.mkOverride 1100 false;
       dirbuster.extended.enable = lib.mkOverride 1100 true;
       direnv.extended.enable = lib.mkOverride 1100 true;
-      discord.extended.enable = lib.mkOverride 1100 true;
+      discord.extended.enable = lib.mkOverride 1100 false;
       discordo.extended.enable = lib.mkOverride 1100 false;
       dmenu.extended.enable = lib.mkOverride 1100 false;
       dmidecode.extended.enable = lib.mkOverride 1100 true;
@@ -236,7 +236,7 @@ let
       jq.extended.enable = lib.mkOverride 1100 true;
       "jupyter-all".extended.enable = lib.mkOverride 1100 true;
       just.extended.enable = lib.mkOverride 1100 true;
-      karere.extended.enable = lib.mkOverride 1100 true;
+      karere.extended.enable = lib.mkOverride 1100 false;
       katana.extended.enable = lib.mkOverride 1100 true;
       kcolorchooser.extended.enable = lib.mkOverride 1100 true;
       kdiskmark.extended.enable = lib.mkOverride 1100 true;
@@ -244,7 +244,7 @@ let
       "kiro-fhs".extended.enable = lib.mkOverride 1100 true;
       kitty.extended.enable = lib.mkOverride 1100 true;
       krita.extended.enable = lib.mkOverride 1100 false;
-      ktailctl.extended.enable = lib.mkOverride 1100 true;
+      ktailctl.extended.enable = lib.mkOverride 1100 false;
       lazydocker.extended.enable = lib.mkOverride 1100 true;
       lazygit.extended.enable = lib.mkOverride 1100 true;
       lazyjournal.extended.enable = lib.mkOverride 1100 true;
@@ -417,7 +417,7 @@ let
       rustfmt.extended.enable = lib.mkOverride 1100 false;
       "s-tui".extended.enable = lib.mkOverride 1100 true;
       s5cmd.extended.enable = lib.mkOverride 1100 false;
-      "safeguard-rdp".extended.enable = lib.mkOverride 1100 true;
+      "safeguard-rdp".extended.enable = lib.mkOverride 1100 false;
       samba.extended.enable = lib.mkOverride 1100 true;
       "sc-controller".extended.enable = lib.mkOverride 1100 false;
       screenkey.extended.enable = lib.mkOverride 1100 false;
@@ -427,7 +427,7 @@ let
       selenium.extended.enable = lib.mkOverride 1100 true;
       shellcheck.extended.enable = lib.mkOverride 1100 true;
       shfmt.extended.enable = lib.mkOverride 1100 true;
-      sidecar.extended.enable = lib.mkOverride 1100 true;
+      sidecar.extended.enable = lib.mkOverride 1100 false;
       "signal-desktop".extended.enable = lib.mkOverride 1100 true;
       simplescreenrecorder.extended.enable = lib.mkOverride 1100 false;
       skim.extended.enable = lib.mkOverride 1100 false;
