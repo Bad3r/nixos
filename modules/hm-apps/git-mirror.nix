@@ -121,7 +121,7 @@
               log "$spec: maintenance lock $lock is held by a running process"
               exit 1
             fi
-            git -C "$dir" maintenance run || { log "$spec: maintenance failed"; exit 1; }
+            git -C "$dir" -c maintenance.commit-graph.auto=1 maintenance run --auto || { log "$spec: maintenance failed"; exit 1; }
           }
 
           url_to_dir_name() {
