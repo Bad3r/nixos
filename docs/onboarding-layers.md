@@ -78,7 +78,7 @@ The repository's directories fall into layers, from the flake root outward to do
 - `modules/devshell.nix` and `modules/devshell/pentesting.nix`: the dev shells, with the formatter toolchain, Nix LSP, lint and security tools, SOPS helpers, and act wrappers.
 - `modules/meta/treefmt.nix`: the formatter configuration.
 - `modules/meta/pre-commit.nix`: the git hook set.
-- `modules/meta/hooks/apps-catalog-sync.nix`: keeps `modules/hosts/common/apps-enable.nix` in sync with `modules/apps/`.
+- `modules/meta/hooks/apps-catalog-sync.nix`: keeps `modules/hosts/common/apps-enable.nix` in sync with the registered app and browser modules.
 - `.github/workflows/check.yml`: the CI Dendritic-compliance pipeline.
 
 ## Documentation and project configuration

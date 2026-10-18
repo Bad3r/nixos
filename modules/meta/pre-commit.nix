@@ -159,7 +159,7 @@ _: {
             apps-catalog-sync = {
               enable = true;
               name = "apps-catalog-sync";
-              description = "Ensure apps-enable.nix files match modules/apps/ for each modified host.";
+              description = "Ensure apps-enable.nix files match the registered app modules.";
               entry = "${config.packages.hook-apps-catalog-sync}/bin/hook-apps-catalog-sync";
               pass_filenames = false;
               always_run = true;
