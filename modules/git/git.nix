@@ -3,6 +3,7 @@
   flake.homeManagerModules.base =
     {
       config,
+      pkgs,
       osConfig ? { },
       ...
     }:
@@ -13,11 +14,41 @@
       githubUnsignedEmail = "github@unsigned.sh";
       githubUnsignedSigningKey = metaOwner.gitSigningPublicKey;
       gitAllowedSignersPath = "${config.xdg.configHome}/git/allowed_signers";
+
+      # Home Manager defines git-maintenance@ only under both switches.
+      maintenanceEnabled = config.programs.git.enable && config.programs.git.maintenance.enable;
+      clearStaleMaintenanceLocks = pkgs.writeShellApplication {
+        name = "git-maintenance-clear-stale-locks";
+        runtimeInputs = [
+          config.programs.git.package
+          pkgs.psmisc
+        ];
+        text = ''
+          repos=(${lib.escapeShellArgs config.programs.git.maintenance.repositories})
+          for repo in "''${repos[@]}"; do
+            lock="$(git -C "$repo" rev-parse --path-format=absolute --git-path objects/maintenance.lock)" || continue
+            # git holds the lock open for its whole run.
+            if [ -e "$lock" ] && ! fuser -s "$lock"; then
+              echo "removing stale maintenance lock $lock" >&2
+              rm -f "$lock"
+            fi
+          done
+        '';
+      };
     in
     {
       xdg.configFile."git/allowed_signers".text = ''
         ${githubUnsignedEmail} ${githubUnsignedSigningKey}
       '';
+
+      systemd.user.services = lib.mkIf maintenanceEnabled {
+        "git-maintenance@".Service = {
+          # maintenance run skips silently while a leftover lock exists.
+          ExecStartPre = lib.getExe clearStaleMaintenanceLocks;
+          Slice = "background.slice";
+          IOSchedulingClass = "idle";
+        };
+      };
 
       programs = {
         # Enabled by modules/hm-apps/git.nix while the git row is on.
