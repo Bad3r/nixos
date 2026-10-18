@@ -85,7 +85,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
 - Do not leave boot storage facts split across `boot.nix` and `hardware-config.nix`; that creates drift on the next hardware change.
 - Do not copy the generated file verbatim into the repo; preserve repo policy and only lift the machine-specific facts.
 - Do not reuse the old `networking.hostId`; that risks collisions if the previous machine ever comes back online.
-- Do not describe a kernel or graphics policy that differs from the committed code; the linux-zen boot policy lives in `modules/hosts/common/boot.nix` and the tpnix graphics stack in `modules/hosts/tpnix/power.nix`.
+- The linux-zen boot policy lives in `modules/hosts/common/boot.nix` and the tpnix graphics stack in `modules/hosts/tpnix/power.nix`.
 - Do not assume missing firmware packages in advance. If Wi-Fi, audio, or suspend behavior fails after boot, inspect logs and add only the exact firmware that is proven necessary.
 
 ## 5) Validation And Rollout

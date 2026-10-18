@@ -5,7 +5,7 @@ The repository's directories fall into layers, from the flake root outward to do
 ## Layers
 
 01. **Flake composition and build plumbing** (`flake.nix`, `modules/configurations`, `build.sh`).
-    The entry point and the wiring that turns auto-discovered modules into systems: the host builder, the devshell and package-checks aggregators, shared `lib` helpers, and the git post-checkout hook.
+    The entry point and the wiring that turns auto-discovered modules into systems: the host builder, shared `lib` helpers, and the git post-checkout hook.
 02. **Host definitions and baseline** (`modules/hosts/<host>/`, `modules/hosts/common`).
     Per-host configuration, hardware profiles, host documentation, the cross-host shared baseline, and the registry that every opted-in host composes.
 03. **Base system and boot** (`modules/base`, `modules/boot`).

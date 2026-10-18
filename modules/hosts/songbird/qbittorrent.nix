@@ -134,8 +134,9 @@ in
                 {
                   name = "proton";
                   inherit (proton) publicKey endpoint;
-                  # IPv4 only: ipv6.disable=1 (hosts/common/disable-ipv6.nix)
-                  # leaves no AF_INET6 for the ::/0 route the profile lists.
+                  # IPv4 only: ipv6.disable=1
+                  # (modules/hosts/common/disable-ipv6.nix) leaves no AF_INET6
+                  # for the ::/0 route the profile lists.
                   allowedIPs = [ "0.0.0.0/0" ];
                   persistentKeepalive = 25;
                 }
