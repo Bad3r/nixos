@@ -15,8 +15,8 @@
       # executes in CI, its absence would produce no error and no diagnostic,
       # so the run would stay green with the config that governs that pass
       # gone from the tree.
-      managedConfigNames = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
-        lib.attrNames (builtins.readDir rootPath)
+      managedConfigNames = map (n: ".gitleaks/${n}") (
+        lib.filter (lib.hasSuffix ".toml") (lib.attrNames (builtins.readDir (rootPath + "/.gitleaks")))
       );
     in
     {
@@ -62,7 +62,7 @@
             # "nixos-manual/leak.txt" and the superproject's anchored
             # "^nixos-manual/" would skip a top-level directory of that name
             # inside the private repository, before scanning it and invisibly
-            # from here. .gitleaks-secrets.toml carries the content-scoped
+            # from here. .gitleaks/secrets.toml carries the content-scoped
             # allowlists and no paths key at all.
             for config_file in ${lib.escapeShellArgs managedConfigNames}; do
               if [ ! -f "$config_file" ]; then
@@ -178,7 +178,7 @@
             fi
 
             # Only this private gitlink owns the operational note covered by
-            # .gitleaks-secrets.toml. Every other gitlink gets the generic
+            # .gitleaks/secrets.toml. Every other gitlink gets the generic
             # content-only config, so a future repository cannot inherit the
             # private KV suppression by appearing in the index.
             private_config_gitlinks=(secrets)
@@ -207,7 +207,7 @@
             # so a sibling ignore file there is the plausible shape.
             for ignore_file in ".gitleaksignore" "''${submodules[@]/%//.gitleaksignore}"; do
               if [ -e "$ignore_file" ]; then
-                echo "hook-gitleaks: $ignore_file suppresses findings outside the reviewed baselines and cannot be disabled; remove it and record them in .gitleaks-baseline.json or the matching <submodule>/.gitleaks-baseline.json instead" >&2
+                echo "hook-gitleaks: $ignore_file suppresses findings outside the reviewed baselines and cannot be disabled; remove it and record them in .gitleaks/baseline.json or the matching <submodule>/.gitleaks-baseline.json instead" >&2
                 exit 1
               fi
             done
@@ -311,17 +311,17 @@
             # the submodule is checked out, which is already the pass's guard.
             # Record a new entry with the same flags this hook uses:
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks.toml \
-            #     --report-path .gitleaks-baseline.json .
+            #     --config .gitleaks/superproject.toml \
+            #     --report-path .gitleaks/baseline.json .
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks-secrets.toml \
+            #     --config .gitleaks/secrets.toml \
             #     --report-path secrets/.gitleaks-baseline.json ./secrets
             # Any gitlink outside private_config_gitlinks is scanned with
-            # .gitleaks-gitlink.toml, so record its baseline with that config:
-            # .gitleaks-secrets.toml suppresses the KV note the generic pass
+            # .gitleaks/gitlink.toml, so record its baseline with that config:
+            # .gitleaks/secrets.toml suppresses the KV note the generic pass
             # reports, and the resulting baseline would lack that fingerprint.
             #   gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-            #     --config .gitleaks-gitlink.toml \
+            #     --config .gitleaks/gitlink.toml \
             #     --report-path <gitlink>/.gitleaks-baseline.json ./<gitlink>
             # Matching is by fingerprint, so a raw baseline would still suppress,
             # but it commits the credential in plaintext. Dropping
@@ -336,7 +336,7 @@
             # rather than before them: all three exit 1 without running this
             # pass, and announcing a filtered scan first would print that line
             # ahead of a refusal saying the pass never ran at all.
-            git_args=("''${common[@]}" --config ".gitleaks.toml")
+            git_args=("''${common[@]}" --config ".gitleaks/superproject.toml")
             if [ -n "$range_to" ]; then
               # --full-history spelled out: supplying --log-opts replaces
               # gitleaks' whole default argument list, `--full-history --all`
@@ -348,9 +348,9 @@
               git_args+=(--log-opts "--full-history $push_scope")
               echo "hook-gitleaks: superproject pass scoped to --full-history $push_scope, the commits this push can publish; the full history is swept by check.yml's gitleaks-scan" >&2
             fi
-            if [ -f ".gitleaks-baseline.json" ]; then
-              git_args+=(--baseline-path ".gitleaks-baseline.json")
-              echo "hook-gitleaks: superproject pass filtered by .gitleaks-baseline.json" >&2
+            if [ -f ".gitleaks/baseline.json" ]; then
+              git_args+=(--baseline-path ".gitleaks/baseline.json")
+              echo "hook-gitleaks: superproject pass filtered by .gitleaks/baseline.json" >&2
             fi
 
             # History pass: catches a credential that was committed and later
@@ -377,10 +377,10 @@
             # because the submodule may not be checked out; .git is a file there,
             # not a directory, so -e not -d.
             for sm in "''${submodules[@]}"; do
-            submodule_config=".gitleaks-gitlink.toml"
+            submodule_config=".gitleaks/gitlink.toml"
             for private_gitlink in "''${private_config_gitlinks[@]}"; do
               if [ "$sm" = "$private_gitlink" ]; then
-                submodule_config=".gitleaks-secrets.toml"
+                submodule_config=".gitleaks/secrets.toml"
                 break
               fi
             done

@@ -21,8 +21,8 @@
       ...
     }:
     let
-      managedConfigNames = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
-        lib.attrNames (builtins.readDir rootPath)
+      managedConfigNames = map (n: ".gitleaks/${n}") (
+        lib.filter (lib.hasSuffix ".toml") (lib.attrNames (builtins.readDir (rootPath + "/.gitleaks")))
       );
     in
     {
@@ -150,7 +150,7 @@
                 | grep -oE -- '(^|[[:space:]("])(--config[ =]+|-c[ =]*)("[^"]*"|[^[:space:];&|)]+)' \
                 | sed -E 's/^[[:space:]("]*(--config|-c)[ =]*//' | sort -u || true
             )
-            expected_config_args=$(printf '%s\n' '".gitleaks.toml"' '"$submodule_config"' | sort -u)
+            expected_config_args=$(printf '%s\n' '".gitleaks/superproject.toml"' '"$submodule_config"' | sort -u)
             [ "$hook_config_args" = "$expected_config_args" ] \
               || fail "hook passes --config/-c arguments outside the reviewed set: $hook_config_args"
 
@@ -181,7 +181,7 @@
                 | grep -oE -- '[A-Za-z_]*_config=[^[:space:];&|)]+' \
                 | sed -E 's/^[A-Za-z_]*_config=//' | tr -d '"' | sort -u || true
             )
-            expected_config_values=$(printf '%s\n' ".gitleaks-gitlink.toml" ".gitleaks-secrets.toml" | sort -u)
+            expected_config_values=$(printf '%s\n' ".gitleaks/gitlink.toml" ".gitleaks/secrets.toml" | sort -u)
             [ "$hook_config_values" = "$expected_config_values" ] \
               || fail "hook assigns a *_config variable outside the reviewed set: $hook_config_values"
 
@@ -202,7 +202,7 @@
 
 
             # Which gitlinks may be scanned with the private config, not only
-            # which configs exist: .gitleaks-secrets.toml carries a
+            # which configs exist: .gitleaks/secrets.toml carries a
             # content-triggered suppression that kvUnexpectedIn keeps out of
             # every other source, and the hook's own recipient list is
             # bounded by nothing else. Appending a name here would hand that
@@ -236,6 +236,7 @@
             # reachable at all, and a stand-in config left it asserted by
             # nothing.
             write_config() {
+              mkdir -p "$1/.gitleaks"
               ${lib.concatMapStringsSep "\n              " (
                 n: "printf '%s' ${lib.escapeShellArg (builtins.readFile (rootPath + "/${n}"))} > \"$1/${n}\""
               ) managedConfigNames}
@@ -251,35 +252,35 @@
               git -C "$1" commit -qm "base"
             }
 
-            echo "hook-gitleaks-guards: 1/41 missing .gitleaks.toml"
+            echo "hook-gitleaks-guards: 1/41 missing .gitleaks/superproject.toml"
             new_repo "$work/no-config"
-            git -C "$work/no-config" rm -q --cached .gitleaks.toml
-            rm "$work/no-config/.gitleaks.toml"
+            git -C "$work/no-config" rm -q --cached .gitleaks/superproject.toml
+            rm "$work/no-config/.gitleaks/superproject.toml"
             git -C "$work/no-config" commit -qm "drop config"
             cd "$work/no-config" && run_hook
-            expect_refusal "missing .gitleaks.toml" 'gitleaks.toml is missing'
+            expect_refusal "missing .gitleaks/superproject.toml" 'gitleaks/superproject.toml is missing'
 
             # The second iteration of the same loop, which fixture 1 never
-            # reaches because it refuses on .gitleaks.toml first. Not covered by
+            # reaches because it refuses on .gitleaks/superproject.toml first. Not covered by
             # gitleaks erroring on a missing --config either: in the state CI
             # runs in, secrets/ is absent and the submodule pass never executes,
             # so the job stays green while the config governing the private
             # submodule's scan is gone from the tree.
-            echo "hook-gitleaks-guards: 2/41 missing .gitleaks-secrets.toml"
+            echo "hook-gitleaks-guards: 2/41 missing .gitleaks/secrets.toml"
             new_repo "$work/no-sub-config"
-            git -C "$work/no-sub-config" rm -q --cached .gitleaks-secrets.toml
-            rm "$work/no-sub-config/.gitleaks-secrets.toml"
+            git -C "$work/no-sub-config" rm -q --cached .gitleaks/secrets.toml
+            rm "$work/no-sub-config/.gitleaks/secrets.toml"
             git -C "$work/no-sub-config" commit -qm "drop submodule config"
             cd "$work/no-sub-config" && run_hook
-            expect_refusal "missing .gitleaks-secrets.toml" 'gitleaks-secrets.toml is missing'
+            expect_refusal "missing .gitleaks/secrets.toml" 'gitleaks/secrets.toml is missing'
 
-            echo "hook-gitleaks-guards: 3/41 missing .gitleaks-gitlink.toml"
+            echo "hook-gitleaks-guards: 3/41 missing .gitleaks/gitlink.toml"
             new_repo "$work/no-gitlink-config"
-            git -C "$work/no-gitlink-config" rm -q --cached .gitleaks-gitlink.toml
-            rm "$work/no-gitlink-config/.gitleaks-gitlink.toml"
+            git -C "$work/no-gitlink-config" rm -q --cached .gitleaks/gitlink.toml
+            rm "$work/no-gitlink-config/.gitleaks/gitlink.toml"
             git -C "$work/no-gitlink-config" commit -qm "drop generic gitlink config"
             cd "$work/no-gitlink-config" && run_hook
-            expect_refusal "missing .gitleaks-gitlink.toml" 'gitleaks-gitlink.toml is missing'
+            expect_refusal "missing .gitleaks/gitlink.toml" 'gitleaks/gitlink.toml is missing'
 
             echo "hook-gitleaks-guards: 4/41 .gitleaksignore at the repository root"
             new_repo "$work/ignore-root"
@@ -447,18 +448,18 @@
             # The credential is planted in the submodule, not the superproject,
             # because without --config gitleaks resolves a config per source and
             # the superproject's source is the repository root, where it finds
-            # the same .gitleaks.toml and behaves identically. The submodule
+            # the same .gitleaks/superproject.toml and behaves identically. The submodule
             # pass's source is secrets/, which holds no config, so it falls back
             # to the built-in defaults and reports the credential
-            # .gitleaks-secrets.toml allowlists. A clean result therefore proves
+            # .gitleaks/secrets.toml allowlists. A clean result therefore proves
             # that config reached a pass that could not have discovered it.
             echo "hook-gitleaks-guards: 13/41 the repository config reaches both passes"
             new_repo "$work/configured"
-            # Both configs: .gitleaks-secrets.toml is what must reach the
+            # Both configs: .gitleaks/secrets.toml is what must reach the
             # submodule pass, and it is also an ordinary committed file that the
             # superproject pass scans, so without the same entry in
-            # .gitleaks.toml the literal written here is itself reported.
-            for cfg in .gitleaks.toml .gitleaks-secrets.toml; do
+            # .gitleaks/superproject.toml the literal written here is itself reported.
+            for cfg in .gitleaks/superproject.toml .gitleaks/secrets.toml; do
               printf '[[allowlists]]\ndescription = "fixture"\nregexes = ["%s_%s"]\n' \
                 "$pat_prefix" "$pat_body" >> "$work/configured/$cfg"
             done
@@ -483,7 +484,7 @@
               submodule add -q "file://$work/subup" secrets
             git -C "$work/sub-baselined" commit -qm "add submodule carrying the credential"
             gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-              --config "$work/sub-baselined/.gitleaks-secrets.toml" \
+              --config "$work/sub-baselined/.gitleaks/secrets.toml" \
               --report-path "$work/sub-baselined/secrets/.gitleaks-baseline.json" \
               "$work/sub-baselined/secrets" || true
             cd "$work/sub-baselined" && run_hook
@@ -521,8 +522,8 @@
             git -C "$work/baselined" add -A
             git -C "$work/baselined" commit -qm "commit a credential"
             gitleaks git --no-banner --redact --ignore-gitleaks-allow \
-              --config "$work/baselined/.gitleaks.toml" \
-              --report-path "$work/baselined/.gitleaks-baseline.json" \
+              --config "$work/baselined/.gitleaks/superproject.toml" \
+              --report-path "$work/baselined/.gitleaks/baseline.json" \
               "$work/baselined" || true
             cd "$work/baselined" && run_hook
             expect_clean "superproject baseline"
@@ -545,7 +546,7 @@
             # pins in config text and explicitly cannot verify: the vector is
             # triggered by file content, so only a real scan reaches it. The
             # note belongs in the private submodule, which is the only pass
-            # governed by .gitleaks-secrets.toml. Two lines, one carrying the KV
+            # governed by .gitleaks/secrets.toml. Two lines, one carrying the KV
             # note alone and one carrying a Stripe live key followed by the same
             # note. The first must be suppressed, which is what the entry exists
             # for; the second must still be reported, which is what targetRules =
@@ -660,20 +661,20 @@
             # so a refusal from any of the three cannot be preceded by a claim
             # that a scan ran and was filtered. Shallow after a committed
             # baseline is the reachable shape: this repository carries
-            # .gitleaks-baseline.json today, so any shallow checkout hits
+            # .gitleaks/baseline.json today, so any shallow checkout hits
             # exactly this combination.
             echo "hook-gitleaks-guards: 23/41 baseline announcement does not precede a refusal"
             new_repo "$work/baseline-then-shallow"
             echo second > "$work/baseline-then-shallow/second.txt"
             git -C "$work/baseline-then-shallow" add -A
             git -C "$work/baseline-then-shallow" commit -qm second
-            printf '[]' > "$work/baseline-then-shallow/.gitleaks-baseline.json"
+            printf '[]' > "$work/baseline-then-shallow/.gitleaks/baseline.json"
             git -C "$work/baseline-then-shallow" add -A
             git -C "$work/baseline-then-shallow" commit -qm "record an empty baseline"
             git clone -q --depth 1 "file://$work/baseline-then-shallow" "$work/baseline-then-shallow-clone"
             cd "$work/baseline-then-shallow-clone" && run_hook
             expect_refusal "baseline announcement ordering" 'incomplete history (commits=1, shallow=true)'
-            if printf '%s' "$hook_out" | grep -q 'filtered by .gitleaks-baseline.json'; then
+            if printf '%s' "$hook_out" | grep -q 'filtered by .gitleaks/baseline.json'; then
               fail "baseline announcement ordering: announced a filtered scan before refusing to run one at all"
             fi
 
@@ -727,14 +728,14 @@
             # Neither managed-config contract, nor the --config argument pin
             # above, constrains which reviewed config reaches which pass:
             # both would stay green if git_args pointed the superproject at
-            # .gitleaks-secrets.toml instead of .gitleaks.toml, since that is
+            # .gitleaks/secrets.toml instead of .gitleaks/superproject.toml, since that is
             # still a judged, reachable config, just wired to the wrong scan.
             # That swap would give the public superproject the Cloudflare KV
-            # content suppression kvUnexpectedIn keeps out of .gitleaks.toml,
+            # content suppression kvUnexpectedIn keeps out of .gitleaks/superproject.toml,
             # a vector triggered by file content that no eval-time check can
             # see. Reusing kv_note from fixture 18: committed directly in a
             # superproject file rather than through a private submodule, it
-            # is reported only while that pass runs under .gitleaks.toml.
+            # is reported only while that pass runs under .gitleaks/superproject.toml.
             echo "hook-gitleaks-guards: 26/41 the superproject pass carries no KV suppression"
             new_repo "$work/kv-public"
             printf '%s\n' "$kv_note" > "$work/kv-public/notes.md"

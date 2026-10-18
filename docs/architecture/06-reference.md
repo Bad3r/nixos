@@ -40,7 +40,7 @@ nix run path:.#hook-gitleaks
 ```
 
 A shallow clone is refused rather than reported clean, so run this against a
-complete history. Suppression goes through `.gitleaks-baseline.json`, whose
+complete history. Suppression goes through `.gitleaks/baseline.json`, whose
 entries the hook announces whenever they filter a pass;
 `.gitleaksignore` is refused outright, since it filters findings with no
 review and cannot be turned off.

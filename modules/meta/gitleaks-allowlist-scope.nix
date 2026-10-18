@@ -34,24 +34,24 @@
       # the worktree, so the pattern's only live effect would be to path-scope
       # one a future commit creates, before gitleaks ever reads its contents.
       # The three historical findings under the old root path are already in
-      # .gitleaks-baseline.json by fingerprint.
+      # .gitleaks/baseline.json by fingerprint.
       superprojectPaths = [
         "^docs/nixos-manual/"
       ];
 
       managedConfigs = [
         {
-          file = ".gitleaks.toml";
+          file = ".gitleaks/superproject.toml";
           reviewedPaths = superprojectPaths;
           kvAllowed = false;
         }
         {
-          file = ".gitleaks-secrets.toml";
+          file = ".gitleaks/secrets.toml";
           reviewedPaths = [ ];
           kvAllowed = true;
         }
         {
-          file = ".gitleaks-gitlink.toml";
+          file = ".gitleaks/gitlink.toml";
           reviewedPaths = [ ];
           kvAllowed = false;
         }
@@ -65,9 +65,9 @@
 
       # Quantified over the configs in the tree, not over managedConfigs:
       # removing a contract while the file still ships must throw, and a new
-      # .gitleaks-*.toml must gain a contract before it can be scanned with.
-      managedGitleaksFiles = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
-        lib.attrNames (builtins.readDir ../..)
+      # .gitleaks/*.toml must gain a contract before it can be scanned with.
+      managedGitleaksFiles = map (n: ".gitleaks/${n}") (
+        lib.filter (lib.hasSuffix ".toml") (lib.attrNames (builtins.readDir ../../.gitleaks))
       );
 
       managedConfigCoverage = configs: lib.subtractLists (map (c: c.file) configs) managedGitleaksFiles;
@@ -82,8 +82,8 @@
         }
         {
           id = "missing-secrets-contract";
-          configs = lib.filter (c: c.file != ".gitleaks-secrets.toml") managedConfigs;
-          expected = [ ".gitleaks-secrets.toml" ];
+          configs = lib.filter (c: c.file != ".gitleaks/secrets.toml") managedConfigs;
+          expected = [ ".gitleaks/secrets.toml" ];
         }
       ];
 
@@ -399,7 +399,7 @@
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is present in "
               + "${lib.concatStringsSep ", " (map (p: p.origin) kvUnexpectedIn)} even though those "
               + "sources scan public superproject files. Keep this content-scoped suppression in "
-              + ".gitleaks-secrets.toml, which scans the private operational note";
+              + ".gitleaks/secrets.toml, which scans the private operational note";
           }
           {
             id = "kv-missing";
@@ -407,7 +407,7 @@
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${
                 lib.concatStringsSep ", " (map (p: p.origin) kvMissingIn)
-              }. The entry belongs in .gitleaks-secrets.toml because the note it exists for "
+              }. The entry belongs in .gitleaks/secrets.toml because the note it exists for "
               + "is scanned only through the private submodule pass";
           }
           {
@@ -525,7 +525,7 @@
       # dropping targetRules, because an empty targetRules trips untargeted-scope
       # first, and kv-unscoped keeps targetRules so it reaches the last branch.
       # Takes the case, not just its toml, so a case can drive the empty reviewed
-      # set that .gitleaks-secrets.toml carries. Hardcoding superprojectPaths
+      # set that .gitleaks/secrets.toml carries. Hardcoding superprojectPaths
       # here left the per-source split asserted by nothing: reverting it to a
       # single global binding kept every fixture green, because the real submodule
       # config happens to carry no paths key.
