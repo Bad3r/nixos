@@ -41,7 +41,7 @@
   perSystem =
     { pkgs, ... }:
     {
-      checks."hm-apps/proton-drive-sync" =
+      checks."apps/rclone-proton-drive-sync" =
         let
           root = "/tmp/proton-drive-sync-check";
           stateDir = "${root}/state/proton-drive-sync";
@@ -347,7 +347,7 @@
                 # fails on an existing directory or symlink, which also catches
                 # leftover state from an earlier unsandboxed run.
                 if ! mkdir -m 700 -- "$check_root" 2>/dev/null; then
-                  echo "hm-apps/proton-drive-sync: $check_root already exists; this check needs the sandbox's private /tmp" >&2
+                  echo "apps/rclone-proton-drive-sync: $check_root already exists; this check needs the sandbox's private /tmp" >&2
                   exit 1
                 fi
                 trap 'rm -rf -- "$check_root"' EXIT
@@ -360,7 +360,7 @@
                 : > "$PROTON_DRIVE_STUB_CALLS"
 
                 fail() {
-                  echo "hm-apps/proton-drive-sync: $1" >&2
+                  echo "apps/rclone-proton-drive-sync: $1" >&2
                   exit 1
                 }
                 marker_count() { find "$state" -maxdepth 1 -name "$1" | wc -l; }
@@ -531,62 +531,62 @@
         in
         assert lib.assertMsg (
           syncScript != null
-        ) "hm-apps/proton-drive-sync: the sops source must install proton-drive-sync";
+        ) "apps/rclone-proton-drive-sync: the sops source must install proton-drive-sync";
         assert lib.assertMsg (installsScript onePasswordHm)
-          "hm-apps/proton-drive-sync: op:// references must install proton-drive-sync with no secret present";
+          "apps/rclone-proton-drive-sync: op:// references must install proton-drive-sync with no secret present";
         assert lib.assertMsg (installsScript onePasswordNoOtpHm)
-          "hm-apps/proton-drive-sync: an empty otpRef/mailboxPasswordRef must still be ready (per-account optional fields)";
+          "apps/rclone-proton-drive-sync: an empty otpRef/mailboxPasswordRef must still be ready (per-account optional fields)";
         assert lib.assertMsg (
           !installsScript disabledHm
-        ) "hm-apps/proton-drive-sync: protonDrive.enable = false must withhold proton-drive-sync";
+        ) "apps/rclone-proton-drive-sync: protonDrive.enable = false must withhold proton-drive-sync";
         assert lib.assertMsg (!installsScript rcloneDisabledHm)
-          "hm-apps/proton-drive-sync: programs.rclone.extended.enable = false must withhold proton-drive-sync";
+          "apps/rclone-proton-drive-sync: programs.rclone.extended.enable = false must withhold proton-drive-sync";
         assert lib.assertMsg (lib.all (entry: entry.assertion)
           hm.config.assertions
-        ) "hm-apps/proton-drive-sync: the stubbed configuration must satisfy its own assertions";
+        ) "apps/rclone-proton-drive-sync: the stubbed configuration must satisfy its own assertions";
         # home-manager throws on the whole configuration when an assertion
         # fails, so a rejected extraArg reads as an eval failure here.
         assert lib.assertMsg (
           !(builtins.tryEval logRoutedHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: --log-file in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: --log-file in extraArgs must fail an assertion";
         assert lib.assertMsg (
           !(builtins.tryEval logSystemdHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: --log-systemd in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: --log-systemd in extraArgs must fail an assertion";
         assert lib.assertMsg (
           !(builtins.tryEval dryRunHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: --dry-run in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: --dry-run in extraArgs must fail an assertion";
         assert lib.assertMsg (
           !(builtins.tryEval maxDeleteHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: --max-delete in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: --max-delete in extraArgs must fail an assertion";
         assert lib.assertMsg (
           !(builtins.tryEval clusteredShortHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: a clustered short option in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: a clustered short option in extraArgs must fail an assertion";
         assert lib.assertMsg (
           !(builtins.tryEval enableCachingHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: --protondrive-enable-caching in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: --protondrive-enable-caching in extraArgs must fail an assertion";
         assert lib.assertMsg (
           !(builtins.tryEval ignoreErrorsHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: --ignore-errors in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: --ignore-errors in extraArgs must fail an assertion";
         assert lib.assertMsg (
           !(builtins.tryEval configHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: --config in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: --config in extraArgs must fail an assertion";
         assert lib.assertMsg (
           !(builtins.tryEval workdirHm.config.home.packages).success
-        ) "hm-apps/proton-drive-sync: --workdir in extraArgs must fail an assertion";
+        ) "apps/rclone-proton-drive-sync: --workdir in extraArgs must fail an assertion";
         # Asserting a flag is passed is only meaningful while extraArgs cannot
         # replace it, so every flag the runner pins must also be refused.
         assert lib.assertMsg
           (lib.subtractLists hm.config.services.protonDriveSync.rejectedExtraArgs ownedFlagNames == [ ])
-          "hm-apps/proton-drive-sync: flags asserted on the command line but absent from rejectedExtraArgs: ${lib.concatStringsSep " " (lib.subtractLists hm.config.services.protonDriveSync.rejectedExtraArgs ownedFlagNames)}";
+          "apps/rclone-proton-drive-sync: flags asserted on the command line but absent from rejectedExtraArgs: ${lib.concatStringsSep " " (lib.subtractLists hm.config.services.protonDriveSync.rejectedExtraArgs ownedFlagNames)}";
         # The unit inherits the user manager's environment, and the script reads
         # these three before any other logic, so the timer must run the
         # configured values rather than whatever the session happens to export.
         assert lib.assertMsg (
           (hm.config.systemd.user.services.proton-drive-sync.Service.UnsetEnvironment or "")
           == "PROTON_DRIVE_LOCAL PROTON_DRIVE_REMOTE PROTON_DRIVE_DIRECTION"
-        ) "hm-apps/proton-drive-sync: the unit must drop the PROTON_DRIVE_* per-invocation overrides";
+        ) "apps/rclone-proton-drive-sync: the unit must drop the PROTON_DRIVE_* per-invocation overrides";
         assert lib.assertMsg (installsScript tuningHm)
-          "hm-apps/proton-drive-sync: long-form tuning arguments must still be accepted";
+          "apps/rclone-proton-drive-sync: long-form tuning arguments must still be accepted";
         builtins.deepSeq units drive;
     };
 }

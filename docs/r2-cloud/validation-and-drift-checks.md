@@ -49,7 +49,7 @@ Expected result:
 nix flake check --accept-flake-config --no-build --offline
 nix build .#nixosConfigurations.songbird.config.system.build.toplevel
 # Focused rclone.conf ownership check (also part of nix flake check)
-nix build --accept-flake-config --no-link '.#checks.x86_64-linux."home-manager/rclone-config-ownership"'
+nix build --accept-flake-config --no-link '.#checks.x86_64-linux."apps/rclone-config-ownership"'
 ```
 
 Expected result:
@@ -94,7 +94,7 @@ Expected result (on a host with the runtime enabled):
   once a host policy re-enables the runtime)
 - the `rclone.conf` ownership assertions removed from
   `modules/apps/rclone/home.nix` (caught by
-  `checks.<system>."home-manager/rclone-config-ownership"`)
+  `checks.<system>."apps/rclone-config-ownership"`)
 - a host's `modules/<host>/r2-runtime.nix` stops calling `mkHostR2Module`
 - `secrets/r2.yaml` creation rule removed from `modules/security/sops-policy.nix`
 - secret template paths changed without consumer path updates

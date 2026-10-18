@@ -133,7 +133,7 @@ in
       remotesConflictEval = builtins.tryEval remotesConflict.config.home.username;
     in
     {
-      checks."home-manager/rclone-config-ownership" =
+      checks."apps/rclone-config-ownership" =
         assert lib.assertMsg (
           safeSplit.config.home.activation ? configureRcloneConfig
         ) "rclone.conf safe split lost the modules/apps/rclone/home.nix activation writer";

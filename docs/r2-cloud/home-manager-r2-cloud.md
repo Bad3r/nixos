@@ -72,7 +72,7 @@ file. A second assertion keeps upstream `programs.rclone.remotes` empty so
 the upstream rclone-config generator cannot become another writer.
 
 The boundary is regression-checked by
-`checks.<system>."home-manager/rclone-config-ownership"` from
+`checks.<system>."apps/rclone-config-ownership"` from
 `modules/apps/rclone/config-ownership.nix`, which evaluates the safe
 split, the colliding combination, and a relocated `rcloneConfigPath`.
 
@@ -95,5 +95,5 @@ rg -n '"r2-flake"\.homeManagerModules\.default' modules/lib/r2-runtime.nix
 rg -n 'r2Secrets|cloudflare/r2/env' modules/home-manager/nixos.nix modules/home/r2-secrets.nix
 rg -n 'programs\.r2-cloud' modules/lib/r2-runtime.nix
 rg -n 'r2CloudClaimsRenderedConfig' modules/apps/rclone/home.nix
-nix build --accept-flake-config --no-link '.#checks.x86_64-linux."home-manager/rclone-config-ownership"'
+nix build --accept-flake-config --no-link '.#checks.x86_64-linux."apps/rclone-config-ownership"'
 ```

@@ -44,7 +44,7 @@
   perSystem =
     { pkgs, ... }:
     {
-      checks."hm-apps/rclone-protondrive-otp" =
+      checks."apps/rclone-protondrive-otp" =
         let
           root = "/tmp/rclone-protondrive-otp-check";
 
@@ -212,7 +212,7 @@
             # fails on an existing directory or symlink, which also catches
             # leftover state from an earlier unsandboxed run.
             if ! mkdir -m 700 -- "$check_root" 2>/dev/null; then
-              echo "hm-apps/rclone-protondrive-otp: $check_root already exists; this check needs the sandbox's private /tmp" >&2
+              echo "apps/rclone-protondrive-otp: $check_root already exists; this check needs the sandbox's private /tmp" >&2
               exit 1
             fi
             trap 'rm -rf -- "$check_root"' EXIT
@@ -245,7 +245,7 @@
               "$check_root/activation-sops.sh" "$check_root/activation-no-otp.sh"
 
             fail() {
-              echo "hm-apps/rclone-protondrive-otp: $1" >&2
+              echo "apps/rclone-protondrive-otp: $1" >&2
               exit 1
             }
 
