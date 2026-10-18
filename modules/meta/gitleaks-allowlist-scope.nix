@@ -24,16 +24,12 @@
       # Each entry keeps its origin so a throw names the file that carries it.
       managedConfigs = [
         {
-          file = ".gitleaks/superproject.toml";
+          file = ".gitleaks/default.toml";
           kvAllowed = false;
         }
         {
           file = ".gitleaks/secrets.toml";
           kvAllowed = true;
-        }
-        {
-          file = ".gitleaks/gitlink.toml";
-          kvAllowed = false;
         }
       ];
 
@@ -234,8 +230,9 @@
           # The KV note exists only in the private submodule, so its allowlist is
           # permitted only in the source governing that pass. Check both
           # directions: a missing private entry breaks the false-positive fix,
-          # while an unexpected superproject entry creates a suppression channel
-          # for public files that the note does not justify.
+          # while an unexpected entry elsewhere creates a suppression channel
+          # for the superproject or another gitlink that the note does not
+          # justify.
           kvMissingIn = lib.filter (p: p.kvAllowed && !lib.any (a: a.origin == p.origin) kvBlocks) parsed;
           kvUnexpectedIn = lib.filter (p: !p.kvAllowed && lib.any (a: a.origin == p.origin) kvBlocks) parsed;
           kvUnscoped = lib.filter (a: (a.regextarget or "secret") != "line") kvBlocks;
@@ -370,8 +367,9 @@
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is present in "
               + "${lib.concatStringsSep ", " (map (p: p.origin) kvUnexpectedIn)} even though those "
-              + "sources scan public superproject files. Keep this content-scoped suppression in "
-              + ".gitleaks/secrets.toml, which scans the private operational note";
+              + "sources scan the superproject or gitlinks other than the private one. Keep this "
+              + "content-scoped suppression in .gitleaks/secrets.toml, which scans the private "
+              + "operational note";
           }
           {
             id = "kv-missing";
