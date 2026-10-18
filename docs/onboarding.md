@@ -5,13 +5,37 @@ Files prefixed with `_` are omitted, and nothing imports a module by literal pat
 It composes per-host system and Home Manager configurations with sops-nix secrets, Stylix theming, and a `build.sh` validate-and-deploy pipeline.
 
 - [Architecture](architecture/README.md): the Dendritic Pattern reference, in reading order.
-- [Layers and File Map](onboarding-layers.md): the directories and their load-bearing files.
 
 ## Project Overview
 
 - **Languages**: Nix first, then Python and Shell, plus JSON, YAML, TOML, SQL, and Markdown data.
 - **Frameworks**: flake-parts, import-tree, home-manager, sops-nix, stylix, treefmt-nix, git-hooks.nix, nixos-hardware, and GitHub Actions.
 - **Hosts**: `songbird` and `tpnix`.
+
+## Layers
+
+The directories fall into layers, from the flake root outward to documentation.
+
+01. **Flake composition and build plumbing** (`flake.nix`, `modules/configurations`, `build.sh`).
+    The entry point and the wiring that turns auto-discovered modules into systems: the host builder, the devshell and package-checks aggregators, shared `lib` helpers, and the git post-checkout hook.
+02. **Host definitions and baseline** (`modules/<host>/`, `modules/hosts/common`).
+    Per-host configuration, hardware profiles, the cross-host shared baseline, and the registry that every opted-in host composes.
+03. **Base system and boot** (`modules/base`, `modules/boot`).
+    Foundational settings shared by all hosts: core Nix settings, users, locale, bootloader, and kernel.
+04. **Home Manager** (`modules/home-manager`, `modules/home`, `modules/files`).
+    The Home Manager integration glue, per-user home configuration, and base package defaults.
+05. **System services and desktop domains** (`modules/networking`, `security`, `services`, `stylix`, `git`, `xdg`, `csec`, ...).
+    Domain modules configuring system services and the desktop.
+06. **AI agents configuration** (`modules/agents`).
+    Developer AI tooling and agent prompts for claude-code and codex, with system prompts and tool settings generated from a single source.
+07. **Local packages and overlays** (`packages/`, `modules/hosts/common/custom-overlays-base.nix`).
+    Local derivations, with pin hashes, fixtures, and docs, and the overlay layer that injects each into nixpkgs.
+08. **Repo tooling, meta, and CI** (`scripts/`, `modules/meta`, `modules/packages`, `.github/`).
+    Operational scripts, evaluation logic such as the unfree predicate and the README and package checks, and CI pipelines.
+09. **Documentation** (`docs/` and the root `README.md`, `CLAUDE.md`, and `AGENTS.md`).
+    Long-form references and agent prompt guides.
+10. **Project configuration** (`pyproject.toml`, git attributes, and the sops, gitleaks, and typos policies).
+    Repository-level policy and tooling dotfiles.
 
 ## Key Concepts
 
@@ -42,12 +66,18 @@ The reading path runs from what the project is to how it ships, each step buildi
 05. NixOS modules and the app registry: [NixOS Modules](architecture/03-nixos-modules.md), `modules/hosts/common/apps-base.nix`, and `modules/hosts/common/apps-enable.nix`.
 06. Assembling a host: [Host Composition](architecture/05-host-composition.md), `modules/configurations/nixos.nix`, and `modules/hosts/common/registry.nix`.
 07. Per-host composition and rows: `modules/hosts/common/imports.nix`, `modules/songbird/apps-enable.nix`, and `modules/tpnix/apps-enable.nix`.
-08. Home Manager, the dual-module pattern: [Home Manager](architecture/04-home-manager.md), `modules/home-manager/nixos.nix`, and `modules/home-manager/base.nix`.
-09. Secrets with sops-nix: `modules/security/sops-runtime.nix`, `modules/hosts/common/sops.nix`, and `modules/security/secrets.nix`.
-10. Custom packages and overlays: `modules/hosts/common/custom-overlays-base.nix`, `packages/restringer/default.nix`, and its `hashes.json`.
-11. The AI agents layer: `modules/agents/system-prompt.nix`, `modules/agents/claude-code/home.nix`, `modules/agents/codex/home.nix`, and `modules/agents/mcp.nix`.
-12. Theming with Stylix: `modules/stylix/stylix.nix`, whose base16 scheme comes from the `tinted-schemes` input.
-13. Validation, tooling, and deployment: `modules/devshell.nix`, `modules/meta/treefmt.nix`, `modules/meta/pre-commit.nix`, `build.sh`, and `.github/workflows/check.yml`.
+    The imports hub wires base, SSH, sops, Duplicati, and the shared nixos-hardware profiles into every host.
+08. Base system and boot: `modules/base/` for core Nix settings, users, and locale, `modules/boot/` for boot compression and visuals, and `modules/hosts/common/boot.nix`.
+    The last carries the shared kernel, initrd, systemd-boot, crash dump, and sysctl policy.
+09. Home Manager, the dual-module pattern: [Home Manager](architecture/04-home-manager.md), `modules/home-manager/nixos.nix`, and `modules/home-manager/base.nix`.
+10. Secrets with sops-nix: `modules/security/sops-runtime.nix`, `modules/hosts/common/sops.nix`, and `modules/security/secrets.nix`.
+11. Service and desktop domains: `modules/networking/ssh.nix`, `modules/git/git.nix`, `modules/services/duplicati-r2.nix`, and `modules/csec/wordlists.nix`.
+12. Custom packages and overlays: `modules/hosts/common/custom-overlays-base.nix`, then `modules/apps/restringer/`, `packages/restringer/default.nix`, and its `hashes.json`.
+    The per-package `update.py` pin updaters share the library in `scripts/updater/`.
+13. The AI agents layer: `modules/agents/system-prompt.nix`, `modules/agents/claude-code/home.nix`, `modules/agents/codex/home.nix`, and `modules/agents/mcp.nix`.
+14. Theming with Stylix: `modules/stylix/stylix.nix`, whose base16 scheme comes from the `tinted-schemes` input.
+15. Validation, tooling, and deployment: `modules/devshell.nix`, `modules/apps/pentesting-devshell/package.nix`, `modules/meta/treefmt.nix`, `modules/meta/pre-commit.nix`, `build.sh`, and `.github/workflows/check.yml`.
+    `modules/meta/hooks/apps-catalog-sync.nix` keeps `modules/hosts/common/apps-enable.nix` in sync with the registered app and browser modules.
 
 ## Complexity Hotspots
 

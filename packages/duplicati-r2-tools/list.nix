@@ -115,7 +115,7 @@ stdenvNoCC.mkDerivation {
       exit 1
     fi
 
-    # Exit code contract per docs/duplicati/operations.md:
+    # Exit code contract per docs/apps/duplicati/operations.md:
     #   66 = snapshot id not found (data-not-found family)
     #   64 = timestamp didn't resolve to any snapshot (usage-error family)
     rc=0

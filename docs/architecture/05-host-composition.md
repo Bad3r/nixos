@@ -104,7 +104,7 @@ mode `0440`, readable after the privilege drop and on SIGHUP re-reads.
 secret's ownership triple, because sops-nix restarts units only when decrypted
 bytes change.
 
-Cloudflare Mesh endpoints stay encrypted in `secrets/cloudflare-warp.yaml` and render as local `<host>.internal` mappings after their registry entry sets `cloudflareWarpMeshAddressReady`; see [WARP on the fleet](../cloudflare/warp/README.md).
+Cloudflare Mesh endpoints stay encrypted in `secrets/cloudflare-warp.yaml` and render as local `<host>.internal` mappings after their registry entry sets `cloudflareWarpMeshAddressReady`; see [WARP on the fleet](../apps/cloudflare/warp/README.md).
 The Tailscale `primary` and `tailnetIp` mechanism remains separate and permits at most one primary.
 
 ## App and Home Manager Wiring
@@ -128,7 +128,7 @@ Home Manager wiring follows the same shape:
 - `modules/hosts/common/home-manager-apps.nix` imports every Home Manager app and browser module on every host; each gates on its app row, its own enable option, or the NixOS setting it configures.
 - `modules/<host>/r2-runtime.nix` binds the external R2 module chain per host.
 
-For integration-specific details of the external R2 module chain, see [`../r2-cloud/input-and-module-wiring.md`](../r2-cloud/input-and-module-wiring.md). For tpnix-specific implementation notes, see [`../tpnix/IMPLEMENTATION_PLAN.md`](../tpnix/IMPLEMENTATION_PLAN.md).
+For integration-specific details of the external R2 module chain, see [`../apps/r2-cloud/input-and-module-wiring.md`](../apps/r2-cloud/input-and-module-wiring.md). For tpnix-specific implementation notes, see [`../hosts/tpnix/IMPLEMENTATION_PLAN.md`](../hosts/tpnix/IMPLEMENTATION_PLAN.md).
 
 ## Validation
 

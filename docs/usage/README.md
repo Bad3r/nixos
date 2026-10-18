@@ -9,7 +9,7 @@ User-facing documentation for specific modules and features.
 | [Pentesting Devshell](pentesting-devshell.md) | Security tools devshell usage and customization        |
 | [RustDesk](rustdesk.md)                       | Remote desktop between devices over Cloudflare Mesh    |
 
-The duplicati-r2 backup pipeline now has its own maintainer reference under [../duplicati/](../duplicati/README.md).
+The duplicati-r2 backup pipeline now has its own maintainer reference under [../apps/duplicati/](../apps/duplicati/README.md).
 
 ## Related
 

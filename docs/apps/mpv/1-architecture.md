@@ -23,8 +23,8 @@ There are two namespaces:
 - `flake.homeManagerModules.apps.mpv`
 
 For background on how the two namespaces behave differently see
-[../architecture/03-nixos-modules.md](../architecture/03-nixos-modules.md) and
-[../architecture/04-home-manager.md](../architecture/04-home-manager.md).
+[../../architecture/03-nixos-modules.md](../../architecture/03-nixos-modules.md) and
+[../../architecture/04-home-manager.md](../../architecture/04-home-manager.md).
 
 ## Option Namespace
 

@@ -61,7 +61,7 @@ See [App registry](docs/guides/apps-module-registry.md) for the routing and vali
 
 Storage-dependent services must be enabled only on hosts that provide their required mount. `songbird` owns the dedicated `/data` volume that backs the common local mirror writers and the R2 runtime; `tpnix` keeps its mirrors on the root filesystem by policy.
 
-See the [local mirror reference](docs/reference/local-mirrors.md) and [R2 runtime policy](docs/r2-cloud/songbird-runtime.md) for the operational contracts.
+See the [local mirror reference](docs/reference/local-mirrors.md) and [R2 runtime policy](docs/apps/r2-cloud/songbird-runtime.md) for the operational contracts.
 
 ## Cache Boundaries
 

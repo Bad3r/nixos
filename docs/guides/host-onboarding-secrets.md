@@ -94,7 +94,7 @@ Verification: the guarded flake check passes the check in `modules/configuration
 Precondition: this host enables Tailscale and becomes the primary tailnet endpoint.
 Hosts that reach each other over WARP Mesh store their addresses in the encrypted
 `secrets/cloudflare-warp.yaml` and expose `<host>.internal` locally, per
-[WARP deployment](../cloudflare/warp/deployment.md).
+[WARP deployment](../apps/cloudflare/warp/deployment.md).
 
 1. If another host's `modules/<host>/policy.nix` sets `primary = true`, remove it there, and remove that host's `tailnetIp` too when the host is being retired.
    On this host, run `tailscale ip -4`, then set `primary = true` with that address as this host's `tailnetIp`.

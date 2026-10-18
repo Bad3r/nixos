@@ -16,7 +16,7 @@ Fast diagnosis for integration-specific failures between this repo and
 
 ## Not Covered
 
-- Duplicati-specific issues (`docs/duplicati/`)
+- Duplicati-specific issues (`docs/apps/duplicati/`)
 - Producer-repo CI/workflow failures
 
 ## Symptom: Missing `r2` options during eval/build

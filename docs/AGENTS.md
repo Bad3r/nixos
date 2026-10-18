@@ -9,9 +9,13 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 - `nixos-manual/`: mirrored upstream NixOS manual sources.
 - `technical-writing/`: the documentation style guide and the writing
   rules that support it.
-- Host and domain folders (for example `cloudflare/`, `songbird/`,
-  `duplicati/`, `mpv/`, `r2-cloud/`, `sops/`, `usbguard/`):
-  host-specific and product-specific docs.
+- `hosts/<host>/`: host-specific docs, such as the host page quartet.
+- `apps/<name>/`: one folder per app, tool, or product (for example
+  `apps/cloudflare/`, `apps/duplicati/`, `apps/mpv/`, `apps/r2-cloud/`).
+- Cross-cutting domain folders (`networking/`, `security/`, `sops/`,
+  `csec/`, `packaging/`, `troubleshooting/`): policy that spans apps and hosts.
+- `onboarding.md`: the entry point, with the repository layers and a guided
+  reading path.
 
 Prefer updating an existing page over adding a new one. Update `index.md` when
 adding, removing, or moving documentation pages. Use clear, repo-relative links
@@ -21,8 +25,8 @@ enumerate the active hosts, run
 `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`.
 
 Use lowercase directory names for provider and product folders. Cloudflare docs
-belong under `cloudflare/`, including Containers material under
-`cloudflare/containers/`; do not recreate case variants such as `CloudFlare/`.
+belong under `apps/cloudflare/`, including Containers material under
+`apps/cloudflare/containers/`; do not recreate case variants such as `CloudFlare/`.
 The mirrored NixOS manual belongs under `docs/nixos-manual/`; do not recreate a
 root-level `nixos-manual/` tree.
 

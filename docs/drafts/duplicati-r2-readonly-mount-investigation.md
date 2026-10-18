@@ -422,7 +422,7 @@ duplicati-r2-list grep     <slug> <pattern>           # path-glob, not content
 
 ### 5.2 Cut B: single-file extract CLI (decrypts on demand)
 
-**Status**: implemented in this branch as `pkgs.duplicati-r2-tools.extract` (binary `duplicati-r2-extract`). Operator workflow: [`../duplicati/operations.md`](../duplicati/operations.md#extract-a-single-file-from-r2-cut-b).
+**Status**: implemented in this branch as `pkgs.duplicati-r2-tools.extract` (binary `duplicati-r2-extract`). Operator workflow: [`../apps/duplicati/operations.md`](../apps/duplicati/operations.md#extract-a-single-file-from-r2-cut-b).
 
 **Scope**: extract one file (or a glob) from a chosen snapshot to stdout, a path, or `-`. Downloads only the dblocks needed.
 
@@ -521,9 +521,9 @@ Cut C's implementation should keep FUSE permissions private by default. Add `dup
 
 ## 8. Out of scope notes
 
-- **Write paths**: forbidden by the issue and by `docs/duplicati/security.md`.
-- **Re-encryption / passphrase rotation**: forbidden by `docs/duplicati/security.md`.
-- **Replacing `duplicati-cli restore`**: a mount or extract tool and a full restore are complementary. Bulk restore stays as documented in `docs/duplicati/operations.md`.
+- **Write paths**: forbidden by the issue and by `docs/apps/duplicati/security.md`.
+- **Re-encryption / passphrase rotation**: forbidden by `docs/apps/duplicati/security.md`.
+- **Replacing `duplicati-cli restore`**: a mount or extract tool and a full restore are complementary. Bulk restore stays as documented in `docs/apps/duplicati/operations.md`.
 - **GPG-encrypted archives**: not in production; the design above is AES-only by intent.
 - **Cross-platform**: not relevant; this repo manages NixOS hosts only.
 
@@ -643,18 +643,18 @@ A 44-path `*.torrent` restore from `bankdata` (~10 MiB plaintext) was performed 
 
 - The fetch list resolved to 8 unique dblocks (~400 MiB encrypted), matching the `(unique dblocks touched) * dblock_size` figure derived from the §3 SQL: every torrent file's content blocks lived inside one of those 8 dblocks. This is the same `Block.VolumeID -> Remotevolume` join Cut A and Cut B will use.
 - The run executed fully in-memory: `find /tmp /var/tmp -name '*.dblock.zip*'` returned nothing during the restore, confirming `duplicati-cli` does not stage encrypted dblocks to disk under default `--restore-volume-cache-hint`. This validates §4's design assumption that the future tools' on-disk cache is an optimisation, not a requirement.
-- Default `duplicati-cli restore` concurrency was the dominant bottleneck. Six downloaders / six decryptors / six decompressors / channel buffer 12 produced a single TCP connection to R2 and ~130 KiB/s sustained throughput, putting the ~425 MiB fetch on a 30-minute path. Setting `--restore-volume-downloaders=8`, `--restore-volume-decryptors=8`, `--restore-volume-decompressors=8`, and `--restore-channel-buffer-size=32` is needed to saturate R2's per-bucket concurrent-request envelope. Full recipe: [`../duplicati/operations.md`](../duplicati/operations.md#concurrency-tuning-for-r2).
+- Default `duplicati-cli restore` concurrency was the dominant bottleneck. Six downloaders / six decryptors / six decompressors / channel buffer 12 produced a single TCP connection to R2 and ~130 KiB/s sustained throughput, putting the ~425 MiB fetch on a 30-minute path. Setting `--restore-volume-downloaders=8`, `--restore-volume-decryptors=8`, `--restore-volume-decompressors=8`, and `--restore-channel-buffer-size=32` is needed to saturate R2's per-bucket concurrent-request envelope. Full recipe: [`../apps/duplicati/operations.md`](../apps/duplicati/operations.md#concurrency-tuning-for-r2).
 - `duplicati-cli restore` reads each dblock as a single object: it does not issue HTTP range requests into the inner zip to fetch only the needed entries. The shipped Cut B implementation follows the same whole-dblock fetch model, but narrows the workflow to one file or a glob set, keeps encrypted cache usage bounded, and never stages plaintext outside the chosen sink. HTTP range reads remain a possible Cut C or later Cut B optimisation, not a property of the current implementation.
 
 ## 10. References
 
 ### Local
 
-- `docs/duplicati/README.md`
-- `docs/duplicati/operations.md`
-- `docs/duplicati/recovery.md`
-- `docs/duplicati/reference.md`
-- `docs/duplicati/security.md`
+- `docs/apps/duplicati/README.md`
+- `docs/apps/duplicati/operations.md`
+- `docs/apps/duplicati/recovery.md`
+- `docs/apps/duplicati/reference.md`
+- `docs/apps/duplicati/security.md`
 - `modules/services/duplicati-r2.nix`
 
 ### Upstream Duplicati (cited by file + symbol)

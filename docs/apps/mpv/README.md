@@ -26,7 +26,7 @@ for offline reference.
 
 ## Navigation
 
-- Repository docs index: [../index.md](../index.md)
-- Module-system background: [../architecture/](../architecture/)
-- App module style guide: [../guides/apps-module-style-guide.md](../guides/apps-module-style-guide.md)
-- Custom packages style guide: [../guides/custom-packages-style-guide.md](../guides/custom-packages-style-guide.md)
+- Repository docs index: [../../index.md](../../index.md)
+- Module-system background: [../../architecture/](../../architecture/)
+- App module style guide: [../../guides/apps-module-style-guide.md](../../guides/apps-module-style-guide.md)
+- Custom packages style guide: [../../guides/custom-packages-style-guide.md](../../guides/custom-packages-style-guide.md)

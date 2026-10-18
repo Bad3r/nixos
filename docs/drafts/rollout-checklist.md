@@ -77,13 +77,13 @@ After the disconnect, `ip link` finds no `CloudflareWARP`, `Global` is empty, an
 answers from eth0's servers; `connect` brings `Global` back. `CloudflareWARP` itself carries no DNS
 server: warp-svc rejects systemd 261's version string and writes `resolv.conf` instead of
 configuring the link, which glibc skips while nss-resolve answers (see "resolvectl shows no DNS
-server on CloudflareWARP" in `docs/cloudflare/warp/troubleshooting.md`).
+server on CloudflareWARP" in `docs/apps/cloudflare/warp/troubleshooting.md`).
 If not: apply the registration and reboot checks for songbird; if `Global` is empty while
 connected, read `systemctl status cloudflare-warp-dns.service` and check that the host is enrolled
 in `warp` mode; if `CloudflareWARP` survives the disconnect, `Global` stays on the proxy and the
 fallback covers only a stopped or dead `warp-svc`; if `eth0` lists a domain, the names under it
 bypass Gateway; if lookups fail, follow "Name resolution fails in warp mode" in
-`docs/cloudflare/warp/troubleshooting.md`, then check that the `nixos-songbird` profile applied
+`docs/apps/cloudflare/warp/troubleshooting.md`, then check that the `nixos-songbird` profile applied
 instead of the default profile.
 
 ## tpnix
@@ -229,7 +229,7 @@ Pass: both directions succeed. Store each address under `mesh.hosts.<host>` in t
 switch every WARP fleet host so the `.internal` mapping and SSH alias render.
 Fail: with tpnix still in `tunnelonly`, fall back to switching tpnix's Cloudflare device
 profile mode and its NixOS `serviceMode` to `warp`, then retest. Read "Private hostnames stop
-resolving on tpnix" in `docs/cloudflare/warp/troubleshooting.md` first.
+resolving on tpnix" in `docs/apps/cloudflare/warp/troubleshooting.md` first.
 
 - [ ] **Step 11: Verify the device registrations in the dashboard.** Zero Trust dashboard,
   Team & Resources > Devices > Devices list.
@@ -246,5 +246,5 @@ resolving on tpnix" in `docs/cloudflare/warp/troubleshooting.md` first.
   enabled host that forgets to set it; the error surfaces at switch time instead.
 - On the enrolled path the WARP package lands in `environment.systemPackages` twice (app module plus upstream
   service module); identical store path, deduplicated by buildEnv, so cosmetic only.
-- `docs/cloudflare/warp/README.md` states the IPv6-disabled kernel parameter as settled where the design lists it as
+- `docs/apps/cloudflare/warp/README.md` states the IPv6-disabled kernel parameter as settled where the design lists it as
   a risk until the first switch proves WARP connects under it.
