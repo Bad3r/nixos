@@ -1,21 +1,32 @@
-/*
-  Custom Overlays Auto-Import (shared hosts)
-
-  Pulls every overlay registered under `flake.customOverlays.*`
-  (auto-discovered from `modules/custom-overlays/`) into the host's module
-  tree. Each overlay submodule gates itself on
-  `programs.<name>.extended.enable`, so an overlay only contributes to
-  `nixpkgs.overlays` when its matching app module is enabled.
-
-  Adding a new overlay: drop a file in `modules/custom-overlays/<name>.nix`
-  that registers `flake.customOverlays.<name>`. No edits here.
-*/
+# Each app's packages/<name> joins pkgs while its row is on; a flake.customOverlays.<name> replaces it.
 { config, lib, ... }:
 let
+  packagesDir = ../../../packages;
+
+  appPackageNames = lib.filter (
+    name:
+    config.flake.lib.nixos.hasApp name && builtins.pathExists (packagesDir + "/${name}/default.nix")
+  ) (lib.attrNames (builtins.readDir packagesDir));
+
+  appPackageOverlay =
+    name:
+    { config, lib, ... }:
+    {
+      config = lib.mkIf config.programs.${name}.extended.enable {
+        nixpkgs.overlays = [
+          (final: _prev: {
+            ${name} = final.callPackage (packagesDir + "/${name}") { };
+          })
+        ];
+      };
+    };
+
   body = {
-    imports = lib.attrValues (config.flake.customOverlays or { });
+    imports = lib.attrValues config.flake.customOverlays;
   };
 in
 {
+  flake.customOverlays = lib.genAttrs appPackageNames (name: lib.mkDefault (appPackageOverlay name));
+
   flake.nixosModules.hosts-common.imports = [ body ];
 }

@@ -10,7 +10,7 @@ Home Manager modules feed into `flake.homeManagerModules` for user-level configu
 | ------------------------------------------------------------------- | ---------------- | ---------------------------------------------------------------------------- |
 | `base`                                                              | Deferred module  | Bootstrap configuration (shell, git, shared defaults)                        |
 | `gui`                                                               | Deferred module  | Reserved GUI aggregation point                                               |
-| `apps.<name>`                                                       | Deferred module  | Individual app modules loaded by key                                         |
+| `apps.<name>`                                                       | Deferred module  | Individual app modules, all loaded on every host                             |
 | `browsers.<name>`                                                   | Deferred module  | Per-browser modules from `modules/browsers/<name>/home.nix`                  |
 | `sopsRuntime`                                                       | Deferred module  | HM-side SOPS runtime bootstrap (loaded for every host)                       |
 | `context7Secrets`, `geckoSecrets`, `r2Secrets`, `virustotalSecrets` | Deferred modules | Optional SOPS-managed secret modules (each guarded by `builtins.pathExists`) |
@@ -40,41 +40,17 @@ Multiple files can extend shared namespaces. Common patterns in this repo:
 
 Most app modules live under `modules/hm-apps/<name>.nix`, but any auto-imported module can export `flake.homeManagerModules.apps.<name>` (for example, `modules/apps/i3wm/*.nix` exporting `apps.i3-config`).
 
-The loader first resolves by key from aggregated flake exports, then falls back to `modules/hm-apps/<name>.nix`.
+## App Loading
 
-## App Loading Mechanism
-
-The glue layer in `modules/home-manager/nixos.nix` resolves app modules in this order:
-
-```nix
-loadAppModule = name:
-  let
-    filePath = ../hm-apps + "/${name}.nix";
-    moduleFromConfig = lib.attrByPath [ "apps" name ] null hmModules;
-  in
-  if moduleFromConfig != null then
-    moduleFromConfig
-  else if builtins.pathExists filePath then
-    loadHomeModule filePath [ "flake" "homeManagerModules" "apps" name ]
-  else
-    throw "Home Manager app module not found: ${name}";
-```
-
-`hmModules` is merged from `config.flake.homeManagerModules`, `moduleArgs.inputs.self.homeManagerModules`, and `inputs.self.homeManagerModules`.
-
-### Default App Imports
-
-`defaultAppImports` in `modules/home-manager/nixos.nix` names the apps loaded for `vx` on every NixOS host.
-
-### Adding Extra Apps
-
-`modules/hosts/common/home-manager-apps.nix` adds the modules named in
-`sharedAppNames` to `home-manager.sharedModules`.
-Every host loads that set, and each module gates on its NixOS app row through `osConfig`, so the app registry decides where an app runs.
+`modules/hosts/common/home-manager-apps.nix` adds every `flake.homeManagerModules.apps` and `flake.homeManagerModules.browsers` module to `home-manager.sharedModules` on every host.
+Each module gates on its NixOS app row through `osConfig`, on its own enable option, or on the NixOS setting it configures, so the app registry decides where an app runs.
+`sharedModules` matches the scope of a row: a row is host-wide, so its Home Manager half reaches every Home Manager user on the host.
+A standalone Home Manager configuration passes `osConfig = null`, which every gate reads as off.
 
 ### Browser Modules
 
-Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix`. `modules/hosts/common/home-manager-apps.nix` resolves the shared browser set from that namespace directly into `home-manager.sharedModules`. A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/firefoxpwa/home.nix` pins the userdata directory for every firefoxpwa site, and `modules/browsers/firefoxpwa/dmail.nix` layers the DMail-specific install onto the same `browsers.firefoxpwa` key.
+Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix` and load the same way.
+A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/firefoxpwa/home.nix` pins the userdata directory for every firefoxpwa site, and `modules/browsers/firefoxpwa/dmail.nix` layers the DMail-specific install onto the same `browsers.firefoxpwa` key.
 
 ### Per-Host Divergences
 
@@ -103,8 +79,8 @@ defaults in the common baseline and add only host-specific overrides locally.
 ## Authoring Rules
 
 1. **Always export under `flake.homeManagerModules.*`**
-2. **Guard host-dependent config** -- use `osConfig` checks when an HM app depends on NixOS-side enablement
-3. **Keep app keys stable** -- `apps.<name>` is the stable import contract (filename matching is recommended for `modules/hm-apps/` fallback, but not required globally)
+2. **Gate every app module** -- every `apps.<name>` and `browsers.<name>` module loads on every host, so its config waits for its NixOS row, its own enable option, or the NixOS setting it configures
+3. **Keep app keys stable** -- checks reference `apps.<name>` by key
 4. **Guard secrets** -- wrap secret declarations with `builtins.pathExists` checks
 
 ## Secrets Integration

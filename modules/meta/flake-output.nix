@@ -80,7 +80,7 @@
           };
         };
         default = { };
-        description = "Aggregated Home Manager modules loaded into each NixOS host's `home-manager.users.<owner>.imports` via `modules/home-manager/nixos.nix`";
+        description = "Aggregated Home Manager modules: `modules/home-manager/nixos.nix` imports the core ones for the owner, and `modules/hosts/common/home-manager-apps.nix` adds every `apps` and `browsers` module to `home-manager.sharedModules`";
       };
 
       # Cybersecurity-tooling NixOS modules. Declared with attrsOf
@@ -93,11 +93,10 @@
         description = "Per-feature csec NixOS modules (merged by name).";
       };
 
-      # Per-app nixpkgs overlay modules, auto-discovered from
-      # `modules/custom-overlays/`. Declared with attrsOf deferredModule for
-      # the same reason as `flake.csec` above: each entry must be a
-      # first-class submodule rather than collapse into the parent.
-      # Imported into each host by `modules/hosts/common/custom-overlays-base.nix`.
+      # Declared with attrsOf deferredModule for the same reason as
+      # `flake.csec` above: each entry must be a first-class submodule rather
+      # than collapse into the parent. `modules/hosts/common/custom-overlays-base.nix`
+      # derives one per app package and imports every entry into each host.
       customOverlays = lib.mkOption {
         type = lib.types.attrsOf lib.types.deferredModule;
         default = { };

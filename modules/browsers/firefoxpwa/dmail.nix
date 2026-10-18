@@ -37,7 +37,7 @@ _: {
 
       # Per-host toggle declared at NixOS scope in ./apps.nix; layered by the
       # common app catalog (off) and modules/tpnix/apps-enable.nix (on).
-      dmailEnabled = osConfig.programs.firefoxpwa.dmail.enable or false;
+      dmailEnabled = osConfig != null && osConfig.programs.firefoxpwa.dmail.enable;
       firefoxpwaEnabled = osConfig.programs.firefoxpwa.extended.enable or false;
       firefoxpwaPackage = osConfig.programs.firefoxpwa.extended.package or pkgs.firefoxpwa;
 

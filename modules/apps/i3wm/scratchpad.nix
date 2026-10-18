@@ -5,7 +5,7 @@
   flake.homeManagerModules.apps.i3-config =
     {
       config,
-      osConfig ? { },
+      osConfig,
       pkgs,
       lib,
       ...
@@ -183,7 +183,7 @@
         };
       };
 
-      config = {
+      config = lib.mkIf config.xsession.windowManager.i3.enable {
         # Add geometry calculator to user's packages
         home.packages = [ cfg.geometryPackage ];
       };

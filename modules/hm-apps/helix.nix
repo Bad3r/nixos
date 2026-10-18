@@ -38,6 +38,8 @@ _: {
     in
     {
       config = lib.mkIf nixosEnabled {
+        stylix.targets.helix.enable = false;
+
         programs.helix = {
           enable = true;
           package = osConfig.programs.helix.extended.package;
@@ -80,9 +82,7 @@ _: {
           ];
 
           settings = {
-            # Built-in OneDark theme. Stylix theming for Helix is disabled in
-            # modules/stylix/stylix.nix so this does not collide with a generated
-            # `stylix` theme.
+            # Built-in OneDark theme; with the Stylix helix target off, no generated `stylix` theme collides.
             theme = "onedark";
 
             editor = {

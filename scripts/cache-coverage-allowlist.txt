@@ -14,7 +14,7 @@
 # appears in both. See docs/reference/cache-coverage.md.
 
 # Fork or version pins carried as custom overlays
-# (modules/custom-overlays/<name>.nix).
+# (flake.customOverlays.<name>).
 age-plugin-fido2prf*
 librepods*
 snixembed*

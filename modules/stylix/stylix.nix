@@ -111,6 +111,7 @@ in
           ...
         }:
         let
+          graphicalDesktop = osConfig != null && osConfig.services.graphical-desktop.enable;
           # Check which apps are enabled at NixOS level
           firefoxEnabled = lib.attrByPath [ "programs" "firefox" "extended" "enable" ] false osConfig;
           librewolfEnabled = lib.attrByPath [ "programs" "librewolf" "extended" "enable" ] false osConfig;
@@ -416,108 +417,105 @@ in
           );
         in
         {
-          stylix = {
-            # Opacity settings for GUI applications
-            opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (_n: 1.0);
+          config = lib.mkIf graphicalDesktop {
+            stylix = {
+              # Opacity settings for GUI applications
+              opacity = lib.genAttrs [ "applications" "desktop" "popups" "terminal" ] (_n: 1.0);
 
-            # Icon theme configuration
-            icons = {
-              enable = true;
-              package = pkgs.qogir-icon-theme;
-              dark = "Qogir-Dark";
-              light = "Qogir-Light";
-            };
-
-            # Application theming targets
-            targets = {
-              # GTK theming (adw-gtk3 theme + CSS)
-              gtk.enable = true;
-              gtk.flatpakSupport.enable = true;
-
-              # Qt theming (Kvantum + qtct)
-              qt.enable = true;
-
-              # Firefox profile theming (only if enabled)
-              firefox = lib.mkIf firefoxEnabled {
-                profileNames = geckoProfileNames;
-                colorTheme.enable = true; # uses Firefox Color extension from NUR
-                firefoxGnomeTheme.enable = false;
-                fonts.enable = false;
+              # Icon theme configuration
+              icons = {
+                enable = true;
+                package = pkgs.qogir-icon-theme;
+                dark = "Qogir-Dark";
+                light = "Qogir-Light";
               };
 
-              # LibreWolf profile theming (only if enabled)
-              librewolf = lib.mkIf librewolfEnabled {
-                profileNames = geckoProfileNames;
-                colorTheme.enable = true; # uses Firefox Color extension from NUR
-                firefoxGnomeTheme.enable = false;
-                fonts.enable = false;
+              # Application theming targets
+              targets = {
+                # GTK theming (adw-gtk3 theme + CSS)
+                gtk.enable = true;
+                gtk.flatpakSupport.enable = true;
+
+                # Qt theming (Kvantum + qtct)
+                qt.enable = true;
+
+                # Firefox profile theming (only if enabled)
+                firefox = lib.mkIf firefoxEnabled {
+                  profileNames = geckoProfileNames;
+                  colorTheme.enable = true; # uses Firefox Color extension from NUR
+                  firefoxGnomeTheme.enable = false;
+                  fonts.enable = false;
+                };
+
+                # LibreWolf profile theming (only if enabled)
+                librewolf = lib.mkIf librewolfEnabled {
+                  profileNames = geckoProfileNames;
+                  colorTheme.enable = true; # uses Firefox Color extension from NUR
+                  firefoxGnomeTheme.enable = false;
+                  fonts.enable = false;
+                };
+
+                # Zathura PDF viewer theming (only if enabled)
+                zathura.enable = zathuraEnabled;
+
+                # Nushell theming (only if enabled)
+                nushell.enable = nushellEnabled;
               };
-
-              # Zathura PDF viewer theming (only if enabled)
-              zathura.enable = zathuraEnabled;
-
-              # Nushell theming (only if enabled)
-              nushell.enable = nushellEnabled;
-
-              # Helix uses its built-in OneDark theme (set in the Helix HM module),
-              # not Stylix's generated base16 theme. Disable explicitly so Stylix
-              # autoEnable cannot set `settings.theme = "stylix"` and collide.
-              helix.enable = false;
             };
-          };
 
-          # Keep Dunst icon size centralized with Stylix icon theme settings.
-          services.dunst.iconTheme.size = "32x32";
+            # Keep Dunst icon size centralized with Stylix icon theme settings.
+            services.dunst.iconTheme.size = "32x32";
 
-          xdg.dataFile = lib.mkIf (
-            (config.gtk.iconTheme.name or null) == "Qogir-Dark"
-          ) qogirDarkThemedIconFiles;
+            xdg.dataFile = lib.mkIf (
+              (config.gtk.iconTheme.name or null) == "Qogir-Dark"
+            ) qogirDarkThemedIconFiles;
 
-          programs = {
-            firefox.profiles = lib.mkIf firefoxEnabled geckoProfiles;
-            librewolf.profiles = lib.mkIf librewolfEnabled geckoProfiles;
+            programs = {
+              firefox.profiles = lib.mkIf firefoxEnabled geckoProfiles;
+              librewolf.profiles = lib.mkIf librewolfEnabled geckoProfiles;
 
-            mpv.scriptOpts.modernz =
-              lib.mkIf (mpvEnabled && config.stylix.enable && config.stylix.targets.mpv.enable)
-                (
-                  with config.lib.stylix.colors.withHashtag;
-                  {
-                    middle_buttons_color = lib.mkForce base00;
-                    playpause_color = lib.mkForce base00;
-                    seekbarfg_color = lib.mkForce base00;
-                    seek_handle_color = lib.mkForce base00;
-                    seek_handle_border_color = lib.mkForce base00;
-                  }
-                );
+              mpv.scriptOpts.modernz =
+                lib.mkIf (mpvEnabled && config.stylix.enable && config.stylix.targets.mpv.enable)
+                  (
+                    with config.lib.stylix.colors.withHashtag;
+                    {
+                      middle_buttons_color = lib.mkForce base00;
+                      playpause_color = lib.mkForce base00;
+                      seekbarfg_color = lib.mkForce base00;
+                      seek_handle_color = lib.mkForce base00;
+                      seek_handle_border_color = lib.mkForce base00;
+                    }
+                  );
 
-            kitty = {
-              # Track the shared terminal size so a host re-picking
-              # stylix.fonts.sizes.terminal is not silently overridden here.
-              settings.font_size = config.stylix.fonts.sizes.terminal;
-              extraConfig = "modify_font cell_height 100%";
+              kitty = {
+                # Track the shared terminal size so a host re-picking
+                # stylix.fonts.sizes.terminal is not silently overridden here.
+                settings.font_size = config.stylix.fonts.sizes.terminal;
+                extraConfig = "modify_font cell_height 100%";
+              };
             };
-          };
 
-          # Additional font packages
-          home.packages = [
-            pkgs.google-fonts
-            pkgs.maple-mono.NF
-          ];
-
-          # Set dark mode preference for GNOME/libadwaita apps
-          dconf.settings."org/gnome/desktop/interface".color-scheme = "prefer-dark";
-
-          gtk = {
-            # Legacy GTK3 apps still use this key for dark theme variants
-            gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
-            # Read-only at runtime: bookmarks added from a file chooser do not persist.
-            gtk3.bookmarks = [
-              "file:///data/Docs Docs"
-              "file:///data data"
-              "file:///data/Projects Projects"
+            # Additional font packages
+            home.packages = [
+              pkgs.google-fonts
+              pkgs.maple-mono.NF
             ];
-            # GTK settings.ini drives plain GTK apps that do not consume GNOME dconf
-            colorScheme = "dark";
+
+            # Set dark mode preference for GNOME/libadwaita apps
+            dconf.settings."org/gnome/desktop/interface".color-scheme = "prefer-dark";
+
+            gtk = {
+              # Legacy GTK3 apps still use this key for dark theme variants
+              gtk3.extraConfig.gtk-application-prefer-dark-theme = true;
+              # Read-only at runtime: bookmarks added from a file chooser do not persist.
+              gtk3.bookmarks = [
+                "file:///data/Docs Docs"
+                "file:///data data"
+                "file:///data/Projects Projects"
+              ];
+              # GTK settings.ini drives plain GTK apps that do not consume GNOME dconf
+              colorScheme = "dark";
+            };
           };
         };
     };

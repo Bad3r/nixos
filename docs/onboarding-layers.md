@@ -68,8 +68,8 @@ The repository's directories fall into layers, from the flake root outward to do
 
 ## Packages and overlays
 
-- `modules/hosts/common/custom-overlays-base.nix`: imports every self-gating overlay.
-- `modules/custom-overlays/restringer.nix`, `packages/restringer/default.nix`, and `packages/restringer/hashes.json`: the local-package chain to trace.
+- `modules/hosts/common/custom-overlays-base.nix`: derives the overlay for each app package and imports every self-gating overlay.
+- `modules/apps/restringer.nix`, `packages/restringer/default.nix`, and `packages/restringer/hashes.json`: the local-package chain to trace.
 - `packages/<name>/update.py`: the per-package pin updaters.
 - `scripts/updater/`: the shared updater library.
 

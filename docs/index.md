@@ -143,7 +143,7 @@
 - [guides/apps-module-registry.md](guides/apps-module-registry.md)
   - Baseline and host rows, prerequisite rows, the registry checks, and which module installs a package.
 - [guides/apps-module-home-manager.md](guides/apps-module-home-manager.md)
-  - Home Manager app modules gated on the NixOS row, package handling, import lists, and theming.
+  - Home Manager app modules gated on the NixOS row, package handling, loading, and theming.
 - [guides/custom-packages-style-guide.md](guides/custom-packages-style-guide.md)
   - When to create a package under `packages/`, file structure, meta fields, app modules, and validation.
 - [guides/custom-packages-source-builds.md](guides/custom-packages-source-builds.md)

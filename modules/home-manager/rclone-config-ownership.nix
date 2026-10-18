@@ -68,6 +68,7 @@ in
             # rclone enabled with the gdrive env secret declared system-side.
             osConfig = {
               programs.rclone.extended.enable = true;
+              security.repoSecrets.enable = true;
               sops.secrets."rclone/gdrive-env".path = "/run/secrets/rclone/gdrive-env";
             };
           };

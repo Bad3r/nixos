@@ -108,7 +108,7 @@ _: {
     }:
     let
       rcloneEnabled = lib.attrByPath [ "programs" "rclone" "extended" "enable" ] false osConfig;
-      repoSecretsEnabled = lib.attrByPath [ "security" "repoSecrets" "enable" ] true osConfig;
+      repoSecretsEnabled = osConfig.security.repoSecrets.enable;
       protondriveSecretFile = secretsRoot + "/rclone_protondrive.env";
       protondriveSecretExists = builtins.pathExists protondriveSecretFile;
       protondriveEnvPath = lib.attrByPath [

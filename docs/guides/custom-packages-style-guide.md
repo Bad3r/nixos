@@ -14,7 +14,7 @@ The app module that installs one follows the [Apps Module Style Guide](apps-modu
 - The nixpkgs version is outdated or broken, and upstream has not merged a fix.
 - The package needs build flags, patches, or configuration not suitable for upstream.
 
-When nixpkgs gains a package that replaces a custom one, switch the app module to the nixpkgs package and delete `packages/<name>/` together with its `modules/custom-overlays/<name>.nix` entry.
+When nixpkgs gains a package that replaces a custom one, switch the app module to the nixpkgs package and delete `packages/<name>/` together with any `flake.customOverlays.<name>` module written for it.
 A replaced package is deleted, never kept as an underscore-prefixed copy.
 
 ## File structure
@@ -85,7 +85,7 @@ Every app module needs a row, as [App registry](apps-module-registry.md) describ
 Before committing a new package, confirm that:
 
 - `packages/<name>/default.nix` sets every required meta field, and `passthru.updateScript = ./update.py;` when an updater exists.
-- A package that must be `pkgs.<name>` has its overlay module in `modules/custom-overlays/<name>.nix`.
+- A package that must be `pkgs.<name>` sits in a `packages/` directory named after its app, as [Overlays](custom-packages-overlays.md) describes.
 - New files are staged or intent-to-added before flake or import-tree evaluation.
 - A user-facing or host-visible package has an app module, a baseline row, and host rows only for real divergences.
 

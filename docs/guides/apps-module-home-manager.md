@@ -2,7 +2,6 @@
 
 A program that Home Manager has a module for gets a second file, `modules/hm-apps/<tool>.nix`, exported as `flake.homeManagerModules.apps.<tool>`.
 The NixOS row installs the program and switches the Home Manager module on; the Home Manager module only configures it.
-The loader that resolves app keys is in [Home Manager](../architecture/04-home-manager.md).
 
 ## Home Manager support
 
@@ -64,11 +63,11 @@ The NixOS row owns the package, so the Home Manager module never brings its own:
 The row's package is `lib.attrByPath [ "programs" "<tool>" "extended" "package" ] pkgs.<tool> osConfig`.
 A Home Manager feature that needs the package reference, such as `enableGitIntegration` in `programs.bun`, also takes `package` from the row instead of `null`, with a comment naming the feature.
 
-## Import list
+## Loading
 
-A Home Manager app module loads only when its name is listed, in `sharedAppNames` (`modules/hosts/common/home-manager-apps.nix`) or in `defaultAppImports` (`modules/home-manager/nixos.nix`).
-Every host loads the same lists, so hosts differ only through their NixOS rows.
-GUI session modules such as `i3-config` and `stylix-gui` are listed the same way.
+Every module registered under `flake.homeManagerModules.apps` loads on every host, as [Home Manager](../architecture/04-home-manager.md#app-loading) describes, so the file is the only step.
+The gate keeps a loaded module inert, so hosts differ only through their NixOS rows.
+A module without a row gates on its own enable option, or on the NixOS setting it configures, as `i3-config` does with the i3 window manager.
 
 ## Theming
 

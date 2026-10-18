@@ -5,8 +5,8 @@
   Repository: https://github.com/Bad3r/nixos
 
   Notes:
-    * Built from packages/i3-scratchpad-show-or-create via the overlay in
-      modules/custom-overlays/i3-scratchpad-show-or-create.nix.
+    * Built from packages/i3-scratchpad-show-or-create via the overlay that
+      modules/hosts/common/custom-overlays-base.nix derives.
     * Consumed by modules/apps/i3wm/config.nix and keybindings.nix to wire
       scratchpad toggles for terminal/nvim/Logseq.
 */

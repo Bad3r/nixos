@@ -124,8 +124,8 @@ Each host uses the same two-stage app model:
 
 Home Manager wiring follows the same shape:
 
-- `modules/home-manager/nixos.nix` provides the shared HM base and default app imports for any host.
-- `modules/hosts/common/home-manager-apps.nix` imports the shared app and browser set on every host; each app module gates on its app row.
+- `modules/home-manager/nixos.nix` provides the shared HM base for any host.
+- `modules/hosts/common/home-manager-apps.nix` imports every Home Manager app and browser module on every host; each gates on its app row, its own enable option, or the NixOS setting it configures.
 - `modules/<host>/r2-runtime.nix` binds the external R2 module chain per host.
 
 For integration-specific details of the external R2 module chain, see [`../r2-cloud/input-and-module-wiring.md`](../r2-cloud/input-and-module-wiring.md). For tpnix-specific implementation notes, see [`../tpnix/IMPLEMENTATION_PLAN.md`](../tpnix/IMPLEMENTATION_PLAN.md).
