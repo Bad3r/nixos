@@ -25,11 +25,12 @@ never a goal: remove legacy support instead of carrying both paths.
 - `modules/hosts/common/apps-enable.nix` sets app defaults at
   `lib.mkOverride 1100` and per-host files override at 1000; a flake check
   fails on a host override that repeats the baseline value.
-- A program reaches PATH only through its own app module, built from that
-  module's `package` option. A module that needs another app turns the app's
-  row on with `lib.mkOverride 1050 true` rather than installing it, and
-  `host-<host>-apps-match-registry` fails when a row evaluates to anything
-  else or another module installs the package of an app whose row is off.
+- A program outside the NixOS base reaches PATH only through its own app
+  module, built from that module's `package` option. A module that needs
+  another app turns the app's row on with `lib.mkOverride 1050 true` rather
+  than installing it, and `host-<host>-apps-match-registry` fails when a row
+  evaluates to anything else or another module installs the package of an app
+  whose row is off.
 - Everything runs Lix from the nixpkgs pin (`modules/base/nix-package.nix`).
   `flake.nix#nixConfig` carries only what Lix needs before the module graph
   loads; `modules/base/nix-settings.nix` owns the rest, and cache topology sits

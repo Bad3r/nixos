@@ -49,3 +49,4 @@ A user-facing program reaches `PATH` only through its own app module, built from
 Domain, host, and hardware modules call a program by store path, or turn its row on as a prerequisite, rather than adding it to `environment.systemPackages` or `home.packages`.
 `host-<host>-apps-match-registry` (`modules/hosts/common/apps-registry-checks.nix`) fails when a toggle evaluates to anything but its registry value, other than a prerequisite turning it on.
 The same check fails when another module installs the package of an app whose row is off.
+A package in `environment.corePackages` or `environment.defaultPackages` is exempt, since the NixOS base installs it whatever the row says.

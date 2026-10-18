@@ -1,7 +1,7 @@
 # Per host, the app registry decides what runs and what is installed: only the
 # baseline (1100), a host row (1000), or a prerequisite turning a row on (1050)
 # sets a toggle the baseline declares, and no module installs the package of an
-# app whose row is off.
+# app whose row is off unless the NixOS base installs it too.
 { config, lib, ... }:
 let
   prerequisitePriority = 1050;
@@ -52,10 +52,19 @@ let
             programs = { };
             services = { };
           };
-      installed = lib.genAttrs (map (package: builtins.unsafeDiscardStringContext package.outPath) (
+      outPathSet =
+        packages:
+        lib.genAttrs (map (package: builtins.unsafeDiscardStringContext package.outPath) packages) (
+          _: true
+        );
+      installed = outPathSet (
         nixos.config.environment.systemPackages
         ++ lib.concatMap (user: user.home.packages) (lib.attrValues nixos.config.home-manager.users)
-      )) (_: true);
+      );
+      # NixOS installs its core and default packages whatever the rows say.
+      installedByBase = outPathSet (
+        nixos.config.environment.corePackages ++ nixos.config.environment.defaultPackages
+      );
 
       checkToggle =
         toggle:
@@ -100,7 +109,8 @@ let
             && packageOption != null
             && packageReachable
             && packageOutPath.success
-            && installed ? ${packageOutPath.value};
+            && installed ? ${packageOutPath.value}
+            && !(installedByBase ? ${packageOutPath.value});
         in
         lib.optional (!setByRegistry && !prerequisite) (
           "${host}: ${name} is ${lib.boolToString actual} at priority ${toString priority}; only "
