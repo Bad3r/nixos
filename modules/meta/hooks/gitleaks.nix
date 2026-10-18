@@ -145,9 +145,9 @@
             # read from an entry above.
             #
             # In place, not through printf/awk: a newline is as legal in a
-            # git path as the non-ASCII and space-containing names fixtures
-            # 19 and 25 already cover, and round-tripping through
-            # newline-delimited text split one such gitlink into two
+            # git path as the non-ASCII, space-containing and dash-prefixed
+            # names fixtures 18 and 24 already cover, and round-tripping
+            # through newline-delimited text split one such gitlink into two
             # entries that exist on neither disk nor index, so the real one
             # was scanned by nothing while the run printed two spurious
             # "not checked out" warnings and exited 0. A subprocess

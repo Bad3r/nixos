@@ -450,7 +450,7 @@
       # Collisions are refused rather than folded. TOML keys are case-sensitive,
       # so one table may carry both spellings, and mapAttrs' is listToAttrs over
       # attrNames, which keeps the first: attrNames sorts "Paths" before "paths"
-      # (0x50 < 0x70), so a reviewed Paths would survive and a malicious
+      # (0x50 < 0x70), so an empty Paths = [ ] would survive and a non-empty
       # lowercase paths would be discarded before any branch saw it. gitleaks
       # resolves the same table through viper's insensitiviseMap, which deletes
       # and re-inserts each key while ranging over a Go map, so which value
@@ -863,8 +863,8 @@
           ${okKv}
           [[allowlists]]
           description = "one table, two spellings of the same key"
-          Paths = ["private-ops/.*"]
-          paths = ["secrets/.*"]
+          Paths = [ ]
+          paths = ["private-ops/.*"]
         ''
         # And at the top level, where the colliding tables are lists.
         ''

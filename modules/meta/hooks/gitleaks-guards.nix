@@ -318,7 +318,7 @@
             # passes while the history stays hidden.
             echo "hook-gitleaks-guards: 7/40 shallow submodule at secrets/"
             # A second, credential-free upstream for fixtures that need a clean
-            # first submodule; subup gains a credential in fixture 10.
+            # first submodule; subup gains a credential in fixture 11.
             git init -q --initial-branch=main "$work/subup-clean"
             echo clean > "$work/subup-clean/ok.txt"
             git -C "$work/subup-clean" add -A
@@ -383,9 +383,9 @@
             printf '%s' "$hook_out" | grep -q 'secrets/ is not checked out' \
               || fail "absent submodule: skipped silently"
 
-            # The submodule pass itself, which nothing above reaches: fixture 5
-            # refuses before `gitleaks git secrets` runs, fixture 8 takes the else
-            # arm, and the rest carry no gitlink. secrets/ is absent in
+            # The submodule pass itself, which nothing above reaches: fixtures 5
+            # and 7 refuse before `gitleaks git secrets` runs, fixture 10 takes the
+            # else arm, and the rest carry no gitlink. secrets/ is absent in
             # gitleaks-scan too, so this is the only place the sub_args wiring, the
             # six unsets and the scan itself are exercised.
             echo "hook-gitleaks-guards: 11/40 credential inside a full-depth submodule"
@@ -471,7 +471,7 @@
             cd "$work/configured" && run_hook
             expect_clean "config in effect"
 
-            # The sub_args baseline branch, which fixture 9 does not reach: it
+            # The sub_args baseline branch, which fixture 11 does not reach: it
             # carries no secrets/.gitleaks-baseline.json, and gitleaks-scan never
             # checks secrets/ out, so this suite is that branch's only reachable
             # caller. The announcement is asserted alongside it, because a pass
@@ -749,8 +749,9 @@
             lines=$(printf '%s\n' "$hook_out" | grep -c 'leaks found:' || true)
             [ "$lines" -eq 1 ] || fail "conflicted gitlink: expected exactly 1 result line (scanned once), got $lines"
 
-            # A newline is as legal in a git path as the non-ASCII and
-            # space-containing names fixtures 18 and 24 already cover.
+            # A newline is as legal in a git path as the non-ASCII,
+            # space-containing and dash-prefixed names fixtures 18 and 24
+            # already cover.
             # git ls-files -s -z preserves it raw inside one NUL-delimited
             # record; the dedup fixture 26 needed round-tripped that
             # through newline-delimited text instead and split one gitlink
@@ -777,7 +778,7 @@
               fail "newline-containing gitlink: the path was split and neither half was recognized as checked out"
             fi
 
-            # Fixtures 1 to 28 all run with no PRE_COMMIT_FROM_REF or
+            # Fixtures 1 to 27 all run with no PRE_COMMIT_FROM_REF or
             # PRE_COMMIT_TO_REF in the environment, so they pin the
             # full-history path that check.yml's gitleaks-scan and the manual
             # stage take. Nothing above reaches the range path a real pre-push
@@ -873,7 +874,7 @@
               || fail "unfetched gitlink sha: the fallback to the full history was not announced"
 
             # The shape a real push takes: the pointer moves, so --log-opts
-            # reaches a submodule pass that reads. Fixtures 32 to 34 skip the
+            # reaches a submodule pass that reads. Fixtures 31 to 33 skip the
             # pass, take the empty link_old arm, or fall back before it.
             echo "hook-gitleaks-guards: 34/40 a bumped gitlink is scoped to the newly reached commit"
             git init -q --initial-branch=main "$work/bump-up"
