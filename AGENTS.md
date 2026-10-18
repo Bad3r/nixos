@@ -44,8 +44,8 @@ never a goal: remove legacy support instead of carrying both paths.
   `nix develop path:. --accept-flake-config -c write-files --offline`.
 - Local mirrors are listed in `modules/hosts/common/mirrors.nix` by GitHub
   `owner/repo` shorthand (`tridactyl/tridactyl` lands at
-  `/data/git/tridactyl-tridactyl`); `docs/reference/local-mirrors.md` carries
-  the same list, so a change updates both.
+  `/data/git/tridactyl-tridactyl`); `docs/reference/local-mirrors.md` covers
+  adding one and the sync that maintains them.
 - Secrets use sops-nix: encrypt with `sops secrets/<name>.yaml`, declare under
   `sops.secrets."<namespace>/<name>"`, and consume the entry's `.path`.
 - Identifiers are lowercase and hyphenated.

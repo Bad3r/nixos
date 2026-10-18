@@ -312,7 +312,13 @@
 - [reference/iphone.md](reference/iphone.md)
   - iPhone pairing, AFC and PTP file transfer, encrypted backups, and USB tethering through the usbmuxd/libimobiledevice stack.
 - [reference/local-mirrors.md](reference/local-mirrors.md)
-  - List of repositories mirrored locally via `git-mirror` for offline access and patching.
+  - Local repository mirrors under `$LOCAL_MIRRORS`: where a spec lands, adding a mirror, and the provisioned mirror root.
+- [reference/local-mirrors-sync.md](reference/local-mirrors-sync.md)
+  - What `git-mirror.service` does to each mirror, how local work survives a sync, and the maintenance run after it.
+- [reference/local-mirrors-docs.md](reference/local-mirrors-docs.md)
+  - Firefox source docs and Python documentation trees published from the mirrors after each sync.
+- [reference/local-mirrors-troubleshooting.md](reference/local-mirrors-troubleshooting.md)
+  - Failed mirror syncs and docs runs, by the line they log.
 - [reference/mcp-tools.md](reference/mcp-tools.md)
   - Quick reference for available MCP tools including context7, cfdocs, cfbrowser, and deepwiki.
 - [reference/stash-prune.md](reference/stash-prune.md)

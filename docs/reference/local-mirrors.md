@@ -1,308 +1,49 @@
-# Local Mirrors
+# Local mirrors
 
-Repositories mirrored locally via `git-mirror` for offline access and patching.
+`git-mirror` keeps local clones of upstream repositories for offline reading and source lookups.
+Every host on the common baseline turns it on in `modules/hosts/common/mirrors.nix`, which also holds the repository list.
 
-## Configuration
+- [Local mirror sync](local-mirrors-sync.md): what a sync does to a mirror, how local work survives it, and the maintenance run.
+- [Local mirror docs](local-mirrors-docs.md): the Firefox source docs and Python documentation trees published beside their mirrors.
+- [Local mirror troubleshooting](local-mirrors-troubleshooting.md): failed syncs and docs runs, by the line they log.
 
-The shared mirror list is managed in `modules/hosts/common/mirrors.nix` for
-every host that opts into the common host baseline.
-The shared mirror root is defined in `modules/git/mirror-root.nix`.
-Repositories sync to flat paths under `/data/git`.
+## Finding a mirror
 
-Mount placement follows each host's `fileSystems` definition. When `/data`
-encloses `/data/git`, the mirror root is gated on that mount, as on
-`songbird`. Hosts that intentionally keep mirrors on the root filesystem,
-such as `tpnix`, use the null branch of `enclosingMountOf` instead. The
-coverage check exercises both mount-resolution branches.
+`$LOCAL_MIRRORS` holds `localMirrors.root`, and `ls $LOCAL_MIRRORS` lists the mirrors a host carries.
+Each repository spec lands in one flat directory under the root:
 
-The paths in this document are host-local and are not guaranteed to exist on
-every configured host. Check that `$LOCAL_MIRRORS` is set and that the selected
-path exists before using a mirror. Hosts with mirror enablement disabled must
-use the configured upstream or web source instead.
+- GitHub shorthand `owner/repo` lands in `owner-repo`, so `NixOS/nixpkgs` is `$LOCAL_MIRRORS/NixOS-nixpkgs`.
+- An HTTP(S) URL lands in its host and path joined by dashes, minus `.git`, a leading `www.`, and a `.com`, `.org`, or `.net` suffix.
+  `https://codeberg.org/librewolf/settings.git` lands in `$LOCAL_MIRRORS/codeberg-librewolf-settings`.
+- A generated docs tree sits beside its source mirror with a `-docs` suffix, and its `current` entry points at the newest build.
 
-- **Host enablement**: Hosts that opt into the common host baseline get
-  `localMirrors.enable = true;` and
-  `home-manager.users.${metaOwner.username}.programs.gitMirror.enable = true;`
-  from `modules/hosts/common/mirrors.nix`
-- **Root path**: `localMirrors.root` is the single source. `mirrors.nix` feeds
-  it to `programs.gitMirror.root`, so retargeting the mirrors is a one-line
-  change and the provisioner cannot end up on a different path than the sync
-- **Provisioning**: On a mirror-enabled host, `local-mirrors-root.service` creates the root
-  (`install -d -m 2775`, setgid, group `users`) after and conditioned on the
-  deepest declared mount containing it, so an absent or unopened volume leaves
-  the unit inactive rather than writing the tree onto the root filesystem. A
-  late mount is recovered with
-  `systemctl start local-mirrors-root.service`
-- **Absent root**: `git-mirror` and both docs services refuse every job while
-  the root is missing, instead of letting `git clone` or a lock-file `mkdir`
-  recreate the path on `/`. The guard runs before the docs lock files are
-  opened, because those sit directly in the root, so their `mkdir -p` would
-  otherwise recreate it and let every later repo spec pass
-- **Unprovisioned root**: the same guard also refuses a root with no
-  `.local-mirrors-root` stamp. `local-mirrors-root.service` writes it, and that
-  unit runs only while its mount condition holds, so the stamp can exist only
-  on the volume. Mode carries no provenance and cannot substitute: the
-  `d /data/git 2775 root users` tmpfiles rule this replaced wrote `2775`,
-  setgid included, onto exactly the stray root on `/` that the guard has to
-  reject. The name is `localMirrors.stampName`, fed to
-  `programs.gitMirror.stampName` alongside the root
-- **Recovering an unstamped root**: a volume mounted after boot, or one whose
-  root predates the stamp, is provisioned by
-  `systemctl start local-mirrors-root.service`
-- **Environment variable**: `$LOCAL_MIRRORS` points to `/data/git`
-- **Sync schedule**: Daily via systemd timer
-- **Manual sync**: `systemctl --user start git-mirror.service`
-- **Sync concurrency**: Common hosts run two repo sync jobs at a time, and
-  each repo clone or fetch gets three attempts with backoff before the service
-  run fails
-- **Firefox source docs**: `git-mirror.service` queues
-  `git-mirror-firefox-docs.service` with `OnSuccess=` after sync when
-  `programs.gitMirror.firefoxDocs.enable = true;`, so the docs build is not
-  part of the mirror sync start transaction
-- **Python documentation sources**: `git-mirror.service` queues
-  `git-mirror-python-docs.service` with `OnSuccess=` after sync when
-  `programs.gitMirror.pythonDocs.enable = true;`. The publisher resolves the
-  current stable Python minor version from `https://docs.python.org/3/`, then
-  publishes CPython `Doc/` from the matching upstream branch.
-- **Switch behavior**: The mirror sync, Firefox docs build, and Python docs
-  source publishing services use `X-SwitchMethod=keep-old`; rebuilds update the
-  unit files without starting or restarting long-running mirror jobs during Home
-  Manager activation
-- **Failure recovery**: `git-mirror.service` restarts on failure after 5
-  minutes, bounded to three attempts per hour, so transient Git or network
-  failures retry without churning forever
+## Adding a mirror
 
-## Enable On Hosts
+1. Add the spec to `programs.gitMirror.repos` in `modules/hosts/common/mirrors.nix`.
+   A GitHub repository takes the `owner/repo` form even when its source is given as a GitHub URL.
 
-Every host on the common baseline enables mirrors through
-`modules/hosts/common/mirrors.nix`:
+2. Switch the host, from the repository root:
 
-```nix
-localMirrors.enable = true;
+   ```sh
+   ./build.sh --host <host>
+   ```
 
-home-manager.users.${metaOwner.username}.programs.gitMirror = {
-  enable = true;
-  root = config.localMirrors.root;
-  stampName = config.localMirrors.stampName;
-  firefoxDocs.enable = true;
-  pythonDocs.enable = true;
-  repos = [
-    "owner/repo"
-    # ...
-  ];
-};
-```
+3. Start a sync instead of waiting for the timer:
 
-Add shared mirrors to the `repos` list in `modules/hosts/common/mirrors.nix`.
-The timer is only created when `programs.gitMirror.enable = true;`.
+   ```sh
+   systemctl --user start git-mirror.service
+   ```
 
-## Apply And Verify
+The sync logs `<spec>: cloned` in `journalctl --user -u git-mirror.service`, and the directory appears under `$LOCAL_MIRRORS`.
+A mirror that only one host needs goes into `programs.gitMirror.repos` in that host's module, which merges with the common list.
+Removing a spec stops its sync and leaves its directory in place until it is deleted by hand.
 
-Rebuild a mirror-enabled target host, then verify that the user timer exists and run the first sync manually:
+## Mirror root
 
-```bash
-./build.sh --host <host>
-systemctl --user --no-block start git-mirror.service
-systemctl --user status git-mirror.timer --no-pager
-systemctl --user list-timers git-mirror.timer
-systemctl --user is-enabled git-mirror.timer
-ls -ld /data/git
-```
+`modules/hosts/common/mirrors.nix` passes `localMirrors.root` to `programs.gitMirror.root`, so the provisioner and the sync share one path.
+`local-mirrors-root.service`, defined in `modules/git/mirror-root.nix`, creates the root as a setgid directory with group `localMirrors.group`.
+It then writes the `localMirrors.stampName` stamp into the root.
+When a declared mount encloses the root, the unit waits for that mount and runs only while it is mounted.
 
-If the first sync fails, inspect the user service logs:
-
-```bash
-journalctl --user -u git-mirror.service -n 50 --no-pager
-```
-
-## Path Mapping
-
-`programs.gitMirror.repos` accepts either GitHub `owner/repo` shorthand or
-full HTTP(S) Git URLs.
-GitHub shorthand keeps the historical `{owner}-{repo}` local path.
-Prefer shorthand for GitHub repositories even when the source is given as a
-`https://github.com/owner/repo/` URL.
-Full URLs include a normalized host prefix and strip common host suffixes such as `.org`.
-
-The configured shared repository rows mirror `programs.gitMirror.repos` in
-`modules/hosts/common/mirrors.nix`. Generated documentation rows are owned by
-`programs.gitMirror.firefoxDocs` and `programs.gitMirror.pythonDocs`.
-
-| Repository spec                                         | Local path                                                 |
-| ------------------------------------------------------- | ---------------------------------------------------------- |
-| `owner/repo`                                            | `$LOCAL_MIRRORS/owner-repo`                                |
-| `NixOS/nix`                                             | `$LOCAL_MIRRORS/NixOS-nix`                                 |
-| `NixOS/nixos-hardware`                                  | `$LOCAL_MIRRORS/NixOS-nixos-hardware`                      |
-| `NixOS/nixpkgs`                                         | `$LOCAL_MIRRORS/NixOS-nixpkgs`                             |
-| `NixOS/rfcs`                                            | `$LOCAL_MIRRORS/NixOS-rfcs`                                |
-| `https://git.lix.systems/lix-project/lix.git`           | `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix`           |
-| `https://git.lix.systems/lix-project/lix-installer.git` | `$LOCAL_MIRRORS/git.lix.systems-lix-project-lix-installer` |
-| `https://git.lix.systems/lix-project/nixos-module.git`  | `$LOCAL_MIRRORS/git.lix.systems-lix-project-nixos-module`  |
-| `DeterminateSystems/nix-installer`                      | `$LOCAL_MIRRORS/DeterminateSystems-nix-installer`          |
-| `nix-community/home-manager`                            | `$LOCAL_MIRRORS/nix-community-home-manager`                |
-| `nix-community/nh`                                      | `$LOCAL_MIRRORS/nix-community-nh`                          |
-| `nix-community/nixd`                                    | `$LOCAL_MIRRORS/nix-community-nixd`                        |
-| `nix-community/nixvim`                                  | `$LOCAL_MIRRORS/nix-community-nixvim`                      |
-| `nix-community/noogle`                                  | `$LOCAL_MIRRORS/nix-community-noogle`                      |
-| `nix-community/stylix`                                  | `$LOCAL_MIRRORS/nix-community-stylix`                      |
-| `numtide/llm-agents.nix`                                | `$LOCAL_MIRRORS/numtide-llm-agents.nix`                    |
-| `Mic92/sops-nix`                                        | `$LOCAL_MIRRORS/Mic92-sops-nix`                            |
-| `cachix/devenv`                                         | `$LOCAL_MIRRORS/cachix-devenv`                             |
-| `cachix/git-hooks.nix`                                  | `$LOCAL_MIRRORS/cachix-git-hooks.nix`                      |
-| `cachix/docs.cachix.org`                                | `$LOCAL_MIRRORS/cachix-docs.cachix.org`                    |
-| `evilmartians/lefthook`                                 | `$LOCAL_MIRRORS/evilmartians-lefthook`                     |
-| `hercules-ci/flake-parts`                               | `$LOCAL_MIRRORS/hercules-ci-flake-parts`                   |
-| `hercules-ci/flake.parts-website`                       | `$LOCAL_MIRRORS/hercules-ci-flake.parts-website`           |
-| `mightyiam/files`                                       | `$LOCAL_MIRRORS/mightyiam-files`                           |
-| `numtide/treefmt`                                       | `$LOCAL_MIRRORS/numtide-treefmt`                           |
-| `numtide/treefmt-nix`                                   | `$LOCAL_MIRRORS/numtide-treefmt-nix`                       |
-| `vic/import-tree`                                       | `$LOCAL_MIRRORS/vic-import-tree`                           |
-| `duplicati/documentation`                               | `$LOCAL_MIRRORS/duplicati-documentation`                   |
-| `github/docs`                                           | `$LOCAL_MIRRORS/github-docs`                               |
-| `i3/i3.github.io`                                       | `$LOCAL_MIRRORS/i3-i3.github.io`                           |
-| `mozilla-firefox/firefox`                               | `$LOCAL_MIRRORS/mozilla-firefox-firefox`                   |
-| Firefox built docs                                      | `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/current`      |
-| `mdn/content`                                           | `$LOCAL_MIRRORS/mdn-content`                               |
-| `mozilla/policy-templates`                              | `$LOCAL_MIRRORS/mozilla-policy-templates`                  |
-| `mozilla/enterprise-admin-reference`                    | `$LOCAL_MIRRORS/mozilla-enterprise-admin-reference`        |
-| `python/cpython`                                        | `$LOCAL_MIRRORS/python-cpython`                            |
-| Current stable Python docs source                       | `$LOCAL_MIRRORS/python-cpython-docs/current`               |
-| `https://codeberg.org/librewolf/settings.git`           | `$LOCAL_MIRRORS/codeberg-librewolf-settings`               |
-| `better-auth/better-auth`                               | `$LOCAL_MIRRORS/better-auth-better-auth`                   |
-| `cloudflare/workers-sdk`                                | `$LOCAL_MIRRORS/cloudflare-workers-sdk`                    |
-| `duplicati/duplicati`                                   | `$LOCAL_MIRRORS/duplicati-duplicati`                       |
-| `logseq/logseq`                                         | `$LOCAL_MIRRORS/logseq-logseq`                             |
-| `mpv-player/mpv`                                        | `$LOCAL_MIRRORS/mpv-player-mpv`                            |
-| `openai/codex`                                          | `$LOCAL_MIRRORS/openai-codex`                              |
-| `rclone/rclone`                                         | `$LOCAL_MIRRORS/rclone-rclone`                             |
-| `restic/restic`                                         | `$LOCAL_MIRRORS/restic-restic`                             |
-| `s0md3v/wappalyzer-next`                                | `$LOCAL_MIRRORS/s0md3v-wappalyzer-next`                    |
-| `tridactyl/tridactyl`                                   | `$LOCAL_MIRRORS/tridactyl-tridactyl`                       |
-| `zaproxy/zaproxy`                                       | `$LOCAL_MIRRORS/zaproxy-zaproxy`                           |
-| `zaproxy/zap-extensions`                                | `$LOCAL_MIRRORS/zaproxy-zap-extensions`                    |
-| `zaproxy/zap-api-python`                                | `$LOCAL_MIRRORS/zaproxy-zap-api-python`                    |
-| `zaproxy/community-scripts`                             | `$LOCAL_MIRRORS/zaproxy-community-scripts`                 |
-| `fuzzdb-project/fuzzdb`                                 | `$LOCAL_MIRRORS/fuzzdb-project-fuzzdb`                     |
-| `dtkmn/mcp-zap-server`                                  | `$LOCAL_MIRRORS/dtkmn-mcp-zap-server`                      |
-
-## Firefox Source Docs
-
-The Firefox mirror can build source documentation with `./mach doc` after the
-mirror updates. Generated docs are intentionally published outside the Firefox
-checkout so `git-mirror` can keep the source tree clean.
-
-- Source checkout: `$LOCAL_MIRRORS/mozilla-firefox-firefox`
-- Built docs: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/current`
-- Revision builds: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/revisions/<sha>`
-- State marker: `$LOCAL_MIRRORS/mozilla-firefox-firefox-docs/last-built-revision`
-  records the revision plus selected `mach doc` options that affect generated
-  output
-- Retention: `programs.gitMirror.firefoxDocs.maxRevisions` keeps the newest
-  revision and linkcheck output directories, defaulting to `2`
-
-Run or inspect the docs service directly:
-
-```bash
-systemctl --user start git-mirror-firefox-docs.service
-journalctl --user -u git-mirror-firefox-docs.service -n 100 --no-pager
-test -f /data/git/mozilla-firefox-firefox-docs/current/index.html
-```
-
-The service skips incomplete mirrors, dirty Firefox checkouts, and revisions
-that already have a successful generated docs tree. After publishing a new
-`current` symlink, it prunes old revision and linkcheck output directories.
-
-## Python Documentation Sources
-
-The CPython mirror publishes the current stable Python documentation source tree
-after the mirror updates. CPython `main` tracks future Python development, so
-the publisher does not use the checkout's default branch. It reads
-`https://docs.python.org/3/`, extracts the current stable minor branch from the
-page title, and archives `Doc/` from `origin/<major.minor>`.
-
-- Source checkout: `$LOCAL_MIRRORS/python-cpython`
-- Current stable docs source: `$LOCAL_MIRRORS/python-cpython-docs/current`
-- Revision sources:
-  `$LOCAL_MIRRORS/python-cpython-docs/revisions/<major.minor>-<sha>/Doc`
-- State marker: `$LOCAL_MIRRORS/python-cpython-docs/current-branch` records the
-  resolved branch, commit, and version URL
-- Retention: `programs.gitMirror.pythonDocs.maxRevisions` keeps the newest
-  source revisions, defaulting to `2`
-
-Run or inspect the docs source publisher directly:
-
-```bash
-systemctl --user start git-mirror-python-docs.service
-journalctl --user -u git-mirror-python-docs.service -n 100 --no-pager
-test -f /data/git/python-cpython-docs/current/conf.py
-```
-
-When `docs.python.org/3/` reports Python 3.14.x, the published source comes
-from CPython branch `3.14`. When the Python project promotes a newer stable
-minor version and updates `docs.python.org/3/`, the next successful sync moves
-`current` to that branch automatically.
-
-## Adding Repositories
-
-Edit `programs.gitMirror.repos` in `modules/hosts/common/mirrors.nix` for
-mirrors that should exist on every managed host:
-
-```nix
-programs.gitMirror.repos = [
-  "owner/repo"
-  "NixOS/nix"
-  "NixOS/nixos-hardware"
-  "NixOS/nixpkgs"
-  "NixOS/rfcs"
-  "https://git.lix.systems/lix-project/lix.git"
-  "https://git.lix.systems/lix-project/lix-installer.git"
-  "https://git.lix.systems/lix-project/nixos-module.git"
-  "DeterminateSystems/nix-installer"
-  "nix-community/home-manager"
-  "nix-community/nh"
-  "nix-community/nixd"
-  "nix-community/nixvim"
-  "nix-community/noogle"
-  "nix-community/stylix"
-  "numtide/llm-agents.nix"
-  "Mic92/sops-nix"
-  "cachix/devenv"
-  "cachix/git-hooks.nix"
-  "cachix/docs.cachix.org"
-  "evilmartians/lefthook"
-  "hercules-ci/flake-parts"
-  "hercules-ci/flake.parts-website"
-  "mightyiam/files"
-  "numtide/treefmt"
-  "numtide/treefmt-nix"
-  "vic/import-tree"
-  "duplicati/documentation"
-  "github/docs"
-  "i3/i3.github.io"
-  "mozilla-firefox/firefox"
-  "mdn/content" # https://developer.mozilla.org
-  "mozilla/policy-templates"
-  "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
-  "python/cpython" # Source for docs.python.org
-  "https://codeberg.org/librewolf/settings.git"
-  "better-auth/better-auth"
-  "cloudflare/workers-sdk"
-  "duplicati/duplicati"
-  "logseq/logseq"
-  "mpv-player/mpv"
-  "openai/codex"
-  "rclone/rclone"
-  "restic/restic"
-  "s0md3v/wappalyzer-next"
-  "tridactyl/tridactyl"
-  "zaproxy/zaproxy"
-  "zaproxy/zap-extensions"
-  "zaproxy/zap-api-python"
-  "zaproxy/community-scripts"
-  "fuzzdb-project/fuzzdb"
-  "dtkmn/mcp-zap-server"
-  # ...
-];
-```
-
-Use a host-specific override only when a mirror should not exist on every common host.
+The sync and both docs services refuse to run without the stamp, so an unmounted volume never gets a stray root on `/`.
+A root with no enclosing mount is created unconditionally at boot.

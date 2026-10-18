@@ -1,8 +1,6 @@
 # Local repository mirrors (shared hosts).
 # GitHub shorthand syncs daily to /data/git/{owner}-{repo}; full URLs use
 # a normalized host-prefixed path.
-# Keep docs/reference/local-mirrors.md and modules/agents/system-prompt.nix
-# synchronized with the repos list below.
 {
   metaOwner,
   ...
