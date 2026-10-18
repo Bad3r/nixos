@@ -189,6 +189,11 @@
           {
             settings.gpg.ssh.allowedSignersFile = gitAllowedSignersPath;
           }
+
+          # Scheduled `git maintenance run` runs no tasks until a strategy is set.
+          (lib.mkIf config.programs.git.maintenance.enable {
+            settings.maintenance.strategy = "geometric";
+          })
         ];
 
         # Delta diff viewer (moved from programs.git.delta to programs.delta)
