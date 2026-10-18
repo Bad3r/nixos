@@ -516,7 +516,7 @@
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
                 Restart = "on-failure";
                 RestartSec = "5m";
-                Nice = 10;
+                Slice = "background.slice";
                 IOSchedulingClass = "idle";
               };
             };
@@ -532,7 +532,7 @@
                 ExecStart = "${firefoxDocsScript}/bin/git-mirror-build-firefox-docs";
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
                 TimeoutStartSec = "6h";
-                Nice = 10;
+                Slice = "background.slice";
                 IOSchedulingClass = "idle";
               };
             };
@@ -548,7 +548,7 @@
                 ExecStart = "${pythonDocsScript}/bin/git-mirror-publish-python-docs";
                 Environment = [ "GIT_TERMINAL_PROMPT=0" ];
                 TimeoutStartSec = "30m";
-                Nice = 10;
+                Slice = "background.slice";
                 IOSchedulingClass = "idle";
               };
             };
