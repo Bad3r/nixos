@@ -116,6 +116,9 @@
 
               # Later writes keep filters once a graph has them; this covers the first write.
               commitGraph.changedPaths = true;
+
+              # Scheduled `git maintenance run` runs no tasks until a strategy is set.
+              maintenance.strategy = "geometric";
             };
 
             # Matches nixpkgs clones and their linked worktrees by remote, wherever they live.
@@ -189,11 +192,6 @@
           {
             settings.gpg.ssh.allowedSignersFile = gitAllowedSignersPath;
           }
-
-          # Scheduled `git maintenance run` runs no tasks until a strategy is set.
-          (lib.mkIf config.programs.git.maintenance.enable {
-            settings.maintenance.strategy = "geometric";
-          })
         ];
 
         # Delta diff viewer (moved from programs.git.delta to programs.delta)
