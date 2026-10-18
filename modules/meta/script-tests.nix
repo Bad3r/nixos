@@ -285,9 +285,9 @@ in
             git -C "$HOME/repo" config user.name "wrapper inputs check"
 
             # The ten patterns secrets_guard_paths requires under the heading,
-            # not the rest of what modules/development/gitignore.nix generates:
-            # the parser fails closed on a thinned block, so a shorter fixture
-            # would test that branch instead of the scan.
+            # not the rest of the committed .gitignore: the parser fails
+            # closed on a thinned block, so a shorter fixture would test that
+            # branch instead of the scan.
             printf '%s\n' \
               '# Secrets safety (defense-in-depth)' \
               '*.agekey' '*.key' '*.pem' '*.p12' '*.pfx' \
@@ -396,14 +396,12 @@ in
           '';
 
       # The minimum set named in secrets_guard_paths is the guard's coupling to
-      # modules/development/gitignore.nix, and every other fixture that reaches
-      # the parser is a hand-written copy of the block, so the suite passes
-      # whatever the generator emits. Dropping or renaming one pattern there
-      # leaves managed-files-synced green, since .gitignore still matches its
-      # source, and leaves the suite green on its own copy; the guard then trips
-      # the minimum-set branch on every real run and the documented way past it
-      # turns the control off. This reads the committed file the guard actually
-      # parses, which managed-files-synced already pins to the generator.
+      # the committed .gitignore, and every other fixture that reaches the
+      # parser is a hand-written copy of the block, so the suite passes whatever
+      # .gitignore holds. Dropping or renaming one pattern there leaves the
+      # suite green on its own copy; the guard then trips the minimum-set branch
+      # on every real run and the documented way past it turns the control off.
+      # This reads the committed file the guard actually parses.
       gitignoreContractCheck =
         pkgs.runCommand "script-tests-secrets-guard-gitignore-contract"
           {
@@ -437,7 +435,7 @@ in
             rc=0
             secrets_guard_paths repo >hits.bin 2>err.log || rc=$?
             if [ "$rc" -ne 0 ]; then
-              echo "the guard could not parse the committed .gitignore (rc $rc); its minimum set and modules/development/gitignore.nix have diverged" >&2
+              echo "the guard could not parse the committed .gitignore (rc $rc); its minimum set and that file have diverged" >&2
               cat err.log >&2
               exit 1
             fi

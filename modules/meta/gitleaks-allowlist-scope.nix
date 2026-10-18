@@ -20,14 +20,9 @@
 { lib, ... }:
 {
   perSystem =
-    { config, pkgs, ... }:
+    { pkgs, ... }:
     let
-      # Both the definition a human edits and the artifact gitleaks actually
-      # reads. Parsing only the source misses a direct .gitleaks.toml edit and
-      # parsing only the artifact misses a source edit that skipped write-files;
-      # managed-files-drift closes neither gap here, being a pre-commit hook
-      # rather than a CI gate. Each entry keeps its origin so a throw names the
-      # file that carries it rather than the one a reader would expect.
+      # Each entry keeps its origin so a throw names the file that carries it.
       # reviewedPaths is per source, not global: a paths pattern is matched
       # against a File rooted at the tree being scanned, and the submodule pass
       # scans secrets/, where File comes back submodule-relative. The
@@ -62,25 +57,17 @@
         }
       ];
 
-      sources = lib.concatMap (c: [
-        {
-          origin = "modules/development/gitleaks.nix (${c.file})";
-          text = config.files.file.${c.file}.text;
-          inherit (c) file reviewedPaths kvAllowed;
-        }
-        {
-          origin = c.file;
-          text = builtins.readFile (lib.path.append ../.. c.file);
-          inherit (c) file reviewedPaths kvAllowed;
-        }
-      ]) managedConfigs;
+      sources = map (c: {
+        origin = c.file;
+        text = builtins.readFile (lib.path.append ../.. c.file);
+        inherit (c) file reviewedPaths kvAllowed;
+      }) managedConfigs;
 
-      # Quantified over the files write-files actually emits, not over
-      # managedConfigs: removing a contract while the file still ships must
-      # throw, and a new .gitleaks-*.toml must gain a contract before it can be
-      # scanned with.
+      # Quantified over the configs in the tree, not over managedConfigs:
+      # removing a contract while the file still ships must throw, and a new
+      # .gitleaks-*.toml must gain a contract before it can be scanned with.
       managedGitleaksFiles = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
-        lib.attrNames config.files.file
+        lib.attrNames (builtins.readDir ../..)
       );
 
       managedConfigCoverage = configs: lib.subtractLists (map (c: c.file) configs) managedGitleaksFiles;
@@ -267,7 +254,7 @@
           kvBlocks = lib.filter (a: lib.any (lib.hasInfix "keys KV") (a.regexes or [ ])) allowlists;
 
           # The KV note exists only in the private submodule, so its allowlist is
-          # permitted only in the two sources governing that pass. Check both
+          # permitted only in the source governing that pass. Check both
           # directions: a missing private entry breaks the false-positive fix,
           # while an unexpected superproject entry creates a suppression channel
           # for public files that the note does not justify.
@@ -411,8 +398,8 @@
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is present in "
               + "${lib.concatStringsSep ", " (map (p: p.origin) kvUnexpectedIn)} even though those "
-              + "sources scan public superproject files. Keep this content-scoped suppression in the "
-              + "two .gitleaks-secrets.toml sources that scan the private operational note";
+              + "sources scan public superproject files. Keep this content-scoped suppression in "
+              + ".gitleaks-secrets.toml, which scans the private operational note";
           }
           {
             id = "kv-missing";
@@ -420,7 +407,7 @@
             message =
               "gitleaks-allowlist-scope: the Cloudflare KV namespace allowlist is gone from ${
                 lib.concatStringsSep ", " (map (p: p.origin) kvMissingIn)
-              }. The entry belongs in the .gitleaks-secrets.toml sources because the note it exists for "
+              }. The entry belongs in .gitleaks-secrets.toml because the note it exists for "
               + "is scanned only through the private submodule pass";
           }
           {
@@ -499,11 +486,8 @@
       # winner the scanner will, which makes refusing the only sound option.
       # Throws in the parse rather than returning a verdict id, so `cases` cannot
       # reach it; collisionCases below drives it through tryEval instead.
-      # Origin-carrying like every verdict message, because lowerKeys runs over
-      # all managed source and artifact entries: a collision present only in the
-      # artifact would otherwise send the reader to modules/development/gitleaks.nix, where the entry is
-      # absent, and the artifact-only edit is the direction this check was
-      # extended to cover in the first place.
+      # Origin-carrying like every verdict message, so the throw names the config
+      # that carries the collision.
       lowerKeys =
         origin: v:
         if lib.isAttrs v then
@@ -530,11 +514,11 @@
       # One synthetic config per branch, each the reviewed config with a single
       # field perturbed, so a branch that stops rejecting its own bypass fails on
       # the pull request that narrows it. Every guard this check has carried was
-      # verified once by hand-editing the real config, running write-files and
-      # reverting, and four of them (hasInfix "secrets", hasInfix "nixos-manual",
-      # the entry-scoped targetRules test, the regexTarget == "line" test) were
-      # later found bypassable anyway; a procedure that re-runs on nobody's
-      # machine cannot catch that.
+      # verified once by hand-editing the real config and reverting, and four of
+      # them (hasInfix "secrets", hasInfix "nixos-manual", the entry-scoped
+      # targetRules test, the regexTarget == "line" test) were later found
+      # bypassable anyway; a procedure that re-runs on nobody's machine cannot
+      # catch that.
       #
       # Each fixture must reach its own branch, so it has to pass every earlier
       # one: kv-untargeted names a rule other than generic-api-key rather than
@@ -957,8 +941,7 @@
               lib.concatStringsSep ", " (map (s: s.origin) unjudgedSources)
             } is no longer "
             + "judged by this check, so every suppression field in it is unbounded; restore it to "
-            + "managedConfigs with its reviewedPaths and kvAllowed declarations rather than dropping "
-            + "the file from write-files"
+            + "managedConfigs with its reviewedPaths and kvAllowed declarations"
           )
         else if missedManagedConfigCases != [ ] then
           throw (

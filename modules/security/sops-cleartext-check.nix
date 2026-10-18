@@ -3,15 +3,14 @@
 # ENC[AES256_GCM, MAC token.
 # The pre-commit ensure-sops hook only sees superproject staged files, so a
 # cleartext commit made inside the secrets submodule bypasses it. This check
-# scans the checked-out tree the flake actually ships. Its security contract is
-# enforced independently of generated-file parity.
+# scans the checked-out tree the flake actually ships.
 #
 # Scope: payload scanning is effective where the secrets/ submodule content is
 # checked out, such as local development trees and git hooks. CI evaluates the
 # secretless path:. checkout (issue #333, .github/workflows/check.yml), so the
-# scan is skipped there while policy parity is still checked. Initializing the
-# submodule in CI is deliberately not done: Bad3r/secrets is private and the
-# secretless-eval design keeps CI from fetching it.
+# scan is skipped there while the policy contract is still checked.
+# Initializing the submodule in CI is deliberately not done: Bad3r/secrets is
+# private and the secretless-eval design keeps CI from fetching it.
 {
   lib,
   rootPath,
@@ -29,14 +28,12 @@ let
   policyContentLines = lib.filter (line: !isYamlComment line) policyLines;
   policyContent = builtins.concatStringsSep "\n" policyContentLines;
 
-  # Keep security-critical policy invariants independent of the generated-file
-  # comparison, so a source change cannot move both sides of the parity check.
   rulePatterns = lib.filter (line: lib.hasPrefix "  - path_regex: " line) policyContentLines;
   nestedLines = lib.filter (
     line: lib.hasPrefix "    " line && !(lib.hasPrefix "          - " line)
   ) policyContentLines;
   recipientLines = lib.filter (line: lib.hasPrefix "          - " line) policyContentLines;
-  # Keep this literal synchronized with modules/security/sops-policy.nix.
+  # Keep this literal synchronized with .sops.yaml.
   # Key Rotation must update both before `sops updatekeys` re-encrypts payloads.
   hostPubKey = "age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf";
   hostKey = "  - &host_pub_key " + hostPubKey;
@@ -505,7 +502,7 @@ in
           throw (
             "sops-cleartext-check.nix policy security contract drifted: "
             + lib.concatStringsSep ", " policyDrift
-            + ". Review modules/security/sops-policy.nix before accepting the change."
+            + ". Review .sops.yaml before accepting the change."
           )
         else if exemptionDrift != [ ] then
           throw (

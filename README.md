@@ -85,17 +85,3 @@ These root inputs pin shared dependencies used through `.follows` declarations. 
 | `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat` |
 | `dedupe_nur`          | `stylix.inputs.nur`                                          |
 | `systems`             | `stylix.inputs.systems`                                     |
-
-## Generated Files
-
-The following files are defined in Nix and generated via [mightyiam/files](https://github.com/mightyiam/files) using `nix develop path:. -c write-files` (drop `path:.` in the primary checkout):
-
-- `.actrc`
-- `.githooks/post-checkout`
-- `.github/actions/install-lix/substituters.conf`
-- `.gitignore`
-- `.gitleaks-gitlink.toml`
-- `.gitleaks-secrets.toml`
-- `.gitleaks.toml`
-- `.sops.yaml`
-- `README.md`

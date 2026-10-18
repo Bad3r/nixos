@@ -1,14 +1,14 @@
-_: {
+{ rootPath, ... }:
+{
   perSystem =
     {
-      config,
       lib,
       pkgs,
       ...
     }:
     let
-      # Generated rather than restated: gitleaks-guards.nix derives the same
-      # list from config.files.file for its managed-config contract, and
+      # Listed from the tree rather than restated: gitleaks-guards.nix lists
+      # the same configs for its managed-config contract, and
       # gitleaks-allowlist-scope.nix derives managedGitleaksFiles the same
       # way. A fourth managed config left out of a hand-typed copy here would
       # never be checked for presence; for a gitlink pass, which never
@@ -16,7 +16,7 @@ _: {
       # so the run would stay green with the config that governs that pass
       # gone from the tree.
       managedConfigNames = lib.filter (n: lib.hasPrefix ".gitleaks" n && lib.hasSuffix ".toml" n) (
-        lib.attrNames config.files.file
+        lib.attrNames (builtins.readDir rootPath)
       );
     in
     {
@@ -54,7 +54,7 @@ _: {
             # on 8.30.1 that a source-directory .gitleaks.toml suppresses a
             # finding the defaults report. That is a ruleset in the private
             # repository deciding what the public one reports, the same reach
-            # the .gitleaksignore guard below refuses. write-files owns this
+            # the .gitleaksignore guard below refuses. Git tracks this
             # file, so its absence is a broken checkout, never a state to scan.
             # One config per pass, because a paths allowlist is matched against a
             # File rooted at the tree being scanned: for `gitleaks git secrets`
@@ -66,7 +66,7 @@ _: {
             # allowlists and no paths key at all.
             for config_file in ${lib.escapeShellArgs managedConfigNames}; do
               if [ ! -f "$config_file" ]; then
-                echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; regenerate it with 'nix develop --accept-flake-config --command write-files' instead of scanning unreviewed" >&2
+                echo "hook-gitleaks: $config_file is missing, so the ruleset gitleaks-allowlist-scope pins is not in effect and gitleaks would fall back to its built-in defaults and to per-source config discovery; restore it from git instead of scanning unreviewed" >&2
                 exit 1
               fi
             done

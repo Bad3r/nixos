@@ -132,9 +132,9 @@ secrets_guard_paths() {
     line="${line##*/}"
     # Whatever still reduces to nothing (a bare / or a doubled foo//) aborts
     # rather than being skipped: a block entry dropped quietly is the same
-    # silent thinning, and no pattern this generator emits reaches here.
+    # silent thinning, and no pattern in this repo's block reaches here.
     if [[ -z ${line} ]]; then
-      secrets_guard_error "The '# Secrets safety (defense-in-depth)' block of ${dir}/.gitignore holds '${raw}', which reduces to no name to match, so the secrets guard would enforce a thinner block than the file declares. Give that entry a name in modules/development/gitignore.nix, or pass --allow-secret-copy to continue anyway."
+      secrets_guard_error "The '# Secrets safety (defense-in-depth)' block of ${dir}/.gitignore holds '${raw}', which reduces to no name to match, so the secrets guard would enforce a thinner block than the file declares. Give that entry a name, or pass --allow-secret-copy to continue anyway."
       return 1
     fi
     if [[ ${negated} -eq 1 ]]; then
@@ -142,15 +142,14 @@ secrets_guard_paths() {
     else
       deny+=("${line}")
     fi
-    # Patterns are read from .gitignore rather than restated here: that file is
-    # generated from modules/files.nix, so a second copy would drift unseen.
+    # Patterns are read from .gitignore rather than restated here, since a
+    # second copy would drift unseen.
   done <<<"${block}"
 
   # Fail closed on a partial parse, not just an empty one. The block ends at the
   # first blank line, so one inserted mid-block (the natural spot is before the
   # "# Common SSH/private key patterns" comment) leaves deny non-empty while
-  # dropping id_*, and a count check cannot see that. managed-files-drift cannot
-  # either, since .gitignore would still match its source. The minimum set is
+  # dropping id_*, and a count check cannot see that. The minimum set is
   # named here rather than parsed: a legitimate change to the block then fires
   # loudly instead of thinning the deny list in silence.
   local want have
@@ -168,7 +167,7 @@ secrets_guard_paths() {
     fi
   done
   if [[ ${#deny[@]} -eq 0 || ${#missing[@]} -gt 0 ]]; then
-    secrets_guard_error "The '# Secrets safety (defense-in-depth)' block of ${dir}/.gitignore did not yield the expected patterns (missing: ${missing[*]:-every pattern}); the secrets guard cannot run. Realign this parser with modules/development/gitignore.nix, or pass --allow-secret-copy to continue anyway."
+    secrets_guard_error "The '# Secrets safety (defense-in-depth)' block of ${dir}/.gitignore did not yield the expected patterns (missing: ${missing[*]:-every pattern}); the secrets guard cannot run. Realign this parser with that block, or pass --allow-secret-copy to continue anyway."
     return 1
   fi
 
@@ -368,9 +367,9 @@ secrets_guard_enforce() {
     fi
   done
   # Without this, --flake-dir pointed at a flake that is not a git worktree
-  # reaches the missing-.gitignore abort below and is told to run write-files,
-  # which does not own that directory. No git worktree means no ignore set, so
-  # there is nothing for path: to smuggle past .gitignore.
+  # reaches the missing-.gitignore abort below and is told to restore a file
+  # that directory never had. No git worktree means no ignore set, so there is
+  # nothing for path: to smuggle past .gitignore.
   if ! git -C "${dir}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
     # rev-parse answers 128 for a repository git declines to open as well as for
     # a directory that is not one, and only the second has no ignore set to
@@ -400,11 +399,11 @@ secrets_guard_enforce() {
   # one level down takes its ignore set from the root, so the root is what gets
   # classified, with the same three questions the discriminators below ask of
   # ${dir}: those resolve their pathspecs against ${dir}, which one level down
-  # asks about sub/.gitignore and sub/modules/development/gitignore.nix, so
-  # every drift state above returned "foreign tree" and skipped. Only a root
-  # that is genuinely foreign, no block and no generator, still skips: the block
-  # is this repo's convention, and aborting a tree that never had one names a
-  # module it does not contain.
+  # asks about sub/.gitignore and sub/scripts/lib/secrets-guard.sh, so every
+  # drift state above returned "foreign tree" and skipped. Only a root that is
+  # genuinely foreign, no block and no guard, still skips: the block is this
+  # repo's convention, and aborting a tree that never had one demands a block
+  # it never carried.
   #
   # pwd -P because rev-parse resolves symlinks and the comparison has to. Both
   # callers already absolutise the same way, so this only covers a third one.
@@ -444,23 +443,23 @@ secrets_guard_enforce() {
           return 2
         fi
         # No heading at the root either. Drift there is a block that covered
-        # ${dir} and stopped, so the generator decides, and it is asked of the
-        # root: ${dir} never tracks modules/development/gitignore.nix, which is
-        # what read every drift above as a foreign tree.
-        local root_generator_rc=0
-        secrets_guard_tracked "${toplevel}" modules/development/gitignore.nix || root_generator_rc=$?
-        if [[ ${root_generator_rc} -gt 1 ]]; then
-          secrets_guard_error "Checking whether the worktree root ${toplevel} tracks modules/development/gitignore.nix failed (git exit ${root_generator_rc}), so the secrets guard cannot tell drift above ${dir} from a foreign tree."
+        # ${dir} and stopped, so the guard's own path decides, and it is asked
+        # of the root: ${dir} never tracks scripts/lib/secrets-guard.sh, which
+        # is what read every drift above as a foreign tree.
+        local root_owner_rc=0
+        secrets_guard_tracked "${toplevel}" scripts/lib/secrets-guard.sh || root_owner_rc=$?
+        if [[ ${root_owner_rc} -gt 1 ]]; then
+          secrets_guard_error "Checking whether the worktree root ${toplevel} tracks scripts/lib/secrets-guard.sh failed (git exit ${root_owner_rc}), so the secrets guard cannot tell drift above ${dir} from a foreign tree."
           return 2
         fi
-        if [[ ${root_generator_rc} -eq 0 ]]; then
-          secrets_guard_error "${toplevel}/.gitignore has no secrets block while that tree owns modules/development/gitignore.nix, and ${dir} is a subdirectory of it, so the ignore set covering what path:${dir} would copy has drifted away. Realign that generator and run write-files, or pass --allow-secret-copy to continue anyway."
+        if [[ ${root_owner_rc} -eq 0 ]]; then
+          secrets_guard_error "${toplevel}/.gitignore has no secrets block while that tree tracks scripts/lib/secrets-guard.sh, and ${dir} is a subdirectory of it, so the ignore set covering what path:${dir} would copy has drifted away. Restore the block in ${toplevel}/.gitignore, or pass --allow-secret-copy to continue anyway."
           return 2
         fi
       else
-        # Absent at the root. Tracked-but-absent is the state the generator
-        # produces, and it is the drift the branch below aborts on one directory
-        # up; a root that never had one is the foreign tree that still skips.
+        # Absent at the root. Tracked-but-absent is the drift the branch below
+        # aborts on one directory up; a root that never had one is the foreign
+        # tree that still skips.
         local root_gitignore_rc=0
         secrets_guard_tracked "${toplevel}" .gitignore || root_gitignore_rc=$?
         if [[ ${root_gitignore_rc} -gt 1 ]]; then
@@ -468,16 +467,15 @@ secrets_guard_enforce() {
           return 2
         fi
         if [[ ${root_gitignore_rc} -eq 0 ]]; then
-          secrets_guard_error "${toplevel}/.gitignore is tracked but absent from the worktree and ${dir} is a subdirectory of it, so the secrets guard cannot read the ignore set that covers what path:${dir} would copy. Restore it with write-files, or pass --allow-secret-copy to continue anyway."
+          secrets_guard_error "${toplevel}/.gitignore is tracked but absent from the worktree and ${dir} is a subdirectory of it, so the secrets guard cannot read the ignore set that covers what path:${dir} would copy. Restore it from git, or pass --allow-secret-copy to continue anyway."
           return 2
         fi
       fi
     fi
   fi
-  # Fail closed only on drift, which is tracked-but-absent: that is the state
-  # modules/development/gitignore.nix can produce here. A foreign flake reached
-  # through --flake-dir may simply never have had a .gitignore, and telling its
-  # operator to run write-files names a file this repo does not generate there.
+  # Fail closed only on drift, which is tracked-but-absent. A foreign flake
+  # reached through --flake-dir may simply never have had a .gitignore, and
+  # telling its operator to restore one names a file that tree never carried.
   if [[ ! -f "${dir}/.gitignore" ]]; then
     local gitignore_rc=0
     secrets_guard_tracked "${dir}" .gitignore || gitignore_rc=$?
@@ -486,21 +484,21 @@ secrets_guard_enforce() {
       return 2
     fi
     if [[ ${gitignore_rc} -eq 0 ]]; then
-      secrets_guard_error "${dir}/.gitignore is tracked but absent from the worktree, so the secrets guard cannot run. Restore it with write-files, or pass --allow-secret-copy to continue anyway."
+      secrets_guard_error "${dir}/.gitignore is tracked but absent from the worktree, so the secrets guard cannot run. Restore it from git, or pass --allow-secret-copy to continue anyway."
       return 2
     fi
     secrets_guard_notice "${dir} has no .gitignore, so no secrets block defines patterns there; the secrets scan does not run."
     return 0
   fi
   # The same discriminator one level down. The block is this repo's convention,
-  # emitted by modules/development/gitignore.nix, and practically every other
-  # repository has a .gitignore without it; aborting there would name a module
-  # that tree does not contain. A renamed or thinned heading in a tree that does
-  # own the generator still fails closed in the parser.
+  # and practically every other repository has a .gitignore without it;
+  # aborting there would demand a block that tree never carried. A renamed or
+  # thinned heading in a tree that tracks this guard still fails closed in the
+  # parser.
   # grep answers three ways as well: 0 match, 1 no match, 2 could not read it.
   # The -f above is true for a file the process cannot open, so folding 2 into
   # "no heading" sends a foreign tree to the skip below and returns 0 with path:
-  # already selected, and sends a tree that owns the generator to the parser,
+  # already selected, and sends a tree that tracks this guard to the parser,
   # which then reports drift in a block it never managed to read.
   local heading_rc=0
   grep -qxF '# Secrets safety (defense-in-depth)' "${dir}/.gitignore" || heading_rc=$?
@@ -511,15 +509,15 @@ secrets_guard_enforce() {
   if [[ ${heading_rc} -eq 1 ]]; then
     # Reached only when the heading is already missing, which is the drift case
     # that has to fail closed, so a git failure here cannot be read as "foreign
-    # tree". A tracked generator falls through to the parser, which aborts.
-    local generator_rc=0
-    secrets_guard_tracked "${dir}" modules/development/gitignore.nix || generator_rc=$?
-    if [[ ${generator_rc} -gt 1 ]]; then
-      secrets_guard_error "Checking whether ${dir} tracks modules/development/gitignore.nix failed (git exit ${generator_rc}), so the secrets guard cannot tell drift from a foreign tree."
+    # tree". A tracked guard falls through to the parser, which aborts.
+    local owner_rc=0
+    secrets_guard_tracked "${dir}" scripts/lib/secrets-guard.sh || owner_rc=$?
+    if [[ ${owner_rc} -gt 1 ]]; then
+      secrets_guard_error "Checking whether ${dir} tracks scripts/lib/secrets-guard.sh failed (git exit ${owner_rc}), so the secrets guard cannot tell drift from a foreign tree."
       return 2
     fi
-    if [[ ${generator_rc} -eq 1 ]]; then
-      secrets_guard_notice "${dir}/.gitignore has no secrets block and the tree does not own modules/development/gitignore.nix, so it is not generated from this repo; the secrets scan does not run."
+    if [[ ${owner_rc} -eq 1 ]]; then
+      secrets_guard_notice "${dir}/.gitignore has no secrets block and the tree does not track scripts/lib/secrets-guard.sh, so it is not this repository; the secrets scan does not run."
       return 0
     fi
   fi
