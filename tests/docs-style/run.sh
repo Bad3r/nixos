@@ -271,8 +271,8 @@ test_option_and_assignment_shaped_filenames_are_checked() {
 # a page skipped when it should be checked or checked when it should be
 # skipped. Each fixture is over the cap, so being checked is visible.
 
-# Only the root README.md is exempt; the ones under docs/ are index pages, and
-# a basename match once exempted all of them.
+# The root README.md is the GitHub landing page; the ones under docs/ are
+# index pages, and a basename match once exempted all of them.
 test_the_root_readme_is_exempt_and_the_docs_readmes_are_not() {
   local repo
   repo="$(make_repo readme)"
