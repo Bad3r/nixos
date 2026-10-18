@@ -225,6 +225,8 @@
   - Which `nvme` subcommands keep the wrapper's storage capability, which clear it, and why each exclusion exists.
 - [security/owner-no-sudo-sed.md](security/owner-no-sudo-sed.md)
   - Opal self-encrypting drive queries without a sudo password, and the state-changing actions that stay behind it.
+- [security/usbguard/README.md](security/usbguard/README.md)
+  - USBGuard USB device access control with rules stored encrypted via sops.
 
 ## SOPS
 
@@ -298,18 +300,49 @@
 - [hosts/tpnix/IMPLEMENTATION_PLAN.md](hosts/tpnix/IMPLEMENTATION_PLAN.md)
   - Hardware migration plan for the tpnix host on a Lenovo ThinkPad P15s Gen 2i.
 
-## Apps
+## Agents
 
 ### Claude Code
 
-- [apps/claude-code/skill-providers.md](apps/claude-code/skill-providers.md)
+- [agents/claude-code/skill-providers.md](agents/claude-code/skill-providers.md)
   - Declarative ownership and default availability for Claude Code skill providers.
-- [apps/claude-code/skills.md](apps/claude-code/skills.md)
+- [agents/claude-code/skills.md](agents/claude-code/skills.md)
   - Technical manual for SKILL.md files covering frontmatter fields, invocation methods, execution lifecycle, and best practices.
-- [apps/claude-code/writing-CLAUDE.md](apps/claude-code/writing-CLAUDE.md)
+- [agents/claude-code/writing-CLAUDE.md](agents/claude-code/writing-CLAUDE.md)
   - How to write CLAUDE.md files: persistent, always-active agent instructions loaded at session start.
-- [apps/claude-code/scratchpad.md](apps/claude-code/scratchpad.md)
+- [agents/claude-code/scratchpad.md](agents/claude-code/scratchpad.md)
   - scratchpad
+
+### Codex
+
+- [agents/codex/configuration.md](agents/codex/configuration.md)
+  - Configure Nix settings, feature flags, launch environment, and project trust; diagnose rejected configuration fields.
+
+### MCP
+
+- [agents/mcp/logseq.md](agents/mcp/logseq.md)
+  - Logseq MCP server documentation for AI assistant integration with knowledge graphs (DB graphs only).
+
+## Hardware
+
+### Keyboards
+
+- [hardware/keyboards/fc660c/README.md](hardware/keyboards/fc660c/README.md)
+  - Leopold FC660C with the Hasu (TMK) Alt Controller: quick identification facts, the NixOS switch, and links to the rest of the set.
+- [hardware/keyboards/fc660c/identification.md](hardware/keyboards/fc660c/identification.md)
+  - Reproducible USB commands to confirm the Hasu Alt Controller and tell Vial firmware apart from stock TMK or plain QMK/VIA.
+- [hardware/keyboards/fc660c/identification-hid.md](hardware/keyboards/fc660c/identification-hid.md)
+  - The three HID interfaces, resolving a hidraw node, and decoding the raw HID report descriptor.
+- [hardware/keyboards/fc660c/configuration.md](hardware/keyboards/fc660c/configuration.md)
+  - The NixOS module, its board-scoped udev rule, the rule file's sort window, and bootloader access.
+- [hardware/keyboards/fc660c/configuration-vial.md](hardware/keyboards/fc660c/configuration-vial.md)
+  - Day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
+- [hardware/keyboards/fc660c/flashing.md](hardware/keyboards/fc660c/flashing.md)
+  - Entering the DFU bootloader, flashing with vial-qmk or dfu-programmer, and recovering from a bad flash.
+- [hardware/keyboards/fc660c/firmware/README.md](hardware/keyboards/fc660c/firmware/README.md)
+  - Building FC660C firmware on NixOS, the local keymap overlay for NKRO and actuation point, the flash script, and the ATmega32U4 flash budget.
+
+## Apps
 
 ### Cloudflare
 
@@ -342,11 +375,6 @@
 - [apps/cloudflare/warp/troubleshooting.md](apps/cloudflare/warp/troubleshooting.md)
   - WARP symptoms with cause, diagnostic, and fix.
 
-### Codex
-
-- [apps/codex/configuration.md](apps/codex/configuration.md)
-  - Configure Nix settings, feature flags, launch environment, and project trust; diagnose rejected configuration fields.
-
 ### Duplicati
 
 - [apps/duplicati/README.md](apps/duplicati/README.md)
@@ -359,28 +387,6 @@
   - Complete option surface, manifest schema, and runtime artifact catalog for `services.duplicati-r2`.
 - [apps/duplicati/security.md](apps/duplicati/security.md)
   - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
-
-### Keyboards
-
-- [apps/keyboards/fc660c/README.md](apps/keyboards/fc660c/README.md)
-  - Leopold FC660C with the Hasu (TMK) Alt Controller: quick identification facts, the NixOS switch, and links to the rest of the set.
-- [apps/keyboards/fc660c/identification.md](apps/keyboards/fc660c/identification.md)
-  - Reproducible USB commands to confirm the Hasu Alt Controller and tell Vial firmware apart from stock TMK or plain QMK/VIA.
-- [apps/keyboards/fc660c/identification-hid.md](apps/keyboards/fc660c/identification-hid.md)
-  - The three HID interfaces, resolving a hidraw node, and decoding the raw HID report descriptor.
-- [apps/keyboards/fc660c/configuration.md](apps/keyboards/fc660c/configuration.md)
-  - The NixOS module, its board-scoped udev rule, the rule file's sort window, and bootloader access.
-- [apps/keyboards/fc660c/configuration-vial.md](apps/keyboards/fc660c/configuration-vial.md)
-  - Day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
-- [apps/keyboards/fc660c/flashing.md](apps/keyboards/fc660c/flashing.md)
-  - Entering the DFU bootloader, flashing with vial-qmk or dfu-programmer, and recovering from a bad flash.
-- [apps/keyboards/fc660c/firmware/README.md](apps/keyboards/fc660c/firmware/README.md)
-  - Building FC660C firmware on NixOS, the local keymap overlay for NKRO and actuation point, the flash script, and the ATmega32U4 flash budget.
-
-### MCP
-
-- [apps/mcp/logseq.md](apps/mcp/logseq.md)
-  - Logseq MCP server documentation for AI assistant integration with knowledge graphs (DB graphs only).
 
 ### mpv
 
@@ -433,11 +439,6 @@
   - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
 - [apps/rdp/safeguard-remoteapp-file-export.md](apps/rdp/safeguard-remoteapp-file-export.md)
   - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
-
-### USBGuard
-
-- [apps/usbguard/README.md](apps/usbguard/README.md)
-  - USBGuard USB device access control with rules stored encrypted via sops.
 
 ### WinApps
 

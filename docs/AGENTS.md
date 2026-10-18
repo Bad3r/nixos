@@ -10,10 +10,16 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 - `technical-writing/`: the documentation style guide and the writing
   rules that support it.
 - `hosts/<host>/`: host-specific docs, such as the host page quartet.
+- `agents/<name>/`: AI agent tooling such as Claude Code, Codex, and MCP
+  servers, mirroring `modules/agents/`.
+- `hardware/<class>/<device>/`: peripherals with their own module, mirroring
+  `modules/hardware/` (for example `hardware/keyboards/fc660c/`).
 - `apps/<name>/`: one folder per app, tool, or product (for example
   `apps/cloudflare/`, `apps/duplicati/`, `apps/mpv/`, `apps/r2-cloud/`).
-- Cross-cutting domain folders (`networking/`, `security/`, `sops/`,
-  `csec/`, `packaging/`, `troubleshooting/`): policy that spans apps and hosts.
+- Cross-cutting topic folders (`networking/`, `security/`, `sops/`, `csec/`,
+  `packaging/`, `troubleshooting/`): material that spans apps and hosts,
+  including fleet-wide policy for one tool, such as `security/usbguard/`.
+- `drafts/`: plans and investigations not yet settled, exempt from `docs-style`.
 - `onboarding.md`: the entry point, with the repository layers and a guided
   reading path.
 

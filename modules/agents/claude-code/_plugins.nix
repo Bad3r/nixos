@@ -63,7 +63,7 @@
   };
   # cloudflare@cloudflare is disabled in enabledPlugins above. Enabling
   # it needs "skills" added to sparsePaths here, next to .claude-plugin
-  # (docs/apps/claude-code/skill-providers.md), or no sparsePaths for a full clone.
+  # (docs/agents/claude-code/skill-providers.md), or no sparsePaths for a full clone.
   #   extraKnownMarketplaces."cloudflare".source = {
   #     source = "git";
   #     url = "https://github.com/cloudflare/skills.git";

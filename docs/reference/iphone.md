@@ -198,7 +198,7 @@ access point.
   open as of 2026-08); use the ifuse `DCIM` path meanwhile.
 - USBGuard is force-disabled in `modules/hosts/common/usbguard.nix`.
   If it is ever re-enabled, allow the device per
-  `docs/apps/usbguard/README.md` before usbmuxd can see it.
+  `docs/security/usbguard/README.md` before usbmuxd can see it.
 - Music sync into the native Music app is not possible from Linux;
   that protocol was never reverse engineered. Use streaming or
   per-app drops (`ifuse --documents`) into players that manage their
