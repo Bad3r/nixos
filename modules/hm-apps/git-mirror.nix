@@ -230,8 +230,8 @@
             # Backup diverging history
             if ! git -C "$dir" merge-base --is-ancestor HEAD "$tracking"; then
               git -C "$dir" branch "git-mirror/backup-$(date -u +%Y%m%dT%H%M%SZ)" || { log "$spec: backup branch failed"; exit 1; }
-              # Prune old backups
-              git -C "$dir" for-each-ref --sort=-committerdate --format='%(refname:short)' \
+              # Prune old backups; the UTC stamp in the name orders them by creation.
+              git -C "$dir" for-each-ref --sort=-refname --format='%(refname:short)' \
                 refs/heads/git-mirror/backup-* | tail -n +"$((max_backups + 1))" | \
                 xargs -r -I{} git -C "$dir" branch -D {} 2>/dev/null || true
             fi
