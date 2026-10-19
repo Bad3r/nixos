@@ -9,7 +9,7 @@ Precondition: the host boots this repository's configuration, with `secrets/` un
 1. Install the canonical age identity on the machine, following Host Preparation in [SOPS usage](../sops/README.md).
    The repository uses one recipient for every host, so this step never edits `.sops.yaml` and never runs `sops updatekeys`.
 
-2. Flip the flag in `modules/<host>/policy.nix`:
+2. Flip the flag in `modules/hosts/<host>/policy.nix`:
 
    ```nix
    sopsRuntimeReady = true;
@@ -66,7 +66,7 @@ Empty output means the commit is unpushed, and evaluation elsewhere then fails w
 
 Precondition: the host has booted, so `/etc/ssh/ssh_host_ed25519_key.pub` exists on it.
 
-1. Add `services.openssh.publicKey` beside the existing enable choice in `modules/<host>/ssh.nix`, and add the same key to `fleetHostKeys` in `modules/hosts/common/ssh-known-hosts.nix`, in one commit:
+1. Add `services.openssh.publicKey` beside the existing enable choice in `modules/hosts/<host>/ssh.nix`, and add the same key to `fleetHostKeys` in `modules/hosts/common/ssh-known-hosts.nix`, in one commit:
 
    ```nix
    <host> = "ssh-ed25519 AAAA...";
@@ -96,7 +96,7 @@ Hosts that reach each other over WARP Mesh store their addresses in the encrypte
 `secrets/cloudflare-warp.yaml` and expose `<host>.internal` locally, per
 [WARP deployment](../apps/cloudflare/warp/deployment.md).
 
-1. If another host's `modules/<host>/policy.nix` sets `primary = true`, remove it there, and remove that host's `tailnetIp` too when the host is being retired.
+1. If another host's `modules/hosts/<host>/policy.nix` sets `primary = true`, remove it there, and remove that host's `tailnetIp` too when the host is being retired.
    On this host, run `tailscale ip -4`, then set `primary = true` with that address as this host's `tailnetIp`.
 
    `programs.tailscale.extended.sshHostName` in `modules/apps/tailscale.nix` defaults to the primary host's own `tailnetIp`; copying the outgoing host's value leaves the fleet alias pointed at the old endpoint.

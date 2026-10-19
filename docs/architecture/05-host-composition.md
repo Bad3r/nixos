@@ -4,7 +4,7 @@
 
 Complete hosts live under `configurations.nixos.<name>.module`. The helper in `modules/configurations/nixos.nix` maps each entry to a `nixosConfigurations.<name>` output by wrapping the deferred module in `inputs.nixpkgs.lib.nixosSystem`.
 
-Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files extend `configurations.nixos.<host>.module` directly for anything that does not belong in the shared aggregate, as `modules/songbird/support.nix` does:
+Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which contributes the aggregate import list (base, sops runtime, repo secrets, ssh, shared hardware profiles, optional modules) to `flake.nixosModules.hosts-common`. Host-owned composition files extend `configurations.nixos.<host>.module` directly for anything that does not belong in the shared aggregate, as `modules/hosts/songbird/support.nix` does:
 
 ```nix
 # modules/hosts/common/imports.nix (excerpt)
@@ -21,7 +21,7 @@ Fleet-shared composition lives in `modules/hosts/common/imports.nix`, which cont
   ];
 }
 
-# modules/songbird/support.nix (excerpt)
+# modules/hosts/songbird/support.nix (excerpt)
 _: {
   configurations.nixos.songbird.module = {
     services.fwupd.enable = true;
@@ -41,7 +41,7 @@ _: {
 
 ## Host-conditional helpers
 
-When a module needs to behave differently for one host (or skip itself entirely), use `flake.lib.nixos.hosts.<hostname>.<flag>` rather than reading hostname strings. Example: `modules/tpnix/policy.nix` exports `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`, and `modules/hosts/common/duplicati.nix` reads it before enabling `services.duplicati-r2` for that host.
+When a module needs to behave differently for one host (or skip itself entirely), use `flake.lib.nixos.hosts.<hostname>.<flag>` rather than reading hostname strings. Example: `modules/hosts/tpnix/policy.nix` exports `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`, and `modules/hosts/common/duplicati.nix` reads it before enabling `services.duplicati-r2` for that host.
 
 Common modules read per-host registry data inside their deferred module body, keyed by the `hostName` module argument:
 
@@ -80,7 +80,7 @@ the key become hyphens in the runtime path, so `signalx_hosts` lands at
 dnsmasq:
 
 ```nix
-# modules/<host>/policy.nix
+# modules/hosts/<host>/policy.nix
 privateDnsHostsSecretKeys = [ "signalx_hosts" ];
 ```
 
@@ -115,7 +115,7 @@ Each host uses the same two-stage app model:
    (`getAllApps`) to the shared aggregate module.
 2. `modules/hosts/common/apps-enable.nix` sets the per-app
    `programs.<name>.extended.enable` baseline at `lib.mkOverride 1100`.
-   Host override files such as `modules/tpnix/apps-enable.nix` layer
+   Host override files such as `modules/hosts/tpnix/apps-enable.nix` layer
    `lib.mkOverride 1000` overrides for entries where a host diverges.
    Nested overrides register full paths and route through `programs` first,
    falling back to `services` for services-only paths. Paths absent from both
@@ -126,7 +126,7 @@ Home Manager wiring follows the same shape:
 
 - `modules/home-manager/nixos.nix` provides the shared HM base for any host.
 - `modules/hosts/common/home-manager-apps.nix` imports every Home Manager app and browser module on every host; each gates on its app row, its own enable option, or the NixOS setting it configures.
-- `modules/<host>/r2-runtime.nix` binds the external R2 module chain per host.
+- `modules/hosts/<host>/r2-runtime.nix` binds the external R2 module chain per host.
 
 For integration-specific details of the external R2 module chain, see [`../apps/r2-cloud/input-and-module-wiring.md`](../apps/r2-cloud/input-and-module-wiring.md). For tpnix-specific implementation notes, see [`../hosts/tpnix/IMPLEMENTATION_PLAN.md`](../hosts/tpnix/IMPLEMENTATION_PLAN.md).
 

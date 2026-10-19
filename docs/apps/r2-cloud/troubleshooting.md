@@ -9,7 +9,7 @@ Fast diagnosis for integration-specific failures between this repo and
 
 - `flake.nix`
 - `modules/lib/r2-runtime.nix`
-- per-host `modules/<host>/r2-runtime.nix`
+- per-host `modules/hosts/<host>/r2-runtime.nix`
 - `modules/hosts/common/imports.nix`
 - `modules/security/r2-cloud-secrets.nix`
 - `modules/home/r2-secrets.nix`
@@ -30,7 +30,7 @@ Checks:
 
 ```bash
 rg -n 'inputs\."r2-flake"\.(nixosModules|homeManagerModules)\.default' modules/lib/r2-runtime.nix
-rg -n 'enableExternalFlake' modules/lib/r2-runtime.nix modules/songbird/r2-runtime.nix modules/tpnix/r2-runtime.nix
+rg -n 'enableExternalFlake' modules/lib/r2-runtime.nix modules/hosts/songbird/r2-runtime.nix modules/hosts/tpnix/r2-runtime.nix
 ```
 
 Fix:
@@ -48,7 +48,7 @@ Checks:
 test -f secrets/r2.yaml && echo present || echo missing
 rg -n 'path_regex: secrets/r2\\.yaml' .sops.yaml
 rg -n 'r2SecretExists|builtins\.pathExists' modules/security/r2-cloud-secrets.nix
-rg -n 'r2CloudSecrets\.enable' modules/hosts/common/imports.nix modules/songbird modules/tpnix
+rg -n 'r2CloudSecrets\.enable' modules/hosts/common/imports.nix modules/hosts/songbird modules/hosts/tpnix
 ```
 
 Fix:
@@ -82,7 +82,7 @@ Fix:
 
 - verify `modules/lib/r2-runtime.nix` paths match
   `modules/security/r2-cloud-secrets.nix` template outputs exactly
-- verify the host policy in `modules/<host>/r2-runtime.nix` enables the runtime
+- verify the host policy in `modules/hosts/<host>/r2-runtime.nix` enables the runtime
 - verify `/data/r2/*`, `/data/fonts`, and `/data/Docs` exist and are owned by
   `vx` (provisioned by the `r2-runtime-paths.service` oneshot, not
   `systemd.tmpfiles`)

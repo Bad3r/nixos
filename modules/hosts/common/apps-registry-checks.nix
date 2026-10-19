@@ -114,7 +114,7 @@ let
         in
         lib.optional (!setByRegistry && !prerequisite) (
           "${host}: ${name} is ${lib.boolToString actual} at priority ${toString priority}; only "
-          + "modules/hosts/common/apps-enable.nix (1100), modules/${host}/apps-enable.nix (1000), or a "
+          + "modules/hosts/common/apps-enable.nix (1100), modules/hosts/${host}/apps-enable.nix (1000), or a "
           + "prerequisite turning it on (lib.mkOverride ${toString prerequisitePriority} true) may set it, "
           + "and the registry sets ${lib.boolToString expected}"
         )

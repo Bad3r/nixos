@@ -48,7 +48,7 @@ A sentence whose subject is the page, the section, or the documentation set is r
 A page opens on its subject, never on a sentence about the page.
 A pointer to another page is a plain link, never a sentence about where the fact lives.
 Contrast between subjects is deleted whole, never trimmed to its positive half.
-`enabled on tpnix` restates `modules/tpnix/apps-enable.nix` exactly as `but not songbird` restates songbird's, so the shorter sentence is the same violation with one subject instead of two.
+`enabled on tpnix` restates `modules/hosts/tpnix/apps-enable.nix` exactly as `but not songbird` restates songbird's, so the shorter sentence is the same violation with one subject instead of two.
 The page names the file the reader opens.
 
 ## Rationale
@@ -123,7 +123,7 @@ It is pinned to the pre-commit stage, so the `--hook-stage manual` sweep skips i
 A change that has to edit such a page brings it into compliance as part of that change, rather than dropping the edit or moving the content to a page that passes.
 It fails on more than 150 lines, on a banned phrase outside code, and on a link or backticked repository path that does not resolve.
 A target resolves only when git tracks it, so a new page is staged before the page that links to it.
-Exempt paths: `docs/nixos-manual/`, `docs/drafts/`, the root `README.md` (the GitHub landing page), any `CLAUDE.md` or `AGENTS.md`, and `tests/`.
+Exempt paths: `docs/drafts/`, the root `README.md` (the GitHub landing page), any `CLAUDE.md` or `AGENTS.md`, and `tests/`.
 `docs/index.md` is a table of contents that grows with every page, so only the line cap skips it; its phrases and links are still checked.
 A phrase this list matches in a technical sense rather than a meta sense is committed with `SKIP=docs-style`, never `--no-verify`, which turns off every other pre-commit hook with it.
 The hook's behavior is pinned by `tests/docs-style/run.sh`, which runs as the `script-tests-docs-style` flake check.

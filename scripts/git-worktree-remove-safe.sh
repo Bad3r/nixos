@@ -22,8 +22,7 @@ readonly disposable_status_sed_script='\#^!! (scripts/hooks/pre-commit-config\.y
 \#^!! (.*/)?[^/]*\.pyc$#d
 \#^!! (.*/)?(\.DS_Store|Thumbs\.db)$#d
 \#^!! (.*/)?[^/]*\.(swp|swo|tgz)$#d
-\#^!! (.*/)?[^/]*~$#d
-\#^!! \.nixos-manual-update\.[^/]*(/.*)?/?$#d'
+\#^!! (.*/)?[^/]*~$#d'
 export disposable_status_sed_script
 
 filter_disposable_status() {

@@ -16,7 +16,7 @@ The directories fall into layers, from the flake root outward to documentation.
 
 01. **Flake composition and build plumbing** (`flake.nix`, `modules/configurations`, `build.sh`).
     The entry point and the wiring that turns auto-discovered modules into systems: the host builder, the devshell and package-checks aggregators, shared `lib` helpers, and the git post-checkout hook.
-02. **Host definitions and baseline** (`modules/<host>/`, `modules/hosts/common`).
+02. **Host definitions and baseline** (`modules/hosts/<host>/`, `modules/hosts/common`).
     Per-host configuration, hardware profiles, the cross-host shared baseline, and the registry that every opted-in host composes.
 03. **Base system and boot** (`modules/base`, `modules/boot`).
     Foundational settings shared by all hosts: core Nix settings, locale, console and shell defaults, and boot compression and visuals.
@@ -63,7 +63,7 @@ The reading path runs from what the project is to how it ships, each step buildi
 04. How a file becomes a module: [Module Authoring](architecture/02-module-authoring.md), for placement rules, the `pkgs` split, and the Two-Context Problem.
 05. NixOS modules and the app registry: [NixOS Modules](architecture/03-nixos-modules.md), `modules/hosts/common/apps-base.nix`, and `modules/hosts/common/apps-enable.nix`.
 06. Assembling a host: [Host Composition](architecture/05-host-composition.md), `modules/configurations/nixos.nix`, and `modules/hosts/common/registry.nix`.
-07. Per-host composition and rows: `modules/hosts/common/imports.nix`, `modules/songbird/apps-enable.nix`, and `modules/tpnix/apps-enable.nix`.
+07. Per-host composition and rows: `modules/hosts/common/imports.nix`, `modules/hosts/songbird/apps-enable.nix`, and `modules/hosts/tpnix/apps-enable.nix`.
     The imports hub wires base, SSH, sops, Duplicati, and the shared nixos-hardware profiles into every host.
 08. Base system and boot: `modules/base/` for core Nix settings and locale, `modules/boot/` for boot compression and visuals, and `modules/hosts/common/boot.nix`.
     The last carries the shared kernel, initrd, systemd-boot, crash dump, and sysctl policy.
@@ -74,7 +74,7 @@ The reading path runs from what the project is to how it ships, each step buildi
     The per-package `update.py` pin updaters share the library in `scripts/updater/`.
 13. The AI agents layer: `modules/agents/system-prompt.nix`, `modules/agents/claude-code/home.nix`, `modules/agents/codex/home.nix`, and `modules/agents/mcp.nix`.
 14. Theming with Stylix: `modules/stylix/stylix.nix`, whose base16 scheme comes from the `tinted-schemes` input.
-15. Validation, tooling, and deployment: `modules/devshell.nix`, `modules/apps/pentesting-devshell/package.nix`, `modules/meta/treefmt.nix`, `modules/meta/pre-commit.nix`, `build.sh`, and `.github/workflows/check.yml`.
+15. Validation, tooling, and deployment: `modules/meta/devshell.nix`, `modules/apps/pentesting-devshell/package.nix`, `modules/meta/treefmt.nix`, `modules/meta/pre-commit.nix`, `build.sh`, and `.github/workflows/check.yml`.
     `modules/meta/hooks/apps-catalog-sync.nix` keeps `modules/hosts/common/apps-enable.nix` in sync with the registered app and browser modules.
 
 ## Complexity Hotspots

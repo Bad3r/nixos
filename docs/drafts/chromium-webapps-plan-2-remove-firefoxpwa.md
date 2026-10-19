@@ -55,7 +55,7 @@ ______________________________________________________________________
 - `modules/browsers/firefox/home.nix`: drop the osConfig lookups and the native-messaging host
 - `modules/browsers/librewolf/home.nix`: same
 - `modules/hosts/common/apps-enable.nix:155`: drop the catalog entry
-- `modules/tpnix/apps-enable.nix:79-84`: drop the `dmail.enable` override block
+- `modules/hosts/tpnix/apps-enable.nix:79-84`: drop the `dmail.enable` override block
 - `modules/meta/cache-roots.nix:52`: drop `"firefoxpwa"`
 - `.github/workflows/update-flake.yml:88-92`: drop the pin sync step
 - `pyproject.toml`: drop the script references
@@ -86,7 +86,7 @@ cd "$HOME/trees/nixos/refactor-drop-firefoxpwa"
 - [ ] **Step 2: Record the pre-removal reference set**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/drafts' \
   | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan' \
   > /tmp/firefoxpwa-before.txt
 wc -l /tmp/firefoxpwa-before.txt
@@ -191,7 +191,7 @@ In each, delete the `firefoxpwaEnabled` / `firefoxpwaPackage` `lib.attrByPath` l
 
 `nix flake check` cannot pass here, so do not run it. Task 2 deleted
 `modules/browsers/firefoxpwa/` while every host-side reference to it is still in the tree:
-`modules/hosts/common/apps-enable.nix` and `modules/tpnix/apps-enable.nix` assign `programs.firefoxpwa.*` options
+`modules/hosts/common/apps-enable.nix` and `modules/hosts/tpnix/apps-enable.nix` assign `programs.firefoxpwa.*` options
 that no longer exist, and `modules/meta/cache-roots.nix` resolves `programs.firefoxpwa.extended.package`. Task 4
 removes all three and runs the
 full check at its Step 8. Running it here reports Task 4's outstanding work as a failure of this task and sends the
@@ -241,7 +241,7 @@ removes the host-side references that still name the module tree deleted in the 
 
 - Modify: `modules/hosts/common/apps-enable.nix:155`
 
-- Modify: `modules/tpnix/apps-enable.nix:79-84`
+- Modify: `modules/hosts/tpnix/apps-enable.nix:79-84`
 
 - Modify: `modules/meta/cache-roots.nix:52`
 
@@ -264,7 +264,7 @@ In `modules/hosts/common/apps-enable.nix`, delete the line:
 
 - [ ] **Step 3: Remove the per-host override**
 
-In `modules/tpnix/apps-enable.nix`, the `configurations.nixos.tpnix.module` block collapses back to a plain `mapAttrs` because `firefoxpwa.dmail.enable` was its only non-flat entry:
+In `modules/hosts/tpnix/apps-enable.nix`, the `configurations.nixos.tpnix.module` block collapses back to a plain `mapAttrs` because `firefoxpwa.dmail.enable` was its only non-flat entry:
 
 ```nix
   configurations.nixos.tpnix.module = {
@@ -290,7 +290,7 @@ In `pyproject.toml`, delete the `update-firefoxpwa-extension.py` mention from th
 - [ ] **Step 7: Verify nothing references the deleted paths**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/drafts' \
   | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan' \
   > /tmp/firefoxpwa-after.txt
 cat /tmp/firefoxpwa-after.txt
@@ -316,7 +316,7 @@ task's `refactor(hosts)!` commit would misstate that commit's scope.
 nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 git add modules/hosts/common/apps-enable.nix \
-  modules/tpnix/apps-enable.nix modules/meta/cache-roots.nix .github/workflows/update-flake.yml pyproject.toml
+  modules/hosts/tpnix/apps-enable.nix modules/meta/cache-roots.nix .github/workflows/update-flake.yml pyproject.toml
 git commit -m "refactor(hosts)!: drop firefoxpwa from the app catalog and CI
 
 Removes the common baseline and tpnix dmail override, the cache root that existed
@@ -389,7 +389,7 @@ Expected: no output. Edit any line it reports before staging.
 - [ ] **Step 5: Confirm the reference set is empty**
 
 ```bash
-rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/nixos-manual' -g '!docs/drafts' \
+rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/drafts' \
   | rg -v '^docs/index\.md:[0-9]+:.*chromium-webapps-plan'
 ```
 
@@ -437,9 +437,8 @@ Replaced in the following PR by a Chromium web-app module on brave-origin. Plan:
 
 - `nix flake check path:. --accept-flake-config --no-build --offline`
 - `nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel`
-- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/nixos-manual/`, `docs/drafts/` and the
-  `docs/index.md` rows that link them: the manual mirror, this migration plan, and the index entry `docs/AGENTS.md`
-  requires for it
+- `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/drafts/` and the `docs/index.md` rows that link
+  them: this migration plan and the index entry `docs/AGENTS.md` requires for it
 EOF
 )"
 ```

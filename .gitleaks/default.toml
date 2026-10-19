@@ -1,0 +1,11 @@
+# Read by the superproject pass and by every gitlink pass outside
+# private_config_gitlinks in modules/meta/hooks/gitleaks.nix; those read
+# .gitleaks/secrets.toml.
+# Content-scoped allowlists only: a paths entry makes gitleaks skip the
+# whole file before scanning it.
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "DNSCrypt resolvers-list public minisign verification key"
+regexes = ["RWQf6LRCGA9i53mlYecO4IzT51TGPpvWucNSCh1CBM0QTaLn73Y7GFO3"]

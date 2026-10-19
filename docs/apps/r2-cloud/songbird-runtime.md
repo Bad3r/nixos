@@ -7,9 +7,9 @@ runtime contract applied by the shared builder.
 
 ## Source of Truth
 
-- `modules/songbird/r2-runtime.nix` (host policy)
-- `modules/songbird/policy.nix` (readiness gate)
-- `modules/songbird/hardware-config.nix` (`/data` filesystem)
+- `modules/hosts/songbird/r2-runtime.nix` (host policy)
+- `modules/hosts/songbird/policy.nix` (readiness gate)
+- `modules/hosts/songbird/hardware-config.nix` (`/data` filesystem)
 - `modules/lib/r2-runtime.nix` (shared runtime contract)
 - `modules/hosts/common/imports.nix` (secrets module defaults)
 
@@ -21,7 +21,7 @@ runtime contract applied by the shared builder.
 
 ## Current Host Policy
 
-`modules/songbird/r2-runtime.nix` builds the host module through
+`modules/hosts/songbird/r2-runtime.nix` builds the host module through
 `config.flake.lib.nixos.r2.mkHostR2Module` with:
 
 - `enableExternalFlake = flake.lib.nixos.hosts.songbird.r2RuntimeReady`
@@ -29,7 +29,7 @@ runtime contract applied by the shared builder.
 - `disabledReason` explaining how to restore the readiness flag and encrypted
   payload if either is unavailable
 
-`modules/songbird/policy.nix` sets `r2RuntimeReady = true`. The common
+`modules/hosts/songbird/policy.nix` sets `r2RuntimeReady = true`. The common
 baseline also defaults `security.r2CloudSecrets.enable` and
 `home.r2Secrets.enable` on, so with a present `secrets/r2.yaml` the helper
 imports the producer's NixOS and Home Manager modules, provisions the `/data`
@@ -37,7 +37,7 @@ runtime paths, and assigns the runtime services below.
 
 ## Data Volume Contract
 
-`modules/songbird/hardware-config.nix` mounts `/data` from
+`modules/hosts/songbird/hardware-config.nix` mounts `/data` from
 `/dev/mapper/data`, an XFS filesystem on a LUKS2-encrypted SATA drive, with
 `nofail` so an absent or unopened volume does not block boot. The
 `r2-runtime-paths` provisioning unit and every writer unit carry
@@ -88,7 +88,7 @@ shipping without the `/data` mount gate.
 ## Quick Verification
 
 ```bash
-rg -n 'mkHostR2Module|enableExternalFlake|sopsRuntimeReady' modules/songbird/r2-runtime.nix
+rg -n 'mkHostR2Module|enableExternalFlake|sopsRuntimeReady' modules/hosts/songbird/r2-runtime.nix
 rg -n 'services\.r2-sync|services\.r2-restic|programs\.git-annex-r2|programs\.fuse\.userAllowOther' modules/lib/r2-runtime.nix
 rg -n 'r2-(mount|bisync|restic)' modules/lib/r2-runtime.nix
 ```

@@ -1,0 +1,165 @@
+{ inputs, ... }:
+{
+  # modules/apps/pentesting-devshell/package.nix also relies on this import for make-shells.
+  imports = [ inputs.make-shell.flakeModules.default ];
+  perSystem =
+    {
+      pkgs,
+      config,
+      lib,
+      ...
+    }:
+    {
+      # Use make-shells pattern for better modularity
+      make-shells.default = {
+        packages =
+          let
+            ghActionsRun = pkgs.writeShellApplication {
+              name = "gh-actions-run";
+              text = # bash
+                ''
+                  DRY=""
+                  JOB=""
+                  EXTRA=()
+                  # Secret file auto-detection
+                  DEFAULT_SECRET_FILE="/etc/act/secrets.env"
+                  SECRET_FILE="''${ACT_SECRETS_FILE:-}"
+                  if [ -z "''${SECRET_FILE}" ] && [ -f "''${DEFAULT_SECRET_FILE}" ]; then
+                    SECRET_FILE="''${DEFAULT_SECRET_FILE}"
+                  fi
+                  while [ $# -gt 0 ]; do
+                    case "$1" in
+                      -n|--dry-run)
+                        DRY="-n"; shift;;
+                      -j)
+                        shift;
+                        if [ $# -gt 0 ]; then
+                          JOB="$1"; shift;
+                        else
+                          echo "gh-actions-run: -j requires a job name" >&2; exit 2;
+                        fi;;
+                      --secret-file)
+                        shift; SECRET_FILE="''${1:-}"; if [ -n "$SECRET_FILE" ]; then shift; fi;;
+                      --)
+                        shift; break;;
+                      -*)
+                        EXTRA+=("$1"); shift;;
+                      *)
+                        if [ -z "$JOB" ]; then JOB="$1"; shift; else EXTRA+=("$1"); shift; fi;;
+                    esac
+                  done
+
+                  if [ -z "''${DRY}" ]; then
+                    if ! command -v docker >/dev/null 2>&1; then
+                      echo "Docker not found. Install and start Docker, or use: gh-actions-run --dry-run" >&2
+                      exit 1
+                    fi
+                  fi
+
+                  if [ ! -d .github/workflows ]; then
+                    echo "No workflows found at .github/workflows" >&2
+                    exit 1
+                  fi
+
+                  # Run all workflows for the push event; include defaults for robustness
+                  if [ -n "$JOB" ]; then EXTRA=("-j" "$JOB" "''${EXTRA[@]}"); fi
+                  if [ -n "''${SECRET_FILE}" ]; then EXTRA=("--secret-file" "''${SECRET_FILE}" "''${EXTRA[@]}"); fi
+                  exec act ''${DRY} "''${EXTRA[@]}" \
+                    -W .github/workflows \
+                    -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04 \
+                    push "$@"
+                '';
+            };
+            ghActionsList = pkgs.writeShellApplication {
+              name = "gh-actions-list";
+              text = ''
+                set -euo pipefail
+                if [ ! -d .github/workflows ]; then
+                  echo "No workflows found at .github/workflows" >&2
+                  exit 1
+                fi
+                exec act -W .github/workflows -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04 -l
+              '';
+            };
+          in
+          lib.unique (
+            (with pkgs; [
+              config.packages.formatter-toolchain
+              nixd # Nix LSP
+              nix-tree
+              nix-diff
+              zsh
+              jq
+              ripgrep
+              pre-commit
+
+              # Direct linting/formatting/security tools
+              deadnix
+              statix
+              typos
+              gitleaks
+              yamllint
+
+              # Custom project hooks
+              config.packages."hook-statix"
+              config.packages."hook-nix-parse"
+              config.packages."hook-docs-style"
+              config.packages."hook-apps-catalog-sync"
+              config.packages."hook-build-sh-completion-sync"
+              config.packages."hook-mcp-docs-sync"
+              config.packages."hook-gitleaks"
+              config.packages."hook-luacheck"
+              config.packages."hook-pre-commit-config-sync"
+
+              age
+              sops
+              ssh-to-age
+              ssh-to-pgp
+              ghActionsRun
+              ghActionsList
+              config.packages.prune-old-stashes
+              config.packages.generation-manager
+            ])
+            ++ config.pre-commit.settings.enabledPackages
+          );
+
+        # No treefmt cache wiring here: treefmt reads no TREEFMT_* variable and
+        # derives its own db as xdg.CacheFile("treefmt/eval-cache/" +
+        # sha256(treeRoot) + ".db") (walk/cache/cache.go Path), so every tree
+        # root is already isolated and a worktree cannot reach another's cache.
+        shellHook =
+          let
+            preCommit = lib.getExe config.pre-commit.settings.package;
+            # pre-commit run reads only ./.pre-commit-config.yaml unless told otherwise.
+            preCommitRun = pkgs.writeShellApplication {
+              name = "pre-commit";
+              runtimeInputs = [ pkgs.git ];
+              text = ''
+                if [ "''${1-}" = run ]; then
+                  for arg in "$@"; do
+                    case "$arg" in
+                    -c | --config | --config=*) exec ${preCommit} "$@" ;;
+                    esac
+                  done
+                  shift
+                  exec ${preCommit} run --config "$(git rev-parse --show-toplevel)/${config.pre-commit.settings.configPath}" "$@"
+                fi
+                exec ${preCommit} "$@"
+              '';
+            };
+          in
+          ''
+              ${config.pre-commit.shellHook}
+              export PATH=${preCommitRun}/bin:$PATH
+
+            repo_root="$(git rev-parse --show-toplevel 2>/dev/null || true)"
+            if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh" ]; then
+              "''${repo_root}/scripts/hooks/sync-pre-commit-hooks.sh"
+            fi
+            if [ -n "''${repo_root}" ] && [ -x "''${repo_root}/scripts/hooks/install-git-hooks.sh" ]; then
+              "''${repo_root}/scripts/hooks/install-git-hooks.sh"
+            fi
+          '';
+      };
+    };
+}

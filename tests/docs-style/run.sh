@@ -305,20 +305,17 @@ test_agent_instruction_files_are_exempt_by_exact_name() {
   pass
 }
 
-# docs/nixos-manual/ is also under the repo-wide pre-commit exclude; it is
-# matched here as well so a hand run on a mirrored manual page stays quiet.
-test_drafts_the_manual_and_test_fixtures_are_exempt_by_directory() {
+test_drafts_and_test_fixtures_are_exempt_by_directory() {
   local repo
   repo="$(make_repo drafts)"
   write_lines "${repo}/docs/drafts/plan.md" 151
   write_lines "${repo}/docs/drafts/nested/plan.md" 151
   write_lines "${repo}/docs/drafts/name=value.md" 151
-  write_lines "${repo}/docs/nixos-manual/release-notes/rl-2405.section.md" 151
   write_lines "${repo}/tests/suite/fixture.md" 151
   write_lines "${repo}/docs/drafts.md" 151
 
   run_hook "${repo}" docs/drafts/plan.md docs/drafts/nested/plan.md docs/drafts/name=value.md \
-    docs/nixos-manual/release-notes/rl-2405.section.md tests/suite/fixture.md
+    tests/suite/fixture.md
   assert_clean "exempt directories"
 
   run_hook "${repo}" docs/drafts.md
@@ -334,12 +331,12 @@ test_an_exempt_path_is_matched_however_it_is_spelled() {
   repo="$(make_repo spellings)"
   write_lines "${repo}/README.md" 151
   write_lines "${repo}/docs/index.md" 151
-  write_lines "${repo}/docs/nixos-manual/page.md" 151
+  write_lines "${repo}/tests/suite/fixture.md" 151
   write_lines "${repo}/docs/drafts/plan.md" 151
   write_lines "${repo}/docs/page.md" 151
 
   run_hook "${repo}" ./README.md docs/../README.md docs/./index.md \
-    ./docs/nixos-manual/page.md "${repo}/docs/drafts/plan.md"
+    ./tests/suite/fixture.md "${repo}/docs/drafts/plan.md"
   assert_clean "exempt spellings"
 
   run_hook "${repo}" ./docs/page.md
@@ -932,7 +929,7 @@ test_an_empty_argument_is_a_violation_not_an_abort
 test_option_and_assignment_shaped_filenames_are_checked
 test_the_root_readme_is_exempt_and_the_docs_readmes_are_not
 test_agent_instruction_files_are_exempt_by_exact_name
-test_drafts_the_manual_and_test_fixtures_are_exempt_by_directory
+test_drafts_and_test_fixtures_are_exempt_by_directory
 test_an_exempt_path_is_matched_however_it_is_spelled
 test_a_clean_page_passes
 test_the_line_cap_is_150

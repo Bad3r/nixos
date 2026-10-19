@@ -1,0 +1,26 @@
+_: {
+  flake.lib.nixos.hosts.tpnix = {
+    # Shared readiness gate read by modules/hosts/common/*.
+    sopsRuntimeReady = true;
+
+    # Host runtime gate read by modules/hosts/tpnix/r2-runtime.nix.
+    r2RuntimeReady = true;
+
+    # All NVIDIA-enabled hosts must choose this cache-root policy explicitly.
+    # Tpnix's generic kernel module remains a published cache root.
+    cacheRoots.nvidiaKernelModules = true;
+
+    # Per-host values consumed by modules/hosts/common/*.
+    cloudflareWarpMeshAddressReady = true;
+    firewallLocalTcpPortRanges = [
+      {
+        from = 8000;
+        to = 9999;
+      }
+    ];
+
+    # secrets/tpnix.yaml keys served as dnsmasq addn-hosts files by
+    # modules/hosts/common/private-dns-hosts.nix.
+    privateDnsHostsSecretKeys = [ "signalx_hosts" ];
+  };
+}

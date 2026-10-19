@@ -4,7 +4,7 @@ Windows dual-boot and `/portal` entries are in [songbird-troubleshooting-windows
 
 ## /data is empty after boot
 
-The optional LUKS `data` volume stays closed when its initrd unlock prompt in `modules/songbird/hardware-config.nix` goes unanswered inside the bounded wait.
+The optional LUKS `data` volume stays closed when its initrd unlock prompt in `modules/hosts/songbird/hardware-config.nix` goes unanswered inside the bounded wait.
 
 ```sh
 findmnt /data
@@ -104,8 +104,8 @@ Upload the listed files again from `/data/Docs` once `rclone check` finds them i
 
 ## The Samba media share is missing
 
-`modules/songbird/services.nix` detaches `samba.target` from `multi-user.target`, so smbd, nmbd, and wsdd stay down until the target is started by hand.
-With the target running, the share itself is skipped with a warning when `secrets/songbird.yaml` is absent or `sopsRuntimeReady` in `modules/songbird/policy.nix` is false.
+`modules/hosts/songbird/services.nix` detaches `samba.target` from `multi-user.target`, so smbd, nmbd, and wsdd stay down until the target is started by hand.
+With the target running, the share itself is skipped with a warning when `secrets/songbird.yaml` is absent or `sopsRuntimeReady` in `modules/hosts/songbird/policy.nix` is false.
 A present file with no `samba_media_path` key fails activation instead, with `the key 'samba_media_path' cannot be found` in the switch output.
 Run the source checks in the worktree that built the running generation, not the primary checkout at `$HOME/nixos`.
 A bare primary-checkout path resolves as `git+file:` and materializes the recorded `secrets` gitlink independently of that checkout's submodule initialization, so it cannot diagnose an empty worktree submodule.
@@ -122,7 +122,7 @@ bash -c 'source scripts/lib/secrets-guard.sh && secrets_guard_enforce "$PWD" "pa
 
 Start the units with `sudo systemctl start samba.target` when that target is inactive.
 For an absent file, initialize the secrets submodule with `git submodule update --init --recursive`; `secrets/songbird.yaml` is tracked there, and `sops` against an empty checkout writes a stray file instead.
-For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, set `sopsRuntimeReady = true` in `modules/songbird/policy.nix`.
+For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, set `sopsRuntimeReady = true` in `modules/hosts/songbird/policy.nix`.
 
 ## qBittorrent reports no incoming connections
 
@@ -132,6 +132,6 @@ Fix: `sudo systemctl restart wireguard-wg-torrent.service`; a handshake that nev
 
 ## qBittorrent marks a torrent errored on its save path
 
-Cause: the path lies outside every tree in `saveRoots` in [qbittorrent.nix](../../../modules/songbird/qbittorrent.nix), the folder arrived by `mv` and carries no entry for the service user yet, or a chmod cut the folder's ACL mask.
+Cause: the path lies outside every tree in `saveRoots` in [qbittorrent.nix](../../../modules/hosts/songbird/qbittorrent.nix), the folder arrived by `mv` and carries no entry for the service user yet, or a chmod cut the folder's ACL mask.
 Diagnostic: `getfacl -p <folder>` lists no `user:qbittorrent` entry or marks it `#effective:r-x`, or the folder is under none of those roots.
 Fix: move the folder under one of them, then `sudo systemd-tmpfiles --create --prefix=<root>` applies the entries without waiting for the next switch or boot; `setfacl -m m::rwx <folder>` restores a cut mask.

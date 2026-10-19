@@ -91,7 +91,7 @@ Cache topology and download retry settings belong in `.github/actions/install-li
 ## Host Module
 
 ```nix
-# modules/songbird/host-id.nix (simplified)
+# modules/hosts/songbird/host-id.nix (simplified)
 _: {
   configurations.nixos.songbird.module = {
     networking.hostId = "<first 8 hex digits of /etc/machine-id>";

@@ -94,10 +94,8 @@
 
 ## NixOS manual
 
-- [nixos-manual/README.md](nixos-manual/README.md)
-  - Entry point for the mirrored upstream NixOS manual under `docs/nixos-manual/`.
-- [nixos-manual/manual.md](nixos-manual/manual.md)
-  - Upstream manual structure file for chapters, appendices, options, and release notes.
+- [NixOS manual (unstable)](https://nixos.org/manual/nixos/unstable/)
+  - Upstream NixOS manual for the unstable channel.
 
 ## Networking
 

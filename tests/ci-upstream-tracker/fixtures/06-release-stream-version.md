@@ -28,7 +28,7 @@ blocker https://github.com/FortAwesome/Font-Awesome/releases - target >= 7.0.0
 
 ### Local workaround / affected code
 
-modules/tpnix/fonts.nix
+modules/hosts/tpnix/fonts.nix
 
 ### Exit criteria
 

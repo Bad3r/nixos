@@ -6,7 +6,6 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 
 - `architecture/`: canonical design docs for module system and composition.
 - `guides/`, `usage/`, `reference/`: task-oriented instructions and reference material.
-- `nixos-manual/`: mirrored upstream NixOS manual sources.
 - `technical-writing/`: the documentation style guide and the writing
   rules that support it.
 - `hosts/<host>/`: host-specific docs, such as the host page quartet.
@@ -26,15 +25,13 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 Prefer updating an existing page over adding a new one. Update `index.md` when
 adding, removing, or moving documentation pages. Use clear, repo-relative links
 (for example `../architecture/README.md`) and keep host/user assumptions aligned
-to the per-host model under `modules/<host>/` and the `vx` user model. To
+to the per-host model under `modules/hosts/<host>/` and the `vx` user model. To
 enumerate the active hosts, run
 `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`.
 
 Use lowercase directory names for provider and product folders. Cloudflare docs
 belong under `apps/cloudflare/`, including Containers material under
 `apps/cloudflare/containers/`; do not recreate case variants such as `CloudFlare/`.
-The mirrored NixOS manual belongs under `docs/nixos-manual/`; do not recreate a
-root-level `nixos-manual/` tree.
 
 ## Build, Test, and Development Commands
 

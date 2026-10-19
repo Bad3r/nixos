@@ -20,7 +20,6 @@ let
 
   treefmtGlobalExcludes =
     (map (directory: "${directory}/**") [
-      "docs/nixos-manual"
       "inputs"
       "secrets"
     ])

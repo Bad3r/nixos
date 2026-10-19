@@ -4,7 +4,7 @@
 # The common app catalog (modules/hosts/common/apps-enable.nix) sets app
 # defaults under `programs.*.extended.enable` and `services.*.extended.enable`
 # at low priority (lib.mkOverride 1100).
-# Per-host override files such as modules/tpnix/apps-enable.nix layer a higher
+# Per-host override files such as modules/hosts/tpnix/apps-enable.nix layer a higher
 # priority value (lib.mkOverride 1000) for entries that diverge from the
 # common baseline.
 #
@@ -108,7 +108,7 @@ let
     );
   duplicateMessage =
     host: names:
-    "modules/${host}/apps-enable.nix registers "
+    "modules/hosts/${host}/apps-enable.nix registers "
     + lib.concatStringsSep ", " names
     + " more than once; the later registration silently wins, so remove the duplicate.";
 
@@ -131,7 +131,7 @@ let
     ) toggles;
   collisionMessage =
     host: collisions:
-    "modules/${host}/apps-enable.nix registers "
+    "modules/hosts/${host}/apps-enable.nix registers "
     + lib.concatStringsSep "; " collisions
     + "; a shorter registered path corrupts a longer sibling's mkOverride wrapper when both land "
     + "through lib.recursiveUpdate, so split or remove one.";
@@ -185,7 +185,7 @@ let
           entry.hit.namespace
         else
           throw (
-            "modules/${host}/apps-enable.nix registers ${nameOf entry.toggle}, which "
+            "modules/hosts/${host}/apps-enable.nix registers ${nameOf entry.toggle}, which "
             + "flake.lib.nixos._commonAppsBaseline declares under neither programs nor services, "
             + "so the override has nowhere to land; declare it in modules/hosts/common/apps-enable.nix "
             + "or drop the registration."
@@ -262,7 +262,7 @@ let
   messageFor =
     host: noOps:
     "FR-5: ${host} apps-enable override duplicates common baseline (no-op). "
-    + "Remove these entries from modules/${host}/apps-enable.nix (flat appEnable "
+    + "Remove these entries from modules/hosts/${host}/apps-enable.nix (flat appEnable "
     + "entries are shown with their extended.enable suffix): "
     + lib.concatStringsSep ", " noOps;
 

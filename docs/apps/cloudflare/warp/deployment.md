@@ -61,7 +61,7 @@ Verification: `nix flake check path:. --accept-flake-config --no-build --offline
 
 ## Enroll the host
 
-Precondition: `modules/<host>/policy.nix` sets `sopsRuntimeReady = true`, `modules/<host>/apps-enable.nix` turns `cloudflare-warp` on, and `modules/<host>/cloudflare-warp.nix` sets `serviceMode`.
+Precondition: `modules/hosts/<host>/policy.nix` sets `sopsRuntimeReady = true`, `modules/hosts/<host>/apps-enable.nix` turns `cloudflare-warp` on, and `modules/hosts/<host>/cloudflare-warp.nix` sets `serviceMode`.
 
 1. Turn ProtonVPN autoconnect off and bring the connection down if it is up, since two default-route tunnels cannot share a host:
    `nmcli con mod "<ProtonVPN connection>" connection.autoconnect no` and `nmcli con down "<ProtonVPN connection>"`.
@@ -90,7 +90,7 @@ Precondition: the host is enrolled and Connected, and its host key is pinned per
 1. Read the address: `ip -4 addr show CloudflareWARP | awk '/inet / { sub("/.*", "", $2); print $2 }'`.
 2. Store it at `mesh.hosts.<host>` in `secrets/cloudflare-warp.yaml` with `sops`, then commit and
    push the secrets repository and bump its gitlink.
-3. Set `cloudflareWarpMeshAddressReady = true` in `modules/<host>/policy.nix` after the encrypted
+3. Set `cloudflareWarpMeshAddressReady = true` in `modules/hosts/<host>/policy.nix` after the encrypted
    value exists.
 4. Switch every WARP fleet host, since sops-nix renders `/etc/hosts` from the encrypted addresses
    and Home Manager renders `~/.ssh/hosts/<host>.internal` from the readiness flag.
@@ -115,7 +115,7 @@ It runs at boot and on every switch, drops entries added only in the dashboard, 
 Each enrolled host therefore decrypts `zero_trust_api_token`, which its shared host age key could already read.
 
 A `warp_tunnel_only` profile ignores `host` entries, since domain excludes need the client's DNS proxy, so such a host lists the destination's address range.
-The Proton VPN WireGuard endpoint in [qbittorrent.nix](../../../../modules/songbird/qbittorrent.nix) stays inside the WARP tunnel, because the ISP drops a WireGuard flow it can see and an excluded endpoint gets no handshake.
+The Proton VPN WireGuard endpoint in [qbittorrent.nix](../../../../modules/hosts/songbird/qbittorrent.nix) stays inside the WARP tunnel, because the ISP drops a WireGuard flow it can see and an excluded endpoint gets no handshake.
 
 1. Edit the base list, or the host's entries with `sops secrets/cloudflare-warp.yaml` and then commit, push, and bump the secrets gitlink as in [Put the token into sops](#put-the-token-into-sops).
 
