@@ -39,6 +39,7 @@ let
     markitdown = false;
     mpv = false;
     "nextcloud-client" = true;
+    notmuch = true;
     onlyoffice-desktopeditors = false;
     opendirectorydownloader = false;
     parted = false;
