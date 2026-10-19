@@ -20,6 +20,8 @@
     * Cowork's precheck finds qemu-system-x86_64 on PATH: the installed launcher prefixes PATH with qemu_kvm, which stays off the
       system profile. OVMF firmware and virtiofsd come from the FHS environment.
     * Cowork needs read-write /dev/kvm and /dev/vhost-vsock.
+    * Electron picks its secret backend from XDG_CURRENT_DESKTOP and falls back to plaintext (basic_text) under i3, so the
+      launcher passes --password-store=gnome-libsecret to reach the hosts-common GNOME Keyring.
 */
 { inputs, ... }:
 {
@@ -39,7 +41,9 @@
         paths = [ cfg.package ];
         nativeBuildInputs = [ pkgs.makeWrapper ];
         postBuild = ''
-          wrapProgram $out/bin/claude-desktop --prefix PATH : ${lib.makeBinPath [ pkgs.qemu_kvm ]}
+          wrapProgram $out/bin/claude-desktop \
+            --prefix PATH : ${lib.makeBinPath [ pkgs.qemu_kvm ]} \
+            --add-flags --password-store=gnome-libsecret
         '';
       };
     in
