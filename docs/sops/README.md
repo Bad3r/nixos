@@ -6,7 +6,7 @@ The policy stays small: a single age host key that doubles as the editor key, pl
 - [Adding a secret](adding-secrets.md): the YAML shape, the declaration, and how consumers read it.
 - [CI evaluation](ci-evaluation.md): evaluating without the private submodule, and the `path:` copy hazard.
 - [Troubleshooting](troubleshooting.md): error messages and their fixes.
-- [GitHub token for act](secrets-act.md) and [R2 secrets](../r2-cloud/secrets-and-rendered-files.md): the two worked integrations.
+- [GitHub token for act](secrets-act.md) and [R2 secrets](../apps/r2-cloud/secrets-and-rendered-files.md): the two worked integrations.
 
 ## What Ships in the Repo
 

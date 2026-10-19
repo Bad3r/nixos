@@ -1,6 +1,6 @@
 # Hardware truth for songbird (Intel Core Ultra 9 285K on an ASUS ROG Maximus
 # Z890 Hero), harvested from `nixos-generate-config` and `lsblk` on the
-# installed disk A rather than copied from the plan in docs/songbird/.
+# installed disk A rather than copied from the plan in docs/hosts/songbird/.
 _: {
   configurations.nixos.songbird.module =
     {

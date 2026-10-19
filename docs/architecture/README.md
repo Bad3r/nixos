@@ -41,5 +41,5 @@ This directory explains how the Dendritic Pattern organizes this NixOS configura
 
 Architecture docs describe shared patterns; host-specific notes live in their own directories:
 
-- [docs/songbird/](../songbird/) -- songbird workstation hardware and operations
-- [docs/tpnix/](../tpnix/) -- tpnix implementation notes
+- [docs/hosts/songbird/](../hosts/songbird/) -- songbird workstation hardware and operations
+- [docs/hosts/tpnix/](../hosts/tpnix/) -- tpnix implementation notes

@@ -2,10 +2,8 @@
 
 ## Onboarding
 
-- [ONBOARDING.md](ONBOARDING.md)
-  - Project overview, key concepts, the guided reading path, and the complexity hotspots.
-- [onboarding-layers.md](onboarding-layers.md)
-  - The repository layers and the load-bearing files in each.
+- [onboarding.md](onboarding.md)
+  - Project overview, repository layers, key concepts, the guided reading path, and the complexity hotspots.
 
 ## Architecture
 
@@ -33,87 +31,6 @@
   - Quick reference for validation commands, credential scanning scope, introspection via REPL, dev shell helpers, and glossary of terms.
 - [architecture/07-troubleshooting.md](architecture/07-troubleshooting.md)
   - Symptoms that come up while working in the repository, each paired with its resolution.
-
-## Claude Code
-
-- [claude-code/skill-providers.md](claude-code/skill-providers.md)
-  - Declarative ownership and default availability for Claude Code skill providers.
-- [claude-code/skills.md](claude-code/skills.md)
-  - Technical manual for SKILL.md files covering frontmatter fields, invocation methods, execution lifecycle, and best practices.
-- [claude-code/writing-CLAUDE.md](claude-code/writing-CLAUDE.md)
-  - How to write CLAUDE.md files: persistent, always-active agent instructions loaded at session start.
-- [claude-code/scratchpad.md](claude-code/scratchpad.md)
-  - scratchpad
-
-## Codex
-
-- [codex/configuration.md](codex/configuration.md)
-  - Configure Nix settings, feature flags, launch environment, and project trust; diagnose rejected configuration fields.
-
-## Cloudflare
-
-- [cloudflare/README.md](cloudflare/README.md)
-  - Index for Cloudflare developer platform docs and local NixOS samples.
-- [cloudflare/acme-cloudflare-sample.md](cloudflare/acme-cloudflare-sample.md)
-  - Sample NixOS configuration for ACME certificate management using Cloudflare DNS-01 challenge.
-- [cloudflare/cloudflared-tunnel-sample.md](cloudflare/cloudflared-tunnel-sample.md)
-  - Sample NixOS configuration for Cloudflare Tunnel (cloudflared) with ingress rules and credential setup.
-- [cloudflare/containers/README.md](cloudflare/containers/README.md)
-  - Technical documentation index for Cloudflare Containers.
-- [cloudflare/containers/architecture.md](cloudflare/containers/architecture.md)
-  - Architecture, request flow, and rollout model for Cloudflare Containers.
-- [cloudflare/containers/configuration.md](cloudflare/containers/configuration.md)
-  - Wrangler, Dockerfile, environment, and deployment configuration for Cloudflare Containers.
-- [cloudflare/containers/api-reference.md](cloudflare/containers/api-reference.md)
-  - Container package properties, helper functions, methods, and TypeScript interfaces.
-- [cloudflare/containers/lifecycle.md](cloudflare/containers/lifecycle.md)
-  - Cold starts, warm requests, sleep behavior, shutdown, storage lifetime, and rollouts.
-- [cloudflare/containers/storage-networking.md](cloudflare/containers/storage-networking.md)
-  - Disk, R2 mount, ingress, egress, DNS, and network-isolation notes for Containers.
-- [cloudflare/containers/use-cases.md](cloudflare/containers/use-cases.md)
-  - Practical Cloudflare Containers examples and application patterns.
-- [cloudflare/containers/limitations-roadmap.md](cloudflare/containers/limitations-roadmap.md)
-  - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
-- [cloudflare/warp/README.md](cloudflare/warp/README.md)
-  - Cloudflare WARP on the fleet: service-token enrollment, per-host mode, Mesh reachability, coexistence.
-- [cloudflare/warp/deployment.md](cloudflare/warp/deployment.md)
-  - Runbook: Cloudflare objects, the sops payload, host enrollment, recording the Mesh address, token rotation.
-- [cloudflare/warp/troubleshooting.md](cloudflare/warp/troubleshooting.md)
-  - WARP symptoms with cause, diagnostic, and fix.
-
-## Songbird
-
-- [songbird/songbird-hardware.md](songbird/songbird-hardware.md)
-  - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
-- [songbird/songbird-configuration.md](songbird/songbird-configuration.md)
-  - Non-obvious operational deviations from the hosts-common baseline.
-- [songbird/songbird-runbook.md](songbird/songbird-runbook.md)
-  - Validation procedure for a `songbird` change.
-- [songbird/songbird-runbook-reinstall.md](songbird/songbird-runbook-reinstall.md)
-  - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
-- [songbird/songbird-runbook-windows.md](songbird/songbird-runbook-windows.md)
-  - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
-- [songbird/songbird-troubleshooting.md](songbird/songbird-troubleshooting.md)
-  - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
-- [songbird/songbird-troubleshooting-windows.md](songbird/songbird-troubleshooting-windows.md)
-  - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
-
-## R2 Cloud
-
-- [r2-cloud/README.md](r2-cloud/README.md)
-  - Index for `nix-R2-CloudFlare-Flake` consumer integration docs in this repo.
-- [r2-cloud/input-and-module-wiring.md](r2-cloud/input-and-module-wiring.md)
-  - How `inputs.r2-flake` is wired into registered NixOS and Home Manager hosts.
-- [r2-cloud/secrets-and-rendered-files.md](r2-cloud/secrets-and-rendered-files.md)
-  - Mapping from `secrets/r2.yaml` to `/run/secrets/r2/*` and HM env templates.
-- [r2-cloud/songbird-runtime.md](r2-cloud/songbird-runtime.md)
-  - Runtime contract for sync/restic/git-annex/r2 wrapper on this host.
-- [r2-cloud/home-manager-r2-cloud.md](r2-cloud/home-manager-r2-cloud.md)
-  - HM-side `programs.r2-cloud` load path and credential-source behavior.
-- [r2-cloud/validation-and-drift-checks.md](r2-cloud/validation-and-drift-checks.md)
-  - Operator checks to prove integration is still intact.
-- [r2-cloud/troubleshooting.md](r2-cloud/troubleshooting.md)
-  - Integration-specific failure diagnosis and repair paths.
 
 ## Drafts
 
@@ -175,11 +92,6 @@
 - [guides/tray-icon-theming.md](guides/tray-icon-theming.md)
   - i3/i3bar tray icon theming guide with protocol classification, runtime verification, and remediation workflow.
 
-## MCP
-
-- [mcp/logseq.md](mcp/logseq.md)
-  - Logseq MCP server documentation for AI assistant integration with knowledge graphs (DB graphs only).
-
 ## NixOS manual
 
 - [NixOS manual (unstable)](https://nixos.org/manual/nixos/unstable/)
@@ -196,38 +108,10 @@
 - [networking/stable-mac-rekey.md](networking/stable-mac-rekey.md)
   - Re-keying DHCP reservations and MAC allowlists after the `"stable"` cutover and after profile, name, or identity changes.
 
-## mpv
-
-- [mpv/README.md](mpv/README.md)
-  - Index for the mpv documentation set covering module composition, configuration, scripts, integrations, customization, and troubleshooting.
-- [mpv/1-architecture.md](mpv/1-architecture.md)
-  - Module layering, aggregator namespaces, host gating, and the NixOS-to-Home-Manager activation contract.
-- [mpv/2-configuration.md](mpv/2-configuration.md)
-  - Reference for every key the Home Manager mpv module writes to `mpv.conf` with rationale for non-default values.
-- [mpv/3-scripts-and-bindings.md](mpv/3-scripts-and-bindings.md)
-  - Script loading model through `extraScripts` and the rewrapped package, bundled scripts, and the keybinding conventions.
-- [mpv/3-lua-hooks.md](mpv/3-lua-hooks.md)
-  - The repo-local `playlist_filter.lua` and `ytdlp_cookies.lua` scripts, their modes, and browser resolution.
-- [mpv/4-integrations.md](mpv/4-integrations.md)
-  - XDG MIME defaults, MPRIS via playerctl, the `open-in-mpv` browser bridge, and the `video-cache` helper.
-- [mpv/5-customizing.md](mpv/5-customizing.md)
-  - Choosing the layer, overriding configuration keys, replacing the package, adjacent tools, personal overrides, and opting out per host.
-- [mpv/5-customizing-scripts.md](mpv/5-customizing-scripts.md)
-  - Adding packaged scripts through `extraScripts`, raw Lua files, and keybindings on one host.
-- [mpv/6-troubleshooting.md](mpv/6-troubleshooting.md)
-  - MIME default-assertion failures, codec gaps, and silent hwdec fallback.
-
 ## Packaging
 
 - [packaging/javascript-packages.md](packaging/javascript-packages.md)
   - Packaging npm, pnpm, and bun applications in NixOS including monorepos, native modules, and Electron apps.
-
-## PDF Tooling
-
-- [pdf/toolkit.md](pdf/toolkit.md)
-  - Catalog of PDF-focused applications managed by this configuration covering viewers, structural inspectors, content extractors, and OCR engines.
-- [pdf/additional-tools-reference.md](pdf/additional-tools-reference.md)
-  - Reference catalog of PDF tools that complement the active toolkit, invocable ad hoc via `nix run`, `nix shell`, or `uvx`.
 
 ## Cybersecurity
 
@@ -288,13 +172,6 @@
 - [csec/protocol-aware-firewall.md](csec/protocol-aware-firewall.md)
   - Packet-signature and conntrack-mark techniques for detecting and blocking application protocol mismatches on a firewall port, with iptables and nftables examples.
 
-## RDP
-
-- [rdp/README.md](rdp/README.md)
-  - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
-- [rdp/safeguard-remoteapp-file-export.md](rdp/safeguard-remoteapp-file-export.md)
-  - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
-
 ## Reference
 
 - [reference/binary-cache-coverage.md](reference/binary-cache-coverage.md)
@@ -346,6 +223,8 @@
   - Which `nvme` subcommands keep the wrapper's storage capability, which clear it, and why each exclusion exists.
 - [security/owner-no-sudo-sed.md](security/owner-no-sudo-sed.md)
   - Opal self-encrypting drive queries without a sudo password, and the state-changing actions that stay behind it.
+- [security/usbguard/README.md](security/usbguard/README.md)
+  - USBGuard USB device access control with rules stored encrypted via sops.
 
 ## SOPS
 
@@ -359,11 +238,6 @@
   - sops-nix error messages with their cause and fix.
 - [sops/secrets-act.md](sops/secrets-act.md)
   - GitHub personal access token setup for act (local GitHub Actions runner) via sops-nix.
-
-## tpnix
-
-- [tpnix/IMPLEMENTATION_PLAN.md](tpnix/IMPLEMENTATION_PLAN.md)
-  - Hardware migration plan for the tpnix host on a Lenovo ThinkPad P15s Gen 2i.
 
 ## Technical Writing
 
@@ -383,25 +257,10 @@
 - [troubleshooting/nix-store-maintenance.md](troubleshooting/nix-store-maintenance.md)
   - Runbook defining the default Nix store repair workflow for each opted-in host.
 
-## USBGuard
-
-- [usbguard/README.md](usbguard/README.md)
-  - USBGuard USB device access control with rules stored encrypted via sops.
-
 ## Usage
 
 - [usage/README.md](usage/README.md)
   - Index of user-facing documentation for specific modules and features.
-- [duplicati/README.md](duplicati/README.md)
-  - Maintainer reference for the duplicati-r2 service: architecture, options, runbooks, recovery, security.
-- [duplicati/operations.md](duplicati/operations.md)
-  - Runbooks for everyday duplicati-r2 changes: provisioning secrets, editing the manifest, manual backup and restore, post-deploy validation.
-- [duplicati/recovery.md](duplicati/recovery.md)
-  - Failure modes, repair flow, and the impact-analysis playbook for missing or damaged remote volumes.
-- [duplicati/reference.md](duplicati/reference.md)
-  - Complete option surface, manifest schema, and runtime artifact catalog for `services.duplicati-r2`.
-- [duplicati/security.md](duplicati/security.md)
-  - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
 - [usage/espanso-usage.md](usage/espanso-usage.md)
   - Espanso text expander usage including enabling, default triggers, service management, and troubleshooting.
 - [usage/espanso-matches.md](usage/espanso-matches.md)
@@ -415,28 +274,175 @@
 - [usage/rustdesk.md](usage/rustdesk.md)
   - Self-hosted RustDesk over Cloudflare Mesh: privacy model, logins, iPhone setup, troubleshooting.
 
-## WinApps
+## Hosts
 
-- [winapps/README.md](winapps/README.md)
-  - NixVirt-declared Windows guest on libvirt: declared objects, lifecycle, the rules that prevent data loss, state locations, and guest isolation.
-- [winapps/provisioning.md](winapps/provisioning.md)
-  - Runbooks for the first switch, install media, Windows installation, guest tools, the isolation check, and detaching the media.
-- [winapps/storage.md](winapps/storage.md)
-  - Runbooks for the guest baseline copy, restoring it, and growing the disk.
+### songbird
 
-## Keyboards
+- [hosts/songbird/songbird-hardware.md](hosts/songbird/songbird-hardware.md)
+  - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
+- [hosts/songbird/songbird-configuration.md](hosts/songbird/songbird-configuration.md)
+  - Non-obvious operational deviations from the hosts-common baseline.
+- [hosts/songbird/songbird-runbook.md](hosts/songbird/songbird-runbook.md)
+  - Validation procedure for a `songbird` change.
+- [hosts/songbird/songbird-runbook-reinstall.md](hosts/songbird/songbird-runbook-reinstall.md)
+  - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
+- [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
+  - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+- [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
+  - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
+  - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
-- [keyboards/fc660c/README.md](keyboards/fc660c/README.md)
+### tpnix
+
+- [hosts/tpnix/IMPLEMENTATION_PLAN.md](hosts/tpnix/IMPLEMENTATION_PLAN.md)
+  - Hardware migration plan for the tpnix host on a Lenovo ThinkPad P15s Gen 2i.
+
+## Agents
+
+### Claude Code
+
+- [agents/claude-code/skill-providers.md](agents/claude-code/skill-providers.md)
+  - Declarative ownership and default availability for Claude Code skill providers.
+- [agents/claude-code/skills.md](agents/claude-code/skills.md)
+  - Technical manual for SKILL.md files covering frontmatter fields, invocation methods, execution lifecycle, and best practices.
+- [agents/claude-code/writing-CLAUDE.md](agents/claude-code/writing-CLAUDE.md)
+  - How to write CLAUDE.md files: persistent, always-active agent instructions loaded at session start.
+- [agents/claude-code/scratchpad.md](agents/claude-code/scratchpad.md)
+  - scratchpad
+
+### Codex
+
+- [agents/codex/configuration.md](agents/codex/configuration.md)
+  - Configure Nix settings, feature flags, launch environment, and project trust; diagnose rejected configuration fields.
+
+### MCP
+
+- [agents/mcp/logseq.md](agents/mcp/logseq.md)
+  - Logseq MCP server documentation for AI assistant integration with knowledge graphs (DB graphs only).
+
+## Hardware
+
+### Keyboards
+
+- [hardware/keyboards/fc660c/README.md](hardware/keyboards/fc660c/README.md)
   - Leopold FC660C with the Hasu (TMK) Alt Controller: quick identification facts, the NixOS switch, and links to the rest of the set.
-- [keyboards/fc660c/identification.md](keyboards/fc660c/identification.md)
+- [hardware/keyboards/fc660c/identification.md](hardware/keyboards/fc660c/identification.md)
   - Reproducible USB commands to confirm the Hasu Alt Controller and tell Vial firmware apart from stock TMK or plain QMK/VIA.
-- [keyboards/fc660c/identification-hid.md](keyboards/fc660c/identification-hid.md)
+- [hardware/keyboards/fc660c/identification-hid.md](hardware/keyboards/fc660c/identification-hid.md)
   - The three HID interfaces, resolving a hidraw node, and decoding the raw HID report descriptor.
-- [keyboards/fc660c/configuration.md](keyboards/fc660c/configuration.md)
+- [hardware/keyboards/fc660c/configuration.md](hardware/keyboards/fc660c/configuration.md)
   - The NixOS module, its board-scoped udev rule, the rule file's sort window, and bootloader access.
-- [keyboards/fc660c/configuration-vial.md](keyboards/fc660c/configuration-vial.md)
+- [hardware/keyboards/fc660c/configuration-vial.md](hardware/keyboards/fc660c/configuration-vial.md)
   - Day-to-day remapping through Vial, the Esc+Enter unlock combo, and the actuation-point constraint.
-- [keyboards/fc660c/flashing.md](keyboards/fc660c/flashing.md)
+- [hardware/keyboards/fc660c/flashing.md](hardware/keyboards/fc660c/flashing.md)
   - Entering the DFU bootloader, flashing with vial-qmk or dfu-programmer, and recovering from a bad flash.
-- [keyboards/fc660c/firmware/README.md](keyboards/fc660c/firmware/README.md)
+- [hardware/keyboards/fc660c/firmware/README.md](hardware/keyboards/fc660c/firmware/README.md)
   - Building FC660C firmware on NixOS, the local keymap overlay for NKRO and actuation point, the flash script, and the ATmega32U4 flash budget.
+
+## Apps
+
+### Cloudflare
+
+- [apps/cloudflare/README.md](apps/cloudflare/README.md)
+  - Index for Cloudflare developer platform docs and local NixOS samples.
+- [apps/cloudflare/acme-cloudflare-sample.md](apps/cloudflare/acme-cloudflare-sample.md)
+  - Sample NixOS configuration for ACME certificate management using Cloudflare DNS-01 challenge.
+- [apps/cloudflare/cloudflared-tunnel-sample.md](apps/cloudflare/cloudflared-tunnel-sample.md)
+  - Sample NixOS configuration for Cloudflare Tunnel (cloudflared) with ingress rules and credential setup.
+- [apps/cloudflare/containers/README.md](apps/cloudflare/containers/README.md)
+  - Technical documentation index for Cloudflare Containers.
+- [apps/cloudflare/containers/architecture.md](apps/cloudflare/containers/architecture.md)
+  - Architecture, request flow, and rollout model for Cloudflare Containers.
+- [apps/cloudflare/containers/configuration.md](apps/cloudflare/containers/configuration.md)
+  - Wrangler, Dockerfile, environment, and deployment configuration for Cloudflare Containers.
+- [apps/cloudflare/containers/api-reference.md](apps/cloudflare/containers/api-reference.md)
+  - Container package properties, helper functions, methods, and TypeScript interfaces.
+- [apps/cloudflare/containers/lifecycle.md](apps/cloudflare/containers/lifecycle.md)
+  - Cold starts, warm requests, sleep behavior, shutdown, storage lifetime, and rollouts.
+- [apps/cloudflare/containers/storage-networking.md](apps/cloudflare/containers/storage-networking.md)
+  - Disk, R2 mount, ingress, egress, DNS, and network-isolation notes for Containers.
+- [apps/cloudflare/containers/use-cases.md](apps/cloudflare/containers/use-cases.md)
+  - Practical Cloudflare Containers examples and application patterns.
+- [apps/cloudflare/containers/limitations-roadmap.md](apps/cloudflare/containers/limitations-roadmap.md)
+  - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
+- [apps/cloudflare/warp/README.md](apps/cloudflare/warp/README.md)
+  - Cloudflare WARP on the fleet: service-token enrollment, per-host mode, Mesh reachability, coexistence.
+- [apps/cloudflare/warp/deployment.md](apps/cloudflare/warp/deployment.md)
+  - Runbook: Cloudflare objects, the sops payload, host enrollment, recording the Mesh address, token rotation.
+- [apps/cloudflare/warp/troubleshooting.md](apps/cloudflare/warp/troubleshooting.md)
+  - WARP symptoms with cause, diagnostic, and fix.
+
+### Duplicati
+
+- [apps/duplicati/README.md](apps/duplicati/README.md)
+  - Maintainer reference for the duplicati-r2 service: architecture, options, runbooks, recovery, security.
+- [apps/duplicati/operations.md](apps/duplicati/operations.md)
+  - Runbooks for everyday duplicati-r2 changes: provisioning secrets, editing the manifest, manual backup and restore, post-deploy validation.
+- [apps/duplicati/recovery.md](apps/duplicati/recovery.md)
+  - Failure modes, repair flow, and the impact-analysis playbook for missing or damaged remote volumes.
+- [apps/duplicati/reference.md](apps/duplicati/reference.md)
+  - Complete option surface, manifest schema, and runtime artifact catalog for `services.duplicati-r2`.
+- [apps/duplicati/security.md](apps/duplicati/security.md)
+  - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
+
+### mpv
+
+- [apps/mpv/README.md](apps/mpv/README.md)
+  - Index for the mpv documentation set covering module composition, configuration, scripts, integrations, customization, and troubleshooting.
+- [apps/mpv/1-architecture.md](apps/mpv/1-architecture.md)
+  - Module layering, aggregator namespaces, host gating, and the NixOS-to-Home-Manager activation contract.
+- [apps/mpv/2-configuration.md](apps/mpv/2-configuration.md)
+  - Reference for every key the Home Manager mpv module writes to `mpv.conf` with rationale for non-default values.
+- [apps/mpv/3-scripts-and-bindings.md](apps/mpv/3-scripts-and-bindings.md)
+  - Script loading model through `extraScripts` and the rewrapped package, bundled scripts, and the keybinding conventions.
+- [apps/mpv/3-lua-hooks.md](apps/mpv/3-lua-hooks.md)
+  - The repo-local `playlist_filter.lua` and `ytdlp_cookies.lua` scripts, their modes, and browser resolution.
+- [apps/mpv/4-integrations.md](apps/mpv/4-integrations.md)
+  - XDG MIME defaults, MPRIS via playerctl, the `open-in-mpv` browser bridge, and the `video-cache` helper.
+- [apps/mpv/5-customizing.md](apps/mpv/5-customizing.md)
+  - Choosing the layer, overriding configuration keys, replacing the package, adjacent tools, personal overrides, and opting out per host.
+- [apps/mpv/5-customizing-scripts.md](apps/mpv/5-customizing-scripts.md)
+  - Adding packaged scripts through `extraScripts`, raw Lua files, and keybindings on one host.
+- [apps/mpv/6-troubleshooting.md](apps/mpv/6-troubleshooting.md)
+  - MIME default-assertion failures, codec gaps, and silent hwdec fallback.
+
+### PDF Tooling
+
+- [apps/pdf/toolkit.md](apps/pdf/toolkit.md)
+  - Catalog of PDF-focused applications managed by this configuration covering viewers, structural inspectors, content extractors, and OCR engines.
+- [apps/pdf/additional-tools-reference.md](apps/pdf/additional-tools-reference.md)
+  - Reference catalog of PDF tools that complement the active toolkit, invocable ad hoc via `nix run`, `nix shell`, or `uvx`.
+
+### R2 Cloud
+
+- [apps/r2-cloud/README.md](apps/r2-cloud/README.md)
+  - Index for `nix-R2-CloudFlare-Flake` consumer integration docs in this repo.
+- [apps/r2-cloud/input-and-module-wiring.md](apps/r2-cloud/input-and-module-wiring.md)
+  - How `inputs.r2-flake` is wired into registered NixOS and Home Manager hosts.
+- [apps/r2-cloud/secrets-and-rendered-files.md](apps/r2-cloud/secrets-and-rendered-files.md)
+  - Mapping from `secrets/r2.yaml` to `/run/secrets/r2/*` and HM env templates.
+- [apps/r2-cloud/songbird-runtime.md](apps/r2-cloud/songbird-runtime.md)
+  - Runtime contract for sync/restic/git-annex/r2 wrapper on this host.
+- [apps/r2-cloud/home-manager-r2-cloud.md](apps/r2-cloud/home-manager-r2-cloud.md)
+  - HM-side `programs.r2-cloud` load path and credential-source behavior.
+- [apps/r2-cloud/validation-and-drift-checks.md](apps/r2-cloud/validation-and-drift-checks.md)
+  - Operator checks to prove integration is still intact.
+- [apps/r2-cloud/troubleshooting.md](apps/r2-cloud/troubleshooting.md)
+  - Integration-specific failure diagnosis and repair paths.
+
+### RDP
+
+- [apps/rdp/README.md](apps/rdp/README.md)
+  - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
+- [apps/rdp/safeguard-remoteapp-file-export.md](apps/rdp/safeguard-remoteapp-file-export.md)
+  - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
+
+### WinApps
+
+- [apps/winapps/README.md](apps/winapps/README.md)
+  - NixVirt-declared Windows guest on libvirt: declared objects, lifecycle, the rules that prevent data loss, state locations, and guest isolation.
+- [apps/winapps/provisioning.md](apps/winapps/provisioning.md)
+  - Runbooks for the first switch, install media, Windows installation, guest tools, the isolation check, and detaching the media.
+- [apps/winapps/storage.md](apps/winapps/storage.md)
+  - Runbooks for the guest baseline copy, restoring it, and growing the disk.

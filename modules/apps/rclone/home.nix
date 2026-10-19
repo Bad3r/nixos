@@ -103,7 +103,7 @@ _: {
           {
             # This module is the single writer of renderedRcloneConfig while
             # programs.rclone.extended.enable is set; other generators must
-            # target a different path (see docs/r2-cloud/home-manager-r2-cloud.md).
+            # target a different path (see docs/apps/r2-cloud/home-manager-r2-cloud.md).
             assertions = [
               {
                 assertion = !r2CloudClaimsRenderedConfig;

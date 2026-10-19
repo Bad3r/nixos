@@ -10,7 +10,7 @@ Day-to-day key remapping happens entirely through Vial, live over USB, and no Ni
 hardware.keyboards.fc660c.enable = true;
 ```
 
-`modules/hardware/keyboards/fc660c.nix` declares the switch, and host wiring goes through the optional-module pattern in [Host Composition](../../architecture/05-host-composition.md).
+`modules/hardware/keyboards/fc660c.nix` declares the switch, and host wiring goes through the optional-module pattern in [Host Composition](../../../architecture/05-host-composition.md).
 Enabling it turns the `vial` app row on as a prerequisite, installs `pkgs.dfu-programmer`, and ships a udev rule file scoped to this board.
 `lsusb`, which the flash helper checks with, comes from the `usbutils` app row.
 

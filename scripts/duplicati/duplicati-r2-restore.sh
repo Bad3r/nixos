@@ -594,7 +594,7 @@ SQL
     echo
     echo "WARNING: ${orphans} of the matched dblocks have State='Uploaded' (not yet 'Verified')."
     echo "  These can 404 on R2 if multipart uploads were aborted before completion."
-    echo "  See docs/duplicati/recovery.md for the multipart-orphan signature."
+    echo "  See docs/apps/duplicati/recovery.md for the multipart-orphan signature."
   fi
 
   exit 0

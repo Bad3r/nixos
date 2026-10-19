@@ -14,7 +14,7 @@ The core principle is to change the smallest scope that achieves the goal.
 - Add or change a keybinding: a per-host `home-manager.sharedModules` block setting `programs.mpv.bindings.<key>`.
 - Replace the mpv package itself: `programs.mpv.extended.package` per host.
 - Add a one-off Lua snippet: `xdg.configFile."mpv/scripts/<name>.lua"` in Home Manager.
-- Disable mpv entirely on a host: `mpv = false` in the host's app rows, as [App registry](../guides/apps-module-registry.md) describes.
+- Disable mpv entirely on a host: `mpv = false` in the host's app rows, as [App registry](../../guides/apps-module-registry.md) describes.
 
 ## Overriding a Configuration Key
 

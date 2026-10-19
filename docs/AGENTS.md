@@ -8,9 +8,19 @@ This file governs the `docs/` subtree. Keep documentation scoped to existing fol
 - `guides/`, `usage/`, `reference/`: task-oriented instructions and reference material.
 - `technical-writing/`: the documentation style guide and the writing
   rules that support it.
-- Host and domain folders (for example `cloudflare/`, `songbird/`,
-  `duplicati/`, `mpv/`, `r2-cloud/`, `sops/`, `usbguard/`):
-  host-specific and product-specific docs.
+- `hosts/<host>/`: host-specific docs, such as the host page quartet.
+- `agents/<name>/`: AI agent tooling such as Claude Code, Codex, and MCP
+  servers, mirroring `modules/agents/`.
+- `hardware/<class>/<device>/`: peripherals with their own module, mirroring
+  `modules/hardware/` (for example `hardware/keyboards/fc660c/`).
+- `apps/<name>/`: one folder per app, tool, or product (for example
+  `apps/cloudflare/`, `apps/duplicati/`, `apps/mpv/`, `apps/r2-cloud/`).
+- Cross-cutting topic folders (`networking/`, `security/`, `sops/`, `csec/`,
+  `packaging/`, `troubleshooting/`): material that spans apps and hosts,
+  including fleet-wide policy for one tool, such as `security/usbguard/`.
+- `drafts/`: plans and investigations not yet settled, exempt from `docs-style`.
+- `onboarding.md`: the entry point, with the repository layers and a guided
+  reading path.
 
 Prefer updating an existing page over adding a new one. Update `index.md` when
 adding, removing, or moving documentation pages. Use clear, repo-relative links
@@ -20,8 +30,8 @@ enumerate the active hosts, run
 `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`.
 
 Use lowercase directory names for provider and product folders. Cloudflare docs
-belong under `cloudflare/`, including Containers material under
-`cloudflare/containers/`; do not recreate case variants such as `CloudFlare/`.
+belong under `apps/cloudflare/`, including Containers material under
+`apps/cloudflare/containers/`; do not recreate case variants such as `CloudFlare/`.
 
 ## Build, Test, and Development Commands
 
@@ -70,8 +80,8 @@ There is no docs-only test framework. Validation is done through:
 - pre-commit hooks
 - `docs-style`, which checks staged Markdown for the 150-line cap, banned
   phrases, and unresolved links and backticked paths; exempt for the
-  root `README.md` (the GitHub landing page), `docs/drafts/`, `tests/`, and
-  any `CLAUDE.md` or `AGENTS.md`;
+  root `README.md` (the GitHub landing page), `docs/drafts/`,
+  `docs/nixos-manual/`, `tests/`, and any `CLAUDE.md` or `AGENTS.md`;
   `docs/index.md` is exempt from the line cap only; pinned to the pre-commit
   stage, so the `--hook-stage manual` sweep skips it
 - flake checks

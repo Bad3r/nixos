@@ -7,7 +7,7 @@ No host contacts RustDesk's public servers.
 
 ## Privacy model
 
-- hbbs and hbbr answer on the [Cloudflare Mesh](../cloudflare/warp/README.md) interface only.
+- hbbs and hbbr answer on the [Cloudflare Mesh](../apps/cloudflare/warp/README.md) interface only.
 - A session connects the two devices directly over Mesh and falls back to the relay when that connection fails.
 - hbbs signs each device's key with the pair in `secrets/rustdesk.yaml`, which lets peers encrypt each session end to end.
   Neither the relay nor Cloudflare's edge sees the screen or the clipboard.

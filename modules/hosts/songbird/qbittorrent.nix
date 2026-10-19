@@ -53,7 +53,7 @@ in
       resolvConf = pkgs.writeText "${netns}-resolv.conf" "nameserver ${proton.dns}\n";
       # An overlay, not a bind over /etc/resolv.conf: the kernel detaches a
       # bind whose file the host recreates, which warp-svc does on every DNS
-      # change (docs/cloudflare/warp/troubleshooting.md) and activation on
+      # change (docs/apps/cloudflare/warp/troubleshooting.md) and activation on
       # every switch, after which the sandbox reads the host's 127.0.2.2
       # servers that nothing in the namespace answers.
       resolvConfext = pkgs.runCommandLocal "${netns}-resolv-confext" { } ''

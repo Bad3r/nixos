@@ -98,19 +98,19 @@ Precondition: the host is registered, with a module directory and policy flags i
    NH_BYPASS_ROOT_CHECK=1 nix --extra-experimental-features "nix-command flakes" shell nixpkgs#git nixpkgs#nh -c ./build.sh --bootstrap --skip-hooks --allow-dirty --host <host> --boot
    ```
 
-   A freshly installed target ships no `git`, which `--allow-dirty` needs for `build.sh`'s secrets guard, and enables no experimental features, so both landing that checkout and running this command need the `nix shell nixpkgs#git nixpkgs#nh` wrapper shown above; [Songbird runbook: reinstall](../songbird/songbird-runbook-reinstall.md) works through this exact case end to end.
+   A freshly installed target ships no `git`, which `--allow-dirty` needs for `build.sh`'s secrets guard, and enables no experimental features, so both landing that checkout and running this command need the `nix shell nixpkgs#git nixpkgs#nh` wrapper shown above; [Songbird runbook: reinstall](../hosts/songbird/songbird-runbook-reinstall.md) works through this exact case end to end.
    `--allow-dirty` returns early from `build.sh`'s clean-tree guard, so the commit is on the reader: `path:` builds the target's working tree, and an uncommitted host module activates here while reaching no other checkout.
    A linked worktree selects `path:` on its own, and on a primary checkout `--allow-dirty` selects it in place of the bare `git+file` reference, which would pull the private submodule the target has no credentials for.
    `path:` copies `secrets/` as it finds it instead of excluding it; `git worktree add` does not initialize submodules on its own, but this repository's `post-checkout` hook (`scripts/hooks/git/post-checkout`) runs `git submodule update --init --recursive` on the checkout `git worktree add` performs.
    A linked worktree sharing this repository's `core.hooksPath` therefore carries `secrets/act.yaml`; `modules/security/secrets.nix` declares `sops.secrets."act/github_token"` when that file exists and `security.repoSecrets.enable` retains the common `lib.mkDefault true`, without consulting `sopsRuntimeReady`.
    A plain `security.repoSecrets.enable = false;` host override suppresses that declaration and the repo-gated rclone declarations, but other common system and Home Manager secret modules have independent enables.
    The override cannot make a fully populated `secrets/` submodule safe without the age identity; if used for a targeted bootstrap, remove it after both age identity copies are installed and before the secret-bearing rebuild in [Host secrets and handoff](host-onboarding-secrets.md).
-   Land the target's checkout instead as a clone made without `--recurse-submodules`, per [Songbird runbook: reinstall](../songbird/songbird-runbook-reinstall.md), which keeps `secrets/` empty through this step.
+   Land the target's checkout instead as a clone made without `--recurse-submodules`, per [Songbird runbook: reinstall](../hosts/songbird/songbird-runbook-reinstall.md), which keeps `secrets/` empty through this step.
    `--bootstrap` replaces the substituter list with the fleet caches before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
    `NH_BYPASS_ROOT_CHECK=1` is required because `nh os` refuses to run as an effective uid of 0, and a freshly installed target has no other account to run it from.
    `modules/meta/owner.nix` declares the owner account, so this same activation creates it; no manual user setup precedes it.
 
-[Songbird runbook: reinstall](../songbird/songbird-runbook-reinstall.md) works through this same ladder for one host, starting at its first switch after a reinstall.
+[Songbird runbook: reinstall](../hosts/songbird/songbird-runbook-reinstall.md) works through this same ladder for one host, starting at its first switch after a reinstall.
 
 Verification: the target machine reboots into the new generation, and step 1's flake check reports no assertion failures for the new host.
 
@@ -124,9 +124,9 @@ Precondition: the host boots through the ladder above.
    gh label create "host(<host>)" --color 5319E7 --description "Specific to the <host> host or its runtime contract."
    ```
 
-2. Add `<host>` to the fleet inventories in `docs/ONBOARDING.md`, `docs/architecture/01-pattern-overview.md`, `docs/architecture/04-home-manager.md`, and `docs/architecture/host-file-inventory.md`.
+2. Add `<host>` to the fleet inventories in `docs/onboarding.md`, `docs/architecture/01-pattern-overview.md`, `docs/architecture/04-home-manager.md`, and `docs/architecture/host-file-inventory.md`.
    Add host-specific module exports to `docs/architecture/03-nixos-modules.md` only when the host introduces them.
-   If the host adds documentation pages, add its directory to `docs/architecture/README.md` and its pages to `docs/index.md`.
+   Its host pages go under `docs/hosts/<host>/`; add that directory to `docs/architecture/README.md` and its pages to `docs/index.md`.
 
 3. No workflow edits are needed. `.github/workflows/check.yml` and `.github/workflows/update-flake.yml` derive the host list from `nix eval --accept-flake-config --json "path:.#nixosConfigurations" --apply builtins.attrNames`, so the new host is covered without touching either. `check.yml` only forces each host's `system.build.toplevel.drvPath` through `nix eval`, not `nix build --dry-run`, because Lix forces read-only store mode for `--dry-run` and that breaks eval-time store writes on the fresh runner; a compliance run proves the host evaluates to a derivation, not that its closure builds or substitutes. `update-flake.yml` is what builds each host closure: its `build-host` matrix gives every host its own runner and builds the host's kernel before `system.build.toplevel`, so a source-built kernel's build tree has the runner disk to itself.
 

@@ -128,10 +128,10 @@ For a missing key, add it with `sops secrets/songbird.yaml`; for a false gate, s
 
 Cause: the Proton tunnel has no handshake, so the NAT-PMP renewal inside the namespace fails and no mapped port reaches the session.
 Diagnostic: `journalctl -u qbittorrent-port-forward.service -n 5` shows `NAT-PMP mapping failed`, and `sudo ip netns exec torrent wg show wg-torrent` shows no recent handshake.
-Fix: `sudo systemctl restart wireguard-wg-torrent.service`; a handshake that never returns means the Proton profile expired or the server retired, so rotate it per [the qBittorrent guide](../guides/qbittorrent-web-ui-setup.md#songbird-rotate-the-proton-vpn-wireguard-profile).
+Fix: `sudo systemctl restart wireguard-wg-torrent.service`; a handshake that never returns means the Proton profile expired or the server retired, so rotate it per [the qBittorrent guide](../../guides/qbittorrent-web-ui-setup.md#songbird-rotate-the-proton-vpn-wireguard-profile).
 
 ## qBittorrent marks a torrent errored on its save path
 
-Cause: the path lies outside every tree in `saveRoots` in [qbittorrent.nix](../../modules/hosts/songbird/qbittorrent.nix), the folder arrived by `mv` and carries no entry for the service user yet, or a chmod cut the folder's ACL mask.
+Cause: the path lies outside every tree in `saveRoots` in [qbittorrent.nix](../../../modules/hosts/songbird/qbittorrent.nix), the folder arrived by `mv` and carries no entry for the service user yet, or a chmod cut the folder's ACL mask.
 Diagnostic: `getfacl -p <folder>` lists no `user:qbittorrent` entry or marks it `#effective:r-x`, or the folder is under none of those roots.
 Fix: move the folder under one of them, then `sudo systemd-tmpfiles --create --prefix=<root>` applies the entries without waiting for the next switch or boot; `setfacl -m m::rwx <folder>` restores a cut mask.

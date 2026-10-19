@@ -100,7 +100,7 @@ The stock configuration has only root, so the clone above sits at `/root/nixos`;
 `gh` must be logged in as that owner, since Home Manager's `gh` module makes `gh auth git-credential` git's helper for github.com in the owner's git config only, and the private submodule fetches through it.
 
 1. Copy the age private key from the password manager to `/var/lib/sops-nix/key.txt` (root, mode 0600) and `~/.config/sops/age/keys.txt`.
-   See [SOPS usage](../sops/README.md), Host Preparation, for the exact key handling.
+   See [SOPS usage](../../sops/README.md), Host Preparation, for the exact key handling.
 
 2. Initialize the secrets submodule now that the age identity exists:
 
@@ -108,7 +108,7 @@ The stock configuration has only root, so the clone above sits at `/root/nixos`;
    git submodule update --init --recursive
    ```
 
-3. Replace the stale host key pin in `modules/hosts/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
+3. Replace the stale host key pin in `modules/hosts/songbird/ssh.nix` and `fleetHostKeys` with `cat /etc/ssh/ssh_host_ed25519_key.pub`, per [Pin the SSH host key](../../guides/host-onboarding-secrets.md#pin-the-ssh-host-key).
    Replace the host id in `modules/hosts/songbird/host-id.nix` with `head -c 8 /etc/machine-id`, which the first boot generated, then commit the pin, the id, and the UUID edit; `build.sh` refuses an uncommitted tree.
    `modules/git/git.nix` signs every commit through 1Password's `op-ssh-sign`, which has no signed-in app behind it on a machine this fresh, so sign in to 1Password first or make this commit with `git -c commit.gpgsign=false commit`.
    Push that commit before step 4 so the other fleet hosts can reach it: their `/etc/ssh/ssh_known_hosts` is rendered from `fleetHostKeys` at build time, and until they switch onto the new pin `ssh songbird` fails there with `REMOTE HOST IDENTIFICATION HAS CHANGED`.
