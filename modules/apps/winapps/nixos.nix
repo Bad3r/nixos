@@ -18,7 +18,7 @@
   Notes:
     * Package sourced from the winapps flake (github:winapps-org/winapps), lock-only.
     * Only bin/winapps reaches PATH: the package also installs winapps-setup (setup.sh), whose connection test shares the whole home directory (+home-drive) and accepts the first certificate without asking (/cert:tofu).
-    * The configuration file and the Outlook Classic desktop entry come from modules/apps/winapps/home.nix.
+    * The configuration file and the Outlook Classic desktop entry come from home.nix in this folder.
     * The package wrapper puts FreeRDP, libnotify, dialog, netcat and iproute2 on PATH but not virsh, which comes from the libvirt package that virtualisation.libvirtd installs.
 */
 { inputs, ... }:
