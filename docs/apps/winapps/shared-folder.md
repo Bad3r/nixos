@@ -38,7 +38,7 @@ Precondition: the [guest tools](provisioning.md#install-guest-tools) are install
 
 The declaration removes the Windows `Owner` override so ownership comes from the share root inside the file server's user namespace.
 
-Verification: `Get-Volume -DriveLetter T` reports the transfer volume in the virt-manager console.
+Verification: `Get-Volume -DriveLetter T` reports the transfer volume in both the virt-manager console and a `winapps windows` session.
 File Explorer lists the drive in Quick access.
 Shut Windows down and start it again; the drive must mount without launching Outlook.
 
