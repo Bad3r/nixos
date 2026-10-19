@@ -329,6 +329,7 @@ let
       nodejs_24.extended.enable = lib.mkOverride 1100 true;
       "nomachine-client".extended.enable = lib.mkOverride 1100 false;
       normcap.extended.enable = lib.mkOverride 1100 true;
+      notmuch.extended.enable = lib.mkOverride 1100 false;
       nrm.extended.enable = lib.mkOverride 1100 true;
       nrun.extended.enable = lib.mkOverride 1100 true;
       nsxiv.extended.enable = lib.mkOverride 1100 true;
