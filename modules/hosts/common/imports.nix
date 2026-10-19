@@ -60,7 +60,7 @@ let
 in
 {
   # Shared fleet composition. Chassis-specific modules (vendor nixos-hardware
-  # profiles, host support modules) stay host-owned in modules/<host>/.
+  # profiles, host support modules) stay host-owned in modules/hosts/<host>/.
   flake.nixosModules.hosts-common.imports = [
     # Required infrastructure (exported NixOS modules)
     # Note: base includes Stylix via modules/stylix/stylix.nix contribution

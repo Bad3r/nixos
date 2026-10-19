@@ -19,7 +19,7 @@ The `apps-catalog-sync` hook (`modules/meta/hooks/apps-catalog-sync.nix`) fails 
 
 ## Host rows
 
-A host that diverges from the baseline lists the app in the flat `appEnable` set of `modules/<host>/apps-enable.nix`, one boolean per app:
+A host that diverges from the baseline lists the app in the flat `appEnable` set of `modules/hosts/<host>/apps-enable.nix`, one boolean per app:
 
 ```nix
 appEnable = {
@@ -31,7 +31,7 @@ appEnable = {
 
 A nested toggle, such as `claude-code.extended.installMethods.bun.enable`, goes in the `subToggles` list of the same file as `{ path; value; }`.
 `flake.lib.hostApps.mk "<host>"` builds the host module from both lists and applies every row at `lib.mkOverride 1000`, so no host file writes an override by hand.
-`modules/tpnix/apps-enable.nix` shows the full shape.
+`modules/hosts/tpnix/apps-enable.nix` shows the full shape.
 
 `host-<host>-apps-no-noop` (`modules/hosts/common/checks.nix`) fails on a host row that repeats the baseline value.
 A path resolves in `programs` first, and in `services` when only the baseline's `services` block declares it.

@@ -46,7 +46,7 @@ _: {
             # The common baseline at modules/hosts/common/apps-enable.nix is
             # the canonical catalog and must list every registered app and
             # every browser module from modules/browsers/.
-            # Per-host files (modules/<host>/apps-enable.nix) only carry
+            # Per-host files (modules/hosts/<host>/apps-enable.nix) only carry
             # overrides for entries that diverge from the baseline; they are
             # not required to be complete and must only reference apps that
             # exist on the filesystem (stale-only check).

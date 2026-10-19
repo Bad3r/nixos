@@ -5,8 +5,8 @@ The repository's directories fall into layers, from the flake root outward to do
 ## Layers
 
 01. **Flake composition and build plumbing** (`flake.nix`, `modules/configurations`, `build.sh`).
-    The entry point and the wiring that turns auto-discovered modules into systems: the host builder, the devshell and package-checks aggregators, shared `lib` helpers, and the git post-checkout hook.
-02. **Host definitions and baseline** (`modules/<host>/`, `modules/hosts/common`).
+    The entry point and the wiring that turns auto-discovered modules into systems: the host builder, shared `lib` helpers, and the git post-checkout hook.
+02. **Host definitions and baseline** (`modules/hosts/<host>/`, `modules/hosts/common`).
     Per-host configuration, hardware profiles, host documentation, the cross-host shared baseline, and the registry that every opted-in host composes.
 03. **Base system and boot** (`modules/base`, `modules/boot`).
     Foundational settings shared by all hosts: core Nix settings, users, locale, bootloader, and kernel.
@@ -37,7 +37,7 @@ The repository's directories fall into layers, from the flake root outward to do
 - `modules/hosts/common/apps-base.nix`: imports every app module, each off until its row turns it on.
 - `modules/hosts/common/apps-enable.nix`: the baseline app rows, and the snapshot the FR-5 check compares host rows against.
 - `modules/hosts/common/imports.nix`: the fleet composition hub, wiring base, SSH, sops, Duplicati, and shared nixos-hardware profiles.
-- `modules/<host>/apps-enable.nix`: a host's own rows, as in `modules/songbird/apps-enable.nix` and `modules/tpnix/apps-enable.nix`.
+- `modules/hosts/<host>/apps-enable.nix`: a host's own rows, as in `modules/hosts/songbird/apps-enable.nix` and `modules/hosts/tpnix/apps-enable.nix`.
 
 ## Base system and boot
 
@@ -75,7 +75,7 @@ The repository's directories fall into layers, from the flake root outward to do
 
 ## Tooling and CI
 
-- `modules/devshell.nix` and `modules/apps/pentesting-devshell/package.nix`: the dev shells, with the formatter toolchain, Nix LSP, lint and security tools, SOPS helpers, and act wrappers.
+- `modules/meta/devshell.nix` and `modules/apps/pentesting-devshell/package.nix`: the dev shells, with the formatter toolchain, Nix LSP, lint and security tools, SOPS helpers, and act wrappers.
 - `modules/meta/treefmt.nix`: the formatter configuration.
 - `modules/meta/pre-commit.nix`: the git hook set.
 - `modules/meta/hooks/apps-catalog-sync.nix`: keeps `modules/hosts/common/apps-enable.nix` in sync with the registered app and browser modules.

@@ -41,13 +41,13 @@ The reading path runs from what the project is to how it ships, each step buildi
 04. How a file becomes a module: [Module Authoring](architecture/02-module-authoring.md), for placement rules, the `pkgs` split, and the Two-Context Problem.
 05. NixOS modules and the app registry: [NixOS Modules](architecture/03-nixos-modules.md), `modules/hosts/common/apps-base.nix`, and `modules/hosts/common/apps-enable.nix`.
 06. Assembling a host: [Host Composition](architecture/05-host-composition.md), `modules/configurations/nixos.nix`, and `modules/hosts/common/registry.nix`.
-07. Per-host composition and rows: `modules/hosts/common/imports.nix`, `modules/songbird/apps-enable.nix`, and `modules/tpnix/apps-enable.nix`.
+07. Per-host composition and rows: `modules/hosts/common/imports.nix`, `modules/hosts/songbird/apps-enable.nix`, and `modules/hosts/tpnix/apps-enable.nix`.
 08. Home Manager, the dual-module pattern: [Home Manager](architecture/04-home-manager.md), `modules/home-manager/nixos.nix`, and `modules/home-manager/base.nix`.
 09. Secrets with sops-nix: `modules/security/sops-runtime.nix`, `modules/hosts/common/sops.nix`, and `modules/security/secrets.nix`.
 10. Custom packages and overlays: `modules/hosts/common/custom-overlays-base.nix`, `packages/restringer/default.nix`, and its `hashes.json`.
 11. The AI agents layer: `modules/agents/system-prompt.nix`, `modules/agents/claude-code/home.nix`, `modules/agents/codex/home.nix`, and `modules/agents/mcp.nix`.
 12. Theming with Stylix: `modules/stylix/stylix.nix`, whose base16 scheme comes from the `tinted-schemes` input.
-13. Validation, tooling, and deployment: `modules/devshell.nix`, `modules/meta/treefmt.nix`, `modules/meta/pre-commit.nix`, `build.sh`, and `.github/workflows/check.yml`.
+13. Validation, tooling, and deployment: `modules/meta/devshell.nix`, `modules/meta/treefmt.nix`, `modules/meta/pre-commit.nix`, `build.sh`, and `.github/workflows/check.yml`.
 
 ## Complexity Hotspots
 

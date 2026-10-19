@@ -4,7 +4,7 @@ NixOS entries are in [songbird-troubleshooting.md](songbird-troubleshooting.md).
 
 ## /portal is missing after boot
 
-An unclean Windows exit leaves the shared NTFS volume dirty, so the kernel `ntfs3` driver refuses it, and `nofail` on `/portal` in `modules/songbird/hardware-config.nix` lets boot continue anyway.
+An unclean Windows exit leaves the shared NTFS volume dirty, so the kernel `ntfs3` driver refuses it, and `nofail` on `/portal` in `modules/hosts/songbird/hardware-config.nix` lets boot continue anyway.
 
 ```sh
 journalctl -b -u portal.mount
@@ -20,14 +20,14 @@ sudo systemctl start portal.mount
 
 ## Hibernation fails while /portal is open
 
-`modules/songbird/hardware-config.nix` unmounts `/portal` before hibernating on purpose, and a process holding it open fails that unmount, so the transition aborts instead of corrupting the volume.
+`modules/hosts/songbird/hardware-config.nix` unmounts `/portal` before hibernating on purpose, and a process holding it open fails that unmount, so the transition aborts instead of corrupting the volume.
 
 ```sh
 fuser -vm /portal
 ```
 
 Close whatever holds `/portal` open, then retry the transition.
-`modules/songbird/hardware-config.nix` attaches the guard to `systemd-hibernate`, `systemd-hybrid-sleep`, and `systemd-suspend-then-hibernate` only, so a plain `systemctl suspend` never reaches it.
+`modules/hosts/songbird/hardware-config.nix` attaches the guard to `systemd-hibernate`, `systemd-hybrid-sleep`, and `systemd-suspend-then-hibernate` only, so a plain `systemctl suspend` never reaches it.
 
 ## Windows Boot Manager boots by default
 

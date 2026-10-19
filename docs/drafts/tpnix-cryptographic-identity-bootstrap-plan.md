@@ -31,7 +31,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 2. Private key management model: SOPS-managed.
 3. Git signing key configuration ownership:
    - Shared defaults in `modules/git/git.nix`.
-   - Host-specific fingerprint override in dedicated `modules/songbird/git.nix` and `modules/tpnix/git.nix` files.
+   - Host-specific fingerprint override in dedicated `modules/hosts/songbird/git.nix` and `modules/hosts/tpnix/git.nix` files.
 4. Secret file layout:
    - `secrets/gpg/songbird.asc`
    - `secrets/gpg/tpnix.asc`
@@ -64,12 +64,12 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
      - `signing.format = "openpgp"`
    - Remove hard-coded shared `signing.key`.
 
-2. `modules/songbird/git.nix`
+2. `modules/hosts/songbird/git.nix`
 
    - Add explicit host signing key:
      - `home-manager.users.${metaOwner.username}.programs.git.signing.key = lib.mkForce "<SONGBIRD_GPG_FINGERPRINT>";`
 
-3. `modules/tpnix/git.nix`
+3. `modules/hosts/tpnix/git.nix`
 
    - Do not rely on `security.repoSecrets` for OpenPGP material; that module is ACT-only.
    - Add explicit host signing key:
@@ -86,7 +86,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
    - Declare:
      - `sops.secrets."ssh/vx-auth-key"` (`format = "binary"`, owner `vx`, mode `0400`, path `/run/secrets/ssh/vx-auth-key`)
 
-5. `modules/tpnix/ssh.nix`
+5. `modules/hosts/tpnix/ssh.nix`
 
    - Set actual `tpnix` host SSH public key:
      - `services.openssh.publicKey = "ssh-ed25519 ... root@tpnix";`
@@ -157,7 +157,7 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 1. Read host key:
    - `sudo cat /etc/ssh/ssh_host_ed25519_key.pub`
-2. Place exact value into `modules/tpnix/ssh.nix` as `services.openssh.publicKey`.
+2. Place exact value into `modules/hosts/tpnix/ssh.nix` as `services.openssh.publicKey`.
 
 ## 7. SOPS Encryption and Re-Key Workflow
 
@@ -211,10 +211,10 @@ Provide an end-to-end, reproducible, and host-isolated cryptographic setup for `
 
 1. Revert only touched files:
    - `modules/git/git.nix`
-   - `modules/songbird/git.nix`
-   - `modules/tpnix/git.nix`
+   - `modules/hosts/songbird/git.nix`
+   - `modules/hosts/tpnix/git.nix`
    - `modules/security/secrets.nix`
-   - `modules/tpnix/ssh.nix`
+   - `modules/hosts/tpnix/ssh.nix`
    - `.sops.yaml`
 2. Remove newly registered GitHub keys by title if rollout is abandoned.
 3. Restore previous encrypted secret files if host-scoped split is rolled back.

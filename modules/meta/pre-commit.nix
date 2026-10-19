@@ -193,7 +193,7 @@ _: {
                 "^(flake\\.nix"
                 "flake\\.lock"
                 "scripts/hooks/"
-                "modules/devshell\\.nix"
+                "modules/meta/devshell\\.nix"
                 "modules/meta/pre-commit\\.nix"
                 "modules/meta/treefmt\\.nix"
                 "modules/meta/hooks/)"

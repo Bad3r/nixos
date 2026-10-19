@@ -30,7 +30,7 @@ in
     }:
     let
       sambaMediaShareTemplatePath = config.sops.templates.${sambaMediaShareTemplate}.path;
-      powerProfile = import ../hosts/common/_power-profile-unit.nix pkgs;
+      powerProfile = import ../common/_power-profile-unit.nix pkgs;
     in
     {
       imports =

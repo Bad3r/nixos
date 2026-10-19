@@ -73,7 +73,7 @@ let
             && config.nix.settings.max-substitution-jobs >= 1;
           message =
             "${hostName}: nix.settings.max-substitution-jobs must be an integer >= 1. Pin "
-            + "nproc - 1, floored at 1, in modules/${hostName}/nix-settings.nix next to "
+            + "nproc - 1, floored at 1, in modules/hosts/${hostName}/nix-settings.nix next to "
             + "max-jobs; the setting has no \"auto\", so an unset host silently falls back to "
             + "Lix's compiled-in 16, and 0 is not \"unlimited\": both Lix and CppNix clamp it "
             + "to 1 and serialize every download.";

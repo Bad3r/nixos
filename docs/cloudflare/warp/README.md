@@ -18,7 +18,7 @@ No browser login happens on the host: sops-nix renders the team name, the token,
 ## Mode per host
 
 tpnix stays on `tunnelonly` because NetworkManager's dnsmasq serves the private-host mappings from `modules/hosts/common/private-dns-hosts.nix`, which Gateway DNS would replace.
-The mode is set in `modules/<host>/cloudflare-warp.nix`, and the host's device profile in the dashboard carries the same mode, matched on the host's service token.
+The mode is set in `modules/hosts/<host>/cloudflare-warp.nix`, and the host's device profile in the dashboard carries the same mode, matched on the host's service token.
 Cloudflare spells Traffic-only mode three ways: `tunnelonly` as the `service_mode` value in `mdm.xml`, `warp_tunnel_only` in the device-profile API, and `tunnel_only` in `warp-cli mode`.
 tpnix's Traffic-only mode is checked at rollout because it leaves DNS with NetworkManager (see
 [troubleshooting.md](troubleshooting.md)).
@@ -32,7 +32,7 @@ The interface is the scope: every device enrolled in the team reaches those rang
 
 A host with an address stored under `mesh.hosts.<host>` in the encrypted
 `secrets/cloudflare-warp.yaml` sets `cloudflareWarpMeshAddressReady = true` in
-`modules/<host>/policy.nix`.
+`modules/hosts/<host>/policy.nix`.
 On a host that runs WARP, sops-nix renders those values into `/etc/hosts` as `<host>.internal` entries.
 `.internal` is reserved for private use, so public DNS never resolves a name missing from `/etc/hosts`.
 The addresses remain out of the public source and the Nix store; they exist as plaintext only in

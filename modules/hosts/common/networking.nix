@@ -19,7 +19,7 @@
           # Kernel-order names (eth0, wlan0) instead of the topology-derived
           # enp0s20f0u1u4 style. Kernel order is not tied to a device, so a name
           # that carries a firewall rule is pinned with a .link Name= instead
-          # (modules/tpnix/networking.nix). A pin must land outside the kernel's
+          # (modules/hosts/tpnix/networking.nix). A pin must land outside the kernel's
           # own eth*/wlan* pools, per systemd.link(5) on Name=, so it cannot be
           # eth0 itself. Renaming also reseeds every "stable" MAC above, because
           # NetworkManager hashes the interface name into it.

@@ -34,7 +34,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
 
 ## 2) Module Ownership
 
-- `modules/tpnix/hardware-config.nix` owns all scan-derived facts:
+- `modules/hosts/tpnix/hardware-config.nix` owns all scan-derived facts:
   - `boot.initrd.availableKernelModules`
   - `boot.initrd.kernelModules`
   - `boot.initrd.luks.devices`
@@ -42,12 +42,12 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
   - `boot.extraModulePackages`
   - `fileSystems`
   - `swapDevices`
-- `modules/hosts/common/boot.nix` owns the shared boot policy (the loader entry limit stays in `modules/tpnix/hardware-config.nix`):
+- `modules/hosts/common/boot.nix` owns the shared boot policy (the loader entry limit stays in `modules/hosts/tpnix/hardware-config.nix`):
   - `pkgs.linuxPackages_zen` (the CachyOS kernel was retired for the cached linux-zen kernel)
   - `systemd-boot` settings
   - crash dump reservation
   - kernel sysctls
-- `modules/tpnix/firmware-manager-fix.nix` enables `services.fwupd`. The shared firmware-manager build override was removed after nixpkgs added pkg-config and xz to the package's nativeBuildInputs.
+- `modules/hosts/tpnix/firmware-manager-fix.nix` enables `services.fwupd`. The shared firmware-manager build override was removed after nixpkgs added pkg-config and xz to the package's nativeBuildInputs.
 - The repo keeps using `modules/base/hardware-scan.nix` for generic scan support. Do not import `installer/scan/not-detected.nix` directly into the host module.
 
 ## 3) Migration Requirements
@@ -66,7 +66,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
 - Use the host boot policy that is actually committed here:
   - `boot.kernelPackages = lib.mkDefault pkgs.linuxPackages_zen`
   - `systemd-boot` stays enabled with the existing editor, console, and configuration-limit settings
-- Keep the graphics-stack migration out of scope for this document revision:
+- Keep the graphics-stack migration out of scope:
   - do not describe `NVIDIA PRIME`, `services.xserver.videoDrivers`, or runtime graphics policy here
 - Keep existing touchpad behavior unless validation shows a regression:
   - tap-to-click
@@ -85,7 +85,7 @@ These values come from the locally generated `/etc/nixos/hardware-configuration.
 - Do not leave boot storage facts split across `boot.nix` and `hardware-config.nix`; that creates drift on the next hardware change.
 - Do not copy the generated file verbatim into the repo; preserve repo policy and only lift the machine-specific facts.
 - Do not reuse the old `networking.hostId`; that risks collisions if the previous machine ever comes back online.
-- Do not let this document describe a different kernel or graphics policy than the committed code; the repo now carries the linux-zen boot policy in `modules/hosts/common/boot.nix` and keeps the tpnix graphics stack in `modules/tpnix/power.nix`, outside this document's scope.
+- The linux-zen boot policy lives in `modules/hosts/common/boot.nix` and the tpnix graphics stack in `modules/hosts/tpnix/power.nix`.
 - Do not assume missing firmware packages in advance. If Wi-Fi, audio, or suspend behavior fails after boot, inspect logs and add only the exact firmware that is proven necessary.
 
 ## 5) Validation And Rollout

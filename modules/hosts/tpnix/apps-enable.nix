@@ -57,7 +57,7 @@ let
   # firefoxpwa.dmail is a per-site PWA sub-toggle, not a flat app: it routes to
   # dmail.enable, not extended.enable, so it cannot go through appEnable.
   # disableGpuCompositing is a Logseq sub-option in the same shape; tpnix is
-  # the PRIME sync host (modules/tpnix/power.nix), the condition the
+  # the PRIME sync host (modules/hosts/tpnix/power.nix), the condition the
   # workaround exists for. Registered so FR-5 compares them against the
   # baseline too.
   subToggles = [

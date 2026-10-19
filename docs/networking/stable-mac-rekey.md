@@ -24,7 +24,7 @@ Preserve both of those files when restoring a host from backup to keep the gener
 
 Read the addresses after rebooting, not after `nixos-rebuild switch`.
 `usePredictableInterfaceNames` reaches the host as the `net.ifnames=0` kernel parameter, so interfaces keep their old names until the next boot, and an address read before the rename is reseeded by it.
-The `.link` pins in `modules/<host>/networking.nix` take effect at that boot too, so a name they create matches no device until then, and anything keyed to it is inert for that window.
+The `.link` pins in `modules/hosts/<host>/networking.nix` take effect at that boot too, so a name they create matches no device until then, and anything keyed to it is inert for that window.
 
 Read one address per connection profile that carries a reservation or an ACL entry, not one per host.
 Each profile has its own UUID and therefore its own derived address, so a host with several saved Wi-Fi networks presents a different address on each.

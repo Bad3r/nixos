@@ -1,14 +1,14 @@
 # qBittorrent Web UI setup
 
 Use qBittorrent through a host's Web UI instead of its desktop client.
-Songbird is the example host: [qbittorrent.nix](../../modules/songbird/qbittorrent.nix) runs the service inside the `torrent` network namespace behind Proton VPN.
+Songbird is the example host: [qbittorrent.nix](../../modules/hosts/songbird/qbittorrent.nix) runs the service inside the `torrent` network namespace behind Proton VPN.
 The `qbittorrent-webui` handler opens each magnet link or `.torrent` file in the add dialog of Songbird's Web UI.
 The dialog is where the category and save path are chosen before the torrent is added.
 
 ## Optional: import torrents from the desktop profile
 
 Precondition: the desktop profile's `BT_backup` directory is readable, and the service can access every old save path.
-On Songbird, each path must sit under `saveRoots` in [qbittorrent.nix](../../modules/songbird/qbittorrent.nix).
+On Songbird, each path must sit under `saveRoots` in [qbittorrent.nix](../../modules/hosts/songbird/qbittorrent.nix).
 Songbird reads resume data from `torrents.db`, so copying `BT_backup` into its service profile imports nothing.
 
 Set `webui` to the qBittorrent Web API base URL.
@@ -56,11 +56,11 @@ Verification: `curl -fsS "$webui/api/v2/torrents/info?filter=stopped" | jq -r '.
 
 ## Songbird: save torrents under a save root
 
-Precondition: the folder is under a tree in `saveRoots` in [qbittorrent.nix](../../modules/songbird/qbittorrent.nix); `~/Downloads` is the only part of the home directory the service can see.
+Precondition: the folder is under a tree in `saveRoots` in [qbittorrent.nix](../../modules/hosts/songbird/qbittorrent.nix); `~/Downloads` is the only part of the home directory the service can see.
 
 1. Create the folder with any tool, or type its path into a save path field and let the Web UI create it.
 2. Set it as the save path of a category or of a single torrent.
-   The default save path is `DefaultSavePath` in [qbittorrent.nix](../../modules/songbird/qbittorrent.nix); a change under Options lasts only until the next restart.
+   The default save path is `DefaultSavePath` in [qbittorrent.nix](../../modules/hosts/songbird/qbittorrent.nix); a change under Options lasts only until the next restart.
 
 Verification: `getfacl -p <folder>` lists a `user:qbittorrent:rwx` and a `default:user:qbittorrent:rwx` entry, and a torrent saved there completes without an errored state.
 
@@ -74,6 +74,6 @@ Precondition: a new WireGuard configuration from the [Proton account page](https
    sops secrets/protonvpn.yaml
    ```
 
-2. Set the peer's `PublicKey` and `Endpoint` in [qbittorrent.nix](../../modules/songbird/qbittorrent.nix), then commit the secrets repository, the gitlink, and the module, and switch.
+2. Set the peer's `PublicKey` and `Endpoint` in [qbittorrent.nix](../../modules/hosts/songbird/qbittorrent.nix), then commit the secrets repository, the gitlink, and the module, and switch.
 
 Verification: `sudo ip netns exec torrent wg show wg-torrent` reports a recent handshake, and `sudo ip netns exec torrent natpmpc -g 10.2.0.1` prints the new server's public address.

@@ -3,7 +3,7 @@
 
   Configures application defaults shared across hosts. All app modules default
   to disabled, requiring explicit opt-in for better control. The body below
-  represents the common baseline; per-host files (e.g. modules/tpnix/apps-enable.nix)
+  represents the common baseline; per-host files (e.g. modules/hosts/tpnix/apps-enable.nix)
   layer overrides for entries that diverge.
 
   Rows sit at lib.mkOverride 1100 and host rows at 1000. A module that needs
@@ -259,7 +259,7 @@ let
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
       localsend.extended.enable = lib.mkOverride 1100 true;
       # Normal GPU compositing is the common default; tpnix enables the
-      # NVIDIA PRIME sync workaround in modules/tpnix/apps-enable.nix.
+      # NVIDIA PRIME sync workaround in modules/hosts/tpnix/apps-enable.nix.
       logseq.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.disableGpuCompositing = lib.mkOverride 1100 false;
       "logseq-cli".extended.enable = lib.mkOverride 1100 true;

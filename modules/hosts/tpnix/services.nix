@@ -2,10 +2,10 @@ _: {
   configurations.nixos.tpnix.module =
     { pkgs, lib, ... }:
     let
-      powerProfile = import ../hosts/common/_power-profile-unit.nix pkgs;
+      powerProfile = import ../common/_power-profile-unit.nix pkgs;
     in
     {
-      # logind lid/power-key behavior lives in modules/tpnix/power.nix.
+      # logind lid/power-key behavior lives in modules/hosts/tpnix/power.nix.
       services = {
         cloudflared.enable = lib.mkForce false;
 
