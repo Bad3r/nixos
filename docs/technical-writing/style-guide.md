@@ -87,7 +87,7 @@ Longer rationale belongs in the commit body, in the code comment at the option, 
 
 ## Host pages
 
-Each host has four pages under `docs/<host>/`.
+Each host has four pages under `docs/hosts/<host>/`.
 They are named `<host>-hardware.md`, `<host>-configuration.md`, `<host>-runbook.md`, and `<host>-troubleshooting.md`.
 A runbook or troubleshooting page that outgrows the cap splits by topic into `<host>-runbook-<topic>.md` or `<host>-troubleshooting-<topic>.md`.
 

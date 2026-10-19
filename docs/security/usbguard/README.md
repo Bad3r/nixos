@@ -16,7 +16,7 @@ This repository ships a [USBGuard](https://usbguard.github.io/) module to contro
    sudo usbguard allow-device <id>
    ```
 
-3. Copy the **exact** rule output and add it to the sops-encrypted rules file (see [sops docs](../sops/README.md#programmatic--scripted-editing) for safe editing procedures).
+3. Copy the **exact** rule output and add it to the sops-encrypted rules file (see [sops docs](../../sops/README.md#programmatic--scripted-editing) for safe editing procedures).
 
 4. Deploy the configuration:
 

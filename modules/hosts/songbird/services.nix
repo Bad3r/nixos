@@ -161,7 +161,7 @@ in
 
       # CoolerControl stays disabled via the shared baseline: every fan and the
       # AIO pump run from plain PWM headers under BIOS Q-Fan by design
-      # (docs/songbird/songbird-hardware.md), so no OS-side fan software exists
+      # (docs/hosts/songbird/songbird-hardware.md), so no OS-side fan software exists
       # or is needed.
     };
 }

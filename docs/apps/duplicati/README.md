@@ -33,7 +33,7 @@ Two operator-facing CLIs read this state without invoking `duplicati-cli`:
 - `duplicati-r2-list` (Cut A): read-only path/snapshot/history/grep queries directly against the per-target SQLite. No R2 access, no AES decryption. See [operations.md](operations.md#query-the-local-sqlite-read-only).
 - `duplicati-r2-extract` (Cut B): single-file or glob-mode extract that fetches only the dblocks the file needs from R2 (or a `file://` mirror), decrypts them in process memory through `pyAesCrypt`, and writes plaintext to a destination file, stdout, or an output directory. See [operations.md](operations.md#extract-a-single-file-from-r2-cut-b).
 
-Both are auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty. The full design lives in [`../drafts/duplicati-r2-readonly-mount-investigation.md`](../drafts/duplicati-r2-readonly-mount-investigation.md); Cut C (read-only FUSE mount) is designed there but not implemented.
+Both are auto-installed on every host where `services.duplicati-r2.stateDirReadableBy` is non-empty. The full design lives in [`../../drafts/duplicati-r2-readonly-mount-investigation.md`](../../drafts/duplicati-r2-readonly-mount-investigation.md); Cut C (read-only FUSE mount) is designed there but not implemented.
 
 ## Repository layout
 
@@ -58,9 +58,9 @@ Both are auto-installed on every host where `services.duplicati-r2.stateDirReada
 | [recovery.md](recovery.md)     | A backup is failing, dblocks are missing, or impact analysis is required.                                                        |
 | [security.md](security.md)     | Rotating credentials, reviewing the threat model, evaluating the R2 bucket lifecycle policy, or auditing state directory access. |
 
-Cross-reference: the host composition pattern that imports this module is described in [../architecture/05-host-composition.md](../architecture/05-host-composition.md).
+Cross-reference: the host composition pattern that imports this module is described in [../../architecture/05-host-composition.md](../../architecture/05-host-composition.md).
 
-Upstream references: the [`duplicati/documentation`](https://github.com/duplicati/documentation) source is mirrored locally at `/data/git/duplicati-documentation`, and the [`duplicati/duplicati`](https://github.com/duplicati/duplicati) source at `/data/git/duplicati-duplicati`, for offline lookup of `duplicati-cli` flags, manifest fields, and the backup format. Sync is managed through the shared `programs.gitMirror.repos` list; see [../reference/local-mirrors.md](../reference/local-mirrors.md).
+Upstream references: the [`duplicati/documentation`](https://github.com/duplicati/documentation) source is mirrored locally at `/data/git/duplicati-documentation`, and the [`duplicati/duplicati`](https://github.com/duplicati/duplicati) source at `/data/git/duplicati-duplicati`, for offline lookup of `duplicati-cli` flags, manifest fields, and the backup format. Sync is managed through the shared `programs.gitMirror.repos` list; see [../../reference/local-mirrors.md](../../reference/local-mirrors.md).
 
 ## Operating invariants
 

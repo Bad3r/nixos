@@ -6,12 +6,12 @@ Edits made directly to that output can disappear on the next merge.
 
 ## Choose the owning file
 
-- [Settings catalog](../../modules/agents/codex/_default-settings.nix): optional settings and their types.
-- [Site policy](../../modules/agents/codex/_settings.nix): model selection, permissions, memory, terminal preferences, and MCP composition.
-- [Feature flags](../../modules/agents/codex/_features.nix): active flags and commented alternatives from the Rust feature registry.
-- [Process environment](../../modules/agents/codex/_env.nix): environment values exported by login sessions and the Codex launcher.
-- [Shared MCP registry](../../modules/agents/mcp/servers.nix): server endpoints, commands, and client membership.
-- [Execution policy](../../modules/agents/codex/_exec-policy.nix): command approval rules and the controlled shell.
+- [Settings catalog](../../../modules/agents/codex/_default-settings.nix): optional settings and their types.
+- [Site policy](../../../modules/agents/codex/_settings.nix): model selection, permissions, memory, terminal preferences, and MCP composition.
+- [Feature flags](../../../modules/agents/codex/_features.nix): active flags and commented alternatives from the Rust feature registry.
+- [Process environment](../../../modules/agents/codex/_env.nix): environment values exported by login sessions and the Codex launcher.
+- [Shared MCP registry](../../../modules/agents/mcp/servers.nix): server endpoints, commands, and client membership.
+- [Execution policy](../../../modules/agents/codex/_exec-policy.nix): command approval rules and the controlled shell.
 
 Uncomment an optional setting and supply its value to configure it.
 Site policy overrides catalog values.
@@ -19,16 +19,16 @@ Keep credentials in runtime secrets or Codex's login store because Nix configura
 
 ## Desktop application
 
-The [ChatGPT app module](../../modules/apps/chatgpt.nix) installs OpenAI's Linux desktop application from the pinned `llm-agents` input.
+The [ChatGPT app module](../../../modules/apps/chatgpt.nix) installs OpenAI's Linux desktop application from the pinned `llm-agents` input.
 Use `programs.chatgpt.extended.enable` to control installation and `programs.chatgpt.extended.package` to select its package.
-The [shared app catalog](../../modules/hosts/common/apps-enable.nix) owns its default enablement.
+The [shared app catalog](../../../modules/hosts/common/apps-enable.nix) owns its default enablement.
 After rebuilding and switching NixOS, launch the application from the desktop menu or run `chatgpt`.
 Sign in with a ChatGPT account and choose ChatGPT or Codex in the application.
 The `codex` command continues to launch the separately configured terminal agent.
 
 ## Runtime files
 
-The [launcher](../../modules/agents/codex/_wrapper.nix) merges these files in order:
+The [launcher](../../../modules/agents/codex/_wrapper.nix) merges these files in order:
 
 1. `$CODEX_HOME/config.base.toml`, generated from Nix settings.
 2. `$CODEX_HOME/projects.nix.toml`, generated from declared project trust.
@@ -66,7 +66,7 @@ The `codex/config` flake check validates generated TOML with the pinned binary, 
 
 ## Check source behavior
 
-Use the [local Codex mirror](../reference/local-mirrors.md) when a setting is undocumented or a documented option disagrees with the installed binary.
+Use the [local Codex mirror](../../reference/local-mirrors.md) when a setting is undocumented or a documented option disagrees with the installed binary.
 Inspect `ConfigToml`, `RawMcpServerConfig`, and the `FEATURES` registry for accepted fields, transport inference, and removed flags.
 The environment catalog names the Rust readers for each variable.
 Compare the installed version with the pinned package before copying options from a newer source revision.

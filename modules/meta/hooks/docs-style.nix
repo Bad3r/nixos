@@ -410,7 +410,7 @@ _: {
             # The root README.md is the GitHub landing page; drafts, test
             # fixtures and agent instruction files are not pages. Matched here
             # rather than in a pre-commit exclude so tests/docs-style pins the
-            # anchors (the docs/ READMEs and docs/claude-code/writing-CLAUDE.md
+            # anchors (the docs/ READMEs and docs/agents/claude-code/writing-CLAUDE.md
             # are pages) and so a hand run skips the same paths.
             is_exempt() {
               case "$1" in

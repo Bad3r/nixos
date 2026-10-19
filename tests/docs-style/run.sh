@@ -294,13 +294,13 @@ test_agent_instruction_files_are_exempt_by_exact_name() {
   write_lines "${repo}/CLAUDE.md" 151
   write_lines "${repo}/AGENTS.md" 151
   write_lines "${repo}/docs/AGENTS.md" 151
-  write_lines "${repo}/docs/claude-code/CLAUDE.md" 151
-  write_lines "${repo}/docs/claude-code/writing-CLAUDE.md" 151
+  write_lines "${repo}/docs/agents/claude-code/CLAUDE.md" 151
+  write_lines "${repo}/docs/agents/claude-code/writing-CLAUDE.md" 151
 
-  run_hook "${repo}" CLAUDE.md AGENTS.md docs/AGENTS.md docs/claude-code/CLAUDE.md
+  run_hook "${repo}" CLAUDE.md AGENTS.md docs/AGENTS.md docs/agents/claude-code/CLAUDE.md
   assert_clean "instruction files"
 
-  run_hook "${repo}" docs/claude-code/writing-CLAUDE.md
+  run_hook "${repo}" docs/agents/claude-code/writing-CLAUDE.md
   assert_violations 1 "a page named after one"
   pass
 }
