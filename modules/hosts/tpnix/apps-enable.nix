@@ -24,6 +24,7 @@ let
     ent = false;
     f3 = false;
     filezilla = false;
+    freerdp = true;
     "frida-tools" = false;
     ghidra = false;
     "gnome-disk-utility" = false;
@@ -33,6 +34,7 @@ let
     iotop = false;
     kdiskmark = false;
     "kiro-fhs" = false;
+    libsecret = true;
     "maestral-gui" = false;
     markitdown = false;
     mpv = false;
@@ -51,6 +53,7 @@ let
     "video-cache" = false;
     "virt-manager" = true;
     vulnix = false;
+    winapps = true;
     yarn = false;
   };
 

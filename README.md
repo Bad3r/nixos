@@ -79,8 +79,9 @@ See the [sops documentation](docs/sops/README.md) for usage instructions.
 
 These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it. The table lists dedicated dedupe roots and canonical non-nixpkgs roots; ordinary root followers such as `nixpkgs` are declared beside each dependent input. Remove any `dedupe_*` input once no `.follows` declaration references it.
 
-| Input                 | Followed By                                                                |
-| --------------------- | -------------------------------------------------------------------------- |
-| `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat` |
-| `dedupe_nur`          | `stylix.inputs.nur`                                                        |
-| `systems`             | `stylix.inputs.systems`                                                    |
+| Input                 | Followed By                                                                                               |
+| --------------------- | --------------------------------------------------------------------------------------------------------- |
+| `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat`, `winapps.inputs.flake-compat` |
+| `dedupe_flake-utils`  | `winapps.inputs.flake-utils`                                                                              |
+| `dedupe_nur`          | `stylix.inputs.nur`                                                                                       |
+| `systems`             | `dedupe_flake-utils.inputs.systems`, `stylix.inputs.systems`                                              |

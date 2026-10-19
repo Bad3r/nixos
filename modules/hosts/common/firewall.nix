@@ -2,13 +2,22 @@
 #   flake.lib.nixos.hosts.<host>.firewallExtraTcpPortRanges
 #     Additional globally open TCP port ranges.
 #   flake.lib.nixos.hosts.<host>.firewallLocalTcpPortRanges
-#     Additional TCP port ranges open from 10.0.0.0/8 and 192.168.0.0/16 IPv4 sources,
-#     and on the CloudflareWARP interface.
+#     Additional TCP port ranges open from 10.0.0.0/8 excluding 10.11.0.0/16,
+#     from 192.168.0.0/16, and on the CloudflareWARP interface.
 { config, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
+  # 10.0.0.0/8 minus 10.11.0.0/16: libvirt guests on the shared VM network
+  # (modules/hosts/common/windows-guest.nix) must not count as LAN sources.
   localNetworkCidrs = [
-    "10.0.0.0/8"
+    "10.0.0.0/13"
+    "10.8.0.0/15"
+    "10.10.0.0/16"
+    "10.12.0.0/14"
+    "10.16.0.0/12"
+    "10.32.0.0/11"
+    "10.64.0.0/10"
+    "10.128.0.0/9"
     "192.168.0.0/16"
   ];
   meshInterface = "CloudflareWARP";
@@ -25,6 +34,9 @@ let
       hostFlags = hostsRegistry.${hostName} or { };
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       localTcpPortRanges = hostFlags.firewallLocalTcpPortRanges or [ ];
+      localSshCommands = lib.concatMapStrings (
+        cidr: "iptables -A nixos-fw -s ${cidr} -p tcp --dport 22 -j nixos-fw-accept\n"
+      ) localNetworkCidrs;
       localTcpPortRangeCommands = lib.concatMapStrings (
         range:
         let
@@ -60,9 +72,8 @@ let
             allowedTCPPortRanges = localTcpPortRanges;
           };
         };
-        # Allow SSH from local network (10.0.0.0/8)
         extraCommands = ''
-          iptables -A nixos-fw -s 10.0.0.0/8 -p tcp --dport 22 -j nixos-fw-accept
+          ${localSshCommands}
           ${localTcpPortRangeCommands}
         '';
       };

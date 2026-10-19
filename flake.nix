@@ -152,6 +152,15 @@
       };
     };
 
+    winapps = {
+      url = "github:winapps-org/winapps";
+      inputs = {
+        flake-compat.follows = "dedupe_flake-compat";
+        flake-utils.follows = "dedupe_flake-utils";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
+
     smart-scrolloff-nvim = {
       flake = false;
       url = "github:tonymajestro/smart-scrolloff.nvim";
@@ -220,6 +229,11 @@
     # `dedupe_` prefix; `systems` keeps the canonical `nix-systems` input name.
     dedupe_flake-compat = {
       url = "github:edolstra/flake-compat";
+    };
+
+    dedupe_flake-utils = {
+      url = "github:numtide/flake-utils";
+      inputs.systems.follows = "systems";
     };
 
     dedupe_nur = {

@@ -5,7 +5,7 @@ Commands run on the host unless a step names the guest.
 
 ## Apply the declaration
 
-Precondition: the host module sets `host.virtualization.windowsGuest.enable`, and `/` has room for the declared volume capacity plus 20 GiB.
+Precondition: the host module sets `host.virtualization.windowsGuest.enable`, `/` has room for the declared volume capacity plus 20 GiB, and `RDPWindows` plus every guest on `default` are shut off. Run `virsh shutdown <domain>` for each running guest and wait for `virsh domstate <domain>` to show `shut off`.
 
 1. Check the free space:
 
@@ -31,7 +31,7 @@ Precondition: the host module sets `host.virtualization.windowsGuest.enable`, an
    virsh --connect qemu:///system list --all
    ```
 
-Verification: the unit result is `success`, the `winapps` network and pool are active, the volume allocation is far below its capacity, and `RDPWindows` is shut off.
+Verification: the unit result is `success`, the `default` network and `winapps` pool are active, the volume is mostly unallocated, and `RDPWindows` is shut off.
 
 ## Attach the install media
 
@@ -60,9 +60,10 @@ Precondition: the install media is attached.
 2. At the disk selection screen choose `Load driver`, browse the virtio-win CD to `viostor\w11\amd64`, and install the storage driver.
    The disk appears once the driver loads.
 
-3. Create a local account named after the Linux user, and give it a password; RDP refuses an account without one.
-   Pick `Domain join instead` under the sign-in options, or stay offline and pick `I don't have internet`.
+3. At the sign-in screen, pick `Domain join instead` under the sign-in options, or stay offline and pick `I don't have internet`.
    If setup offers neither, press Shift+F10, run `oobe\bypassnro`, and repeat the step after the restart.
+
+4. Create a local account named after `host.virtualization.windowsGuest.rdpUser` in `modules/hosts/common/windows-guest.nix`, the account the launcher signs in as, and give it the password RDP requires.
 
 Verification: at the desktop, in an elevated PowerShell in the guest, `Confirm-SecureBootUEFI` prints `True` and `Get-Tpm` reports `TpmPresent : True`.
 
@@ -78,10 +79,11 @@ Precondition: Windows is at the desktop and the virtio-win CD is attached.
    ```sh
    virsh --connect qemu:///system qemu-agent-command RDPWindows '{"execute":"guest-ping"}'
    virsh --connect qemu:///system domifaddr RDPWindows --source agent
-   virsh --connect qemu:///system net-dhcp-leases winapps
+   virsh --connect qemu:///system net-dhcp-leases default
    ```
 
 Verification: the agent answers `{"return":{}}`, and the lease holds the address of `host.virtualization.windowsGuest.network.guestAddress`.
+The [shared folder](shared-folder.md) provisions automatically after the agent responds and the virtiofs device is active.
 
 ## Configure Windows
 
@@ -101,27 +103,29 @@ Precondition: the guest tools are installed and the guest reaches the internet.
 
 Verification: `powercfg /a` in the guest lists hibernation as unavailable, and Windows Update reports the guest up to date.
 
-## Check guest isolation
+## Check shared guest access
 
 Precondition: the guest is running with network access.
 
-1. Read the host address on the guest bridge:
+1. On the host, read the bridge address and listen on a port in the service range:
 
    ```sh
-   ip -4 -br addr show virbr-winapps
+   ip -4 -br addr show virbr0
+   nc -l 8000
    ```
 
-2. In a PowerShell in the guest, probe the host and the internet:
+2. In a PowerShell in the guest, probe the listener, SSH, name resolution, and outbound access:
 
    ```powershell
+   Test-NetConnection <host-bridge-address> -Port 8000
    Test-NetConnection <host-bridge-address> -Port 22
    Resolve-DnsName example.com
    Test-NetConnection example.com -Port 443
    ```
 
-3. On a host that runs a VPN or WARP tunnel, repeat step 2 with the tunnel connected and disconnected.
+3. With a second VM on `default`, listen on a port in the range there and probe its DHCP address from the guest the same way.
 
-Verification: the probe of the host fails, while the name lookup and the outbound connection succeed in every tunnel state.
+Verification: the host and peer listeners accept the connection, host SSH fails, and the name lookup and outbound TCP 443 succeed.
 
 ## Detach the install media
 

@@ -188,6 +188,26 @@
         "type": "github"
       }
     },
+    "dedupe_flake-utils": {
+      "inputs": {
+        "systems": [
+          "systems"
+        ]
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
     "dedupe_nur": {
       "inputs": {
         "flake-parts": [
@@ -824,6 +844,21 @@
         "type": "github"
       }
     },
+    "nix-filter": {
+      "locked": {
+        "lastModified": 1757882181,
+        "narHash": "sha256-+cCxYIh2UNalTz364p+QYmWHs0P+6wDhiWR4jDIKQIU=",
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "rev": "59c44d1909c72441144b93cf0f054be7fe764de5",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "nix-filter",
+        "type": "github"
+      }
+    },
     "nix-index-database": {
       "inputs": {
         "nixpkgs": [
@@ -1208,6 +1243,7 @@
         "cloudflare-python": "cloudflare-python",
         "cloudflare-rs": "cloudflare-rs",
         "dedupe_flake-compat": "dedupe_flake-compat",
+        "dedupe_flake-utils": "dedupe_flake-utils",
         "dedupe_nur": "dedupe_nur",
         "emacs-overlay": "emacs-overlay",
         "flake-parts": "flake-parts",
@@ -1237,6 +1273,7 @@
         "tinted-schemes": "tinted-schemes",
         "treefmt-nix": "treefmt-nix",
         "vim-autoread": "vim-autoread",
+        "winapps": "winapps",
         "workers-rs": "workers-rs",
         "zsh-auto-notify": "zsh-auto-notify"
       }
@@ -1544,6 +1581,33 @@
         "owner": "djoshea",
         "repo": "vim-autoread",
         "rev": "24061f84652d768bfb85d222c88580b3af138dab",
+        "type": "github"
+      }
+    },
+    "winapps": {
+      "inputs": {
+        "flake-compat": [
+          "dedupe_flake-compat"
+        ],
+        "flake-utils": [
+          "dedupe_flake-utils"
+        ],
+        "nix-filter": "nix-filter",
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1789407052,
+        "narHash": "sha256-eSUFY+u9Xq9/i/0/OH5JhVzTvG+eiOEvUErAmfBzaBE=",
+        "owner": "winapps-org",
+        "repo": "winapps",
+        "rev": "42c7e8318280c6fc3426c7afebfc7f43b895f4c8",
+        "type": "github"
+      },
+      "original": {
+        "owner": "winapps-org",
+        "repo": "winapps",
         "type": "github"
       }
     },

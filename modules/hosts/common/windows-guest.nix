@@ -1,4 +1,4 @@
-{ inputs, ... }:
+{ inputs, metaOwner, ... }:
 let
   body =
     {
@@ -20,7 +20,6 @@ let
       # The network UUID is identity too: NixVirt undefines by UUID and destroys
       # every domain on a network it replaces, so a change powers the guest off.
       domainUuid = "d40dd3b2-a6ad-4136-89d8-120cb5d3c098";
-      winappsNetworkUuid = "44d27dc5-b0b5-4673-9c6b-2cceb995b733";
       defaultNetworkUuid = "84712988-20f5-4ffa-b6a2-acb45df49078";
       poolUuid = "7355d2f6-f1ff-4057-b6c8-a72475c936d4";
       nvramPath = "/var/lib/libvirt/qemu/nvram/${name}_VARS.fd";
@@ -33,33 +32,31 @@ let
       # agree and the DHCP reservation holds.
       guestMac = "52:54:00:93:d8:09";
 
-      # Outside the sources modules/hosts/common/firewall.nix trusts, Docker's
-      # default address pools, and the CGNAT range the mesh and tailnet use.
-      networkName = "winapps";
-      bridge = "virbr-winapps";
-      hostAddress = "172.16.213.1";
-      guestAddress = "172.16.213.10";
+      networkName = "default";
+      bridge = "virbr0";
+      hostAddress = "10.11.11.1";
+      guestAddress = "10.11.11.2";
 
-      winappsNetwork = {
-        name = networkName;
-        uuid = winappsNetworkUuid;
-        forward.mode = "nat";
-        bridge.name = bridge;
+      defaultNetworkTemplate = nixvirt.network.templates.bridge {
+        uuid = defaultNetworkUuid;
+        # Only the template's ip block reads subnet_byte, and defaultNetwork replaces it.
+        subnet_byte = 0;
+      };
+      defaultNetwork = defaultNetworkTemplate // {
         ip = {
           address = hostAddress;
           netmask = "255.255.255.0";
-          # No range: dnsmasq serves the reservation only, so a guest with
-          # another MAC gets no address instead of a wrong one.
-          dhcp.host = {
-            mac = guestMac;
-            ip = guestAddress;
+          dhcp = {
+            range = {
+              start = "10.11.11.3";
+              end = "10.11.11.254";
+            };
+            host = {
+              mac = guestMac;
+              ip = guestAddress;
+            };
           };
         };
-      };
-
-      defaultNetwork = nixvirt.network.templates.bridge {
-        uuid = defaultNetworkUuid;
-        subnet_byte = 122;
       };
 
       pool = {
@@ -83,6 +80,16 @@ let
         };
         target.format.type = "qcow2";
       };
+
+      owner = config.users.users.${metaOwner.username};
+
+      # Drop host privileges before virtiofsd creates its user namespace so guest
+      # ownership requests cannot create files owned by another host account.
+      virtiofsd = pkgs.writeShellScript "virtiofsd-transfer" ''
+        exec ${lib.getExe' pkgs.util-linux "setpriv"} --reuid=${toString owner.uid} \
+          --regid=${toString config.users.groups.${owner.group}.gid} --clear-groups --no-new-privs \
+          ${lib.getExe pkgs.virtiofsd} "$@"
+      '';
 
       template = nixvirt.domain.templates.windows {
         inherit name;
@@ -154,6 +161,11 @@ let
             }
           ];
         };
+        # vhost-user hands guest RAM to virtiofsd, so it has to be shared.
+        memoryBacking = {
+          source.type = "memfd";
+          access.mode = "shared";
+        };
         devices = template.devices // {
           # nixpkgs' libvirtd-config keeps this link pointed at
           # libvirtd.qemu.package; the template's value is NixVirt's own qemu.
@@ -187,6 +199,14 @@ let
           graphics = template.devices.graphics // {
             listen.type = "none";
           };
+          filesystem = {
+            type = "mount";
+            accessmode = "passthrough";
+            driver.type = "virtiofs";
+            binary.path = "${virtiofsd}";
+            source.dir = cfg.transferDir;
+            target.dir = "transfer";
+          };
         };
       };
 
@@ -210,6 +230,23 @@ let
           default = guestAddress;
           readOnly = true;
           description = "IPv4 address the guest network reserves for the guest.";
+        };
+
+        rdpUser = lib.mkOption {
+          type = lib.types.str;
+          default = "outlook";
+          readOnly = true;
+          description = "Local Windows account the RemoteApp launcher signs in as.";
+        };
+
+        transferDir = lib.mkOption {
+          type = lib.types.str;
+          default = "/mnt/outlook";
+          readOnly = true;
+          description = ''
+            Host directory the guest mounts over virtiofs, so every guest session sees it, the
+            virt-manager console as well as RDP.
+          '';
         };
 
         installIso = lib.mkOption {
@@ -248,22 +285,17 @@ let
             swtpm.enable = true;
             # The lists are exhaustive: NixVirt powers off and undefines every
             # object on the connection that is not declared here.
-            # restart = false throughout: definitions embed store paths that move
-            # with nixpkgs, and NixVirt's default powers an object off on any
-            # change. A change applies at the object's next start.
+            # The domain embeds store paths that move with nixpkgs, so changes
+            # apply on its next start. Network XML has no store paths and restarts
+            # only when its definition changes; that restart hard powers off every
+            # running guest on the network, and RDPWindows boots again because
+            # active = null keeps the state NixVirt found before the switch.
             connections.${uri} = {
               networks = [
                 {
-                  definition = nixvirt.network.writeXML winappsNetwork;
-                  active = true;
-                  restart = false;
-                }
-                # For ad-hoc virt-manager guests; started on demand so no idle
-                # bridge sits inside the range the host firewall trusts.
-                {
                   definition = nixvirt.network.writeXML defaultNetwork;
-                  active = null;
-                  restart = false;
+                  active = true;
+                  restart = null;
                 }
               ];
               pools = [
@@ -274,7 +306,8 @@ let
                   volumes = [ { definition = nixvirt.volume.writeXML volume; } ];
                 }
               ];
-              # active = null: started on demand, never by NixVirt.
+              # active = null keeps the run state NixVirt finds before a switch: the guest
+              # starts on demand, and NixVirt boots it only after powering it off itself.
               domains = [
                 {
                   definition = nixvirt.domain.writeXML domain;
@@ -294,10 +327,17 @@ let
         };
 
         # NixVirt starts the pool without building it, so the target has to exist.
-        systemd.tmpfiles.settings."10-windows-guest".${poolPath}.d = {
-          user = "root";
-          group = "root";
-          mode = "0711";
+        systemd.tmpfiles.settings."10-windows-guest" = {
+          ${poolPath}.d = {
+            user = "root";
+            group = "root";
+            mode = "0711";
+          };
+          ${cfg.transferDir}.d = {
+            inherit (owner) group;
+            user = metaOwner.username;
+            mode = "0700";
+          };
         };
 
         # Head of the chain: nixos-fw accepts the open ports and LAN sources
@@ -309,6 +349,7 @@ let
         # ahead of it on IPv4, while IPv6 gets only the refuse, at the head.
         networking.firewall.extraCommands = ''
           ip46tables -I nixos-fw 1 -i ${bridge} -m conntrack --ctstate NEW -j nixos-fw-refuse
+          iptables -I nixos-fw 1 -i ${bridge} -s 10.11.11.0/24 -p tcp --dport 8000:9999 -m conntrack --ctstate NEW -j nixos-fw-accept
           iptables -I nixos-fw 1 -i ${bridge} -p tcp --dport 53 -j nixos-fw-accept
           iptables -I nixos-fw 1 -i ${bridge} -p udp --dport 53 -j nixos-fw-accept
           iptables -I nixos-fw 1 -i ${bridge} -p udp --dport 67 -j nixos-fw-accept
