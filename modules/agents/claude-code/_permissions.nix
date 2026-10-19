@@ -56,43 +56,15 @@ let
     "zsh"
   ];
 
-  # Destructive or history-rewriting commands that must ask first; ask is
-  # evaluated before allow, so these override the broad `git *` allow even
-  # under acceptEdits/auto/bypassPermissions. Mirrors the codex execpolicy
-  # prompt rules (modules/agents/codex/_exec-policy.nix) so both agents gate
-  # the same operations; `git checkout --` is the discard form codex's
-  # prefix-only matcher cannot express.
+  # Destructive commands that must ask first; ask is evaluated before allow,
+  # so these override the broad allows even under
+  # acceptEdits/auto/bypassPermissions. Unlike the codex execpolicy
+  # (modules/agents/codex/_exec-policy.nix), no git subcommand is gated here.
   stashHelperAsk = map (argv: builtins.concatStringsSep " " argv) (
     import ../_stash-helper-invocations.nix
   );
 
   bashAsk = [
-    "git clean"
-    "git reset"
-    "git rebase"
-    "git restore"
-    "git checkout --"
-    "git stash drop"
-    "git stash clear"
-    "git stash pop"
-    "git branch -d"
-    "git branch -D"
-    "git branch --delete"
-    "git tag -d"
-    "git tag --delete"
-    "git worktree remove"
-    "git remote prune"
-    "git filter-branch"
-    "git filter-repo"
-    "git gc"
-    "git prune"
-    "git reflog expire"
-    "git push -f"
-    "git push --force"
-    "git push --force-with-lease"
-    "git push --mirror"
-    "git push --delete"
-    "git push --prune"
     "gh repo delete"
     "gh pr close --delete-branch"
   ]
