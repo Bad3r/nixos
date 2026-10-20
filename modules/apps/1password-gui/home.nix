@@ -1,5 +1,5 @@
 _: {
-  flake.homeManagerModules.apps."1password-gui-beta" =
+  flake.homeManagerModules.apps."1password-gui" =
     {
       config,
       osConfig,
@@ -8,10 +8,10 @@ _: {
       ...
     }:
     let
-      cfg = config.programs."1password-gui-beta".extended;
+      cfg = config.programs."1password-gui".extended;
       nixosEnabled = lib.attrByPath [
         "programs"
-        "1password-gui-beta"
+        "1password-gui"
         "extended"
         "enable"
       ] false osConfig;
@@ -20,7 +20,7 @@ _: {
       emptyJsonFile = pkgs.writeText "empty-json.json" "{}";
     in
     {
-      options.programs."1password-gui-beta".extended.settings = lib.mkOption {
+      options.programs."1password-gui".extended.settings = lib.mkOption {
         inherit (settingsFormat) type;
         default = {
           version = 1;

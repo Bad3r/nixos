@@ -1,12 +1,12 @@
 /*
-  Package: 1password-gui-beta
-  Description: Beta channel of the 1Password desktop password manager.
+  Package: 1password-gui
+  Description: 1Password desktop password manager.
   Homepage: https://1password.com/
   Documentation: https://support.1password.com/getting-started-linux/
   Repository: nil
 
   Summary:
-    * Installs the 1Password Linux desktop application from the beta release channel.
+    * Installs the 1Password Linux desktop application from the stable release channel.
     * Provides vault browsing, item editing, browser integration, Quick Access, and Watchtower checks.
 
   Options:
@@ -15,12 +15,12 @@
     Watchtower: Review reused, weak, or compromised passwords and other security alerts.
 
   Notes:
-    * Uses nixpkgs package `pkgs._1password-gui` with the beta channel; the app key omits the leading underscore for repo module discovery.
+    * Uses nixpkgs package `pkgs._1password-gui`; the app key omits the leading underscore for repo module discovery.
     * Delegates browser-support wrapper setup to nixpkgs' `programs._1password-gui` module.
 */
 _:
 let
-  OnePasswordGuiBetaModule =
+  OnePasswordGuiModule =
     {
       config,
       lib,
@@ -29,7 +29,7 @@ let
       ...
     }:
     let
-      cfg = config.programs."1password-gui-beta".extended;
+      cfg = config.programs."1password-gui".extended;
       owner = metaOwner.username;
       browserEnabled = name: lib.attrByPath [ "programs" name "extended" "enable" ] false config;
       customAllowedBrowsers =
@@ -38,24 +38,18 @@ let
         ++ lib.optional (browserEnabled "mullvad-browser") "mullvad-browser";
     in
     {
-      options.programs."1password-gui-beta".extended = {
+      options.programs."1password-gui".extended = {
         enable = lib.mkOption {
           type = lib.types.bool;
           default = false;
-          description = "Whether to enable 1password-gui-beta.";
+          description = "Whether to enable 1password-gui.";
         };
 
         package = lib.mkOption {
           type = lib.types.package;
-          default = pkgs._1password-gui.override {
-            channel = "beta";
-          };
-          defaultText = lib.literalExpression ''
-            pkgs._1password-gui.override {
-              channel = "beta";
-            }
-          '';
-          description = "The 1Password GUI beta package to use.";
+          default = pkgs._1password-gui;
+          defaultText = lib.literalExpression "pkgs._1password-gui";
+          description = "The 1Password GUI package to use.";
         };
 
         polkitPolicyOwners = lib.mkOption {
@@ -80,5 +74,5 @@ let
 in
 {
   nixpkgs.allowedUnfreePackages = [ "1password" ];
-  flake.nixosModules.apps."1password-gui-beta" = OnePasswordGuiBetaModule;
+  flake.nixosModules.apps."1password-gui" = OnePasswordGuiModule;
 }

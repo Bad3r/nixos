@@ -3,7 +3,7 @@ let
   Overlay =
     { config, lib, ... }:
     let
-      cfg = config.programs."1password-gui-beta".extended;
+      cfg = config.programs."1password-gui".extended;
       onePasswordIcon = ../../stylix/icons/1password-outline.svg;
       iconSizes = [
         32
@@ -71,12 +71,11 @@ let
         nixpkgs.overlays = [
           (final: prev: {
             _1password-gui = patchOnePasswordGui final prev._1password-gui;
-            _1password-gui-beta = patchOnePasswordGui final prev._1password-gui-beta;
           })
         ];
       };
     };
 in
 {
-  flake.customOverlays."1password-gui-beta" = Overlay;
+  flake.customOverlays."1password-gui" = Overlay;
 }

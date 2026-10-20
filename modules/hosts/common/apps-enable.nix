@@ -25,7 +25,7 @@ let
         #"glab"
         #"wrangler"
       ];
-      "1password-gui-beta".extended.enable = lib.mkOverride 1100 true;
+      "1password-gui".extended.enable = lib.mkOverride 1100 true;
       act.extended.enable = lib.mkOverride 1100 true;
       actionlint.extended.enable = lib.mkOverride 1100 true;
       age.extended.enable = lib.mkOverride 1100 true;

@@ -87,7 +87,7 @@ in
         # SSH authentication on hosts that enable the CLI without the GUI.
         onePasswordSshAgentEnabled = lib.attrByPath [
           "programs"
-          "1password-gui-beta"
+          "1password-gui"
           "extended"
           "enable"
         ] false osConfig;

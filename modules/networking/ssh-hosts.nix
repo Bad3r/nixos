@@ -99,7 +99,7 @@ let
       # socket or key that never exists.
       onePasswordSshAgentEnabled = lib.attrByPath [
         "programs"
-        "1password-gui-beta"
+        "1password-gui"
         "extended"
         "enable"
       ] false osConfig;

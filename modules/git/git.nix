@@ -8,7 +8,7 @@
       ...
     }:
     let
-      onePassword = lib.attrByPath [ "programs" "1password-gui-beta" "extended" ] {
+      onePassword = lib.attrByPath [ "programs" "1password-gui" "extended" ] {
         enable = false;
       } osConfig;
       githubUnsignedEmail = "github@unsigned.sh";
