@@ -363,6 +363,7 @@ let
       parted.extended.enable = lib.mkOverride 1100 true;
       patch.extended.enable = lib.mkOverride 1100 false;
       patchelf.extended.enable = lib.mkOverride 1100 true;
+      patchutils.extended.enable = lib.mkOverride 1100 true;
       path.extended.enable = lib.mkOverride 1100 true;
       pciutils.extended.enable = lib.mkOverride 1100 true;
       "pentesting-devshell".extended.enable = lib.mkOverride 1100 false;
