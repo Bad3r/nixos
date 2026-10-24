@@ -203,7 +203,10 @@ let
 in
 {
   flake.homeManagerModules.base = sshHostsModule {
-    hostNames = builtins.attrNames (config.flake.lib.nixos.hosts or { });
+    # A shareCommon = false host is a libvirt guest without mDNS, so no .local alias.
+    hostNames = builtins.attrNames (
+      lib.filterAttrs (_: host: host.shareCommon or true) (config.flake.lib.nixos.hosts or { })
+    );
     meshHostNames = config.flake.lib.nixos._cloudflareWarpMeshHostNames or [ ];
     fleetHostKeys = config.flake.lib.nixos.fleetHostKeys;
   };
