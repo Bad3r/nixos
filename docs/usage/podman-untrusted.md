@@ -28,7 +28,7 @@ The `docker` shim is the podman CLI, so `docker --module untrusted run` behaves 
 
 ## What the tier fences
 
-- The container sees only a loopback interface: no Internet, LAN, Mesh, or host listeners, and no `/etc/resolv.conf`.
+- The container sees only gVisor's own loopback interface: no Internet, LAN, Mesh, or host listeners, and no `/etc/resolv.conf`.
 - gVisor answers the container's system calls, so a kernel exploit has to break gVisor first.
 - No host environment variables enter the container.
 - Bind-mounted host Unix sockets accept connections; nothing else on the host is reachable without a mount.

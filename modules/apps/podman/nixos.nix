@@ -91,8 +91,12 @@ let
           containers.netns = "none";
           engine = {
             runtime = "runsc";
-            # Replaces the base list; gVisor refuses bind-mounted host sockets without host-uds=open.
-            runtimes_flags.runsc = runscFlags ++ [ "host-uds=open" ];
+            # Replaces the base list. gVisor refuses bind-mounted host sockets without host-uds=open,
+            # and network=none gives the container gVisor's own loopback, which netns "none" lacks.
+            runtimes_flags.runsc = runscFlags ++ [
+              "host-uds=open"
+              "network=none"
+            ];
           };
         };
 
