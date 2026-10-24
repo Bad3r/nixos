@@ -22,6 +22,7 @@ in
         gamma = "00000000-0000-4000-8000-00000000000c";
         delta = "00000000-0000-4000-8000-00000000000d";
         adhoc = "00000000-0000-4000-8000-0000000000ad";
+        sbx = "00000000-0000-4000-8000-0000000000bb";
       };
 
       seedImage = pkgs.runCommand "workloads-vms-test-seed.qcow2" { } ''
@@ -88,6 +89,136 @@ in
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
 
       stateDir = name: "/var/lib/workloads/guests/${uuids.${name}}";
+
+      # Session guests on the sessionAttach network: busybox in an initrd,
+      # with the NIC sbx renders. The probe reports each reachability check.
+      owner = metaOwner.username;
+      home = "/home/${owner}";
+      sbxPackage = pkgs.callPackage ../../../packages/sbx { };
+      sbxPython = "${pkgs.python3.interpreter} -I";
+      busybox = pkgs.pkgsStatic.busybox;
+      sessionKernel = pkgs.linuxPackages.kernel;
+      # Decompressed in load order, so the static busybox insmod loads them.
+      sessionModules =
+        pkgs.runCommand "workloads-vms-test-modules"
+          {
+            nativeBuildInputs = [
+              pkgs.kmod
+              pkgs.xz
+            ];
+          }
+          ''
+            mkdir "$out"
+            for module in virtio_pci virtio_net af_packet; do
+              modprobe --show-depends -d ${sessionKernel.modules} -S ${sessionKernel.modDirVersion} "$module"
+            done | awk '$1 == "insmod" && !seen[$2]++ { print $2 }' | while read -r path; do
+              name=$(basename "$path" .xz)
+              xz -dc "$path" > "$out/$name"
+              echo "$name" >> "$out/order"
+            done
+          '';
+      udhcpcScript = pkgs.writeScript "udhcpc-script" ''
+        #!${busybox}/bin/sh
+        case "$1" in
+          bound)
+            ip addr add "$ip/$mask" dev "$interface"
+            ip link set "$interface" mtu "''${mtu:-1500}"
+            ip route add default via "$router"
+            echo "SBX lease ip=$ip router=$router dns=$dns mtu=$mtu"
+            ;;
+        esac
+      '';
+      sessionInit = pkgs.writeScript "init" ''
+        #!${busybox}/bin/sh
+        export PATH=${busybox}/bin
+        mkdir -p /proc /sys /dev
+        mount -t proc proc /proc
+        mount -t sysfs sysfs /sys
+        mount -t devtmpfs devtmpfs /dev
+        exec >/dev/ttyS0 2>&1
+        while read -r module; do
+          insmod ${sessionModules}/"$module"
+        done < ${sessionModules}/order
+        for arg in $(cat /proc/cmdline); do
+          case "$arg" in
+            sbx.role=*) role=''${arg#*=} ;;
+            sbx.peer=*) peer=''${arg#*=} ;;
+            sbx.host=*) host=''${arg#*=} ;;
+          esac
+        done
+        ip link set lo up
+        ip link set eth0 up
+        udhcpc -i eth0 -n -q -t 30 -T 2 -O mtu -x "hostname:$role" -s ${udhcpcScript} || echo "SBX no lease"
+        if [ "$role" = probe ]; then
+          gateway=$(ip route | awk '/^default/ { print $3 }')
+          check() { if "$@" >/dev/null 2>&1; then echo ok; else echo blocked; fi; }
+          echo "SBX gateway-ping=$(check ping -c 1 -W 3 "$gateway")"
+          echo "SBX dns: $(nslookup peer "$gateway" 2>&1 | tr '\n' ' ')"
+          echo "SBX gateway-http=$(check wget -q -T 3 -O /dev/null "http://$gateway:8080/")"
+          echo "SBX host-http=$(check wget -q -T 3 -O /dev/null "http://$host:8080/")"
+          echo "SBX peer-ping=$(check ping -c 2 -W 3 "$peer")"
+          echo "SBX done"
+        fi
+        while :; do sleep 3600; done
+      '';
+      sessionInitrd = pkgs.makeInitrd {
+        contents = [
+          {
+            object = sessionInit;
+            symlink = "/init";
+          }
+        ];
+      };
+      renderSessionDomain = pkgs.writeText "render-session-domain.py" ''
+        import sys
+        import xml.etree.ElementTree as ET
+
+        sys.path.insert(0, "${sbxPackage}/lib/sbx")
+        from sbx.core import bridge_interface
+
+        name, mac, cmdline = sys.argv[1:]
+        domain = ET.Element("domain", type="kvm")
+        ET.SubElement(domain, "name").text = name
+        ET.SubElement(domain, "memory", unit="MiB").text = "128"
+        system = ET.SubElement(domain, "os")
+        ET.SubElement(system, "type", arch="x86_64", machine="q35").text = "hvm"
+        ET.SubElement(system, "kernel").text = "${sessionKernel}/bzImage"
+        ET.SubElement(system, "initrd").text = "${sessionInitrd}/initrd"
+        ET.SubElement(system, "cmdline").text = f"console=ttyS0 panic=-1 {cmdline}"
+        # Without ACPI, q35's PCIe root ports leave the NIC powered off.
+        features = ET.SubElement(domain, "features")
+        ET.SubElement(features, "acpi")
+        ET.SubElement(features, "apic")
+        devices = ET.SubElement(domain, "devices")
+        ET.SubElement(devices, "emulator").text = "${pkgs.qemu_kvm}/bin/qemu-system-x86_64"
+        devices.append(bridge_interface("vn-sbx", mac))
+        serial = ET.SubElement(devices, "serial", type="file")
+        ET.SubElement(serial, "source", path=f"${home}/{name}.log")
+        ET.SubElement(serial, "target", port="0")
+        ET.SubElement(devices, "memballoon", model="none")
+        print(ET.tostring(domain, encoding="unicode"))
+      '';
+      sessionDomain =
+        name: mac: cmdline:
+        pkgs.runCommand "workloads-vms-test-${name}.xml" { } ''
+          ${sbxPython} ${renderSessionDomain} ${name} ${mac} "${cmdline}" > "$out"
+        '';
+      peerMac = "52:54:00:00:00:0b";
+      probeMac = "52:54:00:00:00:0c";
+      # sbx's own reader; it exits non-zero until the lease exists.
+      leaseOf = pkgs.writeText "lease-of.py" ''
+        import sys
+        import time
+        from pathlib import Path
+
+        sys.path.insert(0, "${sbxPackage}/lib/sbx")
+        from sbx.core import lease_address
+
+        address = lease_address(Path("/var/lib/libvirt/dnsmasq/vn-sbx.status"), sys.argv[1], time.time())
+        if address is None:
+            sys.exit(1)
+        print(address)
+      '';
     in
     {
       checks.workloads-vms = pkgs.testers.runNixOSTest {
@@ -124,7 +255,14 @@ in
               networking.nftables.enable = true;
               environment.systemPackages = [ pkgs.dnsutils ];
               programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
-              users.users.${metaOwner.username}.isNormalUser = true;
+              # Open on every interface, so only the workload table keeps session guests out.
+              networking.firewall.allowedTCPPorts = [ 8080 ];
+              users.users.${owner} = {
+                isNormalUser = true;
+                uid = 1000;
+                # The session daemon needs the user's runtime directory.
+                linger = true;
+              };
 
               systemd.tmpfiles.settings.workloads-vms-test."/var/lib/workloads/images/seed.qcow2"."L+".argument =
                 "${seedImage}";
@@ -154,6 +292,20 @@ in
                         start = 100;
                         end = 200;
                       };
+                    };
+                  };
+                  sbx = {
+                    id = 6;
+                    egress = "warp";
+                    isolatePeers = true;
+                    libvirt = {
+                      enable = true;
+                      uuid = uuids.sbx;
+                      dhcp = {
+                        start = 2;
+                        end = 254;
+                      };
+                      sessionAttach = true;
                     };
                   };
                 };
@@ -197,6 +349,12 @@ in
           let
             toplevel = nodes.machine.system.build.toplevel;
             switch = name: "${toplevel}/specialisation/${name}/bin/switch-to-configuration test";
+            # What the sbx Home Manager part writes.
+            sessionQemuConf = pkgs.writeText "qemu.conf" ''
+              bridge_helper = "${nodes.machine.security.wrapperDir}/qemu-bridge-helper"
+            '';
+            peerDomain = sessionDomain "peer" peerMac "sbx.role=peer";
+            probeDomain = sessionDomain "probe" probeMac "sbx.role=probe sbx.peer=@PEER@ sbx.host=@HOST@";
           in
           ''
             import json
@@ -326,6 +484,44 @@ in
 
             with subtest("the unmarked domain is untouched"):
                 assert machine.succeed("virsh dumpxml --inactive adhoc") == adhoc
+
+            def as_owner(command):
+                return (
+                    "runuser -u ${owner} -- env HOME=${home} XDG_RUNTIME_DIR=/run/user/1000 "
+                    + command
+                )
+
+            with subtest("session guests on a sessionAttach network reach only DHCP and DNS on the host"):
+                machine.wait_for_unit("workloads-vm-net-sbx.service")
+                machine.wait_for_unit("user@1000.service")
+                machine.succeed("grep -Fx 'allow vn-sbx' /etc/qemu/bridge.conf")
+                machine.succeed(as_owner("install -D -m 0644 ${sessionQemuConf} ${home}/.config/libvirt/qemu.conf"))
+                machine.succeed("systemd-run --unit=probe-http ${pkgs.python3.interpreter} -m http.server 8080")
+                machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ >/dev/null")
+
+                machine.succeed(as_owner("virsh -c qemu:///session create ${peerDomain}"))
+                try:
+                    peer = machine.wait_until_succeeds(as_owner("${sbxPython} ${leaseOf} ${peerMac}"), timeout=90).strip()
+                except Exception:
+                    # The guest's console tells a failed boot from a missing lease.
+                    print(machine.succeed("cat ${home}/peer.log"))
+                    raise
+                assert peer.startswith("172.16.6."), peer
+                # The host reaches the peer, so only the bridge isolation can block the probe's ping.
+                machine.succeed(f"ping -c 1 -W 5 {peer}")
+
+                host = machine.succeed("ip -4 -o addr show dev eth1 | awk '{ print $4 }' | cut -d/ -f1").strip()
+                machine.succeed(f"sed -e 's/@PEER@/{peer}/' -e 's/@HOST@/{host}/' ${probeDomain} > /run/probe.xml")
+                machine.succeed(as_owner("virsh -c qemu:///session create /run/probe.xml"))
+                machine.wait_until_succeeds("grep -F 'SBX done' ${home}/probe.log")
+                report = machine.succeed("grep -F SBX ${home}/probe.log")
+                print(report)
+                assert "mtu=1240" in report, report
+                for result in ("gateway-ping=ok", "gateway-http=blocked", "host-http=blocked", "peer-ping=blocked"):
+                    assert f"SBX {result}" in report, report
+                dns = next(line for line in report.splitlines() if "SBX dns:" in line)
+                # dnsmasq answers bare names from its leases.
+                assert f"Address: {peer}" in dns, dns
           '';
       };
     };
