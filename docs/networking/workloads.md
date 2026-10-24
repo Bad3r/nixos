@@ -109,11 +109,13 @@ ip rule | grep vn-
 
 Fix: none when the result is `success` and the rules are listed; otherwise read `journalctl -u workload-egress.service` and run `sudo systemctl start workload-egress.service`.
 
-## Rules remain after removing every network
+## Forwarding and rules remain after removing every network
 
-Cause: the unit has no stop action, so the band stays until the next boot; it is harmless once the bridges are gone.
+Cause: the unit has no stop action and `systemd-sysctl` sets only the keys it lists, so the band and IPv4 forwarding stay on until the next boot.
+Forwarding without the `inet workload` forward chain lets the host route between its interfaces, so turn it off right away; the band is harmless once the bridges are gone.
 
 ```sh
+sudo sysctl -w net.ipv4.conf.all.forwarding=0
 ip rule show | awk -F: '/iif vn-/ { print $1 }' | xargs -rn1 sudo ip rule del pref
 ```
 
