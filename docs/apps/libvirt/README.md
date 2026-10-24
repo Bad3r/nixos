@@ -15,6 +15,7 @@ Guests created in virt-manager stay outside the declarations and are never touch
 - QEMU runs as `qemu-libvirtd`, so a file a guest opens must be readable by that user.
 - SPICE and VNC consoles without a listen address use a unix socket, so opening one goes through an authenticated libvirt connection.
 - Host shutdown asks each running guest to shut down and waits at most `shutdownTimeout` from `modules/apps/libvirt.nix` per guest; boot resumes none.
+- Host suspend pauses running guests and hibernation saves them: [Guests across host sleep](sleep.md).
 
 ## Declare a libvirt network
 

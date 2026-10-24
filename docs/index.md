@@ -391,6 +391,8 @@
 
 - [apps/libvirt/README.md](apps/libvirt/README.md)
   - libvirt access, declared libvirt networks and how the reconciler applies them, staged media, removal, and failures.
+- [apps/libvirt/sleep.md](apps/libvirt/sleep.md)
+  - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, and failures.
 
 ### mpv
 
