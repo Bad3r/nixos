@@ -8,7 +8,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
-from workloads.cli import SbxRunner, WorkloadsError, main, sandboxes
+from workloads.cli import SbxRunner, WorkloadsError, main, names, sandboxes
 
 DECLARED = {
     "names": {"dev": {"address": "172.16.1.10", "kind": "guest", "network": "desktop"}},
@@ -55,3 +55,11 @@ class NamesTest(unittest.TestCase):
         code, out, _ = run(lambda: (1, error), "--json")
         self.assertEqual(code, 1)
         self.assertEqual(json.loads(out)["error"]["code"], "sbx")
+
+    def test_malformed_input(self) -> None:
+        """Malformed sbx items and names files fail with a code instead of a traceback."""
+        with self.assertRaisesRegex(WorkloadsError, "malformed sandbox"):
+            sandboxes(lambda: (0, json.dumps([{"name": "ab12"}])))
+        with self.assertRaises(WorkloadsError) as caught:
+            names({"names": [], "networks": {}}, lambda: None)
+        self.assertEqual(caught.exception.code, "names-file")

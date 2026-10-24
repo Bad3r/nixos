@@ -77,16 +77,20 @@ def sandboxes(runner: SbxRunner) -> list[Record] | None:
                 message = cast("Record", error).get("message", message)
         msg = f"sbx list failed: {message}"
         raise WorkloadsError(msg, code="sbx")
-    return [
-        {
-            "name": sandbox["domain"],
-            "kind": "sandbox",
-            "address": sandbox.get("address"),
-            "network": sandbox.get("net"),
-            "state": sandbox.get("state"),
-        }
-        for sandbox in cast("list[Record]", parsed)
-    ]
+    try:
+        return [
+            {
+                "name": sandbox["domain"],
+                "kind": "sandbox",
+                "address": sandbox.get("address"),
+                "network": sandbox.get("net"),
+                "state": sandbox.get("state"),
+            }
+            for sandbox in cast("list[Record]", parsed)
+        ]
+    except (AttributeError, KeyError, TypeError) as error:
+        msg = f"sbx list printed a malformed sandbox: {error!r}"
+        raise WorkloadsError(msg, code="sbx") from error
 
 
 def load_names(path: Path) -> Record:
@@ -96,20 +100,36 @@ def load_names(path: Path) -> Record:
     except FileNotFoundError as error:
         msg = f"{path} is missing; no workload declares a name on this host"
         raise WorkloadsError(msg, code="no-names") from error
+    except ValueError as error:
+        msg = f"{path} holds no valid JSON: {error}"
+        raise WorkloadsError(msg, code="names-file") from error
     if not isinstance(declared, dict):
         msg = f"{path} holds no JSON object"
         raise WorkloadsError(msg, code="names-file")
     return cast("Record", declared)
 
 
+def _hostnames(value: object) -> list[str]:
+    if not isinstance(value, list):
+        msg = f"hostnames {value!r} are no list"
+        raise TypeError(msg)
+    return [str(hostname) for hostname in cast("list[object]", value)]
+
+
 def names(declared: Record, runner: SbxRunner) -> Record:
     """Combine declared names, per-network resolver records, and live sandboxes."""
-    entries = cast("dict[str, Record]", declared.get("names", {}))
-    return {
-        "names": [{"name": name, **entry} for name, entry in sorted(entries.items())],
-        "resolvers": declared.get("networks", {}),
-        "sandboxes": sandboxes(runner),
-    }
+    try:
+        entries = cast("dict[str, Record]", declared["names"])
+        listed = [{"name": name, **entry} for name, entry in sorted(entries.items())]
+        networks = cast("dict[str, dict[str, object]]", declared["networks"])
+        resolvers = {
+            network: {address: _hostnames(value) for address, value in hosts.items()}
+            for network, hosts in networks.items()
+        }
+    except (AttributeError, KeyError, TypeError) as error:
+        msg = f"the names file is malformed: {error!r}"
+        raise WorkloadsError(msg, code="names-file") from error
+    return {"names": listed, "resolvers": resolvers, "sandboxes": sandboxes(runner)}
 
 
 def _table(rows: list[list[str]]) -> None:
