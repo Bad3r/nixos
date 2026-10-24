@@ -400,7 +400,7 @@
 - [apps/libvirt/nixos-guests.md](apps/libvirt/nixos-guests.md)
   - NixOS guest configurations: the guest base, adding a guest, seeding its disk from an image, host key pinning, and deploys over SSH.
 - [apps/libvirt/sleep.md](apps/libvirt/sleep.md)
-  - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, and failures.
+  - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, the per-user `sbx sleep` calls, and failures.
 
 ### mpv
 
@@ -458,3 +458,5 @@
 
 - [apps/sbx/README.md](apps/sbx/README.md)
   - Agent sandboxes on `qemu:///session`: trust model, verbs, copy roots, Nix bases, the slice and ceilings, state, gc, and failures.
+- [apps/sbx/sleep.md](apps/sbx/sleep.md)
+  - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.

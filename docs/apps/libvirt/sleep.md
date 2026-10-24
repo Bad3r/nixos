@@ -1,8 +1,15 @@
 # Guests across host sleep
 
 Drop-ins from `modules/workloads/vms/sleep.nix` on the systemd sleep units act on every guest on `qemu:///system`, declared or not.
-`qemu:///session` guests are not touched, and nothing happens while libvirtd is not running.
+Nothing happens to system guests while libvirtd is not running.
 Each sleep unit, once finished, queues `workloads-vm-wake.service` to bring the guests back, so the resume path never waits on them.
+
+## sbx sandboxes
+
+With the sbx app enabled, each phase also runs `sbx sleep` through `runuser` as every user `loginctl list-users` shows, after the system guests.
+The hook records those users, and the wake unit runs `sbx sleep restore`, then `sbx sleep resume`, as each of them.
+Each call is bounded in time, and a failure joins the guest failures below.
+Other `qemu:///session` guests are not touched; [../sbx/sleep.md](../sbx/sleep.md) covers what each phase does to sandboxes.
 
 ## Suspend
 
@@ -15,7 +22,7 @@ Each sleep unit, once finished, queues `workloads-vm-wake.service` to bring the 
 
 Hibernation, hybrid sleep, and suspend-then-hibernate managed-save every running or paused guest before the host sleeps.
 
-- The first failed save aborts the transition, and the guests already saved are restored.
+- The first failed save, of a guest or of a user's sandboxes, aborts the transition, and the guests already saved are restored.
   A full save directory under `/var/lib/libvirt/qemu/save` fails a save, and so does a transient guest, which libvirt cannot managed-save.
 - After resume, the guests the hook saved are started from their save.
   A guest saved while paused, or while in its own sleep (`pmsuspended`), comes back paused, and its clock is not synced; a guest the suspend hook paused comes back running.

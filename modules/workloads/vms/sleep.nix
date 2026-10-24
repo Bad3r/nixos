@@ -22,11 +22,14 @@ let
 
       sleepUnits = map (unit: "${unit}.service") (lib.attrNames phases);
 
-      # Covers qemu:///system; session guests need the same phase run per user.
+      sbxEnabled = lib.attrByPath [ "programs" "sbx" "extended" "enable" ] false config;
+      # Session guests: sbx sandboxes, run per user through `sbx sleep`.
+      sessionArgs = lib.optionalString sbxEnabled " --sbx ${lib.getExe config.programs.sbx.extended.finalPackage} --runuser ${pkgs.util-linux}/bin/runuser";
+
       hook = phase: [
         "${vmSleep} ${phase} --systemctl ${systemctl} ${
           lib.concatMapStringsSep " " (unit: "--sleep-unit ${unit}") sleepUnits
-        }"
+        }${sessionArgs}"
       ];
     in
     {
