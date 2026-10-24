@@ -164,10 +164,18 @@ in
           gateway=$(ip route | awk '/^default/ { print $3 }')
           check() { if "$@" >/dev/null 2>&1; then echo ok; else echo blocked; fi; }
           echo "SBX gateway-ping=$(check ping -c 1 -W 3 "$gateway")"
-          echo "SBX dns: $(nslookup peer "$gateway" 2>&1 | tr '\n' ' ')"
+          echo "SBX gateway-tcp=$(check nc -z -w 3 "$gateway" 53)"
+          echo "SBX host-name=$(check nslookup -type=a host.vm "$gateway")"
+          echo "SBX peer-name=$(check nslookup -type=a peer "$gateway")"
           echo "SBX gateway-http=$(check wget -q -T 3 -O /dev/null "http://$gateway:8080/")"
           echo "SBX host-http=$(check wget -q -T 3 -O /dev/null "http://$host:8080/")"
           echo "SBX peer-ping=$(check ping -c 2 -W 3 "$peer")"
+          # Claims the peer's address: a won neighbor entry would route the reply here.
+          ip addr add "$peer/32" dev eth0
+          arping -U -c 2 -I eth0 -s "$peer" "$gateway" >/dev/null 2>&1
+          echo "SBX spoof-tcp=$(check nc -z -s "$peer" -w 3 "$gateway" 53)"
+          ip addr del "$peer/32" dev eth0
+          echo "SBX own-tcp=$(check nc -z -w 3 "$gateway" 53)"
           echo "SBX done"
         fi
         while :; do sleep 3600; done
@@ -314,8 +322,11 @@ in
                       dhcp = {
                         start = 2;
                         end = 254;
+                        leaseMinutes = 10;
+                        clientNames = false;
                       };
                       sessionAttach = true;
+                      bindLeases = true;
                     };
                   };
                 };
@@ -541,6 +552,7 @@ in
                 machine.wait_for_unit("workloads-vm-net-sbx.service")
                 machine.wait_for_unit("user@1000.service")
                 machine.succeed("grep -Fx 'allow vn-sbx' /etc/qemu/bridge.conf")
+                assert "expiry='10'" in machine.succeed("virsh net-dumpxml sbx")
                 machine.succeed(as_owner("install -D -m 0644 ${sessionQemuConf} ${home}/.config/libvirt/qemu.conf"))
                 machine.succeed("systemd-run --unit=probe-http ${pkgs.python3.interpreter} -m http.server 8080")
                 machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ >/dev/null")
@@ -563,11 +575,12 @@ in
                 report = machine.succeed("grep -F SBX ${home}/probe.log")
                 print(report)
                 assert "mtu=1240" in report, report
-                for result in ("gateway-ping=ok", "gateway-http=blocked", "host-http=blocked", "peer-ping=blocked"):
-                    assert f"SBX {result}" in report, report
-                dns = next(line for line in report.splitlines() if "SBX dns:" in line)
-                # dnsmasq answers bare names from its leases.
-                assert f"Address: {peer}" in dns, dns
+                for check in ("gateway-ping", "gateway-tcp", "host-name", "own-tcp"):
+                    assert f"SBX {check}=ok" in report, report
+                for check in ("peer-name", "gateway-http", "host-http", "peer-ping", "spoof-tcp"):
+                    assert f"SBX {check}=blocked" in report, report
+                neighbor = machine.succeed(f"ip neigh show {peer} dev vn-sbx")
+                assert "${peerMac}" in neighbor, neighbor
           '';
       };
     };
