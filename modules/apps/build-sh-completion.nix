@@ -7,7 +7,8 @@
       so NixOS's zsh module finds it via `$NIX_PROFILES/share/zsh/site-functions`
       (the fpath populated by nixpkgs' programs.zsh module).
     * Completes the flags documented in build.sh and resolves --host candidates
-      from `nixosConfigurations` when a flake directory is reachable.
+      from the shareCommon hosts in `lib.nixos.hosts` when a flake directory is
+      reachable; build.sh refuses any other host.
 */
 _:
 let
@@ -30,6 +31,7 @@ let
           # whatever the operator had under that name.
           local i word host host_output
           local -a hosts
+          local hosts_apply='hosts: builtins.concatStringsSep "\n" (builtins.filter (name: (builtins.getAttr name hosts).shareCommon or false) (builtins.attrNames hosts))'
 
           for (( i = 1; i <= CURRENT; i++ )); do
             word="''${words[i]}"
@@ -58,8 +60,8 @@ let
           flake_dir="''${flake_dir:A}"
 
           host_output="$(
-            nix eval --raw "''${flake_dir}#nixosConfigurations" \
-              --apply 'attrs: builtins.concatStringsSep "\n" (builtins.attrNames attrs)' \
+            nix eval --raw "''${flake_dir}#lib.nixos.hosts" \
+              --apply "''${hosts_apply}" \
               2>/dev/null || true
           )"
 
@@ -85,8 +87,8 @@ let
             fi
             if [[ -n "''${main_checkout}" && -f "''${main_checkout}/flake.nix" ]]; then
               host_output="$(
-                nix eval --raw "''${main_checkout}#nixosConfigurations" \
-                  --apply 'attrs: builtins.concatStringsSep "\n" (builtins.attrNames attrs)' \
+                nix eval --raw "''${main_checkout}#lib.nixos.hosts" \
+                  --apply "''${hosts_apply}" \
                   2>/dev/null || true
               )"
             fi
