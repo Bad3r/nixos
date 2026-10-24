@@ -63,6 +63,8 @@ in
               systemd.services = {
                 systemd-suspend = sleepStub;
                 systemd-hibernate = sleepStub;
+                # Lets a subtest hold back the wake unit.
+                workloads-vm-wake.unitConfig.ConditionPathExists = "!/run/no-wake";
               };
             };
           };
@@ -131,6 +133,13 @@ in
               assert states() == {"alpha": "running", "beta": "paused"}, states()
               woken = machine.succeed(since("-u workloads-vm-wake.service"))
               assert "restored alpha" in woken and "restored beta" in woken, woken
+
+          with subtest("a guest paused for suspend, then saved for hibernation, comes back running"):
+              machine.succeed("touch /run/no-wake")
+              machine.succeed("systemctl start systemd-suspend.service", "systemctl start systemd-hibernate.service")
+              assert states() == {"alpha": "shut off", "beta": "shut off"}, states()
+              machine.succeed("rm /run/no-wake", "systemctl start workloads-vm-wake.service")
+              assert states() == {"alpha": "running", "beta": "paused"}, states()
 
           with subtest("a failed save aborts hibernation and the guests saved before it come back"):
               # libvirt refuses to managed-save a transient domain.

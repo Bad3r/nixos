@@ -30,8 +30,11 @@ STATE_DIR = Path("/run/workloads-vm-sleep")
 PAUSED = STATE_DIR / "paused"
 SAVED = STATE_DIR / "saved"
 FAILURES = STATE_DIR / "failures"
-# Held by a pre phase while it records, and by wake while it claims records.
+RECORDS = (PAUSED, SAVED, FAILURES)
+# Held by a pre phase while it acts, and by wake from its claim through restore and resume.
 LOCK = STATE_DIR / "lock"
+# How long wake waits for running sleep units and the lock.
+CLAIM_WAIT = 600
 # How long a guest agent may stay unconnected after resume, shared by all guests.
 AGENT_WAIT = 15
 AGENT_CHANNEL = "devices/channel/target[@name='org.qemu.guest_agent.0']"
@@ -169,11 +172,21 @@ def sync_clocks(domains: list[libvirt.virDomain]) -> None:
 
 
 @contextlib.contextmanager
-def locked() -> Iterator[None]:
-    """Hold the state directory lock."""
+def locked(deadline: float | None = None) -> Iterator[None]:
+    """Hold the state directory lock, waiting at most until `deadline`."""
     STATE_DIR.mkdir(mode=0o700, exist_ok=True)
     with LOCK.open("w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
+        while deadline is not None:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                break
+            except BlockingIOError:
+                if time.monotonic() >= deadline:
+                    msg = f"no lock on {LOCK} within {CLAIM_WAIT} s"
+                    raise TimeoutError(msg) from None
+                time.sleep(1)
+        else:
+            fcntl.flock(lock, fcntl.LOCK_EX)
         yield
 
 
@@ -183,29 +196,44 @@ def append(path: Path, lines: list[str]) -> None:
         records.writelines(f"{line}\n" for line in lines)
 
 
+def claimed(path: Path) -> Path:
+    """Return where wake keeps a record until its batch is done."""
+    return path.with_name(f"{path.name}.claimed")
+
+
 def claim(path: Path) -> list[str]:
-    """Take over a record, so a later pre phase starts a new one."""
-    claimed = path.with_name(f"{path.name}.claimed")
+    """Move a record onto its claimed copy, so a later pre phase starts a new one."""
+    with contextlib.suppress(FileNotFoundError):
+        append(claimed(path), path.read_text().splitlines())
+        path.unlink()
     try:
-        path.replace(claimed)
+        return list(dict.fromkeys(claimed(path).read_text().splitlines()))
     except FileNotFoundError:
         return []
-    lines = list(dict.fromkeys(claimed.read_text().splitlines()))
-    claimed.unlink()
-    return lines
 
 
-def claim_all(
-    systemctl: str, sleep_units: list[str]
-) -> tuple[list[str], list[str], list[str]] | None:
-    """Claim the records once no sleep unit runs; None when there are none."""
-    jobs = [systemctl, "list-jobs", "--no-legend", *sleep_units]
+Batch = tuple[list[str], list[str], list[str]]
+
+
+@contextlib.contextmanager
+def claimed_batch(jobs: list[str]) -> Iterator[Batch | None]:
+    """Hold the lock over the claimed records, or None when none are left.
+
+    The claimed copies are deleted only when the block finishes without raising.
+    """
+    deadline = time.monotonic() + CLAIM_WAIT
     while True:
-        with locked():
+        with locked(deadline):
             # A running sleep unit's records belong to the wake its stop queues.
             if not subprocess.run(jobs, check=True, capture_output=True, text=True).stdout:
-                records = claim(PAUSED), claim(SAVED), claim(FAILURES)
-                return records if any(records) else None
+                batch = claim(PAUSED), claim(SAVED), claim(FAILURES)
+                yield batch if any(batch) else None
+                for path in RECORDS:
+                    claimed(path).unlink(missing_ok=True)
+                return
+        if time.monotonic() >= deadline:
+            msg = f"sleep units still running after {CLAIM_WAIT} s"
+            raise TimeoutError(msg)
         time.sleep(1)
 
 
@@ -247,28 +275,90 @@ def notify(failures: list[str]) -> None:
             warn(f"no notification sent to {user}: {error}")
 
 
+def bring_back(
+    conn: libvirt.virConnect, paused: list[str], saved: list[str], failures: list[str]
+) -> list[libvirt.virDomain]:
+    """Restore, then resume, the recorded guests; return the ones brought back."""
+    try:
+        # Restore first: a guest paused for suspend and then saved comes back paused.
+        woken = restore(recorded(conn, saved), failures)
+        woken += resume(recorded(conn, paused), failures)
+    except libvirt.libvirtError as error:
+        fail(failures, f"guests may stay paused or saved: {error}")
+        return []
+    return list({domain.UUIDString(): domain for domain in woken}.values())
+
+
 def wake(connect: str, systemctl: str, sleep_units: list[str]) -> int:
     """Bring back the recorded guests and report failures; 1 if a guest stays down."""
+    jobs = [systemctl, "list-jobs", "--no-legend", *sleep_units]
     down = False
     # A sleep cycle that ends while this runs merges its start into this job.
-    while records := claim_all(systemctl, sleep_units):
-        paused, saved, failures = records
-        earlier = len(failures)
-        if paused or saved:
-            try:
-                conn = libvirt.open(connect)
+    while True:
+        conn = None
+        woken: list[libvirt.virDomain] = []
+        with claimed_batch(jobs) as batch:
+            if batch is None:
+                return 1 if down else 0
+            paused, saved, failures = batch
+            earlier = len(failures)
+            if paused or saved:
                 try:
-                    woken = resume(recorded(conn, paused), failures)
-                    woken += restore(recorded(conn, saved), failures)
-                    sync_clocks(woken)
-                finally:
-                    conn.close()
-            except libvirt.libvirtError as error:
-                fail(failures, f"guests may stay paused or saved: {error}")
+                    conn = libvirt.open(connect)
+                except libvirt.libvirtError as error:
+                    fail(failures, f"guests may stay paused or saved: {error}")
+                else:
+                    woken = bring_back(conn, paused, saved, failures)
         down = down or len(failures) > earlier
+        if conn is not None:
+            try:
+                sync_clocks(woken)
+            finally:
+                conn.close()
         if failures:
             notify(failures)
-    return 1 if down else 0
+
+
+def pre(phase: str, connect: str, systemctl: str) -> int:
+    """Pause or save the guests before the host sleeps."""
+    # No system guest runs without libvirtd; connecting would socket-activate it.
+    active = [systemctl, "is-active", "--quiet", "libvirtd.service"]
+    if subprocess.run(active, check=False).returncode != 0:
+        return 0
+
+    failures: list[str] = []
+    try:
+        with locked():
+            try:
+                # Appended, so records a wake never claimed are still brought back.
+                with (PAUSED if phase == "pause" else SAVED).open("a") as records:
+                    conn = libvirt.open(connect)
+                    try:
+                        (pause if phase == "pause" else save)(conn, records, failures)
+                    finally:
+                        conn.close()
+            except (SaveError, libvirt.libvirtError, OSError) as error:
+                if phase == "pause":
+                    fail(failures, f"guests kept running through suspend: {error}")
+                else:
+                    message = str(error)
+                    if not isinstance(error, SaveError):
+                        message = f"guests not saved, so the host did not sleep: {error}"
+                    print(f"<3>error: {message}", file=sys.stderr, flush=True)
+                    failures.append(message)
+            if failures:
+                try:
+                    append(FAILURES, failures)
+                except OSError as error:
+                    warn(f"the wake notification will miss failures: {error}")
+    except OSError as error:
+        # Without the lock nothing was paused or saved.
+        if phase == "pause":
+            warn(f"guests kept running through suspend: {error}")
+            return 0
+        print(f"<3>error: guests not saved, so the host did not sleep: {error}", file=sys.stderr)
+        return 1
+    return 1 if phase == "save" and failures else 0
 
 
 def main() -> int:
@@ -286,44 +376,11 @@ def main() -> int:
         if args.phase == "wake":
             return wake(args.connect, args.systemctl, args.sleep_units)
     except (OSError, subprocess.CalledProcessError) as error:
+        # Claimed records stay for the next wake.
         print(f"<3>error: wake: {error}", file=sys.stderr, flush=True)
         return 1
 
-    # No system guest runs without libvirtd; connecting would socket-activate it.
-    active = [args.systemctl, "is-active", "--quiet", "libvirtd.service"]
-    if subprocess.run(active, check=False).returncode != 0:
-        return 0
-
-    failures: list[str] = []
-    try:
-        with locked():
-            try:
-                # Appended, so records a wake never claimed are still brought back.
-                with (PAUSED if args.phase == "pause" else SAVED).open("a") as records:
-                    conn = libvirt.open(args.connect)
-                    try:
-                        (pause if args.phase == "pause" else save)(conn, records, failures)
-                    finally:
-                        conn.close()
-            except (SaveError, libvirt.libvirtError, OSError) as error:
-                if args.phase == "pause":
-                    fail(failures, f"guests kept running through suspend: {error}")
-                else:
-                    message = str(error)
-                    if not isinstance(error, SaveError):
-                        message = f"guests not saved, so the host did not sleep: {error}"
-                    print(f"<3>error: {message}", file=sys.stderr, flush=True)
-                    failures.append(message)
-            if failures:
-                append(FAILURES, failures)
-    except OSError as error:
-        if args.phase == "save":
-            print(
-                f"<3>error: guests not saved, so the host did not sleep: {error}", file=sys.stderr
-            )
-            return 1
-        warn(f"the wake notification will miss failures: {error}")
-    return 1 if args.phase == "save" and failures else 0
+    return pre(args.phase, args.connect, args.systemctl)
 
 
 if __name__ == "__main__":
