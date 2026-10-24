@@ -342,31 +342,41 @@ in
                 # The proxy socket admits only the linked addresses, the host's own included.
                 machine.fail("socat -T3 - TCP:172.16.5.1:7000,connect-timeout=3 </dev/null")
 
-            with subtest("another port claiming a linked address is dropped"):
-                def claim(ns, address):
+            with subtest("another port claiming a linked MAC or address is dropped"):
+                def claim(ns, address, own):
                     machine.succeed(
                         f"ip -n {ns} addr flush dev eth0",
                         f"ip -n {ns} addr add {address}/24 dev eth0",
+                        f"ip -n {ns} addr add {own}/24 dev eth0",
                         f"ip -n {ns} route add default via 172.16.5.1",
                         "ip neigh flush dev vn-lab",
                     )
+                    refused(ns, "172.16.5.1:7000")
+                    refused(ns, "172.16.0.10:7001")
+                    # The port still works from its own address.
+                    machine.succeed(f"ip netns exec {ns} ping -c1 -W2 -I {own} 172.16.5.1")
+                def mac_dropped(ns, mac, own_mac, own):
+                    ping = f"ip netns exec {ns} ping -c1 -W2 -I {own} 172.16.5.1"
+                    machine.succeed(f"ip -n {ns} link set eth0 address {mac}", "ip neigh flush dev vn-lab")
+                    machine.fail(ping)
+                    machine.succeed(f"ip -n {ns} link set eth0 address {own_mac}", "ip neigh flush dev vn-lab")
+                    machine.succeed(ping)
+
+                # Down, so the owner cannot answer the host's replies itself.
                 machine.succeed("ip -n gamma link set eth0 down")
-                claim("other", "172.16.5.11")
-                refused("other", "172.16.5.1:7000")
-                refused("other", "172.16.0.10:7001")
+                claim("other", "172.16.5.11", "172.16.5.13")
+                attach("alpha", "vn-lab", "172.16.5.10", "172.16.5.1", ${nicOf "alpha"})
+                claim("alpha", "172.16.5.11", "172.16.5.10")
+                mac_dropped("alpha", "02:00:00:00:00:02", "${guests.alpha.mac.eth}", "172.16.5.10")
+                mac_dropped("other", "${guests.gamma.mac.eth}", "02:00:00:00:00:01", "172.16.5.13")
+                assert ports["other"] not in machine.succeed("bridge fdb show br vn-lab | grep -i ${guests.gamma.mac.eth} || true")
+
                 machine.succeed(
                     "ip -n gamma link set eth0 up",
                     "ip -n gamma route add default via 172.16.5.1",
                 )
                 forwarding("gamma")
                 reaches("gamma", "172.16.5.1:7000", "loopback")
-                refused("other", "172.16.5.1:7000")
-                refused("other", "172.16.0.10:7001")
-                # A declared guest's own tap is pinned to its own address.
-                attach("alpha", "vn-lab", "172.16.5.10", "172.16.5.1", ${nicOf "alpha"})
-                claim("alpha", "172.16.5.11")
-                refused("alpha", "172.16.5.1:7000")
-                refused("alpha", "172.16.0.10:7001")
                 # alpha's tap name is needed when the guest starts.
                 # Namespace teardown is asynchronous, so the tap goes first.
                 machine.succeed(f"ip link del {ports['alpha']}", "ip netns del alpha", "ip netns del other")

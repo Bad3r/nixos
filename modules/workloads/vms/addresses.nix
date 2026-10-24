@@ -29,8 +29,8 @@ let
         ''iifname "${nic.tap}" arp saddr ip != { ${nic.address}, 0.0.0.0 } drop''
       ];
 
-      # No other port of the bridge may claim the gateway or a declared address,
-      # whether or not its owner is running.
+      # No other port of the bridge may claim the gateway or a declared MAC or
+      # address, whether or not its owner is running.
       networkRules =
         name: network:
         let
@@ -38,12 +38,15 @@ let
           owned = lib.filter (nic: nic.network == name) nics;
           taps = set (map (nic: ''"${nic.tap}"'') owned);
           addresses = set (map (nic: nic.address) owned);
+          macs = set (map (nic: nic.mac) owned);
         in
         [
           "${dev} ip saddr ${network.gateway} drop"
           "${dev} arp saddr ip ${network.gateway} drop"
         ]
         ++ lib.optionals (owned != [ ]) [
+          # Keeps the bridge from learning a pinned MAC on another port.
+          "${dev} iifname != ${taps} ether saddr ${macs} drop"
           "${dev} iifname != ${taps} ip saddr ${addresses} drop"
           "${dev} iifname != ${taps} arp saddr ip ${addresses} drop"
         ];
