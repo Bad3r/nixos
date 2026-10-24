@@ -107,6 +107,7 @@ class LibvirtBackend:
                 element = root.find(f"metadata/{{{NS}}}sandbox")
                 cid = root.find("devices/vsock/cid")
                 address = None if cid is None else cid.get("address")
+                mac = root.find("devices/interface[@type='bridge']/mac")
                 state = domain.state()[0]
                 result.append(
                     DomainInfo(
@@ -118,6 +119,7 @@ class LibvirtBackend:
                         cid=None if address is None else int(address),
                         meta=None if element is None else Meta.parse(element),
                         managed_save=bool(domain.hasManagedSaveImage(0)),
+                        mac=None if mac is None else mac.get("address"),
                     )
                 )
         except libvirt.libvirtError as error:

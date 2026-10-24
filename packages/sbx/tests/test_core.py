@@ -2,6 +2,7 @@
 """Policy and lifecycle checks of sbx against a fake backend and stub tools."""
 
 import dataclasses
+import json
 import os
 import tempfile
 import unittest
@@ -11,9 +12,10 @@ from typing import Any, cast
 from unittest import mock
 
 from sbx import cli, core
-from sbx.core import NS, DomainInfo, Meta, Paths, Sandboxes, SbxError, Settings, Tools
+from sbx.core import NS, DomainInfo, Egress, Meta, Paths, Sandboxes, SbxError, Settings, Tools
 
 NOW = 1_800_000_000
+MAC = "52:54:00:ab:cd:ef"
 
 STUBS = {
     "ssh-keygen": 'for k; do :; done; echo key > "$k"; echo "ssh-ed25519 AAAA sbx" > "$k.pub"',
@@ -74,6 +76,7 @@ class FakeBackend:
         element = root.find(f"metadata/{{{NS}}}sandbox")
         if element is None:
             raise AssertionError
+        mac = root.find("devices/interface[@type='bridge']/mac")
         self.xml[name] = xml
         self.domains_by_name[name] = DomainInfo(
             name=name,
@@ -84,6 +87,7 @@ class FakeBackend:
             cid=3,
             meta=Meta.parse(element),
             managed_save=False,
+            mac=None if mac is None else mac.get("address"),
         )
 
     def remove(self, domain: str) -> None:
@@ -150,6 +154,7 @@ class SandboxesTest(unittest.TestCase):
             slice="sbx.slice",
             output_limit=1024,
             boot_timeout=5,
+            egress=None,
             tools=tools,
         )
         self.paths = Paths(self.scratch / "data" / "sbx", self.scratch / "config")
@@ -214,7 +219,7 @@ class SandboxesTest(unittest.TestCase):
             {"ttl": "10s"},
             {"name": "bases"},
             {"name": "Upper"},
-            {"net": "egress"},
+            {"net": "lan"},
         ):
             with self.subTest(overrides=overrides), self.assertRaises(SbxError):
                 self.request(**overrides)
@@ -270,7 +275,7 @@ class SandboxesTest(unittest.TestCase):
         self.assertFalse(self.paths.sandbox("t1").exists())
 
     def test_vsock_listeners(self) -> None:
-        """Reachable host listeners outside the allowlist refuse a `none` sandbox."""
+        """Reachable host listeners outside the allowlist refuse a sandbox."""
         ss = self.scratch / "ss"
         ss.write_text("v_str LISTEN 0 0 *:7000 *:*\nv_str LISTEN 0 0 1:5000 *:*\n")
         self.sandboxes().create(self.request())
@@ -542,6 +547,144 @@ class SandboxesTest(unittest.TestCase):
                     with patch:
                         self.dispatch(*argv)
             self.assert_no_sandbox("r")
+
+    def egress(self, flags: str = "0x1003") -> Path:
+        """Configure vn-sbx with a fake sysfs entry and return its lease file."""
+        sys_net = self.scratch / "sys-net"
+        (sys_net / "vn-sbx" / "bridge").mkdir(parents=True)
+        (sys_net / "vn-sbx" / "flags").write_text(f"{flags}\n")
+        patch = mock.patch.object(core, "SYS_NET", sys_net)
+        patch.start()
+        self.addCleanup(patch.stop)
+        leases = self.scratch / "vn-sbx.status"
+        self.settings = dataclasses.replace(self.settings, egress=Egress("vn-sbx", leases))
+        mac = mock.patch.object(core, "random_mac", return_value=MAC)
+        mac.start()
+        self.addCleanup(mac.stop)
+        return leases
+
+    def test_egress_unavailable(self) -> None:
+        """Egress is refused without a declared network, a bridge, or an up bridge."""
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request(net="egress"))
+        self.assertEqual(refused.exception.code, "egress-unavailable")
+        self.egress(flags="0x1002")
+        for absent in (False, True):
+            if absent:
+                (core.SYS_NET / "vn-sbx" / "bridge").rmdir()
+            with self.subTest(absent=absent), self.assertRaises(SbxError) as refused:
+                self.sandboxes().create(self.request(net="egress"))
+            self.assertEqual(refused.exception.code, "egress-unavailable")
+            self.assert_no_sandbox("t1")
+
+    def test_egress_create(self) -> None:
+        """An egress sandbox gets one virtio NIC on the bridge and reports its leased address."""
+        leases = self.egress()
+        leases.write_text(
+            json.dumps(
+                [
+                    {"ip-address": "172.16.2.9", "mac-address": MAC, "expiry-time": NOW - 1},
+                    {
+                        "ip-address": "172.16.2.7",
+                        "mac-address": "52:54:00:00:00:01",
+                        "expiry-time": NOW + 60,
+                    },
+                    {
+                        "ip-address": "172.16.2.5",
+                        "mac-address": MAC.upper(),
+                        "expiry-time": NOW + 3600,
+                    },
+                ]
+            )
+        )
+        result = self.sandboxes().create(self.request(net="egress"))
+        self.assertEqual((result["net"], result["address"]), ("egress", "172.16.2.5"))
+        root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
+        interfaces = root.findall("devices/interface")
+        self.assertEqual(len(interfaces), 1)
+        interface = interfaces[0]
+        self.assertEqual(interface.get("type"), "bridge")
+        self.assertEqual(interface.find("source").get("bridge"), "vn-sbx")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(interface.find("model").get("type"), "virtio")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(interface.find("mac").get("address"), MAC)  # pyright: ignore[reportOptionalMemberAccess]
+        listed = self.sandboxes().listing(mine=False)
+        self.assertEqual([entry["address"] for entry in listed], ["172.16.2.5"])
+        self.assertEqual(self.sandboxes().info("t1")["address"], "172.16.2.5")
+
+    def test_egress_without_lease(self) -> None:
+        """A guest that never takes a lease fails create with no-address and is discarded."""
+        self.egress().write_text("")
+        ticks = iter(range(NOW, NOW + 10_000, 2))
+        sandboxes = Sandboxes(
+            self.settings, self.paths, lambda _slice: self.backend, None, lambda: next(ticks)
+        )
+        with mock.patch.object(core.time, "sleep"), self.assertRaises(SbxError) as refused:
+            sandboxes.create(self.request(net="egress"))
+        self.assertEqual(refused.exception.code, "no-address")
+        self.assert_no_sandbox("t1")
+
+    def test_lease_file(self) -> None:
+        """Missing and empty files hold no lease, malformed ones fail, IPv6 is skipped."""
+        path = self.scratch / "leases"
+        self.assertIsNone(core.lease_address(path, MAC, NOW))
+        path.write_text("")
+        self.assertIsNone(core.lease_address(path, MAC, NOW))
+        entries = [
+            {"ip-address": "fd00::5", "mac-address": MAC, "expiry-time": NOW + 60},
+            {"ip-address": "172.16.2.3", "mac-address": MAC, "expiry-time": 0},
+        ]
+        path.write_text(json.dumps(entries))
+        self.assertEqual(core.lease_address(path, MAC.upper(), NOW), "172.16.2.3")
+        for text in ("{", "{}", "[1]", '[{"ip-address": "172.16.2.3"}]'):
+            path.write_text(text)
+            with self.subTest(text=text), self.assertRaises(SbxError) as refused:
+                core.lease_address(path, MAC, NOW)
+            self.assertEqual(refused.exception.code, "lease-file")
+
+    def test_none_has_no_address(self) -> None:
+        """A sandbox without a NIC reports no address even with egress configured."""
+        self.egress()
+        result = self.sandboxes().create(self.request())
+        self.assertIsNone(result["address"])
+        root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
+        self.assertIsNone(root.find("devices/interface"))
+
+    def test_egress_checks_vsock_listeners(self) -> None:
+        """A NIC does not remove vsock, so egress sandboxes get the listener check too."""
+        self.egress()
+        (self.scratch / "ss").write_text("v_str LISTEN 0 0 2:5999 *:*\n")
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request(net="egress"))
+        self.assertEqual(refused.exception.code, "vsock-listener")
+
+    def test_settings_egress(self) -> None:
+        """The rendered settings carry the egress bridge, or null without one."""
+        raw: dict[str, object] = {
+            "limits": {
+                "running": 3,
+                "memoryMiB": 1,
+                "sandboxMemoryMiB": 1,
+                "sandboxCpus": 1,
+                "ttlSeconds": 1,
+                "diskBytes": 1,
+                "minFreeBytes": 1,
+            },
+            "defaults": {"memoryMiB": 1, "cpus": 1, "ttlSeconds": 1, "diskGiB": 1},
+            "vsockAllowlist": [],
+            "cpuset": "0",
+            "flake": "/flake",
+            "unit": "u",
+            "slice": "s",
+            "outputLimit": 1,
+            "bootTimeout": 1,
+            "egress": {"bridge": "vn-sbx", "leases": "/leases"},
+            "tools": dataclasses.asdict(self.settings.tools),
+        }
+        path = self.scratch / "settings.json"
+        path.write_text(json.dumps(raw))
+        self.assertEqual(Settings.load(path).egress, Egress("vn-sbx", Path("/leases")))
+        path.write_text(json.dumps(raw | {"egress": None}))
+        self.assertIsNone(Settings.load(path).egress)
 
 
 if __name__ == "__main__":
