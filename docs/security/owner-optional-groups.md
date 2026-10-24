@@ -12,6 +12,8 @@ Groups the owner profile in `modules/meta/owner.nix` leaves unassigned, and devi
   - on a host that enables `thermald`, its D-Bus policy grants the `power` group control of the daemon.
 - `plugdev` / `bluetooth` note:
   - no direct owner assignment in baseline; privilege impact depends on service or udev rules that consume those groups.
+- `podman` comes from the NixOS Podman module that `modules/apps/podman/nixos.nix` enables, and stays unassigned.
+  - members control the rootful Podman API socket when it runs, which is root-equivalent.
 
 ## Common Optional Device Groups (Not In Baseline)
 

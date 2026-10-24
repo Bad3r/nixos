@@ -51,6 +51,8 @@
         "fzf"
         "docker run"
         "docker exec"
+        "podman run"
+        "podman exec"
       ];
     in
     {

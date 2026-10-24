@@ -7,7 +7,7 @@ Scope:
 - owner group baseline:
   - `modules/meta/owner.nix`
 - extra owner groups from app/service modules:
-  - example: `modules/apps/docker.nix`
+  - example: `modules/apps/wireshark.nix`
 - no-sudo command policy:
   - `modules/security/polkit.nix`
   - `modules/hosts/common/sudo.nix`
@@ -104,15 +104,6 @@ Scope:
     - compatibility group membership for tooling or policy that expects the traditional `wireshark` group.
   - security impact:
     - limited direct impact in this repo because packet capture itself is granted through wheel-based capability wrappers.
-
-- `docker` (when Docker daemon module is enabled):
-
-  - source:
-    - `modules/apps/docker.nix`
-  - access:
-    - Docker socket control.
-  - security impact:
-    - effectively root-equivalent on the host.
 
 ## Unassigned And Optional Groups
 

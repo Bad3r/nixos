@@ -127,7 +127,6 @@ let
       dnsleak.extended.enable = lib.mkOverride 1100 true;
       dnsutils.extended.enable = lib.mkOverride 1100 true;
       dnsx.extended.enable = lib.mkOverride 1100 true;
-      docker.extended.enable = lib.mkOverride 1100 true;
       dolphin.extended.enable = lib.mkOverride 1100 false;
       "doom-emacs".extended.enable = lib.mkOverride 1100 false;
       "dragon-drop".extended.enable = lib.mkOverride 1100 true;
@@ -367,6 +366,7 @@ let
       playerctl.extended.enable = lib.mkOverride 1100 true;
       playwright.extended.enable = lib.mkOverride 1100 true;
       pnpm.extended.enable = lib.mkOverride 1100 true;
+      podman.extended.enable = lib.mkOverride 1100 true;
       "poppler-utils".extended.enable = lib.mkOverride 1100 true;
       potrace.extended.enable = lib.mkOverride 1100 true;
       powershell.extended.enable = lib.mkOverride 1100 true;

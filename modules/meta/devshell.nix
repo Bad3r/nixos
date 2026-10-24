@@ -51,7 +51,7 @@
 
                   if [ -z "''${DRY}" ]; then
                     if ! command -v docker >/dev/null 2>&1; then
-                      echo "Docker not found. Install and start Docker, or use: gh-actions-run --dry-run" >&2
+                      echo "docker not found. Enable the podman app, which provides it, or use: gh-actions-run --dry-run" >&2
                       exit 1
                     fi
                   fi
