@@ -261,6 +261,12 @@ let
   appEnabled =
     hostConfig: name: ((hostConfig.programs.${name} or { }).extended or { }).enable or false;
 
+  # shareCommon = false hosts (libvirt guests) have no app modules, so the
+  # option paths above do not exist there.
+  appHosts = lib.filterAttrs (
+    hostName: _: config.flake.lib.nixos.hosts.${hostName}.shareCommon or false
+  );
+
   # Operator documentation can query the evaluated host membership without
   # maintaining a second, time-sensitive host matrix. Return names only so the
   # query does not force package derivations.
@@ -277,7 +283,7 @@ let
           lib.filterAttrs (_: entry: entry.installed { inherit hostName hostConfig; }) hostOptionPackages
         );
       }
-    ) nixosConfigurations;
+    ) (appHosts nixosConfigurations);
 
   # Built through the perSystem nixpkgs instance (devshell surface),
   # not enabled as host apps.
@@ -299,9 +305,9 @@ in
     let
       # Only hosts this system can build for. A host on another platform
       # belongs to that platform's cache-roots, not this one.
-      hosts = lib.filterAttrs (
-        _: nixos: nixos.pkgs.stdenv.hostPlatform.system == system
-      ) config.flake.nixosConfigurations;
+      hosts = lib.filterAttrs (_: nixos: nixos.pkgs.stdenv.hostPlatform.system == system) (
+        appHosts config.flake.nixosConfigurations
+      );
 
       hostEntries =
         hostName: nixos:
