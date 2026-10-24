@@ -13,13 +13,14 @@
   Options:
     run --device nvidia.com/gpu=all: Expose the NVIDIA GPU through CDI.
     --runtime runsc: Run a container under gVisor.
+    --module untrusted run: Run a one-shot container under gVisor with no network.
     compose: Run docker-compose against the Podman API.
 
   Notes:
     * DOCKER_HOST cannot come from environment.sessionVariables: pam_env runs before pam_systemd
       sets XDG_RUNTIME_DIR.
     * The compat API ignores the requested runtime, so only the podman CLI (and the `docker`
-      shim) can select runsc.
+      shim) can select runsc or load the untrusted module.
     * The rootful API socket stays off; virtualisation.podman.autoPrune prunes only the root
       store, so a Home Manager timer prunes the rootless one.
 */
@@ -36,6 +37,9 @@ let
     let
       cfg = config.programs.podman.extended;
       ownerUid = toString config.users.users.${metaOwner.username}.uid;
+      toml = pkgs.formats.toml { };
+      # Rootless runsc fails without it: systemd demands interactive auth for its cgroup.
+      runscFlags = [ "ignore-cgroups" ];
     in
     {
       options.programs.podman.extended = {
@@ -75,13 +79,21 @@ let
             engine = {
               compose_providers = [ (lib.getExe config.programs."docker-compose".extended.package) ];
               compose_warning_logs = false;
-              # Rootless runsc fails without it: systemd demands interactive auth for its cgroup.
-              runtimes_flags.runsc = [ "ignore-cgroups" ];
+              runtimes_flags.runsc = runscFlags;
             };
           };
 
           # Docker's short-name behaviour; with one entry Podman never prompts.
           registries.settings.unqualified-search-registries = [ "docker.io" ];
+        };
+
+        environment.etc."containers/containers.conf.modules/untrusted".source = toml.generate "untrusted" {
+          containers.netns = "none";
+          engine = {
+            runtime = "runsc";
+            # Replaces the base list; gVisor refuses bind-mounted host sockets without host-uds=open.
+            runtimes_flags.runsc = runscFlags ++ [ "host-uds=open" ];
+          };
         };
 
         systemd.sockets.podman.wantedBy = lib.mkForce [ ];
