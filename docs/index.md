@@ -105,6 +105,8 @@
   - systemd-udevd `.link` address policies, device matching, and when a change applies.
 - [networking/stable-mac-rekey.md](networking/stable-mac-rekey.md)
   - Re-keying DHCP reservations and MAC allowlists after the `"stable"` cutover and after profile, name, or identity changes.
+- [networking/workloads.md](networking/workloads.md)
+  - Workload bridge networks: table ownership, declaring a network, egress modes, and verification.
 
 ## Packaging
 
