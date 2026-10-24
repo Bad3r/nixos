@@ -21,6 +21,7 @@ in
         gamma = "00000000-0000-4000-8000-00000000000c";
         delta = "00000000-0000-4000-8000-00000000000d";
         adhoc = "00000000-0000-4000-8000-0000000000ad";
+        epsilon = "00000000-0000-4000-8000-00000000000e";
       };
 
       seedImage = pkgs.runCommand "workloads-vms-test-seed.qcow2" { } ''
@@ -76,6 +77,11 @@ in
         interfaces.eth.network = "lab";
         interfaces.eth.hostOffset = 12;
       };
+      epsilon = guest {
+        uuid = uuids.epsilon;
+        interfaces.eth.network = "default";
+        interfaces.eth.hostOffset = 10;
+      };
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
 
       stateDir = name: "/var/lib/workloads/guests/${uuids.${name}}";
@@ -91,6 +97,7 @@ in
               libvirtApp
               flakeModules."workloads-networks"
               flakeModules."workloads-vms"
+              flakeModules."workloads-sharing"
             ];
 
             # networks.nix turns WARP on for warp networks; these use none.
@@ -108,6 +115,12 @@ in
               };
               networking.nftables.enable = true;
               users.users.${metaOwner.username}.isNormalUser = true;
+              environment.systemPackages = [ pkgs.socat ];
+
+              systemd.services.echo-loopback = {
+                wantedBy = [ "multi-user.target" ];
+                serviceConfig.ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:7000,bind=127.0.0.1,fork,reuseaddr SYSTEM:'echo loopback'";
+              };
 
               systemd.tmpfiles.settings.workloads-vms-test."/var/lib/workloads/images/seed.qcow2"."L+".argument =
                 "${seedImage}";
@@ -145,8 +158,21 @@ in
                   expected = "${seedImage}";
                 };
 
+                host.services.echo = {
+                  ports = [ 7000 ];
+                  bind = "loopback";
+                };
+
                 # Specialisations replace the whole set.
-                guests = lib.mkDefault { inherit alpha gamma; };
+                guests = lib.mkDefault {
+                  inherit alpha epsilon;
+                  gamma = gamma // {
+                    links = [
+                      "host:echo"
+                      "guest:epsilon:7001"
+                    ];
+                  };
+                };
               };
 
               specialisation = {
@@ -226,6 +252,34 @@ in
                 )
                 lab = machine.succeed("virsh net-dumpxml lab")
                 assert "ip='172.16.5.10'" in lab and "ip='172.16.5.11'" in lab, lab
+
+            with subtest("links reach a loopback host service and a guest on another network"):
+                machine.wait_for_unit("workloads-vm-net-default.service")
+                # Network namespaces on the bridges stand in for the guests.
+                def attach(ns, bridge, address, gateway):
+                    machine.succeed(
+                        f"ip netns add {ns}",
+                        f"ip link add {ns}-host type veth peer name eth0 netns {ns}",
+                        f"ip link set {ns}-host master {bridge} up",
+                        f"ip -n {ns} addr add {address}/24 dev eth0",
+                        f"ip -n {ns} link set eth0 up",
+                        f"ip -n {ns} route add default via {gateway}",
+                    )
+                attach("gamma", "vn-lab", "172.16.5.11", "172.16.5.1")
+                attach("other", "vn-lab", "172.16.5.13", "172.16.5.1")
+                attach("epsilon", "vn-default", "172.16.0.10", "172.16.0.1")
+                # STP holds a new port in listening and learning first.
+                for ns in ["gamma", "other", "epsilon"]:
+                    machine.wait_until_succeeds(f"bridge link show dev {ns}-host | grep -q 'state forwarding'")
+                machine.succeed(
+                    "ip netns exec epsilon socat TCP-LISTEN:7001,fork,reuseaddr SYSTEM:'echo epsilon' >&2 &"
+                )
+                machine.wait_until_succeeds("ip netns exec epsilon ss -ltn | grep -q :7001")
+                connect = "ip netns exec {} socat -T3 - TCP:{},connect-timeout=3 </dev/null"
+                assert machine.succeed(connect.format("gamma", "172.16.5.1:7000")).strip() == "loopback"
+                assert machine.succeed(connect.format("gamma", "172.16.0.10:7001")).strip() == "epsilon"
+                machine.fail(connect.format("other", "172.16.5.1:7000"))
+                machine.fail(connect.format("other", "172.16.0.10:7001"))
 
             with subtest("a running guest keeps its definition and running networks gain reservations"):
                 machine.succeed("virsh start --paused alpha")

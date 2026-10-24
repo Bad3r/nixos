@@ -107,6 +107,8 @@
   - Re-keying DHCP reservations and MAC allowlists after the `"stable"` cutover and after profile, name, or identity changes.
 - [networking/workloads.md](networking/workloads.md)
   - Workload bridge networks: table ownership, declaring a network, egress modes, and verification.
+- [networking/workload-links.md](networking/workload-links.md)
+  - Host services, links from guests to host services and other guests, and gateway proxies.
 
 ## Packaging
 
