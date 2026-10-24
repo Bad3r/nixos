@@ -1,5 +1,5 @@
 { lib }:
-name: network:
+name: network: hosts:
 let
   inherit (network) libvirt;
   prefix = lib.removeSuffix ".0/24" network.subnet;
@@ -40,6 +40,9 @@ in
     <ip address="${network.gateway}" prefix="24">
       <dhcp>
         <range start="${address libvirt.dhcp.start}" end="${address libvirt.dhcp.end}"/>
+        ${lib.concatMapStrings (
+          host: ''<host mac="${host.mac}" name="${host.name}" ip="${host.ip}"/>''
+        ) hosts}
       </dhcp>
     </ip>
     <dnsmasq:options>

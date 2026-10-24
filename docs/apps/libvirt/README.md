@@ -1,7 +1,7 @@
 # libvirt
 
 The `libvirt` app runs the system libvirtd (`qemu:///system`) with QEMU/KVM; `virt-manager` and `virt-viewer` are its clients.
-`modules/workloads/vms/` turns declared workload networks into libvirt networks and stages installation media for guests.
+`modules/workloads/vms/` turns declared workload networks and [guests](guests.md) into libvirt objects and stages installation media for them.
 Guests created in virt-manager stay outside the declarations and are never touched by them.
 
 ## Access
@@ -41,7 +41,7 @@ _: {
 - A declared network turns the `libvirt` app row on.
 
 The network uses forward mode `open`, so libvirt writes no firewall rules and only the workload tables govern its traffic.
-libvirt's dnsmasq serves DHCP with the network MTU.
+libvirt's dnsmasq serves DHCP with the network MTU and a reservation for each declared guest interface.
 On `warp` networks it forwards DNS to WARP's local resolvers only, so lookups fail while WARP is down; `none` networks get no DNS.
 It never answers from the host's `/etc/hosts`, which carries Mesh names.
 
@@ -52,6 +52,7 @@ The unit reruns at boot, at a switch that changes its XML, autostart flag, or re
 
 - The reconciler defines and never destroys or restarts.
   A running network keeps its old definition until it is restarted by hand, and the unit logs the command.
+  DHCP reservations are the exception: they change on the running network.
 - An inactive network with `autostart` is started after the define.
 - Every defined network carries a workloads ownership marker in its metadata.
   The reconciler refuses to change a network that lacks it.
