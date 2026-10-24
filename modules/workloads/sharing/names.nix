@@ -157,10 +157,15 @@ let
                 assertion = cfg.names ? ${name};
                 message = "workloads.networks.${networkName}.resolve: ${name} is not a workloads.names entry";
               }) network.resolve
-              # The forward chain drops traffic between bridges, so the name would lead nowhere.
+              # The forward chain drops traffic between bridges unless a guest
+              # on the network links to the service.
               ++ map (name: {
-                assertion = (cfg.names.${name}.kind or null) != "service";
-                message = "workloads.networks.${networkName}.resolve: ${name} is a service, which guests on ${networkName} cannot reach";
+                assertion =
+                  (cfg.names.${name}.kind or null) != "service"
+                  || lib.any (target: target.kind == "service" && target.name == name) (
+                    cfg.sharing.linkTargets.${networkName} or [ ]
+                  );
+                message = "workloads.networks.${networkName}.resolve: ${name} is a service, which guests on ${networkName} reach only through a service:${name} link";
               }) network.resolve
             ) cfg.networks
           )
