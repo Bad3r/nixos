@@ -190,9 +190,6 @@
   # Route first-party ChatGPT requests through PSP.
   # psp = false; # UnderDevelopment; upstream: false
 
-  # Enable voice conversations in the TUI.
-  realtime_conversation = true; # Stable; upstream: true
-
   # Append trusted response configuration items when the selected reasoning effort
   # changes.
   # reasoning_effort_override = false; # UnderDevelopment; upstream: false
