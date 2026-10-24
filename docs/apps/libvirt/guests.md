@@ -39,6 +39,7 @@ _: {
 | SPICE agent channel       | yes           | no          |
 | Clipboard, file transfer  | on by default | off, forced |
 | Display resizing by agent | yes           | no          |
+| [Shares](shares.md)       | declared      | none        |
 
 A SPICE console listens on a unix socket only, so opening it goes through an authenticated libvirt connection.
 `display = "headless"` drops the SPICE console and leaves the serial console; the guest agent channel follows `guestAgent` either way.

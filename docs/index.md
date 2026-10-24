@@ -399,6 +399,8 @@
   - Declared guests: trust classes, how the reconciler defines them, disks and NVRAM, growth, removal, orphans, and failures.
 - [apps/libvirt/nixos-guests.md](apps/libvirt/nixos-guests.md)
   - NixOS guest configurations: the guest base, adding a guest, seeding its disk from an image, host key pinning, and deploys over SSH.
+- [apps/libvirt/shares.md](apps/libvirt/shares.md)
+  - virtiofs shares for declared guests: the owner-bound virtiofsd, NixOS guest mounts, runtime shares, and failures.
 
 ### mpv
 
