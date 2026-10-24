@@ -76,6 +76,31 @@
               *) exit 1 ;;
             esac
           '';
+          pinnedMode =
+            let
+              inherit (osConfig.gpu.nvidia) metamode;
+              parsed = builtins.match "([0-9]+x[0-9]+)_([0-9]+|[0-9]+[.][0-9]+)" metamode;
+            in
+            if !osConfig.gpu.nvidia.enable || metamode == "nvidia-auto-select" then
+              null
+            else if parsed == null then
+              lib.warn "display-hotplug: gpu.nvidia.metamode '${metamode}' is not <width>x<height>_<rate>; using automatic resolution and refresh selection" null
+            else
+              parsed;
+          # The NVIDIA driver discards every MetaMode when it reprobes while
+          # the panel sleeps off the bus, so the panel returns with no mode.
+          displayHotplugScript = pkgs.writeShellApplication {
+            name = "display-hotplug";
+            runtimeInputs = [
+              pkgs.python3
+              pkgs.xrandr
+            ];
+            text = /* bash */ ''
+              exec python3 ${./_display-hotplug.py} ${
+                lib.optionalString (pinnedMode != null) (lib.escapeShellArgs pinnedMode)
+              }
+            '';
+          };
         in
         {
           services = {
@@ -196,6 +221,19 @@
                   "-notifier '${pkgs.systemd}/bin/systemctl --user start --no-block i3-idle-screensaver.service'"
                 ];
                 Restart = "always";
+              };
+            };
+
+            display-hotplug = {
+              Unit = {
+                Description = "Select native resolution and highest refresh rate for connected displays";
+                After = [ "graphical-session.target" ];
+                PartOf = [ "graphical-session.target" ];
+              };
+              Install.WantedBy = [ "graphical-session.target" ];
+              Service = {
+                ExecStart = "${lib.getExe pkgs.srandrd} -n -e ${lib.getExe displayHotplugScript}";
+                Restart = "on-failure";
               };
             };
           }
