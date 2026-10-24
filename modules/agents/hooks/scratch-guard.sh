@@ -1,7 +1,8 @@
 # shellcheck shell=bash
-# PreToolUse hook: denies writes under /tmp, redirecting agents to /data/agents
-# It denies rather than rewriting the path through updatedInput,
-# so the agent knows where the file went. Reads from /tmp stay allowed.
+# scratch is prepended by scratch-guard.nix.
+# shellcheck disable=SC2154
+# PreToolUse hook: denies writes under /tmp, redirecting agents to $scratch.
+# Reads from /tmp stay allowed.
 #
 # Bash detection is a heuristic over the command text: it cannot see paths
 # built at runtime or written by interpreters, and a /tmp path inside a quoted
@@ -10,7 +11,6 @@
 input="$(cat)"
 tool="$(jq -r '.tool_name // ""' <<<"$input")"
 cwd="$(jq -r '.cwd // ""' <<<"$input")"
-scratch="/data/agents"
 
 deny() {
   jq -n --arg reason "$1" '{
@@ -52,7 +52,9 @@ if [ "$tool" = apply_patch ] || grep -q '^\*\*\* Begin Patch' <<<"$command"; the
   while IFS= read -r path; do
     checkPath "$path"
   done < <(sed -nE 's/^\*\*\* (Add File|Update File|Move to): (.*)$/\2/p' <<<"$command")
-  exit 0
+  if [ "$tool" != Bash ]; then
+    exit 0
+  fi
 fi
 
 case "$tool" in
@@ -64,7 +66,6 @@ Bash) ;;
 *) exit 0 ;;
 esac
 
-# Mask the allowed sockets, then look for /tmp in a write position.
 text="$(sed -E 's#/tmp/\.(X11|ICE)-unix#/allowed-socket#g' <<<"$command")"
 q="[\"']?"
 t="${q}/tmp(/|[\"'[:space:];|&)]|$)"

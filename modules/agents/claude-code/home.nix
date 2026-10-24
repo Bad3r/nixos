@@ -82,7 +82,7 @@ _: {
       settingsJson = mergeParts [
         (import ./_settings.nix)
         (import ./_plugins.nix)
-        (import ./_permissions.nix)
+        (import ./_permissions.nix { inherit (agents) scratchDir; })
         (import ./_hooks.nix { inherit agents pkgs; })
         { env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly; }
       ];
@@ -144,6 +144,7 @@ _: {
           installMethods
           magnitudeClient
           ;
+        inherit (agents) scratchDir;
       };
 
       claudeInstructions = agents.systemPrompt.render {

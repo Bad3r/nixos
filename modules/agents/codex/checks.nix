@@ -19,6 +19,7 @@ in
       execPolicy = import ./_exec-policy.nix { inherit lib pkgs; };
       runtime = import ./_wrapper.nix {
         inherit lib pkgs codexPkg;
+        scratchDir = "/tmp/codex-config-check-scratch";
         inherit (settings) baseSettings nixProjectSettings;
         inherit (execPolicy) codexBashWrapper;
         homeDir = "/home/codex-config-check";

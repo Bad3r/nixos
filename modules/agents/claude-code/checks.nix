@@ -1,4 +1,4 @@
-{ lib, ... }:
+{ config, lib, ... }:
 {
   perSystem =
     { pkgs, ... }:
@@ -11,6 +11,7 @@
             pkgs
             installMethods
             ;
+          inherit (config.flake.lib.agents) scratchDir;
           claudePkg = "/nix/store/test-claude";
           bunInstallDir = "/nix/store/test-bun";
           externalBinary = "/nix/store/test-external/bin/claude";

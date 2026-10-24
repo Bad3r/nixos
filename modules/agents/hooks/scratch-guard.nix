@@ -1,5 +1,6 @@
-_:
+{ config, lib, ... }:
 let
+  inherit (config.flake.lib.agents) scratchDir;
   bash = command: {
     tool_name = "Bash";
     cwd = "/test/path";
@@ -30,7 +31,10 @@ in
           pkgs.gnused
           pkgs.jq
         ];
-        text = builtins.readFile ./scratch-guard.sh;
+        text = ''
+          scratch=${lib.escapeShellArg scratchDir}
+          ${builtins.readFile ./scratch-guard.sh}
+        '';
       };
 
     claude.matcher = "Write|Edit|MultiEdit|NotebookEdit|Bash";
@@ -65,9 +69,12 @@ in
         "dd if=/dev/zero of=/tmp/f"
         "export UV_CACHE_DIR=/tmp/uv"
         ''echo x > "/tmp/q"''
+        "cat > /tmp/p.diff <<'EOF'\n*** Begin Patch\n*** Add File: a\n+x\n*** End Patch\nEOF"
+        "apply_patch <<'EOF'\n*** Begin Patch\n*** Add File: /tmp/a\n+x\n*** End Patch\nEOF"
+        "cat > p.diff <<'EOF'\n*** Begin Patch\n*** Add File: a\n+x\n*** End Patch\nEOF\necho x > /tmp/x"
       ];
       allow = [
-        (write "/data/agents/a")
+        (write "${scratchDir}/a")
         (write "/tmp/../home/x")
         (write "/var/tmp/x")
         (patch "src/a.md")
@@ -79,9 +86,9 @@ in
       ++ map bash [
         "cat /tmp/x"
         "ls -la /tmp"
-        "cp /tmp/x /data/agents/"
-        "mv /tmp/old /data/agents/old"
-        "rsync -a /tmp/src/ /data/agents/src/"
+        "cp /tmp/x ${scratchDir}/"
+        "mv /tmp/old ${scratchDir}/old"
+        "rsync -a /tmp/src/ ${scratchDir}/src/"
         "grep foo /tmp/log > out.txt"
         "[ -d /tmp/foo ] && echo y"
         "echo hi 2>/dev/null"
@@ -89,6 +96,7 @@ in
         "ls /tmp/.X11-unix"
         "cd /tmpfoo"
         ''echo x > "$TMPDIR/a"''
+        "apply_patch <<'EOF'\n*** Begin Patch\n*** Add File: src/a\n+x\n*** End Patch\nEOF"
       ];
     };
   };
