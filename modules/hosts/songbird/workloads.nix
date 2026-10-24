@@ -1,4 +1,15 @@
 _: {
+  configurations.nixos.songbird.module.workloads.host.services.dev = {
+    ports = [
+      {
+        from = 8000;
+        to = 8999;
+      }
+    ];
+    bind = "any";
+    grantable = true;
+  };
+
   configurations.nixos.songbird.module.workloads.networks = {
     default = {
       egress = "warp";
