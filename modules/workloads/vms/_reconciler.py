@@ -35,6 +35,11 @@ CHUNK = 1 << 20
 # Size and modification time of the opened source, ahead of its content.
 HEADER = struct.Struct(">QQ")
 STAGED_MODE = 0o644
+# Network sections a running network takes without a restart: parent path, key, label.
+LIVE_SECTIONS = (
+    (libvirt.VIR_NETWORK_SECTION_IP_DHCP_HOST, "ip/dhcp", "mac", "DHCP reservation"),
+    (libvirt.VIR_NETWORK_SECTION_DNS_HOST, "dns", "ip", "DNS host"),
+)
 
 
 class ReconcileError(Exception):
@@ -59,12 +64,13 @@ def is_marked(root: ET.Element) -> bool:
 def canonical(root: ET.Element) -> str:
     """Serialize a network definition without its runtime-only attributes."""
     root.attrib.pop("connections", None)
-    # Live updates append reservations, so their order carries no meaning.
-    for dhcp in root.iterfind("ip/dhcp"):
-        hosts = dhcp.findall("host")
-        for host in hosts:
-            dhcp.remove(host)
-        dhcp.extend(sorted(hosts, key=lambda host: host.get("mac", "")))
+    # Live updates append records, so their order carries no meaning.
+    for _, parent, key, _ in LIVE_SECTIONS:
+        for element in root.iterfind(parent):
+            hosts = element.findall("host")
+            for host in hosts:
+                element.remove(host)
+            element.extend(sorted(hosts, key=lambda host, key=key: host.get(key, "")))
     return ET.canonicalize(ET.tostring(root, encoding="unicode"), strip_text=True)
 
 
@@ -137,28 +143,31 @@ def clear_way(conn: libvirt.virConnect, name: str, uuid: str) -> None:
     log(f"undefined libvirt's stock '{name}' network")
 
 
-def dhcp_hosts(root: ET.Element) -> dict[str, str]:
-    """Map each DHCP reservation's MAC to its canonical XML."""
+def live_records(root: ET.Element, parent: str, key: str) -> dict[str, str]:
+    """Map each `host` record under `parent` to its canonical XML by its key attribute."""
     return {
-        host.get("mac", ""): ET.canonicalize(ET.tostring(host, encoding="unicode"), strip_text=True)
-        for host in root.iterfind("ip/dhcp/host")
+        host.get(key, ""): ET.canonicalize(ET.tostring(host, encoding="unicode"), strip_text=True)
+        for host in root.iterfind(f"{parent}/host")
     }
 
 
-def sync_dhcp_hosts(network: libvirt.virNetwork, desired: ET.Element) -> None:
-    """Bring the reservations of a running network in line with its definition."""
-    live = dhcp_hosts(parse(network.XMLDesc(0)))
-    wanted = dhcp_hosts(desired)
-    section = libvirt.VIR_NETWORK_SECTION_IP_DHCP_HOST
+def sync_live_records(network: libvirt.virNetwork, desired: ET.Element) -> None:
+    """Bring the live DHCP reservations and DNS hosts of a running network in line."""
+    current = parse(network.XMLDesc(0))
     flags = libvirt.VIR_NETWORK_UPDATE_AFFECT_LIVE
-    for mac, host in live.items():
-        if wanted.get(mac) != host:
-            network.update(libvirt.VIR_NETWORK_UPDATE_COMMAND_DELETE, section, -1, host, flags)
-            log(f"dropped the live DHCP reservation {host}")
-    for mac, host in wanted.items():
-        if live.get(mac) != host:
-            network.update(libvirt.VIR_NETWORK_UPDATE_COMMAND_ADD_LAST, section, -1, host, flags)
-            log(f"added the live DHCP reservation {host}")
+    for section, parent, key, label in LIVE_SECTIONS:
+        live = live_records(current, parent, key)
+        wanted = live_records(desired, parent, key)
+        for record_key, host in live.items():
+            if wanted.get(record_key) != host:
+                network.update(libvirt.VIR_NETWORK_UPDATE_COMMAND_DELETE, section, -1, host, flags)
+                log(f"dropped the live {label} {host}")
+        for record_key, host in wanted.items():
+            if live.get(record_key) != host:
+                network.update(
+                    libvirt.VIR_NETWORK_UPDATE_COMMAND_ADD_LAST, section, -1, host, flags
+                )
+                log(f"added the live {label} {host}")
 
 
 def reconcile_network(conn: libvirt.virConnect, xml: str, *, autostart: bool) -> None:
@@ -175,7 +184,7 @@ def reconcile_network(conn: libvirt.virConnect, xml: str, *, autostart: bool) ->
         log(f"set autostart of network '{name}' to {autostart}")
 
     if network.isActive():
-        sync_dhcp_hosts(network, desired)
+        sync_live_records(network, desired)
         live = canonical(parse(network.XMLDesc(0)))
         if live != canonical(inactive_xml(network)):
             log(
