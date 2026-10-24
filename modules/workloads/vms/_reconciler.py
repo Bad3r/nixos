@@ -302,7 +302,7 @@ def seed_problem(seed: dict[str, str]) -> str | None:
     if str(resolved) != seed["expected"] or not resolved.is_file():
         return (
             f"the out-link {out_link} is stale: "
-            f"it points at {out_link.resolve()}, declared {seed['expected']}"
+            f"it points at {resolved}, declared {seed['expected']}"
         )
     return None
 
