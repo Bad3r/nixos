@@ -77,31 +77,27 @@
             esac
           '';
           pinnedMode =
-            if osConfig.gpu.nvidia.enable then
-              builtins.match "([0-9]+x[0-9]+)_([0-9.]+)" osConfig.gpu.nvidia.metamode
+            let
+              inherit (osConfig.gpu.nvidia) metamode;
+              parsed = builtins.match "([0-9]+x[0-9]+)_([0-9]+|[0-9]+[.][0-9]+)" metamode;
+            in
+            if !osConfig.gpu.nvidia.enable || metamode == "nvidia-auto-select" then
+              null
+            else if parsed == null then
+              throw "display-hotplug: gpu.nvidia.metamode '${metamode}' is not <width>x<height>_<rate>"
             else
-              null;
+              parsed;
           # The NVIDIA driver discards every MetaMode when it reprobes while
           # the panel sleeps off the bus, so the panel returns with no mode.
           displayHotplugScript = pkgs.writeShellApplication {
             name = "display-hotplug";
             runtimeInputs = [
-              pkgs.gnugrep
+              pkgs.python3
               pkgs.xrandr
             ];
             text = /* bash */ ''
-              [ "$SRANDRD_EVENT" = connected ] || exit 0
-              if xrandr --current | grep -Eq '^\S+ connected (primary )?[0-9]+x[0-9]+\+'; then
-                exit 0
-              fi
-              echo "$SRANDRD_OUTPUT connected with no active output; enabling it" >&2
-              ${
-                if pinnedMode == null then
-                  ''xrandr --output "$SRANDRD_OUTPUT" --auto''
-                else
-                  ''
-                    xrandr --output "$SRANDRD_OUTPUT" --mode ${builtins.elemAt pinnedMode 0} --rate ${builtins.elemAt pinnedMode 1} ||
-                      xrandr --output "$SRANDRD_OUTPUT" --auto''
+              exec python3 ${./_display-hotplug.py} ${
+                lib.optionalString (pinnedMode != null) (lib.escapeShellArgs pinnedMode)
               }
             '';
           };
@@ -230,13 +226,13 @@
 
             display-hotplug = {
               Unit = {
-                Description = "Re-enable a reconnected display left without a mode";
+                Description = "Select native resolution and highest refresh rate for connected displays";
                 After = [ "graphical-session.target" ];
                 PartOf = [ "graphical-session.target" ];
               };
               Install.WantedBy = [ "graphical-session.target" ];
               Service = {
-                ExecStart = "${lib.getExe pkgs.srandrd} -n ${lib.getExe displayHotplugScript}";
+                ExecStart = "${lib.getExe pkgs.srandrd} -n -e ${lib.getExe displayHotplugScript}";
                 Restart = "on-failure";
               };
             };

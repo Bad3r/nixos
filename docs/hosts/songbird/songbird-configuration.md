@@ -12,7 +12,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 ## GPU
 
 - The NVIDIA driver runs its open kernel modules, since Blackwell is supported only by them: [nvidia-gpu.nix](../../../modules/hosts/songbird/nvidia-gpu.nix).
-- A fixed metamode pins the refresh rate, since the monitor advertises 60 Hz as preferred and RandR reverts to it on every hotplug and DPMS wake: [nvidia-gpu.nix](../../../modules/hosts/songbird/nvidia-gpu.nix).
+- The monitor advertises a low refresh rate as preferred. The i3 display handler selects the highest advertised rate at the preferred resolution on startup and reconnect: [services.nix](../../../modules/apps/i3wm/services.nix).
 - mpv keeps the OpenGL backend under vo=gpu-next, since the Vulkan backend deadlocked the GPU on rapid playlist switching: [mpv.nix](../../../modules/hosts/songbird/mpv.nix).
 - The cache-root policy excludes songbird's NVIDIA kernel module from the binary cache, since it builds from source with no configured substituter: [policy.nix](../../../modules/hosts/songbird/policy.nix).
 

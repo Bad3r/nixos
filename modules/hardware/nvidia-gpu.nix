@@ -65,6 +65,13 @@ let
             re-detects the display, so a wrong value here silently returns after
             every hotplug or DPMS wake.
 
+            With "nvidia-auto-select", the i3 display-hotplug handler selects
+            the highest advertised refresh rate at the preferred resolution on
+            session startup and reconnect. If no preferred mode is advertised,
+            it uses the largest advertised resolution. A pinned mode overrides
+            this selection. Other formats fail evaluation. Failed mode requests
+            are logged and fall back to RandR's preferred mode with `--auto`.
+
             A pinned mode names an EDID the attached panel may not advertise.
             That does not cost a session: the driver discards MetaModes it
             cannot validate and "nvidia-auto-select" is guaranteed present, so X
