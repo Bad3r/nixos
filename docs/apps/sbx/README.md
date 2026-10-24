@@ -50,13 +50,12 @@ sbx destroy probe
 ## Networks
 
 - `--net none`, the default, gives the sandbox no network interface.
-- `--net egress` adds one virtio NIC on `vn-sbx`, the bridge of the `sbx` [workload network](../../networking/workloads.md) in `modules/hosts/<host>/workloads.nix`.
-  The guest resolves names through the gateway and reaches the internet through WARP only, failing closed while WARP is down.
-- The network isolates peers, so an egress sandbox reaches no other sandbox, nothing on the host beyond DHCP and DNS, and neither the LAN nor Mesh.
+- `--net egress` adds one virtio NIC on `vn-sbx`, the bridge of the `sbx` [workload network](../../networking/workloads.md) in `modules/hosts/<host>/workloads.nix`, which sets its egress, isolation, and lease binding.
+- The network's resolver ignores the hostnames sandboxes send, so a sandbox cannot look up its peers.
 - `create` waits for the guest's DHCP lease and prints its address.
   `list` and `info` read it from the lease file the host's DHCP server keeps for the bridge, not from the guest agent.
-- Session libvirt joins the bridge through the setuid `qemu-bridge-helper`.
-  The Home Manager part pins the helper in `~/.config/libvirt/qemu.conf`, and the network's `sessionAttach` admits the bridge in `/etc/qemu/bridge.conf`.
+- The address is the sandbox's current lease, which the network keeps short.
+- Session libvirt joins the bridge through the setuid `qemu-bridge-helper`, which the Home Manager part pins in `~/.config/libvirt/qemu.conf`.
 
 ## Copies
 

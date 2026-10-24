@@ -169,15 +169,18 @@ let
             };
             inherit (cfg) vsockAllowlist flake;
             cpuset = cfg.limits.cpus;
+            # An object, or why `--net egress` is unavailable.
             egress =
-              if egressNetwork != null && egressNetwork.libvirt.enable && egressNetwork.libvirt.sessionAttach then
+              if egressNetwork == null then
+                "this host declares no workloads.networks.sbx"
+              else if !(egressNetwork.libvirt.enable && egressNetwork.libvirt.sessionAttach) then
+                "workloads.networks.sbx needs libvirt.enable and libvirt.sessionAttach"
+              else
                 {
                   inherit (egressNetwork) bridge;
                   # libvirt writes it world-readable, so sbx reads leases without a system connection.
                   leases = "/var/lib/libvirt/dnsmasq/${egressNetwork.bridge}.status";
-                }
-              else
-                null;
+                };
             unit = "sbx-libvirt.service";
             slice = "sbx.slice";
             outputLimit = 1024 * 1024;

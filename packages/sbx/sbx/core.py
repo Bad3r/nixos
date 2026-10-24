@@ -122,7 +122,8 @@ class Settings:
     slice: str
     output_limit: int
     boot_timeout: int
-    egress: Egress | None
+    # Why `--net egress` is unavailable, when it is.
+    egress: Egress | str
     tools: Tools
 
     @classmethod
@@ -153,8 +154,8 @@ class Settings:
             slice=raw["slice"],
             output_limit=raw["outputLimit"],
             boot_timeout=raw["bootTimeout"],
-            egress=None
-            if raw["egress"] is None
+            egress=raw["egress"]
+            if isinstance(raw["egress"], str)
             else Egress(raw["egress"]["bridge"], Path(raw["egress"]["leases"])),
             tools=Tools(**raw["tools"]),
         )
@@ -676,7 +677,7 @@ class Sandboxes:
         """Return the address of a running egress sandbox from the host's DHCP leases."""
         egress = self.settings.egress
         mac = sandbox.domain.mac
-        if egress is None or mac is None or not sandbox.domain.active:
+        if isinstance(egress, str) or mac is None or not sandbox.domain.active:
             return None
         return lease_address(egress.leases, mac, self._clock())
 
@@ -685,14 +686,17 @@ class Sandboxes:
     def _check_egress(self) -> Egress:
         """Return the egress bridge, refusing when it is not declared, absent, or down."""
         egress = self.settings.egress
-        if egress is None:
-            msg = "this host declares no sbx egress network (workloads.networks.sbx)"
-            raise SbxError(msg, code="egress-unavailable")
+        if isinstance(egress, str):
+            raise SbxError(egress, code="egress-unavailable")
         device = SYS_NET / egress.bridge
+        absent = f"bridge {egress.bridge} does not exist; its libvirt network is not running"
         if not (device / "bridge").is_dir():
-            msg = f"bridge {egress.bridge} does not exist; its libvirt network is not running"
-            raise SbxError(msg, code="egress-unavailable")
-        if not int((device / "flags").read_text(), 16) & IFF_UP:
+            raise SbxError(absent, code="egress-unavailable")
+        try:
+            flags = int((device / "flags").read_text(), 16)
+        except FileNotFoundError as error:
+            raise SbxError(absent, code="egress-unavailable") from error
+        if not flags & IFF_UP:
             msg = f"bridge {egress.bridge} is down"
             raise SbxError(msg, code="egress-unavailable")
         return egress

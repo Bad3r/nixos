@@ -154,7 +154,7 @@ class SandboxesTest(unittest.TestCase):
             slice="sbx.slice",
             output_limit=1024,
             boot_timeout=5,
-            egress=None,
+            egress="no egress network",
             tools=tools,
         )
         self.paths = Paths(self.scratch / "data" / "sbx", self.scratch / "config")
@@ -564,15 +564,19 @@ class SandboxesTest(unittest.TestCase):
         return leases
 
     def test_egress_unavailable(self) -> None:
-        """Egress is refused without a declared network, a bridge, or an up bridge."""
+        """Egress is refused without a usable network, a bridge, or an up bridge."""
         with self.assertRaises(SbxError) as refused:
             self.sandboxes().create(self.request(net="egress"))
         self.assertEqual(refused.exception.code, "egress-unavailable")
+        self.assertEqual(str(refused.exception), "no egress network")
         self.egress(flags="0x1002")
-        for absent in (False, True):
-            if absent:
-                (core.SYS_NET / "vn-sbx" / "bridge").rmdir()
-            with self.subTest(absent=absent), self.assertRaises(SbxError) as refused:
+        device = core.SYS_NET / "vn-sbx"
+        for case in ("down", "flags vanished", "absent"):
+            if case == "flags vanished":
+                (device / "flags").unlink()
+            if case == "absent":
+                (device / "bridge").rmdir()
+            with self.subTest(case=case), self.assertRaises(SbxError) as refused:
                 self.sandboxes().create(self.request(net="egress"))
             self.assertEqual(refused.exception.code, "egress-unavailable")
             self.assert_no_sandbox("t1")
@@ -658,7 +662,7 @@ class SandboxesTest(unittest.TestCase):
         self.assertEqual(refused.exception.code, "vsock-listener")
 
     def test_settings_egress(self) -> None:
-        """The rendered settings carry the egress bridge, or null without one."""
+        """The rendered settings carry the egress bridge, or why there is none."""
         raw: dict[str, object] = {
             "limits": {
                 "running": 3,
@@ -683,8 +687,8 @@ class SandboxesTest(unittest.TestCase):
         path = self.scratch / "settings.json"
         path.write_text(json.dumps(raw))
         self.assertEqual(Settings.load(path).egress, Egress("vn-sbx", Path("/leases")))
-        path.write_text(json.dumps(raw | {"egress": None}))
-        self.assertIsNone(Settings.load(path).egress)
+        path.write_text(json.dumps(raw | {"egress": "why"}))
+        self.assertEqual(Settings.load(path).egress, "why")
 
 
 if __name__ == "__main__":

@@ -22,7 +22,7 @@ _: {
             }) descriptors
           )
           // {
-            # libvirt otherwise searches PATH for the helper, where an unprivileged copy can come first.
+            # Temporary: drop once the nixpkgs pin carries the libvirt QEMU_BRIDGE_HELPER fix.
             "libvirt/qemu.conf".text = ''
               bridge_helper = "${osConfig.security.wrapperDir}/qemu-bridge-helper"
             '';
