@@ -24,6 +24,7 @@ let
   mirrorRootModuleExists = lib.hasAttrByPath [ "flake" "nixosModules" "mirror-root" ] config;
   fc660cKeyboardExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-fc660c" ] config;
   workloadNetworksExists = lib.hasAttrByPath [ "flake" "nixosModules" "workloads-networks" ] config;
+  workloadServicesExists = lib.hasAttrByPath [ "flake" "nixosModules" "workloads-services" ] config;
   repoGpgModuleExists = lib.hasAttrByPath [
     "self"
     "homeManagerModules"
@@ -80,6 +81,7 @@ in
   ++ lib.optionals mirrorRootModuleExists [ config.flake.nixosModules.mirror-root ]
   ++ lib.optionals fc660cKeyboardExists [ config.flake.nixosModules."hardware-fc660c" ]
   ++ lib.optionals workloadNetworksExists [ config.flake.nixosModules."workloads-networks" ]
+  ++ lib.optionals workloadServicesExists [ config.flake.nixosModules."workloads-services" ]
   ++ [
     (
       { lib, ... }:
