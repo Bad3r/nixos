@@ -135,9 +135,6 @@ let
               !firmware.enrolledKeys || firmware.secureBoot
             ) "firmware.enrolledKeys needs firmware.secureBoot")
             (check (
-              guest.trust == "trusted" || !(guest.clipboard || guest.fileTransfer)
-            ) "untrusted guests share no clipboard or files")
-            (check (
               !guest.usbRedirection || guest.display == "spice"
             ) "usbRedirection needs display = \"spice\"")
           ]

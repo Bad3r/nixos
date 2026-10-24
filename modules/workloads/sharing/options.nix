@@ -105,6 +105,15 @@ let
               link without a port opens.
             '';
           };
+
+          allowUntrustedClipboard = lib.mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Whether an untrusted guest may set `clipboard = true`, which
+              gives it the SPICE agent channel. File transfer stays off.
+            '';
+          };
         };
       };
 

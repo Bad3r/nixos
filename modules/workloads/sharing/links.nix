@@ -235,11 +235,16 @@ let
           name: guest:
           let
             prefix = "workloads.guests.${name}";
+            untrusted = guest.trust != "trusted";
           in
           [
             (check (lib.all (
               spec: spec.from <= spec.to
             ) guest.grantable) "${prefix}.grantable: `from` must not exceed `to`")
+            (check (!(untrusted && guest.fileTransfer)) "${prefix}: untrusted guests get no file transfer")
+            (check (
+              !(untrusted && guest.clipboard && !guest.allowUntrustedClipboard)
+            ) "${prefix}: clipboard on an untrusted guest needs allowUntrustedClipboard = true")
           ]
         ) presentGuests
       );

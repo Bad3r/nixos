@@ -192,7 +192,8 @@ let
               ];
               description = ''
                 Trust class. Untrusted guests get no SPICE agent channel, so
-                no clipboard, file transfer, or display resizing.
+                no clipboard, file transfer, or display resizing, unless
+                `allowUntrustedClipboard` lets them have a clipboard.
               '';
             };
 
