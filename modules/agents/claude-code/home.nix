@@ -30,6 +30,7 @@
         _settings.nix          settings.json keys the next two files do not hold
         _plugins.nix           plugins, marketplaces, and skill settings
         _permissions.nix       permissions and MCP server policy
+        _hooks.nix             tool hooks from the shared registry (modules/agents/hooks.nix)
         _env.nix               environment variables
         _claude-json.nix       ~/.claude.json preferences
         _keybindings.nix       ~/.claude/keybindings.json
@@ -82,6 +83,7 @@ _: {
         (import ./_settings.nix)
         (import ./_plugins.nix)
         (import ./_permissions.nix)
+        (import ./_hooks.nix { inherit agents pkgs; })
         { env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly; }
       ];
       claudeJson = mergeParts [

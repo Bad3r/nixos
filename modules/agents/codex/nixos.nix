@@ -17,11 +17,20 @@
   Notes:
     * Package sourced from llm-agents.nix flake (github:numtide/llm-agents.nix).
     * Home Manager installs a wrapper around `package` and manages the configuration (modules/agents/codex/home.nix).
+    * Hooks from the shared registry (modules/agents/hooks.nix) go in /etc/codex/hooks.json: the system layer is trusted without the per-hash review that user-layer hooks need, which a store path would reset on every rebuild.
 */
-{ inputs, ... }:
+{ config, inputs, ... }:
+let
+  inherit (config.flake.lib) agents;
+in
 {
   flake.nixosModules.apps.codex =
-    { lib, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       defaultPackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.codex;
     in
@@ -38,6 +47,12 @@
           default = defaultPackage;
           defaultText = lib.literalExpression "defaultPackage";
           description = "The codex package to use.";
+        };
+      };
+
+      config = lib.mkIf config.programs.codex.extended.enable {
+        environment.etc."codex/hooks.json".text = builtins.toJSON {
+          hooks = agents.hooks.clients.codex pkgs;
         };
       };
     };
