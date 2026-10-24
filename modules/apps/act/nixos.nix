@@ -67,6 +67,9 @@ let
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ wrappedAct ];
+
+        # The Docker API engine behind /run/docker.sock.
+        programs.podman.extended.enable = lib.mkOverride 1050 true;
       };
     };
 in
