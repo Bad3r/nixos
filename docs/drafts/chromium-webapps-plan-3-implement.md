@@ -12,7 +12,7 @@
 
 **Architecture:** A NixOS-scope module owns the managed enterprise policy (permissions and extensions) written into `/etc/brave/policies/managed/`; a Home Manager module owns per-app launchers, `--user-data-dir` isolation, desktop entries, and kdocker tray wrapping. App definitions live in one typed keyed attrset that both scopes read. No installer script, no systemd unit, no runtime state reconciliation.
 
-**Tech Stack:** Nix (flake-parts, Dendritic pattern), Home Manager, sops-nix, brave-origin (version pinned in `packages/brave-origin/default.nix`), Chromium enterprise policy, MV3 extensions, kdocker.
+**Tech Stack:** Nix (flake-parts, Dendritic pattern), Home Manager, brave-origin (version pinned in `packages/brave-origin/default.nix`), Chromium enterprise policy, MV3 extensions, kdocker.
 
 ______________________________________________________________________
 
@@ -27,9 +27,8 @@ Locked before writing this plan. Do not relitigate during execution.
 | Extensions      | Hybrid                                           | Third-party from the Web Store via `ExtensionSettings` (correct IDs, 1Password native messaging works); only the generated keep-alive extension uses `--load-extension`.                                |
 | Tray            | kdocker per app                                  | `-i` per-app icon, `-z` keep-running, `-l` iconify on focus loss. Opt-in per app.                                                                                                                       |
 | Keep-alive      | Generated MV3 extension, reload only when hidden | `chrome.alarms` wakes the service worker; skips the reload when the app window is focused.                                                                                                              |
-| Secret URLs     | One sops-rendered policy file                    | Avoids Chromium's config-dir merge, where a repeated list policy has one file win outright instead of concatenating.                                                                                    |
 | PR #435         | Close, salvage the two unrelated fixes           | The compgen and statix fixes are repo-wide and must survive.                                                                                                                                            |
-| Catalog         | DMail + full M365 including Teams                | Teams was excluded from #435 only because it rejects Gecko.                                                                                                                                             |
+| Catalog         | Full M365 including Teams                        | Teams was excluded from #435 only because it rejects Gecko.                                                                                                                                             |
 | Policy scope    | Full hardened set plus webapp entries            | Lifted from `modules/browsers/brave/apps.nix` and shared.                                                                                                                                               |
 | Policy reach    | Browser-wide, not app-scoped                     | Chromium reads one managed directory per browser, and `brave` shares it with `brave-origin`. `webapps.json` therefore binds every Brave-family instance including the daily driver. Consequences below. |
 | Keep-alive ID   | Pinned by a committed manifest `key`             | An unpacked extension's ID is a hash of its store path, so it changes every rebuild. A pinned ID is allowlistable in `ExtensionSettings` and stops profile-litter.                                      |
@@ -62,7 +61,7 @@ combination, and where `brave-origin.extended.enable` is false it is absent
 rather than satisfied: it lives inside `config = lib.mkIf cfg.enable` in
 `brave-origin/apps.nix`, so that module contributes no `assertions` definition
 at all and nothing refuses `brave` running alone. Every shape that evaluates
-takes the promptless capture denial in `brave` too. That is why Task 18 Step 8
+takes the promptless capture denial in `brave` too. That is why Task 17 Step 8
 reads whichever Brave-family builds the host installs rather than `brave-origin`
 alone.
 
@@ -95,7 +94,7 @@ follow-ups, not part of this plan.
 
 - `brave-origin` binary contains the string `/etc/brave/policies`. The binary is under `brave-origin-nightly/`, which is the channel the package ships (`packages/brave-origin/default.nix`), not `brave-origin/`. Reproduce: `strings -a "$(nix build --impure --no-link --print-out-paths --expr 'with import <nixpkgs> {}; brave-origin')/opt/brave.com/brave-origin-nightly/brave" | rg '^/etc/brave'`
 
-- `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available. Reproduce against the pinned build: `B="$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.songbird.pkgs.brave-origin")/opt/brave.com/brave-origin-nightly/brave"; strings -a "$B" | rg -x 'load-extension|disable-extensions-except'; strings -a "$B" | rg -i 'via the command line is not supported'`. Expected: both switches present, and no output from the second probe, because the branding-gated refusal message is compiled out of a build where `GOOGLE_CHROME_BRANDING` is unset. That settles the branding half. The Enhanced Safe Browsing half is a runtime check no string probe can reach, so Task 18 Step 3 is where it is confirmed on a real host; if it fails there, the fallback is `ExtensionSettings` with a `file://` update URL rather than a command-line load, and Task 10's extension design changes with it.
+- `--load-extension` is refused only under `BUILDFLAG(GOOGLE_CHROME_BRANDING)` and under Enhanced Safe Browsing. The hardened policy set pins `SafeBrowsingProtectionLevel = 1` (standard), so it stays available. Reproduce against the pinned build: `B="$(nix build --no-link --print-out-paths "path:.#nixosConfigurations.songbird.pkgs.brave-origin")/opt/brave.com/brave-origin-nightly/brave"; strings -a "$B" | rg -x 'load-extension|disable-extensions-except'; strings -a "$B" | rg -i 'via the command line is not supported'`. Expected: both switches present, and no output from the second probe, because the branding-gated refusal message is compiled out of a build where `GOOGLE_CHROME_BRANDING` is unset. That settles the branding half. The Enhanced Safe Browsing half is a runtime check no string probe can reach, so Task 17 Step 3 is where it is confirmed on a real host; if it fails there, the fallback is `ExtensionSettings` with a `file://` update URL rather than a command-line load, and Task 10's extension design changes with it.
 
 - Policy names and types confirmed against the Chromium policy registry: `AudioCaptureAllowed` (bool), `VideoCaptureAllowed` (bool), `ScreenCaptureAllowed` (bool), `DefaultNotificationsSetting` (int), `DefaultClipboardSetting` (int), `DefaultSensorsSetting` (int), `DefaultWindowManagementSetting` (int), `DefaultLocalFontsSetting` (int), `ExtensionSettings` (dict), `BackgroundModeEnabled` (bool).
 
@@ -145,7 +144,7 @@ that names it and record the outcome in the plan before continuing.
   removed-or-renamed case is ruled out (see the verified facts above). What is
   still unproven is that a listed origin actually gets `getDisplayMedia` back
   once `ScreenCaptureAllowed = false` denies it globally; Brave has diverged on
-  capture behavior before. Task 18 Step 2 reads `brave://policy` for a conflict
+  capture behavior before. Task 17 Step 2 reads `brave://policy` for a conflict
   or ignored-value warning on every key this plan writes, then starts a real
   screen share from Teams, which is the only thing that settles it.
 
@@ -177,14 +176,13 @@ ______________________________________________________________________
 | `modules/browsers/webapps/_policy.nix`                | Pure function: apps attrset to Chromium policy attrset.                        |
 | `modules/browsers/webapps/_check-apps.nix`            | Single source of the fixture-generation shim; used by the check and the shell. |
 | `modules/browsers/webapps/_reload-extension.nix`      | Pure function: builds the per-app MV3 keep-alive extension derivation.         |
-| `modules/browsers/webapps/nixos.nix`                  | NixOS module: options, sops policy template, `environment.etc`.                |
+| `modules/browsers/webapps/nixos.nix`                  | NixOS module: options and the `environment.etc` policy file.                   |
 | `modules/browsers/webapps/home.nix`                   | Home Manager module: launchers, data dirs, desktop entries, tray.              |
 | `modules/browsers/webapps/enable.nix`                 | hosts-common baseline toggle.                                                  |
 | `modules/browsers/webapps/policy-check.nix`           | Flake check: generated policy vs fixture, plus the disjoint-key invariant.     |
 | `modules/browsers/webapps/keepalive-id-check.nix`     | Flake check: the transcribed extension ID matches its committed public key.    |
 | `modules/browsers/webapps/module-check.nix`           | Flake check: Home Manager module evaluates and produces the expected launcher. |
 | `modules/browsers/webapps/check-fixtures/policy.json` | Expected policy output.                                                        |
-| `modules/browsers/webapps/check-fixtures/gecko.yaml`  | Non-secret fixture for the HM eval check.                                      |
 | `docs/reference/webapps.md`                           | Operator reference for `programs.webapps`.                                     |
 
 ### PR 3: implementation (files modified)
@@ -194,9 +192,8 @@ ______________________________________________________________________
 - `modules/meta/cache-roots.nix`: add `"brave-origin"`
 - `docs/reference/binary-cache-coverage.md`: add the matching `brave-origin` inventory row
 - `docs/architecture/04-home-manager.md`: add a sentence for the webapps pair spanning both scopes, after the
-  sibling-merge sentence phase 2 left without a worked example
+  browser-registration sentence
 - `docs/index.md`: add the `reference/webapps.md` row `docs/AGENTS.md` requires
-- `secrets/gecko.yaml`: add `gecko_work_bookmark_origin_1`, committed and pushed inside the submodule (Task 16)
 - `docs/reference/local-mirrors.md` is untouched
 
 ______________________________________________________________________
@@ -223,9 +220,7 @@ cd "$HOME/trees/nixos/feat-chromium-webapps"
 ```
 
 `origin/main`, not `main`. This phase assumes phase 2 has landed, and a local `main` that has not been pulled since
-that merge still carries `modules/browsers/firefoxpwa/`. Cut from there, Task 15 Step 1's
-`git log --diff-filter=D` finds no deletion commit, leaving `git show "^:<path>"`
-as the recovery command. Naming a remote-tracking start point also removes the case where the primary checkout is on
+that merge still carries `modules/browsers/firefoxpwa/`. Naming a remote-tracking start point also removes the case where the primary checkout is on
 some other branch entirely.
 
 - [ ] **Step 2: Create the shared hardening file**
@@ -341,7 +336,7 @@ sourced. On the success path `trap - EXIT INT TERM` disarms it. On the path the
 trap exists for it does not: after Ctrl-C the INT trap restores correctly, and
 the EXIT trap stays armed in the login shell and fires whenever that shell
 finally exits, from whatever directory it has then. This phase moves between
-`/home/vx/nixos` and the worktree's `secrets/`, so a relative path would write
+`/home/vx/nixos` and the worktree, so a relative path would write
 `/tmp/brave-apps-refactored.nix` over a different checkout's
 `modules/browsers/brave/apps.nix`, or fail with no one watching. Binding `$PWD`
 once makes the trap resolve the same path wherever it fires.
@@ -619,11 +614,7 @@ Create `modules/browsers/webapps/nixos.nix`:
       the web apps. See "Consequences of a browser-wide policy" in the plan.
     * The file is written whole, never split. Chromium's config-dir loader lets
       one file win a repeated key outright instead of merging, so splitting this
-      across a store file and a secret file would silently drop entries. When an
-      app's origin is a secret and the secrets file is present, sops-nix renders
-      the whole file so that origin never reaches the Nix store; with no secret
-      origin the same policy goes straight into environment.etc and the module
-      carries no sops dependency.
+      across several files would silently drop entries.
 
   Geolocation is deliberately absent from the permission submodule: Chromium
   ships GeolocationBlockedForUrls but no matching allowlist, so it cannot be
@@ -650,33 +641,10 @@ Create `modules/browsers/webapps/nixos.nix`:
             };
 
             url = lib.mkOption {
-              type = lib.types.nullOr lib.types.str;
-              default = null;
+              type = lib.types.str;
               description = ''
-                Start URL. Mutually exclusive with urlSecret. Leave null when the
-                URL is a secret.
-              '';
-            };
-
-            urlSecret = lib.mkOption {
-              type = lib.types.nullOr lib.types.str;
-              default = null;
-              example = "gecko_work_bookmark_url_1";
-              description = ''
-                Key in secrets/gecko.yaml holding the start URL. The launcher reads
-                the decrypted value at runtime, so the URL never enters the store.
-                Requires originSecret, because the permission policy needs an origin
-                and sops templates substitute values without transforming them.
-              '';
-            };
-
-            originSecret = lib.mkOption {
-              type = lib.types.nullOr lib.types.str;
-              default = null;
-              example = "gecko_work_bookmark_origin_1";
-              description = ''
-                Key in secrets/gecko.yaml holding the scheme://host origin of urlSecret.
-                Stored separately because Chromium content-setting patterns are
+                Start URL. Its scheme://host becomes the app's origin in the
+                permission policy, because Chromium content-setting patterns are
                 scheme/host/port only and reject a path.
               '';
             };
@@ -872,17 +840,6 @@ Create `modules/browsers/webapps/nixos.nix`:
           '';
         };
 
-        secretsFile = lib.mkOption {
-          type = lib.types.nullOr lib.types.path;
-          default = null;
-          description = ''
-            SOPS file backing urlSecret and originSecret keys. Read by both
-            scopes: ./nixos.nix resolves originSecret against it, and
-            ./home.nix reads it through osConfig for urlSecret, so overriding
-            it moves both together.
-          '';
-        };
-
         apps = lib.mkOption {
           type = lib.types.attrsOf appModule;
           default = { };
@@ -898,38 +855,14 @@ Create `modules/browsers/webapps/nixos.nix`:
 
       config = lib.mkIf cfg.enable (
         let
-          secretApps = lib.filterAttrs (_: app: app.originSecret != null) cfg.apps;
-          secretsPresent = cfg.secretsFile != null && builtins.pathExists cfg.secretsFile;
-
-          # Only a secret origin needs sops. Without one the policy is rendered
-          # straight into /etc and the module carries no sops dependency.
-          usesSops = secretApps != { } && secretsPresent;
-
-          # A missing secrets file costs only the apps whose origin is a secret.
-          # Dropping the whole file instead would take the literal-URL apps'
-          # grants with it, leaving them under _chromium-hardening.nix's
-          # Default*Setting = 2 blocks with no allowlist to open them: Outlook
-          # and Teams would lose notifications. Capture is the other direction,
-          # per the !usesSops branch below: the hardening set carries no capture
-          # key, so dropping the file un-denies mic and camera rather than
-          # blocking them.
-          policyApps =
-            if usesSops then cfg.apps else lib.filterAttrs (_: app: app.originSecret == null) cfg.apps;
-
           policy = import ./_policy.nix {
             inherit lib;
-            apps = policyApps;
-            inherit (cfg) defaultExtensions;
+            inherit (cfg) apps defaultExtensions;
             inherit (import ./_keepalive-key.nix) keepAliveExtensionId;
-            originPlaceholder = key: config.sops.placeholder."webapps/${key}/origin";
           };
         in
         lib.mkMerge [
           {
-            # Ungated: a host without the secrets submodule still gets the
-            # browser. Nothing else here depends on sops either; a missing
-            # secrets file costs only the apps whose origin is a secret, and
-            # the rest keep their policy entries through policyApps.
             environment.systemPackages = [ cfg.package ];
 
             # The catalog is a definition, not the option's default, so a host
@@ -952,23 +885,6 @@ Create `modules/browsers/webapps/nixos.nix`:
             );
 
             assertions = lib.mapAttrsToList (key: app: {
-              assertion = (app.url == null) != (app.urlSecret == null);
-              message = "programs.webapps.apps.${key}: set exactly one of url or urlSecret.";
-            }) cfg.apps
-            ++ lib.mapAttrsToList (key: app: {
-              assertion = (app.urlSecret == null) == (app.originSecret == null);
-              message = ''
-                programs.webapps.apps.${key}: urlSecret and originSecret are set together or
-                not at all. The permission policy needs a scheme://host origin and sops
-                templates substitute values without transforming them, so the origin has to
-                be its own key. The converse matters just as much: ./nixos.nix partitions on
-                originSecret and ./home.nix on urlSecret, so originSecret alone makes the
-                policy grant permissions to whatever the secret decrypts to while the
-                launcher opens the literal url, and policy-drops the app when the secrets
-                file is absent while the launcher stays.
-              '';
-            }) cfg.apps
-            ++ lib.mapAttrsToList (key: app: {
               assertion = lib.intersectLists app.extensions.enable cfg.defaultExtensions == [ ];
               message = ''
                 programs.webapps.apps.${key}.extensions.enable repeats ${
@@ -994,10 +910,6 @@ Create `modules/browsers/webapps/nixos.nix`:
             }) cfg.apps
             ++ [
               {
-                assertion = secretApps == { } || cfg.secretsFile != null;
-                message = "programs.webapps: an app declares urlSecret but programs.webapps.secretsFile is null.";
-              }
-              {
                 assertion =
                   cfg.policyFile != "brave/policies/managed/extended.json"
                   || !(
@@ -1017,37 +929,13 @@ Create `modules/browsers/webapps/nixos.nix`:
                   enableManagedPolicies, so either one alone is a second owner.
                   environment.etc.<name>.text is nullOr lines and merges by concatenation, so two text
                   owners leave one file holding two JSON documents and no policy at all, with no
-                  evaluation error. The sops branch below defines source instead, which collides at equal
-                  priority with the source etc.nix derives from the other module's text and aborts
-                  pointing at environment.etc rather than at this option. Use a different file name in
-                  the same managed directory.
+                  evaluation error. Use a different file name in the same managed directory.
                 '';
               }
             ];
           }
 
-          (lib.mkIf usesSops {
-            sops.secrets = lib.mapAttrs' (
-              key: app:
-              lib.nameValuePair "webapps/${key}/origin" {
-                sopsFile = cfg.secretsFile;
-                key = app.originSecret;
-                mode = "0400";
-              }
-            ) secretApps;
-
-            sops.templates."webapps-policy" = {
-              content = builtins.toJSON policy;
-              mode = "0444";
-            };
-
-            environment.etc.${cfg.policyFile}.source = config.sops.templates."webapps-policy".path;
-          })
-
-          (lib.mkIf (!usesSops && policyApps != { }) {
-            # policyApps holds no secret origin in this branch, so
-            # originPlaceholder is never called and the file needs no template.
-            #
+          (lib.mkIf (cfg.apps != { }) {
             # Guarded on a non-empty set: _policy.nix always emits
             # AudioCaptureAllowed, VideoCaptureAllowed and ScreenCaptureAllowed
             # as false, and those three keys exist nowhere in
@@ -1055,23 +943,8 @@ Create `modules/browsers/webapps/nixos.nix`:
             # for the non-capture permissions. Writing the file for an empty
             # app set therefore denies mic, camera and screen share with no
             # prompt across every Brave-family profile, the daily driver
-            # included, with no app benefiting and no launcher installed. That
-            # is the state a host reaches when every app has an originSecret
-            # and the secrets file is absent.
+            # included, with no app benefiting and no launcher installed.
             environment.etc.${cfg.policyFile}.text = builtins.toJSON policy;
-          })
-
-          (lib.mkIf (secretApps != { } && !secretsPresent) {
-            warnings = [
-              "programs.webapps: ${toString cfg.secretsFile} is missing, so ${
-                lib.concatStringsSep ", " (lib.attrNames secretApps)
-              } are absent from the policy. ${
-                if policyApps == { } then
-                  "No app is left, so ${cfg.policyFile} is not written at all."
-                else
-                  "Every app with a literal URL keeps its permission grants."
-              }"
-            ];
           })
         ]
       );
@@ -1252,8 +1125,6 @@ Create `modules/browsers/webapps/_policy.nix`:
   defaultExtensions,
   # Stable ID of the generated keep-alive extension, from ./_keepalive-key.nix.
   keepAliveExtensionId,
-  # key -> string. Returns a sops placeholder for apps whose origin is secret.
-  originPlaceholder,
 }:
 let
   # scheme://host from a URL, dropping any path. Chromium content-setting
@@ -1267,7 +1138,7 @@ let
       "webapps: cannot derive an origin from '${url}'; expected scheme://host/...";
     "${lib.elemAt parts 0}//${lib.elemAt parts 2}";
 
-  originOf = app: if app.originSecret != null then originPlaceholder app.key else originFromUrl app.url;
+  originOf = app: originFromUrl app.url;
 
   # Origins of every app that granted `perm`, sorted for a stable file.
   granted =
@@ -1372,10 +1243,9 @@ in
 - [ ] **Step 2: Write the fixture shim once**
 
 The generator has to be callable outside the module system, which means the
-submodule defaults have to be restated somewhere. They were restated four times
+submodule defaults have to be restated somewhere. They were restated three times
 in the first draft of this plan: in the shell command below, in Task 14's
-`policy-check.nix`, in Task 14's fixture regeneration, and in Task 16's fixture
-refresh. Four copies drift. They live in one file instead.
+`policy-check.nix`, and in Task 14's fixture regeneration. Three copies drift. They live in one file instead.
 
 Create `modules/browsers/webapps/_check-apps.nix`:
 
@@ -1400,8 +1270,7 @@ in
 rec {
   apps = lib.mapAttrs (key: app: {
     inherit key;
-    url = app.url or null;
-    originSecret = app.originSecret or null;
+    inherit (app) url;
     permissions = {
       microphone = false;
       camera = false;
@@ -1422,9 +1291,6 @@ rec {
 
   defaultExtensions = [ "aeblfdkhhhdcdjpifhhbdiojplfjncoa" ];
 
-  # Fixtures must never carry a real secret origin.
-  originPlaceholder = key: "PLACEHOLDER-${key}";
-
   inherit (import ./_keepalive-key.nix) keepAliveExtensionId;
 
   policy = import ./_policy.nix {
@@ -1432,7 +1298,6 @@ rec {
       lib
       apps
       defaultExtensions
-      originPlaceholder
       keepAliveExtensionId
       ;
   };
@@ -1768,7 +1633,7 @@ Expected: valid JSON with `manifest_version: 3`, `permissions: ["alarms"]` and a
 `alarms` alone, with no `tabs`. This is the one extension `ExtensionSettings."*" = blocked` exempts, so its permission
 set is the last thing standing between that exemption and a capability. `chrome.tabs.query` and `chrome.tabs.reload`
 need no permission; `tabs` only unlocks `url`, `pendingUrl`, `title` and `favIconUrl` on the returned objects, and the
-service worker reads `tab.id` alone. Task 18 Step 6 exercises this end to end by leaving the app iconified past
+service worker reads `tab.id` alone. Task 17 Step 6 exercises this end to end by leaving the app iconified past
 `intervalMinutes` and checking the session survived, so a wrong call here surfaces there rather than silently.
 
 The heredoc is quoted (`<<'MANIFEST'`), so `${publicKey}` is interpolated by Nix
@@ -1847,11 +1712,6 @@ Create `modules/browsers/webapps/home.nix`:
   closing the window iconifies to the tray instead of exiting. The instance
   stays alive, which is what keeps service workers, the keep-alive timer and
   notifications running.
-
-  An app whose start URL is a secret reads it from the decrypted file at launch
-  rather than having it baked into the launcher, so the URL never enters the
-  store. The origin still reaches the managed policy through a separate secret
-  key; see ./nixos.nix.
 */
 {
   flake.homeManagerModules.browsers.webapps =
@@ -1867,31 +1727,7 @@ Create `modules/browsers/webapps/home.nix`:
       enabled = osCfg.enable or false;
       apps = osCfg.apps or { };
 
-      # programs.webapps.secretsFile, not a fixed path under secretsRoot.
-      # ./nixos.nix drives secretsPresent, usesSops, policyApps and its
-      # webapps/<key>/origin secrets from that option, so reading a different
-      # file here splits the two scopes the moment a host overrides it: the
-      # policy would carry an app whose launcher was dropped, or the launcher
-      # would open one origin while the policy granted permissions to another,
-      # with nothing failing at eval, at switch or at launch.
-      geckoFile = osCfg.secretsFile or null;
-      geckoFileExists = geckoFile != null && builtins.pathExists geckoFile;
-
       dataRoot = "${config.xdg.dataHome}/webapps";
-
-      secretApps = lib.filterAttrs (_: app: app.urlSecret != null) apps;
-      needsSecrets = secretApps != { };
-
-      # A missing gecko.yaml costs only the apps that need it. Every other app
-      # carries a literal URL from _catalog.nix and has no dependency on the
-      # secrets submodule, so gating the whole set on one app's secret would
-      # leave the host with the browser nixos.nix installs and no launcher for
-      # anything, which is the shape ungating environment.systemPackages was
-      # meant to avoid.
-      usableApps =
-        if geckoFileExists then apps else lib.filterAttrs (_: app: app.urlSecret == null) apps;
-
-      usableSecretApps = lib.filterAttrs (_: app: app.urlSecret != null) usableApps;
 
       mkReloadExtension = pkgs.callPackage ./_reload-extension.nix { };
 
@@ -1930,20 +1766,6 @@ Create `modules/browsers/webapps/home.nix`:
               }
             else
               null;
-          # Read into a variable rather than substituted straight into the
-          # argument. writeShellApplication sets errexit, but bash applies it to
-          # a command substitution only when the substitution is the whole
-          # command or the right side of an assignment, not when it is one
-          # argument of another command: `exec brave --app="$(cat missing)"`
-          # leaves cat's failure unchecked, passes --app= empty, and opens a
-          # plain window in the app's isolated profile with no error. The path
-          # exists at eval time (usableApps checks it) and can still be missing
-          # at launch, since the HM sops runtime dir is recreated per login.
-          urlExpr = if app.urlSecret != null then ''"$url"'' else lib.escapeShellArg app.url;
-
-          readSecretUrl = lib.optionalString (app.urlSecret != null) ''
-            url="$(cat ${lib.escapeShellArg config.sops.secrets."webapps/${key}/url".path})"
-          '';
 
           # Assembled as a list rather than backslash-continued lines. An
           # lib.optionalString inside a continued argument list renders an empty
@@ -1957,24 +1779,18 @@ Create `modules/browsers/webapps/home.nix`:
           ++ lib.optional (
             reloadExtension != null
           ) "--load-extension=${lib.escapeShellArg "${reloadExtension}"}"
-          ++ [ "--app=${urlExpr}" ];
+          ++ [ "--app=${lib.escapeShellArg app.url}" ];
         in
         pkgs.writeShellApplication {
           name = "webapp-${key}";
-          # coreutils is unconditional: install(1) runs for every app and cat(1)
-          # for the secret-URL ones. writeShellApplication only prepends
-          # runtimeInputs to PATH, so gating it on urlSecret left every other
-          # launcher resolving install from whatever the ambient environment
-          # happened to provide.
+          # coreutils for install(1). writeShellApplication only prepends
+          # runtimeInputs to PATH, so without it install resolves from whatever
+          # the ambient environment happens to provide.
           runtimeInputs = [
             osCfg.package
             pkgs.coreutils
           ];
-          # readSecretUrl is a whole-line optionalString, not one inside a
-          # continued argument list, so it carries none of the SC2215 hazard the
-          # args comment above describes: when it is empty the line simply is
-          # not there.
-          text = readSecretUrl + ''
+          text = ''
             install -d -m 700 ${lib.escapeShellArg profileDir}
             exec ${browser} ${lib.concatStringsSep " " args} "$@"
           '';
@@ -2029,24 +1845,13 @@ Create `modules/browsers/webapps/home.nix`:
           inherit browserLauncher;
           entry = if app.tray.enable then mkTrayLauncher key app browserLauncher else browserLauncher;
         }
-      ) usableApps;
+      ) apps;
 
-      active = enabled && usableApps != { };
+      active = enabled && apps != { };
     in
     {
       config = lib.mkMerge [
         (lib.mkIf active {
-          # usableSecretApps, not secretApps: when gecko.yaml is missing this is
-          # empty, so the module never names a sopsFile that is not there.
-          sops.secrets = lib.mapAttrs' (
-            key: app:
-            lib.nameValuePair "webapps/${key}/url" {
-              sopsFile = geckoFile;
-              key = app.urlSecret;
-              mode = "0400";
-            }
-          ) usableSecretApps;
-
           # Both are installed: the tray wrapper is what the desktop entry runs,
           # and the plain launcher stays on PATH so an i3 binding or a shell can
           # start the app without the tray.
@@ -2069,30 +1874,20 @@ Create `modules/browsers/webapps/home.nix`:
             settings = {
               StartupWMClass = "WebApp-${key}";
             };
-          }) usableApps;
+          }) apps;
 
           # Created before first launch so a profile never inherits a permissive
-          # umask. Same treatment and ordering as modules/home/gecko-secrets.nix.
+          # umask.
           home.activation.ensureWebappProfileDirs =
-            lib.hm.dag.entryBetween [ "sops-nix" ] [ "writeBoundary" ]
+            lib.hm.dag.entryBefore [ "writeBoundary" ]
               (
                 ''
                   install -d -m 700 ${lib.escapeShellArg dataRoot}
                 ''
                 + lib.concatMapStrings (key: ''
                   install -d -m 700 ${lib.escapeShellArg "${dataRoot}/${key}"}
-                '') (lib.attrNames usableApps)
+                '') (lib.attrNames apps)
               );
-        })
-
-        (lib.mkIf (enabled && needsSecrets && !geckoFileExists) {
-          warnings = [
-            "programs.webapps: ${
-              if geckoFile == null then "secretsFile is unset" else "${toString geckoFile} is missing"
-            }, so ${
-              lib.concatStringsSep ", " (lib.attrNames secretApps)
-            } have no launcher. Every app with a literal URL is unaffected."
-          ];
         })
       ];
     };
@@ -2125,27 +1920,19 @@ as the catalog and requires each hit to have a `<dir>.extended.enable` line in
 the module file `apps.nix` are mutually exclusive; this plan stays out of the
 catalog. Task 13 Step 2 runs that hook.
 
-`secretsRoot` is already a NixOS-scope module argument: `modules/configurations/nixos.nix:42` passes it, and `modules/hosts/common/duplicati.nix:9`, `fonts.nix:8` and `usbguard.nix:6` already consume it that way. No change to `modules/configurations/nixos.nix` is needed. This file is the only place that resolves it: `home.nix` reads `programs.webapps.secretsFile` through `osConfig` instead, so both scopes consult one path.
-
 ```nix
 /*
   Web apps: common-host baseline
   Description: Turns programs.webapps on for every host that shares the common
-  baseline, and points it at the SOPS file backing secret start URLs. Kept out
-  of modules/hosts/common/apps-enable.nix because that catalog is keyed on
+  baseline. Kept out of modules/hosts/common/apps-enable.nix because that catalog is keyed on
   <name>.extended.enable and modules/hosts/common/checks.nix compares against
   that shape.
 */
 { lib, ... }:
 let
-  body =
-    { secretsRoot, ... }:
-    {
-      programs.webapps = {
-        enable = lib.mkOverride 1100 true;
-        secretsFile = lib.mkOverride 1100 (secretsRoot + "/gecko.yaml");
-      };
-    };
+  body = {
+    programs.webapps.enable = lib.mkOverride 1100 true;
+  };
 in
 {
   flake.nixosModules.hosts-common.imports = [ body ];
@@ -2212,10 +1999,9 @@ drops every URL `xdg-open` hands it, silently.
 git add modules/browsers/webapps/home.nix modules/browsers/webapps/enable.nix
 git commit -m "feat(webapps): build per-app launchers, profiles and tray entries
 
-Each launcher runs the browser against its own --user-data-dir, which is the isolation the firefoxpwa installer never
-configured. Tray apps go through a kdocker wrapper rather than kdocker flags inline in the desktop entry, so the
-browser arguments are never re-parsed by kdocker's own option handling. A secret start URL is read from the decrypted
-file at launch instead of being baked into the launcher.
+Each launcher runs the browser against its own --user-data-dir. Tray apps go through a kdocker wrapper rather than
+kdocker flags inline in the desktop entry, so the browser arguments are never re-parsed by kdocker's own option
+handling.
 
 Both commands are assembled as argument lists rather than backslash-continued lines. An lib.optionalString inside a
 continuation renders a whitespace-only line when the option is off, which ends the command there and leaves the rest
@@ -2261,7 +2047,7 @@ Expected: `1 insertion(+)`, and the list now opens with `"brave-origin"` followe
 `modules/meta/cache-roots.nix`'s own header names
 `docs/reference/binary-cache-coverage.md` as the per-package inventory, and that
 file carries one hand-maintained row per `hostPackageNames` entry. Phase 2
-Task 5 Step 2 already edits that table to delete the `firefoxpwa` row, so adding
+Task 5 Step 1 already edits that table to delete the `firefoxpwa` row, so adding
 an entry without its row leaves the inventory a row short. Add to the
 host-sourced table, keeping the existing alphabetical order:
 
@@ -2292,7 +2078,7 @@ nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel" --n
 ```
 
 Expected: all three succeed. The catalog hook runs here rather than only in
-Task 17 because this is the task that decides `programs.webapps` stays out of
+Task 16 because this is the task that decides `programs.webapps` stays out of
 `modules/hosts/common/apps-enable.nix`; if it reports `webapps` missing from the
 catalog, a file under `modules/browsers/webapps/` was named `apps.nix` and needs
 renaming, not a catalog entry.
@@ -2364,7 +2150,7 @@ Create `modules/browsers/webapps/policy-check.nix`:
           # webapps.json is policies // managedDefaultSearchProvider (Task 8
           # Step 1), so comparing against policies alone leaves the seven
           # DefaultSearchProvider* keys outside the eval-time invariant, and
-          # only Task 18 Step 1's post-switch comm would catch a collision
+          # only Task 17 Step 1's post-switch comm would catch a collision
           # there. Both sources are pure imports, so closing it costs one
           # expression.
           hardening =
@@ -2384,23 +2170,13 @@ Create `modules/browsers/webapps/policy-check.nix`:
             LocalFontsAllowedForUrls = "localFonts";
           };
 
-          # Recomputed here rather than taken from _policy.nix, but it has to
-          # cover the same cases the generator does. An app with originSecret
-          # has url = null, and lib.splitString aborts with "cannot coerce null
-          # to a string" as soon as lib.sort forces the element, so omitting
-          # this branch breaks the check the moment Task 16 adds DMail.
-          # checkApps.originPlaceholder is a fixture constant, not generator
-          # output, so reusing it does not make the check assert that the
-          # generator agrees with itself.
+          # Recomputed here rather than taken from _policy.nix.
           originOf =
             app:
-            if app.originSecret != null then
-              checkApps.originPlaceholder app.key
-            else
-              let
-                parts = lib.splitString "/" app.url;
-              in
-              "${lib.elemAt parts 0}//${lib.elemAt parts 2}";
+            let
+              parts = lib.splitString "/" app.url;
+            in
+            "${lib.elemAt parts 0}//${lib.elemAt parts 2}";
 
           expectedFor =
             perm:
@@ -2439,8 +2215,8 @@ Create `modules/browsers/webapps/policy-check.nix`:
 
 - [ ] **Step 2: Generate the fixture from the current generator**
 
-Same one-liner the check prints on failure and the same one Task 16 Step 3 uses.
-There is one copy of it because there is one copy of the defaults shim.
+Same one-liner the check prints on failure. There is one copy of it because
+there is one copy of the defaults shim.
 
 ```bash
 mkdir -p modules/browsers/webapps/check-fixtures
@@ -2515,54 +2291,22 @@ Validation: planted drift in VideoCaptureAllowedUrls is reported before the clea
 
 - Create: `modules/browsers/webapps/module-check.nix`
 
-- Create: `modules/browsers/webapps/check-fixtures/gecko.yaml`
+- [ ] **Step 1: Write the check**
 
-- [ ] **Step 1: Copy the non-secret fixture**
-
-The removed `modules/browsers/firefoxpwa/module-check-fixtures/gecko.yaml` served this exact purpose. Recover it from the deletion commit:
-
-```bash
-git show "$(git log --diff-filter=D --format=%H -1 -- modules/browsers/firefoxpwa/module-check-fixtures/gecko.yaml)^:modules/browsers/firefoxpwa/module-check-fixtures/gecko.yaml" \
-  > modules/browsers/webapps/check-fixtures/gecko.yaml
-```
-
-Take it as it is. The recovered file is a header comment over a single `{}` document, and its own header says its
-only job is to exist: nothing decrypts it and nothing parses it. `module-check.nix` sets
-`sops.validateSopsFiles = false`, and `home.nix` only calls `builtins.pathExists` on
-`programs.webapps.secretsFile`.
-
-Do not append an origin key to it. `home.nix` reads `urlSecret` for `sops.secrets."webapps/<key>/url"` and never
-touches `originSecret`, which `nixos.nix` resolves and this check never evaluates, so the key would be dead weight.
-It would also break the file: a block mapping after a flow-mapping `{}` document is not valid YAML.
-
-```bash
-tail -1 modules/browsers/webapps/check-fixtures/gecko.yaml
-```
-
-Expected: `{}`. Anything else means the recovery picked up the wrong revision.
-
-- [ ] **Step 2: Write the check**
-
-Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the firefoxpwa module check used, because that structure exists to force `lib.mkIf` blocks CI would otherwise never evaluate:
+Create `modules/browsers/webapps/module-check.nix`. It pins the launcher, tray and desktop-entry shapes against fixture apps rather than whatever the catalog holds:
 
 ```nix
 /*
   Check: the webapps Home Manager module evaluates (modules/browsers/webapps).
 
-  home.nix guards everything behind lib.mkIf (enabled && usableApps != { }),
-  and usableApps drops the secret-URL apps when programs.webapps.secretsFile is
-  absent. CI never has the secrets submodule (see
-  .github/workflows/check.yml), so every attribute inside that block, the
-  launcher text, the desktop entry, the sops secret, would never be evaluated
-  by nix flake check. A typo or a reference to a removed binding would reach
-  main and fail only at the next real switch.
+  home.nix guards everything behind lib.mkIf (enabled && apps != { }). The
+  fixture apps below cover the plain and tray shapes whether or not the
+  catalog still carries an app of each, so a typo or a reference to a removed
+  binding inside that block fails nix flake check rather than the next real
+  switch.
 
   Builds a standalone Home Manager configuration the way
-  modules/home-manager/checks.nix does, with osConfig stubbed and
-  programs.webapps.secretsFile pointed at ./check-fixtures/gecko.yaml, so the
-  guard evaluates true here regardless of what the real secrets submodule
-  holds. The noGecko case varies that same option rather than a separate root,
-  because it is the option both scopes read.
+  modules/home-manager/checks.nix does, with osConfig stubbed.
 
   programs.webapps.package is stubbed rather than set to pkgs.brave-origin.
   Nothing here launches a browser: home.nix only takes lib.getExe' on it and
@@ -2585,14 +2329,10 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
       checks."browsers/webapps-module-eval" =
         let
           mkHm =
-            {
-              webappsConfig,
-              secretsFile ? ./check-fixtures/gecko.yaml,
-            }:
+            { webappsConfig }:
             inputs.home-manager.lib.homeManagerConfiguration {
               inherit pkgs;
               modules = [
-                inputs.sops-nix.homeManagerModules.sops
                 config.flake.homeManagerModules.browsers.webapps
                 {
                   home = {
@@ -2602,14 +2342,10 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
                     enableNixpkgsReleaseCheck = false;
                   };
                   programs.home-manager.enable = true;
-                  sops.validateSopsFiles = false;
-                  sops.age.keyFile = "/dev/null";
                 }
               ];
               extraSpecialArgs = {
-                osConfig.programs.webapps = webappsConfig // {
-                  inherit secretsFile;
-                };
+                osConfig.programs.webapps = webappsConfig;
               };
             };
 
@@ -2638,9 +2374,6 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
               enable = false;
               intervalMinutes = 20;
             };
-            url = null;
-            urlSecret = null;
-            originSecret = null;
           };
 
           webappsConfig = {
@@ -2670,42 +2403,13 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
                   intervalMinutes = 5;
                 };
               };
-              secret = baseApp // {
-                key = "secret";
-                name = "Secret";
-                urlSecret = "gecko_work_bookmark_url_1";
-                originSecret = "gecko_work_bookmark_origin_1";
-              };
             };
           };
 
           hm = mkHm { inherit webappsConfig; };
-          noGecko = mkHm {
-            inherit webappsConfig;
-            secretsFile = "${./check-fixtures}/missing/gecko.yaml";
-          };
 
           packageNames = map (p: p.name or "") hm.config.home.packages;
-          noGeckoPackageNames = map (p: p.name or "") noGecko.config.home.packages;
         in
-        assert lib.assertMsg (lib.any (lib.hasInfix "gecko.yaml is missing") noGecko.config.warnings)
-          "browsers/webapps-module-eval: a missing gecko.yaml must warn";
-        assert lib.assertMsg (noGecko.config.sops.secrets == { })
-          "browsers/webapps-module-eval: a missing gecko.yaml must not declare sops secrets";
-        assert lib.assertMsg (lib.elem "webapp-plain" noGeckoPackageNames && lib.elem "webapp-trayed-tray" noGeckoPackageNames)
-          "browsers/webapps-module-eval: a missing gecko.yaml must keep the launchers for apps with a literal url";
-        assert lib.assertMsg (!lib.elem "webapp-secret" noGeckoPackageNames)
-          "browsers/webapps-module-eval: a missing gecko.yaml must drop the launcher for an app with urlSecret";
-        assert lib.assertMsg (!builtins.hasAttr "secret" noGecko.config.xdg.desktopEntries)
-          "browsers/webapps-module-eval: a dropped app must not leave a desktop entry pointing at nothing";
-        assert lib.assertMsg (builtins.hasAttr "plain" noGecko.config.xdg.desktopEntries)
-          "browsers/webapps-module-eval: a literal-url app must keep its desktop entry when gecko.yaml is missing";
-        # Narrow, not warnings == [ ]: config.warnings is shared with Home
-        # Manager and every imported module, sops-nix included, so the strict
-        # form turns an unrelated upstream warning into a nix flake check break
-        # reported against this module.
-        assert lib.assertMsg (!lib.any (lib.hasInfix "gecko.yaml is missing") hm.config.warnings)
-          "browsers/webapps-module-eval: a present gecko.yaml must not warn about being absent";
         assert lib.assertMsg (lib.elem "webapp-plain" packageNames)
           "browsers/webapps-module-eval: every app must install a launcher";
         assert lib.assertMsg (lib.elem "webapp-trayed-tray" packageNames)
@@ -2715,30 +2419,16 @@ Create `modules/browsers/webapps/module-check.nix`. It mirrors the structure the
         assert lib.assertMsg
           (hm.config.xdg.desktopEntries.plain.settings.StartupWMClass == "WebApp-plain")
           "browsers/webapps-module-eval: desktop entries must pin StartupWMClass to the launcher --class";
-        assert lib.assertMsg (builtins.hasAttr "webapps/secret/url" hm.config.sops.secrets)
-          "browsers/webapps-module-eval: an app with urlSecret must declare its sops secret";
-        assert lib.assertMsg (!builtins.hasAttr "webapps/plain/url" hm.config.sops.secrets)
-          "browsers/webapps-module-eval: an app without urlSecret must not declare a sops secret";
         builtins.deepSeq {
           entries = hm.config.xdg.desktopEntries;
           packages = packageNames;
-          secrets = lib.attrNames hm.config.sops.secrets;
           activation = hm.config.home.activation.ensureWebappProfileDirs;
-          noGecko = {
-            entries = noGecko.config.xdg.desktopEntries;
-            packages = noGeckoPackageNames;
-            activation = noGecko.config.home.activation.ensureWebappProfileDirs;
-          };
-          warnings = {
-            enabled = hm.config.warnings;
-            noGecko = noGecko.config.warnings;
-          };
         } hm.config.home-files;
     };
 }
 ```
 
-- [ ] **Step 3: Prove each assertion can fail**
+- [ ] **Step 2: Prove each assertion can fail**
 
 Temporarily change the tray assertion to expect `webapp-plain-tray`, run the check, and confirm it reports the failure rather than passing:
 
@@ -2756,11 +2446,10 @@ Expected: `ASSERTIONS-REACHABLE`.
 Both patterns carry the opening paren so the restore cannot reach the negative assertion two lines below, which reads
 `(!lib.elem "webapp-plain-tray" packageNames)`. Without the paren the second `sed` matches that line too, since `sed`
 replaces the first match on every line: it becomes `!lib.elem "webapp-trayed-tray" packageNames`, which is false, and
-Step 4's clean run then fails on an assertion the operator never touched. The file is untracked until Step 5, so there
-is no `git checkout` to fall back on. The trailing `packageNames)` keeps both patterns off the `noGeckoPackageNames`
-assertion above.
+Step 3's clean run then fails on an assertion the operator never touched. The file is untracked until Step 4, so there
+is no `git checkout` to fall back on.
 
-- [ ] **Step 4: Run the check clean**
+- [ ] **Step 3: Run the check clean**
 
 ```bash
 nix build "path:.#checks.x86_64-linux.\"browsers/webapps-module-eval\"" --accept-flake-config --no-link
@@ -2768,164 +2457,20 @@ nix build "path:.#checks.x86_64-linux.\"browsers/webapps-module-eval\"" --accept
 
 Expected: exit 0.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 4: Commit**
 
 ```bash
-git add modules/browsers/webapps/module-check.nix modules/browsers/webapps/check-fixtures/gecko.yaml
+git add modules/browsers/webapps/module-check.nix
 git commit -m "test(webapps): force the Home Manager module's guarded output
 
-CI never has the secrets submodule, so everything inside home.nix's mkIf guard, the launcher text, the desktop entry
-and the sops secret, would never be evaluated by nix flake check. A fixture programs.webapps.secretsFile makes the guard true
-regardless. Assertions proven reachable by inverting the tray expectation before the clean run is trusted.
+Fixture apps drive home.nix's mkIf guard, so the launcher text, the tray wrapper and the desktop entry are evaluated
+by nix flake check whatever the catalog holds. Assertions proven reachable by inverting the tray expectation before
+the clean run is trusted.
 
 Validation: nix build path:.#checks.x86_64-linux.\"browsers/webapps-module-eval\""
 ```
 
-### Task 16: Add the DMail app and its secrets
-
-**Files:**
-
-- Modify: `secrets/gecko.yaml` (encrypted submodule)
-
-- Modify: `modules/browsers/webapps/_catalog.nix`
-
-- Modify: `modules/browsers/webapps/check-fixtures/policy.json`
-
-- [ ] **Step 1: Add the origin key to the secrets file**
-
-`gecko_work_bookmark_url_1` already exists and is the DMail URL (see `modules/home/gecko-secrets.nix:18,26`). The policy needs a separate origin key because Chromium content-setting patterns are scheme/host/port only.
-
-Edit the copy in this phase's worktree, not the primary checkout's. Task 7 Step 1 created
-`$HOME/trees/nixos/feat-chromium-webapps` and every step since has run there. `git worktree add` gives the linked
-worktree its own `secrets/` working tree and its own submodule gitdir under
-`.git/worktrees/<name>/modules/secrets`, so editing `/home/vx/nixos/secrets/gecko.yaml` leaves this worktree's copy
-untouched. Step 5's `git -C secrets add gecko.yaml` then stages nothing, `git -C secrets commit` aborts on an empty
-commit, and the push and both gitlink checks never run at all.
-
-```bash
-cd "$HOME/trees/nixos/feat-chromium-webapps/secrets"
-sops gecko.yaml
-```
-
-Add, using the scheme and host of `gecko_work_bookmark_url_1` with no path and no trailing slash:
-
-```yaml
-gecko_work_bookmark_origin_1: https://<host of gecko_work_bookmark_url_1>
-```
-
-- [ ] **Step 2: Add DMail to the catalog**
-
-In `modules/browsers/webapps/_catalog.nix`, add:
-
-```nix
-  dmail = {
-    name = "DMail";
-    urlSecret = "gecko_work_bookmark_url_1";
-    originSecret = "gecko_work_bookmark_origin_1";
-    permissions.notifications = true;
-    tray.enable = true;
-    reload.enable = true;
-  };
-```
-
-- [ ] **Step 3: Refresh the policy fixture**
-
-The fixture generator substitutes `PLACEHOLDER-dmail` for the secret origin, so the fixture stays free of the real host:
-
-```bash
-cd /home/vx/trees/nixos/feat-chromium-webapps
-nix eval --impure --json --expr '
-  (import ./modules/browsers/webapps/_check-apps.nix {
-    lib = (import <nixpkgs> {}).lib;
-  }).policy' | jq -S . > modules/browsers/webapps/check-fixtures/policy.json
-```
-
-- [ ] **Step 4: Confirm no real host leaked into the fixture**
-
-The check prints what is **not** on the known-good list, rather than counting what is. `rg -c` reports how many lines
-matched: a leaked real host sits on its own line in the `jq -S` output, does not match, and so is neither counted nor
-printed. The number stays plausible and the step passes. This is the shape the Self-Review's
-where-validation-would-have-missed list names.
-
-```bash
-rg -n 'PLACEHOLDER-dmail' modules/browsers/webapps/check-fixtures/policy.json
-
-jq -r '[.. | strings] | unique[]' modules/browsers/webapps/check-fixtures/policy.json \
-  | rg -v '^https://[a-z0-9-]+\.cloud\.microsoft(/\*)?$' \
-  | rg -v '^PLACEHOLDER-[a-z0-9-]+(/\*)?$'
-
-git diff --stat modules/browsers/webapps/check-fixtures/policy.json
-```
-
-Expected: `PLACEHOLDER-dmail` in `NotificationsAllowedForUrls` and `URLAllowlist`, and the second command printing
-only the fixed non-origin constants: `force_installed`, `blocked`, `allowed`, the `blocked_install_message` text,
-and the `clients2.google.com` update URL. Anything else is the leak. Stop and fix the generator before committing.
-`*://*/*` is not among them: it comes from `perAppEntries.runtime_blocked_hosts`, and `perAppIds` is empty because
-no catalog app sets `extensions.enable`. It appears the first time one does.
-
-`[.. | strings]` walks the whole document, so it also reaches origins buried in
-`ExtensionSettings.<id>.runtime_blocked_hosts` and `runtime_allowed_hosts`. A filter that read only the top-level
-allowlists would miss those, and they are where a per-app extension puts an app's origin.
-
-- [ ] **Step 5: Validate and commit**
-
-```bash
-nix run path:.#treefmt -- .
-nix flake check path:. --accept-flake-config --no-build --offline
-git add modules/browsers/webapps/_catalog.nix modules/browsers/webapps/check-fixtures/policy.json
-
-git -C secrets add gecko.yaml
-git -C secrets commit -m "feat(gecko): add gecko_work_bookmark_origin_1 for programs.webapps"
-git -C secrets push origin HEAD:main
-git add secrets
-
-# The gitlink has to have moved, and the revision it names has to be on the remote.
-git diff --cached --submodule=short -- secrets
-if [ "$(git -C secrets rev-parse HEAD)" = "$(git -C secrets ls-remote origin main | cut -f1)" ]; then
-  echo "SECRETS-PUSHED: origin/main carries this commit"
-else
-  echo "STOP: origin/main does not carry this commit; the push did not land." >&2
-fi
-```
-
-Read that output before running the next block. `git diff --cached --submodule=short -- secrets` must print a
-`-Subproject commit` / `+Subproject commit` pair, and the check must print `SECRETS-PUSHED`. The two are a separate
-block on purpose: the commit below is the point of no return for the gitlink, and this step is pasted rather than
-sourced, so an `exit 1` here would close the operator's shell and discard the rest of the buffer with `secrets`
-already staged.
-
-```bash
-git commit -m "feat(webapps): install DMail with a secret start URL
-
-gecko_work_bookmark_url_1 already held the URL; gecko_work_bookmark_origin_1 is new because Chromium content-setting
-patterns are scheme/host/port only and reject a path, and sops templates substitute values without transforming them.
-The launcher reads the URL at runtime and the policy carries only the origin, so neither reaches the store.
-
-Validation: nix flake check path:. --accept-flake-config --no-build --offline; fixture confirmed placeholder-only"
-```
-
-`secrets/` is a git submodule (`.gitmodules`), so `git -C secrets add` stages inside it and `git add secrets` records
-that submodule's HEAD as a gitlink. With no commit in the submodule, HEAD has not moved and the superproject commit
-names the pre-edit revision: `gecko_work_bookmark_origin_1` never leaves this working tree. Pushing is part of the
-same step because `flake.nix` sets `self.submodules = true`, so every evaluation outside this tree fetches
-`secrets/` at the recorded revision and fails with `Cannot find Git revision` until it is on the remote.
-
-The `nix flake check` above cannot catch either omission: it reads the working tree, where the key is present and
-decryptable, so it passes whether or not the submodule was committed. The two commands after `git add secrets` are
-what catch it. `git diff --cached --submodule=short -- secrets` must print a `-Subproject commit` / `+Subproject commit` pair; empty output means the gitlink did not move.
-
-The second one compares against the remote ref rather than reading the local branch state, because
-`git submodule update` leaves `secrets/` on a detached HEAD at the recorded SHA. `.gitmodules` sets `branch = main`,
-but that only applies under `--remote`. On a detached HEAD a bare `git push` aborts with "You are not currently on a
-branch", and `git status --short --branch` prints `## HEAD (no branch)`, which carries no `ahead` field at all: a
-check that passes when `ahead` is absent passes precisely when the push did not happen. A branch with no configured
-upstream fails the same way, printing `## main`. Hence `push origin HEAD:main`, which works from either state, and an
-`ls-remote` comparison that reports rather than infers. Without it the step reports success while the superproject commit names a
-revision no clone can fetch, and the failure surfaces at the next clean checkout or in CI, where `nixos.nix` resolves
-`originSecret` against a `gecko.yaml` that lacks the key: sops-nix cannot render `webapps-policy`, and DMail's
-launcher opens a URL the policy grants nothing to.
-
-### Task 17: Document the module and open the PR
+### Task 16: Document the module and open the PR
 
 **Files:**
 
@@ -3088,20 +2633,6 @@ every `reload.intervalMinutes` (default 20). The reload is skipped while the
 window has focus, so an in-use session is never interrupted. Chromium floors
 `chrome.alarms` periods at 0.5 minutes.
 
-## Secret start URLs
-
-An app whose URL must not enter the Nix store sets `urlSecret` and
-`originSecret`, both keys in `secrets/gecko.yaml`. The launcher reads the URL
-from the decrypted file at launch; the policy carries only the origin, because
-Chromium content-setting patterns are scheme/host/port only and reject a path.
-
-A host without `secrets/gecko.yaml` loses exactly those apps and nothing else.
-The launchers, desktop entries and policy entries for every app with a literal
-URL are built as usual, both scopes emit a warning naming the apps that were
-dropped, and no sops secret or template is declared. Gating the whole set on one
-app's secret would have left such a host with the browser installed and no
-launcher for anything.
-
 ## Where the policy lands
 
 Two files in `/etc/brave/policies/managed/`:
@@ -3109,10 +2640,7 @@ Two files in `/etc/brave/policies/managed/`:
 - `extended.json` from `modules/browsers/brave-origin/apps.nix`, the shared
   hardened set.
 - `webapps.json` from `modules/browsers/webapps/nixos.nix`, holding the
-  per-origin allowlists and `ExtensionSettings`. Rendered by sops-nix when an
-  app's origin is a secret and the secrets file is present, and written
-  straight into `environment.etc` otherwise, as "Secret start URLs" above
-  describes.
+  per-origin allowlists and `ExtensionSettings`.
 
 Their key sets must stay disjoint. Chromium's config-dir loader lets one file
 win a repeated key outright rather than merging it, so a key in both silently
@@ -3123,23 +2651,15 @@ Inspect what actually applied with `brave://policy`.
 
 - [ ] **Step 2: Update the architecture doc and register the reference page**
 
-Phase 2 Task 5 Step 1 dropped the firefoxpwa worked example from the browser-modules paragraph without replacing it,
-because the replacement names files that did not exist yet. They exist now, so this is the PR that adds the citation.
-
-In `docs/architecture/04-home-manager.md`, leave the sentence beginning "A sibling file can extend the same
-`browsers.<name>` key" as phase 2 left it and add a second sentence after it, so the paragraph ends:
+In `docs/architecture/04-home-manager.md`, add a sentence after the one beginning "Browsers register under
+`flake.homeManagerModules.browsers.<name>`", so the browser-modules paragraph ends:
 
 ```markdown
-A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above. A browser directory can also span both scopes: `modules/browsers/webapps/home.nix` registers `browsers.webapps` here for the per-app launchers and data directories, while `modules/browsers/webapps/nixos.nix` registers `flake.nixosModules.browsers.webapps` for the managed policy, and one app catalog drives both.
+Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix` and load the same way. A browser directory can also span both scopes: `modules/browsers/webapps/home.nix` registers `browsers.webapps` here for the per-app launchers and data directories, while `modules/browsers/webapps/nixos.nix` registers `flake.nixosModules.browsers.webapps` for the managed policy, and one app catalog drives both.
 ```
 
-The two files are not an instance of the sibling-merge the first sentence describes, which is why they are a separate
-sentence. That paragraph is about `flake.homeManagerModules.browsers.<name>`, and the example it lost was two Home
-Manager files (`firefoxpwa/home.nix` and `firefoxpwa/dmail.nix`) layering onto one key. `webapps` has a single Home
-Manager file; its second file registers a NixOS module under a different namespace in a different scope. Attaching it
-to the sibling-merge clause would document the two-context confusion the rest of this doc set exists to prevent, and
-the removal leaves no browser with two Home Manager files on one key, so the first sentence keeps its generic form
-with no worked example.
+`webapps` has a single Home Manager file; its second file registers a NixOS module under a different namespace in a
+different scope, so the sentence names each file's namespace rather than presenting the two as one key.
 
 Confirm the namespaces the sentence claims, not just that the files exist:
 
@@ -3206,14 +2726,14 @@ gh pr create --title "feat(browsers): declarative Chromium web apps on brave-ori
 Replaces the removed firefoxpwa subsystem with `programs.webapps`, a declarative Chromium web-app module.
 
 - Each app is its own browser instance under its own `--user-data-dir`: no shared cookies or storage, and a session
-  that survives across launches. This is the isolation the firefoxpwa installer never configured.
+  that survives across launches.
 - `tray.enable` launches through kdocker so the window iconifies to the tray instead of exiting, keeping service
   workers, timers and notifications alive. Icon defaults are overridable per app.
 - `reload.enable` loads a generated MV3 extension that reloads on a timer, skipping the reload while the window has
   focus. Its ID is pinned by a committed public key so `ExtensionSettings` can allow it.
 - brave-origin gains the shared hardened policy set it was running without.
 
-Adds DMail plus the Microsoft 365 suite including Teams, which the firefoxpwa catalog excluded only because
+Adds the Microsoft 365 suite including Teams, which the firefoxpwa catalog excluded only because
 `teams.cloud.microsoft` serves Gecko a `/v2/unsupported-browser` redirect.
 
 ## Scope of the policy
@@ -3255,7 +2775,7 @@ EOF
 )"
 ```
 
-### Task 18: Post-merge verification on a real host
+### Task 17: Post-merge verification on a real host
 
 Not part of the PR. Run after `feat/chromium-webapps` merges and the host switches.
 
@@ -3433,7 +2953,7 @@ ______________________________________________________________________
 | --------------------------------------------------------------------- | ------------------------------------------------------------- |
 | Complete firefoxpwa cleanup including extension and CLI               | Phase 2, Tasks 2-6                                            |
 | Idiomatic, modular, reusable for many future apps                     | Tasks 9-12; keyed submodule plus a pure generator             |
-| Working integrated notifications                                      | `permissions.notifications`, Task 10; verified Task 18 Step 7 |
+| Working integrated notifications                                      | `permissions.notifications`, Task 10; verified Task 17 Step 7 |
 | Opt-in backgrounding with a tray icon, default overridable per app    | `tray.{enable,icon}` plus `defaultTrayIcon`, Tasks 9 and 12   |
 | Explicit per-app permissions, disabled by default                     | Task 10; deny-by-default plus per-origin allowlists           |
 | Per-app profile, no shared cookies, sessions reused                   | Task 12; `--user-data-dir` per app                            |
@@ -3443,26 +2963,23 @@ ______________________________________________________________________
 
 **Known gaps, stated rather than hidden.**
 
-- **The permission policy is browser-wide, not app-scoped, and the "browser" is the whole Brave family.** Chromium applies a managed directory per browser and `brave` shares `brave-origin`'s, so `webapps.json` binds the daily driver whichever of the two that is: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 18 Step 8. A `brave` / `brave-origin` split is not an escape, since both read the same managed directory; the ways out are retargeting the web apps onto a browser family with a different managed directory (`package`, `browserBinary` and `policyFile` together) or dropping the capture denies, both follow-ups.
+- **The permission policy is browser-wide, not app-scoped, and the "browser" is the whole Brave family.** Chromium applies a managed directory per browser and `brave` shares `brave-origin`'s, so `webapps.json` binds the daily driver whichever of the two that is: mic, camera and screen share become promptless denials for all browsing outside `teams.cloud.microsoft`, extension installs are blocked in the main profile, and 1Password is force-installed there. Recorded in the Decisions table, in `docs/reference/webapps.md`, and in the PR body; verified in Task 17 Step 8. A `brave` / `brave-origin` split is not an escape, since both read the same managed directory; the ways out are retargeting the web apps onto a browser family with a different managed directory (`package`, `browserBinary` and `policyFile` together) or dropping the capture denies, both follow-ups.
 - **Extensions are not isolated per app.** `--user-data-dir` separates cookies and storage; `ExtensionSettings` is managed policy and therefore browser-wide. `extensions.enable` installs an extension everywhere and scopes only interaction. The phrase "no two apps share cookies, storage or extensions" was wrong and is corrected everywhere it appeared.
 - Geolocation cannot be granted per app. Chromium has no allowlist counterpart to `GeolocationBlockedForUrls`. Documented in `docs/reference/webapps.md` and omitted from the submodule rather than silently accepted and ignored.
 - kdocker is X11 only. This matches the current i3 and lightdm setup (`modules/apps/i3wm/nixos.nix:75`) but would need replacing under Wayland.
 - Each running app is a separate browser instance, roughly 250-400 MB baseline. Same cost firefoxpwa would have had with per-site profiles, but it bounds how many apps are worth leaving resident.
 - `--load-extension` availability depends on the build not being Google-branded and on Enhanced Safe Browsing being off. Both hold for brave-origin under the hardened set (`SafeBrowsingProtectionLevel = 1`), but switching `programs.webapps.package` to Chrome would silently disable the keep-alive extension. Task 9's `package` option documents the constraint; consider an assertion if a second browser is ever supported.
-- Visio and Clipchamp are excluded pending a Chromium re-test (Task 18 Step 9).
-- Two facts are assumed rather than proven: that `ExtensionSettings` gates `--load-extension` (Task 10 Step 0) and that Brave enforces `ScreenCaptureAllowedByOrigins` rather than merely recognizing the key (Task 18 Step 2). Every policy name the plan writes is confirmed present in the pinned `brave-origin` build's string table, so neither open question is about a removed or renamed policy. Both have a named step and neither changes the plan's shape.
+- Visio and Clipchamp are excluded pending a Chromium re-test (Task 17 Step 9).
+- Two facts are assumed rather than proven: that `ExtensionSettings` gates `--load-extension` (Task 10 Step 0) and that Brave enforces `ScreenCaptureAllowedByOrigins` rather than merely recognizing the key (Task 17 Step 2). Every policy name the plan writes is confirmed present in the pinned `brave-origin` build's string table, so neither open question is about a removed or renamed policy. Both have a named step and neither changes the plan's shape.
 - `_check-apps.nix` restates the submodule defaults from `nixos.nix` and the default of `defaultExtensions`. Nothing enforces that they agree, so a new option default added to `nixos.nix` alone makes the fixture describe a policy the hosts do not get. The file header says so; a check that compares the two is a reasonable follow-up.
 
-**Where validation would have missed a real failure.** Nine cases earlier drafts of this series would have passed:
+**Where validation would have missed a real failure.** Six cases earlier drafts of this series would have passed:
 
 - Task 12's launcher validated by `nix eval` on package names. `writeShellApplication` runs `shellcheck` at build time, so a malformed command body is a build failure that eval never reaches. An `lib.optionalString` inside a backslash-continued argument list rendered a whitespace-only line for every app without `reload.enable` and both tray wrappers, terminating the command early. Now validated with `nix build` plus reading back the two shapes that differ (Task 12 Step 5), after Task 12 Step 3 turns the module on so the build has launchers to check at all.
 - `lib.getExe pkgs.diffutils` in Task 14 pointed at a `bin/diffutils` that does not exist, so the policy check would have failed on its own tooling. Now `lib.getExe' pkgs.diffutils "diff"`.
-- `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 17 with `webapps` reported missing from `apps-enable.nix`, which Task 12 Step 3 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 2 runs the hook rather than deferring it to Task 17.
-- Task 15's module check asserted the right things about the wrong behavior. It confirmed that a missing `gecko.yaml` warns and declares no sops secret, both of which held while the guard was also deleting the launchers, desktop entries and policy entries for the eight apps that never needed the secrets submodule. An assertion that a guard's failure path is quiet says nothing about how much it took down; the check now names what has to survive it.
-- Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created one step earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 18 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds. Exclusions are only half of it, and in the compgen case they were the wrong half: the first fix excluded `modules/meta/build-time-shell.nix` by path and still printed hits from a pre-existing `modules/apps/rclone/proton-drive.nix` comment, so Phase 1 Task 1 Step 4 now runs the detector's own command-position predicate instead of a bare string search. A predicate copied from the check it verifies cannot drift from it, which no list of path exclusions can promise. Phase 2's sweeps also stated which files would still match, and `modules/apps/rclone/proton-drive-check.nix` matched from a header comment that no task's **Files:** block listed, so Task 4 Step 7 named two survivors where three existed and Task 5's "no output" was unreachable for a reason no exclusion addresses. A sweep that predicts its own residue has to have that prediction derived from the task list, not written alongside it.
-- Task 14's `policy-check.nix` derived its independent expectation with `lib.splitString "/" app.url` and no secret branch. Every app in the catalog at that point has a literal `url`, so Task 14 passes; Task 16 adds DMail with `url = null` and `originSecret` set, and the check aborts with `cannot coerce null to a string` as soon as `lib.sort` forces the element. The failure would have surfaced two tasks after the file that caused it. `originOf` now takes the `originSecret` branch, reusing only `_check-apps.nix`'s placeholder constant.
-- Task 17 Step 2 verified its architecture-doc sentence with `rg -n 'webapps'` and an `ls` of both files. Both pass on a sentence that names the wrong namespace, which the sentence did: it presented `webapps/home.nix` and `webapps/nixos.nix` as two siblings extending one `flake.homeManagerModules.browsers.<name>` key, while `nixos.nix` registers `flake.nixosModules.browsers.webapps` in the other scope. A check that a name appears cannot check what the name says. The step now greps each file for the namespace the sentence attributes to it.
-- Task 9's `policyFile` collision assertion named one writer of a shared file when two exist, and the same narrowing had already been made once in this series for the same reason. `modules/browsers/brave/apps.nix` writes `/etc/brave/policies/managed/extended.json` under `programs.brave.extended.enable && programs.brave.extended.enableManagedPolicies`, which is exactly the conjunction Task 8 Step 3's assertion was widened to; Task 9's assertion still read `brave-origin` alone. `brave` enabled with `brave-origin` disabled, plus `policyFile` set to the `extended.json` name, put two owners on one entry with the assertion silent, while the option description claimed the name was refused. Task 8's assertion does not cover the gap either: it sits inside `config = lib.mkIf cfg.enable` in `brave-origin/apps.nix`, so with `brave-origin.extended.enable = false` that module contributes no `assertions` definition at all. The predicate now disjoins both Brave-family writers. Its message also claimed the sops branch fails silently, which is wrong: `environment.etc.<name>.source` is `types.path`, `etc.nix` derives `source` from `text` through `mkDerivedConfig` at the defining priority, and `mergeEqualOption` aborts on two definitions at equal priority. Only the two-`text` branch is silent.
-- Task 16 staged the new secret with `git -C secrets add` and `git add secrets` and no commit inside the submodule, so the gitlink never moved and the superproject recorded the pre-edit revision. Its `nix flake check` reads the working tree, where the key is present, so the step passed while the key stayed local. `self.submodules = true` means the failure lands on the next clean checkout or in CI, one task before the PR opens. The submodule commit and push are part of the step now, with a `git diff --cached --submodule=short` for the gitlink and an `ls-remote` comparison for the push. The first attempt at that second check read `git status --short --branch` for an `ahead` field, which is itself an instance of this same pattern: `git submodule update` leaves the submodule on a detached HEAD, where the line reads `## HEAD (no branch)` and carries no `ahead` field, so the check passed exactly when the push had not happened.
+- `modules/browsers/webapps/apps.nix` would have been read as a catalog entry by `modules/meta/hooks/apps-catalog-sync.nix`, failing `pre-commit run --all-files --hook-stage manual` in Task 16 with `webapps` reported missing from `apps-enable.nix`, which Task 12 Step 3 deliberately keeps it out of. The file is `nixos.nix`, and Task 13 Step 2 runs the hook rather than deferring it to Task 16.
+- Four sweeps across the series were written so they could not report what they claimed. Phase 1 Task 1 Step 4 grepped for `compgen` in a tree that includes the check created one step earlier, which necessarily contains the string. Phase 2 Tasks 4 and 5 grepped for `firefoxpwa` in a tree that includes these three plan files and the `docs/index.md` rows that link them. Task 17 Step 4 listed a directory `--load-extension` never writes to. Each has an exclusion or a narrower predicate now, and the pattern is worth checking for directly: a verification step that greps the repo has to exclude the artifacts the plan itself adds. Exclusions are only half of it, and in the compgen case they were the wrong half: the first fix excluded `modules/meta/build-time-shell.nix` by path and still printed hits from a pre-existing `modules/apps/rclone/proton-drive.nix` comment, so Phase 1 Task 1 Step 4 now runs the detector's own command-position predicate instead of a bare string search. A predicate copied from the check it verifies cannot drift from it, which no list of path exclusions can promise. Phase 2's sweeps also stated which files would still match, and `modules/apps/rclone/proton-drive-check.nix` matched from a header comment that no task's **Files:** block listed, so Task 4 Step 7 named two survivors where three existed and Task 5's "no output" was unreachable for a reason no exclusion addresses. A sweep that predicts its own residue has to have that prediction derived from the task list, not written alongside it.
+- Task 16 Step 2 verified its architecture-doc sentence with `rg -n 'webapps'` and an `ls` of both files. Both pass on a sentence that names the wrong namespace, which the sentence did: it presented `webapps/home.nix` and `webapps/nixos.nix` as two siblings extending one `flake.homeManagerModules.browsers.<name>` key, while `nixos.nix` registers `flake.nixosModules.browsers.webapps` in the other scope. A check that a name appears cannot check what the name says. The step now greps each file for the namespace the sentence attributes to it.
+- Task 9's `policyFile` collision assertion named one writer of a shared file when two exist, and the same narrowing had already been made once in this series for the same reason. `modules/browsers/brave/apps.nix` writes `/etc/brave/policies/managed/extended.json` under `programs.brave.extended.enable && programs.brave.extended.enableManagedPolicies`, which is exactly the conjunction Task 8 Step 3's assertion was widened to; Task 9's assertion still read `brave-origin` alone. `brave` enabled with `brave-origin` disabled, plus `policyFile` set to the `extended.json` name, put two owners on one entry with the assertion silent, while the option description claimed the name was refused. Task 8's assertion does not cover the gap either: it sits inside `config = lib.mkIf cfg.enable` in `brave-origin/apps.nix`, so with `brave-origin.extended.enable = false` that module contributes no `assertions` definition at all. The predicate now disjoins both Brave-family writers.
 
-**Type consistency.** `key`, `name`, `url`, `urlSecret`, `originSecret`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `nixos.nix`, `_check-apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. Both `originOf` implementations, the generator's in `_policy.nix` and the independent one in `policy-check.nix`, branch on `originSecret` before reading `url`, so an app with a secret origin never reaches `lib.splitString` with a `null`. The `originPlaceholder` argument has the same `key -> string` signature at both call sites (`nixos.nix` and `_check-apps.nix`). `keepAliveExtensionId` is a plain `str` at its three call sites (`nixos.nix`, `_check-apps.nix`, `keepalive-id-check.nix`) and is the value `_reload-extension.nix` bakes into the manifest through `publicKey`.
+**Type consistency.** `key`, `name`, `url`, `permissions.*`, `extensions.{enable,disable}`, `tray.{enable,icon}` and `reload.{enable,intervalMinutes}` are used identically in `_catalog.nix`, `nixos.nix`, `_check-apps.nix`, `_policy.nix`, `home.nix`, `policy-check.nix` and `module-check.nix`. `keepAliveExtensionId` is a plain `str` at its three call sites (`nixos.nix`, `_check-apps.nix`, `keepalive-id-check.nix`) and is the value `_reload-extension.nix` bakes into the manifest through `publicKey`.

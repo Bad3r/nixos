@@ -8,7 +8,7 @@
 - Phase 2, this file: delete the firefoxpwa subsystem and unwire every reference to it.
 - Phase 3: `docs/drafts/chromium-webapps-plan-3-implement.md`, which also carries the decisions table, the verified facts and the self-review for the whole series.
 
-**Goal:** Remove PWAsForFirefox entirely: the module tree, the DMail installer derivation, the runtime policy overlay, the AMO extension pin and its weekly workflow, the cache root, and the gecko-side wiring. Nothing replaces it in this phase; the Chromium module arrives in phase 3, and the M365 catalog carries over there as data.
+**Goal:** Remove PWAsForFirefox entirely: the module tree, the runtime policy overlay, the AMO extension pin and its weekly workflow, the cache root, and the gecko-side wiring. Nothing replaces it in this phase; the Chromium module arrives in phase 3, and the M365 catalog carries over there as data.
 
 **Tech Stack:** Nix (flake-parts, Dendritic pattern), Home Manager, GitHub Actions.
 
@@ -18,12 +18,10 @@ ______________________________________________________________________
 
 Locked before writing this plan. Do not relitigate during execution. The full table for the series is in `docs/drafts/chromium-webapps-plan-3-implement.md`.
 
-| Decision     | Choice                            | Rationale                                                   |
-| ------------ | --------------------------------- | ----------------------------------------------------------- |
-| PR structure | Three PRs                         | Salvage, remove, implement.                                 |
-| Catalog      | DMail + full M365 including Teams | Teams was excluded from #435 only because it rejects Gecko. |
-
-The isolation the subsystem's complexity paid for was never configured: `packages/firefoxpwa-dmail-install` called `firefoxpwa site install` with no `--profile`, and PWAsForFirefox installs into the shared default profile when none is given. Removal loses no working isolation.
+| Decision     | Choice                    | Rationale                                                   |
+| ------------ | ------------------------- | ----------------------------------------------------------- |
+| PR structure | Three PRs                 | Salvage, remove, implement.                                 |
+| Catalog      | Full M365 including Teams | Teams was excluded from #435 only because it rejects Gecko. |
 
 ### On line-number anchors
 
@@ -42,7 +40,6 @@ ______________________________________________________________________
 ### PR 2: removal (files deleted)
 
 - `modules/browsers/firefoxpwa/` (entire directory)
-- `packages/firefoxpwa-dmail-install/`
 - `modules/browsers/_firefoxpwa-extension-pin.json`
 - `scripts/update-firefoxpwa-extension.py`
 - `.github/workflows/update-firefoxpwa-extension.yml`
@@ -59,7 +56,7 @@ ______________________________________________________________________
 - `.github/workflows/update-flake.yml:88-92`: drop the pin sync step
 - `pyproject.toml`: drop the script references
 - `modules/apps/rclone/proton-drive-check.nix`: drop the `modules/browsers/firefoxpwa/module-check.nix` citation from the header comment
-- `docs/architecture/04-home-manager.md:94`, `docs/reference/binary-cache-coverage.md:73,159`
+- `docs/reference/binary-cache-coverage.md:73,159`
 
 ______________________________________________________________________
 
@@ -71,7 +68,7 @@ Do not start until the phase 1 PR (`docs/drafts/chromium-webapps-plan-1-salvage.
 
 **Files:**
 
-- Delete: `modules/browsers/firefoxpwa/`, `packages/firefoxpwa-dmail-install/`, `modules/browsers/_firefoxpwa-extension-pin.json`, `scripts/update-firefoxpwa-extension.py`, `.github/workflows/update-firefoxpwa-extension.yml`
+- Delete: `modules/browsers/firefoxpwa/`, `modules/browsers/_firefoxpwa-extension-pin.json`, `scripts/update-firefoxpwa-extension.py`, `.github/workflows/update-firefoxpwa-extension.yml`
 
 - [ ] **Step 1: Create the worktree**
 
@@ -110,7 +107,6 @@ saved file is the checklist Task 4 Step 7 `comm`s its own sweep against; nothing
 
 ```bash
 rip modules/browsers/firefoxpwa \
-    packages/firefoxpwa-dmail-install \
     modules/browsers/_firefoxpwa-extension-pin.json \
     scripts/update-firefoxpwa-extension.py \
     .github/workflows/update-firefoxpwa-extension.yml
@@ -122,20 +118,17 @@ rip modules/browsers/firefoxpwa \
 git status --short
 ```
 
-Expected: only `D ` entries for the five paths above, nothing else.
+Expected: only `D ` entries for the four paths above, nothing else.
 
 - [ ] **Step 5: Commit**
 
 ```bash
-git add -A modules/browsers/firefoxpwa packages/firefoxpwa-dmail-install \
+git add -A modules/browsers/firefoxpwa \
   modules/browsers/_firefoxpwa-extension-pin.json \
   scripts/update-firefoxpwa-extension.py .github/workflows/update-firefoxpwa-extension.yml
 git commit -m "refactor(firefoxpwa)!: delete the firefoxpwa module tree
 
-PWAsForFirefox installs every site into one shared profile unless a profile is created per site, so the isolation the
-module was carrying its complexity for was never actually configured: packages/firefoxpwa-dmail-install called
-\`firefoxpwa site install\` with no --profile. Adding it means tracking a second ulid in a script that already needed
-21 KB of shell and a 47 KB regression check for one site. Replaced by a Chromium web-app module.
+Replaced by a Chromium web-app module.
 
 Unwiring of the gecko browsers, the app catalog and the workflows follows in the next commits."
 ```
@@ -213,9 +206,8 @@ two files Task 10 adds. The alternative here is to unwire first and delete last,
 `modules/browsers/firefoxpwa/` reads none of the gecko bindings Task 3 removes, so the order 3, 4, 2 would leave
 every commit evaluating. It is not taken because the removal is one atomic `rip` whose recoverability the baseline
 sweep in Task 2 Step 2 is written against, and because renumbering the phase would invalidate the cross-references
-phase 3 makes to these task numbers, in Task 17 Step 2 and in its self-review. Those are the only two;
-`rg -n 'Phase 2 Task' docs/drafts/chromium-webapps-plan-3-implement.md` finds nothing in Task 13 or in the
-`docs/reference/webapps.md` block. Phase 1 makes none, and neither does any generated PR body. The cost is bounded and stated: two
+phase 3 makes to these task numbers, in Task 13 Step 1 and in its self-review. Phase 1 makes none, and neither does
+any generated PR body. The cost is bounded and stated: two
 commits in this phase evaluate only as part of the sequence, and the phase does not merge until Task 4 Step 8
 passes.
 
@@ -289,8 +281,8 @@ comm -23 <(cut -d: -f1 /tmp/firefoxpwa-before.txt | sort -u) \
   <(cut -d: -f1 /tmp/firefoxpwa-after.txt | sort -u)
 ```
 
-Expected: the first command prints only `docs/architecture/04-home-manager.md`,
-`docs/reference/binary-cache-coverage.md` and `modules/apps/rclone/proton-drive-check.nix`, all three handled in Task 5.
+Expected: the first command prints only `docs/reference/binary-cache-coverage.md` and
+`modules/apps/rclone/proton-drive-check.nix`, both handled in Task 5.
 The `comm` prints every other file the baseline held, which is the checklist Task 2 Step 2 recorded: a file listed
 there and absent from this output is one the removal missed.
 
@@ -318,36 +310,20 @@ Validation: nix flake check path:. --accept-flake-config --no-build --offline"
 
 **Files:**
 
-- Modify: `docs/architecture/04-home-manager.md:94`
-
 - Modify: `docs/reference/binary-cache-coverage.md:73,159`
 
 - Modify: `modules/apps/rclone/proton-drive-check.nix`
 
-- Modify: `README.md` (only when Step 4 finds a match)
+- Modify: `README.md` (only when Step 3 finds a match)
 
-- [ ] **Step 1: Rewrite the browser-modules paragraph**
-
-In `docs/architecture/04-home-manager.md`, the sentence beginning "A sibling file can extend the same `browsers.<name>` key" cites firefoxpwa as its worked example. Drop the firefoxpwa clause so the paragraph ends:
-
-```markdown
-A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above.
-```
-
-Do not substitute the webapps files here. This phase is deletions and unwirings only, and
-`modules/browsers/webapps/home.nix` and `modules/browsers/webapps/nixos.nix` do not exist until phase 3 Tasks 12 and
-9\. Naming them now would ship architecture documentation citing files that are not in the tree, and it would stay
-that way for as long as phase 3 takes, or permanently if phase 3 is abandoned. Phase 3 Task 17 Step 2 adds the
-replacement example in the same PR that creates the files.
-
-- [ ] **Step 2: Update the cache coverage reference**
+- [ ] **Step 1: Update the cache coverage reference**
 
 In `docs/reference/binary-cache-coverage.md`, change the parenthetical on line 73 from `(firefoxpwa policy injection, john patches)` to `(john patches)`, and delete the `firefoxpwa` table row.
 
-- [ ] **Step 3: Drop the module-check cross-reference**
+- [ ] **Step 2: Drop the module-check cross-reference**
 
-`modules/apps/rclone/proton-drive-check.nix` names the file Task 2 deleted, in the header sentence that describes how the
-check is built:
+`modules/apps/rclone/proton-drive-check.nix` names `modules/browsers/firefoxpwa/module-check.nix`, which no longer
+exists, in the header sentence that describes how the check is built:
 
 ```
   Builds a standalone Home Manager configuration the way
@@ -363,10 +339,10 @@ Drop the comparison clause so the sentence stands on its own:
 ```
 
 Do not repoint it at `modules/browsers/webapps/module-check.nix`. That file does not exist until phase 3 Task 15, so
-naming it here is the same defect Step 1 avoids in `04-home-manager.md`. The clause only recorded design lineage; the
-sentence still describes the mechanism correctly without it.
+naming it here would cite a file that is not in the tree. The clause only recorded design lineage; the sentence still
+describes the mechanism correctly without it.
 
-- [ ] **Step 4: Check `README.md`**
+- [ ] **Step 3: Check `README.md`**
 
 ```bash
 rg -n -i firefoxpwa README.md
@@ -374,7 +350,7 @@ rg -n -i firefoxpwa README.md
 
 Expected: no output. Edit any line it reports before staging.
 
-- [ ] **Step 5: Confirm the reference set is empty**
+- [ ] **Step 4: Confirm the reference set is empty**
 
 ```bash
 rg -n -i 'firefoxpwa|PWAsForFirefox' --hidden -g '!.git' -g '!docs/drafts' \
@@ -385,7 +361,7 @@ Expected: no output. The `docs/drafts` exclusion is what makes that reachable: t
 the repo and name firefoxpwa throughout, and `docs/index.md` links each of them by name. Both exclusions are
 explained at Task 2 Step 2.
 
-- [ ] **Step 6: Validate the host closure still builds**
+- [ ] **Step 5: Validate the host closure still builds**
 
 ```bash
 nix flake check path:. --accept-flake-config --no-build --offline
@@ -394,16 +370,15 @@ nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel" --n
 
 Expected: both succeed.
 
-- [ ] **Step 7: Commit and open the PR**
+- [ ] **Step 6: Commit and open the PR**
 
 ```bash
-git add docs/architecture/04-home-manager.md docs/reference/binary-cache-coverage.md \
-  modules/apps/rclone/proton-drive-check.nix README.md
+git add docs/reference/binary-cache-coverage.md modules/apps/rclone/proton-drive-check.nix README.md
 git commit -m "docs(browsers): retire the firefoxpwa references
 
-Drops the worked example from the browser-modules paragraph, the policy-injection parenthetical and cache-root row
-from the coverage reference, and the modules/browsers/firefoxpwa/module-check.nix citation from
-proton-drive-check.nix's header. None is repointed at the webapps files, which do not exist until phase 3.
+Drops the policy-injection parenthetical and cache-root row from the coverage reference, and the
+modules/browsers/firefoxpwa/module-check.nix citation from proton-drive-check.nix's header. Neither is repointed at
+the webapps files, which do not exist until phase 3.
 
 Validation: nix flake check path:. --accept-flake-config --no-build --offline;
 nix build path:.#nixosConfigurations.songbird.config.system.build.toplevel"
@@ -411,12 +386,8 @@ git push -u origin refactor/drop-firefoxpwa
 gh pr create --title "refactor(browsers)!: remove the firefoxpwa subsystem" --body "$(cat <<'EOF'
 ## Summary
 
-Removes PWAsForFirefox entirely: the module tree, the DMail installer derivation, the runtime policy overlay, the AMO
-extension pin and its weekly workflow, the cache root, and the gecko-side wiring.
-
-The isolation the subsystem's complexity paid for was never configured. `packages/firefoxpwa-dmail-install` called
-`firefoxpwa site install` with no `--profile`, and PWAsForFirefox installs into the shared default profile when none is
-given, so DMail shared a cookie jar with every extension-installed site.
+Removes PWAsForFirefox entirely: the module tree, the runtime policy overlay, the AMO extension pin and its weekly
+workflow, the cache root, and the gecko-side wiring.
 
 Replaced in the following PR by a Chromium web-app module on brave-origin. Plan:
 `docs/drafts/chromium-webapps-plan-3-implement.md`.
@@ -447,7 +418,6 @@ ls "${XDG_DATA_HOME:-$HOME/.local/share}/applications" | rg -i 'FFPWA|firefoxpwa
 ```bash
 rip "${XDG_DATA_HOME:-$HOME/.local/share}"/applications/FFPWA-*.desktop
 rip "${XDG_DATA_HOME:-$HOME/.local/share}/firefoxpwa"
-systemctl --user reset-failed firefoxpwa-dmail.service 2>/dev/null || true
 ```
 
 Both paths stay recoverable through the `rip` graveyard.
