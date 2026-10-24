@@ -6,7 +6,7 @@ import json
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from sbx import journal
+from sbx import journal, sleep
 from sbx.core import (
     FLAVOURS,
     NETS,
@@ -111,6 +111,13 @@ def build_parser() -> argparse.ArgumentParser:
     base_verbs.add_parser("list", parents=[common])
     build = base_verbs.add_parser("build", parents=[common])
     build.add_argument("flavour", choices=FLAVOURS)
+
+    host_sleep = verbs.add_parser(
+        "sleep",
+        parents=[common],
+        help="host sleep hook only, not for agents: pause, resume, save, or restore sandboxes",
+    )
+    host_sleep.add_argument("phase", choices=sleep.PHASES)
     return parser
 
 
@@ -215,6 +222,11 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
             if args.base_verb == "list":
                 return sandboxes.base_list(), 0
             return sandboxes.base_build(args.flavour), 0
+        case "sleep":
+            actions, code = sleep.Sleep(sandboxes, sleep.state_dir(), as_json=as_json).run(
+                args.phase
+            )
+            return (actions if as_json else None), code
         case _:
             msg = f"unknown verb {args.verb}"
             raise SbxError(msg, code="usage")

@@ -303,6 +303,26 @@ class Backend(Protocol):
         """Write the primary display to a file and return its MIME type."""
         ...
 
+    def suspend(self, domain: str) -> None:
+        """Pause a running domain."""
+        ...
+
+    def resume(self, domain: str) -> None:
+        """Continue a paused domain."""
+        ...
+
+    def managed_save(self, domain: str) -> None:
+        """Save an active domain's state and stop it."""
+        ...
+
+    def restore(self, domain: str) -> None:
+        """Start a defined domain, from its managed save when it has one."""
+        ...
+
+    def set_time(self, domain: str) -> None:
+        """Set the guest clock to the host's through qemu-ga."""
+        ...
+
 
 def parse_duration(value: str) -> int:
     """Parse `90`, `90s`, `30m`, `2h`, or `1d` into seconds."""
@@ -534,11 +554,23 @@ class Sandboxes:
         return self._backend
 
     @contextlib.contextmanager
-    def locked(self) -> Generator[None]:
-        """Hold the state lock; flock is per open file, so never nest it."""
+    def locked(self, timeout: float | None = None) -> Generator[None]:
+        """Hold the state lock, waiting up to `timeout`; flock is per open file: never nest it."""
         self.paths.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         with self.paths.lock.open("a") as handle:
-            fcntl.flock(handle, fcntl.LOCK_EX)
+            if timeout is None:
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            else:
+                deadline = time.monotonic() + timeout
+                while True:
+                    try:
+                        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        if time.monotonic() >= deadline:
+                            msg = f"another sbx command held {self.paths.lock} for {timeout:g} s"
+                            raise SbxError(msg, code="busy") from None
+                        time.sleep(0.2)
             yield
 
     def _check_name(self, name: str) -> None:
@@ -967,14 +999,16 @@ class Sandboxes:
             msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID"
             raise SbxError(msg, code="no-session")
 
-    def destroy_where(self, *, mine: bool, expired: bool) -> list[str]:
-        """Remove the caller's sandboxes or the expired ones."""
+    def destroy_where(
+        self, *, mine: bool, expired: bool, timeout: float | None = None
+    ) -> list[str]:
+        """Remove the caller's sandboxes or the expired ones; `timeout` bounds the lock wait."""
         self._require_session(mine=mine)
         if not self._has_state():
             return []
         removed: list[str] = []
         now = self._clock()
-        with self.locked():
+        with self.locked(timeout):
             for sandbox in self.owned():
                 meta = sandbox.meta
                 if (mine and meta.session == self.session) or (expired and meta.expires <= now):

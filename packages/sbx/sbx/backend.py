@@ -9,6 +9,7 @@ import importlib
 import json
 import os
 import subprocess
+import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import Any, BinaryIO
@@ -170,3 +171,38 @@ class LibvirtBackend:
             target.unlink(missing_ok=True)
             raise _error(error) from error
         return str(mime)
+
+    def _call(self, domain: str, method: str, *args: object) -> None:
+        handle = self._lookup(domain)
+        try:
+            getattr(handle, method)(*args)
+        except libvirt.libvirtError as error:
+            raise _error(error) from error
+
+    def suspend(self, domain: str) -> None:
+        """Pause a running domain."""
+        self._call(domain, "suspend")
+
+    def resume(self, domain: str) -> None:
+        """Continue a paused domain."""
+        self._call(domain, "resume")
+
+    def managed_save(self, domain: str) -> None:
+        """Save an active domain's state and stop it."""
+        self._call(domain, "managedSave", 0)
+
+    def restore(self, domain: str) -> None:
+        """Start a defined domain, from its managed save when it has one."""
+        self._call(domain, "create")
+
+    def set_time(self, domain: str) -> None:
+        """Set the guest clock to the host's through qemu-ga."""
+        handle = self._lookup(domain)
+        now = time.time_ns()
+        try:
+            handle.setTime({"seconds": now // 10**9, "nseconds": now % 10**9}, 0)
+        except libvirt.libvirtError as error:
+            unconnected = error.get_error_code() == libvirt.VIR_ERR_AGENT_UNRESPONSIVE
+            raise SbxError(
+                str(error), code="agent-unresponsive" if unconnected else "libvirt"
+            ) from error

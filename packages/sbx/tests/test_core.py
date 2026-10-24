@@ -46,6 +46,11 @@ class FakeBackend:
         self.domains_by_name: dict[str, DomainInfo] = {}
         self.xml: dict[str, str] = {}
         self.replies: list[dict[str, Any]] = []
+        # Host sleep: domains that refuse, unconnected agent answers left, saved states.
+        self.failing: set[str] = set()
+        self.unconnected: dict[str, int] = {}
+        self.synced: list[str] = []
+        self.saved_state: dict[str, str] = {}
 
     def domains(self) -> list[DomainInfo]:
         """List the fake domains."""
@@ -101,9 +106,44 @@ class FakeBackend:
         target.write_bytes(b"png")
         return "image/png"
 
+    def _set(self, domain: str, state: str, *, active: bool, managed_save: bool) -> None:
+        if domain in self.failing:
+            msg = f"{domain} refused"
+            raise SbxError(msg, code="libvirt")
+        info = self.domains_by_name[domain]
+        self.domains_by_name[domain] = dataclasses.replace(
+            info, state=state, active=active, managed_save=managed_save
+        )
 
-class SandboxesTest(unittest.TestCase):
-    """Ceilings, rendering, removal, and copy roots."""
+    def suspend(self, domain: str) -> None:
+        """Pause a domain."""
+        self._set(domain, "paused", active=True, managed_save=False)
+
+    def resume(self, domain: str) -> None:
+        """Continue a domain."""
+        self._set(domain, "running", active=True, managed_save=False)
+
+    def managed_save(self, domain: str) -> None:
+        """Stop a domain with a managed save."""
+        state = self.domains_by_name[domain].state
+        self._set(domain, "shutoff", active=False, managed_save=True)
+        self.saved_state[domain] = state
+
+    def restore(self, domain: str) -> None:
+        """Start a domain in the state it was saved in, as libvirt does."""
+        self._set(domain, self.saved_state.pop(domain, "running"), active=True, managed_save=False)
+
+    def set_time(self, domain: str) -> None:
+        """Answer once the agent has connected."""
+        if self.unconnected.get(domain, 0) > 0:
+            self.unconnected[domain] -= 1
+            msg = "agent not connected"
+            raise SbxError(msg, code="agent-unresponsive")
+        self.synced.append(domain)
+
+
+class Fixture(unittest.TestCase):
+    """Stub tools, a built base, a state directory, and a fake backend."""
 
     def setUp(self) -> None:
         """Lay out stub tools, a built base, and a state directory."""
@@ -192,6 +232,10 @@ class SandboxesTest(unittest.TestCase):
         }
         flags.update(overrides)
         return self.sandboxes().request("nixos", **flags)
+
+
+class SandboxesTest(Fixture):
+    """Ceilings, rendering, removal, and copy roots."""
 
     def test_parsers(self) -> None:
         """Durations and sizes accept their units."""

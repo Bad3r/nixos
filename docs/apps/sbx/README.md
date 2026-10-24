@@ -33,10 +33,12 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `screenshot <name>`              | display to PNG; `--ocr` adds text           |
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
+| `sleep <phase>`                  | host sleep hook only, not for agents        |
 
 `create` and `run` take `--name`, `--mem`, `--cpus`, and `--ttl`.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread.
+[sleep.md](sleep.md) covers `sleep` and what host suspend and hibernation do to sandboxes.
 
 ```sh
 sbx base build nixos
