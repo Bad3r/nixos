@@ -2,21 +2,23 @@
 
 `workloads.networks.<name>` declares a bridge network for VMs and containers.
 `modules/workloads/networks.nix` renders its firewall tables, IPv4 forwarding, and egress routing; the runtime that uses the network creates the bridge `vn-<name>` and serves DHCP on it.
-A network is isolated by default: guests reach the gateway for DHCP, and for DNS on `warp` networks, and nothing else on the host, the LAN, Mesh, or another network.
+A network is isolated by default: guests reach the gateway for DHCP and ping, and for DNS on `warp` networks, and nothing else on the host, the LAN, Mesh, or another network.
 
 ## Table ownership
 
-| Table                   | Owner           | Role                                     |
-| ----------------------- | --------------- | ---------------------------------------- |
-| `inet nixos-fw`         | NixOS firewall  | opens DHCP, DNS, host ports per bridge   |
-| `inet workload`         | workload module | input pre-filter, forwarding, masquerade |
-| `bridge workload-peers` | workload module | drops guest-to-guest on one bridge       |
-| `inet cloudflare-warp`  | warp-svc        | admits the workload block on its own     |
+| Table                   | Owner           | Role                                   |
+| ----------------------- | --------------- | -------------------------------------- |
+| `inet nixos-fw`         | NixOS firewall  | opens DHCP, DNS, host ports per bridge |
+| `inet workload`         | workload module | anti-spoof, input filter, forward, NAT |
+| `bridge workload-peers` | workload module | drops guest-to-guest on one bridge     |
+| `inet cloudflare-warp`  | warp-svc        | admits the workload block on its own   |
 
-The `inet workload` input chain runs one priority ahead of `nixos-fw`.
+The `inet workload` prerouting chain drops packets from a bridge whose source lies outside its subnet before conntrack sees them, so a guest cannot inject into another network's flows.
+The input chain runs one priority ahead of `nixos-fw`.
 A drop in any base chain is final, so new traffic from a bridge never reaches the ports `nixos-fw` opens on every interface, and the pre-filter narrows the per-bridge opens to the gateway address.
 The forward chain drops all forwarding that neither enters nor leaves a `vn-*` bridge, so turning forwarding on never makes the host a router between the LAN, Mesh, and WARP.
-The module sets `net.ipv4.conf.all.forwarding` only while at least one network is declared.
+Once any network is declared, forwarding through other interfaces, such as rootful Podman's `podman0`, is dropped as well.
+The module sets `net.ipv4.conf.all.forwarding` to 1 while at least one network is declared and to 0 otherwise, so a switch that drops the last network turns forwarding off.
 It never loads `br_netfilter`; the rules behave the same with and without it.
 
 ## Declare a network
@@ -37,8 +39,8 @@ _: {
 ```
 
 - `hostPorts` opens host ports to guests at the gateway address only.
-- `lanAccess` lets guests open connections to the local network.
-- `isolatePeers` drops traffic between guests on the same bridge; the host and egress keep working.
+- `lanAccess` lets guests open connections to the local network, under either egress mode.
+- `isolatePeers` drops traffic between guests on the same bridge, whether bridged or routed through the gateway; the host and egress keep working.
 
 `bridge`, `subnet`, `gateway`, and `mtu` are read-only and derived from the name, the id, and the egress mode; runtime modules read them.
 The bridge name must fit the kernel's interface name limit, which the option type enforces.
@@ -46,10 +48,11 @@ The bridge name must fit the kernel's interface name limit, which the option typ
 ## Egress modes
 
 - `warp`: traffic leaves through the WARP tunnel, masqueraded to the host's Mesh address.
-  Destinations WARP excludes resolve through the main table without its default route, and the forward chain drops them unless `lanAccess` is set.
   With the tunnel gone the route is unreachable, so the network fails closed instead of falling back to the uplink.
   Guests resolve names through the gateway.
 - `none`: the route is unreachable and the gateway answers no DNS, so the host resolver is no exfiltration channel.
+
+The main table answers only the LAN destinations of a `lanAccess` network, so no route there, default or not, carries guest traffic to the uplink.
 
 `workload-egress.service` installs one `ip rule iif vn-<name>` set per network in a preference band above WARP's own rule.
 It replaces the band in one `ip -batch` call and never touches WARP's rule.
@@ -109,13 +112,11 @@ ip rule | grep vn-
 
 Fix: none when the result is `success` and the rules are listed; otherwise read `journalctl -u workload-egress.service` and run `sudo systemctl start workload-egress.service`.
 
-## Forwarding and rules remain after removing every network
+## Rules remain after removing every network
 
-Cause: the unit has no stop action and `systemd-sysctl` sets only the keys it lists, so the band and IPv4 forwarding stay on until the next boot.
-Forwarding without the `inet workload` forward chain lets the host route between its interfaces, so turn it off right away; the band is harmless once the bridges are gone.
+Cause: the unit has no stop action, so the band stays until the next boot; it is harmless once the bridges are gone.
 
 ```sh
-sudo sysctl -w net.ipv4.conf.all.forwarding=0
 ip rule show | awk -F: '/iif vn-/ { print $1 }' | xargs -rn1 sudo ip rule del pref
 ```
 
