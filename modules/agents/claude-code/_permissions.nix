@@ -5,6 +5,7 @@
 # Rules evaluate deny -> ask -> allow; first match wins, so an ask/deny rule
 # overrides a broader allow. `Edit(path)` covers every file-editing tool
 # (Edit, Write, MultiEdit, NotebookEdit), hence `Edit(**)` and no `Write(**)`.
+{ scratchDir }:
 let
   # Canonical Bash prefix rule; the trailing ` *` keeps a word boundary, so
   # `Bash(git *)` matches `git`/`git status` but not `github`.
@@ -99,6 +100,7 @@ let
     "WebFetch(domain:*.github.com)"
     "Read(**)"
     "Edit(**)"
+    "Edit(/${scratchDir}/**)"
   ];
 in
 {
@@ -157,6 +159,7 @@ in
     allow = fileWebAllow ++ map bash bashAllow;
     ask = map bash bashAsk;
     deny = map bash bashDeny;
+    additionalDirectories = [ scratchDir ];
     defaultMode = "auto";
   };
 

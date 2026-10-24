@@ -5,6 +5,7 @@
   codexPkg,
   codexBashWrapper,
   homeDir,
+  scratchDir,
   lib,
   pkgs,
 }:
@@ -26,6 +27,7 @@ let
   coreutilsMv = lib.getExe' pkgs.coreutils "mv";
   coreutilsRm = lib.getExe' pkgs.coreutils "rm";
   coreutilsSha256sum = lib.getExe' pkgs.coreutils "sha256sum";
+  findutilsFind = lib.getExe' pkgs.findutils "find";
   nssWrapperLib = "${pkgs.nss_wrapper}/lib/libnss_wrapper.so";
 
   baseConfigFile = tomlFormat.generate "codex-config-base" baseSettings;
@@ -98,15 +100,28 @@ let
     nssDir="$cfgDir/runtime/nss"
     passwdFile="$nssDir/passwd"
     groupFile="$nssDir/group"
-    tmpDir="/tmp/agents"
+    tmpDir=${lib.escapeShellArg scratchDir}
     tmpOut=""
     tmpStamp=""
     tmpPasswd=""
     tmpGroup=""
 
     mkdir -p "$cfgDir"
-    mkdir -p "$tmpDir"
+    mkdir -p "$tmpDir" || {
+      echo "codex-wrapper: ERROR: failed to create scratch directory at $tmpDir" >&2
+      exit 1
+    }
     export TMPDIR="$tmpDir"
+
+    # Temp files a SIGKILLed launch left behind; the age bound spares a concurrent launch's.
+    for staleDir in "$cfgDir" "$nssDir"; do
+      [ -d "$staleDir" ] || continue
+      ${findutilsFind} "$staleDir" -maxdepth 1 -type f \
+        \( -name 'codex-config.????????.toml' -o -name 'codex-config-stamp.????????' \
+          -o -name 'passwd.????????' -o -name 'group.????????' \) \
+        -mmin +1 -delete \
+        || echo "codex-wrapper: WARNING: failed to remove stale temp files in $staleDir" >&2
+    done
 
     cleanupMergeArtifacts() {
       if [ -n "$tmpOut" ] && [ -e "$tmpOut" ]; then
@@ -201,13 +216,13 @@ let
       fi
 
       if [ ! -s "$out" ] || [ "$cachedHash" != "$inputHash" ]; then
-        tmpOut="$(${coreutilsMktemp} "$tmpDir/codex-config.XXXXXXXX.toml")" || {
-          echo "codex-wrapper: ERROR: failed to create temporary config file in $tmpDir" >&2
+        tmpOut="$(${coreutilsMktemp} "$cfgDir/codex-config.XXXXXXXX.toml")" || {
+          echo "codex-wrapper: ERROR: failed to create temporary config file in $cfgDir" >&2
           exit 1
         }
         trap cleanupMergeArtifacts EXIT INT TERM
-        tmpStamp="$(${coreutilsMktemp} "$tmpDir/codex-config-stamp.XXXXXXXX")" || {
-          echo "codex-wrapper: ERROR: failed to create temporary stamp file in $tmpDir" >&2
+        tmpStamp="$(${coreutilsMktemp} "$cfgDir/codex-config-stamp.XXXXXXXX")" || {
+          echo "codex-wrapper: ERROR: failed to create temporary stamp file in $cfgDir" >&2
           exit 1
         }
 

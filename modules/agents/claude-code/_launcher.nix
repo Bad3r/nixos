@@ -12,6 +12,7 @@
   bunInstallDir,
   externalBinary,
   installMethods,
+  scratchDir,
   magnitudeClient ? null,
 }:
 let
@@ -133,7 +134,7 @@ let
     ${launchOnlyBlock}
 
     # Shared scratch root for agent temp files.
-    tmpDir="/tmp/agents"
+    tmpDir=${lib.escapeShellArg scratchDir}
     mkdir -p "$tmpDir"
     export TMPDIR="$tmpDir"
 

@@ -1,4 +1,9 @@
-{ lib, metaOwner, ... }:
+{
+  config,
+  lib,
+  metaOwner,
+  ...
+}:
 let
   defaultQuestionTool = "the runtime question tool";
 
@@ -63,6 +68,8 @@ let
           what exists. Prefer them over web fetches, and suggest a new mirror when a
           source you use often is missing. The list is managed in
           `~/nixos/modules/hosts/common/mirrors.nix`.
+        - Keep scratch files, clones, captures, and reports under `$TMPDIR`
+          (`${config.flake.lib.agents.scratchDir}`).
       ''
       + builtins.concatStringsSep "" vars.shellRules;
 

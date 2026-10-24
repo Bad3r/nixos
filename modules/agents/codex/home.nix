@@ -77,6 +77,7 @@ _: {
           lib
           pkgs
           ;
+        inherit (agents) scratchDir;
         inherit (execPolicy) codexBashWrapper;
         inherit (codexSettings)
           baseSettings

@@ -184,8 +184,8 @@
   # default login)
   # gcpAuthRefresh = ""; # [string]
 
-  # Custom commands to run before/after tool executions
-  # hooks = ""; # [?]
+  # Custom commands to run before/after tool executions; declared in
+  # _hooks.nix.
 
   # Allowlist of environment variable names HTTP hooks may interpolate into
   # headers. When set, each hook's effective allowedEnvVars is the

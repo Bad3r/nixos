@@ -14,10 +14,9 @@ let
     "npx"
   ];
 
-  validClients = [
-    "claude"
-    "codex"
-  ];
+  registry = import ./_registry.nix { inherit lib; };
+  inherit (registry) validClients;
+  validateAllowedFields = registry.validateAllowedFields "MCP";
 
   docClientOrder = [
     "codex"
@@ -50,16 +49,6 @@ let
       "args"
     ];
   };
-
-  validateAllowedFields =
-    context: allowedFields: attrs:
-    let
-      extraFields = lib.filter (field: !(lib.elem field allowedFields)) (lib.attrNames attrs);
-    in
-    if extraFields == [ ] then
-      attrs
-    else
-      throw "Agent MCP ${context} has unknown fields: ${lib.concatStringsSep ", " extraFields}";
 
   validateNonEmptyString =
     serverName: field: value:
