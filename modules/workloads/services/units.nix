@@ -158,6 +158,13 @@ let
         service: map (port: port // { address = addressOf service; }) service.ports
       ) (lib.attrValues services);
 
+      # Services on an undeclared network already fail their own assertion.
+      sharedAddresses = lib.filterAttrs (_: names: lib.length names > 1) (
+        lib.groupBy (name: addressOf services.${name}) (
+          lib.attrNames (lib.filterAttrs (_: service: podmanNetworks ? ${service.network}) services)
+        )
+      );
+
       dnatRules = map (
         port:
         "ip daddr 127.0.0.1 ${port.protocol} dport ${toString port.host} dnat ip to ${port.address}:${toString port.container}"
@@ -197,6 +204,16 @@ let
               {
                 assertion = lib.allUnique (map (port: "${port.protocol}/${toString port.host}") ports);
                 message = "workloads.services: two services publish the same host port";
+              }
+              {
+                assertion = sharedAddresses == { };
+                message = "workloads.services: services share an address: ${
+                  lib.concatStringsSep "; " (
+                    lib.mapAttrsToList (
+                      address: names: "${lib.concatStringsSep ", " names} on ${address}"
+                    ) sharedAddresses
+                  )
+                }";
               }
             ];
 
