@@ -139,6 +139,9 @@ let
               1
               2
             ];
+          # vnet and macvtap names are libvirt's own and never kept.
+          tapOf =
+            nic: "vg-" + builtins.substring 0 12 (builtins.hashString "sha256" "${config.uuid}/${nic}/tap");
           networkOf =
             nic:
             networks.${config.interfaces.${nic}.network}
@@ -268,6 +271,15 @@ let
               description = "Whether the SPICE console shares the clipboard with the guest.";
             };
 
+            allowUntrustedClipboard = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Whether an untrusted guest may set `clipboard = true`, which
+                gives it the SPICE agent channel. File transfer stays off.
+              '';
+            };
+
             fileTransfer = lib.mkOption {
               type = types.bool;
               default = trusted;
@@ -328,6 +340,12 @@ let
                 "MAC address of each interface, derived from the UUID and the interface name."
                 (lib.mapAttrs (nic: _: macOf nic) config.interfaces)
                 "{ <nic> = \"52:54:00:...\"; }";
+
+            tap =
+              derived (types.attrsOf types.str)
+                "Host-side tap device of each interface, derived from the UUID and the interface name."
+                (lib.mapAttrs (nic: _: tapOf nic) config.interfaces)
+                "{ <nic> = \"vg-<hash>\"; }";
 
             bridge = derived (types.attrsOf types.str) "Bridge each interface attaches to." (lib.mapAttrs (
               nic: _: (networkOf nic).bridge

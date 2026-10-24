@@ -44,6 +44,7 @@ let
     <interface type="network">
       <mac address="${guest.mac.${nic}}"/>
       <source network="${interface.network}"/>
+      <target dev="${guest.tap.${nic}}"/>
       <model type="virtio"/>
     </interface>
   '';
