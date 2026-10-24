@@ -525,6 +525,7 @@ let
       wireshark.extended.enable = lib.mkOverride 1100 true;
       "worker-build".extended.enable = lib.mkOverride 1100 false;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
+      workloads.extended.enable = lib.mkOverride 1100 false;
       wpscan.extended.enable = lib.mkOverride 1100 true;
       wpsoffice.extended.enable = lib.mkOverride 1100 false;
       wrangler.extended.enable = lib.mkOverride 1100 true;
