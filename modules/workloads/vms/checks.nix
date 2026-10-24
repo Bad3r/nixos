@@ -109,6 +109,10 @@ in
               flakeModules."workloads-vms"
               flakeModules."workloads-sharing"
               flakeModules."workloads-names"
+              # workloads-names registers services too.
+              flakeModules."workloads-services"
+              (nixosAppHelpers.getApp "podman")
+              (nixosAppHelpers.getApp "docker-compose")
             ];
 
             # Stands in for the WARP app that warp networks turn on.

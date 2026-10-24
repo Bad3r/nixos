@@ -50,9 +50,10 @@ let
               type = types.listOf types.str;
               default = [ ];
               description = ''
-                `workloads.names` entries whose `<name>` and `<name>.vm` the
-                network's resolver answers. A `none` network runs no resolver,
-                so its list must stay empty.
+                Guest names from `workloads.names` whose `<name>` and
+                `<name>.vm` the network's dnsmasq answers. A `none` network runs
+                no resolver and aardvark-dns on a Podman network serves only its
+                own containers, so their lists stay empty.
               '';
             };
 
@@ -95,10 +96,22 @@ let
         }
       ) (lib.filterAttrs (_: guest: guest.ensure == "present" && guest.interfaces != { }) cfg.guests);
 
+      # A service on any other network fails the services module's own assertion.
+      serviceNames =
+        lib.mapAttrs
+          (_: service: {
+            address = "${
+              lib.removeSuffix ".0/24" cfg.networks.${service.network}.subnet
+            }.${toString service.address}";
+            kind = "service";
+            inherit (service) network;
+          })
+          (lib.filterAttrs (_: service: cfg.networks.${service.network}.podman.enable or false) cfg.services);
+
       namesFile = builtins.toJSON {
         names = lib.mapAttrs (name: entry: entry // { hostnames = hostnames name; }) cfg.names;
         networks = lib.mapAttrs (_: network: network.dnsHosts) (
-          lib.filterAttrs (_: network: network.dnsHosts != { }) cfg.networks
+          lib.filterAttrs (_: network: network.libvirt.enable && network.dnsHosts != { }) cfg.networks
         );
       };
     in
@@ -109,9 +122,9 @@ let
           default = { };
           description = ''
             Declared workload objects by name. The host resolves each as
-            `<name>` and `<name>.vm`; a network's `resolve` list makes its
-            guests resolve them too. Every present guest with an interface
-            adds itself.
+            `<name>` and `<name>.vm`; a libvirt network's `resolve` list makes
+            its guests resolve guest names too. Every present guest with an
+            interface and every declared service adds itself.
           '';
         };
 
@@ -121,7 +134,10 @@ let
       };
 
       config = {
-        workloads.names = guestNames;
+        workloads.names = lib.mkMerge [
+          guestNames
+          serviceNames
+        ];
 
         assertions =
           lib.concatLists (
@@ -132,10 +148,19 @@ let
                   assertion = network.egress != "none" || network.resolve == [ ];
                   message = "workloads.networks.${networkName}.resolve: a none network runs no resolver";
                 }
+                {
+                  assertion = !network.podman.enable || network.resolve == [ ];
+                  message = "workloads.networks.${networkName}.resolve: aardvark-dns on a Podman network serves only its own containers";
+                }
               ]
               ++ map (name: {
                 assertion = cfg.names ? ${name};
                 message = "workloads.networks.${networkName}.resolve: ${name} is not a workloads.names entry";
+              }) network.resolve
+              # The forward chain drops traffic between bridges, so the name would lead nowhere.
+              ++ map (name: {
+                assertion = (cfg.names.${name}.kind or null) != "service";
+                message = "workloads.networks.${networkName}.resolve: ${name} is a service, which guests on ${networkName} cannot reach";
               }) network.resolve
             ) cfg.networks
           )
