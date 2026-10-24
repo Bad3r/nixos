@@ -5,6 +5,7 @@ in
 {
   flake.nixosModules."workloads-guest-base" =
     {
+      config,
       hostName,
       lib,
       metaOwner,
@@ -17,6 +18,24 @@ in
         (modulesPath + "/profiles/qemu-guest.nix")
         ssh
       ];
+
+      options.workloads.guest.shares = lib.mkOption {
+        type = lib.types.attrsOf (
+          lib.types.submodule {
+            options = {
+              mountPoint = lib.mkOption { type = lib.types.str; };
+              readOnly = lib.mkOption { type = lib.types.bool; };
+              runtime = lib.mkOption { type = lib.types.bool; };
+            };
+          }
+        );
+        default = { };
+        description = ''
+          virtiofs shares to mount, keyed by tag: the `mounts` of the guest's
+          declaration on its host. A runtime share's entry is `noauto`, so
+          `mount <mountPoint>` picks it up once attached.
+        '';
+      };
 
       config = {
         networking.hostName = hostName;
@@ -48,7 +67,23 @@ in
               "dmask=0077"
             ];
           };
-        };
+        }
+        // lib.mapAttrs' (
+          tag: share:
+          lib.nameValuePair share.mountPoint {
+            device = tag;
+            fsType = "virtiofs";
+            options = [
+              "nofail"
+            ]
+            ++ lib.optional share.readOnly "ro"
+            # systemd creates mount points only for the mounts it starts.
+            ++ lib.optionals share.runtime [
+              "noauto"
+              "x-mount.mkdir"
+            ];
+          }
+        ) config.workloads.guest.shares;
 
         services.qemuGuest.enable = true;
 
