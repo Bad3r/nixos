@@ -108,6 +108,11 @@
 - [networking/workloads.md](networking/workloads.md)
   - Workload bridge networks: table ownership, declaring a network, egress modes, and verification.
 
+## Workloads
+
+- [workloads/vms.md](workloads/vms.md)
+  - libvirt access, declared libvirt networks and how the reconciler applies them, staged media, and failures.
+
 ## Packaging
 
 - [packaging/javascript-packages.md](packaging/javascript-packages.md)
@@ -290,6 +295,8 @@
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+- [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)
+  - Running an ad-hoc virt-manager guest on the `default` network from a staged ISO.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
