@@ -2,7 +2,7 @@
 
 A NixOS guest is a flake configuration under `modules/workloads/guests/<name>/` that a host runs as a [declared guest](guests.md).
 Its first disk is a copy of the configuration's `qemu-efi` image.
-The host reaches it by name through the workload name entries in its `/etc/hosts`, and the `fleetHostKeys` pin matches that name.
+A declared guest with an interface gets a [workload name](../../networking/workload-names.md), so the host reaches it as `<name>`, which the `fleetHostKeys` pin matches.
 Every later change reaches the running guest through `nixos-rebuild` over SSH, never through a new image.
 
 ## Guest base
