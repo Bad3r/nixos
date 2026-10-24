@@ -340,6 +340,7 @@ let
       "nuclei-templates".extended.enable = lib.mkOverride 1100 true;
       nushell.extended.enable = lib.mkOverride 1100 true;
       nvd.extended.enable = lib.mkOverride 1100 true;
+      nvtop.extended.enable = lib.mkOverride 1100 false;
       "nvidia-settings".extended.enable = lib.mkOverride 1100 true;
       "nvme-cli".extended.enable = lib.mkOverride 1100 true;
       obsidian.extended.enable = lib.mkOverride 1100 true;
