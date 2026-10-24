@@ -48,7 +48,7 @@ Run GitHub Actions locally:
 
 ```bash
 nix develop path:. -c gh-actions-run -n     # dry run to verify configuration
-nix develop path:. -c gh-actions-run        # full run (requires Docker)
+nix develop path:. -c gh-actions-run        # full run (requires the podman app)
 ```
 
 Pass a different secret file if needed:

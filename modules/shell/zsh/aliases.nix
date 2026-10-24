@@ -152,7 +152,6 @@
         ds = "docker stop";
         dst = "docker stats";
         dsto = "docker stop $(docker ps -a -q)";
-        dstart = "sudo systemctl restart docker.service && systemctl status docker.service";
         dpsl = "docker ps -l";
         dexec = "docker exec";
         dlog = "docker logs";
@@ -247,8 +246,8 @@
           (lib.mkIf (appEnabled "vscode-fhs") editors)
           (lib.mkIf (appEnabled "xsel") clipboard)
           (lib.mkIf (appEnabled "git") git)
-          (lib.mkIf (appEnabled "docker") docker)
-          (lib.mkIf (appEnabled "docker") dockerCompose)
+          (lib.mkIf (appEnabled "podman") docker)
+          (lib.mkIf (appEnabled "docker-compose") dockerCompose)
           (lib.mkIf (appEnabled "nmap") nmap)
           (lib.mkIf (appEnabled "cloudflare-warp") cloudflareWarp)
           (lib.mkIf (appEnabled "wrangler") wrangler)

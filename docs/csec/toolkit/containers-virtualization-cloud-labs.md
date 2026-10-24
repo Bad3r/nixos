@@ -34,11 +34,11 @@
   - Repo.: <https://github.com/cloudflare/workers-sdk>
   - Docs.: <https://developers.cloudflare.com/workers/wrangler/>
   - Desc.: Cloudflare Workers control-plane CLI.
-- docker
-  - run..: `docker run -it $image`
-  - Repo.: <https://github.com/moby/moby>
-  - Docs.: <https://docs.docker.com/>
-  - Desc.: Container runtime used for sandboxes and vulnerable labs.
+- podman
+  - run..: `podman run -it $image`
+  - Repo.: <https://github.com/containers/podman>
+  - Docs.: <https://docs.podman.io/>
+  - Desc.: Rootless container engine for sandboxes and vulnerable labs; `docker` is its shim.
 - lazydocker
   - run..: `lazydocker`
   - Repo.: <https://github.com/jesseduffield/lazydocker>
