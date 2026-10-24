@@ -52,6 +52,7 @@ let
     stash = true;
     websocat = true;
     nvtop = true;
+    sbx = true;
   };
 
   # Nested toggles cannot go through appEnable, which routes every entry to a

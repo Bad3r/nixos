@@ -25,6 +25,8 @@ let
   fc660cKeyboardExists = lib.hasAttrByPath [ "flake" "nixosModules" "hardware-fc660c" ] config;
   workloadNetworksExists = lib.hasAttrByPath [ "flake" "nixosModules" "workloads-networks" ] config;
   workloadVmsExists = lib.hasAttrByPath [ "flake" "nixosModules" "workloads-vms" ] config;
+  workloadServicesExists = lib.hasAttrByPath [ "flake" "nixosModules" "workloads-services" ] config;
+  workloadNamesExists = lib.hasAttrByPath [ "flake" "nixosModules" "workloads-names" ] config;
   repoGpgModuleExists = lib.hasAttrByPath [
     "self"
     "homeManagerModules"
@@ -82,6 +84,8 @@ in
   ++ lib.optionals fc660cKeyboardExists [ config.flake.nixosModules."hardware-fc660c" ]
   ++ lib.optionals workloadNetworksExists [ config.flake.nixosModules."workloads-networks" ]
   ++ lib.optionals workloadVmsExists [ config.flake.nixosModules."workloads-vms" ]
+  ++ lib.optionals workloadServicesExists [ config.flake.nixosModules."workloads-services" ]
+  ++ lib.optionals workloadNamesExists [ config.flake.nixosModules."workloads-names" ]
   ++ [
     (
       { lib, ... }:

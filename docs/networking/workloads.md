@@ -2,6 +2,7 @@
 
 `workloads.networks.<name>` declares a bridge network for VMs and containers.
 `modules/workloads/networks.nix` renders its firewall tables, IPv4 forwarding, and egress routing; the runtime that uses the network creates the bridge `vn-<name>` and serves DHCP on it.
+Containers on rootful Podman join a network through [workload services](workload-services.md).
 A network is isolated by default: guests reach the gateway for DHCP and ping, and for DNS on `warp` networks, and nothing else on the host, the LAN, Mesh, or another network.
 
 ## Table ownership
