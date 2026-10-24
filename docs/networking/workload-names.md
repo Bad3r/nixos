@@ -2,11 +2,12 @@
 
 [names.nix](../../modules/workloads/sharing/names.nix) gives declared workloads names on the host and inside [workload networks](workloads.md).
 `workloads.names.<name>` holds each object's address, kind, and network; every present guest with an interface adds itself.
+Names match `[a-z0-9][a-z0-9-]*`, and `host` is reserved for the gateway.
 
 ## Host names
 
 The host resolves every `workloads.names` entry as `<name>` and `<name>.vm` through `networking.hosts`.
-A guest on several networks takes the address of its first interface in name order.
+A guest on several networks resolves on the host to the address of its first interface in name order.
 
 ```sh
 getent hosts <name>.vm
@@ -25,6 +26,8 @@ _: {
 ```
 
 - A `resolve` entry that is not a `workloads.names` key fails evaluation.
+- A guest with an interface on the network resolves to that interface's address there.
+- dnsmasq also answers bare names from DHCP reservations and leases, so guests should look up the `.vm` form.
 - The resolver answers unknown `.vm` names with NXDOMAIN and never forwards them.
 - A `none` network runs no resolver, so its guests resolve no names, `host.vm` included.
 - A name resolves; reaching it still takes a port the firewall opens.

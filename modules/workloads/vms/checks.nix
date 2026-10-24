@@ -69,8 +69,16 @@ in
           size = 1;
           seed = "seed";
         };
-        interfaces.eth.network = "lab";
-        interfaces.eth.hostOffset = 11;
+        interfaces = {
+          eth = {
+            network = "lab";
+            hostOffset = 11;
+          };
+          lan = {
+            network = "default";
+            hostOffset = 11;
+          };
+        };
       };
       delta = guest {
         uuid = uuids.delta;
@@ -96,7 +104,7 @@ in
               flakeModules."workloads-names"
             ];
 
-            # networks.nix turns WARP on for warp networks; these use none.
+            # Stands in for the WARP app that warp networks turn on.
             options.programs.cloudflare-warp.extended.enable = lib.mkEnableOption "WARP";
 
             config = {
@@ -246,7 +254,9 @@ in
             with subtest("the host and the network's resolver answer declared names"):
                 assert machine.succeed("getent hosts gamma.vm").split() == ["172.16.5.11", "gamma", "gamma.vm"]
                 assert dig("host.vm") == "172.16.0.1"
-                assert dig("gamma") == dig("gamma.vm") == "172.16.5.11"
+                # The host takes the first interface, a network's resolver the one on that network.
+                assert dig("gamma") == dig("gamma.vm") == "172.16.0.11"
+                machine.fail("dig +time=1 +tries=1 @172.16.5.1 host.vm")
                 report = json.loads(machine.succeed("workloads names --json"))
                 assert [entry["name"] for entry in report["names"]] == ["alpha", "gamma"], report
                 assert report["sandboxes"] is None, report
@@ -270,7 +280,8 @@ in
                 machine.succeed("virsh destroy alpha")
                 machine.succeed(restart("workloads-vm-guest-beta.service"))
                 assert "renamed domain 'alpha' to 'beta'" in journal("workloads-vm-guest-beta.service")
-                assert dig("gamma.vm") == "" and dig("delta.vm") == "172.16.5.12"
+                assert "status: NXDOMAIN" in machine.succeed("dig @172.16.0.1 gamma.vm")
+                assert dig("delta.vm") == "172.16.5.12"
                 assert "older definition" not in journal("workloads-vm-net-default.service")
                 assert machine.succeed("virsh domuuid beta").strip() == "${uuids.alpha}"
                 machine.fail("virsh dominfo alpha")

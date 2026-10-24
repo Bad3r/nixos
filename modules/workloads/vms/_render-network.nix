@@ -56,7 +56,7 @@ in
     </ip>
     <dnsmasq:options>
       <dnsmasq:option value="no-hosts"/>
-      <dnsmasq:option value="local=/vm/"/>
+      ${lib.optionalString (network.egress != "none") ''<dnsmasq:option value="local=/vm/"/>''}
     </dnsmasq:options>
   </network>
 ''
