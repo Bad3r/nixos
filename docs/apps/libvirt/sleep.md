@@ -18,7 +18,7 @@ Hibernation, hybrid sleep, and suspend-then-hibernate managed-save every running
 - The first failed save aborts the transition, and the guests already saved are restored.
   A full save directory under `/var/lib/libvirt/qemu/save` fails a save, and so does a transient guest, which libvirt cannot managed-save.
 - After resume, the guests the hook saved are started from their save.
-  A guest saved while paused, or while in its own sleep (`pmsuspended`), comes back paused, and its clock is not synced.
+  A guest saved while paused, or while in its own sleep (`pmsuspended`), comes back paused, and its clock is not synced; a guest the suspend hook paused comes back running.
 - The record of saved guests lives in `/run`, so a cold boot skips the wake unit.
   libvirt restores autostart guests from their save at boot; any other guest stays saved until it is started.
 
