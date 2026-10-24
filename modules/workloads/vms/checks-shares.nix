@@ -107,6 +107,16 @@ in
           expected = [ "workloads.guests.lab: shares.rw: the owner must not be root" ];
         }
         {
+          name = "a share owned by an undeclared user";
+          guests.lab = guest {
+            shares.rw = {
+              hostPath = "/srv/rw";
+              owner = "nobody-here";
+            };
+          };
+          expected = [ "workloads.guests.lab: shares.rw: owner nobody-here is not a declared user" ];
+        }
+        {
           name = "an untrusted guest with its share disabled";
           guests.lab = guest {
             trust = "untrusted";

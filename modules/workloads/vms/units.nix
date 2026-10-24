@@ -184,6 +184,12 @@ let
             ) "shares.${tag}: the owner must not be root"
           ) (enabledShares guest)
           ++ lib.mapAttrsToList (
+            tag: share:
+            check (
+              config.users.users ? ${share.owner}
+            ) "shares.${tag}: owner ${share.owner} is not a declared user"
+          ) (enabledShares guest)
+          ++ lib.mapAttrsToList (
             disk: spec:
             check (
               builtins.match "[a-z0-9][a-z0-9-]*" disk != null && (spec.seed == null || images ? ${spec.seed})
