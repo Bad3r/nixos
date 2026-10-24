@@ -71,7 +71,7 @@ let
         options = {
           path = lib.mkOption {
             type = types.strMatching "/.+";
-            description = "Absolute runtime path of the image file, inside the `nix build --out-link` result that keeps it alive.";
+            description = "Absolute runtime path of the qcow2 image, inside the `nix build --out-link` result that keeps it alive.";
           };
 
           expected = lib.mkOption {

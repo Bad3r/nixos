@@ -261,7 +261,9 @@ def qemu_img(*args: str) -> str:
 
 def virtual_size(path: Path) -> int:
     """Return the virtual size of a disk image, which may be open in a running guest."""
-    return json.loads(qemu_img("info", "-U", "--output=json", str(path)))["virtual-size"]
+    return json.loads(qemu_img("info", "-U", "-f", "qcow2", "--output=json", str(path)))[
+        "virtual-size"
+    ]
 
 
 def check_size(path: Path, size: int) -> None:
@@ -295,11 +297,11 @@ def fill_disk(partial: Path, size: int, seed: dict[str, str] | None) -> None:
     if seed is None:
         qemu_img("create", "-q", "-f", "qcow2", str(partial), f"{size}G")
         return
-    qemu_img("convert", "-O", "qcow2", str(seed_source(seed)), str(partial))
+    qemu_img("convert", "-f", "qcow2", "-O", "qcow2", str(seed_source(seed)), str(partial))
     if virtual_size(partial) > size * GIB:
         msg = f"the seed {seed['path']} is larger than the declared {size} GiB"
         raise ReconcileError(msg)
-    qemu_img("resize", "-q", str(partial), f"{size}G")
+    qemu_img("resize", "-q", "-f", "qcow2", str(partial), f"{size}G")
 
 
 def create_disk(path: Path, size: int, seed: dict[str, str] | None) -> None:
@@ -317,7 +319,7 @@ def create_disk(path: Path, size: int, seed: dict[str, str] | None) -> None:
 
 
 def ensure_disks(disks: list[dict], *, create: bool) -> None:
-    """Check every declared disk; create the missing ones only on a first define."""
+    """Check every declared disk; create the missing ones only for a guest without NVRAM."""
     for disk in disks:
         path = Path(disk["path"])
         if path.exists():
@@ -326,14 +328,15 @@ def ensure_disks(disks: list[dict], *, create: bool) -> None:
             create_disk(path, disk["size"], disk["seed"])
         else:
             msg = (
-                f"{path} is missing; disks are created only on a guest's first define, "
-                "so restore it from a backup"
+                f"{path} is missing and the guest already has its NVRAM, so it is not created; "
+                f"restore a lost disk from a backup, or create a new one with "
+                f"`qemu-img create -f qcow2 {path} {disk['size']}G`"
             )
             raise ReconcileError(msg)
 
 
 def ensure_nvram(domain: libvirt.virDomain, path: Path) -> None:
-    """Copy the firmware's variable template on a guest's first define."""
+    """Copy the firmware's variable template unless the guest has its NVRAM."""
     if path.exists():
         return
     nvram = parse(domain.XMLDesc(libvirt.VIR_DOMAIN_XML_INACTIVE)).find("os/nvram")
@@ -341,9 +344,15 @@ def ensure_nvram(domain: libvirt.virDomain, path: Path) -> None:
     if template is None:
         msg = f"libvirt selected no NVRAM template for {path}"
         raise ReconcileError(msg)
-    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_CLOEXEC, 0o600)
-    with os.fdopen(fd, "wb") as out, Path(template).open("rb") as source:
-        shutil.copyfileobj(source, out, CHUNK)
+    fd, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    partial = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as out, Path(template).open("rb") as source:
+            shutil.copyfileobj(source, out, CHUNK)
+        partial.replace(path)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
     log(f"created {path} from {template}")
 
 
@@ -357,24 +366,22 @@ def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
     name, uuid = spec["name"], spec["uuid"]
     xml = Path(spec["xml"]).read_text()
     nvram = Path(spec["nvram"])
+    state = Path(spec["stateDir"])
     domain = claim_domain(conn, name, uuid)
     first = domain is None
-    if first:
-        state = Path(spec["stateDir"])
-        state.mkdir(mode=0o711, exist_ok=True)
-        state.chmod(0o711)
-    elif not nvram.exists():
-        msg = (
-            f"{nvram} is missing; it is created only on a guest's first define, "
-            "so restore it from a backup"
-        )
+    # NVRAM is the last file a first define writes and TPM state appears at the
+    # first start, so either one means the guest's files are no longer new.
+    provisioned = nvram.exists() or (state / "tpm").exists()
+    if provisioned and not nvram.exists():
+        msg = f"{nvram} is missing although the guest has TPM state; restore it from a backup"
         raise ReconcileError(msg)
-    ensure_disks(spec["disks"], create=first)
+    state.mkdir(mode=0o711, exist_ok=True)
+    state.chmod(0o711)
+    ensure_disks(spec["disks"], create=not provisioned)
 
     domain = conn.defineXML(xml)
     log(f"defined guest '{name}' ({uuid})")
-    if first:
-        ensure_nvram(domain, nvram)
+    ensure_nvram(domain, nvram)
 
     autostart = spec["autostart"]
     if bool(domain.autostart()) != autostart:

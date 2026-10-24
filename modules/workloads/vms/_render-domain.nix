@@ -55,8 +55,8 @@ let
       ''
         <graphics type="spice">
           <image compression="off"/>
-          <clipboard copypaste="${yesNo (agentChannel && guest.clipboard)}"/>
-          <filetransfer enable="${yesNo (agentChannel && guest.fileTransfer)}"/>
+          <clipboard copypaste="${yesNo guest.clipboard}"/>
+          <filetransfer enable="${yesNo guest.fileTransfer}"/>
         </graphics>
         <video>
           <model type="virtio" heads="1" primary="yes"/>
@@ -166,7 +166,7 @@ let
         ${displayXml}
         ${lib.optionalString guest.firmware.tpm ''
           <tpm model="tpm-crb">
-            <backend type="emulator" version="2.0">
+            <backend type="emulator" version="2.0" persistent_state="yes">
               <source type="dir" path="${guest.stateDir}/tpm"/>
             </backend>
           </tpm>

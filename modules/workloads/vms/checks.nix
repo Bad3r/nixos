@@ -229,9 +229,12 @@ in
 
             with subtest("a rename waits until the guest is shut off"):
                 machine.fail("${switch "renamed"}")
-                assert "renamed to 'beta'" in journal("workloads-vm-guest-beta.service")
+                assert "shut it down so it can be renamed to 'beta'" in journal(
+                    "workloads-vm-guest-beta.service"
+                )
                 machine.succeed("virsh destroy alpha")
                 machine.succeed(restart("workloads-vm-guest-beta.service"))
+                assert "renamed domain 'alpha' to 'beta'" in journal("workloads-vm-guest-beta.service")
                 assert machine.succeed("virsh domuuid beta").strip() == "${uuids.alpha}"
                 machine.fail("virsh dominfo alpha")
 
@@ -254,6 +257,12 @@ in
                 machine.fail(restart("workloads-vm-guest-beta.service"))
                 assert "never takes over" in journal("workloads-vm-guest-beta.service")
                 machine.succeed("virsh undefine intruder")
+                # A guest with NVRAM never gets a fresh disk, even without its domain.
+                machine.succeed(f"mv {beta_disk} {beta_disk}.moved")
+                machine.fail(restart("workloads-vm-guest-beta.service"))
+                assert journal("workloads-vm-guest-beta.service").count("is missing") == 2
+                machine.fail(f"test -e {beta_disk}")
+                machine.succeed(f"mv {beta_disk}.moved {beta_disk}")
                 machine.succeed(restart("workloads-vm-guest-beta.service"))
                 assert state("beta") == "shut off"
 

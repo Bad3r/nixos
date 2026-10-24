@@ -41,7 +41,7 @@ _: {
 | Display resizing by agent | yes           | no          |
 
 A SPICE console listens on a unix socket only, so opening it goes through an authenticated libvirt connection.
-`display = "headless"` leaves the serial console and the guest agent.
+`display = "headless"` drops the SPICE console and leaves the serial console; the guest agent channel follows `guestAgent` either way.
 
 ## How a guest is applied
 
@@ -61,11 +61,13 @@ A guest added to a running network gets its reservation live; the network keeps 
 
 ## Disks and NVRAM
 
-- A disk is created only on the guest's first define: empty, or copied from a `workloads.images` seed.
+- A disk is created only while the guest directory holds no NVRAM: empty, or copied from a qcow2 `workloads.images` seed.
   A disk file already present at that path is kept, so a guest declared again after `ensure = "absent"` keeps its data.
-- NVRAM is copied from the firmware's variable template on the first define.
-- On a later define, a missing disk or NVRAM fails the unit instead of being recreated.
+- NVRAM is copied from the firmware's variable template as the last step of the first define, so an interrupted first define resumes on the next run.
+- Once NVRAM exists, a missing disk fails the unit instead of being recreated, even when the domain itself was undefined.
   A disk added to an existing guest is therefore created by hand with `qemu-img create -f qcow2` before the switch.
+- Missing NVRAM next to TPM state fails the unit; without TPM state it is copied from the template again.
+- TPM state is persistent, so libvirt keeps it when a domain is undefined, also by hand or from virt-manager.
 - A disk larger than its declared size fails the unit; disks never shrink.
 - A changed firmware option leaves the existing NVRAM in place, so new Secure Boot keys need an NVRAM reset at the next start.
 

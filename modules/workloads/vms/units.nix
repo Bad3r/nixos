@@ -147,6 +147,12 @@ let
           ++ map (
             item: check (media ? ${item}) "install.media names ${item}, which workloads.media does not declare"
           ) guest.install.media
+          ++ [
+            # Two reservations under one guest name make libvirt refuse the second.
+            (check (lib.allUnique (
+              lib.mapAttrsToList (_: interface: interface.network) guest.interfaces
+            )) "interfaces: at most one interface per network")
+          ]
           ++ lib.mapAttrsToList (
             nic: interface:
             let
@@ -181,8 +187,15 @@ let
         value = {
           description = "Define the ${name} workload network in libvirt";
           wantedBy = [ "multi-user.target" ];
-          requires = [ "libvirtd.service" ];
-          after = [ "libvirtd.service" ];
+          # Without the egress rules, bridge traffic would route through the main table.
+          requires = [
+            "libvirtd.service"
+            "workload-egress.service"
+          ];
+          after = [
+            "libvirtd.service"
+            "workload-egress.service"
+          ];
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
