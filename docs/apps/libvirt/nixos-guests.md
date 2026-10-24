@@ -2,6 +2,7 @@
 
 A NixOS guest is a flake configuration under `modules/workloads/guests/<name>/` that a host runs as a [declared guest](guests.md).
 Its first disk is a copy of the configuration's `qemu-efi` image.
+The host reaches it by name through the workload name entries in its `/etc/hosts`, and the `fleetHostKeys` pin matches that name.
 Every later change reaches the running guest through `nixos-rebuild` over SSH, never through a new image.
 
 ## Guest base
@@ -10,8 +11,7 @@ Every later change reaches the running guest through `nixos-rebuild` over SSH, n
 
 - the disk layout of the `qemu-efi` image, so a deployed system boots the disk the image seeded;
 - the QEMU guest agent and a serial console;
-- sshd with the owner's keys for root and the owner;
-- with `workloads.guest.spiceAgent`, the SPICE agent and XDG autostart for a trusted guest with a SPICE display.
+- sshd with the owner's keys for root and the owner.
 
 A guest has no password, so a console login needs one set with `passwd` over SSH first.
 
@@ -76,17 +76,16 @@ Precondition: the guest is declared, and the host runs a generation with the lib
    virsh -c qemu:///system console <name>
    ```
 
-4. Print the guest's address and log in:
+4. Log in:
 
    ```sh
-   nix eval --raw .#nixosConfigurations.<host>.config.workloads.guests.<name>.address.<nic>
-   ssh root@<address>
+   ssh root@<name>
    ```
 
 The root file system grows to the full disk at first boot.
 The image is read only when the disk is created, so the out-link can go once the guest has booted.
 
-Verification: `ssh root@<address> systemctl is-system-running` prints `running`.
+Verification: `ssh root@<name> systemctl is-system-running` prints `running`.
 
 ## Pin the host key
 
@@ -95,7 +94,7 @@ Precondition: the guest has booted once and generated its SSH host key.
 1. Read the key from the host; the bridge is local to the host, so the scan reaches the guest itself:
 
    ```sh
-   ssh-keyscan -t ed25519 <address>
+   ssh-keyscan -t ed25519 <name>
    ```
 
 2. Set the key as `services.openssh.publicKey` in the guest configuration, and add it under the guest name to `fleetHostKeys` in `modules/hosts/common/ssh-known-hosts.nix`.
@@ -115,7 +114,7 @@ nixos-rebuild switch --flake .#<name> --target-host root@<name>
 ```
 
 The host builds the system and copies it to the guest, which never builds.
-The guest name resolves only through a hosts entry on the host; `root@<address>` reaches the same guest without one.
+`build.sh` refuses a guest name, since it activates the configuration on the machine it runs on.
 
 Verification: `ssh root@<name> readlink /run/current-system` prints the path that `nix eval --raw .#nixosConfigurations.<name>.config.system.build.toplevel` prints.
 
