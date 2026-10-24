@@ -108,11 +108,6 @@
 - [networking/workloads.md](networking/workloads.md)
   - Workload bridge networks: table ownership, declaring a network, egress modes, and verification.
 
-## Workloads
-
-- [workloads/vms.md](workloads/vms.md)
-  - libvirt access, declared libvirt networks and how the reconciler applies them, staged media, and failures.
-
 ## Packaging
 
 - [packaging/javascript-packages.md](packaging/javascript-packages.md)
@@ -389,6 +384,11 @@
   - Complete option surface, manifest schema, and runtime artifact catalog for `services.duplicati-r2`.
 - [apps/duplicati/security.md](apps/duplicati/security.md)
   - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
+
+### libvirt
+
+- [apps/libvirt/README.md](apps/libvirt/README.md)
+  - libvirt access, declared libvirt networks and how the reconciler applies them, staged media, removal, and failures.
 
 ### mpv
 

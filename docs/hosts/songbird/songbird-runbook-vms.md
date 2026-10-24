@@ -1,6 +1,6 @@
 # Songbird runbook: virtual machines
 
-NixOS procedures are in [songbird-runbook.md](songbird-runbook.md); the libvirt setup itself is in [Workload VMs](../../workloads/vms.md).
+NixOS procedures are in [songbird-runbook.md](songbird-runbook.md); the libvirt setup itself is in [libvirt](../../apps/libvirt/README.md).
 
 ## Run an ad-hoc guest on the default network
 

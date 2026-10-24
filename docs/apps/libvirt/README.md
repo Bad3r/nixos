@@ -1,4 +1,4 @@
-# Workload VMs
+# libvirt
 
 The `libvirt` app runs the system libvirtd (`qemu:///system`) with QEMU/KVM; `virt-manager` and `virt-viewer` are its clients.
 `modules/workloads/vms/` turns declared workload networks into libvirt networks and stages installation media for guests.
@@ -13,10 +13,12 @@ Guests created in virt-manager stay outside the declarations and are never touch
 - Plain `virsh` as the owner talks to `qemu:///session`, since no default URI is set.
   virt-manager connects to `qemu:///system` on its own.
 - QEMU runs as `qemu-libvirtd`, so a file a guest opens must be readable by that user.
+- SPICE and VNC consoles without a listen address use a unix socket, so opening one goes through an authenticated libvirt connection.
+- Host shutdown asks each running guest to shut down and waits at most `shutdownTimeout` from `modules/apps/libvirt.nix` per guest; boot resumes none.
 
 ## Declare a libvirt network
 
-A libvirt network extends a workload network from [Workload networks](../networking/workloads.md), which owns its firewall, egress, and addressing.
+A libvirt network extends a workload network from [Workload networks](../../networking/workloads.md), which owns its firewall, egress, and addressing.
 Add a `libvirt` block to the declaration in `modules/hosts/<host>/workloads.nix`:
 
 ```nix
@@ -38,12 +40,14 @@ _: {
 - A declared network turns the `libvirt` app row on.
 
 The network uses forward mode `open`, so libvirt writes no firewall rules and only the workload tables govern its traffic.
-libvirt's dnsmasq serves DHCP with the network MTU, and DNS unless egress is `none`.
+libvirt's dnsmasq serves DHCP with the network MTU.
+On `warp` networks it forwards DNS to WARP's local resolvers only, so lookups fail while WARP is down; `none` networks get no DNS.
+It never answers from the host's `/etc/hosts`, which carries Mesh names.
 
 ## How a network is applied
 
 `workloads-vm-net-<name>.service` defines the network from XML that `virt-xml-validate` checked at build time.
-The unit reruns only when that XML changes, and at boot.
+The unit reruns at boot, at a switch that changes its XML, autostart flag, or reconciler, and when libvirtd restarts.
 
 - The reconciler defines and never destroys or restarts.
   A running network keeps its old definition until it is restarted by hand, and the unit logs the command.
@@ -54,7 +58,7 @@ The unit reruns only when that XML changes, and at boot.
   A name held by another UUID, or a UUID defined under another name, fails the unit.
 - libvirt's stock `default` network is the one exception: inactive, unmarked, and on its stock address, it is undefined and the declared `default` takes its name.
   Any other unmarked `default` fails the unit.
-- Removing a declaration leaves the network defined.
+- Removing a declaration leaves the network defined, running, and set to autostart.
   A defined `default` keeps libvirt from restoring its stock network.
 
 ## Staged media
@@ -69,8 +73,26 @@ workloads.media.<name> = {
 ```
 
 `workloads-vm-media.service` copies each source to `/var/lib/workloads/media/<name>` as a root-owned file that QEMU can read.
+It reads the source with the owner's permissions and accepts only a regular file, so a symlink to a root-only file or a device stages nothing.
 It copies again only when the size or modification time changes, checks the optional hash on every run, and deletes staged files without a declaration.
+A partial copy never stays behind, and a hash mismatch publishes nothing.
+libvirt hands an attached image to `qemu-libvirtd` and never gives it back; the next run of the unit, at boot or a switch, resets owner and mode.
+Names are lowercase letters, digits, `.`, `_`, and `-`, starting with a letter or digit.
 The unit requires the mount that holds each source, so an absent volume fails it instead of staging nothing.
+
+## Remove a network
+
+Removing a declaration, or switching back to a generation without it, leaves libvirt's network running with its bridge and dnsmasq.
+The workload table drops everything from a `vn-*` interface that no declaration names, so the bridge stays fenced and inert, and forwarding goes off with the last network.
+Shut down its guests, then remove the network by hand:
+
+```sh
+virsh -c qemu:///system net-destroy <name>
+virsh -c qemu:///system net-undefine <name>
+```
+
+A generation without the workload module has no such fence, so destroy the network before switching to one.
+Keep `default` defined when only its declaration changes, since an undefined `default` lets libvirt restore its stock network at the next daemon start.
 
 ## Verify
 
