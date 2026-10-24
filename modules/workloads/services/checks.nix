@@ -24,7 +24,9 @@ in
             imports = [
               nixosModules."workloads-networks"
               nixosModules."workloads-services"
+              nixosModules."workloads-vms"
               (getApp "podman")
+              (getApp "libvirt")
               (getApp "docker-compose")
             ];
 

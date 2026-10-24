@@ -135,6 +135,11 @@ let
         }
 
         (lib.mkIf (podmanNetworks != { }) {
+          assertions = lib.mapAttrsToList (name: network: {
+            assertion = !network.libvirt.enable;
+            message = "workloads.networks.${name}: libvirt and podman cannot both own bridge ${network.bridge}";
+          }) podmanNetworks;
+
           # netavark's rules would duplicate the workload table's; inet workload fences the bridges.
           virtualisation.containers.containersConf.settings.network.firewall_driver = lib.mkForce "none";
           # Rootless networks live in their own namespace and keep netavark's firewall.
