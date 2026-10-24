@@ -82,9 +82,6 @@ in
   flake.lib.nixos._hostAppsOverrides.songbird = appEnable;
   flake.lib.nixos._hostAppsSubToggleOverrides.songbird = subToggles;
   configurations.nixos.songbird.module = {
-    # Logseq keeps normal GPU compositing here: the disableGpuCompositing
-    # override in modules/hosts/tpnix/apps-enable.nix is a PRIME sync workaround
-    # and this is a single-GPU desktop.
     inherit (hostApps) programs services;
   };
 }

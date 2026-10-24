@@ -14,22 +14,9 @@
     {
       config,
       lib,
-      pkgs,
       ...
     }:
-    let
-      date = lib.getExe' pkgs.coreutils "date";
-      mv = lib.getExe' pkgs.coreutils "mv";
-    in
     {
-      # A dotDir that is a symlink into another tree would get its files replaced in place there.
-      home.activation.zshDotDirSymlink = lib.hm.dag.entryBefore [ "checkLinkTargets" ] ''
-        zsh_dot_dir=${lib.escapeShellArg config.programs.zsh.dotDir}
-        if [[ -L $zsh_dot_dir ]]; then
-          run ${mv} -- "$zsh_dot_dir" "$zsh_dot_dir.$(${date} +%Y%m%d%H%M%S).''${HOME_MANAGER_BACKUP_EXT:-hm.bk}"
-        fi
-      '';
-
       programs.zsh = {
         enable = true;
         # The XDG default needs xdg.enable, which only the pentesting devshell sets.

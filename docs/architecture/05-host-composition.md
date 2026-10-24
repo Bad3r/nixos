@@ -41,7 +41,7 @@ _: {
 
 ## Host-conditional helpers
 
-When a module needs to behave differently for one host (or skip itself entirely), use `flake.lib.nixos.hosts.<hostname>.<flag>` rather than reading hostname strings. Example: `modules/hosts/tpnix/policy.nix` exports `flake.lib.nixos.hosts.tpnix.sopsRuntimeReady`, and `modules/hosts/common/duplicati.nix` reads it before enabling `services.duplicati-r2` for that host.
+When a module needs to behave differently for one host (or skip itself entirely), use `flake.lib.nixos.hosts.<hostname>.<flag>` rather than reading hostname strings. Example: `modules/hosts/songbird/policy.nix` exports `flake.lib.nixos.hosts.songbird.sopsRuntimeReady`, and `modules/hosts/common/duplicati.nix` reads it before enabling `services.duplicati-r2` for that host.
 
 Common modules read per-host registry data inside their deferred module body, keyed by the `hostName` module argument:
 
@@ -64,45 +64,10 @@ in
 }
 ```
 
-`firewallExtraTcpPortRanges` maps to NixOS's normal globally reachable TCP ranges. `firewallLocalTcpPortRanges` is separate: `modules/hosts/common/firewall.nix` emits IPv4 `iptables` rules for sources in `10.0.0.0/8` outside `10.11.0.0/16` and in `192.168.0.0/16`. On a host that enables `cloudflare-warp`, it opens the same ranges on `CloudflareWARP` to every Mesh device. It neither includes `172.16.0.0/12` nor establishes an IPv6 or trusted-network boundary.
+`firewallExtraTcpPortRanges` maps to NixOS's normal globally reachable TCP ranges. `firewallLocalTcpPortRanges` is separate: `modules/hosts/common/firewall.nix` emits IPv4 `iptables` rules for sources in `10.0.0.0/8` and `192.168.0.0/16`. On a host that enables `cloudflare-warp`, it opens the same ranges on `CloudflareWARP` to every Mesh device. It neither includes `172.16.0.0/12` nor establishes an IPv6 or trusted-network boundary.
 
-Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules or `modules/meta/cache-roots.nix`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, `privateDnsHostsSecretKeys`, `cloudflareWarpMeshAddressReady`, `rustdeskServer`, and `cacheRoots`. `cacheRoots.nvidiaKernelModules` is a Boolean required on every NVIDIA-enabled host: `true` publishes the installed module and `false` excludes it. Missing, empty, non-Boolean, or unknown cache-root policy values fail evaluation. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
+Add new host-conditional flags by declaring them under `flake.lib.nixos.hosts.<hostname>` in the host's `policy.nix`; consumers use `lib.hasAttrByPath` or `or` fallbacks only where absence is intentional. Current per-host value keys consumed by shared modules or `modules/meta/cache-roots.nix`: `sopsRuntimeReady`, `duplicatiStateDirReadable`, `firewallExtraTcpPortRanges`, `firewallLocalTcpPortRanges`, `cloudflareWarpMeshAddressReady`, `rustdeskServer`, and `cacheRoots`. `cacheRoots.nvidiaKernelModules` is a Boolean required on every NVIDIA-enabled host: `true` publishes the installed module and `false` excludes it. Missing, empty, non-Boolean, or unknown cache-root policy values fail evaluation. Each host's `r2-runtime.nix` reads its own `r2RuntimeReady` gate before calling the shared R2 helper.
 `rustdeskServer` marks the one host that runs hbbs and hbbr; with none or several, [RustDesk](../usage/rustdesk.md) stays off everywhere and each RustDesk-enabled host warns.
-
-### Private DNS Host Pinning
-
-Internal name-to-IP mappings stay encrypted instead of living in the public
-system config. `modules/hosts/common/private-dns-hosts.nix` turns every key
-listed in `flake.lib.nixos.hosts.<host>.privateDnsHostsSecretKeys` into a sops
-secret at `/run/secrets/<host>/networking/private-hosts/<key>` (underscores in
-the key become hyphens in the runtime path, so `signalx_hosts` lands at
-`.../private-hosts/signalx-hosts`) and serves it through NetworkManager's
-dnsmasq:
-
-```nix
-# modules/hosts/<host>/policy.nix
-privateDnsHostsSecretKeys = [ "signalx_hosts" ];
-```
-
-Each key holds a hosts(5) payload (`<ip> <name> [alias...]` per line) in
-`secrets/<host>.yaml`. Adding more internal hosts is a secrets edit; adding a
-second source is one more key in the list. Keys must stay distinct after the
-hyphen rewrite: declaring `internal_hosts` alongside `internal-hosts` fails an
-assertion instead of collapsing into one secret and dropping a payload. The
-module then sets
-`networking.networkmanager.dns = "dnsmasq"`, disables `services.resolved`, and
-writes `/etc/NetworkManager/dnsmasq.d/private-hosts.conf` with one
-`addn-hosts=` line per key. Hosts that declare no keys stay untouched. A host
-that declares keys while `sopsRuntimeReady = false` (the onboarding default) or
-before `secrets/<host>.yaml` exists gets none of this either: the module emits a
-warning and leaves the host on `systemd-resolved` until both are in place.
-
-NetworkManager spawns dnsmasq without `--user`, so the snippet pins
-`user=nm-dnsmasq` / `group=nm-dnsmasq` and each secret is `root:nm-dnsmasq`
-mode `0440`, readable after the privilege drop and on SIGHUP re-reads.
-`systemd.services.NetworkManager.restartTriggers` carries the snippet plus each
-secret's ownership triple, because sops-nix restarts units only when decrypted
-bytes change.
 
 Cloudflare Mesh endpoints stay encrypted in `secrets/cloudflare-warp.yaml` and render as local `<host>.internal` mappings after their registry entry sets `cloudflareWarpMeshAddressReady`; see [WARP on the fleet](../apps/cloudflare/warp/README.md).
 The Tailscale `primary` and `tailnetIp` mechanism remains separate and permits at most one primary.
@@ -115,7 +80,7 @@ Each host uses the same two-stage app model:
    (`getAllApps`) to the shared aggregate module.
 2. `modules/hosts/common/apps-enable.nix` sets the per-app
    `programs.<name>.extended.enable` baseline at `lib.mkOverride 1100`.
-   Host override files such as `modules/hosts/tpnix/apps-enable.nix` layer
+   Host override files such as `modules/hosts/songbird/apps-enable.nix` layer
    `lib.mkOverride 1000` overrides for entries where a host diverges.
    Nested overrides register full paths and route through `programs` first,
    falling back to `services` for services-only paths. Paths absent from both
@@ -128,7 +93,7 @@ Home Manager wiring follows the same shape:
 - `modules/hosts/common/home-manager-apps.nix` imports every Home Manager app and browser module on every host; each gates on its app row, its own enable option, or the NixOS setting it configures.
 - `modules/hosts/<host>/r2-runtime.nix` binds the external R2 module chain per host.
 
-For integration-specific details of the external R2 module chain, see [`../apps/r2-cloud/input-and-module-wiring.md`](../apps/r2-cloud/input-and-module-wiring.md). For tpnix-specific implementation notes, see [`../hosts/tpnix/IMPLEMENTATION_PLAN.md`](../hosts/tpnix/IMPLEMENTATION_PLAN.md).
+For integration-specific details of the external R2 module chain, see [`../apps/r2-cloud/input-and-module-wiring.md`](../apps/r2-cloud/input-and-module-wiring.md).
 
 ## Validation
 

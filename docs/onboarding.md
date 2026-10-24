@@ -8,7 +8,7 @@ It composes per-host system and Home Manager configurations with sops-nix secret
 
 - **Languages**: Nix first, then Python and Shell, plus JSON, YAML, TOML, SQL, and Markdown data.
 - **Frameworks**: flake-parts, import-tree, home-manager, sops-nix, stylix, treefmt-nix, git-hooks.nix, nixos-hardware, and GitHub Actions.
-- **Hosts**: `songbird` and `tpnix`.
+- **Hosts**: `songbird`.
 
 ## Layers
 
@@ -63,7 +63,7 @@ The reading path runs from what the project is to how it ships, each step buildi
 04. How a file becomes a module: [Module Authoring](architecture/02-module-authoring.md), for placement rules, the `pkgs` split, and the Two-Context Problem.
 05. NixOS modules and the app registry: [NixOS Modules](architecture/03-nixos-modules.md), `modules/hosts/common/apps-base.nix`, and `modules/hosts/common/apps-enable.nix`.
 06. Assembling a host: [Host Composition](architecture/05-host-composition.md), `modules/configurations/nixos.nix`, and `modules/hosts/common/registry.nix`.
-07. Per-host composition and rows: `modules/hosts/common/imports.nix`, `modules/hosts/songbird/apps-enable.nix`, and `modules/hosts/tpnix/apps-enable.nix`.
+07. Per-host composition and rows: `modules/hosts/common/imports.nix` and `modules/hosts/songbird/apps-enable.nix`.
     The imports hub wires base, SSH, sops, Duplicati, and the shared nixos-hardware profiles into every host.
 08. Base system and boot: `modules/base/` for core Nix settings and locale, `modules/boot/` for boot compression and visuals, and `modules/hosts/common/boot.nix`.
     The last carries the shared kernel, initrd, systemd-boot, crash dump, and sysctl policy.

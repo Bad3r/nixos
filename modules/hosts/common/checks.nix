@@ -4,7 +4,7 @@
 # The common app catalog (modules/hosts/common/apps-enable.nix) sets app
 # defaults under `programs.*.extended.enable` and `services.*.extended.enable`
 # at low priority (lib.mkOverride 1100).
-# Per-host override files such as modules/hosts/tpnix/apps-enable.nix layer a higher
+# Per-host override files such as modules/hosts/songbird/apps-enable.nix layer a higher
 # priority value (lib.mkOverride 1000) for entries that diverge from the
 # common baseline.
 #

@@ -55,7 +55,6 @@ ______________________________________________________________________
 - `modules/browsers/firefox/home.nix`: drop the osConfig lookups and the native-messaging host
 - `modules/browsers/librewolf/home.nix`: same
 - `modules/hosts/common/apps-enable.nix:155`: drop the catalog entry
-- `modules/hosts/tpnix/apps-enable.nix:79-84`: drop the `dmail.enable` override block
 - `modules/meta/cache-roots.nix:52`: drop `"firefoxpwa"`
 - `.github/workflows/update-flake.yml:88-92`: drop the pin sync step
 - `pyproject.toml`: drop the script references
@@ -191,9 +190,9 @@ In each, delete the `firefoxpwaEnabled` / `firefoxpwaPackage` `lib.attrByPath` l
 
 `nix flake check` cannot pass here, so do not run it. Task 2 deleted
 `modules/browsers/firefoxpwa/` while every host-side reference to it is still in the tree:
-`modules/hosts/common/apps-enable.nix` and `modules/hosts/tpnix/apps-enable.nix` assign `programs.firefoxpwa.*` options
+`modules/hosts/common/apps-enable.nix` assigns `programs.firefoxpwa.*` options
 that no longer exist, and `modules/meta/cache-roots.nix` resolves `programs.firefoxpwa.extended.package`. Task 4
-removes all three and runs the
+removes both and runs the
 full check at its Step 8. Running it here reports Task 4's outstanding work as a failure of this task and sends the
 operator into the `_gecko-*.nix` files for an error that is not there.
 
@@ -241,8 +240,6 @@ removes the host-side references that still name the module tree deleted in the 
 
 - Modify: `modules/hosts/common/apps-enable.nix:155`
 
-- Modify: `modules/hosts/tpnix/apps-enable.nix:79-84`
-
 - Modify: `modules/meta/cache-roots.nix:52`
 
 - Modify: `.github/workflows/update-flake.yml:88-92`
@@ -262,18 +259,9 @@ In `modules/hosts/common/apps-enable.nix`, delete the line:
       firefoxpwa.extended.enable = lib.mkOverride 1100 true;
 ```
 
-- [ ] **Step 3: Remove the per-host override**
+- [ ] **Step 3: Confirm no host overrides the module**
 
-In `modules/hosts/tpnix/apps-enable.nix`, the `configurations.nixos.tpnix.module` block collapses back to a plain `mapAttrs` because `firefoxpwa.dmail.enable` was its only non-flat entry:
-
-```nix
-  configurations.nixos.tpnix.module = {
-    programs = lib.mapAttrs mkExtendedEnable programOverrides;
-    services = lib.mapAttrs mkExtendedEnable serviceOverrides;
-  };
-```
-
-Delete the three-line comment above it that explains the non-flat routing, and drop `lib.recursiveUpdate` if `lib` is now otherwise unused in that expression (it is not; `lib.mapAttrs` remains).
+`rg -n firefoxpwa modules/hosts` prints nothing once Step 2 is applied.
 
 - [ ] **Step 4: Remove the cache root**
 
@@ -316,10 +304,10 @@ task's `refactor(hosts)!` commit would misstate that commit's scope.
 nix run path:.#treefmt -- .
 nix flake check path:. --accept-flake-config --no-build --offline
 git add modules/hosts/common/apps-enable.nix \
-  modules/hosts/tpnix/apps-enable.nix modules/meta/cache-roots.nix .github/workflows/update-flake.yml pyproject.toml
+  modules/meta/cache-roots.nix .github/workflows/update-flake.yml pyproject.toml
 git commit -m "refactor(hosts)!: drop firefoxpwa from the app catalog and CI
 
-Removes the common baseline and tpnix dmail override, the cache root that existed
+Removes the common baseline, the cache root that existed
 only because the deleted overlay forced a firefoxpwa-unwrapped rebuild, the update-flake pin sync step and the ruff
 target for the deleted script.
 
@@ -354,7 +342,7 @@ replacement example in the same PR that creates the files.
 
 - [ ] **Step 2: Update the cache coverage reference**
 
-In `docs/reference/binary-cache-coverage.md`, change the parenthetical on line 73 from `(firefoxpwa policy injection, john patches)` to `(john patches)`, and delete the `| firefoxpwa | songbird, tpnix |` table row.
+In `docs/reference/binary-cache-coverage.md`, change the parenthetical on line 73 from `(firefoxpwa policy injection, john patches)` to `(john patches)`, and delete the `firefoxpwa` table row.
 
 - [ ] **Step 3: Drop the module-check cross-reference**
 
@@ -401,7 +389,7 @@ explained at Task 2 Step 2.
 
 ```bash
 nix flake check path:. --accept-flake-config --no-build --offline
-nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
+nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel" --no-link
 ```
 
 Expected: both succeed.
@@ -418,7 +406,7 @@ from the coverage reference, and the modules/browsers/firefoxpwa/module-check.ni
 proton-drive-check.nix's header. None is repointed at the webapps files, which do not exist until phase 3.
 
 Validation: nix flake check path:. --accept-flake-config --no-build --offline;
-nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel"
+nix build path:.#nixosConfigurations.songbird.config.system.build.toplevel"
 git push -u origin refactor/drop-firefoxpwa
 gh pr create --title "refactor(browsers)!: remove the firefoxpwa subsystem" --body "$(cat <<'EOF'
 ## Summary
@@ -436,7 +424,7 @@ Replaced in the following PR by a Chromium web-app module on brave-origin. Plan:
 ## Test plan
 
 - `nix flake check path:. --accept-flake-config --no-build --offline`
-- `nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel`
+- `nix build path:.#nixosConfigurations.songbird.config.system.build.toplevel`
 - `rg -i 'firefoxpwa|PWAsForFirefox'` returns nothing outside `docs/drafts/` and the `docs/index.md` rows that link
   them: this migration plan and the index entry `docs/AGENTS.md` requires for it
 EOF

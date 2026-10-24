@@ -3,7 +3,7 @@
 This directory documents how `/home/vx/nixos` consumes
 `Bad3r/nix-R2-CloudFlare-Flake` for user `vx`. Each host wires the integration
 through the shared builder `flake.lib.nixos.r2.mkHostR2Module` with a per-host
-policy. The `songbird` and `tpnix` policies both enable the producer runtime.
+policy. The `songbird` policy enables the producer runtime.
 The builder still gates imports and runtime assignments on each host's
 readiness flag and the encrypted `secrets/r2.yaml` payload.
 

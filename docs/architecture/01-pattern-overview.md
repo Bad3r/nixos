@@ -20,10 +20,8 @@ modules/
 │   └── _experimental.nix ← Ignored (underscore prefix)
 ├── hosts/
 │   ├── common/          ← Cross-host baseline (hosts-common aggregate)
-│   ├── songbird/
-│   │   └── hardware-config.nix ← Imported automatically (songbird host)
-│   └── tpnix/
-│       └── hardware-config.nix ← Imported automatically (tpnix host)
+│   └── songbird/
+│       └── hardware-config.nix ← Imported automatically (songbird host)
 └── _scratch/            ← Entire directory ignored
 ```
 

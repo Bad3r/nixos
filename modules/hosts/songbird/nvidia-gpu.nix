@@ -14,8 +14,7 @@ _: {
       # under decode churn: "intel-media", which routes libva to the Xe-LPG
       # iGPU at 0000:00:02.0.
       vaapi.backend = "nvidia";
-      # Single-GPU desktop: PRIME stays off (shared-module default). The
-      # iGPU remains present for VA-API fallback and GPU-less bring-up only.
+      # The iGPU remains present for VA-API fallback and GPU-less bring-up only.
     };
 
     # Suspend/hibernate VRAM preservation

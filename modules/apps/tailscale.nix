@@ -263,10 +263,10 @@ let
         # Default off because this tailnet publishes global resolvers while
         # MagicDNS is disabled tailnet-wide with no split-DNS routes and no
         # search domains, so accepting its config only redirects every query
-        # away from NetworkManager's dnsmasq, which is what serves
-        # private-dns-hosts.nix. tailscaled forwards each query over a fresh
-        # DoH connection and does not reap the ones a blackholing uplink leaves
-        # in backoff; tpnix reached 539 stuck sockets to a single resolver.
+        # away from the host resolver. tailscaled forwards each query over a
+        # fresh DoH connection and does not reap the ones a blackholing uplink
+        # leaves in backoff, which piled up hundreds of stuck sockets to a
+        # single resolver.
         acceptDns = lib.mkOption {
           type = lib.types.bool;
           default = false;

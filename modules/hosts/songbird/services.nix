@@ -107,11 +107,6 @@ in
       services = {
         cloudflared.enable = true;
 
-        # No drivers list: nixpkgs reads services.printing.drivers only inside
-        # its own mkIf cfg.enable, so alongside a forced-off enable it would
-        # name packages nothing installs.
-        printing.enable = lib.mkForce false;
-
         samba = {
           enable = true;
           openFirewall = true;

@@ -96,7 +96,6 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | `input(nixos-hardware)`       | Use for the `NixOS/nixos-hardware` input and its integration.              |
 | `input(nixpkgs)`              | Use for the `NixOS/nixpkgs` input and its integration.                     |
 | `input(nixvim)`               | Use for the `nix-community/nixvim` input and its integration.              |
-| `input(nixvirt)`              | Use for the `AshleyYakeley/NixVirt` input and its integration.             |
 | `input(node-cloudflare)`      | Use for the `cloudflare/node-cloudflare` input and its integration.        |
 | `input(nur)`                  | Use for the `nix-community/NUR` input and dedupe aliases.                  |
 | `input(r2-flake)`             | Use for the `Bad3r/nix-R2-CloudFlare-Flake` input and its integration.     |
@@ -109,16 +108,14 @@ This repository uses a faceted label taxonomy so labels answer one question at a
 | `input(tinted-schemes)`       | Use for the `tinted-theming/schemes` input and its integration.            |
 | `input(treefmt-nix)`          | Use for the `numtide/treefmt-nix` input and its integration.               |
 | `input(vim-autoread)`         | Use for the `djoshea/vim-autoread` input and its integration.              |
-| `input(winapps)`              | Use for the `winapps-org/winapps` input and its integration.               |
 | `input(workers-rs)`           | Use for the `cloudflare/workers-rs` input and its integration.             |
 | `input(zsh-auto-notify)`      | Use for the `MichaelAquilina/zsh-auto-notify` input and its integration.   |
 
 ## Host Labels
 
-| Label            | Description                                                           |
-| ---------------- | --------------------------------------------------------------------- |
-| `host(songbird)` | Use for changes specific to the `songbird` host or hardware plan.     |
-| `host(tpnix)`    | Use for changes specific to the `tpnix` host or its runtime contract. |
+| Label            | Description                                                       |
+| ---------------- | ----------------------------------------------------------------- |
+| `host(songbird)` | Use for changes specific to the `songbird` host or hardware plan. |
 
 ## Focus Labels
 

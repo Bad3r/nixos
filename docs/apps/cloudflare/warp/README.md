@@ -11,17 +11,14 @@ No browser login happens on the host: sops-nix renders the team name, the token,
   `warp-svc` opens its policy file without following symlinks, which rules out a link into `/run/secrets`.
 - A changed token or mode restarts `warp-svc` through the template's restart hook.
 - The client starts Connected after install and after every boot; a manual `warp-cli disconnect` holds until the next boot.
-- In `warp` mode systemd-resolved sends every lookup to the client's local DNS proxy while the `CloudflareWARP` tunnel exists, and to the link servers once it is gone. That route is gated on `services.resolved.enable`: a host running `warp` mode with resolved off, as `modules/hosts/common/private-dns-hosts.nix` forces for a host with `privateDnsHostsSecretKeys`, has no `cloudflare-warp-dns.service` and resolves through the `/etc/resolv.conf` `warp-svc` writes instead.
+- In `warp` mode systemd-resolved sends every lookup to the client's local DNS proxy while the `CloudflareWARP` tunnel exists, and to the link servers once it is gone. That route is gated on `services.resolved.enable`: a host running `warp` mode with resolved off has no `cloudflare-warp-dns.service` and resolves through the `/etc/resolv.conf` `warp-svc` writes instead.
 - The upstream inbound UDP opening stays off, since the client only dials out over WireGuard or
   MASQUE.
 
 ## Mode per host
 
-tpnix stays on `tunnelonly` because NetworkManager's dnsmasq serves the private-host mappings from `modules/hosts/common/private-dns-hosts.nix`, which Gateway DNS would replace.
 The mode is set in `modules/hosts/<host>/cloudflare-warp.nix`, and the host's device profile in the dashboard carries the same mode, matched on the host's service token.
 Cloudflare spells Traffic-only mode three ways: `tunnelonly` as the `service_mode` value in `mdm.xml`, `warp_tunnel_only` in the device-profile API, and `tunnel_only` in `warp-cli mode`.
-tpnix's Traffic-only mode is checked at rollout because it leaves DNS with NetworkManager (see
-[troubleshooting.md](troubleshooting.md)).
 
 ## Reaching hosts over Cloudflare Mesh
 

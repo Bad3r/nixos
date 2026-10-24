@@ -72,12 +72,6 @@ Cause: the ICMP proxy is off under Traffic policies, Traffic settings in the das
 Diagnostic: `nc -vz <mesh-address> 22` succeeds and `ping -c 1 <mesh-address>` does not.
 Fix: turn on the ICMP proxy next to TCP and UDP under Traffic policies, Traffic settings in the dashboard.
 
-## Private hostnames stop resolving on tpnix
-
-Cause: the host runs in `warp` mode, so WARP replaced NetworkManager's dnsmasq as the resolver.
-Diagnostic: `warp-cli --accept-tos settings` and `cat /etc/resolv.conf`.
-Fix: set `serviceMode = "tunnelonly"` in `modules/hosts/tpnix/cloudflare-warp.nix` and `warp_tunnel_only` on the `nixos-tpnix` profile, then switch.
-
 ## The device profile does not apply
 
 Cause: warp-svc 2026.7.1343.0 can keep a changed profile's previous settings past Cloudflare's ten-minute propagation window, or the match names the token instead of its id.

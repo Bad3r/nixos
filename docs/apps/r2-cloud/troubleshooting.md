@@ -30,7 +30,7 @@ Checks:
 
 ```bash
 rg -n 'inputs\."r2-flake"\.(nixosModules|homeManagerModules)\.default' modules/lib/r2-runtime.nix
-rg -n 'enableExternalFlake' modules/lib/r2-runtime.nix modules/hosts/songbird/r2-runtime.nix modules/hosts/tpnix/r2-runtime.nix
+rg -n 'enableExternalFlake' modules/lib/r2-runtime.nix modules/hosts/songbird/r2-runtime.nix
 ```
 
 Fix:
@@ -48,7 +48,7 @@ Checks:
 test -f secrets/r2.yaml && echo present || echo missing
 rg -n 'path_regex: secrets/r2\\.yaml' .sops.yaml
 rg -n 'r2SecretExists|builtins\.pathExists' modules/security/r2-cloud-secrets.nix
-rg -n 'r2CloudSecrets\.enable' modules/hosts/common/imports.nix modules/hosts/songbird modules/hosts/tpnix
+rg -n 'r2CloudSecrets\.enable' modules/hosts/common/imports.nix modules/hosts/songbird
 ```
 
 Fix:

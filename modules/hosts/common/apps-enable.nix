@@ -3,7 +3,7 @@
 
   Configures application defaults shared across hosts. All app modules default
   to disabled, requiring explicit opt-in for better control. The body below
-  represents the common baseline; per-host files (e.g. modules/hosts/tpnix/apps-enable.nix)
+  represents the common baseline; per-host files (e.g. modules/hosts/songbird/apps-enable.nix)
   layer overrides for entries that diverge.
 
   Rows sit at lib.mkOverride 1100 and host rows at 1000. A module that needs
@@ -156,9 +156,9 @@ let
       findutils.extended.enable = lib.mkOverride 1100 false;
       firefox.extended.enable = lib.mkOverride 1100 true;
       firefoxpwa.extended.enable = lib.mkOverride 1100 true;
-      # Matches the option's own default. Stated so the tpnix sub-toggle that
+      # Matches the option's own default. Stated so a host sub-toggle that
       # turns it on has a baseline value to be compared against; without one
-      # tpnix fails to evaluate, since the toggle would have nowhere to land.
+      # that host fails to evaluate, since the toggle would have nowhere to land.
       firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
       "firmware-manager".extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
@@ -166,7 +166,6 @@ let
       fonttools.extended.enable = lib.mkOverride 1100 true;
       foremost.extended.enable = lib.mkOverride 1100 true;
       forgit.extended.enable = lib.mkOverride 1100 true;
-      freerdp.extended.enable = lib.mkOverride 1100 false;
       "frida-tools".extended.enable = lib.mkOverride 1100 true;
       "fuse-overlayfs".extended.enable = lib.mkOverride 1100 true;
       fzf.extended.enable = lib.mkOverride 1100 true;
@@ -260,10 +259,7 @@ let
       libsecret.extended.enable = lib.mkOverride 1100 false;
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
       localsend.extended.enable = lib.mkOverride 1100 true;
-      # Normal GPU compositing is the common default; tpnix enables the
-      # NVIDIA PRIME sync workaround in modules/hosts/tpnix/apps-enable.nix.
       logseq.extended.enable = lib.mkOverride 1100 true;
-      logseq.extended.disableGpuCompositing = lib.mkOverride 1100 false;
       "logseq-cli".extended.enable = lib.mkOverride 1100 true;
       lshw.extended.enable = lib.mkOverride 1100 true;
       lsof.extended.enable = lib.mkOverride 1100 true;
@@ -392,7 +388,6 @@ let
       pyyaml.extended.enable = lib.mkOverride 1100 true;
       qbittorrent.extended.enable = lib.mkOverride 1100 true;
       "qbittorrent-webui".extended.enable = lib.mkOverride 1100 false;
-      qemu.extended.enable = lib.mkOverride 1100 false;
       qpdf.extended.enable = lib.mkOverride 1100 true;
       qpwgraph.extended.enable = lib.mkOverride 1100 true;
       qrencode.extended.enable = lib.mkOverride 1100 true;
@@ -504,7 +499,6 @@ let
       vial.extended.enable = lib.mkOverride 1100 false;
       "video-cache".extended.enable = lib.mkOverride 1100 true;
       vim.extended.enable = lib.mkOverride 1100 false; # Provided by nixvim (vimAlias = true)
-      "virt-manager".extended.enable = lib.mkOverride 1100 false;
       virtualbox.extended.enable = lib.mkOverride 1100 false;
       vlc.extended.enable = lib.mkOverride 1100 false;
       "vmware-workstation".extended.enable = lib.mkOverride 1100 false;
@@ -526,7 +520,6 @@ let
       whatweb.extended.enable = lib.mkOverride 1100 true;
       which.extended.enable = lib.mkOverride 1100 false;
       whois.extended.enable = lib.mkOverride 1100 true;
-      winapps.extended.enable = lib.mkOverride 1100 false;
       "wine-tools".extended.enable = lib.mkOverride 1100 true;
       "wireguard-tools".extended.enable = lib.mkOverride 1100 true;
       wireshark.extended.enable = lib.mkOverride 1100 true;

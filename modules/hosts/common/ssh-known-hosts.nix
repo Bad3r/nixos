@@ -13,7 +13,6 @@
 let
   fleetHostKeys = {
     songbird = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINptd1paBJhCCHf8L2FolFAcCtzlBJQp6SIi4dLSiP53";
-    tpnix = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIBhF9ZGsiViA4iOeGgNSjlzIcSdHZV0m3kTXU6fHusJ0";
   };
 
   # Published at https://api.github.com/meta (ssh_keys); same key serves ssh.github.com:443.

@@ -12,7 +12,6 @@
     let
       i3Enabled = config.xsession.windowManager.i3.enable;
       appRows = import ./_app-rows.nix { inherit lib osConfig pkgs; };
-      primeSyncEnabled = osConfig.gpu.nvidia.prime.syncActive;
     in
     {
       config = lib.mkIf i3Enabled (
@@ -111,10 +110,7 @@
             # i3 does not composite, so without picom every GL/video present
             # reaches the scanout unsynchronised and tears. glx+vSync is the
             # backend pair NVIDIA needs; xrender (the module default) ignores
-            # vSync entirely. PRIME-sync hosts disable vSync instead: their
-            # NVIDIA screen has no CRTC, so picom's NVIDIA vblank wait never
-            # returns once the panel blanks (tpnix froze hard on this), and
-            # PRIME sync already keeps the sink scanout tear-free without it.
+            # vSync entirely.
             # Follows the app registry rather than enabling unconditionally:
             # programs.picom.extended is the switch that installs picom, so a
             # host turning the app off would otherwise still run a
@@ -124,7 +120,7 @@
               enable = lib.mkDefault (appRows.enabled "picom");
               package = lib.mkDefault (appRows.package "picom");
               backend = lib.mkDefault "glx";
-              vSync = lib.mkDefault (!primeSyncEnabled);
+              vSync = lib.mkDefault true;
             };
             udiskie = {
               enable = lib.mkDefault (appRows.enabled "udiskie");

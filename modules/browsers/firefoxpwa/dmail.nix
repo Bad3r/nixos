@@ -35,8 +35,8 @@ _: {
       geckoFile = secretsRoot + "/gecko.yaml";
       geckoFileExists = builtins.pathExists geckoFile;
 
-      # Per-host toggle declared at NixOS scope in ./apps.nix; layered by the
-      # common app catalog (off) and modules/hosts/tpnix/apps-enable.nix (on).
+      # Per-host toggle declared at NixOS scope in ./apps.nix; the common app
+      # catalog sets it off and a host's apps-enable.nix turns it on.
       dmailEnabled = osConfig != null && osConfig.programs.firefoxpwa.dmail.enable;
       firefoxpwaEnabled = osConfig.programs.firefoxpwa.extended.enable or false;
       firefoxpwaPackage = osConfig.programs.firefoxpwa.extended.package or pkgs.firefoxpwa;

@@ -1,5 +1,5 @@
 _: {
-  configurations.nixos.tpnix.module = {
+  configurations.nixos.songbird.module = {
     # Prefer Arabic-capable Noto faces ahead of the MonoLisa families for
     # Arabic text.
     host.fontconfig.extraRules = ''

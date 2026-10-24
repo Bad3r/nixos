@@ -309,14 +309,14 @@ only catches that if the operator reaches it.
 
 ```bash
 nix run path:.#treefmt -- .
-nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
+nix eval --json "path:.#nixosConfigurations.songbird.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-after.json
 
 repo="$PWD"
 cp "$repo/modules/browsers/brave/apps.nix" /tmp/brave-apps-refactored.nix
 trap 'cp /tmp/brave-apps-refactored.nix "$repo/modules/browsers/brave/apps.nix"' EXIT INT TERM
 git show HEAD:modules/browsers/brave/apps.nix > "$repo/modules/browsers/brave/apps.nix"
-nix eval --json "path:.#nixosConfigurations.tpnix.config.programs.brave.extended.managedPolicies" \
+nix eval --json "path:.#nixosConfigurations.songbird.config.programs.brave.extended.managedPolicies" \
   --accept-flake-config 2>/dev/null | jq -S . > /tmp/brave-policies-before.json
 cp /tmp/brave-apps-refactored.nix "$repo/modules/browsers/brave/apps.nix"
 trap - EXIT INT TERM
@@ -478,7 +478,7 @@ parses as nothing and the browser applies no policy at all, with no eval error. 
 
 ```bash
 nix run path:.#treefmt -- .
-nix eval --raw "path:.#nixosConfigurations.tpnix.config.environment.etc.\"brave/policies/managed/extended.json\".text" \
+nix eval --raw "path:.#nixosConfigurations.songbird.config.environment.etc.\"brave/policies/managed/extended.json\".text" \
   --accept-flake-config | jq -r 'keys | length'
 
 # The same number, derived from the two sources the value is built from.
@@ -2156,7 +2156,7 @@ in
 
 ```bash
 nix run path:.#treefmt -- .
-nix eval --raw "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
+nix eval --raw "path:.#nixosConfigurations.songbird.config.home-manager.users.vx.home.packages" \
   --accept-flake-config --apply 'ps: builtins.concatStringsSep "\n" (map (p: p.name) ps)' \
   | rg '^webapp-'
 ```
@@ -2178,7 +2178,7 @@ every app without `reload.enable` and both tray wrappers, which is most of the
 catalog.
 
 ```bash
-nix build "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
+nix build "path:.#nixosConfigurations.songbird.config.home-manager.users.vx.home.packages" \
   --accept-flake-config --no-link
 ```
 
@@ -2189,12 +2189,12 @@ Then read the two shapes that differ, the no-reload app and a tray wrapper:
 
 ```bash
 outdir="$(nix eval --raw --accept-flake-config \
-  "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
+  "path:.#nixosConfigurations.songbird.config.home-manager.users.vx.home.packages" \
   --apply 'ps: (builtins.head (builtins.filter (p: p.name == "webapp-word") ps)).outPath')"
 cat "$outdir/bin/webapp-word"
 
 traydir="$(nix eval --raw --accept-flake-config \
-  "path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages" \
+  "path:.#nixosConfigurations.songbird.config.home-manager.users.vx.home.packages" \
   --apply 'ps: (builtins.head (builtins.filter (p: p.name == "webapp-teams-tray") ps)).outPath')"
 cat "$traydir/bin/webapp-teams-tray"
 ```
@@ -2266,7 +2266,7 @@ an entry without its row leaves the inventory a row short. Add to the
 host-sourced table, keeping the existing alphabetical order:
 
 ```markdown
-| brave-origin        | songbird, tpnix |
+| brave-origin        | songbird        |
 ```
 
 Confirm every cache root has a row. One-way, not a `diff`: the coverage doc
@@ -2288,7 +2288,7 @@ which is the state this step exists to prevent.
 nix run path:.#treefmt -- .
 nix develop path:. -c pre-commit run --all-files --hook-stage manual apps-catalog-sync
 nix flake check path:. --accept-flake-config --no-build --offline
-nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
+nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel" --no-link
 ```
 
 Expected: all three succeed. The catalog hook runs here rather than only in
@@ -2309,7 +2309,7 @@ header, so the row goes in the same commit.
 
 Validation: comm over hostPackageNames against the inventory table, no cache root without a row;
 nix flake check path:. --accept-flake-config --no-build --offline;
-nix build path:.#nixosConfigurations.tpnix.config.system.build.toplevel"
+nix build path:.#nixosConfigurations.songbird.config.system.build.toplevel"
 ```
 
 ### Task 14: Add the policy regression check
@@ -3186,7 +3186,6 @@ git diff --stat
 nix run path:.#treefmt -- .
 nix develop path:. -c pre-commit run --all-files --hook-stage manual
 nix flake check path:. --accept-flake-config --no-build --offline
-nix build "path:.#nixosConfigurations.tpnix.config.system.build.toplevel" --no-link
 nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel" --no-link
 ```
 
@@ -3199,7 +3198,7 @@ git add docs/reference/webapps.md docs/architecture/04-home-manager.md docs/inde
 git commit -m "docs(webapps): document the web app module
 
 Validation: nix flake check path:. --accept-flake-config --no-build --offline;
-nix build path:.#nixosConfigurations.{tpnix,songbird}.config.system.build.toplevel"
+nix build path:.#nixosConfigurations.songbird.config.system.build.toplevel"
 git push -u origin feat/chromium-webapps
 gh pr create --title "feat(browsers): declarative Chromium web apps on brave-origin" --body "$(cat <<'EOF'
 ## Summary
@@ -3239,8 +3238,8 @@ Plan: `docs/drafts/chromium-webapps-plan-3-implement.md`. Operator docs: `docs/r
 ## Test plan
 
 - `nix flake check path:. --accept-flake-config --no-build --offline`
-- `nix build path:.#nixosConfigurations.{tpnix,songbird}.config.system.build.toplevel`
-- `nix build path:.#nixosConfigurations.tpnix.config.home-manager.users.vx.home.packages`: builds every launcher, so
+- `nix build path:.#nixosConfigurations.songbird.config.system.build.toplevel`
+- `nix build path:.#nixosConfigurations.songbird.config.home-manager.users.vx.home.packages`: builds every launcher, so
   `shellcheck` runs over each one. Eval alone does not reach the launcher body.
 - `checks."browsers/webapps-policy"`: generated policy against a fixture, recomputed grants against the catalog, and
   the disjoint-key invariant against `_chromium-hardening.nix`. Drift proven detected by planting an extra origin in

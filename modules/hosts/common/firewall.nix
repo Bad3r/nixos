@@ -2,22 +2,13 @@
 #   flake.lib.nixos.hosts.<host>.firewallExtraTcpPortRanges
 #     Additional globally open TCP port ranges.
 #   flake.lib.nixos.hosts.<host>.firewallLocalTcpPortRanges
-#     Additional TCP port ranges open from 10.0.0.0/8 excluding 10.11.0.0/16,
-#     from 192.168.0.0/16, and on the CloudflareWARP interface.
+#     Additional TCP port ranges open from 10.0.0.0/8, from 192.168.0.0/16,
+#     and on the CloudflareWARP interface.
 { config, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
-  # 10.0.0.0/8 minus 10.11.0.0/16: libvirt guests on the shared VM network
-  # (modules/hosts/common/windows-guest.nix) must not count as LAN sources.
   localNetworkCidrs = [
-    "10.0.0.0/13"
-    "10.8.0.0/15"
-    "10.10.0.0/16"
-    "10.12.0.0/14"
-    "10.16.0.0/12"
-    "10.32.0.0/11"
-    "10.64.0.0/10"
-    "10.128.0.0/9"
+    "10.0.0.0/8"
     "192.168.0.0/16"
   ];
   meshInterface = "CloudflareWARP";
@@ -61,8 +52,8 @@ let
           # the profile excludes 100.64.0.0/11 and 100.112.0.0/12 instead of
           # dropping the CGNAT entry, which carves out the Mesh allocation and keeps
           # any tailnet address in 100.112.0.0/12 excluded.
-          # Mesh is the fleet's private network once the tailnet retires, so the
-          # developer ranges ride it and the other host reaches the LAN-only dev
+          # Mesh is the private network once the tailnet retires, so the
+          # developer ranges ride it and Mesh peers reach the LAN-only dev
           # servers; tailscale0 above stays SSH-only for a host that opts back in.
           # The interface is the scope: every device enrolled in the team reaches
           # the ranges, accepted over per-peer source rules, which would close the

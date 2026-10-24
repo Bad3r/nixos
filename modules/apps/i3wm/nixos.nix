@@ -5,12 +5,6 @@ let
     { pkgs, lib, ... }:
     {
       options.gui.i3 = {
-        powerProfiles.allowSelection = lib.mkOption {
-          type = lib.types.bool;
-          default = true;
-          description = "Whether the i3 power-profile launcher may switch away from the enforced host profile.";
-        };
-
         # Display geometry hints consumed by the Home Manager i3 config via
         # osConfig (window-positioning math and the calendar dropdown offset).
         screenWidth = lib.mkOption {

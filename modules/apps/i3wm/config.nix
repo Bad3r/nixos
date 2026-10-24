@@ -17,7 +17,6 @@
       # Home Manager's rofi carries the plugins; its finalPackage exists only while the rofi row is on.
       rofiPackage =
         if config.programs.rofi.enable then config.programs.rofi.finalPackage else appRows.package "rofi";
-      powerProfileSelectionAllowed = hostI3Cfg.powerProfiles.allowSelection;
       enforcedPowerProfile = (import ../../hosts/common/_power-profile-unit.nix pkgs).profile;
       sessionMetadata = {
         DESKTOP_SESSION = "none+i3";
@@ -296,16 +295,9 @@
         ];
         text = ''
           set -euo pipefail
-          selection_allowed=${lib.escapeShellArg (if powerProfileSelectionAllowed then "true" else "false")}
 
           # Get current profile
           current=$(powerprofilesctl get 2>/dev/null || echo "unknown")
-
-          if [ "$selection_allowed" != "true" ]; then
-            powerprofilesctl set ${enforcedPowerProfile}
-            notify-send -i battery "Power Profile" "Performance mode is enforced on this host"
-            exit 0
-          fi
 
           # Mark current profile
           mark_current() {

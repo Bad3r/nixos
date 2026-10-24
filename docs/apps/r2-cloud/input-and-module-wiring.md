@@ -32,8 +32,8 @@ repository.
    - `inputs."r2-flake".homeManagerModules.default` via
      `home-manager.sharedModules`
    - File: `modules/lib/r2-runtime.nix`
-   - The `songbird` and `tpnix` policies both set `enableExternalFlake = true`,
-     so the producer surfaces are imported for both hosts.
+   - The `songbird` policy sets `enableExternalFlake = true`, so the producer
+     surfaces are imported for that host.
 4. Repo-local HM secrets module is also loaded globally:
    - `flake.homeManagerModules.r2Secrets` from `modules/home/r2-secrets.nix`
    - wired by `modules/home-manager/nixos.nix`

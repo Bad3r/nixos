@@ -11,9 +11,9 @@
   entry is sourced where that consumer resolves it: host apps come from the
   option each host installs, and devshell-consumed packages come from the
   perSystem instance that `nix develop` uses. Every registered host on the
-  building system contributes its own entries (issue #423), so an app a
-  sibling host enables and the primary does not still reaches the cache, and
-  a host that turns an app off contributes nothing for it.
+  building system contributes its own entries (issue #423), so every app a
+  host enables reaches the cache, and a host that turns an app off
+  contributes nothing for it.
 
   The cache is operator-private in use, so unfree packages are published
   alongside free ones; see docs/reference/binary-cache-coverage.md for the

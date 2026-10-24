@@ -384,7 +384,7 @@ The marginal benefit of a separate read-only pair is small. Cut B reuses `/etc/d
 - The managed mount unit sets `restartIfChanged = false;`, `stopIfChanged = false;`, and `serviceConfig.Restart = "on-failure";`. The switch flags prevent rebuilds from tearing down or restarting a live mount during activation; `Restart=on-failure` restarts only after unexpected process failure, not after an operator-initiated stop/unmount.
 - Add an assertion that `services.duplicati-r2.mount.user` is listed in `services.duplicati-r2.stateDirReadableBy`; the mounting user must already have read ACLs for the SQLite state and env file. Normal mount use should not require sudo.
 - Create the mountpoint with `systemd.tmpfiles` using the configured user/group and restrictive mode. The service should stop via `duplicati-r2-mount unmount <mountpoint>` or `fusermount3 -u`, and should avoid leaving stale mountpoints or confusing dead mounts after stop/restart.
-- Enable the managed mount service on `songbird` only. `tpnix` should not enable it unless that host later grants `stateDirReadableBy` and explicitly opts into the mount runtime.
+- Enable the managed mount service on `songbird` only.
 
 ### 4.7 Cut C validation boundaries
 
@@ -461,7 +461,7 @@ duplicati-r2-extract <slug> ... --json                    # JSON summary on stde
 - Implement `--allow-other` as a CLI opt-in. The NixOS service passes it only when `services.duplicati-r2.mount.allowOther = true`, and that same option is the only path that sets `programs.fuse.userAllowOther = true;`.
 - Add `services.duplicati-r2.mount.{enable,user,group,mountPoint,allowOther,debug}` and a `systemd` service in `modules/services/duplicati-r2.nix`. Assert the mount user is included in `stateDirReadableBy`, create the mountpoint via `systemd.tmpfiles`, set `restartIfChanged = false;`, `stopIfChanged = false;`, and `serviceConfig.Restart = "on-failure";`, and keep sudo out of normal operation by using the existing SQLite/env-file ACLs.
 - Add `pkgs.duplicati-r2-tools.mount` to the app module's default package list and expose flake output `.#duplicati-r2-mount`.
-- Gate the managed mount service in `modules/hosts/common/duplicati.nix` on per-host registry data; enable it only for `songbird`. `tpnix` should remain off unless it later gets matching state/env-file ACL access and explicitly opts in.
+- Gate the managed mount service in `modules/hosts/common/duplicati.nix` on per-host registry data; enable it only for `songbird`.
 
 **FUSE semantics work**:
 
