@@ -25,18 +25,9 @@ let
       hostFlags = hostsRegistry.${hostName} or { };
       extraTcpPortRanges = hostFlags.firewallExtraTcpPortRanges or [ ];
       localTcpPortRanges = hostFlags.firewallLocalTcpPortRanges or [ ];
-      localSshCommands = lib.concatMapStrings (
-        cidr: "iptables -A nixos-fw -s ${cidr} -p tcp --dport 22 -j nixos-fw-accept\n"
-      ) localNetworkCidrs;
-      localTcpPortRangeCommands = lib.concatMapStrings (
-        range:
-        let
-          portRange = "${toString range.from}:${toString range.to}";
-        in
-        lib.concatMapStrings (
-          cidr: "iptables -A nixos-fw -s ${cidr} -p tcp --dport ${portRange} -j nixos-fw-accept\n"
-        ) localNetworkCidrs
-      ) localTcpPortRanges;
+      localTcpPorts = lib.concatStringsSep ", " (
+        [ "22" ] ++ map (range: "${toString range.from}-${toString range.to}") localTcpPortRanges
+      );
     in
     {
       networking.firewall = {
@@ -63,10 +54,12 @@ let
             allowedTCPPortRanges = localTcpPortRanges;
           };
         };
-        extraCommands = ''
-          ${localSshCommands}
-          ${localTcpPortRangeCommands}
-        '';
+        extraInputRules = "ip saddr { ${lib.concatStringsSep ", " localNetworkCidrs} } tcp dport { ${localTcpPorts} } accept";
+      };
+      networking.nftables = {
+        enable = true;
+        # Keeps warp-svc's table and every other daemon's across reloads.
+        flushRuleset = false;
       };
     };
 in

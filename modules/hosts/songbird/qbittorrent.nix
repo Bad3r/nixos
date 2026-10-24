@@ -398,9 +398,7 @@ in
 
             networking.firewall = {
               interfaces.${_firewallMeshInterface}.allowedTCPPorts = [ webuiPort ];
-              extraCommands = lib.concatMapStrings (
-                cidr: "iptables -A nixos-fw -s ${cidr} -p tcp --dport ${toString webuiPort} -j nixos-fw-accept\n"
-              ) _firewallLocalNetworkCidrs;
+              extraInputRules = "ip saddr { ${lib.concatStringsSep ", " _firewallLocalNetworkCidrs} } tcp dport ${toString webuiPort} accept";
             };
           }
         ]
