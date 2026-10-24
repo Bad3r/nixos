@@ -9,6 +9,7 @@
 let
   flakeModules = config.flake.nixosModules;
   libvirtApp = nixosAppHelpers.getApp "libvirt";
+  workloadsApp = nixosAppHelpers.getApp "workloads";
 in
 {
   perSystem =
@@ -68,8 +69,16 @@ in
           size = 1;
           seed = "seed";
         };
-        interfaces.eth.network = "lab";
-        interfaces.eth.hostOffset = 11;
+        interfaces = {
+          eth = {
+            network = "lab";
+            hostOffset = 11;
+          };
+          lan = {
+            network = "default";
+            hostOffset = 11;
+          };
+        };
       };
       delta = guest {
         uuid = uuids.delta;
@@ -85,15 +94,17 @@ in
         name = "workloads-vms";
 
         nodes.machine =
-          { lib, ... }:
+          { lib, pkgs, ... }:
           {
             imports = [
               libvirtApp
+              workloadsApp
               flakeModules."workloads-networks"
               flakeModules."workloads-vms"
+              flakeModules."workloads-names"
             ];
 
-            # networks.nix turns WARP on for warp networks; these use none.
+            # Stands in for the WARP app that warp networks turn on.
             options.programs.cloudflare-warp.extended.enable = lib.mkEnableOption "WARP";
 
             config = {
@@ -107,6 +118,8 @@ in
                 memorySize = 2048;
               };
               networking.nftables.enable = true;
+              environment.systemPackages = [ pkgs.dnsutils ];
+              programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
               users.users.${metaOwner.username}.isNormalUser = true;
 
               systemd.tmpfiles.settings.workloads-vms-test."/var/lib/workloads/images/seed.qcow2"."L+".argument =
@@ -116,7 +129,8 @@ in
                 networks = {
                   default = {
                     id = 0;
-                    egress = "none";
+                    egress = "warp";
+                    resolve = lib.mkDefault [ "gamma" ];
                     libvirt = {
                       enable = true;
                       uuid = uuids.default;
@@ -154,15 +168,21 @@ in
                   alpha = changedAlpha;
                   inherit gamma delta;
                 };
-                renamed.configuration.workloads.guests = {
-                  beta = changedAlpha;
-                  inherit delta;
-                };
-                absent.configuration.workloads.guests = {
-                  beta = changedAlpha // {
-                    ensure = "absent";
+                renamed.configuration.workloads = {
+                  guests = {
+                    beta = changedAlpha;
+                    inherit delta;
                   };
-                  inherit delta;
+                  networks.default.resolve = [ "delta" ];
+                };
+                absent.configuration.workloads = {
+                  guests = {
+                    beta = changedAlpha // {
+                      ensure = "absent";
+                    };
+                    inherit delta;
+                  };
+                  networks.default.resolve = [ "delta" ];
                 };
               };
             };
@@ -175,6 +195,7 @@ in
             switch = name: "${toplevel}/specialisation/${name}/bin/switch-to-configuration test";
           in
           ''
+            import json
             import xml.etree.ElementTree as ET
 
             def journal(unit):
@@ -186,6 +207,9 @@ in
 
             def state(name):
                 return machine.succeed(f"virsh domstate {name}").strip()
+
+            def dig(name):
+                return machine.succeed(f"dig +short @172.16.0.1 {name}").strip()
 
             def memory(name, flags=""):
                 root = ET.fromstring(machine.succeed(f"virsh dumpxml {flags} {name}"))
@@ -227,6 +251,16 @@ in
                 lab = machine.succeed("virsh net-dumpxml lab")
                 assert "ip='172.16.5.10'" in lab and "ip='172.16.5.11'" in lab, lab
 
+            with subtest("the host and the network's resolver answer declared names"):
+                assert machine.succeed("getent hosts gamma.vm").split() == ["172.16.5.11", "gamma", "gamma.vm"]
+                assert dig("host.vm") == "172.16.0.1"
+                # The host takes the first interface, a network's resolver the one on that network.
+                assert dig("gamma") == dig("gamma.vm") == "172.16.0.11"
+                machine.fail("dig +time=1 +tries=1 @172.16.5.1 host.vm")
+                report = json.loads(machine.succeed("workloads names --json"))
+                assert [entry["name"] for entry in report["names"]] == ["alpha", "gamma"], report
+                assert report["sandboxes"] is None, report
+
             with subtest("a running guest keeps its definition and running networks gain reservations"):
                 machine.succeed("virsh start --paused alpha")
                 machine.succeed("${switch "changed"}")
@@ -246,6 +280,9 @@ in
                 machine.succeed("virsh destroy alpha")
                 machine.succeed(restart("workloads-vm-guest-beta.service"))
                 assert "renamed domain 'alpha' to 'beta'" in journal("workloads-vm-guest-beta.service")
+                assert "status: NXDOMAIN" in machine.succeed("dig @172.16.0.1 gamma.vm")
+                assert dig("delta.vm") == "172.16.5.12"
+                assert "older definition" not in journal("workloads-vm-net-default.service")
                 assert machine.succeed("virsh domuuid beta").strip() == "${uuids.alpha}"
                 machine.fail("virsh dominfo alpha")
 
