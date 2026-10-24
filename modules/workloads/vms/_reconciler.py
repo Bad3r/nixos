@@ -307,6 +307,14 @@ def seed_problem(seed: dict[str, str]) -> str | None:
     return None
 
 
+def seed_fix(problem: str, seed: dict[str, str]) -> str:
+    """Append the command that rebuilds a seed's out-link to its problem."""
+    return (
+        f"{problem}; build it from the repository root with `{seed['build']}` "
+        "(`path:.#` in a linked worktree)"
+    )
+
+
 def pending_seeds(disks: list[dict]) -> list[str]:
     """Describe the seeds that block creating a missing disk."""
     problems = []
@@ -315,9 +323,7 @@ def pending_seeds(disks: list[dict]) -> list[str]:
         if seed is not None and not Path(disk["path"]).exists():
             problem = seed_problem(seed)
             if problem is not None:
-                problems.append(
-                    f"{problem}; build it with `{seed['build']}` from the repository root"
-                )
+                problems.append(seed_fix(problem, seed))
     return list(dict.fromkeys(problems))
 
 
@@ -326,6 +332,9 @@ def fill_disk(partial: Path, size: int, seed: dict[str, str] | None) -> None:
     if seed is None:
         qemu_img("create", "-q", "-f", "qcow2", str(partial), f"{size}G")
         return
+    problem = seed_problem(seed)
+    if problem is not None:
+        raise ReconcileError(seed_fix(problem, seed))
     qemu_img("convert", "-f", "qcow2", "-O", "qcow2", seed["expected"], str(partial))
     if virtual_size(partial) > size * GIB:
         msg = f"the seed {seed['path']} is larger than the declared {size} GiB"
@@ -397,7 +406,7 @@ def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
     xml = Path(spec["xml"]).read_text()
     nvram = Path(spec["nvram"])
     state = Path(spec["stateDir"])
-    claim_domain(conn, name, uuid)
+    existing = claim_domain(conn, name, uuid)
     # NVRAM is the last file a first define writes and TPM state appears at the
     # first start, so either one means the guest's files are no longer new.
     provisioned = nvram.exists() or (state / "tpm").exists()
@@ -408,10 +417,13 @@ def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
     # guest waits for it instead of failing the switch.
     pending = [] if provisioned else pending_seeds(spec["disks"])
     if pending:
-        warn(
-            f"guest '{name}' is not defined until its seed image is built: "
-            f"{'; '.join(pending)}; then `systemctl restart workloads-vm-guest-{name}.service`"
+        steps = (
+            f"{'; '.join(pending)}; then `sudo systemctl restart workloads-vm-guest-{name}.service`"
         )
+        if existing is not None:
+            msg = f"guest '{name}' is defined, but its disk waits for its seed image: {steps}"
+            raise ReconcileError(msg)
+        warn(f"guest '{name}' is not defined until its seed image is built: {steps}")
         return
     state.mkdir(mode=0o711, exist_ok=True)
     state.chmod(0o711)

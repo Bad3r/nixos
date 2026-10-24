@@ -33,7 +33,6 @@ in
     };
 
     images.nixos-dev = {
-      path = "/var/lib/workloads/images/nixos-dev/${nixosDevImage.passthru.filePath}";
       expected = "${nixosDevImage}/${nixosDevImage.passthru.filePath}";
     };
 

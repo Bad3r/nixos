@@ -71,22 +71,28 @@ let
         { name, ... }:
         {
           options = {
+            artifact = lib.mkOption {
+              type = types.str;
+              default = name;
+              description = "`legacyPackages.<system>.workloads` attribute that builds the image.";
+            };
+
             outLink = lib.mkOption {
               type = types.strMatching "/.+";
               default = "/var/lib/workloads/images/${name}";
-              description = "`nix build --out-link` result that keeps the image alive, built from `legacyPackages.<system>.workloads.<name>`.";
-            };
-
-            path = lib.mkOption {
-              type = types.strMatching "/.+";
-              description = "Absolute runtime path of the qcow2 image, inside `outLink`.";
+              description = "`nix build --out-link` result that keeps the image alive.";
             };
 
             expected = lib.mkOption {
               # Without string context, so the image stays out of the closure.
               type = types.strMatching "/nix/store/.+";
               apply = builtins.unsafeDiscardStringContext;
-              description = "Store path `path` must resolve to; while it does not, a guest whose disk is missing stays undefined instead of seeding an old image.";
+              description = ''
+                Store path of the qcow2 image: the build output, followed by
+                the image's path inside it when the output is a directory.
+                While `outLink` does not lead to it, a guest that libvirt has
+                not defined and whose disk is missing stays undefined.
+              '';
             };
           };
         };

@@ -72,10 +72,13 @@ let
                   else
                     let
                       image = images.${spec.seed};
+                      # The components after /nix/store/<output>.
+                      inner = lib.drop 4 (lib.splitString "/" image.expected);
                     in
                     {
-                      inherit (image) path expected outLink;
-                      build = "nix build .#legacyPackages.${pkgs.stdenv.hostPlatform.system}.workloads.${spec.seed} --out-link ${image.outLink}";
+                      inherit (image) expected outLink;
+                      path = lib.concatStringsSep "/" ([ image.outLink ] ++ inner);
+                      build = "nix build .#legacyPackages.${pkgs.stdenv.hostPlatform.system}.workloads.${image.artifact} --out-link ${image.outLink}";
                     };
               }) guest.disks;
             }

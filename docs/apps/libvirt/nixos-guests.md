@@ -34,12 +34,11 @@ A guest has no password, so a console login needs one set with `passwd` over SSH
 
 2. Register it in `modules/hosts/common/registry.nix` with `<name>.shareCommon = false;`, so it skips the hosts-common baseline.
 
-3. Declare the image and the guest in `modules/hosts/<host>/workloads.nix`, where `image` is the same `qemu-efi` attribute and the image name matches the artifact name:
+3. Declare the image and the guest in `modules/hosts/<host>/workloads.nix`, where `image` is the same `qemu-efi` attribute:
 
    ```nix
    configurations.nixos.<host>.module.workloads = {
      images.<name> = {
-       path = "/var/lib/workloads/images/<name>/${image.passthru.filePath}";
        expected = "${image}/${image.passthru.filePath}";
      };
      guests.<name> = {
@@ -59,9 +58,9 @@ CI builds and checks the guest's system like a host's, and never builds its imag
 ## Seed and boot a guest
 
 Precondition: the guest is declared, and the host runs a generation with the libvirt app.
-A switch before the image exists succeeds and leaves the guest undefined; step 2 then defines it.
+A switch before the image exists succeeds, and a guest that libvirt has not defined yet stays undefined until step 2.
 
-1. Build the image as the owner, from the repository root on the host:
+1. Build the image as the owner, from the repository root on the host, with `path:.#` in a linked worktree:
 
    ```sh
    nix build .#legacyPackages.x86_64-linux.workloads.<name> --out-link /var/lib/workloads/images/<name>
@@ -125,13 +124,13 @@ The host builds the system and copies it to the guest, which never builds.
 
 Verification: `ssh root@<name> readlink /run/current-system` prints the path that `nix eval --raw .#nixosConfigurations.<name>.config.system.build.toplevel` prints.
 
-## A declared guest is missing from virsh list
+## A declared guest is missing from virsh list --all
 
-Cause: the guest disk does not exist yet, and the image out-link is missing or points at an older build.
+Cause: libvirt has not defined the guest, its disk does not exist yet, and the image out-link is missing or points at an older build.
 The unit then succeeds without defining the guest and logs a warning that names the out-link and the `nix build` command:
 
 ```sh
 journalctl -u workloads-vm-guest-<name>.service -b -p warning
 ```
 
-Fix: run the `nix build` command from the warning as the owner in the repository root, then `sudo systemctl restart workloads-vm-guest-<name>.service`.
+Fix: run the `nix build` command from the warning as the owner in the repository root, with `path:.#` in a linked worktree, then `sudo systemctl restart workloads-vm-guest-<name>.service`.
