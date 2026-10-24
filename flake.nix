@@ -124,11 +124,6 @@
       };
     };
 
-    nixvirt = {
-      url = "github:AshleyYakeley/NixVirt";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
-
     refjump-nvim = {
       flake = false;
       url = "github:mawkler/refjump.nvim";
@@ -149,15 +144,6 @@
       inputs = {
         nixpkgs.follows = "nixpkgs";
         treefmt-nix.follows = "treefmt-nix";
-      };
-    };
-
-    winapps = {
-      url = "github:winapps-org/winapps";
-      inputs = {
-        flake-compat.follows = "dedupe_flake-compat";
-        flake-utils.follows = "dedupe_flake-utils";
-        nixpkgs.follows = "nixpkgs";
       };
     };
 
@@ -229,11 +215,6 @@
     # `dedupe_` prefix; `systems` keeps the canonical `nix-systems` input name.
     dedupe_flake-compat = {
       url = "github:edolstra/flake-compat";
-    };
-
-    dedupe_flake-utils = {
-      url = "github:numtide/flake-utils";
-      inputs.systems.follows = "systems";
     };
 
     dedupe_nur = {

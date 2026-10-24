@@ -50,29 +50,27 @@ A standalone Home Manager configuration passes `osConfig = null`, which every ga
 ### Browser Modules
 
 Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix` and load the same way.
-A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/firefoxpwa/home.nix` pins the userdata directory for every firefoxpwa site, and `modules/browsers/firefoxpwa/dmail.nix` layers the DMail-specific install onto the same `browsers.firefoxpwa` key.
 
 ### Per-Host Divergences
 
 The shared HM base and secret defaults live in
 `modules/hosts/common/imports.nix`; host-owned modules add only the overrides
-that diverge. As a current snapshot:
+that diverge. The common baseline sets these HM toggles:
 
-| HM toggle           | songbird default                       | tpnix default                          | Notes                                                                                                                                                |
-| ------------------- | -------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `context7Secrets`   | `mkDefault true`                       | `mkDefault true`                       | Context7 API key rendering.                                                                                                                          |
-| `geckoSecrets`      | `mkDefault true`                       | `mkDefault true`                       | The common baseline enables Gecko bookmark secret rendering for every host; rendering still requires the secret file.                                |
-| `virustotalSecrets` | `mkDefault true`                       | `mkDefault true`                       | VirusTotal API key rendering.                                                                                                                        |
-| `r2Secrets`         | `mkDefault true`                       | `mkDefault true`                       | Renders `~/.config/cloudflare/r2/env` when the secret file exists; the common baseline also defaults NixOS-side `security.r2CloudSecrets.enable` on. |
-| `repoGpg`           | `mkDefault true` (when module present) | `mkDefault true` (when module present) | The common baseline conditionally imports `inputs.self.homeManagerModules.repoGpg` and gates `repoGpg.enable` on the same module-existence check.    |
-| `services.espanso`  | (inherits HM upstream)                 | `x11Support = mkForce true`            | tpnix forces X11 via `home-manager.sharedModules` because it runs i3 on X11.                                                                         |
+| HM toggle           | Default                                | Notes                                                                                                                                                |
+| ------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `context7Secrets`   | `mkDefault true`                       | Context7 API key rendering.                                                                                                                          |
+| `geckoSecrets`      | `mkDefault true`                       | The common baseline enables Gecko bookmark secret rendering for every host; rendering still requires the secret file.                                |
+| `virustotalSecrets` | `mkDefault true`                       | VirusTotal API key rendering.                                                                                                                        |
+| `r2Secrets`         | `mkDefault true`                       | Renders `~/.config/cloudflare/r2/env` when the secret file exists; the common baseline also defaults NixOS-side `security.r2CloudSecrets.enable` on. |
+| `repoGpg`           | `mkDefault true` (when module present) | The common baseline conditionally imports `inputs.self.homeManagerModules.repoGpg` and gates `repoGpg.enable` on the same module-existence check.    |
 
 On the NixOS side, every host defaults `security.repoSecrets.enable` and
 `security.r2CloudSecrets.enable` to `mkDefault true`, so the repo-managed SOPS
 payloads decrypt once the shared age key is installed.
 
 The common defaults in `modules/hosts/common/imports.nix` are authoritative;
-host-owned modules such as `modules/hosts/tpnix/services.nix` carry explicit
+host-owned modules such as `modules/hosts/songbird/services.nix` carry explicit
 divergences. When adding a shared secret module, set both NixOS- and HM-side
 defaults in the common baseline and add only host-specific overrides locally.
 

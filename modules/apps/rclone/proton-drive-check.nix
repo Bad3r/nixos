@@ -8,7 +8,7 @@
   run on the script and none of its abort handling had ever executed.
 
   Builds a standalone Home Manager configuration the way
-  modules/browsers/firefoxpwa/module-check.nix does, with osConfig stubbed to
+  modules/home-manager/checks.nix does, with osConfig stubbed to
   make the remote ready and secretsRoot pointed at an in-repo fixture, then
   points programs.rclone.extended.package in that osConfig at a stub replaying
   a scripted exit code and stderr so the script's control flow, not rclone, is

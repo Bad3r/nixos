@@ -1,6 +1,6 @@
 # Owner Group Privileges
 
-This page documents security-relevant access granted by owner group membership.
+Owner group membership grants the security-relevant access below.
 
 Scope:
 
@@ -73,8 +73,8 @@ Scope:
     - traditional `/var/log` file read path (when files are group-readable by `adm`).
   - security impact:
     - same confidentiality concern as `systemd-journal`.
-  - current host note:
-    - most active logs are in `systemd-journal`; `adm` surface is smaller right now but can expand with service changes.
+  - note:
+    - most active logs are in `systemd-journal`; the `adm` surface can expand with service changes.
 
 - `render`:
 
@@ -92,61 +92,7 @@ Scope:
 
 - `disk`:
 
-  - access:
-    - raw block devices (e.g. `/dev/sda`, `/dev/nvme0n1`).
-    - NVMe controller and generic char devices (`/dev/nvme0`, `/dev/ng0n1`) via
-      the shared udev rule in `modules/hosts/common/storage-diagnostics.nix`.
-    - storage diagnostic wrappers with `CAP_SYS_ADMIN` / `CAP_SYS_RAWIO` for:
-      - `smartctl`
-      - `nvme`
-      - `sedutil-cli`
-      - `hdparm` (when the hdparm app module is enabled; disabled on tpnix)
-  - security impact:
-    - full read/write access to storage devices, bypassing filesystem permissions. Allows running tools like `fdisk` without sudo.
-    - the `smartctl` wrapper is filtered. It retains capabilities only for
-      audited reports, the documented `-v`/`--vendorattribute` display
-      definitions and `-F`/`--firmwarebug` report workarounds, read-only settings
-      and log queries (including bare `-n sleep`, `-n standby`, and `-n idle`
-      power-mode checks), and the standard `offline`, `short`, `long`, and
-      `conveyance` self-tests documented by the module. SMART configuration
-      (`-s`, `-o`, `-S`, and `--set`), log resets or writes,
-      selective/pending/force/captive/abort tests, and unknown forms clear the
-      ambient set and need `sudo`.
-    - the `hdparm` wrapper retains capabilities only for short-option clusters made from `-C`, `-g`, `-i`,
-      `-I`, `-t`, and `-T`. Standalone input formatting such as `--Istdin` also
-      takes the cleared-capability path, but reads and formats stdin only,
-      opens no device, and needs neither storage capabilities nor `sudo`. ATA
-      Security, DCO/HPA, raw-sector writes, TRIM, sanitize, firmware,
-      device-setting, unknown, and parameter-bearing options clear the ambient
-      set and need `sudo`.
-      Raw block reads and writes remain available through `disk` membership,
-      but that does not grant the separate ATA Security, DCO, or HPA control
-      paths.
-    - the `nvme` wrapper is not whole-binary. Its source allowlists the
-      diagnostic subcommands that leave media and settings untouched (the log
-      readers still clear the asynchronous event tied to the page they read,
-      which the detailed document accepts) plus two whose state change is the
-      diagnostic itself, `device-self-test`, whose options can start or abort
-      a drive self-test, and `telemetry-log`, whose default run has the
-      controller capture fresh host-initiated telemetry in place of the
-      retained capture, and clears the ambient capability set before `execve`
-      for everything else. `nvme format`, `nvme sanitize`, `nvme fw-commit`,
-      raw `nvme get-log`, and the vendor plugins therefore run without
-      `CAP_SYS_ADMIN` and need `sudo` again. `nvme help` also runs on the
-      cleared path without the storage capability, although it may fail if
-      the manual page is unavailable. See
-      [docs/security/owner-no-sudo-operations.md](owner-no-sudo-operations.md)
-      for the allowlist and the `system()` injection sites that motivate it.
-    - for the sedutil 1.49.13 parser, the `sedutil-cli` wrapper is also
-      filtered. It retains capabilities only for `--scan` and its JSON output
-      forms, `--query` and its JSON output forms with one device,
-      `--isValidSED <device>`, and `--printDefaultPassword <device>`. Opal
-      password, locking-range, PBA, and revert actions clear the ambient set
-      and need `sudo` again. `--printDefaultPassword` exposes the drive MSID
-      and should be treated as credential material. The filter checks the first
-      action and relies on sedutil's exact and maximum argument checks to reject
-      later actions before dispatch; re-audit a custom package if that parser
-      changes.
+  - access and wrapper filters: [Owner disk group privileges](owner-disk-group.md).
 
 ## Additional Owner Groups Added By Other Modules
 
@@ -168,47 +114,9 @@ Scope:
   - security impact:
     - effectively root-equivalent on the host.
 
-## Groups Defined But Not Assigned By Baseline Owner Profile
+## Unassigned And Optional Groups
 
-- `netdev`, `power`, `plugdev`, `bluetooth` are created in `modules/meta/owner.nix` but not assigned there.
-- `netdev` note:
-  - Avahi D-Bus policy grants `org.freedesktop.Avahi.Server.SetHostName` to `netdev` group members.
-  - if owner is added to `netdev`, hostname change becomes available without sudo.
-- `power` note:
-  - on `songbird` the `power` group has no active grant because `thermald` is disabled.
-  - on hosts where `thermald` is enabled (for example `tpnix`), its D-Bus policy grants the `power` group control of the daemon.
-- `plugdev` / `bluetooth` note:
-  - currently no direct owner assignment in baseline; privilege impact depends on future service or udev rules that consume those groups.
-
-## Common Optional Device Groups (Not In Baseline)
-
-- `input`:
-
-  - typical use:
-    - low-level input automation, remapping, and event inspection via `/dev/input/event*`.
-  - security impact:
-    - keylogging/input capture and possible synthetic input abuse with emulation paths.
-
-- `video`:
-
-  - typical use:
-    - direct webcam and DRM primary node access for low-level tooling.
-  - security impact:
-    - camera/device access outside stricter desktop portal mediation paths.
-
-- `audio`:
-
-  - typical use:
-    - raw ALSA/JACK workflows that access `/dev/snd/*` directly.
-  - security impact:
-    - direct microphone/audio capture surface.
-
-- `dialout`:
-
-  - typical use:
-    - serial and modem operations on `/dev/ttyS*` and USB serial adapters.
-  - security impact:
-    - direct control of attached serial devices.
+- [Owner optional groups](owner-optional-groups.md)
 
 ## Audit Commands
 

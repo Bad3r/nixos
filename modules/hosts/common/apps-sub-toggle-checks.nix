@@ -22,8 +22,6 @@ let
   baseline = {
     programs = {
       "claude-code".extended.installMethods.bun.enable = lib.mkOverride 1100 false;
-      firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
-      logseq.extended.disableGpuCompositing = lib.mkOverride 1100 false;
       inkscape.extended.enable = lib.mkOverride 1100 false;
       collision.extended.enable = lib.mkOverride 1100 false;
     };
@@ -40,7 +38,7 @@ let
     {
       name = "programs path that diverges";
       registry.subToggles = [
-        (toggle [ "logseq" "extended" "disableGpuCompositing" ] true)
+        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] true)
       ];
       uncomparable = [ ];
       noOps = [ ];
@@ -48,10 +46,10 @@ let
     {
       name = "programs path that duplicates the baseline";
       registry.subToggles = [
-        (toggle [ "logseq" "extended" "disableGpuCompositing" ] false)
+        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] false)
       ];
       uncomparable = [ ];
-      noOps = [ "logseq.extended.disableGpuCompositing" ];
+      noOps = [ "claude-code.extended.installMethods.bun.enable" ];
     }
     {
       # A programs-only lookup would report this services app as uncomparable
@@ -74,20 +72,10 @@ let
     {
       name = "path the baseline declares in neither namespace";
       registry.subToggles = [
-        (toggle [ "logseq" "extended" "noSuchToggle" ] true)
+        (toggle [ "claude-code" "extended" "noSuchToggle" ] true)
       ];
-      uncomparable = [ "logseq.extended.noSuchToggle" ];
+      uncomparable = [ "claude-code.extended.noSuchToggle" ];
       noOps = [ ];
-    }
-    {
-      # A deeper path than the flat set's fixed extended.enable, which is the
-      # whole reason this registry exists.
-      name = "nested installMethods path";
-      registry.subToggles = [
-        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] false)
-      ];
-      uncomparable = [ ];
-      noOps = [ "claude-code.extended.installMethods.bun.enable" ];
     }
     {
       # The flat set is the nested case with a fixed suffix, so it is reported
@@ -113,9 +101,9 @@ let
       name = "flat and nested entries classify together";
       registry = {
         overrides.inkscape = false;
-        subToggles = [ (toggle [ "logseq" "extended" "noSuchToggle" ] true) ];
+        subToggles = [ (toggle [ "claude-code" "extended" "noSuchToggle" ] true) ];
       };
-      uncomparable = [ "logseq.extended.noSuchToggle" ];
+      uncomparable = [ "claude-code.extended.noSuchToggle" ];
       noOps = [ "inkscape.extended.enable" ];
     }
     {
@@ -144,13 +132,13 @@ let
       # routed and silently missing its sibling data.
       name = "one registered path is a prefix of another";
       registry.subToggles = [
-        (toggle [ "logseq" "extended" "disableGpuCompositing" ] true)
-        (toggle [ "logseq" "extended" "disableGpuCompositing" "nested" ] true)
+        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] true)
+        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" "nested" ] true)
       ];
-      uncomparable = [ "logseq.extended.disableGpuCompositing.nested" ];
+      uncomparable = [ "claude-code.extended.installMethods.bun.enable.nested" ];
       noOps = [ ];
       duplicates = [
-        "logseq.extended.disableGpuCompositing is a prefix of logseq.extended.disableGpuCompositing.nested"
+        "claude-code.extended.installMethods.bun.enable is a prefix of claude-code.extended.installMethods.bun.enable.nested"
       ];
     }
   ];
@@ -166,13 +154,17 @@ let
     {
       name = "programs toggle lands under programs";
       namespace = "programs";
-      registry.subToggles = [ (toggle [ "logseq" "extended" "disableGpuCompositing" ] true) ];
+      registry.subToggles = [
+        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] true)
+      ];
       present = true;
     }
     {
       name = "programs toggle does not land under services";
       namespace = "services";
-      registry.subToggles = [ (toggle [ "logseq" "extended" "disableGpuCompositing" ] true) ];
+      registry.subToggles = [
+        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] true)
+      ];
       present = false;
     }
     {
@@ -234,13 +226,13 @@ let
       # stopped declaring fails the switch instead of vanishing from it.
       name = "unknown path fails the programs pass";
       namespace = "programs";
-      registry.subToggles = [ (toggle [ "logseq" "extended" "noSuchToggle" ] true) ];
+      registry.subToggles = [ (toggle [ "claude-code" "extended" "noSuchToggle" ] true) ];
       throws = true;
     }
     {
       name = "unknown path fails the services pass";
       namespace = "services";
-      registry.subToggles = [ (toggle [ "logseq" "extended" "noSuchToggle" ] true) ];
+      registry.subToggles = [ (toggle [ "claude-code" "extended" "noSuchToggle" ] true) ];
       throws = true;
     }
     {
@@ -250,14 +242,14 @@ let
       throws = true;
     }
     {
-      # Both registries at once, the shape songbird and tpnix register, so
+      # Both registries at once, the shape a host registers, so
       # a regression in either half fails here rather than only in a host
       # evaluation.
       name = "mixed registries land under programs";
       namespace = "programs";
       registry = {
         overrides.inkscape = true;
-        subToggles = [ (toggle [ "logseq" "extended" "disableGpuCompositing" ] true) ];
+        subToggles = [ (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] true) ];
       };
       present = true;
     }
@@ -266,7 +258,7 @@ let
       namespace = "services";
       registry = {
         overrides.inkscape = true;
-        subToggles = [ (toggle [ "logseq" "extended" "disableGpuCompositing" ] true) ];
+        subToggles = [ (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] true) ];
       };
       present = false;
     }
@@ -283,8 +275,8 @@ let
       name = "prefix-colliding registered paths fail the build";
       namespace = "programs";
       registry.subToggles = [
-        (toggle [ "logseq" "extended" "disableGpuCompositing" ] true)
-        (toggle [ "logseq" "extended" "disableGpuCompositing" "nested" ] true)
+        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" ] true)
+        (toggle [ "claude-code" "extended" "installMethods" "bun" "enable" "nested" ] true)
       ];
       throws = true;
     }

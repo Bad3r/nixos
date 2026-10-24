@@ -16,8 +16,8 @@
     list: List the sessions on this host.
 
   Example Usage:
-    * `xpra seamless ssh://tpnix.internal/ "google-chrome-stable --user-data-dir=$HOME/.config/google-chrome-x11"` -- Chrome on tpnix in its own profile, since a Chrome already running there holds the default one.
-    * `xpra attach ssh://tpnix.internal/` -- Reconnect after the network drops; the remote session keeps running.
+    * `xpra seamless ssh://<host>.internal/ "google-chrome-stable --user-data-dir=$HOME/.config/google-chrome-x11"` -- Chrome on <host> in its own profile, since a Chrome already running there holds the default one.
+    * `xpra attach ssh://<host>.internal/` -- Reconnect after the network drops; the remote session keeps running.
 */
 _:
 let

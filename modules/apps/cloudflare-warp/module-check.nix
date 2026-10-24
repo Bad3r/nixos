@@ -4,7 +4,7 @@
   CI has no secrets submodule, so every host closure takes the un-enrolled
   branch and nothing evaluates the sops declarations or the mdm.xml template.
   A fixture secrets root holding a non-secret cloudflare-warp.yaml, together
-  with hostName = "tpnix" (a registry host whose sopsRuntimeReady is true),
+  with hostName = "songbird" (a registry host whose sopsRuntimeReady is true),
   forces the enrolled branch here. A missing fixture root and a host outside
   the registry cover two of the three warning paths in the same check; the
   third, a registered host with sopsRuntimeReady = false, needs a registry
@@ -41,7 +41,7 @@
             {
               secretsRoot,
               serviceMode ? "warp",
-              hostName ? "tpnix",
+              hostName ? "songbird",
               extraModules ? [ ],
             }:
             inputs.nixpkgs.lib.nixosSystem {
@@ -166,18 +166,17 @@
         );
         assert check "organization key" ((secretOf "organization").key == "organization");
         assert check "auth_client_id key is per host" (
-          (secretOf "auth_client_id").key == "tpnix/auth_client_id"
+          (secretOf "auth_client_id").key == "songbird/auth_client_id"
         );
         assert check "auth_client_secret key is per host" (
-          (secretOf "auth_client_secret").key == "tpnix/auth_client_secret"
-        );
-        assert check "tpnix Mesh address is read from SOPS" (
-          (secretOf "mesh-host-tpnix").key == "mesh/hosts/tpnix"
+          (secretOf "auth_client_secret").key == "songbird/auth_client_secret"
         );
         assert check "songbird Mesh address is read from SOPS" (
           (secretOf "mesh-host-songbird").key == "mesh/hosts/songbird"
         );
-        assert check "exclude list key is per host" ((secretOf "exclude").key == "tpnix/exclude");
+        assert check "exclude list key is per host" (
+          (secretOf "exclude").key == "${enrolled._module.specialArgs.hostName}/exclude"
+        );
         # switch-to-configuration reruns an inactive oneshot through the active
         # target that wants it; RemainAfterExit would keep it active and skip
         # every switch that leaves the unit file unchanged.
@@ -198,8 +197,7 @@
           !enrolled.config.services.cloudflare-warp.openFirewall
         );
         assert check "Mesh host mappings use only SOPS placeholders" (
-          lib.hasInfix "${placeholderOf "mesh-host-tpnix"} tpnix.internal" hostsTemplate.content
-          && lib.hasInfix "${placeholderOf "mesh-host-songbird"} songbird.internal" hostsTemplate.content
+          lib.hasInfix "${placeholderOf "mesh-host-songbird"} songbird.internal" hostsTemplate.content
         );
         assert check "Mesh host mappings preserve the standard localhost entry" (
           lib.hasInfix "127.0.0.1 localhost" hostsTemplate.content
@@ -216,7 +214,7 @@
         );
         assert check "unenrolled host preserves NixOS's store-backed hosts file" (
           lib.hasPrefix "/nix/store/" (toString unenrolled.config.environment.etc.hosts.source)
-          && !(unenrolled.config.sops.secrets ? "cloudflare-warp/mesh-host-tpnix")
+          && !(unenrolled.config.sops.secrets ? "cloudflare-warp/mesh-host-songbird")
         );
         # A static global route would outlive the tunnel and leave no resolver
         # while warp-svc is down.

@@ -41,7 +41,7 @@ Fix: `warp-cli --accept-tos connect`, after `nmcli con down "<ProtonVPN connecti
 
 ## warp-svc reports an IPv6 error
 
-Cause: both hosts boot with `ipv6.disable=1`, and the client assigns an IPv6 address to its interface.
+Cause: every host boots with `ipv6.disable=1`, and the client assigns an IPv6 address to its interface.
 Diagnostic: `journalctl -u cloudflare-warp.service | grep -i -E 'ipv6|inet6|address family'`.
 Fix: none on the host, since the kernel parameter stays; report the log lines and change the Cloudflare side instead.
 
@@ -71,12 +71,6 @@ repository's local `.internal` aliases do not use that feature.
 Cause: the ICMP proxy is off under Traffic policies, Traffic settings in the dashboard.
 Diagnostic: `nc -vz <mesh-address> 22` succeeds and `ping -c 1 <mesh-address>` does not.
 Fix: turn on the ICMP proxy next to TCP and UDP under Traffic policies, Traffic settings in the dashboard.
-
-## Private hostnames stop resolving on tpnix
-
-Cause: the host runs in `warp` mode, so WARP replaced NetworkManager's dnsmasq as the resolver.
-Diagnostic: `warp-cli --accept-tos settings` and `cat /etc/resolv.conf`.
-Fix: set `serviceMode = "tunnelonly"` in `modules/hosts/tpnix/cloudflare-warp.nix` and `warp_tunnel_only` on the `nixos-tpnix` profile, then switch.
 
 ## The device profile does not apply
 

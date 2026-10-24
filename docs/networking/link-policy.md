@@ -9,7 +9,7 @@ That conflict is specific to the address: `linkConfig.Name` does not collide wit
 Always give the policy a `matchConfig`.
 A `.link` file with no valid `[Match]` settings matches every interface udev initializes, and udev applies only the first matching file in lexicographic order.
 An unmatched `10-wlan.link` therefore randomizes bridges, `veth` pairs, tunnels, and wired NICs as well, and shadows every higher-numbered `.link` file on the host.
-The same first-match rule means a device already covered by a pin never reads a second file: tpnix's internal card matches `10-wifi0.link`, which sorts first, so a policy for that device belongs in the pin file.
+The same first-match rule means a device already covered by a pin never reads a second file: a `10-<name>.link` pin sorts first, so a policy for that device belongs in the pin file.
 
 Otherwise match on `Path`, which names a device.
 `OriginalName` matches a name, and under `net.ifnames=0` that name follows discovery order rather than identifying hardware:

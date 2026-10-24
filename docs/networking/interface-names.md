@@ -2,7 +2,7 @@
 
 Hosts here boot with `net.ifnames=0`, so kernel names such as `eth0` and `wlan0` follow the order the kernel discovers the devices, which is not guaranteed across boots.
 A host with two interfaces of the same class, or with a removable adapter, can see the numbering move between devices.
-`modules/hosts/tpnix/networking.nix` pins that laptop's internal Wi-Fi card to `wifi0`, so a rule keyed to that name follows the card rather than a USB adapter that registered first.
+A pinned name follows one device, so a rule keyed to it never lands on an adapter that registered first.
 
 songbird carries no pin: its two onboard NICs are read as `eth0` and `eth1` in kernel enumeration order, and no rule is keyed to a wired name.
 Pin the device before adding one.
@@ -11,13 +11,13 @@ Link files follow the matching and apply rules in [Configure a systemd-udevd lin
 ## Pin an interface name
 
 A firewall rule keyed to a name applies to whatever device holds the name, and a removable adapter is absent on some boots by definition.
-Pin the device with `linkConfig.Name` matched on its path, as `modules/hosts/tpnix/networking.nix` does for the internal Wi-Fi card:
+Pin the device with `linkConfig.Name` matched on its path:
 
 ```nix
-systemd.network.links."10-wifi0" = {
-  matchConfig.Path = "pci-0000:00:14.3";
+systemd.network.links."10-<name>" = {
+  matchConfig.Path = "<ID_PATH value>";
   linkConfig = {
-    Name = "wifi0";
+    Name = "<name>";
     # The pin displaces 99-default.link for this device, so restore the
     # alternative names it would otherwise supply. Its "mac" token is left
     # out: that derives an altname from the factory hardware address.
@@ -28,7 +28,7 @@ systemd.network.links."10-wifi0" = {
 
 Read the value from `udevadm info -q property -p /sys/class/net/<name>`, field `ID_PATH`.
 Matching on the path rather than `PermanentMACAddress` keeps a hardware address out of the repository.
-It also degrades safely: when the device is removed or moved to another slot, nothing is named `wifi0`, so the firewall rule matches no device instead of landing on a different one.
+It also degrades safely: when the device is removed or moved to another slot, nothing holds the pinned name, so the firewall rule matches no device instead of landing on a different one.
 
 Pin to a name outside the namespaces the kernel assigns itself: `eth*`, `wlan*`, `usb*` (the usbnet default for `cdc_ether` and `rndis_host`), `wwan*`, `ib*`, and `sl*`.
 A rename into one of those can collide with a device that already holds it.
@@ -38,8 +38,8 @@ udev applies only the first matching file, so a `10-*.link` pin also displaces s
 That is why the example above carries `AlternativeNamesPolicy` in the pin file.
 One default must not come back: `systemd.link(5)` gives `Name=` lower precedence than `NamePolicy=`, so restoring `NamePolicy` would override the pin and hand the device back to whichever name the policy resolves, with no error.
 
-The pins restore `AlternativeNamesPolicy` but not `MACAddressPolicy`, because NetworkManager owns the address on these hosts and a udev address policy would conflict with it.
-They also drop the `mac` token that systemd's own default carries, because it derives an `enx<permanent-mac>` or `wlx<permanent-mac>` alternative name from the factory address, which is the value the `"stable"` policy exists to stop presenting.
+A pin restores `AlternativeNamesPolicy` but not `MACAddressPolicy`, because NetworkManager owns the address on these hosts and a udev address policy would conflict with it.
+It also drops the `mac` token that systemd's own default carries, because it derives an `enx<permanent-mac>` or `wlx<permanent-mac>` alternative name from the factory address, which is the value the `"stable"` policy exists to stop presenting.
 
 ## Narrow the alternative names without pinning a name
 

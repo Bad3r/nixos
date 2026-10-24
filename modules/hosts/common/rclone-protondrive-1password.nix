@@ -2,7 +2,7 @@ _:
 let
   # mkOverride 1100 matches the hosts-common baseline priority used by
   # apps-enable.nix, so a per-host file can point these at another vault at
-  # 1000 the way modules/hosts/tpnix/apps-enable.nix does. At default priority a
+  # 1000 the way per-host apps-enable.nix rows do. At default priority a
   # per-host definition would either lose (1000) or conflict (100), leaving
   # mkForce as the only escape hatch.
   body =

@@ -12,10 +12,10 @@
   Example:
     $ ccp hostname
     $ hostname
-    tpnix
+    songbird
     # Clipboard contains:
     #   $ hostname
-    #   tpnix
+    #   songbird
 
   Notes:
     * Wired through `environment.interactiveShellInit`, which NixOS folds
@@ -27,7 +27,7 @@
       land in the clipboard.
     * Aliases at the call site are NOT expanded (e.g. `ccp ls` runs the
       `ls` binary, not an `ls=eza` alias). Pass the underlying command.
-    * Requires `xsel`; both hosts enable it via apps-enable.nix.
+    * Requires `xsel`, which apps-enable.nix enables.
 */
 {
   flake.nixosModules.base = {

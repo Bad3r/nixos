@@ -56,7 +56,7 @@ in
             targets = {
               gnome.enable = false;
               regreet.enable = false;
-              # Both hosts boot systemd-boot; keep the grub target off so it
+              # Hosts boot systemd-boot; keep the grub target off so it
               # can never run grub-mkfont against the empty font packages.
               grub.enable = false;
               # Enable Chromium theming (applies to Google Chrome via browser policies)

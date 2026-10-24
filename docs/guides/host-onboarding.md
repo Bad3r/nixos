@@ -63,7 +63,7 @@ Verification: `guarded_nix flake check path:. --accept-flake-config --no-build -
 
 Precondition: `modules/hosts/<host>/policy.nix` exists with a `flake.lib.nixos.hosts.<host>` attrset.
 
-1. Set `firewallLocalTcpPortRanges` for TCP ranges served to local IPv4 sources (`10.0.0.0/8` outside `10.11.0.0/16`, and `192.168.0.0/16`) and, with `cloudflare-warp` on, to every Mesh device.
+1. Set `firewallLocalTcpPortRanges` for TCP ranges served to local IPv4 sources (`10.0.0.0/8` and `192.168.0.0/16`) and, with `cloudflare-warp` on, to every Mesh device.
    `firewallExtraTcpPortRanges` opens a range globally instead, and a host that sets neither opens no extra ports.
 
 2. Set `cacheRoots.nvidiaKernelModules` to `true` or `false` the moment the host loads the `nvidia` driver.

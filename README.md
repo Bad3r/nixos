@@ -12,7 +12,7 @@
 
 NixOS Infrastructure as Code using the [Dendritic Pattern](https://github.com/mightyiam/dendritic), an organic configuration growth pattern with automatic module discovery. Powered by [flake-parts](https://flake.parts/).
 
-The `system76` host (System76 Oryx Pro laptop) is deprecated: its configuration was removed from this repository in [#489](https://github.com/Bad3r/nixos/pull/489) and survives only in git history.
+The `system76` host (System76 Oryx Pro laptop) and the `tpnix` host (ThinkPad P15s Gen 2i laptop) are deprecated: their configurations were removed from this repository in [#489](https://github.com/Bad3r/nixos/pull/489) and [#597](https://github.com/Bad3r/nixos/pull/597) and survive only in git history.
 
 ## Automatic Import
 
@@ -59,7 +59,7 @@ See [App registry](docs/guides/apps-module-registry.md) for the routing and vali
 
 ## Storage Boundaries
 
-Storage-dependent services must be enabled only on hosts that provide their required mount. `songbird` owns the dedicated `/data` volume that backs the common local mirror writers and the R2 runtime; `tpnix` keeps its mirrors on the root filesystem by policy.
+Storage-dependent services must be enabled only on hosts that provide their required mount. `songbird` owns the dedicated `/data` volume that backs the common local mirror writers and the R2 runtime.
 
 See the [local mirror reference](docs/reference/local-mirrors.md) and [R2 runtime policy](docs/apps/r2-cloud/songbird-runtime.md) for the operational contracts.
 
@@ -79,9 +79,8 @@ See the [sops documentation](docs/sops/README.md) for usage instructions.
 
 These root inputs pin shared dependencies used through `.follows` declarations. `systems` keeps the canonical `nix-systems` input name even though dependency inputs also follow it. The table lists dedicated dedupe roots and canonical non-nixpkgs roots; ordinary root followers such as `nixpkgs` are declared beside each dependent input. Remove any `dedupe_*` input once no `.follows` declaration references it.
 
-| Input                 | Followed By                                                                                               |
-| --------------------- | --------------------------------------------------------------------------------------------------------- |
-| `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat`, `winapps.inputs.flake-compat` |
-| `dedupe_flake-utils`  | `winapps.inputs.flake-utils`                                                                              |
-| `dedupe_nur`          | `stylix.inputs.nur`                                                                                       |
-| `systems`             | `dedupe_flake-utils.inputs.systems`, `stylix.inputs.systems`                                              |
+| Input                 | Followed By                                                                |
+| --------------------- | -------------------------------------------------------------------------- |
+| `dedupe_flake-compat` | `make-shell.inputs.flake-compat`, `nix-cachyos-kernel.inputs.flake-compat` |
+| `dedupe_nur`          | `stylix.inputs.nur`                                                        |
+| `systems`             | `stylix.inputs.systems`                                                    |

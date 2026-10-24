@@ -5,6 +5,5 @@
 _: {
   flake.lib.nixos.hosts = {
     songbird.shareCommon = true; # hostname: songbird.internal
-    tpnix.shareCommon = true; # hostname: tpnix.internal
   };
 }

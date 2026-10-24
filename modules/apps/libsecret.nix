@@ -15,7 +15,7 @@
     secret-tool clear <attribute> <value>...: Remove the matching items.
 
   Example Usage:
-    * `secret-tool store --label='WinApps RDP password' service winapps account rdp` -- Store the RDP password the WinApps askpass helper reads.
+    * `secret-tool store --label='Example token' service example account alice` -- Store a token a helper later reads with `secret-tool lookup service example account alice`.
 */
 _:
 let

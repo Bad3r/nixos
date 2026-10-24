@@ -18,7 +18,7 @@ Scope:
   - `fdisk ...`, `lsblk ...`, `blkid ...`
     - always present: `util-linux` is in the nixpkgs `corePackageNames` base
       system, not an app module.
-  - `parted ...` (when the parted app module is enabled; disabled on tpnix)
+  - `parted ...` (when the parted app module is enabled)
   - mechanism:
     - `disk` group membership
   - available without sudo because block device nodes are `root:disk 0660` and
@@ -26,7 +26,7 @@ Scope:
 - Storage health diagnostics:
   - `smartctl ...`
   - `nvme ...`
-  - `hdparm ...` (when the hdparm app module is enabled; disabled on tpnix)
+  - `hdparm ...` (when the hdparm app module is enabled)
   - mechanism:
     - `security.wrappers` with `CAP_SYS_ADMIN` (`nvme`) or `CAP_SYS_ADMIN` plus
       `CAP_SYS_RAWIO` (`smartctl`, `hdparm`)

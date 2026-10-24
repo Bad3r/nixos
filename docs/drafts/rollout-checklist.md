@@ -2,7 +2,7 @@
 
 Private working file, not for the PR body. Ids and hostnames are fine here; never write a
 client secret into this file. Rollback commands for every object live in `cloudflare-changes.md`.
-Run the songbird steps first, then tpnix, then the cross-host gate.
+Run the songbird steps first, then the go/no-go gate.
 
 ## songbird
 
@@ -48,7 +48,9 @@ included, rendered empty; the last grep shows the organization value, the `nixos
 client id, `service_mode` `warp`, and `auto_connect` 0; the mountinfo line shows
 `/var/lib/cloudflare-warp/mdm.xml` as a read-only bind of the rendered file without sudo. None of
 these commands prints the client secret.
-If not: same triage as Step 6.
+If not: the sops secret or template did not render; sops-nix runs in the activation script here (no
+unit), so reread the switch output for `sops-install-secrets` errors and check
+`ls -la /run/secrets/rendered/cloudflare-warp-mdm` before continuing.
 
 - [ ] **Step 4: Confirm registration, status, and DNS.** Registration and status held; the DNS
   lines wait for a switch that carries the tunnel-bound resolved route. That switch restarts
@@ -70,7 +72,7 @@ warp-cli --accept-tos connect
 ```
 
 Expected: registration bound to `nixos-songbird`, status reaches `Connected` with no manual
-command (repeat after a reboot as in Step 8), `cloudflare-warp-dns.service` is active (exited),
+command (repeat after a reboot), `cloudflare-warp-dns.service` is active (exited),
 `resolvectl dns` lists `Global: 127.0.2.2 127.0.2.3`, `resolvectl domain` lists `Global: ~.` and
 no domain on `eth0`, `resolvectl query` answers, and the trace prints `warp=on` and `gateway=on`.
 After the disconnect, `ip link` finds no `CloudflareWARP`, `Global` is empty, and the query still
@@ -86,78 +88,12 @@ bypass Gateway; if lookups fail, follow "Name resolution fails in warp mode" in
 `docs/apps/cloudflare/warp/troubleshooting.md`, then check that the `nixos-songbird` profile applied
 instead of the default profile.
 
-## tpnix
-
-- [ ] **Step 5: Switch tpnix to the merged branch.**
-
-```sh
-./build.sh
-systemctl status cloudflare-warp
-```
-
-Expected: switch exits 0 and the service is active (running).
-If not: read `journalctl -xeu cloudflare-warp` before retrying; do not rerun blind.
-
-- [ ] **Step 6: Check the sops-rendered mdm.xml.**
-
-```sh
-sudo sha256sum /run/secrets/rendered/cloudflare-warp-mdm
-sudo nsenter -t "$(systemctl show -p MainPID --value cloudflare-warp)" -m sha256sum /var/lib/cloudflare-warp/mdm.xml
-sudo grep -c '<string></string>' /run/secrets/rendered/cloudflare-warp-mdm
-sudo grep -A1 -e '<key>organization</key>' -e '<key>auth_client_id</key>' -e '<key>service_mode</key>' -e '<key>auto_connect</key>' /run/secrets/rendered/cloudflare-warp-mdm
-```
-
-Expected: the two digests match; the empty-value count is `0`, so no string value, the secret
-included, rendered empty; the last grep shows the organization value, the `nixos-tpnix` token's
-client id, `service_mode` `tunnelonly`, and `auto_connect` 0.
-If not: the sops secret or template did not render; sops-nix runs in the activation script here (no
-unit), so reread the switch output for `sops-install-secrets` errors and check
-`ls -la /run/secrets/rendered/cloudflare-warp-mdm` before continuing.
-
-- [ ] **Step 7: Confirm registration and status.**
-
-```sh
-warp-cli --accept-tos registration show
-warp-cli --accept-tos status
-warp-cli --accept-tos settings | grep -i mode
-```
-
-Expected: registration bound to the `nixos-tpnix` token (non_identity, no browser flow),
-status reaches `Connected` with no manual connect, the mode line names a tunnel-only mode
-(the API spells it `warp_tunnel_only`; the CLI label may differ in case).
-If not: for registration, `warp-cli --accept-tos registration delete` then restart
-`cloudflare-warp.service`; for mode, recheck the device profile matched on
-`identity.service_token_uuid` before touching the profile itself.
-
-- [ ] **Step 8: Reboot and repeat the auto-connect check.** Reboot also activates
-  `ipv6.disable=1`, the first real test of that against WARP.
-
-```sh
-warp-cli --accept-tos status
-```
-
-Expected: `Connected` again with no manual command.
-If not: apply the design's fallback (section 11), a small oneshot systemd unit that runs
-`warp-cli --accept-tos connect` after `cloudflare-warp.service` (not yet in the branch); do not
-assume this is the IPv6 blocker (Step 9) until the fallback has been tried.
-
-- [ ] **Step 9: IPv6-disabled kernel parameter check.**
-
-```sh
-warp-diag
-journalctl -u cloudflare-warp -b
-```
-
-Expected: WARP reaches Connected and assigns its device address even with `ipv6.disable=1`.
-If not: this is a blocker, not something to work around; report it with the `warp-diag`
-archive and the journal excerpt, per the design's risk list (section 11).
-
-## Cross-host go/no-go gate
+## Go/no-go gate
 
 - [x] **Profiles: complete the exclude lists.** The `nixos-songbird` profile carries 17 entries and
   lacks `239.255.255.250/32` (SSDP), `fc00::/7`, and the five Apple ranges that Cloudflare serves
   by default (the consumer defaults songbird showed before enrollment); the runbook's profile step
-  now lists all 24, and `nixos-tpnix` and the default profile take the same body.
+  now lists all 24, and the default profile takes the same body.
 
 ```sh
 cat > exclude.json <<'EOF'
@@ -190,8 +126,6 @@ cat > exclude.json <<'EOF'
 EOF
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/2d386bee-c816-47c2-8d45-a3b1353ab63c/exclude" \
   -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
-curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/f28aa1c3-98d3-4f14-9ae5-cdfdb7b79d90/exclude" \
-  -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/exclude" \
   -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
 warp-cli --accept-tos settings | grep -c -E '239\.255\.255\.250/32|fc00::/7|17\.(249|252|57|188)\.'
@@ -202,43 +136,28 @@ the grep count on songbird is 7 and `ip route get 239.255.255.250` leaves throug
 held 17 entries twelve minutes after the write, so the restart is required, not a shortcut.
 If not: `GET /accounts/$ACCOUNT/devices/policy/<profile id>/exclude` shows which profile still carries 17 entries.
 
-- [ ] **Step 10: SSH both directions over Mesh.** Only once both hosts show Connected.
+- [ ] **Step 5: SSH over Mesh.** Only once songbird shows Connected.
 
-```sh
-getent ahostsv4 songbird.internal
-ping -c 5 songbird.internal
-ssh songbird.internal   # from tpnix
-getent ahostsv4 tpnix.internal
-ping -c 5 tpnix.internal
-ssh tpnix.internal      # from songbird
-```
-
-Expected: 1Password asks to use the dedicated SSH authentication key for each new terminal
-session, both SSH connections authenticate by public key, and neither connection offers a
-password prompt.
+Expected: the SSH connection authenticates by public key and offers no password prompt.
 
 Optional: `nc -vz <mesh-address> 22` and, since the ICMP proxy is on,
 `ping <mesh-address>`.
-Early check with the iPhone, enrolled on the default profile: from an SSH client app on the phone,
+Early check with a mobile device enrolled on the default profile: from an SSH client app on it,
 `ssh vx@<songbird-mesh-address>` proves songbird's inbound Mesh path, and
-`ping <mobile-mesh-address>` from songbird proves the ICMP proxy. The phone's device address is in
+`ping <mobile-mesh-address>` from songbird proves the ICMP proxy. That device's address is in
 the same Devices list. The completed songbird check showed an accepted SSH login from the mobile
 Mesh address and three successful ICMP replies.
-Pass: both directions succeed. Store each address under `mesh.hosts.<host>` in the encrypted
+Pass: the inbound SSH login and the ICMP replies succeed. Store each address under `mesh.hosts.<host>` in the encrypted
 `secrets/cloudflare-warp.yaml`, set `cloudflareWarpMeshAddressReady = true` for that host, and
 switch every WARP fleet host so the `.internal` mapping and SSH alias render.
-Fail: with tpnix still in `tunnelonly`, fall back to switching tpnix's Cloudflare device
-profile mode and its NixOS `serviceMode` to `warp`, then retest. Read "Private hostnames stop
-resolving on tpnix" in `docs/apps/cloudflare/warp/troubleshooting.md` first.
 
-- [ ] **Step 11: Verify the device registrations in the dashboard.** Zero Trust dashboard,
+- [ ] **Step 6: Verify the device registrations in the dashboard.** Zero Trust dashboard,
   Team & Resources > Devices > Devices list.
-  Expected: exactly three registrations: two with identity `non_identity@repo.cloudflareaccess.com`,
-  one matching device profile `nixos-tpnix` (precedence 100) and one matching `nixos-songbird`
-  (precedence 200), plus the iPhone under the user's own identity on the default profile; all
+  Expected: exactly two registrations: one with identity `non_identity@repo.cloudflareaccess.com`
+  matching device profile `nixos-songbird` (precedence 200), plus the mobile device under the user's own identity on the default profile; all
   Connected.
   If not: an extra or missing `non_identity` registration means a host registered under the wrong
-  token; delete the stray registration and recheck Step 4 or Step 7 for that host.
+  token; delete the stray registration and recheck Step 4.
 
 ## Code follow-ups noted by the final branch review (none block the merge)
 

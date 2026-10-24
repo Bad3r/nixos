@@ -37,7 +37,7 @@ let
   serverHosts = builtins.filter (name: hostsRegistry.${name}.rustdeskServer or false) (
     builtins.attrNames hostsRegistry
   );
-  # NixOS Mesh hosts, which the hosts-common baseline gives this client; the iPhone only controls.
+  # NixOS Mesh hosts, which the hosts-common baseline gives this client; other Mesh peers only control.
   clientHosts = builtins.filter (name: hostsRegistry.${name}.shareCommon or false) meshHostNames;
 
   # Pinned in each RustDesk2.toml at every start; a dropped entry keeps its last value.

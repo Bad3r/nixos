@@ -29,22 +29,6 @@ let
       cacheSubstituter = "https://nix-logseq-git-flake.cachix.org";
       cachePublicKey = "nix-logseq-git-flake.cachix.org-1:DSBNW07PSRyCvS926tpIWahb53OIydwwZhsP6LhJNZo=";
       basePackage = inputs.nix-logseq-git-flake.packages.${pkgs.stdenv.hostPlatform.system}.logseq;
-      # Wrap with --disable-gpu-compositing for NVIDIA PRIME sync compatibility
-      wrappedPackage = pkgs.writeShellScriptBin "logseq" ''
-        exec ${cfg.package}/bin/logseq --disable-gpu-compositing "$@"
-      '';
-      finalPackage = pkgs.symlinkJoin {
-        name = "logseq-wrapped";
-        paths = [
-          wrappedPackage
-          cfg.package
-        ];
-        # Ensure the wrapper takes precedence
-        postBuild = ''
-          rm $out/bin/logseq
-          cp ${wrappedPackage}/bin/logseq $out/bin/logseq
-        '';
-      };
     in
     {
       options.programs.logseq.extended = {
@@ -59,21 +43,13 @@ let
           default = basePackage;
           description = "The Logseq package to use.";
         };
-
-        disableGpuCompositing = lib.mkOption {
-          type = lib.types.bool;
-          default = false;
-          description = "Pass --disable-gpu-compositing to work around blank screen on NVIDIA PRIME sync.";
-        };
       };
 
       config = lib.mkIf cfg.enable {
         nix.settings.extra-substituters = lib.mkAfter [ cacheSubstituter ];
         nix.settings.extra-trusted-public-keys = lib.mkAfter [ cachePublicKey ];
 
-        environment.systemPackages = [
-          (if cfg.disableGpuCompositing then finalPackage else cfg.package)
-        ];
+        environment.systemPackages = [ cfg.package ];
       };
     };
 in

@@ -21,7 +21,7 @@ _: {
     duplicatiStateDirReadable = true;
     cloudflareWarpMeshAddressReady = true;
     firewallLocalTcpPortRanges = [
-      # Fleet convention for local dev servers, as on tpnix.
+      # Local dev server range.
       {
         from = 8000;
         to = 8999;

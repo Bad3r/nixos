@@ -89,12 +89,6 @@ let
               tags = [ "Work" ];
             }
             {
-              name = "DMail";
-              url = workUrls.dmail;
-              urlIsTemplate = true;
-              tags = [ "Work" ];
-            }
-            {
               name = "WhatsApp";
               url = plaintextUrls.whatsapp;
               tags = [ "Social" ];

@@ -44,8 +44,6 @@
   - Phase 3 of the Chromium web-app migration: the `programs.webapps` module on brave-origin, plus the decisions table, the fact table, and the self-review for the series.
 - [drafts/duplicati-r2-readonly-mount-investigation.md](drafts/duplicati-r2-readonly-mount-investigation.md)
   - Investigation into a read-only mount for encrypted R2 backup archives (issue #204).
-- [drafts/tpnix-cryptographic-identity-bootstrap-plan.md](drafts/tpnix-cryptographic-identity-bootstrap-plan.md)
-  - Draft plan for bootstrapping cryptographic identity on the tpnix host.
 
 ## Guides
 
@@ -215,6 +213,10 @@
 
 - [security/owner-group-privileges.md](security/owner-group-privileges.md)
   - Security-relevant access granted by owner group membership.
+- [security/owner-disk-group.md](security/owner-disk-group.md)
+  - Raw storage access and the filtered diagnostic wrappers the owner's `disk` group grants.
+- [security/owner-optional-groups.md](security/owner-optional-groups.md)
+  - Groups the owner profile leaves unassigned and optional device groups, with their security impact.
 - [security/owner-no-sudo-operations.md](security/owner-no-sudo-operations.md)
   - Configuration-managed operations available to the owner user without a sudo password.
 - [security/owner-no-sudo-storage.md](security/owner-no-sudo-storage.md)
@@ -272,7 +274,7 @@
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
   - Pentesting tools devshell usage including desktop launchers and adding new tools.
 - [usage/rustdesk.md](usage/rustdesk.md)
-  - Self-hosted RustDesk over Cloudflare Mesh: privacy model, logins, iPhone setup, troubleshooting.
+  - Self-hosted RustDesk over Cloudflare Mesh: privacy model, logins, non-NixOS device setup, troubleshooting.
 
 ## Hosts
 
@@ -292,11 +294,6 @@
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
   - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
-
-### tpnix
-
-- [hosts/tpnix/IMPLEMENTATION_PLAN.md](hosts/tpnix/IMPLEMENTATION_PLAN.md)
-  - Hardware migration plan for the tpnix host on a Lenovo ThinkPad P15s Gen 2i.
 
 ## Agents
 
@@ -437,20 +434,3 @@
   - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
 - [apps/rdp/safeguard-remoteapp-file-export.md](apps/rdp/safeguard-remoteapp-file-export.md)
   - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
-
-### WinApps
-
-- [apps/winapps/README.md](apps/winapps/README.md)
-  - NixVirt-declared Windows guest on libvirt: declared objects, lifecycle, the rules that prevent data loss, state locations, and the shared VM network.
-- [apps/winapps/provisioning.md](apps/winapps/provisioning.md)
-  - Runbooks for the first switch, install media, Windows installation, guest tools, the shared-network check, and detaching the media.
-- [apps/winapps/remoteapp-setup.md](apps/winapps/remoteapp-setup.md)
-  - Guest-side RemoteApp setup: the registry import from the locked WinApps revision, the firewall scope, and the Outlook path check.
-- [apps/winapps/storage.md](apps/winapps/storage.md)
-  - Runbooks for the guest baseline copy, restoring it, and growing the disk.
-- [apps/winapps/shared-folder.md](apps/winapps/shared-folder.md)
-  - Persistent virtiofs sharing, Windows service setup, and host ownership verification.
-- [apps/winapps/operations.md](apps/winapps/operations.md)
-  - Runbooks for the RDP password, certificate trust, launching Outlook Classic, the full desktop, the launcher boundary check, shutdown, updates, and discontinuing.
-- [apps/winapps/troubleshooting.md](apps/winapps/troubleshooting.md)
-  - Launcher and RemoteApp failures on the i3 desktop, each with its cause, a diagnostic, and the fix.

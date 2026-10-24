@@ -154,7 +154,7 @@ in
             ...
           }:
           let
-            # Empty on tpnix, which keeps /data on the root filesystem and so
+            # Empty on a host that keeps /data on the root filesystem and so
             # has no mount to order against.
             mountGate = mountGateFor runtimeRoot config.fileSystems utils;
             mountAfter = mountGate.after;

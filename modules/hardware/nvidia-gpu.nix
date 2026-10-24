@@ -2,13 +2,7 @@
   Module: nvidia-gpu
   Description: Parameterized NVIDIA GPU wiring shared by all hosts with an
   NVIDIA card. Hosts pick the driver branch, kernel-module flavor, VA-API
-  routing, and display topology instead of restating the full stack.
-
-  Profiles:
-    * Desktop (single GPU, e.g. Blackwell): set `package` to a current branch,
-      `open = true`, leave `prime.enable = false`.
-    * Laptop (hybrid graphics): set `prime.enable = true` with the chassis bus
-      IDs so the iGPU drives the panel through PRIME sync.
+  routing, and display mode instead of restating the full stack.
 */
 _:
 let
@@ -96,45 +90,6 @@ let
             churn) or when the iGPU should own decode.
           '';
         };
-
-        prime = {
-          enable = lib.mkOption {
-            type = lib.types.bool;
-            default = false;
-            description = "Enable PRIME sync so the iGPU drives the panel while NVIDIA renders (dual-GPU laptops).";
-          };
-
-          syncActive = lib.mkOption {
-            type = lib.types.bool;
-            readOnly = true;
-            default = cfg.enable && cfg.prime.enable;
-            description = ''
-              Resolved PRIME-sync state: true exactly when this module sets
-              hardware.nvidia.prime.sync.enable. Consumers read this instead of
-              the nixpkgs option or the enable/prime.enable pair.
-            '';
-          };
-
-          intelBusId = lib.mkOption {
-            type = lib.types.str;
-            default = "PCI:0:2:0";
-            example = "PCI:0:2:0";
-            description = ''
-              PCI address for the Intel iGPU when PRIME sync is enabled. Determine via
-              `lspci -nn | grep VGA` if the default does not match this chassis.
-            '';
-          };
-
-          nvidiaBusId = lib.mkOption {
-            type = lib.types.str;
-            default = "PCI:1:0:0";
-            example = "PCI:1:0:0";
-            description = ''
-              PCI address for the NVIDIA dGPU when PRIME sync is enabled. Override if
-              `lspci -nn | grep NVIDIA` reports a different slot.
-            '';
-          };
-        };
       };
 
       config = lib.mkIf cfg.enable (
@@ -164,8 +119,8 @@ let
                 inherit (cfg) package open;
                 modesetting.enable = lib.mkDefault true;
                 powerManagement.enable = lib.mkDefault true;
-                # Fine-grained power management (D3 power gating) is incompatible
-                # with PRIME sync and only useful on offload setups.
+                # Fine-grained power management (D3 power gating) only applies to
+                # PRIME offload setups.
                 powerManagement.finegrained = lib.mkDefault false;
               };
 
@@ -194,16 +149,6 @@ let
             # (videoAcceleration defaults to true and is its only consumer).
             hardware.graphics.extraPackages = [ pkgs.intel-media-driver ];
             hardware.nvidia.videoAcceleration = false;
-          })
-
-          (lib.mkIf cfg.prime.enable {
-            services.xserver.videoDrivers = lib.mkForce [ "nvidia" ];
-
-            hardware.nvidia.prime = {
-              offload.enable = lib.mkForce false;
-              sync.enable = true;
-              inherit (cfg.prime) intelBusId nvidiaBusId;
-            };
           })
         ]
       );

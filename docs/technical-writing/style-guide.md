@@ -39,7 +39,7 @@ Three shapes, with the wording each takes:
 
 - Completeness narration, giving a reason for content instead of a fact: `Listed for completeness`, `kept here for reference`.
 - Doc-set structure, describing where content sits: `there is no dedicated section for them`, `the groupings below are this report's`, `the only copy of this list`.
-- Cross-subject contrast, which restates code-readable state on both sides: `enabled on tpnix but not songbird`, `unlike the other hosts`.
+- Cross-subject contrast, which restates code-readable state on both sides: `enabled on songbird but not the laptop`, `unlike the other hosts`.
 
 A page writing about itself is the fourth shape, and it is left without a wording list on purpose.
 Every listed wording teaches the substitution that clears it: `Commands on this page carry` rewritten to `Commands here carry` passes the phrase list with the subject unchanged.
@@ -48,7 +48,7 @@ A sentence whose subject is the page, the section, or the documentation set is r
 A page opens on its subject, never on a sentence about the page.
 A pointer to another page is a plain link, never a sentence about where the fact lives.
 Contrast between subjects is deleted whole, never trimmed to its positive half.
-`enabled on tpnix` restates `modules/hosts/tpnix/apps-enable.nix` exactly as `but not songbird` restates songbird's, so the shorter sentence is the same violation with one subject instead of two.
+`enabled on songbird` restates `modules/hosts/songbird/apps-enable.nix` exactly as `but not the laptop` restates the laptop's host file, so the shorter sentence is the same violation with one subject instead of two.
 The page names the file the reader opens.
 
 ## Rationale
