@@ -33,6 +33,7 @@ ANC = "ANC"                   # Active Noise Cancellation (AirPods)
 udid = "udid"                 # Apple Unique Device Identifier (ifuse -u, idevicepair)
 hda = "hda"                   # Intel High Definition Audio (snd_hda_intel)
 HDA = "HDA"                   # Intel High Definition Audio controller
+iif = "iif"                   # iproute2 and nftables input-interface selector
 # Hashes/keys (extend-ignore-re should catch most, but explicit for safety)
 "981DE78A201C2B735FF0B545A3967CCA47D5275F" = "981DE78A201C2B735FF0B545A3967CCA47D5275F"
 
