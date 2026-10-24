@@ -7,6 +7,7 @@ let
   agentChannel = spice && guest.trust == "trusted";
   yesNo = value: if value then "yes" else "no";
   letter = index: builtins.substring index 1 "abcdefghijklmnopqrstuvwxyz";
+  shares = lib.filter (share: share.enable) (lib.attrValues guest.shares);
 
   diskNames = lib.attrNames guest.disks;
   virtioDisks = lib.filter (disk: guest.disks.${disk}.bus == "virtio") diskNames;
@@ -116,6 +117,12 @@ let
       </metadata>
       <memory unit="MiB">${toString guest.memory}</memory>
       <currentMemory unit="MiB">${toString guest.memory}</currentMemory>
+      ${lib.optionalString (shares != [ ]) ''
+        <memoryBacking>
+          <source type="memfd"/>
+          <access mode="shared"/>
+        </memoryBacking>
+      ''}
       <vcpu placement="static"${
         lib.optionalString (guest.cpuset != null) " cpuset=\"${guest.cpuset}\""
       }>${toString guest.vcpus}</vcpu>
@@ -152,6 +159,7 @@ let
         ${lib.concatStrings (lib.imap0 mediaXml guest.install.media)}
         <controller type="usb" model="qemu-xhci" ports="15"/>
         ${lib.concatStrings (lib.mapAttrsToList interfaceXml guest.interfaces)}
+        ${lib.concatMapStrings (share: share.deviceXml) (lib.filter (share: !share.runtime) shares)}
         <serial type="pty">
           <target port="0"/>
         </serial>

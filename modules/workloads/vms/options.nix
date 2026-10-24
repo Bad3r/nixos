@@ -1,10 +1,27 @@
 _:
 let
   optionsModule =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      metaOwner,
+      pkgs,
+      ...
+    }:
     let
       inherit (lib) types;
       inherit (config.workloads) networks;
+      renderShare = import ./_render-share.nix { inherit lib; };
+
+      # libvirt starts virtiofsd as root; dropping to the owner before its
+      # sandbox keeps every guest write owned by that account.
+      virtiofsdAs =
+        owner:
+        pkgs.writeShellScript "virtiofsd-${owner}" ''
+          exec ${pkgs.util-linux}/bin/setpriv --reuid=${owner} --regid=${config.users.users.${owner}.group} \
+            --clear-groups --no-new-privs \
+            ${config.programs.libvirt.extended.virtiofsdPackage}/bin/virtiofsd "$@"
+        '';
 
       # libvirt reports UUIDs in lowercase.
       uuidType = types.strMatching "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -121,6 +138,69 @@ let
           hostOffset = hostOffset "Host part of the address the network's DHCP server reserves for this interface; it lies outside the DHCP range.";
         };
       };
+
+      shareModule =
+        { name, config, ... }:
+        {
+          options = {
+            enable = lib.mkOption {
+              type = types.bool;
+              default = true;
+              description = "Whether the guest gets the share.";
+            };
+
+            hostPath = lib.mkOption {
+              type = types.strMatching "/[^\"&<>]*";
+              description = "Host directory the share exports. It must exist when the guest starts, and the owner needs access to it.";
+            };
+
+            readOnly = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = "Whether virtiofsd refuses every write to the share.";
+            };
+
+            owner = lib.mkOption {
+              type = types.str;
+              default = metaOwner.username;
+              defaultText = lib.literalExpression "metaOwner.username";
+              description = ''
+                Host account virtiofsd runs as, with its primary group. Guest
+                root and the guest uid equal to the owner's write as the owner;
+                any other guest uid gets EINVAL.
+              '';
+            };
+
+            mountPoint = lib.mkOption {
+              type = types.nullOr (types.strMatching "/.+");
+              default = "/mnt/${name}";
+              defaultText = lib.literalExpression ''"/mnt/<tag>"'';
+              description = "Where a guest built on `workloads-guest-base` mounts the share; null leaves it unmounted.";
+            };
+
+            runtime = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Whether the share stays out of the definition, to be attached
+                to the running guest with `deviceXml`. The guest still gets the
+                shared memory backing hot-plug needs, and its mount is `noauto`.
+              '';
+            };
+
+            deviceXml = lib.mkOption {
+              type = types.str;
+              readOnly = true;
+              default = renderShare {
+                tag = name;
+                inherit (config) hostPath readOnly;
+                binary = virtiofsdAs config.owner;
+              };
+              defaultText = lib.literalExpression "<filesystem> element";
+              description = "The share's `<filesystem>` device, for `virsh attach-device` and `detach-device`.";
+            };
+          };
+        };
 
       guestModule =
         { name, config, ... }:
@@ -290,6 +370,17 @@ let
               '';
             };
 
+            shares = lib.mkOption {
+              type = types.attrsOf (types.submodule shareModule);
+              default = { };
+              description = ''
+                virtiofs shares keyed by their mount tag, which matches
+                `[a-z0-9][a-z0-9-]*` and has at most 36 characters. Any
+                enabled share gives the guest shared memfd memory. Untrusted
+                guests get none.
+              '';
+            };
+
             install.media = lib.mkOption {
               type = types.listOf types.str;
               default = [ ];
@@ -339,6 +430,14 @@ let
                   "${lib.removeSuffix ".0/24" (networkOf nic).subnet}.${toString interface.hostOffset}"
                 ) config.interfaces)
                 "{ <nic> = \"<network prefix>.<hostOffset>\"; }";
+
+            mounts =
+              derived (types.attrsOf types.attrs)
+                "Enabled shares with a mount point, keyed by tag, in the shape `workloads-guest-base` takes as `workloads.guest.shares`."
+                (lib.mapAttrs (_: share: { inherit (share) mountPoint readOnly runtime; }) (
+                  lib.filterAttrs (_: share: share.enable && share.mountPoint != null) config.shares
+                ))
+                "{ <tag> = { mountPoint; readOnly; runtime; }; }";
           };
         };
     in

@@ -140,7 +140,17 @@ let
             (check (
               !guest.usbRedirection || guest.display == "spice"
             ) "usbRedirection needs display = \"spice\"")
+            (check (
+              guest.trust == "trusted" || lib.all (share: !share.enable) (lib.attrValues guest.shares)
+            ) "untrusted guests get no shares")
           ]
+          ++ lib.mapAttrsToList (
+            tag: _:
+            # QEMU refuses a virtiofs tag longer than 36 bytes when the guest starts.
+            check (
+              builtins.match "[a-z0-9][a-z0-9-]{0,35}" tag != null
+            ) "shares.${tag}: tags must match [a-z0-9][a-z0-9-]* and have at most 36 characters"
+          ) guest.shares
           ++ lib.mapAttrsToList (
             disk: spec:
             check (
