@@ -207,6 +207,17 @@ in
                 assert state("alpha") == "shut off"
                 assert state("gamma") == "running"
                 machine.succeed("virsh destroy gamma")
+                gamma_nvram = "${stateDir "gamma"}/nvram.fd"
+                # A first define that stopped before writing NVRAM resumes, start included.
+                machine.succeed(f"rm {gamma_nvram}")
+                machine.succeed(restart("workloads-vm-guest-gamma.service"))
+                machine.succeed(f"test -f {gamma_nvram}")
+                assert state("gamma") == "running"
+                machine.succeed("virsh destroy gamma")
+                # A domain lost by hand comes back without a second first start.
+                machine.succeed("virsh undefine gamma --keep-nvram --keep-tpm")
+                machine.succeed(restart("workloads-vm-guest-gamma.service"))
+                assert state("gamma") == "shut off"
                 alpha_dir = "${stateDir "alpha"}"
                 machine.succeed(f"test -f {alpha_dir}/root.qcow2 -a -f {alpha_dir}/nvram.fd")
                 assert machine.succeed(f"stat -c %a {alpha_dir}").strip() == "711"

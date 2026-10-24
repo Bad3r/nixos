@@ -77,6 +77,7 @@ let
           expected = lib.mkOption {
             # Without string context, so the image stays out of the closure.
             type = types.strMatching "/nix/store/.+";
+            apply = builtins.unsafeDiscardStringContext;
             description = "Store path `path` must resolve to; a stale or missing out-link fails the guest unit instead of seeding an old image.";
           };
         };

@@ -335,10 +335,10 @@ def ensure_disks(disks: list[dict], *, create: bool) -> None:
             raise ReconcileError(msg)
 
 
-def ensure_nvram(domain: libvirt.virDomain, path: Path) -> None:
-    """Copy the firmware's variable template unless the guest has its NVRAM."""
+def ensure_nvram(domain: libvirt.virDomain, path: Path) -> bool:
+    """Copy the firmware's variable template if NVRAM is missing; return whether it did."""
     if path.exists():
-        return
+        return False
     nvram = parse(domain.XMLDesc(libvirt.VIR_DOMAIN_XML_INACTIVE)).find("os/nvram")
     template = nvram.get("template") if nvram is not None else None
     if template is None:
@@ -354,6 +354,7 @@ def ensure_nvram(domain: libvirt.virDomain, path: Path) -> None:
         partial.unlink(missing_ok=True)
         raise
     log(f"created {path} from {template}")
+    return True
 
 
 def revision(marker: ET.Element | None) -> str | None:
@@ -367,8 +368,7 @@ def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
     xml = Path(spec["xml"]).read_text()
     nvram = Path(spec["nvram"])
     state = Path(spec["stateDir"])
-    domain = claim_domain(conn, name, uuid)
-    first = domain is None
+    claim_domain(conn, name, uuid)
     # NVRAM is the last file a first define writes and TPM state appears at the
     # first start, so either one means the guest's files are no longer new.
     provisioned = nvram.exists() or (state / "tpm").exists()
@@ -381,7 +381,8 @@ def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
 
     domain = conn.defineXML(xml)
     log(f"defined guest '{name}' ({uuid})")
-    ensure_nvram(domain, nvram)
+    # Every guest boots UEFI, so the run that writes NVRAM finishes provisioning.
+    provisioned_now = ensure_nvram(domain, nvram)
 
     autostart = spec["autostart"]
     if bool(domain.autostart()) != autostart:
@@ -395,7 +396,7 @@ def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
                 f"guest '{name}' runs an older definition until its next cold boot; "
                 "a reboot inside the guest keeps it, a shutdown and start applies it"
             )
-    elif first and autostart:
+    elif provisioned_now and autostart:
         domain.create()
         log(f"started guest '{name}'")
 

@@ -137,6 +137,9 @@ let
             (check (
               guest.trust == "trusted" || !(guest.clipboard || guest.fileTransfer)
             ) "untrusted guests share no clipboard or files")
+            (check (
+              !guest.usbRedirection || guest.display == "spice"
+            ) "usbRedirection needs display = \"spice\"")
           ]
           ++ lib.mapAttrsToList (
             disk: spec:
