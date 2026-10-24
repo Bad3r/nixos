@@ -67,21 +67,29 @@ let
         };
       };
 
-      imageModule = {
-        options = {
-          path = lib.mkOption {
-            type = types.strMatching "/.+";
-            description = "Absolute runtime path of the qcow2 image, inside the `nix build --out-link` result that keeps it alive.";
-          };
+      imageModule =
+        { name, ... }:
+        {
+          options = {
+            outLink = lib.mkOption {
+              type = types.strMatching "/.+";
+              default = "/var/lib/workloads/images/${name}";
+              description = "`nix build --out-link` result that keeps the image alive, built from `legacyPackages.<system>.workloads.<name>`.";
+            };
 
-          expected = lib.mkOption {
-            # Without string context, so the image stays out of the closure.
-            type = types.strMatching "/nix/store/.+";
-            apply = builtins.unsafeDiscardStringContext;
-            description = "Store path `path` must resolve to; a stale or missing out-link fails the guest unit instead of seeding an old image.";
+            path = lib.mkOption {
+              type = types.strMatching "/.+";
+              description = "Absolute runtime path of the qcow2 image, inside `outLink`.";
+            };
+
+            expected = lib.mkOption {
+              # Without string context, so the image stays out of the closure.
+              type = types.strMatching "/nix/store/.+";
+              apply = builtins.unsafeDiscardStringContext;
+              description = "Store path `path` must resolve to; while it does not, a guest whose disk is missing stays undefined instead of seeding an old image.";
+            };
           };
         };
-      };
 
       diskModule = {
         options = {

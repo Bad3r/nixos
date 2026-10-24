@@ -21,6 +21,7 @@ in
         alpha = "00000000-0000-4000-8000-00000000000a";
         gamma = "00000000-0000-4000-8000-00000000000c";
         delta = "00000000-0000-4000-8000-00000000000d";
+        epsilon = "00000000-0000-4000-8000-00000000000e";
         adhoc = "00000000-0000-4000-8000-0000000000ad";
       };
 
@@ -85,7 +86,16 @@ in
         interfaces.eth.network = "lab";
         interfaces.eth.hostOffset = 12;
       };
+      epsilon = guest {
+        uuid = uuids.epsilon;
+        disks.root = {
+          size = 1;
+          seed = "late";
+        };
+      };
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
+      seedLink = "/var/lib/workloads/images/seed.qcow2";
+      lateLink = "/var/lib/workloads/images/late.qcow2";
 
       stateDir = name: "/var/lib/workloads/guests/${uuids.${name}}";
     in
@@ -122,8 +132,7 @@ in
               programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
               users.users.${metaOwner.username}.isNormalUser = true;
 
-              systemd.tmpfiles.settings.workloads-vms-test."/var/lib/workloads/images/seed.qcow2"."L+".argument =
-                "${seedImage}";
+              systemd.tmpfiles.settings.workloads-vms-test.${seedLink}."L+".argument = "${seedImage}";
 
               workloads = {
                 networks = {
@@ -155,12 +164,19 @@ in
                 };
 
                 images.seed = {
-                  path = "/var/lib/workloads/images/seed.qcow2";
+                  outLink = seedLink;
+                  path = seedLink;
+                  expected = "${seedImage}";
+                };
+                # The test script links it, standing in for a late `nix build`.
+                images.late = {
+                  outLink = lateLink;
+                  path = lateLink;
                   expected = "${seedImage}";
                 };
 
                 # Specialisations replace the whole set.
-                guests = lib.mkDefault { inherit alpha gamma; };
+                guests = lib.mkDefault { inherit alpha gamma epsilon; };
               };
 
               specialisation = {
@@ -250,6 +266,23 @@ in
                 )
                 lab = machine.succeed("virsh net-dumpxml lab")
                 assert "ip='172.16.5.10'" in lab and "ip='172.16.5.11'" in lab, lab
+
+            with subtest("a seeded guest stays undefined until its image is built"):
+                epsilon_unit = "workloads-vm-guest-epsilon.service"
+                machine.wait_for_unit(epsilon_unit)
+                assert machine.succeed(f"systemctl show -P SubState {epsilon_unit}").strip() == "exited"
+                assert "${lateLink} is missing; build it with `nix build" in journal(epsilon_unit)
+                machine.fail("virsh dominfo epsilon")
+                machine.fail("test -e ${stateDir "epsilon"}")
+                assert "epsilon" not in journal("workloads-vm-orphans.service")
+                machine.succeed("ln -s /var/lib/workloads/images/old.qcow2 ${lateLink}")
+                machine.succeed(restart(epsilon_unit))
+                assert "${lateLink} is stale: it points at /var/lib/workloads/images/old.qcow2" in journal(epsilon_unit)
+                machine.fail("virsh dominfo epsilon")
+                machine.succeed("ln -sfn ${seedImage} ${lateLink}")
+                machine.succeed(restart(epsilon_unit))
+                assert state("epsilon") == "shut off"
+                machine.succeed("test -f ${stateDir "epsilon"}/root.qcow2")
 
             with subtest("the host and the network's resolver answer declared names"):
                 assert machine.succeed("getent hosts gamma.vm").split() == ["172.16.5.11", "gamma", "gamma.vm"]
