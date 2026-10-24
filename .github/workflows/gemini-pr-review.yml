@@ -3,8 +3,6 @@
 name: Gemini PR Review
 
 on:
-  pull_request:
-    types: [opened, ready_for_review, reopened]
   issue_comment:
     types: [created]
 
@@ -27,33 +25,18 @@ concurrency:
   # inert-<run_id>, so no untrusted text lands in it.
   group: >-
     gemini-pr-review-${{
-    ((github.event_name == 'pull_request' &&
-    github.event.pull_request.draft == false &&
-    github.event.pull_request.head.repo.full_name == github.repository &&
-    (contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
-    github.event.pull_request.user.login == 'dependabot[bot]')) ||
     (github.event_name == 'issue_comment' &&
     github.event.issue.pull_request &&
     startsWith(github.event.comment.body, '@gemini-cli /review') &&
-    contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association)))
+    contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.comment.author_association))
     && format('pr-{0}', github.event.pull_request.number || github.event.issue.number)
     || format('inert-{0}', github.run_id) }}
   cancel-in-progress: true
 
 jobs:
   gemini-pr-review:
-    # Auto-review same-repo, non-draft PRs from trusted authors on open; also let a
-    # trusted maintainer request a review with "@gemini-cli /review" on any PR.
+    # Let a trusted maintainer request a review with "@gemini-cli /review" on any PR.
     if: >-
-      (
-        github.event_name == 'pull_request' &&
-        github.event.pull_request.draft == false &&
-        github.event.pull_request.head.repo.full_name == github.repository &&
-        (
-          contains(fromJSON('["OWNER", "MEMBER", "COLLABORATOR"]'), github.event.pull_request.author_association) ||
-          github.event.pull_request.user.login == 'dependabot[bot]'
-        )
-      ) ||
       (
         github.event_name == 'issue_comment' &&
         github.event.issue.pull_request &&
