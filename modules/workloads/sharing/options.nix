@@ -91,9 +91,9 @@ let
               Targets the guest may open connections to, as `host:<service>`,
               `guest:<name>`, or `service:<name>`, each with an optional
               `:<port>[/udp]`. Without a port, a link opens every port the
-              target declares: a host service's `ports`, or a guest's
-              `grantable`. Untrusted guests reach host services through grants
-              only.
+              target declares: a host service's `ports`, a guest's
+              `grantable`, or a container service's container ports.
+              Untrusted guests reach host services through grants only.
             '';
           };
 
@@ -103,15 +103,6 @@ let
             description = ''
               Ports runtime grants may open toward the guest, and the ports a
               link without a port opens.
-            '';
-          };
-
-          allowUntrustedClipboard = lib.mkOption {
-            type = types.bool;
-            default = false;
-            description = ''
-              Whether an untrusted guest may set `clipboard = true`, which
-              gives it the SPICE agent channel. File transfer stays off.
             '';
           };
         };
@@ -142,13 +133,7 @@ let
 
           interfaces = lib.mkOption {
             type = types.listOf (types.submodule interfaceModule);
-            description = "Addresses of the object on workload networks; the first is the one a link from another network uses.";
-          };
-
-          links = lib.mkOption {
-            type = types.listOf types.str;
-            default = [ ];
-            description = "The object's `links`.";
+            description = "Addresses of the object on workload networks; a link from another network uses the first, which for a guest is its alphabetically first interface name.";
           };
 
           ports = lib.mkOption {
@@ -172,6 +157,10 @@ let
           port = lib.mkOption {
             type = types.port;
             description = "TCP port the proxy listens on and forwards to on 127.0.0.1.";
+          };
+          sources = lib.mkOption {
+            type = types.listOf types.str;
+            description = "Addresses the proxy socket accepts connections from.";
           };
         };
       };
@@ -198,8 +187,9 @@ let
             default = { };
             internal = true;
             description = ''
-              Link sources and targets by target kind (`guest`, `service`) and
-              name; each runtime module adds its declared objects.
+              Link targets by kind (`guest`, `service`) and name; each runtime
+              module adds its declared objects. Only guests are link sources,
+              since only their addresses are pinned to their taps.
             '';
           };
 

@@ -117,13 +117,22 @@ in
               users.users.${metaOwner.username}.isNormalUser = true;
               environment.systemPackages = [ pkgs.socat ];
 
-              systemd.services.echo-loopback = {
-                wantedBy = [ "multi-user.target" ];
-                serviceConfig.ExecStart = "${pkgs.socat}/bin/socat TCP-LISTEN:7000,bind=127.0.0.1,fork,reuseaddr SYSTEM:'echo loopback'";
-              };
+              systemd = {
+                services =
+                  lib.mapAttrs
+                    (_: command: {
+                      wantedBy = [ "multi-user.target" ];
+                      serviceConfig.ExecStart = "${pkgs.socat}/bin/socat ${command}";
+                    })
+                    {
+                      echo-loopback = "TCP-LISTEN:7000,bind=127.0.0.1,fork,reuseaddr SYSTEM:'echo loopback'";
+                      echo-any = "TCP-LISTEN:7004,fork,reuseaddr SYSTEM:'echo any'";
+                    };
 
-              systemd.tmpfiles.settings.workloads-vms-test."/var/lib/workloads/images/seed.qcow2"."L+".argument =
-                "${seedImage}";
+                tmpfiles.settings.workloads-vms-test."/var/lib/workloads/images/seed.qcow2"."L+".argument = "${
+                  seedImage
+                }";
+              };
 
               workloads = {
                 networks = {
@@ -199,6 +208,8 @@ in
           let
             toplevel = nodes.machine.system.build.toplevel;
             switch = name: "${toplevel}/specialisation/${name}/bin/switch-to-configuration test";
+            inherit (nodes.machine.workloads) guests;
+            nicOf = name: "\"${guests.${name}.tap.eth}\", \"${guests.${name}.mac.eth}\"";
           in
           ''
             import xml.etree.ElementTree as ET
@@ -253,33 +264,82 @@ in
                 lab = machine.succeed("virsh net-dumpxml lab")
                 assert "ip='172.16.5.10'" in lab and "ip='172.16.5.11'" in lab, lab
 
-            with subtest("links reach a loopback host service and a guest on another network"):
+            with subtest("links reach only their targets, from their own guest"):
                 machine.wait_for_unit("workloads-vm-net-default.service")
-                # Network namespaces on the bridges stand in for the guests.
-                def attach(ns, bridge, address, gateway):
+                # Network namespaces stand in for guests; a declared guest's
+                # stand-in takes its pinned tap name and MAC.
+                ports = {}
+                # STP holds a port that comes up in listening and learning first.
+                def forwarding(ns):
+                    machine.wait_until_succeeds(f"bridge link show dev {ports[ns]} | grep -q 'state forwarding'")
+                def attach(ns, bridge, address, gateway, tap=None, mac=None):
+                    ports[ns] = tap or f"{ns}-host"
                     machine.succeed(
                         f"ip netns add {ns}",
-                        f"ip link add {ns}-host type veth peer name eth0 netns {ns}",
-                        f"ip link set {ns}-host master {bridge} up",
+                        f"ip link add {ports[ns]} type veth peer name eth0 netns {ns}",
+                        f"ip link set {ports[ns]} master {bridge} up",
+                        f"ip -n {ns} link set eth0 address {mac or '02:00:00:00:00:01'} up",
                         f"ip -n {ns} addr add {address}/24 dev eth0",
-                        f"ip -n {ns} link set eth0 up",
                         f"ip -n {ns} route add default via {gateway}",
                     )
-                attach("gamma", "vn-lab", "172.16.5.11", "172.16.5.1")
-                attach("other", "vn-lab", "172.16.5.13", "172.16.5.1")
-                attach("epsilon", "vn-default", "172.16.0.10", "172.16.0.1")
-                # STP holds a new port in listening and learning first.
-                for ns in ["gamma", "other", "epsilon"]:
-                    machine.wait_until_succeeds(f"bridge link show dev {ns}-host | grep -q 'state forwarding'")
-                machine.succeed(
-                    "ip netns exec epsilon socat TCP-LISTEN:7001,fork,reuseaddr SYSTEM:'echo epsilon' >&2 &"
-                )
-                machine.wait_until_succeeds("ip netns exec epsilon ss -ltn | grep -q :7001")
+                    forwarding(ns)
+                def listen(ns, port, reply):
+                    machine.succeed(
+                        f"ip netns exec {ns} socat TCP-LISTEN:{port},fork,reuseaddr SYSTEM:'echo {reply}' >&2 &"
+                    )
+                    machine.wait_until_succeeds(f"ip netns exec {ns} ss -ltn | grep -q :{port}")
                 connect = "ip netns exec {} socat -T3 - TCP:{},connect-timeout=3 </dev/null"
-                assert machine.succeed(connect.format("gamma", "172.16.5.1:7000")).strip() == "loopback"
-                assert machine.succeed(connect.format("gamma", "172.16.0.10:7001")).strip() == "epsilon"
-                machine.fail(connect.format("other", "172.16.5.1:7000"))
-                machine.fail(connect.format("other", "172.16.0.10:7001"))
+                def reaches(ns, target, reply):
+                    assert machine.succeed(connect.format(ns, target)).strip() == reply
+                def refused(ns, target):
+                    machine.fail(connect.format(ns, target))
+
+                attach("gamma", "vn-lab", "172.16.5.11", "172.16.5.1", ${nicOf "gamma"})
+                attach("other", "vn-lab", "172.16.5.13", "172.16.5.1")
+                attach("epsilon", "vn-default", "172.16.0.10", "172.16.0.1", ${nicOf "epsilon"})
+                listen("epsilon", 7001, "epsilon")
+                listen("epsilon", 7002, "unlinked")
+                listen("gamma", 7003, "gamma")
+
+                reaches("gamma", "172.16.5.1:7000", "loopback")
+                reaches("gamma", "172.16.0.10:7001", "epsilon")
+                refused("gamma", "172.16.0.10:7002")
+                refused("gamma", "172.16.5.1:7004")
+                refused("other", "172.16.5.1:7000")
+                refused("other", "172.16.0.10:7001")
+                refused("epsilon", "172.16.5.11:7003")
+                refused("epsilon", "172.16.5.1:7000")
+                # The proxy socket admits only the linked addresses, the host's own included.
+                machine.fail("socat -T3 - TCP:172.16.5.1:7000,connect-timeout=3 </dev/null")
+
+            with subtest("another port claiming a linked address is dropped"):
+                def claim(ns, address):
+                    machine.succeed(
+                        f"ip -n {ns} addr flush dev eth0",
+                        f"ip -n {ns} addr add {address}/24 dev eth0",
+                        f"ip -n {ns} route add default via 172.16.5.1",
+                        "ip neigh flush dev vn-lab",
+                    )
+                machine.succeed("ip -n gamma link set eth0 down")
+                claim("other", "172.16.5.11")
+                refused("other", "172.16.5.1:7000")
+                refused("other", "172.16.0.10:7001")
+                machine.succeed(
+                    "ip -n gamma link set eth0 up",
+                    "ip -n gamma route add default via 172.16.5.1",
+                )
+                forwarding("gamma")
+                reaches("gamma", "172.16.5.1:7000", "loopback")
+                refused("other", "172.16.5.1:7000")
+                refused("other", "172.16.0.10:7001")
+                # A declared guest's own tap is pinned to its own address.
+                attach("alpha", "vn-lab", "172.16.5.10", "172.16.5.1", ${nicOf "alpha"})
+                claim("alpha", "172.16.5.11")
+                refused("alpha", "172.16.5.1:7000")
+                refused("alpha", "172.16.0.10:7001")
+                # alpha's tap name is needed when the guest starts.
+                # Namespace teardown is asynchronous, so the tap goes first.
+                machine.succeed(f"ip link del {ports['alpha']}", "ip netns del alpha", "ip netns del other")
 
             with subtest("a running guest keeps its definition and running networks gain reservations"):
                 machine.succeed("virsh start --paused alpha")
@@ -291,6 +351,13 @@ in
                 lab = machine.succeed("virsh net-dumpxml lab")
                 assert "ip='172.16.5.12'" in lab, lab
                 assert "older definition" not in journal("workloads-vm-net-lab.service")
+
+            with subtest("a switch without the links removes their rules and proxy"):
+                assert "to 172.16." not in machine.succeed("ip rule")
+                assert "172.16.0.10" not in machine.succeed("nft list chain inet workload forward")
+                assert "172.16.5.11" not in machine.succeed("nft list chain inet workload input")
+                machine.fail("systemctl is-active workload-proxy-lab-echo-7000.socket")
+                refused("gamma", "172.16.0.10:7001")
 
             with subtest("a rename waits until the guest is shut off"):
                 machine.fail("${switch "renamed"}")

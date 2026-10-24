@@ -1,7 +1,12 @@
 _:
 let
   linksModule =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      options,
+      ...
+    }:
     let
       inherit (config.workloads) networks guests sharing;
       hostServices = config.workloads.host.services;
@@ -17,7 +22,7 @@ let
         spec.proto == proto && spec.from <= port && port <= spec.to;
 
       resolve =
-        kind: name: endpoint: target: interface:
+        name: endpoint: target: interface:
         let
           match = builtins.match "([a-z]+):([a-z0-9][a-z0-9-]*)(:([1-9][0-9]{0,4})(/udp)?)?" target;
           targetKind = builtins.elemAt match 0;
@@ -34,7 +39,7 @@ let
           ];
           network = networks.${interface.network};
           fail = message: {
-            error = "${objectPaths.${kind}}.${name}.links: ${target}: ${message}";
+            error = "workloads.guests.${name}.links: ${target}: ${message}";
           };
           base = {
             error = null;
@@ -96,20 +101,18 @@ let
 
       resolved = lib.concatLists (
         lib.mapAttrsToList (
-          kind: objects:
-          lib.concatLists (
-            lib.mapAttrsToList (
-              name: endpoint:
-              lib.concatMap (
-                target:
-                if endpoint.interfaces == [ ] then
-                  [ { error = "${objectPaths.${kind}}.${name}.links: ${target}: the object has no interface"; } ]
-                else
-                  map (resolve kind name endpoint target) endpoint.interfaces
-              ) endpoint.links
-            ) objects
-          )
-        ) sharing.endpoints
+          name: guest:
+          let
+            endpoint = sharing.endpoints.guest.${name};
+          in
+          lib.concatMap (
+            target:
+            if endpoint.interfaces == [ ] then
+              [ { error = "workloads.guests.${name}.links: ${target}: the guest has no interface"; } ]
+            else
+              map (resolve name endpoint target) endpoint.interfaces
+          ) guest.links
+        ) presentGuests
       );
 
       links = lib.filter (link: link.error == null) resolved;
@@ -201,6 +204,7 @@ let
             inherit (link) network;
             service = link.targetName;
             inherit port;
+            sources = [ link.source ];
           }) (lib.range spec.from spec.to)
         ) link.ports
       ) (lib.filter (link: link.loopback) hostLinks);
@@ -221,11 +225,11 @@ let
               spec: spec.from <= spec.to
             ) service.ports) "${prefix}.ports: `from` must not exceed `to`")
           ]
-          # Each proxied port is one socket unit.
+          # Each proxied port is one socket unit; dnsmasq holds 53 and 67 on the gateway.
           ++ lib.optional (service.bind == "loopback") (
             check (lib.all (
-              spec: spec.proto == "tcp" && spec.from == spec.to
-            ) service.ports) "${prefix}.ports: a loopback service lists single TCP ports"
+              spec: spec.proto == "tcp" && spec.from == spec.to && spec.from != 53 && spec.from != 67
+            ) service.ports) "${prefix}.ports: a loopback service lists single TCP ports other than 53 and 67"
           )
         ) hostServices
       );
@@ -235,35 +239,65 @@ let
           name: guest:
           let
             prefix = "workloads.guests.${name}";
-            untrusted = guest.trust != "trusted";
           in
           [
             (check (lib.all (
               spec: spec.from <= spec.to
             ) guest.grantable) "${prefix}.grantable: `from` must not exceed `to`")
-            (check (!(untrusted && guest.fileTransfer)) "${prefix}: untrusted guests get no file transfer")
-            (check (
-              !(untrusted && guest.clipboard && !guest.allowUntrustedClipboard)
-            ) "${prefix}: clipboard on an untrusted guest needs allowUntrustedClipboard = true")
           ]
         ) presentGuests
       );
 
       proxyName = proxy: "workload-proxy-${proxy.network}-${proxy.service}-${toString proxy.port}";
-      proxies = lib.unique sharing.gatewayProxies;
+      proxies = lib.mapAttrsToList (
+        _: entries:
+        lib.head entries
+        // {
+          sources = lib.unique (lib.concatMap (entry: entry.sources) entries);
+        }
+      ) (lib.groupBy proxyName sharing.gatewayProxies);
+
+      proxyAssertions = lib.mapAttrsToList (
+        listen: entries:
+        let
+          services = lib.unique (map (proxy: proxy.service) entries);
+        in
+        check (lib.length services == 1)
+          "workloads.host.services: ${lib.concatStringsSep " and " services} are linked from one network with the same loopback port, ${listen}"
+      ) (lib.groupBy (proxy: "${networks.${proxy.network}.gateway}:${toString proxy.port}") proxies);
     in
     {
       config = {
         workloads = {
           sharing = {
-            endpoints.guest = lib.mapAttrs (_: guest: {
-              inherit (guest) trust links;
-              interfaces = lib.mapAttrsToList (nic: interface: {
-                inherit (interface) network;
-                address = guest.address.${nic};
-              }) guest.interfaces;
-              ports = guest.grantable;
-            }) presentGuests;
+            endpoints = {
+              guest = lib.mapAttrs (_: guest: {
+                inherit (guest) trust;
+                interfaces = lib.mapAttrsToList (nic: interface: {
+                  inherit (interface) network;
+                  address = guest.address.${nic};
+                }) guest.interfaces;
+                ports = guest.grantable;
+              }) presentGuests;
+            }
+            // lib.optionalAttrs (options.workloads ? services) {
+              service = lib.mapAttrs (_: service: {
+                trust = "trusted";
+                interfaces = [
+                  {
+                    inherit (service) network;
+                    address = "${
+                      lib.removeSuffix ".0/24" networks.${service.network}.subnet
+                    }.${toString service.address}";
+                  }
+                ];
+                ports = map (port: {
+                  from = port.container;
+                  to = port.container;
+                  proto = port.protocol;
+                }) service.ports;
+              }) config.workloads.services;
+            };
 
             inherit linkTargets;
             gatewayProxies = linkProxies;
@@ -279,7 +313,8 @@ let
         assertions =
           map (link: check false link.error) (lib.filter (link: link.error != null) resolved)
           ++ serviceAssertions
-          ++ guestAssertions;
+          ++ guestAssertions
+          ++ proxyAssertions;
 
         networking.firewall.interfaces = lib.genAttrs (lib.unique (
           map (link: link.bridge) hostLinks
@@ -293,7 +328,12 @@ let
               description = "Gateway proxy for host service ${proxy.service} on ${proxy.network}";
               wantedBy = [ "sockets.target" ];
               listenStreams = [ "${networks.${proxy.network}.gateway}:${toString proxy.port}" ];
-              socketConfig.FreeBind = true;
+              socketConfig = {
+                FreeBind = true;
+                # The gateway address is routable from every network.
+                IPAddressDeny = "any";
+                IPAddressAllow = proxy.sources;
+              };
             }
           ) proxies
         );
