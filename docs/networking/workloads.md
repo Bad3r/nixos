@@ -20,6 +20,8 @@ The forward chain drops all forwarding that neither enters nor leaves a `vn-*` b
 Once any network is declared, forwarding through other interfaces, such as rootful Podman's `podman0`, is dropped as well.
 The module sets `net.ipv4.conf.all.forwarding` to 1 while at least one network is declared and to 0 otherwise, so a switch that drops the last network turns forwarding off.
 It never loads `br_netfilter`; the rules behave the same with and without it.
+The prerouting chain also drops everything from a `vn-*` interface that no network declares.
+The table stays loaded with no network declared, so a bridge a runtime keeps after its declaration is dropped stays fenced.
 
 ## Declare a network
 
