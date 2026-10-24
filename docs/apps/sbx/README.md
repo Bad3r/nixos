@@ -35,6 +35,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `base list`, `base build <base>` | show or build Nix bases                     |
 
 `create` and `run` take `--name`, `--mem`, `--cpus`, and `--ttl`.
+`exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread.
 
 ```sh
@@ -54,7 +55,7 @@ sbx destroy probe
   It is staged in the sandbox's `xfer` directory, which `info` prints, and loses execute, setuid, and setgid bits.
 - Without a destination the copy stays in `xfer`; a host destination must sit under the same roots.
 - A copy out never overwrites: its target must not exist.
-- Copies out count against the disk cap.
+- A copy out stops once it passes the room left under the disk cap and the free-space floor.
 - `run --out` and `run --to` go together, since `destroy` deletes the run directory.
 
 ## Bases

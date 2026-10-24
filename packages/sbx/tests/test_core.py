@@ -7,10 +7,10 @@ import tempfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 from unittest import mock
 
-from sbx import core
+from sbx import cli, core
 from sbx.core import NS, DomainInfo, Meta, Paths, Sandboxes, SbxError, Settings, Tools
 
 NOW = 1_800_000_000
@@ -22,10 +22,15 @@ STUBS = {
         'if [ "$1" = info ]; then echo \'{"virtual-size": 1073741824}\'; '
         'else eval "disk=\\${$(($# - 1))}"; touch "$disk"; fi'
     ),
-    "ssh": "exit 0",
+    "ssh": 'exit "${SBX_TEST_SSH_EXIT:-0}"',
     "scp": (
         'printf "%s\\n" "$@" > "$SBX_TEST_LOG"; for t; do :; done; '
-        'case "$t" in root@*) ;; *) echo out > "$t"; chmod 755 "$t";; esac'
+        'case "$t" in root@*) exit 0;; esac; '
+        'if [ -n "$SBX_TEST_BIG" ]; then exec head -c "$SBX_TEST_BIG" /dev/zero > "$t"; fi; '
+        'if [ -n "$SBX_TEST_MANY" ]; then mkdir "$t"; for i in 1 2 3 4 5 6; do '
+        'head -c "$SBX_TEST_MANY" /dev/urandom > "$t/$i"; sleep 0.4; done; '
+        'touch "$SBX_TEST_DONE"; exit 0; fi; '
+        'echo out > "$t"; chmod 755 "$t"'
     ),
     "ss": 'cat "$SBX_TEST_SS" 2>/dev/null || true',
     "git": "exit 1",
@@ -160,6 +165,7 @@ class SandboxesTest(unittest.TestCase):
                 "TMPDIR": str(self.scratch / "tmp"),
                 "SBX_TEST_SS": str(self.scratch / "ss"),
                 "SBX_TEST_LOG": str(self.scratch / "scp.log"),
+                "SBX_TEST_DONE": str(self.scratch / "scp.done"),
             },
         )
         self.environment.start()
@@ -441,6 +447,101 @@ class SandboxesTest(unittest.TestCase):
         self.paths.sandbox("x").mkdir()
         self.sandboxes().destroy("x")
         self.assertIn("sbx-x", self.backend.domains_by_name)
+
+    def dispatch(self, *argv: str) -> tuple[object, int]:
+        """Run one verb through the command line, in JSON mode."""
+        leading, command = cli.split_command(argv)
+        args = cli.build_parser().parse_args(leading)
+        args.command = command
+        return cli.dispatch(self.sandboxes(), args, as_json=True)
+
+    def assert_no_sandbox(self, name: str) -> None:
+        """Neither a domain nor a run directory remains."""
+        self.assertNotIn(f"sbx-{name}", self.backend.domains_by_name)
+        self.assertFalse(self.paths.sandbox(name).exists())
+
+    def test_copy_out_budget(self) -> None:
+        """A copy out past the cap is cut off, and its stage removed."""
+        self.add_running("c")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=4 << 20)
+        xfer = self.paths.sandbox("c") / "xfer"
+        for variable, value in (("SBX_TEST_BIG", str(16 << 20)), ("SBX_TEST_MANY", str(3 << 20))):
+            with self.subTest(variable=variable), mock.patch.dict(os.environ, {variable: value}):
+                with self.assertRaises(SbxError) as refused:
+                    self.sandboxes().copy("c:/big", None)
+                self.assertEqual(refused.exception.code, "disk-full")
+                # Stopped during the transfer, not by the check after it.
+                self.assertIn("budget", str(refused.exception))
+                self.assertEqual(list(xfer.iterdir()), [])
+                self.assertFalse((self.scratch / "scp.done").exists())
+
+    def test_publish_never_replaces(self) -> None:
+        """Two copies to one absent target: the second fails and the first stays."""
+        target = self.scratch / "tmp" / "out"
+        first, second = self.scratch / "first", self.scratch / "second"
+        first.write_text("1")
+        second.write_text("2")
+        core.publish(first, target)
+        with self.assertRaises(SbxError) as refused:
+            core.publish(second, target)
+        self.assertEqual(refused.exception.code, "exists")
+        self.assertEqual(target.read_text(), "1")
+        self.assertTrue(second.exists())
+
+    def test_guest_timeout(self) -> None:
+        """A timeout bounds the guest command too, with a later host backstop."""
+        self.add_running("t")
+        calls: list[tuple[list[str], float | None]] = []
+
+        def fake(argv: list[str], _limit: int, timeout: float | None) -> core.ExecResult:
+            calls.append((argv, timeout))
+            return core.ExecResult(124, b"", b"", truncated=False, timed_out=False)
+
+        with mock.patch.object(core, "capture", fake):
+            result = self.sandboxes().exec_capture("t", ["sleep", "9"], timeout=2, agent=False)
+        self.assertTrue(result.timed_out)
+        argv, timeout = calls[0]
+        self.assertEqual(argv[-1], "timeout --kill-after=5 2 sleep 9")
+        self.assertEqual(timeout, 2 + core.HOST_BACKSTOP)
+
+    def test_json_exit_codes(self) -> None:
+        """The guest's status is the exit status of exec --json."""
+        self.add_running("j")
+        with mock.patch.dict(os.environ, {"SBX_TEST_SSH_EXIT": "3"}):
+            result, code = self.dispatch("--json", "exec", "j", "--", "false")
+        self.assertEqual(code, 3)
+        self.assertEqual(cast("dict[str, object]", result)["exit_code"], 3)
+
+    def test_run_refusals_before_create(self) -> None:
+        """--out without --to, --to without --out, and a bad --timeout create nothing."""
+        for argv in (
+            ("run", "nixos", "--name", "r", "--out", "/x", "--", "true"),
+            ("run", "nixos", "--name", "r", "--to", ".", "--", "true"),
+            ("run", "nixos", "--name", "r", "--timeout", "5x", "--", "true"),
+        ):
+            with self.subTest(argv=argv), self.assertRaises(SbxError):
+                self.dispatch(*argv)
+            self.assert_no_sandbox("r")
+
+    def test_run_destroys_on_failure(self) -> None:
+        """A failed copy in, exec, or copy out still destroys the run sandbox."""
+        outside = self.scratch / "outside"
+        outside.mkdir()
+        cases: list[tuple[tuple[str, ...], Any]] = [
+            (("--in", str(outside)), None),
+            ((), SbxError("boom", code="test")),
+            (("--out", "/root/x", "--to", str(outside)), None),
+        ]
+        for flags, failure in cases:
+            argv = ("run", "nixos", "--name", "r", *flags, "--", "true")
+            patch = mock.patch.object(Sandboxes, "exec_capture", side_effect=failure)
+            with self.subTest(flags=flags), self.assertRaises(SbxError):
+                if failure is None:
+                    self.dispatch(*argv)
+                else:
+                    with patch:
+                        self.dispatch(*argv)
+            self.assert_no_sandbox("r")
 
 
 if __name__ == "__main__":

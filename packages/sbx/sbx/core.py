@@ -9,15 +9,21 @@ against the settings the app module renders.
 import base64
 import binascii
 import contextlib
+import ctypes
+import dataclasses
+import errno
 import fcntl
 import json
 import os
 import re
+import resource
 import secrets
 import shlex
 import shutil
+import signal
 import stat
 import subprocess
+import tempfile
 import threading
 import time
 import xml.etree.ElementTree as ET
@@ -46,6 +52,13 @@ MEMORY_PATTERN = re.compile(r"(\d+)([MG]?)", re.IGNORECASE)
 DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
 SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_THREAD_ID", "codex"))
 READ_CHUNK = 1 << 16
+# Grace for the guest's `timeout --kill-after`, and the host backstop beyond it.
+GUEST_KILL_AFTER = 5
+HOST_BACKSTOP = GUEST_KILL_AFTER + 5
+TIMEOUT_EXIT = 124
+WATCH_INTERVAL = 0.5
+AT_FDCWD = -100
+RENAME_NOREPLACE = 1
 
 ET.register_namespace("sbx", NS)
 
@@ -410,6 +423,74 @@ def _agent_data(status: dict[str, Any], key: str) -> bytes:
     except binascii.Error as error:
         msg = f"{key} is not base64"
         raise _agent_error(msg) from error
+
+
+def guest_command(command: Sequence[str], timeout: float | None) -> list[str]:
+    """Bound a guest command by coreutils timeout, so it dies with the host's deadline."""
+    if timeout is None:
+        return list(command)
+    return ["timeout", f"--kill-after={GUEST_KILL_AFTER}", f"{timeout:g}", *command]
+
+
+def _backstop(timeout: float | None) -> float | None:
+    return None if timeout is None else timeout + HOST_BACKSTOP
+
+
+def _allocated(path: Path) -> int:
+    total = 0
+    for parent, _dirs, files in os.walk(path):
+        for file in files:
+            with contextlib.suppress(FileNotFoundError):
+                total += (Path(parent) / file).lstat().st_blocks * 512
+    return total
+
+
+def _rename_noreplace(source: Path, target: Path) -> None:
+    libc = ctypes.CDLL(None, use_errno=True)
+    renameat2 = libc.renameat2
+    renameat2.argtypes = [
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_int,
+        ctypes.c_char_p,
+        ctypes.c_uint,
+    ]
+    renameat2.restype = ctypes.c_int
+    if renameat2(AT_FDCWD, os.fsencode(source), AT_FDCWD, os.fsencode(target), RENAME_NOREPLACE):
+        code = ctypes.get_errno()
+        raise OSError(code, os.strerror(code), str(target))
+
+
+def _remove(path: Path) -> None:
+    if path.is_dir() and not path.is_symlink():
+        shutil.rmtree(path)
+    else:
+        path.unlink(missing_ok=True)
+
+
+def publish(staged: Path, target: Path) -> None:
+    """Move a staged copy to a target that must not exist, never replacing one."""
+    try:
+        try:
+            _rename_noreplace(staged, target)
+        except OSError as error:
+            if error.errno != errno.EXDEV:
+                raise
+            # Another filesystem: copy beside the target, then rename there.
+            beside = target.with_name(f".sbx-{secrets.token_hex(4)}")
+            try:
+                if staged.is_dir():
+                    shutil.copytree(staged, beside, symlinks=True)
+                else:
+                    shutil.copy2(staged, beside, follow_symlinks=False)
+                _rename_noreplace(beside, target)
+            finally:
+                _remove(beside)
+    except OSError as error:
+        if error.errno == errno.EEXIST:
+            msg = f"{target} exists; copies out never overwrite"
+            raise SbxError(msg, code="exists") from error
+        raise
 
 
 def _strip_exec_bits(path: Path) -> None:
@@ -1013,10 +1094,15 @@ class Sandboxes:
             sandbox=name,
             session=self.session,
         )
+        bounded = guest_command(command, timeout)
         if agent:
-            return self._agent_exec(sandbox.domain.name, command, timeout)
-        argv = self._ssh(name, sandbox.domain.cid, command)
-        return capture(argv, self.settings.output_limit, timeout)
+            result = self._agent_exec(sandbox.domain.name, bounded, _backstop(timeout))
+        else:
+            argv = self._ssh(name, sandbox.domain.cid, bounded)
+            result = capture(argv, self.settings.output_limit, _backstop(timeout))
+        if timeout is not None and result.exit_code == TIMEOUT_EXIT:
+            return dataclasses.replace(result, timed_out=True)
+        return result
 
     def exec_attached(
         self, name: str, command: Sequence[str], *, timeout: float | None
@@ -1029,11 +1115,12 @@ class Sandboxes:
             sandbox=name,
             session=self.session,
         )
-        argv = self._ssh(name, sandbox.domain.cid, command)
+        argv = self._ssh(name, sandbox.domain.cid, guest_command(command, timeout))
         try:
-            return subprocess.run(argv, timeout=timeout, check=False).returncode
+            code = subprocess.run(argv, timeout=_backstop(timeout), check=False).returncode
         except subprocess.TimeoutExpired:
             return None
+        return None if timeout is not None and code == TIMEOUT_EXIT else code
 
     def _agent_exec(self, domain: str, command: Sequence[str], timeout: float | None) -> ExecResult:
         backend = self.backend()
@@ -1184,7 +1271,7 @@ class Sandboxes:
                 raise SbxError(msg, code="exists")
         else:
             target = self._destination(Path(destination), leaf)
-        self._check_disk()
+        budget = self._copy_budget()
         journal.record(
             f"cp {name}:{guest_path} {target}", verb="cp", sandbox=name, session=self.session
         )
@@ -1196,22 +1283,61 @@ class Sandboxes:
                 msg = f"'{guest_path}' leaves the transfer directory"
                 raise SbxError(msg, code="path-denied")
             options = self._ssh_options(name, sandbox.domain.cid)
-            run(
-                [
-                    self.settings.tools.scp,
-                    *options,
-                    "-q",
-                    "-r",
-                    f"root@sbx:{guest_path}",
-                    str(staged),
-                ]
-            )
+            argv = [self.settings.tools.scp, *options, "-q", "-r", f"root@sbx:{guest_path}"]
+            self._bounded_transfer([*argv, str(staged)], stage, budget)
             _strip_exec_bits(staged)
             self._check_disk()
-            shutil.move(staged, target)
+            publish(staged, target)
         finally:
             shutil.rmtree(stage, ignore_errors=True)
         return {"from": f"{name}:{guest_path}", "to": str(target)}
+
+    def _copy_budget(self) -> int:
+        """Return the bytes a copy out may write before it passes the cap or the floor."""
+        self.paths.root.mkdir(mode=0o700, parents=True, exist_ok=True)
+        stats = os.statvfs(self.paths.root)
+        free = stats.f_bavail * stats.f_frsize
+        budget = min(
+            self.settings.disk_cap_bytes - self._usage(), free - self.settings.min_free_bytes
+        )
+        if budget <= 0:
+            msg = "no room for a copy out under the disk cap and the free-space floor"
+            raise SbxError(msg, code="disk-full")
+        return budget
+
+    def _bounded_transfer(self, argv: Sequence[str], stage: Path, budget: int) -> None:
+        """Run scp with each file capped by RLIMIT_FSIZE and the stage by a watchdog."""
+
+        def limit() -> None:
+            resource.setrlimit(resource.RLIMIT_FSIZE, (budget, budget))
+
+        over = False
+        with (
+            tempfile.TemporaryFile() as errors,
+            subprocess.Popen(
+                argv,
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=errors,
+                preexec_fn=limit,  # noqa: PLW1509
+            ) as process,
+        ):
+            while True:
+                try:
+                    process.wait(WATCH_INTERVAL)
+                    break
+                except subprocess.TimeoutExpired:
+                    if _allocated(stage) > budget:
+                        over = True
+                        process.kill()
+            errors.seek(0)
+            detail = errors.read().decode(errors="replace").strip()
+        if over or process.returncode == -signal.SIGXFSZ:
+            msg = f"the copy passed its {budget >> 20}M budget under the disk cap and floor"
+            raise SbxError(msg, code="disk-full")
+        if process.returncode != 0:
+            msg = f"scp exited {process.returncode}: {detail}"
+            raise SbxError(msg, code="command-failed")
 
     def screenshot(self, name: str, *, ocr: bool) -> dict[str, object]:
         """Save the display under the sandbox's xfer directory, optionally with OCR text."""

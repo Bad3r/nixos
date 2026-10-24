@@ -10,6 +10,7 @@ from sbx import journal
 from sbx.core import (
     FLAVOURS,
     NETS,
+    TIMEOUT_EXIT,
     Backend,
     ExecResult,
     Paths,
@@ -119,20 +120,19 @@ def _request(sandboxes: Sandboxes, args: argparse.Namespace) -> Request:
     )
 
 
-TIMEOUT_EXIT = 124
-
-
 def _print_exec(result: ExecResult) -> int:
     sys.stdout.buffer.write(result.stdout)
     sys.stderr.buffer.write(result.stderr)
     if result.truncated:
         print("sbx: output truncated", file=sys.stderr)
-    return _exit_code(result)
-
-
-def _exit_code(result: ExecResult) -> int:
     if result.timed_out:
         print("sbx: the command timed out", file=sys.stderr)
+    return exit_code(result)
+
+
+def exit_code(result: ExecResult) -> int:
+    """Return the guest's exit status, 124 after a timeout, as in both output modes."""
+    if result.timed_out:
         return TIMEOUT_EXIT
     return 255 if result.exit_code is None else result.exit_code
 
@@ -159,7 +159,7 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
         copied_in = [sandboxes.copy(path, f"{name}:/root/") for path in args.inputs]
         if as_json:
             result = sandboxes.exec_capture(name, command, timeout=timeout, agent=False)
-            code = TIMEOUT_EXIT if result.timed_out else 0
+            code = exit_code(result)
         else:
             code = _attached(sandboxes.exec_attached(name, command, timeout=timeout))
             result = None
@@ -194,7 +194,7 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
                     args.name, command, timeout=timeout, agent=args.agent
                 )
                 if as_json:
-                    return result.as_json(), TIMEOUT_EXIT if result.timed_out else 0
+                    return result.as_json(), exit_code(result)
                 return None, _print_exec(result)
             return None, _attached(sandboxes.exec_attached(args.name, command, timeout=timeout))
         case "cp":

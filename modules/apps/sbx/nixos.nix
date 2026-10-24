@@ -126,6 +126,25 @@ let
       };
 
       config = lib.mkIf cfg.enable {
+        assertions = [
+          {
+            assertion = cfg.limits.ttl <= cfg.limits.maxTtl;
+            message = "programs.sbx.extended.limits.ttl exceeds limits.maxTtl";
+          }
+          {
+            assertion = cfg.sandbox.memory <= cfg.sandbox.maxMemory && cfg.sandbox.cpus <= cfg.sandbox.maxCpus;
+            message = "programs.sbx.extended.sandbox: a default exceeds its maximum";
+          }
+          {
+            assertion = cfg.sandbox.maxMemory <= cfg.limits.memory * 1024;
+            message = "programs.sbx.extended.sandbox.maxMemory (MiB) exceeds limits.memory (GiB)";
+          }
+          {
+            assertion = cfg.limits.memory < cfg.limits.sliceMemory;
+            message = "programs.sbx.extended.limits.memory must stay below sliceMemory, which also holds QEMU overhead";
+          }
+        ];
+
         programs.sbx.extended.finalPackage = cfg.package.override {
           qemu_kvm = libvirtCfg.qemuPackage;
           nix = config.nix.package;
