@@ -52,7 +52,7 @@ let
               description = ''
                 `workloads.names` entries whose `<name>` and `<name>.vm` the
                 network's resolver answers. A `none` network runs no resolver,
-                so it answers none of them.
+                so its list must stay empty.
               '';
             };
 
@@ -127,7 +127,13 @@ let
           lib.concatLists (
             lib.mapAttrsToList (
               networkName: network:
-              map (name: {
+              [
+                {
+                  assertion = network.egress != "none" || network.resolve == [ ];
+                  message = "workloads.networks.${networkName}.resolve: a none network runs no resolver";
+                }
+              ]
+              ++ map (name: {
                 assertion = cfg.names ? ${name};
                 message = "workloads.networks.${networkName}.resolve: ${name} is not a workloads.names entry";
               }) network.resolve
@@ -155,7 +161,7 @@ let
 
         programs.workloads.extended.enable = lib.mkIf (cfg.names != { }) (lib.mkOverride 1050 true);
 
-        environment.etc."workloads/names.json" = lib.mkIf (cfg.names != { }) {
+        environment.etc."workloads/names.json" = lib.mkIf config.programs.workloads.extended.enable {
           text = namesFile;
         };
       };

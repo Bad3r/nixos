@@ -47,7 +47,7 @@ workloads names --json
 
 Sandboxes come from `sbx list --json`.
 Without sbx on PATH, the command says so on stderr and reports `"sandboxes": null`; an sbx failure fails the command.
-The declared side comes from `/etc/workloads/names.json`, which the module writes while the app is on.
+The declared side comes from `/etc/workloads/names.json`, which ships with the app and lists nothing while no name is declared.
 
 ## Verify
 
@@ -79,4 +79,4 @@ Cause: sbx is not installed, which the stderr line states, or no sandbox runs.
 command -v sbx && sbx list
 ```
 
-Fix: turn on the sbx app row when sandboxes are wanted.
+Fix: turn on the `sbx` row in the host's `apps-enable.nix`; [sbx](../apps/sbx/README.md) covers the sandboxes themselves.

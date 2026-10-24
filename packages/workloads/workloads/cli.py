@@ -98,7 +98,7 @@ def load_names(path: Path) -> Record:
     try:
         declared: object = json.loads(path.read_text())
     except FileNotFoundError as error:
-        msg = f"{path} is missing; no workload declares a name on this host"
+        msg = f"{path} is missing; the workloads app module installs it with the command"
         raise WorkloadsError(msg, code="no-names") from error
     except ValueError as error:
         msg = f"{path} holds no valid JSON: {error}"

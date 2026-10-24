@@ -63,3 +63,8 @@ class NamesTest(unittest.TestCase):
         with self.assertRaises(WorkloadsError) as caught:
             names({"names": [], "networks": {}}, lambda: None)
         self.assertEqual(caught.exception.code, "names-file")
+
+    def test_empty_registry(self) -> None:
+        """A host without declared names lists nothing instead of failing."""
+        report = names({"names": {}, "networks": {}}, lambda: None)
+        self.assertEqual((report["names"], report["resolvers"]), ([], {}))
