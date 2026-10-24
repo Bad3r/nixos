@@ -141,6 +141,18 @@ in
               machine.succeed("rm /run/no-wake", "systemctl start workloads-vm-wake.service")
               assert states() == {"alpha": "running", "beta": "paused"}, states()
 
+          with subtest("a guest that vanishes before its clock sync does not stop the wake"):
+              machine.succeed("virsh create ${domain "delta" 4}")
+              since = journal_since()
+              machine.succeed("systemctl start systemd-suspend.service")
+              # alpha's agent wait comes first, so delta is gone before its sync.
+              machine.wait_until_succeeds(f"{since('-u workloads-vm-wake.service')} | grep -x 'resumed delta'")
+              machine.succeed("virsh destroy delta")
+              events = wait_for_wake(since)
+              assert f"Finished {wake_description}" in events, events
+              woken = machine.succeed(since("-u workloads-vm-wake.service"))
+              assert "warning: delta keeps a stale clock" in woken, woken
+
           with subtest("a failed save aborts hibernation and the guests saved before it come back"):
               # libvirt refuses to managed-save a transient domain.
               machine.succeed("virsh create ${domain "gamma" 3}")

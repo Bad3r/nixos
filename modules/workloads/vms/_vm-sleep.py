@@ -111,9 +111,9 @@ def resume(domains: list[libvirt.virDomain], failures: list[str]) -> list[libvir
     """Resume the guests that are still paused."""
     resumed: list[libvirt.virDomain] = []
     for domain in domains:
-        if domain.state()[0] != libvirt.VIR_DOMAIN_PAUSED:
-            continue
         try:
+            if domain.state()[0] != libvirt.VIR_DOMAIN_PAUSED:
+                continue
             domain.resume()
         except libvirt.libvirtError as error:
             fail(failures, f"{domain.name()} stays paused: {error}")
@@ -127,13 +127,13 @@ def restore(domains: list[libvirt.virDomain], failures: list[str]) -> list[libvi
     """Start the guests that are shut off with a managed save."""
     restored: list[libvirt.virDomain] = []
     for domain in domains:
-        # Active means its save failed or someone started it.
-        if domain.isActive():
-            continue
-        if not domain.hasManagedSaveImage():
-            fail(failures, f"{domain.name()} has no managed save, so it stays shut off")
-            continue
         try:
+            # Active means its save failed or someone started it.
+            if domain.isActive():
+                continue
+            if not domain.hasManagedSaveImage():
+                fail(failures, f"{domain.name()} has no managed save, so it stays shut off")
+                continue
             domain.create()
         except libvirt.libvirtError as error:
             fail(failures, f"{domain.name()} stays saved: {error}")
@@ -153,8 +153,12 @@ def sync_clocks(domains: list[libvirt.virDomain]) -> None:
     """Set each running guest's clock to the host's through its guest agent."""
     deadline = time.monotonic() + AGENT_WAIT
     for domain in domains:
-        # A guest saved while paused is restored paused.
-        if domain.state()[0] != libvirt.VIR_DOMAIN_RUNNING or not has_agent(domain):
+        try:
+            # A guest saved while paused is restored paused.
+            if domain.state()[0] != libvirt.VIR_DOMAIN_RUNNING or not has_agent(domain):
+                continue
+        except libvirt.libvirtError as error:
+            warn(f"{domain.name()} keeps a stale clock: {error}")
             continue
         while True:
             now = time.time_ns()
