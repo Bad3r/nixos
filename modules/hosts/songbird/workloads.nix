@@ -32,9 +32,7 @@ in
       };
     };
 
-    # Built by `nix build .#legacyPackages.x86_64-linux.workloads.nixos-dev --out-link /var/lib/workloads/images/nixos-dev`.
     images.nixos-dev = {
-      path = "/var/lib/workloads/images/nixos-dev/${nixosDevImage.passthru.filePath}";
       expected = "${nixosDevImage}/${nixosDevImage.passthru.filePath}";
     };
 
