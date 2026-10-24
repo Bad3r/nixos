@@ -84,7 +84,7 @@
             if !osConfig.gpu.nvidia.enable || metamode == "nvidia-auto-select" then
               null
             else if parsed == null then
-              throw "display-hotplug: gpu.nvidia.metamode '${metamode}' is not <width>x<height>_<rate>"
+              lib.warn "display-hotplug: gpu.nvidia.metamode '${metamode}' is not <width>x<height>_<rate>; using automatic resolution and refresh selection" null
             else
               parsed;
           # The NVIDIA driver discards every MetaMode when it reprobes while

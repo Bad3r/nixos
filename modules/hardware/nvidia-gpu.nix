@@ -69,8 +69,9 @@ let
             the highest advertised refresh rate at the preferred resolution on
             session startup and reconnect. If no preferred mode is advertised,
             it uses the largest advertised resolution. A pinned mode overrides
-            this selection. Other formats fail evaluation. Failed mode requests
-            are logged and fall back to RandR's preferred mode with `--auto`.
+            this selection. Other formats emit an evaluation warning and use
+            automatic selection. Failed mode requests are logged and fall back
+            to RandR's preferred mode with `--auto`.
 
             A pinned mode names an EDID the attached panel may not advertise.
             That does not cost a session: the driver discards MetaModes it
