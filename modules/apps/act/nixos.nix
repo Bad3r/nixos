@@ -1,12 +1,12 @@
 /*
   Package: act
-  Description: Run GitHub Actions locally using Docker containers.
+  Description: Run GitHub Actions locally in containers through the Docker API.
   Homepage: https://nektosact.com/
   Documentation: https://nektosact.com/usage/index.html
   Repository: https://github.com/nektos/act
 
   Summary:
-    * Executes GitHub Actions workflows locally with Docker-based runners.
+    * Executes GitHub Actions workflows locally in runner containers on any Docker API engine.
     * Supports platform image mapping, secret injection, and dry-run mode.
 
   Options:
@@ -14,7 +14,7 @@
     -n: Dry-run mode (skip execution).
     -j <job>: Run a specific job.
     -W <path>: Specify workflows directory.
-    -P <platform>=<image>: Map a platform to a Docker image.
+    -P <platform>=<image>: Map a platform to a container image.
 
   Notes:
     * Installs a wrapper that auto-injects --secret-file /etc/act/secrets.env when the file exists.

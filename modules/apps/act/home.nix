@@ -13,8 +13,9 @@ _: {
           -P ubuntu-20.04=ghcr.io/catthehacker/ubuntu:act-20.04
           -P ubuntu-18.04=ghcr.io/catthehacker/ubuntu:act-18.04
 
-          # Persist Nix store across runs via named Docker volume
-          --container-options -v --container-options nix-store:/nix
+          # Named volume keeps /nix across runs; act splits a line once, so -v shares the value.
+          --container-options -v nix-store:/nix
+          --container-daemon-socket -
         '';
       };
     };
