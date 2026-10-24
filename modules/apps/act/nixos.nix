@@ -17,8 +17,8 @@
     -P <platform>=<image>: Map a platform to a container image.
 
   Notes:
-    * Installs a wrapper that passes the gh CLI's token as the GITHUB_TOKEN secret and fails when gh is logged out.
-    * The wrapper passes through untouched when the caller sets GITHUB_TOKEN with -s/--secret or passes --secret-file.
+    * act takes GITHUB_TOKEN from `gh auth token` but silently runs without one; the wrapper fails instead when gh has no token.
+    * The wrapper skips the check when the caller sets GITHUB_TOKEN with -s/--secret or passes --secret-file.
 */
 _:
 let
@@ -44,20 +44,18 @@ let
               -s | --secret) name="--SECRET=$name" ;;
             esac
             case "$name" in
-              --SECRET-FILE | --SECRET-FILE=* | --SECRET=GITHUB_TOKEN | --SECRET=GITHUB_TOKEN=* | -SGITHUB_TOKEN | -SGITHUB_TOKEN=*)
+              --SECRET-FILE | --SECRET-FILE=* | --SECRET=GITHUB_TOKEN | --SECRET=GITHUB_TOKEN=* | -SGITHUB_TOKEN | -SGITHUB_TOKEN=* | -S=GITHUB_TOKEN | -S=GITHUB_TOKEN=*)
                 exec ${act} "$@"
                 ;;
             esac
             prev="$arg"
           done
 
-          if ! token="$(${lib.getExe pkgs.gh} auth token)" || [ -z "$token" ]; then
+          if ! gh auth token >/dev/null; then
             echo "act: no GitHub token from 'gh auth token'; run 'gh auth login', or pass -s GITHUB_TOKEN or --secret-file" >&2
             exit 1
           fi
-          # -s without a value makes act read the secret from the environment, keeping it out of argv.
-          export GITHUB_TOKEN="$token"
-          exec ${act} -s GITHUB_TOKEN "$@"
+          exec ${act} "$@"
         '';
       };
     in
