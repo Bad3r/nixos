@@ -134,7 +134,10 @@ let
       };
 
       config = {
-        workloads.names = guestNames // serviceNames;
+        workloads.names = lib.mkMerge [
+          guestNames
+          serviceNames
+        ];
 
         assertions =
           lib.concatLists (
