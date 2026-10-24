@@ -399,6 +399,8 @@
   - Declared guests: trust classes, how the reconciler defines them, disks and NVRAM, growth, removal, orphans, and failures.
 - [apps/libvirt/nixos-guests.md](apps/libvirt/nixos-guests.md)
   - NixOS guest configurations: the guest base, adding a guest, seeding its disk from an image, host key pinning, and deploys over SSH.
+- [apps/libvirt/sleep.md](apps/libvirt/sleep.md)
+  - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, and failures.
 
 ### mpv
 

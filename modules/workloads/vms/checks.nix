@@ -21,6 +21,7 @@ in
         alpha = "00000000-0000-4000-8000-00000000000a";
         gamma = "00000000-0000-4000-8000-00000000000c";
         delta = "00000000-0000-4000-8000-00000000000d";
+        zeta = "00000000-0000-4000-8000-00000000000f";
         adhoc = "00000000-0000-4000-8000-0000000000ad";
         sbx = "00000000-0000-4000-8000-0000000000bb";
       };
@@ -86,7 +87,17 @@ in
         interfaces.eth.network = "lab";
         interfaces.eth.hostOffset = 12;
       };
+      zeta = guest {
+        uuid = uuids.zeta;
+        disks.root = {
+          size = 1;
+          seed = "late";
+        };
+      };
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
+      seedLink = "/var/lib/workloads/images/seed.qcow2";
+      lateLink = "/var/lib/workloads/images/late.qcow2";
+      oldLink = "/var/lib/workloads/images/old.qcow2";
 
       stateDir = name: "/var/lib/workloads/guests/${uuids.${name}}";
 
@@ -264,8 +275,7 @@ in
                 linger = true;
               };
 
-              systemd.tmpfiles.settings.workloads-vms-test."/var/lib/workloads/images/seed.qcow2"."L+".argument =
-                "${seedImage}";
+              systemd.tmpfiles.settings.workloads-vms-test.${seedLink}."L+".argument = "${seedImage}";
 
               workloads = {
                 networks = {
@@ -311,12 +321,17 @@ in
                 };
 
                 images.seed = {
-                  path = "/var/lib/workloads/images/seed.qcow2";
+                  outLink = seedLink;
+                  expected = "${seedImage}";
+                };
+                # The test script links it, standing in for a late `nix build`.
+                images.late = {
+                  outLink = lateLink;
                   expected = "${seedImage}";
                 };
 
                 # Specialisations replace the whole set.
-                guests = lib.mkDefault { inherit alpha gamma; };
+                guests = lib.mkDefault { inherit alpha gamma zeta; };
               };
 
               specialisation = {
@@ -362,6 +377,9 @@ in
 
             def journal(unit):
                 return machine.succeed(f"journalctl -b -o cat -u {unit}")
+
+            def warnings(unit):
+                return machine.succeed(f"journalctl -b -o cat -p warning -u {unit}")
 
             # The scenarios restart one unit faster than its start limit allows.
             def restart(unit):
@@ -412,6 +430,34 @@ in
                 )
                 lab = machine.succeed("virsh net-dumpxml lab")
                 assert "ip='172.16.5.10'" in lab and "ip='172.16.5.11'" in lab, lab
+
+            with subtest("a seeded guest stays undefined until its image is built"):
+                zeta_unit = "workloads-vm-guest-zeta.service"
+                zeta_disk = "${stateDir "zeta"}/root.qcow2"
+                machine.wait_for_unit(zeta_unit)
+                assert machine.succeed(f"systemctl show -P SubState {zeta_unit}").strip() == "exited"
+                assert "${lateLink} is missing; build it" in warnings(zeta_unit)
+                machine.fail("virsh dominfo zeta")
+                machine.fail("test -e ${stateDir "zeta"}")
+                assert "zeta" not in journal("workloads-vm-orphans.service")
+                machine.succeed("ln -s ${oldLink} ${lateLink}")
+                machine.succeed(restart(zeta_unit))
+                assert "${lateLink} is stale: it points at ${oldLink}" in warnings(zeta_unit)
+                machine.fail("virsh dominfo zeta")
+                machine.succeed("ln -sfn ${seedImage} ${lateLink}")
+                machine.succeed(restart(zeta_unit))
+                assert state("zeta") == "shut off"
+                machine.succeed(f"test -f {zeta_disk}")
+                # An existing disk never reads its seed.
+                machine.succeed("ln -sfn ${oldLink} ${lateLink}")
+                machine.succeed(restart(zeta_unit))
+                # A defined guest that lost its NVRAM and disk fails instead of waiting.
+                machine.succeed(f"mv {zeta_disk} {zeta_disk}.moved; rm ${stateDir "zeta"}/nvram.fd")
+                machine.fail(restart(zeta_unit))
+                assert "is defined, but its disk waits" in journal(zeta_unit)
+                machine.succeed("virsh dominfo zeta")
+                machine.succeed(f"mv {zeta_disk}.moved {zeta_disk}")
+                machine.succeed(restart(zeta_unit))
 
             with subtest("the host and the network's resolver answer declared names"):
                 assert machine.succeed("getent hosts gamma.vm").split() == ["172.16.5.11", "gamma", "gamma.vm"]
