@@ -22,8 +22,17 @@ let
         "127.0.2.2"
         "127.0.2.3"
       ]
+      + lib.concatStrings (
+        lib.mapAttrsToList (
+          ip: names:
+          "\n    <host ip=\"${ip}\">"
+          + lib.concatMapStrings (hostname: "<hostname>${hostname}</hostname>") names
+          + "</host>"
+        ) network.dnsHosts
+      )
       + "\n  </dns>";
-  # no-hosts keeps the host's /etc/hosts, Mesh names included, from guests.
+  # no-hosts keeps the host's /etc/hosts, Mesh names included, from guests;
+  # local=/vm/ answers unknown .vm names instead of forwarding them.
 in
 ''
   <network xmlns:dnsmasq="http://libvirt.org/schemas/network/dnsmasq/1.0">
@@ -47,6 +56,7 @@ in
     </ip>
     <dnsmasq:options>
       <dnsmasq:option value="no-hosts"/>
+      ${lib.optionalString (network.egress != "none") ''<dnsmasq:option value="local=/vm/"/>''}
     </dnsmasq:options>
   </network>
 ''
