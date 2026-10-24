@@ -12,7 +12,6 @@ All system modules feed into `flake.nixosModules`, so hosts compose features by 
 flake.nixosModules = {
   base = { ... };                    # Core system settings
   "tpnix-support" = { ... };         # Hardware support
-  "hardware-lenovo-y27q-20" = { ... }; # Monitor profile
   apps = {
     steam = { ... };
     # ...
@@ -83,12 +82,11 @@ in
 
 ## Shared System Helpers
 
-| Module                                         | Export                                         | Scope           | Purpose                     |
-| ---------------------------------------------- | ---------------------------------------------- | --------------- | --------------------------- |
-| `modules/hosts/tpnix/support.nix`              | `flake.nixosModules."tpnix-support"`           | tpnix only      | Empty hardware-support hook |
-| `modules/hardware/monitors/lenovo-y27q-20.nix` | `flake.nixosModules."hardware-lenovo-y27q-20"` | shared (opt-in) | Monitor profile             |
-| `modules/hosts/common/windows-guest.nix`       | `host.virtualization.windowsGuest.*` options   | shared          | Windows guest               |
-| `modules/hosts/<host>/policy.nix`              | `flake.lib.nixos.hosts.<host>.*` data          | per host        | Gates and common values     |
+| Module                                   | Export                                       | Scope      | Purpose                     |
+| ---------------------------------------- | -------------------------------------------- | ---------- | --------------------------- |
+| `modules/hosts/tpnix/support.nix`        | `flake.nixosModules."tpnix-support"`         | tpnix only | Empty hardware-support hook |
+| `modules/hosts/common/windows-guest.nix` | `host.virtualization.windowsGuest.*` options | shared     | Windows guest               |
+| `modules/hosts/<host>/policy.nix`        | `flake.lib.nixos.hosts.<host>.*` data        | per host   | Gates and common values     |
 
 `host.virtualization.windowsGuest.*` turns the `qemu` row and `qemu.extended.enableLibvirt` on as [prerequisites](../guides/apps-module-registry.md#prerequisites).
 A host's `policy.nix` carries its readiness gates and the values common modules read.
