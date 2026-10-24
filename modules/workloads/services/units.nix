@@ -24,6 +24,15 @@ let
       containerName = name: "svc-${name}";
       networkUnit = name: "workloads-podman-net-${name}";
 
+      # warp-svc's local resolvers; aardvark-dns would otherwise follow
+      # /etc/resolv.conf and answer outside WARP while the tunnel is down.
+      dnsServers =
+        network:
+        lib.optionals (network.egress == "warp") [
+          "127.0.2.2"
+          "127.0.2.3"
+        ];
+
       specHash =
         network:
         builtins.hashString "sha256" (
@@ -35,6 +44,7 @@ let
               mtu
               ;
             dns = network.egress != "none";
+            dnsServers = dnsServers network;
           }
         );
 
@@ -42,48 +52,70 @@ let
         service:
         "${lib.removeSuffix ".0/24" networks.${service.network}.subnet}.${toString service.address}";
 
+      ensureNetwork =
+        name: network:
+        pkgs.writeShellScript "workloads-podman-net-${name}" ''
+          set -euo pipefail
+          export PATH=${
+            lib.makeBinPath [
+              config.virtualisation.podman.package
+              pkgs.iproute2
+              pkgs.util-linux
+            ]
+          }
+          # Network units and container starts run this concurrently.
+          exec 9>/run/lock/workloads-podman-net-${name}.lock
+          flock 9
+          if podman network exists ${name}; then
+            spec=$(podman network inspect --format '{{index .Labels "${ownerLabel}"}}' ${name})
+            if [ -z "$spec" ]; then
+              echo "Podman network ${name} exists without the ${ownerLabel} label; remove or rename it" >&2
+              exit 1
+            fi
+            if [ "$spec" = ${specHash network} ]; then
+              exit 0
+            fi
+            # Fails while a container is attached.
+            podman network rm ${name}
+          elif ip link show dev ${network.bridge} >/dev/null 2>&1; then
+            # netavark would adopt the bridge and skip its route_localnet setup.
+            echo "${network.bridge} exists but no labelled Podman network owns it; remove it first" >&2
+            exit 1
+          fi
+          podman network create ${
+            lib.escapeShellArgs (
+              [
+                "--label=${ownerLabel}=${specHash network}"
+                "--interface-name=${network.bridge}"
+                "--subnet=${network.subnet}"
+                "--gateway=${network.gateway}"
+                "--opt=mtu=${toString network.mtu}"
+              ]
+              ++ map (server: "--dns=${server}") (dnsServers network)
+              ++ lib.optional (network.egress == "none") "--disable-dns"
+              ++ [ name ]
+            )
+          }
+        '';
+
       networkService = name: network: {
         name = networkUnit name;
         value = {
           description = "Create the ${name} workload network in rootful Podman";
           # The workload table and egress rules have to fence the bridge from its first packet.
-          requires = [ "nftables.service" ];
+          requires = [
+            "nftables.service"
+            "workload-egress.service"
+          ];
           after = [
             "nftables.service"
             "workload-egress.service"
           ];
-          path = [ config.virtualisation.podman.package ];
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
+            ExecStart = ensureNetwork name network;
           };
-          script = ''
-            if podman network exists ${name}; then
-              spec=$(podman network inspect --format '{{index .Labels "${ownerLabel}"}}' ${name})
-              if [ -z "$spec" ]; then
-                echo "Podman network ${name} exists without the ${ownerLabel} label; remove or rename it" >&2
-                exit 1
-              fi
-              if [ "$spec" = ${specHash network} ]; then
-                exit 0
-              fi
-              # Fails while a container is attached.
-              podman network rm ${name}
-            fi
-            podman network create ${
-              lib.escapeShellArgs (
-                [
-                  "--label=${ownerLabel}=${specHash network}"
-                  "--interface-name=${network.bridge}"
-                  "--subnet=${network.subnet}"
-                  "--gateway=${network.gateway}"
-                  "--opt=mtu=${toString network.mtu}"
-                ]
-                ++ lib.optional (network.egress == "none") "--disable-dns"
-                ++ [ name ]
-              )
-            }
-          '';
         };
       };
 
@@ -96,6 +128,8 @@ let
           extraOptions = [
             "--userns=auto"
             "--ip=${addressOf service}"
+            # The host's /etc/hosts carries Mesh names.
+            "--hosts-file=none"
           ]
           # Otherwise Podman copies the host's loopback resolvers and appends public ones.
           ++ lib.optional (networks.${service.network}.egress == "none") "--dns=none";
@@ -106,6 +140,7 @@ let
         name: service:
         let
           unit = "${networkUnit service.network}.service";
+          network = networks.${service.network};
         in
         {
           name = config.virtualisation.oci-containers.containers.${containerName name}.serviceName;
@@ -113,7 +148,9 @@ let
             requires = [ unit ];
             after = [ unit ];
             # Stops the container in the same switch that recreates its network.
-            restartTriggers = [ (specHash networks.${service.network}) ];
+            restartTriggers = [ (specHash network) ];
+            # The network unit never re-checks after its first run.
+            serviceConfig.ExecStartPre = lib.mkBefore [ (ensureNetwork service.network network) ];
           };
         };
 
@@ -136,7 +173,7 @@ let
 
         (lib.mkIf (podmanNetworks != { }) {
           assertions = lib.mapAttrsToList (name: network: {
-            assertion = !network.libvirt.enable;
+            assertion = !(lib.attrByPath [ "libvirt" "enable" ] false network);
             message = "workloads.networks.${name}: libvirt and podman cannot both own bridge ${network.bridge}";
           }) podmanNetworks;
 

@@ -24,9 +24,7 @@ in
             imports = [
               nixosModules."workloads-networks"
               nixosModules."workloads-services"
-              nixosModules."workloads-vms"
               (getApp "podman")
-              (getApp "libvirt")
               (getApp "docker-compose")
             ];
 
@@ -45,7 +43,12 @@ in
               };
 
               networking.nftables.enable = true;
+              networking.hosts."10.9.9.9" = [ "mesh-marker.internal" ];
               virtualisation.memorySize = 1536;
+              systemd.tmpfiles.rules = [ "d /var/lib/workloads-test 0755 root root -" ];
+
+              # A spec change: none turns DNS off and drops the MTU to 1500.
+              specialisation.none.configuration.workloads.networks.test.egress = "none";
 
               workloads.networks.test = {
                 id = 5;
@@ -75,6 +78,7 @@ in
                 };
                 network = "test";
                 address = 10;
+                volumes = [ "/var/lib/workloads-test:/data:idmap" ];
                 ports = [
                   {
                     host = 8080;
@@ -87,6 +91,11 @@ in
           };
 
         testScript = ''
+          def label():
+              return machine.succeed(
+                  "podman network inspect --format '{{.ID}} {{index .Labels \"io.github.bad3r.nixos.workloads\"}}' test"
+              ).split()
+
           machine.wait_for_unit("podman-svc-web.service")
 
           machine.succeed("ip -4 -o addr show dev vn-test | grep -F 'inet 172.16.5.1/24'")
@@ -97,27 +106,58 @@ in
           assert address == "172.16.5.10", address
 
           machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ | grep -Fx workloads-ok")
-          machine.fail("nft list tables | grep -F netavark")
+          tables = machine.succeed("nft list tables")
+          assert "netavark" not in tables, tables
 
-          with subtest("aardvark-dns on the gateway is the only resolver"):
+          with subtest("aardvark-dns on the gateway is the only resolver and forwards to WARP"):
               resolv = machine.succeed("podman exec svc-web cat /etc/resolv.conf")
               servers = [line.split()[1] for line in resolv.splitlines() if line.startswith("nameserver")]
               assert servers == ["172.16.5.1"], resolv
               machine.succeed("podman exec svc-web nslookup svc-web 172.16.5.1 | grep -F 172.16.5.10")
+              upstream = machine.succeed("podman network inspect --format '{{.NetworkDNSServers}}' test").strip()
+              assert upstream == "[127.0.2.2 127.0.2.3]", upstream
 
-          with subtest("container root is not host root"):
+          with subtest("the host's /etc/hosts stays out"):
+              hosts = machine.succeed("podman exec svc-web cat /etc/hosts")
+              assert "mesh-marker" not in hosts, hosts
+
+          with subtest("container root is not host root, and idmap maps it back"):
               uid_map = machine.succeed("podman exec svc-web cat /proc/self/uid_map").split()
               assert uid_map[0] == "0" and int(uid_map[1]) >= 1879048192, uid_map
+              machine.succeed("podman exec svc-web touch /data/probe")
+              owner = machine.succeed("stat -c %u /var/lib/workloads-test/probe").strip()
+              assert owner == "0", owner
 
           with subtest("an unchanged network is kept"):
-              network_id = machine.succeed("podman network inspect --format '{{.ID}}' test")
+              before = label()
               machine.succeed("systemctl restart workloads-podman-net-test.service")
-              assert machine.succeed("podman network inspect --format '{{.ID}}' test") == network_id
+              machine.wait_for_unit("podman-svc-web.service")
+              assert label() == before
+
+          with subtest("a removed network returns on the next container start"):
+              machine.succeed("systemctl stop podman-svc-web.service")
+              machine.succeed("podman network rm test")
+              machine.succeed("systemctl start podman-svc-web.service")
+              machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ | grep -Fx workloads-ok")
+
+          with subtest("a spec change recreates the network"):
+              before = label()
+              machine.succeed("/run/current-system/specialisation/none/bin/switch-to-configuration test")
+              machine.wait_for_unit("podman-svc-web.service")
+              after = label()
+              assert after[0] != before[0] and after[1] != before[1], (before, after)
+              machine.wait_until_succeeds("ip -o link show dev vn-test | grep -F 'mtu 1500'")
+              machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ | grep -Fx workloads-ok")
 
           with subtest("an unlabelled network of a declared name is refused"):
               machine.succeed("systemctl stop podman-svc-web.service")
               machine.succeed("podman network rm test && podman network create test")
               machine.fail("systemctl restart workloads-podman-net-test.service")
+              machine.succeed(
+                  "journalctl -u workloads-podman-net-test.service"
+                  " | grep -F 'Podman network test exists without the io.github.bad3r.nixos.workloads label'"
+              )
+              assert label()[1:] == [], label()
         '';
       };
     };

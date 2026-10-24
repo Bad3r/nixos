@@ -18,7 +18,7 @@ _: {
       network = "<network>";
       address = <host part>;
       ports = [ { host = <port>; container = <port>; } ];
-      volumes = [ "/var/lib/<name>:/data:U" ];
+      volumes = [ "/var/lib/<name>:/data:idmap" ];
       autostart = true;
     };
   };
@@ -26,7 +26,8 @@ _: {
 ```
 
 - `address` fixes the container's address inside the network's subnet; two services on one network need different values.
-- `ports` publish on the host's `127.0.0.1` only; the host reaches the container's own address directly as well.
+- `ports` publish on the host's `127.0.0.1` only, IPv4 without `::1`; the host reaches the container's own address directly as well.
+- A published port shadows any host listener on `127.0.0.1` with the same port, without an error.
 - `imageFile` loads a Nix-built archive, such as a `dockerTools.buildImage` result, before each start.
 - Without `autostart`, the container runs only after `sudo systemctl start podman-svc-<name>.service`.
 - Settings without an option, such as `cmd`, `environment`, or `environmentFiles`, go on `virtualisation.oci-containers.containers.svc-<name>` in the same host module.
@@ -38,7 +39,8 @@ The rootful API socket stays off, so the owner reaches these containers only thr
 
 Every service runs with `--userns=auto`, so root in the container is an unprivileged id on the host.
 Podman draws the ids from the subordinate ranges of the `containers` system user, a block clear of systemd's container ranges and the owner's own range.
-A host directory mounted read-write needs the `:U` volume option, which chowns it to the container's ids, or `:idmap`, which maps them without a chown.
+A host directory mounted read-write needs the `:idmap` volume option, which maps the container's ids back to the directory's owners without a chown.
+`:U` works too, but chowns the whole tree again whenever a start draws a different id range, since `--userns=auto` allocates one per container.
 
 ## Networks in Podman
 
@@ -47,10 +49,13 @@ The network carries a label holding a hash of that spec, which also marks it as 
 
 - an owned network whose hash matches is kept;
 - an owned network whose hash differs is removed and created again, and a switch stops its containers first;
-- a network of the same name without the label stops the unit with an error and is left alone.
+- a network of the same name without the label stops the unit with an error and is left alone;
+- a `vn-<network>` interface that no labelled network owns, such as a libvirt bridge, also stops the unit.
 
+Every container start runs the same check, so a network removed by hand returns with its next start.
+To move a network from libvirt to Podman, undefine the libvirt network first with `sudo virsh net-destroy <network>` and `sudo virsh net-undefine <network>`.
 A network removed from the configuration stays defined in Podman until `sudo podman network rm <network>`.
-The unit runs after `nftables.service` and `workload-egress.service` and requires the former, so a container never runs on a bridge the workload table does not fence.
+The unit requires `nftables.service` and `workload-egress.service` and runs after both, so a container never runs on a bridge the workload table and egress rules do not fence.
 
 ## Firewall ownership
 
@@ -64,9 +69,10 @@ A masquerade rule rewrites the loopback source to the gateway, and netavark sets
 
 ## DNS
 
-On a `warp` network, aardvark-dns answers on the gateway, resolves the names of containers on the same network, and forwards the rest to the host's resolvers.
+On a `warp` network, aardvark-dns answers on the gateway, resolves the names of containers on the same network, and forwards the rest to WARP's local resolvers only, so lookups fail while WARP is down.
 The gateway is the container's only nameserver, so Podman appends no public fallback servers.
 A `none` network has DNS turned off, and Podman writes no `/etc/resolv.conf` into its containers; an image's own file stays unchanged.
+Containers start from an empty hosts file instead of the host's `/etc/hosts`, which carries Mesh names.
 
 ## Verify
 
