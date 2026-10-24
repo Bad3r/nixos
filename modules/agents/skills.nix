@@ -2,10 +2,9 @@
 let
   reservedPublicSkillNames = [ "list" ];
 
-  validClients = [
-    "claude"
-    "codex"
-  ];
+  registry = import ./_registry.nix { inherit lib; };
+  inherit (registry) validClients;
+  validateAllowedFields = registry.validateAllowedFields "skill";
 
   rawSkills = config.flake.lib.agents._internal.skills.raw;
 
@@ -45,16 +44,6 @@ let
       value
     else
       throw "Agent skill '${skillName}' requires non-empty string field '${field}'";
-
-  validateAllowedFields =
-    context: allowedFields: attrs:
-    let
-      extraFields = lib.filter (field: !(lib.elem field allowedFields)) (lib.attrNames attrs);
-    in
-    if extraFields == [ ] then
-      attrs
-    else
-      throw "Agent skill ${context} has unknown fields: ${lib.concatStringsSep ", " extraFields}";
 
   validateOpenaiInterface =
     skillName: interface:

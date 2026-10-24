@@ -7,22 +7,11 @@
 # permissionDecision the hook prints (no output counts as allow).
 { config, lib, ... }:
 let
-  validClients = [
-    "claude"
-    "codex"
-  ];
+  registry = import ./_registry.nix { inherit lib; };
+  inherit (registry) validClients;
+  validateAllowedFields = registry.validateAllowedFields "hook";
 
   rawHooks = config.flake.lib.agents._internal.hooks.raw;
-
-  validateAllowedFields =
-    context: allowedFields: attrs:
-    let
-      extraFields = lib.filter (field: !(lib.elem field allowedFields)) (lib.attrNames attrs);
-    in
-    if extraFields == [ ] then
-      attrs
-    else
-      throw "Agent hook ${context} has unknown fields: ${lib.concatStringsSep ", " extraFields}";
 
   validateHookSpec =
     registryKey: spec:
@@ -45,19 +34,49 @@ let
       throw "Agent hook '${registryKey}' requires non-empty string field 'event'"
     else if !(builtins.isFunction (validatedSpec.package or null)) then
       throw "Agent hook '${registryKey}' requires 'package' as a function of pkgs"
+    else if
+      validatedSpec ? timeout && !(builtins.isInt validatedSpec.timeout && validatedSpec.timeout > 0)
+    then
+      throw "Agent hook '${registryKey}' field 'timeout' must be a positive integer (seconds)"
     else if presentClients == [ ] then
       throw "Agent hook '${registryKey}' must declare at least one client block: ${lib.concatStringsSep ", " validClients}"
     else
       validatedSpec
       // lib.genAttrs presentClients (
-        client: validateAllowedFields "'${registryKey}'.${client}" [ "matcher" ] validatedSpec.${client}
+        client: validateClientBlock registryKey client validatedSpec.${client}
       )
       // lib.optionalAttrs (validatedSpec ? tests) {
-        tests = validateAllowedFields "'${registryKey}'.tests" [
-          "deny"
-          "allow"
-        ] validatedSpec.tests;
+        tests = validateTests registryKey validatedSpec.tests;
       };
+
+  validateClientBlock =
+    registryKey: client: block:
+    let
+      context = "'${registryKey}'.${client}";
+    in
+    if !builtins.isAttrs block then
+      throw "Agent hook ${context} must be an attribute set"
+    else if block ? matcher && !(builtins.isString block.matcher && block.matcher != "") then
+      throw "Agent hook ${context}.matcher must be a non-empty string"
+    else
+      validateAllowedFields context [ "matcher" ] block;
+
+  validateTests =
+    registryKey: tests:
+    let
+      context = "'${registryKey}'.tests";
+      validated = validateAllowedFields context [
+        "deny"
+        "allow"
+      ] tests;
+      badKinds = lib.filter (
+        kind: !(builtins.isList validated.${kind} && lib.all builtins.isAttrs validated.${kind})
+      ) (lib.attrNames validated);
+    in
+    if badKinds != [ ] then
+      throw "Agent hook ${context}.${lib.concatStringsSep ", " badKinds} must be a list of payload attribute sets"
+    else
+      validated;
 
   compiledHooks = lib.mapAttrs validateHookSpec rawHooks;
 
