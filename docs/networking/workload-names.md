@@ -1,0 +1,79 @@
+# Workload names
+
+[names.nix](../../modules/workloads/sharing/names.nix) gives declared workloads names on the host and inside [workload networks](workloads.md).
+`workloads.names.<name>` holds each object's address, kind, and network; every present guest with an interface adds itself.
+
+## Host names
+
+The host resolves every `workloads.names` entry as `<name>` and `<name>.vm` through `networking.hosts`.
+A guest on several networks takes the address of its first interface in name order.
+
+```sh
+getent hosts <name>.vm
+ssh <user>@<name>.vm
+```
+
+## Names inside a network
+
+The gateway's resolver answers `host.vm` with the gateway address.
+A network's `resolve` list adds declared names, each as `<name>` and `<name>.vm`:
+
+```nix
+_: {
+  configurations.nixos.<host>.module.workloads.networks.<network>.resolve = [ "<name>" ];
+}
+```
+
+- A `resolve` entry that is not a `workloads.names` key fails evaluation.
+- The resolver answers unknown `.vm` names with NXDOMAIN and never forwards them.
+- A `none` network runs no resolver, so its guests resolve no names, `host.vm` included.
+- A name resolves; reaching it still takes a port the firewall opens.
+
+A switch adds and drops the records of a running network in place, so attached guests keep their links.
+Other changes to a running network's resolver wait for a network restart, which the `workloads-vm-net-<network>` journal names.
+
+## List names
+
+The `workloads` app turns on while any name is declared.
+`workloads names` lists declared names, the records each network's resolver serves, and live sandboxes:
+
+```sh
+workloads names
+workloads names --json
+```
+
+Sandboxes come from `sbx list --json`.
+Without sbx on PATH, the command says so on stderr and reports `"sandboxes": null`; an sbx failure fails the command.
+The declared side comes from `/etc/workloads/names.json`, which the module writes while the app is on.
+
+## Verify
+
+Run as the owner on the host, with a gateway address from `workloads names`:
+
+```sh
+getent hosts <name>.vm
+dig +short @<gateway> host.vm
+dig +short @<gateway> <name>.vm
+virsh -r -c qemu:///system net-dumpxml <network> | grep -A2 '<host ip'
+```
+
+## A guest cannot resolve host.vm
+
+Cause: the network's egress is `none`, or the guest asks a resolver other than its gateway.
+
+```sh
+dig +short @<gateway> host.vm
+```
+
+Fix: an answer here means the guest's resolver is wrong; point it at the gateway, which DHCP hands out.
+No answer on a `warp` network means the network is inactive; `sudo systemctl restart workloads-vm-net-<network>.service` starts an autostart network.
+
+## workloads names lists no sandboxes
+
+Cause: sbx is not installed, which the stderr line states, or no sandbox runs.
+
+```sh
+command -v sbx && sbx list
+```
+
+Fix: turn on the sbx app row when sandboxes are wanted.
