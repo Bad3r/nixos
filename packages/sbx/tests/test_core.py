@@ -1,0 +1,548 @@
+# Copyright (c) 2026 Bad3r
+"""Policy and lifecycle checks of sbx against a fake backend and stub tools."""
+
+import dataclasses
+import os
+import tempfile
+import unittest
+import xml.etree.ElementTree as ET
+from pathlib import Path
+from typing import Any, cast
+from unittest import mock
+
+from sbx import cli, core
+from sbx.core import NS, DomainInfo, Meta, Paths, Sandboxes, SbxError, Settings, Tools
+
+NOW = 1_800_000_000
+
+STUBS = {
+    "ssh-keygen": 'for k; do :; done; echo key > "$k"; echo "ssh-ed25519 AAAA sbx" > "$k.pub"',
+    "nix-store": 'ln -s "$4" "$2"',
+    "qemu-img": (
+        'if [ "$1" = info ]; then echo \'{"virtual-size": 1073741824}\'; '
+        'else eval "disk=\\${$(($# - 1))}"; touch "$disk"; fi'
+    ),
+    "ssh": 'exit "${SBX_TEST_SSH_EXIT:-0}"',
+    "scp": (
+        'printf "%s\\n" "$@" > "$SBX_TEST_LOG"; for t; do :; done; '
+        'case "$t" in root@*) exit 0;; esac; '
+        'if [ -n "$SBX_TEST_BIG" ]; then exec head -c "$SBX_TEST_BIG" /dev/zero > "$t"; fi; '
+        'if [ -n "$SBX_TEST_MANY" ]; then mkdir "$t"; for i in 1 2 3 4 5 6; do '
+        'head -c "$SBX_TEST_MANY" /dev/urandom > "$t/$i"; sleep 0.4; done; '
+        'touch "$SBX_TEST_DONE"; exit 0; fi; '
+        'echo out > "$t"; chmod 755 "$t"'
+    ),
+    "ss": 'cat "$SBX_TEST_SS" 2>/dev/null || true',
+    "git": "exit 1",
+    "other": "exit 0",
+}
+
+
+class FakeBackend:
+    """Session domains held in memory."""
+
+    def __init__(self) -> None:
+        """Start empty."""
+        self.domains_by_name: dict[str, DomainInfo] = {}
+        self.xml: dict[str, str] = {}
+        self.replies: list[dict[str, Any]] = []
+
+    def domains(self) -> list[DomainInfo]:
+        """List the fake domains."""
+        return list(self.domains_by_name.values())
+
+    def add(self, name: str, *, expires: int, active: bool = True, **kwargs: Any) -> None:  # noqa: ANN401
+        """Insert a domain as if sbx had created it."""
+        meta = Meta(
+            "nixos", "/nix/store/x/sbx.qcow2", "none", NOW - 60, expires, kwargs.get("session")
+        )
+        self.domains_by_name[f"sbx-{name}"] = DomainInfo(
+            name=f"sbx-{name}",
+            state="running" if active else "shutoff",
+            active=active,
+            memory_mib=kwargs.get("memory", 2048),
+            cpus=2,
+            cid=3 if active else None,
+            meta=meta,
+            managed_save=kwargs.get("managed_save", False),
+        )
+
+    def start(self, xml: str) -> None:
+        """Record the XML and treat the domain as running."""
+        root = ET.fromstring(xml)  # noqa: S314
+        name = root.findtext("name", "")
+        element = root.find(f"metadata/{{{NS}}}sandbox")
+        if element is None:
+            raise AssertionError
+        self.xml[name] = xml
+        self.domains_by_name[name] = DomainInfo(
+            name=name,
+            state="running",
+            active=True,
+            memory_mib=int(root.findtext("memory", "0")),
+            cpus=2,
+            cid=3,
+            meta=Meta.parse(element),
+            managed_save=False,
+        )
+
+    def remove(self, domain: str) -> None:
+        """Forget a domain."""
+        del self.domains_by_name[domain]
+
+    def agent(self, domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:  # noqa: ARG002
+        """Answer guest-ping, then the queued replies."""
+        if command["execute"] == "guest-ping":
+            return {"return": {}}
+        return self.replies.pop(0)
+
+    def screenshot(self, domain: str, target: Path) -> str:  # noqa: ARG002
+        """Write a placeholder image."""
+        target.write_bytes(b"png")
+        return "image/png"
+
+
+class SandboxesTest(unittest.TestCase):
+    """Ceilings, rendering, removal, and copy roots."""
+
+    def setUp(self) -> None:
+        """Lay out stub tools, a built base, and a state directory."""
+        scratch = tempfile.TemporaryDirectory()
+        self.addCleanup(scratch.cleanup)
+        self.scratch = Path(scratch.name)
+        stubs = self.scratch / "stubs"
+        stubs.mkdir()
+        for name, body in STUBS.items():
+            path = stubs / name
+            path.write_text(f"#!/bin/sh\n{body}\n")
+            path.chmod(0o755)
+        other = str(stubs / "other")
+        tools = Tools(
+            emulator="/nix/store/qemu/bin/qemu-system-x86_64",
+            qemu_img=str(stubs / "qemu-img"),
+            ssh=str(stubs / "ssh"),
+            scp=str(stubs / "scp"),
+            ssh_keygen=str(stubs / "ssh-keygen"),
+            socat=other,
+            tesseract=other,
+            ss=str(stubs / "ss"),
+            git=str(stubs / "git"),
+            systemctl=other,
+            nix=other,
+            nix_store=str(stubs / "nix-store"),
+        )
+        self.settings = Settings(
+            running=3,
+            memory_mib=12 * 1024,
+            sandbox_memory_mib=6144,
+            sandbox_cpus=8,
+            max_ttl=24 * 3600,
+            disk_cap_bytes=30 << 30,
+            min_free_bytes=0,
+            default_memory_mib=2048,
+            default_cpus=2,
+            default_ttl=2 * 3600,
+            disk_gib=8,
+            vsock_allowlist=frozenset({7000}),
+            cpuset="8-23",
+            flake="/flake",
+            unit="sbx-libvirt.service",
+            slice="sbx.slice",
+            output_limit=1024,
+            boot_timeout=5,
+            tools=tools,
+        )
+        self.paths = Paths(self.scratch / "data" / "sbx", self.scratch / "config")
+        image = self.scratch / "store" / "base"
+        image.mkdir(parents=True)
+        (image / "sbx-nixos.qcow2").write_bytes(b"")
+        self.paths.bases.mkdir(parents=True)
+        (self.paths.bases / "nixos").symlink_to(image)
+        self.backend = FakeBackend()
+        self.environment = mock.patch.dict(
+            os.environ,
+            {
+                "TMPDIR": str(self.scratch / "tmp"),
+                "SBX_TEST_SS": str(self.scratch / "ss"),
+                "SBX_TEST_LOG": str(self.scratch / "scp.log"),
+                "SBX_TEST_DONE": str(self.scratch / "scp.done"),
+            },
+        )
+        self.environment.start()
+        self.addCleanup(self.environment.stop)
+        (self.scratch / "tmp").mkdir()
+        journal = mock.patch.object(core.journal, "record")
+        journal.start()
+        self.addCleanup(journal.stop)
+
+    def sandboxes(self, session: str | None = "claude:one") -> Sandboxes:
+        """Bind the fake backend at a fixed clock."""
+        return Sandboxes(
+            self.settings, self.paths, lambda _slice: self.backend, session, lambda: NOW
+        )
+
+    def request(self, **overrides: Any) -> core.Request:  # noqa: ANN401
+        """Validate create flags with defaults."""
+        flags: dict[str, Any] = {
+            "name": "t1",
+            "net": "none",
+            "memory": None,
+            "cpus": None,
+            "ttl": None,
+        }
+        flags.update(overrides)
+        return self.sandboxes().request("nixos", **flags)
+
+    def test_parsers(self) -> None:
+        """Durations and sizes accept their units."""
+        self.assertEqual(core.parse_duration("90"), 90)
+        self.assertEqual(core.parse_duration("30m"), 1800)
+        self.assertEqual(core.parse_duration("2h"), 7200)
+        self.assertEqual(core.parse_memory("2G"), 2048)
+        self.assertEqual(core.parse_memory("512m"), 512)
+        with self.assertRaises(SbxError):
+            core.parse_duration("2 hours")
+
+    def test_request_ceilings(self) -> None:
+        """Values above a ceiling and unknown names or networks are refused."""
+        request = self.request()
+        self.assertEqual((request.memory_mib, request.cpus, request.ttl), (2048, 2, 7200))
+        for overrides in (
+            {"memory": "8G"},
+            {"cpus": 9},
+            {"ttl": "25h"},
+            {"ttl": "10s"},
+            {"name": "bases"},
+            {"name": "Upper"},
+            {"net": "egress"},
+        ):
+            with self.subTest(overrides=overrides), self.assertRaises(SbxError):
+                self.request(**overrides)
+
+    def test_create_renders_an_untrusted_domain(self) -> None:
+        """The domain has no NIC, no vdagent, a disposable disk, and the root key credential."""
+        result = self.sandboxes().create(self.request(ttl="1h"))
+        self.assertEqual(result["name"], "t1")
+        self.assertEqual(result["ttl_left"], 3600)
+        self.assertEqual(result["session"], "claude:one")
+        root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
+        self.assertIsNone(root.find("devices/interface"))
+        self.assertIsNone(root.find("devices/graphics"))
+        channels = [target.get("name") for target in root.iterfind("devices/channel/target")]
+        self.assertEqual(channels, ["org.qemu.guest_agent.0"])
+        self.assertEqual(root.find("devices/disk/driver").get("cache"), "unsafe")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("devices/vsock/cid").get("auto"), "yes")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("vcpu").get("cpuset"), "8-23")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("cputune/emulatorpin").get("cpuset"), "8-23")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("cpu/feature").get("name"), "vmx")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("features/vmport").get("state"), "off")  # pyright: ignore[reportOptionalMemberAccess]
+        entry = root.find("sysinfo/entry")
+        self.assertEqual(entry.get("name"), core.CREDENTIAL)  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(entry.text, "ssh-ed25519 AAAA sbx")  # pyright: ignore[reportOptionalMemberAccess]
+        directory = self.paths.sandbox("t1")
+        self.assertTrue((directory / "disk.qcow2").exists())
+        self.assertTrue((directory / "base").is_symlink())
+        self.assertEqual(directory.stat().st_mode & 0o777, 0o700)
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request())
+        self.assertEqual(refused.exception.code, "exists")
+
+    def test_running_and_memory_ceilings(self) -> None:
+        """A fourth sandbox, or one past 12 GiB declared, is refused."""
+        for index in range(3):
+            self.backend.add(f"r{index}", expires=NOW + 60)
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request())
+        self.assertEqual(refused.exception.code, "over-limit")
+        self.backend.remove("sbx-r1")
+        self.backend.remove("sbx-r2")
+        self.backend.add("big", expires=NOW + 60, memory=6144)
+        with self.assertRaises(SbxError):
+            self.sandboxes().create(self.request(memory="6G"))
+        self.sandboxes().create(self.request(memory="2G"))
+
+    def test_disk_floor(self) -> None:
+        """Too little free space on the state filesystem refuses create."""
+        self.settings = dataclasses.replace(self.settings, min_free_bytes=1 << 62)
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request())
+        self.assertEqual(refused.exception.code, "disk-full")
+        self.assertFalse(self.paths.sandbox("t1").exists())
+
+    def test_vsock_listeners(self) -> None:
+        """Reachable host listeners outside the allowlist refuse a `none` sandbox."""
+        ss = self.scratch / "ss"
+        ss.write_text("v_str LISTEN 0 0 *:7000 *:*\nv_str LISTEN 0 0 1:5000 *:*\n")
+        self.sandboxes().create(self.request())
+        ss.write_text("v_str LISTEN 0 0 2:5999 *:*\n")
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request(name="t2"))
+        self.assertEqual(refused.exception.code, "vsock-listener")
+
+    def test_gc(self) -> None:
+        """Expired, stopped, and directory-less sandboxes go; managed saves and live ones stay."""
+        for name in ("live", "old", "off", "saved"):
+            self.paths.sandbox(name).mkdir(parents=True)
+        self.backend.add("live", expires=NOW + 60)
+        self.backend.add("old", expires=NOW - 1)
+        self.backend.add("off", expires=NOW + 60, active=False)
+        self.backend.add("saved", expires=NOW + 60, active=False, managed_save=True)
+        self.backend.add("lost", expires=NOW + 60)
+        self.paths.sandbox("stray").mkdir()
+        sandboxes = self.sandboxes()
+        planned = sandboxes.gc(dry_run=True)
+        self.assertEqual(len(self.backend.domains()), 5)
+        self.assertTrue(self.paths.sandbox("stray").exists())
+        self.assertEqual(sandboxes.gc(dry_run=False), planned)
+        reasons = {action["name"]: action["reason"] for action in planned}
+        self.assertEqual(
+            reasons,
+            {
+                "old": "expired",
+                "off": "shut off",
+                "lost": "run directory missing",
+                "stray": "no domain",
+            },
+        )
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-live", "sbx-saved"])
+        self.assertFalse(self.paths.sandbox("stray").exists())
+
+    def test_destroy_mine(self) -> None:
+        """--mine removes only the caller's sandboxes."""
+        for name, session in (("a", "claude:one"), ("b", "codex:two")):
+            self.paths.sandbox(name).mkdir(parents=True)
+            self.backend.add(name, expires=NOW + 60, session=session)
+        self.assertEqual(self.sandboxes().destroy_where(mine=True, expired=False), ["a"])
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-b"])
+        with self.assertRaises(SbxError):
+            self.sandboxes(session=None).listing(mine=True)
+
+    def test_copy_roots(self) -> None:
+        """Copies in come from the roots only, and copies out default to xfer."""
+        self.paths.sandbox("c").mkdir(parents=True)
+        (self.paths.sandbox("c") / "xfer").mkdir()
+        self.backend.add("c", expires=NOW + 60)
+        sandboxes = self.sandboxes()
+        inside = self.scratch / "tmp" / "work"
+        inside.mkdir()
+        (inside / "file").write_text("x")
+        result = sandboxes.copy(str(inside), "c:/root/")
+        self.assertEqual(result["to"], "c:/root/")
+        outside = self.scratch / "secret"
+        outside.write_text("x")
+        with self.assertRaises(SbxError) as refused:
+            sandboxes.copy(str(outside), "c:/root/")
+        self.assertEqual(refused.exception.code, "path-denied")
+        (inside / "escape").symlink_to(outside)
+        with self.assertRaises(SbxError):
+            sandboxes.copy(str(inside), "c:/root/")
+        result = sandboxes.copy("c:/var/log/messages", None)
+        self.assertEqual(result["to"], str(self.paths.sandbox("c") / "xfer" / "messages"))
+        with self.assertRaises(SbxError):
+            sandboxes.copy("c:/etc/passwd", str(outside))
+
+    def add_running(self, name: str, *, expires: int = NOW + 60) -> None:
+        """Register a running sandbox with its run directory."""
+        (self.paths.sandbox(name) / "xfer").mkdir(parents=True)
+        self.backend.add(name, expires=expires)
+
+    def test_create_rechecks_ceilings(self) -> None:
+        """A request built past the ceilings still fails at create."""
+        request = core.Request("nixos", "t1", "none", 8192, 2, 3600)
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(request)
+        self.assertEqual(refused.exception.code, "over-limit")
+
+    def test_disk_reservation(self) -> None:
+        """Every running sandbox plus the new one reserves its full disk against the cap."""
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=15 << 30)
+        self.add_running("r0")
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request())
+        self.assertEqual(refused.exception.code, "disk-full")
+
+    def test_nested_directory_links_refused(self) -> None:
+        """A link to a directory inside the roots may lead out through a second link."""
+        self.add_running("c")
+        roots = self.scratch / "tmp"
+        outside = self.scratch / "outside"
+        outside.mkdir()
+        (outside / "secret").write_text("s")
+        first, second = roots / "a", roots / "b"
+        first.mkdir()
+        second.mkdir()
+        (first / "link").symlink_to(second)
+        (second / "evil").symlink_to(outside / "secret")
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().copy(str(first), "c:/root/")
+        self.assertEqual(refused.exception.code, "path-denied")
+
+    def test_copy_out_targets(self) -> None:
+        """Copies out need a named leaf, never overwrite, and lose execute bits."""
+        self.add_running("c")
+        sandboxes = self.sandboxes()
+        for guest in ("..", "/root/..", "/", "."):
+            with self.subTest(guest=guest), self.assertRaises(SbxError):
+                sandboxes.copy(f"c:{guest}", None)
+        result = sandboxes.copy("c:/usr/bin/tool", None)
+        copied = Path(str(result["to"]))
+        self.assertEqual(copied, self.paths.sandbox("c") / "xfer" / "tool")
+        self.assertEqual(copied.stat().st_mode & 0o7777, 0o644)
+        with self.assertRaises(SbxError) as refused:
+            sandboxes.copy("c:/usr/bin/tool", None)
+        self.assertEqual(refused.exception.code, "exists")
+        target = self.scratch / "tmp"
+        self.assertEqual(sandboxes.copy("c:/usr/bin/tool", str(target))["to"], str(target / "tool"))
+        with self.assertRaises(SbxError):
+            sandboxes.copy("c:/usr/bin/tool", str(target))
+        self.assertEqual(list((self.paths.sandbox("c") / "xfer").glob(".stage-*")), [])
+
+    def test_expired_sandboxes_refuse_access(self) -> None:
+        """exec, cp, and screenshot refuse a sandbox past its TTL."""
+        self.add_running("old", expires=NOW - 1)
+        sandboxes = self.sandboxes()
+        with self.assertRaises(SbxError) as refused:
+            sandboxes.exec_capture("old", ["true"], timeout=None, agent=False)
+        self.assertEqual(refused.exception.code, "expired")
+        with self.assertRaises(SbxError):
+            sandboxes.copy("old:/etc/hostname", None)
+        with self.assertRaises(SbxError):
+            sandboxes.screenshot("old", ocr=False)
+
+    def test_agent_replies_are_validated(self) -> None:
+        """Malformed qemu-ga replies fail with agent-reply; good ones decode."""
+        self.add_running("g")
+        sandboxes = self.sandboxes()
+        good = {"exited": True, "exitcode": 3, "out-data": "aGk=", "err-data": ""}
+        self.backend.replies = [{"return": {"pid": 7}}, {"return": good}]
+        result = sandboxes.exec_capture("g", ["x"], timeout=None, agent=True)
+        self.assertEqual((result.exit_code, result.stdout), (3, b"hi"))
+        malformed: list[list[dict[str, Any]]] = [
+            [{"return": {"pid": "7"}}],
+            [{"error": {}}],
+            [{"return": {"pid": 7}}, {"return": {"exited": True, "out-data": "%%"}}],
+            [{"return": {"pid": 7}}, {"return": {"exited": True}}],
+        ]
+        for replies in malformed:
+            self.backend.replies = list(replies)
+            with self.subTest(replies=replies), self.assertRaises(SbxError) as refused:
+                sandboxes.exec_capture("g", ["x"], timeout=None, agent=True)
+            self.assertEqual(refused.exception.code, "agent-reply")
+
+    def test_foreign_domains_untouched(self) -> None:
+        """A sbx-* domain without sbx metadata survives gc and destroy."""
+        self.backend.domains_by_name["sbx-x"] = DomainInfo(
+            name="sbx-x",
+            state="running",
+            active=True,
+            memory_mib=1024,
+            cpus=1,
+            cid=5,
+            meta=None,
+            managed_save=False,
+        )
+        self.paths.sandbox("x").mkdir(parents=True)
+        self.assertEqual(self.sandboxes().gc(dry_run=False), [{"name": "x", "reason": "no domain"}])
+        self.assertIn("sbx-x", self.backend.domains_by_name)
+        self.paths.sandbox("x").mkdir()
+        self.sandboxes().destroy("x")
+        self.assertIn("sbx-x", self.backend.domains_by_name)
+
+    def dispatch(self, *argv: str) -> tuple[object, int]:
+        """Run one verb through the command line, in JSON mode."""
+        leading, command = cli.split_command(argv)
+        args = cli.build_parser().parse_args(leading)
+        args.command = command
+        return cli.dispatch(self.sandboxes(), args, as_json=True)
+
+    def assert_no_sandbox(self, name: str) -> None:
+        """Neither a domain nor a run directory remains."""
+        self.assertNotIn(f"sbx-{name}", self.backend.domains_by_name)
+        self.assertFalse(self.paths.sandbox(name).exists())
+
+    def test_copy_out_budget(self) -> None:
+        """A copy out past the cap is cut off, and its stage removed."""
+        self.add_running("c")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=4 << 20)
+        xfer = self.paths.sandbox("c") / "xfer"
+        for variable, value in (("SBX_TEST_BIG", str(16 << 20)), ("SBX_TEST_MANY", str(3 << 20))):
+            with self.subTest(variable=variable), mock.patch.dict(os.environ, {variable: value}):
+                with self.assertRaises(SbxError) as refused:
+                    self.sandboxes().copy("c:/big", None)
+                self.assertEqual(refused.exception.code, "disk-full")
+                # Stopped during the transfer, not by the check after it.
+                self.assertIn("budget", str(refused.exception))
+                self.assertEqual(list(xfer.iterdir()), [])
+                self.assertFalse((self.scratch / "scp.done").exists())
+
+    def test_publish_never_replaces(self) -> None:
+        """Two copies to one absent target: the second fails and the first stays."""
+        target = self.scratch / "tmp" / "out"
+        first, second = self.scratch / "first", self.scratch / "second"
+        first.write_text("1")
+        second.write_text("2")
+        core.publish(first, target)
+        with self.assertRaises(SbxError) as refused:
+            core.publish(second, target)
+        self.assertEqual(refused.exception.code, "exists")
+        self.assertEqual(target.read_text(), "1")
+        self.assertTrue(second.exists())
+
+    def test_guest_timeout(self) -> None:
+        """A timeout bounds the guest command too, with a later host backstop."""
+        self.add_running("t")
+        calls: list[tuple[list[str], float | None]] = []
+
+        def fake(argv: list[str], _limit: int, timeout: float | None) -> core.ExecResult:
+            calls.append((argv, timeout))
+            return core.ExecResult(124, b"", b"", truncated=False, timed_out=False)
+
+        with mock.patch.object(core, "capture", fake):
+            result = self.sandboxes().exec_capture("t", ["sleep", "9"], timeout=2, agent=False)
+        self.assertTrue(result.timed_out)
+        argv, timeout = calls[0]
+        self.assertEqual(argv[-1], "timeout --kill-after=5 2 sleep 9")
+        self.assertEqual(timeout, 2 + core.HOST_BACKSTOP)
+
+    def test_json_exit_codes(self) -> None:
+        """The guest's status is the exit status of exec --json."""
+        self.add_running("j")
+        with mock.patch.dict(os.environ, {"SBX_TEST_SSH_EXIT": "3"}):
+            result, code = self.dispatch("--json", "exec", "j", "--", "false")
+        self.assertEqual(code, 3)
+        self.assertEqual(cast("dict[str, object]", result)["exit_code"], 3)
+
+    def test_run_refusals_before_create(self) -> None:
+        """--out without --to, --to without --out, and a bad --timeout create nothing."""
+        for argv in (
+            ("run", "nixos", "--name", "r", "--out", "/x", "--", "true"),
+            ("run", "nixos", "--name", "r", "--to", ".", "--", "true"),
+            ("run", "nixos", "--name", "r", "--timeout", "5x", "--", "true"),
+        ):
+            with self.subTest(argv=argv), self.assertRaises(SbxError):
+                self.dispatch(*argv)
+            self.assert_no_sandbox("r")
+
+    def test_run_destroys_on_failure(self) -> None:
+        """A failed copy in, exec, or copy out still destroys the run sandbox."""
+        outside = self.scratch / "outside"
+        outside.mkdir()
+        cases: list[tuple[tuple[str, ...], Any]] = [
+            (("--in", str(outside)), None),
+            ((), SbxError("boom", code="test")),
+            (("--out", "/root/x", "--to", str(outside)), None),
+        ]
+        for flags, failure in cases:
+            argv = ("run", "nixos", "--name", "r", *flags, "--", "true")
+            patch = mock.patch.object(Sandboxes, "exec_capture", side_effect=failure)
+            with self.subTest(flags=flags), self.assertRaises(SbxError):
+                if failure is None:
+                    self.dispatch(*argv)
+                else:
+                    with patch:
+                        self.dispatch(*argv)
+            self.assert_no_sandbox("r")
+
+
+if __name__ == "__main__":
+    unittest.main()
