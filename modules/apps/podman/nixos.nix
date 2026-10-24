@@ -88,7 +88,13 @@ let
         };
 
         environment.etc."containers/containers.conf.modules/untrusted".source = toml.generate "untrusted" {
-          containers.netns = "none";
+          containers = {
+            netns = "none";
+            # Proxy variables can carry credentials.
+            http_proxy = false;
+            # The host's /etc/hosts holds Mesh names and the host's LAN address.
+            no_hosts = true;
+          };
           engine = {
             runtime = "runsc";
             # Replaces the base list. gVisor refuses bind-mounted host sockets without host-uds=open,

@@ -18,10 +18,16 @@ Speak to an MCP server over stdio:
 podman --module untrusted run -i --rm <image>
 ```
 
-Hand the container a host Unix socket by mounting its directory:
+Hand the container a host Unix socket by mounting its directory read-only, which still allows connecting:
 
 ```sh
-podman --module untrusted run --rm -v "$PWD/sock:/sock" <image>
+podman --module untrusted run --rm -v "$PWD/sock:/sock:ro" <image>
+```
+
+Bound memory by running Podman in a systemd scope; `--cgroups=split` keeps the container inside it, and an OOM kill ends the whole run:
+
+```sh
+systemd-run --user --scope -p MemoryMax=1G -p MemorySwapMax=0 podman --module untrusted run --rm --cgroups=split <image>
 ```
 
 The `docker` shim is the podman CLI, so `docker --module untrusted run` behaves the same.
@@ -30,7 +36,8 @@ The `docker` shim is the podman CLI, so `docker --module untrusted run` behaves 
 
 - The container sees only gVisor's own loopback interface: no Internet, LAN, Mesh, or host listeners, and no `/etc/resolv.conf`.
 - gVisor answers the container's system calls, so a kernel exploit has to break gVisor first.
-- No host environment variables enter the container.
+- No host environment variables enter the container, proxy variables included, since they can carry credentials.
+- The container gets no copy of the host's `/etc/hosts`, which holds Mesh names and the host's LAN address.
 - Bind-mounted host Unix sockets accept connections; nothing else on the host is reachable without a mount.
 - The gVisor sandbox runs as the owner, so an escape from gVisor lands with the owner's rights.
 
@@ -38,9 +45,10 @@ The `docker` shim is the podman CLI, so `docker --module untrusted run` behaves 
 
 - Docker API clients cannot use the tier: the compat API ignores runtime selection, so `docker` over a socket, docker-compose, lazydocker, and API-driven MCP launchers run under crun.
 - No GPU: gVisor's nvproxy rejects the installed NVIDIA driver branch.
-- Cgroup limits such as `--memory` and `--cpus` are not enforced, because runsc runs with `ignore-cgroups` under rootless Podman.
-- A `--network` or `--runtime` flag on the command line overrides the module and leaves the tier.
-- `--userns=nomap` fails under runsc, and `--userns=auto` needs more subordinate IDs than the owner has.
+- The tier has no memory, CPU, or process limit: runsc runs with `ignore-cgroups`, which drops `--memory`, `--cpus`, and `--pids-limit`.
+- A systemd `TasksMax` does not bound the container's processes, which gVisor runs inside its own sandbox.
+- `--network` alone keeps the tier offline, because gVisor's own network stays off; `--runtime crun` drops gVisor but keeps netns `none`, and only both together remove the network fence.
+- `no_new_privs` stays off unless the run passes `--security-opt no-new-privileges`; containers.conf has no key for it.
 - Untrusted work that needs a network belongs in a VM, not here.
 
 ## Verify the tier
