@@ -416,6 +416,7 @@ let
       s5cmd.extended.enable = lib.mkOverride 1100 false;
       "safeguard-rdp".extended.enable = lib.mkOverride 1100 false;
       samba.extended.enable = lib.mkOverride 1100 true;
+      sbx.extended.enable = lib.mkOverride 1100 false;
       "sc-controller".extended.enable = lib.mkOverride 1100 false;
       screenkey.extended.enable = lib.mkOverride 1100 false;
       "searchfox-cli".extended.enable = lib.mkOverride 1100 true;
@@ -525,6 +526,7 @@ let
       wireshark.extended.enable = lib.mkOverride 1100 true;
       "worker-build".extended.enable = lib.mkOverride 1100 false;
       "workers-rs-sdk".extended.enable = lib.mkOverride 1100 false;
+      workloads.extended.enable = lib.mkOverride 1100 false;
       wpscan.extended.enable = lib.mkOverride 1100 true;
       wpsoffice.extended.enable = lib.mkOverride 1100 false;
       wrangler.extended.enable = lib.mkOverride 1100 true;

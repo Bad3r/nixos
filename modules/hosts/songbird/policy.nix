@@ -33,5 +33,18 @@ _: {
       default = 0;
       desktop = 1;
     };
+
+    # Ceilings for every sbx sandbox together (modules/apps/sbx/nixos.nix).
+    sbx = {
+      running = 3;
+      memory = 10;
+      sliceMemory = 12;
+      # E-cores; the P-cores stay with the desktop.
+      cpus = "8-23";
+      ttl = 2;
+      maxTtl = 24;
+      disk = 30;
+      minFree = 200;
+    };
   };
 }

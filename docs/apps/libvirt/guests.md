@@ -75,6 +75,7 @@ A guest added to a running network gets its reservation live; the network keeps 
 
 A seed names an image by the out-link `nix build` leaves under `/var/lib/workloads/images`, so no image enters the system closure.
 A stale or missing out-link fails the unit instead of seeding an old image.
+[NixOS guests](nixos-guests.md) covers building such an image from a guest configuration.
 
 ## Grow a disk
 
