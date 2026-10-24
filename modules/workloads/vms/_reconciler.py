@@ -2,6 +2,8 @@
 """Define-only reconciler for declared workload objects.
 
 `network` defines one rendered network and never destroys or restarts it.
+`guest` defines or undefines one guest and never destroys, restarts, or deletes its data.
+`orphans` warns about owned objects that nothing declares.
 `media` stages declared media files and prunes the ones no longer declared.
 `read-source` streams one source file for `media`, run with the owner's credentials.
 """
@@ -17,13 +19,16 @@ import stat
 import struct
 import subprocess
 import sys
+import tempfile
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import BinaryIO
 
 import libvirt
 
-MARKER = "{https://github.com/Bad3r/nixos/workloads}managed"
+NAMESPACE = "https://github.com/Bad3r/nixos/workloads"
+MARKER = f"{{{NAMESPACE}}}managed"
+GIB = 1 << 30
 # The gateway of the network libvirtd-config copies from the package.
 STOCK_DEFAULT_GATEWAY = "192.168.122.1"
 CHUNK = 1 << 20
@@ -54,6 +59,12 @@ def is_marked(root: ET.Element) -> bool:
 def canonical(root: ET.Element) -> str:
     """Serialize a network definition without its runtime-only attributes."""
     root.attrib.pop("connections", None)
+    # Live updates append reservations, so their order carries no meaning.
+    for dhcp in root.iterfind("ip/dhcp"):
+        hosts = dhcp.findall("host")
+        for host in hosts:
+            dhcp.remove(host)
+        dhcp.extend(sorted(hosts, key=lambda host: host.get("mac", "")))
     return ET.canonicalize(ET.tostring(root, encoding="unicode"), strip_text=True)
 
 
@@ -126,6 +137,30 @@ def clear_way(conn: libvirt.virConnect, name: str, uuid: str) -> None:
     log(f"undefined libvirt's stock '{name}' network")
 
 
+def dhcp_hosts(root: ET.Element) -> dict[str, str]:
+    """Map each DHCP reservation's MAC to its canonical XML."""
+    return {
+        host.get("mac", ""): ET.canonicalize(ET.tostring(host, encoding="unicode"), strip_text=True)
+        for host in root.iterfind("ip/dhcp/host")
+    }
+
+
+def sync_dhcp_hosts(network: libvirt.virNetwork, desired: ET.Element) -> None:
+    """Bring the reservations of a running network in line with its definition."""
+    live = dhcp_hosts(parse(network.XMLDesc(0)))
+    wanted = dhcp_hosts(desired)
+    section = libvirt.VIR_NETWORK_SECTION_IP_DHCP_HOST
+    flags = libvirt.VIR_NETWORK_UPDATE_AFFECT_LIVE
+    for mac, host in live.items():
+        if wanted.get(mac) != host:
+            network.update(libvirt.VIR_NETWORK_UPDATE_COMMAND_DELETE, section, -1, host, flags)
+            log(f"dropped the live DHCP reservation {host}")
+    for mac, host in wanted.items():
+        if live.get(mac) != host:
+            network.update(libvirt.VIR_NETWORK_UPDATE_COMMAND_ADD_LAST, section, -1, host, flags)
+            log(f"added the live DHCP reservation {host}")
+
+
 def reconcile_network(conn: libvirt.virConnect, xml: str, *, autostart: bool) -> None:
     """Define a declared network; start it when it is inactive and autostarts."""
     desired = parse(xml)
@@ -140,6 +175,7 @@ def reconcile_network(conn: libvirt.virConnect, xml: str, *, autostart: bool) ->
         log(f"set autostart of network '{name}' to {autostart}")
 
     if network.isActive():
+        sync_dhcp_hosts(network, desired)
         live = canonical(parse(network.XMLDesc(0)))
         if live != canonical(inactive_xml(network)):
             log(
@@ -150,6 +186,264 @@ def reconcile_network(conn: libvirt.virConnect, xml: str, *, autostart: bool) ->
     elif autostart:
         network.create()
         log(f"started network '{name}'")
+
+
+def lookup_domain(
+    conn: libvirt.virConnect, *, uuid: str | None = None, name: str | None = None
+) -> libvirt.virDomain | None:
+    """Find a domain by UUID or name, or return None."""
+    try:
+        if uuid is not None:
+            return conn.lookupByUUIDString(uuid)
+        return conn.lookupByName(name)
+    except libvirt.libvirtError as error:
+        if error.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN:
+            return None
+        raise
+
+
+def domain_marker(domain: libvirt.virDomain, flags: int) -> ET.Element | None:
+    """Return a domain's ownership marker without reading the rest of its definition."""
+    try:
+        return parse(domain.metadata(libvirt.VIR_DOMAIN_METADATA_ELEMENT, NAMESPACE, flags))
+    except libvirt.libvirtError as error:
+        if error.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN_METADATA:
+            return None
+        raise
+
+
+def network_marked(network: libvirt.virNetwork) -> bool:
+    """Return whether a network carries the marker, without reading the rest of it."""
+    try:
+        network.metadata(libvirt.VIR_NETWORK_METADATA_ELEMENT, NAMESPACE, 0)
+    except libvirt.libvirtError as error:
+        if error.get_error_code() == libvirt.VIR_ERR_NO_NETWORK_METADATA:
+            return False
+        raise
+    return True
+
+
+def owned_domain(conn: libvirt.virConnect, uuid: str) -> libvirt.virDomain | None:
+    """Find a domain by UUID and refuse one the engine did not create."""
+    domain = lookup_domain(conn, uuid=uuid)
+    if domain is not None and domain_marker(domain, libvirt.VIR_DOMAIN_AFFECT_CONFIG) is None:
+        msg = (
+            f"domain {uuid} exists as '{domain.name()}' without the ownership marker; "
+            "the engine never takes over objects it did not create"
+        )
+        raise ReconcileError(msg)
+    return domain
+
+
+def claim_domain(conn: libvirt.virConnect, name: str, uuid: str) -> libvirt.virDomain | None:
+    """Return the owned domain with this UUID under the declared name, or None."""
+    domain = owned_domain(conn, uuid)
+    holder = lookup_domain(conn, name=name)
+    if holder is not None and holder.UUIDString() != uuid:
+        msg = f"domain '{name}' is defined with UUID {holder.UUIDString()}, declared {uuid}"
+        raise ReconcileError(msg)
+    if domain is None or domain.name() == name:
+        return domain
+
+    current = domain.name()
+    if domain.isActive():
+        msg = f"domain {uuid} runs as '{current}'; shut it down so it can be renamed to '{name}'"
+        raise ReconcileError(msg)
+    domain.rename(name, 0)
+    log(f"renamed domain '{current}' to '{name}'")
+    return domain
+
+
+def qemu_img(*args: str) -> str:
+    """Run qemu-img and return its output."""
+    return subprocess.run(["qemu-img", *args], check=True, capture_output=True, text=True).stdout
+
+
+def virtual_size(path: Path) -> int:
+    """Return the virtual size of a disk image, which may be open in a running guest."""
+    return json.loads(qemu_img("info", "-U", "-f", "qcow2", "--output=json", str(path)))[
+        "virtual-size"
+    ]
+
+
+def check_size(path: Path, size: int) -> None:
+    """Fail when an image is larger than declared; note when it is smaller."""
+    actual = virtual_size(path)
+    if actual > size * GIB:
+        msg = f"{path} has {actual / GIB:g} GiB, declared {size} GiB; disks never shrink"
+        raise ReconcileError(msg)
+    if actual < size * GIB:
+        log(
+            f"{path} has {actual / GIB:g} GiB, declared {size} GiB; "
+            f"grow it with `qemu-img resize {path} {size}G` while the guest is shut off"
+        )
+
+
+def seed_source(seed: dict[str, str]) -> Path:
+    """Return the image a seed declares, refusing a stale or missing out-link."""
+    path = Path(seed["path"])
+    resolved = path.resolve()
+    if str(resolved) != seed["expected"] or not resolved.is_file():
+        msg = (
+            f"{path} resolves to {resolved}, declared {seed['expected']}; "
+            "build the image again with `nix build` and this out-link"
+        )
+        raise ReconcileError(msg)
+    return resolved
+
+
+def fill_disk(partial: Path, size: int, seed: dict[str, str] | None) -> None:
+    """Write an empty or seeded qcow2 image of the declared size."""
+    if seed is None:
+        qemu_img("create", "-q", "-f", "qcow2", str(partial), f"{size}G")
+        return
+    qemu_img("convert", "-f", "qcow2", "-O", "qcow2", str(seed_source(seed)), str(partial))
+    if virtual_size(partial) > size * GIB:
+        msg = f"the seed {seed['path']} is larger than the declared {size} GiB"
+        raise ReconcileError(msg)
+    qemu_img("resize", "-q", "-f", "qcow2", str(partial), f"{size}G")
+
+
+def create_disk(path: Path, size: int, seed: dict[str, str] | None) -> None:
+    """Create a disk image, empty or copied from its seed, at its declared size."""
+    fd, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    os.close(fd)
+    partial = Path(name)
+    try:
+        fill_disk(partial, size, seed)
+        partial.replace(path)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    log(f"created {path}")
+
+
+def ensure_disks(disks: list[dict], *, create: bool) -> None:
+    """Check every declared disk; create the missing ones only for a guest without NVRAM."""
+    for disk in disks:
+        path = Path(disk["path"])
+        if path.exists():
+            check_size(path, disk["size"])
+        elif create:
+            create_disk(path, disk["size"], disk["seed"])
+        else:
+            msg = (
+                f"{path} is missing and the guest already has its NVRAM, so it is not created; "
+                f"restore a lost disk from a backup, or create a new one with "
+                f"`qemu-img create -f qcow2 {path} {disk['size']}G`"
+            )
+            raise ReconcileError(msg)
+
+
+def ensure_nvram(domain: libvirt.virDomain, path: Path) -> bool:
+    """Copy the firmware's variable template if NVRAM is missing; return whether it did."""
+    if path.exists():
+        return False
+    nvram = parse(domain.XMLDesc(libvirt.VIR_DOMAIN_XML_INACTIVE)).find("os/nvram")
+    template = nvram.get("template") if nvram is not None else None
+    if template is None:
+        msg = f"libvirt selected no NVRAM template for {path}"
+        raise ReconcileError(msg)
+    fd, name = tempfile.mkstemp(prefix=f".{path.name}.", dir=path.parent)
+    partial = Path(name)
+    try:
+        with os.fdopen(fd, "wb") as out, Path(template).open("rb") as source:
+            shutil.copyfileobj(source, out, CHUNK)
+        partial.replace(path)
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
+    log(f"created {path} from {template}")
+    return True
+
+
+def revision(marker: ET.Element | None) -> str | None:
+    """Return the definition digest a marker records."""
+    return marker.get("revision") if marker is not None else None
+
+
+def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
+    """Define a declared guest without touching it while it runs."""
+    name, uuid = spec["name"], spec["uuid"]
+    xml = Path(spec["xml"]).read_text()
+    nvram = Path(spec["nvram"])
+    state = Path(spec["stateDir"])
+    claim_domain(conn, name, uuid)
+    # NVRAM is the last file a first define writes and TPM state appears at the
+    # first start, so either one means the guest's files are no longer new.
+    provisioned = nvram.exists() or (state / "tpm").exists()
+    if provisioned and not nvram.exists():
+        msg = f"{nvram} is missing although the guest has TPM state; restore it from a backup"
+        raise ReconcileError(msg)
+    state.mkdir(mode=0o711, exist_ok=True)
+    state.chmod(0o711)
+    ensure_disks(spec["disks"], create=not provisioned)
+
+    domain = conn.defineXML(xml)
+    log(f"defined guest '{name}' ({uuid})")
+    # Every guest boots UEFI, so the run that writes NVRAM finishes provisioning.
+    provisioned_now = ensure_nvram(domain, nvram)
+
+    autostart = spec["autostart"]
+    if bool(domain.autostart()) != autostart:
+        domain.setAutostart(int(autostart))
+        log(f"set autostart of guest '{name}' to {autostart}")
+
+    if domain.isActive():
+        desired = revision(parse(xml).find(f"metadata/{MARKER}"))
+        if revision(domain_marker(domain, libvirt.VIR_DOMAIN_AFFECT_LIVE)) != desired:
+            log(
+                f"guest '{name}' runs an older definition until its next cold boot; "
+                "a reboot inside the guest keeps it, a shutdown and start applies it"
+            )
+    elif provisioned_now and autostart:
+        domain.create()
+        log(f"started guest '{name}'")
+
+
+def remove_guest(conn: libvirt.virConnect, spec: dict) -> None:
+    """Undefine a guest declared absent, keeping its disks, NVRAM, and TPM state."""
+    uuid = spec["uuid"]
+    domain = owned_domain(conn, uuid)
+    if domain is None:
+        return
+    current = domain.name()
+    if domain.isActive():
+        msg = f"guest '{current}' is running; shut it down so it can be undefined"
+        raise ReconcileError(msg)
+    if domain.snapshotNum(0) > 0:
+        msg = f"guest '{current}' has snapshots; delete them so it can be undefined"
+        raise ReconcileError(msg)
+    if domain.hasManagedSaveImage(0):
+        msg = f"guest '{current}' has a managed save image; start and shut it down first"
+        raise ReconcileError(msg)
+    domain.undefineFlags(
+        libvirt.VIR_DOMAIN_UNDEFINE_KEEP_NVRAM | libvirt.VIR_DOMAIN_UNDEFINE_KEEP_TPM
+    )
+    log(f"undefined guest '{current}' ({uuid}); its files stay in {spec['stateDir']}")
+
+
+def warn(message: str) -> None:
+    """Print one journal line at warning priority."""
+    print(f"<4>{message}", flush=True)
+
+
+def report_orphans(conn: libvirt.virConnect, declared: dict[str, list[str]]) -> None:
+    """Warn about marked objects that no declaration names."""
+    networks = set(declared["networks"])
+    for network in conn.listAllNetworks(0):
+        if network.UUIDString() not in networks and network_marked(network):
+            warn(
+                f"network '{network.name()}' ({network.UUIDString()}) is owned but undeclared; "
+                "remove it by hand once no guest uses it"
+            )
+    guests = set(declared["guests"])
+    for domain in conn.listAllDomains(0):
+        if domain.UUIDString() not in guests and domain_marker(domain, 0) is not None:
+            warn(
+                f"guest '{domain.name()}' ({domain.UUIDString()}) is owned but undeclared; "
+                'declare it with ensure = "absent" to undefine it and keep its files'
+            )
 
 
 def sha256_of(path: Path) -> str:
@@ -284,6 +578,14 @@ def main() -> int:
     network.add_argument("--autostart", action="store_true")
     network.add_argument("--connect", default="qemu:///system")
 
+    guest = commands.add_parser("guest", help="define or undefine one declared guest")
+    guest.add_argument("spec", type=Path)
+    guest.add_argument("--connect", default="qemu:///system")
+
+    orphans = commands.add_parser("orphans", help="warn about owned objects nothing declares")
+    orphans.add_argument("declared", type=Path)
+    orphans.add_argument("--connect", default="qemu:///system")
+
     media = commands.add_parser("media", help="stage declared media and prune the rest")
     media.add_argument("manifest", type=Path)
     media.add_argument("directory", type=Path)
@@ -294,18 +596,30 @@ def main() -> int:
 
     args = parser.parse_args()
     try:
-        if args.command == "network":
+        if args.command in {"network", "guest", "orphans"}:
             # Expected lookup misses would otherwise print to stderr.
             libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
             conn = libvirt.open(args.connect)
             try:
-                reconcile_network(conn, args.xml.read_text(), autostart=args.autostart)
+                if args.command == "network":
+                    reconcile_network(conn, args.xml.read_text(), autostart=args.autostart)
+                elif args.command == "guest":
+                    spec = json.loads(args.spec.read_text())
+                    if spec["ensure"] == "absent":
+                        remove_guest(conn, spec)
+                    else:
+                        reconcile_guest(conn, spec)
+                else:
+                    report_orphans(conn, json.loads(args.declared.read_text()))
             finally:
                 conn.close()
         elif args.command == "media":
             stage_media(args.manifest, args.directory, args.owner)
         else:
             read_source(args.path)
+    except subprocess.CalledProcessError as error:
+        print(f"error: {error}: {error.stderr.strip()}", file=sys.stderr)
+        return 1
     except (ReconcileError, libvirt.libvirtError, OSError) as error:
         print(f"error: {error}", file=sys.stderr)
         return 1

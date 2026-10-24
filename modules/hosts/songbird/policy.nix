@@ -31,6 +31,7 @@ _: {
     # Address registry for workloads.networks (modules/workloads/networks.nix).
     workloadNetworkIds = {
       default = 0;
+      desktop = 1;
     };
 
     # Ceilings for every sbx sandbox together (modules/apps/sbx/nixos.nix).
