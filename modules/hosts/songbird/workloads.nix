@@ -30,6 +30,22 @@ in
           };
         };
       };
+
+      # sbx sandboxes on `--net egress`; none holds a reservation, so the pool spans the subnet.
+      sbx = {
+        egress = "warp";
+        isolatePeers = true;
+        libvirt = {
+          enable = true;
+          uuid = "ba3452f4-c558-479f-9ec4-c10cdf3f85cc";
+          dhcp = {
+            start = 2;
+            end = 254;
+          };
+          autostart = true;
+          sessionAttach = true;
+        };
+      };
     };
 
     # Built by `nix build .#legacyPackages.x86_64-linux.workloads.nixos-dev --out-link /var/lib/workloads/images/nixos-dev`.
@@ -54,5 +70,6 @@ in
         hostOffset = 10;
       };
     };
+
   };
 }

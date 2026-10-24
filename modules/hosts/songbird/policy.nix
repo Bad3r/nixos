@@ -32,6 +32,7 @@ _: {
     workloadNetworkIds = {
       default = 0;
       desktop = 1;
+      sbx = 2;
     };
 
     # Ceilings for every sbx sandbox together (modules/apps/sbx/nixos.nix).
