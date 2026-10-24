@@ -6,7 +6,7 @@ The policy stays small: a single age host key that doubles as the editor key, pl
 - [Adding a secret](adding-secrets.md): the YAML shape, the declaration, and how consumers read it.
 - [CI evaluation](ci-evaluation.md): evaluating without the private submodule, and the `path:` copy hazard.
 - [Troubleshooting](troubleshooting.md): error messages and their fixes.
-- [GitHub token for act](secrets-act.md) and [R2 secrets](../apps/r2-cloud/secrets-and-rendered-files.md): the two worked integrations.
+- [R2 secrets](../apps/r2-cloud/secrets-and-rendered-files.md): a worked integration.
 
 ## What Ships in the Repo
 
@@ -21,10 +21,10 @@ Either way, the `builtins.pathExists` guards evaluate against the real checkout 
 - `checks.<system>.secrets-no-cleartext` (`modules/security/sops-cleartext-check.nix`) is the evaluation-time gate for an initialized `secrets/` tree, failing on non-exempt cleartext and on drift in the policy contract.
   Plaintext lives under a `decrypted_*` name or a `*.dec.*` name, which the submodule's `.gitignore` hides and the check exempts.
 - `modules/security/sops-runtime.nix` owns the shared NixOS sops-nix import and points `sops.age.keyFile` to `/var/lib/sops-nix/key.txt`; the `age` and `sops` CLIs come from their app rows.
-- `modules/security/secrets.nix` only declares repository-managed system secrets and templates.
-- Each secret declaration is guarded with `builtins.pathExists`, so a missing encrypted file, such as `secrets/act.yaml`, skips its block instead of failing evaluation.
+- `modules/security/secrets.nix` declares `security.repoSecrets.enable`, the gate app modules such as rclone consult before declaring their system secrets.
+- Each secret declaration is guarded with `builtins.pathExists`, so a missing encrypted file, such as `secrets/rclone_gdrive.env`, skips its block instead of failing evaluation.
 - Secret files resolve from `${rootPath}/secrets` through the shared `secretsRoot` module argument, with no dedicated flake input.
-- Templates write to stable paths, such as `/etc/act/secrets.env`, and take their ownership from `config.flake.lib.meta.owner.username`.
+- Templates write to stable paths, such as `/run/secrets/r2/credentials.env`, and take their ownership from `config.flake.lib.meta.owner.username`.
 
 ## Host Preparation
 

@@ -17,11 +17,6 @@ Add it to `.sops.yaml`.
 sops-nix enforces the declared ownership strictly.
 Adjust the `owner` and `group` fields in the declaring module.
 
-## `act` complains about a missing token
-
-`/etc/act/secrets.env` does not exist yet.
-Rerun `./build.sh --host <host> --boot`, or the approved deployment helper, after updating the secret; [GitHub token for act](secrets-act.md) has the rest.
-
 ## `no matching creation rules found`
 
 The file path is outside `secrets/`.
