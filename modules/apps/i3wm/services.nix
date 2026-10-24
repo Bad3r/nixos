@@ -76,6 +76,35 @@
               *) exit 1 ;;
             esac
           '';
+          pinnedMode =
+            if osConfig.gpu.nvidia.enable then
+              builtins.match "([0-9]+x[0-9]+)_([0-9.]+)" osConfig.gpu.nvidia.metamode
+            else
+              null;
+          # The NVIDIA driver discards every MetaMode when it reprobes while
+          # the panel sleeps off the bus, so the panel returns with no mode.
+          displayHotplugScript = pkgs.writeShellApplication {
+            name = "display-hotplug";
+            runtimeInputs = [
+              pkgs.gnugrep
+              pkgs.xrandr
+            ];
+            text = /* bash */ ''
+              [ "$SRANDRD_EVENT" = connected ] || exit 0
+              if xrandr --current | grep -Eq '^\S+ connected (primary )?[0-9]+x[0-9]+\+'; then
+                exit 0
+              fi
+              echo "$SRANDRD_OUTPUT connected with no active output; enabling it" >&2
+              ${
+                if pinnedMode == null then
+                  ''xrandr --output "$SRANDRD_OUTPUT" --auto''
+                else
+                  ''
+                    xrandr --output "$SRANDRD_OUTPUT" --mode ${builtins.elemAt pinnedMode 0} --rate ${builtins.elemAt pinnedMode 1} ||
+                      xrandr --output "$SRANDRD_OUTPUT" --auto''
+              }
+            '';
+          };
         in
         {
           services = {
@@ -196,6 +225,19 @@
                   "-notifier '${pkgs.systemd}/bin/systemctl --user start --no-block i3-idle-screensaver.service'"
                 ];
                 Restart = "always";
+              };
+            };
+
+            display-hotplug = {
+              Unit = {
+                Description = "Re-enable a reconnected display left without a mode";
+                After = [ "graphical-session.target" ];
+                PartOf = [ "graphical-session.target" ];
+              };
+              Install.WantedBy = [ "graphical-session.target" ];
+              Service = {
+                ExecStart = "${lib.getExe pkgs.srandrd} -n ${lib.getExe displayHotplugScript}";
+                Restart = "on-failure";
               };
             };
           }
