@@ -49,7 +49,7 @@ Fix: none on the host, since the kernel parameter stays; report the log lines an
 
 Cause: the split-tunnel exclude list still covers the Mesh allocation, Cloudflare Mesh is off for
 client devices, or the app is off on the host.
-Diagnostic: `warp-cli --accept-tos settings`, `sudo iptables -S nixos-fw | grep CloudflareWARP`,
+Diagnostic: `warp-cli --accept-tos settings`, `sudo nft list chain inet nixos-fw input-allow | grep CloudflareWARP`,
 and `nc -vz <mesh-address> 22` from a peer.
 Fix: replace the exclude entry with `100.64.0.0/11` and `100.112.0.0/12` on the profile, turn on Cloudflare Mesh for client devices, and check the host's `apps-enable.nix` override.
 
