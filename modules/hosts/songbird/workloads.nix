@@ -41,9 +41,12 @@ in
           dhcp = {
             start = 2;
             end = 254;
+            leaseMinutes = 10;
+            clientNames = false;
           };
           autostart = true;
           sessionAttach = true;
+          bindLeases = true;
         };
       };
     };
@@ -68,6 +71,5 @@ in
         hostOffset = 10;
       };
     };
-
   };
 }

@@ -31,6 +31,18 @@ let
           dhcp = {
             start = hostOffset "Host part of the first address the DHCP range hands out.";
             end = hostOffset "Host part of the last address the DHCP range hands out.";
+
+            leaseMinutes = lib.mkOption {
+              type = types.nullOr types.ints.positive;
+              default = null;
+              description = "Lease time of the DHCP range in minutes; null keeps libvirt's hour.";
+            };
+
+            clientNames = lib.mkOption {
+              type = types.bool;
+              default = true;
+              description = "Whether the resolver answers the hostnames DHCP clients send.";
+            };
           };
 
           autostart = lib.mkOption {
@@ -47,6 +59,16 @@ let
             type = types.bool;
             default = false;
             description = "Whether `qemu:///session` guests may attach to the bridge through qemu-bridge-helper.";
+          };
+
+          bindLeases = lib.mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Whether guests may send IPv4 and ARP only from a MAC and
+              address pair the network's DHCP server leased, so no guest
+              takes over another's address. Frames of other types are dropped.
+            '';
           };
         };
       };

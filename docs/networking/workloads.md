@@ -7,12 +7,13 @@ A network is isolated by default: guests reach the gateway for DHCP and ping, an
 
 ## Table ownership
 
-| Table                   | Owner           | Role                                   |
-| ----------------------- | --------------- | -------------------------------------- |
-| `inet nixos-fw`         | NixOS firewall  | opens DHCP, DNS, host ports per bridge |
-| `inet workload`         | workload module | anti-spoof, input filter, forward, NAT |
-| `bridge workload-peers` | workload module | drops guest-to-guest on one bridge     |
-| `inet cloudflare-warp`  | warp-svc        | admits the workload block on its own   |
+| Table                    | Owner           | Role                                   |
+| ------------------------ | --------------- | -------------------------------------- |
+| `inet nixos-fw`          | NixOS firewall  | opens DHCP, DNS, host ports per bridge |
+| `inet workload`          | workload module | anti-spoof, input filter, forward, NAT |
+| `bridge workload-peers`  | workload module | drops guest-to-guest on one bridge     |
+| `bridge workload-leases` | libvirt engine  | binds guests to their DHCP leases      |
+| `inet cloudflare-warp`   | warp-svc        | admits the workload block on its own   |
 
 The `inet workload` prerouting chain drops packets from a bridge whose source lies outside its subnet before conntrack sees them, so a guest cannot inject into another network's flows.
 The input chain runs one priority ahead of `nixos-fw`.
@@ -47,6 +48,15 @@ _: {
 
 `bridge`, `subnet`, `gateway`, and `mtu` are read-only and derived from the name, the id, and the egress mode; runtime modules read them.
 The bridge name must fit the kernel's interface name limit, which the option type enforces.
+
+## Lease binding
+
+`isolatePeers` drops frames between guest ports only, so a guest could still claim another guest's address toward the host, through ARP or as an IP source.
+A libvirt network with `libvirt.bindLeases` closes that gap in `bridge workload-leases`.
+Guests may send IPv4 and ARP only from a MAC and address pair its DHCP server leased; DHCP from `0.0.0.0` and ARP probes pass, and every other frame type is dropped.
+`workload-leases.service` fills the pairs from libvirt's lease file at boot and after each ruleset reload, and a path unit refills them on every lease change.
+
+A guest whose lease expired loses traffic until it renews.
 
 ## Egress modes
 
