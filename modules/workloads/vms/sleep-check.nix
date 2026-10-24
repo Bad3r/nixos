@@ -11,7 +11,7 @@ let
 in
 {
   perSystem =
-    { lib, pkgs, ... }:
+    { pkgs, ... }:
     let
       domain =
         name: id:
@@ -30,6 +30,11 @@ in
             </devices>
           </domain>
         '';
+      # Stands in for systemd-sleep, so the units run their hooks without sleeping.
+      sleepStub.serviceConfig.ExecStart = [
+        ""
+        "${pkgs.coreutils}/bin/touch /run/slept"
+      ];
     in
     {
       checks.workloads-vm-sleep = pkgs.testers.runNixOSTest {
@@ -55,57 +60,69 @@ in
               networking.nftables.enable = true;
               users.users.${metaOwner.username}.isNormalUser = true;
               programs.libvirt.extended.enable = true;
+              systemd.services = {
+                systemd-suspend = sleepStub;
+                systemd-hibernate = sleepStub;
+              };
             };
           };
 
-        testScript =
-          { nodes, ... }:
-          let
-            hook =
-              unit: step:
-              lib.concatStringsSep " && " nodes.machine.systemd.services.${unit}.serviceConfig.${step};
-          in
-          ''
-            def state(name):
-                return machine.succeed(f"virsh domstate {name}").strip()
+        testScript = ''
+          def state(name):
+              return machine.succeed(f"virsh domstate {name}").strip()
 
-            def states():
-                return {name: state(name) for name in ["alpha", "beta"]}
+          def states():
+              return {name: state(name) for name in ["alpha", "beta"]}
 
-            machine.wait_for_unit("libvirtd.service")
-            machine.succeed(
-                "virsh define ${domain "alpha" 1}",
-                "virsh define ${domain "beta" 2}",
-                "virsh start alpha",
-                "virsh start --paused beta",
-            )
+          # Runs a sleep unit, then waits for the wake unit it queues. systemd
+          # unloads the finished wake unit, so its own journal lines tell the order.
+          def sleep_cycle(unit, succeeds=True):
+              machine.succeed("rm -f /run/slept")
+              cursor = machine.succeed("journalctl -n1 --show-cursor").split("-- cursor: ")[-1].strip()
+              pid1 = f"journalctl -b -o cat _PID=1 --after-cursor='{cursor}'"
+              (machine.succeed if succeeds else machine.fail)(f"systemctl start {unit}")
+              assert (machine.execute("test -e /run/slept")[0] == 0) == succeeds
+              wake = "Resume and restore guests after host sleep"
+              machine.wait_until_succeeds(f"{pid1} | grep -E '(Finished|Failed to start) {wake}'")
+              events = machine.succeed(pid1)
+              assert f"Finished {wake}" in events, events
+              stopped = f"{unit}: " + ("Deactivated successfully" if succeeds else "Failed with result")
+              assert events.index(stopped) < events.index(f"Starting {wake}"), events
 
-            with subtest("suspend pauses running guests and resumes only those"):
-                machine.succeed("${hook "systemd-suspend" "ExecStartPre"}")
-                assert states() == {"alpha": "paused", "beta": "paused"}, states()
-                # No agent runs in the guest, so the clock resync only warns.
-                output = machine.succeed("${hook "systemd-suspend" "ExecStopPost"}")
-                assert "alpha keeps a stale clock" in output, output
-                assert states() == {"alpha": "running", "beta": "paused"}, states()
-                machine.fail("test -e /run/workloads-vm-sleep/paused")
+          machine.wait_for_unit("libvirtd.service")
+          machine.succeed(
+              "virsh define ${domain "alpha" 1}",
+              "virsh define ${domain "beta" 2}",
+              "virsh start alpha",
+              "virsh start --paused beta",
+          )
 
-            with subtest("hibernation managed-saves active guests and restores them"):
-                machine.succeed("${hook "systemd-hibernate" "ExecStartPre"}")
-                saved = machine.succeed("virsh list --all --with-managed-save --name").split()
-                assert sorted(saved) == ["alpha", "beta"], saved
-                machine.succeed("${hook "systemd-hibernate" "ExecStopPost"}")
-                assert states() == {"alpha": "running", "beta": "paused"}, states()
+          with subtest("suspend pauses running guests and the wake unit resumes only those"):
+              sleep_cycle("systemd-suspend.service")
+              assert states() == {"alpha": "running", "beta": "paused"}, states()
+              # No agent runs in the guest, so the clock resync only warns.
+              wake = machine.succeed("journalctl -b -o cat -u workloads-vm-wake.service")
+              assert "resumed alpha" in wake and "beta" not in wake, wake
+              assert "alpha keeps a stale clock" in wake, wake
 
-            with subtest("a failed save aborts and the guests saved before it are restored"):
-                # libvirt refuses to managed-save a transient domain.
-                machine.succeed("virsh create ${domain "gamma" 3}")
-                status, output = machine.execute("${hook "systemd-hibernate" "ExecStartPre"} 2>&1")
-                assert status == 1 and "transient" in output, output
-                assert states() == {"alpha": "shut off", "beta": "shut off"}, states()
-                machine.succeed("${hook "systemd-hibernate" "ExecStopPost"}")
-                assert states() == {"alpha": "running", "beta": "paused"}, states()
-                assert state("gamma") == "running"
-          '';
+          with subtest("hibernation managed-saves active guests and the wake unit restores them"):
+              sleep_cycle("systemd-hibernate.service")
+              assert states() == {"alpha": "running", "beta": "paused"}, states()
+              hibernate = machine.succeed("journalctl -b -o cat -u systemd-hibernate.service")
+              assert "saved alpha" in hibernate and "saved beta" in hibernate, hibernate
+
+          with subtest("a failed save aborts hibernation and the guests saved before it come back"):
+              # libvirt refuses to managed-save a transient domain.
+              machine.succeed("virsh create ${domain "gamma" 3}")
+              sleep_cycle("systemd-hibernate.service", succeeds=False)
+              hibernate = machine.succeed("journalctl -b -o cat -u systemd-hibernate.service")
+              assert "transient" in hibernate and hibernate.count("saved beta") == 2, hibernate
+              assert states() == {"alpha": "running", "beta": "paused"}, states()
+              assert state("gamma") == "running"
+              # The VM has no graphical session to notify.
+              wake = machine.succeed("journalctl -b -o cat -u workloads-vm-wake.service")
+              assert "no notification sent" not in wake, wake
+        '';
       };
     };
 }
