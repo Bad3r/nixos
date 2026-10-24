@@ -108,6 +108,7 @@ let
           };
           "/nix/var/nix" = "read";
           "/data/git" = "read";
+          "/data/agents" = "write";
           "${homeDir}/.cache/nix" = "write";
           "${homeDir}/trees" = "write";
           "${homeDir}/.cache/uv" = "write";

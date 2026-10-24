@@ -98,7 +98,7 @@ let
     nssDir="$cfgDir/runtime/nss"
     passwdFile="$nssDir/passwd"
     groupFile="$nssDir/group"
-    tmpDir="/tmp/agents"
+    tmpDir="/data/agents"
     tmpOut=""
     tmpStamp=""
     tmpPasswd=""
@@ -201,13 +201,13 @@ let
       fi
 
       if [ ! -s "$out" ] || [ "$cachedHash" != "$inputHash" ]; then
-        tmpOut="$(${coreutilsMktemp} "$tmpDir/codex-config.XXXXXXXX.toml")" || {
-          echo "codex-wrapper: ERROR: failed to create temporary config file in $tmpDir" >&2
+        tmpOut="$(${coreutilsMktemp} "$cfgDir/codex-config.XXXXXXXX.toml")" || {
+          echo "codex-wrapper: ERROR: failed to create temporary config file in $cfgDir" >&2
           exit 1
         }
         trap cleanupMergeArtifacts EXIT INT TERM
-        tmpStamp="$(${coreutilsMktemp} "$tmpDir/codex-config-stamp.XXXXXXXX")" || {
-          echo "codex-wrapper: ERROR: failed to create temporary stamp file in $tmpDir" >&2
+        tmpStamp="$(${coreutilsMktemp} "$cfgDir/codex-config-stamp.XXXXXXXX")" || {
+          echo "codex-wrapper: ERROR: failed to create temporary stamp file in $cfgDir" >&2
           exit 1
         }
 

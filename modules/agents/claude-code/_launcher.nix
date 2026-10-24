@@ -133,7 +133,7 @@ let
     ${launchOnlyBlock}
 
     # Shared scratch root for agent temp files.
-    tmpDir="/tmp/agents"
+    tmpDir="/data/agents"
     mkdir -p "$tmpDir"
     export TMPDIR="$tmpDir"
 

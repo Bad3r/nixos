@@ -90,7 +90,7 @@ let
 
   # Read(**)/Edit(**) cover the working tree. The parent-relative Read rules
   # reach the repo-root and global CLAUDE.md from nested worktrees, which the
-  # cwd-anchored Read(**) does not.
+  # cwd-anchored Read(**) does not. //data/agents is the wrappers' TMPDIR.
   fileWebAllow = [
     "Read(~/.claude/CLAUDE.md)"
     "Read(../../.claude/CLAUDE.md)"
@@ -99,6 +99,8 @@ let
     "WebFetch(domain:*.github.com)"
     "Read(**)"
     "Edit(**)"
+    "Read(//data/agents/**)"
+    "Edit(//data/agents/**)"
   ];
 in
 {
@@ -157,6 +159,7 @@ in
     allow = fileWebAllow ++ map bash bashAllow;
     ask = map bash bashAsk;
     deny = map bash bashDeny;
+    additionalDirectories = [ "/data/agents" ];
     defaultMode = "auto";
   };
 
