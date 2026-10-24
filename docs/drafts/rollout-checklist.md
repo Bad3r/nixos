@@ -48,7 +48,9 @@ included, rendered empty; the last grep shows the organization value, the `nixos
 client id, `service_mode` `warp`, and `auto_connect` 0; the mountinfo line shows
 `/var/lib/cloudflare-warp/mdm.xml` as a read-only bind of the rendered file without sudo. None of
 these commands prints the client secret.
-If not: same triage as Step 6.
+If not: the sops secret or template did not render; sops-nix runs in the activation script here (no
+unit), so reread the switch output for `sops-install-secrets` errors and check
+`ls -la /run/secrets/rendered/cloudflare-warp-mdm` before continuing.
 
 - [ ] **Step 4: Confirm registration, status, and DNS.** Registration and status held; the DNS
   lines wait for a switch that carries the tunnel-bound resolved route. That switch restarts
@@ -70,7 +72,7 @@ warp-cli --accept-tos connect
 ```
 
 Expected: registration bound to `nixos-songbird`, status reaches `Connected` with no manual
-command (repeat after a reboot as in Step 8), `cloudflare-warp-dns.service` is active (exited),
+command (repeat after a reboot), `cloudflare-warp-dns.service` is active (exited),
 `resolvectl dns` lists `Global: 127.0.2.2 127.0.2.3`, `resolvectl domain` lists `Global: ~.` and
 no domain on `eth0`, `resolvectl query` answers, and the trace prints `warp=on` and `gateway=on`.
 After the disconnect, `ip link` finds no `CloudflareWARP`, `Global` is empty, and the query still
@@ -136,7 +138,7 @@ the grep count on songbird is 7 and `ip route get 239.255.255.250` leaves throug
 held 17 entries twelve minutes after the write, so the restart is required, not a shortcut.
 If not: `GET /accounts/$ACCOUNT/devices/policy/<profile id>/exclude` shows which profile still carries 17 entries.
 
-- [ ] **Step 10: SSH over Mesh.** Only once songbird shows Connected.
+- [ ] **Step 5: SSH over Mesh.** Only once songbird shows Connected.
 
 Expected: the SSH connection authenticates by public key and offers no password prompt.
 
@@ -151,7 +153,7 @@ Pass: the inbound SSH login and the ICMP replies succeed. Store each address und
 `secrets/cloudflare-warp.yaml`, set `cloudflareWarpMeshAddressReady = true` for that host, and
 switch every WARP fleet host so the `.internal` mapping and SSH alias render.
 
-- [ ] **Step 11: Verify the device registrations in the dashboard.** Zero Trust dashboard,
+- [ ] **Step 6: Verify the device registrations in the dashboard.** Zero Trust dashboard,
   Team & Resources > Devices > Devices list.
   Expected: exactly two registrations: one with identity `non_identity@repo.cloudflareaccess.com`
   matching device profile `nixos-songbird` (precedence 200), plus the mobile device under the user's own identity on the default profile; all

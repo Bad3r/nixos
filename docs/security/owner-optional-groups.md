@@ -9,7 +9,6 @@ Groups the owner profile in `modules/meta/owner.nix` leaves unassigned, and devi
   - Avahi D-Bus policy grants `org.freedesktop.Avahi.Server.SetHostName` to `netdev` group members.
   - if owner is added to `netdev`, hostname change becomes available without sudo.
 - `power` note:
-  - on `songbird` the `power` group has no active grant because `thermald` is disabled.
   - on a host that enables `thermald`, its D-Bus policy grants the `power` group control of the daemon.
 - `plugdev` / `bluetooth` note:
   - no direct owner assignment in baseline; privilege impact depends on service or udev rules that consume those groups.
