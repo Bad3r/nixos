@@ -110,7 +110,6 @@ def build_parser() -> argparse.ArgumentParser:
     base_verbs.add_parser("list", parents=[common])
     build = base_verbs.add_parser("build", parents=[common])
     build.add_argument("flavour", choices=FLAVOURS)
-    build.add_argument("--flake", help="flake reference; default the configured checkout")
     return parser
 
 
@@ -120,15 +119,29 @@ def _request(sandboxes: Sandboxes, args: argparse.Namespace) -> Request:
     )
 
 
+TIMEOUT_EXIT = 124
+
+
 def _print_exec(result: ExecResult) -> int:
     sys.stdout.buffer.write(result.stdout)
     sys.stderr.buffer.write(result.stderr)
     if result.truncated:
         print("sbx: output truncated", file=sys.stderr)
+    return _exit_code(result)
+
+
+def _exit_code(result: ExecResult) -> int:
     if result.timed_out:
         print("sbx: the command timed out", file=sys.stderr)
-        return 124
+        return TIMEOUT_EXIT
     return 255 if result.exit_code is None else result.exit_code
+
+
+def _attached(code: int | None) -> int:
+    if code is None:
+        print("sbx: the command timed out", file=sys.stderr)
+        return TIMEOUT_EXIT
+    return code
 
 
 def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tuple[object, int]:
@@ -136,16 +149,19 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
     if args.outputs and args.to is None:
         msg = "--out needs --to"
         raise SbxError(msg, code="usage")
+    if args.to is not None and not args.outputs:
+        msg = "--to needs --out"
+        raise SbxError(msg, code="usage")
+    timeout = _timeout(args.timeout)
     created = sandboxes.create(_request(sandboxes, args))
     name = str(created["name"])
     try:
         copied_in = [sandboxes.copy(path, f"{name}:/root/") for path in args.inputs]
-        timeout = _timeout(args.timeout)
         if as_json:
             result = sandboxes.exec_capture(name, command, timeout=timeout, agent=False)
-            code = 0
+            code = TIMEOUT_EXIT if result.timed_out else 0
         else:
-            code = sandboxes.exec_attached(name, command, timeout=timeout)
+            code = _attached(sandboxes.exec_attached(name, command, timeout=timeout))
             result = None
         copied_out = [sandboxes.copy(f"{name}:{path}", args.to) for path in args.outputs]
     finally:
@@ -178,9 +194,9 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
                     args.name, command, timeout=timeout, agent=args.agent
                 )
                 if as_json:
-                    return result.as_json(), 0
+                    return result.as_json(), TIMEOUT_EXIT if result.timed_out else 0
                 return None, _print_exec(result)
-            return None, sandboxes.exec_attached(args.name, command, timeout=timeout)
+            return None, _attached(sandboxes.exec_attached(args.name, command, timeout=timeout))
         case "cp":
             return sandboxes.copy(args.source, args.destination), 0
         case "destroy":
@@ -198,7 +214,7 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
         case "base":
             if args.base_verb == "list":
                 return sandboxes.base_list(), 0
-            return sandboxes.base_build(args.flavour, args.flake), 0
+            return sandboxes.base_build(args.flavour), 0
         case _:
             msg = f"unknown verb {args.verb}"
             raise SbxError(msg, code="usage")

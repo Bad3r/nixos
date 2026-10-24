@@ -7,6 +7,7 @@ against the settings the app module renders.
 """
 
 import base64
+import binascii
 import contextlib
 import fcntl
 import json
@@ -15,6 +16,7 @@ import re
 import secrets
 import shlex
 import shutil
+import stat
 import subprocess
 import threading
 import time
@@ -22,7 +24,7 @@ import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
-from typing import IO, TYPE_CHECKING, Any, Protocol
+from typing import IO, TYPE_CHECKING, Any, Protocol, cast
 
 from sbx import journal
 
@@ -91,6 +93,7 @@ class Settings:
     default_ttl: int
     disk_gib: int
     vsock_allowlist: frozenset[int]
+    cpuset: str
     flake: str
     unit: str
     slice: str
@@ -120,6 +123,7 @@ class Settings:
             default_ttl=defaults["ttlSeconds"],
             disk_gib=defaults["diskGiB"],
             vsock_allowlist=frozenset(raw["vsockAllowlist"]),
+            cpuset=raw["cpuset"],
             flake=raw["flake"],
             unit=raw["unit"],
             slice=raw["slice"],
@@ -219,6 +223,15 @@ class DomainInfo:
     cid: int | None
     meta: Meta | None
     managed_save: bool
+
+
+@dataclass(frozen=True)
+class Sandbox:
+    """A domain sbx created, with its metadata."""
+
+    name: str
+    domain: DomainInfo
+    meta: Meta
 
 
 @dataclass(frozen=True)
@@ -364,6 +377,54 @@ def _within(path: Path, roots: Sequence[Path]) -> bool:
     return any(path.is_relative_to(root) for root in roots)
 
 
+def _agent_error(detail: str) -> SbxError:
+    msg = f"qemu-ga sent an unexpected reply: {detail}"
+    return SbxError(msg, code="agent-reply")
+
+
+def _agent_return(reply: dict[str, Any]) -> dict[str, Any]:
+    value = reply.get("return")
+    if not isinstance(value, dict):
+        msg = "no return object"
+        raise _agent_error(msg)
+    return cast("dict[str, Any]", value)
+
+
+def _agent_int(status: dict[str, Any], key: str) -> int | None:
+    value = status.get(key)
+    if value is None:
+        return None
+    if not isinstance(value, int) or isinstance(value, bool):
+        msg = f"{key} is not an integer"
+        raise _agent_error(msg)
+    return value
+
+
+def _agent_data(status: dict[str, Any], key: str) -> bytes:
+    value = status.get(key, "")
+    if not isinstance(value, str):
+        msg = f"{key} is not a string"
+        raise _agent_error(msg)
+    try:
+        return base64.b64decode(value, validate=True)
+    except binascii.Error as error:
+        msg = f"{key} is not base64"
+        raise _agent_error(msg) from error
+
+
+def _strip_exec_bits(path: Path) -> None:
+    """Drop execute, setuid, and setgid bits from every file under a copied-out path."""
+    files = (
+        [path]
+        if not path.is_dir()
+        else [Path(parent) / file for parent, _dirs, names in os.walk(path) for file in names]
+    )
+    for file in files:
+        info = file.lstat()
+        if stat.S_ISREG(info.st_mode):
+            file.chmod(stat.S_IMODE(info.st_mode) & 0o666)
+
+
 class Sandboxes:
     """Every sbx verb, over one backend."""
 
@@ -421,33 +482,29 @@ class Sandboxes:
         definitions = self.paths.config / "libvirt" / "qemu"
         return bool(self._sandbox_dirs()) or any(definitions.glob(f"{DOMAIN_PREFIX}*.xml"))
 
-    def owned(self) -> list[DomainInfo]:
+    def owned(self) -> list[Sandbox]:
         """Return the domains sbx created."""
         return [
-            domain
+            Sandbox(domain.name.removeprefix(DOMAIN_PREFIX), domain, domain.meta)
             for domain in self.backend().domains()
             if domain.meta is not None and domain.name.startswith(DOMAIN_PREFIX)
         ]
 
-    def find(self, name: str) -> DomainInfo:
+    def find(self, name: str) -> Sandbox:
         """Return one sandbox by name."""
         self._check_name(name)
-        for domain in self.owned():
-            if domain.name == DOMAIN_PREFIX + name:
-                return domain
+        for sandbox in self.owned():
+            if sandbox.name == name:
+                return sandbox
         msg = f"no sandbox named '{name}'"
         raise SbxError(msg, code="not-found")
 
-    def describe(self, domain: DomainInfo) -> dict[str, object]:
+    def describe(self, sandbox: Sandbox) -> dict[str, object]:
         """Return the JSON form of one sandbox."""
-        name = domain.name.removeprefix(DOMAIN_PREFIX)
-        meta = domain.meta
-        if meta is None:
-            msg = f"{domain.name} carries no sbx metadata"
-            raise SbxError(msg, code="metadata")
-        directory = self.paths.sandbox(name)
+        domain, meta = sandbox.domain, sandbox.meta
+        directory = self.paths.sandbox(sandbox.name)
         return {
-            "name": name,
+            "name": sandbox.name,
             "domain": domain.name,
             "state": domain.state,
             "base": meta.base,
@@ -476,29 +533,38 @@ class Sandboxes:
         cpus: int | None,
         ttl: str | None,
     ) -> Request:
-        """Validate create flags against the ceilings."""
-        if base not in FLAVOURS:
-            msg = f"unknown base '{base}'; bases: {', '.join(FLAVOURS)}"
-            raise SbxError(msg, code="unknown-base")
-        if name is not None:
-            self._check_name(name)
-        if net not in NETS:
-            msg = f"network '{net}' is not available; networks: {', '.join(NETS)}"
-            raise SbxError(msg, code="invalid-argument")
+        """Turn create flags into a request within the ceilings."""
         settings = self.settings
-        memory_mib = settings.default_memory_mib if memory is None else parse_memory(memory)
-        if not 256 <= memory_mib <= settings.sandbox_memory_mib:  # noqa: PLR2004
+        request = Request(
+            base,
+            name,
+            net,
+            settings.default_memory_mib if memory is None else parse_memory(memory),
+            settings.default_cpus if cpus is None else cpus,
+            settings.default_ttl if ttl is None else parse_duration(ttl),
+        )
+        self._validate(request)
+        return request
+
+    def _validate(self, request: Request) -> None:
+        settings = self.settings
+        if request.base not in FLAVOURS:
+            msg = f"unknown base '{request.base}'; bases: {', '.join(FLAVOURS)}"
+            raise SbxError(msg, code="unknown-base")
+        if request.name is not None:
+            self._check_name(request.name)
+        if request.net not in NETS:
+            msg = f"network '{request.net}' is not available; networks: {', '.join(NETS)}"
+            raise SbxError(msg, code="invalid-argument")
+        if not 256 <= request.memory_mib <= settings.sandbox_memory_mib:  # noqa: PLR2004
             msg = f"memory must be 256M to {settings.sandbox_memory_mib}M"
             raise SbxError(msg, code="over-limit")
-        cpu_count = settings.default_cpus if cpus is None else cpus
-        if not 1 <= cpu_count <= settings.sandbox_cpus:
+        if not 1 <= request.cpus <= settings.sandbox_cpus:
             msg = f"cpus must be 1 to {settings.sandbox_cpus}"
             raise SbxError(msg, code="over-limit")
-        seconds = settings.default_ttl if ttl is None else parse_duration(ttl)
-        if not 60 <= seconds <= settings.max_ttl:  # noqa: PLR2004
+        if not 60 <= request.ttl <= settings.max_ttl:  # noqa: PLR2004
             msg = f"ttl must be 1m to {settings.max_ttl // 3600}h"
             raise SbxError(msg, code="over-limit")
-        return Request(base, name, net, memory_mib, cpu_count, seconds)
 
     def _usage(self) -> int:
         total = 0
@@ -509,7 +575,8 @@ class Sandboxes:
                         total += (Path(parent) / file).lstat().st_blocks * 512
         return total
 
-    def _check_disk(self) -> None:
+    def _check_disk(self, reserve: int = 0) -> None:
+        """Refuse below the free-space floor or when usage plus `reserve` passes the cap."""
         self.paths.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         stats = os.statvfs(self.paths.root)
         free = stats.f_bavail * stats.f_frsize
@@ -520,10 +587,10 @@ class Sandboxes:
             )
             raise SbxError(msg, code="disk-full")
         used = self._usage()
-        if used >= self.settings.disk_cap_bytes:
+        if used + reserve > self.settings.disk_cap_bytes:
             msg = (
-                f"sandboxes use {used // GIB}G of the {self.settings.disk_cap_bytes // GIB}G cap; "
-                "destroy some or run `sbx gc`"
+                f"sandboxes use {used // GIB}G and need {reserve // GIB}G more of the "
+                f"{self.settings.disk_cap_bytes // GIB}G cap; destroy some or run `sbx gc`"
             )
             raise SbxError(msg, code="disk-full")
 
@@ -544,8 +611,9 @@ class Sandboxes:
                 listeners.append(fields[4])
         return listeners
 
-    def _check_capacity(self, request: Request) -> None:
-        running = [domain for domain in self.owned() if domain.active]
+    def _check_capacity(self, request: Request) -> int:
+        """Refuse past the running and memory ceilings; return the running count."""
+        running = [sandbox.domain for sandbox in self.owned() if sandbox.domain.active]
         if len(running) >= self.settings.running:
             msg = f"{len(running)} sandboxes run, the ceiling is {self.settings.running}"
             raise SbxError(msg, code="over-limit")
@@ -556,6 +624,7 @@ class Sandboxes:
                 f"the {self.settings.memory_mib}M ceiling"
             )
             raise SbxError(msg, code="over-limit")
+        return len(running)
 
     # Bases
 
@@ -580,17 +649,15 @@ class Sandboxes:
             result.append({"base": flavour, "built": path is not None, "path": path})
         return result
 
-    def base_build(self, flavour: str, flake: str | None) -> dict[str, object]:
-        """Build a Nix base; its out-link is the GC root."""
+    def base_build(self, flavour: str) -> dict[str, object]:
+        """Build a Nix base from the configured flake; its out-link is the GC root."""
         if flavour not in FLAVOURS:
             msg = f"unknown base '{flavour}'; bases: {', '.join(FLAVOURS)}"
             raise SbxError(msg, code="unknown-base")
         self._check_disk()
         self.paths.bases.mkdir(mode=0o700, parents=True, exist_ok=True)
         link = self.paths.bases / flavour
-        installable = (
-            f"{flake or self.settings.flake}#legacyPackages.x86_64-linux.workloads.sbx-{flavour}"
-        )
+        installable = f"{self.settings.flake}#legacyPackages.x86_64-linux.workloads.sbx-{flavour}"
         journal.record(f"building base {flavour} from {installable}", verb="base-build")
         # Build logs go to stderr, which keeps --json output parseable.
         result = subprocess.run(
@@ -620,10 +687,13 @@ class Sandboxes:
             element.text = text
             return element
 
+        cpuset = self.settings.cpuset
         sub(domain, "name", DOMAIN_PREFIX + name)
         sub(domain, "metadata").append(meta.element())
         sub(domain, "memory", str(request.memory_mib), unit="MiB")
-        sub(domain, "vcpu", str(request.cpus))
+        # The user manager has no cpuset controller, so pinning goes through affinity.
+        sub(domain, "vcpu", str(request.cpus), placement="static", cpuset=cpuset)
+        sub(sub(domain, "cputune"), "emulatorpin", cpuset=cpuset)
         system = sub(domain, "os", firmware="efi")
         sub(system, "type", "hvm", arch="x86_64", machine="q35")
         firmware = sub(system, "firmware")
@@ -635,7 +705,9 @@ class Sandboxes:
         features = sub(domain, "features")
         sub(features, "acpi")
         sub(features, "apic")
-        sub(domain, "cpu", mode="host-passthrough", check="none")
+        sub(features, "vmport", state="off")
+        cpu = sub(domain, "cpu", mode="host-passthrough", check="none")
+        sub(cpu, "feature", policy="disable", name="vmx")
         sub(domain, "clock", offset="utc")
         sub(domain, "on_poweroff", "destroy")
         sub(domain, "on_reboot", "restart")
@@ -666,15 +738,15 @@ class Sandboxes:
 
     def _discard(self, name: str) -> None:
         """Remove a sandbox's domain and directory; the caller holds the lock."""
-        domain = DOMAIN_PREFIX + name
-        if any(info.name == domain for info in self.backend().domains()):
-            self.backend().remove(domain)
+        if any(sandbox.name == name for sandbox in self.owned()):
+            self.backend().remove(DOMAIN_PREFIX + name)
         directory = self.paths.sandbox(name)
         if directory.is_dir():
             shutil.rmtree(directory)
 
     def create(self, request: Request) -> dict[str, object]:
         """Start a sandbox and wait until it accepts commands."""
+        self._validate(request)
         name = request.name or f"{request.base}-{secrets.token_hex(3)}"
         self._check_name(name)
         image = self.base_image(request.base)
@@ -686,8 +758,12 @@ class Sandboxes:
             ):
                 msg = f"a sandbox named '{name}' exists"
                 raise SbxError(msg, code="exists")
-            self._check_capacity(request)
-            self._check_disk()
+            running = self._check_capacity(request)
+            tools = self.settings.tools
+            info = json.loads(run([tools.qemu_img, "info", "-U", "--output=json", str(image)]))
+            size = max(int(info["virtual-size"]), self.settings.disk_gib * GIB)
+            # Every running overlay may still grow to its full virtual size.
+            self._check_disk(reserve=(running + 1) * size)
             if request.net == "none" and (listeners := self.foreign_vsock_listeners()):
                 msg = (
                     f"host vsock listeners outside the allowlist are reachable from a sandbox: "
@@ -707,7 +783,6 @@ class Sandboxes:
             try:
                 (directory / "xfer").mkdir(mode=0o700)
                 key = directory / "id_ed25519"
-                tools = self.settings.tools
                 comment = DOMAIN_PREFIX + name
                 run(
                     [
@@ -726,8 +801,6 @@ class Sandboxes:
                 # A per-sandbox root keeps the base through a rebuild and a GC.
                 root = str(directory / "base")
                 run([tools.nix_store, "--add-root", root, "--realise", str(image.parent)])
-                info = json.loads(run([tools.qemu_img, "info", "-U", "--output=json", str(image)]))
-                size = str(max(int(info["virtual-size"]), self.settings.disk_gib * GIB))
                 disk = str(directory / "disk.qcow2")
                 run(
                     [
@@ -741,7 +814,7 @@ class Sandboxes:
                         "-b",
                         str(image),
                         disk,
-                        size,
+                        str(size),
                     ]
                 )
                 public = key.with_suffix(".pub").read_text().strip()
@@ -781,10 +854,11 @@ class Sandboxes:
                 break
             except SbxError:
                 if self._clock() > deadline:
-                    msg = f"the guest agent of '{name}' did not answer; console:\n{self._console_tail(name)}"  # noqa: E501
+                    tail = self._console_tail(name)
+                    msg = f"the guest agent of '{name}' did not answer; console:\n{tail}"
                     raise SbxError(msg, code="boot-timeout") from None
                 time.sleep(1)
-        cid = self.find(name).cid
+        cid = self.find(name).domain.cid
         while True:
             result = capture(self._ssh(name, cid, ["true"]), 4096, 30)
             if result.exit_code == 0:
@@ -799,7 +873,7 @@ class Sandboxes:
         """Remove one sandbox."""
         self._check_name(name)
         with self.locked():
-            known = any(info.name == DOMAIN_PREFIX + name for info in self.owned())
+            known = any(sandbox.name == name for sandbox in self.owned())
             if not known and not self.paths.sandbox(name).is_dir():
                 msg = f"no sandbox named '{name}'"
                 raise SbxError(msg, code="not-found")
@@ -807,59 +881,53 @@ class Sandboxes:
         journal.record(f"destroyed sandbox {name}", verb="destroy", sandbox=name)
         return [name]
 
-    def destroy_where(self, *, mine: bool, expired: bool) -> list[str]:
-        """Remove the caller's sandboxes or the expired ones."""
+    def _require_session(self, *, mine: bool) -> None:
         if mine and self.session is None:
             msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID"
             raise SbxError(msg, code="no-session")
+
+    def destroy_where(self, *, mine: bool, expired: bool) -> list[str]:
+        """Remove the caller's sandboxes or the expired ones."""
+        self._require_session(mine=mine)
         if not self._has_state():
             return []
         removed: list[str] = []
         now = self._clock()
         with self.locked():
-            for domain in self.owned():
-                meta = domain.meta
-                if meta is None:
-                    continue
+            for sandbox in self.owned():
+                meta = sandbox.meta
                 if (mine and meta.session == self.session) or (expired and meta.expires <= now):
-                    name = domain.name.removeprefix(DOMAIN_PREFIX)
-                    self._discard(name)
-                    removed.append(name)
+                    self._discard(sandbox.name)
+                    removed.append(sandbox.name)
         for name in removed:
             journal.record(f"destroyed sandbox {name}", verb="destroy", sandbox=name)
         return removed
 
     def listing(self, *, mine: bool) -> list[dict[str, object]]:
         """Describe every sandbox, or the caller's."""
-        if mine and self.session is None:
-            msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID"
-            raise SbxError(msg, code="no-session")
+        self._require_session(mine=mine)
         if not self._has_state():
             return []
         return [
-            self.describe(domain)
-            for domain in self.owned()
-            if not mine or (domain.meta is not None and domain.meta.session == self.session)
+            self.describe(sandbox)
+            for sandbox in self.owned()
+            if not mine or sandbox.meta.session == self.session
         ]
 
     def info(self, name: str) -> dict[str, object]:
         """Describe one sandbox with its files."""
-        domain = self.find(name)
-        result = self.describe(domain)
-        directory = self.paths.sandbox(name)
-        result["console"] = str(directory / "console.log")
-        result["image"] = domain.meta.image if domain.meta is not None else None
+        sandbox = self.find(name)
+        result = self.describe(sandbox)
+        result["console"] = str(self.paths.sandbox(name) / "console.log")
+        result["image"] = sandbox.meta.image
         return result
 
-    def _gc_reason(self, domain: DomainInfo, now: float) -> str | None:
-        meta = domain.meta
-        if meta is None:
-            return None
-        if meta.expires <= now:
+    def _gc_reason(self, sandbox: Sandbox, now: float) -> str | None:
+        if sandbox.meta.expires <= now:
             return "expired"
-        if not domain.active and not domain.managed_save:
+        if not sandbox.domain.active and not sandbox.domain.managed_save:
             return "shut off"
-        if not self.paths.sandbox(domain.name.removeprefix(DOMAIN_PREFIX)).is_dir():
+        if not self.paths.sandbox(sandbox.name).is_dir():
             return "run directory missing"
         return None
 
@@ -870,17 +938,16 @@ class Sandboxes:
         actions: list[dict[str, str]] = []
         with self.locked():
             now = self._clock()
-            owned = {domain.name: domain for domain in self.owned()}
-            for domain in owned.values():
-                reason = self._gc_reason(domain, now)
+            owned = {sandbox.name: sandbox for sandbox in self.owned()}
+            for sandbox in owned.values():
+                reason = self._gc_reason(sandbox, now)
                 if reason is None:
                     continue
-                name = domain.name.removeprefix(DOMAIN_PREFIX)
-                actions.append({"name": name, "reason": reason})
+                actions.append({"name": sandbox.name, "reason": reason})
                 if not dry_run:
-                    self._discard(name)
+                    self._discard(sandbox.name)
             for directory in self._sandbox_dirs():
-                if DOMAIN_PREFIX + directory.name in owned:
+                if directory.name in owned:
                     continue
                 actions.append({"name": directory.name, "reason": "no domain"})
                 if not dry_run:
@@ -908,6 +975,7 @@ class Sandboxes:
             "BatchMode": "yes",
             "StrictHostKeyChecking": "accept-new",
             "UserKnownHostsFile": str(directory / "known_hosts"),
+            "GlobalKnownHostsFile": "/dev/null",
             "HostKeyAlias": DOMAIN_PREFIX + name,
             "ProxyCommand": proxy,
             "ConnectTimeout": "10",
@@ -924,18 +992,21 @@ class Sandboxes:
         options = self._ssh_options(name, cid)
         return [self.settings.tools.ssh, *options, "-T", "root@sbx", "--", shlex.join(command)]
 
-    def _running(self, name: str) -> DomainInfo:
-        domain = self.find(name)
-        if not domain.active:
-            msg = f"sandbox '{name}' is {domain.state}"
+    def _running(self, name: str) -> Sandbox:
+        sandbox = self.find(name)
+        if sandbox.meta.expires <= self._clock():
+            msg = f"sandbox '{name}' is past its TTL; `sbx gc` removes it"
+            raise SbxError(msg, code="expired")
+        if not sandbox.domain.active:
+            msg = f"sandbox '{name}' is {sandbox.domain.state}"
             raise SbxError(msg, code="not-running")
-        return domain
+        return sandbox
 
     def exec_capture(
         self, name: str, command: Sequence[str], *, timeout: float | None, agent: bool
     ) -> ExecResult:
         """Run a command and capture its output."""
-        domain = self._running(name)
+        sandbox = self._running(name)
         journal.record(
             f"exec in {name}: {shlex.join(command)}",
             verb="exec",
@@ -943,26 +1014,26 @@ class Sandboxes:
             session=self.session,
         )
         if agent:
-            return self._agent_exec(domain.name, command, timeout)
-        return capture(self._ssh(name, domain.cid, command), self.settings.output_limit, timeout)
+            return self._agent_exec(sandbox.domain.name, command, timeout)
+        argv = self._ssh(name, sandbox.domain.cid, command)
+        return capture(argv, self.settings.output_limit, timeout)
 
-    def exec_attached(self, name: str, command: Sequence[str], *, timeout: float | None) -> int:
-        """Run a command with the caller's stdio and return its exit code."""
-        domain = self._running(name)
+    def exec_attached(
+        self, name: str, command: Sequence[str], *, timeout: float | None
+    ) -> int | None:
+        """Run a command with the caller's stdio; return its exit code, or None on timeout."""
+        sandbox = self._running(name)
         journal.record(
             f"exec in {name}: {shlex.join(command)}",
             verb="exec",
             sandbox=name,
             session=self.session,
         )
+        argv = self._ssh(name, sandbox.domain.cid, command)
         try:
-            result = subprocess.run(
-                self._ssh(name, domain.cid, command), timeout=timeout, check=False
-            )
+            return subprocess.run(argv, timeout=timeout, check=False).returncode
         except subprocess.TimeoutExpired:
-            msg = f"the command in '{name}' ran past {timeout}s"
-            raise SbxError(msg, code="timeout") from None
-        return result.returncode
+            return None
 
     def _agent_exec(self, domain: str, command: Sequence[str], timeout: float | None) -> ExecResult:
         backend = self.backend()
@@ -973,25 +1044,37 @@ class Sandboxes:
             {"execute": "guest-exec", "arguments": {**arguments, "capture-output": True}},
             10,
         )
-        pid = started["return"]["pid"]
+        pid = _agent_int(_agent_return(started), "pid")
+        if pid is None:
+            msg = "guest-exec returned no pid"
+            raise _agent_error(msg)
         deadline = None if timeout is None else self._clock() + timeout
         while True:
-            status = backend.agent(
-                domain, {"execute": "guest-exec-status", "arguments": {"pid": pid}}, 10
-            )["return"]
+            status = _agent_return(
+                backend.agent(
+                    domain, {"execute": "guest-exec-status", "arguments": {"pid": pid}}, 10
+                )
+            )
+            if not isinstance(status.get("exited"), bool):
+                msg = "exited is not a boolean"
+                raise _agent_error(msg)
             if status["exited"]:
                 break
             if deadline is not None and self._clock() > deadline:
                 return ExecResult(None, b"", b"", truncated=False, timed_out=True)
             time.sleep(0.2)
         limit = self.settings.output_limit
-        stdout = base64.b64decode(status.get("out-data", ""))
-        stderr = base64.b64decode(status.get("err-data", ""))
+        stdout = _agent_data(status, "out-data")
+        stderr = _agent_data(status, "err-data")
         truncated = bool(status.get("out-truncated") or status.get("err-truncated"))
         truncated = truncated or len(stdout) > limit or len(stderr) > limit
-        code = status.get("exitcode")
-        if code is None and "signal" in status:
-            code = 128 + int(status["signal"])
+        code = _agent_int(status, "exitcode")
+        signal = _agent_int(status, "signal")
+        if code is None and signal is not None:
+            code = 128 + signal
+        if code is None:
+            msg = "guest-exec-status has neither exitcode nor signal"
+            raise _agent_error(msg)
         return ExecResult(code, stdout[:limit], stderr[:limit], truncated, timed_out=False)
 
     def host_roots(self) -> list[Path]:
@@ -1009,27 +1092,41 @@ class Sandboxes:
             roots.append(Path(toplevel.stdout.strip()))
         return [root.resolve() for root in roots if root.is_dir()]
 
+    def _denied(self, path: Path, roots: Sequence[Path]) -> SbxError:
+        msg = f"{path} is outside the copy roots: {', '.join(map(str, roots))}"
+        return SbxError(msg, code="path-denied")
+
     def _source(self, path: Path) -> Path:
         roots = self.host_roots()
         resolved = path.resolve(strict=True)
         if not _within(resolved, roots):
-            msg = f"{path} is outside the copy roots: {', '.join(map(str, roots))}"
-            raise SbxError(msg, code="path-denied")
+            raise self._denied(path, roots)
         if resolved.is_dir():
             for parent, dirs, files in os.walk(resolved):
                 for entry in [*dirs, *files]:
                     candidate = Path(parent) / entry
-                    if candidate.is_symlink() and not _within(candidate.resolve(), roots):
+                    if not candidate.is_symlink():
+                        continue
+                    # scp follows links, and a linked directory may link further out.
+                    if candidate.is_dir():
+                        msg = f"{candidate} links to a directory; copy its target instead"
+                        raise SbxError(msg, code="path-denied")
+                    if not _within(candidate.resolve(), roots):
                         msg = f"{candidate} links outside the copy roots"
                         raise SbxError(msg, code="path-denied")
         return resolved
 
-    def _destination(self, path: Path) -> Path:
+    def _destination(self, path: Path, leaf: str) -> Path:
+        """Return a host target that does not exist yet, under the copy roots."""
         roots = self.host_roots()
         resolved = path.resolve()
-        if not resolved.parent.is_dir() or not _within(resolved, roots):
-            msg = f"{path} is outside the copy roots: {', '.join(map(str, roots))}"
-            raise SbxError(msg, code="path-denied")
+        if resolved.is_dir():
+            resolved /= leaf
+        if not resolved.parent.is_dir() or not _within(resolved.parent, roots):
+            raise self._denied(path, roots)
+        if os.path.lexists(resolved):
+            msg = f"{resolved} exists; copies out never overwrite"
+            raise SbxError(msg, code="exists")
         return resolved
 
     def _remote(self, argument: str) -> tuple[str, str] | None:
@@ -1051,35 +1148,77 @@ class Sandboxes:
         if remote_destination is not None:
             name, guest_path = remote_destination
             local = self._source(Path(source))
-            domain = self._running(name)
-            transfer = [str(local), f"root@sbx:{guest_path}"]
-            result: dict[str, object] = {"from": str(local), "to": f"{name}:{guest_path}"}
+            sandbox = self._running(name)
+            journal.record(
+                f"cp {local} {name}:{guest_path}", verb="cp", sandbox=name, session=self.session
+            )
+            options = self._ssh_options(name, sandbox.domain.cid)
+            run(
+                [
+                    self.settings.tools.scp,
+                    *options,
+                    "-q",
+                    "-r",
+                    str(local),
+                    f"root@sbx:{guest_path}",
+                ]
+            )
+            return {"from": str(local), "to": f"{name}:{guest_path}"}
+        if remote_source is None:
+            msg = "cp needs a sandbox source"
+            raise SbxError(msg, code="invalid-argument")
+        name, guest_path = remote_source
+        return self._copy_out(name, guest_path, destination)
+
+    def _copy_out(self, name: str, guest_path: str, destination: str | None) -> dict[str, object]:
+        leaf = PurePosixPath(guest_path).name
+        if leaf in {"", ".", ".."}:
+            msg = f"'{guest_path}' names no file or directory to copy out"
+            raise SbxError(msg, code="invalid-argument")
+        sandbox = self._running(name)
+        xfer = self.paths.sandbox(name) / "xfer"
+        if destination is None:
+            target = xfer / leaf
+            if os.path.lexists(target):
+                msg = f"{target} exists; copies out never overwrite"
+                raise SbxError(msg, code="exists")
         else:
-            if remote_source is None:
-                msg = "cp needs a sandbox source"
-                raise SbxError(msg, code="invalid-argument")
-            name, guest_path = remote_source
-            domain = self._running(name)
-            if destination is None:
-                leaf = PurePosixPath(guest_path).name or "out"
-                local = self.paths.sandbox(name) / "xfer" / leaf
-            else:
-                local = self._destination(Path(destination))
-            transfer = [f"root@sbx:{guest_path}", str(local)]
-            result = {"from": f"{name}:{guest_path}", "to": str(local)}
+            target = self._destination(Path(destination), leaf)
+        self._check_disk()
         journal.record(
-            f"cp {result['from']} {result['to']}", verb="cp", sandbox=name, session=self.session
+            f"cp {name}:{guest_path} {target}", verb="cp", sandbox=name, session=self.session
         )
-        options = self._ssh_options(name, domain.cid)
-        run([self.settings.tools.scp, *options, "-q", "-r", *transfer])
-        return result
+        stage = xfer / f".stage-{secrets.token_hex(4)}"
+        stage.mkdir(mode=0o700)
+        try:
+            staged = stage / leaf
+            if not staged.resolve().is_relative_to(stage.resolve()):
+                msg = f"'{guest_path}' leaves the transfer directory"
+                raise SbxError(msg, code="path-denied")
+            options = self._ssh_options(name, sandbox.domain.cid)
+            run(
+                [
+                    self.settings.tools.scp,
+                    *options,
+                    "-q",
+                    "-r",
+                    f"root@sbx:{guest_path}",
+                    str(staged),
+                ]
+            )
+            _strip_exec_bits(staged)
+            self._check_disk()
+            shutil.move(staged, target)
+        finally:
+            shutil.rmtree(stage, ignore_errors=True)
+        return {"from": f"{name}:{guest_path}", "to": str(target)}
 
     def screenshot(self, name: str, *, ocr: bool) -> dict[str, object]:
         """Save the display under the sandbox's xfer directory, optionally with OCR text."""
-        domain = self._running(name)
+        sandbox = self._running(name)
         stamp = datetime.now(UTC).strftime("%Y%m%dT%H%M%S")
         partial = self.paths.sandbox(name) / "xfer" / f".screenshot-{stamp}"
-        mime = self.backend().screenshot(domain.name, partial)
+        mime = self.backend().screenshot(sandbox.domain.name, partial)
         extension = "png" if mime == "image/png" else "ppm"
         path = partial.with_name(f"screenshot-{stamp}.{extension}")
         partial.replace(path)

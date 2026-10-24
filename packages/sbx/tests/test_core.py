@@ -23,7 +23,10 @@ STUBS = {
         'else eval "disk=\\${$(($# - 1))}"; touch "$disk"; fi'
     ),
     "ssh": "exit 0",
-    "scp": 'printf "%s\\n" "$@" > "$SBX_TEST_LOG"',
+    "scp": (
+        'printf "%s\\n" "$@" > "$SBX_TEST_LOG"; for t; do :; done; '
+        'case "$t" in root@*) ;; *) echo out > "$t"; chmod 755 "$t";; esac'
+    ),
     "ss": 'cat "$SBX_TEST_SS" 2>/dev/null || true',
     "git": "exit 1",
     "other": "exit 0",
@@ -37,6 +40,7 @@ class FakeBackend:
         """Start empty."""
         self.domains_by_name: dict[str, DomainInfo] = {}
         self.xml: dict[str, str] = {}
+        self.replies: list[dict[str, Any]] = []
 
     def domains(self) -> list[DomainInfo]:
         """List the fake domains."""
@@ -82,8 +86,10 @@ class FakeBackend:
         del self.domains_by_name[domain]
 
     def agent(self, domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:  # noqa: ARG002
-        """Answer every guest-ping."""
-        return {"return": {}}
+        """Answer guest-ping, then the queued replies."""
+        if command["execute"] == "guest-ping":
+            return {"return": {}}
+        return self.replies.pop(0)
 
     def screenshot(self, domain: str, target: Path) -> str:  # noqa: ARG002
         """Write a placeholder image."""
@@ -131,8 +137,9 @@ class SandboxesTest(unittest.TestCase):
             default_memory_mib=2048,
             default_cpus=2,
             default_ttl=2 * 3600,
-            disk_gib=20,
+            disk_gib=8,
             vsock_allowlist=frozenset({7000}),
+            cpuset="8-23",
             flake="/flake",
             unit="sbx-libvirt.service",
             slice="sbx.slice",
@@ -219,6 +226,10 @@ class SandboxesTest(unittest.TestCase):
         self.assertEqual(channels, ["org.qemu.guest_agent.0"])
         self.assertEqual(root.find("devices/disk/driver").get("cache"), "unsafe")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(root.find("devices/vsock/cid").get("auto"), "yes")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("vcpu").get("cpuset"), "8-23")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("cputune/emulatorpin").get("cpuset"), "8-23")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("cpu/feature").get("name"), "vmx")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("features/vmport").get("state"), "off")  # pyright: ignore[reportOptionalMemberAccess]
         entry = root.find("sysinfo/entry")
         self.assertEqual(entry.get("name"), core.CREDENTIAL)  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(entry.text, "ssh-ed25519 AAAA sbx")  # pyright: ignore[reportOptionalMemberAccess]
@@ -323,6 +334,113 @@ class SandboxesTest(unittest.TestCase):
         self.assertEqual(result["to"], str(self.paths.sandbox("c") / "xfer" / "messages"))
         with self.assertRaises(SbxError):
             sandboxes.copy("c:/etc/passwd", str(outside))
+
+    def add_running(self, name: str, *, expires: int = NOW + 60) -> None:
+        """Register a running sandbox with its run directory."""
+        (self.paths.sandbox(name) / "xfer").mkdir(parents=True)
+        self.backend.add(name, expires=expires)
+
+    def test_create_rechecks_ceilings(self) -> None:
+        """A request built past the ceilings still fails at create."""
+        request = core.Request("nixos", "t1", "none", 8192, 2, 3600)
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(request)
+        self.assertEqual(refused.exception.code, "over-limit")
+
+    def test_disk_reservation(self) -> None:
+        """Every running sandbox plus the new one reserves its full disk against the cap."""
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=15 << 30)
+        self.add_running("r0")
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request())
+        self.assertEqual(refused.exception.code, "disk-full")
+
+    def test_nested_directory_links_refused(self) -> None:
+        """A link to a directory inside the roots may lead out through a second link."""
+        self.add_running("c")
+        roots = self.scratch / "tmp"
+        outside = self.scratch / "outside"
+        outside.mkdir()
+        (outside / "secret").write_text("s")
+        first, second = roots / "a", roots / "b"
+        first.mkdir()
+        second.mkdir()
+        (first / "link").symlink_to(second)
+        (second / "evil").symlink_to(outside / "secret")
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().copy(str(first), "c:/root/")
+        self.assertEqual(refused.exception.code, "path-denied")
+
+    def test_copy_out_targets(self) -> None:
+        """Copies out need a named leaf, never overwrite, and lose execute bits."""
+        self.add_running("c")
+        sandboxes = self.sandboxes()
+        for guest in ("..", "/root/..", "/", "."):
+            with self.subTest(guest=guest), self.assertRaises(SbxError):
+                sandboxes.copy(f"c:{guest}", None)
+        result = sandboxes.copy("c:/usr/bin/tool", None)
+        copied = Path(str(result["to"]))
+        self.assertEqual(copied, self.paths.sandbox("c") / "xfer" / "tool")
+        self.assertEqual(copied.stat().st_mode & 0o7777, 0o644)
+        with self.assertRaises(SbxError) as refused:
+            sandboxes.copy("c:/usr/bin/tool", None)
+        self.assertEqual(refused.exception.code, "exists")
+        target = self.scratch / "tmp"
+        self.assertEqual(sandboxes.copy("c:/usr/bin/tool", str(target))["to"], str(target / "tool"))
+        with self.assertRaises(SbxError):
+            sandboxes.copy("c:/usr/bin/tool", str(target))
+        self.assertEqual(list((self.paths.sandbox("c") / "xfer").glob(".stage-*")), [])
+
+    def test_expired_sandboxes_refuse_access(self) -> None:
+        """exec, cp, and screenshot refuse a sandbox past its TTL."""
+        self.add_running("old", expires=NOW - 1)
+        sandboxes = self.sandboxes()
+        with self.assertRaises(SbxError) as refused:
+            sandboxes.exec_capture("old", ["true"], timeout=None, agent=False)
+        self.assertEqual(refused.exception.code, "expired")
+        with self.assertRaises(SbxError):
+            sandboxes.copy("old:/etc/hostname", None)
+        with self.assertRaises(SbxError):
+            sandboxes.screenshot("old", ocr=False)
+
+    def test_agent_replies_are_validated(self) -> None:
+        """Malformed qemu-ga replies fail with agent-reply; good ones decode."""
+        self.add_running("g")
+        sandboxes = self.sandboxes()
+        good = {"exited": True, "exitcode": 3, "out-data": "aGk=", "err-data": ""}
+        self.backend.replies = [{"return": {"pid": 7}}, {"return": good}]
+        result = sandboxes.exec_capture("g", ["x"], timeout=None, agent=True)
+        self.assertEqual((result.exit_code, result.stdout), (3, b"hi"))
+        malformed: list[list[dict[str, Any]]] = [
+            [{"return": {"pid": "7"}}],
+            [{"error": {}}],
+            [{"return": {"pid": 7}}, {"return": {"exited": True, "out-data": "%%"}}],
+            [{"return": {"pid": 7}}, {"return": {"exited": True}}],
+        ]
+        for replies in malformed:
+            self.backend.replies = list(replies)
+            with self.subTest(replies=replies), self.assertRaises(SbxError) as refused:
+                sandboxes.exec_capture("g", ["x"], timeout=None, agent=True)
+            self.assertEqual(refused.exception.code, "agent-reply")
+
+    def test_foreign_domains_untouched(self) -> None:
+        """A sbx-* domain without sbx metadata survives gc and destroy."""
+        self.backend.domains_by_name["sbx-x"] = DomainInfo(
+            name="sbx-x",
+            state="running",
+            active=True,
+            memory_mib=1024,
+            cpus=1,
+            cid=5,
+            meta=None,
+            managed_save=False,
+        )
+        self.paths.sandbox("x").mkdir(parents=True)
+        self.assertEqual(self.sandboxes().gc(dry_run=False), [{"name": "x", "reason": "no domain"}])
+        self.assertIn("sbx-x", self.backend.domains_by_name)
+        self.paths.sandbox("x").mkdir()
+        self.sandboxes().destroy("x")
+        self.assertIn("sbx-x", self.backend.domains_by_name)
 
 
 if __name__ == "__main__":

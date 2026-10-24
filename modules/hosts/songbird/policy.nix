@@ -37,7 +37,8 @@ _: {
     # Ceilings for every sbx sandbox together (modules/apps/sbx/nixos.nix).
     sbx = {
       running = 3;
-      memory = 12;
+      memory = 10;
+      sliceMemory = 12;
       # E-cores; the P-cores stay with the desktop.
       cpus = "8-23";
       ttl = 2;

@@ -25,9 +25,8 @@ _: {
           slices.sbx = {
             Unit.Description = "sbx agent sandboxes";
             Slice = {
-              MemoryHigh = "${toString (cfg.limits.memory - 1)}G";
-              MemoryMax = "${toString cfg.limits.memory}G";
-              AllowedCPUs = cfg.limits.cpus;
+              MemoryHigh = "${toString (cfg.limits.sliceMemory - 1)}G";
+              MemoryMax = "${toString cfg.limits.sliceMemory}G";
               CPUWeight = 50;
               IOWeight = 50;
             };

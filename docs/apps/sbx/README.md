@@ -12,6 +12,10 @@ Every sandbox is an untrusted guest.
 - It has no vdagent channel, no display socket, and no shared folder.
 - `sbx` accepts no domain XML, no host disk path, and no value above a ceiling.
 - Host vsock listeners are reachable from a guest, so `create` refuses while one listens outside `vsockAllowlist`.
+- The listener check sees the initial network namespace only; the module sets `net.vsock.child_ns_mode` to `local` so later namespaces keep their vsock sockets to themselves.
+  A namespace created before that sysctl applies at boot stays global and unseen.
+- The guest sees no nested virtualization and no VMware backdoor port.
+- An expired sandbox refuses `exec`, `cp`, and `screenshot` until `gc` removes it.
 - Agents run as the owner, so the ceilings bind well-behaved callers only.
 
 ## Verbs
@@ -44,24 +48,36 @@ sbx destroy probe
 
 ## Copies
 
-- A host source must sit under the caller's git checkout, `~/trees`, or `$TMPDIR`, and no symlink inside it may leave those roots.
-- A copy out without a destination lands in the sandbox's `xfer` directory, which `info` prints.
-- A copy out to a host path needs that path under the same roots.
-- `run --out` needs `--to`, since `destroy` deletes the run directory.
+- A host source must sit under the caller's git checkout, `~/trees`, or `$TMPDIR`.
+  A symlink inside it may point only to a file within those roots, never to a directory.
+- A copy out names a file or directory, never `.`, `..`, or `/`.
+  It is staged in the sandbox's `xfer` directory, which `info` prints, and loses execute, setuid, and setgid bits.
+- Without a destination the copy stays in `xfer`; a host destination must sit under the same roots.
+- A copy out never overwrites: its target must not exist.
+- Copies out count against the disk cap.
+- `run --out` and `run --to` go together, since `destroy` deletes the run directory.
 
 ## Bases
 
 A base is a Nix-built disk image from `legacyPackages.x86_64-linux.workloads.sbx-<base>` in `modules/apps/sbx/bases.nix`.
-`sbx base build` builds it from the `flake` option, or `--flake`, with an out-link under `~/.local/share/sbx/bases/` as its GC root.
+`sbx base build` builds it from the flake the `flake` option names, with an out-link under `~/.local/share/sbx/bases/` as its GC root.
 No host closure references a base.
 Each sandbox gets a qcow2 overlay on the base, its own GC root to the base, and a fresh ed25519 key.
 The key reaches the guest as the `ssh.authorized_keys.root` systemd credential over fw_cfg.
 
 ## Resources
 
-The session daemon runs as the user unit `sbx-libvirt.service` in `sbx.slice`, so QEMU and its helpers share the slice's memory and CPU limits.
+The session daemon runs as the user unit `sbx-libvirt.service` in `sbx.slice`, so QEMU and its helpers share the slice's memory limit.
+The declared-memory ceiling sits below the slice limit, which leaves room for QEMU's own overhead.
+The user manager has no cpuset controller, so each domain pins its vCPUs and emulator threads to the policy's CPUs itself.
 `sbx` starts the unit before it connects and never lets libvirt autospawn a daemon.
-`create` refuses when the daemon runs outside the slice, when the running count or their declared memory would pass a ceiling, when the state directory passes its disk cap, or when its filesystem falls below the free-space floor.
+`create` refuses when:
+
+- the daemon runs outside the slice;
+- the running count or the declared memory would pass a ceiling;
+- the state directory's usage plus a full disk for every running sandbox and the new one would pass the disk cap;
+- its filesystem falls below the free-space floor.
+
 The TTL counts wall-clock time, host sleep included.
 
 ## State
@@ -74,7 +90,7 @@ The TTL counts wall-clock time, host sleep included.
 
 `sbx-gc.timer` runs `sbx gc` on a schedule.
 It removes sandboxes past their TTL, shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
-Every verb logs to the journal under `SYSLOG_IDENTIFIER=sbx`.
+`create`, `exec`, `cp`, `screenshot`, `destroy`, `gc`, `base build`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
 
 ## Verify
 

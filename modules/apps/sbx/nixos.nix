@@ -64,10 +64,11 @@ let
           type = types.submodule {
             options = {
               running = positive "Sandboxes that may run at once.";
-              memory = positive "GiB of declared memory across running sandboxes, and the MemoryMax of sbx.slice.";
+              memory = positive "GiB of declared memory across running sandboxes.";
+              sliceMemory = positive "MemoryMax in GiB of sbx.slice, which also holds QEMU's own overhead.";
               cpus = lib.mkOption {
                 type = types.str;
-                description = "AllowedCPUs of sbx.slice.";
+                description = "Host CPUs that sandbox vCPUs and emulator threads are pinned to.";
               };
               ttl = positive "Default sandbox lifetime in hours, host sleep included.";
               maxTtl = positive "Longest lifetime in hours a sandbox may request.";
@@ -105,13 +106,13 @@ let
           };
           disk = lib.mkOption {
             type = types.ints.positive;
-            default = 20;
-            description = "Virtual GiB of a sandbox disk; the overlay grows sparsely toward it.";
+            default = 8;
+            description = "Virtual GiB of a sandbox disk; create reserves it against the disk cap for every running sandbox.";
           };
         };
 
         vsockAllowlist = lib.mkOption {
-          type = types.listOf types.port;
+          type = types.listOf types.ints.u32;
           default = [ ];
           description = "Host vsock ports that may listen while a sandbox without a network starts.";
         };
@@ -145,6 +146,7 @@ let
               diskGiB = cfg.sandbox.disk;
             };
             inherit (cfg) vsockAllowlist flake;
+            cpuset = cfg.limits.cpus;
             unit = "sbx-libvirt.service";
             slice = "sbx.slice";
             outputLimit = 1024 * 1024;
@@ -153,6 +155,9 @@ let
         };
 
         environment.systemPackages = [ cfg.finalPackage ];
+
+        # The listener check sees only the initial namespace; later ones keep vsock local.
+        boot.kernel.sysctl."net.vsock.child_ns_mode" = "local";
       };
     };
 in
