@@ -19,13 +19,17 @@ in
         name = "workloads-services";
 
         nodes.machine =
-          { lib, ... }:
+          { lib, pkgs, ... }:
           {
             imports = [
               nixosModules."workloads-networks"
               nixosModules."workloads-services"
+              nixosModules."workloads-vms"
+              nixosModules."workloads-names"
               (getApp "podman")
               (getApp "docker-compose")
+              (getApp "libvirt")
+              (getApp "workloads")
             ];
 
             # warp-svc needs an account; the stub only accepts the row the warp egress turns on.
@@ -43,6 +47,7 @@ in
               };
 
               networking.nftables.enable = true;
+              programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
               networking.hosts."10.9.9.9" = [ "mesh-marker.internal" ];
               virtualisation.memorySize = 1536;
               systemd.tmpfiles.rules = [ "d /var/lib/workloads-test 0755 root root -" ];
@@ -91,6 +96,8 @@ in
           };
 
         testScript = ''
+          import json
+
           def label():
               return machine.succeed(
                   "podman network inspect --format '{{.ID}} {{index .Labels \"io.github.bad3r.nixos.workloads\"}}' test"
@@ -108,6 +115,13 @@ in
           machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ | grep -Fx workloads-ok")
           tables = machine.succeed("nft list tables")
           assert "netavark" not in tables, tables
+
+          with subtest("the host resolves the service by name"):
+              assert machine.succeed("getent hosts web").split() == ["172.16.5.10", "web", "web.vm"]
+              machine.succeed("curl -sf http://web.vm/ | grep -Fx workloads-ok")
+              report = json.loads(machine.succeed("workloads names --json"))
+              assert [(entry["name"], entry["kind"]) for entry in report["names"]] == [("web", "service")], report
+              assert report["resolvers"] == {}, report
 
           with subtest("aardvark-dns on the gateway is the only resolver and forwards to WARP"):
               resolv = machine.succeed("podman exec svc-web cat /etc/resolv.conf")
