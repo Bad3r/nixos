@@ -14,11 +14,6 @@ _: {
       # under decode churn: "intel-media", which routes libva to the Xe-LPG
       # iGPU at 0000:00:02.0.
       vaapi.backend = "nvidia";
-      # The XMI Mi Monitor on DFP-5 advertises 2560x1440@60 as its EDID
-      # preferred mode and 180/165/144/120 as alternates, so
-      # nvidia-auto-select lands on 60 and RandR silently reverts there on
-      # every hotplug and DPMS wake.
-      metamode = "2560x1440_144";
       # Single-GPU desktop: PRIME stays off (shared-module default). The
       # iGPU remains present for VA-API fallback and GPU-less bring-up only.
     };
