@@ -29,7 +29,7 @@ let
         };
 
       python = pkgs.python3.withPackages (ps: [ ps.libvirt ]);
-      reconcile = "${python.interpreter} ${./_reconciler.py}";
+      reconcile = "${python.interpreter} -I ${./_reconciler.py}";
 
       mediaManifest = pkgs.writeText "workloads-media.json" (
         builtins.toJSON (lib.mapAttrs (_: entry: { inherit (entry) source sha256; }) media)
@@ -60,6 +60,12 @@ let
           programs.libvirt.extended.enable = lib.mkIf (networks != { } || media != { }) (
             lib.mkOverride 1050 true
           );
+
+          # Names become file names in the media directory.
+          assertions = lib.mapAttrsToList (name: _: {
+            assertion = builtins.match "[a-z0-9][a-z0-9._-]*" name != null;
+            message = "workloads.media.${name}: names must match [a-z0-9][a-z0-9._-]*";
+          }) media;
         }
 
         (lib.mkIf libvirtCfg.enable {
@@ -85,7 +91,7 @@ let
               serviceConfig = {
                 Type = "oneshot";
                 RemainAfterExit = true;
-                ExecStart = "${reconcile} media ${mediaManifest} ${mediaDir}";
+                ExecStart = "${reconcile} media ${mediaManifest} ${mediaDir} --owner ${owner}";
               };
             };
           };

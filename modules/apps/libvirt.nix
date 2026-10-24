@@ -55,8 +55,7 @@ let
           inherit (cfg) package;
           onBoot = "ignore";
           onShutdown = "shutdown";
-          # Windows installs pending updates during shutdown.
-          shutdownTimeout = 900;
+          shutdownTimeout = 90;
           firewallBackend = "nftables";
           qemu = {
             package = cfg.qemuPackage;
@@ -64,6 +63,14 @@ let
             swtpm.enable = true;
             vhostUserPackages = [ pkgs.virtiofsd ];
             firmwarePackages.ovmf-full = pkgs.OVMFFull.fd;
+            # The first line is the nixpkgs default. Consoles without a listen
+            # address get a unix socket that only libvirt clients reach, instead
+            # of a password-less port on 127.0.0.1 that any local user can open.
+            verbatimConfig = ''
+              namespaces = []
+              spice_auto_unix_socket = 1
+              vnc_auto_unix_socket = 1
+            '';
           };
         };
 

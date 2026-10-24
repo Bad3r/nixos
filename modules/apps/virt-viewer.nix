@@ -7,11 +7,10 @@
 
   Summary:
     * `virt-viewer` attaches to a libvirt guest's graphical console by name.
-    * `remote-viewer` opens a SPICE or VNC URI, or a .vv connection file.
+    * `remote-viewer` opens a .vv connection file.
 
   Example Usage:
     * `virt-viewer --connect qemu:///system <guest>` -- Open a system guest's console.
-    * `remote-viewer spice://127.0.0.1:5900` -- Attach to a SPICE server directly.
 */
 _:
 let

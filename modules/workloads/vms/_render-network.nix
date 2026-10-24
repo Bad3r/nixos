@@ -11,9 +11,22 @@ let
     1
     2
   ];
+  # warp-svc's local resolvers; with forwarders set, dnsmasq ignores
+  # /etc/resolv.conf, so guest lookups fail while WARP is down.
+  dns =
+    if network.egress == "none" then
+      ''<dns enable="no"/>''
+    else
+      "<dns>"
+      + lib.concatMapStrings (addr: "\n    <forwarder addr=\"${addr}\"/>") [
+        "127.0.2.2"
+        "127.0.2.3"
+      ]
+      + "\n  </dns>";
+  # no-hosts keeps the host's /etc/hosts, Mesh names included, from guests.
 in
 ''
-  <network>
+  <network xmlns:dnsmasq="http://libvirt.org/schemas/network/dnsmasq/1.0">
     <name>${name}</name>
     <uuid>${libvirt.uuid}</uuid>
     <metadata>
@@ -23,11 +36,14 @@ in
     <bridge name="${network.bridge}" stp="on" delay="0"/>
     <mac address="52:54:00:${mac}"/>
     <mtu size="${toString network.mtu}"/>
-    <dns enable="${if network.egress == "none" then "no" else "yes"}"/>
+    ${dns}
     <ip address="${network.gateway}" prefix="24">
       <dhcp>
         <range start="${address libvirt.dhcp.start}" end="${address libvirt.dhcp.end}"/>
       </dhcp>
     </ip>
+    <dnsmasq:options>
+      <dnsmasq:option value="no-hosts"/>
+    </dnsmasq:options>
   </network>
 ''

@@ -55,7 +55,7 @@ let
           source = lib.mkOption {
             # A string, so the file never enters the store.
             type = types.strMatching "/.+";
-            description = "Absolute runtime path of the file to stage.";
+            description = "Absolute runtime path of the regular file to stage, read with the owner's permissions.";
           };
 
           sha256 = lib.mkOption {
@@ -78,7 +78,9 @@ let
           description = ''
             Files staged as root-owned 0644 copies under
             {file}`/var/lib/workloads/media/<name>`, where QEMU can read them.
-            Staged files whose declaration is gone are pruned.
+            Each run of `workloads-vm-media.service` resets an owner or mode
+            libvirt changed and prunes staged files whose declaration is gone.
+            Names match `[a-z0-9][a-z0-9._-]*`.
           '';
         };
       };
