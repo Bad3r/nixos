@@ -38,7 +38,7 @@ let
   registeredHosts =
     config.flake.lib.nixos._hostAppsOverrides // config.flake.lib.nixos._hostAppsSubToggleOverrides;
   sharedHosts = lib.filterAttrs (
-    name: _: config.flake.lib.nixos.hosts.${name}.shareCommon or false
+    name: _: config.flake.lib.nixos._isShareCommonHost name
   ) config.flake.nixosConfigurations;
 
   failuresOf =

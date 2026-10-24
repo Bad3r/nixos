@@ -62,7 +62,7 @@ NixOS system build and deployment script
 
 Options:
   -p, --flake-dir PATH   Set configuration directory (default: %s)
-  -t, --host HOST        Specify target hostname (default: %s)
+  -t, --host HOST        Specify target hostname, a shareCommon host (default: %s)
   -o, --offline          Build in offline mode
   -v, --verbose          Enable verbose output
       --boot             Install as next-boot generation (do not activate now)
@@ -442,6 +442,17 @@ resolve_installable() {
   fi
 }
 
+# nh activates whatever -H names on this machine, a guest configuration included.
+ensure_fleet_host() {
+  local hosts_json
+  hosts_json="$(nix eval --json "$(resolve_installable)#lib.nixos.hosts" "${BUILD_FLAGS[@]}" \
+    --apply 'builtins.mapAttrs (_: host: host.shareCommon or false)')"
+  if [[ "$(jq -r --arg host "${TARGET_HOST}" '.[$host] // false' <<<"${hosts_json}")" != "true" ]]; then
+    error_msg "'${TARGET_HOST}' is not a shareCommon host in modules/hosts/common/registry.nix; deploy a guest with nixos-rebuild --target-host."
+    exit 1
+  fi
+}
+
 ensure_clean_git_tree() {
   # Respect explicit override via flag or env var
   if [[ ${ALLOW_DIRTY} == "true" || ${ALLOW_DIRTY} == "1" ]]; then
@@ -630,6 +641,7 @@ main() {
   ensure_no_ignored_secrets
   configure_nix_config
   configure_build_flags
+  ensure_fleet_host
 
   if [[ ${AUTO_UPDATE} == "true" ]]; then
     run_flake_update
