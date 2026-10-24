@@ -48,3 +48,93 @@ Precondition: no guest still boots from the ISO; detach it in the guest's CD-ROM
 2. Switch through [Validate a host change](songbird-runbook.md#validate-a-host-change).
 
 Verification: `ls /var/lib/workloads/media/` omits it, and `journalctl -u workloads-vm-media.service -b` logs the prune.
+
+## Create the win11 secret
+
+Precondition: `secrets/workloads.yaml` does not exist; the win11 guest, its media, and its secret stay out of every generation until it does.
+
+1. From `~/nixos`, create the encrypted file with the account password under the key `win11_password`:
+
+   ```sh
+   sops secrets/workloads.yaml
+   ```
+
+2. Commit and push it inside `secrets/` on its `main`, then commit the new gitlink in `~/nixos` as `chore: update secrets hash`.
+
+Verification: `yq 'keys' secrets/workloads.yaml` lists `win11_password` and `sops`.
+
+## Install the win11 guest
+
+Precondition: `/data` is unlocked and `secrets/workloads.yaml` exists.
+Pipeline details are in [Windows guests](../../apps/libvirt/windows.md).
+
+1. Print where the installation ISO goes and the SHA-256 it must have, from `win11` in `modules/hosts/songbird/policy.nix`:
+
+   ```sh
+   nix eval --json .#lib.nixos.hosts.songbird.win11 --apply 'w: { inherit (w) installIso installIsoSha256; }'
+   ```
+
+2. Put the Windows 11 Business ISO at `installIso`, then compare its hash with `installIsoSha256`:
+
+   ```sh
+   sha256sum <installIso>
+   ```
+
+3. As the owner in `~/nixos`, build the virtio-win and seed out-links:
+
+   ```sh
+   nix build .#legacyPackages.x86_64-linux.workloads.virtio-win --out-link /var/lib/workloads/images/virtio-win
+   nix build .#legacyPackages.x86_64-linux.workloads.win11-seed --out-link /var/lib/workloads/images/win11-seed
+   ```
+
+4. Switch through [Validate a host change](songbird-runbook.md#validate-a-host-change).
+   A missing ISO or out-link only leaves the guest undefined with a warning; after supplying it, rerun staging and the definition:
+
+   ```sh
+   sudo systemctl restart workloads-vm-media.service workloads-vm-guest-win11.service
+   journalctl -u workloads-vm-media.service -u workloads-vm-guest-win11.service -b -p warning
+   ```
+
+5. Start the guest, which starts provisioning, and watch it, authenticating at each prompt:
+
+   ```sh
+   virsh -c qemu:///system start win11
+   virt-viewer -c qemu:///system win11 &
+   journalctl -fu workloads-provision@win11.service
+   ```
+
+   Setup, the first logon, and the provisioning steps run without input until the journal logs `guest 'win11' is provisioned`.
+
+Verification, as the owner:
+
+```sh
+address=$(nix eval --raw .#nixosConfigurations.songbird.config.workloads.guests.win11.address.lan)
+ssh "vx@$address" 'cscript //nologo C:\Windows\System32\slmgr.vbs /xpr'
+```
+
+SSH logs in with the owner's key, `slmgr /xpr` reports activation only when a product key is declared, and Remmina reaches Remote Desktop at the same address with the sops password.
+
+## Activate win11 with a product key
+
+Precondition: the win11 guest is installed and running.
+
+1. Add the key under `win11_product_key` with `sops secrets/workloads.yaml`, and push it as in the install procedure.
+
+2. In `modules/hosts/songbird/workloads.nix`, declare `sops.secrets."workloads/win11/product-key"` like the password entry with `key = "win11_product_key"`, and set `windows.productKeySecret` to that name.
+
+3. Switch, then rerun the steps:
+
+   ```sh
+   sudo systemctl restart workloads-provision@win11.service
+   ```
+
+Verification: `journalctl -u workloads-provision@win11.service -b` logs `product-key: applied`.
+
+## Drop the win11 installation media
+
+Precondition: the guest is provisioned, and its golden copy is taken if one is wanted from the fresh install.
+
+1. Remove the `install.media` list and the `win11-iso` and `virtio-win` media from `modules/hosts/songbird/workloads.nix`.
+2. Switch, then shut the guest down and start it, so the CD-ROMs leave its running definition.
+
+Verification: `ls /var/lib/workloads/media/` is empty, and `virsh -r -c qemu:///system domblklist win11` lists only the disk.
