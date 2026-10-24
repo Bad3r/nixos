@@ -61,22 +61,27 @@ let
           ];
         };
 
-        virtualisation.containers.containersConf.settings = {
-          network = {
-            default_subnet = "172.20.0.0/24";
-            default_subnet_pools = [
-              {
-                base = "172.20.0.0/14";
-                size = 24;
-              }
-            ];
+        virtualisation.containers = {
+          containersConf.settings = {
+            network = {
+              default_subnet = "172.20.0.0/24";
+              default_subnet_pools = [
+                {
+                  base = "172.20.0.0/14";
+                  size = 24;
+                }
+              ];
+            };
+            engine = {
+              compose_providers = [ (lib.getExe config.programs."docker-compose".extended.package) ];
+              compose_warning_logs = false;
+              # Rootless runsc fails without it: systemd demands interactive auth for its cgroup.
+              runtimes_flags.runsc = [ "ignore-cgroups" ];
+            };
           };
-          engine = {
-            compose_providers = [ (lib.getExe config.programs."docker-compose".extended.package) ];
-            compose_warning_logs = false;
-            # Rootless runsc fails without it: systemd demands interactive auth for its cgroup.
-            runtimes_flags.runsc = [ "ignore-cgroups" ];
-          };
+
+          # Docker's short-name behaviour; with one entry Podman never prompts.
+          registries.settings.unqualified-search-registries = [ "docker.io" ];
         };
 
         systemd.sockets.podman.wantedBy = lib.mkForce [ ];
