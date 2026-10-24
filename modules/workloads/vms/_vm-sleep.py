@@ -139,7 +139,7 @@ def has_agent(domain: libvirt.virDomain) -> bool:
     return root.find(AGENT_CHANNEL) is not None
 
 
-def sync_clocks(domains: list[libvirt.virDomain], failures: list[str]) -> None:
+def sync_clocks(domains: list[libvirt.virDomain]) -> None:
     """Set each running guest's clock to the host's through its guest agent."""
     deadline = time.monotonic() + AGENT_WAIT
     for domain in domains:
@@ -155,7 +155,7 @@ def sync_clocks(domains: list[libvirt.virDomain], failures: list[str]) -> None:
                 if unconnected and time.monotonic() < deadline:
                     time.sleep(1)
                     continue
-                fail(failures, f"{domain.name()} keeps a stale clock: {error}")
+                warn(f"{domain.name()} keeps a stale clock: {error}")
             else:
                 log(f"synced the clock of {domain.name()}")
             break
@@ -211,25 +211,22 @@ def wake(connect: str) -> int:
     """Bring back the recorded guests and report failures; 1 if a guest stays down."""
     paused, saved, failures = read(PAUSED), read(SAVED), read(FAILURES)
     earlier = len(failures)
-    down = False
     if paused or saved:
         try:
             conn = libvirt.open(connect)
             try:
                 woken = resume(recorded(conn, paused), failures)
                 woken += restore(recorded(conn, saved), failures)
-                down = len(failures) > earlier
-                sync_clocks(woken, failures)
+                sync_clocks(woken)
             finally:
                 conn.close()
         except libvirt.libvirtError as error:
             fail(failures, f"guests may stay paused or saved: {error}")
-            down = True
     if failures:
         notify(failures)
     for path in (PAUSED, SAVED, FAILURES):
         path.unlink(missing_ok=True)
-    return 1 if down else 0
+    return 1 if len(failures) > earlier else 0
 
 
 def main() -> int:

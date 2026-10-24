@@ -31,7 +31,8 @@ An agent that stays unconnected or fails leaves the guest clock behind.
 ## Failure reports
 
 Every failure lands in the journal of the unit that hit it.
-The wake unit also shows one critical desktop notification in each active graphical session, listing every guest that failed to pause, save, resume, restore, or sync its clock.
+The wake unit also shows one critical desktop notification in each active graphical session, listing every guest that failed to pause, save, resume, or restore.
+A clock that failed to sync only leaves a journal warning.
 
 ## Verify
 
