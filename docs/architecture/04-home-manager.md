@@ -50,7 +50,6 @@ A standalone Home Manager configuration passes `osConfig = null`, which every ga
 ### Browser Modules
 
 Browsers register under `flake.homeManagerModules.browsers.<name>` from `modules/browsers/<name>/home.nix` and load the same way.
-A sibling file can extend the same `browsers.<name>` key, merged the same way `apps.stylix-gui` is above: `modules/browsers/firefoxpwa/home.nix` pins the userdata directory for every firefoxpwa site, and `modules/browsers/firefoxpwa/dmail.nix` layers the DMail-specific install onto the same `browsers.firefoxpwa` key.
 
 ### Per-Host Divergences
 

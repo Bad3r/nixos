@@ -15,7 +15,6 @@
       geckoBookmarks = import ../browsers/_gecko-bookmarks.nix { inherit lib; };
 
       secretKeys = {
-        "gecko/work/bookmark/url-1" = "gecko_work_bookmark_url_1";
         "gecko/work/bookmark/url-2" = "gecko_work_bookmark_url_2";
         "gecko/work/bookmark/url-3" = "gecko_work_bookmark_url_3";
       };
@@ -23,7 +22,6 @@
       placeholder = name: config.sops.placeholder.${name};
 
       workBookmarkUrls = {
-        dmail = placeholder "gecko/work/bookmark/url-1";
         outlook = placeholder "gecko/work/bookmark/url-2";
         teams = placeholder "gecko/work/bookmark/url-3";
       };

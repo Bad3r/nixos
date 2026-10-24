@@ -2,9 +2,7 @@
   firefoxpwa: userdata directory pinning
   Description: Whenever programs.firefoxpwa.extended.enable is set, pins the
     firefoxpwa userdata directory into the session and hardens it to 0700, for
-    every site the browser extension installs, not just any one site this repo
-    also manages declaratively (see ./dmail.nix for the DMail-specific install
-    layered on top of this).
+    every site the browser extension installs.
 */
 _: {
   flake.homeManagerModules.browsers.firefoxpwa =

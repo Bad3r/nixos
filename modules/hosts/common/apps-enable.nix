@@ -156,10 +156,6 @@ let
       findutils.extended.enable = lib.mkOverride 1100 false;
       firefox.extended.enable = lib.mkOverride 1100 true;
       firefoxpwa.extended.enable = lib.mkOverride 1100 true;
-      # Matches the option's own default. Stated so a host sub-toggle that
-      # turns it on has a baseline value to be compared against; without one
-      # that host fails to evaluate, since the toggle would have nowhere to land.
-      firefoxpwa.dmail.enable = lib.mkOverride 1100 false;
       "firmware-manager".extended.enable = lib.mkOverride 1100 true;
       "flake-checker".extended.enable = lib.mkOverride 1100 true;
       flarectl.extended.enable = lib.mkOverride 1100 false;
