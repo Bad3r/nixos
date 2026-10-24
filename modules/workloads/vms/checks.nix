@@ -180,12 +180,16 @@ in
             def journal(unit):
                 return machine.succeed(f"journalctl -b -o cat -u {unit}")
 
+            # The scenarios restart one unit faster than its start limit allows.
+            def restart(unit):
+                return f"systemctl reset-failed {unit}; systemctl restart {unit}"
+
             def state(name):
                 return machine.succeed(f"virsh domstate {name}").strip()
 
             def memory(name, flags=""):
                 root = ET.fromstring(machine.succeed(f"virsh dumpxml {flags} {name}"))
-                return int(root.findtext("memory"))
+                return int(root.findtext("memory", ""))
 
             machine.wait_for_unit("multi-user.target")
             machine.succeed("test -c /dev/kvm")
@@ -210,7 +214,7 @@ in
                     "qemu-img info ${stateDir "gamma"}/root.qcow2 | grep -F 'virtual size: 1 GiB'"
                 )
                 lab = machine.succeed("virsh net-dumpxml lab")
-                assert "172.16.5.10" in lab and "172.16.5.11" in lab, lab
+                assert "ip='172.16.5.10'" in lab and "ip='172.16.5.11'" in lab, lab
 
             with subtest("a running guest keeps its definition and running networks gain reservations"):
                 machine.succeed("virsh start --paused alpha")
@@ -220,44 +224,44 @@ in
                 assert memory("alpha") == 256 * 1024
                 assert memory("alpha", "--inactive") == 192 * 1024
                 lab = machine.succeed("virsh net-dumpxml lab")
-                assert "172.16.5.12" in lab, lab
+                assert "ip='172.16.5.12'" in lab, lab
                 assert "older definition" not in journal("workloads-vm-net-lab.service")
 
             with subtest("a rename waits until the guest is shut off"):
                 machine.fail("${switch "renamed"}")
                 assert "renamed to 'beta'" in journal("workloads-vm-guest-beta.service")
                 machine.succeed("virsh destroy alpha")
-                machine.succeed("systemctl restart workloads-vm-guest-beta.service")
+                machine.succeed(restart("workloads-vm-guest-beta.service"))
                 assert machine.succeed("virsh domuuid beta").strip() == "${uuids.alpha}"
                 machine.fail("virsh dominfo alpha")
 
             with subtest("undeclared owned objects are reported, unmarked ones ignored"):
-                machine.succeed("systemctl restart workloads-vm-orphans.service")
+                machine.succeed(restart("workloads-vm-orphans.service"))
                 orphans = journal("workloads-vm-orphans.service")
                 assert "guest 'gamma'" in orphans and "adhoc" not in orphans, orphans
 
             with subtest("a missing disk fails the guest"):
                 beta_disk = f"{alpha_dir}/root.qcow2"
                 machine.succeed(f"mv {beta_disk} {beta_disk}.moved")
-                machine.fail("systemctl restart workloads-vm-guest-beta.service")
+                machine.fail(restart("workloads-vm-guest-beta.service"))
                 assert "is missing" in journal("workloads-vm-guest-beta.service")
                 machine.succeed(f"mv {beta_disk}.moved {beta_disk}")
-                machine.succeed("systemctl restart workloads-vm-guest-beta.service")
+                machine.succeed(restart("workloads-vm-guest-beta.service"))
 
             with subtest("an unmarked domain holding a declared UUID is refused"):
                 machine.succeed("virsh undefine beta --keep-nvram --keep-tpm")
                 machine.succeed("virsh define ${unmarkedDomain "intruder" uuids.alpha}")
-                machine.fail("systemctl restart workloads-vm-guest-beta.service")
+                machine.fail(restart("workloads-vm-guest-beta.service"))
                 assert "never takes over" in journal("workloads-vm-guest-beta.service")
                 machine.succeed("virsh undefine intruder")
-                machine.succeed("systemctl restart workloads-vm-guest-beta.service")
+                machine.succeed(restart("workloads-vm-guest-beta.service"))
                 assert state("beta") == "shut off"
 
             with subtest("an absent guest is undefined and keeps its files"):
                 machine.succeed("${switch "absent"}")
                 machine.fail("virsh dominfo beta")
                 machine.succeed(f"test -f {alpha_dir}/root.qcow2 -a -f {alpha_dir}/nvram.fd -a -d {alpha_dir}/tpm")
-                assert "172.16.5.10" not in machine.succeed("virsh net-dumpxml lab")
+                assert "ip='172.16.5.10'" not in machine.succeed("virsh net-dumpxml lab")
 
             with subtest("the unmarked domain is untouched"):
                 assert machine.succeed("virsh dumpxml --inactive adhoc") == adhoc
