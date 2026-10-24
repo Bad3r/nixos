@@ -47,7 +47,8 @@ The `docker` shim is the podman CLI, so `docker --module untrusted run` behaves 
 - No GPU: gVisor's nvproxy rejects the installed NVIDIA driver branch.
 - The tier has no memory, CPU, or process limit: runsc runs with `ignore-cgroups`, which drops `--memory`, `--cpus`, and `--pids-limit`.
 - A systemd `TasksMax` does not bound the container's processes, which gVisor runs inside its own sandbox.
-- `--network` alone keeps the tier offline, because gVisor's own network stays off; `--runtime crun` drops gVisor but keeps netns `none`, and only both together remove the network fence.
+- `--runtime` drops gVisor but keeps the empty netns, and `--network` alone stays offline under gVisor's `network=none`; both together leave the tier.
+  A later `--module` that resets the runsc flags reopens the network the same way.
 - `no_new_privs` stays off unless the run passes `--security-opt no-new-privileges`; containers.conf has no key for it.
 - Untrusted work that needs a network belongs in a VM, not here.
 
