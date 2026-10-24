@@ -53,37 +53,41 @@ in
             "console=ttyS0,115200n8"
           ];
         };
-        fileSystems = {
-          "/" = {
-            device = "/dev/disk/by-label/nixos";
-            fsType = "ext4";
-            autoResize = true;
-          };
-          "/boot" = {
-            device = "/dev/disk/by-label/ESP";
-            fsType = "vfat";
-            options = [
-              "fmask=0077"
-              "dmask=0077"
-            ];
-          };
-        }
-        // lib.mapAttrs' (
-          tag: share:
-          lib.nameValuePair share.mountPoint {
-            device = tag;
-            fsType = "virtiofs";
-            options = [
-              "nofail"
-            ]
-            ++ lib.optional share.readOnly "ro"
-            # systemd creates mount points only for the mounts it starts.
-            ++ lib.optionals share.runtime [
-              "noauto"
-              "x-mount.mkdir"
-            ];
-          }
-        ) config.workloads.guest.shares;
+        # One definition per share, so a clashing mount point is a conflict, not an override.
+        fileSystems = lib.mkMerge (
+          [
+            {
+              "/" = {
+                device = "/dev/disk/by-label/nixos";
+                fsType = "ext4";
+                autoResize = true;
+              };
+              "/boot" = {
+                device = "/dev/disk/by-label/ESP";
+                fsType = "vfat";
+                options = [
+                  "fmask=0077"
+                  "dmask=0077"
+                ];
+              };
+            }
+          ]
+          ++ lib.mapAttrsToList (tag: share: {
+            ${share.mountPoint} = {
+              device = tag;
+              fsType = "virtiofs";
+              options = [
+                "nofail"
+              ]
+              ++ lib.optional share.readOnly "ro"
+              # systemd creates mount points only for the mounts it starts.
+              ++ lib.optionals share.runtime [
+                "noauto"
+                "x-mount.mkdir"
+              ];
+            };
+          }) config.workloads.guest.shares
+        );
 
         services.qemuGuest.enable = true;
 
@@ -99,6 +103,8 @@ in
           root.openssh.authorizedKeys.keys = metaOwner.sshKeys;
           ${metaOwner.username} = {
             isNormalUser = true;
+            # virtiofsd maps only the host owner's uid and primary group, `users` on both sides.
+            inherit (metaOwner) uid;
             extraGroups = [ "wheel" ];
             openssh.authorizedKeys.keys = metaOwner.sshKeys;
           };

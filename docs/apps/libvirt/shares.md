@@ -16,19 +16,21 @@ _: {
 }
 ```
 
-- The tag names the share inside the guest; it matches `[a-z0-9][a-z0-9-]*` and has at most 36 characters.
+- The tag names the share inside the guest.
 - The directory is not created; a guest whose share directory is missing fails to start.
-- Untrusted guests get no shares, and an assertion fails the build otherwise.
-- `enable = false` drops a share without deleting its declaration.
-- Shares follow the definition, so a new or changed share reaches a running guest at its next cold boot.
+- The share assertions in `modules/workloads/vms/units.nix`, covered by the `workloads-vms-share-assertions` check, refuse shares on untrusted guests, root owners, and invalid tags.
+- A new or changed share applies at the guest's next cold boot: a running guest and a managed-save restore keep the old definition.
+  A NixOS guest also needs a redeploy before its fstab follows.
 
 ## How a share runs
 
 libvirt starts one virtiofsd per share when the guest starts.
 virtiofsd runs through a `setpriv` wrapper as the share's `owner` with its primary group, no supplementary groups, and no new privileges.
+libvirt calls the wrapper at `/etc/workloads/virtiofsd-<owner>`, a path that survives switches and garbage collection.
 
-- Guest root and the guest account with the owner's uid write as the owner; any other guest account gets `Invalid argument`.
-- No guest account can do more in the directory than the owner may.
+- Guest root and the guest account with the owner's uid and gid write as the owner; any other guest uid or gid gets `Invalid argument`.
+- `workloads-guest-base` pins the guest owner's uid to the host owner's.
+- No guest account can do more in the directory than the owner's uid or primary group may; supplementary groups do not count.
 - A `readOnly` share is refused by virtiofsd itself, so remounting it read-write in the guest changes nothing.
 - A guest with any enabled share gets shared memfd memory, which virtiofs needs.
 - Managed save and restore keep the shares working, live-attached ones included.
@@ -46,28 +48,22 @@ The guest configuration fills it from the derived `mounts` of its host declarati
 }
 ```
 
-A share mounts at `/mnt/<tag>` unless `mountPoint` names another path; `mountPoint = null` leaves it unmounted.
+A share whose `mountPoint` clashes with another file system fails the guest's evaluation.
 
 ## Runtime shares
 
 `runtime = true` keeps a share out of the definition, so it stays detached until attached to the running guest.
-Its `<filesystem>` element is the derived `deviceXml` option.
+Its `<filesystem>` element is the derived `deviceXml` option, installed as `/etc/workloads/shares/<name>/<tag>.xml`.
 
-1. Write the element to a file, from the repository root:
-
-   ```sh
-   nix eval --raw "path:.#nixosConfigurations.<host>.config.workloads.guests.<name>.shares.<tag>.deviceXml" > share.xml
-   ```
-
-2. Attach it as the owner, answering the admin prompt:
+1. Attach it as the owner, answering the admin prompt:
 
    ```sh
-   virsh -c qemu:///system attach-device <name> share.xml --live
+   virsh -c qemu:///system attach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live
    ```
 
-3. In a NixOS guest, the fstab entry is `noauto`, so mount it with `mount /mnt/<tag>`.
+2. In a NixOS guest, the fstab entry is `noauto`, so mount it with `mount /mnt/<tag>`.
 
-`virsh -c qemu:///system detach-device <name> share.xml --live` removes it again after an unmount in the guest.
+`virsh -c qemu:///system detach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live` removes it again after an unmount in the guest.
 
 ## Verify
 
@@ -86,12 +82,12 @@ findmnt -t virtiofs
 
 ## A guest with a share fails to start
 
-Cause: the share's directory is missing, or its owner cannot reach it.
+Cause: the share's directory is missing, or neither the owner's uid nor its primary group can reach it; supplementary groups do not count.
 
 ```sh
 journalctl -u libvirtd.service -b | grep -i virtiofs
 ls -ld <directory>
 ```
 
-Fix: create the directory, give the owner access to it, and start the guest again.
+Fix: create the directory, give the owner's uid or primary group access to it, and start the guest again.
 virtiofsd's own log is `/var/log/libvirt/qemu/<name>-fs<N>-virtiofsd.log`.

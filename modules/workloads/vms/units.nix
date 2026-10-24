@@ -83,6 +83,33 @@ let
         builtins.toJSON (lib.mapAttrs (_: entry: { inherit (entry) source sha256; }) media)
       );
 
+      enabledShares = guest: lib.filterAttrs (_: share: share.enable) guest.shares;
+
+      # libvirt starts virtiofsd as root; dropping to the owner before its
+      # sandbox keeps every guest write owned by that account.
+      virtiofsdAs =
+        owner:
+        pkgs.writeShellScript "virtiofsd-${owner}" ''
+          exec ${pkgs.util-linux}/bin/setpriv --reuid=${owner} --regid=${config.users.users.${owner}.group} \
+            --clear-groups --no-new-privs \
+            ${libvirtCfg.virtiofsdPackage}/bin/virtiofsd "$@"
+        '';
+
+      shareFiles = lib.flatten (
+        lib.mapAttrsToList (
+          guestName: guest:
+          lib.mapAttrsToList (
+            tag: share:
+            [
+              (lib.nameValuePair "workloads/virtiofsd-${share.owner}" { source = virtiofsdAs share.owner; })
+            ]
+            ++ lib.optional share.runtime (
+              lib.nameValuePair "workloads/shares/${guestName}/${tag}.xml" { text = share.deviceXml; }
+            )
+          ) (enabledShares guest)
+        ) presentGuests
+      );
+
       directory = mode: user: group: {
         d = { inherit mode user group; };
       };
@@ -140,9 +167,7 @@ let
             (check (
               !guest.usbRedirection || guest.display == "spice"
             ) "usbRedirection needs display = \"spice\"")
-            (check (
-              guest.trust == "trusted" || lib.all (share: !share.enable) (lib.attrValues guest.shares)
-            ) "untrusted guests get no shares")
+            (check (guest.trust == "trusted" || enabledShares guest == { }) "untrusted guests get no shares")
           ]
           ++ lib.mapAttrsToList (
             tag: _:
@@ -151,6 +176,13 @@ let
               builtins.match "[a-z0-9][a-z0-9-]{0,35}" tag != null
             ) "shares.${tag}: tags must match [a-z0-9][a-z0-9-]* and have at most 36 characters"
           ) guest.shares
+          ++ lib.mapAttrsToList (
+            tag: share:
+            # As root, virtiofsd would let guest root create setuid-root files.
+            check (
+              share.owner != "root" && (config.users.users.${share.owner}.uid or null) != 0
+            ) "shares.${tag}: the owner must not be root"
+          ) (enabledShares guest)
           ++ lib.mapAttrsToList (
             disk: spec:
             check (
@@ -245,6 +277,8 @@ let
           virtualisation.spiceUSBRedirection.enable = lib.mkIf (lib.any (guest: guest.usbRedirection) (
             lib.attrValues presentGuests
           )) true;
+
+          environment.etc = lib.listToAttrs shareFiles;
 
           virtualisation.libvirtd.allowedBridges = map (network: network.bridge) (
             lib.filter (network: network.libvirt.sessionAttach) (lib.attrValues networks)

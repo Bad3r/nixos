@@ -5,23 +5,12 @@ let
       config,
       lib,
       metaOwner,
-      pkgs,
       ...
     }:
     let
       inherit (lib) types;
       inherit (config.workloads) networks;
       renderShare = import ./_render-share.nix { inherit lib; };
-
-      # libvirt starts virtiofsd as root; dropping to the owner before its
-      # sandbox keeps every guest write owned by that account.
-      virtiofsdAs =
-        owner:
-        pkgs.writeShellScript "virtiofsd-${owner}" ''
-          exec ${pkgs.util-linux}/bin/setpriv --reuid=${owner} --regid=${config.users.users.${owner}.group} \
-            --clear-groups --no-new-privs \
-            ${config.programs.libvirt.extended.virtiofsdPackage}/bin/virtiofsd "$@"
-        '';
 
       # libvirt reports UUIDs in lowercase.
       uuidType = types.strMatching "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -151,7 +140,11 @@ let
 
             hostPath = lib.mkOption {
               type = types.strMatching "/[^\"&<>]*";
-              description = "Host directory the share exports. It must exist when the guest starts, and the owner needs access to it.";
+              description = ''
+                Host directory the share exports. It must exist when the guest
+                starts, and the owner's uid or primary group needs access to
+                it: virtiofsd drops supplementary groups.
+              '';
             };
 
             readOnly = lib.mkOption {
@@ -165,9 +158,10 @@ let
               default = metaOwner.username;
               defaultText = lib.literalExpression "metaOwner.username";
               description = ''
-                Host account virtiofsd runs as, with its primary group. Guest
-                root and the guest uid equal to the owner's write as the owner;
-                any other guest uid gets EINVAL.
+                Host account other than root that virtiofsd runs as, with its
+                primary group and no supplementary groups. Guest root and the
+                guest uid and gid equal to the owner's write as the owner; any
+                other guest uid or gid gets EINVAL.
               '';
             };
 
@@ -194,10 +188,15 @@ let
               default = renderShare {
                 tag = name;
                 inherit (config) hostPath readOnly;
-                binary = virtiofsdAs config.owner;
+                # Stable across switches, so a live definition never points at a collected path.
+                binary = "/etc/workloads/virtiofsd-${config.owner}";
               };
               defaultText = lib.literalExpression "<filesystem> element";
-              description = "The share's `<filesystem>` device, for `virsh attach-device` and `detach-device`.";
+              description = ''
+                The share's `<filesystem>` device, for `virsh attach-device`
+                and `detach-device`; a runtime share's is also
+                {file}`/etc/workloads/shares/<guest>/<tag>.xml`.
+              '';
             };
           };
         };

@@ -97,6 +97,16 @@ in
           expected = [ "workloads.guests.lab: untrusted guests get no shares" ];
         }
         {
+          name = "a share owned by root";
+          guests.lab = guest {
+            shares.rw = {
+              hostPath = "/srv/rw";
+              owner = "root";
+            };
+          };
+          expected = [ "workloads.guests.lab: shares.rw: the owner must not be root" ];
+        }
+        {
           name = "an untrusted guest with its share disabled";
           guests.lab = guest {
             trust = "untrusted";
@@ -198,9 +208,8 @@ in
           };
 
         testScript =
-          { nodes, ... }:
           let
-            lateXml = pkgs.writeText "late.xml" nodes.machine.workloads.guests.epsilon.shares.late.deviceXml;
+            lateXml = "/etc/workloads/shares/epsilon/late.xml";
           in
           ''
             import base64
@@ -247,8 +256,7 @@ in
                     time.sleep(1)
                 raise AssertionError(guest("systemctl status mnt-rw.mount mnt-ro.mount")[1])
 
-            def daemons():
-                return int(machine.succeed("pgrep -c -u ${owner} -x virtiofsd").strip())
+            daemons = "pgrep -c -u ${owner} -x virtiofsd"
 
             def as_owner(command):
                 machine.succeed(f"runuser -u ${owner} -- sh -c {shlex.quote(command)}")
@@ -263,18 +271,19 @@ in
             with subtest("shares mount at boot and virtiofsd runs as the owner"):
                 wait_for_guest()
                 machine.fail("pgrep -u root -x virtiofsd")
-                machine.succeed("pgrep -u ${owner} -x virtiofsd")
+                booted = int(machine.succeed(daemons))
                 assert guest_succeed("findmnt -no FSTYPE /mnt/rw").strip() == "virtiofs"
-                assert "noauto" in guest_succeed("grep /mnt/late /etc/fstab")
 
             with subtest("guest writes land owned by the share owner"):
                 as_owner("echo host > /srv/rw/from-host")
                 assert guest_succeed("cat /mnt/rw/from-host").strip() == "host"
                 guest_succeed("echo guest > /mnt/rw/from-root")
                 assert owner_of("/srv/rw/from-root") == "${owner}"
-                # The owner's uid is the only one mapped into virtiofsd's user namespace.
-                code, out = guest("setpriv --reuid=4242 --regid=4242 --clear-groups touch /mnt/rw/from-other")
-                assert code != 0 and "Invalid argument" in out, out
+                guest_succeed("runuser -u ${owner} -- touch /mnt/rw/from-owner")
+                # Only the owner's uid and gid are mapped into virtiofsd's user namespace.
+                for ids in ["--reuid=4242 --regid=0", "--reuid=0 --regid=4242"]:
+                    code, out = guest(f"setpriv {ids} --clear-groups touch /mnt/rw/other")
+                    assert code != 0 and "Invalid argument" in out, f"{ids}: {out}"
                 for name in machine.succeed("ls /srv/rw").split():
                     assert owner_of(f"/srv/rw/{name}") == "${owner}", name
 
@@ -287,7 +296,6 @@ in
                 machine.fail("test -e /srv/ro/x")
 
             with subtest("a runtime share attaches live"):
-                booted = daemons()
                 machine.succeed("virsh attach-device epsilon ${lateXml} --live")
                 guest_succeed("mount /mnt/late")
                 assert guest_succeed("cat /mnt/late/note").strip() == "late"
@@ -305,7 +313,7 @@ in
                 assert guest_succeed("cat /mnt/late/note").strip() == "late"
                 guest_succeed("umount /mnt/late")
                 machine.succeed("virsh detach-device epsilon ${lateXml} --live")
-                machine.wait_until_succeeds(f"test $(pgrep -c -u ${owner} -x virtiofsd) -eq {booted}")
+                machine.wait_until_succeeds(f"test $({daemons}) -eq {booted}")
           '';
       };
     };
