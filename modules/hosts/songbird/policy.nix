@@ -27,5 +27,10 @@ _: {
         to = 8999;
       }
     ];
+
+    # Address registry for workloads.networks (modules/workloads/networks.nix).
+    workloadNetworkIds = {
+      default = 0;
+    };
   };
 }

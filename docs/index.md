@@ -294,6 +294,8 @@
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+- [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)
+  - Running an ad-hoc virt-manager guest on the `default` network from a staged ISO.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
@@ -386,6 +388,11 @@
   - Complete option surface, manifest schema, and runtime artifact catalog for `services.duplicati-r2`.
 - [apps/duplicati/security.md](apps/duplicati/security.md)
   - Threat model, secret layout, state-directory access controls, credential rotation, and bucket lifecycle posture.
+
+### libvirt
+
+- [apps/libvirt/README.md](apps/libvirt/README.md)
+  - libvirt access, declared libvirt networks and how the reconciler applies them, staged media, removal, and failures.
 
 ### mpv
 

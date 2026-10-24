@@ -1,6 +1,6 @@
 # Songbird runbook
 
-Reinstall procedures are in [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md), and Windows procedures in [songbird-runbook-windows.md](songbird-runbook-windows.md).
+Reinstall procedures are in [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md), Windows procedures in [songbird-runbook-windows.md](songbird-runbook-windows.md), and virtual machine procedures in [songbird-runbook-vms.md](songbird-runbook-vms.md).
 
 ## Validate a host change
 

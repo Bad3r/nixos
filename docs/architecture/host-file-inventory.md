@@ -31,6 +31,7 @@ Songbird is the managed-workstation instance of the host directory pattern.
 | `modules/hosts/songbird/services.nix`          | Host-divergent services                                                                                                                                                                                                            |
 | `modules/hosts/songbird/fonts.nix`             | Arabic fontconfig rules through the `host.fontconfig.extraRules` option                                                                                                                                                            |
 | `modules/hosts/songbird/networking.nix`        | `.link` units for the two onboard NICs and the BE200 carrying no `Name=`: they displace `99-default.link` to drop its `mac` altname token without renaming                                                                         |
+| `modules/hosts/songbird/workloads.nix`         | Declared workload networks and staged media; `policy.nix` holds their registry ids                                                                                                                                                 |
 | `modules/hosts/songbird/cachyos-kernel.nix`    | Pinned CachyOS overlay and `boot.kernelPackages` override over the common `linuxPackages_zen` default; the kernel and its NVIDIA module are built locally, which is why `policy.nix` sets `cacheRoots.nvidiaKernelModules = false` |
 
 ## Shared Boundaries
