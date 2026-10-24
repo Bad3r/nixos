@@ -126,8 +126,6 @@ cat > exclude.json <<'EOF'
 EOF
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/2d386bee-c816-47c2-8d45-a3b1353ab63c/exclude" \
   -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
-curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/f28aa1c3-98d3-4f14-9ae5-cdfdb7b79d90/exclude" \
-  -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
 curl -s -X PUT "https://api.cloudflare.com/client/v4/accounts/$ACCOUNT/devices/policy/exclude" \
   -H "Authorization: Bearer $CF_API_TOKEN" -H "Content-Type: application/json" --data @exclude.json
 warp-cli --accept-tos settings | grep -c -E '239\.255\.255\.250/32|fc00::/7|17\.(249|252|57|188)\.'
