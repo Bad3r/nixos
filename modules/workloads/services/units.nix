@@ -13,6 +13,7 @@ let
     {
       config,
       lib,
+      options,
       pkgs,
       ...
     }:
@@ -177,6 +178,15 @@ let
             lib.mkOverride 1050 true
           );
         }
+
+        # Only a system that imports workloads-names has the registry.
+        (lib.optionalAttrs (options ? workloads.names) {
+          workloads.names = lib.mapAttrs (_: service: {
+            address = addressOf service;
+            kind = "service";
+            inherit (service) network;
+          }) services;
+        })
 
         (lib.mkIf (podmanNetworks != { }) {
           assertions = lib.mapAttrsToList (name: network: {
