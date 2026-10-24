@@ -148,6 +148,10 @@ in
               assert after[0] != before[0] and after[1] != before[1], (before, after)
               machine.wait_until_succeeds("ip -o link show dev vn-test | grep -F 'mtu 1500'")
               machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ | grep -Fx workloads-ok")
+              # --dns=none leaves no resolv.conf; grep fails on a missing file too.
+              machine.fail("podman exec svc-web grep '^nameserver' /etc/resolv.conf")
+              upstream = machine.succeed("podman network inspect --format '{{.NetworkDNSServers}}' test").strip()
+              assert upstream == "[]", upstream
 
           with subtest("an unlabelled network of a declared name is refused"):
               machine.succeed("systemctl stop podman-svc-web.service")
@@ -158,6 +162,17 @@ in
                   " | grep -F 'Podman network test exists without the io.github.bad3r.nixos.workloads label'"
               )
               assert label()[1:] == [], label()
+
+          with subtest("a bridge no labelled network owns is refused"):
+              machine.succeed("podman network rm test")
+              machine.fail("ip link show dev vn-test")
+              machine.succeed("ip link add vn-test type bridge")
+              machine.fail("systemctl restart workloads-podman-net-test.service")
+              machine.succeed(
+                  "journalctl -u workloads-podman-net-test.service"
+                  " | grep -F 'vn-test exists but no labelled Podman network owns it; remove it first'"
+              )
+              machine.fail("podman network exists test")
         '';
       };
     };
