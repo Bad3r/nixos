@@ -20,8 +20,14 @@ let
         systemd-suspend-then-hibernate = "save";
       };
 
+      sleepUnits = map (unit: "${unit}.service") (lib.attrNames phases);
+
       # Covers qemu:///system; session guests need the same phase run per user.
-      hook = phase: [ "${vmSleep} ${phase} --systemctl ${systemctl}" ];
+      hook = phase: [
+        "${vmSleep} ${phase} --systemctl ${systemctl} ${
+          lib.concatMapStringsSep " " (unit: "--sleep-unit ${unit}") sleepUnits
+        }"
+      ];
     in
     {
       config = lib.mkIf config.programs.libvirt.extended.enable {
@@ -41,7 +47,7 @@ let
             workloads-vm-wake = {
               description = "Resume and restore guests after host sleep";
               # Starts once each sleep unit has run its whole ExecStopPost list.
-              after = map (unit: "${unit}.service") (lib.attrNames phases);
+              after = sleepUnits;
               # loginctl, runuser, and notify-send for the failure notification.
               path = [
                 config.systemd.package

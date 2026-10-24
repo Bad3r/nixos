@@ -74,20 +74,28 @@ in
           def states():
               return {name: state(name) for name in ["alpha", "beta"]}
 
+          wake_description = "Resume and restore guests after host sleep"
+
+          # Journal lines after now, from PID 1 or one unit.
+          def journal_since():
+              cursor = machine.succeed("journalctl -n1 --show-cursor").split("-- cursor: ")[-1].strip()
+              return lambda match: f"journalctl -b -o cat {match} --after-cursor='{cursor}'"
+
+          def wait_for_wake(since):
+              machine.wait_until_succeeds(f"{since('_PID=1')} | grep -E '(Finished|Failed to start) {wake_description}'")
+              return machine.succeed(since("_PID=1"))
+
           # Runs a sleep unit, then waits for the wake unit it queues. systemd
           # unloads the finished wake unit, so its own journal lines tell the order.
           def sleep_cycle(unit, succeeds=True):
               machine.succeed("rm -f /run/slept")
-              cursor = machine.succeed("journalctl -n1 --show-cursor").split("-- cursor: ")[-1].strip()
-              pid1 = f"journalctl -b -o cat _PID=1 --after-cursor='{cursor}'"
+              since = journal_since()
               (machine.succeed if succeeds else machine.fail)(f"systemctl start {unit}")
               assert (machine.execute("test -e /run/slept")[0] == 0) == succeeds
-              wake = "Resume and restore guests after host sleep"
-              machine.wait_until_succeeds(f"{pid1} | grep -E '(Finished|Failed to start) {wake}'")
-              events = machine.succeed(pid1)
-              assert f"Finished {wake}" in events, events
+              events = wait_for_wake(since)
+              assert f"Finished {wake_description}" in events, events
               stopped = f"{unit}: " + ("Deactivated successfully" if succeeds else "Failed with result")
-              assert events.index(stopped) < events.index(f"Starting {wake}"), events
+              assert events.index(stopped) < events.index(f"Starting {wake_description}"), events
 
           machine.wait_for_unit("libvirtd.service")
           machine.succeed(
@@ -111,12 +119,26 @@ in
               hibernate = machine.succeed("journalctl -b -o cat -u systemd-hibernate.service")
               assert "saved alpha" in hibernate and "saved beta" in hibernate, hibernate
 
+          with subtest("a sleep cycle that ends during a wake is brought back by that wake"):
+              since = journal_since()
+              machine.succeed("systemctl start systemd-suspend.service")
+              # alpha's agent never connects, so the wake sits in its agent wait.
+              machine.wait_until_succeeds(f"{since('-u workloads-vm-wake.service')} | grep -x 'resumed alpha'")
+              machine.succeed("systemctl start systemd-hibernate.service")
+              events = wait_for_wake(since)
+              assert events.count(f"Starting {wake_description}") == 1, events
+              assert f"Finished {wake_description}" in events, events
+              assert states() == {"alpha": "running", "beta": "paused"}, states()
+              woken = machine.succeed(since("-u workloads-vm-wake.service"))
+              assert "restored alpha" in woken and "restored beta" in woken, woken
+
           with subtest("a failed save aborts hibernation and the guests saved before it come back"):
               # libvirt refuses to managed-save a transient domain.
               machine.succeed("virsh create ${domain "gamma" 3}")
+              since = journal_since()
               sleep_cycle("systemd-hibernate.service", succeeds=False)
-              hibernate = machine.succeed("journalctl -b -o cat -u systemd-hibernate.service")
-              assert "transient" in hibernate and hibernate.count("saved beta") == 2, hibernate
+              hibernate = machine.succeed(since("-u systemd-hibernate.service"))
+              assert "transient" in hibernate and "saved beta" in hibernate, hibernate
               assert states() == {"alpha": "running", "beta": "paused"}, states()
               assert state("gamma") == "running"
               # The VM has no graphical session to notify.
