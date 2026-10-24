@@ -105,6 +105,8 @@
   - systemd-udevd `.link` address policies, device matching, and when a change applies.
 - [networking/stable-mac-rekey.md](networking/stable-mac-rekey.md)
   - Re-keying DHCP reservations and MAC allowlists after the `"stable"` cutover and after profile, name, or identity changes.
+- [networking/workload-services.md](networking/workload-services.md)
+  - Declared containers on rootful Podman: networks, user namespaces, firewall ownership, published ports, and DNS.
 - [networking/workloads.md](networking/workloads.md)
   - Workload bridge networks: table ownership, declaring a network, egress modes, and verification.
 
@@ -447,3 +449,8 @@
   - Index for Remote Desktop (RDP) operator docs covering One Identity Safeguard RemoteApp access.
 - [apps/rdp/safeguard-remoteapp-file-export.md](apps/rdp/safeguard-remoteapp-file-export.md)
   - Why file export/download fails inside a Safeguard RemoteApp session and the Safeguard channel-policy changes to request from the administrator.
+
+### sbx
+
+- [apps/sbx/README.md](apps/sbx/README.md)
+  - Agent sandboxes on `qemu:///session`: trust model, verbs, copy roots, Nix bases, the slice and ceilings, state, gc, and failures.
