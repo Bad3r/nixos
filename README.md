@@ -12,7 +12,7 @@
 
 NixOS Infrastructure as Code using the [Dendritic Pattern](https://github.com/mightyiam/dendritic), an organic configuration growth pattern with automatic module discovery. Powered by [flake-parts](https://flake.parts/).
 
-The `system76` host (System76 Oryx Pro laptop) is deprecated: its configuration was removed from this repository in [#489](https://github.com/Bad3r/nixos/pull/489) and survives only in git history.
+The `system76` host (System76 Oryx Pro laptop) and the `tpnix` host (ThinkPad P15s Gen 2i laptop) are deprecated: their configurations were removed from this repository in [#489](https://github.com/Bad3r/nixos/pull/489) and [#597](https://github.com/Bad3r/nixos/pull/597) and survive only in git history.
 
 ## Automatic Import
 

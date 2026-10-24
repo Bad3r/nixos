@@ -41,7 +41,7 @@ Fix: `warp-cli --accept-tos connect`, after `nmcli con down "<ProtonVPN connecti
 
 ## warp-svc reports an IPv6 error
 
-Cause: both hosts boot with `ipv6.disable=1`, and the client assigns an IPv6 address to its interface.
+Cause: every host boots with `ipv6.disable=1`, and the client assigns an IPv6 address to its interface.
 Diagnostic: `journalctl -u cloudflare-warp.service | grep -i -E 'ipv6|inet6|address family'`.
 Fix: none on the host, since the kernel parameter stays; report the log lines and change the Cloudflare side instead.
 

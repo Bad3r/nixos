@@ -36,7 +36,7 @@ clear the associated asynchronous event, which is a property of the log pages
 themselves and applies equally to the long-standing `smart-log` and `error-log`
 grants, both of which pass `rae = false`.
 `resv-notif-log` is allowlisted despite reading a queue whose oldest entry the
-controller retires on read, because nothing on these hosts consumes NVMe
+controller retires on read, because nothing on this host consumes NVMe
 reservation notifications; revisit that if a namespace is ever shared with a
 second host.
 
