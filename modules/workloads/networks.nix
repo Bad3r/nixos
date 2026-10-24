@@ -66,6 +66,16 @@ let
         lib.filter (network: network.isolatePeers) networks
       );
 
+      # A runtime keeps a bridge whose declaration was dropped (libvirt never
+      # destroys one), so anything else named vn-* is fenced off entirely.
+      undeclaredBridgeRule =
+        if networks == [ ] then
+          ''iifname "vn-*" drop''
+        else
+          ''iifname "vn-*" iifname != { ${
+            lib.concatMapStringsSep ", " (network: ''"${network.bridge}"'') networks
+          } } drop'';
+
       lines = lib.concatStringsSep "\n";
 
       egressRules =
@@ -181,8 +191,22 @@ let
       };
 
       config = lib.mkMerge [
-        # An explicit 0 turns forwarding off again when a switch drops the last network.
-        { boot.kernel.sysctl."net.ipv4.conf.all.forwarding" = lib.mkDefault false; }
+        {
+          # An explicit 0 turns forwarding off again when a switch drops the last network.
+          boot.kernel.sysctl."net.ipv4.conf.all.forwarding" = lib.mkDefault false;
+
+          # Present with no network declared, so a bridge left behind stays fenced.
+          networking.nftables.tables.workload = {
+            family = "inet";
+            content = lib.mkBefore ''
+              chain prerouting {
+                type filter hook prerouting priority raw; policy accept;
+                ${lines antiSpoofRules}
+                ${undeclaredBridgeRule}
+              }
+            '';
+          };
+        }
 
         (lib.mkIf (networks != [ ]) {
           assertions = [
@@ -211,41 +235,33 @@ let
           );
 
           networking.nftables.tables = {
-            workload = {
-              family = "inet";
-              # A drop here is final, so new traffic from a bridge never reaches
-              # the global ports nixos-fw opens at priority filter.
-              content = ''
-                chain prerouting {
-                  type filter hook prerouting priority raw; policy accept;
-                  ${lines antiSpoofRules}
-                }
+            # A drop in the input chain is final, so new traffic from a bridge
+            # never reaches the global ports nixos-fw opens at priority filter.
+            workload.content = lib.mkAfter ''
+              chain input {
+                type filter hook input priority filter - 1; policy accept;
+                iifname != "vn-*" accept
+                ct state vmap { established : accept, related : accept, invalid : drop }
+                ${lines (lib.concatMap inputRules networks)}
+                drop
+              }
 
-                chain input {
-                  type filter hook input priority filter - 1; policy accept;
-                  iifname != "vn-*" accept
-                  ct state vmap { established : accept, related : accept, invalid : drop }
-                  ${lines (lib.concatMap inputRules networks)}
-                  drop
-                }
+              chain forward {
+                type filter hook forward priority filter - 1; policy accept;
+                iifname != "vn-*" oifname != "vn-*" drop
+                ct state vmap { established : accept, related : accept, invalid : drop }
+                ${lines sameBridgeRules}
+                iifname != "vn-*" drop
+                oifname "vn-*" drop
+                ${lines lanAccessRules}
+                ip daddr { ${lib.concatStringsSep ", " privateCidrs} } drop
+              }
 
-                chain forward {
-                  type filter hook forward priority filter - 1; policy accept;
-                  iifname != "vn-*" oifname != "vn-*" drop
-                  ct state vmap { established : accept, related : accept, invalid : drop }
-                  ${lines sameBridgeRules}
-                  iifname != "vn-*" drop
-                  oifname "vn-*" drop
-                  ${lines lanAccessRules}
-                  ip daddr { ${lib.concatStringsSep ", " privateCidrs} } drop
-                }
-
-                chain postrouting {
-                  type nat hook postrouting priority srcnat; policy accept;
-                  ip saddr ${addressBlock} oifname != "vn-*" masquerade
-                }
-              '';
-            };
+              chain postrouting {
+                type nat hook postrouting priority srcnat; policy accept;
+                ip saddr ${addressBlock} oifname != "vn-*" masquerade
+              }
+            '';
 
             workload-peers = {
               enable = isolatedBridges != [ ];

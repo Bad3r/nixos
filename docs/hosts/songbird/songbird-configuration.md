@@ -38,6 +38,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 - A duplicate already in the transfer list gets a prompt to merge trackers, as the desktop client does: [qbittorrent-webui.nix](../../../modules/hosts/songbird/qbittorrent-webui.nix).
 - The handler's tab closes once its add dialogs finish: [qbittorrent-webui.nix](../../../modules/hosts/songbird/qbittorrent-webui.nix).
 - The Proton endpoint stays inside the WARP tunnel and `wg-torrent` carries an MTU sized for it, because the ISP drops a WireGuard flow it can see: [qbittorrent.nix](../../../modules/hosts/songbird/qbittorrent.nix).
+- virt-manager guests land on a declared `default` workload network that replaces libvirt's stock one, leaves only through WARP, and isolates guests from each other: [workloads.nix](../../../modules/hosts/songbird/workloads.nix).
 
 ## Services
 

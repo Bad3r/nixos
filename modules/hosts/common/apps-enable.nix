@@ -254,6 +254,7 @@ let
       librewolf.extended.enable = lib.mkOverride 1100 true;
       libsecret.extended.enable = lib.mkOverride 1100 false;
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
+      libvirt.extended.enable = lib.mkOverride 1100 true;
       localsend.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.enable = lib.mkOverride 1100 true;
       "logseq-cli".extended.enable = lib.mkOverride 1100 true;
@@ -496,6 +497,8 @@ let
       vial.extended.enable = lib.mkOverride 1100 false;
       "video-cache".extended.enable = lib.mkOverride 1100 true;
       vim.extended.enable = lib.mkOverride 1100 false; # Provided by nixvim (vimAlias = true)
+      "virt-manager".extended.enable = lib.mkOverride 1100 true;
+      "virt-viewer".extended.enable = lib.mkOverride 1100 true;
       virtualbox.extended.enable = lib.mkOverride 1100 false;
       vlc.extended.enable = lib.mkOverride 1100 false;
       "vmware-workstation".extended.enable = lib.mkOverride 1100 false;
