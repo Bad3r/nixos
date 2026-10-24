@@ -25,6 +25,7 @@ _: {
 }
 ```
 
+- Service names follow the [workload name](workload-names.md) rule: `[a-z0-9][a-z0-9-]*`, never `host`.
 - `address` fixes the container's address inside the network's subnet; two services on one network need different values.
 - `ports` publish on the host's `127.0.0.1` only, IPv4 without `::1`; the host reaches the container's own address directly as well.
 - A published port shadows any host listener on `127.0.0.1` with the same port, without an error.
@@ -73,7 +74,7 @@ On a `warp` network, aardvark-dns answers on the gateway, resolves the names of 
 The gateway is the container's only nameserver, so Podman appends no public fallback servers.
 A `none` network has DNS turned off, and Podman writes no `/etc/resolv.conf` into its containers; an image's own file stays unchanged.
 Containers start from an empty hosts file instead of the host's `/etc/hosts`, which carries Mesh names.
-The host resolves each service as `<name>` and `<name>.vm`, and libvirt networks can resolve it too, as [Workload names](workload-names.md) describes.
+Host-side names: [Workload names](workload-names.md).
 
 ## Verify
 

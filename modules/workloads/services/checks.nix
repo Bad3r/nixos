@@ -117,9 +117,11 @@ in
           assert "netavark" not in tables, tables
 
           with subtest("the host resolves the service by name"):
+              assert machine.succeed("getent hosts web").split() == ["172.16.5.10", "web", "web.vm"]
               machine.succeed("curl -sf http://web.vm/ | grep -Fx workloads-ok")
-              names = json.loads(machine.succeed("workloads names --json"))["names"]
-              assert [(entry["name"], entry["kind"]) for entry in names] == [("web", "service")], names
+              report = json.loads(machine.succeed("workloads names --json"))
+              assert [(entry["name"], entry["kind"]) for entry in report["names"]] == [("web", "service")], report
+              assert report["resolvers"] == {}, report
 
           with subtest("aardvark-dns on the gateway is the only resolver and forwards to WARP"):
               resolv = machine.succeed("podman exec svc-web cat /etc/resolv.conf")
