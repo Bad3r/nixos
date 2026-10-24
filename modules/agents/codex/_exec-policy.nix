@@ -1,4 +1,8 @@
-{ lib, pkgs }:
+{
+  lib,
+  pkgs,
+  sbx ? null,
+}:
 let
   execPolicyRule =
     {
@@ -483,6 +487,18 @@ let
         "# Common rm bypass paths are forbidden"
       ]
       ++ map execPolicyRule forbiddenRmRules
+      ++ lib.optionals (sbx != null) [
+        ""
+        "# An allow rule also runs sbx outside bwrap; it writes ~/.local/share/sbx and starts user units."
+        (execPolicyHostExecutable {
+          name = "sbx";
+          paths = [
+            "/run/current-system/sw/bin/sbx"
+            (lib.getExe sbx)
+          ];
+        })
+        (execPolicyRule { pattern = [ "sbx" ]; })
+      ]
     )
     + "\n";
 

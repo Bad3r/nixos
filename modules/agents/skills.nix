@@ -117,6 +117,7 @@ let
         "title"
         "description"
         "body"
+        "app"
       ]
       ++ validClients;
       validatedSpec = validateAllowedFields "'${registryKey}'" allowedFields spec;
@@ -124,6 +125,8 @@ let
       title = validateNonEmptyString registryKey "title" validatedSpec.title;
       description = validateNonEmptyString registryKey "description" validatedSpec.description;
       body = validateNonEmptyString registryKey "body" validatedSpec.body;
+      app =
+        if validatedSpec ? app then validateNonEmptyString registryKey "app" validatedSpec.app else null;
       presentClients = lib.filter (client: validatedSpec ? ${client}) validClients;
       validatedClients = lib.genAttrs presentClients (
         client: validateClientSpec name client validatedSpec.${client}
@@ -140,6 +143,7 @@ let
           title
           description
           body
+          app
           ;
       }
       // validatedClients;
@@ -237,6 +241,9 @@ let
         title
         description
         ;
+      enabledOn =
+        osConfig:
+        spec.app == null || lib.attrByPath [ "programs" spec.app "extended" "enable" ] false osConfig;
     }
     // lib.optionalAttrs (spec ? claude) {
       claude = claudeMarkdown;

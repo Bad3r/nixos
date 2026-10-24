@@ -56,8 +56,11 @@ _: {
       agentsDir = "${config.xdg.configHome}/agents";
       codexEnv = import ./_env.nix;
 
+      sbxEnabled = lib.attrByPath [ "programs" "sbx" "extended" "enable" ] false osConfig;
+
       execPolicy = import ./_exec-policy.nix {
         inherit lib pkgs;
+        sbx = if sbxEnabled then osConfig.programs.sbx.extended.finalPackage else null;
       };
 
       codexSettings = import ./_settings.nix {
@@ -86,7 +89,10 @@ _: {
       };
 
       codexInstructions = agents.systemPrompt.render {
-        vars.questionTool = "request_user_input";
+        vars = {
+          questionTool = "request_user_input";
+          sbx = sbxEnabled;
+        };
       };
 
       # Install every compiled skill that ships a Codex profile under
@@ -94,7 +100,7 @@ _: {
       # keyed off the shared registry so new skills need no per-client wiring.
       codexSkillDirs = lib.mapAttrs' (
         name: skill: lib.nameValuePair "agents/skills/${name}" { source = (skill.codex pkgs).dir; }
-      ) (lib.filterAttrs (_name: skill: skill ? codex) agents.skills.list);
+      ) (lib.filterAttrs (_name: skill: skill ? codex && skill.enabledOn osConfig) agents.skills.list);
 
       magnitudeClient = lib.attrByPath [ "programs" "magnitude" "extended" "client" ] {
         endpoint = null;

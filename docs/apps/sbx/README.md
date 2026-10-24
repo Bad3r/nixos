@@ -93,6 +93,11 @@ The TTL counts wall-clock time, host sleep included.
 It removes sandboxes past their TTL, shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
 `create`, `exec`, `cp`, `screenshot`, `destroy`, `gc`, `base build`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
 
+## Agents
+
+With the `sbx` row on, Claude Code and Codex get the `sbx` skill from `modules/agents/skills/sbx.nix`, a system-prompt line, and an allow rule for `sbx`.
+The Codex allow rule in `modules/agents/codex/_exec-policy.nix` also runs `sbx` outside bwrap, since the CLI writes its state directory and starts user units.
+
 ## Verify
 
 As the owner:
