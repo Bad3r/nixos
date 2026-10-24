@@ -62,9 +62,6 @@ let
   # age X25519 recipients are Bech32: the age1 prefix, then 58 data characters.
   bech32Chars = "qpzry9x8gf2tvdw0s3jn54khce6mua7l";
   expectedNestedLines = [
-    "    encrypted_regex: \"^(github_token)$\""
-    "    key_groups:"
-    "      - age:"
     "    key_groups:"
     "      - age:"
     "    key_groups:"
@@ -77,16 +74,10 @@ let
     + "    key_groups:\n"
     + "      - age:\n"
     + "          - *host_pub_key\n";
-  actRuleBlock =
-    "  - path_regex: secrets/act\\.yaml$\n"
-    + "    encrypted_regex: \"^(github_token)$\"\n"
-    + "    key_groups:\n"
-    + "      - age:\n"
-    + "          - *host_pub_key\n\n";
   policyFixtures = [
     {
       name = "creation-rule-count";
-      want = builtins.length rulePatterns == 4;
+      want = builtins.length rulePatterns == 3;
     }
     {
       name = "creation-rule-directives";
@@ -94,15 +85,11 @@ let
     }
     {
       name = "host-recipient-set";
-      want = recipientLines == lib.genList (_: "          - *host_pub_key") 4;
+      want = recipientLines == lib.genList (_: "          - *host_pub_key") 3;
     }
     {
       name = "host-key-anchor";
       want = builtins.match "  - &host_pub_key age1[${bech32Chars}]{58}" hostKeyLine != null;
-    }
-    {
-      name = "act-yaml-field-policy";
-      want = lib.hasInfix actRuleBlock policyContent;
     }
     {
       name = "deny-by-default-last";

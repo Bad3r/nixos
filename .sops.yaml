@@ -2,12 +2,6 @@ keys:
   - &host_pub_key age1llvnvaarx3l5kn3t4mgggt9khkrv38v4lxsvdleg2rxxslqf0qxsnq4laf
 
 creation_rules:
-  - path_regex: secrets/act\.yaml$
-    encrypted_regex: "^(github_token)$"
-    key_groups:
-      - age:
-          - *host_pub_key
-
   - path_regex: secrets/r2\.env
     key_groups:
       - age:
@@ -19,9 +13,9 @@ creation_rules:
           - *host_pub_key
 
   # Deny by default. This rule must stay last: SOPS applies the first
-  # matching creation rule, and moving it above secrets/act\.yaml would
-  # drop that rule's encrypted_regex. The secrets-no-cleartext flake check
-  # enforces this policy's security contract; update both in the same change.
+  # matching creation rule, so it would shadow every rule below it. The
+  # secrets-no-cleartext flake check enforces this policy's security
+  # contract; update both in the same change.
   - path_regex: secrets/.*
     key_groups:
       - age:

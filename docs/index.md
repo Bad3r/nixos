@@ -238,8 +238,6 @@
   - Secretless CI evaluation through `path:`, and the local store-copy hazard of `path:` commands.
 - [sops/troubleshooting.md](sops/troubleshooting.md)
   - sops-nix error messages with their cause and fix.
-- [sops/secrets-act.md](sops/secrets-act.md)
-  - GitHub personal access token setup for act (local GitHub Actions runner) via sops-nix.
 
 ## Technical Writing
 

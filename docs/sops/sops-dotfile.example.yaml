@@ -49,22 +49,14 @@ creation_rules:
           - *admin_user
           - *host_dev1
 
-  # 3) GitHub Actions token file -- encrypt only the github_token field
-  - path_regex: secrets/act.yaml
-    encrypted_regex: "^(github_token)$"
-    key_groups:
-      - age:
-          - *admin_user
-          # Add host(s) that run 'act' locally if needed
-
-  # 4) Catch‑all for other secrets under secrets/ (YAML/JSON/dotenv/INI)
+  # 3) Catch‑all for other secrets under secrets/ (YAML/JSON/dotenv/INI)
   - path_regex: secrets/[^/]+\.(yaml|yml|json|env|ini)$
     key_groups:
       - age:
           - *admin_user
           - *host_prod1
           - *host_dev1
-        # 5) (Optional) Binary secrets: encrypt entire files first,
+        # 4) (Optional) Binary secrets: encrypt entire files first,
         #    then commit *.enc files
         #    Example: sops -e /path/to/file > secrets/binary/file.enc
         # - path_regex: secrets/binary/.*\.enc$

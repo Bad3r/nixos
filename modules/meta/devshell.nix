@@ -21,12 +21,6 @@
                   DRY=""
                   JOB=""
                   EXTRA=()
-                  # Secret file auto-detection
-                  DEFAULT_SECRET_FILE="/etc/act/secrets.env"
-                  SECRET_FILE="''${ACT_SECRETS_FILE:-}"
-                  if [ -z "''${SECRET_FILE}" ] && [ -f "''${DEFAULT_SECRET_FILE}" ]; then
-                    SECRET_FILE="''${DEFAULT_SECRET_FILE}"
-                  fi
                   while [ $# -gt 0 ]; do
                     case "$1" in
                       -n|--dry-run)
@@ -38,8 +32,11 @@
                         else
                           echo "gh-actions-run: -j requires a job name" >&2; exit 2;
                         fi;;
-                      --secret-file)
-                        shift; SECRET_FILE="''${1:-}"; if [ -n "$SECRET_FILE" ]; then shift; fi;;
+                      -s|--secret|--secret-file)
+                        if [ $# -lt 2 ]; then
+                          echo "gh-actions-run: $1 requires a value" >&2; exit 2;
+                        fi
+                        EXTRA+=("$1" "$2"); shift 2;;
                       --)
                         shift; break;;
                       -*)
@@ -63,7 +60,6 @@
 
                   # Run all workflows for the push event; include defaults for robustness
                   if [ -n "$JOB" ]; then EXTRA=("-j" "$JOB" "''${EXTRA[@]}"); fi
-                  if [ -n "''${SECRET_FILE}" ]; then EXTRA=("--secret-file" "''${SECRET_FILE}" "''${EXTRA[@]}"); fi
                   exec act ''${DRY} "''${EXTRA[@]}" \
                     -W .github/workflows \
                     -P ubuntu-latest=ghcr.io/catthehacker/ubuntu:act-24.04 \
