@@ -1,11 +1,12 @@
-# sbx bases build on demand (`sbx base build <flavour>`) from legacyPackages,
-# which no flake check evaluates and no host closure references.
+# sbx bases build on demand (`sbx base build <flavour>`) as workloads.artifacts
+# entries (modules/workloads/artifacts.nix), which no flake check evaluates and
+# no host closure references.
 { inputs, ... }:
 {
   perSystem =
     { system, ... }:
     {
-      legacyPackages.workloads.sbx-nixos =
+      workloads.artifacts.sbx-nixos =
         (inputs.nixpkgs.lib.nixosSystem {
           inherit system;
           modules = [ ./_base-nixos.nix ];

@@ -397,6 +397,8 @@
   - libvirt access, declared libvirt networks and how the reconciler applies them, staged media, removal, and failures.
 - [apps/libvirt/guests.md](apps/libvirt/guests.md)
   - Declared guests: trust classes, how the reconciler defines them, disks and NVRAM, growth, removal, orphans, and failures.
+- [apps/libvirt/nixos-guests.md](apps/libvirt/nixos-guests.md)
+  - NixOS guest configurations: the guest base, adding a guest, seeding its disk from an image, host key pinning, and deploys over SSH.
 
 ### mpv
 
