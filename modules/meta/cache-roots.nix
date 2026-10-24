@@ -263,9 +263,7 @@ let
 
   # shareCommon = false hosts (libvirt guests) have no app modules, so the
   # option paths above do not exist there.
-  appHosts = lib.filterAttrs (
-    hostName: _: config.flake.lib.nixos.hosts.${hostName}.shareCommon or false
-  );
+  appHosts = lib.filterAttrs (name: _: config.flake.lib.nixos._isShareCommonHost name);
 
   # Operator documentation can query the evaluated host membership without
   # maintaining a second, time-sensitive host matrix. Return names only so the
