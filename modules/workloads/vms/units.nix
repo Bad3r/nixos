@@ -19,7 +19,23 @@ let
       mediaDir = "${stateDir}/media";
 
       renderNetwork = import ./_render-network.nix { inherit lib; };
-      renderDomain = import ./_render-domain.nix { inherit lib mediaDir; };
+      # Where an image's out-link leads to its file: the components after
+      # /nix/store/<output> follow the out-link.
+      imagePath =
+        image:
+        lib.concatStringsSep "/" ([ image.outLink ] ++ lib.drop 4 (lib.splitString "/" image.expected));
+
+      # What the reconciler needs to check an image's out-link and name its build.
+      imageCheck = image: {
+        inherit (image) expected outLink;
+        path = imagePath image;
+        build = "nix build .#legacyPackages.${pkgs.stdenv.hostPlatform.system}.workloads.${image.artifact} --out-link ${image.outLink}";
+      };
+
+      renderDomain = import ./_render-domain.nix {
+        inherit lib mediaDir;
+        imagePaths = lib.mapAttrs (_: imagePath) images;
+      };
 
       validatedXml =
         kind: name: text:
@@ -66,21 +82,12 @@ let
               disks = lib.mapAttrsToList (disk: spec: {
                 path = "${guest.stateDir}/${disk}.qcow2";
                 inherit (spec) size;
-                seed =
-                  if spec.seed == null then
-                    null
-                  else
-                    let
-                      image = images.${spec.seed};
-                      # The components after /nix/store/<output>.
-                      inner = lib.drop 4 (lib.splitString "/" image.expected);
-                    in
-                    {
-                      inherit (image) expected outLink;
-                      path = lib.concatStringsSep "/" ([ image.outLink ] ++ inner);
-                      build = "nix build .#legacyPackages.${pkgs.stdenv.hostPlatform.system}.workloads.${image.artifact} --out-link ${image.outLink}";
-                    };
+                seed = if spec.seed == null then null else imageCheck images.${spec.seed};
               }) guest.disks;
+              install = {
+                media = map (item: "${mediaDir}/${item}") guest.install.media;
+                images = map (image: imageCheck images.${image}) guest.install.images;
+              };
             }
           )
         );
@@ -163,6 +170,10 @@ let
           ++ map (
             item: check (media ? ${item}) "install.media names ${item}, which workloads.media does not declare"
           ) guest.install.media
+          ++ map (
+            image:
+            check (images ? ${image}) "install.images names ${image}, which workloads.images does not declare"
+          ) guest.install.images
           ++ [
             # Two reservations under one guest name make libvirt refuse the second.
             (check (lib.allUnique (

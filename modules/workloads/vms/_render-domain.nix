@@ -1,4 +1,8 @@
-{ lib, mediaDir }:
+{
+  lib,
+  mediaDir,
+  imagePaths,
+}:
 guest:
 let
   windows = guest.kind == "windows";
@@ -37,6 +41,17 @@ let
       <target dev="${mediaTarget index}" bus="sata"/>
       <readonly/>
       <boot order="${toString (lib.length diskNames + index + 1)}"/>
+    </disk>
+  '';
+
+  imageXml = index: image: ''
+    <disk type="file" device="cdrom">
+      <driver name="qemu" type="raw"/>
+      <source file="${imagePaths.${image}}" startupPolicy="optional">
+        <seclabel model="dac" relabel="no"/>
+      </source>
+      <target dev="${mediaTarget (lib.length guest.install.media + index)}" bus="sata"/>
+      <readonly/>
     </disk>
   '';
 
@@ -150,6 +165,7 @@ let
         <emulator>/run/libvirt/nix-emulators/qemu-system-x86_64</emulator>
         ${lib.concatStrings (lib.imap0 diskXml diskNames)}
         ${lib.concatStrings (lib.imap0 mediaXml guest.install.media)}
+        ${lib.concatStrings (lib.imap0 imageXml guest.install.images)}
         <controller type="usb" model="qemu-xhci" ports="15"/>
         ${lib.concatStrings (lib.mapAttrsToList interfaceXml guest.interfaces)}
         <serial type="pty">

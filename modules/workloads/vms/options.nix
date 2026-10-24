@@ -88,7 +88,7 @@ let
               type = types.strMatching "/nix/store/.+";
               apply = builtins.unsafeDiscardStringContext;
               description = ''
-                Store path of the qcow2 image: the build output, followed by
+                Store path of the image: the build output, followed by
                 the image's path inside it when the output is a directory.
                 While `outLink` does not lead to it, a guest that libvirt has
                 not defined and whose disk is missing stays undefined.
@@ -308,6 +308,12 @@ let
               type = types.listOf types.str;
               default = [ ];
               description = "`workloads.media` entries attached as read-only CD-ROMs, booted after the disks.";
+            };
+
+            install.images = lib.mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "`workloads.images` entries attached as read-only CD-ROMs after the media, never booted.";
             };
 
             autostart = lib.mkOption {

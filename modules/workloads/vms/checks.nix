@@ -22,6 +22,7 @@ in
         gamma = "00000000-0000-4000-8000-00000000000c";
         delta = "00000000-0000-4000-8000-00000000000d";
         zeta = "00000000-0000-4000-8000-00000000000f";
+        eta = "00000000-0000-4000-8000-000000000e1a";
         adhoc = "00000000-0000-4000-8000-0000000000ad";
       };
 
@@ -93,6 +94,12 @@ in
           seed = "late";
         };
       };
+      eta = guest {
+        uuid = uuids.eta;
+        install.media = [ "installer" ];
+      };
+      installerSource = "/srv/media/installer.iso";
+      installerContent = "installer";
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
       seedLink = "/var/lib/workloads/images/seed.qcow2";
       lateLink = "/var/lib/workloads/images/late.qcow2";
@@ -179,7 +186,20 @@ in
                 };
 
                 # Specialisations replace the whole set.
-                guests = lib.mkDefault { inherit alpha gamma zeta; };
+                # The test script writes the source, standing in for a manual download.
+                media.installer = {
+                  source = installerSource;
+                  sha256 = builtins.hashString "sha256" installerContent;
+                };
+
+                guests = lib.mkDefault {
+                  inherit
+                    alpha
+                    gamma
+                    zeta
+                    eta
+                    ;
+                };
               };
 
               specialisation = {
@@ -300,6 +320,26 @@ in
                 machine.succeed("virsh dominfo zeta")
                 machine.succeed(f"mv {zeta_disk}.moved {zeta_disk}")
                 machine.succeed(restart(zeta_unit))
+
+            with subtest("a guest with install media stays undefined until they are staged"):
+                eta_unit = "workloads-vm-guest-eta.service"
+                media_unit = "workloads-vm-media.service"
+                machine.wait_for_unit(eta_unit)
+                assert machine.succeed(f"systemctl show -P SubState {media_unit}").strip() == "exited"
+                assert "${installerSource} is missing, so 'installer' is not staged" in warnings(media_unit)
+                assert "staged medium /var/lib/workloads/media/installer is missing" in warnings(eta_unit)
+                machine.fail("virsh dominfo eta")
+                machine.succeed("install -d -o ${metaOwner.username} /srv/media")
+                # A present source with the wrong content fails instead of waiting.
+                machine.succeed("su ${metaOwner.username} -c 'printf wrong > ${installerSource}'")
+                machine.fail(restart(media_unit))
+                assert "declared" in journal(media_unit)
+                machine.fail("test -e /var/lib/workloads/media/installer")
+                machine.succeed("su ${metaOwner.username} -c 'printf ${installerContent} > ${installerSource}'")
+                machine.succeed(restart(media_unit))
+                machine.succeed("test -f /var/lib/workloads/media/installer")
+                machine.succeed(restart(eta_unit))
+                assert state("eta") == "shut off"
 
             with subtest("the host and the network's resolver answer declared names"):
                 assert machine.succeed("getent hosts gamma.vm").split() == ["172.16.5.11", "gamma", "gamma.vm"]
