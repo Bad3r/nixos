@@ -142,9 +142,9 @@ Expected: the SSH connection authenticates by public key and offers no password 
 
 Optional: `nc -vz <mesh-address> 22` and, since the ICMP proxy is on,
 `ping <mesh-address>`.
-Early check with the iPhone, enrolled on the default profile: from an SSH client app on the phone,
+Early check with a mobile device enrolled on the default profile: from an SSH client app on it,
 `ssh vx@<songbird-mesh-address>` proves songbird's inbound Mesh path, and
-`ping <mobile-mesh-address>` from songbird proves the ICMP proxy. The phone's device address is in
+`ping <mobile-mesh-address>` from songbird proves the ICMP proxy. That device's address is in
 the same Devices list. The completed songbird check showed an accepted SSH login from the mobile
 Mesh address and three successful ICMP replies.
 Pass: the inbound SSH login and the ICMP replies succeed. Store each address under `mesh.hosts.<host>` in the encrypted
@@ -154,7 +154,7 @@ switch every WARP fleet host so the `.internal` mapping and SSH alias render.
 - [ ] **Step 11: Verify the device registrations in the dashboard.** Zero Trust dashboard,
   Team & Resources > Devices > Devices list.
   Expected: exactly two registrations: one with identity `non_identity@repo.cloudflareaccess.com`
-  matching device profile `nixos-songbird` (precedence 200), plus the iPhone under the user's own identity on the default profile; all
+  matching device profile `nixos-songbird` (precedence 200), plus the mobile device under the user's own identity on the default profile; all
   Connected.
   If not: an extra or missing `non_identity` registration means a host registered under the wrong
   token; delete the stray registration and recheck Step 4.

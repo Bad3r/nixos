@@ -171,9 +171,6 @@
         assert check "auth_client_secret key is per host" (
           (secretOf "auth_client_secret").key == "songbird/auth_client_secret"
         );
-        assert check "iphone Mesh address is read from SOPS" (
-          (secretOf "mesh-host-iphone").key == "mesh/hosts/iphone"
-        );
         assert check "songbird Mesh address is read from SOPS" (
           (secretOf "mesh-host-songbird").key == "mesh/hosts/songbird"
         );
@@ -200,8 +197,7 @@
           !enrolled.config.services.cloudflare-warp.openFirewall
         );
         assert check "Mesh host mappings use only SOPS placeholders" (
-          lib.hasInfix "${placeholderOf "mesh-host-iphone"} iphone.internal" hostsTemplate.content
-          && lib.hasInfix "${placeholderOf "mesh-host-songbird"} songbird.internal" hostsTemplate.content
+          lib.hasInfix "${placeholderOf "mesh-host-songbird"} songbird.internal" hostsTemplate.content
         );
         assert check "Mesh host mappings preserve the standard localhost entry" (
           lib.hasInfix "127.0.0.1 localhost" hostsTemplate.content

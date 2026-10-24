@@ -1,6 +1,6 @@
 # Remote desktop with RustDesk
 
-RustDesk shares each host's live X11 session and its login screen with other Mesh devices such as the iPhone, with clipboard, audio, and file transfer.
+RustDesk shares each host's live X11 session and its login screen with other Mesh devices, with clipboard, audio, and file transfer.
 [rustdesk/nixos.nix](../../modules/apps/rustdesk/nixos.nix) runs the client service on every host.
 The ID server (hbbs) and relay (hbbr) run on the host whose `modules/hosts/<host>/policy.nix` sets `rustdeskServer`.
 No host contacts RustDesk's public servers.
@@ -24,7 +24,7 @@ No host contacts RustDesk's public servers.
 Some traffic stays visible:
 
 - Registration with hbbs is plaintext UDP inside the tunnel, so Cloudflare can read each device's RustDesk ID and machine ID.
-- The iOS app checks for updates and probes public STUN servers at launch, and no setting stops either.
+- The RustDesk app on a device outside the NixOS hosts checks for updates and probes public STUN servers at launch, and no setting stops either.
 
 ## Logins
 
@@ -48,9 +48,9 @@ rustdesk --get-id
 Pick the host under Favorites, or type part of its name or ID in the ID field and take the suggestion.
 A session that cannot connect directly runs through the relay and loads the server host's uplink.
 
-## Set up the iPhone
+## Set up a non-NixOS device
 
-Precondition: the iPhone is connected to the Zero Trust team and reaches the Mesh.
+Precondition: the device is connected to the Zero Trust team and reaches the Mesh.
 
 1. On a host, from the repository root, read the server host's Mesh address, the public key, and the password:
 
@@ -66,14 +66,14 @@ Precondition: the iPhone is connected to the Zero Trust team and reaches the Mes
 
 Repeat step 2 after the server host's Mesh address changes or the key pair is replaced, and step 3 after the password or the key pair is replaced.
 A new key pair also gives every host a new ID.
-Delete the entries with the old IDs under Recent sessions on each host and on the iPhone, which also clears them from Favorites.
+Delete the entries with the old IDs under Recent sessions on each device, which also clears them from Favorites.
 
 ## Troubleshooting
 
 ### "Key mismatch"
 
 Cause: the device's Key setting differs from the server's public key.
-Fix: paste the key from `secrets/rustdesk.yaml` again, as in the iPhone setup.
+Fix: paste the key from `secrets/rustdesk.yaml` again, as in the non-NixOS device setup.
 
 ### "Insecure Connection" before the session opens
 

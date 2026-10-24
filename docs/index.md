@@ -274,7 +274,7 @@
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
   - Pentesting tools devshell usage including desktop launchers and adding new tools.
 - [usage/rustdesk.md](usage/rustdesk.md)
-  - Self-hosted RustDesk over Cloudflare Mesh: privacy model, logins, iPhone setup, troubleshooting.
+  - Self-hosted RustDesk over Cloudflare Mesh: privacy model, logins, non-NixOS device setup, troubleshooting.
 
 ## Hosts
 
