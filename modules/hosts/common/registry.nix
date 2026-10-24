@@ -5,5 +5,7 @@
 _: {
   flake.lib.nixos.hosts = {
     songbird.shareCommon = true; # hostname: songbird.internal
+    # libvirt guest on songbird (modules/workloads/guests/nixos-dev/).
+    nixos-dev.shareCommon = false;
   };
 }
