@@ -80,13 +80,19 @@ def main() -> None:
     modes = output_modes(query, output)
     pin = sys.argv[1:]
     target = select_mode(modes, pin)
+    # Without a primary output, i3bar's tray_output primary shows no tray.
+    primary = [] if re.search(r"^\S+ connected primary ", query, re.MULTILINE) else ["--primary"]
     if target is not None and target.current:
+        if primary:
+            print(f"display-hotplug: setting {output} as primary", file=sys.stderr)
+            subprocess.run(["xrandr", "--output", output, *primary], check=True)
         return
     if target is not None or pin:
         name, rate = pin or (target.name, str(target.rate))
         print(f"display-hotplug: requesting {output} {name} at {rate} Hz", file=sys.stderr)
         result = subprocess.run(
-            ["xrandr", "--output", output, "--mode", name, "--rate", rate], check=False
+            ["xrandr", "--output", output, "--mode", name, "--rate", rate, *primary],
+            check=False,
         )
         if result.returncode == 0:
             return
@@ -100,7 +106,7 @@ def main() -> None:
             f"display-hotplug: no advertised modes for {output}; falling back to --auto",
             file=sys.stderr,
         )
-    subprocess.run(["xrandr", "--output", output, "--auto"], check=True)
+    subprocess.run(["xrandr", "--output", output, "--auto", *primary], check=True)
 
 
 if __name__ == "__main__":
