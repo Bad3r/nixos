@@ -46,12 +46,10 @@ let
         };
 
         package = lib.mkPackageOption pkgs "podman" { };
-
-        composePackage = lib.mkPackageOption pkgs "docker-compose" { };
       };
 
       config = lib.mkIf cfg.enable {
-        environment.systemPackages = [ cfg.composePackage ];
+        programs."docker-compose".extended.enable = lib.mkOverride 1050 true;
 
         virtualisation.podman = {
           enable = true;
@@ -74,7 +72,7 @@ let
             ];
           };
           engine = {
-            compose_providers = [ (lib.getExe cfg.composePackage) ];
+            compose_providers = [ (lib.getExe config.programs."docker-compose".extended.package) ];
             compose_warning_logs = false;
             # Rootless runsc fails without it: systemd demands interactive auth for its cgroup.
             runtimes_flags.runsc = [ "ignore-cgroups" ];

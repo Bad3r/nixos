@@ -247,7 +247,7 @@
           (lib.mkIf (appEnabled "xsel") clipboard)
           (lib.mkIf (appEnabled "git") git)
           (lib.mkIf (appEnabled "podman") docker)
-          (lib.mkIf (appEnabled "podman") dockerCompose)
+          (lib.mkIf (appEnabled "docker-compose") dockerCompose)
           (lib.mkIf (appEnabled "nmap") nmap)
           (lib.mkIf (appEnabled "cloudflare-warp") cloudflareWarp)
           (lib.mkIf (appEnabled "wrangler") wrangler)
