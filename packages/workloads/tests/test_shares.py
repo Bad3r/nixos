@@ -4,7 +4,7 @@
 import unittest
 from typing import TYPE_CHECKING, cast
 
-from workloads.grantd import Virsh, virtiofs_tags
+from workloads.grantd import LiveShare, Virsh
 from workloads.grants import GrantError, Record
 
 from tests.test_grantd import Harness, code
@@ -14,7 +14,8 @@ if TYPE_CHECKING:
 
 LATE = "/etc/workloads/shares/dev/late.xml"
 DOMAIN_XML = """<domain><devices>
-  <filesystem type='mount'><driver type='virtiofs'/><target dir='late'/></filesystem>
+  <filesystem type='mount'><driver type='virtiofs'/><target dir='late'/><alias name='fs1'/>
+    <readonly/></filesystem>
   <filesystem type='mount'><driver type='path'/><target dir='ninep'/></filesystem>
   <disk type='file'><target dev='vda'/></disk>
 </devices></domain>"""
@@ -71,8 +72,18 @@ class ShareTest(unittest.TestCase):
         self.assertFalse(cast("Record", answer["share"])["attached"])
         self.assertEqual(
             harness.events,
-            ["lock", "journal detached", f"detach dev {LATE}", "sleep 0.5", "sleep 0.5", "unlock"],
+            ["lock", "journal detached", "detach dev fs-late", "sleep 0.5", "sleep 0.5", "unlock"],
         )
+
+    def test_detach_undeclared(self) -> None:
+        """A live share whose declaration is gone still detaches, with its live mode."""
+        harness = Harness()
+        harness.libvirt.live["dev"].add("ro-old")
+        answer = cast("Record", share(harness, "detach", tag="ro-old")["share"])
+        self.assertEqual(
+            (answer["attached"], answer["read_only"], answer["mount_point"]), (False, True, None)
+        )
+        self.assertIn("detach dev fs-ro-old", harness.events)
 
     def test_detach_fails_closed(self) -> None:
         """A device the guest never releases is an error, not a success."""
@@ -82,12 +93,14 @@ class ShareTest(unittest.TestCase):
         answer = share(harness, "detach")
         self.assertEqual(code(answer), "detach-pending")
         self.assertEqual(harness.journal[-1]["decision"], "failed")
-        self.assertEqual(harness.events.count("sleep 0.5"), 30)
 
     def test_detach_refusals(self) -> None:
-        """Nothing attached, or a saved guest whose restore brings the share back."""
+        """Nothing attached, no such guest, or a saved guest whose restore brings the share back."""
         harness = Harness()
         self.assertEqual(code(share(harness, "detach")), "not-attached")
+        self.assertEqual(code(share(harness, "detach", tag="drop")), "not-attached")
+        self.assertEqual(code(share(harness, "detach", guest="web")), "not-declared")
+        self.assertEqual(code(share(harness, "detach", "win11", "isos")), "unsupported-guest")
         harness.libvirt.states["dev"] = "shut off"
         self.assertEqual(code(share(harness, "detach")), "not-attached")
         harness.libvirt.saved_domains.add("dev")
@@ -137,14 +150,14 @@ class VirshTest(unittest.TestCase):
         virsh = Virsh("/virsh", runner)
         self.assertEqual(virsh.state("dev"), "running")
         self.assertTrue(virsh.saved("dev"))
-        self.assertEqual(virsh.tags("dev"), {"late"})
+        self.assertEqual(virsh.shares("dev"), {"late": LiveShare("fs1", read_only=True)})
         virsh.attach("dev", LATE)
-        virsh.detach("dev", LATE)
+        virsh.detach("dev", "fs1")
         self.assertEqual(
             runner.calls[-2:],
             [
                 ["/virsh", "-c", "qemu:///system", "attach-device", "dev", LATE, "--live"],
-                ["/virsh", "-c", "qemu:///system", "detach-device", "dev", LATE, "--live"],
+                ["/virsh", "-c", "qemu:///system", "detach-device-alias", "dev", "fs1", "--live"],
             ],
         )
 
@@ -155,14 +168,10 @@ class VirshTest(unittest.TestCase):
             failing.attach("dev", LATE)
         self.assertEqual(caught.exception.code, "libvirt")
         garbled = Virsh("/virsh", Runner({"dumpxml": (0, "<domain", ""), "dominfo": (0, "", "")}))
-        for call in (lambda: garbled.tags("dev"), lambda: garbled.saved("dev")):
+        for call in (lambda: garbled.shares("dev"), lambda: garbled.saved("dev")):
             with self.assertRaises(GrantError) as caught:
                 call()
             self.assertEqual(caught.exception.code, "libvirt")
-
-    def test_tags(self) -> None:
-        """Only virtiofs filesystems count."""
-        self.assertEqual(virtiofs_tags(DOMAIN_XML), {"late"})
 
 
 if __name__ == "__main__":

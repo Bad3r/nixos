@@ -4,6 +4,7 @@
 import copy
 import json
 
+from workloads.grantd import LiveShare
 from workloads.grants import Policy, Record
 
 POLICY: Record = {
@@ -124,8 +125,8 @@ class FakeLibvirt:
         """Whether the domain was marked saved."""
         return domain in self.saved_domains
 
-    def tags(self, domain: str) -> set[str]:
-        """Live tags, with a releasing one until its polls run out."""
+    def shares(self, domain: str) -> dict[str, LiveShare]:
+        """Live tags, with a releasing one until its polls run out; `ro-` tags are read-only."""
         tags = set(self.live[domain])
         if domain in self.releasing:
             tag, left = self.releasing[domain]
@@ -134,16 +135,16 @@ class FakeLibvirt:
             else:
                 tags.add(tag)
                 self.releasing[domain] = (tag, None if left is None else left - 1)
-        return tags
+        return {tag: LiveShare(f"fs-{tag}", tag.startswith("ro-")) for tag in tags}
 
     def attach(self, domain: str, device: str) -> None:
         """Plug the device; its tag is the file's stem."""
         self.events.append(f"attach {domain} {device}")
         self.live[domain].add(device.rsplit("/", 1)[1].removesuffix(".xml"))
 
-    def detach(self, domain: str, device: str) -> None:
+    def detach(self, domain: str, alias: str) -> None:
         """Start releasing the device."""
-        self.events.append(f"detach {domain} {device}")
-        tag = device.rsplit("/", 1)[1].removesuffix(".xml")
+        self.events.append(f"detach {domain} {alias}")
+        tag = alias.removeprefix("fs-")
         self.live[domain].discard(tag)
         self.releasing[domain] = (tag, self.linger)

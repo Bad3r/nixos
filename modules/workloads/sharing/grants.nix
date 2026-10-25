@@ -15,18 +15,17 @@ let
       hostServices = config.workloads.host.services;
       guestEndpoints = sharing.endpoints.guest or { };
 
-      # Runtime shares of present guests; the VM module installs each device file.
-      runtimeShares = lib.filterAttrs (_: guest: guest.shares != { }) (
-        lib.mapAttrs (name: guest: {
-          domain = guest.domainName;
-          inherit (guest) kind;
-          shares = lib.mapAttrs (tag: share: {
-            device = "/etc/workloads/shares/${name}/${tag}.xml";
-            inherit (share) readOnly mountPoint;
-          }) (lib.filterAttrs (_: share: share.enable && share.runtime or false) guest.shares);
-        }) (lib.filterAttrs (_: guest: (guest.ensure or "present") == "present") config.workloads.guests)
-      );
-      helper = cfg.allow != [ ] || runtimeShares != { };
+      # Every present guest, so a share whose declaration is gone still detaches;
+      # the VM module installs each runtime share's device file.
+      runtimeShares = lib.mapAttrs (name: guest: {
+        domain = guest.domainName;
+        inherit (guest) kind;
+        shares = lib.mapAttrs (tag: share: {
+          device = "/etc/workloads/shares/${name}/${tag}.xml";
+          inherit (share) readOnly mountPoint;
+        }) (lib.filterAttrs (_: share: share.enable && share.runtime or false) guest.shares);
+      }) (lib.filterAttrs (_: guest: (guest.ensure or "present") == "present") config.workloads.guests);
+      helper = cfg.allow != [ ] || lib.any (guest: guest.shares != { }) (lib.attrValues runtimeShares);
 
       # The bit the grant chains set on connections they admit; no other table uses ct mark.
       marked = "ct mark & 0x00f00000 == 0x00100000";

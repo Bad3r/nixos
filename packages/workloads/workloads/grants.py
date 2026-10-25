@@ -484,12 +484,11 @@ class Policy:
             Route(destination.bridge, path.destination, path.source),
         ]
 
-    def runtime_share(self, guest: str, tag: str) -> tuple[ShareGuest, RuntimeShare]:
-        """A declared runtime share of a guest the helper attaches to."""
+    def share_guest(self, guest: str) -> ShareGuest:
+        """A declared guest whose shares the helper attaches and detaches."""
         entry = self.shares.get(guest)
-        share = None if entry is None else entry.shares.get(tag)
-        if entry is None or share is None:
-            msg = f"guest:{guest} declares no runtime share '{tag}'; runtime = true marks one"
+        if entry is None:
+            msg = f"guest:{guest} is no declared present guest"
             raise GrantError(msg, code="not-declared")
         if entry.kind == "windows":
             # virtio-win's virtiofs.exe remounts every share on each device arrival
@@ -499,4 +498,4 @@ class Policy:
                 " attach them with virsh as docs/apps/libvirt/shares.md describes"
             )
             raise GrantError(msg, code="unsupported-guest")
-        return entry, share
+        return entry

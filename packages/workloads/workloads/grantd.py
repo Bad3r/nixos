@@ -26,6 +26,7 @@ from workloads.grants import (
     Ports,
     Record,
     Route,
+    RuntimeShare,
     ShareGuest,
     Target,
 )
@@ -119,6 +120,14 @@ class Kernel(Protocol):
         ...
 
 
+@dataclass(frozen=True)
+class LiveShare:
+    """A virtiofs device in a live definition."""
+
+    alias: str
+    read_only: bool
+
+
 class Libvirt(Protocol):
     """The system guests' live devices."""
 
@@ -130,16 +139,16 @@ class Libvirt(Protocol):
         """Whether a managed save image holds the guest, live devices included."""
         ...
 
-    def tags(self, domain: str) -> set[str]:
-        """Tags of the virtiofs shares in the live definition."""
+    def shares(self, domain: str) -> dict[str, LiveShare]:
+        """The virtiofs shares in the live definition by tag."""
         ...
 
     def attach(self, domain: str, device: str) -> None:
         """Hot-plug the device in the file into the running guest."""
         ...
 
-    def detach(self, domain: str, device: str) -> None:
-        """Ask the running guest to release the device in the file."""
+    def detach(self, domain: str, alias: str) -> None:
+        """Ask the running guest to release a live device."""
         ...
 
 
@@ -394,15 +403,18 @@ class NftKernel:
         self._rule("del", preference, route)
 
 
-def virtiofs_tags(xml: str) -> set[str]:
-    """Tags of the virtiofs `<filesystem>` devices in a domain definition."""
+def virtiofs_shares(xml: str) -> dict[str, LiveShare]:
+    """The virtiofs `<filesystem>` devices of a live domain definition by tag."""
     root = ET.fromstring(xml)  # noqa: S314
-    tags: set[str] = set()
+    shares: dict[str, LiveShare] = {}
     for device in root.iterfind("devices/filesystem"):
-        driver, target = device.find("driver"), device.find("target")
-        if driver is not None and driver.get("type") == "virtiofs" and target is not None:
-            tags.add(str(target.get("dir")))
-    return tags
+        driver, target, alias = device.find("driver"), device.find("target"), device.find("alias")
+        if driver is None or driver.get("type") != "virtiofs" or target is None:
+            continue
+        shares[str(target.get("dir"))] = LiveShare(
+            "" if alias is None else str(alias.get("name")), device.find("readonly") is not None
+        )
+    return shares
 
 
 class Virsh:
@@ -434,11 +446,11 @@ class Virsh:
         msg = f"virsh dominfo {domain} printed no managed save line"
         raise GrantError(msg, code="libvirt")
 
-    def tags(self, domain: str) -> set[str]:
+    def shares(self, domain: str) -> dict[str, LiveShare]:
         """Parse `virsh dumpxml`."""
         output = self._checked("dumpxml", domain)
         try:
-            return virtiofs_tags(output)
+            return virtiofs_shares(output)
         except ET.ParseError as error:
             msg = f"virsh dumpxml {domain} printed no XML: {error}"
             raise GrantError(msg, code="libvirt") from error
@@ -447,9 +459,9 @@ class Virsh:
         """`virsh attach-device --live`."""
         self._checked("attach-device", domain, device, "--live")
 
-    def detach(self, domain: str, device: str) -> None:
-        """`virsh detach-device --live`, which returns once the request is sent."""
-        self._checked("detach-device", domain, device, "--live")
+    def detach(self, domain: str, alias: str) -> None:
+        """`virsh detach-device-alias --live`, which returns once the request is sent."""
+        self._checked("detach-device-alias", domain, alias, "--live")
 
 
 @dataclass(frozen=True)
@@ -727,59 +739,84 @@ class Service:
         return {"revoked": revoked}
 
     def _share(self, policy: Policy, request: Record, record: Callable[..., None]) -> Record:
+        guest = policy.share_guest(_string(request, "guest"))
+        tag = _string(request, "share")
+        declared = guest.shares.get(tag)
         attach = request["verb"] == "share-attach"
-        guest, share = policy.runtime_share(_string(request, "guest"), _string(request, "share"))
-        place = f"guest:{guest.name}"
         with self.lock():
-            state = self.libvirt.state(guest.domain)
-            if attach and state != "running":
-                msg = f"{place} is {state}; runtime shares attach to a running guest"
-                raise GrantError(msg, code="not-running")
-            if not attach and state == "shut off" and self.libvirt.saved(guest.domain):
-                msg = f"{place} is saved with its live shares; start it, then detach"
-                raise GrantError(msg, code="saved")
-            # A guest that is shut off holds no live device.
-            held = state != "shut off" and share.tag in self.libvirt.tags(guest.domain)
-            if attach and held:
-                msg = f"{place} already holds {share.tag}"
-                raise GrantError(msg, code="already-attached")
-            if not attach and not held:
-                msg = f"{place} holds no {share.tag}"
-                raise GrantError(msg, code="not-attached")
-            decision = "attached" if attach else "detached"
-            record(
-                decision,
-                f"{decision} {share.tag} {'to' if attach else 'from'} {place}",
-                guest=guest.name,
-                share=share.tag,
-                read_only=share.read_only,
-            )
             if attach:
-                self.libvirt.attach(guest.domain, share.device)
+                read_only = self._attach(guest, tag, declared, record)
             else:
-                self._detach(guest, share.tag, share.device)
+                read_only = self._detach(guest, tag, record)
         return {
             "share": {
                 "guest": guest.name,
-                "tag": share.tag,
-                "read_only": share.read_only,
-                "mount_point": share.mount_point,
+                "tag": tag,
+                "read_only": read_only,
+                "mount_point": None if declared is None else declared.mount_point,
                 "attached": attach,
             }
         }
 
-    def _detach(self, guest: ShareGuest, tag: str, device: str) -> None:
-        """Detach and wait until the device leaves the live definition."""
-        self.libvirt.detach(guest.domain, device)
+    def _attach(
+        self,
+        guest: ShareGuest,
+        tag: str,
+        share: RuntimeShare | None,
+        record: Callable[..., None],
+    ) -> bool:
+        """Hot-plug a declared share's device file; return whether it is read-only."""
+        place = f"guest:{guest.name}"
+        if share is None:
+            msg = f"{place} declares no runtime share '{tag}'; runtime = true marks one"
+            raise GrantError(msg, code="not-declared")
+        state = self.libvirt.state(guest.domain)
+        if state != "running":
+            msg = f"{place} is {state}; runtime shares attach to a running guest"
+            raise GrantError(msg, code="not-running")
+        if tag in self.libvirt.shares(guest.domain):
+            msg = f"{place} already holds {tag}"
+            raise GrantError(msg, code="already-attached")
+        record(
+            "attached",
+            f"attached {tag} to {place}",
+            guest=guest.name,
+            share=tag,
+            read_only=share.read_only,
+        )
+        self.libvirt.attach(guest.domain, share.device)
+        return share.read_only
+
+    def _detach(self, guest: ShareGuest, tag: str, record: Callable[..., None]) -> bool:
+        """Detach any live share, declared or not, and wait until the device leaves."""
+        place = f"guest:{guest.name}"
+        state = self.libvirt.state(guest.domain)
+        if state == "shut off" and self.libvirt.saved(guest.domain):
+            msg = f"{place} is saved with its live shares; start it, then detach"
+            raise GrantError(msg, code="saved")
+        # A guest that is shut off holds no live device.
+        live = None if state == "shut off" else self.libvirt.shares(guest.domain).get(tag)
+        if live is None:
+            msg = f"{place} holds no {tag}"
+            raise GrantError(msg, code="not-attached")
+        record(
+            "detached",
+            f"detached {tag} from {place}",
+            guest=guest.name,
+            share=tag,
+            read_only=live.read_only,
+        )
+        self.libvirt.detach(guest.domain, live.alias)
         deadline = self.clock() + DETACH_WAIT
-        while tag in self.libvirt.tags(guest.domain):
+        while tag in self.libvirt.shares(guest.domain):
             if self.clock() >= deadline:
                 msg = (
-                    f"guest:{guest.name} still holds {tag} {DETACH_WAIT:g}s after the detach"
-                    " request; the share stays usable until the guest releases it or stops"
+                    f"{place} still holds {tag} {DETACH_WAIT:g}s after the detach request;"
+                    " the share stays usable until the guest releases it or stops"
                 )
                 raise GrantError(msg, code="detach-pending")
             self.sleep(DETACH_POLL)
+        return live.read_only
 
     def _sync_routes(self, policy: Policy, elements: Sequence[Element]) -> None:
         """Routes of expired grants go too; until then the forward chain drops their traffic."""

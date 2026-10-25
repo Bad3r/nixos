@@ -280,7 +280,8 @@ in
                 refused("share attach epsilon rw", "not-declared")
                 refused("share attach epsilon nope", "not-declared")
                 refused("share attach ghost late", "not-declared")
-                machine.fail("runuser -u eve -- workloads share attach epsilon late")
+                answer = json.loads(machine.fail("runuser -u eve -- workloads --json share attach epsilon rw"))
+                assert answer["error"]["code"] == "os-error", answer
 
             with subtest("an attached share survives a managed save"):
                 machine.succeed("virsh managedsave epsilon")

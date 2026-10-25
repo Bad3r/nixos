@@ -45,6 +45,7 @@ sbx exec <name> -- sh -c 'mkdir -p /mnt/<tag> && mount -t virtiofs <tag> /mnt/<t
 - A share stays until it is detached or the guest stops; a managed save and its restore keep it.
 - A guest has a hot-plug slot for each runtime share it declares, and a sandbox for a few shares; a further attach fails with `libvirt`.
 - Detach returns once the device has left the live definition; unmount the share inside the guest first.
+- Detach also removes a live share that the guest's declaration omits.
 - A guest that keeps the device past the wait fails detach with `detach-pending`, and the share stays usable until the guest releases it or stops.
 - The sbx disk cap does not bound writes through an attached `xfer` share, so detach it when the transfer ends.
 - `workloads share` refuses Windows guests; [guest shares](../apps/libvirt/shares.md#runtime-shares) gives their procedure.
@@ -67,8 +68,8 @@ sbx exec <name> -- sh -c 'mkdir -p /mnt/<tag> && mount -t virtiofs <tag> /mnt/<t
 ## How a share attaches
 
 - A guest share goes through [workload-grantd](workload-grants.md#the-helper), which checks the guest and tag against the policy file and journals the decision under `SYSLOG_IDENTIFIER=workload-grant`.
-- The helper runs `virsh attach-device` or `detach-device --live` with the device file the policy names, never one from the request.
 - libvirtd admits a root client without polkit, so the helper keeps `CAP_NET_ADMIN` as its only capability.
+- The helper attaches the device file the policy names and detaches the live device by its alias.
 - A sandbox share needs no root: `sbx share` reads the policy file, hot-plugs into the sandbox's `qemu:///session` domain, and journals under `SYSLOG_IDENTIFIER=sbx`.
 - Session virtiofsd maps the guest's root to the owner and its other ids into the owner's subordinate range, through the setuid `newuidmap`.
 - Every sandbox has shared memfd memory, which virtiofs needs.
