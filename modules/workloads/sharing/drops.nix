@@ -4,28 +4,30 @@ let
     {
       config,
       lib,
+      metaOwner,
       options,
       ...
     }:
     let
       inherit (lib) types;
       root = "/var/lib/workloads/shares";
+      ownerDir = owner: "${root}/${owner}";
 
-      dropOf = enable: name: {
+      dropOf = enable: name: drop: {
         enable = lib.mkDefault enable;
-        hostPath = "${root}/${name}";
+        hostPath = "${ownerDir drop.owner}/${name}";
       };
 
       guestModule =
         { name, config, ... }:
         {
-          config.shares.drop = dropOf (config.trust == "trusted") name;
+          config.shares.drop = dropOf (config.trust == "trusted") name config.shares.drop;
         };
 
       serviceModule =
-        { name, ... }:
+        { name, config, ... }:
         {
-          config.shares.drop = dropOf false name;
+          config.shares.drop = dropOf false name config.shares.drop;
         };
 
       enabledDrop =
@@ -38,6 +40,18 @@ let
       drops =
         lib.concatLists (lib.mapAttrsToList enabledDrop config.workloads.guests)
         ++ lib.concatLists (lib.mapAttrsToList enabledDrop config.workloads.services);
+
+      directory = owner: {
+        d = {
+          mode = "0700";
+          user = owner;
+          inherit (config.users.users.${owner}) group;
+        };
+      };
+
+      shared = lib.attrNames (
+        lib.filterAttrs (_: same: lib.length same > 1) (lib.groupBy (drop: drop.hostPath) drops)
+      );
     in
     {
       options.workloads = {
@@ -53,6 +67,14 @@ let
       config = lib.mkIf (drops != [ ]) (
         lib.mkMerge [
           {
+            assertions = [
+              {
+                assertion = shared == [ ];
+                message = "workloads: a guest and a service of one name share the drop ${lib.concatStringsSep ", " shared}";
+              }
+            ];
+
+            # A guest can chmod its share root, never the owner directory above it.
             systemd.tmpfiles.settings.workloads-drops = {
               ${root}.d = {
                 mode = "0755";
@@ -61,34 +83,22 @@ let
               };
             }
             // lib.listToAttrs (
-              map (
-                drop:
-                lib.nameValuePair drop.hostPath {
-                  d = {
-                    mode = "0700";
-                    user = drop.owner;
-                    inherit (config.users.users.${drop.owner}) group;
-                  };
-                }
-              ) drops
-            );
+              map (owner: lib.nameValuePair (ownerDir owner) (directory owner)) (
+                lib.unique (map (drop: drop.owner) drops)
+              )
+            )
+            // lib.listToAttrs (map (drop: lib.nameValuePair drop.hostPath (directory drop.owner)) drops);
           }
 
+          # Home Manager manages only the metaOwner home, so other owners get no link.
           (lib.optionalAttrs (options ? home-manager) {
-            home-manager.users = lib.mapAttrs (
-              _: owned:
-              { config, ... }:
-              {
-                home.file = lib.listToAttrs (
-                  map (
-                    drop:
-                    lib.nameValuePair "workloads/${drop.name}" {
-                      source = config.lib.file.mkOutOfStoreSymlink drop.hostPath;
-                    }
-                  ) owned
-                );
-              }
-            ) (lib.groupBy (drop: drop.owner) drops);
+            home-manager.users = lib.mkIf (lib.any (drop: drop.owner == metaOwner.username) drops) {
+              ${metaOwner.username} =
+                { config, ... }:
+                {
+                  home.file.workloads.source = config.lib.file.mkOutOfStoreSymlink (ownerDir metaOwner.username);
+                };
+            };
           })
         ]
       );

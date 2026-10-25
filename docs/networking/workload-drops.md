@@ -1,18 +1,21 @@
 # Workload file drops
 
-A drop is a host directory for handing files to one declared workload, `/var/lib/workloads/shares/<name>`, linked at `~/workloads/<name>`.
+A drop is a host directory for handing files to one declared workload, `/var/lib/workloads/shares/<owner>/<name>`, which the owner reaches as `~/workloads/<name>`.
 `modules/workloads/sharing/drops.nix` adds it as the `drop` entry of the workload's `shares`, creates its directory, and links it.
 
 ## Who gets a drop
 
-| Workload        | Drop    | Inside                        |
-| --------------- | ------- | ----------------------------- |
-| trusted guest   | default | `/mnt/drop` or a drive letter |
-| untrusted guest | none    | none                          |
-| service         | opt-in  | `/mnt/drop`                   |
+| Workload        | Drop    | Inside                      |
+| --------------- | ------- | --------------------------- |
+| NixOS guest     | default | `/mnt/drop`                 |
+| Windows guest   | default | a drive letter              |
+| Linux guest     | default | tag `drop`, mounted by hand |
+| untrusted guest | none    | none                        |
+| service         | opt-in  | `/mnt/drop`                 |
 
 - A trusted guest gets the drop as a [virtiofs share](../apps/libvirt/shares.md).
-  `workloads-guest-base` mounts it at `/mnt/drop` in a NixOS guest, and a Windows guest mounts it on a drive letter.
+  `workloads-guest-base` mounts it in a NixOS guest, Windows provisioning gives it a drive letter, and other guests mount the tag themselves.
+- On Windows the drop takes a letter like any unpinned share, and it counts toward the share cap and the single share of `service` mode.
 - `shares.drop.enable = false` opts a trusted guest out.
 - Untrusted guests get no shares; a sandbox exchanges files through [sbx copies](../apps/sbx/README.md#copies).
 - A [workload service](workload-services.md#shares) opts in with `shares.drop.enable = true`.
@@ -31,21 +34,25 @@ _: {
 
 ## Directory and link
 
-- `systemd-tmpfiles` creates the directory for the share's `owner` and primary group, closed to every other account.
-- Home Manager links `~/workloads/<name>` in the owner's home to it and removes the link once the drop is gone.
+- `systemd-tmpfiles` creates `/var/lib/workloads/shares/<owner>` and each drop below it for the share's `owner` and primary group, closed to every other account.
+- A guest or container can change the mode of its drop, never of the owner directory above it, so other accounts stay out.
+- Home Manager links `~/workloads` to the owner directory of `metaOwner`; other owners get no link.
 - Guest and container writes land owned by the owner, so the owner edits and deletes them without `sudo`.
 - Removing a drop, its guest, or its service keeps the directory and its files.
+- Changing a drop's `owner` gives it a new, empty directory under the new owner; the old one keeps its files.
 
-Delete a directory nothing declares any more, as the owner:
+Delete a drop nothing declares any more, as its owner:
 
 ```sh
-sudo rm -r /var/lib/workloads/shares/<name>
+rm -r /var/lib/workloads/shares/$USER/<name>
 ```
 
 ## When a drop applies
 
 - A switch creates the directory and the link.
-- A guest gets the share as any [new share](../apps/libvirt/shares.md#declare-a-share) does: at its next cold boot, after a redeploy for a NixOS guest's fstab.
+- A guest gets the share as any [new share](../apps/libvirt/shares.md#declare-a-share) does, at its next cold boot.
+- A NixOS guest then needs a redeploy for its fstab entry.
+  Redeployed before that cold boot, its switch exits with status 4 because `mnt-drop.mount` finds no tag; `nofail` keeps its boots safe.
 - A service gets it when the switch restarts its container.
 
 ## Verify
@@ -53,7 +60,7 @@ sudo rm -r /var/lib/workloads/shares/<name>
 As the owner on the host:
 
 ```sh
-ls -ld ~/workloads/<name>/ /var/lib/workloads/shares/<name>
+ls -ld ~/workloads/<name>/ /var/lib/workloads/shares/$USER/<name>
 virsh -r -c qemu:///system dumpxml <guest> | grep -A3 "<target dir='drop'"
 sudo podman exec svc-<service> ls -ln /mnt/drop
 ```
@@ -85,4 +92,4 @@ Cause: the running guest predates its drop share, or the NixOS guest runs a gene
 virsh -r -c qemu:///system dumpxml <guest> | grep -c "<target dir='drop'"
 ```
 
-Fix: redeploy a NixOS guest, then shut the guest down and start it again.
+Fix: shut the guest down and start it again, then redeploy a NixOS guest.

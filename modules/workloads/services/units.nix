@@ -230,9 +230,9 @@ let
                     ids = ownerIds share;
                   in
                   {
-                    # Mapped to 0, container root would create setuid-root files on the host.
-                    assertion = ids.uid != null && ids.uid != 0 && ids.gid != null;
-                    message = "workloads.services.${name}: shares.${tag}: owner ${share.owner} needs to be a declared non-root user with a fixed uid and a primary group with a fixed gid";
+                    # Mapped to 0, container root would create setuid- or setgid-root files on the host.
+                    assertion = ids.uid != null && ids.uid != 0 && ids.gid != null && ids.gid != 0;
+                    message = "workloads.services.${name}: shares.${tag}: owner ${share.owner} needs to be a declared non-root user with a fixed uid and a non-root primary group with a fixed gid";
                   }
                 ) (enabledShares service)
               ) services

@@ -59,6 +59,7 @@ A share whose `mountPoint` clashes with another file system fails the guest's ev
 - A share's `driveLetter` pins a letter from G to Z, since D to F stay free for the installation CD-ROMs.
   The others take the highest letters no other share pins, from Z down in tag order, so adding a share can move them.
   The read-only `windows.virtiofs.driveLetters` holds the result; other guest kinds ignore `driveLetter`.
+- A trusted guest's [drop](../../networking/workload-drops.md) is one of these shares, so it takes a letter and counts toward the share cap and `service` mode's single share.
 - The host copies its pinned WinFsp installer in through the guest agent while the guest lacks that version or a newer one.
 - The viofs driver and `virtiofs.exe` come with the virtio-win guest tools.
 - virtio-win calls virtiofs on Windows a Tech Preview, in either mode.

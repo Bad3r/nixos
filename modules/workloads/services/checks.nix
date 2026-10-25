@@ -155,14 +155,19 @@ in
               assert owner == "0", owner
 
           with subtest("container root reads and writes a share as its owner"):
-              drop = "/var/lib/workloads/shares/web"
-              assert machine.succeed(f"stat -c '%U %G %a' {drop}").split() == ["${owner}", "users", "700"]
+              drop = "/var/lib/workloads/shares/${owner}/web"
+              for path in [drop, "/var/lib/workloads/shares/${owner}"]:
+                  assert machine.succeed(f"stat -c '%U %G %a' {path}").split() == ["${owner}", "users", "700"]
               machine.succeed(f"runuser -u ${owner} -- sh -c 'echo host > {drop}/from-host'")
               assert machine.succeed("podman exec svc-web stat -c '%u %g' /mnt/drop/from-host").split() == ["0", "0"]
               assert machine.succeed("podman exec svc-web cat /mnt/drop/from-host").strip() == "host"
               machine.succeed("podman exec svc-web touch /mnt/drop/from-container")
               assert machine.succeed(f"stat -c '%U %G' {drop}/from-container").split() == ["${owner}", "users"]
               machine.fail("podman exec svc-web touch /mnt/ro/x")
+
+          with subtest("a share root opened by the container stays closed to other accounts"):
+              machine.succeed("podman exec svc-web chmod 0777 /mnt/drop")
+              machine.fail(f"runuser -u nobody -- ls {drop}")
 
           with subtest("an unchanged network is kept"):
               before = label()

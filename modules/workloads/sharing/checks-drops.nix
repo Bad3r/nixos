@@ -59,6 +59,11 @@ in
                       inherit (metaOwner) uid;
                     };
                     floating.isNormalUser = true;
+                    staff = {
+                      isNormalUser = true;
+                      uid = 1001;
+                      group = "root";
+                    };
                   };
 
                   workloads = lib.recursiveUpdate {
@@ -100,11 +105,18 @@ in
           };
         };
       };
-      dropDirs = map baseNameOf (
-        lib.attrNames (
-          removeAttrs selection.systemd.tmpfiles.settings.workloads-drops [ "/var/lib/workloads/shares" ]
+      ownerPrefix = "/var/lib/workloads/shares/${owner}/";
+      dropDirs = map (lib.removePrefix ownerPrefix) (
+        lib.filter (lib.hasPrefix ownerPrefix) (
+          lib.attrNames selection.systemd.tmpfiles.settings.workloads-drops
         )
       );
+
+      # A guest without interfaces has no workloads.names entry to clash on.
+      clash = failures (evaluate {
+        guests = guest "inbox" { };
+        services.inbox = service { shares.drop.enable = true; };
+      });
 
       shareFailures =
         share:
@@ -149,8 +161,11 @@ in
             "root"
             "floating"
             "nobody-here"
+            "staff"
           ]
-        ) "a root, floating, or undeclared share owner passes";
+        ) "a root, floating, undeclared, or root-group share owner passes";
+        assert lib.assertMsg (lib.any (lib.hasInfix "share the drop") clash)
+          "a guest and a service share a drop: ${toString clash}";
         pkgs.runCommand "workloads-sharing-drops" { } "touch $out";
     };
 }
