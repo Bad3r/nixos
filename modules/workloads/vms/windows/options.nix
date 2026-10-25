@@ -15,6 +15,34 @@ let
         _: guest: guest.kind == "windows" && guest.ensure == "present"
       ) guests;
 
+      shareModule = {
+        options.driveLetter = lib.mkOption {
+          type = types.nullOr (types.strMatching "[G-Z]");
+          default = null;
+          description = ''
+            Drive letter a Windows guest mounts the share at; D to F stay
+            free for the installation CD-ROMs. Shares without one take the
+            highest letters no other share pins, from Z down in tag order.
+            Other guest kinds ignore it.
+          '';
+        };
+      };
+
+      # Highest letters first, away from the ones Windows gives disks and CD-ROMs.
+      freeLetters = lib.reverseList (lib.stringToCharacters "GHIJKLMNOPQRSTUVWXYZ");
+
+      driveLetters =
+        shares:
+        let
+          enabled = lib.filterAttrs (_: share: share.enable) shares;
+          pinned = lib.filterAttrs (_: share: share.driveLetter != null) enabled;
+          taken = lib.mapAttrsToList (_: share: share.driveLetter) pinned;
+          free = lib.filter (letter: !lib.elem letter taken) freeLetters;
+          unpinned = lib.attrNames (removeAttrs enabled (lib.attrNames pinned));
+        in
+        lib.mapAttrs (_: share: share.driveLetter) pinned
+        // lib.listToAttrs (lib.zipListsWith lib.nameValuePair unpinned free);
+
       serviceModule = {
         options = {
           port = lib.mkOption {
@@ -39,6 +67,10 @@ let
           inherit (config) windows;
         in
         {
+          options.shares = lib.mkOption {
+            type = types.attrsOf (types.submodule shareModule);
+          };
+
           options.windows = {
             edition = lib.mkOption {
               type = types.str;
@@ -113,6 +145,31 @@ let
               '';
             };
 
+            virtiofs = {
+              mode = lib.mkOption {
+                type = types.enum [
+                  "launcher"
+                  "service"
+                ];
+                default = "launcher";
+                description = ''
+                  How the guest mounts its shares, all of which virtio-win
+                  calls a Tech Preview on Windows. `launcher` starts one WinFsp
+                  launcher instance per share from a startup task; `service`
+                  runs the single `VirtioFsSvc` service for one share attached
+                  at boot.
+                '';
+              };
+
+              driveLetters = lib.mkOption {
+                type = types.attrsOf types.str;
+                readOnly = true;
+                default = driveLetters config.shares;
+                defaultText = lib.literalMD "each enabled share's `driveLetter`, or the letter assigned to it";
+                description = "Drive letter of each enabled share, keyed by tag.";
+              };
+            };
+
             seedIso = lib.mkOption {
               type = types.package;
               readOnly = true;
@@ -141,6 +198,10 @@ let
             message = "workloads.guests.${name}: ${message}";
           };
           inherit (guest.windows) office productKeySecret;
+          shares = lib.filterAttrs (_: share: share.enable) guest.shares;
+          pinned = lib.filter (letter: letter != null) (
+            lib.mapAttrsToList (_: share: share.driveLetter) shares
+          );
         in
         [
           (check (lib.stringLength name <= 15) "Windows computer names have at most 15 characters")
@@ -155,6 +216,16 @@ let
           (check (
             office.installer == null || config.workloads.media ? ${office.installer}
           ) "windows.office.installer names no workloads.media entry")
+          (check (lib.allUnique pinned) "shares: two shares take the same driveLetter")
+          (check (
+            lib.length (lib.attrNames shares) <= 20
+          ) "shares: a Windows guest mounts at most 20 shares, on G to Z")
+          (check (
+            guest.windows.virtiofs.mode != "service"
+            || (
+              lib.length (lib.attrNames shares) <= 1 && lib.all (share: !share.runtime) (lib.attrValues shares)
+            )
+          ) "windows.virtiofs.mode = \"service\" mounts one share, attached at boot")
         ];
     in
     {

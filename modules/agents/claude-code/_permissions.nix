@@ -5,7 +5,11 @@
 # Rules evaluate deny -> ask -> allow; first match wins, so an ask/deny rule
 # overrides a broader allow. `Edit(path)` covers every file-editing tool
 # (Edit, Write, MultiEdit, NotebookEdit), hence `Edit(**)` and no `Write(**)`.
-{ scratchDir, sbx }:
+{
+  scratchDir,
+  sbx,
+  mcpAutoApproved,
+}:
 let
   # Canonical Bash prefix rule; the trailing ` *` keeps a word boundary, so
   # `Bash(git *)` matches `git`/`git status` but not `github`.
@@ -157,7 +161,8 @@ in
 
   # Set allow, ask, and deny rules and the starting permission mode
   permissions = {
-    allow = fileWebAllow ++ map bash bashAllow;
+    # `mcp__<server>` covers every tool of that server.
+    allow = fileWebAllow ++ map bash bashAllow ++ map (name: "mcp__${name}") mcpAutoApproved;
     ask = map bash bashAsk;
     deny = map bash bashDeny;
     additionalDirectories = [ scratchDir ];

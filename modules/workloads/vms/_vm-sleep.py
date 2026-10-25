@@ -1,16 +1,21 @@
 # Copyright (c) 2026 Bad3r
-"""Host sleep hook for guests on `qemu:///system`.
+"""Host sleep hook for guests on `qemu:///system` and sbx sandboxes.
 
 `pause` suspends running guests before host suspend, and `save` managed-saves active
 guests before hibernation; each records the guests it acts on, and only `save` exits
 non-zero, which aborts the sleep transition. `wake` runs after the sleep unit: it
 resumes and restores the recorded guests, then resyncs their clocks. It tells each
 active graphical session about every guest that failed a phase.
+
+With `--sbx`, each phase also runs `sbx sleep` as every user logind lists. sbx keeps
+its own records, and its pause and save act only while the user's sbx daemon unit
+is active, so the hook never brings up a session daemon.
 """
 
 import argparse
 import contextlib
 import fcntl
+import json
 import os
 import pwd
 import shutil
@@ -18,6 +23,7 @@ import subprocess
 import sys
 import time
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, TextIO
 
@@ -30,7 +36,9 @@ STATE_DIR = Path("/run/workloads-vm-sleep")
 PAUSED = STATE_DIR / "paused"
 SAVED = STATE_DIR / "saved"
 FAILURES = STATE_DIR / "failures"
-RECORDS = (PAUSED, SAVED, FAILURES)
+# Users whose sandboxes a pre phase handed to `sbx sleep`.
+SESSIONS = STATE_DIR / "sessions"
+RECORDS = (PAUSED, SAVED, FAILURES, SESSIONS)
 # Held by a pre phase while it acts, and by wake from its claim through restore and resume.
 LOCK = STATE_DIR / "lock"
 # How long wake waits for running sleep units and the lock.
@@ -38,6 +46,11 @@ CLAIM_WAIT = 600
 # How long a guest agent may stay unconnected after resume, shared by all guests.
 AGENT_WAIT = 15
 AGENT_CHANNEL = "devices/channel/target[@name='org.qemu.guest_agent.0']"
+USER_CGROUPS = Path("/sys/fs/cgroup/user.slice")
+# How long a pre phase waits for the lock a wake holds.
+PRE_WAIT = 120
+# How long one `sbx sleep` phase may run for one user; sbx bounds its own save below this.
+SESSION_WAIT = {"pause": 60, "resume": 60, "save": 300, "restore": 300}
 
 
 def log(message: str) -> None:
@@ -58,6 +71,59 @@ def fail(failures: list[str], message: str) -> None:
 
 class SaveError(Exception):
     """A guest failed its managed save."""
+
+
+@dataclass(frozen=True)
+class Sessions:
+    """Runs `sbx sleep` as each user."""
+
+    sbx: str
+    runuser: str
+    # The daemon unit's cgroup below user@<uid>.service, such as sbx.slice/sbx-libvirt.service.
+    cgroup: str
+
+    def users(self) -> tuple[list[str], list[str]]:
+        """Return the users whose sbx daemon runs, and why others are unknown."""
+        listing = ["loginctl", "list-users", "--json=short"]
+        output = subprocess.run(listing, check=True, capture_output=True, text=True).stdout
+        running: list[str] = []
+        unknown: list[str] = []
+        # Read from cgroupfs, so no PAM session or user manager starts for the question,
+        # and a closing user whose manager is gone simply has no such cgroup.
+        for entry in sorted(json.loads(output), key=lambda entry: entry["user"]):
+            uid = entry["uid"]
+            unit = USER_CGROUPS / f"user-{uid}.slice/user@{uid}.service" / self.cgroup
+            try:
+                events = (unit / "cgroup.events").read_text().splitlines()
+            except FileNotFoundError:
+                continue
+            except OSError as error:
+                unknown.append(f"{self.cgroup} of {entry['user']} is unknown: {error}")
+                continue
+            if "populated 1" in events:
+                running.append(entry["user"])
+        return running, unknown
+
+    def run(self, user: str, phase: str) -> str | None:
+        """Run one phase as `user`; return why it failed, or None."""
+        try:
+            uid = pwd.getpwnam(user).pw_uid
+            env = {"PATH": os.environ.get("PATH", ""), "XDG_RUNTIME_DIR": f"/run/user/{uid}"}
+            command = [self.runuser, "-u", user, "--", self.sbx, "sleep", phase]
+            with subprocess.Popen(command, env=env) as process:
+                try:
+                    code = process.wait(SESSION_WAIT[phase])
+                except subprocess.TimeoutExpired:
+                    # runuser passes SIGTERM on to sbx.
+                    process.terminate()
+                    try:
+                        process.wait(10)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                    return f"sbx sleep {phase} ran past {SESSION_WAIT[phase]} s"
+        except (KeyError, OSError) as error:
+            return f"sbx sleep {phase} did not run: {error}"
+        return None if code == 0 else f"sbx sleep {phase} exited {code}"
 
 
 def by_name(conn: libvirt.virConnect, flags: int) -> list[libvirt.virDomain]:
@@ -186,7 +252,7 @@ def locked(deadline: float | None = None) -> Iterator[None]:
                 break
             except BlockingIOError:
                 if time.monotonic() >= deadline:
-                    msg = f"no lock on {LOCK} within {CLAIM_WAIT} s"
+                    msg = f"no lock on {LOCK} in time"
                     raise TimeoutError(msg) from None
                 time.sleep(1)
         else:
@@ -216,7 +282,7 @@ def claim(path: Path) -> list[str]:
         return []
 
 
-Batch = tuple[list[str], list[str], list[str]]
+Batch = tuple[list[str], list[str], list[str], list[str]]
 
 
 @contextlib.contextmanager
@@ -230,7 +296,7 @@ def claimed_batch(jobs: list[str]) -> Iterator[Batch | None]:
         with locked(deadline):
             # A running sleep unit's records belong to the wake its stop queues.
             if not subprocess.run(jobs, check=True, capture_output=True, text=True).stdout:
-                batch = claim(PAUSED), claim(SAVED), claim(FAILURES)
+                batch = claim(PAUSED), claim(SAVED), claim(FAILURES), claim(SESSIONS)
                 yield batch if any(batch) else None
                 for path in RECORDS:
                     claimed(path).unlink(missing_ok=True)
@@ -293,7 +359,16 @@ def bring_back(
     return list({domain.UUIDString(): domain for domain in woken}.values())
 
 
-def wake(connect: str, systemctl: str, sleep_units: list[str]) -> int:
+def bring_back_sessions(sessions: Sessions, users: list[str], failures: list[str]) -> None:
+    """Restore, then resume, each recorded user's sandboxes."""
+    for user in users:
+        # Restore first, as for system guests.
+        for phase in ("restore", "resume"):
+            if (why := sessions.run(user, phase)) is not None:
+                fail(failures, f"sandboxes of {user} may stay paused or saved: {why}")
+
+
+def wake(connect: str, systemctl: str, sleep_units: list[str], sessions: Sessions | None) -> int:
     """Bring back the recorded guests and report failures; 1 if a guest stays down."""
     jobs = [systemctl, "list-jobs", "--no-legend", *sleep_units]
     down = False
@@ -304,7 +379,7 @@ def wake(connect: str, systemctl: str, sleep_units: list[str]) -> int:
         with claimed_batch(jobs) as batch:
             if batch is None:
                 return 1 if down else 0
-            paused, saved, failures = batch
+            paused, saved, failures, users = batch
             earlier = len(failures)
             if paused or saved:
                 try:
@@ -312,44 +387,85 @@ def wake(connect: str, systemctl: str, sleep_units: list[str]) -> int:
                 except libvirt.libvirtError as error:
                     fail(failures, f"guests may stay paused or saved: {error}")
                 else:
-                    woken = bring_back(conn, paused, saved, failures)
+                    try:
+                        woken = bring_back(conn, paused, saved, failures)
+                        sync_clocks(woken)
+                    finally:
+                        conn.close()
+            # After the system guests, whose clocks would otherwise wait on every user.
+            if sessions is not None:
+                bring_back_sessions(sessions, users, failures)
         down = down or len(failures) > earlier
-        if conn is not None:
-            try:
-                sync_clocks(woken)
-            finally:
-                conn.close()
         if failures:
             notify(failures)
 
 
-def pre(phase: str, connect: str, systemctl: str) -> int:
+def abort(failures: list[str], message: str) -> None:
+    """Log the failure that aborts hibernation and keep it for the wake notification."""
+    print(f"<3>error: {message}", file=sys.stderr, flush=True)
+    failures.append(message)
+
+
+def pre_system(phase: str, connect: str, failures: list[str]) -> None:
+    """Pause or save the system guests."""
+    try:
+        # Appended, so records a wake never claimed are still brought back.
+        with (PAUSED if phase == "pause" else SAVED).open("a") as records:
+            conn = libvirt.open(connect)
+            try:
+                (pause if phase == "pause" else save)(conn, records, failures)
+            finally:
+                conn.close()
+    except (SaveError, libvirt.libvirtError, OSError) as error:
+        if phase == "pause":
+            fail(failures, f"guests kept running through suspend: {error}")
+        elif isinstance(error, SaveError):
+            abort(failures, str(error))
+        else:
+            abort(failures, f"guests not saved, so the host did not sleep: {error}")
+
+
+def pre_sessions(phase: str, sessions: Sessions, failures: list[str]) -> None:
+    """Pause or save each user's sandboxes; a failed save stops at that user."""
+    try:
+        users, unknown = sessions.users()
+        # Recorded first, so wake still runs for a user whose phase failed halfway.
+        append(SESSIONS, users)
+    except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
+        unknown, users = [str(error)], []
+    for why in unknown:
+        if phase == "pause":
+            fail(failures, f"sandboxes may keep running through suspend: {why}")
+        else:
+            abort(failures, f"sandboxes not saved, so the host did not sleep: {why}")
+            return
+    for user in users:
+        why = sessions.run(user, phase)
+        if why is None:
+            continue
+        if phase == "pause":
+            fail(failures, f"sandboxes of {user} may keep running through suspend: {why}")
+        else:
+            abort(failures, f"sandboxes of {user} not saved, so the host did not sleep: {why}")
+            return
+
+
+def pre(phase: str, connect: str, systemctl: str, sessions: Sessions | None) -> int:
     """Pause or save the guests before the host sleeps."""
     # No system guest runs without libvirtd; connecting would socket-activate it.
     active = [systemctl, "is-active", "--quiet", "libvirtd.service"]
-    if subprocess.run(active, check=False).returncode != 0:
+    system = subprocess.run(active, check=False).returncode == 0
+    if not system and sessions is None:
         return 0
 
     failures: list[str] = []
     try:
-        with locked():
-            try:
-                # Appended, so records a wake never claimed are still brought back.
-                with (PAUSED if phase == "pause" else SAVED).open("a") as records:
-                    conn = libvirt.open(connect)
-                    try:
-                        (pause if phase == "pause" else save)(conn, records, failures)
-                    finally:
-                        conn.close()
-            except (SaveError, libvirt.libvirtError, OSError) as error:
-                if phase == "pause":
-                    fail(failures, f"guests kept running through suspend: {error}")
-                else:
-                    message = str(error)
-                    if not isinstance(error, SaveError):
-                        message = f"guests not saved, so the host did not sleep: {error}"
-                    print(f"<3>error: {message}", file=sys.stderr, flush=True)
-                    failures.append(message)
+        with locked(time.monotonic() + PRE_WAIT):
+            if system:
+                pre_system(phase, connect, failures)
+            # A failed system save already aborts the transition.
+            if sessions is not None and not (phase == "save" and failures):
+                pre_sessions(phase, sessions, failures)
             if failures:
                 try:
                     append(FAILURES, failures)
@@ -372,19 +488,23 @@ def main() -> int:
     parser.add_argument("--connect", default="qemu:///system")
     parser.add_argument("--systemctl", default="systemctl")
     parser.add_argument("--sleep-unit", action="append", default=[], dest="sleep_units")
+    parser.add_argument("--sbx", help="sbx to run as each user")
+    parser.add_argument("--runuser", default="runuser")
+    parser.add_argument("--sbx-cgroup", default="sbx.slice/sbx-libvirt.service")
     args = parser.parse_args()
+    sessions = None if args.sbx is None else Sessions(args.sbx, args.runuser, args.sbx_cgroup)
 
     # Expected lookup misses would otherwise print to stderr.
     libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
     try:
         if args.phase == "wake":
-            return wake(args.connect, args.systemctl, args.sleep_units)
+            return wake(args.connect, args.systemctl, args.sleep_units, sessions)
     except (OSError, subprocess.CalledProcessError) as error:
         # Claimed records stay for the next wake.
         print(f"<3>error: wake: {error}", file=sys.stderr, flush=True)
         return 1
 
-    return pre(args.phase, args.connect, args.systemctl)
+    return pre(args.phase, args.connect, args.systemctl, sessions)
 
 
 if __name__ == "__main__":

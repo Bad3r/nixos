@@ -27,6 +27,7 @@ AGENT_CHANNEL = "org.qemu.guest_agent.0"
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 STATE_DIR = r"C:\ProgramData\workloads"
 AUTHORIZED_KEYS = r"C:\ProgramData\ssh\administrators_authorized_keys"
+WINFSP_MSI = rf"{STATE_DIR}\winfsp.msi"
 OFFICE_SETUP = rf"{STATE_DIR}\OfficeSetup.exe"
 # Step scripts exit with this code when a probe finds the guest differs.
 DIFFERS = 10
@@ -225,6 +226,39 @@ def write_authorized_keys(guest: Guest) -> None:
     guest.apply("authorized-keys", {"path": AUTHORIZED_KEYS})
 
 
+def winfsp_in_place(guest: Guest) -> bool:
+    """Return whether the guest has the pinned WinFsp or a newer one."""
+    return guest.probe("winfsp", {"version": guest.spec["winfsp"]["version"]})
+
+
+def install_winfsp(guest: Guest) -> None:
+    """Copy the pinned WinFsp MSI into the guest and install it."""
+    winfsp = guest.spec["winfsp"]
+    guest.agent.write(WINFSP_MSI, Path(winfsp["msi"]).read_bytes())
+    data = {"version": winfsp["version"], "sha256": winfsp["sha256"], "path": WINFSP_MSI}
+    guest.apply("winfsp", data)
+
+
+def attached_tags(domain: libvirt.virDomain) -> set[str]:
+    """Return the tags of the virtiofs shares in the live definition."""
+    root = ET.fromstring(domain.XMLDesc(0))  # noqa: S314
+    tags = set()
+    for filesystem in root.iterfind("devices/filesystem"):
+        driver = filesystem.find("driver")
+        target = filesystem.find("target")
+        if driver is not None and driver.get("type") == "virtiofs" and target is not None:
+            tags.add(target.get("dir"))
+    return tags
+
+
+def virtiofs_data(guest: Guest) -> dict:
+    """Return the declared shares, each marked with whether the guest has its device now."""
+    virtiofs = guest.spec["virtiofs"]
+    attached = attached_tags(guest.agent.domain)
+    shares = [{**share, "attached": share["tag"] in attached} for share in virtiofs["shares"]]
+    return {"mode": virtiofs["mode"], "shares": shares}
+
+
 def office_installed(guest: Guest) -> bool:
     """Return whether the guest has Click-to-Run Office."""
     return guest.probe("office", {})
@@ -256,11 +290,17 @@ def script_step(name: str, data: Callable[[Guest], dict]) -> Step:
 def steps(spec: dict) -> list[Step]:
     """Return the steps a declaration asks for, in order."""
     result = [
+        # First: later steps copy installers into the state directory and run them as SYSTEM.
+        script_step("state-dir", lambda _guest: {"path": STATE_DIR}),
         Step("password", None, set_password),
         Step("authorized-keys", authorized_keys_in_place, write_authorized_keys),
         script_step("remote-desktop", lambda guest: {"remote": guest.spec["gateways"]}),
         script_step("firewall", lambda guest: {"rules": guest.spec["services"]}),
     ]
+    if spec["winfsp"] is not None:
+        result.append(Step("winfsp", winfsp_in_place, install_winfsp))
+    # Also without shares, so removed shares lose their mounts.
+    result.append(script_step("virtiofs", virtiofs_data))
     # Activation and Office depend on Microsoft's servers, so a failure there
     # leaves access to the guest in place; Office, the longest, goes last.
     key_file = spec["productKeyFile"]

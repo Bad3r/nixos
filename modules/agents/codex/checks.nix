@@ -12,8 +12,19 @@ in
     { pkgs, system, ... }:
     let
       codexPkg = inputs.llm-agents.packages.${system}.codex;
+      # Turns on the `app` servers' rows; a null osConfig drops them.
+      osConfig.programs.sbx.extended = {
+        enable = true;
+        finalPackage = pkgs.emptyDirectory;
+        limits.maxTtl = 1;
+      };
       settings = import ./_settings.nix {
-        inherit agents lib pkgs;
+        inherit
+          agents
+          lib
+          osConfig
+          pkgs
+          ;
         homeDir = "/home/codex-config-check";
       };
       execPolicy = import ./_exec-policy.nix { inherit lib pkgs; };
@@ -26,14 +37,16 @@ in
         configDir = "/home/codex-config-check/.config/codex";
       };
       codexServers = settings.baseSettings.mcp_servers;
-      claudeServers = agents.mcp.clients.claude.servers pkgs;
+      claudeServers = agents.mcp.clients.claude.servers { inherit pkgs osConfig; };
       sharedNames = lib.intersectLists (lib.attrNames codexServers) (lib.attrNames claudeServers);
       validCodexServer = server: !(server ? type) && !(server ? startup_timeout_ms);
       sharedServerMatches =
         name:
-        codexServers.${name} == builtins.removeAttrs claudeServers.${name} [
+        builtins.removeAttrs codexServers.${name} [ "default_tools_approval_mode" ]
+        == builtins.removeAttrs claudeServers.${name} [
           "type"
           "startup_timeout_ms"
+          "timeout"
         ];
     in
     {

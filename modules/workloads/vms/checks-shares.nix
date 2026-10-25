@@ -47,6 +47,27 @@ let
       shares.rw.hostPath = "/srv/rw";
     }
     // attrs;
+
+  windowsGuest =
+    attrs:
+    guest (
+      {
+        kind = "windows";
+        memory = 4096;
+        firmware = {
+          secureBoot = true;
+          enrolledKeys = true;
+          tpm = true;
+        };
+        disks.root.size = 64;
+        interfaces.lan = {
+          network = "lan";
+          hostOffset = 11;
+        };
+        windows.account.name = owner;
+      }
+      // attrs
+    );
 in
 {
   perSystem =
@@ -73,21 +94,49 @@ in
 
       # Assertion messages from the workloads.guests prefix only: the bare
       # evaluation also trips the boot loader and root file system checks.
+      evaluate =
+        guests:
+        (inputs.nixpkgs.lib.nixosSystem {
+          inherit system;
+          modules = [
+            hostModule
+            {
+              # Windows guests name a password secret and need a network.
+              options.sops = {
+                secrets = lib.mkOption {
+                  type = lib.types.attrsOf lib.types.attrs;
+                  default = { };
+                };
+                useSystemdActivation = lib.mkOption { default = false; };
+              };
+              config = {
+                sops.secrets."workloads/win/password" = { };
+                workloads = {
+                  networks.lan = {
+                    id = 1;
+                    egress = "none";
+                    libvirt = {
+                      enable = true;
+                      uuid = "00000000-0000-4000-8000-0000000000a1";
+                      dhcp = {
+                        start = 100;
+                        end = 200;
+                      };
+                    };
+                  };
+                  inherit guests;
+                };
+              };
+            }
+          ];
+        }).config;
+
       shareFailures =
         guests:
-        let
-          evaluated = inputs.nixpkgs.lib.nixosSystem {
-            inherit system;
-            modules = [
-              hostModule
-              { workloads.guests = guests; }
-            ];
-          };
-        in
         map (assertion: assertion.message) (
           lib.filter (
             assertion: !assertion.assertion && lib.hasPrefix "workloads.guests." assertion.message
-          ) evaluated.config.assertions
+          ) (evaluate guests).assertions
         );
 
       assertionCases = [
@@ -128,6 +177,57 @@ in
           expected = [ ];
         }
         {
+          name = "a Windows guest with two shares on one drive letter";
+          guests.win = windowsGuest {
+            shares = {
+              a = {
+                hostPath = "/srv/a";
+                driveLetter = "Y";
+              };
+              b = {
+                hostPath = "/srv/b";
+                driveLetter = "Y";
+              };
+            };
+          };
+          expected = [ "workloads.guests.win: shares: two shares take the same driveLetter" ];
+        }
+        {
+          name = "a Windows guest with 21 shares";
+          guests.win = windowsGuest {
+            shares = lib.genAttrs (map (i: "s${toString i}") (lib.range 1 21)) (tag: {
+              hostPath = "/srv/${tag}";
+            });
+          };
+          expected = [ "workloads.guests.win: shares: a Windows guest mounts at most 20 shares, on G to Z" ];
+        }
+        {
+          name = "a Windows guest serving two shares through VirtioFsSvc";
+          guests.win = windowsGuest {
+            windows.virtiofs.mode = "service";
+            shares = {
+              a.hostPath = "/srv/a";
+              b.hostPath = "/srv/b";
+            };
+          };
+          expected = [
+            "workloads.guests.win: windows.virtiofs.mode = \"service\" mounts one share, attached at boot"
+          ];
+        }
+        {
+          name = "a Windows guest serving a runtime share through VirtioFsSvc";
+          guests.win = windowsGuest {
+            windows.virtiofs.mode = "service";
+            shares.a = {
+              hostPath = "/srv/a";
+              runtime = true;
+            };
+          };
+          expected = [
+            "workloads.guests.win: windows.virtiofs.mode = \"service\" mounts one share, attached at boot"
+          ];
+        }
+        {
           name = "a tag longer than 36 characters";
           guests.lab = guest { shares.${lib.fixedWidthString 37 "a" ""}.hostPath = "/srv/rw"; };
           expected = [
@@ -136,13 +236,42 @@ in
         }
       ];
 
-      assertionMismatches = lib.concatMap (
-        case:
-        let
-          got = shareFailures case.guests;
-        in
-        lib.optional (got != case.expected) "${case.name}: got ${builtins.toJSON got}"
-      ) assertionCases;
+      driveLetters =
+        (evaluate {
+          win = windowsGuest {
+            shares = {
+              a.hostPath = "/srv/a";
+              b = {
+                hostPath = "/srv/b";
+                driveLetter = "Z";
+              };
+              c = {
+                hostPath = "/srv/c";
+                runtime = true;
+              };
+              d = {
+                enable = false;
+                hostPath = "/srv/d";
+              };
+            };
+          };
+        }).workloads.guests.win.windows.virtiofs.driveLetters;
+
+      assertionMismatches =
+        lib.optional (
+          driveLetters != {
+            a = "Y";
+            b = "Z";
+            c = "X";
+          }
+        ) "drive letters: got ${builtins.toJSON driveLetters}"
+        ++ lib.concatMap (
+          case:
+          let
+            got = shareFailures case.guests;
+          in
+          lib.optional (got != case.expected) "${case.name}: got ${builtins.toJSON got}"
+        ) assertionCases;
     in
     {
       # Thrown at evaluation, since CI forces drvPaths without building checks.
