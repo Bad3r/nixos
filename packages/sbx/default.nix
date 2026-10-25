@@ -13,6 +13,7 @@
   systemd,
   nix,
   xorriso,
+  virtiofsd,
   # Rendered by modules/apps/sbx/nixos.nix; the bare package refuses to run.
   settings ? { },
 }:
@@ -47,6 +48,7 @@ let
     nix_store = "${nix}/bin/nix-store";
     timedatectl = "${systemd}/bin/timedatectl";
     xorriso = "${xorriso}/bin/xorriso";
+    virtiofsd = "${virtiofsd}/bin/virtiofsd";
   };
   version = "0.1.0";
   settingsFile = writeText "sbx-settings.json" (builtins.toJSON (settings // { inherit tools; }));

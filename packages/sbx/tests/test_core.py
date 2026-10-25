@@ -263,6 +263,7 @@ class Fixture(unittest.TestCase):
             nix_store=str(stubs / "nix-store"),
             timedatectl=str(stubs / "timedatectl"),
             xorriso=str(stubs / "xorriso"),
+            virtiofsd="/nix/store/virtiofsd/bin/virtiofsd",
         )
         self.settings = Settings(
             running=3,
@@ -382,6 +383,7 @@ class SandboxesTest(Fixture):
         self.assertEqual(root.find("cputune/emulatorpin").get("cpuset"), "8-23")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(root.find("cpu/feature").get("name"), "vmx")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(root.find("features/vmport").get("state"), "off")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(root.find("memoryBacking/access").get("mode"), "shared")  # pyright: ignore[reportOptionalMemberAccess]
         entry = root.find("sysinfo/entry")
         self.assertEqual(entry.get("name"), core.CREDENTIAL)  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(entry.text, "ssh-ed25519 AAAA sbx")  # pyright: ignore[reportOptionalMemberAccess]

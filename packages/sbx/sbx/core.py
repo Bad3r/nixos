@@ -77,6 +77,8 @@ TYPE_LIMIT = 4096
 PREPARE_TTL = 3600
 PREPARE_TIMEOUT = 1800
 SHUTDOWN_TIMEOUT = 120
+# Runtime shares one sandbox can hold at once.
+SHARE_SLOTS = 4
 
 ET.register_namespace("sbx", NS)
 
@@ -108,6 +110,7 @@ class Tools:
     nix_store: str
     timedatectl: str
     xorriso: str
+    virtiofsd: str
 
 
 @dataclass(frozen=True)
@@ -1183,6 +1186,10 @@ class Sandboxes:
         sub(domain, "name", DOMAIN_PREFIX + name)
         sub(domain, "metadata").append(meta.element())
         sub(domain, "memory", str(request.memory_mib), unit="MiB")
+        # virtiofs, which `sbx share attach` hot-plugs, needs shared guest memory.
+        backing = sub(domain, "memoryBacking")
+        sub(backing, "source", type="memfd")
+        sub(backing, "access", mode="shared")
         # The user manager has no cpuset controller, so pinning goes through affinity.
         sub(domain, "vcpu", str(request.cpus), placement="static", cpuset=cpuset)
         sub(sub(domain, "cputune"), "emulatorpin", cpuset=cpuset)
@@ -1245,6 +1252,12 @@ class Sandboxes:
         rng = sub(devices, "rng", model="virtio")
         sub(rng, "backend", "/dev/urandom", model="random")
         sub(devices, "memballoon", model="virtio", freePageReporting="on")
+        # libvirt keeps a hot-plug slot only in definitions without PCI controllers, and
+        # cold devices take listed root ports first: one per device element covers them.
+        ports = len(devices) + SHARE_SLOTS
+        sub(devices, "controller", type="pci", index="0", model="pcie-root")
+        for _ in range(ports):
+            sub(devices, "controller", type="pci", model="pcie-root-port")
         return ET.tostring(domain, encoding="unicode")
 
     def _discard(self, name: str, token: str | None = None) -> None:
@@ -1635,6 +1648,10 @@ class Sandboxes:
     def _ssh(self, name: str, domain: DomainInfo, command: Sequence[str]) -> list[str]:
         options = self._ssh_options(name, domain)
         return [self.settings.tools.ssh, *options, "-T", "root@sbx", "--", shlex.join(command)]
+
+    def running(self, name: str) -> Sandbox:
+        """Return a sandbox that runs within its TTL."""
+        return self._running(name)
 
     def _running(self, name: str, token: str | None = None) -> Sandbox:
         sandbox = self.created(name, token)
