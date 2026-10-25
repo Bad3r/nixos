@@ -36,6 +36,9 @@ DETACH_POLL = 0.5
 # Bounds each guest helper: the mount, findmnt, and every umount.
 GUEST_TIMEOUT = 30.0
 MOUNT_WAIT = 10.0
+# The guest lists the mounts detach removes, so it gets neither unbounded entries nor time.
+MAX_TARGETS = 16
+UNMOUNT_WAIT = 60.0
 MOUNT_ROOT = "/mnt"
 # findmnt --raw writes a byte outside printable ASCII, a space, or a backslash as \xHH.
 RAW_ESCAPE = re.compile(rb"\\x([0-9a-fA-F]{2})")
@@ -145,9 +148,13 @@ def _unescape(field: bytes) -> str:
     return RAW_ESCAPE.sub(lambda match: bytes([int(match[1], 16)]), field).decode(errors="replace")
 
 
+def _printable(text: str) -> str:
+    """Return guest text as one bounded line without control characters."""
+    return "".join(c if c.isprintable() else " " for c in text)[:300]
+
+
 def _detail(result: ExecResult) -> str:
-    text = result.stderr.decode(errors="replace").strip()
-    return "".join(c if c.isprintable() else " " for c in text)[:300] or "no message"
+    return _printable(result.stderr.decode(errors="replace").strip()) or "no message"
 
 
 def _failure(result: ExecResult) -> str | None:
@@ -307,64 +314,81 @@ class Shares:
             guest=guest,
         )
 
-    def _helper(self, sandbox: Sandbox, command: Sequence[str]) -> ExecResult | str:
+    def _helper(
+        self, sandbox: Sandbox, command: Sequence[str], timeout: float = GUEST_TIMEOUT
+    ) -> ExecResult | str:
         """Run a guest helper; return its result, or why the guest did not answer sanely."""
         try:
-            result = self.sandboxes.guest_helper(sandbox, command, timeout=GUEST_TIMEOUT)
+            result = self.sandboxes.guest_helper(sandbox, command, timeout=timeout)
         except SbxError as error:
             # Malformed replies come from the guest, which must not keep a share by sending one.
             return f"qemu-ga: {error}"
         if result.transport_error is not None:
             return result.transport_error
         if result.timed_out:
-            return f"{command[0]} did not finish in {GUEST_TIMEOUT:g} s"
+            return f"{command[0]} did not finish in {timeout:g} s"
         return result
 
     def _unmount(self, sandbox: Sandbox, tag: str, *, force: bool) -> GuestUnmount:
         """Unmount every guest mount of a tag, topmost first; lazily with `force`."""
-        name = sandbox.name
         unmounted: list[str] = []
+        targets = self._targets(sandbox, tag, force=force)
+        reason = targets if isinstance(targets, str) else None
+        if not isinstance(targets, str):
+            deadline = self.clock() + UNMOUNT_WAIT
+            for target in reversed(targets):
+                reason = self._umount(sandbox, target, deadline, force=force)
+                if reason is not None:
+                    break
+                unmounted.append(target)
+        if reason is None:
+            return GuestUnmount(tuple(unmounted))
+        journal.record(
+            f"share {tag} of {sandbox.name} stays mounted in the guest: {reason}",
+            verb="share",
+            sandbox=sandbox.name,
+            share=tag,
+        )
+        return GuestUnmount(tuple(unmounted), recovery_command(sandbox.name, tag))
 
-        def abandon(reason: str) -> GuestUnmount:
-            journal.record(
-                f"share {tag} of {name} stays mounted in the guest: {reason}",
-                verb="share",
-                sandbox=name,
-                share=tag,
-            )
-            return GuestUnmount(tuple(unmounted), recovery_command(name, tag))
-
+    def _targets(self, sandbox: Sandbox, tag: str, *, force: bool) -> list[str] | str:
+        """Return the guest's mountpoints of a tag, or why detach leaves them to recovery."""
         found = self._helper(sandbox, find_command(tag))
         if isinstance(found, str):
-            return abandon(found)
+            return found
         # findmnt exits 1 when nothing matches.
         if found.exit_code not in {0, 1}:
             reason = f"findmnt exited {found.status()}: {_detail(found)}"
             if not force:
-                msg = f"cannot list the mounts of {tag} in {name}: {reason}"
+                msg = f"cannot list the mounts of {tag} in {sandbox.name}: {reason}"
                 raise SbxError(msg, code="guest-command")
-            return abandon(reason)
+            return reason
+        # A target repeats where mounts stack, and each umount takes the topmost.
         targets = [_unescape(line) for line in found.stdout.splitlines() if line]
-        for target in reversed(targets):
-            result = self._helper(
-                sandbox, ["umount", "-l", target] if force else ["umount", target]
+        if len(targets) > MAX_TARGETS:
+            return f"the guest lists {len(targets)} mounts, over {MAX_TARGETS}"
+        return targets
+
+    def _umount(self, sandbox: Sandbox, target: str, deadline: float, *, force: bool) -> str | None:
+        """Unmount one target by the deadline; return why detach leaves it, or None."""
+        left = deadline - self.clock()
+        if left <= 0:
+            return f"unmounting took longer than {UNMOUNT_WAIT:g} s"
+        argv = ["umount", "-l", target] if force else ["umount", target]
+        result = self._helper(sandbox, argv, min(GUEST_TIMEOUT, left))
+        if isinstance(result, str) or result.exit_code == 0:
+            return result if isinstance(result, str) else None
+        detail, shown = _detail(result), _printable(target)
+        reason = f"umount {shown} exited {result.status()}: {detail}"
+        if force:
+            return reason
+        if "busy" in detail:
+            msg = (
+                f"{shown} in {sandbox.name} is busy: {reason}; stop what uses it, or detach"
+                " with --force to unmount it lazily"
             )
-            if isinstance(result, str):
-                return abandon(result)
-            if result.exit_code != 0:
-                detail = _detail(result)
-                reason = f"umount {target} exited {result.status()}: {detail}"
-                if force:
-                    return abandon(reason)
-                if "busy" in detail:
-                    msg = (
-                        f"{target} in {name} is busy: {reason}; stop what uses it, or detach"
-                        " with --force to unmount it lazily"
-                    )
-                    raise SbxError(msg, code="share-busy")
-                raise SbxError(reason, code="guest-command")
-            unmounted.append(target)
-        return GuestUnmount(tuple(unmounted))
+            raise SbxError(msg, code="share-busy")
+        raise SbxError(reason, code="guest-command")
 
     def views(self, sandbox: Sandbox) -> tuple[ShareView, ...]:
         """Describe the shares a running sandbox holds, with each one's first guest mountpoint."""

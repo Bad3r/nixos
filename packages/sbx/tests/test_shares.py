@@ -13,7 +13,7 @@ from unittest import mock
 
 from sbx.errors import SbxError
 from sbx.sandboxes import Sandboxes
-from sbx.shares import MOUNT_WAIT, Shares, attached
+from sbx.shares import MAX_TARGETS, MOUNT_WAIT, UNMOUNT_WAIT, Shares, attached
 from sbx.windows import WindowsSettings
 
 from tests.test_core import NOW, FakeBackend, Fixture, dispatch
@@ -367,6 +367,40 @@ class SharesTest(Fixture):
             document = self.shares().detach("s", "shared", force=force).as_json()
             self.assertEqual((document["attached"], document["guest_unmounted"]), (False, False))
             self.assertNotIn("shared", attached(self.backend.live_xml("sbx-s")))
+
+    def test_guest_mount_lists_are_bounded(self) -> None:
+        """Too many mounts, or umounts that outlast the phase, leave the guest to recovery."""
+        self.add_running("s")
+        self.shares().attach("s", "shared")
+        self.backend.mounts["shared"] += [f"/srv/{index}" for index in range(MAX_TARGETS)]
+        self.backend.guest_commands.clear()
+        document = self.shares().detach("s", "shared").as_json()
+        self.assertEqual((document["guest_unmounted"], document["unmounted"]), (False, []))
+        self.assertEqual([argv[0] for argv in self.backend.guest_commands], ["findmnt"])
+        self.shares().attach("s", "docs")
+        self.backend.mounts["docs"].append("/srv/again")
+        real = self.backend.agent
+
+        def slow(domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:
+            self.now += UNMOUNT_WAIT / 2
+            return real(domain, command, timeout)
+
+        with mock.patch.object(self.backend, "agent", side_effect=slow):
+            document = self.shares().detach("s", "docs").as_json()
+        self.assertFalse(document["guest_unmounted"])
+        self.assertEqual(document["unmounted"], ["/srv/again"])
+
+    def test_guest_targets_are_printable(self) -> None:
+        """A mountpoint the guest names with control characters reaches no terminal raw."""
+        self.add_running("s")
+        self.shares().attach("s", "docs", mount=False)
+        self.backend.mounts["docs"] = ["/mnt/\\x1b[31mred"]
+        self.backend.busy.add("/mnt/\x1b[31mred")
+        with self.assertRaises(SbxError) as refused:
+            self.shares().detach("s", "docs")
+        self.assertEqual(refused.exception.code, "share-busy")
+        self.assertNotIn("\x1b", str(refused.exception))
+        self.assertIn("/mnt/ [31mred", str(refused.exception))
 
     def test_info_lists_shares(self) -> None:
         """`info` lists each held share, with a mountpoint only where the guest mounted it."""
