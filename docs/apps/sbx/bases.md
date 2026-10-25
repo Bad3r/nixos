@@ -50,7 +50,7 @@ sbx base prepare debian-13
 sbx run debian-13 -- cat /etc/os-release
 ```
 
-- `prepare` refuses with `owner-only` when `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID` is set, and with `base-in-use` while a sandbox runs on the base.
+- `prepare` refuses with `owner-only` when `CLAUDE_CODE_SESSION_ID` or `CODEX_SESSION_ID` is set, and with `base-in-use` while a sandbox runs on the base.
 - The `owner-only` refusal is a guard rail, not a boundary: an agent runs as the owner and can clear those variables, so the agents' permission rules also ask before `sbx base prepare`.
 - A prepared base lives outside the Nix store, so no GC root protects it, and `base prepare` is the only path that replaces it.
 - The prepared disk is a file any process of the owner can change, and every later cloud sandbox inherits what the prepare boot left on it: the pinned image plus the packages apt fetched over egress.

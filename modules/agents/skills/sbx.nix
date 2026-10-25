@@ -105,7 +105,9 @@ let
     | `gc [--dry-run]`                             | remove expired and orphaned sandboxes      |
 
     Destroy the sandboxes you create by name. `--mine` matches every sandbox of
-    the Claude Code session or Codex thread, its subagents' included.
+    the Claude Code or Codex session, its subagents' included; `/new`,
+    `/clear`, and a fork start a new session, which no longer sees the old
+    session's sandboxes.
 
     ## JSON Contract
 

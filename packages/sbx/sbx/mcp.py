@@ -338,7 +338,11 @@ TOOLS = (
         "one; give exactly one of name, mine, and expired. Returns the destroyed names.",
         (
             Param("name", _string("sandbox name")),
-            Param("mine", _boolean("sandboxes of this agent session"), flag="--mine"),
+            Param(
+                "mine",
+                _boolean("sandboxes of this agent session and its subagents"),
+                flag="--mine",
+            ),
             Param("expired", _boolean("sandboxes past their TTL"), flag="--expired"),
         ),
         destructive=True,
@@ -349,7 +353,13 @@ TOOLS = (
         "List sandboxes",
         "Describe every sandbox: state, base, CID, TTL left, session, and xfer directory; "
         "creates waiting for capacity follow with state queued and their position.",
-        (Param("mine", _boolean("only sandboxes of this agent session"), flag="--mine"),),
+        (
+            Param(
+                "mine",
+                _boolean("only sandboxes of this agent session and its subagents"),
+                flag="--mine",
+            ),
+        ),
         read_only=True,
     ),
     Tool(
@@ -398,12 +408,15 @@ TOOLS_BY_NAME = {tool.name: tool for tool in TOOLS}
 
 def session_of(meta: object) -> str | None:
     """Return the agent session behind one call."""
-    # Codex clears the server's environment but names its thread in each call;
-    # Claude Code exports CLAUDE_CODE_SESSION_ID when it starts the server.
+    # Codex clears the server's environment but names its session in each call,
+    # which subagents share, unlike their threads; before 0.155 it sent only the
+    # thread. Claude Code exports CLAUDE_CODE_SESSION_ID when it starts the server.
     if isinstance(meta, dict):
-        thread = cast("dict[str, object]", meta).get("threadId")
-        if isinstance(thread, str) and thread:
-            return f"codex:{thread}"
+        fields = cast("dict[str, object]", meta)
+        for key in ("sessionId", "threadId"):
+            value = fields.get(key)
+            if isinstance(value, str) and value:
+                return f"codex:{value}"
     return caller_session()
 
 

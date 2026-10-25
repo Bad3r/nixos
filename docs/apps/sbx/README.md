@@ -44,7 +44,8 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 
 `create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, `--gui`, and `--wait`, which [Resources](#resources) covers.
 `exec` and `run` exit with the guest command's status; [commands](exec.md) covers their transports, timeouts, and `--json` result.
-`destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
+`destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code or Codex session, its subagents included.
+`/new`, `/clear`, and a fork start a new session, whose `--mine` leaves the old session's sandboxes out.
 Every removal, by `destroy`, `gc`, a failed `create`, or the MCP server's cleanup, revokes the [workload grants](../../networking/workload-grants.md) of the sandbox it removes; a revoke that fails is reported on stderr and in the journal, and the sandbox is removed anyway.
 [sleep.md](sleep.md) covers `sleep` and what host suspend and hibernation do to sandboxes.
 
@@ -130,7 +131,7 @@ The Codex allow rule in `modules/agents/codex/_exec-policy.nix` also runs `sbx` 
 Both clients also start `sbx-mcp`, the `sbx` entry in `modules/agents/mcp/servers.nix`, whose tools take a verb's flags as arguments and return its `--json` document without an approval prompt.
 The MCP screenshot tool also returns a PNG image content block for direct visual inspection, alongside the saved path and MIME type.
 Its optional `ocr` argument adds Tesseract output under `text`; image inspection needs no OCR.
-Codex names its thread in every tool call, so `--mine` matches sandboxes from the CLI and the MCP tools alike.
+Codex names its session in every tool call, and `CODEX_SESSION_ID` in every shell, so `--mine` matches sandboxes from the CLI and the MCP tools alike.
 Claude Code passes its session only when it starts the server, so after `/clear` the tools keep the old session until `/mcp` reconnects `sbx`.
 Under MCP, the checkout copy root and relative host paths follow the directory the client started in.
 

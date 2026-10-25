@@ -20,7 +20,8 @@ if TYPE_CHECKING:
 DURATION_PATTERN = re.compile(r"(\d+)([smhd]?)")
 MEMORY_PATTERN = re.compile(r"(\d+)([MG]?)", re.IGNORECASE)
 DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
-SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_THREAD_ID", "codex"))
+# Both name the root session inside subagents too, so --mine covers a session's subagents.
+SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_SESSION_ID", "codex"))
 
 
 @dataclass(frozen=True)

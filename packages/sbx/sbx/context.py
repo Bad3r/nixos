@@ -171,7 +171,7 @@ class Context:
 
     def _require_session(self, *, mine: bool) -> None:
         if mine and self.session is None:
-            msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID, or a Codex MCP call"
+            msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_SESSION_ID, or a Codex MCP call"
             raise SbxError(msg, code="no-session")
 
     def running(self, name: str) -> Sandbox:

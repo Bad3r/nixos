@@ -104,10 +104,10 @@ Fix: check that the sandbox runs, then rerun the command with `--json`, whose qe
 
 ## base prepare fails with owner-only
 
-Cause: the shell carries `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID`, so `sbx` takes it for an agent session.
+Cause: the shell carries `CLAUDE_CODE_SESSION_ID` or `CODEX_SESSION_ID`, so `sbx` takes it for an agent session.
 
 ```sh
-env | grep -E '^(CLAUDE_CODE_SESSION_ID|CODEX_THREAD_ID)='
+env | grep -E '^(CLAUDE_CODE_SESSION_ID|CODEX_SESSION_ID)='
 ```
 
 Fix: run `sbx base prepare <image>` from a terminal outside Claude Code and Codex.

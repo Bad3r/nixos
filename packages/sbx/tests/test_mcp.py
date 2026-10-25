@@ -15,6 +15,7 @@ from unittest import mock
 from PIL import Image
 from sbx import gui, mcp
 from sbx.cli import build_parser
+from sbx.config import caller_session
 from sbx.errors import SbxError
 
 from . import test_core
@@ -137,11 +138,16 @@ class CommandLineTest(unittest.TestCase):
             tool.command_line({"name": "a", "env": {"A": 1}, "command": ["env"]})
 
     def test_session(self) -> None:
-        """Codex names its thread per call; otherwise the environment decides."""
+        """Codex names its session per call, preferred to the thread; else the environment."""
         with mock.patch.dict(os.environ, {"CLAUDE_CODE_SESSION_ID": "s1"}):
+            meta = {"sessionId": "root", "threadId": "child"}
+            self.assertEqual(mcp.session_of(meta), "codex:root")
             self.assertEqual(mcp.session_of({"threadId": "t1"}), "codex:t1")
-            self.assertEqual(mcp.session_of({"threadId": ""}), "claude:s1")
+            self.assertEqual(mcp.session_of({"sessionId": "", "threadId": ""}), "claude:s1")
             self.assertEqual(mcp.session_of(None), "claude:s1")
+        environment = {"CODEX_SESSION_ID": "root", "CODEX_THREAD_ID": "child"}
+        with mock.patch.dict(os.environ, environment, clear=True):
+            self.assertEqual(caller_session(), "codex:root")
 
 
 class ServerTest(unittest.TestCase):
@@ -280,7 +286,7 @@ class ServerTest(unittest.TestCase):
             self.core.backend.add(name, expires=test_core.NOW + 3600, session=session)
             self.core.paths.sandbox(name).mkdir(parents=True)
         responses = self.exchange(
-            self.call(1, "list", {"mine": True}, threadId="t1"),
+            self.call(1, "list", {"mine": True}, sessionId="t1", threadId="child"),
             self.call(2, "info", {"name": "missing"}),
             self.call(3, "nope", {}),
             self.call(4, "destroy", {"name": "a", "mine": True}),
