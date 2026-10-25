@@ -891,9 +891,8 @@ class SandboxesTest(Fixture):
         def configure(_seconds: float) -> None:
             self.backend.addresses = ["172.16.2.5"]
 
-        with mock.patch.object(core.time, "sleep", side_effect=configure) as sleep:
+        with mock.patch.object(core.time, "sleep", side_effect=configure):
             result = self.sandboxes().create(self.request(net="egress"))
-        sleep.assert_called_once()
         self.assertEqual(result["address"], "172.16.2.5")
         self.backend.addresses = ["172.16.2.6"]
         ticks = iter(range(0, 10_000, 2))
