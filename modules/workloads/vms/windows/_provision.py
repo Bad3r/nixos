@@ -203,6 +203,14 @@ def set_password(guest: Guest) -> None:
     guest.agent.domain.setUserPassword(account, read_secret(guest.spec["passwordFile"]), 0)
 
 
+def autologon_data(guest: Guest) -> dict:
+    """Return the autologon declaration as step input, with the password only when it is on."""
+    data = {"enable": guest.spec["autoLogon"], "account": guest.spec["account"]}
+    if data["enable"]:
+        data["password"] = read_secret(guest.spec["passwordFile"])
+    return data
+
+
 def product_key_data(guest: Guest) -> dict:
     """Return the product key as step input."""
     return {"key": read_secret(guest.spec["productKeyFile"])}
@@ -293,6 +301,8 @@ def steps(spec: dict) -> list[Step]:
         # First: later steps copy installers into the state directory and run them as SYSTEM.
         script_step("state-dir", lambda _guest: {"path": STATE_DIR}),
         Step("password", None, set_password),
+        # Also when off, so turning it off removes the stored password.
+        script_step("autologon", autologon_data),
         Step("authorized-keys", authorized_keys_in_place, write_authorized_keys),
         script_step("remote-desktop", lambda guest: {"remote": guest.spec["gateways"]}),
         script_step("firewall", lambda guest: {"rules": guest.spec["services"]}),

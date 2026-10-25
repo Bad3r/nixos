@@ -106,6 +106,16 @@ let
                 description = "`sops.secrets` entry holding the account password.";
               };
 
+              autoLogon = lib.mkOption {
+                type = types.bool;
+                default = true;
+                description = ''
+                  Whether the guest signs the account on at boot, with the
+                  password in an LSA secret, as the SPICE clipboard cannot
+                  reach the sign-in screen.
+                '';
+              };
+
               authorizedKeys = lib.mkOption {
                 type = types.listOf types.str;
                 default = [ ];
