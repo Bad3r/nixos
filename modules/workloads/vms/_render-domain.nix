@@ -1,6 +1,6 @@
 {
   lib,
-  mediaDir,
+  mediaPaths,
   imagePaths,
 }:
 guest:
@@ -8,7 +8,7 @@ let
   windows = guest.kind == "windows";
   spice = guest.display == "spice";
   # The vdagent channel carries clipboard, file transfer, and display resizing.
-  agentChannel = spice && guest.trust == "trusted";
+  agentChannel = spice && (guest.trust == "trusted" || guest.clipboard);
   yesNo = value: if value then "yes" else "no";
   letter = index: builtins.substring index 1 "abcdefghijklmnopqrstuvwxyz";
   shares = lib.filter (share: share.enable) (lib.attrValues guest.shares);
@@ -36,7 +36,7 @@ let
   mediaXml = index: media: ''
     <disk type="file" device="cdrom">
       <driver name="qemu" type="raw"/>
-      <source file="${mediaDir}/${media}" startupPolicy="optional">
+      <source file="${mediaPaths.${media}}" startupPolicy="optional">
         <seclabel model="dac" relabel="no"/>
       </source>
       <target dev="${mediaTarget index}" bus="sata"/>
@@ -60,6 +60,7 @@ let
     <interface type="network">
       <mac address="${guest.mac.${nic}}"/>
       <source network="${interface.network}"/>
+      <target dev="${guest.tap.${nic}}"/>
       <model type="virtio"/>
     </interface>
   '';

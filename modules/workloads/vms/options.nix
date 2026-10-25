@@ -57,21 +57,31 @@ let
         };
       };
 
-      mediaModule = {
-        options = {
-          source = lib.mkOption {
-            # A string, so the file never enters the store.
-            type = types.strMatching "/.+";
-            description = "Absolute runtime path of the regular file to stage, read with the owner's permissions.";
-          };
+      mediaModule =
+        { name, ... }:
+        {
+          options = {
+            path = lib.mkOption {
+              type = types.str;
+              readOnly = true;
+              default = "/var/lib/workloads/media/${name}";
+              defaultText = lib.literalExpression ''"/var/lib/workloads/media/<name>"'';
+              description = "Path of the staged copy.";
+            };
 
-          sha256 = lib.mkOption {
-            type = types.nullOr (types.strMatching "[0-9a-f]{64}");
-            default = null;
-            description = "Hex SHA-256 the staged copy must match.";
+            source = lib.mkOption {
+              # A string, so the file never enters the store.
+              type = types.strMatching "/.+";
+              description = "Absolute runtime path of the regular file to stage, read with the owner's permissions.";
+            };
+
+            sha256 = lib.mkOption {
+              type = types.nullOr (types.strMatching "[0-9a-f]{64}");
+              default = null;
+              description = "Hex SHA-256 the staged copy must match.";
+            };
           };
         };
-      };
 
       imageModule =
         { name, ... }:
@@ -232,6 +242,9 @@ let
               1
               2
             ];
+          # vnet and macvtap names are libvirt's own and never kept.
+          tapOf =
+            nic: "vg-" + builtins.substring 0 12 (builtins.hashString "sha256" "${config.uuid}/${nic}/tap");
           networkOf =
             nic:
             networks.${config.interfaces.${nic}.network}
@@ -285,7 +298,8 @@ let
               ];
               description = ''
                 Trust class. Untrusted guests get no SPICE agent channel, so
-                no clipboard, file transfer, or display resizing.
+                no clipboard, file transfer, or display resizing, unless
+                `allowUntrustedClipboard` lets them have a clipboard.
               '';
             };
 
@@ -358,6 +372,15 @@ let
               default = trusted;
               defaultText = lib.literalExpression ''trust == "trusted"'';
               description = "Whether the SPICE console shares the clipboard with the guest.";
+            };
+
+            allowUntrustedClipboard = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Whether an untrusted guest may set `clipboard = true`, which
+                gives it the SPICE agent channel. File transfer stays off.
+              '';
             };
 
             fileTransfer = lib.mkOption {
@@ -437,6 +460,12 @@ let
                 "MAC address of each interface, derived from the UUID and the interface name."
                 (lib.mapAttrs (nic: _: macOf nic) config.interfaces)
                 "{ <nic> = \"52:54:00:...\"; }";
+
+            tap =
+              derived (types.attrsOf types.str)
+                "Host-side tap device of each interface, derived from the UUID and the interface name."
+                (lib.mapAttrs (nic: _: tapOf nic) config.interfaces)
+                "{ <nic> = \"vg-<hash>\"; }";
 
             bridge = derived (types.attrsOf types.str) "Bridge each interface attaches to." (lib.mapAttrs (
               nic: _: (networkOf nic).bridge

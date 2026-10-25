@@ -33,7 +33,8 @@ let
       };
 
       renderDomain = import ./_render-domain.nix {
-        inherit lib mediaDir;
+        inherit lib;
+        mediaPaths = lib.mapAttrs (_: entry: entry.path) media;
         imagePaths = lib.mapAttrs (_: imagePath) images;
       };
 
@@ -85,7 +86,7 @@ let
                 seed = if spec.seed == null then null else imageCheck images.${spec.seed};
               }) guest.disks;
               install = {
-                media = map (item: "${mediaDir}/${item}") guest.install.media;
+                media = map (item: media.${item}.path) guest.install.media;
                 images = map (image: imageCheck images.${image}) guest.install.images;
               };
             }
@@ -194,9 +195,10 @@ let
             (check (
               !firmware.enrolledKeys || firmware.secureBoot
             ) "firmware.enrolledKeys needs firmware.secureBoot")
+            (check (guest.trust == "trusted" || !guest.fileTransfer) "untrusted guests get no file transfer")
             (check (
-              guest.trust == "trusted" || !(guest.clipboard || guest.fileTransfer)
-            ) "untrusted guests share no clipboard or files")
+              guest.trust == "trusted" || !guest.clipboard || guest.allowUntrustedClipboard
+            ) "clipboard on an untrusted guest needs allowUntrustedClipboard = true")
             (check (
               !guest.usbRedirection || guest.display == "spice"
             ) "usbRedirection needs display = \"spice\"")
