@@ -1169,15 +1169,32 @@ class Sandboxes:
         roots = [Path.home() / "trees"]
         if tmpdir := os.environ.get("TMPDIR"):
             roots.append(Path(tmpdir))
-        toplevel = subprocess.run(
+        if checkout := self.checkout():
+            roots.append(checkout)
+        return [root.resolve() for root in roots if root.is_dir()]
+
+    def checkout(self) -> Path | None:
+        """Return the caller's git checkout, unless it is $HOME or holds it."""
+        environment = {
+            key: value for key, value in os.environ.items() if not key.startswith("GIT_")
+        }
+        result = subprocess.run(
             [self.settings.tools.git, "rev-parse", "--show-toplevel"],
             capture_output=True,
             text=True,
             check=False,
+            env=environment,
         )
-        if toplevel.returncode == 0 and toplevel.stdout.strip():
-            roots.append(Path(toplevel.stdout.strip()))
-        return [root.resolve() for root in roots if root.is_dir()]
+        if result.returncode != 0 or not result.stdout.strip():
+            return None
+        toplevel = Path(result.stdout.strip()).resolve()
+        # core.worktree can point the toplevel at any directory, such as $HOME.
+        if not (toplevel / ".git").exists():
+            return None
+        home = Path.home().resolve()
+        if toplevel == home or toplevel in home.parents:
+            return None
+        return toplevel
 
     def _denied(self, path: Path, roots: Sequence[Path]) -> SbxError:
         msg = f"{path} is outside the copy roots: {', '.join(map(str, roots))}"
