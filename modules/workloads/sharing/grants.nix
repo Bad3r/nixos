@@ -119,7 +119,7 @@ let
             null
           else
             {
-              inherit (service) ports grantable;
+              inherit (service) ports grantable bind;
               interfaces = [ ];
             }
         else
@@ -176,7 +176,8 @@ let
               ${target.kind}.${target.name} = {
                 ports = portRecords endpoint.ports;
                 interfaces = interfaceRecords endpoint.interfaces;
-              };
+              }
+              // lib.optionalAttrs (endpoint ? bind) { inherit (endpoint) bind; };
             }
           ) targets
         );
@@ -338,9 +339,9 @@ let
       config = lib.mkMerge [
         # The table and the routes outlive the service, so dropping the last
         # rule removes them instead of leaving marks no chain honours.
-        (lib.mkIf (cfg.allow == [ ] && networks != { }) {
+        (lib.mkIf (cfg.allow == [ ]) {
           systemd.services.workload-grants = {
-            description = "Remove the workload grant table and routes";
+            description = "Remove the workload grant table, routes, and vsock grant list";
             wantedBy = [ "multi-user.target" ];
             after = [ "nftables.service" ];
             path = [
@@ -353,6 +354,8 @@ let
             };
             script = ''
               rm -f /run/workloads/vsock-grants.json
+            ''
+            + lib.optionalString (networks != { }) ''
               nft destroy table inet workload_grants
               while ip rule show pref ${toString routePreference} | grep -q .; do
                 ip rule del pref ${toString routePreference}

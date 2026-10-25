@@ -256,4 +256,13 @@ class VsockVerbsTest(unittest.TestCase):
             stuck = vsock_runner({"0000000a": {"state": "listening"}}, [])
             failed, out, _ = run_grant(helper, stuck, "--json", "revoke", "0000000a")
         self.assertEqual((code, calls), (0, [["vsock", "sync", "--json"]]))
-        self.assertEqual((failed, json.loads(out)["error"]["code"]), (1, "vsock-listener"))
+        self.assertEqual((failed, json.loads(out)["error"]["code"]), (1, "vsock-unconfirmed"))
+        self.assertIn("revoked from the vsock grant list", json.loads(out)["error"]["message"])
+        unreachable = json.dumps({"error": {"code": "vsock-proxy", "message": "not reachable"}})
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            failed, out, _ = run_grant(
+                helper, lambda _: (1, unreachable), "--json", "revoke", "0000000a"
+            )
+        error = json.loads(out)["error"]
+        self.assertEqual((failed, error["code"]), (1, "vsock-unconfirmed"))
+        self.assertIn("not reachable", error["message"])

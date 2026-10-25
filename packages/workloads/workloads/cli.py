@@ -328,11 +328,16 @@ def settle_vsock(runner: SbxRunner, answer: Record) -> Record:
     revoked = answer.get("vsock")
     if not isinstance(revoked, list) or not revoked:
         return answer
-    states = vsock_states(runner)
-    open_grants = sorted(str(grant) for grant in cast("list[object]", revoked) if grant in states)
-    if open_grants:
-        msg = f"grants {', '.join(open_grants)} are revoked, but the vsock proxy still serves them"
-        raise WorkloadsError(msg, code="vsock-listener")
+    names = ", ".join(str(grant) for grant in cast("list[object]", revoked))
+    unconfirmed = f"grants {names} are revoked from the vsock grant list, but"
+    try:
+        states = vsock_states(runner)
+    except (WorkloadsError, OSError) as error:
+        msg = f"{unconfirmed} the vsock proxy did not confirm closing them: {error}"
+        raise WorkloadsError(msg, code="vsock-unconfirmed") from error
+    if any(grant in states for grant in cast("list[object]", revoked)):
+        msg = f"{unconfirmed} the vsock proxy still serves them"
+        raise WorkloadsError(msg, code="vsock-unconfirmed")
     return answer
 
 

@@ -24,8 +24,6 @@ if TYPE_CHECKING:
 STATE = FilePath("/run/workloads/vsock-grants.json")
 # `sbx` creation tokens: secrets.token_hex(8).
 TOKEN_PATTERN = re.compile(r"[0-9a-f]{16}")
-# Host services answer on loopback whatever their `bind`.
-DESTINATION = "127.0.0.1"
 
 
 def boottime() -> float:
@@ -44,6 +42,8 @@ class VsockGrant:
     ports: tuple[Ports, ...]
     # CLOCK_BOOTTIME seconds.
     deadline: float
+    # The service's `bind`, which picks the address the proxy connects to.
+    bind: str
 
     def record(self) -> Record:
         """The list entry `sbx-vsock` reads."""
@@ -54,6 +54,7 @@ class VsockGrant:
             "target": self.target,
             "ports": [{"from": port.first, "to": port.last} for port in self.ports],
             "deadline": self.deadline,
+            "bind": self.bind,
         }
 
     @classmethod
@@ -69,6 +70,7 @@ class VsockGrant:
                 for port in cast("list[Record]", entry["ports"])
             ),
             float(cast("float", entry["deadline"])),
+            str(entry["bind"]),
         )
 
     def describe(self, now: float) -> Record:
@@ -82,7 +84,7 @@ class VsockGrant:
                 {
                     "transport": "vsock",
                     "token": self.token,
-                    "destination": DESTINATION,
+                    "bind": self.bind,
                     "proto": port.proto,
                     "ports": port.text,
                 }

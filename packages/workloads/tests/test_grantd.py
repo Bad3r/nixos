@@ -640,7 +640,13 @@ class VsockTest(unittest.TestCase):
         self.assertEqual(
             entry,
             VsockGrant(
-                "00000001", "sbx-ab12", TOKEN, "host:dev:8080", (Ports("tcp", 8080, 8080),), 5900.0
+                "00000001",
+                "sbx-ab12",
+                TOKEN,
+                "host:dev:8080",
+                (Ports("tcp", 8080, 8080),),
+                5900.0,
+                "any",
             ),
         )
         grant = cast("Record", answer["grant"])
@@ -714,7 +720,9 @@ class VsockTest(unittest.TestCase):
 
     def test_file_store(self) -> None:
         """The list is replaced whole, readable by the owner's proxy, and refused when malformed."""
-        entry = VsockGrant("00000001", "sbx-a", TOKEN, "host:dev", (Ports("tcp", 1, 2),), 9.5)
+        entry = VsockGrant(
+            "00000001", "sbx-a", TOKEN, "host:dev", (Ports("tcp", 1, 2),), 9.5, "loopback"
+        )
         with tempfile.TemporaryDirectory() as directory:
             store = FileStore(FilePath(directory) / "vsock-grants.json")
             self.assertEqual(store.grants(), [])

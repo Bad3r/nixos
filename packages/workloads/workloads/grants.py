@@ -150,6 +150,8 @@ class Endpoint:
 
     interfaces: tuple[Interface, ...]
     ports: tuple[Ports, ...]
+    # A host service's `bind`; other targets have none.
+    bind: str | None = None
 
 
 @dataclass(frozen=True, order=True)
@@ -283,7 +285,11 @@ class Policy:
 
             targets = {
                 kind: {
-                    name: Endpoint(interfaces(entry.get("interfaces", [])), _ports(entry["ports"]))
+                    name: Endpoint(
+                        interfaces(entry.get("interfaces", [])),
+                        _ports(entry["ports"]),
+                        None if entry.get("bind") is None else str(entry["bind"]),
+                    )
                     for name, entry in cast("dict[str, Record]", entries).items()
                 }
                 for kind, entries in cast("dict[str, object]", record["targets"]).items()
@@ -405,6 +411,14 @@ class Policy:
     def ports(self, target: Target) -> tuple[Ports, ...]:
         """The grantable ports a grant to the target opens."""
         return self._endpoint(target)[1]
+
+    def bind(self, target: Target) -> str:
+        """How a host service listens: `loopback` or `any`."""
+        bind = self._endpoint(target)[0].bind
+        if bind not in {"loopback", "any"}:
+            msg = f"the policy names no bind mode for {target.kind}:{target.name}"
+            raise GrantError(msg, code="policy-file")
+        return bind
 
     def paths(self, interfaces: tuple[Interface, ...], target: Target) -> list[Path]:
         """The set elements a grant from these interfaces to the target needs."""

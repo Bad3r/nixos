@@ -613,6 +613,7 @@ class Service:
             msg = f"a TTL of {ttl}s exceeds the {max_ttl}s the policy allows {source} to {target}"
             raise GrantError(msg, code="ttl")
         ports = stream_ports(str(target), policy.ports(target))
+        bind = policy.bind(target)
         with self.lock():
             now = self.now()
             live = self._live_vsock(now)
@@ -632,7 +633,7 @@ class Service:
             grant = self.new_id()
             while grant in taken:
                 grant = self.new_id()
-            created = VsockGrant(grant, source, token, str(target), ports, now + ttl)
+            created = VsockGrant(grant, source, token, str(target), ports, now + ttl, bind)
             record(
                 "granted",
                 f"granted {grant}: {source} to {target} over vsock for {ttl}s",
