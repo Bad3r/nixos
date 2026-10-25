@@ -66,7 +66,10 @@ One file can populate both aggregators; keep the scopes independent.
 # modules/base/nix-settings.nix (excerpt)
 { lib, ... }:
 let
-  settings = {
+  clientSettings = {
+    # ...
+  };
+  settings = clientSettings // {
     # ...
   };
 in
@@ -78,7 +81,7 @@ in
     };
 
     flake.homeManagerModules.base = _: {
-      nix.settings = settings;
+      nix.settings = clientSettings;
     };
   };
 }
@@ -86,6 +89,9 @@ in
 
 `lib.mkIf`, `lib.mkMerge`, and the other option helpers extend shared modules without clobbering their defaults.
 General Nix daemon and evaluator settings stay in `modules/base/nix-settings.nix`.
+Root is the only trusted Nix user, so the daemon ignores restricted settings from `NIX_CONFIG`, a user `nix.conf`, or `--option`, with one warning each.
+A daemon setting takes effect only through `nix.settings`, and Home Manager writes only `clientSettings` to the user `nix.conf`.
+Repairs, extra substituters or keys, and imports of unsigned paths run under `sudo`, as [Nix store maintenance](../troubleshooting/nix-store-maintenance.md) does.
 Cache topology and download retry settings belong in `.github/actions/install-lix/substituters.conf`, which `modules/hosts/common/nix-substituters.nix` applies to every common host.
 
 ## Host Module

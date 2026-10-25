@@ -34,7 +34,6 @@ SKIP_HOOKS=false
 SKIP_CHECK=false
 SKIP_FIRMWARE=false
 KEEP_GOING=false
-REPAIR=false
 FALLBACK=false
 BOOTSTRAP_CACHES=false
 CACHE_COVERAGE=false
@@ -74,10 +73,10 @@ Options:
       --skip-all         Skip all validation steps (pre-commit hooks, flake check)
       --skip-firmware    Skip firmware refresh/check/apply after successful switch
       --keep-going       Continue building despite failures
-      --repair           Repair corrupted store paths during build
       --fallback         Build from source if binary substitutes fail
       --bootstrap        Replace the substituter list with the bootstrap
-                         caches for a first build
+                         caches for a first build; takes effect only as
+                         root, the one user the daemon trusts
       --cache-coverage   Fail before deploying when the target host closure
                          has unexpected local source builds
                          (scripts/cache-coverage.sh)
@@ -226,10 +225,6 @@ while [[ $# -gt 0 ]]; do
     KEEP_GOING=true
     shift
     ;;
-  --repair)
-    REPAIR=true
-    shift
-    ;;
   --fallback)
     FALLBACK=true
     shift
@@ -363,11 +358,6 @@ configure_build_flags() {
     BUILD_FLAGS+=("--keep-going")
   fi
 
-  # Repair corrupted store paths
-  if [[ ${REPAIR} == "true" ]]; then
-    BUILD_FLAGS+=("--repair")
-  fi
-
   # Fall back to local builds when substituters cannot provide a path
   if [[ ${FALLBACK} == "true" ]]; then
     BUILD_FLAGS+=("--fallback")
@@ -380,8 +370,9 @@ configure_nix_config() {
   }
 
   NIX_CONFIG=""
-  # Bootstrap-only settings for the Nix commands launched by this script.
-  # Durable daemon settings live in modules/base/nix-settings.nix.
+  # Client-side settings for the Nix commands launched by this script. The
+  # daemon takes its own from nix.settings and ignores restricted ones from
+  # any client but root.
   append_nix_config_line "experimental-features = ${BOOTSTRAP_EXPERIMENTAL_FEATURES}"
   append_nix_config_line "accept-flake-config = true"
   # IFD required by `nix-doom-emacs-unstraightened` (see flake.nix#nixConfig).
@@ -402,27 +393,27 @@ configure_nix_config() {
   fi
 
   append_nix_config_line "warn-dirty = false"
-  append_nix_config_line "download-attempts = 3"
-  append_nix_config_line "stalled-download-timeout = 300"
-  # Parallel substitutions: nproc - 1, floored at 1. Both Lix and CppNix clamp
-  # values below 1 to 1, so 0 would serialize every download rather than lift
-  # the limit; http-connections = 0 is the genuine "no limit" value.
-  local substitution_jobs
-  substitution_jobs="$(($(nproc) - 1))"
-  if [[ ${substitution_jobs} -lt 1 ]]; then
-    substitution_jobs=1
-  fi
-  append_nix_config_line "max-substitution-jobs = ${substitution_jobs}"
-  append_nix_config_line "http-connections = 0"
-  append_nix_config_line "connect-timeout = 30"
 
+  # Daemon settings that modules/hosts/common/nix-substituters.nix gives a
+  # configured host, for a root-run first build on a stock daemon.
   if [[ ${BOOTSTRAP_CACHES} == "true" ]]; then
     append_nix_config_line "substituters = ${BOOTSTRAP_SUBSTITUTERS[*]}"
     append_nix_config_line "trusted-public-keys = ${BOOTSTRAP_TRUSTED_KEYS[*]}"
-
+    append_nix_config_line "download-attempts = 3"
+    append_nix_config_line "stalled-download-timeout = 300"
+    # Parallel substitutions: nproc - 1, floored at 1. Both Lix and CppNix
+    # clamp values below 1 to 1, so 0 would serialize every download rather
+    # than lift the limit; http-connections = 0 is the genuine "no limit" value.
+    local substitution_jobs
+    substitution_jobs="$(($(nproc) - 1))"
+    if [[ ${substitution_jobs} -lt 1 ]]; then
+      substitution_jobs=1
+    fi
+    append_nix_config_line "max-substitution-jobs = ${substitution_jobs}"
+    append_nix_config_line "http-connections = 0"
+    append_nix_config_line "connect-timeout = 30"
     append_nix_config_line "http2 = true"
     append_nix_config_line "narinfo-cache-negative-ttl = 60"
-
   fi
 
   export NIX_CONFIG

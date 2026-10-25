@@ -126,9 +126,8 @@ let
             '--skip-all[skip all validation steps]' \
             '--skip-firmware[skip firmware refresh/check/apply after switch]' \
             '--keep-going[continue building despite failures]' \
-            '--repair[repair corrupted store paths during build]' \
             '--fallback[build from source if binary substitutes fail]' \
-            '--bootstrap[use extra substituters for first build]' \
+            '--bootstrap[use extra substituters for first build (root only)]' \
             '--cache-coverage[fail before deploy on unexpected local source builds]' \
             '(-h --help)'{-h,--help}'[show help message]'
         }

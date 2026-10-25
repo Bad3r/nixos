@@ -41,8 +41,6 @@
           # SSH authorized keys for remote access
           openssh.authorizedKeys.keys = metaOwner.sshKeys;
         };
-
-        nix.settings.trusted-users = [ metaOwner.username ];
       };
     };
   };
