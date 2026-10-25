@@ -121,6 +121,10 @@ class FakeBackend:
         self.execs: list[tuple[list[str], bytes]] = []
         self.statuses: dict[int, dict[str, Any]] = {}
         self.exit_status: dict[str, Any] = {"exitcode": 0}
+        # Screenshots taken, and the bytes of each thread's latest one.
+        self.lock = threading.Lock()
+        self.captures = 0
+        self.captured: dict[int, bytes] = {}
 
     def domains(self) -> list[DomainInfo]:
         """List the fake domains; a provisioning run over SSH has powered them all off."""
@@ -211,8 +215,13 @@ class FakeBackend:
         return {"return": self.statuses.pop(arguments["pid"])}
 
     def screenshot(self, domain: str, target: Path) -> str:  # noqa: ARG002
-        """Write a placeholder image."""
-        target.write_bytes(b"png")
+        """Write a placeholder image of its own to a new file, recorded by the calling thread."""
+        with self.lock:
+            self.captures += 1
+            data = f"png {self.captures}".encode()
+        self.captured[threading.get_ident()] = data
+        with target.open("xb") as out:
+            out.write(data)
         return "image/png"
 
     def send_key(self, domain: str, keycodes: Any, holdtime: int) -> None:  # noqa: ANN401, ARG002
@@ -845,6 +854,56 @@ class SandboxesTest(Fixture):
             sandboxes.copy("old:/etc/hostname", None)
         with self.assertRaises(SbxError):
             sandboxes.screenshot("old", ocr=False)
+
+    def test_screenshot_names(self) -> None:
+        """Captures at one clock reading get their own files, even from parallel threads."""
+        self.add_running("s")
+        sandboxes = self.sandboxes()
+        first = Path(str(sandboxes.screenshot("s", ocr=False)["path"]))
+        second = Path(str(sandboxes.screenshot("s", ocr=False)["path"]))
+        self.assertNotEqual(first, second)
+        self.assertEqual((first.read_bytes(), second.read_bytes()), (b"png 1", b"png 2"))
+        self.assertRegex(first.name, r"^screenshot-20270115T080000\.000000Z-[0-9a-f]{6}\.png$")
+        mismatches: list[tuple[bytes, bytes]] = []
+
+        def capture() -> None:
+            path = Path(str(self.sandboxes().screenshot("s", ocr=False)["path"]))
+            own = self.backend.captured[threading.get_ident()]
+            if path.read_bytes() != own:
+                mismatches.append((path.read_bytes(), own))
+
+        threads = [threading.Thread(target=capture) for _ in range(8)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(5)
+        self.assertEqual(mismatches, [])
+        xfer = self.paths.sandbox("s") / "xfer"
+        self.assertEqual(len(list(xfer.glob("screenshot-*"))), 10)
+        self.assertEqual(list(xfer.glob(".screenshot-*")), [])
+
+    def test_screenshot_to(self) -> None:
+        """--to takes a directory or a new file under the roots, checked before the capture."""
+        self.add_running("s")
+        tmp, outside = self.scratch / "tmp", self.scratch / "outside"
+        outside.mkdir()
+        (tmp / "taken.png").write_text("")
+        result, _ = self.dispatch("--json", "screenshot", "s", "--to", str(tmp))
+        saved = Path(str(cast("dict[str, object]", result)["path"]))
+        self.assertEqual((saved.parent, saved.read_bytes()), (tmp, b"png 1"))
+        result, _ = self.dispatch("--json", "screenshot", "s", "--to", str(tmp / "named.png"))
+        self.assertEqual(cast("dict[str, object]", result)["path"], str(tmp / "named.png"))
+        for target, code in ((tmp / "taken.png", "exists"), (outside, "path-denied")):
+            with (
+                self.subTest(target=target),
+                mock.patch.object(self.backend, "screenshot") as capture,
+                self.assertRaises(SbxError) as refused,
+            ):
+                self.dispatch("--json", "screenshot", "s", "--to", str(target))
+            self.assertEqual(refused.exception.code, code)
+            capture.assert_not_called()
+        self.assertEqual(list((self.paths.sandbox("s") / "xfer").iterdir()), [])
+        self.assertEqual((tmp / "taken.png").read_text(), "")
 
     def test_agent_replies_are_validated(self) -> None:
         """Malformed qemu-ga replies fail with agent-reply; good ones decode."""

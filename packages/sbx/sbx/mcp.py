@@ -387,8 +387,18 @@ TOOLS = (
         ("screenshot",),
         "Capture a sandbox display",
         "Return the display as a PNG image content block alongside its saved path and MIME type. "
-        "Set ocr to also return the text tesseract reads in the text field.",
-        (NAME, Param("ocr", _boolean("add the text tesseract reads"), flag="--ocr")),
+        "Each capture gets its own file in the sandbox's xfer directory, which destroy removes, "
+        "or under 'to', which keeps it. Set ocr to also return the text tesseract reads in the "
+        "text field.",
+        (
+            NAME,
+            Param("ocr", _boolean("add the text tesseract reads"), flag="--ocr"),
+            Param(
+                "to",
+                _string("host directory, or a new file, for the image; default the xfer directory"),
+                flag="--to",
+            ),
+        ),
     ),
     Tool(
         "gc",

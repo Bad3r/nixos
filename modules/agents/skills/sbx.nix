@@ -100,7 +100,7 @@ let
     | `cp <src> [<dst>]`                           | one side `<name>:<path>`; no dst = `xfer`  |
     | `destroy <name>` / `--mine` / `--expired`    | stop and delete sandboxes                  |
     | `list [--mine]`, `info <name>`               | state, CID, TTL left, `xfer` directory     |
-    | `screenshot <name> [--ocr]`                  | display to PNG or PPM in `xfer`, opt. OCR  |
+    | `screenshot <name> [--ocr] [--to PATH]`      | display to a new PNG or PPM file           |
     | `share attach <name> shared` / `detach`      | hot-plug `shared` RW or a declared one RO  |
     | `key <name> <chord>...`                      | press chords on a GUI sandbox              |
     | `type <name> <text>`                         | type text on a GUI sandbox                 |
@@ -160,6 +160,9 @@ let
     - `screenshot` also returns a PNG image content block for direct visual
       inspection alongside the saved `path` and `mime`. Set `ocr: true` only
       when extracted text is useful; Tesseract adds it under `text`.
+    - Each screenshot gets its own file. It lands in the sandbox's `xfer`
+      directory, which `destroy` deletes, unless `--to` (MCP `to`) names a
+      host directory or a new file under the copy roots to keep it.
     - The checkout copy root and relative host paths follow the directory the
       client started in, not your working directory; give absolute paths.
     - Claude Code hands the server its session when it starts it, so after

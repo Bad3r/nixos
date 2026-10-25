@@ -33,7 +33,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `cp <src> <dst>`                 | scp over vsock; one side is `<name>:<path>` |
 | `destroy <name>`                 | stop, undefine, delete the run directory    |
 | `list`, `info <name>`            | state, CID, address, TTL left, session      |
-| `screenshot <name>`              | display to PNG; `--ocr` adds text           |
+| `screenshot <name>`              | display to PNG; `--ocr`, `--to`             |
 | `key <name>`, `type <name>`      | keyboard input on a GUI base                |
 | `share attach`, `share detach`   | hot-plug or remove a runtime share          |
 | `gc`                             | remove expired and orphaned sandboxes       |

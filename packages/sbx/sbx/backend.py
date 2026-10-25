@@ -208,12 +208,12 @@ class LibvirtBackend:
         return json.loads(reply)
 
     def screenshot(self, domain: str, target: Path) -> str:
-        """Stream the primary display into a file."""
+        """Stream the primary display into a new file."""
         handle = self._lookup(domain)
         stream = self._conn.newStream(0)
         try:
             mime = handle.screenshot(stream, 0, 0)
-            with target.open("wb") as out:
+            with target.open("xb") as out:
                 stream.recvAll(_write, out)
             stream.finish()
         except libvirt.libvirtError as error:

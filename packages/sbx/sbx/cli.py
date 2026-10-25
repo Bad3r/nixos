@@ -143,6 +143,9 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     screenshot = verbs.add_parser("screenshot", parents=[common], help="capture the display")
     screenshot.add_argument("name")
     screenshot.add_argument("--ocr", action="store_true", help="add the text tesseract reads")
+    screenshot.add_argument(
+        "--to", help="host directory, or a new file, for the image; default the xfer directory"
+    )
 
     key = verbs.add_parser("key", parents=[common], help="press keys on a GUI sandbox")
     key.add_argument("name")
@@ -280,7 +283,7 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
         case "info":
             return sandboxes.info(args.name), 0
         case "screenshot":
-            return sandboxes.screenshot(args.name, ocr=args.ocr), 0
+            return sandboxes.screenshot(args.name, ocr=args.ocr, to=args.to), 0
         case "key":
             return sandboxes.key(args.name, args.keys), 0
         case "type":

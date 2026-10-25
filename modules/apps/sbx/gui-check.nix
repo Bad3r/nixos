@@ -137,10 +137,18 @@ in
                     as_owner("sbx --json screenshot g --ocr | grep -q SBXOCROK"), timeout=60
                 )
 
+            with subtest("screenshots get their own files, and --to keeps one"):
+                first, second = sbx("screenshot", "g")["path"], sbx("screenshot", "g")["path"]
+                assert first != second, first
+                machine.succeed(as_owner("mkdir -p /home/${owner}/trees/shots"))
+                kept = sbx("screenshot", "g", "--to", "/home/${owner}/trees/shots")["path"]
+                assert kept.startswith("/home/${owner}/trees/shots/screenshot-"), kept
+
             with subtest("destroy removes the sandbox"):
                 sbx("destroy", "g")
                 machine.fail("test -e ${state}/g")
                 assert sbx("list") == []
+                machine.succeed(f"test -s {kept}")
           '';
       };
     };

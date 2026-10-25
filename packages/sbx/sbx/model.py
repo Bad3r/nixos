@@ -238,7 +238,7 @@ class Backend(Protocol):
         ...
 
     def screenshot(self, domain: str, target: Path) -> str:
-        """Write the primary display to a file and return its MIME type."""
+        """Write the primary display to a new file and return its MIME type."""
         ...
 
     def suspend(self, domain: str) -> None:
