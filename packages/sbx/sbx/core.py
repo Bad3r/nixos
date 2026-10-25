@@ -87,7 +87,7 @@ class Tools:
     ssh_keygen: str
     socat: str
     tesseract: str
-    ss: str
+    nsenter: str
     git: str
     systemctl: str
     nix: str
@@ -118,7 +118,6 @@ class Settings:
     default_cpus: int
     default_ttl: int
     disk_gib: int
-    vsock_allowlist: frozenset[int]
     cpuset: str
     flake: str
     unit: str
@@ -150,7 +149,6 @@ class Settings:
             default_cpus=defaults["cpus"],
             default_ttl=defaults["ttlSeconds"],
             disk_gib=defaults["diskGiB"],
-            vsock_allowlist=frozenset(raw["vsockAllowlist"]),
             cpuset=raw["cpuset"],
             flake=raw["flake"],
             unit=raw["unit"],
@@ -260,6 +258,8 @@ class DomainInfo:
     meta: Meta | None
     managed_save: bool
     mac: str | None = None
+    pid: int | None = None
+    emulator: str | None = None
 
 
 @dataclass(frozen=True)
@@ -870,23 +870,6 @@ class Sandboxes:
             )
             raise SbxError(msg, code="disk-full")
 
-    def foreign_vsock_listeners(self) -> list[str]:
-        """Return host vsock listeners a guest could reach outside the allowlist."""
-        listeners: list[str] = []
-        for line in run([self.settings.tools.ss, "-H", "-l", "--vsock"]).splitlines():
-            fields = line.split()
-            if len(fields) < 5:  # noqa: PLR2004
-                continue
-            cid, _, port = fields[4].rpartition(":")
-            # Guests reach listeners bound to any CID or the host's CID 2.
-            if (
-                cid in {"*", "2"}
-                and port.isdigit()
-                and int(port) not in self.settings.vsock_allowlist
-            ):
-                listeners.append(fields[4])
-        return listeners
-
     def _check_capacity(self, request: Request) -> int:
         """Refuse past the running and memory ceilings; return the running count."""
         running = [sandbox.domain for sandbox in self.owned() if sandbox.domain.active]
@@ -1002,6 +985,7 @@ class Sandboxes:
         channel = sub(devices, "channel", type="unix")
         sub(channel, "source", mode="bind")
         sub(channel, "target", type="virtio", name="org.qemu.guest_agent.0")
+        # The emulator rebinds it to QEMU's own local vsock namespace (sbx.emulator).
         vsock = sub(devices, "vsock", model="virtio")
         sub(vsock, "cid", auto="yes")
         serial = sub(devices, "serial", type="file")
@@ -1061,12 +1045,6 @@ class Sandboxes:
             size = max(int(info["virtual-size"]), self.settings.disk_gib * GIB)
             # Every running overlay may still grow to its full virtual size.
             self._check_disk(reserve=(running + 1) * size)
-            if listeners := self.foreign_vsock_listeners():
-                msg = (
-                    f"host vsock listeners outside the allowlist are reachable from a sandbox: "
-                    f"{', '.join(listeners)}"
-                )
-                raise SbxError(msg, code="vsock-listener")
             nic = (self._check_egress().bridge, random_mac()) if request.net == "egress" else None
             now = int(self._clock())
             meta = Meta(
@@ -1162,7 +1140,7 @@ class Sandboxes:
                 time.sleep(1)
         while True:
             sandbox = self.created(name, token)
-            result = capture(self._ssh(name, sandbox.domain.cid, ["true"]), 4096, 30)
+            result = capture(self._ssh(name, sandbox.domain, ["true"]), 4096, 30)
             if result.exit_code == 0:
                 break
             if time.monotonic() > deadline:
@@ -1312,12 +1290,17 @@ class Sandboxes:
 
     # Guest access
 
-    def _ssh_options(self, name: str, cid: int | None) -> list[str]:
-        if cid is None:
+    def _ssh_options(self, name: str, domain: DomainInfo) -> list[str]:
+        if domain.cid is None or domain.pid is None:
             msg = f"sandbox '{name}' has no vsock CID; is it running?"
             raise SbxError(msg, code="not-running")
         directory = self.paths.sandbox(name)
-        proxy = f"{self.settings.tools.socat} - VSOCK-CONNECT:{cid}:22"
+        tools = self.settings.tools
+        # The guest's CID exists only in the namespace its QEMU runs in.
+        proxy = (
+            f"{tools.nsenter} --target {domain.pid} --user --net --preserve-credentials -- "
+            f"{tools.socat} - VSOCK-CONNECT:{domain.cid}:22"
+        )
         options = {
             "IdentitiesOnly": "yes",
             "IdentityAgent": "none",
@@ -1337,8 +1320,8 @@ class Sandboxes:
             argv += ["-o", f"{key}={value}"]
         return argv
 
-    def _ssh(self, name: str, cid: int | None, command: Sequence[str]) -> list[str]:
-        options = self._ssh_options(name, cid)
+    def _ssh(self, name: str, domain: DomainInfo, command: Sequence[str]) -> list[str]:
+        options = self._ssh_options(name, domain)
         return [self.settings.tools.ssh, *options, "-T", "root@sbx", "--", shlex.join(command)]
 
     def _running(self, name: str, token: str | None = None) -> Sandbox:
@@ -1372,7 +1355,7 @@ class Sandboxes:
         if agent:
             result = self._agent_exec(sandbox.domain.name, bounded, _backstop(timeout))
         else:
-            argv = self._ssh(name, sandbox.domain.cid, bounded)
+            argv = self._ssh(name, sandbox.domain, bounded)
             result = capture(argv, self.settings.output_limit, _backstop(timeout))
         if timeout is not None and result.exit_code == TIMEOUT_EXIT:
             return dataclasses.replace(result, timed_out=True)
@@ -1389,7 +1372,7 @@ class Sandboxes:
             sandbox=name,
             session=self.session,
         )
-        argv = self._ssh(name, sandbox.domain.cid, guest_command(command, timeout))
+        argv = self._ssh(name, sandbox.domain, guest_command(command, timeout))
         try:
             code = subprocess.run(argv, timeout=_backstop(timeout), check=False).returncode
         except subprocess.TimeoutExpired:
@@ -1532,7 +1515,7 @@ class Sandboxes:
             journal.record(
                 f"cp {local} {name}:{guest_path}", verb="cp", sandbox=name, session=self.session
             )
-            options = self._ssh_options(name, sandbox.domain.cid)
+            options = self._ssh_options(name, sandbox.domain)
             run(
                 [
                     self.settings.tools.scp,
@@ -1577,7 +1560,7 @@ class Sandboxes:
             if not staged.resolve().is_relative_to(stage.resolve()):
                 msg = f"'{guest_path}' leaves the transfer directory"
                 raise SbxError(msg, code="path-denied")
-            options = self._ssh_options(name, sandbox.domain.cid)
+            options = self._ssh_options(name, sandbox.domain)
             argv = [self.settings.tools.scp, *options, "-q", "-r", f"root@sbx:{guest_path}"]
             self._bounded_transfer([*argv, str(staged)], stage, budget)
             _strip_exec_bits(staged)

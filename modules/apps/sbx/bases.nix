@@ -1,6 +1,6 @@
 # sbx bases build on demand (`sbx base build <flavour>`) as workloads.artifacts
-# entries (modules/workloads/artifacts.nix), which no flake check evaluates and
-# no host closure references.
+# entries (modules/workloads/artifacts.nix), which no host closure references;
+# the sbx-vsock check boots `nixos`.
 { inputs, ... }:
 {
   perSystem =

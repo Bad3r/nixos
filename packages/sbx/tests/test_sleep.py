@@ -286,6 +286,32 @@ class SleepTest(Fixture):
         self.assertIn("error: c is still saving", self.errors)
         self.assertEqual(self.record("saved"), ["a", "c"])
 
+    def test_restore_refuses_a_foreign_emulator(self) -> None:
+        """A sandbox whose QEMU is not this sbx-qemu stays saved and is not retried."""
+        self.phase("save")
+        self.fake.domains_by_name["sbx-a"] = dataclasses.replace(
+            self.fake.domains_by_name["sbx-a"], emulator="/nix/store/qemu/bin/qemu-system-x86_64"
+        )
+        actions, code = self.phase("restore")
+        self.assertEqual(code, 1)
+        self.assertNotIn({"sandbox": "a", "action": "restored"}, actions)
+        self.assertIn({"sandbox": "b", "action": "restored"}, actions)
+        self.assertIn("is not an sbx-qemu", self.errors)
+        self.assertIn("run `sbx destroy a`", self.errors)
+        self.assertEqual(self.states()["a"], "shutoff")
+        self.assertFalse((self.state / "saved").exists())
+
+    def test_restore_accepts_an_earlier_wrapper_build(self) -> None:
+        """A sandbox saved under an sbx-qemu from an earlier switch is restored."""
+        self.phase("save")
+        self.fake.domains_by_name["sbx-a"] = dataclasses.replace(
+            self.fake.domains_by_name["sbx-a"],
+            emulator="/nix/store/zyxwvsrqpnmlkjihgfdcba9876543210-sbx-qemu",
+        )
+        actions, code = self.phase("restore")
+        self.assertEqual(code, 0)
+        self.assertIn({"sandbox": "a", "action": "restored"}, actions)
+
     def test_paused_then_saved_comes_back_running(self) -> None:
         """A sandbox paused for suspend and saved for hibernation is restored, then resumed."""
         self.phase("pause")

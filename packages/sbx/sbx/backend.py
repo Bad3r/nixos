@@ -37,6 +37,13 @@ def _runtime_dir() -> Path:
     return Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}")
 
 
+def _qemu_pid(domain: str) -> int | None:
+    try:
+        return int((_runtime_dir() / "libvirt" / "qemu" / "run" / f"{domain}.pid").read_text())
+    except OSError, ValueError:
+        return None
+
+
 def _daemon_cgroup() -> tuple[int | None, str]:
     pidfile = _runtime_dir() / "libvirt" / "virtqemud.pid"
     try:
@@ -128,6 +135,8 @@ class LibvirtBackend:
                         meta=None if element is None else Meta.parse(element),
                         managed_save=bool(domain.hasManagedSaveImage(0)),
                         mac=None if mac is None else mac.get("address"),
+                        pid=_qemu_pid(domain.name()) if domain.isActive() else None,
+                        emulator=root.findtext("devices/emulator"),
                     )
                 )
         except libvirt.libvirtError as error:
