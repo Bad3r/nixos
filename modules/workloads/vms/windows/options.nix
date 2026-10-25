@@ -91,6 +91,18 @@ let
               '';
             };
 
+            office.installer = lib.mkOption {
+              type = types.nullOr types.str;
+              default = null;
+              description = ''
+                `workloads.media` entry holding a Click-to-Run Office installer,
+                such as the `OfficeSetup.exe` a Microsoft account offers.
+                Provisioning copies it into a guest that lists no Office suite
+                and runs it; the installer downloads Office itself, and signing
+                in to an Office app licenses it.
+              '';
+            };
+
             services = lib.mkOption {
               type = types.attrsOf (types.submodule serviceModule);
               default = { };
@@ -128,7 +140,7 @@ let
             inherit assertion;
             message = "workloads.guests.${name}: ${message}";
           };
-          inherit (guest.windows) productKeySecret;
+          inherit (guest.windows) office productKeySecret;
         in
         [
           (check (lib.stringLength name <= 15) "Windows computer names have at most 15 characters")
@@ -140,6 +152,9 @@ let
           (check (
             productKeySecret == null || config.sops.secrets ? ${productKeySecret}
           ) "windows.productKeySecret names no sops.secrets entry")
+          (check (
+            office.installer == null || config.workloads.media ? ${office.installer}
+          ) "windows.office.installer names no workloads.media entry")
         ];
     in
     {

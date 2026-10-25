@@ -299,7 +299,9 @@
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
 - [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)
-  - Running an ad-hoc virt-manager guest from a staged ISO, and installing, activating, and finishing the `win11` guest.
+  - Running an ad-hoc virt-manager guest from a staged ISO, and dropping the ISO.
+- [hosts/songbird/songbird-runbook-win11.md](hosts/songbird/songbird-runbook-win11.md)
+  - Installing, activating, adding Office to, and finishing the `win11` guest.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)

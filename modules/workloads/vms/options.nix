@@ -57,21 +57,31 @@ let
         };
       };
 
-      mediaModule = {
-        options = {
-          source = lib.mkOption {
-            # A string, so the file never enters the store.
-            type = types.strMatching "/.+";
-            description = "Absolute runtime path of the regular file to stage, read with the owner's permissions.";
-          };
+      mediaModule =
+        { name, ... }:
+        {
+          options = {
+            path = lib.mkOption {
+              type = types.str;
+              readOnly = true;
+              default = "/var/lib/workloads/media/${name}";
+              defaultText = lib.literalExpression ''"/var/lib/workloads/media/<name>"'';
+              description = "Path of the staged copy.";
+            };
 
-          sha256 = lib.mkOption {
-            type = types.nullOr (types.strMatching "[0-9a-f]{64}");
-            default = null;
-            description = "Hex SHA-256 the staged copy must match.";
+            source = lib.mkOption {
+              # A string, so the file never enters the store.
+              type = types.strMatching "/.+";
+              description = "Absolute runtime path of the regular file to stage, read with the owner's permissions.";
+            };
+
+            sha256 = lib.mkOption {
+              type = types.nullOr (types.strMatching "[0-9a-f]{64}");
+              default = null;
+              description = "Hex SHA-256 the staged copy must match.";
+            };
           };
         };
-      };
 
       imageModule =
         { name, ... }:

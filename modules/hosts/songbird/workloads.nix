@@ -12,6 +12,7 @@ let
   secretFile = secretsRoot + "/workloads.yaml";
   # Both halves, as every other secret consumer here gates (services.nix).
   win11Ready = policy.sopsRuntimeReady && builtins.pathExists secretFile;
+  withOffice = win11.officeInstaller != null;
 in
 {
   perSystem.workloads.artifacts = {
@@ -46,12 +47,15 @@ in
             };
 
             workloads = {
-              media = lib.mkIf win11Installing {
-                win11-iso = {
-                  source = win11.installIso;
-                  sha256 = win11.installIsoSha256;
-                };
-              };
+              media = lib.mkMerge [
+                (lib.mkIf win11Installing {
+                  win11-iso = {
+                    source = win11.installIso;
+                    sha256 = win11.installIsoSha256;
+                  };
+                })
+                (lib.mkIf withOffice { office-setup = win11.officeInstaller; })
+              ];
 
               # Drivers to install by hand; an image, so a stale out-link only
               # matters before the first define.
@@ -79,6 +83,7 @@ in
                   };
                   timeZone = "Arab Standard Time";
                   services.ssh.port = 22;
+                  office.installer = lib.mkIf withOffice "office-setup";
                 };
               };
             };
