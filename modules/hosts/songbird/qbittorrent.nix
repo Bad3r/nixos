@@ -392,7 +392,11 @@ in
               sockets.qbittorrent-webui = {
                 description = "qBittorrent Web UI proxy socket";
                 wantedBy = [ "sockets.target" ];
-                socketConfig.ListenStream = "0.0.0.0:${toString webuiPort}";
+                socketConfig = {
+                  ListenStream = "0.0.0.0:${toString webuiPort}";
+                  # The UI asks no login of a proxied caller, so no workload may connect.
+                  IPAddressDeny = "172.16.0.0/12";
+                };
               };
             };
 

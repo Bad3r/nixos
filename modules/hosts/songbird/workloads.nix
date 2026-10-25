@@ -97,15 +97,32 @@ in
 
       workloads = {
         host.services.dev = {
+          # 8989 is the qBittorrent Web UI (qbittorrent.nix), which trusts every caller.
           ports = [
             {
               from = 8000;
+              to = 8988;
+            }
+            {
+              from = 8990;
               to = 8999;
             }
           ];
           bind = "any";
           grantable = true;
         };
+
+        grants.allow = [
+          {
+            from = [ "sbx-*" ];
+            to = [ "host:dev" ];
+          }
+          {
+            from = [ "guest:nixos-dev" ];
+            to = [ "host:dev" ];
+            maxTtl = "24h";
+          }
+        ];
 
         networks = {
           default = {

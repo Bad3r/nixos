@@ -41,6 +41,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 `create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, and `--gui`.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
+Every removal, by `destroy`, `gc`, a failed `create`, or the MCP server's cleanup, revokes the [workload grants](../../networking/workload-grants.md) of the sandbox it removes; a revoke that fails is reported on stderr and in the journal, and the sandbox is removed anyway.
 [sleep.md](sleep.md) covers `sleep` and what host suspend and hibernation do to sandboxes.
 
 ```sh

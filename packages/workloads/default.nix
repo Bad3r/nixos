@@ -2,6 +2,9 @@
   lib,
   stdenvNoCC,
   python3,
+  nftables,
+  conntrack-tools,
+  iproute2,
 }:
 stdenvNoCC.mkDerivation {
   pname = "workloads";
@@ -32,7 +35,22 @@ stdenvNoCC.mkDerivation {
 
     sys.exit(main(Path("/etc/workloads/names.json")))
     EOF
-    chmod 0755 $out/bin/workloads
+    cat > $out/bin/workload-grantd <<EOF
+    #!${python3.interpreter} -I
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, "$out/lib/workloads")
+    from workloads.grantd import Tools, main
+
+    tools = Tools(
+        nft="${lib.getExe nftables}",
+        conntrack="${lib.getExe' conntrack-tools "conntrack"}",
+        ip="${lib.getExe' iproute2 "ip"}",
+    )
+    sys.exit(main(Path("/etc/workloads/grants.json"), tools, Path("/run/workloads/grantd.lock")))
+    EOF
+    chmod 0755 $out/bin/workloads $out/bin/workload-grantd
     runHook postInstall
   '';
 
@@ -44,7 +62,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "Command line for declared workloads and live sandboxes";
+    description = "Command line and grant helper for declared workloads and live sandboxes";
     mainProgram = "workloads";
     platforms = lib.platforms.linux;
   };

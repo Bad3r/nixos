@@ -16,11 +16,11 @@ _: {
 }
 ```
 
-- A declaration opens nothing; only a link or a grant does.
+- A declaration opens nothing; only a link or a [grant](workload-grants.md) does.
 - `bind = "any"` is for a service that listens on every address, so guests reach it at their gateway.
 - `bind = "loopback"` is for a service bound to 127.0.0.1; it never rebinds, and `route_localnet` stays off.
   Each linked network gets a `systemd-socket-proxyd` on its gateway, so its ports are single TCP ports.
-- `grantable` lets runtime grants open the service; links do not need it.
+- `grantable` lets [runtime grants](workload-grants.md) open the service; links do not need it.
 
 ## Declare a link
 

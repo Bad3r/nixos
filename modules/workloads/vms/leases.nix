@@ -117,12 +117,8 @@ let
         })
 
         (lib.mkIf (networks != { }) {
-          assertions = [
-            {
-              assertion = !config.networking.nftables.flushRuleset;
-              message = "workloads.networks with libvirt.bindLeases need networking.nftables.flushRuleset = false: a flushing reload deletes bridge workload-leases and its port pins, and a guest could pin a peer's MAC before the refill. A non-empty networking.nftables.ruleset turns flushing on.";
-            }
-          ];
+          # A flushing reload would empty the port pins, and a guest could pin a peer's MAC before the refill.
+          workloads.nftables.serviceTables = [ "bridge workload-leases" ];
 
           systemd.tmpfiles.settings.workload-leases.${leaseDir}.d = {
             mode = "0755";
