@@ -8,9 +8,10 @@ against the settings the app module renders.
 
 from sbx.gui import Gui
 from sbx.inventory import Inventory
+from sbx.pipeline import Pipeline
 from sbx.prepare import Prepare
 from sbx.transfer import Transfer
 
 
-class Sandboxes(Prepare, Inventory, Transfer, Gui):
+class Sandboxes(Pipeline, Prepare, Inventory, Transfer, Gui):
     """Every sbx verb, over one backend."""

@@ -6,7 +6,7 @@ import json
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from sbx import completion, journal, sleep, vsock, windows
+from sbx import completion, journal, sleep, vsock
 from sbx.config import Paths, Settings, caller_session, parse_duration
 from sbx.errors import SbxError, error_document
 from sbx.execution import exec_options
@@ -232,37 +232,18 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
         msg = "--to needs --out"
         raise SbxError(msg, code="usage")
     options = _exec_options(sandboxes, args)
-    created = sandboxes.create(_request(sandboxes, args))
-    name, token = str(created["name"]), str(created["token"])
-    # Every step and the cleanup act only on this creation, never on a later namesake.
-    try:
-        agent_only = sandboxes.agent_only(name, token=token)
-        inbox = windows.INBOX if agent_only else "/root/"
-        copied_in = [sandboxes.copy(path, f"{name}:{inbox}", token=token) for path in args.inputs]
-        if as_json:
-            result = sandboxes.exec_capture(name, command, options, token=token)
-            code = result.status()
-        elif agent_only:
-            code = _print_exec(sandboxes.exec_capture(name, command, options, token=token))
-            result = None
-        else:
-            attached = sandboxes.exec_attached(name, command, options, token=token)
-            code = _print_exec(attached)
-            result = None
-        copied_out = [
-            sandboxes.copy(f"{name}:{path}", args.to, token=token) for path in args.outputs
-        ]
-    finally:
-        sandboxes.destroy_created(token)
+    result = sandboxes.run_once(
+        _request(sandboxes, args),
+        command,
+        options,
+        inputs=args.inputs,
+        outputs=args.outputs,
+        to=args.to,
+        attached=not as_json,
+    )
     if not as_json:
-        return None, code
-    payload = {
-        "sandbox": created,
-        "in": copied_in,
-        "exec": None if result is None else result.as_json(args.output_encoding),
-        "out": copied_out,
-    }
-    return payload, code
+        return None, _print_exec(result.execution)
+    return result.as_json(args.output_encoding), result.execution.status()
 
 
 def dispatch(  # noqa: C901, PLR0911, PLR0912
