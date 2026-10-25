@@ -12,7 +12,7 @@ from unittest import mock
 
 from sbx import mcp
 from sbx.cli import build_parser
-from sbx.core import SbxError
+from sbx.core import Meta, SbxError
 
 from . import test_core
 
@@ -174,6 +174,47 @@ class ServerTest(unittest.TestCase):
             with self.subTest(message=message):
                 responses = self.exchange(message)
                 self.assertEqual(responses[None]["error"]["code"], mcp.INVALID_REQUEST)
+
+    def test_cancel_during_boot_spares_a_namesake(self) -> None:
+        """A run cancelled while booting leaves a sandbox later created under its name."""
+        gate = threading.Event()
+        pings: list[str] = []
+        ping = self.core.backend.agent
+
+        def agent(domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:
+            pings.append(domain)
+            if len(pings) == 1:
+                gate.wait(5)
+                msg = "guest agent unreachable"
+                raise SbxError(msg, code="agent")
+            return ping(domain, command, timeout)
+
+        output = io.BytesIO()
+        server = mcp.Server(self.core.sandboxes, output, "0.0.0")
+        domains = self.core.backend.domains_by_name
+        with mock.patch.object(self.core.backend, "agent", agent):
+            server.receive(
+                json.dumps(
+                    self.call(1, "run", {"base": "nixos", "name": "r", "command": ["true"]})
+                ).encode()
+            )
+            deadline = time.monotonic() + 5
+            while not pings and time.monotonic() < deadline:
+                time.sleep(0.05)
+            cancel = {
+                "jsonrpc": "2.0",
+                "method": "notifications/cancelled",
+                "params": {"requestId": 1},
+            }
+            server.receive(json.dumps(cancel).encode())
+            while "sbx-r" in domains and time.monotonic() < deadline:
+                time.sleep(0.05)
+            replacement = self.core.sandboxes("claude:two").create(self.core.request(name="r"))
+            gate.set()
+            server.serve([])
+        self.assertEqual(cast("Meta", domains["sbx-r"].meta).token, replacement["token"])
+        self.assertTrue(self.core.paths.sandbox("r").is_dir())
+        self.assertEqual(output.getvalue(), b"")
 
     def test_calls(self) -> None:
         """Results carry the --json document; refusals are tool errors."""
