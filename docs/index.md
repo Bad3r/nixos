@@ -465,4 +465,6 @@
 ### sbx
 
 - [apps/sbx/README.md](apps/sbx/README.md)
-  - Agent sandboxes on `qemu:///session`: trust model, verbs, copy roots, Nix bases, the slice and ceilings, state, gc, and failures.
+  - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, Nix bases, the slice and ceilings, state, and gc.
+- [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)
+  - `sbx` failures by error code: a daemon outside the slice, vsock listeners, boot timeouts, and an unavailable egress bridge or lease.

@@ -8,8 +8,8 @@ The app module is `modules/apps/sbx/nixos.nix`; its ceilings come from the host'
 
 Every sandbox is an untrusted guest.
 
-- It has no network interface; control runs over SSH on vsock and the qemu-ga channel.
-- It has no vdagent channel, no display socket, and no shared folder.
+- Control runs over SSH on vsock and the qemu-ga channel, never over a network.
+- The guest has no vdagent channel, no display socket, and no shared folder.
 - `sbx` accepts no domain XML, no host disk path, and no value above a ceiling.
 - Host vsock listeners are reachable from a guest, so `create` refuses while one listens outside `vsockAllowlist`.
 - The listener check sees the initial network namespace only; the module sets `net.vsock.child_ns_mode` to `local` so later namespaces keep their vsock sockets to themselves.
@@ -29,12 +29,12 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `exec <name> -- CMD`             | run over SSH; `--agent` uses qemu-ga        |
 | `cp <src> <dst>`                 | scp over vsock; one side is `<name>:<path>` |
 | `destroy <name>`                 | stop, undefine, delete the run directory    |
-| `list`, `info <name>`            | state, CID, TTL left, caller session        |
+| `list`, `info <name>`            | state, CID, address, TTL left, session      |
 | `screenshot <name>`              | display to PNG; `--ocr` adds text           |
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
 
-`create` and `run` take `--name`, `--mem`, `--cpus`, and `--ttl`.
+`create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, and `--ttl`.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
 
@@ -46,6 +46,16 @@ sbx exec probe -- uname -a
 sbx cp probe:/var/log/build.log
 sbx destroy probe
 ```
+
+## Networks
+
+- `--net none`, the default, gives the sandbox no network interface.
+- `--net egress` adds one virtio NIC on `vn-sbx`, the bridge of the `sbx` [workload network](../../networking/workloads.md) in `modules/hosts/<host>/workloads.nix`, which sets its egress, isolation, and lease binding.
+- The network's resolver ignores the hostnames sandboxes send, so a sandbox cannot look up its peers.
+- `create` waits for the guest's DHCP lease and prints its address.
+  `list` and `info` read it from the lease file the host's DHCP server keeps for the bridge, not from the guest agent.
+- The address is the sandbox's current lease, which the network keeps short.
+- Session libvirt joins the bridge through the setuid `qemu-bridge-helper` wrapper.
 
 ## Copies
 
@@ -106,36 +116,8 @@ As the owner:
 systemctl --user status sbx.slice sbx-libvirt.service sbx-gc.timer
 sbx base list --json
 sbx run nixos -- systemd-detect-virt
+sbx run nixos --net egress -- getent hosts cloudflare.com
 journalctl --user -t sbx -n 20
 ```
 
-## create fails with daemon-outside-slice
-
-Cause: another `qemu:///session` client, such as virt-manager, spawned `virtqemud` before `sbx` did.
-
-```sh
-cat "$XDG_RUNTIME_DIR/libvirt/virtqemud.pid"
-systemctl --user status sbx-libvirt.service
-```
-
-Fix: close that client's session connection, stop the stray `virtqemud`, and rerun the command.
-
-## create fails with vsock-listener
-
-Cause: a host process listens on vsock, so a sandbox could reach it.
-
-```sh
-ss -l --vsock
-```
-
-Fix: stop the listener, or add its port to `vsockAllowlist` when every sandbox may reach it.
-
-## create fails with boot-timeout
-
-Cause: the guest did not answer qemu-ga or SSH on vsock in time; the error carries the console tail.
-
-```sh
-sbx base list
-```
-
-Fix: rebuild the base with `sbx base build <base>` and retry; a failure that repeats points at the base configuration.
+Failures and their fixes: [troubleshooting](troubleshooting.md).

@@ -43,7 +43,9 @@ NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
 # Sandbox directories sit beside the base out-links.
 RESERVED_NAMES = frozenset({"bases"})
 FLAVOURS = ("nixos",)
-NETS = ("none",)
+NETS = ("none", "egress")
+SYS_NET = Path("/sys/class/net")
+IFF_UP = 0x1
 # systemd-tmpfiles writes /root/.ssh/authorized_keys from this credential.
 CREDENTIAL = "opt/io.systemd.credentials/ssh.authorized_keys.root"
 GIB = 1 << 30
@@ -91,6 +93,14 @@ class Tools:
 
 
 @dataclass(frozen=True)
+class Egress:
+    """The bridge `--net egress` attaches to and the lease file of its DHCP server."""
+
+    bridge: str
+    leases: Path
+
+
+@dataclass(frozen=True)
 class Settings:
     """Ceilings, defaults, and tool paths rendered by the app module."""
 
@@ -112,6 +122,8 @@ class Settings:
     slice: str
     output_limit: int
     boot_timeout: int
+    # Why `--net egress` is unavailable, when it is.
+    egress: Egress | str
     tools: Tools
 
     @classmethod
@@ -142,6 +154,9 @@ class Settings:
             slice=raw["slice"],
             output_limit=raw["outputLimit"],
             boot_timeout=raw["bootTimeout"],
+            egress=raw["egress"]
+            if isinstance(raw["egress"], str)
+            else Egress(raw["egress"]["bridge"], Path(raw["egress"]["leases"])),
             tools=Tools(**raw["tools"]),
         )
 
@@ -236,6 +251,7 @@ class DomainInfo:
     cid: int | None
     meta: Meta | None
     managed_save: bool
+    mac: str | None = None
 
 
 @dataclass(frozen=True)
@@ -506,6 +522,61 @@ def _strip_exec_bits(path: Path) -> None:
             file.chmod(stat.S_IMODE(info.st_mode) & 0o666)
 
 
+def random_mac() -> str:
+    """Return a random address in QEMU's locally administered prefix."""
+    return "52:54:00:" + ":".join(f"{byte:02x}" for byte in secrets.token_bytes(3))
+
+
+def _lease_error(path: Path, detail: str) -> SbxError:
+    msg = f"{path} is not a libvirt lease file: {detail}"
+    return SbxError(msg, code="lease-file")
+
+
+def lease_address(path: Path, mac: str, now: float) -> str | None:
+    """Return the IPv4 address the bridge's DHCP server leased to `mac`, if any."""
+    mac = mac.lower()
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        return None
+    if not text.strip():
+        return None
+    try:
+        leases = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise _lease_error(path, str(error)) from error
+    if not isinstance(leases, list):
+        raise _lease_error(path, "not a list")
+    best: tuple[float, str] | None = None
+    for lease in cast("list[object]", leases):
+        if not isinstance(lease, dict):
+            raise _lease_error(path, "an entry is not an object")
+        entry = cast("dict[str, object]", lease)
+        address, owner, expiry = (
+            entry.get("ip-address"),
+            entry.get("mac-address"),
+            entry.get("expiry-time"),
+        )
+        if not (isinstance(address, str) and isinstance(owner, str) and isinstance(expiry, int)):
+            raise _lease_error(path, "an entry lacks ip-address, mac-address, or expiry-time")
+        # libvirt's own reading: an expiry of 0 or below never expires.
+        if owner.lower() != mac or ":" in address or 0 < expiry < now:
+            continue
+        rank = float("inf") if expiry <= 0 else float(expiry)
+        if best is None or rank > best[0]:
+            best = (rank, address)
+    return None if best is None else best[1]
+
+
+def bridge_interface(bridge: str, mac: str) -> ET.Element:
+    """Render a virtio NIC on a host bridge; session libvirt joins it through qemu-bridge-helper."""
+    interface = ET.Element("interface", type="bridge")
+    ET.SubElement(interface, "mac", address=mac)
+    ET.SubElement(interface, "source", bridge=bridge)
+    ET.SubElement(interface, "model", type="virtio")
+    return interface
+
+
 class Sandboxes:
     """Every sbx verb, over one backend."""
 
@@ -591,7 +662,7 @@ class Sandboxes:
             "base": meta.base,
             "net": meta.net,
             "cid": domain.cid,
-            "address": None,
+            "address": self.address(sandbox),
             "memory_mib": domain.memory_mib,
             "cpus": domain.cpus,
             "created": _iso(meta.created),
@@ -602,7 +673,43 @@ class Sandboxes:
             "xfer": str(directory / "xfer"),
         }
 
+    def address(self, sandbox: Sandbox, *, strict: bool = False) -> str | None:
+        """Return the address of a running egress sandbox from the host's DHCP leases.
+
+        A malformed lease file raises only when `strict`; otherwise it is logged
+        and the address left out, so one bad file never fails a listing.
+        """
+        egress = self.settings.egress
+        mac = sandbox.domain.mac
+        if isinstance(egress, str) or mac is None or not sandbox.domain.active:
+            return None
+        try:
+            return lease_address(egress.leases, mac, self._clock())
+        except SbxError as error:
+            if strict or error.code != "lease-file":
+                raise
+            journal.record(f"no address for {sandbox.name}: {error}", code=error.code)
+            return None
+
     # Policy checks
+
+    def _check_egress(self) -> Egress:
+        """Return the egress bridge, refusing when it is not declared, absent, or down."""
+        egress = self.settings.egress
+        if isinstance(egress, str):
+            raise SbxError(egress, code="egress-unavailable")
+        device = SYS_NET / egress.bridge
+        absent = f"bridge {egress.bridge} does not exist; its libvirt network is not running"
+        if not (device / "bridge").is_dir():
+            raise SbxError(absent, code="egress-unavailable")
+        try:
+            flags = int((device / "flags").read_text(), 16)
+        except FileNotFoundError as error:
+            raise SbxError(absent, code="egress-unavailable") from error
+        if not flags & IFF_UP:
+            msg = f"bridge {egress.bridge} is down"
+            raise SbxError(msg, code="egress-unavailable")
+        return egress
 
     def request(  # noqa: PLR0913
         self,
@@ -753,13 +860,14 @@ class Sandboxes:
 
     # Lifecycle
 
-    def _domain_xml(
+    def _domain_xml(  # noqa: PLR0913, PLR0917
         self,
         name: str,
         directory: Path,
         meta: Meta,
         request: Request,
         authorized_key: str,
+        nic: tuple[str, str] | None,
     ) -> str:
         domain = ET.Element("domain", type="kvm")
 
@@ -799,6 +907,8 @@ class Sandboxes:
         sub(disk, "driver", name="qemu", type="qcow2", cache="unsafe", discard="unmap")
         sub(disk, "source", file=str(directory / "disk.qcow2"))
         sub(disk, "target", dev="vda", bus="virtio")
+        if nic is not None:
+            devices.append(bridge_interface(*nic))
         sub(devices, "controller", type="usb", model="none")
         # Untrusted class: the guest agent channel only, never a vdagent channel.
         channel = sub(devices, "channel", type="unix")
@@ -845,12 +955,13 @@ class Sandboxes:
             size = max(int(info["virtual-size"]), self.settings.disk_gib * GIB)
             # Every running overlay may still grow to its full virtual size.
             self._check_disk(reserve=(running + 1) * size)
-            if request.net == "none" and (listeners := self.foreign_vsock_listeners()):
+            if listeners := self.foreign_vsock_listeners():
                 msg = (
                     f"host vsock listeners outside the allowlist are reachable from a sandbox: "
                     f"{', '.join(listeners)}"
                 )
                 raise SbxError(msg, code="vsock-listener")
+            nic = (self._check_egress().bridge, random_mac()) if request.net == "egress" else None
             now = int(self._clock())
             meta = Meta(
                 request.base,
@@ -899,7 +1010,7 @@ class Sandboxes:
                     ]
                 )
                 public = key.with_suffix(".pub").read_text().strip()
-                backend.start(self._domain_xml(name, directory, meta, request, public))
+                backend.start(self._domain_xml(name, directory, meta, request, public, nic))
             except BaseException:
                 self._discard(name)
                 raise
@@ -939,15 +1050,22 @@ class Sandboxes:
                     msg = f"the guest agent of '{name}' did not answer; console:\n{tail}"
                     raise SbxError(msg, code="boot-timeout") from None
                 time.sleep(1)
-        cid = self.find(name).domain.cid
+        sandbox = self.find(name)
         while True:
-            result = capture(self._ssh(name, cid, ["true"]), 4096, 30)
+            result = capture(self._ssh(name, sandbox.domain.cid, ["true"]), 4096, 30)
             if result.exit_code == 0:
-                return
+                break
             if self._clock() > deadline:
                 detail = result.stderr.decode(errors="replace").strip()
                 msg = f"ssh over vsock to '{name}' failed: {detail}"
                 raise SbxError(msg, code="boot-timeout")
+            time.sleep(1)
+        if sandbox.meta.net != "egress":
+            return
+        while self.address(sandbox, strict=True) is None:
+            if self._clock() > deadline:
+                msg = f"'{name}' got no DHCP lease on its egress bridge; console:\n"
+                raise SbxError(msg + self._console_tail(name), code="no-address")
             time.sleep(1)
 
     def destroy(self, name: str) -> list[str]:
