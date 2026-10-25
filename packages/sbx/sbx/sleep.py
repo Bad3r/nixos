@@ -277,6 +277,9 @@ class Sleep:
                     (sandbox for sandbox in self.sandboxes.owned() if sandbox.domain.active),
                     key=lambda item: item.name,
                 )
+                # Nothing to save means no image, so the floor cannot be at stake.
+                if not keep:
+                    return
                 self._check_room(keep)
                 for sandbox in keep:
                     self._note("saved", sandbox.name)

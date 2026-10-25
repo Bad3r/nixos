@@ -193,6 +193,17 @@ class SleepTest(Fixture):
                     self.assertEqual(self.states(), {"a": "running", "b": "running"})
         self.assertEqual(self.states(), {"a": "shutoff", "b": "shutoff"})
 
+    def test_save_with_nothing_left_ignores_the_floor(self) -> None:
+        """A save that only destroys expired sandboxes passes below the floor."""
+        self.expire("a")
+        self.expire("b")
+        self.settings = dataclasses.replace(self.settings, min_free_bytes=1 << 62)
+        actions, code = self.phase("save")
+        self.assertEqual(code, 0)
+        self.assertEqual([item["action"] for item in actions], ["destroyed", "destroyed"])
+        self.assertEqual(self.states(), {})
+        self.assertEqual(self.record("saved"), [])
+
     def test_save_past_its_budget_aborts_the_job(self) -> None:
         """A save still running at the budget is aborted, and the guest keeps running."""
         self.fake.before_save = lambda: None
