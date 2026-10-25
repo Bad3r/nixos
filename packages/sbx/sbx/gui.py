@@ -3,10 +3,11 @@
 
 import base64
 import binascii
-import ctypes
 import dataclasses
 import re
 import secrets
+import subprocess
+import sys
 import time
 import unicodedata
 from datetime import UTC, datetime
@@ -60,11 +61,25 @@ BUTTONS = {"left": 1, "middle": 2, "right": 3}
 MAX_WINDOW_ID = (1 << 32) - 1
 MAX_PATTERN = 1024
 NAME_LIMIT = 1024
-# xdotool compiles window patterns with glibc's regcomp and these flags, as the host can.
-REG_EXTENDED = 1
-REG_ICASE = 2
+# xdotool compiles window patterns with glibc's regcomp(REG_EXTENDED | REG_ICASE); the host
+# does too, in a child whose memory and time are capped, since bounded repetitions such as
+# a{32767}{32767} grow regcomp to gigabytes. Arguments: the data limit; stdin: the pattern.
+REGCOMP = """\
+import ctypes, resource, sys
+limit = int(sys.argv[1])
+resource.setrlimit(resource.RLIMIT_DATA, (limit, limit))
+libc = ctypes.CDLL("libc.so.6")
 # glibc's regex_t takes 64 bytes on x86_64.
-REGEX_SIZE = 256
+compiled = ctypes.create_string_buffer(256)
+code = libc.regcomp(compiled, sys.stdin.buffer.read(), 3)
+if code:
+    message = ctypes.create_string_buffer(256)
+    libc.regerror(code, compiled, message, 256)
+    sys.stdout.buffer.write(message.value)
+    sys.exit(1)
+"""
+REGEX_MEMORY = 256 << 20
+REGEX_SECONDS = 5.0
 # A guest script exits so when its window is missing, or its point lies off the display.
 INVALID_EXIT = 4
 MISSING_EXIT = 3
@@ -183,16 +198,23 @@ def parse_windows(output: bytes) -> tuple[Window, ...]:
 
 
 def regex_error(pattern: str) -> str | None:
-    """Return why glibc's regcomp refuses an extended, case-insensitive pattern, or None."""
-    libc = ctypes.CDLL("libc.so.6")
-    compiled = ctypes.create_string_buffer(REGEX_SIZE)
-    code = int(libc.regcomp(compiled, pattern.encode(), REG_EXTENDED | REG_ICASE))
-    if code == 0:
-        libc.regfree(compiled)
+    """Return why xdotool's regcomp would refuse a window pattern, or None."""
+    try:
+        data = pattern.encode()
+    except UnicodeEncodeError:
+        return "it holds a lone surrogate, which is no Unicode text"
+    command = [sys.executable, "-I", "-c", REGCOMP, str(REGEX_MEMORY)]
+    try:
+        result = subprocess.run(
+            command, input=data, capture_output=True, timeout=REGEX_SECONDS, check=False
+        )
+    except subprocess.TimeoutExpired:
+        return f"compiling it takes longer than {REGEX_SECONDS:g} s"
+    if result.returncode == 0:
         return None
-    message = ctypes.create_string_buffer(256)
-    libc.regerror(code, compiled, message, ctypes.sizeof(message))
-    return message.value.decode(errors="replace")
+    if result.returncode == 1 and result.stdout:
+        return result.stdout.decode(errors="replace")
+    return f"compiling it within {REGEX_MEMORY >> 20} MiB failed with status {result.returncode}"
 
 
 def _pattern(pattern: str) -> str:

@@ -1913,6 +1913,16 @@ class SandboxesTest(Fixture):
                 for verb, extra in (("wait", ("--timeout", "10m")), ("focus", ()))
             ),
             (("window", "wait", "t1", "--class", "a{1"), "invalid-argument"),
+            # Each grows regcomp to gigabytes without the child's memory cap.
+            *(
+                (("window", "focus", "t1", "--name", pattern), "invalid-argument")
+                for pattern in (
+                    "a{32767}{32767}",
+                    "(a{0,1000}){0,1000}",
+                    "(((a{0,255}){0,255}){0,255}){0,255}",
+                    "x\udc80",
+                )
+            ),
             (("mouse", "plain", "--to", "1,1"), "no-display"),
             (("window", "wait", "plain", "--class", "xterm"), "no-display"),
             (("window", "focus", "plain", "--id", "1"), "no-display"),
@@ -1923,6 +1933,18 @@ class SandboxesTest(Fixture):
                 self.dispatch(*argv)
             self.assertEqual(refused.exception.code, code)
         self.assertEqual(self.backend.execs, [])
+
+    def test_slow_pattern_refused(self) -> None:
+        """A pattern regcomp cannot compile in time is refused like an invalid one."""
+        self.sandboxes().create(self.request(gui=True))
+        slow = subprocess.TimeoutExpired("python3", gui.REGEX_SECONDS)
+        with (
+            mock.patch.object(gui.subprocess, "run", side_effect=slow),
+            self.assertRaises(SbxError) as refused,
+        ):
+            self.dispatch("window", "wait", "t1", "--name", "x")
+        self.assertEqual(refused.exception.code, "invalid-argument")
+        self.assertIn("longer than", str(refused.exception))
 
     def prepared(self) -> Path:
         """Lay out a prepared debian-13 base."""
