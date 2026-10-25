@@ -1046,6 +1046,9 @@ class SandboxesTest(Fixture):
             [[29, 56, 20], [28], [42, 35], [23], [42, 2], [28]],
         )
         self.assertEqual({domain for domain, _codes in self.backend.keys}, {"sbx-t1"})
+        logged = [call.args[0] for call in cast("mock.Mock", core.journal.record).call_args_list]
+        self.assertIn("type in t1: 4 characters", logged)
+        self.assertFalse([line for line in logged if "Hi!" in line])
 
     def test_input_refusals(self) -> None:
         """Unknown keys, untypable text, and sandboxes without a display send nothing."""
@@ -1057,6 +1060,7 @@ class SandboxesTest(Fixture):
             (("key", "t1", "+".join(["a"] * 17)), "invalid-argument"),
             (("type", "t1", "x\u00e9"), "invalid-argument"),
             (("type", "t1", "a\rb"), "invalid-argument"),
+            (("type", "t1", "x" * (core.TYPE_LIMIT + 1)), "invalid-argument"),
             (("key", "plain", "enter"), "no-display"),
             (("type", "plain", "x"), "no-display"),
             (("key", "old", "enter"), "expired"),

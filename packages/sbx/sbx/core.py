@@ -67,6 +67,8 @@ RENAME_NOREPLACE = 1
 # Holds the creation token of a run directory, which its domain metadata also carries.
 CREATION_FILE = "creation"
 KEY_HOLD_MS = 10
+# At 20 to 40 ms a character, the longest text `type` takes runs under three minutes.
+TYPE_LIMIT = 4096
 # The prepare boot's lifetime must outlast its provisioning timeout.
 PREPARE_TTL = 3600
 PREPARE_TIMEOUT = 1800
@@ -1925,11 +1927,20 @@ class Sandboxes:
 
     def type_text(self, name: str, text: str) -> dict[str, object]:
         """Type text as US-layout key presses."""
+        if len(text) > TYPE_LIMIT:
+            msg = f"type takes at most {TYPE_LIMIT} characters, got {len(text)}; split the text"
+            raise SbxError(msg, code="invalid-argument")
         try:
             chords = keys.text_chords(text)
         except ValueError as error:
             raise SbxError(str(error), code="invalid-argument") from error
         sandbox = self._gui(name)
-        journal.record(f"type in {name}: {text!r}", verb="type", sandbox=name, session=self.session)
+        # The text may be a secret the guest asks for, so only its length is logged.
+        journal.record(
+            f"type in {name}: {len(text)} characters",
+            verb="type",
+            sandbox=name,
+            session=self.session,
+        )
         self._send(sandbox.domain.name, chords)
         return {"sandbox": name, "characters": len(text)}

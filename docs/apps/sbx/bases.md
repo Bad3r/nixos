@@ -27,7 +27,8 @@ The key reaches the guest as the `ssh.authorized_keys.root` systemd credential o
 
 - A chord joins key names with `+`; an unknown name fails with the list of known ones.
 - `key` and `type` refuse a sandbox on any other base with `no-display`.
-- A key or character outside the layout fails with `invalid-argument` before anything reaches the guest.
+- A key or character outside the layout, or text past the length cap, fails with `invalid-argument` before anything reaches the guest.
+- The journal records how many characters `type` sent, never the text.
 - QEMU drops input past its queue, so `sbx` waits for each chord to land; a character takes about 20 ms, a shifted one about 40 ms.
 - The guest's keyboard layout must be US for `type` to produce the characters it was given.
 
