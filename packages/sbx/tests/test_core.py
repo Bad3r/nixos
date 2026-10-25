@@ -2,17 +2,23 @@
 """Policy and lifecycle checks of sbx against a fake backend and stub tools."""
 
 import dataclasses
+import itertools
 import json
 import os
 import tempfile
+import threading
+import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from sbx import cli, core
 from sbx.core import NS, DomainInfo, Egress, Meta, Paths, Sandboxes, SbxError, Settings, Tools
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 NOW = 1_800_000_000
 MAC = "52:54:00:ab:cd:ef"
@@ -24,7 +30,11 @@ STUBS = {
         'if [ "$1" = info ]; then echo \'{"virtual-size": 1073741824}\'; '
         'else eval "disk=\\${$(($# - 1))}"; touch "$disk"; fi'
     ),
-    "ssh": 'exit "${SBX_TEST_SSH_EXIT:-0}"',
+    "ssh": (
+        'case "$*" in *blockme*) touch "$SBX_TEST_GATE.started"; '
+        'while [ ! -e "$SBX_TEST_GATE" ]; do sleep 0.05; done;; esac; '
+        'exit "${SBX_TEST_SSH_EXIT:-0}"'
+    ),
     "scp": (
         'printf "%s\\n" "$@" > "$SBX_TEST_LOG"; for t; do :; done; '
         'case "$t" in root@*) exit 0;; esac; '
@@ -40,6 +50,7 @@ STUBS = {
         'echo "$SBX_TEST_TOPLEVEL"'
     ),
     "other": "exit 0",
+    "timedatectl": 'echo "${SBX_TEST_NTP:-yes}"',
 }
 
 
@@ -52,6 +63,17 @@ class FakeBackend:
         self.xml: dict[str, str] = {}
         self.replies: list[dict[str, Any]] = []
         self.addresses = ["172.16.2.5"]
+        # Host sleep: domains that refuse, unconnected agent answers left, saved states.
+        self.failing: set[str] = set()
+        self.unconnected: dict[str, int] = {}
+        self.synced: list[str] = []
+        self.saved_state: dict[str, str] = {}
+        # Polls of job_active left before a domain's save job finishes.
+        self.jobs: dict[str, int] = {}
+        # When set, managed_save calls it, then blocks until abort_job.
+        self.before_save: Callable[[], None] | None = None
+        self.held = threading.Event()
+        self.aborted: list[str] = []
 
     def domains(self) -> list[DomainInfo]:
         """List the fake domains."""
@@ -113,9 +135,67 @@ class FakeBackend:
         target.write_bytes(b"png")
         return "image/png"
 
+    def _set(self, domain: str, state: str, *, active: bool, managed_save: bool) -> None:
+        if domain in self.failing:
+            msg = f"{domain} refused"
+            raise SbxError(msg, code="libvirt")
+        info = self.domains_by_name[domain]
+        self.domains_by_name[domain] = dataclasses.replace(
+            info, state=state, active=active, managed_save=managed_save
+        )
 
-class SandboxesTest(unittest.TestCase):
-    """Ceilings, rendering, removal, and copy roots."""
+    def suspend(self, domain: str) -> None:
+        """Pause a domain."""
+        self._set(domain, "paused", active=True, managed_save=False)
+
+    def resume(self, domain: str) -> None:
+        """Continue a domain."""
+        self._set(domain, "running", active=True, managed_save=False)
+
+    def managed_save(self, domain: str) -> None:
+        """Stop a domain with a managed save."""
+        if self.before_save is not None:
+            self.before_save()
+            self.held.wait(10)
+            if domain in self.aborted:
+                msg = "operation aborted"
+                raise SbxError(msg, code="libvirt")
+        state = self.domains_by_name[domain].state
+        self._set(domain, "shutoff", active=False, managed_save=True)
+        self.saved_state[domain] = state
+
+    def restore(self, domain: str) -> None:
+        """Start a domain in the state it was saved in, as libvirt does."""
+        self._set(domain, self.saved_state.pop(domain, "running"), active=True, managed_save=False)
+
+    def job_active(self, domain: str) -> bool:
+        """Report a save job until its polls run out, then finish the save."""
+        left = self.jobs.get(domain)
+        if left is None:
+            return False
+        if left > 0:
+            self.jobs[domain] = left - 1
+            return True
+        del self.jobs[domain]
+        self.managed_save(domain)
+        return False
+
+    def abort_job(self, domain: str) -> None:
+        """Abort a blocked save."""
+        self.aborted.append(domain)
+        self.held.set()
+
+    def set_time(self, domain: str) -> None:
+        """Answer once the agent has connected."""
+        if self.unconnected.get(domain, 0) > 0:
+            self.unconnected[domain] -= 1
+            msg = "agent not connected"
+            raise SbxError(msg, code="agent-unresponsive")
+        self.synced.append(domain)
+
+
+class Fixture(unittest.TestCase):
+    """Stub tools, a built base, a state directory, and a fake backend."""
 
     def setUp(self) -> None:
         """Lay out stub tools, a built base, and a state directory."""
@@ -142,6 +222,7 @@ class SandboxesTest(unittest.TestCase):
             systemctl=other,
             nix=other,
             nix_store=str(stubs / "nix-store"),
+            timedatectl=str(stubs / "timedatectl"),
         )
         self.settings = Settings(
             running=3,
@@ -205,6 +286,10 @@ class SandboxesTest(unittest.TestCase):
         }
         flags.update(overrides)
         return self.sandboxes().request("nixos", **flags)
+
+
+class SandboxesTest(Fixture):
+    """Ceilings, rendering, removal, and copy roots."""
 
     def test_parsers(self) -> None:
         """Durations and sizes accept their units."""
@@ -320,6 +405,17 @@ class SandboxesTest(unittest.TestCase):
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-live", "sbx-saved"])
         self.assertFalse(self.paths.sandbox("stray").exists())
 
+    def test_gc_with_an_unsynced_clock(self) -> None:
+        """Without NTP sync, gc keeps expired sandboxes and still applies its other reasons."""
+        for name in ("old", "off"):
+            self.paths.sandbox(name).mkdir(parents=True)
+        self.backend.add("old", expires=NOW - 1)
+        self.backend.add("off", expires=NOW - 1, active=False)
+        with mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}):
+            removed = self.sandboxes().gc(dry_run=False)
+        self.assertEqual(removed, [{"name": "off", "reason": "shut off"}])
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-old"])
+
     def test_destroy_mine(self) -> None:
         """--mine removes only the caller's sandboxes."""
         for name, session in (("a", "claude:one"), ("b", "codex:two")):
@@ -329,6 +425,59 @@ class SandboxesTest(unittest.TestCase):
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-b"])
         with self.assertRaises(SbxError):
             self.sandboxes(session=None).listing(mine=True)
+
+    def test_destroy_created(self) -> None:
+        """A creation token reaches the metadata and selects only its own sandbox."""
+        self.sandboxes().create(self.request(), token="tok")  # noqa: S106
+        self.sandboxes().create(self.request(name="t2"))
+        self.assertEqual(self.sandboxes().destroy_created("other"), [])
+        self.assertEqual(self.sandboxes().destroy_created("tok"), ["t1"])
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-t2"])
+
+    def test_run_spares_a_namesake(self) -> None:
+        """A run whose sandbox is destroyed and renamed mid-command never touches the namesake."""
+        gate = self.scratch / "gate"
+        args = cli.build_parser().parse_args(
+            ["run", "nixos", "--name=r", "--out=/root/x", f"--to={self.scratch / 'tmp'}"]
+        )
+        args.command = ["blockme"]
+        errors: list[str] = []
+
+        def worker() -> None:
+            try:
+                cli.dispatch(self.sandboxes(), args, as_json=True)
+            except SbxError as error:
+                errors.append(error.code)
+
+        with mock.patch.dict(os.environ, {"SBX_TEST_GATE": str(gate)}):
+            thread = threading.Thread(target=worker)
+            thread.start()
+            started = gate.with_name("gate.started")
+            deadline = time.monotonic() + 5
+            while not started.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            other = self.sandboxes(session="claude:two")
+            other.destroy("r")
+            replacement = other.create(self.request(name="r"))
+            gate.touch()
+            thread.join(5)
+        self.assertEqual(errors, ["replaced"])
+        self.assertEqual(
+            cast("Meta", self.backend.domains_by_name["sbx-r"].meta).token, replacement["token"]
+        )
+        self.assertTrue(self.paths.sandbox("r").is_dir())
+
+    def test_destroy_expired_unsynced(self) -> None:
+        """--expired refuses while the host clock is unsynced."""
+        self.paths.sandbox("old").mkdir(parents=True)
+        self.backend.add("old", expires=NOW - 60)
+        with (
+            mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}),
+            self.assertRaises(SbxError) as caught,
+        ):
+            self.sandboxes().destroy_where(mine=False, expired=True)
+        self.assertEqual(caught.exception.code, "clock-unsynced")
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-old"])
 
     def test_copy_roots(self) -> None:
         """Copies in come from the roots only, and copies out default to xfer."""
@@ -667,12 +816,14 @@ class SandboxesTest(unittest.TestCase):
     def test_egress_without_lease(self) -> None:
         """A guest that never takes a lease fails create with no-address and is discarded."""
         self.egress().write_text("")
-        ticks = iter(range(NOW, NOW + 10_000, 2))
-        sandboxes = Sandboxes(
-            self.settings, self.paths, lambda _slice: self.backend, None, lambda: next(ticks)
-        )
-        with mock.patch.object(core.time, "sleep"), self.assertRaises(SbxError) as refused:
-            sandboxes.create(self.request(net="egress"))
+        # The boot deadline runs on the monotonic clock.
+        ticks = itertools.count(0, 2)
+        with (
+            mock.patch.object(core.time, "sleep"),
+            mock.patch.object(core.time, "monotonic", side_effect=ticks),
+            self.assertRaises(SbxError) as refused,
+        ):
+            self.sandboxes(None).create(self.request(net="egress"))
         self.assertEqual(refused.exception.code, "no-address")
         self.assert_no_sandbox("t1")
 
@@ -691,12 +842,13 @@ class SandboxesTest(unittest.TestCase):
         sleep.assert_called_once()
         self.assertEqual(result["address"], "172.16.2.5")
         self.backend.addresses = ["172.16.2.6"]
-        ticks = iter(range(NOW, NOW + 10_000, 2))
-        sandboxes = Sandboxes(
-            self.settings, self.paths, lambda _slice: self.backend, None, lambda: next(ticks)
-        )
-        with mock.patch.object(core.time, "sleep"), self.assertRaises(SbxError) as refused:
-            sandboxes.create(self.request(name="t2", net="egress"))
+        ticks = iter(range(0, 10_000, 2))
+        with (
+            mock.patch.object(core.time, "sleep"),
+            mock.patch.object(core.time, "monotonic", side_effect=lambda: next(ticks)),
+            self.assertRaises(SbxError) as refused,
+        ):
+            self.sandboxes().create(self.request(name="t2", net="egress"))
         self.assertEqual(refused.exception.code, "no-address")
         self.assert_no_sandbox("t2")
 

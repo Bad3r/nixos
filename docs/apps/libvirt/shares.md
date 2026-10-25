@@ -18,9 +18,10 @@ _: {
 
 - The tag names the share inside the guest.
 - The directory is not created; a guest whose share directory is missing fails to start.
-- The share assertions in `modules/workloads/vms/units.nix`, covered by the `workloads-vms-share-assertions` check, refuse shares on untrusted guests, root owners, and invalid tags.
+- The share assertions in `modules/workloads/vms/units.nix` and `modules/workloads/vms/windows/options.nix`, covered by the `workloads-vms-share-assertions` check, refuse shares on untrusted guests, root owners, and invalid tags.
+  On Windows guests they also refuse a drive letter taken twice, and a `service` mode that cannot serve every share.
 - A new or changed share applies at the guest's next cold boot: a running guest and a managed-save restore keep the old definition.
-  A NixOS guest also needs a redeploy before its fstab follows.
+  A NixOS guest also needs a redeploy before its fstab follows, and a Windows guest's drive letters follow at its next start.
 
 ## How a share runs
 
@@ -50,6 +51,25 @@ The guest configuration fills it from the derived `mounts` of its host declarati
 
 A share whose `mountPoint` clashes with another file system fails the guest's evaluation.
 
+## Windows guests
+
+`workloads-provision@<name>` gives every enabled share a drive letter at each start of a [Windows guest](windows.md).
+
+- A share's `driveLetter` pins a letter from G to Z, since D to F stay free for the installation CD-ROMs.
+  The others take the highest letters no other share pins, from Z down in tag order, so adding a share can move them.
+  The read-only `windows.virtiofs.driveLetters` holds the result; other guest kinds ignore `driveLetter`.
+- The host copies its pinned WinFsp installer in through the guest agent while the guest lacks that version or a newer one.
+- The viofs driver and `virtiofs.exe` come with the virtio-win guest tools.
+- virtio-win calls virtiofs on Windows a Tech Preview, in either mode.
+- `windows.virtiofs.mode = "launcher"`, the default, keeps `VirtioFsSvc` disabled.
+  The startup task `workloads-virtiofs` starts one WinFsp launcher instance of the `virtiofs` class per share, as SYSTEM.
+- `windows.virtiofs.mode = "service"` mounts a single share, attached at boot, through `VirtioFsSvc`.
+- Provisioning stops instances nothing declares, and removes the task once no share is left.
+- When the set of attached shares changed since its last run, provisioning restarts every instance.
+
+The drives belong to SYSTEM, so every session sees them, unless a mapped network drive on the same letter hides the share in that session.
+In the guest, each launcher start appends its result to `C:\ProgramData\workloads\virtiofs.log`.
+
 ## Runtime shares
 
 `runtime = true` keeps a share out of the definition, so it stays detached until attached to the running guest.
@@ -62,8 +82,15 @@ Its `<filesystem>` element is the derived `deviceXml` option, installed as `/etc
    ```
 
 2. In a NixOS guest, the fstab entry is `noauto`, so mount it with `mount /mnt/<tag>`.
+   In a Windows guest, restart provisioning, which restarts every launcher instance:
+
+   ```sh
+   sudo systemctl restart workloads-provision@<name>.service
+   ```
 
 `virsh -c qemu:///system detach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live` removes it again after an unmount in the guest.
+A Windows guest needs the same provisioning restart after a detach.
+Each running `virtiofs.exe` remounts itself whenever any virtio-fs device arrives, which can break shares that are already mounted, until provisioning restarts them.
 
 ## Verify
 
@@ -80,6 +107,13 @@ In a NixOS guest:
 findmnt -t virtiofs
 ```
 
+In an administrator PowerShell in a Windows guest:
+
+```powershell
+& "${env:ProgramFiles(x86)}\WinFsp\bin\launchctl-x64.exe" list
+Get-PSDrive -PSProvider FileSystem
+```
+
 ## A guest with a share fails to start
 
 Cause: the share's directory is missing, or neither the owner's uid nor its primary group can reach it; supplementary groups do not count.
@@ -91,3 +125,17 @@ ls -ld <directory>
 
 Fix: create the directory, give the owner's uid or primary group access to it, and start the guest again.
 virtiofsd's own log is `/var/log/libvirt/qemu/<name>-fs<N>-virtiofsd.log`.
+
+## A Windows share has no drive letter
+
+Cause: another drive holds the letter, or the share's launcher instance exited.
+
+```sh
+journalctl -u workloads-provision@<name>.service -b
+```
+
+Fix: free the letter in the guest or set the share's `driveLetter`, then restart the unit:
+
+```sh
+sudo systemctl restart workloads-provision@<name>.service
+```
