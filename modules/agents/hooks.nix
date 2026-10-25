@@ -2,8 +2,8 @@
 # spec to _internal.hooks.raw; a harness installs every hook that carries its
 # block (e.g. claude/codex). New hooks need no per-client wiring.
 #
-# tests.deny/tests.allow are PreToolUse payloads; each hook with tests gets
-# checks."agents/hooks/<name>", which compares them against the
+# tests.deny/tests.ask/tests.allow are PreToolUse payloads; each hook with
+# tests gets checks."agents/hooks/<name>", which compares them against the
 # permissionDecision the hook prints (no output counts as allow).
 { config, lib, ... }:
 let
@@ -67,6 +67,7 @@ let
       context = "'${registryKey}'.tests";
       validated = validateAllowedFields context [
         "deny"
+        "ask"
         "allow"
       ] tests;
       badKinds = lib.filter (
@@ -135,7 +136,7 @@ in
             pkgs.runCommandLocal "agent-hook-${name}-check" { nativeBuildInputs = [ pkgs.jq ]; } ''
               set -euo pipefail
               fail=0
-              for expect in deny allow; do
+              for expect in deny ask allow; do
                 while IFS= read -r case; do
                   got="$(${lib.getExe (hook.package pkgs)} <<<"$case" | jq -rs '.[0].hookSpecificOutput.permissionDecision // "allow"')"
                   if [ "$got" != "$expect" ]; then
