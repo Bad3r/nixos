@@ -3,6 +3,7 @@
 
 import json
 import os
+import resource
 import socket
 import socketserver
 import subprocess
@@ -11,6 +12,7 @@ import tempfile
 import threading
 import time
 import unittest
+import unittest.mock
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
@@ -45,6 +47,7 @@ def entry(grant: str, port: int, deadline: float, **fields: object) -> dict[str,
         "target": f"host:dev:{port}",
         "ports": [{"from": port, "to": port}],
         "deadline": deadline,
+        "bind": "loopback",
     }
     return record | fields
 
@@ -60,6 +63,7 @@ class ParseTest(unittest.TestCase):
         for bad in (
             entry("00000001", 80, 9.0, source="guest:dev"),
             entry("00000001", 80, 9.0, token="x"),  # noqa: S106
+            entry("00000001", 80, 9.0, bind="lan"),
             {"id": "00000001"},
         ):
             with self.subTest(bad=bad), self.assertRaises(SbxError) as caught:
@@ -100,16 +104,32 @@ class Fixture(unittest.TestCase):
         self.opened: list[Sequence[int]] = []
         self.ports = [self.service(), self.service()]
         self.qemu = self.start_qemu()
-        self.proxy = vsock.Proxy(
-            None,
+        self.proxy = self.proxy_with()
+
+    def proxy_with(
+        self,
+        control: socket.socket | None = None,
+        *,
+        clock: Callable[[], float] | None = None,
+        resolve: Callable[[str], str | None] = vsock.destination,
+        grant_connections: int = vsock.GRANT_CONNECTIONS,
+        sandbox_connections: int = vsock.SANDBOX_CONNECTIONS,
+    ) -> vsock.Proxy:
+        """A proxy over the fixture, on the fake clock unless `clock` is given."""
+        proxy = vsock.Proxy(
+            control,
             state=self.state,
             runtime=self.runtime,
             paths=self.paths,
             opener=self.opener,
-            clock=lambda: self.now,
+            clock=clock or (lambda: self.now),
             owner=os.getuid(),
+            resolve=resolve,
+            grant_connections=grant_connections,
+            sandbox_connections=sandbox_connections,
         )
-        self.addCleanup(self.proxy.close)
+        self.addCleanup(proxy.close)
+        return proxy
 
     def service(self) -> int:
         """Start an echo service on loopback and return its port."""
@@ -261,16 +281,7 @@ class ProxyTest(Fixture):
         control = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
         control.bind(str(control_path))
         control.listen()
-        proxy = vsock.Proxy(
-            control,
-            state=self.state,
-            runtime=self.runtime,
-            paths=self.paths,
-            opener=self.opener,
-            clock=lambda: self.now,
-            owner=os.getuid(),
-        )
-        self.addCleanup(proxy.close)
+        proxy = self.proxy_with(control)
         self.addCleanup(control.close)
         self.write(entry("00000001", self.ports[0], 2000.0))
         answers: list[dict[str, object]] = []
@@ -283,6 +294,164 @@ class ProxyTest(Fixture):
         with self.assertRaises(SbxError) as caught:
             vsock.sync(self.state.parent / "missing.sock")
         self.assertEqual(caught.exception.code, "vsock-proxy")
+
+
+class RobustnessTest(Fixture):
+    """No guest, client, or ordering of events takes the proxy or another grant down."""
+
+    def test_deadline_fires_through_suspend_clock(self) -> None:
+        """With nothing to retry, only the CLOCK_BOOTTIME timer wakes the loop at a deadline."""
+        proxy = self.proxy_with(clock=vsock.boottime)
+        self.write(entry("00000001", self.ports[0], vsock.boottime() + 0.3))
+        proxy.reconcile()
+        # Take the list's own inotify events first.
+        proxy.step(0)
+        timeout = proxy.timeout(vsock.boottime())
+        self.assertIsNone(timeout)
+        stepper = threading.Thread(target=proxy.step, args=(timeout,), daemon=True)
+        stepper.start()
+        stepper.join(5)
+        self.assertFalse(stepper.is_alive(), "no timer woke the loop at the deadline")
+        self.assertEqual(proxy.status()["grants"], {})
+
+    def test_revoke_and_exit_in_one_round(self) -> None:
+        """A list change that forgets the emulator leaves its pending exit event harmless."""
+        self.write(entry("00000001", self.ports[0], 2000.0))
+        self.proxy.reconcile()
+        self.write()
+        self.qemu.kill()
+        self.qemu.wait()
+        time.sleep(0.05)
+        self.proxy.step(0.1)
+        self.assertEqual(self.proxy.status()["grants"], {})
+        self.assertEqual(self.proxy.emulators, {})
+
+    def test_exit_and_connect_in_one_round(self) -> None:
+        """A connection pending on a listener the exit closed is skipped, not accepted."""
+        port = self.ports[0]
+        self.write(entry("00000001", port, 2000.0))
+        self.proxy.reconcile()
+        self.qemu.kill()
+        self.qemu.wait()
+        client = socket.create_connection((GUEST_SIDE, port), timeout=5)
+        self.addCleanup(client.close)
+        time.sleep(0.05)
+        self.proxy.step(0.1)
+        self.assertEqual(self.state_of("00000001"), "waiting")
+
+    def test_partial_placement_fails(self) -> None:
+        """Fewer listeners than ports is a failed placement, not a listening grant."""
+        first, second = sorted(self.ports)
+
+        def short(pidfd: int, ports: Sequence[int]) -> list[socket.socket]:
+            return self.opener(pidfd, ports[:1])
+
+        self.proxy.opener = short
+        ranges = [{"from": first, "to": first}, {"from": second, "to": second}]
+        self.write(entry("00000001", first, 2000.0, ports=ranges))
+        self.proxy.reconcile()
+        self.assertEqual(self.state_of("00000001"), "failed")
+        with self.assertRaises(ConnectionRefusedError):
+            socket.create_connection((GUEST_SIDE, first), timeout=5).close()
+
+    def test_replaced_during_lookup(self) -> None:
+        """A creation token that changes while the emulator is looked up fails the placement."""
+        creation = self.paths.sandbox("a") / "creation"
+        found = vsock.open_emulator
+
+        def replacing(runtime: Path, sandbox: str) -> vsock.Emulator | None:
+            running = found(runtime, sandbox)
+            creation.write_text("e" * 16)
+            return running
+
+        self.write(entry("00000001", self.ports[0], 2000.0))
+        with unittest.mock.patch("sbx.vsock.open_emulator", replacing):
+            self.proxy.reconcile()
+        self.assertEqual(self.state_of("00000001"), "failed")
+        self.assertEqual((self.proxy.emulators, self.opened), ({}, []))
+
+    def test_descriptor_exhaustion(self) -> None:
+        """A full descriptor table pauses accepting; the proxy and other grants live on."""
+        first, second = self.ports
+        self.write(entry("00000001", first, 2000.0), entry("00000002", second, 2000.0))
+        self.proxy.reconcile()
+        other = self.connect(second)
+        backlog = [socket.create_connection((GUEST_SIDE, first), timeout=5) for _ in range(3)]
+        for client in backlog:
+            self.addCleanup(client.close)
+        # One descriptor left: the accept takes it, and the upstream socket finds none.
+        used = len(list(Path("/proc/self/fd").iterdir()))
+        soft, hard = resource.getrlimit(resource.RLIMIT_NOFILE)
+        resource.setrlimit(resource.RLIMIT_NOFILE, (used + 1, hard))
+        try:
+            for _ in range(3):
+                self.proxy.step(0.02)
+        finally:
+            resource.setrlimit(resource.RLIMIT_NOFILE, (soft, hard))
+        served = self.proxy.served["00000001"]
+        self.assertIn("Too many open files", str(served.accept_error))
+        self.assertFalse(served.accepting)
+        self.assertEqual(self.round_trip(other), b"x\n")
+        self.now += vsock.RETRY
+        self.proxy.step(0)
+        self.connect(first)
+
+    def test_connection_caps(self) -> None:
+        """At a grant's cap, and at its sandbox's, new connections wait in the backlog."""
+        first, second = self.ports
+        cap = 2
+        proxy = self.proxy_with(grant_connections=cap, sandbox_connections=cap + 1)
+        self.proxy = proxy
+        self.write(entry("00000001", first, 2000.0), entry("00000002", second, 2000.0))
+        proxy.reconcile()
+        one, _ = self.connect(first), self.connect(first)
+        waiting = socket.create_connection((GUEST_SIDE, first), timeout=5)
+        self.addCleanup(waiting.close)
+        self.connect(second)
+        held = socket.create_connection((GUEST_SIDE, second), timeout=5)
+        self.addCleanup(held.close)
+        for _ in range(10):
+            proxy.step(0.02)
+        self.assertEqual([len(served.pipes) for served in proxy.served.values()], [2, 1])
+        one.close()
+        self.pump(lambda: len(proxy.served["00000001"].pipes) == cap)
+        waiting.settimeout(0.0)
+        self.assertEqual(self.round_trip(waiting), b"x\n")
+
+    def test_no_host_address(self) -> None:
+        """A `bind = "any"` grant without a host address closes the guest's connection."""
+        port = self.ports[0]
+        self.proxy = self.proxy_with(resolve=lambda _bind: None)
+        self.write(entry("00000001", port, 2000.0, bind="any"))
+        self.proxy.reconcile()
+        client = socket.create_connection((GUEST_SIDE, port), timeout=5)
+        self.addCleanup(client.close)
+        client.settimeout(0.0)
+        self.assertEqual(self.round_trip(client), b"")
+        self.assertIn("no non-loopback", str(self.proxy.served["00000001"].accept_error))
+        self.assertEqual(vsock.destination("loopback"), vsock.LOOPBACK)
+        self.assertNotEqual(vsock.destination("any"), vsock.LOOPBACK)
+
+    def test_dribbling_control_client(self) -> None:
+        """A control client that sends slowly never holds the loop past one round."""
+        control_path = self.state.parent / "vsock.sock"
+        control = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        control.bind(str(control_path))
+        control.listen()
+        self.addCleanup(control.close)
+        proxy = self.proxy_with(control)
+        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        self.addCleanup(client.close)
+        client.connect(str(control_path))
+        client.send(b" ")
+        started = time.monotonic()
+        for _ in range(5):
+            proxy.step(0.1)
+        self.assertLess(time.monotonic() - started, 2)
+        self.assertEqual(len(proxy.requests), 1)
+        with unittest.mock.patch("sbx.vsock.time.monotonic", return_value=started + 3600):
+            proxy.step(0)
+        self.assertEqual(proxy.requests, {})
 
 
 class PlacementTest(unittest.TestCase):

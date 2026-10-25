@@ -70,6 +70,7 @@ workloads revoke --all sbx-<name>
 | `nft`, `route`      | the grant table or rules are unusable    |
 | `conntrack`         | conntrack entries could not be removed   |
 | `vsock-listener`    | no vsock listener in the sandbox         |
+| `vsock-unconfirmed` | revoked; the vsock proxy did not confirm |
 | `vsock-list`        | the vsock grant list is unusable         |
 | `no-helper`         | the host declares no grant rule          |
 | `helper`            | the helper answered no JSON object       |

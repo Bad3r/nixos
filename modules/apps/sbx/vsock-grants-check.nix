@@ -27,7 +27,7 @@ in
                     self.wfile.write(line)
 
         socketserver.ThreadingTCPServer.allow_reuse_address = True
-        socketserver.ThreadingTCPServer(("127.0.0.1", int(sys.argv[1])), Echo).serve_forever()
+        socketserver.ThreadingTCPServer((sys.argv[2], int(sys.argv[1])), Echo).serve_forever()
       '';
       listener = pkgs.writeText "vsock-listener.py" ''
         import socket
@@ -162,19 +162,33 @@ in
               networking.nftables.enable = true;
 
               # 8001 answers on loopback too, but no declaration makes it grantable.
+              # On 8010 only a loopback-only listener answers, which a bind = any grant must miss.
               workloads = {
-                host.services.dev = {
-                  ports = [
-                    8000
-                    8002
-                  ];
-                  bind = "loopback";
-                  grantable = true;
+                host.services = {
+                  dev = {
+                    ports = [
+                      8000
+                      8002
+                    ];
+                    bind = "loopback";
+                    grantable = true;
+                  };
+                  wide = {
+                    ports = [
+                      8010
+                      8011
+                    ];
+                    bind = "any";
+                    grantable = true;
+                  };
                 };
                 grants.allow = [
                   {
                     from = [ "sbx-*" ];
-                    to = [ "host:dev" ];
+                    to = [
+                      "host:dev"
+                      "host:wide"
+                    ];
                   }
                 ];
               };
@@ -285,8 +299,8 @@ in
                 " && cp ${stream} ${home}/tmp/stream.py'"
             ))
             machine.succeed("modprobe -a vhost_vsock vsock_loopback")
-            for port in (8000, 8001, 8002):
-                machine.succeed(f"systemd-run --unit echo-{port} ${python} ${echo} {port}")
+            for port, address in ((8000, "127.0.0.1"), (8001, "127.0.0.1"), (8002, "127.0.0.1"), (8010, "127.0.0.1"), (8011, "0.0.0.0")):
+                machine.succeed(f"systemd-run --unit echo-{port} ${python} ${echo} {port} {address}")
                 machine.wait_for_open_port(port)
             # Host vsock listeners on a granted port and on another; neither may answer a guest.
             machine.succeed("systemd-run --unit vsock-any --uid ${owner} ${python} ${listener} any 8000")
@@ -304,6 +318,12 @@ in
                 workloads("grant sbx-v host:dev:8001", code="not-grantable")
                 for port in (8001, 8002, 8003):
                     assert once(port) == "ConnectionResetError", port
+
+            with subtest("a bind = any grant reaches a host address, never a loopback-only listener"):
+                wide = grant("host:wide")
+                assert once(8011) == "echo"
+                assert once(8010) == repr(b"")
+                workloads(f"revoke {wide}")
 
             with subtest("revoke cuts that grant's established stream at once, and no other"):
                 second = grant("host:dev:8002")

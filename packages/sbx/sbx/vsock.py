@@ -4,8 +4,8 @@
 A sandbox without a network reaches only the vsock sockets of its QEMU's own
 `local` vsock namespace (sbx.emulator). For every live grant in the list
 workload-grantd writes, this service creates the grant's listeners inside that
-namespace and forwards each connection to the host service on loopback from
-the host's network namespace, where the service itself listens. A grant's
+namespace and forwards each connection to the host service from the host's
+network namespace, where the service itself listens. A grant's
 listeners and connections close when it expires, when it leaves the list, and
 when its QEMU exits; a restored sandbox gets fresh listeners in its new
 namespace. Nothing else listens, so a host vsock listener stays unreachable.
@@ -14,6 +14,7 @@ namespace. Nothing else listens, so a host vsock listener stays unreachable.
 import contextlib
 import ctypes
 import errno
+import fcntl
 import functools
 import itertools
 import json
@@ -22,6 +23,7 @@ import re
 import select
 import selectors
 import socket
+import struct
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -35,7 +37,8 @@ if TYPE_CHECKING:
 
 # workload-grantd writes it (packages/workloads/workloads/vsock.py).
 STATE = Path("/run/workloads/vsock-grants.json")
-DESTINATION = "127.0.0.1"
+LOOPBACK = "127.0.0.1"
+BINDS = frozenset({"loopback", "any"})
 TOKEN_PATTERN = re.compile(r"[0-9a-f]{16}")
 # Placement retries while a live grant has no listener, such as during a restore.
 RETRY = 1.0
@@ -44,6 +47,16 @@ BACKLOG = 16
 # Below SCM_MAX_FD, the most descriptors one message carries.
 FD_BATCH = 200
 CONTROL_TIMEOUT = 5
+# Connections one grant, and one sandbox's grants together, hold before accepting pauses.
+GRANT_CONNECTIONS = 64
+SANDBOX_CONNECTIONS = 256
+# Errors after which accepting pauses for RETRY instead of spinning on a full table.
+RESOURCE_ERRORS = frozenset({errno.EMFILE, errno.ENFILE, errno.ENOBUFS, errno.ENOMEM})
+SIOCGIFFLAGS = 0x8913
+SIOCGIFADDR = 0x8915
+IFF_UP = 0x1
+IFF_LOOPBACK = 0x8
+SYS_NET = Path("/sys/class/net")
 REQUEST_LIMIT = 4096
 SD_LISTEN_FDS_START = 3
 IN_CLOSE_WRITE = 0x8
@@ -75,6 +88,8 @@ class Grant:
     target: str
     ports: tuple[int, ...]
     deadline: float
+    # The service's `bind`: `loopback` or `any`.
+    bind: str
 
 
 def _parse_entry(entry: dict[str, object]) -> Grant:
@@ -86,6 +101,10 @@ def _parse_entry(entry: dict[str, object]) -> Grant:
     if TOKEN_PATTERN.fullmatch(token) is None:
         msg = f"'{token}' is no creation token"
         raise ValueError(msg)
+    bind = str(entry["bind"])
+    if bind not in BINDS:
+        msg = f"'{bind}' is no bind mode"
+        raise ValueError(msg)
     ranges = cast("list[dict[str, int]]", entry["ports"])
     return Grant(
         str(entry["id"]),
@@ -94,6 +113,7 @@ def _parse_entry(entry: dict[str, object]) -> Grant:
         str(entry["target"]),
         tuple(port for span in ranges for port in range(int(span["from"]), int(span["to"]) + 1)),
         float(cast("float", entry["deadline"])),
+        bind,
     )
 
 
@@ -200,8 +220,11 @@ def _listen_in(channel: socket.socket, pidfd: int, ports: Sequence[int]) -> NoRe
 
 def _receive(channel: socket.socket, received: list[int]) -> None:
     while True:
-        message, fds, _, _ = socket.recv_fds(channel, REQUEST_LIMIT, FD_BATCH)
+        message, fds, flags, _ = socket.recv_fds(channel, REQUEST_LIMIT, FD_BATCH)
         received.extend(fds)
+        if flags & socket.MSG_CTRUNC:
+            msg = "the kernel dropped listener descriptors in transit"
+            raise SbxError(msg, code="vsock-place")
         if message == b"ok":
             return
         if message != b"fds":
@@ -234,6 +257,41 @@ def open_listeners(pidfd: int, ports: Sequence[int]) -> list[socket.socket]:
         ours.close()
         os.waitpid(child, 0)
     return [socket.socket(fileno=fd) for fd in received]
+
+
+def host_address() -> str | None:
+    """The first IPv4 address, by interface index, of an interface that is up and not loopback."""
+    # sysfs, not if_nameindex(), which needs the netlink family the unit does not allow.
+    interfaces: list[tuple[int, str]] = []
+    devices: list[Path] = []
+    # Without sysfs, as in a build sandbox, no address is known and nothing connects.
+    with contextlib.suppress(FileNotFoundError):
+        devices = list(SYS_NET.iterdir())
+    for device in devices:
+        with contextlib.suppress(OSError, ValueError):
+            interfaces.append((int((device / "ifindex").read_text()), device.name))
+    with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
+        for _, name in sorted(interfaces):
+            request = struct.pack("256s", name.encode())
+            try:
+                flags = struct.unpack_from("H", fcntl.ioctl(probe, SIOCGIFFLAGS, request), 16)[0]
+                if not flags & IFF_UP or flags & IFF_LOOPBACK:
+                    continue
+                address = fcntl.ioctl(probe, SIOCGIFADDR, request)[20:24]
+            except OSError:
+                # The interface has no IPv4 address, or it vanished since the listing.
+                continue
+            return socket.inet_ntoa(address)
+    return None
+
+
+def destination(bind: str) -> str | None:
+    """Where a granted connection goes: loopback for a `loopback` service.
+
+    A `bind = "any"` service gets a host address instead, so the grant never
+    reaches a loopback-only listener in its range.
+    """
+    return LOOPBACK if bind == "loopback" else host_address()
 
 
 class Pipe:
@@ -338,6 +396,21 @@ class Served:
     pipes: set[Pipe] = field(default_factory=set[Pipe])
     state: str = "waiting"
     error: str | None = None
+    # Whether the listeners sit in the selector; they leave it at a connection cap.
+    accepting: bool = False
+    # Accepting pauses until then after the descriptor table filled.
+    paused_until: float = 0.0
+    accept_error: str | None = None
+
+
+@dataclass
+class Request:
+    """One control connection, read and answered without blocking the loop."""
+
+    connection: socket.socket
+    deadline: float
+    received: bytes = b""
+    reply: bytes | None = None
 
 
 class Watch:
@@ -384,9 +457,11 @@ class Proxy:
         opener: Opener = open_listeners,
         clock: Callable[[], float] = boottime,
         owner: int = 0,
-        destination: str = DESTINATION,
+        resolve: Callable[[str], str | None] = destination,
+        grant_connections: int = GRANT_CONNECTIONS,
+        sandbox_connections: int = SANDBOX_CONNECTIONS,
     ) -> None:
-        """Register the control socket and the list's watch."""
+        """Register the control socket, the list's watch, and the deadline timer."""
         self.selector = selectors.DefaultSelector()
         self.state = state
         self.runtime = runtime
@@ -394,14 +469,21 @@ class Proxy:
         self.opener = opener
         self.clock = clock
         self.owner = owner
-        self.destination = destination
+        self.resolve = resolve
+        self.grant_connections = grant_connections
+        self.sandbox_connections = sandbox_connections
         self.served: dict[str, Served] = {}
         self.emulators: dict[str, Emulator] = {}
+        self.requests: dict[socket.socket, Request] = {}
         self.list_error: str | None = None
         self.retry_at = 0.0
         self.watch = Watch(state.parent)
         self.watch.arm()
         self.selector.register(self.watch.fd, selectors.EVENT_READ, self._changed)
+        # A CLOCK_BOOTTIME timer keeps counting through host suspend, where select's
+        # timeout stops, so deadlines fire on the clock workload-grantd writes them in.
+        self.timer = os.timerfd_create(time.CLOCK_BOOTTIME, flags=os.TFD_NONBLOCK | os.TFD_CLOEXEC)
+        self.selector.register(self.timer, selectors.EVENT_READ, self._ticked)
         if control is not None:
             control.settimeout(0.0)
             self.selector.register(control, selectors.EVENT_READ, self._control)
@@ -453,55 +535,128 @@ class Proxy:
         needed = {served.grant.sandbox for served in self.served.values()}
         for sandbox in set(self.emulators) - needed:
             self._forget(sandbox)
+        self._balance()
 
-    def _emulator(self, grant: Grant) -> Emulator | None:
+    def _replaced(self, grant: Grant) -> bool:
         try:
             token = (self.paths.sandbox(grant.sandbox) / CREATION_FILE).read_text()
         except FileNotFoundError:
             token = None
-        if token != grant.token:
-            msg = f"sandbox {grant.sandbox} is not the creation the grant names"
+        return token != grant.token
+
+    def _emulator(self, grant: Grant) -> Emulator | None:
+        msg = f"sandbox {grant.sandbox} is not the creation the grant names"
+        if self._replaced(grant):
             raise SbxError(msg, code="replaced")
         running = self.emulators.get(grant.sandbox)
         if running is None:
             running = open_emulator(self.runtime, grant.sandbox)
             if running is None:
                 return None
+            # The sandbox may have been replaced while its emulator was looked up.
+            if self._replaced(grant):
+                os.close(running.pidfd)
+                raise SbxError(msg, code="replaced")
             self.emulators[grant.sandbox] = running
             self.selector.register(
-                running.pidfd, selectors.EVENT_READ, functools.partial(self._stopped, grant.sandbox)
+                running.pidfd,
+                selectors.EVENT_READ,
+                functools.partial(self._stopped, grant.sandbox, running),
             )
         return running
 
     def _listen(self, served: Served, listeners: list[socket.socket]) -> None:
+        if len(listeners) != len(served.grant.ports):
+            for listener in listeners:
+                listener.close()
+            msg = f"{len(listeners)} of {len(served.grant.ports)} listeners arrived"
+            raise SbxError(msg, code="vsock-place")
         for listener in listeners:
             listener.settimeout(0.0)
-            port = int(listener.getsockname()[1])
-            accept = functools.partial(self._accept, served, port)
-            self.selector.register(listener, selectors.EVENT_READ, accept)
         served.listeners = listeners
+        served.accepting = False
 
-    def _accept(self, served: Served, port: int, listener: object, _mask: int) -> None:
-        if self.served.get(served.grant.grant) is not served:
+    def _accepting(self, served: Served, *, accepting: bool) -> None:
+        if served.accepting == accepting:
             return
-        try:
-            guest, _ = cast("socket.socket", listener).accept()
-        except BlockingIOError:
-            return
+        for listener in served.listeners:
+            if accepting:
+                port = int(listener.getsockname()[1])
+                accept = functools.partial(self._accept, served, port)
+                self.selector.register(listener, selectors.EVENT_READ, accept)
+            else:
+                self.selector.unregister(listener)
+        served.accepting = accepting
+
+    def _balance(self) -> None:
+        """Accept on each grant only below its caps and outside a pause."""
+        now = self.clock()
+        held: dict[str, int] = {}
+        for served in self.served.values():
+            held[served.grant.sandbox] = held.get(served.grant.sandbox, 0) + len(served.pipes)
+        for served in self.served.values():
+            if served.listeners:
+                self._accepting(
+                    served,
+                    accepting=len(served.pipes) < self.grant_connections
+                    and held[served.grant.sandbox] < self.sandbox_connections
+                    and now >= served.paused_until,
+                )
+
+    def _connect(
+        self, listener: socket.socket, bind: str, port: int, opened: list[socket.socket]
+    ) -> None:
+        """Accept one guest connection and start its upstream connect, keeping both in `opened`."""
+        guest, _ = listener.accept()
+        opened.append(guest)
+        address = self.resolve(bind)
+        if address is None:
+            raise OSError(errno.EADDRNOTAVAIL, "the host has no non-loopback IPv4 address")
         guest.settimeout(0.0)
         upstream = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        opened.append(upstream)
         upstream.settimeout(0.0)
-        failure = upstream.connect_ex((self.destination, port))
+        failure = upstream.connect_ex((address, port))
         if failure not in {0, errno.EINPROGRESS}:
-            guest.close()
-            upstream.close()
+            raise OSError(failure, os.strerror(failure))
+
+    def _accept(self, served: Served, port: int, listener: object, _mask: int) -> None:
+        if self.served.get(served.grant.grant) is not served or listener not in served.listeners:
             return
-        served.pipes.add(Pipe(self.selector, guest, upstream, served.pipes.discard))
+        opened: list[socket.socket] = []
+        try:
+            self._connect(cast("socket.socket", listener), served.grant.bind, port, opened)
+        except BlockingIOError:
+            return
+        except OSError as error:
+            for end in opened:
+                end.close()
+            if error.errno in RESOURCE_ERRORS:
+                served.paused_until = self.clock() + RETRY
+            if str(error) != served.accept_error:
+                journal.record(
+                    f"vsock grant {served.grant.grant} refused a connection on {port}: {error}",
+                    verb="vsock",
+                    sandbox=served.grant.sandbox,
+                    grant=served.grant.grant,
+                )
+            served.accept_error = str(error)
+            self._balance()
+            return
+        served.accept_error = None
+        guest, upstream = opened
+        done = functools.partial(self._finished, served)
+        served.pipes.add(Pipe(self.selector, guest, upstream, done))
+        self._balance()
+
+    def _finished(self, served: Served, pipe: Pipe) -> None:
+        served.pipes.discard(pipe)
+        self._balance()
 
     def _shut(self, served: Served) -> None:
         """Close a grant's listeners and every connection they accepted."""
+        self._accepting(served, accepting=False)
         for listener in served.listeners:
-            self.selector.unregister(listener)
             listener.close()
         served.listeners = []
         for pipe in list(served.pipes):
@@ -518,12 +673,15 @@ class Proxy:
         )
 
     def _forget(self, sandbox: str) -> None:
-        running = self.emulators.pop(sandbox)
-        self.selector.unregister(running.pidfd)
-        os.close(running.pidfd)
+        running = self.emulators.pop(sandbox, None)
+        if running is not None:
+            self.selector.unregister(running.pidfd)
+            os.close(running.pidfd)
 
-    def _stopped(self, sandbox: str, _pidfd: object, _mask: int) -> None:
+    def _stopped(self, sandbox: str, running: Emulator, _pidfd: object, _mask: int) -> None:
         """QEMU exited: its namespace goes with it, and so do the grant's listeners."""
+        if self.emulators.get(sandbox) is not running:
+            return
         self._forget(sandbox)
         for served in self.served.values():
             if served.grant.sandbox == sandbox:
@@ -553,41 +711,93 @@ class Proxy:
         self.watch.drain()
         self.reconcile()
 
+    def _ticked(self, _fd: object, _mask: int) -> None:
+        with contextlib.suppress(BlockingIOError):
+            os.read(self.timer, 8)
+
+    def _arm(self) -> None:
+        """Set the timer to the earliest deadline, or disarm it."""
+        deadlines = [served.grant.deadline for served in self.served.values()]
+        if not deadlines:
+            os.timerfd_settime(self.timer, initial=0)
+            return
+        # Relative to the injected clock, on CLOCK_BOOTTIME, so suspend still counts.
+        os.timerfd_settime(self.timer, initial=max(min(deadlines) - self.clock(), 1e-6))
+
     def _control(self, control: object, _mask: int) -> None:
-        """Answer one sync request after applying the list."""
         try:
             connection, _ = cast("socket.socket", control).accept()
+        except OSError:
+            return
+        connection.settimeout(0.0)
+        request = Request(connection, time.monotonic() + CONTROL_TIMEOUT)
+        self.requests[connection] = request
+        self.selector.register(
+            connection, selectors.EVENT_READ, functools.partial(self._request, request)
+        )
+
+    def _request(self, request: Request, _connection: object, mask: int) -> None:
+        """Read one sync request to its end, apply the list, then write the answer."""
+        connection = request.connection
+        try:
+            if mask & selectors.EVENT_READ:
+                chunk = connection.recv(REQUEST_LIMIT)
+                if chunk:
+                    request.received += chunk
+                    if len(request.received) > REQUEST_LIMIT:
+                        self._drop(request)
+                    return
+                request.reply = json.dumps(self._answer(request.received)).encode()
+                self.selector.modify(
+                    connection, selectors.EVENT_WRITE, functools.partial(self._request, request)
+                )
+            if mask & selectors.EVENT_WRITE and request.reply is not None:
+                request.reply = request.reply[connection.send(request.reply) :]
+                if not request.reply:
+                    self._drop(request)
         except BlockingIOError:
             return
-        with connection:
-            connection.settimeout(CONTROL_TIMEOUT)
-            try:
-                request = b""
-                while len(request) <= REQUEST_LIMIT and (chunk := connection.recv(REQUEST_LIMIT)):
-                    request += chunk
-                verb = cast("dict[str, object]", json.loads(request)).get("verb")
-                if verb != "sync":
-                    connection.sendall(json.dumps({"failure": f"unknown verb {verb!r}"}).encode())
-                    return
-                self.reconcile()
-                connection.sendall(json.dumps(self.status()).encode())
-            except (OSError, ValueError, AttributeError) as error:
-                journal.record(f"vsock control request failed: {error}", verb="vsock")
+        except OSError as error:
+            journal.record(f"vsock control request failed: {error}", verb="vsock")
+            self._drop(request)
 
-    def _timeout(self, now: float) -> float | None:
-        waits = [served.grant.deadline - now for served in self.served.values()]
+    def _answer(self, raw: bytes) -> dict[str, object]:
+        try:
+            verb = cast("dict[str, object]", json.loads(raw)).get("verb")
+        except (ValueError, AttributeError) as error:
+            return {"failure": f"the request is no JSON object: {error}"}
+        if verb != "sync":
+            return {"failure": f"unknown verb {verb!r}"}
+        self.reconcile()
+        return self.status()
+
+    def _drop(self, request: Request) -> None:
+        if self.requests.pop(request.connection, None) is not None:
+            self.selector.unregister(request.connection)
+            request.connection.close()
+
+    def timeout(self, now: float) -> float | None:
+        """Retries and control deadlines only; grant deadlines fire through the timer."""
+        waits = [request.deadline - time.monotonic() for request in self.requests.values()]
         if not self.watch.watching or any(not served.listeners for served in self.served.values()):
             waits.append(self.retry_at - now)
+        waits += [s.paused_until - now for s in self.served.values() if s.paused_until > now]
         return max(0.0, min(waits)) if waits else None
 
     def step(self, timeout: float | None) -> None:
         """Wait for one round of events, then close expired grants and retry placements."""
+        self._arm()
         for key, mask in self.selector.select(timeout):
+            # An earlier callback this round may have closed or replaced this object.
+            if self.selector.get_map().get(key.fd) is not key:
+                continue
             cast("Callback", key.data)(key.fileobj, mask)
         now = self.clock()
         for grant_id, served in list(self.served.items()):
             if served.grant.deadline <= now:
                 self._close(grant_id, "expired")
+        for request in [r for r in self.requests.values() if r.deadline <= time.monotonic()]:
+            self._drop(request)
         if now >= self.retry_at:
             self.retry_at = now + RETRY
             if not self.watch.watching:
@@ -595,6 +805,7 @@ class Proxy:
                 self.reconcile()
             elif any(not served.listeners for served in self.served.values()):
                 self._place()
+        self._balance()
 
     def close(self) -> None:
         """Close every listener, connection, and descriptor the proxy holds."""
@@ -602,14 +813,17 @@ class Proxy:
             self._close(grant_id, "the proxy stopped")
         for sandbox in list(self.emulators):
             self._forget(sandbox)
+        for request in list(self.requests.values()):
+            self._drop(request)
         self.selector.close()
         os.close(self.watch.fd)
+        os.close(self.timer)
 
     def run(self) -> NoReturn:
         """Serve until stopped; every listener and connection closes with the process."""
         self.reconcile()
         while True:
-            self.step(self._timeout(self.clock()))
+            self.step(self.timeout(self.clock()))
 
 
 def runtime_dir() -> Path:
