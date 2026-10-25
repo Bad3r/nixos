@@ -217,15 +217,18 @@ let
             office.installer == null || config.workloads.media ? ${office.installer}
           ) "windows.office.installer names no workloads.media entry")
           (check (lib.allUnique pinned) "shares: two shares take the same driveLetter")
-          (check (
-            lib.length (lib.attrNames shares) <= 20
-          ) "shares: a Windows guest mounts at most 20 shares, on G to Z")
-          (check (
-            guest.windows.virtiofs.mode != "service"
-            || (
-              lib.length (lib.attrNames shares) <= 1 && lib.all (share: !share.runtime) (lib.attrValues shares)
+          (check (lib.length (lib.attrNames shares) <= 20)
+            "shares: a Windows guest mounts at most 20 shares, on G to Z, a drop included unless shares.drop.enable = false"
+          )
+          (check
+            (
+              guest.windows.virtiofs.mode != "service"
+              || (
+                lib.length (lib.attrNames shares) <= 1 && lib.all (share: !share.runtime) (lib.attrValues shares)
+              )
             )
-          ) "windows.virtiofs.mode = \"service\" mounts one share, attached at boot")
+            "windows.virtiofs.mode = \"service\" mounts one share, attached at boot, a drop included unless shares.drop.enable = false"
+          )
         ];
     in
     {

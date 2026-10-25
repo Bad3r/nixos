@@ -110,6 +110,10 @@ in
                 useSystemdActivation = lib.mkOption { default = false; };
               };
               config = {
+                users.users.staff = {
+                  isNormalUser = true;
+                  group = "root";
+                };
                 sops.secrets."workloads/win/password" = { };
                 workloads = {
                   networks.lan = {
@@ -153,7 +157,17 @@ in
               owner = "root";
             };
           };
-          expected = [ "workloads.guests.lab: shares.rw: the owner must not be root" ];
+          expected = [ "workloads.guests.lab: shares.rw: the owner and its primary group must not be root" ];
+        }
+        {
+          name = "a share owned by a user whose primary group is root";
+          guests.lab = guest {
+            shares.rw = {
+              hostPath = "/srv/rw";
+              owner = "staff";
+            };
+          };
+          expected = [ "workloads.guests.lab: shares.rw: the owner and its primary group must not be root" ];
         }
         {
           name = "a share owned by an undeclared user";
@@ -199,7 +213,9 @@ in
               hostPath = "/srv/${tag}";
             });
           };
-          expected = [ "workloads.guests.win: shares: a Windows guest mounts at most 20 shares, on G to Z" ];
+          expected = [
+            "workloads.guests.win: shares: a Windows guest mounts at most 20 shares, on G to Z, a drop included unless shares.drop.enable = false"
+          ];
         }
         {
           name = "a Windows guest serving two shares through VirtioFsSvc";
@@ -211,7 +227,7 @@ in
             };
           };
           expected = [
-            "workloads.guests.win: windows.virtiofs.mode = \"service\" mounts one share, attached at boot"
+            "workloads.guests.win: windows.virtiofs.mode = \"service\" mounts one share, attached at boot, a drop included unless shares.drop.enable = false"
           ];
         }
         {
@@ -224,7 +240,7 @@ in
             };
           };
           expected = [
-            "workloads.guests.win: windows.virtiofs.mode = \"service\" mounts one share, attached at boot"
+            "workloads.guests.win: windows.virtiofs.mode = \"service\" mounts one share, attached at boot, a drop included unless shares.drop.enable = false"
           ];
         }
         {

@@ -119,10 +119,31 @@ let
         };
       };
 
+      enabledShares = service: lib.filterAttrs (_: share: share.enable) service.shares;
+
+      ownerIds =
+        share:
+        let
+          user = config.users.users.${share.owner} or { };
+        in
+        {
+          uid = user.uid or null;
+          gid = config.users.groups.${user.group or ""}.gid or null;
+        };
+
+      # `@` resolves the second id inside the container's own --userns=auto range.
+      shareVolume =
+        share:
+        let
+          ids = ownerIds share;
+        in
+        "${share.hostPath}:${share.mountPoint}:${lib.optionalString share.readOnly "ro,"}idmap=uids=@${toString ids.uid}-0-1;gids=@${toString ids.gid}-0-1";
+
       container = name: service: {
         name = containerName name;
         value = {
-          inherit (service) image imageFile volumes;
+          inherit (service) image imageFile;
+          volumes = service.volumes ++ lib.mapAttrsToList (_: shareVolume) (enabledShares service);
           autoStart = service.autostart;
           networks = [ service.network ];
           extraOptions = [
@@ -200,6 +221,22 @@ let
               assertion = podmanNetworks ? ${service.network};
               message = "workloads.services.${name}: network ${service.network} needs workloads.networks.${service.network}.podman.enable";
             }) services
+            ++ lib.concatLists (
+              lib.mapAttrsToList (
+                name: service:
+                lib.mapAttrsToList (
+                  tag: share:
+                  let
+                    ids = ownerIds share;
+                  in
+                  {
+                    # Mapped to 0, container root would create setuid- or setgid-root files on the host.
+                    assertion = ids.uid != null && ids.uid != 0 && ids.gid != null && ids.gid != 0;
+                    message = "workloads.services.${name}: shares.${tag}: owner ${share.owner} needs to be a declared non-root user with a fixed uid and a non-root primary group with a fixed gid";
+                  }
+                ) (enabledShares service)
+              ) services
+            )
             ++ [
               {
                 assertion = lib.allUnique (map (port: "${port.protocol}/${toString port.host}") ports);

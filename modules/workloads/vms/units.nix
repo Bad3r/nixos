@@ -213,10 +213,12 @@ let
           ) guest.shares
           ++ lib.mapAttrsToList (
             tag: share:
-            # As root, virtiofsd would let guest root create setuid-root files.
+            # As root, virtiofsd would let guest root create setuid- or setgid-root files.
             check (
-              share.owner != "root" && (config.users.users.${share.owner}.uid or null) != 0
-            ) "shares.${tag}: the owner must not be root"
+              share.owner != "root"
+              && (config.users.users.${share.owner}.uid or null) != 0
+              && (config.users.groups.${config.users.users.${share.owner}.group or ""}.gid or null) != 0
+            ) "shares.${tag}: the owner and its primary group must not be root"
           ) (enabledShares guest)
           ++ lib.mapAttrsToList (
             tag: share:
