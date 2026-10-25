@@ -57,7 +57,8 @@ let
             description = ''
               Whether libvirtd starts the network with the daemon. The
               reconciler also starts an inactive autostart network after
-              defining it.
+              defining it. A `bindLeases` network never autostarts in libvirt;
+              its unit starts it once the lease table is loaded.
             '';
           };
 

@@ -57,7 +57,8 @@ let
             elif [ "$status" -le 128 ]; then
               exit 1
             fi
-            ${lib.getExe refill}
+            # errexit would end the loop while inotifywait waits on.
+            ${lib.getExe refill} || echo "workload-leases: refill failed; retrying" >&2
           done
         '';
       };
@@ -100,6 +101,21 @@ let
         # Pinned MACs mean nothing if a link-local frame can move them.
         { systemd.services = lib.mapAttrs' linkLocalUnit libvirtNetworks; }
 
+        # The table outlives the service, so dropping the last bindLeases
+        # network deletes it instead of leaving its rules on the bridge.
+        (lib.mkIf (networks == { } && libvirtNetworks != { }) {
+          systemd.services.workload-leases = {
+            description = "Remove the lease binding of workload bridges";
+            wantedBy = [ "multi-user.target" ];
+            after = [ "nftables.service" ];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart = "${pkgs.nftables}/bin/nft destroy table bridge workload-leases";
+            };
+          };
+        })
+
         (lib.mkIf (networks != { }) {
           assertions = [
             {
@@ -122,8 +138,6 @@ let
               wantedBy = [ "multi-user.target" ];
               requires = [ "nftables.service" ];
               after = [ "nftables.service" ];
-              # Autostart networks come up with libvirtd, so the table loads first.
-              before = [ "libvirtd.service" ];
               unitConfig.ReloadPropagatedFrom = [ "nftables.service" ];
               startLimitIntervalSec = 0;
               serviceConfig = {

@@ -108,6 +108,15 @@ in
       installerSource = "/srv/media/installer.iso";
       installerContent = "installer";
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
+      absentWorkloads = {
+        guests = {
+          beta = changedAlpha // {
+            ensure = "absent";
+          };
+          inherit delta;
+        };
+        networks.default.resolve = [ "delta" ];
+      };
       seedLink = "/var/lib/workloads/images/seed.qcow2";
       lateLink = "/var/lib/workloads/images/late.qcow2";
       oldLink = "/var/lib/workloads/images/old.qcow2";
@@ -456,14 +465,9 @@ in
                   };
                   networks.default.resolve = [ "delta" ];
                 };
-                absent.configuration.workloads = {
-                  guests = {
-                    beta = changedAlpha // {
-                      ensure = "absent";
-                    };
-                    inherit delta;
-                  };
-                  networks.default.resolve = [ "delta" ];
+                absent.configuration.workloads = absentWorkloads;
+                unbound.configuration.workloads = lib.recursiveUpdate absentWorkloads {
+                  networks.sbx.libvirt.bindLeases = lib.mkForce false;
                 };
               };
             };
@@ -858,6 +862,21 @@ in
                 machine.succeed("systemctl reload nftables.service")
                 assert "${peerMac}" in machine.succeed("nft list set bridge workload-leases ports-sbx")
                 assert "${peerMac}" in machine.succeed("nft list set bridge workload-leases leases-sbx")
+
+            def net_info(name):
+                lines = machine.succeed(f"virsh net-info {name}").splitlines()
+                return dict(line.split(":", 1) for line in lines if ":" in line)
+
+            with subtest("the unit, not libvirt autostart, starts a bindLeases network"):
+                assert net_info("sbx")["Autostart"].strip() == "no", net_info("sbx")
+                machine.succeed("systemctl restart libvirtd.service")
+                machine.wait_for_unit("workloads-vm-net-sbx.service")
+                assert net_info("sbx")["Active"].strip() == "yes", net_info("sbx")
+
+            with subtest("dropping the last bindLeases network removes the table"):
+                machine.succeed("${switch "unbound"}")
+                machine.fail("nft list table bridge workload-leases")
+                assert net_info("sbx")["Autostart"].strip() == "yes", net_info("sbx")
           '';
       };
     };
