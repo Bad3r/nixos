@@ -389,6 +389,17 @@ class SandboxesTest(Fixture):
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-live", "sbx-saved"])
         self.assertFalse(self.paths.sandbox("stray").exists())
 
+    def test_gc_with_an_unsynced_clock(self) -> None:
+        """Without NTP sync, gc keeps expired sandboxes and still applies its other reasons."""
+        for name in ("old", "off"):
+            self.paths.sandbox(name).mkdir(parents=True)
+        self.backend.add("old", expires=NOW - 1)
+        self.backend.add("off", expires=NOW - 1, active=False)
+        with mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}):
+            removed = self.sandboxes().gc(dry_run=False)
+        self.assertEqual(removed, [{"name": "off", "reason": "shut off"}])
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-old"])
+
     def test_destroy_mine(self) -> None:
         """--mine removes only the caller's sandboxes."""
         for name, session in (("a", "claude:one"), ("b", "codex:two")):

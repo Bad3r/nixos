@@ -169,6 +169,15 @@ class SleepTest(Fixture):
         self.assertEqual(self.record("saved"), ["a", "b"])
         self.assertEqual(self.connects, 0)
 
+    def test_save_with_an_unsynced_clock_keeps_expired(self) -> None:
+        """Without NTP sync, save saves an expired sandbox instead of destroying it."""
+        self.expire("b")
+        with mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}):
+            actions, code = self.phase("save")
+        self.assertEqual(code, 0)
+        self.assertEqual([item["action"] for item in actions], ["saved", "saved"])
+        self.assertIn("expired sandboxes are saved too", self.errors)
+
     def test_failed_save_exits_one(self) -> None:
         """The first failed save stops the phase, and the record keeps it for restore."""
         self.fake.failing.add("sbx-a")

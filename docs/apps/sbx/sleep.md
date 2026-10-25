@@ -2,7 +2,7 @@
 
 `sbx sleep pause|resume|save|restore` carries the owner's sandboxes through host suspend and hibernation.
 The verbs are for the host sleep hook, not for agents.
-The hook in [../libvirt/sleep.md](../libvirt/sleep.md) runs them as each user whose `sbx-libvirt.service` is active, lingering users included.
+The hook in [../libvirt/sleep.md](../libvirt/sleep.md) runs them as each logind user whose `sbx-libvirt.service` has processes, lingering users included.
 It owns the systemd units, the ordering, the time caps, and the abort.
 The phases live in `packages/sbx/sbx/sleep.py`.
 
@@ -30,11 +30,12 @@ Every phase exits 1 on any failure; the hook decides what a failure means.
 - `pause` suspends every running sandbox and records its name.
   A sandbox already paused stays paused and is not recorded.
 - `resume` resumes the recorded sandboxes that are still paused, then sets each one's clock to the host's through qemu-ga, as `virsh domtime --now` does.
-- A sandbox past its TTL is resumed too; `sbx gc` removes it on its next run.
+- A sandbox past its TTL is resumed too; `sbx gc` removes it once the host clock is synced.
 
 ## Hibernate
 
-- `save` first destroys every sandbox past its TTL.
+- `save` first destroys every sandbox past its TTL, but only on an NTP-synchronized host clock.
+  On an unsynced clock it warns and saves expired sandboxes with the rest.
   It then managed-saves each running or paused sandbox, recording its name before the save.
 - Before the first save it refuses when the save images could take the filesystem of `~/.config/libvirt/qemu/save` below the `minFree` floor.
   It counts each sandbox's declared memory as its image size; the declared-memory ceiling keeps the total under the `sbx.slice` limit.
@@ -43,6 +44,7 @@ Every phase exits 1 on any failure; the hook decides what a failure means.
   At the budget, or on SIGTERM, `save` aborts the running save job, which leaves that guest running, and exits 1.
 - `restore` starts every recorded sandbox from its managed save, expired or not, and leaves expiry to `sbx gc`.
   After hibernation the host clock may still be the RTC's, which can run hours ahead, so a TTL check there could destroy live work.
+  `sbx gc` removes expired sandboxes only once the clock is synced; its other reasons, such as a missing run directory, apply at once.
 - A recorded sandbox still in a save job, such as one the hook gave up on, is waited for a bounded time and then restored.
   One still saving after that, or one whose restore fails, stays in the record, and `restore` exits 1.
 - A sandbox saved while paused comes back paused; one that `pause` recorded too is then resumed.
@@ -61,7 +63,7 @@ Otherwise they warn and leave the guest clocks alone, rather than pushing a wron
 
 Records are appended, so a phase that never ran its counterpart is caught up by the next one.
 They live under the runtime directory, so a cold boot drops them.
-The saved sandboxes then stay shut off with their managed save, and `sbx gc` removes them once their TTL passes.
+The saved sandboxes then stay shut off with their managed save, and `sbx gc` removes them once their TTL passes on a synced clock.
 
 ## Verify
 

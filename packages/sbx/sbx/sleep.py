@@ -132,17 +132,12 @@ class Sleep:
     def _by_name(self) -> dict[str, Sandbox]:
         return {sandbox.name: sandbox for sandbox in self.sandboxes.owned()}
 
-    def _host_synced(self) -> bool:
-        show = [self.sandboxes.settings.tools.timedatectl, "show", "-p", "NTPSynchronized"]
-        result = subprocess.run([*show, "--value"], capture_output=True, text=True, check=False)
-        return result.stdout.strip() == "yes"
-
     def _sync_clocks(self, names: list[str]) -> None:
         """Set each running sandbox's clock to the host's, as `domtime --now` does."""
         if not names:
             return
         # Right after resume the host clock may still be the RTC's, hours off on songbird.
-        if not self._host_synced():
+        if not self.sandboxes.host_synced():
             warn("the host clock is not NTP-synchronized, so sandbox clocks keep their time")
             return
         backend = self.sandboxes.backend()
@@ -262,8 +257,12 @@ class Sleep:
         deadline = time.monotonic() + SAVE_BUDGET
         if not self._attached():
             return
-        for name in self.sandboxes.destroy_where(mine=False, expired=True, timeout=LOCK_WAIT):
-            self._emit(name, "destroyed")
+        # TTLs are judged only on a synced clock, as `sbx gc` does.
+        if self.sandboxes.host_synced():
+            for name in self.sandboxes.destroy_where(mine=False, expired=True, timeout=LOCK_WAIT):
+                self._emit(name, "destroyed")
+        else:
+            warn("the host clock is not NTP-synchronized, so expired sandboxes are saved too")
         stop = threading.Event()
 
         def stopped(_signum: int, _frame: FrameType | None) -> None:

@@ -1051,8 +1051,15 @@ class Sandboxes:
         result["image"] = sandbox.meta.image
         return result
 
-    def _gc_reason(self, sandbox: Sandbox, now: float) -> str | None:
-        if sandbox.meta.expires <= now:
+    def host_synced(self) -> bool:
+        """Return whether timedatectl reports the host clock NTP-synchronized."""
+        show = [self.settings.tools.timedatectl, "show", "-p", "NTPSynchronized", "--value"]
+        result = subprocess.run(show, capture_output=True, text=True, check=False)
+        return result.stdout.strip() == "yes"
+
+    def _gc_reason(self, sandbox: Sandbox, now: float, *, synced: bool) -> str | None:
+        # An unsynced clock, such as the RTC's right after resume, may run hours ahead.
+        if synced and sandbox.meta.expires <= now:
             return "expired"
         if not sandbox.domain.active and not sandbox.domain.managed_save:
             return "shut off"
@@ -1061,15 +1068,16 @@ class Sandboxes:
         return None
 
     def gc(self, *, dry_run: bool) -> list[dict[str, str]]:
-        """Remove expired, stopped, and half-removed sandboxes."""
+        """Remove stopped and half-removed sandboxes, and expired ones once the clock is synced."""
         if not self._has_state():
             return []
         actions: list[dict[str, str]] = []
+        synced = self.host_synced()
         with self.locked():
             now = self._clock()
             owned = {sandbox.name: sandbox for sandbox in self.owned()}
             for sandbox in owned.values():
-                reason = self._gc_reason(sandbox, now)
+                reason = self._gc_reason(sandbox, now, synced=synced)
                 if reason is None:
                     continue
                 actions.append({"name": sandbox.name, "reason": reason})
