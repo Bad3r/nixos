@@ -17,6 +17,7 @@ from sbx import journal, sleep, vsock
 from sbx.config import parse_duration
 from sbx.errors import SbxError, error_code, error_document
 from sbx.execution import exec_options
+from sbx.gui import TYPE_LIMIT
 from sbx.model import ENCODINGS, FLAVOURS, NETS, SHARED
 from sbx.results import Document, Result, Results
 from sbx.sandboxes import running_daemon
@@ -622,9 +623,12 @@ OPERATIONS = (
                 required=True,
                 repeatable=True,
                 metavar="KEY",
+                mcp_help="keys or chords such as enter or ctrl+alt+t, pressed in turn",
             ),
         ),
-        mcp_exposed=False,
+        "Press keys in a sandbox",
+        "Press each key or chord in turn on the display of a sandbox with a GUI base; "
+        "returns {sandbox, keys}.",
     ),
     Operation(
         ("type",),
@@ -632,23 +636,37 @@ OPERATIONS = (
         _type,
         (
             NAME,
-            Param("text", "US-layout text; newline presses enter", required=True),
+            Param(
+                "text",
+                "US-layout text; newline presses enter",
+                required=True,
+                schema={"maxLength": TYPE_LIMIT},
+            ),
         ),
-        mcp_exposed=False,
+        "Type text in a sandbox",
+        "Type text as US-layout key presses on the display of a sandbox with a GUI base; "
+        "returns {sandbox, characters}. The journal records only the text's length.",
     ),
     Operation(
         ("share", "attach"),
         "hot-plug a share into a running sandbox",
         _share_attach,
         SHARE_PARAMS,
-        mcp_exposed=False,
+        "Attach a share to a sandbox",
+        "Hot-plug a virtiofs share into a running Linux sandbox until it is detached or "
+        f"stops: {SHARED}, the sandbox's own read-write directory, or a declared "
+        "read-only host directory. Returns {sandbox, tag, read_only, host_path, "
+        "attached}; the guest mounts it with mount -t virtiofs <tag> <directory>.",
     ),
     Operation(
         ("share", "detach"),
         "remove a share; fails while the guest still holds it",
         _share_detach,
         SHARE_PARAMS,
-        mcp_exposed=False,
+        "Detach a share from a sandbox",
+        "Remove a share and wait until the guest releases it; returns the share as "
+        "share_attach does, with attached false. A share the guest still holds is "
+        "a detach-pending error; unmount it in the guest first.",
     ),
     Operation(
         ("gc",),

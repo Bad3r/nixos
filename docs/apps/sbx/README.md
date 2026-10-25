@@ -128,7 +128,7 @@ On a host that never syncs, expired sandboxes stay until `sbx destroy <name>`.
 
 With the `sbx` row on, Claude Code and Codex get the `sbx` skill from `modules/agents/skills/sbx.nix`, a system-prompt line, and an allow rule for `sbx`.
 The Codex allow rule in `modules/agents/codex/_exec-policy.nix` also runs `sbx` outside bwrap, since the CLI writes its state directory and starts user units.
-Both clients also start `sbx-mcp`, the `sbx` entry in `modules/agents/mcp/servers.nix`, whose tools take a verb's flags as arguments and return its `--json` document without an approval prompt.
+Both clients also start `sbx-mcp`, the `sbx` entry in `modules/agents/mcp/servers.nix`, whose tools, one per agent-facing verb, take the verb's arguments by name and return its `--json` document without an approval prompt.
 The MCP screenshot tool also returns a PNG image content block for direct visual inspection, alongside the saved path and MIME type.
 Its optional `ocr` argument adds Tesseract output under `text`; image inspection needs no OCR.
 Codex names its session in every tool call, and `CODEX_SESSION_ID` in every shell, so `--mine` matches sandboxes from the CLI and the MCP tools alike.

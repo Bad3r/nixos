@@ -149,11 +149,11 @@ let
 
     ## MCP Tools
 
-    The `sbx` MCP server offers each verb in the table above but `key`,
-    `type`, and `share` as a tool (`base list` is `base_list`); run those three
-    through the CLI. Flags become named arguments, the guest command an argv
-    list, and the result is the `--json` document above; a refusal is a tool
-    error carrying the error object. A failing guest command is no tool error:
+    The `sbx` MCP server offers each verb in the table above as a tool, with
+    an underscore for the space (`base_list`, `share_attach`, `share_detach`).
+    Flags and operands become named arguments, the guest command an argv list,
+    `key`'s chords a `keys` list, and the result is the `--json` document
+    above; a refusal is a tool error carrying the error object. A failing guest command is no tool error:
     read `exit_code` and `signal`. `exec` and `run` take `env` as an object
     and stdin as `stdin` text or `stdin_base64` bytes.
 

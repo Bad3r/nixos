@@ -19,7 +19,7 @@ from sbx.config import caller_session
 from sbx.errors import SbxError
 from sbx.results import Document
 
-from . import test_core
+from . import test_core, test_shares
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -54,6 +54,9 @@ SAMPLES: dict[str, object] = {
     "ocr": True,
     "dry_run": True,
     "gui": True,
+    "keys": ["ctrl+alt+t", "enter"],
+    "text": "-x",
+    "share": "shared",
 }
 SNAPSHOT = Path(__file__).with_name("mcp-tools.json")
 
@@ -100,6 +103,8 @@ class ArgumentsTest(unittest.TestCase):
         self.assertEqual(args.data("stdin_base64"), b"\x00\xff")
         self.assertEqual(args.strings("command"), ["sh", "-c", "x -- y"])
         self.assertEqual((args.text("encoding"), args.optional("timeout")), ("text", None))
+        typed = mcp.parse_arguments(mcp.TOOLS_BY_NAME["type"], {"name": "g", "text": "--help"})
+        self.assertEqual(typed.text("text"), "--help")
         listed = mcp.parse_arguments(mcp.TOOLS_BY_NAME["list"], {"mine": None})
         self.assertFalse(listed.flag("mine"))
 
@@ -120,6 +125,10 @@ class ArgumentsTest(unittest.TestCase):
             ("exec", {"name": "a", "stdin_base64": "%%", "command": ["cat"]}),
             ("exec", {"name": "a", "stdin": 1, "command": ["cat"]}),
             ("list", {"mine": "yes"}),
+            ("key", {"name": "g", "keys": "a"}),
+            ("key", {"name": "g", "keys": []}),
+            ("type", {"name": "g", "text": ["a"]}),
+            ("share_attach", {"name": "g"}),
         ]
         for tool, arguments in cases:
             with self.subTest(tool=tool, arguments=arguments):
@@ -400,6 +409,42 @@ class ServerTest(unittest.TestCase):
             result = self.exchange(call)[call["id"]]["result"]
             results.append((result["isError"], json.loads(result["content"][0]["text"])))
         return results
+
+    def test_gui_input(self) -> None:
+        """Keys and text reach a GUI display; text may start with a dash, keys must be a list."""
+        self.core.sandboxes().create(self.core.request(gui=True))
+        with mock.patch.object(gui.time, "sleep"):
+            pressed, typed, refused = self.documents(
+                self.call(1, "key", {"name": "t1", "keys": ["ctrl+alt+t", "enter"]}),
+                self.call(2, "type", {"name": "t1", "text": "-x\n"}),
+                self.call(3, "key", {"name": "t1", "keys": "a"}),
+            )
+        self.assertEqual(pressed, (False, {"sandbox": "t1", "keys": ["ctrl+alt+t", "enter"]}))
+        self.assertEqual(typed, (False, {"sandbox": "t1", "characters": 3}))
+        self.assertEqual((refused[0], refused[1]["error"]["code"]), (True, "usage"))
+        self.assertEqual(
+            [codes for _domain, codes in self.core.backend.keys],
+            [[29, 56, 20], [28], [12], [45], [28]],
+        )
+
+    def test_shares(self) -> None:
+        """share_attach and share_detach return the share's JSON form."""
+        backend = test_shares.ShareFake()
+        backend.linger = 0
+        self.core.backend = backend
+        backend.add("s", expires=test_core.NOW + 3600)
+        self.core.paths.sandbox("s").mkdir(parents=True)
+        arguments = {"name": "s", "share": "shared"}
+        attached, detached, missing = self.documents(
+            self.call(1, "share_attach", arguments),
+            self.call(2, "share_detach", arguments),
+            self.call(3, "share_detach", arguments),
+        )
+        host_path = str(self.core.paths.sandbox("s").resolve() / "shared")
+        share = {"sandbox": "s", "tag": "shared", "read_only": False, "host_path": host_path}
+        self.assertEqual(attached, (False, share | {"attached": True}))
+        self.assertEqual(detached, (False, share | {"attached": False}))
+        self.assertEqual((missing[0], missing[1]["error"]["code"]), (True, "not-attached"))
 
     def test_stdin_conflict(self) -> None:
         """Text and base64 stdin together are refused before the command runs."""

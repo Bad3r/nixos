@@ -13,18 +13,7 @@ from sbx.errors import SbxError
 from .test_mcp import samples
 
 # Verbs for the owner's shell and host services, never for agents.
-CLI_ONLY = frozenset(
-    {
-        ("key",),
-        ("type",),
-        ("share", "attach"),
-        ("share", "detach"),
-        ("base", "prepare"),
-        ("sleep",),
-        ("vsock", "serve"),
-        ("vsock", "sync"),
-    }
-)
+CLI_ONLY = frozenset({("base", "prepare"), ("sleep",), ("vsock", "serve"), ("vsock", "sync")})
 
 
 def leaves(

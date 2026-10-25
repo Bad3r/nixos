@@ -354,6 +354,115 @@
 		}
 	},
 	{
+		"name": "key",
+		"title": "Press keys in a sandbox",
+		"description": "Press each key or chord in turn on the display of a sandbox with a GUI base; returns {sandbox, keys}.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				},
+				"keys": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"minItems": 1,
+					"description": "keys or chords such as enter or ctrl+alt+t, pressed in turn"
+				}
+			},
+			"required": ["name", "keys"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Press keys in a sandbox",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "type",
+		"title": "Type text in a sandbox",
+		"description": "Type text as US-layout key presses on the display of a sandbox with a GUI base; returns {sandbox, characters}. The journal records only the text's length.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				},
+				"text": {
+					"type": "string",
+					"description": "US-layout text; newline presses enter",
+					"maxLength": 4096
+				}
+			},
+			"required": ["name", "text"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Type text in a sandbox",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "share_attach",
+		"title": "Attach a share to a sandbox",
+		"description": "Hot-plug a virtiofs share into a running Linux sandbox until it is detached or stops: shared, the sandbox's own read-write directory, or a declared read-only host directory. Returns {sandbox, tag, read_only, host_path, attached}; the guest mounts it with mount -t virtiofs <tag> <directory>.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				},
+				"share": {
+					"type": "string",
+					"description": "shared (read-write) or a workloads.grants.sandboxShares name (read-only)"
+				}
+			},
+			"required": ["name", "share"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Attach a share to a sandbox",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "share_detach",
+		"title": "Detach a share from a sandbox",
+		"description": "Remove a share and wait until the guest releases it; returns the share as share_attach does, with attached false. A share the guest still holds is a detach-pending error; unmount it in the guest first.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				},
+				"share": {
+					"type": "string",
+					"description": "shared (read-write) or a workloads.grants.sandboxShares name (read-only)"
+				}
+			},
+			"required": ["name", "share"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Detach a share from a sandbox",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
 		"name": "gc",
 		"title": "Remove expired and orphaned sandboxes",
 		"description": "Remove sandboxes past their TTL, shut-off ones, and orphaned domains or directories; past the disk cap or free-space floor, detach every shared directory.",
