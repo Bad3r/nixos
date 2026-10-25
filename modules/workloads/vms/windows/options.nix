@@ -152,7 +152,7 @@ let
 
         workloads.images = lib.mapAttrs' (
           name: guest: lib.nameValuePair "${name}-seed" { expected = "${guest.windows.seedIso}"; }
-        ) windowsGuests;
+        ) (lib.filterAttrs (_: guest: guest.install.media != [ ]) windowsGuests);
       };
     };
 in

@@ -24,6 +24,14 @@ function Invoke-Native([string] $file, [string[]] $arguments) {
 try {
     Start-Transcript -Path (Join-Path $state 'firstlogon.log') -Append | Out-Null
     $transcript = $true
+    # Windows counts a positive LogonCount up instead of down, so the answer
+    # file's single autologon would repeat at every boot with a blank password.
+    $winlogon = 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon'
+    Set-ItemProperty -Path $winlogon -Name AutoAdminLogon -Value '0'
+    Set-ItemProperty -Path $winlogon -Name AutoLogonCount -Value 0 -Type DWord
+    if ($null -ne (Get-Item -Path $winlogon).GetValue('DefaultPassword')) {
+        Remove-ItemProperty -Path $winlogon -Name DefaultPassword
+    }
     Invoke-Installer (Join-Path $PSScriptRoot 'virtio-win-guest-tools.exe') @('/install', '/quiet', '/norestart')
     Invoke-Installer 'msiexec.exe' @('/i', "`"$(Join-Path $PSScriptRoot 'OpenSSH-Win64.msi')`"", '/qn', '/norestart')
     # The MSI opens port 22 to any address; provisioning opens it to the host only.

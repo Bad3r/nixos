@@ -351,6 +351,21 @@ in
                 assert [entry["name"] for entry in report["names"]] == ["alpha", "gamma"], report
                 assert report["sandboxes"] is None, report
 
+            with subtest("a golden copy needs a shut-off guest and never replaces one"):
+                golden_unit = "workloads-golden@alpha.service"
+                golden = "/var/lib/workloads/golden/${uuids.alpha}"
+                machine.succeed("virsh start alpha")
+                machine.fail(f"systemctl start {golden_unit}")
+                assert "is not shut off" in journal(golden_unit)
+                machine.fail(f"test -e {golden}")
+                machine.succeed("virsh destroy alpha")
+                machine.succeed(restart(golden_unit))
+                for item in ["root.qcow2", "nvram.fd", "tpm", "domain.xml"]:
+                    machine.succeed(f"test -e {golden}/{item}")
+                # A successful oneshot is unloaded, so there is no failed state to reset.
+                machine.fail(f"systemctl start {golden_unit}")
+                assert "exists; move it aside" in journal(golden_unit)
+
             with subtest("a running guest keeps its definition and running networks gain reservations"):
                 machine.succeed("virsh start --paused alpha")
                 machine.succeed("${switch "changed"}")

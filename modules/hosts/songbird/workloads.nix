@@ -22,7 +22,16 @@ in
   };
 
   configurations.nixos.songbird.module =
-    { metaOwner, pkgs, ... }:
+    {
+      config,
+      metaOwner,
+      pkgs,
+      ...
+    }:
+    let
+      # Installation inputs stay declared only while win11 lists install media.
+      win11Installing = config.workloads.guests.win11.install.media != [ ];
+    in
     {
       imports =
         lib.optionals win11Ready [
@@ -37,14 +46,16 @@ in
             };
 
             workloads = {
-              media.win11-iso = {
-                source = win11.installIso;
-                sha256 = win11.installIsoSha256;
+              media = lib.mkIf win11Installing {
+                win11-iso = {
+                  source = win11.installIso;
+                  sha256 = win11.installIsoSha256;
+                };
               };
 
               # Drivers to install by hand; an image, so a stale out-link only
               # matters before the first define.
-              images.virtio-win.expected = "${pkgs.virtio-win.src}";
+              images = lib.mkIf win11Installing { virtio-win.expected = "${pkgs.virtio-win.src}"; };
 
               guests.win11 = {
                 uuid = "7d586a9c-6290-4ece-9593-b8b0b7c26300";

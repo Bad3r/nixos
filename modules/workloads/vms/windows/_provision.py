@@ -38,6 +38,8 @@ FIRSTLOGON_TIMEOUT = 2 * 60 * 60
 # The agent arrives with the guest tools, at the end of an installation.
 INSTALL_AGENT_TIMEOUT = 3 * 60 * 60
 AGENT_CONNECT_TIMEOUT = 30 * 60
+# Consecutive failed firstlogon probes, POLL_SECONDS apart, that mean a broken script.
+PROBE_FAILURES = 20
 POLL_SECONDS = 15
 EXEC_TIMEOUT = 15 * 60
 AGENT_TIMEOUT = 60
@@ -315,19 +317,28 @@ def wait_for_firstlogon(conn: libvirt.virConnect, guest: Guest) -> None:
     """Block until firstlogon.ps1 finishes; fail with its error if it failed."""
     deadline = time.monotonic() + FIRSTLOGON_TIMEOUT
     announced = False
+    failures = 0
+    last_error = ""
     while True:
         failed = False
         try:
             if guest.exists(rf"{STATE_DIR}\firstlogon.done"):
                 return
             failed = guest.exists(rf"{STATE_DIR}\firstlogon.failed")
+            failures = 0
         except libvirt.libvirtError as error:
             # Installers restart the agent while firstlogon.ps1 runs.
+            last_error = str(error)
             log(f"the guest agent dropped a command ({error}); waiting for it again")
             wait_for_agent(conn, guest.agent.domain, deadline)
         except ProvisionError as error:
             # PowerShell fails to start while the guest tools replace drivers.
+            failures += 1
+            last_error = str(error)
             log(f"probing for firstlogon.ps1 failed ({error}); retrying")
+            if failures >= PROBE_FAILURES:
+                msg = f"probing for firstlogon.ps1 failed {failures} times in a row: {error}"
+                raise ProvisionError(msg) from error
         if failed:
             error = guest.agent.read(rf"{STATE_DIR}\firstlogon.failed").decode(errors="replace")
             msg = f"firstlogon.ps1 failed: {error.strip()}"
@@ -338,6 +349,8 @@ def wait_for_firstlogon(conn: libvirt.virConnect, guest: Guest) -> None:
                 "a guest shut down while it ran never finishes it, so run it again by hand "
                 "as the Windows guests page describes, then restart this unit"
             )
+            if last_error:
+                msg += f"; the last probe error was: {last_error}"
             raise ProvisionError(msg)
         if not announced:
             log("waiting for firstlogon.ps1")

@@ -65,8 +65,7 @@ Verification: `yq 'keys' secrets/workloads.yaml` lists `win11_password` and `sop
 
 ## Install the win11 guest
 
-Precondition: `/data` is unlocked and `secrets/workloads.yaml` exists.
-Pipeline details are in [Windows guests](../../apps/libvirt/windows.md).
+Precondition: `/data` is unlocked and `secrets/workloads.yaml` exists; the pipeline is described in [Windows guests](../../apps/libvirt/windows.md).
 
 1. Put the Windows 11 Business ISO at `installIso` from `win11` in `modules/hosts/songbird/policy.nix`, then check that its hash matches `installIsoSha256`:
 
@@ -103,11 +102,10 @@ Pipeline details are in [Windows guests](../../apps/libvirt/windows.md).
 Verification, as the owner:
 
 ```sh
-address=$(nix eval --raw .#nixosConfigurations.songbird.config.workloads.guests.win11.address.lan)
-ssh "vx@$address" 'cscript //nologo C:\Windows\System32\slmgr.vbs /xpr'
+ssh "vx@$(nix eval --raw .#nixosConfigurations.songbird.config.workloads.guests.win11.address.lan)" 'cscript //nologo C:\Windows\System32\slmgr.vbs /xpr'
 ```
 
-SSH logs in with the owner's key, `slmgr /xpr` reports activation only when a product key is declared, and Remmina reaches Remote Desktop at the same address with the sops password.
+SSH logs in with the owner's key, `slmgr /xpr` reports activation only when a product key is declared, and Remmina reaches Remote Desktop at that address with the sops password.
 
 ## Activate win11 with a product key
 
@@ -129,8 +127,13 @@ Verification: `journalctl -u workloads-provision@win11.service -b` logs `product
 
 Precondition: the guest is provisioned, and the golden copy below is taken if one is wanted from the fresh install.
 
-1. Remove the `install` block, the `win11-iso` media, and the `virtio-win` image from `modules/hosts/songbird/workloads.nix`.
-2. Switch, then shut the guest down and start it, so the CD-ROMs leave its running definition.
+1. Remove the `install` block of win11 from `modules/hosts/songbird/workloads.nix`; the ISO media, the virtio-win image, and the seed image go with it.
+
+2. Switch, then shut the guest down and start it, so the CD-ROMs leave its running definition, and remove the out-links so the store can collect the ISOs:
+
+   ```sh
+   rm /var/lib/workloads/images/virtio-win /var/lib/workloads/images/win11-seed
+   ```
 
 Verification: `ls /var/lib/workloads/media/` is empty, and `virsh -r -c qemu:///system domblklist win11` lists only the disk.
 
