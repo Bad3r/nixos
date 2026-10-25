@@ -8,7 +8,7 @@ import json
 import unittest
 from typing import TYPE_CHECKING, cast
 
-from workloads.grantd import Caller, Element, NftKernel, Service, Tools
+from workloads.grantd import Caller, Element, Flow, NftKernel, Service, Tools
 from workloads.grants import GrantError, Path, Ports, Record, Route
 
 from tests.fixtures import SANDBOX_MAC, FakeLibvirt, policy, read_leases
@@ -24,12 +24,13 @@ DEV = ipaddress.IPv4Address("172.16.1.10")
 
 
 class FakeKernel:
-    """In-memory set and rule list; every write lands in `events`."""
+    """In-memory set, conntrack table, and rule list; every write lands in `events`."""
 
     def __init__(self, events: list[str]) -> None:
         """Start empty."""
         self.events = events
         self.live: list[Element] = []
+        self.conntrack: list[Flow] = []
         self.rules: set[Route] = set()
         self.sources: dict[tuple[str, str, ipaddress.IPv4Address], int] = {}
 
@@ -50,6 +51,20 @@ class FakeKernel:
         self.live = [element for element in self.live if element not in elements]
         for path in sources:
             del self.sources[path.bridge, path.mac, path.source]
+
+    def flows(self, path: Path) -> list[Flow]:
+        """Flows between the path's addresses on its ports."""
+        return [
+            flow
+            for flow in self.conntrack
+            if (flow.source, flow.destination) == (str(path.source), str(path.destination))
+            and path.ports.first <= flow.dport <= path.ports.last
+        ]
+
+    def drop_flow(self, flow: Flow) -> None:
+        """Record the deletion."""
+        self.events.append(f"drop {flow.dport}")
+        self.conntrack.remove(flow)
 
     def routes(self, preference: int) -> set[Route]:
         """Rules at the preference."""
@@ -161,6 +176,20 @@ class GrantTest(unittest.TestCase):
             (entry["caller_pid"], entry["caller_uid"], entry["verb"], entry["address"]),
             (4242, 1000, "grant", SANDBOX),
         )
+
+    def test_sweeps_ended_flows(self) -> None:
+        """Marked entries an ended grant left on the new paths go before the element lands."""
+        harness = Harness()
+        harness.kernel.conntrack = [
+            Flow("tcp", str(SANDBOX), str(GATEWAY), 40000, 8080),
+            Flow("tcp", str(SANDBOX), str(GATEWAY), 40001, 8081),
+        ]
+        harness.grant("host:dev:8080")
+        self.assertEqual(
+            harness.events,
+            ["lock", "journal granted", "routes 30900", "drop 8080", "add 1 ttl=600", "unlock"],
+        )
+        self.assertEqual([flow.dport for flow in harness.kernel.conntrack], [8081])
 
     def test_session(self) -> None:
         """The client's agent session reaches the journal."""
@@ -287,13 +316,17 @@ class IdentityTest(unittest.TestCase):
 
 
 class RevokeTest(unittest.TestCase):
-    """Revoking deletes the elements and their routes, and leaves conntrack to the chains."""
+    """Revoking deletes the elements and their routes; conntrack entries stay for the chains."""
 
     def test_revoke(self) -> None:
-        """Only the revoked grant's element and routes go."""
+        """Only the revoked grant goes, and its flows stay marked."""
         harness = Harness()
         harness.grant("guest:dev:8080")
         harness.grant("host:dev:8000")
+        harness.kernel.conntrack = [
+            Flow("tcp", str(SANDBOX), str(DEV), 40000, 8080),
+            Flow("tcp", str(SANDBOX), str(GATEWAY), 40001, 8000),
+        ]
         harness.events.clear()
         answer = harness.ask({"verb": "revoke", "id": "00000001"})
         self.assertEqual(answer, {"revoked": ["00000001"]})
@@ -309,7 +342,7 @@ class RevokeTest(unittest.TestCase):
                 "unlock",
             ],
         )
-        self.assertEqual([element.target for element in harness.kernel.live], ["host:dev:8000"])
+        self.assertEqual([flow.dport for flow in harness.kernel.conntrack], [8080, 8000])
 
     def test_revoke_all(self) -> None:
         """--all takes every grant of one source and leaves the others."""
@@ -412,6 +445,13 @@ LISTING = {
     ]
 }
 
+CONNTRACK = (
+    "tcp      6 431999 ESTABLISHED src=172.16.2.50 dst=172.16.2.1 sport=40000 dport=8080"
+    " src=172.16.2.1 dst=172.16.2.50 sport=8080 dport=40000 [ASSURED] mark=1048576 use=1\n"
+    "tcp      6 431999 ESTABLISHED src=172.16.2.50 dst=172.16.2.1 sport=40001 dport=9000"
+    " src=172.16.2.1 dst=172.16.2.50 sport=9000 dport=40001 [ASSURED] mark=1048576 use=1\n"
+)
+
 
 class Recorder:
     """A runner that answers from a script and keeps every call."""
@@ -431,7 +471,7 @@ class Recorder:
         )
 
 
-TOOLS = Tools(nft="/nft", ip="/ip", virsh="/virsh")
+TOOLS = Tools(nft="/nft", conntrack="/conntrack", ip="/ip", virsh="/virsh")
 SET_NAME = "inet workload_grants grants"
 SOURCES_NAME = "inet workload_grants sources"
 SOURCE_KEY = '"vn-sbx" . 52:54:00:00:02:50 . 172.16.2.50'
@@ -518,6 +558,21 @@ class NftKernelTest(unittest.TestCase):
             ],
         )
 
+    def test_flows(self) -> None:
+        """Marked flows outside the path's ports stay; a vanished flow is no error."""
+        recorder = Recorder(
+            {"-L -f": (0, CONNTRACK, ""), "-D -f": (1, "", "0 flow entries have been deleted.")}
+        )
+        kernel = NftKernel(TOOLS, recorder)
+        (flow,) = kernel.flows(Path("vn-sbx", MAC, SANDBOX, GATEWAY, Ports("tcp", 8000, 8999)))
+        self.assertEqual((flow.sport, flow.dport), (40000, 8080))
+        kernel.drop_flow(flow)
+        self.assertEqual(recorder.calls[0][0][-2:], ["-m", "0x00100000/0x00f00000"])
+        self.assertEqual(recorder.calls[1][0][-4:], ["--sport", "40000", "--dport", "8080"])
+        failing = NftKernel(TOOLS, Recorder({"-D -f": (1, "", "Operation not permitted")}))
+        with self.assertRaises(GrantError):
+            failing.drop_flow(flow)
+
     def test_foreign_route(self) -> None:
         """A rule at the grant preference that no grant made stops the helper."""
         rules = [{"priority": 30900, "iif": "eth0", "table": "100"}]
@@ -526,11 +581,17 @@ class NftKernelTest(unittest.TestCase):
             kernel.routes(30900)
 
     def test_tool_failures(self) -> None:
-        """A timed-out tool fails with the tool's code."""
+        """A timed-out tool and a malformed conntrack line fail with the tool's code."""
         hung = NftKernel(TOOLS, Recorder({"-j list": (124, "", "timed out after 10s")}))
         with self.assertRaisesRegex(GrantError, "timed out") as caught:
             hung.elements()
         self.assertEqual(caught.exception.code, "nft")
+        garbled = NftKernel(
+            TOOLS, Recorder({"-L -f": (0, "tcp src=a dst=b sport=x dport=y\n", "")})
+        )
+        with self.assertRaises(GrantError) as caught:
+            garbled.flows(Path("vn-sbx", MAC, SANDBOX, GATEWAY, Ports("tcp", 1, 2)))
+        self.assertEqual(caught.exception.code, "conntrack")
 
     def test_routes(self) -> None:
         """Rules at the preference parse into routes."""

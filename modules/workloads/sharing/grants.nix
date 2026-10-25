@@ -29,6 +29,7 @@ let
       helper = cfg.allow != [ ] || runtimeShares != { };
 
       # The bit the grant chains set on connections they admit; no other table uses ct mark.
+      mark = "0x00100000/0x00f00000";
       marked = "ct mark & 0x00f00000 == 0x00100000";
       markAccept = "${marked} accept";
       # A grant admits only the MAC whose lease named the source address.
@@ -407,6 +408,7 @@ let
             wantedBy = [ "multi-user.target" ];
             after = [ "nftables.service" ];
             path = [
+              pkgs.conntrack-tools
               pkgs.iproute2
               pkgs.nftables
             ];
@@ -414,7 +416,17 @@ let
               Type = "oneshot";
               RemainAfterExit = true;
             };
+            # Emptying the set first keeps every marked connection cut until its entry is gone.
             script = ''
+              if nft list table inet workload_grants > /dev/null 2>&1; then
+                nft flush set inet workload_grants grants
+              fi
+              if ! deleted=$(conntrack -D -f ipv4 -m ${mark} 2>&1); then
+                case $deleted in
+                  *"0 flow entries have been deleted"*) ;;
+                  *) echo "$deleted" >&2; exit 1 ;;
+                esac
+              fi
               nft destroy table inet workload_grants
               while ip rule show pref ${toString routePreference} | grep -q .; do
                 ip rule del pref ${toString routePreference}

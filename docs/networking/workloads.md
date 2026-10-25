@@ -21,6 +21,7 @@ The `inet workload` prerouting chain drops packets from a bridge whose source li
 The input chain runs one priority ahead of `nixos-fw`, and drops traffic that reaches the host on a bridge port (`vnet*`, `vg-*`, `tap*`) instead of the bridge, as link-local frames do.
 A drop in any base chain is final, so new traffic from a bridge never reaches the ports `nixos-fw` opens on every interface, and the pre-filter narrows the per-bridge opens to the gateway address.
 The forward chain drops all forwarding that neither enters nor leaves a `vn-*` bridge, so turning forwarding on never makes the host a router between the LAN, Mesh, and WARP.
+Its input, forward, and output chains drop a TCP segment on a `vn-*` bridge that would open a conntrack entry without being a bare SYN, so a flow whose entry is gone never resumes.
 Once any network is declared, forwarding through other interfaces, such as rootful Podman's `podman0`, is dropped as well.
 The module sets `net.ipv4.conf.all.forwarding` to 1 while at least one network is declared and to 0 otherwise, so a switch that drops the last network turns forwarding off.
 It never loads `br_netfilter`; the rules behave the same with and without it.

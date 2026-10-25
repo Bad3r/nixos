@@ -39,12 +39,14 @@ SET = ("inet", "workload_grants", "grants")
 # Ingress bridge, MAC, and address of every source that holds a grant.
 SOURCES = ("inet", "workload_grants", "sources")
 COMMAND_TIMEOUT = 10
+# The bit the grant chains set and `inet workload` and `nixos-fw` accept.
+MARK = "0x00100000/0x00f00000"
 REQUEST_LIMIT = 16384
 ID_PATTERN = re.compile(r"[0-9a-f]{8}")
 # nft refuses longer element comments.
 COMMENT_LIMIT = 128
 JOURNAL_SOCKET = "/run/systemd/journal/socket"
-KERNEL_CODES = frozenset({"nft", "route", "journal", "libvirt", "detach-pending"})
+KERNEL_CODES = frozenset({"nft", "conntrack", "route", "journal", "libvirt", "detach-pending"})
 LIBVIRT_URI = "qemu:///system"
 # libvirt itself waits five seconds for the guest to release a device.
 DETACH_WAIT = 15.0
@@ -71,6 +73,17 @@ class Element:
         return f"{self.grant} {self.source} {self.target} {self.path.mac}"
 
 
+@dataclass(frozen=True)
+class Flow:
+    """One conntrack entry in its original direction."""
+
+    proto: str
+    source: str
+    destination: str
+    sport: int
+    dport: int
+
+
 class Kernel(Protocol):
     """The netfilter and routing state the helper reads and writes."""
 
@@ -84,6 +97,14 @@ class Kernel(Protocol):
 
     def remove(self, elements: Sequence[Element], sources: Sequence[Path]) -> None:
         """Remove elements and the sources left without one; expired ones are no error."""
+        ...
+
+    def flows(self, path: Path) -> list[Flow]:
+        """Marked conntrack entries on the path's addresses and ports."""
+        ...
+
+    def drop_flow(self, flow: Flow) -> None:
+        """Delete one conntrack entry; a vanished one is no error."""
         ...
 
     def routes(self, preference: int) -> set[Route]:
@@ -136,6 +157,7 @@ class Tools:
     """Absolute paths of the programs the helper runs."""
 
     nft: str
+    conntrack: str
     ip: str
     virsh: str
 
@@ -200,8 +222,16 @@ def _parse_element(item: object) -> Element:
     )
 
 
+def _field(line: str, key: str) -> str:
+    for token in line.split():
+        if token.startswith(f"{key}="):
+            return token.removeprefix(f"{key}=")
+    msg = f"conntrack printed no {key} in '{line}'"
+    raise GrantError(msg, code="conntrack")
+
+
 class NftKernel:
-    """Kernel state through nft and ip."""
+    """Kernel state through nft, conntrack, and ip."""
 
     def __init__(self, tools: Tools, run: Runner = run_command) -> None:
         """Keep the tool paths and the runner."""
@@ -262,6 +292,57 @@ class NftKernel:
             keys = ", ".join(sorted({_source_key(path) for path in sources}))
             lines.append(f"destroy element {' '.join(SOURCES)} {{ {keys} }}")
         self._write(lines)
+
+    def _conntrack(self, path_or_flow: Path | Flow) -> list[str]:
+        if isinstance(path_or_flow, Path):
+            source, destination = str(path_or_flow.source), str(path_or_flow.destination)
+            proto = path_or_flow.ports.proto
+        else:
+            source, destination = path_or_flow.source, path_or_flow.destination
+            proto = path_or_flow.proto
+        return [
+            self.tools.conntrack,
+            "-f",
+            "ipv4",
+            "-s",
+            source,
+            "-d",
+            destination,
+            "-p",
+            proto,
+            "-m",
+            MARK,
+        ]
+
+    def flows(self, path: Path) -> list[Flow]:
+        """List marked entries between the addresses, filtered to the path's ports."""
+        argv = self._conntrack(path)
+        output = self._checked("conntrack", [argv[0], "-L", *argv[1:]])
+        flows: list[Flow] = []
+        for line in output.splitlines():
+            if not line.strip():
+                continue
+            try:
+                dport, sport = int(_field(line, "dport")), int(_field(line, "sport"))
+            except ValueError as error:
+                msg = f"conntrack printed a malformed port in '{line}'"
+                raise GrantError(msg, code="conntrack") from error
+            if path.ports.first <= dport <= path.ports.last:
+                flows.append(
+                    Flow(path.ports.proto, _field(line, "src"), _field(line, "dst"), sport, dport)
+                )
+        return flows
+
+    def drop_flow(self, flow: Flow) -> None:
+        """Tolerate exit 1 from conntrack when the entry closed since the listing."""
+        argv = self._conntrack(flow)
+        status, stdout, stderr = self.run(
+            [argv[0], "-D", *argv[1:], "--sport", str(flow.sport), "--dport", str(flow.dport)],
+            None,
+        )
+        if status != 0 and "0 flow entries have been deleted" not in stderr:
+            msg = f"conntrack -D failed: {stderr.strip() or stdout.strip()}"
+            raise GrantError(msg, code="conntrack")
 
     def routes(self, preference: int) -> set[Route]:
         """Parse `ip -j rule show pref`."""
@@ -597,6 +678,10 @@ class Service:
             # The source stays as long as the longest grant it holds.
             # Listed expiries are whole seconds rounded down.
             same = [e.expires + 1 for e in live if e.path.place in places]
+            # An ended grant's entries on these paths would ride the new element.
+            for path in paths:
+                for flow in self.kernel.flows(path):
+                    self.kernel.drop_flow(flow)
             self.kernel.add(elements, ttl, max([ttl, *same]))
         return {"grant": describe(elements)[0]}
 
@@ -650,7 +735,7 @@ class Service:
                     if (e.path.place, e.path.mac) not in held
                 }.values()
             )
-            # Marked entries stay: deleting one lets the next segment open an unmarked one.
+            # Marked entries stay cut until the next grant of their path deletes them.
             self.kernel.remove(chosen, emptied)
             self._sync_routes(policy, kept)
         return {"revoked": revoked}

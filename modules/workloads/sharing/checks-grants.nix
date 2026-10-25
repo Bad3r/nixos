@@ -30,6 +30,7 @@ in
 
       # Each logs one line per round trip or received datagram, so a stalled flow stops its log.
       flows = pkgs.writeText "flows.py" ''
+        import os
         import socket
         import socketserver
         import sys
@@ -61,6 +62,8 @@ in
                 time.sleep(0.2)
         else:
             log = open(sys.argv[4], "a", buffering=1)
+            # Sending ends hold off while this file exists.
+            pause = sys.argv[4].removesuffix(".log") + ".pause"
             if role.startswith("stream-"):
                 # Either end sends unprompted and logs what it reads.
                 if role == "stream-server":
@@ -71,7 +74,8 @@ in
 
                 def send():
                     while True:
-                        stream.sendall(b"x\n")
+                        if not os.path.exists(pause):
+                            stream.sendall(b"x\n")
                         time.sleep(0.2)
 
                 threading.Thread(target=send, daemon=True).start()
@@ -89,6 +93,9 @@ in
                 pinger = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 pinger.settimeout(0.5)
                 while True:
+                    if os.path.exists(pause):
+                        time.sleep(0.2)
+                        continue
                     pinger.sendto(b"x", (host, port))
                     try:
                         pinger.recv(64)
@@ -144,7 +151,10 @@ in
 
               networking.nftables.enable = true;
               programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
-              environment.systemPackages = [ fakeSbx ];
+              environment.systemPackages = [
+                fakeSbx
+                pkgs.conntrack-tools
+              ];
               networking.dhcpcd.denyInterfaces = [
                 "vn-*"
                 "w-*"
@@ -170,7 +180,10 @@ in
                   desktop = {
                     id = 1;
                     egress = "none";
-                    hostPorts.tcp = [ 7500 ];
+                    hostPorts.tcp = [
+                      7500
+                      7501
+                    ];
                   };
                 };
 
@@ -245,6 +258,8 @@ in
                   ];
                 };
               };
+
+              specialisation.nohelper.configuration.workloads.grants.allow = lib.mkForce [ ];
             };
           };
 
@@ -546,6 +561,65 @@ in
               serve("dev-8080", 8080, "172.16.1.10", "dev")
               machine.wait_until_succeeds("ip netns exec dev curl -sf http://172.16.1.10:8080/ | grep -Fx granted")
 
+          def stays_cut(names):
+              before = {name: count(name) for name in names}
+              machine.sleep(6)
+              grown = [name for name in names if count(name) > before[name]]
+              assert not grown, f"{grown} pass traffic again"
+
+          # Short enough that an entry ends within a subtest.
+          machine.succeed(
+              "sysctl -w net.netfilter.nf_conntrack_tcp_timeout_close=2"
+              " net.netfilter.nf_conntrack_udp_timeout=3 net.netfilter.nf_conntrack_udp_timeout_stream=3"
+          )
+
+          with subtest("a mid-stream segment opens no connection on a bridge"):
+              two_way("loose", "dev", "172.16.1.1:7501")
+              machine.succeed("conntrack -D -f ipv4 -p tcp --dport 7501")
+              wait_stopped(["loose", "loose-server"], 5)
+
+          with subtest("an ended grant stays cut after its entry closes"):
+              # The sandbox ignores resets and retransmits until the reset entry times out.
+              machine.succeed(
+                  "ip netns exec sb nft add table inet deaf",
+                  "ip netns exec sb nft 'add chain inet deaf input { type filter hook input priority 0; }'",
+                  "ip netns exec sb nft add rule inet deaf input tcp flags rst drop",
+              )
+              silent = grant("sbx-probe", "host:dev:8030")
+              two_way("silent", "sb", "172.16.2.1:8030")
+              machine.succeed("touch /run/flows/silent-server.pause")
+              machine.sleep(1)
+              workloads("revoke", silent)
+              machine.succeed("systemctl restart workload-grants.service", "systemctl restart nftables.service")
+              machine.wait_for_unit("workload-grants.service")
+              machine.sleep(8)
+              machine.succeed("rm /run/flows/silent-server.pause")
+              stays_cut(["silent", "silent-server"])
+              machine.succeed("ip netns exec sb nft delete table inet deaf")
+
+          with subtest("a later grant of the path admits only new connections"):
+              first = grant("sbx-probe", "host:dev:8031")
+              two_way("regrant", "sb", "172.16.2.1:8031")
+              machine.succeed("touch /run/flows/regrant.pause /run/flows/regrant-server.pause")
+              machine.sleep(1)
+              workloads("revoke", first)
+              grant("sbx-probe", "host:dev:8031")
+              machine.succeed("rm /run/flows/regrant.pause /run/flows/regrant-server.pause")
+              stays_cut(["regrant", "regrant-server"])
+              two_way("regrant-new", "sb", "172.16.2.1:8031")
+              workloads("revoke", "--all", "sbx-probe")
+
+          with subtest("a sandbox's datagrams stay cut past the UDP timeout"):
+              quiet = grant("sbx-probe", "host:dev:8032/udp")
+              server("udp-8032", "udp-echo-server", "0.0.0.0", 8032, None)
+              flow("quiet-udp", "sb", "udp-pinger", "172.16.2.1:8032")
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/quiet-udp.log) -gt 3", timeout=20)
+              workloads("revoke", quiet)
+              machine.succeed("touch /run/flows/quiet-udp.pause")
+              machine.sleep(5)
+              machine.succeed("rm /run/flows/quiet-udp.pause")
+              stays_cut(["quiet-udp"])
+
           with subtest("a granted path never leaves through the uplink"):
               # A namespace behind the host's default route answers for the guest's address.
               machine.succeed(
@@ -592,6 +666,14 @@ in
               # The propagated reload is its own job, queued after nftables' own.
               machine.wait_until_succeeds("nft list chain inet workload_grants input | grep -F @grants")
               assert live() == {}
+
+          with subtest("removing the grant table cuts every grant"):
+              grant("sbx-probe", "host:dev:8033")
+              two_way("held", "sb", "172.16.2.1:8033")
+              machine.succeed("/run/current-system/specialisation/nohelper/bin/switch-to-configuration test")
+              machine.fail("nft list table inet workload_grants")
+              assert machine.succeed("conntrack -L -f ipv4 -m 0x00100000/0x00f00000 2>/dev/null | wc -l").strip() == "0"
+              wait_stopped(["held", "held-server"], 5)
         '';
       };
     };
