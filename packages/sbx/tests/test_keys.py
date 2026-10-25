@@ -20,6 +20,17 @@ class KeysTest(unittest.TestCase):
             with self.subTest(spec=spec), self.assertRaises(ValueError):
                 keys.chord(spec)
 
+    def test_aliases(self) -> None:
+        """Each alias presses its key, and an unknown name's error lists every alias."""
+        for alias, name in keys.ALIASES.items():
+            with self.subTest(alias=alias):
+                self.assertEqual(keys.chord(alias), [keys.KEYS[name]])
+                self.assertEqual(keys.chord(f"ctrl+{alias.upper()}"), [29, keys.KEYS[name]])
+        with self.assertRaises(ValueError) as raised:
+            keys.chord("hyper")
+        for alias, name in keys.ALIASES.items():
+            self.assertIn(f"{alias}={name}", str(raised.exception))
+
     def test_printable_ascii(self) -> None:
         """Every printable character but CR, VT, and FF types, shifted ones with shift."""
         typable = [c for c in string.printable if c not in "\r\x0b\x0c"]

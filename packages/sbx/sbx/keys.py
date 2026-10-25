@@ -66,6 +66,23 @@ _NAMED = {
     "menu": 127,
 }
 KEYS = {**_LETTERS, **_DIGITS, **_PUNCTUATION, **_NAMED}
+ALIASES = {
+    "return": "enter",
+    "escape": "esc",
+    "del": "delete",
+    "ins": "insert",
+    "pgup": "pageup",
+    "page_up": "pageup",
+    "pgdn": "pagedown",
+    "page_down": "pagedown",
+    "control": "ctrl",
+    "win": "super",
+    "meta": "super",
+    "cmd": "super",
+    "option": "alt",
+    "bksp": "backspace",
+    "prtsc": "print",
+}
 _TEXT = {
     **{character: [code] for character, code in KEYS.items() if len(character) == 1},
     **{character.upper(): [SHIFT, code] for character, code in _LETTERS.items()},
@@ -82,11 +99,13 @@ def chord(spec: str) -> list[int]:
     if len(names) > MAX_CHORD:
         msg = f"'{spec}' presses more than {MAX_CHORD} keys"
         raise ValueError(msg)
+    names = [ALIASES.get(name, name) for name in names]
     unknown = [name for name in names if name not in KEYS]
     if unknown:
+        aliases = ", ".join(f"{alias}={name}" for alias, name in ALIASES.items())
         msg = (
             f"'{spec}' names unknown keys {', '.join(map(repr, unknown))}; keys are a-z, 0-9, "
-            f"{' '.join(_PUNCTUATION)}, and {', '.join(_NAMED)}"
+            f"{' '.join(_PUNCTUATION)}, and {', '.join(_NAMED)}; aliases: {aliases}"
         )
         raise ValueError(msg)
     return [KEYS[name] for name in names]
