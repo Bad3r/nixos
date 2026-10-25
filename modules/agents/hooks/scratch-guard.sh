@@ -307,7 +307,8 @@ for pattern in "${patterns[@]}"; do
 done
 
 # $TMPDIR is the session dir, so only literal $scratch paths can land loose.
-root="${q}${scratchRe}${q}"
+# sessions/ holds only the wrappers' per-session dirs, so files there are loose too.
+root="${q}${scratchRe}(/sessions)?${q}"
 leaf="${root}/${q}[^/[:space:]\"';|&)<>]+${q}([[:space:];|&)<>]|$)"
 rootEnd="${root}(/\.?)?${q}([[:space:];|&)<>]|$)"
 opt="(=|[[:space:]]*)"
