@@ -7,6 +7,7 @@ a command built at runtime (variables naming sbx, interpreters, scripts) passes.
 
 import codecs
 import json
+import posixpath
 import re
 import shlex
 import sys
@@ -42,9 +43,8 @@ EXPANSIONS = frozenset("${*?[")
 REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|", "<>"})
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'")
-# -c of a shell, -C of fish, and -S of env take the script as their argument.
-SCRIPT_FLAG = re.compile(r"-[A-Za-z]*[cCS][A-Za-z]*")
-SCRIPT_LONG = frozenset({"--command", "--init-command", "--split-string"})
+# Options whose argument is a script: -c of any command, plus these after the named runner.
+SCRIPT_OPTIONS = {"env": ("S", "--split-string"), "fish": ("C", "--init-command")}
 # Shell options whose argument precedes the -c script.
 SHELL_OPTION_ARGS = frozenset({"-o", "-O", "+o", "+O"})
 STDIN_RUNNERS = frozenset({"xargs", "parallel"})
@@ -94,7 +94,6 @@ SHELL_LONG_FLAGS = frozenset(
         "--print-debug-categories",
     }
 )
-STDIN_FILES = frozenset({"-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"})
 HEREDOC_END = frozenset(" \t\n;|&<>()")
 # Delimiter, strip leading tabs, body is a shell script, body expands substitutions.
 type Heredoc = tuple[str, bool, bool, bool]
@@ -366,7 +365,9 @@ def reads_stdin(segment: list[str]) -> bool:
         if name in SHELLS and shell_reads_stdin(name, segment[index + 1 :]):
             return True
         source = name in SOURCES and command_position
-        if source and (index + 1 == len(segment) or segment[index + 1] in STDIN_FILES):
+        operands = segment[index + 1 : index + 3]
+        operand = operands[1:2] if operands[:1] == ["--"] else operands[:1]
+        if source and (not operand or stdin_path(operand[0])):
             return True
         command_position = command_position and (
             word.startswith("-") or "=" in word or word in SOURCE_PREFIXES
@@ -382,7 +383,7 @@ def shell_reads_stdin(shell: str, args: list[str]) -> bool:
         word = args[index]
         index += 1
         if word in {"-", "--"}:
-            return word == "-" or index >= len(args) or args[index] in STDIN_FILES
+            return word == "-" or index >= len(args) or stdin_path(args[index])
         if word.startswith("--"):
             option, equals, _ = word.partition("=")
             if option == "--command":
@@ -396,7 +397,13 @@ def shell_reads_stdin(shell: str, args: list[str]) -> bool:
         if "s" in word:
             return True
         index += sum(letter in letters for letter in word[1:])
-    return index >= len(args) or args[index] in STDIN_FILES
+    return index >= len(args) or stdin_path(args[index])
+
+
+def stdin_path(word: str) -> bool:
+    """Whether a script operand may be stdin: -, or a path through a dev or proc directory."""
+    parts = posixpath.normpath(word).split("/")
+    return word == "-" or "dev" in parts or "proc" in parts
 
 
 def nested(script: str, depth: int) -> None:
@@ -414,16 +421,12 @@ def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
     """
     stdin = evaluating = script = skip = False
     candidates = 0
+    letters, longs = "c", {"--command"}
     for index, word in enumerate(segment):
         name = basename(word)
-        # An option with its script attached, such as -S'sbx ...' or --split-string='sbx ...'.
-        if name == "sbx-mcp" or (word.startswith("-") and " " in word and mentions(word)):
+        candidates += candidate(name, segment[index + 1 :], stdin=stdin, cut=cut)
+        if candidates > MAX_CANDIDATES:
             raise GateError(OPAQUE)
-        if name in {"sbx", "workloads"}:
-            candidates += 1
-            if candidates > MAX_CANDIDATES:
-                raise GateError(OPAQUE)
-            check_sbx(name, segment[index + 1 :], stdin=stdin, cut=cut)
         if evaluating:
             nested(word, depth)
         elif skip:
@@ -433,10 +436,40 @@ def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
         elif script and not word.startswith(("-", "+")):
             script = False
             nested(word, depth)
-        elif SCRIPT_FLAG.fullmatch(word) or word in SCRIPT_LONG:
-            script = True
+        else:
+            flag, attached = script_option(word, letters, longs)
+            script = script or flag
+            if attached is not None:
+                nested(attached, depth)
+        if name in SCRIPT_OPTIONS:
+            letters += SCRIPT_OPTIONS[name][0]
+            longs.add(SCRIPT_OPTIONS[name][1])
         stdin = stdin or name in STDIN_RUNNERS
         evaluating = evaluating or name == "eval"
+
+
+def candidate(name: str, args: list[str], *, stdin: bool, cut: bool) -> bool:
+    """Gate the command a word naming sbx, workloads, or sbx-mcp would start."""
+    if name == "sbx-mcp":
+        raise GateError(OPAQUE)
+    if name not in {"sbx", "workloads"}:
+        return False
+    check_sbx(name, args, stdin=stdin, cut=cut)
+    return True
+
+
+def script_option(word: str, letters: str, longs: set[str]) -> tuple[bool, str | None]:
+    """Whether word is a script option whose script is the next word, and any attached script."""
+    option, equals, value = word.partition("=")
+    if option in longs:
+        return not equals, value if equals else None
+    if word.startswith("--") or not word.startswith("-"):
+        return False, None
+    if word[1:].isalpha():
+        return any(letter in word for letter in letters), None
+    # env -S'sbx ...' attaches the script to the option letter.
+    match = re.match(rf"-[A-Za-z]*?[{letters}](.+)", word, re.DOTALL)
+    return False, match[1] if match else None
 
 
 def net_end(args: list[str], index: int, value: str | None) -> int:
