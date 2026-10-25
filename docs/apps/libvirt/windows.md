@@ -31,7 +31,8 @@ Installers run from `C:\ProgramData\workloads` as SYSTEM, so `firstlogon.ps1` re
 ## Provisioning
 
 A libvirt hook queues `workloads-provision@<name>.service` when the guest starts or libvirtd reconnects to it, and stops the unit when the guest stops.
-The hook takes effect at the switch that adds it, through a tmpfiles link and a libvirtd reload.
+A tmpfiles link puts the hook in place at the switch that adds it, but libvirtd looks for qemu hooks only when it starts.
+When it started without one, the hook stays silent until libvirtd restarts, as [workloads-provision never starts](#workloads-provision-never-starts) describes.
 The active unit stands for a provisioned run of the guest; a switch never restarts it, so changed steps run at the next start of the guest.
 
 While the OS disk is still empty, the unit presses Enter for the installer's boot prompt.
@@ -132,15 +133,16 @@ A failed password step means the guest agent cannot set passwords, and the accou
 
 ## workloads-provision never starts
 
-Cause: libvirtd missed the reload that loads the hook, because the same switch changed its unit in other ways and libvirtd never restarts at a switch.
+Cause: libvirtd started before any qemu hook existed, so it never calls one; a reload does not look for hooks again.
 
 ```sh
 ls -l /var/lib/libvirt/hooks/qemu.d/
 systemctl status 'workloads-provision@*'
 ```
 
-Fix: reload libvirtd, which keeps guests running, then shut the guest down and start it:
+Fix: restart libvirtd.
+Running guests keep running, and libvirtd reconnects to them, which queues their provisioning:
 
 ```sh
-sudo systemctl reload libvirtd.service
+sudo systemctl restart libvirtd.service
 ```
