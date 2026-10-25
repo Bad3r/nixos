@@ -32,7 +32,8 @@ in
               };
 
               # routed counts guest packets the kernel routes to the uplink, before
-              # inet workload sees them; the rest count what leaves the host.
+              # inet workload sees them; the rest count what leaves the host, warp
+              # only once the tunnel end has replied.
               networking.nftables.tables.probe = {
                 family = "inet";
                 content = ''
@@ -49,7 +50,7 @@ in
                   chain postrouting {
                     type filter hook postrouting priority srcnat - 1; policy accept;
                     oifname != "vn-*" oifname != "CloudflareWARP" ip saddr 172.16.0.0/16 counter name uplink
-                    oifname "CloudflareWARP" ip saddr 172.16.1.0/24 counter name warp
+                    oifname "CloudflareWARP" ip saddr 172.16.1.0/24 ct state established counter name warp
                     oifname "CloudflareWARP" ip saddr 172.16.2.0/24 counter name sealed
                   }
                 '';
@@ -82,11 +83,18 @@ in
           machine.succeed("ip route replace default via 192.168.1.254 dev eth1 onlink")
           machine.wait_until_succeeds("ip rule | grep -F 'iif vn-off'", timeout=60)
 
-          # warp-svc adds its rule without a preference, one below the lowest in use.
+          # The tunnel end answers, so the warp flow is established before the band
+          # goes. warp-svc adds its rule without a preference, one below the lowest in use.
           machine.succeed(
-              "ip link add CloudflareWARP type dummy",
+              "ip netns add warp",
+              "ip link add CloudflareWARP type veth peer name eth0 netns warp",
+              "ip addr add 10.99.0.1/30 dev CloudflareWARP",
               "ip link set CloudflareWARP up",
-              "ip route add default dev CloudflareWARP table 65743",
+              "ip -n warp addr add 10.99.0.2/30 dev eth0",
+              "ip -n warp addr add 1.1.1.1/32 dev lo",
+              "ip -n warp link set lo up",
+              "ip -n warp link set eth0 up",
+              "ip route add default via 10.99.0.2 dev CloudflareWARP table 65743",
               "ip rule add not fwmark 0x100cf lookup 65743",
           )
           warp_rule = "31014:\tnot from all fwmark 0x100cf lookup 65743"
@@ -106,7 +114,7 @@ in
               assert count("routed") == before, "a restart opened the band"
               assert warp_rule in machine.succeed("ip rule"), "a restart deleted WARP's rule"
 
-          with subtest("the forward chain holds after an update dies between its deletes and adds"):
+          with subtest("the outbound chain drops guest traffic, established flows included, once the band is lost"):
               machine.succeed(
                   "ip rule show | awk -F: '$1 >= 31000 && $1 <= 31999 && /iif vn-/ { print \"rule del pref \" $1 }' | ip -batch -"
               )
