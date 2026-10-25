@@ -139,6 +139,49 @@ in
             ;;
         esac
       '';
+      # Sends three frames of one ethertype; busybox has no raw sender.
+      # Store references would pull glibc into the guest's small initrd.
+      sendFrame =
+        pkgs.runCommandCC "sendframe"
+          {
+            buildInputs = [ pkgs.glibc.static ];
+            nativeBuildInputs = [ pkgs.nukeReferences ];
+            allowedReferences = [ ];
+          }
+          ''
+            cp ${pkgs.writeText "sendframe.c" ''
+              #include <linux/if_packet.h>
+              #include <net/if.h>
+              #include <stdio.h>
+              #include <stdlib.h>
+              #include <string.h>
+              #include <sys/socket.h>
+
+              static int mac(const char *text, unsigned char *out) {
+                return sscanf(text, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
+                              &out[0], &out[1], &out[2], &out[3], &out[4], &out[5]) == 6;
+              }
+
+              int main(int argc, char **argv) {
+                unsigned char frame[64] = {0};
+                struct sockaddr_ll to = {0};
+                if (argc != 5 || !mac(argv[3], frame) || !mac(argv[2], frame + 6)) return 2;
+                unsigned long type = strtoul(argv[4], NULL, 16);
+                frame[12] = type >> 8;
+                frame[13] = type & 0xff;
+                int sock = socket(AF_PACKET, SOCK_RAW, 0);
+                to.sll_family = AF_PACKET;
+                to.sll_ifindex = if_nametoindex(argv[1]);
+                to.sll_halen = 6;
+                memcpy(to.sll_addr, frame, 6);
+                for (int i = 0; i < 3; i++)
+                  if (sendto(sock, frame, sizeof frame, 0, (struct sockaddr *)&to, sizeof to) < 0) return 1;
+                return 0;
+              }
+            ''} sendframe.c
+            $CC -static -O2 -o "$out" sendframe.c
+            nuke-refs "$out"
+          '';
       sessionInit = pkgs.writeScript "init" ''
         #!${busybox}/bin/sh
         export PATH=${busybox}/bin
@@ -163,6 +206,8 @@ in
         if [ "$role" = probe ]; then
           gateway=$(ip route | awk '/^default/ { print $3 }')
           check() { if "$@" >/dev/null 2>&1; then echo ok; else echo blocked; fi; }
+          # The lease binding follows the DHCP ACK by a moment.
+          for _ in 1 2 3 4 5 6 7 8 9 10; do ping -c 1 -W 1 "$gateway" >/dev/null 2>&1 && break; done
           echo "SBX gateway-ping=$(check ping -c 1 -W 3 "$gateway")"
           echo "SBX gateway-tcp=$(check nc -z -w 3 "$gateway" 53)"
           echo "SBX host-name=$(check nslookup -type=a host.vm "$gateway")"
@@ -170,12 +215,20 @@ in
           echo "SBX gateway-http=$(check wget -q -T 3 -O /dev/null "http://$gateway:8080/")"
           echo "SBX host-http=$(check wget -q -T 3 -O /dev/null "http://$host:8080/")"
           echo "SBX peer-ping=$(check ping -c 2 -W 3 "$peer")"
-          # Claims the peer's address: a won neighbor entry would route the reply here.
+          # The host counts UDP to port 4444 by source address.
+          echo own | nc -u -w 1 "$gateway" 4444
           ip addr add "$peer/32" dev eth0
           arping -U -c 2 -I eth0 -s "$peer" "$gateway" >/dev/null 2>&1
-          echo "SBX spoof-tcp=$(check nc -z -s "$peer" -w 3 "$gateway" 53)"
+          echo spoof | nc -u -w 1 -s "$peer" "$gateway" 4444
           ip addr del "$peer/32" dev eth0
           echo "SBX own-tcp=$(check nc -z -w 3 "$gateway" 53)"
+          # The peer's MAC from this port: link-local, then ARP with the peer's leased pair.
+          ${sendFrame} eth0 ${peerMac} 01:80:c2:00:00:0e 88cc
+          ip link set eth0 down
+          ip link set eth0 address ${peerMac}
+          ip link set eth0 up
+          ip addr add "$peer/32" dev eth0
+          arping -U -c 2 -I eth0 -s "$peer" "$gateway" >/dev/null 2>&1
           echo "SBX done"
         fi
         while :; do sleep 3600; done
@@ -566,10 +619,16 @@ in
                     raise
                 assert peer.startswith("172.16.6."), peer
                 # The host reaches the peer, so only the bridge isolation can block the probe's ping.
-                machine.succeed(f"ping -c 1 -W 5 {peer}")
+                machine.wait_until_succeeds(f"ping -c 1 -W 1 {peer}", timeout=30)
 
                 host = machine.succeed("ip -4 -o addr show dev eth1 | awk '{ print $4 }' | cut -d/ -f1").strip()
                 machine.succeed(f"sed -e 's/@PEER@/{peer}/' -e 's/@HOST@/{host}/' ${probeDomain} > /run/probe.xml")
+                machine.succeed(
+                    "nft add table inet probe-count"
+                    " && nft 'add chain inet probe-count pre { type filter hook prerouting priority -400; }'"
+                    f" && nft add rule inet probe-count pre iifname vn-sbx udp dport 4444 ip saddr {peer} counter"
+                    f" && nft add rule inet probe-count pre iifname vn-sbx udp dport 4444 ip saddr != {peer} counter"
+                )
                 machine.succeed(as_owner("virsh -c qemu:///session create /run/probe.xml"))
                 machine.wait_until_succeeds("grep -F 'SBX done' ${home}/probe.log")
                 report = machine.succeed("grep -F SBX ${home}/probe.log")
@@ -577,10 +636,25 @@ in
                 assert "mtu=1240" in report, report
                 for check in ("gateway-ping", "gateway-tcp", "host-name", "own-tcp"):
                     assert f"SBX {check}=ok" in report, report
-                for check in ("peer-name", "gateway-http", "host-http", "peer-ping", "spoof-tcp"):
+                for check in ("peer-name", "gateway-http", "host-http", "peer-ping"):
                     assert f"SBX {check}=blocked" in report, report
                 neighbor = machine.succeed(f"ip neigh show {peer} dev vn-sbx")
                 assert "${peerMac}" in neighbor, neighbor
+                rules = json.loads(machine.succeed("nft -j list chain inet probe-count pre"))["nftables"]
+                spoofed, own = [
+                    next(e["counter"]["packets"] for e in item["rule"]["expr"] if "counter" in e)
+                    for item in rules
+                    if "rule" in item
+                ]
+                assert (spoofed, own > 0) == (0, True), (spoofed, own)
+                peer_tap = machine.succeed(as_owner("virsh -c qemu:///session domiflist peer")).split("\n")[2].split()[0]
+                fdb = [
+                    entry["ifname"]
+                    for entry in json.loads(machine.succeed("bridge -j fdb show br vn-sbx"))
+                    if entry["mac"] == "${peerMac}"
+                ]
+                assert fdb == [peer_tap], (fdb, peer_tap)
+                assert machine.succeed("cat /sys/class/net/vn-sbx/bridge/no_linklocal_learn").strip() == "1"
           '';
       };
     };
