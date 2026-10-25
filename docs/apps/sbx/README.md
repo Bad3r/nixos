@@ -9,7 +9,8 @@ The app module is `modules/apps/sbx/nixos.nix`; its ceilings come from the host'
 Every sandbox is an untrusted guest.
 
 - Control runs over SSH on vsock and the qemu-ga channel, never over a network.
-- The guest has no vdagent channel, no display socket, and no shared folder.
+- The guest has no vdagent channel and no shared folder.
+  Only a [GUI base](bases.md#gui-bases) adds a display socket, with clipboard and file transfer off.
 - `sbx` accepts no domain XML, no host disk path, and no value above a ceiling.
 - Host vsock listeners are reachable from a guest, so `create` refuses while one listens outside `vsockAllowlist`.
 - The listener check sees the initial network namespace only; the module sets `net.vsock.child_ns_mode` to `local` so later namespaces keep their vsock sockets to themselves.
@@ -31,10 +32,12 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `destroy <name>`                 | stop, undefine, delete the run directory    |
 | `list`, `info <name>`            | state, CID, address, TTL left, session      |
 | `screenshot <name>`              | display to PNG; `--ocr` adds text           |
+| `key <name>`, `type <name>`      | keyboard input on a GUI base                |
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
+| `base prepare <image>`           | turn a cloud image into a base, owner only  |
 
-`create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, and `--ttl`.
+`create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, and `--gui`.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
 
@@ -70,11 +73,7 @@ sbx destroy probe
 
 ## Bases
 
-A base is a Nix-built disk image from `legacyPackages.x86_64-linux.workloads.sbx-<base>` in `modules/apps/sbx/bases.nix`.
-`sbx base build` builds it from the flake the `flake` option names, with an out-link under `~/.local/share/sbx/bases/` as its GC root.
-No host closure references a base.
-Each sandbox gets a qcow2 overlay on the base, its own GC root to the base, and a fresh ed25519 key.
-The key reaches the guest as the `ssh.authorized_keys.root` systemd credential over fw_cfg.
+Nix bases, GUI input, and cloud bases with `base prepare`: [bases](bases.md).
 
 ## Resources
 
@@ -97,11 +96,11 @@ The TTL counts wall-clock time, host sleep included.
 | --------------------------------- | -------------------------------- |
 | `~/.local/share/sbx/<name>/`      | overlay, NVRAM, key, console log |
 | `~/.local/share/sbx/<name>/xfer/` | copies out and screenshots       |
-| `~/.local/share/sbx/bases/<base>` | base out-link                    |
+| `~/.local/share/sbx/bases/<base>` | base out-link or prepared disk   |
 
 `sbx-gc.timer` runs `sbx gc` on a schedule.
 It removes sandboxes past their TTL, shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
-`create`, `exec`, `cp`, `screenshot`, `destroy`, `gc`, `base build`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
+`create`, `exec`, `cp`, `screenshot`, `key`, `type`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
 
 ## Agents
 

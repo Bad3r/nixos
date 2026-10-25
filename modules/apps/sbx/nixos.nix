@@ -11,6 +11,7 @@
   Options:
     create <base>: Start a sandbox and print its name, vsock CID, and address.
     --net egress: Attach the sandbox to the sbx workload network instead of leaving it without a NIC.
+    --gui: Use the base's GUI variant, which key, type, and screenshot drive.
     run <base> -- CMD: Create, copy in, run, copy out, and destroy in one call.
     exec <name> -- CMD: Run a command over SSH on vsock.
     --json: Print results and errors as JSON.
@@ -20,6 +21,8 @@
       --net egress puts them on the isolated sbx workload network.
     * QEMU runs inside sbx.slice through the sbx-libvirt user unit, so the slice bounds every sandbox together.
     * Bases build on demand from this flake and never enter the host closure.
+    * Cloud bases come from hash-pinned images that `sbx base prepare` boots once with egress;
+      agent sessions cannot run it.
 */
 { config, ... }:
 let
@@ -92,6 +95,11 @@ let
             default = 2048;
             description = "Default MiB per sandbox.";
           };
+          guiMemory = lib.mkOption {
+            type = types.ints.positive;
+            default = 4096;
+            description = "Default MiB per sandbox on a GUI base.";
+          };
           maxMemory = lib.mkOption {
             type = types.ints.positive;
             default = 6144;
@@ -112,6 +120,33 @@ let
             default = 8;
             description = "Virtual GiB of a sandbox disk; create reserves it against the disk cap for every running sandbox.";
           };
+        };
+
+        cloudImages = lib.mkOption {
+          type = types.attrsOf (
+            types.submodule {
+              options = {
+                url = lib.mkOption {
+                  type = types.str;
+                  description = "Download URL of a dated qcow2 build, never a moving `latest` link.";
+                };
+                hash = lib.mkOption {
+                  type = types.str;
+                  description = "SRI hash that `sbx base prepare` checks the download against.";
+                };
+              };
+            }
+          );
+          default = {
+            debian-13 = {
+              url = "https://cloud.debian.org/images/cloud/trixie/20261021-2638/debian-13-genericcloud-amd64-20261021-2638.qcow2";
+              hash = "sha256-06XJPMmLNGUUIeD6OjfbQo8HNVo7xM9G1vvrAB8ljpA=";
+            };
+          };
+          description = ''
+            Cloud images that `sbx base prepare <name>` turns into bases. Each needs
+            cloud-init with NoCloud, systemd's sshd vsock generator, and apt.
+          '';
         };
 
         vsockAllowlist = lib.mkOption {
@@ -135,7 +170,10 @@ let
             message = "programs.sbx.extended.limits.ttl exceeds limits.maxTtl";
           }
           {
-            assertion = cfg.sandbox.memory <= cfg.sandbox.maxMemory && cfg.sandbox.cpus <= cfg.sandbox.maxCpus;
+            assertion =
+              cfg.sandbox.memory <= cfg.sandbox.maxMemory
+              && cfg.sandbox.guiMemory <= cfg.sandbox.maxMemory
+              && cfg.sandbox.cpus <= cfg.sandbox.maxCpus;
             message = "programs.sbx.extended.sandbox: a default exceeds its maximum";
           }
           {
@@ -163,11 +201,12 @@ let
             };
             defaults = {
               memoryMiB = cfg.sandbox.memory;
+              guiMemoryMiB = cfg.sandbox.guiMemory;
               inherit (cfg.sandbox) cpus;
               ttlSeconds = cfg.limits.ttl * 3600;
               diskGiB = cfg.sandbox.disk;
             };
-            inherit (cfg) vsockAllowlist flake;
+            inherit (cfg) vsockAllowlist flake cloudImages;
             cpuset = cfg.limits.cpus;
             # An object, or why `--net egress` is unavailable.
             egress =

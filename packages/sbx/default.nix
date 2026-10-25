@@ -11,6 +11,7 @@
   git,
   systemd,
   nix,
+  xorriso,
   # Rendered by modules/apps/sbx/nixos.nix; the bare package refuses to run.
   settings ? { },
 }:
@@ -29,6 +30,7 @@ let
     systemctl = "${systemd}/bin/systemctl";
     nix = "${nix}/bin/nix";
     nix_store = "${nix}/bin/nix-store";
+    xorriso = "${xorriso}/bin/xorriso";
   };
   settingsFile = writeText "sbx-settings.json" (builtins.toJSON (settings // { inherit tools; }));
 in
