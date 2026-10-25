@@ -35,6 +35,11 @@ let
               null
             else
               config.sops.secrets.${windows.productKeySecret}.path;
+          officeInstaller =
+            if windows.office.installer == null then
+              null
+            else
+              "/var/lib/workloads/media/${windows.office.installer}";
           inherit gateways;
           services = lib.mapAttrsToList (name: service: {
             inherit name;
@@ -44,6 +49,11 @@ let
           install = guest.install.media != [ ];
           osDisk = "${guest.stateDir}/${lib.head (lib.attrNames guest.disks)}.qcow2";
         };
+
+      # The Office step copies its installer from the staged media.
+      mediaUnit = lib.optional (lib.any (guest: guest.windows.office.installer != null) (
+        lib.attrValues guests
+      )) "workloads-vm-media.service";
 
       manifest = pkgs.writeText "workloads-provision.json" (builtins.toJSON (lib.mapAttrs spec guests));
 
@@ -84,11 +94,12 @@ let
           services."workloads-provision@" = {
             description = "Provision the %i workload guest through its guest agent";
             requires = [ "libvirtd.service" ];
-            wants = [ "time-sync.target" ];
+            wants = [ "time-sync.target" ] ++ mediaUnit;
             after = [
               "libvirtd.service"
               "time-sync.target"
             ]
+            ++ mediaUnit
             ++ sopsInstallSecretsDeps config;
             # A restart at switch would wait for a whole provisioning run; the
             # next start of the guest runs the new steps.
