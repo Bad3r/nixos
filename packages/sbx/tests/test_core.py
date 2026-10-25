@@ -16,25 +16,40 @@ from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from sbx import cli, core
+from sbx.cloud import CloudImage
 from sbx.core import NS, DomainInfo, Egress, Meta, Paths, Sandboxes, SbxError, Settings, Tools
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 NOW = 1_800_000_000
+EMULATOR = "/nix/store/0123456789abcdfghijklmnpqrsvwxyz-sbx-qemu"
 MAC = "52:54:00:ab:cd:ef"
 
 STUBS = {
     "ssh-keygen": 'for k; do :; done; echo key > "$k"; echo "ssh-ed25519 AAAA sbx" > "$k.pub"',
     "nix-store": 'ln -s "$4" "$2"',
     "qemu-img": (
-        'if [ "$1" = info ]; then echo \'{"virtual-size": 1073741824}\'; '
-        'else eval "disk=\\${$(($# - 1))}"; touch "$disk"; fi'
+        'case "$1" in info) [ -n "$SBX_TEST_IMAGE_INFO" ] '
+        "|| exec echo '{\"virtual-size\": 1073741824}'; "
+        '[ "$SBX_TEST_IMAGE_INFO" = fail ] && exit 1; echo "$SBX_TEST_IMAGE_INFO";; '
+        'convert) for t; do :; done; touch "$t";; '
+        '*) eval "disk=\\${$(($# - 1))}"; touch "$disk";; esac'
     ),
     "ssh": (
-        'case "$*" in *blockme*) touch "$SBX_TEST_GATE.started"; '
+        'if [ -n "$SBX_TEST_SSH_LOG" ]; then printf "%s\\n" "$@" > "$SBX_TEST_SSH_LOG"; fi; '
+        'case "$*" in *poweroff*) code="${SBX_TEST_PROVISION_EXIT:-0}"; '
+        '[ "$code" = 0 ] && touch "$SBX_TEST_POWEROFF"; exit "$code";; '
+        '*blockme*) touch "$SBX_TEST_GATE.started"; '
         'while [ ! -e "$SBX_TEST_GATE" ]; do sleep 0.05; done;; esac; '
         'exit "${SBX_TEST_SSH_EXIT:-0}"'
+    ),
+    "xorriso": (
+        'for a; do [ "$prev" = -output ] && out=$a; prev=$a; done; '
+        'rm -rf "$SBX_TEST_SEED"; cp -r "$a" "$SBX_TEST_SEED"; touch "$out"'
+    ),
+    "nix": (
+        'printf "%s\\n" "$@" > "$SBX_TEST_NIX_LOG"; echo "{\\"storePath\\": \\"$SBX_TEST_IMAGE\\"}"'
     ),
     "scp": (
         'printf "%s\\n" "$@" > "$SBX_TEST_LOG"; for t; do :; done; '
@@ -45,7 +60,6 @@ STUBS = {
         'touch "$SBX_TEST_DONE"; exit 0; fi; '
         'echo out > "$t"; chmod 755 "$t"'
     ),
-    "ss": 'cat "$SBX_TEST_SS" 2>/dev/null || true',
     "git": (
         'if [ -n "$GIT_DIR" ] || [ -z "$SBX_TEST_TOPLEVEL" ]; then exit 1; fi; '
         'echo "$SBX_TEST_TOPLEVEL"'
@@ -63,6 +77,7 @@ class FakeBackend:
         self.domains_by_name: dict[str, DomainInfo] = {}
         self.xml: dict[str, str] = {}
         self.replies: list[dict[str, Any]] = []
+        self.keys: list[tuple[str, list[int]]] = []
         self.addresses = ["172.16.2.5"]
         # Host sleep: domains that refuse, unconnected agent answers left, saved states.
         self.failing: set[str] = set()
@@ -77,13 +92,21 @@ class FakeBackend:
         self.aborted: list[str] = []
 
     def domains(self) -> list[DomainInfo]:
-        """List the fake domains."""
+        """List the fake domains; a provisioning run over SSH has powered them all off."""
+        if Path(os.environ["SBX_TEST_POWEROFF"]).exists():
+            for name in list(self.domains_by_name):
+                self.stop(name)
         return list(self.domains_by_name.values())
 
     def add(self, name: str, *, expires: int, active: bool = True, **kwargs: Any) -> None:  # noqa: ANN401
         """Insert a domain as if sbx had created it."""
         meta = Meta(
-            "nixos", "/nix/store/x/sbx.qcow2", "none", NOW - 60, expires, kwargs.get("session")
+            kwargs.get("base", "nixos"),
+            "/nix/store/x/sbx.qcow2",
+            "none",
+            NOW - 60,
+            expires,
+            kwargs.get("session"),
         )
         self.domains_by_name[f"sbx-{name}"] = DomainInfo(
             name=f"sbx-{name}",
@@ -94,6 +117,8 @@ class FakeBackend:
             cid=3 if active else None,
             meta=meta,
             managed_save=kwargs.get("managed_save", False),
+            pid=4242 if active else None,
+            emulator=kwargs.get("emulator", EMULATOR),
         )
 
     def start(self, xml: str) -> None:
@@ -115,6 +140,8 @@ class FakeBackend:
             meta=Meta.parse(element),
             managed_save=False,
             mac=None if mac is None else mac.get("address"),
+            pid=4242,
+            emulator=root.findtext("devices/emulator"),
         )
 
     def remove(self, domain: str) -> None:
@@ -135,6 +162,17 @@ class FakeBackend:
         """Write a placeholder image."""
         target.write_bytes(b"png")
         return "image/png"
+
+    def send_key(self, domain: str, keycodes: Any, holdtime: int) -> None:  # noqa: ANN401, ARG002
+        """Record one chord."""
+        self.keys.append((domain, list(keycodes)))
+
+    def stop(self, domain: str) -> None:
+        """Turn a domain off, as a guest poweroff does."""
+        info = self.domains_by_name[domain]
+        self.domains_by_name[domain] = dataclasses.replace(
+            info, state="shutoff", active=False, cid=None
+        )
 
     def _set(self, domain: str, state: str, *, active: bool, managed_save: bool) -> None:
         if domain in self.failing:
@@ -211,19 +249,20 @@ class Fixture(unittest.TestCase):
             path.chmod(0o755)
         other = str(stubs / "other")
         tools = Tools(
-            emulator="/nix/store/qemu/bin/qemu-system-x86_64",
+            emulator=EMULATOR,
             qemu_img=str(stubs / "qemu-img"),
             ssh=str(stubs / "ssh"),
             scp=str(stubs / "scp"),
             ssh_keygen=str(stubs / "ssh-keygen"),
             socat=other,
             tesseract=other,
-            ss=str(stubs / "ss"),
+            nsenter="/nix/store/util-linux/bin/nsenter",
             git=str(stubs / "git"),
             systemctl=other,
-            nix=other,
+            nix=str(stubs / "nix"),
             nix_store=str(stubs / "nix-store"),
             timedatectl=str(stubs / "timedatectl"),
+            xorriso=str(stubs / "xorriso"),
         )
         self.settings = Settings(
             running=3,
@@ -234,10 +273,10 @@ class Fixture(unittest.TestCase):
             disk_cap_bytes=30 << 30,
             min_free_bytes=0,
             default_memory_mib=2048,
+            default_gui_memory_mib=4096,
             default_cpus=2,
             default_ttl=2 * 3600,
             disk_gib=8,
-            vsock_allowlist=frozenset({7000}),
             cpuset="8-23",
             flake="/flake",
             unit="sbx-libvirt.service",
@@ -245,6 +284,7 @@ class Fixture(unittest.TestCase):
             output_limit=1024,
             boot_timeout=5,
             egress="no egress network",
+            cloud_images={"debian-13": CloudImage("https://cloud.example/d.qcow2", "sha256-x")},
             tools=tools,
         )
         self.paths = Paths(self.scratch / "data" / "sbx", self.scratch / "config")
@@ -253,14 +293,18 @@ class Fixture(unittest.TestCase):
         (image / "sbx-nixos.qcow2").write_bytes(b"")
         self.paths.bases.mkdir(parents=True)
         (self.paths.bases / "nixos").symlink_to(image)
+        (self.paths.bases / "nixos-gui").symlink_to(image)
         self.backend = FakeBackend()
         self.environment = mock.patch.dict(
             os.environ,
             {
                 "TMPDIR": str(self.scratch / "tmp"),
-                "SBX_TEST_SS": str(self.scratch / "ss"),
                 "SBX_TEST_LOG": str(self.scratch / "scp.log"),
                 "SBX_TEST_DONE": str(self.scratch / "scp.done"),
+                "SBX_TEST_SEED": str(self.scratch / "seed"),
+                "SBX_TEST_POWEROFF": str(self.scratch / "poweroff"),
+                "SBX_TEST_NIX_LOG": str(self.scratch / "nix.log"),
+                "SBX_TEST_IMAGE": str(image / "sbx-nixos.qcow2"),
             },
         )
         self.environment.start()
@@ -279,7 +323,7 @@ class Fixture(unittest.TestCase):
             self.settings, self.paths, lambda _slice: self.backend, session, lambda: NOW
         )
 
-    def request(self, **overrides: Any) -> core.Request:  # noqa: ANN401
+    def request(self, base: str = "nixos", /, **overrides: Any) -> core.Request:  # noqa: ANN401
         """Validate create flags with defaults."""
         flags: dict[str, Any] = {
             "name": "t1",
@@ -289,7 +333,7 @@ class Fixture(unittest.TestCase):
             "ttl": None,
         }
         flags.update(overrides)
-        return self.sandboxes().request("nixos", **flags)
+        return self.sandboxes().request(base, **flags)
 
 
 class SandboxesTest(Fixture):
@@ -371,21 +415,32 @@ class SandboxesTest(Fixture):
         self.assertEqual(refused.exception.code, "disk-full")
         self.assertFalse(self.paths.sandbox("t1").exists())
 
-    def test_vsock_listeners(self) -> None:
-        """Reachable host listeners outside the allowlist refuse a sandbox."""
-        ss = self.scratch / "ss"
-        ss.write_text("v_str LISTEN 0 0 *:7000 *:*\nv_str LISTEN 0 0 1:5000 *:*\n")
-        self.sandboxes().create(self.request())
-        ss.write_text("v_str LISTEN 0 0 2:5999 *:*\n")
+    def test_ssh_enters_the_qemu_namespace(self) -> None:
+        """SSH reaches the guest's CID from inside its QEMU's namespaces, never the host's."""
+        self.add_running("v")
+        sandboxes = self.sandboxes()
+        log = self.scratch / "ssh.log"
+        with mock.patch.dict(os.environ, {"SBX_TEST_SSH_LOG": str(log)}):
+            sandboxes.exec_capture("v", ["true"], timeout=None, agent=False)
+        proxy = next(arg for arg in log.read_text().splitlines() if arg.startswith("ProxyCommand="))
+        self.assertEqual(
+            proxy,
+            "ProxyCommand=/nix/store/util-linux/bin/nsenter --target 4242 --user --net "
+            f"--preserve-credentials -- {self.settings.tools.socat} - VSOCK-CONNECT:3:22",
+        )
+        self.backend.domains_by_name["sbx-v"] = dataclasses.replace(
+            self.backend.domains_by_name["sbx-v"], pid=None
+        )
         with self.assertRaises(SbxError) as refused:
-            self.sandboxes().create(self.request(name="t2"))
-        self.assertEqual(refused.exception.code, "vsock-listener")
+            sandboxes.exec_capture("v", ["true"], timeout=None, agent=False)
+        self.assertEqual(refused.exception.code, "not-running")
 
     def test_gc(self) -> None:
-        """Expired, stopped, and directory-less sandboxes go; managed saves and live ones stay."""
-        for name in ("live", "old", "off", "saved"):
+        """Expired, stopped, and directory-less sandboxes go; saves, prepares, live ones stay."""
+        for name in ("live", "old", "off", "saved", "prepare-debian-13"):
             self.paths.sandbox(name).mkdir(parents=True)
         self.backend.add("live", expires=NOW + 60)
+        self.backend.add("prepare-debian-13", expires=NOW + 60, active=False)
         self.backend.add("old", expires=NOW - 1)
         self.backend.add("off", expires=NOW + 60, active=False)
         self.backend.add("saved", expires=NOW + 60, active=False, managed_save=True)
@@ -393,7 +448,7 @@ class SandboxesTest(Fixture):
         self.paths.sandbox("stray").mkdir()
         sandboxes = self.sandboxes()
         planned = sandboxes.gc(dry_run=True)
-        self.assertEqual(len(self.backend.domains()), 5)
+        self.assertEqual(len(self.backend.domains()), 6)
         self.assertTrue(self.paths.sandbox("stray").exists())
         self.assertEqual(sandboxes.gc(dry_run=False), planned)
         reasons = {action["name"]: action["reason"] for action in planned}
@@ -406,7 +461,9 @@ class SandboxesTest(Fixture):
                 "stray": "no domain",
             },
         )
-        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-live", "sbx-saved"])
+        self.assertEqual(
+            sorted(self.backend.domains_by_name), ["sbx-live", "sbx-prepare-debian-13", "sbx-saved"]
+        )
         self.assertFalse(self.paths.sandbox("stray").exists())
 
     def serve_grants(self, answer: dict[str, object]) -> list[dict[str, object]]:
@@ -810,7 +867,7 @@ class SandboxesTest(Fixture):
         patch.start()
         self.addCleanup(patch.stop)
         leases = self.scratch / "vn-sbx.status"
-        self.settings = dataclasses.replace(self.settings, egress=Egress("vn-sbx", leases))
+        self.settings = dataclasses.replace(self.settings, egress=Egress("vn-sbx", leases, 1240))
         mac = mock.patch.object(core, "random_mac", return_value=MAC)
         mac.start()
         self.addCleanup(mac.stop)
@@ -892,9 +949,8 @@ class SandboxesTest(Fixture):
         def configure(_seconds: float) -> None:
             self.backend.addresses = ["172.16.2.5"]
 
-        with mock.patch.object(core.time, "sleep", side_effect=configure) as sleep:
+        with mock.patch.object(core.time, "sleep", side_effect=configure):
             result = self.sandboxes().create(self.request(net="egress"))
-        sleep.assert_called_once()
         self.assertEqual(result["address"], "172.16.2.5")
         self.backend.addresses = ["172.16.2.6"]
         ticks = iter(range(0, 10_000, 2))
@@ -971,14 +1027,6 @@ class SandboxesTest(Fixture):
         root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
         self.assertIsNone(root.find("devices/interface"))
 
-    def test_egress_checks_vsock_listeners(self) -> None:
-        """A NIC does not remove vsock, so egress sandboxes get the listener check too."""
-        self.egress()
-        (self.scratch / "ss").write_text("v_str LISTEN 0 0 2:5999 *:*\n")
-        with self.assertRaises(SbxError) as refused:
-            self.sandboxes().create(self.request(net="egress"))
-        self.assertEqual(refused.exception.code, "vsock-listener")
-
     def test_settings_egress(self) -> None:
         """The rendered settings carry the egress bridge, or why there is none."""
         raw: dict[str, object] = {
@@ -991,22 +1039,256 @@ class SandboxesTest(Fixture):
                 "diskBytes": 1,
                 "minFreeBytes": 1,
             },
-            "defaults": {"memoryMiB": 1, "cpus": 1, "ttlSeconds": 1, "diskGiB": 1},
-            "vsockAllowlist": [],
+            "defaults": {
+                "memoryMiB": 1,
+                "guiMemoryMiB": 2,
+                "cpus": 1,
+                "ttlSeconds": 1,
+                "diskGiB": 1,
+            },
             "cpuset": "0",
             "flake": "/flake",
             "unit": "u",
             "slice": "s",
             "outputLimit": 1,
             "bootTimeout": 1,
-            "egress": {"bridge": "vn-sbx", "leases": "/leases"},
+            "egress": {"bridge": "vn-sbx", "leases": "/leases", "mtu": 1240},
+            "cloudImages": {"debian-13": {"url": "https://x/d.qcow2", "hash": "sha256-y"}},
             "tools": dataclasses.asdict(self.settings.tools),
         }
         path = self.scratch / "settings.json"
         path.write_text(json.dumps(raw))
-        self.assertEqual(Settings.load(path).egress, Egress("vn-sbx", Path("/leases")))
+        loaded = Settings.load(path)
+        self.assertEqual(loaded.egress, Egress("vn-sbx", Path("/leases"), 1240))
+        self.assertEqual(
+            loaded.cloud_images, {"debian-13": CloudImage("https://x/d.qcow2", "sha256-y")}
+        )
+        self.assertEqual(loaded.default_gui_memory_mib, 2)
         path.write_text(json.dumps(raw | {"egress": "why"}))
         self.assertEqual(Settings.load(path).egress, "why")
+
+    def test_gui_request(self) -> None:
+        """--gui picks the GUI variant with its own default memory; bases without one refuse."""
+        request = self.request(gui=True)
+        self.assertEqual((request.base, request.memory_mib), ("nixos-gui", 4096))
+        request = self.request("nixos-gui")
+        self.assertEqual((request.base, request.memory_mib), ("nixos-gui", 4096))
+        self.assertEqual(self.request(memory="1G", gui=True).memory_mib, 1024)
+        with self.assertRaises(SbxError) as refused:
+            self.request("debian-13", gui=True)
+        self.assertEqual(refused.exception.code, "unknown-base")
+
+    def test_gui_domain(self) -> None:
+        """A GUI sandbox gets a SPICE socket without clipboard, file transfer, or vdagent."""
+        self.sandboxes().create(self.request(gui=True))
+        root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
+        graphics = root.findall("devices/graphics")
+        self.assertEqual([element.get("type") for element in graphics], ["spice"])
+        self.assertEqual(graphics[0].find("listen").get("type"), "socket")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(graphics[0].find("clipboard").get("copypaste"), "no")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(graphics[0].find("filetransfer").get("enable"), "no")  # pyright: ignore[reportOptionalMemberAccess]
+        channels = [target.get("name") for target in root.iterfind("devices/channel/target")]
+        self.assertEqual(channels, ["org.qemu.guest_agent.0"])
+
+    def test_key_and_type(self) -> None:
+        """Chords and text reach the display as Linux keycodes, one send per chord."""
+        self.sandboxes().create(self.request(gui=True))
+        with mock.patch.object(core.time, "sleep"):
+            result, _ = self.dispatch("key", "t1", "ctrl+alt+t", "Enter")
+            self.assertEqual(result, {"sandbox": "t1", "keys": ["ctrl+alt+t", "Enter"]})
+            result, _ = self.dispatch("type", "t1", "Hi!\n")
+            self.assertEqual(result, {"sandbox": "t1", "characters": 4})
+        self.assertEqual(
+            [codes for _domain, codes in self.backend.keys],
+            [[29, 56, 20], [28], [42, 35], [23], [42, 2], [28]],
+        )
+        self.assertEqual({domain for domain, _codes in self.backend.keys}, {"sbx-t1"})
+        logged = [call.args[0] for call in cast("mock.Mock", core.journal.record).call_args_list]
+        self.assertIn("type in t1: 4 characters", logged)
+        self.assertFalse([line for line in logged if "Hi!" in line])
+
+    def test_input_refusals(self) -> None:
+        """Unknown keys, untypable text, and sandboxes without a display send nothing."""
+        self.sandboxes().create(self.request(gui=True))
+        self.add_running("plain")
+        self.backend.add("old", expires=NOW - 1, base="nixos-gui")
+        cases = [
+            (("key", "t1", "ctrl+nope"), "invalid-argument"),
+            (("key", "t1", "+".join(["a"] * 17)), "invalid-argument"),
+            (("type", "t1", "x\u00e9"), "invalid-argument"),
+            (("type", "t1", "a\rb"), "invalid-argument"),
+            (("type", "t1", "x" * (core.TYPE_LIMIT + 1)), "invalid-argument"),
+            (("key", "plain", "enter"), "no-display"),
+            (("type", "plain", "x"), "no-display"),
+            (("key", "old", "enter"), "expired"),
+        ]
+        for argv, code in cases:
+            with self.subTest(argv=argv), self.assertRaises(SbxError) as refused:
+                self.dispatch(*argv)
+            self.assertEqual(refused.exception.code, code)
+        self.assertEqual(self.backend.keys, [])
+
+    def prepared(self) -> Path:
+        """Lay out a prepared debian-13 base."""
+        disk = self.paths.bases / "debian-13" / "disk.qcow2"
+        disk.parent.mkdir()
+        disk.write_bytes(b"")
+        return disk
+
+    def seed(self) -> dict[str, object]:
+        """Read the last seed the xorriso stub packed."""
+        directory = self.scratch / "seed"
+        return {path.name: path.read_text() for path in directory.iterdir()}
+
+    def test_cloud_create(self) -> None:
+        """A cloud sandbox boots the prepared disk with a NoCloud seed instead of fw_cfg."""
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request("debian-13"))
+        self.assertEqual(refused.exception.code, "base-missing")
+        self.assert_no_sandbox("t1")
+        disk = self.prepared()
+        result = self.sandboxes().create(self.request("debian-13"))
+        self.assertEqual(result["base"], "debian-13")
+        root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
+        self.assertIsNone(root.find("sysinfo"))
+        seed_iso = str(self.paths.sandbox("t1") / "seed.iso")
+        source = root.find("devices/disk[@device='cdrom']/source")
+        self.assertEqual(source.get("file"), seed_iso)  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertIsNotNone(root.find("devices/disk[@device='cdrom']/readonly"))
+        self.assertTrue((self.paths.sandbox("t1") / "seed.iso").exists())
+        self.assertFalse((self.paths.sandbox("t1") / "seed").exists())
+        self.assertFalse((self.paths.sandbox("t1") / "base").exists())
+        self.assertEqual(self.sandboxes().info("t1")["image"], str(disk))
+        seed = self.seed()
+        user_data = cast("str", seed["user-data"])
+        self.assertTrue(user_data.startswith("#cloud-config\n"))
+        config = json.loads(user_data.split("\n", 1)[1])
+        self.assertEqual(config["ssh_authorized_keys"], ["ssh-ed25519 AAAA sbx"])
+        self.assertEqual((config["users"], config["disable_root"]), ([], False))
+        meta_data = json.loads(cast("str", seed["meta-data"]))
+        self.assertTrue(meta_data["instance-id"].startswith("sbx-t1-"))
+        self.assertEqual(
+            json.loads(cast("str", seed["network-config"])), {"network": {"config": "disabled"}}
+        )
+
+    def test_cloud_egress_seed(self) -> None:
+        """An egress cloud sandbox's seed runs DHCP on its NIC at the network's MTU."""
+        self.prepared()
+        self.egress().write_text(
+            json.dumps([{"ip-address": "172.16.2.5", "mac-address": MAC, "expiry-time": 0}])
+        )
+        self.sandboxes().create(self.request("debian-13", net="egress"))
+        network = json.loads(cast("str", self.seed()["network-config"]))["network"]
+        self.assertEqual(
+            network["ethernets"]["egress"],
+            {"match": {"macaddress": MAC}, "dhcp4": True, "mtu": 1240},
+        )
+
+    def test_cloud_base_verbs(self) -> None:
+        """Listing reports cloud bases, and building refuses them."""
+        listed = {entry["base"]: entry for entry in self.sandboxes().base_list()}
+        self.assertEqual(listed["debian-13"]["kind"], "cloud")
+        self.assertFalse(listed["debian-13"]["built"])
+        self.assertEqual(listed["nixos-gui"]["kind"], "nix")
+        disk = self.prepared()
+        listed = {entry["base"]: entry for entry in self.sandboxes().base_list()}
+        self.assertEqual(listed["debian-13"]["path"], str(disk))
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().base_build("debian-13")
+        self.assertEqual(refused.exception.code, "base-cloud")
+
+    def prepare_egress(self) -> None:
+        """Give the prepare boot a bridge and a lease for its MAC."""
+        self.egress().write_text(
+            json.dumps([{"ip-address": "172.16.2.5", "mac-address": MAC, "expiry-time": 0}])
+        )
+
+    def test_prepare(self) -> None:
+        """A prepare fetches the pinned image, provisions it, and publishes the flattened disk."""
+        self.prepare_egress()
+        old = self.prepared()
+        real_run = core.run
+        flattened: list[bool] = []
+
+        def run(argv: list[str]) -> str:
+            if argv[1] == "convert":
+                # The flatten runs without the state lock, so sleep is not stuck behind it.
+                with self.sandboxes(None).locked(timeout=0):
+                    flattened.append(True)
+            return real_run(argv)
+
+        with mock.patch.object(core, "run", side_effect=run):
+            result = self.sandboxes(session=None).base_prepare("debian-13")
+        self.assertEqual(flattened, [True])
+        disk = self.paths.bases / "debian-13" / "disk.qcow2"
+        self.assertEqual(result["path"], str(disk))
+        self.assertTrue(disk.exists())
+        self.assertEqual(disk.stat().st_mode & 0o777, 0o400)
+        self.assertEqual(old, disk)
+        # No staged or replaced directory remains.
+        self.assertEqual(
+            sorted(entry.name for entry in self.paths.bases.iterdir()),
+            ["debian-13", "nixos", "nixos-gui"],
+        )
+        nix_args = (self.scratch / "nix.log").read_text().split()
+        self.assertEqual(nix_args[:3], ["store", "prefetch-file", "--json"])
+        self.assertIn("sha256-x", nix_args)
+        self.assertIn("https://cloud.example/d.qcow2", nix_args)
+        self.assert_no_sandbox("prepare-debian-13")
+        xml = self.backend.xml["sbx-prepare-debian-13"]
+        root = ET.fromstring(xml)  # noqa: S314
+        self.assertEqual(root.find("devices/interface/source").get("bridge"), "vn-sbx")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertIsNotNone(root.find("devices/disk[@device='cdrom']"))
+
+    def test_prepare_refusals(self) -> None:
+        """Agents, unknown images, bases in use, and failed provisioning publish nothing."""
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().base_prepare("debian-13")
+        self.assertEqual(refused.exception.code, "owner-only")
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes(session=None).base_prepare("nixos")
+        self.assertEqual(refused.exception.code, "unknown-base")
+        self.prepare_egress()
+        owner = self.sandboxes(session=None)
+        self.backend.add("user", expires=NOW + 60, base="debian-13")
+        with self.assertRaises(SbxError) as refused:
+            owner.base_prepare("debian-13")
+        self.assertEqual(refused.exception.code, "base-in-use")
+        self.backend.remove("sbx-user")
+        with (
+            mock.patch.dict(os.environ, {"SBX_TEST_PROVISION_EXIT": "3"}),
+            self.assertRaises(SbxError) as refused,
+        ):
+            owner.base_prepare("debian-13")
+        self.assertEqual(refused.exception.code, "prepare-failed")
+        self.assertIn("exited 3", str(refused.exception))
+        self.assert_no_sandbox("prepare-debian-13")
+        self.assertFalse((self.paths.bases / "debian-13").exists())
+
+    def test_prepare_refuses_external_files(self) -> None:
+        """An image whose header names another host file never boots."""
+        self.prepare_egress()
+        owner = self.sandboxes(session=None)
+        cases = {
+            "backing file": {"format": "qcow2", "backing-filename": "/home/vx/.ssh/id_ed25519"},
+            "data file": {
+                "format": "qcow2",
+                "format-specific": {"type": "qcow2", "data": {"data-file": "/etc/shadow"}},
+            },
+            "unreadable": "fail",
+        }
+        for case, info in cases.items():
+            value = info if isinstance(info, str) else json.dumps(info)
+            with (
+                self.subTest(case=case),
+                mock.patch.dict(os.environ, {"SBX_TEST_IMAGE_INFO": value}),
+                self.assertRaises(SbxError) as refused,
+            ):
+                owner.base_prepare("debian-13")
+            self.assertEqual(refused.exception.code, "image-unsafe")
+            self.assertNotIn("sbx-prepare-debian-13", self.backend.xml)
+            self.assertFalse(self.paths.sandbox("prepare-debian-13").exists())
+            self.assertFalse((self.paths.bases / "debian-13").exists())
 
 
 if __name__ == "__main__":

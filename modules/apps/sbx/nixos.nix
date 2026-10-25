@@ -11,6 +11,7 @@
   Options:
     create <base>: Start a sandbox and print its name, vsock CID, and address.
     --net egress: Attach the sandbox to the sbx workload network instead of leaving it without a NIC.
+    --gui: Use the base's GUI variant, which key, type, and screenshot drive.
     run <base> -- CMD: Create, copy in, run, copy out, and destroy in one call.
     exec <name> -- CMD: Run a command over SSH on vsock.
     --json: Print results and errors as JSON.
@@ -20,7 +21,10 @@
     * Sandboxes are untrusted guests: no vdagent channel, no shared folders, and no network unless
       --net egress puts them on the isolated sbx workload network.
     * QEMU runs inside sbx.slice through the sbx-libvirt user unit, so the slice bounds every sandbox together.
+    * Each QEMU runs in its own local vsock namespace, so a guest never reaches a host vsock listener.
     * Bases build on demand from this flake and never enter the host closure.
+    * Cloud bases come from hash-pinned images that `sbx base prepare` boots once with egress;
+      it refuses a caller with an agent session variable set, and agent permission rules ask first.
 */
 { config, ... }:
 let
@@ -93,6 +97,12 @@ let
             default = 2048;
             description = "Default MiB per sandbox.";
           };
+          guiMemory = lib.mkOption {
+            type = types.ints.positive;
+            default = lib.min 4096 cfg.sandbox.maxMemory;
+            defaultText = lib.literalExpression "lib.min 4096 sandbox.maxMemory";
+            description = "Default MiB per sandbox on a GUI base.";
+          };
           maxMemory = lib.mkOption {
             type = types.ints.positive;
             default = 6144;
@@ -115,10 +125,31 @@ let
           };
         };
 
-        vsockAllowlist = lib.mkOption {
-          type = types.listOf types.ints.u32;
-          default = [ ];
-          description = "Host vsock ports that may listen while a sandbox without a network starts.";
+        cloudImages = lib.mkOption {
+          type = types.attrsOf (
+            types.submodule {
+              options = {
+                url = lib.mkOption {
+                  type = types.str;
+                  description = "Download URL of a dated qcow2 build, never a moving `latest` link.";
+                };
+                hash = lib.mkOption {
+                  type = types.str;
+                  description = "SRI hash that `sbx base prepare` checks the download against.";
+                };
+              };
+            }
+          );
+          default = {
+            debian-13 = {
+              url = "https://cloud.debian.org/images/cloud/trixie/20261021-2638/debian-13-genericcloud-amd64-20261021-2638.qcow2";
+              hash = "sha256-06XJPMmLNGUUIeD6OjfbQo8HNVo7xM9G1vvrAB8ljpA=";
+            };
+          };
+          description = ''
+            Cloud images that `sbx base prepare <name>` turns into bases. Each needs
+            cloud-init with NoCloud, systemd's sshd vsock generator, and apt.
+          '';
         };
 
         flake = lib.mkOption {
@@ -136,7 +167,10 @@ let
             message = "programs.sbx.extended.limits.ttl exceeds limits.maxTtl";
           }
           {
-            assertion = cfg.sandbox.memory <= cfg.sandbox.maxMemory && cfg.sandbox.cpus <= cfg.sandbox.maxCpus;
+            assertion =
+              cfg.sandbox.memory <= cfg.sandbox.maxMemory
+              && cfg.sandbox.guiMemory <= cfg.sandbox.maxMemory
+              && cfg.sandbox.cpus <= cfg.sandbox.maxCpus;
             message = "programs.sbx.extended.sandbox: a default exceeds its maximum";
           }
           {
@@ -164,11 +198,12 @@ let
             };
             defaults = {
               memoryMiB = cfg.sandbox.memory;
+              guiMemoryMiB = cfg.sandbox.guiMemory;
               inherit (cfg.sandbox) cpus;
               ttlSeconds = cfg.limits.ttl * 3600;
               diskGiB = cfg.sandbox.disk;
             };
-            inherit (cfg) vsockAllowlist flake;
+            inherit (cfg) flake cloudImages;
             cpuset = cfg.limits.cpus;
             # An object, or why `--net egress` is unavailable.
             egress =
@@ -178,7 +213,7 @@ let
                 "workloads.networks.sbx needs libvirt.enable and libvirt.sessionAttach"
               else
                 {
-                  inherit (egressNetwork) bridge;
+                  inherit (egressNetwork) bridge mtu;
                   # libvirt writes it world-readable, so sbx reads leases without a system connection.
                   leases = "/var/lib/libvirt/dnsmasq/${egressNetwork.bridge}.status";
                 };
@@ -191,7 +226,7 @@ let
 
         environment.systemPackages = [ cfg.finalPackage ];
 
-        # The listener check sees only the initial namespace; later ones keep vsock local.
+        # Each sandbox's QEMU runs in a new namespace, which sbx-qemu refuses unless local.
         boot.kernel.sysctl."net.vsock.child_ns_mode" = "local";
       };
     };

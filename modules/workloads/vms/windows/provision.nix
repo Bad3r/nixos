@@ -110,10 +110,10 @@ let
 
         systemd = {
           # libvirtd-config links hooks only when libvirtd starts; the link lands
-          # at switch, and libvirtd rescans hooks on reload.
+          # at switch. libvirtd scans qemu.d per call, but only once it found a
+          # qemu hook at its own start (virHookInitialize; SIGHUP skips it).
           tmpfiles.settings.workloads-provision."/var/lib/libvirt/hooks/qemu.d/${hookName}"."L+".argument =
             "${hook}";
-          services.libvirtd.reloadTriggers = [ hook ];
 
           services."workloads-provision@" = {
             description = "Provision the %i workload guest through its guest agent";

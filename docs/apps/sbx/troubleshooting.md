@@ -13,15 +13,37 @@ systemctl --user status sbx-libvirt.service
 
 Fix: close that client's session connection, stop the stray `virtqemud`, and rerun the command.
 
-## create fails with vsock-listener
+## create fails with libvirt and an sbx-qemu message
 
-Cause: a host process listens on vsock, so a sandbox could reach it.
+Cause: the namespace `sbx-qemu` creates for QEMU is not in `local` vsock mode, or the kernel has no vsock namespaces.
 
 ```sh
-ss -l --vsock
+cat /proc/sys/net/vsock/child_ns_mode
+unshare --user --map-current-user --net cat /proc/sys/net/vsock/ns_mode
 ```
 
-Fix: stop the listener, or add its port to `vsockAllowlist` when every sandbox may reach it.
+Fix: boot a generation with the `sbx` module, which sets `net.vsock.child_ns_mode` to `local`; the first write locks the value, so a host that wrote `global` first needs a reboot.
+
+## create fails with cannot create a user and network namespace
+
+Cause: the kernel refuses unprivileged user namespaces, which `sbx-qemu` needs to give QEMU its own network namespace.
+
+```sh
+sysctl kernel.unprivileged_userns_clone user.max_user_namespaces
+unshare --user --map-current-user --net true
+```
+
+Fix: allow unprivileged user namespaces (`kernel.unprivileged_userns_clone=1` where the kernel has it, `user.max_user_namespaces` above 0) and retry.
+
+## exec fails with reassociate to namespaces failed
+
+Cause: the sandbox's QEMU shares the caller's user namespace, so it did not start through `sbx-qemu`.
+
+```sh
+sbx info <name>
+```
+
+Fix: `sbx destroy <name>` and create the sandbox again.
 
 ## create fails with boot-timeout
 
@@ -54,3 +76,23 @@ grep vn-sbx /etc/qemu/bridge.conf
 ```
 
 Fix: an empty lease file with the bridge admitted points at the base's DHCP client; rebuild the base and retry.
+
+## base prepare fails with owner-only
+
+Cause: the shell carries `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID`, so `sbx` takes it for an agent session.
+
+```sh
+env | grep -E '^(CLAUDE_CODE_SESSION_ID|CODEX_THREAD_ID)='
+```
+
+Fix: run `sbx base prepare <image>` from a terminal outside Claude Code and Codex.
+
+## base prepare fails with prepare-failed
+
+Cause: provisioning in the `prepare-<image>` boot exited non-zero or timed out, or the guest did not power off; the error carries the tail of its stderr.
+
+```sh
+sbx run nixos --net egress -- getent hosts deb.debian.org
+```
+
+Fix: once egress resolves, rerun `sbx base prepare <image>`; a failure that repeats points at the pinned image.

@@ -43,6 +43,22 @@ Podman draws the ids from the subordinate ranges of the `containers` system user
 A host directory mounted read-write needs the `:idmap` volume option, which maps the container's ids back to the directory's owners without a chown.
 `:U` works too, but chowns the whole tree again whenever a start draws a different id range, since `--userns=auto` allocates one per container.
 
+## Shares
+
+`shares.<tag>` mounts a host directory through an idmapped mount that maps the share's `owner` to container root:
+
+```nix
+workloads.services.<name>.shares.<tag> = {
+  hostPath = "<directory>";
+  readOnly = true;
+};
+```
+
+- Container root reads and writes as the owner and its primary group, so the owner edits the results without `sudo`.
+- Other container users create nothing in the share, and files of other host accounts show as the overflow id.
+- The directory must exist when the container starts; only a service's [drop](workload-drops.md) is created for it.
+- The share assertion in `modules/workloads/services/units.nix` refuses a root owner, a root primary group, and an owner without a fixed uid and gid.
+
 ## Networks in Podman
 
 `workloads-podman-net-<network>.service` creates the Podman network with the bridge, subnet, gateway, and MTU of the registry entry.
@@ -91,7 +107,7 @@ curl -sI http://127.0.0.1:<port>/
 
 The `grep` prints nothing while netavark's firewall is off.
 
-The `workloads-services` flake check boots a VM that declares one network and one service and checks the bridge, the container's address, DNS, the published port, the id mapping, and the network unit's ownership handling.
+The `workloads-services` flake check boots a VM that declares one network and one service and checks the bridge, the container's address, DNS, the published port, the id mappings of volumes and shares, and the network unit's ownership handling.
 Build it from the repository root on a host with KVM:
 
 ```sh

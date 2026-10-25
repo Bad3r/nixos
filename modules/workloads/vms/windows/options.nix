@@ -74,8 +74,8 @@ let
           options.windows = {
             edition = lib.mkOption {
               type = types.str;
-              default = "Windows 11 Pro";
-              description = "Name of the image in the installation media's `install.wim` that Setup installs; without a product key, only volume license media install unattended.";
+              default = "Windows 11 Enterprise";
+              description = "Name of an image in the installation media's `install.wim` that Setup installs, such as `Windows 11 Enterprise LTSC 2024` from LTSC media; without a product key, only volume license media install unattended.";
             };
 
             locale = lib.mkOption {
@@ -119,7 +119,7 @@ let
               description = ''
                 `sops.secrets` entry holding a Windows product key, which
                 provisioning installs and activates. Without one, or while its
-                file is absent, Windows stays unactivated.
+                file is absent, provisioning leaves activation as it is.
               '';
             };
 
@@ -217,15 +217,18 @@ let
             office.installer == null || config.workloads.media ? ${office.installer}
           ) "windows.office.installer names no workloads.media entry")
           (check (lib.allUnique pinned) "shares: two shares take the same driveLetter")
-          (check (
-            lib.length (lib.attrNames shares) <= 20
-          ) "shares: a Windows guest mounts at most 20 shares, on G to Z")
-          (check (
-            guest.windows.virtiofs.mode != "service"
-            || (
-              lib.length (lib.attrNames shares) <= 1 && lib.all (share: !share.runtime) (lib.attrValues shares)
+          (check (lib.length (lib.attrNames shares) <= 20)
+            "shares: a Windows guest mounts at most 20 shares, on G to Z, a drop included unless shares.drop.enable = false"
+          )
+          (check
+            (
+              guest.windows.virtiofs.mode != "service"
+              || (
+                lib.length (lib.attrNames shares) <= 1 && lib.all (share: !share.runtime) (lib.attrValues shares)
+              )
             )
-          ) "windows.virtiofs.mode = \"service\" mounts one share, attached at boot")
+            "windows.virtiofs.mode = \"service\" mounts one share, attached at boot, a drop included unless shares.drop.enable = false"
+          )
         ];
     in
     {

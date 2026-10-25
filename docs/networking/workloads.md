@@ -72,35 +72,39 @@ A guest whose lease expired loses traffic until it renews.
 - `warp`: traffic leaves through the WARP tunnel, masqueraded to the host's Mesh address.
   With the tunnel gone the route is unreachable, so the network fails closed instead of falling back to the uplink.
   Guests resolve names through the gateway.
-- `none`: the route is unreachable and the gateway answers no DNS, so the host resolver is no exfiltration channel.
+- `none`: the `outbound` chain drops the traffic, and the gateway answers no DNS, so the host resolver is no exfiltration channel.
+  WARP's rule may route that traffic toward the tunnel first, ahead of the network's `unreachable` rule.
 
 The main table answers only the LAN destinations of a `lanAccess` network, so no route there, default or not, carries guest traffic to the uplink.
 
-`workload-egress.service` installs one `ip rule iif vn-<name>` set per network in a preference band above WARP's own rule.
-It replaces the band in one `ip -batch` call and never touches WARP's rule.
+The `outbound` chain of `inet workload` enforces both modes without relying on routing.
+Traffic from a bridge to an interface outside the workload networks passes only to `CloudflareWARP` from a `warp` network, or to the LAN from a `lanAccess` network.
+Everything else is dropped, established flows included.
+nftables loads the chain in one transaction, so it holds while the routing rules change, after a run that fails part-way, and in whatever order they sit.
+
+`workload-egress.service` owns the `ip rule iif vn-<name>` rules in the workload preference band, one set per network.
+Each run adds missing rules before deleting stale ones, so no network's `unreachable` rule lapses, and it leaves every other rule in the band alone.
+WARP's own rule lands one below the lowest preference in use when warp-svc connects, which can be inside or ahead of the band.
 It runs at boot before `network-pre.target`, each time the WARP tunnel device appears, and on every switch.
 It has no stop action, so the rules outlive the unit and stay in place while the bridge or the tunnel is absent.
 
 ## Verify
 
-Run as the owner on the host:
+Run as the owner on the host, with a guest address on the bridge:
 
 ```sh
 sudo nft list table inet workload
+sudo nft list chain inet workload outbound
 sudo nft list table bridge workload-peers
 sudo nft list chain inet nixos-fw input-allow | grep vn-
 ip rule | grep vn-
+ip route get 1.1.1.1 from <guest address> iif vn-<name>
 sysctl net.ipv4.conf.all.forwarding
 systemctl status workload-egress.service
 ```
 
-Check the route a guest's traffic takes, with a guest address on the bridge:
-
-```sh
-ip route get 1.1.1.1 from <guest address> iif vn-<name>
-```
-
-A `warp` network answers `dev CloudflareWARP` while WARP is connected and `Network is unreachable` while it is not; a `none` network is always unreachable.
+For a `warp` network, `ip route get` answers `dev CloudflareWARP` while WARP is connected and `Network is unreachable` while it is not.
+A `none` bridge has no `CloudflareWARP` rule in the `outbound` chain, so its traffic toward the tunnel or the uplink is dropped whichever route it takes.
 
 ## Guest gets no address
 
@@ -139,7 +143,7 @@ Fix: none when the result is `success` and the rules are listed; otherwise read 
 Cause: the unit has no stop action, so the band stays until the next boot; it is harmless once the bridges are gone.
 
 ```sh
-ip rule show | awk -F: '/iif vn-/ { print $1 }' | xargs -rn1 sudo ip rule del pref
+ip -j rule show | jq -r '.[] | select(.iif // "" | startswith("vn-")) | "rule del pref \(.priority) iif \(.iif)"' | sudo ip -batch -
 ```
 
 WARP itself is covered in [WARP on the fleet](../apps/cloudflare/warp/README.md).

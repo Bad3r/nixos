@@ -200,12 +200,18 @@ GUEST_COMMAND = Param(
     required=True,
 )
 CREATE_PARAMS = (
-    Param("base", _string("base to boot", enum=list(FLAVOURS)), required=True),
+    # Cloud bases come from the settings, so create validates the name.
+    Param(
+        "base",
+        _string(f"base to boot: {', '.join(FLAVOURS)}, or a prepared cloud base"),
+        required=True,
+    ),
     Param("name", _string("sandbox name; default <base>-<6 hex>"), flag="--name"),
     Param("net", _string("network; default none", enum=list(NETS)), flag="--net"),
     Param("mem", _string("memory such as 2G"), flag="--mem"),
     Param("cpus", {"type": "integer", "minimum": 1, "description": "vCPUs"}, flag="--cpus"),
     Param("ttl", _string("lifetime such as 30m or 2h"), flag="--ttl"),
+    Param("gui", _boolean("the base's GUI variant, with more default memory"), flag="--gui"),
 )
 
 TOOLS = (

@@ -12,9 +12,12 @@ import subprocess
 import time
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, BinaryIO
+from typing import TYPE_CHECKING, Any, BinaryIO
 
 from sbx.core import NS, DomainInfo, Meta, SbxError, Settings
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 # libvirt-python ships no type information the checker can read.
 libvirt: Any = importlib.import_module("libvirt")
@@ -35,6 +38,13 @@ STATES = {
 
 def _runtime_dir() -> Path:
     return Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}")
+
+
+def _qemu_pid(domain: str) -> int | None:
+    try:
+        return int((_runtime_dir() / "libvirt" / "qemu" / "run" / f"{domain}.pid").read_text())
+    except OSError, ValueError:
+        return None
 
 
 def _daemon_cgroup() -> tuple[int | None, str]:
@@ -128,6 +138,8 @@ class LibvirtBackend:
                         meta=None if element is None else Meta.parse(element),
                         managed_save=bool(domain.hasManagedSaveImage(0)),
                         mac=None if mac is None else mac.get("address"),
+                        pid=_qemu_pid(domain.name()) if domain.isActive() else None,
+                        emulator=root.findtext("devices/emulator"),
                     )
                 )
         except libvirt.libvirtError as error:
@@ -227,3 +239,13 @@ class LibvirtBackend:
             raise SbxError(
                 str(error), code="agent-unresponsive" if unconnected else "libvirt"
             ) from error
+
+    def send_key(self, domain: str, keycodes: Sequence[int], holdtime: int) -> None:
+        """Press Linux keycodes together, then release them."""
+        handle = self._lookup(domain)
+        try:
+            handle.sendKey(
+                libvirt.VIR_KEYCODE_SET_LINUX, holdtime, list(keycodes), len(keycodes), 0
+            )
+        except libvirt.libvirtError as error:
+            raise _error(error) from error

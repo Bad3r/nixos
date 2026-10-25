@@ -52,6 +52,14 @@ let
         network: ''iifname "${network.bridge}" ip daddr { ${lib.concatStringsSep ", " lanCidrs} } accept''
       ) (lib.filter (network: network.lanAccess) networks);
 
+      egressReturns =
+        lib.optional (
+          warpBridges != [ ]
+        ) ''iifname ${bridgeSet warpBridges} oifname "${warpInterface}" return''
+        ++ lib.optional (
+          lanBridges != [ ]
+        ) "iifname ${bridgeSet lanBridges} ip daddr { ${lib.concatStringsSep ", " lanCidrs} } return";
+
       # 0.0.0.0 is a DHCP client without an address yet.
       antiSpoofRules = map (
         network: ''iifname "${network.bridge}" ip saddr != { ${network.subnet}, 0.0.0.0 } drop''
@@ -62,9 +70,11 @@ let
         network: ''iifname "${network.bridge}" oifname "${network.bridge}" accept''
       ) (lib.filter (network: !network.isolatePeers) networks);
 
-      isolatedBridges = map (network: ''"${network.bridge}"'') (
-        lib.filter (network: network.isolatePeers) networks
-      );
+      bridgesWhere = predicate: map (network: ''"${network.bridge}"'') (lib.filter predicate networks);
+      isolatedBridges = bridgesWhere (network: network.isolatePeers);
+      warpBridges = bridgesWhere (network: network.egress == "warp");
+      lanBridges = bridgesWhere (network: network.lanAccess);
+      bridgeSet = bridges: "{ ${lib.concatStringsSep ", " bridges} }";
 
       # A runtime keeps a bridge whose declaration was dropped (libvirt never
       # destroys one), so anything else named vn-* is fenced off entirely.
@@ -82,7 +92,7 @@ let
         name: network:
         let
           pref = offset: toString (31000 + 10 * network.id + offset);
-          rule = offset: action: "rule add pref ${pref offset} iif ${network.bridge} ${action}";
+          rule = offset: action: "pref ${pref offset} iif ${network.bridge} ${action}";
         in
         # Main is consulted only for LAN destinations, so no route there can
         # carry guest traffic out the uplink.
@@ -298,6 +308,8 @@ let
               chain forward {
                 type filter hook forward priority filter - 1; policy accept;
                 iifname != "vn-*" oifname != "vn-*" drop
+                # Ahead of conntrack, so a rerouted established flow is caught too.
+                iifname "vn-*" oifname != "vn-*" jump outbound
                 ct state vmap { established : accept, related : accept, invalid : drop }
                 ${lines sameBridgeRules}
                 ${config.workloads.nftables.forwardRules}
@@ -305,6 +317,12 @@ let
                 oifname "vn-*" drop
                 ${lines lanAccessRules}
                 ip daddr { ${lib.concatStringsSep ", " privateCidrs} } drop
+              }
+
+              # Holds whatever state the ip rule band is in.
+              chain outbound {
+                ${lines egressReturns}
+                drop
               }
 
               chain postrouting {
@@ -319,7 +337,7 @@ let
               content = ''
                 chain forward {
                   type filter hook forward priority filter; policy accept;
-                  meta ibrname { ${lib.concatStringsSep ", " isolatedBridges} } drop
+                  meta ibrname ${bridgeSet isolatedBridges} drop
                 }
               '';
             };
@@ -338,21 +356,19 @@ let
             before = [ "network-pre.target" ];
             wants = [ "network-pre.target" ];
             path = [
-              pkgs.gawk
               pkgs.iproute2
+              pkgs.jq
             ];
             serviceConfig.Type = "oneshot";
-            # One batch swaps the band; WARP's own rule sits outside it. No
-            # ExecStop, so the rules outlive the unit and warp stays closed.
+            # warp-svc's rule can land inside the band, so only iif vn-* rules
+            # are owned. No ExecStop, so the rules outlive the unit.
             script = ''
-              {
-                ip rule show | awk -F: '$1 >= 31000 && $1 <= 31999 { print "rule del pref " $1 }'
-                cat ${
-                  pkgs.writeText "workload-egress-rules" (
-                    lines (lib.concatLists (lib.mapAttrsToList egressRules config.workloads.networks)) + "\n"
-                  )
-                }
-              } | ip -batch -
+              set -o pipefail
+              ip -j rule show | jq -r --rawfile want ${
+                pkgs.writeText "workload-egress-rules" (
+                  lines (lib.concatLists (lib.mapAttrsToList egressRules config.workloads.networks)) + "\n"
+                )
+              } -f ${./_workload-egress-rules.jq} | ip -batch -
             '';
           };
         })
