@@ -12,6 +12,16 @@ let
   yesNo = value: if value then "yes" else "no";
   letter = index: builtins.substring index 1 "abcdefghijklmnopqrstuvwxyz";
   shares = lib.filter (share: share.enable) (lib.attrValues guest.shares);
+  # libvirt keeps a hot-plug slot only in definitions without PCI controllers, and
+  # cold devices take listed root ports first, so the count covers them too.
+  rootPorts = lib.optionalString (lib.any (share: share.runtime) shares) (
+    lib.concatStrings (
+      [ ''<controller type="pci" index="0" model="pcie-root"/>'' ]
+      ++ lib.genList (_: ''<controller type="pci" model="pcie-root-port"/>'') (
+        lib.length virtioDisks + lib.length (lib.attrNames guest.interfaces) + lib.length shares + 6
+      )
+    )
+  );
 
   diskNames = lib.attrNames guest.disks;
   virtioDisks = lib.filter (disk: guest.disks.${disk}.bus == "virtio") diskNames;
@@ -175,6 +185,7 @@ let
         ${lib.concatStrings (lib.imap0 mediaXml guest.install.media)}
         ${lib.concatStrings (lib.imap0 imageXml guest.install.images)}
         <controller type="usb" model="qemu-xhci" ports="15"/>
+        ${rootPorts}
         ${lib.concatStrings (lib.mapAttrsToList interfaceXml guest.interfaces)}
         ${lib.concatMapStrings (share: share.deviceXml) (lib.filter (share: !share.runtime) shares)}
         <serial type="pty">
