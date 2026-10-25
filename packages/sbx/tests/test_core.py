@@ -1725,6 +1725,137 @@ class SandboxesTest(Fixture):
             self.dispatch("type", "t1", "--mode", "keys", "\u2713")
         self.assertIn("default mode", str(refused.exception))
 
+    def guest_prints(self, stdout: bytes, code: int = 0) -> None:
+        """Make every guest command exit with this status and stdout."""
+        self.backend.exit_status = {"exitcode": code, "out-data": base64.b64encode(stdout).decode()}
+
+    def guest_script(self) -> list[str]:
+        """Return the last guest command after the launcher, checking it ran as sbx on :0."""
+        argv, _stdin = self.backend.execs[-1]
+        self.assertEqual(argv[4:9], ["sbx", "", "setsid", "DISPLAY=:0", "--"])
+        return argv[9:]
+
+    def test_mouse(self) -> None:
+        """The pointer moves through xdotool in the session; a double click defaults to left."""
+        self.sandboxes().create(self.request(gui=True))
+        cases = [
+            (("--to", "100,200"), ["100", "200", "", "1"], None, False),
+            (("--to", "0,0", "--click", "right"), ["0", "0", "3", "1"], "right", False),
+            (("--to", "5,6", "--double"), ["5", "6", "1", "2"], "left", True),
+        ]
+        for flags, args, click, double in cases:
+            with self.subTest(flags=flags):
+                result, _ = self.dispatch("mouse", "t1", *flags)
+                x, y = map(int, flags[1].split(","))
+                self.assertEqual(
+                    result, {"sandbox": "t1", "x": x, "y": y, "click": click, "double": double}
+                )
+                self.assertEqual(self.guest_script(), ["/bin/sh", "-c", gui.MOUSE, "sbx", *args])
+        self.assertEqual(self.backend.keys, [])
+
+    def test_windows(self) -> None:
+        """Window verbs run their scripts in the session and read the guest's lines strictly."""
+        self.sandboxes().create(self.request(gui=True))
+        name = base64.b64encode("sbx@sbx: ~ \u2713\n".encode())
+        line = b"4194 WINDOW=4194 X=0 Y=-2 WIDTH=484 HEIGHT=316 SCREEN=0 " + name
+        xterm = {
+            "id": 4194,
+            "name": "sbx@sbx: ~ \u2713",
+            "geometry": {"x": 0, "y": -2, "width": 484, "height": 316},
+        }
+        self.guest_prints(b"ready\n" + line + b"\n")
+        result, _ = self.dispatch("window", "wait", "t1", "--class", "^xterm$")
+        self.assertEqual(result, {"sandbox": "t1", "windows": [xterm]})
+        self.assertEqual(
+            self.guest_script(), ["/bin/sh", "-c", gui.WINDOW_WAIT, "sbx", "class", "^xterm$"]
+        )
+        self.dispatch("window", "wait", "t1", "--name=-x", "--timeout", "2m")
+        self.assertEqual(self.guest_script()[4:], ["name", "-x"])
+        self.guest_prints(line + b"\n" + line.replace(b"4194", b"77") + b"\n")
+        result, _ = self.dispatch("window", "list", "t1")
+        listed = cast("dict[str, list[dict[str, object]]]", result)["windows"]
+        self.assertEqual([window["id"] for window in listed], [4194, 77])
+        self.assertEqual(self.guest_script(), ["/bin/sh", "-c", gui.WINDOW_LIST, "sbx"])
+        self.guest_prints(line + b"\n")
+        result, _ = self.dispatch("window", "focus", "t1", "--id", "4194")
+        self.assertEqual(result, {"sandbox": "t1", "window": xterm})
+        self.assertEqual(
+            self.guest_script(), ["/bin/sh", "-c", gui.WINDOW_FOCUS, "sbx", "id", "4194"]
+        )
+        self.dispatch("window", "focus", "t1", "--name", "xterm")
+        self.assertEqual(self.guest_script()[4:], ["name", "xterm"])
+
+    def test_window_failures(self) -> None:
+        """Malformed guest lines, refusals in the guest, and timeouts are distinct errors."""
+        self.sandboxes().create(self.request(gui=True))
+        good = b"1 WINDOW=1 X=0 Y=0 WIDTH=1 HEIGHT=1 SCREEN=0 eA=="
+        malformed = [
+            b"1 WINDOW=2 X=0 Y=0 WIDTH=1 HEIGHT=1 SCREEN=0 eA==",
+            b"1 WINDOW=1 X=0 Y=0 WIDTH=1 HEIGHT=1 SCREEN=0 eA=",
+            b"1 WINDOW=1 X=0 Y=0 WIDTH=-1 HEIGHT=1 SCREEN=0 ",
+            good + b" extra",
+            b"rm -rf /",
+        ]
+        for output in malformed:
+            self.guest_prints(output + b"\n")
+            with self.subTest(output=output), self.assertRaises(SbxError) as refused:
+                self.dispatch("window", "list", "t1")
+            self.assertEqual(refused.exception.code, "agent-reply")
+        self.guest_prints(good + b"\n")
+        with self.assertRaises(SbxError) as refused:
+            self.dispatch("window", "wait", "t1", "--name", "x")
+        self.assertEqual(refused.exception.code, "agent-reply")
+        cases = [
+            (gui.INVALID_EXIT, ("window", "wait", "t1", "--name", "("), "invalid-argument"),
+            (gui.INVALID_EXIT, ("mouse", "t1", "--to", "5000,5"), "invalid-argument"),
+            (gui.MISSING_EXIT, ("window", "focus", "t1", "--id", "9"), "no-window"),
+            (1, ("window", "list", "t1"), "guest-command"),
+            (1, ("mouse", "t1", "--to", "1,1"), "guest-command"),
+        ]
+        for code, argv, error in cases:
+            self.guest_prints(b"", code)
+            with self.subTest(argv=argv), self.assertRaises(SbxError) as refused:
+                self.dispatch(*argv)
+            self.assertEqual(refused.exception.code, error)
+        for stdout, words in ((b"ready\n", "no visible window"), (b"", "did not answer")):
+            timed_out = model.ExecResult(None, stdout, b"", timed_out=True, killed=True)
+            with (
+                self.subTest(stdout=stdout),
+                mock.patch.object(Sandboxes, "session_command", return_value=timed_out),
+                self.assertRaises(SbxError) as refused,
+            ):
+                self.dispatch("window", "wait", "t1", "--class", "xterm", "--timeout", "1s")
+            self.assertEqual(refused.exception.code, "window-timeout")
+            self.assertIn(words, str(refused.exception))
+
+    def test_window_refusals(self) -> None:
+        """Bad coordinates, ids, and patterns, and bases without a display, run nothing."""
+        self.sandboxes().create(self.request(gui=True))
+        self.add_running("plain")
+        cases = [
+            (("mouse", "t1", "--to", "-1,5"), "invalid-argument"),
+            (("mouse", "t1", "--to", "1;5"), "invalid-argument"),
+            (("mouse", "t1", "--to", "40000,5"), "invalid-argument"),
+            (("mouse", "t1"), "usage"),
+            (("mouse", "t1", "--to", "1,1", "--click", "back"), "usage"),
+            (("window", "wait", "t1"), "usage"),
+            (("window", "wait", "t1", "--name", "a", "--class", "b"), "usage"),
+            (("window", "wait", "t1", "--name", ""), "invalid-argument"),
+            (("window", "wait", "t1", "--name", "x", "--timeout", "0s"), "invalid-argument"),
+            (("window", "focus", "t1"), "usage"),
+            (("window", "focus", "t1", "--id", "0"), "invalid-argument"),
+            (("window", "focus", "t1", "--id", str(1 << 32)), "invalid-argument"),
+            (("mouse", "plain", "--to", "1,1"), "no-display"),
+            (("window", "wait", "plain", "--class", "xterm"), "no-display"),
+            (("window", "focus", "plain", "--id", "1"), "no-display"),
+            (("window", "list", "plain"), "no-display"),
+        ]
+        for argv, code in cases:
+            with self.subTest(argv=argv), self.assertRaises(SbxError) as refused:
+                self.dispatch(*argv)
+            self.assertEqual(refused.exception.code, code)
+        self.assertEqual(self.backend.execs, [])
+
     def prepared(self) -> Path:
         """Lay out a prepared debian-13 base."""
         disk = self.paths.bases / "debian-13" / "disk.qcow2"

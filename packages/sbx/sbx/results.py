@@ -190,3 +190,65 @@ class GcAction(Result):
     def as_json(self) -> dict[str, object]:
         """Return {name, reason}."""
         return {"name": self.name, "reason": self.reason}
+
+
+@dataclass(frozen=True)
+class MouseResult(Result):
+    """The pointer moved on a sandbox display, and maybe clicked there."""
+
+    sandbox: str
+    x: int
+    y: int
+    click: str | None
+    double: bool
+
+    def as_json(self) -> dict[str, object]:
+        """Return {sandbox, x, y, click, double}."""
+        return {
+            "sandbox": self.sandbox,
+            "x": self.x,
+            "y": self.y,
+            "click": self.click,
+            "double": self.double,
+        }
+
+
+@dataclass(frozen=True)
+class Window:
+    """One X window as the guest's xdotool describes it."""
+
+    id: int
+    name: str
+    x: int
+    y: int
+    width: int
+    height: int
+
+    def as_json(self) -> dict[str, object]:
+        """Return {id, name, geometry}."""
+        geometry = {"x": self.x, "y": self.y, "width": self.width, "height": self.height}
+        return {"id": self.id, "name": self.name, "geometry": geometry}
+
+
+@dataclass(frozen=True)
+class WindowsResult(Result):
+    """Windows on a sandbox display."""
+
+    sandbox: str
+    windows: tuple[Window, ...]
+
+    def as_json(self) -> dict[str, object]:
+        """Return {sandbox, windows}."""
+        return {"sandbox": self.sandbox, "windows": [window.as_json() for window in self.windows]}
+
+
+@dataclass(frozen=True)
+class FocusResult(Result):
+    """The window a sandbox display focused."""
+
+    sandbox: str
+    window: Window
+
+    def as_json(self) -> dict[str, object]:
+        """Return {sandbox, window}."""
+        return {"sandbox": self.sandbox, "window": self.window.as_json()}

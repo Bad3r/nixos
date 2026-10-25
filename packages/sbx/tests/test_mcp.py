@@ -57,6 +57,13 @@ SAMPLES: dict[str, object] = {
     "keys": ["ctrl+alt+t", "enter"],
     "text": "-x",
     "mode": "keys",
+    "x": 10,
+    "y": 20,
+    "click": "left",
+    "double": True,
+    "title": "xterm",
+    "class": "XTerm",
+    "id": 4194,
     "share": "shared",
 }
 SNAPSHOT = Path(__file__).with_name("mcp-tools.json")
@@ -130,6 +137,13 @@ class ArgumentsTest(unittest.TestCase):
             ("key", {"name": "g", "keys": []}),
             ("type", {"name": "g", "text": ["a"]}),
             ("share_attach", {"name": "g"}),
+            ("mouse", {"name": "g", "x": 1}),
+            ("mouse", {"name": "g", "x": 1, "y": "2"}),
+            ("mouse", {"name": "g", "x": 1, "y": 2, "click": "back"}),
+            ("window_wait", {"name": "g"}),
+            ("window_wait", {"name": "g", "title": "a", "class": "b"}),
+            ("window_focus", {"name": "g"}),
+            ("window_focus", {"name": "g", "id": "1"}),
         ]
         for tool, arguments in cases:
             with self.subTest(tool=tool, arguments=arguments):
@@ -425,6 +439,19 @@ class ServerTest(unittest.TestCase):
         self.assertEqual((refused[0], refused[1]["error"]["code"]), (True, "usage"))
         self.assertEqual([codes for _domain, codes in self.core.backend.keys], [[29, 56, 20], [28]])
         self.assertEqual(self.core.backend.execs[-1][1], b"-x\n")
+
+    def test_gui_control_refusals(self) -> None:
+        """Negative coordinates and a missing pattern are tool errors before the guest runs."""
+        self.core.sandboxes().create(self.core.request(gui=True))
+        negative, missing, plain = self.documents(
+            self.call(1, "mouse", {"name": "t1", "x": -1, "y": 5}),
+            self.call(2, "window_wait", {"name": "t1", "timeout": "5s"}),
+            self.call(3, "window_list", {"name": "t1", "title": "x"}),
+        )
+        self.assertEqual((negative[0], negative[1]["error"]["code"]), (True, "invalid-argument"))
+        self.assertEqual((missing[0], missing[1]["error"]["code"]), (True, "usage"))
+        self.assertEqual((plain[0], plain[1]["error"]["code"]), (True, "usage"))
+        self.assertEqual(self.core.backend.execs, [])
 
     def test_shares(self) -> None:
         """share_attach and share_detach return the share's JSON form."""

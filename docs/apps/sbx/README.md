@@ -34,7 +34,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `destroy <name>`                 | stop, undefine, delete the run directory    |
 | `list`, `info <name>`            | state, CID, address, TTL left, session      |
 | `screenshot <name>`              | display to PNG; `--ocr`, `--to`             |
-| `key <name>`, `type <name>`      | keyboard input on a GUI base                |
+| `key`, `type`, `mouse`, `window` | input and windows on a GUI base             |
 | `share attach`, `share detach`   | hot-plug or remove a runtime share          |
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
@@ -82,7 +82,7 @@ sbx destroy probe
 
 ## Bases
 
-Nix bases and cloud bases with `base prepare`: [bases](bases.md); display input: [GUI input](gui.md).
+Nix bases and cloud bases with `base prepare`: [bases](bases.md); display input: [GUI input and control](gui.md).
 Windows bases, exported from a Windows guest's golden copy and run without SSH: [Windows bases](windows.md).
 
 ## Resources
@@ -122,7 +122,7 @@ Past the disk cap or the free-space floor, it detaches `shared` from every sandb
 It removes sandboxes past their TTL only while `timedatectl` reports the host clock NTP-synchronized, since an RTC clock right after resume can run hours ahead.
 `sbx destroy --expired` refuses with `clock-unsynced` on an unsynced clock.
 On a host that never syncs, expired sandboxes stay until `sbx destroy <name>`.
-`create`, `exec`, `cp`, `share`, `screenshot`, `key`, `type`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
+`create`, `exec`, `cp`, `share`, `screenshot`, `key`, `type`, `mouse`, `window focus`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
 
 ## Agents
 

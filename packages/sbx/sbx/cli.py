@@ -11,13 +11,14 @@ from sbx.config import Settings, caller_session
 from sbx.errors import SbxError
 from sbx.model import ExecResult
 from sbx.pipeline import RunResult
+from sbx.results import FocusResult, WindowsResult
 from sbx.sandboxes import open_sandboxes
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
     from pathlib import Path
 
-    from sbx.results import Result
+    from sbx.results import Result, Window
     from sbx.sandboxes import Sandboxes
 
 USAGE_EXIT = 2
@@ -155,11 +156,23 @@ def _plain(document: object) -> None:
     print(document)
 
 
+def _print_window(window: Window) -> None:
+    print(
+        f"id={window.id} x={window.x} y={window.y} width={window.width} "
+        f"height={window.height} name={json.dumps(window.name)}"
+    )
+
+
 def _print(result: Result) -> None:
     if isinstance(result, ExecResult):
         _print_exec(result)
     elif isinstance(result, RunResult):
         _print_run(result)
+    elif isinstance(result, WindowsResult):
+        for window in result.windows:
+            _print_window(window)
+    elif isinstance(result, FocusResult):
+        _print_window(result.window)
     else:
         _plain(result.as_json())
 

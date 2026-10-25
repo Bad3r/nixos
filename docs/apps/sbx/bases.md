@@ -20,7 +20,7 @@ The key reaches the guest as the `ssh.authorized_keys.root` systemd credential o
 - The domain carries a SPICE display on a unix socket, with clipboard and file transfer off and no vdagent channel.
   `virsh -c qemu:///session domdisplay sbx-<name>` prints its URI for a libvirt client.
 
-Screenshots, keys, and text: [GUI input](gui.md).
+Screenshots, keys, text, the pointer, and windows: [GUI input and control](gui.md).
 
 ## Cloud bases
 

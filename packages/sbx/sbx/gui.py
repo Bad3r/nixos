@@ -1,6 +1,8 @@
 # Copyright (c) 2026 Bad3r
 """Screenshots and keyboard input of sandboxes with a display."""
 
+import base64
+import binascii
 import re
 import secrets
 import time
@@ -15,7 +17,15 @@ from sbx.execution import launcher
 from sbx.fsutil import publish
 from sbx.model import GUI_BASES, ExecOptions
 from sbx.proc import run
-from sbx.results import KeyResult, ScreenshotResult, TypeResult
+from sbx.results import (
+    FocusResult,
+    KeyResult,
+    MouseResult,
+    ScreenshotResult,
+    TypeResult,
+    Window,
+    WindowsResult,
+)
 from sbx.transfer import Transfer
 
 if TYPE_CHECKING:
@@ -41,6 +51,74 @@ CAPS_LOCK = keys.KEYS["capslock"]
 CAPS_LED = "cat /sys/class/leds/input*::capslock/brightness"
 LED_VALUE = re.compile(rb"[0-9]{1,3}")
 TYPABLE_CONTROLS = "\n\t"
+# X coordinates are signed 16-bit.
+MAX_COORDINATE = 32767
+BUTTONS = {"left": 1, "middle": 2, "right": 3}
+MAX_WINDOW_ID = (1 << 32) - 1
+MAX_PATTERN = 1024
+NAME_LIMIT = 1024
+# A guest script exits so when its pattern is no regular expression, its window is missing,
+# or its point lies off the display.
+INVALID_EXIT = 4
+MISSING_EXIT = 3
+READY = b"ready\n"
+# Shell functions of the window verbs. describe prints one line per window that still
+# exists: its id, `getwindowgeometry --shell` on one line, and its name in base64.
+WINDOW_HELPERS = f"""\
+describe() {{
+  for id; do
+    geometry=$(xdotool getwindowgeometry --shell "$id" 2>&1) || continue
+    case $geometry in *failed*) continue ;; esac
+    name=$(xdotool getwindowname "$id" 2>/dev/null | base64 -w0) || continue
+    printf '%s %s %s\\n' "$id" "$(printf '%s' "$geometry" | tr '\\n' ' ')" "$name"
+  done
+}}
+pattern() {{
+  grep -E -e "$1" </dev/null >/dev/null 2>&1
+  [ $? != 2 ] || {{ echo "sbx: '$1' is no extended regular expression" >&2; exit {INVALID_EXIT}; }}
+}}
+"""
+# Arguments: name or class, pattern. X answers first, so a timeout tells the two waits apart.
+WINDOW_WAIT = f"""\
+{WINDOW_HELPERS}
+until xdotool getdisplaygeometry >/dev/null 2>&1; do sleep 0.2; done
+echo ready
+pattern "$2"
+ids=$(xdotool search --sync --onlyvisible "--$1" -- "$2") || exit
+describe $ids
+"""
+# Arguments: id or name, the window id or a name pattern.
+WINDOW_FOCUS = f"""\
+{WINDOW_HELPERS}
+target=$2
+if [ "$1" = name ]; then
+  pattern "$2"
+  target=$(xdotool search --onlyvisible --limit 1 --name -- "$2")
+fi
+[ -n "$target" ] && xdotool getwindowname "$target" >/dev/null 2>&1 || exit {MISSING_EXIT}
+xdotool windowactivate --sync "$target" || exit
+describe "$target"
+"""
+WINDOW_LIST = f"""\
+{WINDOW_HELPERS}
+xdotool getdisplaygeometry >/dev/null || exit
+describe $(xdotool search --onlyvisible --name -- '')
+"""
+# Arguments: x, y, then the button and click count, empty to only move.
+MOUSE = f"""\
+geometry=$(xdotool getdisplaygeometry) || exit
+set -- "$@" $geometry
+if [ "$1" -ge "$5" ] || [ "$2" -ge "$6" ]; then
+  echo "sbx: $1,$2 lies off the $5x$6 display" >&2
+  exit {INVALID_EXIT}
+fi
+xdotool mousemove --sync "$1" "$2" || exit
+[ -z "$3" ] || xdotool click --repeat "$4" "$3"
+"""
+WINDOW_LINE = re.compile(
+    rb"([0-9]{1,10}) WINDOW=([0-9]{1,10}) X=(-?[0-9]{1,6}) Y=(-?[0-9]{1,6}) "
+    rb"WIDTH=([0-9]{1,6}) HEIGHT=([0-9]{1,6}) SCREEN=[0-9]{1,3} ([A-Za-z0-9+/]*={0,2})"
+)
 
 
 def _detail(stderr: bytes) -> str:
@@ -79,6 +157,37 @@ def _text_refusal(text: str) -> str | None:
             f"{', '.join(map(repr, controls))}; press keys with `key`"
         )
     return None
+
+
+def _unreadable(detail: str) -> SbxError:
+    msg = f"the guest's xdotool printed {detail}"
+    return SbxError(msg, code="agent-reply")
+
+
+def parse_windows(output: bytes) -> tuple[Window, ...]:
+    """Read describe's lines; the guest wrote them, so anything off-format fails."""
+    windows: list[Window] = []
+    for line in output.splitlines():
+        match = WINDOW_LINE.fullmatch(line)
+        if match is None or match[1] != match[2]:
+            detail = "a window line sbx cannot read"
+            raise _unreadable(detail)
+        try:
+            name = base64.b64decode(match[7], validate=True)
+        except binascii.Error as error:
+            detail = "a window name that is not base64"
+            raise _unreadable(detail) from error
+        text = name.decode(errors="replace").removesuffix("\n")[:NAME_LIMIT]
+        x, y, width, height = (int(match[index]) for index in range(3, 7))
+        windows.append(Window(int(match[1]), text, x, y, width, height))
+    return tuple(windows)
+
+
+def _pattern(pattern: str) -> str:
+    if not pattern or len(pattern) > MAX_PATTERN or "\0" in pattern:
+        msg = f"a window pattern has 1 to {MAX_PATTERN} characters and no NUL"
+        raise SbxError(msg, code="invalid-argument")
+    return pattern
 
 
 class Gui(Transfer):
@@ -210,3 +319,95 @@ class Gui(Transfer):
             )
             checked(result, "xdotool type")
         return TypeResult(name, len(text))
+
+    def _window_script(
+        self, sandbox: Sandbox, script: str, args: Sequence[str], timeout: float
+    ) -> ExecResult:
+        result = self.session_command(
+            sandbox, ["/bin/sh", "-c", script, "sbx", *args], timeout=timeout
+        )
+        if result.exit_code == INVALID_EXIT and not result.timed_out:
+            raise SbxError(_detail(result.stderr), code="invalid-argument")
+        return result
+
+    def mouse(
+        self, name: str, x: int, y: int, *, click: str | None = None, double: bool = False
+    ) -> MouseResult:
+        """Move the pointer to a display pixel through xdotool, then click there if asked."""
+        if not (0 <= x <= MAX_COORDINATE and 0 <= y <= MAX_COORDINATE):
+            msg = f"mouse takes coordinates from 0 to {MAX_COORDINATE}, not {x},{y}"
+            raise SbxError(msg, code="invalid-argument")
+        if click is not None and click not in BUTTONS:
+            msg = f"mouse clicks {', '.join(BUTTONS)}, not {click!r}"
+            raise SbxError(msg, code="invalid-argument")
+        if double and click is None:
+            click = "left"
+        sandbox = self._gui(name)
+        journal.record(
+            f"mouse in {name}: {click or 'move'}{' twice' if double else ''} at {x},{y}",
+            verb="mouse",
+            sandbox=name,
+            session=self.session,
+        )
+        button = "" if click is None else str(BUTTONS[click])
+        result = self._window_script(
+            sandbox, MOUSE, [str(x), str(y), button, "2" if double else "1"], GUEST_TIMEOUT
+        )
+        checked(result, "xdotool mousemove")
+        return MouseResult(name, x, y, click, double)
+
+    def window_wait(self, name: str, kind: str, pattern: str, timeout: float) -> WindowsResult:
+        """Wait until X answers and a visible window's name or class matches the pattern."""
+        if kind not in {"name", "class"}:
+            msg = f"window wait matches a name or a class, not {kind!r}"
+            raise SbxError(msg, code="internal")
+        sandbox = self._gui(name)
+        result = self._window_script(sandbox, WINDOW_WAIT, [kind, _pattern(pattern)], timeout)
+        if result.timed_out:
+            if result.stdout.startswith(READY):
+                msg = f"no visible window of {name} matched {kind} {pattern!r} in {timeout:g} s"
+            else:
+                msg = f"the display of {name} did not answer in {timeout:g} s"
+            raise SbxError(msg, code="window-timeout")
+        output = checked(result, "xdotool search").stdout
+        if not output.startswith(READY):
+            detail = "no readiness line"
+            raise _unreadable(detail)
+        return WindowsResult(name, parse_windows(output.removeprefix(READY)))
+
+    def window_focus(
+        self, name: str, *, window: int | None = None, pattern: str | None = None
+    ) -> FocusResult:
+        """Activate a window by id, or the first visible one whose name matches."""
+        if window is not None:
+            if not 0 < window <= MAX_WINDOW_ID:
+                msg = f"a window id lies from 1 to {MAX_WINDOW_ID}, not {window}"
+                raise SbxError(msg, code="invalid-argument")
+            args = ["id", str(window)]
+        elif pattern is not None:
+            args = ["name", _pattern(pattern)]
+        else:
+            msg = "window focus takes an id or a name pattern"
+            raise SbxError(msg, code="usage")
+        sandbox = self._gui(name)
+        journal.record(
+            f"window focus in {name}: {args[0]} {args[1]}",
+            verb="window",
+            sandbox=name,
+            session=self.session,
+        )
+        result = self._window_script(sandbox, WINDOW_FOCUS, args, GUEST_TIMEOUT)
+        if result.exit_code == MISSING_EXIT and not result.timed_out:
+            msg = f"no window of {name} has {args[0]} {args[1]!r}"
+            raise SbxError(msg, code="no-window")
+        windows = parse_windows(checked(result, "xdotool windowactivate").stdout)
+        if len(windows) != 1:
+            msg = f"the focused window of {name} closed before sbx could describe it"
+            raise SbxError(msg, code="no-window")
+        return FocusResult(name, windows[0])
+
+    def window_list(self, name: str) -> WindowsResult:
+        """Describe every visible window."""
+        sandbox = self._gui(name)
+        result = self._window_script(sandbox, WINDOW_LIST, [], GUEST_TIMEOUT)
+        return WindowsResult(name, parse_windows(checked(result, "xdotool search").stdout))
