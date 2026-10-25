@@ -476,6 +476,8 @@
   - Help and tab completion for Bash, Zsh, and Fish.
 - [apps/sbx/README.md](apps/sbx/README.md)
   - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, the slice and ceilings, state, and gc.
+- [apps/sbx/agents.md](apps/sbx/agents.md)
+  - Agent access to `sbx`: the skill, the MCP server, the approval hooks for egress and the read-write share, and their limits.
 - [apps/sbx/bases.md](apps/sbx/bases.md)
   - `sbx` bases: Nix-built `nixos` and `nixos-gui`, keyboard input on GUI sandboxes, and hash-pinned cloud images that `base prepare` provisions.
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)

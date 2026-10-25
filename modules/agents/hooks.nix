@@ -2,8 +2,9 @@
 # spec to _internal.hooks.raw; a harness installs every hook that carries its
 # block (e.g. claude/codex). New hooks need no per-client wiring.
 #
-# tests.deny/tests.ask/tests.allow are PreToolUse payloads; each hook with
-# tests gets checks."agents/hooks/<name>", which compares them against the
+# tests.deny/tests.ask/tests.allow are PreToolUse payloads, or one-line strings
+# fed verbatim for malformed input; each hook with tests gets
+# checks."agents/hooks/<name>", which compares them against the
 # permissionDecision the hook prints (no output counts as allow).
 { config, lib, ... }:
 let
@@ -71,11 +72,15 @@ let
         "allow"
       ] tests;
       badKinds = lib.filter (
-        kind: !(builtins.isList validated.${kind} && lib.all builtins.isAttrs validated.${kind})
+        kind:
+        !(
+          builtins.isList validated.${kind}
+          && lib.all (case: builtins.isAttrs case || builtins.isString case) validated.${kind}
+        )
       ) (lib.attrNames validated);
     in
     if badKinds != [ ] then
-      throw "Agent hook ${context}.${lib.concatStringsSep ", " badKinds} must be a list of payload attribute sets"
+      throw "Agent hook ${context}.${lib.concatStringsSep ", " badKinds} must be a list of payload attribute sets or strings"
     else
       validated;
 
@@ -143,7 +148,7 @@ in
                     echo "expected $expect, got $got: $case" >&2
                     fail=1
                   fi
-                done < <(jq -c ".$expect // [] | .[]" ${cases})
+                done < <(jq -r ".$expect // [] | .[] | if type == \"string\" then . else tojson end" ${cases})
               done
               [ "$fail" -eq 0 ]
               touch "$out"
