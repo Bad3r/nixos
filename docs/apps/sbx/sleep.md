@@ -48,7 +48,7 @@ Every phase exits 1 on any failure; the hook decides what a failure means.
 - A recorded sandbox still in a save job, such as one the hook gave up on, is waited for a bounded time and then restored.
   One still saving after that, or one whose restore fails, stays in the record, and `restore` exits 1.
 - A sandbox saved while paused comes back paused; one that `pause` recorded too is then resumed.
-- `restore` refuses a sandbox whose `<emulator>` is not the current `sbx-qemu`, such as one defined with plain QEMU; it stays saved, `restore` exits 1, and `sbx destroy` removes it.
+- `restore` refuses a sandbox whose `<emulator>` is not an `sbx-qemu` build, such as one defined with plain QEMU; it stays saved, `restore` exits 1, and `sbx destroy` removes it.
 
 ## Guest clocks
 

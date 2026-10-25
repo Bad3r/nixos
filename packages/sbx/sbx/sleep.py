@@ -9,6 +9,7 @@ what that means: a failed pause only warns, a failed save aborts hibernation.
 """
 
 import os
+import re
 import signal
 import subprocess
 import sys
@@ -36,6 +37,7 @@ SAVE_BUDGET = 270
 ABORT_WAIT = 20
 # How long restore waits for saves still running, such as one the hook gave up on.
 JOB_WAIT = 120
+STORE_HASH = re.compile(r"^[0-9a-z]{32}-")
 
 
 def state_dir() -> Path:
@@ -52,6 +54,11 @@ def warn(message: str) -> None:
 def error(message: str) -> None:
     """Print one journal line at error priority."""
     print(f"<3>error: {message}", file=sys.stderr, flush=True)
+
+
+def store_name(path: str | None) -> str | None:
+    """A store path's name without its hash, so a wrapper from an earlier build still matches."""
+    return None if path is None else STORE_HASH.sub("", Path(path).name)
 
 
 class Sleep:
@@ -300,11 +307,11 @@ class Sleep:
             self._fail("restore", f"{sandbox.name} has no managed save, so it stays shut off")
             return True
         emulator = self.sandboxes.settings.tools.emulator
-        if sandbox.domain.emulator != emulator:
+        if store_name(sandbox.domain.emulator) != store_name(emulator):
             self._fail(
                 "restore",
                 f"{sandbox.name} stays saved: its emulator {sandbox.domain.emulator} is not "
-                f"{emulator}, which keeps vsock inside the sandbox; "
+                f"an {store_name(emulator)}, which keeps vsock inside the sandbox; "
                 f"run `sbx destroy {sandbox.name}`",
             )
             return True

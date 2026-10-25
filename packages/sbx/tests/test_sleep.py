@@ -15,7 +15,7 @@ from sbx import cli
 from sbx.core import Meta, Sandboxes, SbxError
 from sbx.sleep import Sleep
 
-from tests.test_core import EMULATOR, NOW, FakeBackend, Fixture
+from tests.test_core import NOW, FakeBackend, Fixture
 
 
 class SleepTest(Fixture):
@@ -296,10 +296,21 @@ class SleepTest(Fixture):
         self.assertEqual(code, 1)
         self.assertNotIn({"sandbox": "a", "action": "restored"}, actions)
         self.assertIn({"sandbox": "b", "action": "restored"}, actions)
-        self.assertIn(f"is not {EMULATOR}", self.errors)
+        self.assertIn("is not an sbx-qemu", self.errors)
         self.assertIn("run `sbx destroy a`", self.errors)
         self.assertEqual(self.states()["a"], "shutoff")
         self.assertFalse((self.state / "saved").exists())
+
+    def test_restore_accepts_an_earlier_wrapper_build(self) -> None:
+        """A sandbox saved under an sbx-qemu from an earlier switch is restored."""
+        self.phase("save")
+        self.fake.domains_by_name["sbx-a"] = dataclasses.replace(
+            self.fake.domains_by_name["sbx-a"],
+            emulator="/nix/store/zyxwvsrqpnmlkjihgfdcba9876543210-sbx-qemu",
+        )
+        actions, code = self.phase("restore")
+        self.assertEqual(code, 0)
+        self.assertIn({"sandbox": "a", "action": "restored"}, actions)
 
     def test_paused_then_saved_comes_back_running(self) -> None:
         """A sandbox paused for suspend and saved for hibernation is restored, then resumed."""

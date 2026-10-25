@@ -21,7 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 NOW = 1_800_000_000
-EMULATOR = "/nix/store/sbx-qemu"
+EMULATOR = "/nix/store/0123456789abcdfghijklmnpqrsvwxyz-sbx-qemu"
 MAC = "52:54:00:ab:cd:ef"
 
 STUBS = {
