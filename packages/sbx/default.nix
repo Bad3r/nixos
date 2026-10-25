@@ -2,12 +2,13 @@
   lib,
   stdenvNoCC,
   writeText,
+  writeScript,
   python3,
   qemu_kvm,
   openssh,
   socat,
   tesseract,
-  iproute2,
+  util-linux,
   git,
   systemd,
   nix,
@@ -17,15 +18,29 @@
 }:
 let
   python = python3.withPackages (ps: [ ps.libvirt ]);
+  emulatorSource = lib.fileset.toSource {
+    root = ./sbx;
+    fileset = ./sbx/emulator.py;
+  };
+  # libvirt runs it as each sandbox's emulator; domains and save images pin its path.
+  emulator = writeScript "sbx-qemu" ''
+    #!${python3.interpreter} -I
+    import sys
+
+    sys.path.insert(0, "${emulatorSource}")
+    from emulator import main
+
+    main("${qemu_kvm}/bin/qemu-system-x86_64", sys.argv[1:])
+  '';
   tools = {
-    emulator = "${qemu_kvm}/bin/qemu-system-x86_64";
+    emulator = "${emulator}";
     qemu_img = "${qemu_kvm}/bin/qemu-img";
     ssh = "${openssh}/bin/ssh";
     scp = "${openssh}/bin/scp";
     ssh_keygen = "${openssh}/bin/ssh-keygen";
     socat = lib.getExe socat;
     tesseract = lib.getExe tesseract;
-    ss = "${iproute2}/bin/ss";
+    nsenter = "${util-linux}/bin/nsenter";
     git = lib.getExe git;
     systemctl = "${systemd}/bin/systemctl";
     nix = "${nix}/bin/nix";

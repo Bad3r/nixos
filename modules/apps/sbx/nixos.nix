@@ -21,6 +21,7 @@
     * Sandboxes are untrusted guests: no vdagent channel, no shared folders, and no network unless
       --net egress puts them on the isolated sbx workload network.
     * QEMU runs inside sbx.slice through the sbx-libvirt user unit, so the slice bounds every sandbox together.
+    * Each QEMU runs in its own local vsock namespace, so a guest never reaches a host vsock listener.
     * Bases build on demand from this flake and never enter the host closure.
     * Cloud bases come from hash-pinned images that `sbx base prepare` boots once with egress;
       agent sessions cannot run it.
@@ -151,12 +152,6 @@ let
           '';
         };
 
-        vsockAllowlist = lib.mkOption {
-          type = types.listOf types.ints.u32;
-          default = [ ];
-          description = "Host vsock ports that may listen while a sandbox without a network starts.";
-        };
-
         flake = lib.mkOption {
           type = types.str;
           default = "${config.users.users.${metaOwner.username}.home}/nixos";
@@ -208,7 +203,7 @@ let
               ttlSeconds = cfg.limits.ttl * 3600;
               diskGiB = cfg.sandbox.disk;
             };
-            inherit (cfg) vsockAllowlist flake cloudImages;
+            inherit (cfg) flake cloudImages;
             cpuset = cfg.limits.cpus;
             # An object, or why `--net egress` is unavailable.
             egress =
@@ -231,7 +226,7 @@ let
 
         environment.systemPackages = [ cfg.finalPackage ];
 
-        # The listener check sees only the initial namespace; later ones keep vsock local.
+        # Each sandbox's QEMU runs in a new namespace, which sbx-qemu refuses unless local.
         boot.kernel.sysctl."net.vsock.child_ns_mode" = "local";
       };
     };

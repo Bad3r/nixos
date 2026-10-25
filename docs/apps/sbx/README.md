@@ -12,9 +12,9 @@ Every sandbox is an untrusted guest.
 - The guest has no vdagent channel and no shared folder.
   Only a [GUI base](bases.md#gui-bases) adds a display socket, with clipboard and file transfer off.
 - `sbx` accepts no domain XML, no host disk path, and no value above a ceiling.
-- Host vsock listeners are reachable from a guest, so `create` refuses while one listens outside `vsockAllowlist`.
-- The listener check sees the initial network namespace only; the module sets `net.vsock.child_ns_mode` to `local` so later namespaces keep their vsock sockets to themselves.
-  A namespace created before that sysctl applies at boot stays global and unseen.
+- Each QEMU runs in its own user and network namespace, and `sbx-qemu` (`packages/sbx/sbx/emulator.py`) starts it only when that namespace's vsock mode is `local`.
+- The guest's vhost-vsock device belongs to that namespace, so for the sandbox's whole lifetime it reaches no host vsock listener, whenever that listener starts.
+- `exec` and `cp` enter the namespace with `nsenter` to reach the guest's SSH; the module sets `net.vsock.child_ns_mode` to `local` for every new namespace.
 - The guest sees no nested virtualization and no VMware backdoor port.
 - An expired sandbox refuses `exec`, `cp`, and `screenshot` until `gc` removes it.
 - Agents run as the owner, so the ceilings bind well-behaved callers only.

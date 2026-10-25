@@ -1,5 +1,6 @@
 # sbx bases build on demand (`sbx base build <flavour>`) as workloads.artifacts
-# entries (modules/workloads/artifacts.nix), which no host closure references.
+# entries (modules/workloads/artifacts.nix), which no host closure references;
+# the sbx-vsock and sbx-gui checks boot `nixos` and `nixos-gui`.
 { inputs, ... }:
 {
   perSystem =
