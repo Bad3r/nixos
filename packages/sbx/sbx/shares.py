@@ -308,12 +308,11 @@ class Shares:
         )
 
     def _helper(self, sandbox: Sandbox, command: Sequence[str]) -> ExecResult | str:
-        """Run a guest helper; return its result, or why the guest did not answer."""
+        """Run a guest helper; return its result, or why the guest did not answer sanely."""
         try:
             result = self.sandboxes.guest_helper(sandbox, command, timeout=GUEST_TIMEOUT)
         except SbxError as error:
-            if error.code == "agent-reply":
-                raise
+            # Malformed replies come from the guest, which must not keep a share by sending one.
             return f"qemu-ga: {error}"
         if result.transport_error is not None:
             return result.transport_error

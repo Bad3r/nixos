@@ -44,6 +44,8 @@ class ShareFake(FakeBackend):
         # Mounts that fail before the guest has probed a hot-plugged device.
         self.unprobed = 0
         self.silent = False
+        # The guest agent answers guest-exec with a malformed reply.
+        self.garbled = False
         self.helper_statuses: dict[int, dict[str, Any]] = {}
 
     def _guest(self, argv: list[str]) -> dict[str, Any]:
@@ -84,6 +86,8 @@ class ShareFake(FakeBackend):
         if self.silent:
             msg = "Guest agent is not responding: QEMU guest agent is not connected"
             raise SbxError(msg, code="libvirt")
+        if self.garbled:
+            return {"return": {"pid": "not a number"}}
         arguments = cast("dict[str, Any]", command["arguments"])
         if execute == "guest-exec-status":
             return {"return": self.helper_statuses.pop(arguments["pid"])}
@@ -350,6 +354,19 @@ class SharesTest(Fixture):
             " | xargs -r umount -l'",
         )
         self.assertNotIn("docs", attached(self.backend.live_xml("sbx-s")))
+
+    def test_malformed_replies(self) -> None:
+        """A guest that answers garbage neither fails attach nor keeps a share past detach."""
+        self.add_running("s")
+        self.backend.garbled = True
+        document = self.shares().attach("s", "docs").as_json()
+        self.assertEqual((document["attached"], document["mounted"]), (True, False))
+        self.assertIn("pid is not an integer", str(document["mount_error"]))
+        for force in (False, True):
+            self.shares().attach("s", "shared", mount=False)
+            document = self.shares().detach("s", "shared", force=force).as_json()
+            self.assertEqual((document["attached"], document["guest_unmounted"]), (False, False))
+            self.assertNotIn("shared", attached(self.backend.live_xml("sbx-s")))
 
     def test_info_lists_shares(self) -> None:
         """`info` lists each held share, with a mountpoint only where the guest mounted it."""
