@@ -50,7 +50,7 @@ def _timeout(value: str | None) -> float | None:
     return None if value is None else float(parse_duration(value))
 
 
-def build_parser() -> argparse.ArgumentParser:
+def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     """Describe every verb."""
     parser = Parser(prog="sbx", description="Disposable agent sandboxes on qemu:///session.")
     parser.add_argument("--json", action="store_true", help="print JSON, errors included")
@@ -59,8 +59,10 @@ def build_parser() -> argparse.ArgumentParser:
     verbs = parser.add_subparsers(dest="verb", required=True, parser_class=Parser)
 
     create_flags = Parser(add_help=False)
-    # Windows bases come from the settings, which load after parsing.
-    create_flags.add_argument("base", help=f"{', '.join(FLAVOURS)}, or a Windows base")
+    # Cloud and Windows bases come from the settings, which load after parsing.
+    create_flags.add_argument(
+        "base", help=f"{', '.join(FLAVOURS)}, a prepared cloud base, or a Windows base"
+    )
     create_flags.add_argument("--name", help="sandbox name; default <base>-<6 hex>")
     create_flags.add_argument(
         "--net", choices=NETS, default="none", help="none: no NIC; egress: DHCP on the sbx bridge"
@@ -68,6 +70,9 @@ def build_parser() -> argparse.ArgumentParser:
     create_flags.add_argument("--mem", help="memory such as 2G")
     create_flags.add_argument("--cpus", type=int)
     create_flags.add_argument("--ttl", help="lifetime such as 30m or 2h")
+    create_flags.add_argument(
+        "--gui", action="store_true", help="the base's GUI variant, with more default memory"
+    )
 
     verbs.add_parser("create", parents=[common, create_flags], help="start a sandbox")
 
@@ -106,14 +111,25 @@ def build_parser() -> argparse.ArgumentParser:
     screenshot.add_argument("name")
     screenshot.add_argument("--ocr", action="store_true", help="add the text tesseract reads")
 
+    key = verbs.add_parser("key", parents=[common], help="press keys on a GUI sandbox")
+    key.add_argument("name")
+    key.add_argument("keys", nargs="+", metavar="KEY", help="a key or chord such as ctrl+alt+t")
+
+    typing = verbs.add_parser("type", parents=[common], help="type text on a GUI sandbox")
+    typing.add_argument("name")
+    typing.add_argument("text", help="US-layout text; newline presses enter")
+
     gc = verbs.add_parser("gc", parents=[common], help="remove expired and orphaned sandboxes")
     gc.add_argument("--dry-run", action="store_true")
 
-    base = verbs.add_parser("base", parents=[common], help="list or build bases")
+    # No --json between base and its verb, so permission rules see one spelling.
+    base = verbs.add_parser("base", help="list, build, or prepare bases")
     base_verbs = base.add_subparsers(dest="base_verb", required=True, parser_class=Parser)
     base_verbs.add_parser("list", parents=[common])
     build = base_verbs.add_parser("build", parents=[common])
     build.add_argument("flavour", help=", ".join(FLAVOURS))
+    prepare = base_verbs.add_parser("prepare", parents=[common])
+    prepare.add_argument("image", help="a cloud image from the settings")
 
     host_sleep = verbs.add_parser(
         "sleep",
@@ -126,7 +142,13 @@ def build_parser() -> argparse.ArgumentParser:
 
 def _request(sandboxes: Sandboxes, args: argparse.Namespace) -> Request:
     return sandboxes.request(
-        args.base, name=args.name, net=args.net, memory=args.mem, cpus=args.cpus, ttl=args.ttl
+        args.base,
+        name=args.name,
+        net=args.net,
+        memory=args.mem,
+        cpus=args.cpus,
+        ttl=args.ttl,
+        gui=args.gui,
     )
 
 
@@ -235,11 +257,17 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
             return sandboxes.info(args.name), 0
         case "screenshot":
             return sandboxes.screenshot(args.name, ocr=args.ocr), 0
+        case "key":
+            return sandboxes.key(args.name, args.keys), 0
+        case "type":
+            return sandboxes.type_text(args.name, args.text), 0
         case "gc":
             return sandboxes.gc(dry_run=args.dry_run), 0
         case "base":
             if args.base_verb == "list":
                 return sandboxes.base_list(), 0
+            if args.base_verb == "prepare":
+                return sandboxes.base_prepare(args.image), 0
             return sandboxes.base_build(args.flavour), 0
         case "sleep":
             if attach is None:

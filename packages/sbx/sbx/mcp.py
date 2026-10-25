@@ -200,10 +200,13 @@ GUEST_COMMAND = Param(
     required=True,
 )
 CREATE_PARAMS = (
-    # Windows bases come from the settings, so the schema names no fixed set.
+    # Cloud and Windows bases come from the settings, so create validates the name.
     Param(
         "base",
-        _string(f"base to boot: {', '.join(FLAVOURS)}, or a Windows base that base_list reports"),
+        _string(
+            f"base to boot: {', '.join(FLAVOURS)}, a prepared cloud base, "
+            "or a Windows base that base_list reports"
+        ),
         required=True,
     ),
     Param("name", _string("sandbox name; default <base>-<6 hex>"), flag="--name"),
@@ -211,6 +214,7 @@ CREATE_PARAMS = (
     Param("mem", _string("memory such as 2G"), flag="--mem"),
     Param("cpus", {"type": "integer", "minimum": 1, "description": "vCPUs"}, flag="--cpus"),
     Param("ttl", _string("lifetime such as 30m or 2h"), flag="--ttl"),
+    Param("gui", _boolean("the base's GUI variant, with more default memory"), flag="--gui"),
 )
 
 TOOLS = (

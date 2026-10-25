@@ -307,7 +307,7 @@ def steps(spec: dict) -> list[Step]:
     if key_file is not None and Path(key_file).is_file():
         result.append(script_step("product-key", product_key_data))
     else:
-        log("no product key file; Windows stays unactivated")
+        log("no product key file; activation is left as it is")
     if spec["officeInstaller"] is not None:
         result.append(Step("office", office_installed, install_office))
     return result

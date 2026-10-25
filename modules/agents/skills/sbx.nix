@@ -7,10 +7,25 @@ let
       do not trust, when you need to run their scripts or inspect what they do.
     - Checks of what such code does to a machine: files it writes, processes it
       starts, what its display shows (`sbx screenshot`).
+    - GUI checks on `nixos-gui`: run an X client, read the screen with
+      `screenshot --ocr`, and drive it with `key` and `type`.
 
     The `nixos` base carries coreutils, bash, `file`, `git`, `perl`, `python3`,
     and `unzip`; it has no compiler, no `make`, and no network. Fetch inputs on
     the host into `$TMPDIR` without running them, then copy them in.
+
+    `nixos-gui` (or `create nixos --gui`) adds an X11 IceWM session with a
+    focused xterm, `xdotool`, and 4 GiB by default. `exec` commands run as root
+    with `DISPLAY=:0`, so
+    `sbx exec <name> -- sh -c 'some-app >/dev/null 2>&1 </dev/null &'` opens a
+    window there; without the redirections, `exec` waits until the app exits.
+    The terminal itself runs as the user `sbx`. `type` takes US-layout
+    ASCII (a newline presses enter), and `key` takes chords such as `ctrl+c`.
+
+    Cloud bases such as `debian-13` run cloud images with apt, and `--net egress`
+    lets apt fetch packages. A cloud base that reports `base-missing` needs
+    `sbx base prepare <image>`, which boots an internet image with egress: the
+    owner runs it, and it refuses agent sessions, so ask the owner instead.
 
     ## When Not To Use
 
@@ -53,11 +68,14 @@ let
     | -------------------------------------------- | ------------------------------------------ |
     | `run <base> [flags] -- CMD`                  | create, copy in, exec, copy out, destroy   |
     | `create <base> [--name N] [--ttl 30m]`       | start a sandbox and wait for SSH           |
+    | `create nixos --gui`                         | the same base with an X11 session          |
     | `exec <name> [--timeout T] [--agent] -- CMD` | run over SSH; `--agent` uses qemu-ga       |
     | `cp <src> [<dst>]`                           | one side `<name>:<path>`; no dst = `xfer`  |
     | `destroy <name>` / `--mine` / `--expired`    | stop and delete sandboxes                  |
     | `list [--mine]`, `info <name>`               | state, CID, TTL left, `xfer` directory     |
     | `screenshot <name> [--ocr]`                  | display to PNG or PPM in `xfer`, opt. OCR  |
+    | `key <name> <chord>...`                      | press chords on a GUI sandbox              |
+    | `type <name> <text>`                         | type text on a GUI sandbox                 |
     | `base list`, `base build <base>`             | show or build Nix bases                    |
     | `gc [--dry-run]`                             | remove expired and orphaned sandboxes      |
 
@@ -71,17 +89,22 @@ let
 
     - `exec`: `{exit_code, stdout, stderr, truncated, timed_out}`.
     - `run`: `{sandbox, in, exec, out}`, with `exec` shaped as above.
+    - `key`: `{sandbox, keys}`; `type`: `{sandbox, characters}`. Both return
+      once the input reached the guest's keyboard, not once an app handled it,
+      so check the effect with `exec` or `screenshot`.
     - `exec` and `run` exit with the guest command's status, 124 after
       `--timeout`; 255 can also mean SSH to the guest failed.
     - Failures print `{"error": {"code", "message"}}` and exit 1, or 2 for a
       usage error. A copy out that fails after the command ran makes `run`
       fail this way, and the command's result is lost. `base-missing` means
-      `sbx base build <base>` comes first.
+      `sbx base build <base>` comes first, or for a cloud base the owner's
+      `sbx base prepare`.
 
     ## MCP Tools
 
-    The `sbx` MCP server offers each verb as a tool (`base list` is
-    `base_list`). Flags become named arguments, the guest command an argv
+    The `sbx` MCP server offers each verb in the table above but `key` and
+    `type` as a tool (`base list` is `base_list`); run those two through the
+    CLI. Flags become named arguments, the guest command an argv
     list, and the result is the `--json` document above; a refusal is a tool
     error carrying the error object. A failing guest command is no tool error:
     read `exit_code`.
@@ -97,7 +120,7 @@ in
   flake.lib.agents._internal.skills.raw.sbx = {
     name = "sbx";
     title = "Disposable Sandboxes With sbx";
-    description = "Run unknown binaries, downloads, and untrusted repositories in a disposable sbx VM: when to use it, its verbs, and the --json contract.";
+    description = "Run unknown binaries, downloads, untrusted repositories, and GUI checks in a disposable sbx VM: when to use it, its verbs, and the --json contract.";
     app = "sbx";
     body = skillBody;
 

@@ -39,6 +39,7 @@ SAMPLES: dict[str, object] = {
     "expired": True,
     "ocr": True,
     "dry_run": True,
+    "gui": True,
 }
 # destroy takes exactly one of these.
 EXCLUSIVE = ("mine", "expired")
@@ -75,6 +76,10 @@ class CommandLineTest(unittest.TestCase):
         self.assertEqual(argv, ["run", "--name=-x", "--in=a", "--in=b", "nixos"])
         args = build_parser().parse_args(argv)
         self.assertEqual((args.name, args.inputs), ("-x", ["a", "b"]))
+        argv, _ = mcp.TOOLS_BY_NAME["create"].command_line({"base": "debian-13", "gui": True})
+        self.assertEqual(argv, ["create", "--gui", "debian-13"])
+        args = build_parser().parse_args(argv)
+        self.assertEqual((args.base, args.gui), ("debian-13", True))
         argv, _ = mcp.TOOLS_BY_NAME["base_build"].command_line({"flavour": "nixos"})
         self.assertEqual(argv, ["base", "build", "nixos"])
 
@@ -226,6 +231,8 @@ class ServerTest(unittest.TestCase):
             self.call(2, "info", {"name": "missing"}),
             self.call(3, "nope", {}),
             self.call(4, "destroy", {"name": "a", "mine": True}),
+            self.call(5, "create", {"base": "debian-13"}),
+            self.call(6, "create", {"base": "debian-13", "gui": True}),
         )
         result = responses[1]["result"]
         self.assertFalse(result["isError"])
@@ -239,6 +246,12 @@ class ServerTest(unittest.TestCase):
         exclusive = json.loads(responses[4]["result"]["content"][0]["text"])
         self.assertEqual(exclusive["error"]["code"], "usage")
         self.assertIn("sbx-a", self.core.backend.domains_by_name)
+        # Cloud bases reach core, which also gets the GUI flag.
+        codes = [
+            json.loads(responses[n]["result"]["content"][0]["text"])["error"]["code"]
+            for n in (5, 6)
+        ]
+        self.assertEqual(codes, ["base-missing", "unknown-base"])
 
 
 class Stub:

@@ -83,62 +83,70 @@ let
 
       # libvirt waits for a hook, so it only queues the job; failing a
       # "started" hook would kill the guest.
-      hook = pkgs.writeShellScript hookName ''
-        case "$1" in
-          ${lib.concatStringsSep " | " (lib.attrNames guests)}) ;;
-          *) exit 0 ;;
-        esac
-        case "$2" in
-          started | reconnect) action=start ;;
-          stopped) action=stop ;;
-          *) exit 0 ;;
-        esac
-        unit="workloads-provision@$1.service"
-        if ! ${config.systemd.package}/bin/systemctl --no-block "$action" "$unit"; then
-          echo "${hookName}: cannot queue $action of $unit" >&2
-        fi
-      '';
+      hook = pkgs.writeShellScript hookName (
+        if guests == { } then
+          "exit 0\n"
+        else
+          ''
+            case "$1" in
+              ${lib.concatStringsSep " | " (lib.attrNames guests)}) ;;
+              *) exit 0 ;;
+            esac
+            case "$2" in
+              started | reconnect) action=start ;;
+              stopped) action=stop ;;
+              *) exit 0 ;;
+            esac
+            unit="workloads-provision@$1.service"
+            if ! ${config.systemd.package}/bin/systemctl --no-block "$action" "$unit"; then
+              echo "${hookName}: cannot queue $action of $unit" >&2
+            fi
+          ''
+      );
     in
     {
-      config = lib.mkIf (guests != { }) {
-        assertions = lib.mapAttrsToList (name: guest: {
-          assertion = guest.disks != { };
-          message = "workloads.guests.${name}: Windows guests need a disk";
-        }) guests;
-
-        virtualisation.libvirtd.hooks.qemu.${hookName} = hook;
-
-        systemd = {
-          # libvirtd-config links hooks only when libvirtd starts; the link lands
-          # at switch, and libvirtd rescans hooks on reload.
-          tmpfiles.settings.workloads-provision."/var/lib/libvirt/hooks/qemu.d/${hookName}"."L+".argument =
+      # libvirtd scans qemu.d per call, but only once it found a qemu hook at
+      # its own start (virHookInitialize; SIGHUP skips it), so the hook exists
+      # before any Windows guest does.
+      config = lib.mkMerge [
+        (lib.mkIf config.virtualisation.libvirtd.enable {
+          virtualisation.libvirtd.hooks.qemu.${hookName} = hook;
+          # libvirtd-config links hooks only when libvirtd starts; this link lands at switch.
+          systemd.tmpfiles.settings.workloads-provision."/var/lib/libvirt/hooks/qemu.d/${hookName}"."L+".argument =
             "${hook}";
-          services.libvirtd.reloadTriggers = [ hook ];
+        })
+        (lib.mkIf (guests != { }) {
+          assertions = lib.mapAttrsToList (name: guest: {
+            assertion = guest.disks != { };
+            message = "workloads.guests.${name}: Windows guests need a disk";
+          }) guests;
 
-          services."workloads-provision@" = {
-            description = "Provision the %i workload guest through its guest agent";
-            requires = [ "libvirtd.service" ];
-            wants = [ "time-sync.target" ] ++ mediaUnit;
-            after = [
-              "libvirtd.service"
-              "time-sync.target"
-            ]
-            ++ mediaUnit
-            ++ sopsInstallSecretsDeps config;
-            # A restart at switch would wait for a whole provisioning run; the
-            # next start of the guest runs the new steps.
-            restartIfChanged = false;
-            serviceConfig = {
-              Type = "oneshot";
-              # The active unit records that the current run of the guest is provisioned.
-              RemainAfterExit = true;
-              # It waits through the whole installation for the guest agent.
-              TimeoutStartSec = "infinity";
-              ExecStart = "${python.interpreter} -I ${./_provision.py} ${manifest} %i --scripts ${./_steps}";
+          systemd = {
+            services."workloads-provision@" = {
+              description = "Provision the %i workload guest through its guest agent";
+              requires = [ "libvirtd.service" ];
+              wants = [ "time-sync.target" ] ++ mediaUnit;
+              after = [
+                "libvirtd.service"
+                "time-sync.target"
+              ]
+              ++ mediaUnit
+              ++ sopsInstallSecretsDeps config;
+              # A restart at switch would wait for a whole provisioning run; the
+              # next start of the guest runs the new steps.
+              restartIfChanged = false;
+              serviceConfig = {
+                Type = "oneshot";
+                # The active unit records that the current run of the guest is provisioned.
+                RemainAfterExit = true;
+                # It waits through the whole installation for the guest agent.
+                TimeoutStartSec = "infinity";
+                ExecStart = "${python.interpreter} -I ${./_provision.py} ${manifest} %i --scripts ${./_steps}";
+              };
             };
           };
-        };
-      };
+        })
+      ];
     };
 in
 {

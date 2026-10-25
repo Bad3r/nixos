@@ -32,7 +32,8 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any, Protocol, cast
 
-from sbx import journal, windows
+from sbx import cloud, journal, keys, windows
+from sbx.cloud import CloudImage
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Sequence
@@ -44,7 +45,9 @@ DOMAIN_PREFIX = "sbx-"
 NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
 # Sandbox directories sit beside the base out-links.
 RESERVED_NAMES = frozenset({"bases"})
-FLAVOURS = ("nixos",)
+FLAVOURS = ("nixos", "nixos-gui")
+# Bases with a display that takes key and type input.
+GUI_BASES = frozenset({"nixos-gui"})
 NETS = ("none", "egress")
 SYS_NET = Path("/sys/class/net")
 IFF_UP = 0x1
@@ -65,6 +68,13 @@ AT_FDCWD = -100
 RENAME_NOREPLACE = 1
 # Holds the creation token of a run directory, which its domain metadata also carries.
 CREATION_FILE = "creation"
+KEY_HOLD_MS = 10
+# At 20 to 40 ms a character, the longest text `type` takes runs under three minutes.
+TYPE_LIMIT = 4096
+# The prepare boot's lifetime must outlast its provisioning timeout.
+PREPARE_TTL = 3600
+PREPARE_TIMEOUT = 1800
+SHUTDOWN_TIMEOUT = 120
 
 ET.register_namespace("sbx", NS)
 
@@ -95,14 +105,16 @@ class Tools:
     nix: str
     nix_store: str
     timedatectl: str
+    xorriso: str
 
 
 @dataclass(frozen=True)
 class Egress:
-    """The bridge `--net egress` attaches to and the lease file of its DHCP server."""
+    """The bridge `--net egress` attaches to, the lease file of its DHCP server, and its MTU."""
 
     bridge: str
     leases: Path
+    mtu: int
 
 
 @dataclass(frozen=True)
@@ -117,6 +129,7 @@ class Settings:
     disk_cap_bytes: int
     min_free_bytes: int
     default_memory_mib: int
+    default_gui_memory_mib: int
     default_cpus: int
     default_ttl: int
     disk_gib: int
@@ -128,6 +141,7 @@ class Settings:
     boot_timeout: int
     # Why `--net egress` is unavailable, when it is.
     egress: Egress | str
+    cloud_images: dict[str, CloudImage]
     tools: Tools
     # Present when the host exports Windows bases.
     windows: WindowsSettings | None = None
@@ -152,6 +166,7 @@ class Settings:
             disk_cap_bytes=limits["diskBytes"],
             min_free_bytes=limits["minFreeBytes"],
             default_memory_mib=defaults["memoryMiB"],
+            default_gui_memory_mib=defaults["guiMemoryMiB"],
             default_cpus=defaults["cpus"],
             default_ttl=defaults["ttlSeconds"],
             disk_gib=defaults["diskGiB"],
@@ -163,7 +178,13 @@ class Settings:
             boot_timeout=raw["bootTimeout"],
             egress=raw["egress"]
             if isinstance(raw["egress"], str)
-            else Egress(raw["egress"]["bridge"], Path(raw["egress"]["leases"])),
+            else Egress(
+                raw["egress"]["bridge"], Path(raw["egress"]["leases"]), raw["egress"]["mtu"]
+            ),
+            cloud_images={
+                name: CloudImage(image["url"], image["hash"])
+                for name, image in raw["cloudImages"].items()
+            },
             tools=Tools(**raw["tools"]),
             windows=None
             if raw["windows"] is None
@@ -363,6 +384,10 @@ class Backend(Protocol):
 
     def abort_job(self, domain: str) -> None:
         """Abort a domain's running job."""
+        ...
+
+    def send_key(self, domain: str, keycodes: Sequence[int], holdtime: int) -> None:
+        """Press Linux keycodes together for `holdtime` ms, then release them."""
         ...
 
 
@@ -647,6 +672,7 @@ def bridge_interface(bridge: str, mac: str) -> ET.Element:
     ET.SubElement(interface, "mac", address=mac)
     ET.SubElement(interface, "source", bridge=bridge)
     ET.SubElement(interface, "model", type="virtio")
+    # No <mtu>: session libvirt cannot set a tap's MTU, so guests take it from DHCP or the seed.
     return interface
 
 
@@ -717,7 +743,7 @@ class Sandboxes:
 
     def _bases(self) -> list[str]:
         windows_bases = [] if self.settings.windows is None else list(self.settings.windows.bases)
-        return [*FLAVOURS, *windows_bases]
+        return [*FLAVOURS, *self.settings.cloud_images, *windows_bases]
 
     def _sandbox_dirs(self) -> list[Path]:
         if not self.paths.root.is_dir():
@@ -831,13 +857,22 @@ class Sandboxes:
         memory: str | None,
         cpus: int | None,
         ttl: str | None,
+        gui: bool = False,
     ) -> Request:
-        """Turn create flags into a request within the ceilings."""
+        """Turn create flags into a request within the ceilings; `gui` picks `<base>-gui`."""
         settings = self.settings
+        if gui and base not in GUI_BASES:
+            if f"{base}-gui" not in GUI_BASES:
+                msg = f"base '{base}' has no GUI variant; GUI bases: {', '.join(sorted(GUI_BASES))}"
+                raise SbxError(msg, code="unknown-base")
+            base = f"{base}-gui"
         windows_settings = self.windows_base(base)
-        default_memory = (
-            settings.default_memory_mib if windows_settings is None else windows_settings.memory_mib
-        )
+        if windows_settings is not None:
+            default_memory = windows_settings.memory_mib
+        elif base in GUI_BASES:
+            default_memory = settings.default_gui_memory_mib
+        else:
+            default_memory = settings.default_memory_mib
         request = Request(
             base,
             name,
@@ -919,9 +954,17 @@ class Sandboxes:
     # Bases
 
     def base_image(self, base: str) -> Path:
-        """Return the qcow2 image of a built or exported base."""
+        """Return the qcow2 image of a built, prepared, or exported base."""
         if (windows_settings := self.windows_base(base)) is not None:
             return windows.newest(windows_settings, base) / windows.DISK
+        if base in self.settings.cloud_images:
+            disk = self.paths.bases / base / cloud.DISK
+            if not disk.is_file():
+                msg = (
+                    f"cloud base '{base}' is not prepared; the owner runs `sbx base prepare {base}`"
+                )
+                raise SbxError(msg, code="base-missing")
+            return disk
         link = self.paths.bases / base
         if not link.exists():
             msg = f"base '{base}' is not built; run `sbx base build {base}`"
@@ -933,18 +976,31 @@ class Sandboxes:
         return images[0]
 
     def base_list(self) -> list[dict[str, object]]:
-        """Report each flavour and its built store path."""
+        """Report each Nix base's store path and each cloud base's prepared disk."""
         result: list[dict[str, object]] = []
         for flavour in FLAVOURS:
             link = self.paths.bases / flavour
             path = str(link.resolve()) if link.exists() else None
-            result.append({"base": flavour, "built": path is not None, "path": path})
+            result.append({"base": flavour, "kind": "nix", "built": path is not None, "path": path})
+        for image, pinned in self.settings.cloud_images.items():
+            disk = self.paths.bases / image / cloud.DISK
+            path = str(disk) if disk.is_file() else None
+            result.append(
+                {
+                    "base": image,
+                    "kind": "cloud",
+                    "built": path is not None,
+                    "path": path,
+                    "url": pinned.url,
+                }
+            )
         if self.settings.windows is not None:
             for base, directory in self.settings.windows.bases.items():
                 found = windows.versions(directory)
                 result.append(
                     {
                         "base": base,
+                        "kind": "windows",
                         "built": bool(found),
                         "path": str(found[-1]) if found else None,
                         "versions": [version.name for version in found],
@@ -960,6 +1016,11 @@ class Sandboxes:
                 f"the owner runs `systemctl start {windows_settings.unit(flavour)}`"
             )
             raise SbxError(msg, code="base-export")
+        if flavour in self.settings.cloud_images:
+            msg = (
+                f"cloud base '{flavour}' comes from `sbx base prepare {flavour}`, run by the owner"
+            )
+            raise SbxError(msg, code="base-cloud")
         if flavour not in FLAVOURS:
             msg = f"unknown base '{flavour}'; bases: {', '.join(FLAVOURS)}"
             raise SbxError(msg, code="unknown-base")
@@ -979,16 +1040,154 @@ class Sandboxes:
             raise SbxError(msg, code="build-failed")
         return {"base": flavour, "path": str(link.resolve())}
 
+    def base_prepare(self, image: str) -> dict[str, object]:
+        """Boot a pinned cloud image once with egress and keep its provisioned disk as a base."""
+        if self.session is not None:
+            msg = (
+                "`sbx base prepare` boots an internet image with egress, "
+                "so the owner runs it outside agent sessions"
+            )
+            raise SbxError(msg, code="owner-only")
+        pinned = self.settings.cloud_images.get(image)
+        if pinned is None:
+            known = ", ".join(self.settings.cloud_images)
+            msg = f"unknown cloud base '{image}'; cloud bases: {known}"
+            raise SbxError(msg, code="unknown-base")
+        name = cloud.PREPARE_PREFIX + image
+        self._check_name(name)
+        self._check_disk()
+        self._check_egress()
+        with self.locked():
+            self._check_unused(image, name)
+        journal.record(f"preparing base {image} from {pinned.url}", verb="base-prepare", base=image)
+        fetched = run(
+            [
+                self.settings.tools.nix,
+                "store",
+                "prefetch-file",
+                "--json",
+                "--expected-hash",
+                pinned.hash,
+                pinned.url,
+            ]
+        )
+        source = Path(json.loads(fetched)["storePath"])
+        self._check_image(source)
+        settings = self.settings
+        request = Request(
+            image, name, "egress", settings.default_memory_mib, settings.default_cpus, PREPARE_TTL
+        )
+        token = secrets.token_hex(8)
+        # A failed start discards its own sandbox; a name another prepare holds stays.
+        self._start(request, name, source, token, root=source, agent=False)
+        try:
+            result = self.exec_capture(
+                name,
+                ["sh", "-c", cloud.PREPARE_SCRIPT],
+                timeout=PREPARE_TIMEOUT,
+                agent=False,
+                token=token,
+            )
+            if result.exit_code != 0:
+                detail = result.stderr.decode(errors="replace").strip()[-2000:]
+                status = "timed out" if result.timed_out else f"exited {result.exit_code}"
+                msg = f"provisioning {image} {status}: {detail}"
+                raise SbxError(msg, code="prepare-failed")
+            # Unlocked, so sleep and other verbs proceed during the shutdown and the flatten.
+            self._wait_shutoff(name, token)
+            disk = self._publish_base(image, name, token)
+        finally:
+            with self.locked():
+                self._discard(name, token)
+        journal.record(f"prepared base {image}", verb="base-prepare", base=image)
+        return {"base": image, "path": str(disk), "url": pinned.url, "hash": pinned.hash}
+
+    def _check_image(self, path: Path) -> None:
+        """Refuse an image whose header makes QEMU open another host file."""
+        # The pinned hash only proves the file is the one first trusted.
+        # A forced format makes qemu-img fail on anything but qcow2.
+        command = [self.settings.tools.qemu_img, "info", "--output=json", "-f", "qcow2", str(path)]
+        try:
+            info = json.loads(run(command))
+        except SbxError as error:
+            msg = f"{path} is not a readable qcow2 image: {error}"
+            raise SbxError(msg, code="image-unsafe") from error
+        problems: list[str] = []
+        if backing := info.get("backing-filename"):
+            problems.append(f"backing file {backing!r}")
+        if data := info.get("format-specific", {}).get("data", {}).get("data-file"):
+            problems.append(f"data file {data!r}")
+        if problems:
+            msg = f"{path} names {', '.join(problems)}; sbx boots only self-contained qcow2 images"
+            raise SbxError(msg, code="image-unsafe")
+
+    def _check_unused(self, image: str, prepare: str) -> None:
+        users = [
+            sandbox.name
+            for sandbox in self.owned()
+            if sandbox.meta.base == image and sandbox.name != prepare
+        ]
+        if users:
+            msg = f"sandboxes {', '.join(users)} run on base {image}; destroy them first"
+            raise SbxError(msg, code="base-in-use")
+
+    def _wait_shutoff(self, name: str, token: str) -> None:
+        deadline = time.monotonic() + SHUTDOWN_TIMEOUT
+        while self.created(name, token).domain.active:
+            if time.monotonic() > deadline:
+                msg = f"'{name}' did not power off within {SHUTDOWN_TIMEOUT}s"
+                raise SbxError(msg, code="prepare-failed")
+            time.sleep(1)
+
+    def _publish_base(self, image: str, name: str, token: str) -> Path:
+        """Flatten the shut-off prepare boot's disk into the base, replacing an older one."""
+        bases = self.paths.bases
+        bases.mkdir(mode=0o700, parents=True, exist_ok=True)
+        staged = bases / f".{image}-{secrets.token_hex(4)}"
+        staged.mkdir(mode=0o700)
+        overlay = staged / "overlay.qcow2"
+        target = bases / image
+        try:
+            # gc takes shut-off sandboxes, so the disk leaves the run directory under the lock.
+            with self.locked():
+                self.created(name, token)
+                (self.paths.sandbox(name) / "disk.qcow2").rename(overlay)
+            flat = staged / cloud.DISK
+            run(
+                [
+                    self.settings.tools.qemu_img,
+                    "convert",
+                    "-q",
+                    "-O",
+                    "qcow2",
+                    str(overlay),
+                    str(flat),
+                ]
+            )
+            overlay.unlink()
+            flat.chmod(0o400)
+            with self.locked():
+                self._check_unused(image, name)
+                if target.exists():
+                    old = bases / f".{image}-{secrets.token_hex(4)}"
+                    target.rename(old)
+                    shutil.rmtree(old)
+                staged.rename(target)
+        finally:
+            if staged.exists():
+                shutil.rmtree(staged)
+        return target / cloud.DISK
+
     # Lifecycle
 
-    def _domain_xml(  # noqa: PLR0913, PLR0917
+    def _domain_xml(  # noqa: PLR0913, PLR0915, PLR0917
         self,
         name: str,
         directory: Path,
         meta: Meta,
         request: Request,
         authorized_key: str,
-        nic: tuple[str, str] | None,
+        nic: tuple[Egress, str] | None,
     ) -> str:
         domain = ET.Element("domain", type="kvm")
 
@@ -1010,8 +1209,10 @@ class Sandboxes:
         sub(firmware, "feature", enabled="no", name="secure-boot")
         sub(system, "nvram", str(directory / "VARS.fd"))
         sub(system, "boot", dev="hd")
-        sysinfo = sub(domain, "sysinfo", type="fwcfg")
-        sub(sysinfo, "entry", authorized_key, name=CREDENTIAL)
+        seeded = request.base in self.settings.cloud_images
+        if not seeded:
+            sysinfo = sub(domain, "sysinfo", type="fwcfg")
+            sub(sysinfo, "entry", authorized_key, name=CREDENTIAL)
         features = sub(domain, "features")
         sub(features, "acpi")
         sub(features, "apic")
@@ -1028,8 +1229,15 @@ class Sandboxes:
         sub(disk, "driver", name="qemu", type="qcow2", cache="unsafe", discard="unmap")
         sub(disk, "source", file=str(directory / "disk.qcow2"))
         sub(disk, "target", dev="vda", bus="virtio")
+        if seeded:
+            seed = sub(devices, "disk", type="file", device="cdrom")
+            sub(seed, "driver", name="qemu", type="raw")
+            sub(seed, "source", file=str(directory / cloud.SEED))
+            sub(seed, "target", dev="sda", bus="sata")
+            sub(seed, "readonly")
         if nic is not None:
-            devices.append(bridge_interface(*nic))
+            egress, mac = nic
+            devices.append(bridge_interface(egress.bridge, mac))
         sub(devices, "controller", type="usb", model="none")
         # Untrusted class: the guest agent channel only, never a vdagent channel.
         channel = sub(devices, "channel", type="unix")
@@ -1041,7 +1249,14 @@ class Sandboxes:
         serial = sub(devices, "serial", type="file")
         sub(serial, "source", path=str(directory / "console.log"))
         sub(serial, "target", port="0")
-        # A display device without <graphics> gives screenshots and no console socket.
+        # A display device without <graphics> gives screenshots and no console socket;
+        # GUI bases add a SPICE socket for libvirt clients, still without clipboard or files.
+        if request.base in GUI_BASES:
+            graphics = sub(devices, "graphics", type="spice")
+            sub(graphics, "listen", type="socket")
+            sub(graphics, "image", compression="off")
+            sub(graphics, "clipboard", copypaste="no")
+            sub(graphics, "filetransfer", enable="no")
         video = sub(devices, "video")
         sub(video, "model", type="virtio", heads="1")
         rng = sub(devices, "rng", model="virtio")
@@ -1107,6 +1322,22 @@ class Sandboxes:
         name = request.name or f"{request.base}-{secrets.token_hex(3)}"
         self._check_name(name)
         image = self.base_image(request.base)
+        # Prepared cloud disks and Windows exports live outside the store.
+        outside = request.base in self.settings.cloud_images or self.windows_base(request.base)
+        root = None if outside else image.parent
+        return self._start(request, name, image, token, root=root, agent=True)
+
+    def _start(  # noqa: PLR0913
+        self,
+        request: Request,
+        name: str,
+        image: Path,
+        token: str,
+        *,
+        root: Path | None,
+        agent: bool,
+    ) -> dict[str, object]:
+        """Boot `name` on an overlay of `image`, which `root` keeps alive, and wait for it."""
         directory = self.paths.sandbox(name)
         with self.locked():
             backend = self.backend(require_slice=True)
@@ -1116,10 +1347,13 @@ class Sandboxes:
                 msg = f"a sandbox named '{name}' exists"
                 raise SbxError(msg, code="exists")
             self._check_capacity(request)
+            windows_settings = self.windows_base(request.base)
+            if windows_settings is not None:
+                # gc prunes superseded exports under this lock, so pick the newest only here.
+                image = windows.newest(windows_settings, request.base) / windows.DISK
             tools = self.settings.tools
             info = json.loads(run([tools.qemu_img, "info", "-U", "--output=json", str(image)]))
             size = max(int(info["virtual-size"]), self.settings.disk_gib * GIB)
-            windows_settings = self.windows_base(request.base)
             linux_size = size if windows_settings is None else self.settings.disk_gib * GIB
             active = [sandbox.meta.base for sandbox in self.owned() if sandbox.domain.active]
             # Every running overlay may still grow to its full virtual size, or a Windows
@@ -1130,7 +1364,7 @@ class Sandboxes:
                     for base in [*active, request.base]
                 )
             )
-            nic = (self._check_egress().bridge, random_mac()) if request.net == "egress" else None
+            nic = (self._check_egress(), random_mac()) if request.net == "egress" else None
             now = int(self._clock())
             meta = Meta(
                 request.base,
@@ -1147,12 +1381,13 @@ class Sandboxes:
                 (directory / "xfer").mkdir(mode=0o700)
                 if windows_settings is None:
                     public = self._sandbox_key(name, directory)
-                    # A per-sandbox root keeps the base through a rebuild and a GC.
-                    root = str(directory / "base")
-                    run([tools.nix_store, "--add-root", root, "--realise", str(image.parent)])
                 else:
                     public = ""
                     windows.prepare(image.parent, directory)
+                if root is not None:
+                    # A per-sandbox root keeps the base through a rebuild and a GC.
+                    gc_root = str(directory / "base")
+                    run([tools.nix_store, "--add-root", gc_root, "--realise", str(root)])
                 disk = str(directory / "disk.qcow2")
                 run(
                     [
@@ -1169,6 +1404,9 @@ class Sandboxes:
                         str(size),
                     ]
                 )
+                if request.base in self.settings.cloud_images:
+                    seed_nic = None if nic is None else (nic[1], nic[0].mtu)
+                    self._write_seed(name, directory, public, nic=seed_nic)
                 backend.start(self._domain_xml(name, directory, meta, request, public, nic))
             except BaseException:
                 self._discard(name, token)
@@ -1181,7 +1419,7 @@ class Sandboxes:
             session=self.session,
         )
         try:
-            self._wait_ready(name, token)
+            self._wait_ready(name, token, agent=agent)
         except BaseException:
             with self.locked():
                 self._discard(name, token)
@@ -1196,11 +1434,38 @@ class Sandboxes:
             return ""
         return "\n".join(lines[-15:])
 
-    def _wait_ready(self, name: str, token: str) -> None:
+    def _write_seed(
+        self, name: str, directory: Path, public_key: str, *, nic: tuple[str, int] | None
+    ) -> None:
+        """Pack the NoCloud seed; a fresh instance id makes cloud-init run again."""
+        instance = f"{DOMAIN_PREFIX}{name}-{secrets.token_hex(4)}"
+        files = directory / "seed"
+        files.mkdir(mode=0o700)
+        for leaf, content in cloud.seed_files(instance, public_key, nic=nic).items():
+            (files / leaf).write_text(content)
+        run(
+            [
+                self.settings.tools.xorriso,
+                "-as",
+                "mkisofs",
+                "-quiet",
+                "-output",
+                str(directory / cloud.SEED),
+                "-volid",
+                "cidata",
+                "-joliet",
+                "-rock",
+                str(files),
+            ]
+        )
+        shutil.rmtree(files)
+
+    def _wait_ready(self, name: str, token: str, *, agent: bool) -> None:
+        """Wait for qemu-ga, SSH on vsock, and an egress lease; without `agent`, SSH only."""
         # Monotonic, so a host sleep during the boot wait does not count against it.
         deadline = time.monotonic() + self.settings.boot_timeout
         domain = DOMAIN_PREFIX + name
-        while True:
+        while agent:
             self.created(name, token)
             try:
                 self.backend().agent(domain, {"execute": "guest-ping"}, 5)
@@ -1223,7 +1488,8 @@ class Sandboxes:
                 msg = f"ssh over vsock to '{name}' failed: {detail}"
                 raise SbxError(msg, code="boot-timeout")
             time.sleep(1)
-        if sandbox.meta.net == "egress":
+        # The address check asks qemu-ga; a prepare boot's script waits for the network itself.
+        if agent and sandbox.meta.net == "egress":
             self._wait_address(sandbox, deadline)
 
     def _wait_address(self, sandbox: Sandbox, deadline: float) -> None:
@@ -1326,7 +1592,9 @@ class Sandboxes:
         # An unsynced clock, such as the RTC's right after resume, may run hours ahead.
         if synced and sandbox.meta.expires <= now:
             return "expired"
-        if not sandbox.domain.active and not sandbox.domain.managed_save:
+        # A prepare guest powers itself off before its disk is published.
+        preparing = sandbox.name.startswith(cloud.PREPARE_PREFIX)
+        if not sandbox.domain.active and not sandbox.domain.managed_save and not preparing:
             return "shut off"
         if not self.paths.sandbox(sandbox.name).is_dir():
             return "run directory missing"
@@ -1752,3 +2020,54 @@ class Sandboxes:
         if ocr:
             result["text"] = run([self.settings.tools.tesseract, str(path), "stdout"])
         return result
+
+    def _gui(self, name: str) -> Sandbox:
+        sandbox = self._running(name)
+        if sandbox.meta.base not in GUI_BASES:
+            msg = (
+                f"sandbox '{name}' runs base {sandbox.meta.base}, which takes no display input; "
+                f"GUI bases: {', '.join(sorted(GUI_BASES))}"
+            )
+            raise SbxError(msg, code="no-display")
+        return sandbox
+
+    def _send(self, domain: str, chords: Sequence[Sequence[int]]) -> None:
+        backend = self.backend()
+        for codes in chords:
+            backend.send_key(domain, codes, KEY_HOLD_MS)
+            # QEMU queues each press and release behind a hold delay and drops input past
+            # 1024 queued events, so each chord drains before the next.
+            time.sleep(2 * len(codes) * KEY_HOLD_MS / 1000)
+
+    def key(self, name: str, specs: Sequence[str]) -> dict[str, object]:
+        """Press each chord, such as `ctrl+alt+t` or `enter`, in turn."""
+        try:
+            chords = [keys.chord(spec) for spec in specs]
+        except ValueError as error:
+            raise SbxError(str(error), code="invalid-argument") from error
+        sandbox = self._gui(name)
+        journal.record(
+            f"key in {name}: {' '.join(specs)}", verb="key", sandbox=name, session=self.session
+        )
+        self._send(sandbox.domain.name, chords)
+        return {"sandbox": name, "keys": list(specs)}
+
+    def type_text(self, name: str, text: str) -> dict[str, object]:
+        """Type text as US-layout key presses."""
+        if len(text) > TYPE_LIMIT:
+            msg = f"type takes at most {TYPE_LIMIT} characters, got {len(text)}; split the text"
+            raise SbxError(msg, code="invalid-argument")
+        try:
+            chords = keys.text_chords(text)
+        except ValueError as error:
+            raise SbxError(str(error), code="invalid-argument") from error
+        sandbox = self._gui(name)
+        # The text may be a secret the guest asks for, so only its length is logged.
+        journal.record(
+            f"type in {name}: {len(text)} characters",
+            verb="type",
+            sandbox=name,
+            session=self.session,
+        )
+        self._send(sandbox.domain.name, chords)
+        return {"sandbox": name, "characters": len(text)}
