@@ -198,12 +198,10 @@ let
   };
 
   # Claude Code reads `timeout`, Codex `tool_timeout_sec`.
-  mkToolTimeouts =
-    meta:
-    lib.optionalAttrs (meta ? toolTimeout) {
-      tool_timeout_sec = meta.toolTimeout;
-      timeout = meta.toolTimeout * 1000;
-    };
+  mkToolTimeouts = sec: {
+    tool_timeout_sec = sec;
+    timeout = sec * 1000;
+  };
 
   # An app's server exists only where the host turns the app's row on.
   enabledOn =
@@ -222,7 +220,7 @@ let
         validatedServers.${name}
           or (throw "Unknown MCP server: ${name}. Valid: ${toString (lib.attrNames validatedServers)}");
 
-      timeouts = mkTimeouts (meta.timeout or defaultTimeoutSec) // mkToolTimeouts meta;
+      timeouts = mkTimeouts (meta.timeout or defaultTimeoutSec);
 
       handlers = {
         nix =
@@ -272,16 +270,19 @@ let
         }
         // timeouts;
 
+        # `toolTimeout` may read the app's settings.
         app =
           let
             cfg = osConfig.programs.${meta.app}.extended;
+            toolTimeout = if lib.isFunction meta.toolTimeout then meta.toolTimeout cfg else meta.toolTimeout;
           in
           {
             command = lib.getExe' (cfg.finalPackage or cfg.package) meta.program;
             args = [ ];
             type = "stdio";
           }
-          // timeouts;
+          // timeouts
+          // lib.optionalAttrs (meta ? toolTimeout) (mkToolTimeouts toolTimeout);
 
         sse = {
           command = "${lib.getExe' pkgs.nodejs "npx"}";

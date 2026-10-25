@@ -191,7 +191,7 @@ _: {
       app = "sbx";
       program = "sbx-mcp";
       # A call lasts up to a sandbox's longest TTL; Codex stops waiting after 300 s by default.
-      toolTimeout = 24 * 3600;
+      toolTimeout = cfg: cfg.limits.maxTtl * 3600;
       autoApprove = true;
       clients = [
         "claude"
