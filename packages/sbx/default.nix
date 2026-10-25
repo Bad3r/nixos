@@ -150,13 +150,15 @@ stdenvNoCC.mkDerivation {
   '';
 
   doInstallCheck = true;
+  nativeInstallCheckInputs = [
+    bash
+    zsh
+    fish
+  ];
   installCheckPhase = ''
     runHook preInstallCheck
     HOME=$TMPDIR SBX_TEST_GIT=${lib.getExe git} \
       SBX_TEST_PACKAGE=$out \
-      SBX_TEST_BASH=${lib.getExe bash} \
-      SBX_TEST_ZSH=${lib.getExe zsh} \
-      SBX_TEST_FISH=${lib.getExe fish} \
       ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .
     runHook postInstallCheck
   '';

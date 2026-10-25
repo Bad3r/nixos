@@ -39,7 +39,7 @@ class ShellTest(unittest.TestCase):
         """
         subprocess.run(
             [
-                os.environ["SBX_TEST_BASH"],
+                "bash",
                 "--noprofile",
                 "--norc",
                 "-c",
@@ -68,7 +68,7 @@ class ShellTest(unittest.TestCase):
             _sbx
         """
         result = subprocess.run(
-            [os.environ["SBX_TEST_ZSH"], "-f", "-c", script, "zsh", str(self.package)],
+            ["zsh", "-f", "-c", script, "zsh", str(self.package)],
             env=self.environment,
             check=True,
             capture_output=True,
@@ -81,7 +81,7 @@ class ShellTest(unittest.TestCase):
         """Fish completes through the script installed in its vendor directory."""
         result = subprocess.run(
             [
-                os.environ["SBX_TEST_FISH"],
+                "fish",
                 "--no-config",
                 "-c",
                 'source $argv[1]; complete -C "sbx cr"',
