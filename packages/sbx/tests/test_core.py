@@ -1141,7 +1141,19 @@ class SandboxesTest(Fixture):
         """A prepare fetches the pinned image, provisions it, and publishes the flattened disk."""
         self.prepare_egress()
         old = self.prepared()
-        result = self.sandboxes(session=None).base_prepare("debian-13")
+        real_run = core.run
+        flattened: list[bool] = []
+
+        def run(argv: list[str]) -> str:
+            if argv[1] == "convert":
+                # The flatten runs without the state lock, so sleep is not stuck behind it.
+                with self.sandboxes(None).locked(timeout=0):
+                    flattened.append(True)
+            return real_run(argv)
+
+        with mock.patch.object(core, "run", side_effect=run):
+            result = self.sandboxes(session=None).base_prepare("debian-13")
+        self.assertEqual(flattened, [True])
         disk = self.paths.bases / "debian-13" / "disk.qcow2"
         self.assertEqual(result["path"], str(disk))
         self.assertTrue(disk.exists())

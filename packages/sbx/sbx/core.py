@@ -1039,11 +1039,9 @@ class Sandboxes:
                 status = "timed out" if result.timed_out else f"exited {result.exit_code}"
                 msg = f"provisioning {image} {status}: {detail}"
                 raise SbxError(msg, code="prepare-failed")
-            # Held to the end, so gc never takes the shut-off domain's disk.
-            with self.locked():
-                self._wait_shutoff(name, token)
-                self._check_unused(image, name)
-                disk = self._publish_base(image, self.paths.sandbox(name) / "disk.qcow2")
+            # Unlocked, so sleep and other verbs proceed during the shutdown and the flatten.
+            self._wait_shutoff(name, token)
+            disk = self._publish_base(image, name, token)
         finally:
             with self.locked():
                 self._discard(name, token)
@@ -1087,24 +1085,40 @@ class Sandboxes:
                 raise SbxError(msg, code="prepare-failed")
             time.sleep(1)
 
-    def _publish_base(self, image: str, disk: Path) -> Path:
-        """Flatten a provisioned overlay into the base directory, replacing an older one."""
+    def _publish_base(self, image: str, name: str, token: str) -> Path:
+        """Flatten the shut-off prepare boot's disk into the base, replacing an older one."""
         bases = self.paths.bases
         bases.mkdir(mode=0o700, parents=True, exist_ok=True)
         staged = bases / f".{image}-{secrets.token_hex(4)}"
         staged.mkdir(mode=0o700)
+        overlay = staged / "overlay.qcow2"
+        target = bases / image
         try:
+            # gc takes shut-off sandboxes, so the disk leaves the run directory under the lock.
+            with self.locked():
+                self.created(name, token)
+                (self.paths.sandbox(name) / "disk.qcow2").rename(overlay)
             flat = staged / cloud.DISK
             run(
-                [self.settings.tools.qemu_img, "convert", "-q", "-O", "qcow2", str(disk), str(flat)]
+                [
+                    self.settings.tools.qemu_img,
+                    "convert",
+                    "-q",
+                    "-O",
+                    "qcow2",
+                    str(overlay),
+                    str(flat),
+                ]
             )
+            overlay.unlink()
             flat.chmod(0o400)
-            target = bases / image
-            if target.exists():
-                old = bases / f".{image}-{secrets.token_hex(4)}"
-                target.rename(old)
-                shutil.rmtree(old)
-            staged.rename(target)
+            with self.locked():
+                self._check_unused(image, name)
+                if target.exists():
+                    old = bases / f".{image}-{secrets.token_hex(4)}"
+                    target.rename(old)
+                    shutil.rmtree(old)
+                staged.rename(target)
         finally:
             if staged.exists():
                 shutil.rmtree(staged)
