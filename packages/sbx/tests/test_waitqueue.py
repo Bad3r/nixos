@@ -13,8 +13,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
-from sbx import core, waitqueue
-from sbx.core import Request, Sandboxes, SbxError
+from sbx import admission, errors, waitqueue
+from sbx.errors import SbxError
+from sbx.model import Request
+from sbx.sandboxes import Sandboxes
 
 from tests.test_core import NOW, Fixture
 
@@ -38,7 +40,7 @@ class WaitQueueTest(Fixture):
     def setUp(self) -> None:
         """Poll fast and fill the running ceiling with three sandboxes of other sessions."""
         super().setUp()
-        poll = mock.patch.object(core, "WAIT_POLL", 0.05)
+        poll = mock.patch.object(admission, "WAIT_POLL", 0.05)
         poll.start()
         self.addCleanup(poll.stop)
         for index in range(3):
@@ -81,7 +83,7 @@ class WaitQueueTest(Fixture):
         self.assertIn("r0 (codex:other, 30m left)", str(error))
         self.assertIn("--wait 30m", str(error))
         self.assertIn("sbx destroy --mine", str(error))
-        document = core.error_document(error)
+        document = errors.error_document(error)
         self.assertEqual(document["retry"], {"wait": "30m"})
         self.assertEqual(
             document["holders"][0],  # pyright: ignore[reportIndexIssue]
@@ -123,7 +125,7 @@ class WaitQueueTest(Fixture):
             sleep(seconds + 0.5)
 
         with (
-            mock.patch.object(core.time, "sleep", oversleep),
+            mock.patch.object(admission.time, "sleep", oversleep),
             self.assertRaises(SbxError) as refused,
         ):
             self.sandboxes().create(self.wait_request("t1", wait=0.3))

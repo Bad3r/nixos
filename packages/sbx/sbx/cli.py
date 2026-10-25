@@ -7,21 +7,10 @@ import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
 from sbx import completion, journal, sleep, vsock, windows
-from sbx.core import (
-    FLAVOURS,
-    NETS,
-    TIMEOUT_EXIT,
-    Backend,
-    ExecResult,
-    Paths,
-    Request,
-    Sandboxes,
-    SbxError,
-    Settings,
-    caller_session,
-    error_document,
-    parse_duration,
-)
+from sbx.config import Paths, Settings, caller_session, parse_duration
+from sbx.errors import SbxError, error_document
+from sbx.model import FLAVOURS, NETS, TIMEOUT_EXIT, Backend, ExecResult, Request
+from sbx.sandboxes import Sandboxes
 from sbx.shares import SHARED, Shares
 
 if TYPE_CHECKING:

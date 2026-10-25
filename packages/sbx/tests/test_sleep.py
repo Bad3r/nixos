@@ -8,14 +8,18 @@ import os
 import signal
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 from sbx import cli
-from sbx.core import Meta, Sandboxes, SbxError
+from sbx.errors import SbxError
+from sbx.sandboxes import Sandboxes
 from sbx.sleep import Sleep
 
 from tests.test_core import NOW, FakeBackend, Fixture
+
+if TYPE_CHECKING:
+    from sbx.model import Meta
 
 
 class SleepTest(Fixture):

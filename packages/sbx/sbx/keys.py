@@ -1,7 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """Key names and text as Linux input keycodes on a US layout, for virDomainSendKey.
 
-Both parsers raise ValueError, which core reports as invalid-argument.
+Both parsers raise ValueError, which `gui` reports as invalid-argument.
 """
 
 # virDomainSendKey takes at most this many keys in one chord.

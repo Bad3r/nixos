@@ -27,17 +27,10 @@ from PIL import Image
 
 from sbx import journal
 from sbx.cli import build_parser, dispatch
-from sbx.core import (
-    FLAVOURS,
-    NETS,
-    Backend,
-    Paths,
-    Sandboxes,
-    SbxError,
-    Settings,
-    caller_session,
-    error_document,
-)
+from sbx.config import Paths, Settings, caller_session
+from sbx.errors import SbxError, error_document
+from sbx.model import FLAVOURS, NETS, Backend
+from sbx.sandboxes import Sandboxes
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable

@@ -19,11 +19,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sbx import journal
-from sbx.core import GIB, Backend, Sandbox, Sandboxes, SbxError
+from sbx.errors import SbxError
+from sbx.model import GIB, Backend, Sandbox
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from types import FrameType
+
+    from sbx.sandboxes import Sandboxes
 
 PHASES = ("pause", "resume", "save", "restore")
 MIB = 1 << 20

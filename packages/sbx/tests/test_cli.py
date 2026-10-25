@@ -9,7 +9,7 @@ from pathlib import Path
 from unittest import mock
 
 from sbx.cli import build_parser, main, split_command
-from sbx.core import SbxError
+from sbx.errors import SbxError
 
 
 class CommandLineTest(unittest.TestCase):

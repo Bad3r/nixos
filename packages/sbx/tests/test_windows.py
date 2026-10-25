@@ -8,14 +8,18 @@ import tarfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path, PureWindowsPath
-from typing import IO, Any, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
-from sbx import cli, core, windows
-from sbx.core import Sandboxes, SbxError, Settings
+from sbx import cli, model, windows
+from sbx.errors import SbxError
+from sbx.sandboxes import Sandboxes
 from sbx.windows import WindowsSettings
 
 from . import test_core
 from .test_core import NOW, FakeBackend
+
+if TYPE_CHECKING:
+    from sbx.config import Settings
 
 FIRMWARE = "/nix/store/ovmf/FV/OVMF_CODE.fd"
 VERSIONS = ("20261001T000000Z", "20261002T000000Z")
@@ -230,7 +234,7 @@ class WindowsTest(unittest.TestCase):
         self.assertEqual(refused.exception.code, "disk-full")
         # Two Windows overlays and one 8G Linux overlay pass the 30G cap too.
         with self.assertRaises(SbxError) as refused:
-            self.sandboxes().create(core.Request("nixos", "l1", "none", 2048, 2, 3600))
+            self.sandboxes().create(model.Request("nixos", "l1", "none", 2048, 2, 3600))
         self.assertEqual(refused.exception.code, "disk-full")
 
     def test_exec(self) -> None:

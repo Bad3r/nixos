@@ -10,7 +10,8 @@ from typing import cast
 from unittest import mock
 
 from sbx import cli
-from sbx.core import Sandboxes, SbxError
+from sbx.errors import SbxError
+from sbx.sandboxes import Sandboxes
 from sbx.shares import Shares, attached
 from sbx.windows import WindowsSettings
 

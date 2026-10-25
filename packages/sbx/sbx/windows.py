@@ -18,10 +18,14 @@ from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any, NoReturn, cast
 
-from sbx import core, journal
+from sbx import journal
+from sbx.errors import SbxError
+from sbx.model import ExecResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+    from sbx.model import Backend
 
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 TASKKILL = r"C:\Windows\System32\taskkill.exe"
@@ -117,7 +121,7 @@ def newest(settings: WindowsSettings, base: str) -> Path:
             f"Windows base '{base}' has no export; after the golden copy of its guest exists, "
             f"run `systemctl start {settings.unit(base)}` as the owner"
         )
-        raise core.SbxError(msg, code="base-missing")
+        raise SbxError(msg, code="base-missing")
     return found[-1]
 
 
@@ -179,7 +183,7 @@ def _child(parent: ET.Element, tag: str) -> ET.Element:
     element = parent.find(tag)
     if element is None:
         msg = f"the sandbox template lacks <{tag}>"
-        raise core.SbxError(msg, code="internal")
+        raise SbxError(msg, code="internal")
     return element
 
 
@@ -188,13 +192,13 @@ def guest_path(value: str) -> PureWindowsPath:
     path = PureWindowsPath(value)
     if not path.is_absolute():
         msg = f"'{value}' is not an absolute Windows path such as C:\\Users\\Public"
-        raise core.SbxError(msg, code="invalid-argument")
+        raise SbxError(msg, code="invalid-argument")
     return path
 
 
-def _reply_error(detail: str) -> core.SbxError:
+def _reply_error(detail: str) -> SbxError:
     msg = f"qemu-ga sent an unexpected reply: {detail}"
-    return core.SbxError(msg, code="agent-reply")
+    return SbxError(msg, code="agent-reply")
 
 
 def _integer(value: object, key: str) -> int:
@@ -225,7 +229,7 @@ def _object(value: object, what: str) -> dict[str, Any]:
 class Guest:
     """The guest agent of one running Windows sandbox."""
 
-    def __init__(self, backend: core.Backend, domain: str) -> None:
+    def __init__(self, backend: Backend, domain: str) -> None:
         """Bind to a domain."""
         self._backend = backend
         self._domain = domain
@@ -249,11 +253,11 @@ class Guest:
         limit: int,
         stdin: bytes = b"",
         kill: bool = True,
-    ) -> core.ExecResult:
+    ) -> ExecResult:
         """Run a guest program with captured output; a timeout kills its process tree."""
         if not command:
             msg = "give the command after --"
-            raise core.SbxError(msg, code="usage")
+            raise SbxError(msg, code="usage")
         arguments: dict[str, object] = {
             "path": command[0],
             "arg": list(command[1:]),
@@ -274,14 +278,14 @@ class Guest:
                 break
             if deadline is not None and time.monotonic() > deadline:
                 note = self._kill(pid) if kill else b""
-                return core.ExecResult(None, b"", note, truncated=False, timed_out=True)
+                return ExecResult(None, b"", note, truncated=False, timed_out=True)
             time.sleep(POLL_INTERVAL)
         stdout = _decode(status.get("out-data", ""), "out-data")
         stderr = _decode(status.get("err-data", ""), "err-data")
         truncated = bool(status.get("out-truncated") or status.get("err-truncated"))
         truncated = truncated or len(stdout) > limit or len(stderr) > limit
         code = _integer(status.get("exitcode"), "exitcode")
-        return core.ExecResult(code, stdout[:limit], stderr[:limit], truncated, timed_out=False)
+        return ExecResult(code, stdout[:limit], stderr[:limit], truncated, timed_out=False)
 
     def _kill(self, pid: int) -> bytes:
         """Stop a timed-out process tree; a failure lands in the result's stderr."""
@@ -292,7 +296,7 @@ class Guest:
                 limit=4096,
                 kill=False,
             )
-        except core.SbxError as error:
+        except SbxError as error:
             detail = str(error)
         else:
             if result.exit_code == 0:
@@ -307,7 +311,7 @@ class Guest:
     def _exited(self, pid: int) -> bool:
         try:
             status = _object(self.call("guest-exec-status", pid=pid), "guest-exec-status")
-        except core.SbxError:
+        except SbxError:
             return False
         return status.get("exited") is True
 
@@ -321,7 +325,7 @@ class Guest:
         if result.timed_out or result.exit_code != 0:
             detail = result.stderr.decode(errors="replace").strip()
             msg = f"a guest operation exited {result.exit_code}: {detail}"
-            raise core.SbxError(msg, code="guest-command")
+            raise SbxError(msg, code="guest-command")
 
     def _open(self, path: str, mode: str) -> int:
         return _integer(self.call("guest-file-open", path=path, mode=mode), "handle")
@@ -388,7 +392,7 @@ class _Upload:
         )
         if _integer(reply.get("count"), "count") != len(data):
             msg = "guest-file-write wrote less than it was sent"
-            raise core.SbxError(msg, code="guest-command")
+            raise SbxError(msg, code="guest-command")
 
     def close(self) -> None:
         """Send the rest and close the guest file."""
@@ -453,14 +457,14 @@ def copy_out(guest: Guest, source: PureWindowsPath, stage: Path, budget: int) ->
 
 def _over_budget(budget: int) -> NoReturn:
     msg = f"the copy passed its {budget >> 20}M budget under the disk cap and floor"
-    raise core.SbxError(msg, code="disk-full")
+    raise SbxError(msg, code="disk-full")
 
 
 def cleanup(step: Callable[[], object], what: str) -> None:
     """Run a cleanup on an error path; its own failure is journaled, never raised over the error."""
     try:
         step()
-    except core.SbxError as error:
+    except SbxError as error:
         journal.record(f"cannot {what}: {error}", code="cleanup-failed")
 
 
@@ -469,10 +473,10 @@ def _check_members(members: list[tarfile.TarInfo], leaf: str, room: int, block: 
     for member in members:
         if member.name != leaf and not member.name.startswith(f"{leaf}/"):
             msg = f"the guest archive holds {member.name!r} outside {leaf!r}"
-            raise core.SbxError(msg, code="path-denied")
+            raise SbxError(msg, code="path-denied")
         if not (member.isreg() or member.isdir()) or member.issparse():
             msg = f"{member.name!r} is not a plain file or directory"
-            raise core.SbxError(msg, code="path-denied")
+            raise SbxError(msg, code="path-denied")
         # Allocation rounds up to whole blocks, and every entry costs at least one more.
         total += -(-member.size // block) * block + block
     if total > room:

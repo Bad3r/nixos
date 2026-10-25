@@ -15,9 +15,28 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
-from sbx import cli, core
+from sbx import (
+    admission,
+    agent,
+    cli,
+    config,
+    context,
+    domain,
+    execution,
+    fsutil,
+    gui,
+    lifecycle,
+    model,
+    net,
+    prepare,
+    proc,
+    storage,
+)
 from sbx.cloud import CloudImage
-from sbx.core import NS, DomainInfo, Egress, Meta, Paths, Sandboxes, SbxError, Settings, Tools
+from sbx.config import Egress, Paths, Settings, Tools
+from sbx.errors import SbxError
+from sbx.model import NS, DomainInfo, Meta
+from sbx.sandboxes import Sandboxes
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -317,10 +336,10 @@ class Fixture(unittest.TestCase):
         self.environment.start()
         self.addCleanup(self.environment.stop)
         (self.scratch / "tmp").mkdir()
-        journal = mock.patch.object(core.journal, "record")
+        journal = mock.patch.object(context.journal, "record")
         self.journal_record = journal.start()
         self.addCleanup(journal.stop)
-        grants = mock.patch.object(core, "GRANT_SOCKET", self.scratch / "grant.sock")
+        grants = mock.patch.object(net, "GRANT_SOCKET", self.scratch / "grant.sock")
         grants.start()
         self.addCleanup(grants.stop)
 
@@ -330,7 +349,7 @@ class Fixture(unittest.TestCase):
             self.settings, self.paths, lambda _slice: self.backend, session, lambda: NOW
         )
 
-    def request(self, base: str = "nixos", /, **overrides: Any) -> core.Request:  # noqa: ANN401
+    def request(self, base: str = "nixos", /, **overrides: Any) -> model.Request:  # noqa: ANN401
         """Validate create flags with defaults."""
         flags: dict[str, Any] = {
             "name": "t1",
@@ -348,13 +367,13 @@ class SandboxesTest(Fixture):
 
     def test_parsers(self) -> None:
         """Durations and sizes accept their units."""
-        self.assertEqual(core.parse_duration("90"), 90)
-        self.assertEqual(core.parse_duration("30m"), 1800)
-        self.assertEqual(core.parse_duration("2h"), 7200)
-        self.assertEqual(core.parse_memory("2G"), 2048)
-        self.assertEqual(core.parse_memory("512m"), 512)
+        self.assertEqual(config.parse_duration("90"), 90)
+        self.assertEqual(config.parse_duration("30m"), 1800)
+        self.assertEqual(config.parse_duration("2h"), 7200)
+        self.assertEqual(config.parse_memory("2G"), 2048)
+        self.assertEqual(config.parse_memory("512m"), 512)
         with self.assertRaises(SbxError):
-            core.parse_duration("2 hours")
+            config.parse_duration("2 hours")
 
     def test_request_ceilings(self) -> None:
         """Values above a ceiling and unknown names or networks are refused."""
@@ -390,7 +409,7 @@ class SandboxesTest(Fixture):
         self.assertEqual(root.find("cpu/feature").get("name"), "vmx")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(root.find("features/vmport").get("state"), "off")  # pyright: ignore[reportOptionalMemberAccess]
         entry = root.find("sysinfo/entry")
-        self.assertEqual(entry.get("name"), core.CREDENTIAL)  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(entry.get("name"), domain.CREDENTIAL)  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(entry.text, "ssh-ed25519 AAAA sbx")  # pyright: ignore[reportOptionalMemberAccess]
         directory = self.paths.sandbox("t1")
         self.assertTrue((directory / "disk.qcow2").exists())
@@ -477,7 +496,7 @@ class SandboxesTest(Fixture):
         """Answer one request on the patched grant socket and keep it."""
         requests: list[dict[str, object]] = []
         server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        server.bind(str(core.GRANT_SOCKET))
+        server.bind(str(net.GRANT_SOCKET))
         server.listen(1)
         self.addCleanup(server.close)
 
@@ -519,12 +538,12 @@ class SandboxesTest(Fixture):
         closed.chmod(0)
         closed.parent.chmod(0)
         self.backend.add("g", expires=NOW + 60)
-        with mock.patch.object(core, "revoke_grants") as revoke:
+        with mock.patch.object(storage, "revoke_grants") as revoke:
             self.assertEqual(self.sandboxes().destroy("g"), ["g"])
             self.assertFalse(self.paths.sandbox("g").exists())
             self.paths.sandbox("h").mkdir(parents=True)
             with (
-                mock.patch.object(core.shutil, "rmtree", side_effect=PermissionError("held")),
+                mock.patch.object(storage.shutil, "rmtree", side_effect=PermissionError("held")),
                 self.assertRaises(PermissionError),
             ):
                 self.sandboxes().destroy("h")
@@ -549,7 +568,7 @@ class SandboxesTest(Fixture):
 
     def test_grants_follow_removals(self) -> None:
         """Token removals revoke only what they remove; gc revokes orphaned directories too."""
-        with mock.patch.object(core, "revoke_grants") as revoke:
+        with mock.patch.object(storage, "revoke_grants") as revoke:
             self.sandboxes().create(self.request(), token="tok")  # noqa: S106
             sandboxes = self.sandboxes()
             self.assertEqual(sandboxes.destroy_created("other"), [])
@@ -716,13 +735,13 @@ class SandboxesTest(Fixture):
         home = self.scratch / "home"
         repo = home / "repo"
         repo.mkdir(parents=True)
-        core.run([git, "init", "-q", str(repo)])
+        proc.run([git, "init", "-q", str(repo)])
         cwd = Path.cwd()
         self.addCleanup(os.chdir, cwd)
         os.chdir(repo)
         with mock.patch.dict(os.environ, {"HOME": str(home)}):
             self.assertEqual(self.sandboxes().checkout(), repo.resolve())
-            core.run([git, "config", "core.worktree", str(home)])
+            proc.run([git, "config", "core.worktree", str(home)])
             self.assertIsNone(self.sandboxes().checkout())
 
     def add_running(self, name: str, *, expires: int = NOW + 60) -> None:
@@ -732,7 +751,7 @@ class SandboxesTest(Fixture):
 
     def test_create_rechecks_ceilings(self) -> None:
         """A request built past the ceilings still fails at create."""
-        request = core.Request("nixos", "t1", "none", 8192, 2, 3600)
+        request = model.Request("nixos", "t1", "none", 8192, 2, 3600)
         with self.assertRaises(SbxError) as refused:
             self.sandboxes().create(request)
         self.assertEqual(refused.exception.code, "over-limit")
@@ -865,9 +884,9 @@ class SandboxesTest(Fixture):
         first, second = self.scratch / "first", self.scratch / "second"
         first.write_text("1")
         second.write_text("2")
-        core.publish(first, target)
+        fsutil.publish(first, target)
         with self.assertRaises(SbxError) as refused:
-            core.publish(second, target)
+            fsutil.publish(second, target)
         self.assertEqual(refused.exception.code, "exists")
         self.assertEqual(target.read_text(), "1")
         self.assertTrue(second.exists())
@@ -877,16 +896,16 @@ class SandboxesTest(Fixture):
         self.add_running("t")
         calls: list[tuple[list[str], float | None]] = []
 
-        def fake(argv: list[str], _limit: int, timeout: float | None) -> core.ExecResult:
+        def fake(argv: list[str], _limit: int, timeout: float | None) -> model.ExecResult:
             calls.append((argv, timeout))
-            return core.ExecResult(124, b"", b"", truncated=False, timed_out=False)
+            return model.ExecResult(124, b"", b"", truncated=False, timed_out=False)
 
-        with mock.patch.object(core, "capture", fake):
+        with mock.patch.object(execution, "capture", fake):
             result = self.sandboxes().exec_capture("t", ["sleep", "9"], timeout=2, agent=False)
         self.assertTrue(result.timed_out)
         argv, timeout = calls[0]
         self.assertEqual(argv[-1], "timeout --kill-after=5 2 sleep 9")
-        self.assertEqual(timeout, 2 + core.HOST_BACKSTOP)
+        self.assertEqual(timeout, 2 + execution.HOST_BACKSTOP)
 
     def test_json_exit_codes(self) -> None:
         """The guest's status is the exit status of exec --json."""
@@ -932,12 +951,12 @@ class SandboxesTest(Fixture):
         sys_net = self.scratch / "sys-net"
         (sys_net / "vn-sbx" / "bridge").mkdir(parents=True)
         (sys_net / "vn-sbx" / "flags").write_text(f"{flags}\n")
-        patch = mock.patch.object(core, "SYS_NET", sys_net)
+        patch = mock.patch.object(admission, "SYS_NET", sys_net)
         patch.start()
         self.addCleanup(patch.stop)
         leases = self.scratch / "vn-sbx.status"
         self.settings = dataclasses.replace(self.settings, egress=Egress("vn-sbx", leases, 1240))
-        mac = mock.patch.object(core, "random_mac", return_value=MAC)
+        mac = mock.patch.object(lifecycle, "random_mac", return_value=MAC)
         mac.start()
         self.addCleanup(mac.stop)
         return leases
@@ -949,7 +968,7 @@ class SandboxesTest(Fixture):
         self.assertEqual(refused.exception.code, "egress-unavailable")
         self.assertEqual(str(refused.exception), "no egress network")
         self.egress(flags="0x1002")
-        device = core.SYS_NET / "vn-sbx"
+        device = admission.SYS_NET / "vn-sbx"
         for case in ("down", "flags vanished", "absent"):
             if case == "flags vanished":
                 (device / "flags").unlink()
@@ -1000,8 +1019,8 @@ class SandboxesTest(Fixture):
         # The boot deadline runs on the monotonic clock.
         ticks = itertools.count(0, 2)
         with (
-            mock.patch.object(core.time, "sleep"),
-            mock.patch.object(core.time, "monotonic", side_effect=ticks),
+            mock.patch.object(lifecycle.time, "sleep"),
+            mock.patch.object(lifecycle.time, "monotonic", side_effect=ticks),
             self.assertRaises(SbxError) as refused,
         ):
             self.sandboxes(None).create(self.request(net="egress"))
@@ -1018,14 +1037,14 @@ class SandboxesTest(Fixture):
         def configure(_seconds: float) -> None:
             self.backend.addresses = ["172.16.2.5"]
 
-        with mock.patch.object(core.time, "sleep", side_effect=configure):
+        with mock.patch.object(lifecycle.time, "sleep", side_effect=configure):
             result = self.sandboxes().create(self.request(net="egress"))
         self.assertEqual(result["address"], "172.16.2.5")
         self.backend.addresses = ["172.16.2.6"]
         ticks = iter(range(0, 10_000, 2))
         with (
-            mock.patch.object(core.time, "sleep"),
-            mock.patch.object(core.time, "monotonic", side_effect=lambda: next(ticks)),
+            mock.patch.object(lifecycle.time, "sleep"),
+            mock.patch.object(lifecycle.time, "monotonic", side_effect=lambda: next(ticks)),
             self.assertRaises(SbxError) as refused,
         ):
             self.sandboxes().create(self.request(name="t2", net="egress"))
@@ -1036,11 +1055,11 @@ class SandboxesTest(Fixture):
         """The NIC is matched by MAC, other NICs' addresses do not count, bad replies fail."""
         nic = {"hardware-address": MAC, "ip-addresses": [{"ip-address": "172.16.2.5"}]}
         self.assertTrue(
-            core.guest_holds({"return": [{"name": "lo"}, nic]}, MAC.upper(), "172.16.2.5")
+            agent.guest_holds({"return": [{"name": "lo"}, nic]}, MAC.upper(), "172.16.2.5")
         )
-        self.assertFalse(core.guest_holds({"return": [nic]}, "52:54:00:00:00:01", "172.16.2.5"))
+        self.assertFalse(agent.guest_holds({"return": [nic]}, "52:54:00:00:00:01", "172.16.2.5"))
         self.assertFalse(
-            core.guest_holds({"return": [{"hardware-address": MAC}]}, MAC, "172.16.2.5")
+            agent.guest_holds({"return": [{"hardware-address": MAC}]}, MAC, "172.16.2.5")
         )
         bad: list[dict[str, Any]] = [
             {},
@@ -1050,25 +1069,25 @@ class SandboxesTest(Fixture):
         ]
         for reply in bad:
             with self.subTest(reply=reply), self.assertRaises(SbxError) as refused:
-                core.guest_holds(reply, MAC, "172.16.2.5")
+                agent.guest_holds(reply, MAC, "172.16.2.5")
             self.assertEqual(refused.exception.code, "agent-reply")
 
     def test_lease_file(self) -> None:
         """Missing and empty files hold no lease, malformed ones fail, IPv6 is skipped."""
         path = self.scratch / "leases"
-        self.assertIsNone(core.lease_address(path, MAC, NOW))
+        self.assertIsNone(net.lease_address(path, MAC, NOW))
         path.write_text("")
-        self.assertIsNone(core.lease_address(path, MAC, NOW))
+        self.assertIsNone(net.lease_address(path, MAC, NOW))
         entries = [
             {"ip-address": "fd00::5", "mac-address": MAC, "expiry-time": NOW + 60},
             {"ip-address": "172.16.2.3", "mac-address": MAC, "expiry-time": 0},
         ]
         path.write_text(json.dumps(entries))
-        self.assertEqual(core.lease_address(path, MAC.upper(), NOW), "172.16.2.3")
+        self.assertEqual(net.lease_address(path, MAC.upper(), NOW), "172.16.2.3")
         for text in ("{", "{}", "[1]", '[{"ip-address": "172.16.2.3"}]'):
             path.write_text(text)
             with self.subTest(text=text), self.assertRaises(SbxError) as refused:
-                core.lease_address(path, MAC, NOW)
+                net.lease_address(path, MAC, NOW)
             self.assertEqual(refused.exception.code, "lease-file")
 
     def test_malformed_leases(self) -> None:
@@ -1164,7 +1183,7 @@ class SandboxesTest(Fixture):
     def test_key_and_type(self) -> None:
         """Chords and text reach the display as Linux keycodes, one send per chord."""
         self.sandboxes().create(self.request(gui=True))
-        with mock.patch.object(core.time, "sleep"):
+        with mock.patch.object(gui.time, "sleep"):
             result, _ = self.dispatch("key", "t1", "ctrl+alt+t", "Enter")
             self.assertEqual(result, {"sandbox": "t1", "keys": ["ctrl+alt+t", "Enter"]})
             result, _ = self.dispatch("type", "t1", "Hi!\n")
@@ -1174,7 +1193,7 @@ class SandboxesTest(Fixture):
             [[29, 56, 20], [28], [42, 35], [23], [42, 2], [28]],
         )
         self.assertEqual({domain for domain, _codes in self.backend.keys}, {"sbx-t1"})
-        logged = [call.args[0] for call in cast("mock.Mock", core.journal.record).call_args_list]
+        logged = [call.args[0] for call in cast("mock.Mock", gui.journal.record).call_args_list]
         self.assertIn("type in t1: 4 characters", logged)
         self.assertFalse([line for line in logged if "Hi!" in line])
 
@@ -1188,7 +1207,7 @@ class SandboxesTest(Fixture):
             (("key", "t1", "+".join(["a"] * 17)), "invalid-argument"),
             (("type", "t1", "x\u00e9"), "invalid-argument"),
             (("type", "t1", "a\rb"), "invalid-argument"),
-            (("type", "t1", "x" * (core.TYPE_LIMIT + 1)), "invalid-argument"),
+            (("type", "t1", "x" * (gui.TYPE_LIMIT + 1)), "invalid-argument"),
             (("key", "plain", "enter"), "no-display"),
             (("type", "plain", "x"), "no-display"),
             (("key", "old", "enter"), "expired"),
@@ -1278,7 +1297,7 @@ class SandboxesTest(Fixture):
         """A prepare fetches the pinned image, provisions it, and publishes the flattened disk."""
         self.prepare_egress()
         old = self.prepared()
-        real_run = core.run
+        real_run = prepare.run
         flattened: list[bool] = []
 
         def run(argv: list[str]) -> str:
@@ -1288,7 +1307,7 @@ class SandboxesTest(Fixture):
                     flattened.append(True)
             return real_run(argv)
 
-        with mock.patch.object(core, "run", side_effect=run):
+        with mock.patch.object(prepare, "run", side_effect=run):
             result = self.sandboxes(session=None).base_prepare("debian-13")
         self.assertEqual(flattened, [True])
         disk = self.paths.bases / "debian-13" / "disk.qcow2"

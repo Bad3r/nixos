@@ -14,7 +14,9 @@ from unittest import mock
 from argcomplete.completers import SuppressCompleter
 from argcomplete.finders import CompletionFinder
 from sbx import cli, completion, windows
-from sbx.core import FLAVOURS, Paths, SbxError
+from sbx.config import Paths
+from sbx.errors import SbxError
+from sbx.model import FLAVOURS
 
 from . import test_core
 

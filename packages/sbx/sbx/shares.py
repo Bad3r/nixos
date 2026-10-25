@@ -16,10 +16,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
 from sbx import journal
-from sbx.core import DOMAIN_PREFIX, SHARED, Sandboxes, SbxError
+from sbx.errors import SbxError
+from sbx.model import DOMAIN_PREFIX, SHARED
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+
+    from sbx.sandboxes import Sandboxes
 
 # Written by modules/workloads/sharing/grants.nix.
 POLICY = Path("/etc/workloads/grants.json")

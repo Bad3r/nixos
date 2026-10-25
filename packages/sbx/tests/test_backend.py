@@ -5,7 +5,7 @@ import unittest
 from typing import Any
 
 from sbx import backend
-from sbx.core import SbxError
+from sbx.errors import SbxError
 
 libvirt = backend.libvirt
 

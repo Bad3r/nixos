@@ -17,7 +17,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from sbx import vsock
-from sbx.core import Paths, SbxError
+from sbx.config import Paths
+from sbx.errors import SbxError
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence

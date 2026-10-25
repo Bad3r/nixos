@@ -13,14 +13,16 @@ from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from PIL import Image
-from sbx import mcp
+from sbx import gui, mcp
 from sbx.cli import build_parser
-from sbx.core import Meta, SbxError
+from sbx.errors import SbxError
 
 from . import test_core
 
 if TYPE_CHECKING:
     import argparse
+
+    from sbx.model import Meta
 
 SAMPLES: dict[str, object] = {
     "base": "nixos",
@@ -270,7 +272,7 @@ class ServerTest(unittest.TestCase):
         exclusive = json.loads(responses[4]["result"]["content"][0]["text"])
         self.assertEqual(exclusive["error"]["code"], "usage")
         self.assertIn("sbx-a", self.core.backend.domains_by_name)
-        # Cloud bases reach core, which also gets the GUI flag.
+        # Cloud bases reach the sandboxes, which also get the GUI flag.
         codes = [
             json.loads(responses[n]["result"]["content"][0]["text"])["error"]["code"]
             for n in (5, 6)
@@ -302,9 +304,7 @@ class ServerTest(unittest.TestCase):
                         arguments["ocr"] = ocr
                     with (
                         mock.patch.object(self.core.backend, "screenshot", screenshot),
-                        mock.patch.object(
-                            test_core.core, "run", return_value="screen text\n"
-                        ) as read,
+                        mock.patch.object(gui, "run", return_value="screen text\n") as read,
                     ):
                         result = self.exchange(self.call(1, "screenshot", arguments))[1]["result"]
                     self.assertFalse(result["isError"])

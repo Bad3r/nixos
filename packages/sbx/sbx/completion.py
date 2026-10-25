@@ -15,7 +15,9 @@ from argcomplete.completers import (
 from argcomplete.lexers import split_line
 
 from sbx import keys, shares
-from sbx.core import FLAVOURS, Paths, SbxError, Settings, remote_name
+from sbx.config import Paths, Settings, remote_name
+from sbx.errors import SbxError
+from sbx.model import FLAVOURS
 
 
 class PathCompleter(BaseCompleter):

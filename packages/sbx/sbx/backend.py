@@ -14,10 +14,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
-from sbx.core import NS, DomainInfo, Meta, SbxError, Settings
+from sbx.errors import SbxError
+from sbx.model import NS, DomainInfo, Meta
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from sbx.config import Settings
 
 # libvirt-python ships no type information the checker can read.
 libvirt: Any = importlib.import_module("libvirt")
