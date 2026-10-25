@@ -70,6 +70,14 @@ let
       usage error. A copy out that fails after the command ran makes `run`
       fail this way, and the command's result is lost. `base-missing` means
       `sbx base build <base>` comes first.
+
+    ## MCP Tools
+
+    The `sbx` MCP server offers each verb as a tool (`base list` is
+    `base_list`). Flags become named arguments, the guest command an argv
+    list, and the result is the `--json` document above; a refusal is a tool
+    error carrying the error object. A failing guest command is no tool error:
+    read `exit_code`. Give host paths as absolute paths.
   '';
 in
 {

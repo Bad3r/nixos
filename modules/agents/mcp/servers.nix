@@ -186,6 +186,24 @@ _: {
       };
     };
 
+    sbx = {
+      source = "app";
+      app = "sbx";
+      program = "sbx-mcp";
+      # A call lasts up to a sandbox's longest TTL; Codex stops waiting after 300 s by default.
+      toolTimeout = 24 * 3600;
+      autoApprove = true;
+      clients = [
+        "claude"
+        "codex"
+      ];
+      docs = {
+        primaryUse = "Run untrusted code in disposable sbx VMs.";
+        accessNotes = "Local stdio server of the `sbx` app, present only where its row is on; tools mirror the `sbx` verbs and their `--json` output, and run without approval prompts.";
+        example = "`run` with `{\"base\": \"nixos\", \"command\": [\"uname\", \"-a\"]}`";
+      };
+    };
+
     playwright = {
       source = "npx";
       package = "@playwright/mcp@latest";

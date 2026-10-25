@@ -15,6 +15,7 @@ in
       settings = import ./_settings.nix {
         inherit agents lib pkgs;
         homeDir = "/home/codex-config-check";
+        osConfig = null;
       };
       execPolicy = import ./_exec-policy.nix { inherit lib pkgs; };
       runtime = import ./_wrapper.nix {
@@ -26,7 +27,10 @@ in
         configDir = "/home/codex-config-check/.config/codex";
       };
       codexServers = settings.baseSettings.mcp_servers;
-      claudeServers = agents.mcp.clients.claude.servers pkgs;
+      claudeServers = agents.mcp.clients.claude.servers {
+        inherit pkgs;
+        osConfig = null;
+      };
       sharedNames = lib.intersectLists (lib.attrNames codexServers) (lib.attrNames claudeServers);
       validCodexServer = server: !(server ? type) && !(server ? startup_timeout_ms);
       sharedServerMatches =
