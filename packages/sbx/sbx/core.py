@@ -1035,6 +1035,7 @@ class Sandboxes:
             ]
         )
         source = Path(json.loads(fetched)["storePath"])
+        self._check_image(source)
         settings = self.settings
         request = Request(
             image, name, "egress", settings.default_memory_mib, settings.default_cpus, PREPARE_TTL
@@ -1065,6 +1066,25 @@ class Sandboxes:
                 self._discard(name, token)
         journal.record(f"prepared base {image}", verb="base-prepare", base=image)
         return {"base": image, "path": str(disk), "url": pinned.url, "hash": pinned.hash}
+
+    def _check_image(self, path: Path) -> None:
+        """Refuse an image whose header makes QEMU open another host file."""
+        # The pinned hash only proves the file is the one first trusted.
+        # A forced format makes qemu-img fail on anything but qcow2.
+        command = [self.settings.tools.qemu_img, "info", "--output=json", "-f", "qcow2", str(path)]
+        try:
+            info = json.loads(run(command))
+        except SbxError as error:
+            msg = f"{path} is not a readable qcow2 image: {error}"
+            raise SbxError(msg, code="image-unsafe") from error
+        problems: list[str] = []
+        if backing := info.get("backing-filename"):
+            problems.append(f"backing file {backing!r}")
+        if data := info.get("format-specific", {}).get("data", {}).get("data-file"):
+            problems.append(f"data file {data!r}")
+        if problems:
+            msg = f"{path} names {', '.join(problems)}; sbx boots only self-contained qcow2 images"
+            raise SbxError(msg, code="image-unsafe")
 
     def _check_unused(self, image: str, prepare: str) -> None:
         users = [

@@ -28,7 +28,9 @@ STUBS = {
     "ssh-keygen": 'for k; do :; done; echo key > "$k"; echo "ssh-ed25519 AAAA sbx" > "$k.pub"',
     "nix-store": 'ln -s "$4" "$2"',
     "qemu-img": (
-        'case "$1" in info) echo \'{"virtual-size": 1073741824}\';; '
+        'case "$1" in info) [ -n "$SBX_TEST_IMAGE_INFO" ] '
+        "|| exec echo '{\"virtual-size\": 1073741824}'; "
+        '[ "$SBX_TEST_IMAGE_INFO" = fail ] && exit 1; echo "$SBX_TEST_IMAGE_INFO";; '
         'convert) for t; do :; done; touch "$t";; '
         '*) eval "disk=\\${$(($# - 1))}"; touch "$disk";; esac'
     ),
@@ -1181,6 +1183,31 @@ class SandboxesTest(Fixture):
         self.assertIn("exited 3", str(refused.exception))
         self.assert_no_sandbox("prepare-debian-13")
         self.assertFalse((self.paths.bases / "debian-13").exists())
+
+    def test_prepare_refuses_external_files(self) -> None:
+        """An image whose header names another host file never boots."""
+        self.prepare_egress()
+        owner = self.sandboxes(session=None)
+        cases = {
+            "backing file": {"format": "qcow2", "backing-filename": "/home/vx/.ssh/id_ed25519"},
+            "data file": {
+                "format": "qcow2",
+                "format-specific": {"type": "qcow2", "data": {"data-file": "/etc/shadow"}},
+            },
+            "unreadable": "fail",
+        }
+        for case, info in cases.items():
+            value = info if isinstance(info, str) else json.dumps(info)
+            with (
+                self.subTest(case=case),
+                mock.patch.dict(os.environ, {"SBX_TEST_IMAGE_INFO": value}),
+                self.assertRaises(SbxError) as refused,
+            ):
+                owner.base_prepare("debian-13")
+            self.assertEqual(refused.exception.code, "image-unsafe")
+            self.assertNotIn("sbx-prepare-debian-13", self.backend.xml)
+            self.assertFalse(self.paths.sandbox("prepare-debian-13").exists())
+            self.assertFalse((self.paths.bases / "debian-13").exists())
 
 
 if __name__ == "__main__":

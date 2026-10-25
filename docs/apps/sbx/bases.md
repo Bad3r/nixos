@@ -39,6 +39,7 @@ An image needs cloud-init with the NoCloud datasource, `systemd-ssh-generator`, 
 `sbx base prepare <image>` turns an image into a base, run by the owner from a shell outside any agent session:
 
 1. It fetches the image with `nix store prefetch-file --expected-hash`, which fails on a hash mismatch.
+   It refuses with `image-unsafe` when the qcow2 header names a backing file or an external data file.
 2. It boots the image once as the sandbox `prepare-<image>` on the `egress` network.
 3. Over SSH on vsock it installs `qemu-guest-agent`, resets cloud-init and the machine id, and skips `systemd-networkd-wait-online` on guests without a NIC.
 4. It waits for the guest to power off and flattens the disk into `~/.local/share/sbx/bases/<image>/disk.qcow2`, read-only, replacing an older one.
@@ -54,8 +55,13 @@ sbx run debian-13 -- cat /etc/os-release
 - A `none` sandbox's seed turns cloud-init networking off; an `egress` sandbox takes cloud-init's DHCP fallback on its NIC.
 - The seed's `bootcmd` loads the vsock transport and starts `sshd-vsock.socket`, since Debian's cloud kernel loads that module after `systemd-ssh-generator` runs.
 
-To pin a new build, take its hash from the download itself:
+To pin a new build, check the download against the build's `SHA512SUMS`, then pin the SHA-256 of the checked file.
+Debian publishes no signature for cloud builds, so the check rests on HTTPS to `cloud.debian.org`.
 
 ```sh
-nix store prefetch-file --json --hash-type sha256 <url>
+build=https://cloud.debian.org/images/cloud/trixie/<build>
+image=debian-13-genericcloud-amd64-<build>.qcow2
+sum=$(curl -fsSL "$build/SHA512SUMS" | awk -v f="$image" '$2 == f { print $1 }')
+path=$(nix store prefetch-file --json --hash-type sha512 --expected-hash "$(nix hash to-sri --type sha512 "$sum")" "$build/$image" | jq -r .storePath)
+nix hash file --type sha256 --sri "$path"
 ```
