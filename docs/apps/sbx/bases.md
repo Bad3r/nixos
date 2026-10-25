@@ -50,6 +50,7 @@ sbx run debian-13 -- cat /etc/os-release
 ```
 
 - `prepare` refuses with `owner-only` when `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID` is set, and with `base-in-use` while a sandbox runs on the base.
+- The `owner-only` refusal is a guard rail, not a boundary: an agent runs as the owner and can clear those variables, so the agents' permission rules also ask before `sbx base prepare`.
 - A prepared base lives outside the Nix store, so no GC root protects it, and `base prepare` is the only path that replaces it.
 - Each cloud sandbox boots with a NoCloud seed ISO that carries a fresh instance id, root's key, and no default user, so cloud-init runs again.
 - A `none` sandbox's seed turns cloud-init networking off; an `egress` sandbox takes cloud-init's DHCP fallback on its NIC.

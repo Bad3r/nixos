@@ -204,6 +204,28 @@ let
         justification = "Drops stashes, archive-first but still destructive; ask before running.";
       }) stashHelperInvocations;
 
+      # Prompt outranks the `sbx` allow; sbx's own refusal reads env the agent controls.
+      promptedSbxRules =
+        map
+          (pattern: {
+            inherit pattern;
+            decision = "prompt";
+            justification = "Boots an internet image with egress; the owner runs it.";
+          })
+          [
+            [
+              "sbx"
+              "base"
+              "prepare"
+            ]
+            [
+              "sbx"
+              "--json"
+              "base"
+              "prepare"
+            ]
+          ];
+
       promptedGitRules = [
         {
           pattern = [
@@ -499,6 +521,7 @@ let
         })
         (execPolicyRule { pattern = [ "sbx" ]; })
       ]
+      ++ lib.optionals (sbx != null) (map execPolicyRule promptedSbxRules)
     )
     + "\n";
 

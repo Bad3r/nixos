@@ -84,7 +84,17 @@ let
     "bash -lc"
     "zsh -c"
     "zsh -lc"
-  ];
+  ]
+  # Boots an internet image with egress; sbx's own refusal reads an env the agent controls.
+  ++ (
+    if sbx then
+      [
+        "sbx base prepare"
+        "sbx --json base prepare"
+      ]
+    else
+      [ ]
+  );
 
   # coreutils rm bypasses the PATH shim that routes bare `rm` to trash-cli, so
   # deny the common absolute paths and keep deletions recoverable.

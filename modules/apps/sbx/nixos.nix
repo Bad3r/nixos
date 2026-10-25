@@ -24,7 +24,7 @@
     * Each QEMU runs in its own local vsock namespace, so a guest never reaches a host vsock listener.
     * Bases build on demand from this flake and never enter the host closure.
     * Cloud bases come from hash-pinned images that `sbx base prepare` boots once with egress;
-      agent sessions cannot run it.
+      it refuses a caller with an agent session variable set, and agent permission rules ask first.
 */
 { config, ... }:
 let
