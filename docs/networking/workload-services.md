@@ -57,7 +57,7 @@ workloads.services.<name>.shares.<tag> = {
 - Container root reads and writes as the owner and its primary group, so the owner edits the results without `sudo`.
 - Other container users create nothing in the share, and files of other host accounts show as the overflow id.
 - The directory must exist when the container starts; only a service's [drop](workload-drops.md) is created for it.
-- The share assertion in `modules/workloads/services/units.nix` refuses a root owner and an owner without a fixed uid and gid.
+- The share assertion in `modules/workloads/services/units.nix` refuses a root owner, a root primary group, and an owner without a fixed uid and gid.
 
 ## Networks in Podman
 
