@@ -106,10 +106,11 @@ class Tools:
 
 @dataclass(frozen=True)
 class Egress:
-    """The bridge `--net egress` attaches to and the lease file of its DHCP server."""
+    """The bridge `--net egress` attaches to, the lease file of its DHCP server, and its MTU."""
 
     bridge: str
     leases: Path
+    mtu: int
 
 
 @dataclass(frozen=True)
@@ -169,7 +170,9 @@ class Settings:
             boot_timeout=raw["bootTimeout"],
             egress=raw["egress"]
             if isinstance(raw["egress"], str)
-            else Egress(raw["egress"]["bridge"], Path(raw["egress"]["leases"])),
+            else Egress(
+                raw["egress"]["bridge"], Path(raw["egress"]["leases"]), raw["egress"]["mtu"]
+            ),
             cloud_images={
                 name: CloudImage(image["url"], image["hash"])
                 for name, image in raw["cloudImages"].items()
@@ -651,12 +654,14 @@ def guest_holds(reply: dict[str, Any], mac: str, address: str) -> bool:
     return False
 
 
-def bridge_interface(bridge: str, mac: str) -> ET.Element:
+def bridge_interface(bridge: str, mac: str, mtu: int) -> ET.Element:
     """Render a virtio NIC on a host bridge; session libvirt joins it through qemu-bridge-helper."""
     interface = ET.Element("interface", type="bridge")
     ET.SubElement(interface, "mac", address=mac)
     ET.SubElement(interface, "source", bridge=bridge)
     ET.SubElement(interface, "model", type="virtio")
+    # virtio-net hands the guest driver this MTU, whatever its DHCP client applies.
+    ET.SubElement(interface, "mtu", size=str(mtu))
     return interface
 
 
@@ -1133,7 +1138,7 @@ class Sandboxes:
         meta: Meta,
         request: Request,
         authorized_key: str,
-        nic: tuple[str, str] | None,
+        nic: tuple[Egress, str] | None,
     ) -> str:
         domain = ET.Element("domain", type="kvm")
 
@@ -1182,7 +1187,8 @@ class Sandboxes:
             sub(seed, "target", dev="sda", bus="sata")
             sub(seed, "readonly")
         if nic is not None:
-            devices.append(bridge_interface(*nic))
+            egress, mac = nic
+            devices.append(bridge_interface(egress.bridge, mac, egress.mtu))
         sub(devices, "controller", type="usb", model="none")
         # Untrusted class: the guest agent channel only, never a vdagent channel.
         channel = sub(devices, "channel", type="unix")
@@ -1270,7 +1276,7 @@ class Sandboxes:
             size = max(int(info["virtual-size"]), self.settings.disk_gib * GIB)
             # Every running overlay may still grow to its full virtual size.
             self._check_disk(reserve=(running + 1) * size)
-            nic = (self._check_egress().bridge, random_mac()) if request.net == "egress" else None
+            nic = (self._check_egress(), random_mac()) if request.net == "egress" else None
             now = int(self._clock())
             meta = Meta(
                 request.base,

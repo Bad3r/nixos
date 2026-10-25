@@ -267,7 +267,7 @@ in
         ET.SubElement(features, "apic")
         devices = ET.SubElement(domain, "devices")
         ET.SubElement(devices, "emulator").text = "${pkgs.qemu_kvm}/bin/qemu-system-x86_64"
-        devices.append(bridge_interface("vn-sbx", mac))
+        devices.append(bridge_interface("vn-sbx", mac, 1240))
         serial = ET.SubElement(devices, "serial", type="file")
         ET.SubElement(serial, "source", path=f"${home}/{name}.log")
         ET.SubElement(serial, "target", port="0")

@@ -809,7 +809,7 @@ class SandboxesTest(Fixture):
         patch.start()
         self.addCleanup(patch.stop)
         leases = self.scratch / "vn-sbx.status"
-        self.settings = dataclasses.replace(self.settings, egress=Egress("vn-sbx", leases))
+        self.settings = dataclasses.replace(self.settings, egress=Egress("vn-sbx", leases, 1240))
         mac = mock.patch.object(core, "random_mac", return_value=MAC)
         mac.start()
         self.addCleanup(mac.stop)
@@ -863,6 +863,7 @@ class SandboxesTest(Fixture):
         self.assertEqual(interface.find("source").get("bridge"), "vn-sbx")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(interface.find("model").get("type"), "virtio")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(interface.find("mac").get("address"), MAC)  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(interface.find("mtu").get("size"), "1240")  # pyright: ignore[reportOptionalMemberAccess]
         listed = self.sandboxes().listing(mine=False)
         self.assertEqual([entry["address"] for entry in listed], ["172.16.2.5"])
         self.assertEqual(self.sandboxes().info("t1")["address"], "172.16.2.5")
@@ -994,14 +995,14 @@ class SandboxesTest(Fixture):
             "slice": "s",
             "outputLimit": 1,
             "bootTimeout": 1,
-            "egress": {"bridge": "vn-sbx", "leases": "/leases"},
+            "egress": {"bridge": "vn-sbx", "leases": "/leases", "mtu": 1240},
             "cloudImages": {"debian-13": {"url": "https://x/d.qcow2", "hash": "sha256-y"}},
             "tools": dataclasses.asdict(self.settings.tools),
         }
         path = self.scratch / "settings.json"
         path.write_text(json.dumps(raw))
         loaded = Settings.load(path)
-        self.assertEqual(loaded.egress, Egress("vn-sbx", Path("/leases")))
+        self.assertEqual(loaded.egress, Egress("vn-sbx", Path("/leases"), 1240))
         self.assertEqual(
             loaded.cloud_images, {"debian-13": CloudImage("https://x/d.qcow2", "sha256-y")}
         )

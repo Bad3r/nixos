@@ -213,7 +213,7 @@ let
                 "workloads.networks.sbx needs libvirt.enable and libvirt.sessionAttach"
               else
                 {
-                  inherit (egressNetwork) bridge;
+                  inherit (egressNetwork) bridge mtu;
                   # libvirt writes it world-readable, so sbx reads leases without a system connection.
                   leases = "/var/lib/libvirt/dnsmasq/${egressNetwork.bridge}.status";
                 };
