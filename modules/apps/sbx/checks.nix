@@ -149,8 +149,13 @@ in
                 assert info["image"] == f"${bases}/{versions()[-1]}/disk.qcow2", info
                 qemu = machine.succeed("pgrep -o -f 'guest=sbx-w'").strip()
                 tpm = machine.succeed("pgrep -o -u ${owner} -f 'swtpm socket'").strip()
-                namespaces = machine.succeed(f"readlink /proc/{qemu}/ns/net /proc/{tpm}/ns/net /proc/1/ns/net").split()
-                assert namespaces[2] not in namespaces[:2], namespaces
+                for kind in ("net", "mnt"):
+                    namespaces = machine.succeed(f"readlink /proc/{qemu}/ns/{kind} /proc/{tpm}/ns/{kind} /proc/1/ns/{kind}").split()
+                    assert namespaces[2] not in namespaces[:2], namespaces
+                files = machine.succeed(f"find /proc/{tpm}/root/home ! -type d").split()
+                own = (f"/proc/{tpm}/root{info['directory']}/tpm/", f"/proc/{tpm}/root/home/${owner}/.cache/libvirt/qemu/log/sbx-w-swtpm.log")
+                assert files and all(path.startswith(own) for path in files), files
+                machine.fail(f"test -e /proc/{tpm}/root/run/user/1000/libvirt/qemu/run/swtpm")
                 result = sbx("exec w -- /run/current-system/sw/bin/uname -s")
                 assert result["exit_code"] == 0 and result["stdout"] == "Linux\n", result
 

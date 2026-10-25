@@ -20,7 +20,7 @@ The golden copy is readable by root only, so `sbx-base@<name>.service` copies it
 
 - The overlay sits on the export's disk, and the sandbox gets its own copies of the NVRAM and TPM state.
 - The firmware is the libvirt app's Microsoft-enrolled OVMF, whose keys the golden NVRAM holds, so Secure Boot and the TPM stay as Windows was installed.
-- swtpm, which parses the guest's TPM commands, runs in a user and network namespace of its own, as QEMU does.
+- swtpm, which parses the guest's TPM commands, runs [confined](confinement.md) as QEMU does.
 - A sandbox has no network, so clones sharing the golden copy's SIDs, activation, and account never meet one another.
 - It has no vsock device and no SSH: every command and file goes through the guest agent, which runs as SYSTEM.
 - Its virtual disk is the guest's, larger than the sandbox disk cap.

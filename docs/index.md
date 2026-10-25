@@ -472,6 +472,8 @@
   - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, the slice and ceilings, state, and gc.
 - [apps/sbx/bases.md](apps/sbx/bases.md)
   - `sbx` bases: Nix-built `nixos` and `nixos-gui`, keyboard input on GUI sandboxes, and hash-pinned cloud images that `base prepare` provisions.
+- [apps/sbx/confinement.md](apps/sbx/confinement.md)
+  - What QEMU, swtpm, and virtiofsd see from the host: the private mount namespace, its bind rules, and the limits that remain.
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)
   - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
 - [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)
