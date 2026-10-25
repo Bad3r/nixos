@@ -90,6 +90,7 @@ class Tools:
     systemctl: str
     nix: str
     nix_store: str
+    timedatectl: str
 
 
 @dataclass(frozen=True)
@@ -317,6 +318,34 @@ class Backend(Protocol):
 
     def screenshot(self, domain: str, target: Path) -> str:
         """Write the primary display to a file and return its MIME type."""
+        ...
+
+    def suspend(self, domain: str) -> None:
+        """Pause a running domain."""
+        ...
+
+    def resume(self, domain: str) -> None:
+        """Continue a paused domain."""
+        ...
+
+    def managed_save(self, domain: str) -> None:
+        """Save an active domain's state and stop it."""
+        ...
+
+    def restore(self, domain: str) -> None:
+        """Start a defined domain, from its managed save when it has one."""
+        ...
+
+    def set_time(self, domain: str) -> None:
+        """Set the guest clock to the host's through qemu-ga."""
+        ...
+
+    def job_active(self, domain: str) -> bool:
+        """Return whether a job, such as a managed save, runs on a domain."""
+        ...
+
+    def abort_job(self, domain: str) -> None:
+        """Abort a domain's running job."""
         ...
 
 
@@ -604,12 +633,28 @@ class Sandboxes:
             self._backend = self._connect(require_slice)
         return self._backend
 
+    def adopt(self, backend: Backend) -> None:
+        """Use a backend connected some other way, such as without starting the daemon."""
+        self._backend = backend
+
     @contextlib.contextmanager
-    def locked(self) -> Generator[None]:
-        """Hold the state lock; flock is per open file, so never nest it."""
+    def locked(self, timeout: float | None = None) -> Generator[None]:
+        """Hold the state lock, waiting up to `timeout`; flock is per open file: never nest it."""
         self.paths.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         with self.paths.lock.open("a") as handle:
-            fcntl.flock(handle, fcntl.LOCK_EX)
+            if timeout is None:
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            else:
+                deadline = time.monotonic() + timeout
+                while True:
+                    try:
+                        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        if time.monotonic() >= deadline:
+                            msg = f"another sbx command held {self.paths.lock} for {timeout:g} s"
+                            raise SbxError(msg, code="busy") from None
+                        time.sleep(0.2)
             yield
 
     def _check_name(self, name: str) -> None:
@@ -1038,14 +1083,15 @@ class Sandboxes:
         return "\n".join(lines[-15:])
 
     def _wait_ready(self, name: str) -> None:
-        deadline = self._clock() + self.settings.boot_timeout
+        # Monotonic, so a host sleep during the boot wait does not count against it.
+        deadline = time.monotonic() + self.settings.boot_timeout
         domain = DOMAIN_PREFIX + name
         while True:
             try:
                 self.backend().agent(domain, {"execute": "guest-ping"}, 5)
                 break
             except SbxError:
-                if self._clock() > deadline:
+                if time.monotonic() > deadline:
                     tail = self._console_tail(name)
                     msg = f"the guest agent of '{name}' did not answer; console:\n{tail}"
                     raise SbxError(msg, code="boot-timeout") from None
@@ -1055,7 +1101,7 @@ class Sandboxes:
             result = capture(self._ssh(name, sandbox.domain.cid, ["true"]), 4096, 30)
             if result.exit_code == 0:
                 break
-            if self._clock() > deadline:
+            if time.monotonic() > deadline:
                 detail = result.stderr.decode(errors="replace").strip()
                 msg = f"ssh over vsock to '{name}' failed: {detail}"
                 raise SbxError(msg, code="boot-timeout")
@@ -1063,7 +1109,7 @@ class Sandboxes:
         if sandbox.meta.net != "egress":
             return
         while self.address(sandbox, strict=True) is None:
-            if self._clock() > deadline:
+            if time.monotonic() > deadline:
                 msg = f"'{name}' got no DHCP lease on its egress bridge; console:\n"
                 raise SbxError(msg + self._console_tail(name), code="no-address")
             time.sleep(1)
@@ -1085,14 +1131,21 @@ class Sandboxes:
             msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID"
             raise SbxError(msg, code="no-session")
 
-    def destroy_where(self, *, mine: bool, expired: bool) -> list[str]:
-        """Remove the caller's sandboxes or the expired ones."""
+    def destroy_where(
+        self, *, mine: bool, expired: bool, timeout: float | None = None
+    ) -> list[str]:
+        """Remove the caller's sandboxes or the expired ones; `timeout` bounds the lock wait."""
         self._require_session(mine=mine)
+        if expired and not self.host_synced():
+            msg = (
+                "the host clock is not NTP-synchronized, so TTLs cannot be judged; destroy by name"
+            )
+            raise SbxError(msg, code="clock-unsynced")
         if not self._has_state():
             return []
         removed: list[str] = []
         now = self._clock()
-        with self.locked():
+        with self.locked(timeout):
             for sandbox in self.owned():
                 meta = sandbox.meta
                 if (mine and meta.session == self.session) or (expired and meta.expires <= now):
@@ -1121,8 +1174,15 @@ class Sandboxes:
         result["image"] = sandbox.meta.image
         return result
 
-    def _gc_reason(self, sandbox: Sandbox, now: float) -> str | None:
-        if sandbox.meta.expires <= now:
+    def host_synced(self) -> bool:
+        """Return whether timedatectl reports the host clock NTP-synchronized."""
+        show = [self.settings.tools.timedatectl, "show", "-p", "NTPSynchronized", "--value"]
+        result = subprocess.run(show, capture_output=True, text=True, check=False)
+        return result.stdout.strip() == "yes"
+
+    def _gc_reason(self, sandbox: Sandbox, now: float, *, synced: bool) -> str | None:
+        # An unsynced clock, such as the RTC's right after resume, may run hours ahead.
+        if synced and sandbox.meta.expires <= now:
             return "expired"
         if not sandbox.domain.active and not sandbox.domain.managed_save:
             return "shut off"
@@ -1131,15 +1191,16 @@ class Sandboxes:
         return None
 
     def gc(self, *, dry_run: bool) -> list[dict[str, str]]:
-        """Remove expired, stopped, and half-removed sandboxes."""
+        """Remove stopped and half-removed sandboxes, and expired ones once the clock is synced."""
         if not self._has_state():
             return []
         actions: list[dict[str, str]] = []
+        synced = self.host_synced()
         with self.locked():
             now = self._clock()
             owned = {sandbox.name: sandbox for sandbox in self.owned()}
             for sandbox in owned.values():
-                reason = self._gc_reason(sandbox, now)
+                reason = self._gc_reason(sandbox, now, synced=synced)
                 if reason is None:
                     continue
                 actions.append({"name": sandbox.name, "reason": reason})

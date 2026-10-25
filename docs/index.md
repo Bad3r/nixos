@@ -406,7 +406,7 @@
 - [apps/libvirt/shares.md](apps/libvirt/shares.md)
   - virtiofs shares for declared guests: the owner-bound virtiofsd, NixOS guest mounts, runtime shares, and failures.
 - [apps/libvirt/sleep.md](apps/libvirt/sleep.md)
-  - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, and failures.
+  - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, the per-user `sbx sleep` calls, and failures.
 - [apps/libvirt/windows.md](apps/libvirt/windows.md)
   - Windows guests: seed CD-ROM, answer file, provisioning steps, secrets, golden copies and restore, and failures.
 
@@ -466,5 +466,7 @@
 
 - [apps/sbx/README.md](apps/sbx/README.md)
   - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, Nix bases, the slice and ceilings, state, and gc.
+- [apps/sbx/sleep.md](apps/sbx/sleep.md)
+  - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
 - [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)
   - `sbx` failures by error code: a daemon outside the slice, vsock listeners, boot timeouts, and an unavailable egress bridge or lease.

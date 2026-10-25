@@ -29,6 +29,7 @@ let
     systemctl = "${systemd}/bin/systemctl";
     nix = "${nix}/bin/nix";
     nix_store = "${nix}/bin/nix-store";
+    timedatectl = "${systemd}/bin/timedatectl";
   };
   settingsFile = writeText "sbx-settings.json" (builtins.toJSON (settings // { inherit tools; }));
 in
@@ -72,7 +73,7 @@ stdenvNoCC.mkDerivation {
     runHook postInstallCheck
   '';
 
-  passthru = { inherit settingsFile; };
+  passthru = { inherit settings settingsFile; };
 
   meta = {
     description = "Disposable agent sandboxes on the owner's qemu:///session";
