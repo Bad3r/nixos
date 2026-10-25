@@ -12,6 +12,7 @@ from typing import IO, TYPE_CHECKING, Any, cast
 
 from sbx import cli, model, windows
 from sbx.errors import SbxError
+from sbx.model import ExecOptions
 from sbx.sandboxes import Sandboxes
 from sbx.windows import WindowsSettings
 
@@ -250,8 +251,18 @@ class WindowsTest(unittest.TestCase):
         self.assertEqual(cast("dict[str, object]", result)["stdout"], "/c ver")
         self.assertEqual(self.backend.commands[-1], ["cmd.exe", "/c", "ver"])
         with self.assertRaises(SbxError) as refused:
-            self.sandboxes().exec_attached("w", ["cmd.exe"], timeout=None)
+            self.sandboxes().exec_attached("w", ["cmd.exe"], ExecOptions())
         self.assertEqual(refused.exception.code, "agent-only")
+        for options in (
+            ExecOptions(cwd="C:/"),
+            ExecOptions(user="admin"),
+            ExecOptions(env=("A=1",)),
+        ):
+            with self.subTest(options=options), self.assertRaises(SbxError) as refused:
+                self.sandboxes().exec_capture("w", ["cmd.exe"], options)
+            self.assertEqual(refused.exception.code, "unsupported")
+        result = self.sandboxes().exec_capture("w", ["echo.exe"], ExecOptions(stdin=b"in"))
+        self.assertEqual(result.exit_code, 3)
 
     def test_timeout_kills_the_process_tree(self) -> None:
         """A timeout runs taskkill on the process tree and reports a failed kill."""
@@ -266,7 +277,7 @@ class WindowsTest(unittest.TestCase):
             sandboxes = self.sandboxes()
             sandboxes.monotonic = lambda: now[0]
             sandboxes.pause = pause
-            return sandboxes.exec_capture("w", ["slow.exe"], timeout=1)
+            return sandboxes.exec_capture("w", ["slow.exe"], ExecOptions(timeout=1))
 
         result = run()
         self.assertEqual((result.timed_out, result.killed, result.exit_code), (True, True, 1))

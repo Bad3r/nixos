@@ -479,7 +479,7 @@
 - [apps/sbx/bases.md](apps/sbx/bases.md)
   - `sbx` bases: Nix-built `nixos` and `nixos-gui`, keyboard input on GUI sandboxes, and hash-pinned cloud images that `base prepare` provisions.
 - [apps/sbx/exec.md](apps/sbx/exec.md)
-  - Commands in sandboxes: qemu-ga and SSH transports, host-side timeouts and their signals, the `--json` result, and exit statuses.
+  - Commands in sandboxes: qemu-ga and SSH transports, the user, directory, environment, and stdin, host-side timeouts and their signals, the `--json` result, and exit statuses.
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)
   - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
 - [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)

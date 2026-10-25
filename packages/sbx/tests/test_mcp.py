@@ -37,6 +37,11 @@ SAMPLES: dict[str, object] = {
     "out": ["/root/report.txt"],
     "to": "/work",
     "timeout": "5m",
+    "cwd": "/srv",
+    "env": {"A": "1", "B": "x y"},
+    "user": "sbx",
+    "stdin": "text",
+    "stdin_base64": "AAE=",
     "command": ["sh", "-c", "true"],
     "source": "probe:/root/x",
     "destination": "/work",
@@ -107,6 +112,29 @@ class CommandLineTest(unittest.TestCase):
                 with self.assertRaises(SbxError) as raised:
                     mcp.TOOLS_BY_NAME[tool].command_line(arguments)
                 self.assertEqual(raised.exception.code, "usage")
+
+    def test_exec_context(self) -> None:
+        """The env object becomes --env pairs; stdin arrives as text or base64, never both."""
+        tool = mcp.TOOLS_BY_NAME["exec"]
+        argv, _ = tool.command_line(
+            {"name": "a", "cwd": "/srv", "env": {"A": "1", "B": "x=y"}, "command": ["env"]}
+        )
+        self.assertEqual(argv, ["exec", "--cwd=/srv", "--env=A=1", "--env=B=x=y", "a"])
+        args = build_parser().parse_args(argv)
+        self.assertEqual((args.cwd, args.env), ("/srv", ["A=1", "B=x=y"]))
+        self.assertEqual(tool.stdin({"stdin": "hé"}), "hé".encode())
+        self.assertEqual(tool.stdin({"stdin_base64": "AP8="}), b"\x00\xff")
+        self.assertIsNone(tool.stdin({"name": "a"}))
+        for arguments in (
+            {"stdin": "a", "stdin_base64": "YQ=="},
+            {"stdin_base64": "%%"},
+            {"stdin": 1},
+        ):
+            with self.subTest(arguments=arguments), self.assertRaises(SbxError) as raised:
+                tool.stdin(arguments)
+            self.assertEqual(raised.exception.code, "usage")
+        with self.assertRaises(SbxError):
+            tool.command_line({"name": "a", "env": {"A": 1}, "command": ["env"]})
 
     def test_session(self) -> None:
         """Codex names its thread per call; otherwise the environment decides."""

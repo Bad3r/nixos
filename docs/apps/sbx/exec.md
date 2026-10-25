@@ -8,6 +8,19 @@
 - A plain `exec` or `run` on a Linux sandbox attaches the caller's terminal over SSH on vsock; `cp` copies over the same SSH.
 - qemu-ga returns the output only once the command exits, so a captured command shows nothing until it ends.
 
+## Context
+
+Both transports start the command through one launcher, so they agree on its context.
+
+- It runs as root in `/root` with `HOME=/root`, after the guest's `/etc/profile` set `PATH` and the session variables.
+- `--user NAME` runs it as that guest user, with `HOME` and the default directory taken from the user's passwd entry.
+- `--cwd PATH` sets an absolute directory, and `--env NAME=VALUE`, repeatable, exports a variable after the profile.
+- `--stdin FILE` feeds a file under the copy roots to the command, and `--stdin -` feeds what `sbx` reads; either stops at 1 MiB, and larger input belongs in `cp`.
+- A launcher failure, such as an unknown user or a missing directory, exits 125 with a `sbx:` line or the shell's error on stderr.
+- Windows sandboxes refuse `--cwd`, `--env`, and `--user` with `unsupported`: qemu-ga runs the program as SYSTEM without a shell.
+
+The MCP tools take the same as `cwd`, `env` (an object), `user`, and `stdin` text or `stdin_base64` bytes.
+
 ## Timeouts
 
 `--timeout 10m` sets a deadline on the host's monotonic clock, which stands still while the host sleeps.

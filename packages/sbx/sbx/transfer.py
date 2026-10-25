@@ -9,6 +9,7 @@ import shutil
 import signal
 import stat
 import subprocess
+import sys
 import tempfile
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import TYPE_CHECKING
@@ -16,7 +17,7 @@ from typing import TYPE_CHECKING
 from sbx import journal, windows
 from sbx.config import remote_name
 from sbx.errors import SbxError
-from sbx.execution import Execution
+from sbx.execution import MAX_STDIN, Execution
 from sbx.fsutil import publish
 from sbx.proc import run
 from sbx.storage import Storage
@@ -112,6 +113,17 @@ class Transfer(Execution, Storage):
                         msg = f"{candidate} links outside the copy roots"
                         raise SbxError(msg, code="path-denied")
         return resolved
+
+    def read_input(self, value: str) -> bytes:
+        """Read `--stdin`: the caller's stdin for -, else a file under the copy roots."""
+        if value == "-":
+            return sys.stdin.buffer.read(MAX_STDIN + 1)
+        path = self._source(Path(value))
+        if not path.is_file():
+            msg = f"--stdin takes a file or -, not the directory {value}"
+            raise SbxError(msg, code="invalid-argument")
+        with path.open("rb") as handle:
+            return handle.read(MAX_STDIN + 1)
 
     def _destination(self, path: Path, leaf: str) -> Path:
         """Return a host target that does not exist yet, under the copy roots."""

@@ -115,6 +115,18 @@ class Sandbox:
 
 
 @dataclass(frozen=True)
+class ExecOptions:
+    """How a guest command runs; by default as root in /root with HOME=/root."""
+
+    timeout: float | None = None
+    cwd: str | None = None
+    # NAME=VALUE pairs, exported after the guest's /etc/profile.
+    env: tuple[str, ...] = ()
+    user: str | None = None
+    stdin: bytes | None = None
+
+
+@dataclass(frozen=True)
 class ExecResult:
     """Outcome of one command in a sandbox.
 

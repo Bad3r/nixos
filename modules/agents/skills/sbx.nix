@@ -60,6 +60,11 @@ let
       `$TMPDIR` is a host path.
     - `--timeout 10m` bounds the command; `--ttl`, `--mem`, and `--cpus` size the
       sandbox within the host ceilings.
+    - The command runs as root in `/root` with `HOME=/root` on every path.
+      `exec` and `run` take `--cwd DIR`, `--env NAME=VALUE` (repeatable),
+      `--user NAME`, and `--stdin FILE` (a host file under the copy roots, at
+      most 1 MiB) instead of `cd`, `env`, or `<` inside `sh -c`. Windows
+      refuses `--cwd`, `--env`, and `--user` with `unsupported`.
 
     Run `sbx` as its own command, without `cd ... &&`, pipes, redirections, or
     an env prefix, and set the directory through the tool's working-directory
@@ -134,7 +139,8 @@ let
     through the CLI. Flags become named arguments, the guest command an argv
     list, and the result is the `--json` document above; a refusal is a tool
     error carrying the error object. A failing guest command is no tool error:
-    read `exit_code`.
+    read `exit_code` and `signal`. `exec` and `run` take `env` as an object
+    and stdin as `stdin` text or `stdin_base64` bytes.
 
     - `screenshot` also returns a PNG image content block for direct visual
       inspection alongside the saved `path` and `mime`. Set `ocr: true` only

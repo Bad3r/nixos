@@ -191,6 +191,18 @@ in
                 assert result["timed_out"] and result["killed"] and result["signal"] == "KILL", result
                 assert result["exit_code"] is None and result["stdout"] == "started\n", result
 
+            with subtest("both transports run as root in /root, and the context flags apply"):
+                where = "import os; print(os.getcwd(), os.environ['HOME'], os.getuid())"
+                result = sbx(f"exec v -- python3 -c \"{where}\"")
+                assert result["stdout"] == "/root /root 0\n", result
+                attached = machine.succeed(as_owner(f"sbx exec v -- python3 -c \"{where}\""))
+                assert attached == "/root /root 0\n", attached
+                result = sbx(
+                    "exec v --cwd /tmp --env GREETING=hi --user nobody --stdin ${home}/tmp/probe.py"
+                    " -- sh -c 'echo $(pwd) $HOME $GREETING $(id -un); head -c 13'"
+                )
+                assert result["stdout"] == "/tmp /var/empty hi nobody\nimport socket", result
+
             with subtest("host listeners started after the sandbox stay unreachable"):
                 listen("after-any", "any", 5555, "host")
                 listen("after-host", 2, 5556, "host")

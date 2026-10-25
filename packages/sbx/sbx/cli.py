@@ -9,7 +9,8 @@ from typing import TYPE_CHECKING, NoReturn, cast
 from sbx import completion, journal, sleep, vsock, windows
 from sbx.config import Paths, Settings, caller_session, parse_duration
 from sbx.errors import SbxError, error_document
-from sbx.model import FLAVOURS, NETS, Backend, ExecResult, Request
+from sbx.execution import exec_options
+from sbx.model import FLAVOURS, NETS, Backend, ExecOptions, ExecResult, Request
 from sbx.sandboxes import Sandboxes
 from sbx.shares import SHARED, Shares
 
@@ -39,6 +40,33 @@ def _command(args: argparse.Namespace) -> list[str]:
 
 def _timeout(value: str | None) -> float | None:
     return None if value is None else float(parse_duration(value))
+
+
+def _exec_flags(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--timeout", help="command timeout such as 10m")
+    parser.add_argument("--cwd", help="absolute guest directory; default the user's home")
+    parser.add_argument(
+        "--env",
+        action="append",
+        default=[],
+        metavar="NAME=VALUE",
+        help="set a variable after the guest profile; repeatable",
+    )
+    parser.add_argument("--user", help="guest user; default root")
+    parser.add_argument(
+        "--stdin", metavar="FILE|-", help="feed a file, or sbx's stdin, up to 1 MiB"
+    )
+    # The MCP server sets the stdin bytes directly.
+    parser.set_defaults(stdin_data=None)
+
+
+def _exec_options(sandboxes: Sandboxes, args: argparse.Namespace) -> ExecOptions:
+    stdin: bytes | None = args.stdin_data
+    if stdin is None and args.stdin is not None:
+        stdin = sandboxes.read_input(args.stdin)
+    return exec_options(
+        timeout=_timeout(args.timeout), cwd=args.cwd, env=args.env, user=args.user, stdin=stdin
+    )
 
 
 def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
@@ -76,11 +104,11 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     run.add_argument("--in", dest="inputs", action="append", default=[], metavar="PATH")
     run.add_argument("--out", dest="outputs", action="append", default=[], metavar="GUEST_PATH")
     run.add_argument("--to", help="host directory for --out")
-    run.add_argument("--timeout", help="command timeout such as 10m")
+    _exec_flags(run)
 
     execute = verbs.add_parser("exec", parents=[common], help="run a command in a sandbox")
     execute.add_argument("name")
-    execute.add_argument("--timeout", help="command timeout such as 10m")
+    _exec_flags(execute)
 
     copy = verbs.add_parser("cp", parents=[common], help="copy between host and sandbox")
     copy.add_argument("source", help="host path or <name>:<path>")
@@ -191,7 +219,7 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
     if args.to is not None and not args.outputs:
         msg = "--to needs --out"
         raise SbxError(msg, code="usage")
-    timeout = _timeout(args.timeout)
+    options = _exec_options(sandboxes, args)
     created = sandboxes.create(_request(sandboxes, args))
     name, token = str(created["name"]), str(created["token"])
     # Every step and the cleanup act only on this creation, never on a later namesake.
@@ -200,13 +228,13 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
         inbox = windows.INBOX if agent_only else "/root/"
         copied_in = [sandboxes.copy(path, f"{name}:{inbox}", token=token) for path in args.inputs]
         if as_json:
-            result = sandboxes.exec_capture(name, command, timeout=timeout, token=token)
+            result = sandboxes.exec_capture(name, command, options, token=token)
             code = result.status()
         elif agent_only:
-            code = _print_exec(sandboxes.exec_capture(name, command, timeout=timeout, token=token))
+            code = _print_exec(sandboxes.exec_capture(name, command, options, token=token))
             result = None
         else:
-            attached = sandboxes.exec_attached(name, command, timeout=timeout, token=token)
+            attached = sandboxes.exec_attached(name, command, options, token=token)
             code = _print_exec(attached)
             result = None
         copied_out = [
@@ -240,13 +268,13 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
             return _run(sandboxes, args, as_json=as_json)
         case "exec":
             command = _command(args)
-            timeout = _timeout(args.timeout)
+            options = _exec_options(sandboxes, args)
             if as_json or sandboxes.agent_only(args.name):
-                result = sandboxes.exec_capture(args.name, command, timeout=timeout)
+                result = sandboxes.exec_capture(args.name, command, options)
                 if as_json:
                     return result.as_json(), result.status()
                 return None, _print_exec(result)
-            attached = sandboxes.exec_attached(args.name, command, timeout=timeout)
+            attached = sandboxes.exec_attached(args.name, command, options)
             return None, _print_exec(attached)
         case "cp":
             return sandboxes.copy(args.source, args.destination), 0

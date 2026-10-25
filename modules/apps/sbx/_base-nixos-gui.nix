@@ -26,7 +26,7 @@
     pipewire.enable = false;
   };
 
-  # pam_env sets it for SSH sessions, /etc/profile for qemu-ga's login shell.
+  # pam_env sets it for SSH sessions, and the exec launcher sources /etc/profile.
   environment.sessionVariables.DISPLAY = ":0";
 
   users.users.sbx.isNormalUser = true;

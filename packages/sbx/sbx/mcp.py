@@ -8,6 +8,7 @@ also include an image content block for the client to display.
 """
 
 import base64
+import binascii
 import dataclasses
 import functools
 import json
@@ -43,6 +44,8 @@ METHOD_NOT_FOUND = -32601
 INVALID_PARAMS = -32602
 INTERNAL_ERROR = -32603
 COMMAND = "command"
+STDIN = "stdin"
+STDIN_BASE64 = "stdin_base64"
 INSTRUCTIONS = (
     "Disposable VMs for unknown binaries, downloads, and untrusted repositories; "
     "the sbx skill says when to use them. Host paths sit under the git checkout of "
@@ -101,6 +104,10 @@ class Tool:
             },
         }
 
+    def mapped(self) -> list[Param]:
+        """Return the arguments the command line carries; stdin travels apart."""
+        return [param for param in self.params if param.name not in {STDIN, STDIN_BASE64}]
+
     def command_line(self, arguments: object) -> tuple[list[str], list[str]]:
         """Return the verb's arguments and the guest command."""
         if arguments is None:
@@ -116,7 +123,7 @@ class Tool:
         options: list[str] = []
         positionals: list[str] = []
         command: list[str] = []
-        for param in self.params:
+        for param in self.mapped():
             value = given.get(param.name)
             if value is None:
                 if param.required:
@@ -133,6 +140,29 @@ class Tool:
             else:
                 options.extend(_options(self.name, param, value))
         return [*self.verb, *options, *positionals], command
+
+    def stdin(self, arguments: object) -> bytes | None:
+        """Return the guest command's stdin from `stdin` or `stdin_base64`."""
+        given = cast("dict[str, object]", arguments) if isinstance(arguments, dict) else {}
+        text, encoded = given.get(STDIN), given.get(STDIN_BASE64)
+        if text is not None and encoded is not None:
+            msg = f"{self.name}: give one of '{STDIN}' and '{STDIN_BASE64}'"
+            raise SbxError(msg, code="usage")
+        if text is not None:
+            if not isinstance(text, str):
+                msg = f"{self.name}: '{STDIN}' must be a string"
+                raise SbxError(msg, code="usage")
+            return text.encode()
+        if encoded is None:
+            return None
+        if not isinstance(encoded, str):
+            msg = f"{self.name}: '{STDIN_BASE64}' must be a string"
+            raise SbxError(msg, code="usage")
+        try:
+            return base64.b64decode(encoded, validate=True)
+        except binascii.Error as error:
+            msg = f"{self.name}: '{STDIN_BASE64}' is not base64"
+            raise SbxError(msg, code="usage") from error
 
 
 def _strings(tool: str, param: Param, value: object) -> list[str]:
@@ -171,6 +201,14 @@ def _options(tool: str, param: Param, value: object) -> list[str]:
             return [f"{param.flag}={value}"]
         case "array":
             return [f"{param.flag}={item}" for item in _strings(tool, param, value)]
+        case "object":
+            if not isinstance(value, dict) or not all(
+                isinstance(item, str) for item in cast("dict[object, object]", value).values()
+            ):
+                msg = f"{tool}: '{param.name}' must be an object of strings"
+                raise SbxError(msg, code="usage")
+            pairs = cast("dict[str, str]", value)
+            return [f"{param.flag}={key}={item}" for key, item in pairs.items()]
         case _:
             if not isinstance(value, str):
                 msg = f"{tool}: '{param.name}' must be a string"
@@ -192,7 +230,26 @@ def _list(description: str, **extra: object) -> Json:
 
 
 NAME = Param("name", _string("sandbox name"), required=True)
-TIMEOUT = Param("timeout", _string("command timeout such as 10m"), flag="--timeout")
+EXEC_PARAMS = (
+    Param(
+        "timeout",
+        _string("command timeout such as 10m; then SIGTERM, and SIGKILL 5 s later"),
+        flag="--timeout",
+    ),
+    Param("cwd", _string("absolute guest directory; default the user's home"), flag="--cwd"),
+    Param(
+        "env",
+        {
+            "type": "object",
+            "additionalProperties": {"type": "string"},
+            "description": "variables set after the guest profile",
+        },
+        flag="--env",
+    ),
+    Param("user", _string("guest user; default root"), flag="--user"),
+    Param(STDIN, _string("text fed to the command's stdin, up to 1 MiB")),
+    Param(STDIN_BASE64, _string("bytes fed to the command's stdin, base64, up to 1 MiB")),
+)
 GUEST_COMMAND = Param(
     COMMAND,
     _list("argv of the guest command, run without a shell; wrap pipes in sh -c", minItems=1),
@@ -244,7 +301,7 @@ TOOLS = (
             Param("in", _list("host paths copied into /root/ or C:\\sbx\\"), flag="--in"),
             Param("out", _list("guest paths copied to 'to' afterwards"), flag="--out"),
             Param("to", _string("host directory for 'out'"), flag="--to"),
-            TIMEOUT,
+            *EXEC_PARAMS,
             GUEST_COMMAND,
         ),
         open_world=True,
@@ -257,8 +314,10 @@ TOOLS = (
         "killed, transport_error, duration_s, stdout, stderr, truncated}. A failing guest "
         "command is no tool error: exit_code is its status, or null with signal set when a "
         "signal ended it. timed_out means the timeout passed and sbx sent SIGTERM, then "
-        "SIGKILL; transport_error means the guest agent stopped answering mid-command.",
-        (NAME, TIMEOUT, GUEST_COMMAND),
+        "SIGKILL; transport_error means the guest agent stopped answering mid-command. "
+        "The command runs as root in /root with HOME=/root unless user, cwd, or env say "
+        "otherwise; Windows takes none of the three.",
+        (NAME, *EXEC_PARAMS, GUEST_COMMAND),
     ),
     Tool(
         "cp",
@@ -502,6 +561,8 @@ class Server:
             argv, command = tool.command_line(arguments)
             args = build_parser().parse_args(argv)
             args.command = command
+            if (stdin := tool.stdin(arguments)) is not None:
+                args.stdin_data = stdin
             sandboxes = self._open(session)
             if record is not None:
                 sandboxes.cancelled = lambda: record.cancelled or self._closed.is_set()

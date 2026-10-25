@@ -132,6 +132,7 @@ def configure(parser: argparse.ArgumentParser, settings_path: Path) -> None:
     completers.update(
         flavour=ChoicesCompleter(dict.fromkeys(FLAVOURS, "Nix base")),
         inputs=PathCompleter(),
+        stdin=PathCompleter(),
         to=PathCompleter(directories_only=True),
     )
 

@@ -6,7 +6,9 @@ import dataclasses
 import itertools
 import json
 import os
+import shlex
 import socket
+import subprocess
 import tempfile
 import threading
 import time
@@ -36,7 +38,7 @@ from sbx import (
 from sbx.cloud import CloudImage
 from sbx.config import Egress, Paths, Settings, Tools
 from sbx.errors import SbxError
-from sbx.model import NS, DomainInfo, Meta
+from sbx.model import NS, DomainInfo, ExecOptions, Meta
 from sbx.sandboxes import Sandboxes
 
 if TYPE_CHECKING:
@@ -472,7 +474,7 @@ class SandboxesTest(Fixture):
         sandboxes = self.sandboxes()
         log = self.scratch / "ssh.log"
         with mock.patch.dict(os.environ, {"SBX_TEST_SSH_LOG": str(log)}):
-            sandboxes.exec_attached("v", ["true"], timeout=None)
+            sandboxes.exec_attached("v", ["true"], ExecOptions())
         proxy = next(arg for arg in log.read_text().splitlines() if arg.startswith("ProxyCommand="))
         self.assertEqual(
             proxy,
@@ -483,7 +485,7 @@ class SandboxesTest(Fixture):
             self.backend.domains_by_name["sbx-v"], pid=None
         )
         with self.assertRaises(SbxError) as refused:
-            sandboxes.exec_attached("v", ["true"], timeout=None)
+            sandboxes.exec_attached("v", ["true"], ExecOptions())
         self.assertEqual(refused.exception.code, "not-running")
 
     def test_gc(self) -> None:
@@ -830,7 +832,7 @@ class SandboxesTest(Fixture):
         self.add_running("old", expires=NOW - 1)
         sandboxes = self.sandboxes()
         with self.assertRaises(SbxError) as refused:
-            sandboxes.exec_capture("old", ["true"], timeout=None)
+            sandboxes.exec_capture("old", ["true"], ExecOptions())
         self.assertEqual(refused.exception.code, "expired")
         with self.assertRaises(SbxError):
             sandboxes.copy("old:/etc/hostname", None)
@@ -843,7 +845,7 @@ class SandboxesTest(Fixture):
         sandboxes = self.sandboxes()
         good = {"exited": True, "exitcode": 3, "out-data": "aGk=", "err-data": ""}
         self.backend.replies = [{"return": {"pid": 7}}, {"return": good}]
-        result = sandboxes.exec_capture("g", ["x"], timeout=None)
+        result = sandboxes.exec_capture("g", ["x"], ExecOptions())
         self.assertEqual((result.exit_code, result.stdout), (3, b"hi"))
         malformed: list[list[dict[str, Any]]] = [
             [{"return": {"pid": "7"}}],
@@ -854,7 +856,7 @@ class SandboxesTest(Fixture):
         for replies in malformed:
             self.backend.replies = list(replies)
             with self.subTest(replies=replies), self.assertRaises(SbxError) as refused:
-                sandboxes.exec_capture("g", ["x"], timeout=None)
+                sandboxes.exec_capture("g", ["x"], ExecOptions())
             self.assertEqual(refused.exception.code, "agent-reply")
 
     def test_foreign_domains_untouched(self) -> None:
@@ -923,12 +925,13 @@ class SandboxesTest(Fixture):
         for code in ("124", "255"):
             environment = {"SBX_TEST_SSH_EXIT": code, "SBX_TEST_SSH_LOG": str(log)}
             with self.subTest(code=code), mock.patch.dict(os.environ, environment):
-                result = self.sandboxes().exec_attached("t", ["sleep", "9"], timeout=2)
+                result = self.sandboxes().exec_attached("t", ["sleep", "9"], ExecOptions(timeout=2))
             self.assertFalse(result.timed_out)
             self.assertEqual(result.status(), int(code))
             self.assertEqual(result.transport_error is not None, code == "255")
             self.assertEqual(result.exit_code, 124 if code == "124" else None)
-        self.assertTrue(log.read_text().splitlines()[-1].startswith("timeout --kill-after=5 2 "))
+        remote = log.read_text().split("root@sbx\n--\n", 1)[1]
+        self.assertTrue(remote.startswith("timeout --kill-after=5 2 /bin/sh -c "))
 
     def test_ssh_status_past_the_deadline(self) -> None:
         """Past the deadline, timeout's own statuses and ssh's 255 for its SIGKILL time out."""
@@ -943,7 +946,7 @@ class SandboxesTest(Fixture):
         """A command a signal ended has no exit code; its status is 128 plus the signal."""
         self.add_running("s")
         self.backend.replies = [{"return": {"pid": 7}}, {"return": {"exited": True, "signal": 9}}]
-        result = self.sandboxes().exec_capture("s", ["x"], timeout=None)
+        result = self.sandboxes().exec_capture("s", ["x"], ExecOptions())
         document = result.as_json()
         self.assertEqual((document["exit_code"], document["signal"]), (None, "KILL"))
         self.assertFalse(document["timed_out"])
@@ -980,7 +983,7 @@ class SandboxesTest(Fixture):
 
         sandboxes.pause = pause
         with mock.patch.object(self.backend, "agent", reply):
-            result = sandboxes.exec_capture("k", ["python3", "stubborn.py"], timeout=1)
+            result = sandboxes.exec_capture("k", ["python3", "stubborn.py"], ExecOptions(timeout=1))
         self.assertEqual(kills, ["kill -TERM -- -7", "kill -KILL -- -7"])
         self.assertEqual((result.timed_out, result.killed, result.signal), (True, True, "KILL"))
         self.assertIsNone(result.exit_code)
@@ -1001,7 +1004,7 @@ class SandboxesTest(Fixture):
             return ping(domain, command, timeout)
 
         with mock.patch.object(self.backend, "agent", reply):
-            result = self.sandboxes().exec_capture("x", ["true"], timeout=None)
+            result = self.sandboxes().exec_capture("x", ["true"], ExecOptions())
         self.assertEqual(result.transport_error, "qemu-ga: agent gone")
         self.assertEqual(result.status(), 255)
 
@@ -1013,8 +1016,87 @@ class SandboxesTest(Fixture):
         self.assertEqual(code, 3)
         self.assertEqual(cast("dict[str, object]", result)["exit_code"], 3)
         argv, _stdin = self.backend.execs[-1]
-        self.assertEqual(argv[-1], "false")
-        self.assertIn("setsid", argv[2])
+        self.assertEqual(argv, execution.launcher(["false"], ExecOptions(), session=True))
+
+    def test_launcher(self) -> None:
+        """Both transports run one launcher: root in its home by default, else as asked."""
+        options = ExecOptions(cwd="/srv", env=("A=1", "B=x y"), user="sbx")
+        argv = execution.launcher(["id", "-u"], options, session=True)
+        self.assertEqual(argv[:4], ["/bin/sh", "-c", execution.LAUNCH, "sbx"])
+        self.assertEqual(argv[4:], ["sbx", "/srv", "setsid", "A=1", "B=x y", "--", "id", "-u"])
+        argv = execution.launcher(["id"], ExecOptions(), session=False)
+        self.assertEqual(argv[4:], ["root", "", "", "--", "id"])
+        syntax = subprocess.run(["/bin/sh", "-n", "-c", execution.LAUNCH], check=False)
+        self.assertEqual(syntax.returncode, 0)
+        self.add_running("l")
+        log = self.scratch / "ssh.log"
+        with mock.patch.dict(os.environ, {"SBX_TEST_SSH_LOG": str(log)}):
+            self.sandboxes().exec_attached("l", ["pwd"], ExecOptions(cwd="/srv"))
+        remote = log.read_text().split("root@sbx\n--\n", 1)[1].removesuffix("\n")
+        self.assertEqual(
+            remote, shlex.join(execution.launcher(["pwd"], ExecOptions(cwd="/srv"), session=False))
+        )
+
+    def test_exec_option_validation(self) -> None:
+        """--env needs NAME=VALUE without NUL, --cwd an absolute path, stdin at most 1 MiB."""
+        cases: list[dict[str, Any]] = [
+            {"env": ["NOEQUALS"]},
+            {"env": ["1A=x"]},
+            {"env": ["A=x\0y"]},
+            {"env": ["=x"]},
+            {"cwd": "relative"},
+            {"cwd": "/a\0b"},
+            {"user": "-root"},
+            {"stdin": b"x" * (execution.MAX_STDIN + 1)},
+        ]
+        for options in cases:
+            with self.subTest(options=options), self.assertRaises(SbxError) as refused:
+                execution.exec_options(**options)
+            self.assertEqual(refused.exception.code, "invalid-argument")
+        accepted = execution.exec_options(env=["A=", "B=c=d"], cwd="/", user="sbx", stdin=b"")
+        self.assertEqual(accepted.env, ("A=", "B=c=d"))
+
+    def test_stdin(self) -> None:
+        """--stdin goes to qemu-ga as base64 input-data; more than 1 MiB is refused unsent."""
+        self.add_running("i")
+        data = bytes(range(256))
+        source = self.scratch / "tmp" / "input"
+        source.write_bytes(data)
+        self.dispatch("--json", "exec", "i", "--stdin", str(source), "--", "cat")
+        argv, stdin = self.backend.execs[-1]
+        self.assertEqual((argv[-1], stdin), ("cat", data))
+        source.write_bytes(b"x" * (execution.MAX_STDIN + 1))
+        sent = len(self.backend.execs)
+        with self.assertRaises(SbxError) as refused:
+            self.dispatch("--json", "exec", "i", "--stdin", str(source), "--", "cat")
+        self.assertEqual(refused.exception.code, "invalid-argument")
+        self.assertEqual(len(self.backend.execs), sent)
+        outside = self.scratch / "outside"
+        outside.write_bytes(b"secret")
+        with self.assertRaises(SbxError) as refused:
+            self.dispatch("--json", "exec", "i", "--stdin", str(outside), "--", "cat")
+        self.assertEqual(refused.exception.code, "path-denied")
+
+    def test_exec_flags(self) -> None:
+        """--cwd, repeated --env, and --user reach the launcher."""
+        self.add_running("f")
+        self.dispatch(
+            "--json",
+            "exec",
+            "f",
+            "--cwd",
+            "/work",
+            "--env",
+            "A=1",
+            "--env",
+            "B=2",
+            "--user",
+            "sbx",
+            "--",
+            "env",
+        )
+        argv, _stdin = self.backend.execs[-1]
+        self.assertEqual(argv[4:], ["sbx", "/work", "setsid", "A=1", "B=2", "--", "env"])
 
     def test_run_refusals_before_create(self) -> None:
         """--out without --to, --to without --out, and a bad --timeout create nothing."""
