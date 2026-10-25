@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Bad3r
-"""workload-grantd: one grant request per socket connection, as root with CAP_NET_ADMIN only."""
+"""workload-grantd: one grant or share request per connection, as root with CAP_NET_ADMIN only."""
 
 import contextlib
 import fcntl
@@ -12,6 +12,8 @@ import socket
 import struct
 import subprocess
 import sys
+import time
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path as FilePath
 from typing import TYPE_CHECKING, Protocol, cast
@@ -24,6 +26,7 @@ from workloads.grants import (
     Ports,
     Record,
     Route,
+    ShareGuest,
     Target,
 )
 
@@ -42,7 +45,11 @@ ID_PATTERN = re.compile(r"[0-9a-f]{8}")
 # nft refuses longer element comments.
 COMMENT_LIMIT = 128
 JOURNAL_SOCKET = "/run/systemd/journal/socket"
-KERNEL_CODES = frozenset({"nft", "conntrack", "route", "journal"})
+KERNEL_CODES = frozenset({"nft", "conntrack", "route", "journal", "libvirt", "detach-pending"})
+LIBVIRT_URI = "qemu:///system"
+# libvirt itself waits five seconds for the guest to release a device.
+DETACH_WAIT = 15.0
+DETACH_POLL = 0.5
 
 # Runs argv with optional stdin and returns the exit code, stdout, and stderr.
 type Runner = Callable[[Sequence[str], str | None], tuple[int, str, str]]
@@ -112,6 +119,30 @@ class Kernel(Protocol):
         ...
 
 
+class Libvirt(Protocol):
+    """The system guests' live devices."""
+
+    def state(self, domain: str) -> str:
+        """`running`, `paused`, `shut off`, and so on."""
+        ...
+
+    def saved(self, domain: str) -> bool:
+        """Whether a managed save image holds the guest, live devices included."""
+        ...
+
+    def tags(self, domain: str) -> set[str]:
+        """Tags of the virtiofs shares in the live definition."""
+        ...
+
+    def attach(self, domain: str, device: str) -> None:
+        """Hot-plug the device in the file into the running guest."""
+        ...
+
+    def detach(self, domain: str, device: str) -> None:
+        """Ask the running guest to release the device in the file."""
+        ...
+
+
 @dataclass(frozen=True)
 class Tools:
     """Absolute paths of the programs the helper runs."""
@@ -119,6 +150,7 @@ class Tools:
     nft: str
     conntrack: str
     ip: str
+    virsh: str
 
 
 def run_command(argv: Sequence[str], stdin: str | None) -> tuple[int, str, str]:
@@ -362,6 +394,64 @@ class NftKernel:
         self._rule("del", preference, route)
 
 
+def virtiofs_tags(xml: str) -> set[str]:
+    """Tags of the virtiofs `<filesystem>` devices in a domain definition."""
+    root = ET.fromstring(xml)  # noqa: S314
+    tags: set[str] = set()
+    for device in root.iterfind("devices/filesystem"):
+        driver, target = device.find("driver"), device.find("target")
+        if driver is not None and driver.get("type") == "virtiofs" and target is not None:
+            tags.add(str(target.get("dir")))
+    return tags
+
+
+class Virsh:
+    """System guests through virsh; libvirt admits a root client without polkit."""
+
+    def __init__(self, virsh: str, run: Runner = run_command) -> None:
+        """Keep the virsh path and the runner."""
+        self.virsh = virsh
+        self.run = run
+
+    def _checked(self, *arguments: str) -> str:
+        argv = [self.virsh, "-c", LIBVIRT_URI, *arguments]
+        status, stdout, stderr = self.run(argv, None)
+        if status != 0:
+            msg = f"virsh {arguments[0]} failed: {stderr.strip() or stdout.strip()}"
+            raise GrantError(msg, code="libvirt")
+        return stdout
+
+    def state(self, domain: str) -> str:
+        """`virsh domstate`."""
+        return self._checked("domstate", domain).strip()
+
+    def saved(self, domain: str) -> bool:
+        """Read `Managed save` from `virsh dominfo`."""
+        for line in self._checked("dominfo", domain).splitlines():
+            key, _, value = line.partition(":")
+            if key.strip() == "Managed save":
+                return value.strip() == "yes"
+        msg = f"virsh dominfo {domain} printed no managed save line"
+        raise GrantError(msg, code="libvirt")
+
+    def tags(self, domain: str) -> set[str]:
+        """Parse `virsh dumpxml`."""
+        output = self._checked("dumpxml", domain)
+        try:
+            return virtiofs_tags(output)
+        except ET.ParseError as error:
+            msg = f"virsh dumpxml {domain} printed no XML: {error}"
+            raise GrantError(msg, code="libvirt") from error
+
+    def attach(self, domain: str, device: str) -> None:
+        """`virsh attach-device --live`."""
+        self._checked("attach-device", domain, device, "--live")
+
+    def detach(self, domain: str, device: str) -> None:
+        """`virsh detach-device --live`, which returns once the request is sent."""
+        self._checked("detach-device", domain, device, "--live")
+
+
 @dataclass(frozen=True)
 class Caller:
     """The peer of the socket connection."""
@@ -418,16 +508,22 @@ class Service:
         log: Log,
         lock: Callable[[], AbstractContextManager[object]],
         *,
+        libvirt: Libvirt,
         new_id: Callable[[], str] = lambda: secrets.token_hex(4),
         read_text: Callable[[str], str] | None = None,
+        sleep: Callable[[float], None] = time.sleep,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         """Keep the collaborators; the policy loads per request."""
         self.load_policy = load_policy
         self.kernel = kernel
         self.log = log
         self.lock = lock
+        self.libvirt = libvirt
         self.new_id = new_id
         self.read_text = read_text
+        self.sleep = sleep
+        self.clock = clock
 
     def handle(self, raw: bytes, caller: Caller) -> Record:
         """Answer one request; every decision reaches the journal before it applies."""
@@ -449,7 +545,9 @@ class Service:
             request = self._parse(raw)
             context["session"] = _optional_string(request, "session")
             context |= {
-                key: request[key] for key in ("verb", "source", "target", "id") if key in request
+                key: request[key]
+                for key in ("verb", "source", "target", "id", "guest", "share")
+                if key in request
             }
             policy = self.load_policy()
             match request["verb"]:
@@ -457,6 +555,8 @@ class Service:
                     return self._grant(policy, request, record)
                 case "revoke":
                     return self._revoke(policy, request, record)
+                case "share-attach" | "share-detach":
+                    return self._share(policy, request, record)
                 case _:
                     record("listed", "listed grants")
                     return {"grants": describe(self.kernel.elements())}
@@ -494,8 +594,13 @@ class Service:
                 raise GrantError(msg, code="invalid-request")
         elif verb == "list":
             _check_keys(request, {"verb"}, {"session"})
+        elif verb in {"share-attach", "share-detach"}:
+            _check_keys(request, {"verb", "guest", "share"}, {"session"})
         else:
-            msg = f"unknown verb {verb!r}; expected grant, revoke, or list"
+            msg = (
+                f"unknown verb {verb!r}; expected grant, revoke, list, share-attach,"
+                " or share-detach"
+            )
             raise GrantError(msg, code="invalid-request")
         return request
 
@@ -621,6 +726,61 @@ class Service:
             self._sync_routes(policy, kept)
         return {"revoked": revoked}
 
+    def _share(self, policy: Policy, request: Record, record: Callable[..., None]) -> Record:
+        attach = request["verb"] == "share-attach"
+        guest, share = policy.runtime_share(_string(request, "guest"), _string(request, "share"))
+        place = f"guest:{guest.name}"
+        with self.lock():
+            state = self.libvirt.state(guest.domain)
+            if attach and state != "running":
+                msg = f"{place} is {state}; runtime shares attach to a running guest"
+                raise GrantError(msg, code="not-running")
+            if not attach and state == "shut off" and self.libvirt.saved(guest.domain):
+                msg = f"{place} is saved with its live shares; start it, then detach"
+                raise GrantError(msg, code="saved")
+            # A guest that is shut off holds no live device.
+            held = state != "shut off" and share.tag in self.libvirt.tags(guest.domain)
+            if attach and held:
+                msg = f"{place} already holds {share.tag}"
+                raise GrantError(msg, code="already-attached")
+            if not attach and not held:
+                msg = f"{place} holds no {share.tag}"
+                raise GrantError(msg, code="not-attached")
+            decision = "attached" if attach else "detached"
+            record(
+                decision,
+                f"{decision} {share.tag} {'to' if attach else 'from'} {place}",
+                guest=guest.name,
+                share=share.tag,
+                read_only=share.read_only,
+            )
+            if attach:
+                self.libvirt.attach(guest.domain, share.device)
+            else:
+                self._detach(guest, share.tag, share.device)
+        return {
+            "share": {
+                "guest": guest.name,
+                "tag": share.tag,
+                "read_only": share.read_only,
+                "mount_point": share.mount_point,
+                "attached": attach,
+            }
+        }
+
+    def _detach(self, guest: ShareGuest, tag: str, device: str) -> None:
+        """Detach and wait until the device leaves the live definition."""
+        self.libvirt.detach(guest.domain, device)
+        deadline = self.clock() + DETACH_WAIT
+        while tag in self.libvirt.tags(guest.domain):
+            if self.clock() >= deadline:
+                msg = (
+                    f"guest:{guest.name} still holds {tag} {DETACH_WAIT:g}s after the detach"
+                    " request; the share stays usable until the guest releases it or stops"
+                )
+                raise GrantError(msg, code="detach-pending")
+            self.sleep(DETACH_POLL)
+
     def _sync_routes(self, policy: Policy, elements: Sequence[Element]) -> None:
         """Routes of expired grants go too; until then the forward chain drops their traffic."""
         preference = policy.route_preference
@@ -696,7 +856,13 @@ def main(policy_path: FilePath, tools: Tools, lock_path: FilePath) -> int:
             raise GrantError(msg, code="policy-file") from error
         return Policy.from_json(data)
 
-    service = Service(load_policy, NftKernel(tools), journal, lambda: file_lock(lock_path))
+    service = Service(
+        load_policy,
+        NftKernel(tools),
+        journal,
+        lambda: file_lock(lock_path),
+        libvirt=Virsh(tools.virsh),
+    )
     try:
         raw = _receive(connection)
     except TimeoutError:

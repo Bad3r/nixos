@@ -76,23 +76,18 @@ In the guest, each launcher start appends its result to `C:\ProgramData\workload
 
 `runtime = true` keeps a share out of the definition, so it stays detached until attached to the running guest.
 Its `<filesystem>` element is the derived `deviceXml` option, installed as `/etc/workloads/shares/<name>/<tag>.xml`.
+On NixOS and Linux guests, [runtime shares](../../networking/workload-shares.md) attaches and detaches it with `workloads share`.
 
-1. Attach it as the owner, answering the admin prompt:
-
-   ```sh
-   virsh -c qemu:///system attach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live
-   ```
-
-2. In a NixOS guest, the fstab entry is `noauto`, so mount it with `mount /mnt/<tag>`.
-   In a Windows guest, restart provisioning, which restarts every launcher instance:
-
-   ```sh
-   sudo systemctl restart workloads-provision@<name>.service
-   ```
-
-`virsh -c qemu:///system detach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live` removes it again after an unmount in the guest.
-A Windows guest needs the same provisioning restart after a detach.
 Each running `virtiofs.exe` remounts itself whenever any virtio-fs device arrives, which can break shares that are already mounted, until provisioning restarts them ([virtio-win issue 1698](https://github.com/virtio-win/kvm-guest-drivers-windows/issues/1698)).
+`workloads share` therefore refuses Windows guests.
+On a Windows guest, attach as the owner, answering the admin prompt, then restart provisioning, which restarts every launcher instance:
+
+```sh
+virsh -c qemu:///system attach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live
+sudo systemctl restart workloads-provision@<name>.service
+```
+
+`detach-device` with the same arguments removes it again, followed by the same provisioning restart.
 
 ## Verify
 

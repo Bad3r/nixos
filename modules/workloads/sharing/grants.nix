@@ -15,6 +15,19 @@ let
       hostServices = config.workloads.host.services;
       guestEndpoints = sharing.endpoints.guest or { };
 
+      # Runtime shares of present guests; the VM module installs each device file.
+      runtimeShares = lib.filterAttrs (_: guest: guest.shares != { }) (
+        lib.mapAttrs (name: guest: {
+          domain = guest.domainName;
+          inherit (guest) kind;
+          shares = lib.mapAttrs (tag: share: {
+            device = "/etc/workloads/shares/${name}/${tag}.xml";
+            inherit (share) readOnly mountPoint;
+          }) (lib.filterAttrs (_: share: share.enable && share.runtime or false) guest.shares);
+        }) (lib.filterAttrs (_: guest: (guest.ensure or "present") == "present") config.workloads.guests)
+      );
+      helper = cfg.allow != [ ] || runtimeShares != { };
+
       # The bit the grant chains set on connections they admit; no other table uses ct mark.
       marked = "ct mark & 0x00f00000 == 0x00100000";
       markAccept = "${marked} accept";
@@ -186,6 +199,9 @@ let
             lib.concatMap lib.attrValues (lib.attrValues sharing.endpoints)
           )
         );
+        shares = runtimeShares;
+        # Read by sbx, which hot-plugs sandbox shares itself.
+        sandboxShares = lib.mapAttrs (_: share: { inherit (share) hostPath; }) cfg.sandboxShares;
       };
 
       # Where each rule's sources sit: every sandbox network's subnet, or a guest's addresses.
@@ -277,6 +293,13 @@ let
           fail "the port is not among the target's grantable ports"
         else
           check true "";
+
+      # A tag is QEMU's virtiofs tag inside the sandbox; xfer is the sandbox's own.
+      sandboxShareAssertions = lib.mapAttrsToList (
+        tag: _:
+        check (tag != "xfer" && builtins.match "[a-z0-9][a-z0-9-]{0,35}" tag != null)
+          "workloads.grants.sandboxShares.${tag}: tags must match [a-z0-9][a-z0-9-]*, have at most 36 characters, and not be xfer"
+      ) cfg.sandboxShares;
     in
     {
       options.workloads.grants = {
@@ -322,7 +345,29 @@ let
             address, the destination, the protocol, and the ports. It permits
             all traffic on that path only until its TTL ends: at expiry or
             revoke, every connection it admitted stops, and no other grant's.
-            Declaring a rule starts `workload-grantd`.
+            Declaring a rule, or a guest share with `runtime = true`, starts
+            `workload-grantd`.
+          '';
+        };
+
+        sandboxShares = lib.mkOption {
+          type = types.attrsOf (
+            types.submodule {
+              options.hostPath = lib.mkOption {
+                type = types.strMatching "/.*";
+                description = ''
+                  Host directory to share. `sbx` refuses one that is or holds
+                  $HOME or the sbx state directory, after resolving links.
+                '';
+              };
+            }
+          );
+          default = { };
+          example.docs.hostPath = "/srv/docs";
+          description = ''
+            Directories `workloads share attach sbx-<name> <tag>` hot-plugs
+            into a running sandbox, always read-only, keyed by their virtiofs
+            tag. A sandbox's own `xfer` directory is its only read-write share.
           '';
         };
 
@@ -336,7 +381,7 @@ let
       config = lib.mkMerge [
         # The table and the routes outlive the service, so dropping the last
         # rule removes them instead of leaving marks no chain honours.
-        (lib.mkIf (cfg.allow == [ ] && networks != { }) {
+        (lib.mkIf (!helper && networks != { }) {
           systemd.services.workload-grants = {
             description = "Remove the workload grant table and routes";
             wantedBy = [ "multi-user.target" ];
@@ -358,13 +403,17 @@ let
           };
         })
 
-        (lib.mkIf (cfg.allow != [ ]) {
-          assertions =
-            sourceAssertions ++ leaseAssertions ++ macAssertions ++ map targetAssertion targetTexts;
+        (lib.mkIf (helper || cfg.sandboxShares != { }) {
+          assertions = sandboxShareAssertions;
 
           programs.workloads.extended.enable = lib.mkOverride 1050 true;
 
           environment.etc."workloads/grants.json".text = builtins.toJSON policy;
+        })
+
+        (lib.mkIf helper {
+          assertions =
+            sourceAssertions ++ leaseAssertions ++ macAssertions ++ map targetAssertion targetTexts;
 
           workloads.sharing.gatewayProxies = grantProxies;
           workloads.nftables = {
@@ -417,6 +466,7 @@ let
                 StandardError = "journal";
                 SyslogIdentifier = "workload-grant";
                 RuntimeMaxSec = 60;
+                # libvirtd admits a uid 0 client without polkit, so share verbs need no capability.
                 CapabilityBoundingSet = [ "CAP_NET_ADMIN" ];
                 ReadWritePaths = [ "/run/workloads" ];
                 UMask = "0077";

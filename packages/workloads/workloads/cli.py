@@ -31,6 +31,11 @@ TTL_TEXT = (
     " connections of other grants keep working."
 )
 SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_THREAD_ID", "codex"))
+SHARE_TEXT = (
+    "A guest takes the shares its declaration marks runtime = true; a sandbox takes its xfer"
+    " directory read-write, or a workloads.grants.sandboxShares entry read-only. A share stays"
+    " until detached or the guest stops, managed saves included."
+)
 
 type Record = dict[str, object]
 # Runs sbx with the arguments and returns its exit code and output, or None without sbx.
@@ -95,6 +100,16 @@ def build_parser() -> argparse.ArgumentParser:
     chosen.add_argument("id", nargs="?", help="grant id")
     chosen.add_argument("--all", metavar="SOURCE", dest="source", help="every grant of a source")
     verbs.add_parser("grants", parents=[common], help="list live grants")
+    # No --json between share and its verb, so permission rules see one spelling.
+    share = verbs.add_parser("share", help="attach or detach a runtime share")
+    share_verbs = share.add_subparsers(dest="share_verb", required=True, parser_class=Parser)
+    for verb, text in (
+        ("attach", "hot-plug a share into a running guest or sandbox"),
+        ("detach", "remove a share; fails while the guest still holds it"),
+    ):
+        action = share_verbs.add_parser(verb, parents=[common], help=text, description=SHARE_TEXT)
+        action.add_argument("target", help="sbx-<name>, guest:<name>, or a guest name")
+        action.add_argument("share", help="a guest's runtime share, or xfer or a sandbox share")
     return parser
 
 
@@ -219,11 +234,12 @@ def _plain(report: Record) -> None:
 def ask_helper(request: Record) -> Record:
     """Send one request to workload-grantd over its socket."""
     with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
-        connection.settimeout(30)
+        # A detach waits for the guest to release the device.
+        connection.settimeout(45)
         try:
             connection.connect(GRANT_SOCKET)
         except FileNotFoundError as error:
-            msg = f"{GRANT_SOCKET} is missing; no workloads.grants rule is declared"
+            msg = f"{GRANT_SOCKET} is missing; no grant rule or runtime share is declared"
             raise WorkloadsError(msg, code="no-helper") from error
         connection.sendall(json.dumps(request).encode())
         connection.shutdown(socket.SHUT_WR)
@@ -250,14 +266,14 @@ def caller_session() -> str | None:
     return None
 
 
-def canonical_source(source: str) -> str:
+def canonical_source(source: str, role: str = "source") -> str:
     """`sbx-<name>` or `guest:<name>`; a bare name is a guest."""
     if SANDBOX_PATTERN.fullmatch(source):
         return source
     canonical = source if source.startswith("guest:") else f"guest:{source}"
     if GUEST_PATTERN.fullmatch(canonical) is None:
-        msg = f"'{source}' is no source: expected sbx-<name>, guest:<name>, or a guest name"
-        raise WorkloadsError(msg, code="invalid-source")
+        msg = f"'{source}' is no {role}: expected sbx-<name>, guest:<name>, or a guest name"
+        raise WorkloadsError(msg, code=f"invalid-{role}")
     return canonical
 
 
@@ -304,6 +320,49 @@ def revoke_request(source: str, runner: SbxRunner) -> Record:
     return request
 
 
+def share_sandbox(verb: str, sandbox: str, tag: str, runner: SbxRunner) -> Record:
+    """Run `sbx share`, keeping the code of a refusal."""
+    result = runner(["share", verb, sandbox.removeprefix("sbx-"), tag, "--json"])
+    if result is None:
+        msg = f"{sandbox} is a sandbox, and sbx is not installed"
+        raise WorkloadsError(msg, code="sbx")
+    code, output = result
+    try:
+        parsed: object = json.loads(output)
+    except json.JSONDecodeError:
+        parsed = None
+    details = cast("Record", parsed) if isinstance(parsed, dict) else {}
+    error = details.get("error")
+    if isinstance(error, dict):
+        failure = cast("Record", error)
+        raise WorkloadsError(str(failure.get("message")), code=str(failure.get("code")))
+    if code != 0 or not details:
+        msg = f"sbx share {verb} failed: {output.strip()}"
+        raise WorkloadsError(msg, code="sbx")
+    return details
+
+
+def share(verb: str, target: str, tag: str, runner: SbxRunner, helper: Helper) -> Record:
+    """Attach or detach a share; sandboxes go through sbx, guests through the helper."""
+    canonical = canonical_source(target, "target")
+    if SANDBOX_PATTERN.fullmatch(canonical):
+        details = share_sandbox(verb, canonical, tag, runner)
+        fields, source = ("tag", "read_only", "attached", "host_path"), "sbx"
+    else:
+        request: Record = {
+            "verb": f"share-{verb}",
+            "guest": canonical.removeprefix("guest:"),
+            "share": tag,
+        }
+        details = cast("Record", _ask(helper, request)["share"])
+        fields, source = ("tag", "read_only", "attached", "mount_point"), "helper"
+    missing = [field for field in fields if field not in details]
+    if missing:
+        msg = f"the {source} answer lacks {', '.join(missing)}"
+        raise WorkloadsError(msg, code=source)
+    return {"share": {"target": canonical} | {field: details[field] for field in fields}}
+
+
 def _ask(helper: Helper, request: Record) -> Record:
     session = caller_session()
     answer = helper(request | ({"session": session} if session else {}))
@@ -337,6 +396,10 @@ def dispatch(
                 if arguments.id is not None:
                     return _ask(helper, {"verb": "revoke", "id": arguments.id})
                 return _ask(helper, revoke_request(arguments.source, runner))
+            case "share":
+                return share(
+                    arguments.share_verb, arguments.target, arguments.share, runner, helper
+                )
             case _:
                 return _ask(helper, {"verb": "list"})
     except GrantError as error:
@@ -346,6 +409,17 @@ def dispatch(
 def _plain_grant(grant: Record) -> None:
     expires = format_duration(cast("int", grant["expires_in"]))
     print(f"{grant['id']}  {grant['source']} -> {grant['target']}  expires in {expires}")
+
+
+def _plain_share(details: Record) -> None:
+    tag, target = details["tag"], details["target"]
+    if not details["attached"]:
+        print(f"detached {tag} from {target}")
+        return
+    mode = "read-only" if details["read_only"] else "read-write"
+    print(f"attached {tag} to {target}, {mode}")
+    if details.get("mount_point"):
+        print(f"mount it in the guest with: mount {details['mount_point']}")
 
 
 def _print(verb: str, result: Record) -> None:
@@ -359,6 +433,8 @@ def _print(verb: str, result: Record) -> None:
         case "revoke":
             revoked = cast("list[str]", result["revoked"])
             print(f"revoked {', '.join(revoked)}" if revoked else "no live grant matched")
+        case "share":
+            _plain_share(cast("Record", result["share"]))
         case _:
             grants = cast("list[Record]", result["grants"])
             rows = [
