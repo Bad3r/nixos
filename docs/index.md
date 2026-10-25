@@ -297,7 +297,7 @@
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
 - [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)
-  - Running an ad-hoc virt-manager guest on the `default` network from a staged ISO.
+  - Running an ad-hoc virt-manager guest from a staged ISO, and installing, activating, and finishing the `win11` guest.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
@@ -401,6 +401,8 @@
   - NixOS guest configurations: the guest base, adding a guest, seeding its disk from an image, host key pinning, and deploys over SSH.
 - [apps/libvirt/sleep.md](apps/libvirt/sleep.md)
   - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, and failures.
+- [apps/libvirt/windows.md](apps/libvirt/windows.md)
+  - Windows guests: seed CD-ROM, answer file, provisioning steps, secrets, golden copies and restore, and failures.
 
 ### mpv
 

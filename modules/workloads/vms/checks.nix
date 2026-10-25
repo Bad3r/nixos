@@ -22,6 +22,7 @@ in
         gamma = "00000000-0000-4000-8000-00000000000c";
         delta = "00000000-0000-4000-8000-00000000000d";
         zeta = "00000000-0000-4000-8000-00000000000f";
+        eta = "00000000-0000-4000-8000-000000000e1a";
         adhoc = "00000000-0000-4000-8000-0000000000ad";
       };
 
@@ -93,6 +94,12 @@ in
           seed = "late";
         };
       };
+      eta = guest {
+        uuid = uuids.eta;
+        install.media = [ "installer" ];
+      };
+      installerSource = "/srv/media/installer.iso";
+      installerContent = "installer";
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
       seedLink = "/var/lib/workloads/images/seed.qcow2";
       lateLink = "/var/lib/workloads/images/late.qcow2";
@@ -179,7 +186,20 @@ in
                 };
 
                 # Specialisations replace the whole set.
-                guests = lib.mkDefault { inherit alpha gamma zeta; };
+                # The test script writes the source, standing in for a manual download.
+                media.installer = {
+                  source = installerSource;
+                  sha256 = builtins.hashString "sha256" installerContent;
+                };
+
+                guests = lib.mkDefault {
+                  inherit
+                    alpha
+                    gamma
+                    zeta
+                    eta
+                    ;
+                };
               };
 
               specialisation = {
@@ -301,6 +321,26 @@ in
                 machine.succeed(f"mv {zeta_disk}.moved {zeta_disk}")
                 machine.succeed(restart(zeta_unit))
 
+            with subtest("a guest with install media stays undefined until they are staged"):
+                eta_unit = "workloads-vm-guest-eta.service"
+                media_unit = "workloads-vm-media.service"
+                machine.wait_for_unit(eta_unit)
+                assert machine.succeed(f"systemctl show -P SubState {media_unit}").strip() == "exited"
+                assert "${installerSource} is missing, so 'installer' is not staged" in warnings(media_unit)
+                assert "staged medium /var/lib/workloads/media/installer is missing" in warnings(eta_unit)
+                machine.fail("virsh dominfo eta")
+                machine.succeed("install -d -o ${metaOwner.username} /srv/media")
+                # A present source with the wrong content fails instead of waiting.
+                machine.succeed("su ${metaOwner.username} -c 'printf wrong > ${installerSource}'")
+                machine.fail(restart(media_unit))
+                assert "declared" in journal(media_unit)
+                machine.fail("test -e /var/lib/workloads/media/installer")
+                machine.succeed("su ${metaOwner.username} -c 'printf ${installerContent} > ${installerSource}'")
+                machine.succeed(restart(media_unit))
+                machine.succeed("test -f /var/lib/workloads/media/installer")
+                machine.succeed(restart(eta_unit))
+                assert state("eta") == "shut off"
+
             with subtest("the host and the network's resolver answer declared names"):
                 assert machine.succeed("getent hosts gamma.vm").split() == ["172.16.5.11", "gamma", "gamma.vm"]
                 assert dig("host.vm") == "172.16.0.1"
@@ -310,6 +350,21 @@ in
                 report = json.loads(machine.succeed("workloads names --json"))
                 assert [entry["name"] for entry in report["names"]] == ["alpha", "gamma"], report
                 assert report["sandboxes"] is None, report
+
+            with subtest("a golden copy needs a shut-off guest and never replaces one"):
+                golden_unit = "workloads-golden@alpha.service"
+                golden = "/var/lib/workloads/golden/${uuids.alpha}"
+                machine.succeed("virsh start alpha")
+                machine.fail(f"systemctl start {golden_unit}")
+                assert "is not shut off" in journal(golden_unit)
+                machine.fail(f"test -e {golden}")
+                machine.succeed("virsh destroy alpha")
+                machine.succeed(restart(golden_unit))
+                for item in ["root.qcow2", "nvram.fd", "tpm", "domain.xml"]:
+                    machine.succeed(f"test -e {golden}/{item}")
+                # A successful oneshot is unloaded, so there is no failed state to reset.
+                machine.fail(f"systemctl start {golden_unit}")
+                assert "exists; move it aside" in journal(golden_unit)
 
             with subtest("a running guest keeps its definition and running networks gain reservations"):
                 machine.succeed("virsh start --paused alpha")
