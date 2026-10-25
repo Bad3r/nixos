@@ -74,8 +74,8 @@ let
           options.windows = {
             edition = lib.mkOption {
               type = types.str;
-              default = "Windows 11 Pro";
-              description = "Name of the image in the installation media's `install.wim` that Setup installs; without a product key, only volume license media install unattended.";
+              default = "Windows 11 Enterprise";
+              description = "Name of an image in the installation media's `install.wim` that Setup installs, such as `Windows 11 Enterprise LTSC 2024` from LTSC media; without a product key, only volume license media install unattended.";
             };
 
             locale = lib.mkOption {
