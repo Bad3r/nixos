@@ -30,7 +30,7 @@ from sbx import journal
 from sbx.cli import build_parser, dispatch
 from sbx.config import Paths, Settings, caller_session
 from sbx.errors import SbxError, error_document
-from sbx.model import FLAVOURS, NETS, Backend
+from sbx.model import ENCODINGS, FLAVOURS, NETS, Backend
 from sbx.sandboxes import Sandboxes
 
 if TYPE_CHECKING:
@@ -247,6 +247,15 @@ EXEC_PARAMS = (
         flag="--env",
     ),
     Param("user", _string("guest user; default root"), flag="--user"),
+    Param(
+        "encoding",
+        _string(
+            "stdout and stderr as text, with *_lossy set where invalid UTF-8 was replaced, "
+            "or as base64 of the raw bytes; default text",
+            enum=list(ENCODINGS),
+        ),
+        flag="--output-encoding",
+    ),
     Param(STDIN, _string("text fed to the command's stdin, up to 1 MiB")),
     Param(STDIN_BASE64, _string("bytes fed to the command's stdin, base64, up to 1 MiB")),
 )
@@ -311,7 +320,8 @@ TOOLS = (
         ("exec",),
         "Run a command in a sandbox",
         "Run a command through the guest agent; returns {exit_code, signal, timed_out, "
-        "killed, transport_error, duration_s, stdout, stderr, truncated}. A failing guest "
+        "killed, transport_error, duration_s, stdout, stderr, stdout_lossy, stderr_lossy, "
+        "truncated}. A failing guest "
         "command is no tool error: exit_code is its status, or null with signal set when a "
         "signal ended it. timed_out means the timeout passed and sbx sent SIGTERM, then "
         "SIGKILL; transport_error means the guest agent stopped answering mid-command. "

@@ -24,6 +24,7 @@ The MCP tools take the same as `cwd`, `env` (an object), `user`, and `stdin` tex
 ## Timeouts
 
 `--timeout 10m` sets a deadline on the host's monotonic clock, which stands still while the host sleeps.
+`--timeout 0s` is refused with `invalid-argument`; leave the flag out for no deadline.
 
 - Past the deadline, a captured Linux command's process group gets SIGTERM, then SIGKILL 5 s later, and the output it printed is kept.
 - A captured Windows command's process tree is stopped with `taskkill /T /F` instead.
@@ -43,7 +44,11 @@ The MCP tools take the same as `cwd`, `env` (an object), `user`, and `stdin` tex
 | `transport_error`  | qemu-ga or SSH failed mid-command        |
 | `duration_s`       | host seconds from start to result        |
 | `stdout`, `stderr` | output up to the output limit            |
+| `stdout_lossy`     | invalid UTF-8 in stdout was replaced     |
+| `stderr_lossy`     | the same for stderr                      |
 | `truncated`        | output past the limit was dropped        |
+
+`--output-encoding base64`, `encoding` in MCP, returns `stdout` and `stderr` as base64 of the raw bytes, and the `*_lossy` fields stay false.
 
 Both output modes exit with:
 

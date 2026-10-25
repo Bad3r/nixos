@@ -10,7 +10,7 @@ from sbx import completion, journal, sleep, vsock, windows
 from sbx.config import Paths, Settings, caller_session, parse_duration
 from sbx.errors import SbxError, error_document
 from sbx.execution import exec_options
-from sbx.model import FLAVOURS, NETS, Backend, ExecOptions, ExecResult, Request
+from sbx.model import ENCODINGS, FLAVOURS, NETS, Backend, ExecOptions, ExecResult, Request
 from sbx.sandboxes import Sandboxes
 from sbx.shares import SHARED, Shares
 
@@ -39,7 +39,13 @@ def _command(args: argparse.Namespace) -> list[str]:
 
 
 def _timeout(value: str | None) -> float | None:
-    return None if value is None else float(parse_duration(value))
+    if value is None:
+        return None
+    seconds = parse_duration(value)
+    if seconds == 0:
+        msg = "--timeout takes a duration above zero; leave it out for no timeout"
+        raise SbxError(msg, code="invalid-argument")
+    return float(seconds)
 
 
 def _exec_flags(parser: argparse.ArgumentParser) -> None:
@@ -55,6 +61,12 @@ def _exec_flags(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--user", help="guest user; default root")
     parser.add_argument(
         "--stdin", metavar="FILE|-", help="feed a file, or sbx's stdin, up to 1 MiB"
+    )
+    parser.add_argument(
+        "--output-encoding",
+        choices=ENCODINGS,
+        default="text",
+        help="--json output as UTF-8 text, or base64 of the raw bytes",
     )
     # The MCP server sets the stdin bytes directly.
     parser.set_defaults(stdin_data=None)
@@ -247,7 +259,7 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
     payload = {
         "sandbox": created,
         "in": copied_in,
-        "exec": None if result is None else result.as_json(),
+        "exec": None if result is None else result.as_json(args.output_encoding),
         "out": copied_out,
     }
     return payload, code
@@ -272,7 +284,7 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
             if as_json or sandboxes.agent_only(args.name):
                 result = sandboxes.exec_capture(args.name, command, options)
                 if as_json:
-                    return result.as_json(), result.status()
+                    return result.as_json(args.output_encoding), result.status()
                 return None, _print_exec(result)
             attached = sandboxes.exec_attached(args.name, command, options)
             return None, _print_exec(attached)

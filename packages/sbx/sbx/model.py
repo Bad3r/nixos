@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """Names, records, and the backend protocol every sbx module shares."""
 
+import base64
 import re
 import signal
 import xml.etree.ElementTree as ET
@@ -27,6 +28,8 @@ GIB = 1 << 30
 TIMEOUT_EXIT = 124
 # A failed transport; `transport_error` tells it from a guest's own exit 255.
 TRANSPORT_EXIT = 255
+# How --json carries command output: UTF-8 text, or base64 of the raw bytes.
+ENCODINGS = ("text", "base64")
 # Holds the creation token of a run directory, which its domain metadata also carries.
 CREATION_FILE = "creation"
 # The run directory's read-write share; no host sbx code writes into it, unlike xfer.
@@ -154,8 +157,10 @@ class ExecResult:
             return 128 + signal_number(self.signal)
         return TRANSPORT_EXIT if self.exit_code is None else self.exit_code
 
-    def as_json(self) -> dict[str, object]:
-        """Return the JSON form."""
+    def as_json(self, encoding: str = "text") -> dict[str, object]:
+        """Return the JSON form; text output marks a stream whose invalid UTF-8 was replaced."""
+        stdout, stdout_lossy = _encode(self.stdout, encoding)
+        stderr, stderr_lossy = _encode(self.stderr, encoding)
         return {
             "exit_code": self.exit_code,
             "signal": self.signal,
@@ -163,10 +168,21 @@ class ExecResult:
             "killed": self.killed,
             "transport_error": self.transport_error,
             "duration_s": round(self.duration_s, 3),
-            "stdout": self.stdout.decode(errors="replace"),
-            "stderr": self.stderr.decode(errors="replace"),
+            "stdout": stdout,
+            "stderr": stderr,
+            "stdout_lossy": stdout_lossy,
+            "stderr_lossy": stderr_lossy,
             "truncated": self.truncated,
         }
+
+
+def _encode(data: bytes, encoding: str) -> tuple[str, bool]:
+    if encoding == "base64":
+        return base64.b64encode(data).decode("ascii"), False
+    try:
+        return data.decode(), False
+    except UnicodeDecodeError:
+        return data.decode(errors="replace"), True
 
 
 def signal_name(number: int) -> str:

@@ -39,6 +39,7 @@ SAMPLES: dict[str, object] = {
     "to": "/work",
     "timeout": "5m",
     "cwd": "/srv",
+    "encoding": "base64",
     "env": {"A": "1", "B": "x y"},
     "user": "sbx",
     "stdin": "text",

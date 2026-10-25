@@ -1018,6 +1018,32 @@ class SandboxesTest(Fixture):
         argv, _stdin = self.backend.execs[-1]
         self.assertEqual(argv, execution.launcher(["false"], ExecOptions(), session=True))
 
+    def test_zero_timeout(self) -> None:
+        """--timeout 0s is refused before anything runs, as the MCP tools refuse it too."""
+        self.add_running("z")
+        with self.assertRaises(SbxError) as refused:
+            self.dispatch("--json", "exec", "z", "--timeout", "0s", "--", "true")
+        self.assertEqual(refused.exception.code, "invalid-argument")
+        self.assertEqual(self.backend.execs, [])
+
+    def test_output_encoding(self) -> None:
+        """Text output flags replaced bytes; base64 output carries them exactly."""
+        self.add_running("b")
+        raw = b"\xff\xfe\x00ok"
+        self.backend.exit_status = {
+            "exitcode": 0,
+            "out-data": base64.b64encode(raw).decode(),
+            "err-data": base64.b64encode("é".encode()).decode(),
+        }
+        text = cast("dict[str, object]", self.dispatch("--json", "exec", "b", "--", "x")[0])
+        self.assertEqual((text["stdout_lossy"], text["stderr_lossy"]), (True, False))
+        self.assertEqual((text["stdout"], text["stderr"]), ("\ufffd\ufffd\x00ok", "é"))
+        argv = ("--json", "exec", "b", "--output-encoding", "base64", "--", "x")
+        encoded = cast("dict[str, object]", self.dispatch(*argv)[0])
+        self.assertEqual(base64.b64decode(cast("str", encoded["stdout"])), raw)
+        self.assertEqual(base64.b64decode(cast("str", encoded["stderr"])), "é".encode())
+        self.assertEqual((encoded["stdout_lossy"], encoded["stderr_lossy"]), (False, False))
+
     def test_launcher(self) -> None:
         """Both transports run one launcher: root in its home by default, else as asked."""
         options = ExecOptions(cwd="/srv", env=("A=1", "B=x y"), user="sbx")
@@ -1104,6 +1130,7 @@ class SandboxesTest(Fixture):
             ("run", "nixos", "--name", "r", "--out", "/x", "--", "true"),
             ("run", "nixos", "--name", "r", "--to", ".", "--", "true"),
             ("run", "nixos", "--name", "r", "--timeout", "5x", "--", "true"),
+            ("run", "nixos", "--name", "r", "--timeout", "0s", "--", "true"),
         ):
             with self.subTest(argv=argv), self.assertRaises(SbxError):
                 self.dispatch(*argv)

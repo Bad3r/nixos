@@ -58,8 +58,8 @@ let
       copy out never overwrites an existing target.
     - Guest paths such as `/tmp` belong to the guest and are fine to write;
       `$TMPDIR` is a host path.
-    - `--timeout 10m` bounds the command; `--ttl`, `--mem`, and `--cpus` size the
-      sandbox within the host ceilings.
+    - `--timeout 10m` bounds the command, and `0s` is refused; `--ttl`,
+      `--mem`, and `--cpus` size the sandbox within the host ceilings.
     - The command runs as root in `/root` with `HOME=/root` on every path.
       `exec` and `run` take `--cwd DIR`, `--env NAME=VALUE` (repeatable),
       `--user NAME`, and `--stdin FILE` (a host file under the copy roots, at
@@ -115,8 +115,10 @@ let
     stdout is then one JSON document.
 
     - `exec`: `{exit_code, signal, timed_out, killed, transport_error,
-      duration_s, stdout, stderr, truncated}`, captured through qemu-ga;
-      output arrives once the command exits.
+      duration_s, stdout, stderr, stdout_lossy, stderr_lossy, truncated}`,
+      captured through qemu-ga; output arrives once the command exits. A
+      `*_lossy` flag means invalid UTF-8 was replaced; rerun with
+      `--output-encoding base64` (MCP `encoding`) for the exact bytes.
     - `run`: `{sandbox, in, exec, out}`, with `exec` shaped as above.
     - `key`: `{sandbox, keys}`; `type`: `{sandbox, characters}`. Both return
       once the input reached the guest's keyboard, not once an app handled it,
