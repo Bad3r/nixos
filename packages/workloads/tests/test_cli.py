@@ -202,6 +202,84 @@ class GrantVerbsTest(unittest.TestCase):
         self.assertIn("sbx-ab12", out)
 
 
+# A sandbox creation token, not a credential.
+CREATION = "c" * 16
+VSOCK_SANDBOX = SANDBOX | {"token": CREATION, "cid": 3}
+
+
+def vsock_runner(state: dict[str, object], calls: list[list[str]]) -> SbxRunner:
+    """Sbx reporting a sandbox without a network, and the proxy's grant states."""
+
+    def runner(arguments: Sequence[str]) -> tuple[int, str]:
+        calls.append(list(arguments))
+        if arguments[0] == "info":
+            return 0, json.dumps(VSOCK_SANDBOX)
+        return 0, json.dumps({"grants": state, "list_error": None})
+
+    return runner
+
+
+class VsockVerbsTest(unittest.TestCase):
+    """A sandbox without a network is granted by its creation and confirmed by its proxy."""
+
+    def test_grant(self) -> None:
+        """The token goes to the helper, and the grant stands once its listener is placed."""
+        helper = FakeHelper({"grant": GRANT})
+        calls: list[list[str]] = []
+        runner = vsock_runner({"0000000a": {"state": "listening"}}, calls)
+        code, _, _ = run_grant(helper, runner, "grant", "sbx-ab12", "host:dev")
+        self.assertEqual(code, 0)
+        self.assertEqual(helper.requests[0]["token"], CREATION)
+        self.assertNotIn("address", helper.requests[0])
+        self.assertEqual(calls[-1], ["vsock", "sync", "--json"])
+        self.assertEqual(len(helper.requests), 1)
+
+    def test_unplaced_grant_is_revoked(self) -> None:
+        """A listener outside the sandbox's namespace leaves nothing granted."""
+        helper = FakeHelper({"grant": GRANT})
+        state: dict[str, object] = {
+            "0000000a": {"state": "failed", "error": "vsock mode is global"}
+        }
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            code, out, _ = run_grant(
+                helper, vsock_runner(state, []), "--json", "grant", "sbx-ab12", "host:dev"
+            )
+        error = json.loads(out)["error"]
+        self.assertEqual((code, error["code"]), (1, "vsock-listener"))
+        self.assertIn("vsock mode is global", error["message"])
+        self.assertEqual(helper.requests[-1], {"verb": "revoke", "id": "0000000a"})
+
+    def test_no_vsock_device(self) -> None:
+        """A sandbox without a vsock device, such as a Windows one, is refused before the helper."""
+        helper = FakeHelper({"grant": GRANT})
+        windows = json.dumps(VSOCK_SANDBOX | {"cid": None})
+        code, out, _ = run_grant(
+            helper, lambda _: (0, windows), "--json", "grant", "sbx-ab12", "host:dev"
+        )
+        self.assertEqual((code, json.loads(out)["error"]["code"]), (1, "no-vsock"))
+        self.assertEqual(helper.requests, [])
+
+    def test_revoke_settles(self) -> None:
+        """Revoke returns once the proxy no longer serves the grant."""
+        helper = FakeHelper({"revoked": ["0000000a"], "vsock": ["0000000a"]})
+        calls: list[list[str]] = []
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            code, _, _ = run_grant(helper, vsock_runner({}, calls), "revoke", "0000000a")
+            stuck = vsock_runner({"0000000a": {"state": "listening"}}, [])
+            failed, out, _ = run_grant(helper, stuck, "--json", "revoke", "0000000a")
+        self.assertEqual((code, calls), (0, [["vsock", "sync", "--json"]]))
+        self.assertEqual((failed, json.loads(out)["error"]["code"]), (1, "vsock-unconfirmed"))
+        self.assertIn("revoked from the vsock grant list", json.loads(out)["error"]["message"])
+        unreachable = json.dumps({"error": {"code": "vsock-proxy", "message": "not reachable"}})
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            failed, out, _ = run_grant(
+                helper, lambda _: (1, unreachable), "--json", "revoke", "0000000a"
+            )
+        error = json.loads(out)["error"]
+        self.assertEqual((failed, error["code"]), (1, "vsock-unconfirmed"))
+        self.assertIn("not reachable", error["message"])
+
+
 GUEST_SHARE: dict[str, object] = {
     "guest": "dev",
     "tag": "late",

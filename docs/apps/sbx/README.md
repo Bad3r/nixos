@@ -15,6 +15,7 @@ Every sandbox is an untrusted guest.
 - Each QEMU runs in its own user and network namespace, and `sbx-qemu` (`packages/sbx/sbx/emulator.py`) starts it only when that namespace's vsock mode is `local`.
 - The guest's vhost-vsock device belongs to that namespace, so for the sandbox's whole lifetime it reaches no host vsock listener, whenever that listener starts.
 - `exec` and `cp` enter the namespace with `nsenter` to reach the guest's SSH; the module sets `net.vsock.child_ns_mode` to `local` for every new namespace.
+- A [vsock grant](vsock-grants.md) adds listeners inside that namespace for a granted host service, for the grant's lifetime only.
 - The guest sees no nested virtualization and no VMware backdoor port.
 - An expired sandbox refuses `exec`, `cp`, and `screenshot` until `gc` removes it.
 - Agents run as the owner, so the ceilings bind well-behaved callers only.
@@ -38,6 +39,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `base list`, `base build <base>` | show or build Nix bases                     |
 | `base prepare <image>`           | turn a cloud image into a base, owner only  |
 | `sleep <phase>`                  | host sleep hook only, not for agents        |
+| `vsock serve`, `vsock sync`      | vsock grant proxy, for `workloads grant`    |
 
 `create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, `--gui`, and `--wait`, which [Resources](#resources) covers.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
