@@ -43,7 +43,9 @@ NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
 # Sandbox directories sit beside the base out-links.
 RESERVED_NAMES = frozenset({"bases"})
 FLAVOURS = ("nixos",)
-NETS = ("none",)
+NETS = ("none", "egress")
+SYS_NET = Path("/sys/class/net")
+IFF_UP = 0x1
 # systemd-tmpfiles writes /root/.ssh/authorized_keys from this credential.
 CREDENTIAL = "opt/io.systemd.credentials/ssh.authorized_keys.root"
 GIB = 1 << 30
@@ -90,6 +92,15 @@ class Tools:
     systemctl: str
     nix: str
     nix_store: str
+    timedatectl: str
+
+
+@dataclass(frozen=True)
+class Egress:
+    """The bridge `--net egress` attaches to and the lease file of its DHCP server."""
+
+    bridge: str
+    leases: Path
 
 
 @dataclass(frozen=True)
@@ -114,6 +125,8 @@ class Settings:
     slice: str
     output_limit: int
     boot_timeout: int
+    # Why `--net egress` is unavailable, when it is.
+    egress: Egress | str
     tools: Tools
 
     @classmethod
@@ -144,6 +157,9 @@ class Settings:
             slice=raw["slice"],
             output_limit=raw["outputLimit"],
             boot_timeout=raw["bootTimeout"],
+            egress=raw["egress"]
+            if isinstance(raw["egress"], str)
+            else Egress(raw["egress"]["bridge"], Path(raw["egress"]["leases"])),
             tools=Tools(**raw["tools"]),
         )
 
@@ -243,6 +259,7 @@ class DomainInfo:
     cid: int | None
     meta: Meta | None
     managed_save: bool
+    mac: str | None = None
 
 
 @dataclass(frozen=True)
@@ -308,6 +325,34 @@ class Backend(Protocol):
 
     def screenshot(self, domain: str, target: Path) -> str:
         """Write the primary display to a file and return its MIME type."""
+        ...
+
+    def suspend(self, domain: str) -> None:
+        """Pause a running domain."""
+        ...
+
+    def resume(self, domain: str) -> None:
+        """Continue a paused domain."""
+        ...
+
+    def managed_save(self, domain: str) -> None:
+        """Save an active domain's state and stop it."""
+        ...
+
+    def restore(self, domain: str) -> None:
+        """Start a defined domain, from its managed save when it has one."""
+        ...
+
+    def set_time(self, domain: str) -> None:
+        """Set the guest clock to the host's through qemu-ga."""
+        ...
+
+    def job_active(self, domain: str) -> bool:
+        """Return whether a job, such as a managed save, runs on a domain."""
+        ...
+
+    def abort_job(self, domain: str) -> None:
+        """Abort a domain's running job."""
         ...
 
 
@@ -513,6 +558,61 @@ def _strip_exec_bits(path: Path) -> None:
             file.chmod(stat.S_IMODE(info.st_mode) & 0o666)
 
 
+def random_mac() -> str:
+    """Return a random address in QEMU's locally administered prefix."""
+    return "52:54:00:" + ":".join(f"{byte:02x}" for byte in secrets.token_bytes(3))
+
+
+def _lease_error(path: Path, detail: str) -> SbxError:
+    msg = f"{path} is not a libvirt lease file: {detail}"
+    return SbxError(msg, code="lease-file")
+
+
+def lease_address(path: Path, mac: str, now: float) -> str | None:
+    """Return the IPv4 address the bridge's DHCP server leased to `mac`, if any."""
+    mac = mac.lower()
+    try:
+        text = path.read_text()
+    except FileNotFoundError:
+        return None
+    if not text.strip():
+        return None
+    try:
+        leases = json.loads(text)
+    except json.JSONDecodeError as error:
+        raise _lease_error(path, str(error)) from error
+    if not isinstance(leases, list):
+        raise _lease_error(path, "not a list")
+    best: tuple[float, str] | None = None
+    for lease in cast("list[object]", leases):
+        if not isinstance(lease, dict):
+            raise _lease_error(path, "an entry is not an object")
+        entry = cast("dict[str, object]", lease)
+        address, owner, expiry = (
+            entry.get("ip-address"),
+            entry.get("mac-address"),
+            entry.get("expiry-time"),
+        )
+        if not (isinstance(address, str) and isinstance(owner, str) and isinstance(expiry, int)):
+            raise _lease_error(path, "an entry lacks ip-address, mac-address, or expiry-time")
+        # libvirt's own reading: an expiry of 0 or below never expires.
+        if owner.lower() != mac or ":" in address or 0 < expiry < now:
+            continue
+        rank = float("inf") if expiry <= 0 else float(expiry)
+        if best is None or rank > best[0]:
+            best = (rank, address)
+    return None if best is None else best[1]
+
+
+def bridge_interface(bridge: str, mac: str) -> ET.Element:
+    """Render a virtio NIC on a host bridge; session libvirt joins it through qemu-bridge-helper."""
+    interface = ET.Element("interface", type="bridge")
+    ET.SubElement(interface, "mac", address=mac)
+    ET.SubElement(interface, "source", bridge=bridge)
+    ET.SubElement(interface, "model", type="virtio")
+    return interface
+
+
 class Sandboxes:
     """Every sbx verb, over one backend."""
 
@@ -540,12 +640,28 @@ class Sandboxes:
             self._backend = self._connect(require_slice)
         return self._backend
 
+    def adopt(self, backend: Backend) -> None:
+        """Use a backend connected some other way, such as without starting the daemon."""
+        self._backend = backend
+
     @contextlib.contextmanager
-    def locked(self) -> Generator[None]:
-        """Hold the state lock; flock is per open file, so never nest it."""
+    def locked(self, timeout: float | None = None) -> Generator[None]:
+        """Hold the state lock, waiting up to `timeout`; flock is per open file: never nest it."""
         self.paths.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         with self.paths.lock.open("a") as handle:
-            fcntl.flock(handle, fcntl.LOCK_EX)
+            if timeout is None:
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            else:
+                deadline = time.monotonic() + timeout
+                while True:
+                    try:
+                        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        if time.monotonic() >= deadline:
+                            msg = f"another sbx command held {self.paths.lock} for {timeout:g} s"
+                            raise SbxError(msg, code="busy") from None
+                        time.sleep(0.2)
             yield
 
     def _check_name(self, name: str) -> None:
@@ -606,7 +722,7 @@ class Sandboxes:
             "base": meta.base,
             "net": meta.net,
             "cid": domain.cid,
-            "address": None,
+            "address": self.address(sandbox),
             "memory_mib": domain.memory_mib,
             "cpus": domain.cpus,
             "created": _iso(meta.created),
@@ -618,7 +734,43 @@ class Sandboxes:
             "xfer": str(directory / "xfer"),
         }
 
+    def address(self, sandbox: Sandbox, *, strict: bool = False) -> str | None:
+        """Return the address of a running egress sandbox from the host's DHCP leases.
+
+        A malformed lease file raises only when `strict`; otherwise it is logged
+        and the address left out, so one bad file never fails a listing.
+        """
+        egress = self.settings.egress
+        mac = sandbox.domain.mac
+        if isinstance(egress, str) or mac is None or not sandbox.domain.active:
+            return None
+        try:
+            return lease_address(egress.leases, mac, self._clock())
+        except SbxError as error:
+            if strict or error.code != "lease-file":
+                raise
+            journal.record(f"no address for {sandbox.name}: {error}", code=error.code)
+            return None
+
     # Policy checks
+
+    def _check_egress(self) -> Egress:
+        """Return the egress bridge, refusing when it is not declared, absent, or down."""
+        egress = self.settings.egress
+        if isinstance(egress, str):
+            raise SbxError(egress, code="egress-unavailable")
+        device = SYS_NET / egress.bridge
+        absent = f"bridge {egress.bridge} does not exist; its libvirt network is not running"
+        if not (device / "bridge").is_dir():
+            raise SbxError(absent, code="egress-unavailable")
+        try:
+            flags = int((device / "flags").read_text(), 16)
+        except FileNotFoundError as error:
+            raise SbxError(absent, code="egress-unavailable") from error
+        if not flags & IFF_UP:
+            msg = f"bridge {egress.bridge} is down"
+            raise SbxError(msg, code="egress-unavailable")
+        return egress
 
     def request(  # noqa: PLR0913
         self,
@@ -769,13 +921,14 @@ class Sandboxes:
 
     # Lifecycle
 
-    def _domain_xml(
+    def _domain_xml(  # noqa: PLR0913, PLR0917
         self,
         name: str,
         directory: Path,
         meta: Meta,
         request: Request,
         authorized_key: str,
+        nic: tuple[str, str] | None,
     ) -> str:
         domain = ET.Element("domain", type="kvm")
 
@@ -815,6 +968,8 @@ class Sandboxes:
         sub(disk, "driver", name="qemu", type="qcow2", cache="unsafe", discard="unmap")
         sub(disk, "source", file=str(directory / "disk.qcow2"))
         sub(disk, "target", dev="vda", bus="virtio")
+        if nic is not None:
+            devices.append(bridge_interface(*nic))
         sub(devices, "controller", type="usb", model="none")
         # Untrusted class: the guest agent channel only, never a vdagent channel.
         channel = sub(devices, "channel", type="unix")
@@ -879,12 +1034,13 @@ class Sandboxes:
             size = max(int(info["virtual-size"]), self.settings.disk_gib * GIB)
             # Every running overlay may still grow to its full virtual size.
             self._check_disk(reserve=(running + 1) * size)
-            if request.net == "none" and (listeners := self.foreign_vsock_listeners()):
+            if listeners := self.foreign_vsock_listeners():
                 msg = (
                     f"host vsock listeners outside the allowlist are reachable from a sandbox: "
                     f"{', '.join(listeners)}"
                 )
                 raise SbxError(msg, code="vsock-listener")
+            nic = (self._check_egress().bridge, random_mac()) if request.net == "egress" else None
             now = int(self._clock())
             meta = Meta(
                 request.base,
@@ -935,7 +1091,7 @@ class Sandboxes:
                     ]
                 )
                 public = key.with_suffix(".pub").read_text().strip()
-                backend.start(self._domain_xml(name, directory, meta, request, public))
+                backend.start(self._domain_xml(name, directory, meta, request, public, nic))
             except BaseException:
                 self._discard(name, token)
                 raise
@@ -963,7 +1119,8 @@ class Sandboxes:
         return "\n".join(lines[-15:])
 
     def _wait_ready(self, name: str, token: str) -> None:
-        deadline = self._clock() + self.settings.boot_timeout
+        # Monotonic, so a host sleep during the boot wait does not count against it.
+        deadline = time.monotonic() + self.settings.boot_timeout
         domain = DOMAIN_PREFIX + name
         while True:
             self.created(name, token)
@@ -971,20 +1128,27 @@ class Sandboxes:
                 self.backend().agent(domain, {"execute": "guest-ping"}, 5)
                 break
             except SbxError:
-                if self._clock() > deadline:
+                if time.monotonic() > deadline:
                     tail = self._console_tail(name)
                     msg = f"the guest agent of '{name}' did not answer; console:\n{tail}"
                     raise SbxError(msg, code="boot-timeout") from None
                 time.sleep(1)
         while True:
-            cid = self.created(name, token).domain.cid
-            result = capture(self._ssh(name, cid, ["true"]), 4096, 30)
+            sandbox = self.created(name, token)
+            result = capture(self._ssh(name, sandbox.domain.cid, ["true"]), 4096, 30)
             if result.exit_code == 0:
-                return
-            if self._clock() > deadline:
+                break
+            if time.monotonic() > deadline:
                 detail = result.stderr.decode(errors="replace").strip()
                 msg = f"ssh over vsock to '{name}' failed: {detail}"
                 raise SbxError(msg, code="boot-timeout")
+            time.sleep(1)
+        if sandbox.meta.net != "egress":
+            return
+        while self.address(sandbox, strict=True) is None:
+            if time.monotonic() > deadline:
+                msg = f"'{name}' got no DHCP lease on its egress bridge; console:\n"
+                raise SbxError(msg + self._console_tail(name), code="no-address")
             time.sleep(1)
 
     def destroy(self, name: str) -> list[str]:
@@ -1016,14 +1180,21 @@ class Sandboxes:
             msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID, or a Codex MCP call"
             raise SbxError(msg, code="no-session")
 
-    def destroy_where(self, *, mine: bool, expired: bool) -> list[str]:
-        """Remove the caller's sandboxes or the expired ones."""
+    def destroy_where(
+        self, *, mine: bool, expired: bool, timeout: float | None = None
+    ) -> list[str]:
+        """Remove the caller's sandboxes or the expired ones; `timeout` bounds the lock wait."""
         self._require_session(mine=mine)
+        if expired and not self.host_synced():
+            msg = (
+                "the host clock is not NTP-synchronized, so TTLs cannot be judged; destroy by name"
+            )
+            raise SbxError(msg, code="clock-unsynced")
         if not self._has_state():
             return []
         removed: list[str] = []
         now = self._clock()
-        with self.locked():
+        with self.locked(timeout):
             for sandbox in self.owned():
                 meta = sandbox.meta
                 if (mine and meta.session == self.session) or (expired and meta.expires <= now):
@@ -1052,8 +1223,15 @@ class Sandboxes:
         result["image"] = sandbox.meta.image
         return result
 
-    def _gc_reason(self, sandbox: Sandbox, now: float) -> str | None:
-        if sandbox.meta.expires <= now:
+    def host_synced(self) -> bool:
+        """Return whether timedatectl reports the host clock NTP-synchronized."""
+        show = [self.settings.tools.timedatectl, "show", "-p", "NTPSynchronized", "--value"]
+        result = subprocess.run(show, capture_output=True, text=True, check=False)
+        return result.stdout.strip() == "yes"
+
+    def _gc_reason(self, sandbox: Sandbox, now: float, *, synced: bool) -> str | None:
+        # An unsynced clock, such as the RTC's right after resume, may run hours ahead.
+        if synced and sandbox.meta.expires <= now:
             return "expired"
         if not sandbox.domain.active and not sandbox.domain.managed_save:
             return "shut off"
@@ -1062,15 +1240,16 @@ class Sandboxes:
         return None
 
     def gc(self, *, dry_run: bool) -> list[dict[str, str]]:
-        """Remove expired, stopped, and half-removed sandboxes."""
+        """Remove stopped and half-removed sandboxes, and expired ones once the clock is synced."""
         if not self._has_state():
             return []
         actions: list[dict[str, str]] = []
+        synced = self.host_synced()
         with self.locked():
             now = self._clock()
             owned = {sandbox.name: sandbox for sandbox in self.owned()}
             for sandbox in owned.values():
-                reason = self._gc_reason(sandbox, now)
+                reason = self._gc_reason(sandbox, now, synced=synced)
                 if reason is None:
                     continue
                 actions.append({"name": sandbox.name, "reason": reason})

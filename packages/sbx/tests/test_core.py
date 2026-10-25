@@ -2,6 +2,8 @@
 """Policy and lifecycle checks of sbx against a fake backend and stub tools."""
 
 import dataclasses
+import itertools
+import json
 import os
 import tempfile
 import threading
@@ -9,13 +11,17 @@ import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from sbx import cli, core
-from sbx.core import NS, DomainInfo, Meta, Paths, Sandboxes, SbxError, Settings, Tools
+from sbx.core import NS, DomainInfo, Egress, Meta, Paths, Sandboxes, SbxError, Settings, Tools
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 NOW = 1_800_000_000
+MAC = "52:54:00:ab:cd:ef"
 
 STUBS = {
     "ssh-keygen": 'for k; do :; done; echo key > "$k"; echo "ssh-ed25519 AAAA sbx" > "$k.pub"',
@@ -44,6 +50,7 @@ STUBS = {
         'echo "$SBX_TEST_TOPLEVEL"'
     ),
     "other": "exit 0",
+    "timedatectl": 'echo "${SBX_TEST_NTP:-yes}"',
 }
 
 
@@ -55,6 +62,17 @@ class FakeBackend:
         self.domains_by_name: dict[str, DomainInfo] = {}
         self.xml: dict[str, str] = {}
         self.replies: list[dict[str, Any]] = []
+        # Host sleep: domains that refuse, unconnected agent answers left, saved states.
+        self.failing: set[str] = set()
+        self.unconnected: dict[str, int] = {}
+        self.synced: list[str] = []
+        self.saved_state: dict[str, str] = {}
+        # Polls of job_active left before a domain's save job finishes.
+        self.jobs: dict[str, int] = {}
+        # When set, managed_save calls it, then blocks until abort_job.
+        self.before_save: Callable[[], None] | None = None
+        self.held = threading.Event()
+        self.aborted: list[str] = []
 
     def domains(self) -> list[DomainInfo]:
         """List the fake domains."""
@@ -83,6 +101,7 @@ class FakeBackend:
         element = root.find(f"metadata/{{{NS}}}sandbox")
         if element is None:
             raise AssertionError
+        mac = root.find("devices/interface[@type='bridge']/mac")
         self.xml[name] = xml
         self.domains_by_name[name] = DomainInfo(
             name=name,
@@ -93,6 +112,7 @@ class FakeBackend:
             cid=3,
             meta=Meta.parse(element),
             managed_save=False,
+            mac=None if mac is None else mac.get("address"),
         )
 
     def remove(self, domain: str) -> None:
@@ -110,9 +130,67 @@ class FakeBackend:
         target.write_bytes(b"png")
         return "image/png"
 
+    def _set(self, domain: str, state: str, *, active: bool, managed_save: bool) -> None:
+        if domain in self.failing:
+            msg = f"{domain} refused"
+            raise SbxError(msg, code="libvirt")
+        info = self.domains_by_name[domain]
+        self.domains_by_name[domain] = dataclasses.replace(
+            info, state=state, active=active, managed_save=managed_save
+        )
 
-class SandboxesTest(unittest.TestCase):
-    """Ceilings, rendering, removal, and copy roots."""
+    def suspend(self, domain: str) -> None:
+        """Pause a domain."""
+        self._set(domain, "paused", active=True, managed_save=False)
+
+    def resume(self, domain: str) -> None:
+        """Continue a domain."""
+        self._set(domain, "running", active=True, managed_save=False)
+
+    def managed_save(self, domain: str) -> None:
+        """Stop a domain with a managed save."""
+        if self.before_save is not None:
+            self.before_save()
+            self.held.wait(10)
+            if domain in self.aborted:
+                msg = "operation aborted"
+                raise SbxError(msg, code="libvirt")
+        state = self.domains_by_name[domain].state
+        self._set(domain, "shutoff", active=False, managed_save=True)
+        self.saved_state[domain] = state
+
+    def restore(self, domain: str) -> None:
+        """Start a domain in the state it was saved in, as libvirt does."""
+        self._set(domain, self.saved_state.pop(domain, "running"), active=True, managed_save=False)
+
+    def job_active(self, domain: str) -> bool:
+        """Report a save job until its polls run out, then finish the save."""
+        left = self.jobs.get(domain)
+        if left is None:
+            return False
+        if left > 0:
+            self.jobs[domain] = left - 1
+            return True
+        del self.jobs[domain]
+        self.managed_save(domain)
+        return False
+
+    def abort_job(self, domain: str) -> None:
+        """Abort a blocked save."""
+        self.aborted.append(domain)
+        self.held.set()
+
+    def set_time(self, domain: str) -> None:
+        """Answer once the agent has connected."""
+        if self.unconnected.get(domain, 0) > 0:
+            self.unconnected[domain] -= 1
+            msg = "agent not connected"
+            raise SbxError(msg, code="agent-unresponsive")
+        self.synced.append(domain)
+
+
+class Fixture(unittest.TestCase):
+    """Stub tools, a built base, a state directory, and a fake backend."""
 
     def setUp(self) -> None:
         """Lay out stub tools, a built base, and a state directory."""
@@ -139,6 +217,7 @@ class SandboxesTest(unittest.TestCase):
             systemctl=other,
             nix=other,
             nix_store=str(stubs / "nix-store"),
+            timedatectl=str(stubs / "timedatectl"),
         )
         self.settings = Settings(
             running=3,
@@ -159,6 +238,7 @@ class SandboxesTest(unittest.TestCase):
             slice="sbx.slice",
             output_limit=1024,
             boot_timeout=5,
+            egress="no egress network",
             tools=tools,
         )
         self.paths = Paths(self.scratch / "data" / "sbx", self.scratch / "config")
@@ -202,6 +282,10 @@ class SandboxesTest(unittest.TestCase):
         flags.update(overrides)
         return self.sandboxes().request("nixos", **flags)
 
+
+class SandboxesTest(Fixture):
+    """Ceilings, rendering, removal, and copy roots."""
+
     def test_parsers(self) -> None:
         """Durations and sizes accept their units."""
         self.assertEqual(core.parse_duration("90"), 90)
@@ -223,7 +307,7 @@ class SandboxesTest(unittest.TestCase):
             {"ttl": "10s"},
             {"name": "bases"},
             {"name": "Upper"},
-            {"net": "egress"},
+            {"net": "lan"},
         ):
             with self.subTest(overrides=overrides), self.assertRaises(SbxError):
                 self.request(**overrides)
@@ -279,7 +363,7 @@ class SandboxesTest(unittest.TestCase):
         self.assertFalse(self.paths.sandbox("t1").exists())
 
     def test_vsock_listeners(self) -> None:
-        """Reachable host listeners outside the allowlist refuse a `none` sandbox."""
+        """Reachable host listeners outside the allowlist refuse a sandbox."""
         ss = self.scratch / "ss"
         ss.write_text("v_str LISTEN 0 0 *:7000 *:*\nv_str LISTEN 0 0 1:5000 *:*\n")
         self.sandboxes().create(self.request())
@@ -315,6 +399,17 @@ class SandboxesTest(unittest.TestCase):
         )
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-live", "sbx-saved"])
         self.assertFalse(self.paths.sandbox("stray").exists())
+
+    def test_gc_with_an_unsynced_clock(self) -> None:
+        """Without NTP sync, gc keeps expired sandboxes and still applies its other reasons."""
+        for name in ("old", "off"):
+            self.paths.sandbox(name).mkdir(parents=True)
+        self.backend.add("old", expires=NOW - 1)
+        self.backend.add("off", expires=NOW - 1, active=False)
+        with mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}):
+            removed = self.sandboxes().gc(dry_run=False)
+        self.assertEqual(removed, [{"name": "off", "reason": "shut off"}])
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-old"])
 
     def test_destroy_mine(self) -> None:
         """--mine removes only the caller's sandboxes."""
@@ -366,6 +461,18 @@ class SandboxesTest(unittest.TestCase):
             cast("Meta", self.backend.domains_by_name["sbx-r"].meta).token, replacement["token"]
         )
         self.assertTrue(self.paths.sandbox("r").is_dir())
+
+    def test_destroy_expired_unsynced(self) -> None:
+        """--expired refuses while the host clock is unsynced."""
+        self.paths.sandbox("old").mkdir(parents=True)
+        self.backend.add("old", expires=NOW - 60)
+        with (
+            mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}),
+            self.assertRaises(SbxError) as caught,
+        ):
+            self.sandboxes().destroy_where(mine=False, expired=True)
+        self.assertEqual(caught.exception.code, "clock-unsynced")
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-old"])
 
     def test_copy_roots(self) -> None:
         """Copies in come from the roots only, and copies out default to xfer."""
@@ -633,6 +740,167 @@ class SandboxesTest(unittest.TestCase):
                     with patch:
                         self.dispatch(*argv)
             self.assert_no_sandbox("r")
+
+    def egress(self, flags: str = "0x1003") -> Path:
+        """Configure vn-sbx with a fake sysfs entry and return its lease file."""
+        sys_net = self.scratch / "sys-net"
+        (sys_net / "vn-sbx" / "bridge").mkdir(parents=True)
+        (sys_net / "vn-sbx" / "flags").write_text(f"{flags}\n")
+        patch = mock.patch.object(core, "SYS_NET", sys_net)
+        patch.start()
+        self.addCleanup(patch.stop)
+        leases = self.scratch / "vn-sbx.status"
+        self.settings = dataclasses.replace(self.settings, egress=Egress("vn-sbx", leases))
+        mac = mock.patch.object(core, "random_mac", return_value=MAC)
+        mac.start()
+        self.addCleanup(mac.stop)
+        return leases
+
+    def test_egress_unavailable(self) -> None:
+        """Egress is refused without a usable network, a bridge, or an up bridge."""
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request(net="egress"))
+        self.assertEqual(refused.exception.code, "egress-unavailable")
+        self.assertEqual(str(refused.exception), "no egress network")
+        self.egress(flags="0x1002")
+        device = core.SYS_NET / "vn-sbx"
+        for case in ("down", "flags vanished", "absent"):
+            if case == "flags vanished":
+                (device / "flags").unlink()
+            if case == "absent":
+                (device / "bridge").rmdir()
+            with self.subTest(case=case), self.assertRaises(SbxError) as refused:
+                self.sandboxes().create(self.request(net="egress"))
+            self.assertEqual(refused.exception.code, "egress-unavailable")
+            self.assert_no_sandbox("t1")
+
+    def test_egress_create(self) -> None:
+        """An egress sandbox gets one virtio NIC on the bridge and reports its leased address."""
+        leases = self.egress()
+        leases.write_text(
+            json.dumps(
+                [
+                    {"ip-address": "172.16.2.9", "mac-address": MAC, "expiry-time": NOW - 1},
+                    {
+                        "ip-address": "172.16.2.7",
+                        "mac-address": "52:54:00:00:00:01",
+                        "expiry-time": NOW + 60,
+                    },
+                    {
+                        "ip-address": "172.16.2.5",
+                        "mac-address": MAC.upper(),
+                        "expiry-time": NOW + 3600,
+                    },
+                ]
+            )
+        )
+        result = self.sandboxes().create(self.request(net="egress"))
+        self.assertEqual((result["net"], result["address"]), ("egress", "172.16.2.5"))
+        root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
+        interfaces = root.findall("devices/interface")
+        self.assertEqual(len(interfaces), 1)
+        interface = interfaces[0]
+        self.assertEqual(interface.get("type"), "bridge")
+        self.assertEqual(interface.find("source").get("bridge"), "vn-sbx")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(interface.find("model").get("type"), "virtio")  # pyright: ignore[reportOptionalMemberAccess]
+        self.assertEqual(interface.find("mac").get("address"), MAC)  # pyright: ignore[reportOptionalMemberAccess]
+        listed = self.sandboxes().listing(mine=False)
+        self.assertEqual([entry["address"] for entry in listed], ["172.16.2.5"])
+        self.assertEqual(self.sandboxes().info("t1")["address"], "172.16.2.5")
+
+    def test_egress_without_lease(self) -> None:
+        """A guest that never takes a lease fails create with no-address and is discarded."""
+        self.egress().write_text("")
+        # The boot deadline runs on the monotonic clock.
+        ticks = itertools.count(0, 2)
+        with (
+            mock.patch.object(core.time, "sleep"),
+            mock.patch.object(core.time, "monotonic", side_effect=ticks),
+            self.assertRaises(SbxError) as refused,
+        ):
+            self.sandboxes(None).create(self.request(net="egress"))
+        self.assertEqual(refused.exception.code, "no-address")
+        self.assert_no_sandbox("t1")
+
+    def test_lease_file(self) -> None:
+        """Missing and empty files hold no lease, malformed ones fail, IPv6 is skipped."""
+        path = self.scratch / "leases"
+        self.assertIsNone(core.lease_address(path, MAC, NOW))
+        path.write_text("")
+        self.assertIsNone(core.lease_address(path, MAC, NOW))
+        entries = [
+            {"ip-address": "fd00::5", "mac-address": MAC, "expiry-time": NOW + 60},
+            {"ip-address": "172.16.2.3", "mac-address": MAC, "expiry-time": 0},
+        ]
+        path.write_text(json.dumps(entries))
+        self.assertEqual(core.lease_address(path, MAC.upper(), NOW), "172.16.2.3")
+        for text in ("{", "{}", "[1]", '[{"ip-address": "172.16.2.3"}]'):
+            path.write_text(text)
+            with self.subTest(text=text), self.assertRaises(SbxError) as refused:
+                core.lease_address(path, MAC, NOW)
+            self.assertEqual(refused.exception.code, "lease-file")
+
+    def test_malformed_leases(self) -> None:
+        """A bad lease file leaves the address out of a listing but fails create."""
+        leases = self.egress()
+        leases.write_text(
+            json.dumps([{"ip-address": "172.16.2.5", "mac-address": MAC, "expiry-time": 0}])
+        )
+        self.sandboxes().create(self.request(net="egress"))
+        leases.write_text("{")
+        self.assertEqual(
+            [entry["address"] for entry in self.sandboxes().listing(mine=False)], [None]
+        )
+        self.assertIsNone(self.sandboxes().info("t1")["address"])
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request(name="t2", net="egress"))
+        self.assertEqual(refused.exception.code, "lease-file")
+        self.assert_no_sandbox("t2")
+
+    def test_none_has_no_address(self) -> None:
+        """A sandbox without a NIC reports no address even with egress configured."""
+        self.egress()
+        result = self.sandboxes().create(self.request())
+        self.assertIsNone(result["address"])
+        root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
+        self.assertIsNone(root.find("devices/interface"))
+
+    def test_egress_checks_vsock_listeners(self) -> None:
+        """A NIC does not remove vsock, so egress sandboxes get the listener check too."""
+        self.egress()
+        (self.scratch / "ss").write_text("v_str LISTEN 0 0 2:5999 *:*\n")
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request(net="egress"))
+        self.assertEqual(refused.exception.code, "vsock-listener")
+
+    def test_settings_egress(self) -> None:
+        """The rendered settings carry the egress bridge, or why there is none."""
+        raw: dict[str, object] = {
+            "limits": {
+                "running": 3,
+                "memoryMiB": 1,
+                "sandboxMemoryMiB": 1,
+                "sandboxCpus": 1,
+                "ttlSeconds": 1,
+                "diskBytes": 1,
+                "minFreeBytes": 1,
+            },
+            "defaults": {"memoryMiB": 1, "cpus": 1, "ttlSeconds": 1, "diskGiB": 1},
+            "vsockAllowlist": [],
+            "cpuset": "0",
+            "flake": "/flake",
+            "unit": "u",
+            "slice": "s",
+            "outputLimit": 1,
+            "bootTimeout": 1,
+            "egress": {"bridge": "vn-sbx", "leases": "/leases"},
+            "tools": dataclasses.asdict(self.settings.tools),
+        }
+        path = self.scratch / "settings.json"
+        path.write_text(json.dumps(raw))
+        self.assertEqual(Settings.load(path).egress, Egress("vn-sbx", Path("/leases")))
+        path.write_text(json.dumps(raw | {"egress": "why"}))
+        self.assertEqual(Settings.load(path).egress, "why")
 
 
 if __name__ == "__main__":

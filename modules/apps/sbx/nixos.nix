@@ -9,14 +9,16 @@
     * Accepts no domain XML, host disk path, or resource value above the configured ceilings.
 
   Options:
-    create <base>: Start a sandbox and print its name and vsock CID.
+    create <base>: Start a sandbox and print its name, vsock CID, and address.
+    --net egress: Attach the sandbox to the sbx workload network instead of leaving it without a NIC.
     run <base> -- CMD: Create, copy in, run, copy out, and destroy in one call.
     exec <name> -- CMD: Run a command over SSH on vsock.
     --json: Print results and errors as JSON.
     sbx-mcp: Serve the verbs as MCP tools on stdio.
 
   Notes:
-    * Sandboxes are untrusted guests: no network, no vdagent channel, no shared folders.
+    * Sandboxes are untrusted guests: no vdagent channel, no shared folders, and no network unless
+      --net egress puts them on the isolated sbx workload network.
     * QEMU runs inside sbx.slice through the sbx-libvirt user unit, so the slice bounds every sandbox together.
     * Bases build on demand from this flake and never enter the host closure.
 */
@@ -37,6 +39,7 @@ let
       inherit (lib) types;
       cfg = config.programs.sbx.extended;
       libvirtCfg = config.programs.libvirt.extended;
+      egressNetwork = config.workloads.networks.sbx or null;
       gib = 1024 * 1024 * 1024;
       positive =
         description:
@@ -167,6 +170,18 @@ let
             };
             inherit (cfg) vsockAllowlist flake;
             cpuset = cfg.limits.cpus;
+            # An object, or why `--net egress` is unavailable.
+            egress =
+              if egressNetwork == null then
+                "this host declares no workloads.networks.sbx"
+              else if !(egressNetwork.libvirt.enable && egressNetwork.libvirt.sessionAttach) then
+                "workloads.networks.sbx needs libvirt.enable and libvirt.sessionAttach"
+              else
+                {
+                  inherit (egressNetwork) bridge;
+                  # libvirt writes it world-readable, so sbx reads leases without a system connection.
+                  leases = "/var/lib/libvirt/dnsmasq/${egressNetwork.bridge}.status";
+                };
             unit = "sbx-libvirt.service";
             slice = "sbx.slice";
             outputLimit = 1024 * 1024;

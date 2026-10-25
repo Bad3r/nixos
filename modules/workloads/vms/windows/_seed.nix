@@ -1,6 +1,5 @@
 # The seed CD-ROM of one Windows guest: answer file, boot-critical virtio
-# drivers, guest tools, the OpenSSH installer firstlogon.ps1 runs, and the
-# WinFsp installer that virtiofs shares need.
+# drivers, guest tools, and the OpenSSH installer firstlogon.ps1 runs.
 { lib, pkgs }:
 {
   guestName,
@@ -15,11 +14,6 @@ let
   openssh = pkgs.fetchurl {
     url = "https://github.com/PowerShell/Win32-OpenSSH/releases/download/10.4.0.0p1-Preview/OpenSSH-Win64-v10.4.0.0.msi";
     hash = "sha256-eI2GQ0ZKAetjZAov10b57SPRBrWpAaNfiNyM1A5Eask=";
-  };
-
-  winfsp = pkgs.fetchurl {
-    url = "https://github.com/winfsp/winfsp/releases/download/v2.1/winfsp-2.1.25156.msi";
-    hash = "sha256-Bzpw4A93Qj40vtmLhuYA3vkzk7pYIiBPrFeikyTbn3o=";
   };
 
   answerFile = pkgs.writeText "autounattend.xml" (
@@ -61,7 +55,6 @@ pkgs.runCommand "${guestName}-seed.iso"
     '') drivers}
     cp ${virtioWin}/virtio-win-guest-tools.exe tree/virtio-win-guest-tools.exe
     cp ${openssh} tree/OpenSSH-Win64.msi
-    cp ${winfsp} tree/winfsp.msi
     cp ${./_firstlogon.ps1} tree/firstlogon.ps1
     find tree -exec touch -h -d "@$SOURCE_DATE_EPOCH" {} +
     xorriso -as mkisofs -iso-level 3 -volid XSEED -joliet -joliet-long -rational-rock \

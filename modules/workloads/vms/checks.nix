@@ -25,6 +25,7 @@ in
         eta = "00000000-0000-4000-8000-000000000e1a";
         adhoc = "00000000-0000-4000-8000-0000000000ad";
         epsilon = "00000000-0000-4000-8000-00000000000e";
+        sbx = "00000000-0000-4000-8000-0000000000bb";
       };
 
       seedImage = pkgs.runCommand "workloads-vms-test-seed.qcow2" { } ''
@@ -107,11 +108,193 @@ in
       installerSource = "/srv/media/installer.iso";
       installerContent = "installer";
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
+      absentWorkloads = {
+        guests = {
+          beta = changedAlpha // {
+            ensure = "absent";
+          };
+          inherit delta;
+        };
+        networks.default.resolve = [ "delta" ];
+      };
       seedLink = "/var/lib/workloads/images/seed.qcow2";
       lateLink = "/var/lib/workloads/images/late.qcow2";
       oldLink = "/var/lib/workloads/images/old.qcow2";
 
       stateDir = name: "/var/lib/workloads/guests/${uuids.${name}}";
+
+      # Session guests on the sessionAttach network: busybox in an initrd,
+      # with the NIC sbx renders. The probe reports each reachability check.
+      owner = metaOwner.username;
+      home = "/home/${owner}";
+      sbxPackage = pkgs.callPackage ../../../packages/sbx { };
+      sbxPython = "${pkgs.python3.interpreter} -I";
+      busybox = pkgs.pkgsStatic.busybox;
+      sessionKernel = pkgs.linuxPackages.kernel;
+      # Decompressed in load order, so the static busybox insmod loads them.
+      sessionModules =
+        pkgs.runCommand "workloads-vms-test-modules"
+          {
+            nativeBuildInputs = [
+              pkgs.kmod
+              pkgs.xz
+            ];
+          }
+          ''
+            mkdir "$out"
+            for module in virtio_pci virtio_net af_packet; do
+              modprobe --show-depends -d ${sessionKernel.modules} -S ${sessionKernel.modDirVersion} "$module"
+            done | awk '$1 == "insmod" && !seen[$2]++ { print $2 }' | while read -r path; do
+              name=$(basename "$path" .xz)
+              xz -dc "$path" > "$out/$name"
+              echo "$name" >> "$out/order"
+            done
+          '';
+      udhcpcScript = pkgs.writeScript "udhcpc-script" ''
+        #!${busybox}/bin/sh
+        case "$1" in
+          bound)
+            ip addr add "$ip/$mask" dev "$interface"
+            ip link set "$interface" mtu "''${mtu:-1500}"
+            ip route add default via "$router"
+            echo "$ip" > /lease-ip
+            echo "SBX lease ip=$ip router=$router dns=$dns mtu=$mtu"
+            ;;
+        esac
+      '';
+      # Store references would pull glibc into the guest's small initrd.
+      sendFrame =
+        pkgs.runCommandCC "sendframe"
+          {
+            buildInputs = [ pkgs.glibc.static ];
+            nativeBuildInputs = [ pkgs.nukeReferences ];
+            allowedReferences = [ ];
+          }
+          ''
+            cp ${./_sendframe.c} sendframe.c
+            $CC -static -O2 -o "$out" sendframe.c
+            nuke-refs "$out"
+          '';
+      sessionInit = pkgs.writeScript "init" ''
+        #!${busybox}/bin/sh
+        export PATH=${busybox}/bin
+        mkdir -p /proc /sys /dev
+        mount -t proc proc /proc
+        mount -t sysfs sysfs /sys
+        mount -t devtmpfs devtmpfs /dev
+        exec >/dev/ttyS0 2>&1
+        while read -r module; do
+          insmod ${sessionModules}/"$module"
+        done < ${sessionModules}/order
+        for arg in $(cat /proc/cmdline); do
+          case "$arg" in
+            sbx.role=*) role=''${arg#*=} ;;
+            sbx.peer=*) peer=''${arg#*=} ;;
+            sbx.host=*) host=''${arg#*=} ;;
+          esac
+        done
+        ip link set lo up
+        ip link set eth0 up
+        if [ "$role" = intruder ]; then
+          udhcpc -i eth0 -n -q -t 3 -T 1 -s ${udhcpcScript} || echo "SBX intruder-done"
+        else
+          udhcpc -i eth0 -n -q -t 30 -T 2 -O mtu -x "hostname:$role" -s ${udhcpcScript} || echo "SBX no lease"
+        fi
+        if [ "$role" = probe ]; then
+          gateway=$(ip route | awk '/^default/ { print $3 }')
+          check() { if "$@" >/dev/null 2>&1; then echo ok; else echo blocked; fi; }
+          # The lease binding follows the DHCP ACK by a moment.
+          for _ in 1 2 3 4 5 6 7 8 9 10; do ping -c 1 -W 1 "$gateway" >/dev/null 2>&1 && break; done
+          echo "SBX gateway-ping=$(check ping -c 1 -W 3 "$gateway")"
+          echo "SBX gateway-tcp=$(check nc -z -w 3 "$gateway" 53)"
+          echo "SBX host-name=$(check nslookup -type=a host.vm "$gateway")"
+          echo "SBX peer-name=$(check nslookup -type=a peer "$gateway")"
+          echo "SBX gateway-http=$(check wget -q -T 3 -O /dev/null "http://$gateway:8080/")"
+          echo "SBX host-http=$(check wget -q -T 3 -O /dev/null "http://$host:8080/")"
+          echo "SBX peer-ping=$(check ping -c 2 -W 3 "$peer")"
+          # The host counts UDP to port 4444 by source address.
+          echo own | nc -u -w 1 "$gateway" 4444
+          ip addr add "$peer/32" dev eth0
+          arping -U -c 2 -I eth0 -s "$peer" "$gateway" >/dev/null 2>&1
+          echo spoof | nc -u -w 1 -s "$peer" "$gateway" 4444
+          ip addr del "$peer/32" dev eth0
+          echo "SBX own-tcp=$(check nc -z -w 3 "$gateway" 53)"
+          own=$(cat /lease-ip)
+          # From this port's own MAC and pair, an ARP whose sender MAC is the peer's.
+          echo "SBX arp-sha-sent=$(check ${sendFrame} eth0 ${probeMac} ff:ff:ff:ff:ff:ff 0806 ${peerMac} "$own" "$gateway")"
+          # Link-local IPv4 reaches the host stack on this port's tap, not on the bridge.
+          for group in 00 03 0e; do
+            echo "SBX linklocal-ip-sent=$(check ${sendFrame} eth0 ${probeMac} 01:80:c2:00:00:$group 0800 "$own" "$gateway")"
+          done
+          # The peer's MAC from this port: link-local, then ARP with the peer's leased pair.
+          echo "SBX linklocal-sent=$(check ${sendFrame} eth0 ${peerMac} 01:80:c2:00:00:0e 88cc)"
+          ip link set eth0 down
+          ip link set eth0 address ${peerMac}
+          ip link set eth0 up
+          ip addr add "$peer/32" dev eth0
+          arping -U -c 2 -I eth0 -s "$peer" "$gateway" >/dev/null 2>&1
+          echo "SBX done"
+        fi
+        while :; do sleep 3600; done
+      '';
+      sessionInitrd = pkgs.makeInitrd {
+        contents = [
+          {
+            object = sessionInit;
+            symlink = "/init";
+          }
+        ];
+      };
+      renderSessionDomain = pkgs.writeText "render-session-domain.py" ''
+        import sys
+        import xml.etree.ElementTree as ET
+
+        sys.path.insert(0, "${sbxPackage}/lib/sbx")
+        from sbx.core import bridge_interface
+
+        name, mac, cmdline = sys.argv[1:]
+        domain = ET.Element("domain", type="kvm")
+        ET.SubElement(domain, "name").text = name
+        ET.SubElement(domain, "memory", unit="MiB").text = "128"
+        system = ET.SubElement(domain, "os")
+        ET.SubElement(system, "type", arch="x86_64", machine="q35").text = "hvm"
+        ET.SubElement(system, "kernel").text = "${sessionKernel}/bzImage"
+        ET.SubElement(system, "initrd").text = "${sessionInitrd}/initrd"
+        ET.SubElement(system, "cmdline").text = f"console=ttyS0 panic=-1 {cmdline}"
+        # Without ACPI, q35's PCIe root ports leave the NIC powered off.
+        features = ET.SubElement(domain, "features")
+        ET.SubElement(features, "acpi")
+        ET.SubElement(features, "apic")
+        devices = ET.SubElement(domain, "devices")
+        ET.SubElement(devices, "emulator").text = "${pkgs.qemu_kvm}/bin/qemu-system-x86_64"
+        devices.append(bridge_interface("vn-sbx", mac))
+        serial = ET.SubElement(devices, "serial", type="file")
+        ET.SubElement(serial, "source", path=f"${home}/{name}.log")
+        ET.SubElement(serial, "target", port="0")
+        ET.SubElement(devices, "memballoon", model="none")
+        print(ET.tostring(domain, encoding="unicode"))
+      '';
+      sessionDomain =
+        name: mac: cmdline:
+        pkgs.runCommand "workloads-vms-test-${name}.xml" { } ''
+          ${sbxPython} ${renderSessionDomain} ${name} ${mac} "${cmdline}" > "$out"
+        '';
+      peerMac = "52:54:00:00:00:0b";
+      probeMac = "52:54:00:00:00:0c";
+      # sbx's own reader; it exits non-zero until the lease exists.
+      leaseOf = pkgs.writeText "lease-of.py" ''
+        import sys
+        import time
+        from pathlib import Path
+
+        sys.path.insert(0, "${sbxPackage}/lib/sbx")
+        from sbx.core import lease_address
+
+        address = lease_address(Path("/var/lib/libvirt/dnsmasq/vn-sbx.status"), sys.argv[1], time.time())
+        if address is None:
+            sys.exit(1)
+        print(address)
+      '';
     in
     {
       checks.workloads-vms = pkgs.testers.runNixOSTest {
@@ -146,13 +329,30 @@ in
                 cores = 2;
                 memorySize = 2048;
               };
-              networking.nftables.enable = true;
+              networking = {
+                nftables.enable = true;
+                firewall = {
+                  # Open on every interface, so only the workload table keeps session guests out.
+                  allowedTCPPorts = [ 8080 ];
+                  allowedUDPPorts = [ 4444 ];
+                  # Neither reverse-path check runs, so only the workload table keeps
+                  # link-local IPv4 from bridge ports out of the host.
+                  checkReversePath = false;
+                };
+              };
               environment.systemPackages = [
                 pkgs.dnsutils
                 pkgs.socat
               ];
               programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
-              users.users.${metaOwner.username}.isNormalUser = true;
+              # systemd's own sysctl defaults set 2 on every new interface.
+              boot.kernel.sysctl."net.ipv4.conf.*.rp_filter" = 0;
+              users.users.${owner} = {
+                isNormalUser = true;
+                uid = 1000;
+                # The session daemon needs the user's runtime directory.
+                linger = true;
+              };
 
               systemd = {
                 services =
@@ -194,6 +394,23 @@ in
                         start = 100;
                         end = 200;
                       };
+                    };
+                  };
+                  sbx = {
+                    id = 6;
+                    egress = "warp";
+                    isolatePeers = true;
+                    libvirt = {
+                      enable = true;
+                      uuid = uuids.sbx;
+                      dhcp = {
+                        start = 2;
+                        end = 254;
+                        leaseMinutes = 10;
+                        clientNames = false;
+                      };
+                      sessionAttach = true;
+                      bindLeases = true;
                     };
                   };
                 };
@@ -248,14 +465,9 @@ in
                   };
                   networks.default.resolve = [ "delta" ];
                 };
-                absent.configuration.workloads = {
-                  guests = {
-                    beta = changedAlpha // {
-                      ensure = "absent";
-                    };
-                    inherit delta;
-                  };
-                  networks.default.resolve = [ "delta" ];
+                absent.configuration.workloads = absentWorkloads;
+                unbound.configuration.workloads = lib.recursiveUpdate absentWorkloads {
+                  networks.sbx.libvirt.bindLeases = lib.mkForce false;
                 };
               };
             };
@@ -268,6 +480,9 @@ in
             switch = name: "${toplevel}/specialisation/${name}/bin/switch-to-configuration test";
             inherit (nodes.machine.workloads) guests;
             nicOf = name: "\"${guests.${name}.tap.eth}\", \"${guests.${name}.mac.eth}\"";
+            peerDomain = sessionDomain "peer" peerMac "sbx.role=peer";
+            probeDomain = sessionDomain "probe" probeMac "sbx.role=probe sbx.peer=@PEER@ sbx.host=@HOST@";
+            intruderDomain = sessionDomain "intruder" peerMac "sbx.role=intruder";
           in
           ''
             import json
@@ -557,6 +772,111 @@ in
 
             with subtest("the unmarked domain is untouched"):
                 assert machine.succeed("virsh dumpxml --inactive adhoc") == adhoc
+
+            def as_owner(command):
+                return (
+                    # No /run/wrappers on PATH: libvirt must name the setuid bridge helper itself.
+                    "runuser -u ${owner} -- env HOME=${home} XDG_RUNTIME_DIR=/run/user/1000 PATH=/run/current-system/sw/bin "
+                    + command
+                )
+
+            with subtest("session guests on a sessionAttach network reach only DHCP and DNS on the host"):
+                machine.wait_for_unit("workloads-vm-net-sbx.service")
+                machine.wait_for_unit("user@1000.service")
+                machine.succeed("grep -Fx 'allow vn-sbx' /etc/qemu/bridge.conf")
+                assert "expiry='10'" in machine.succeed("virsh net-dumpxml sbx")
+                machine.succeed("systemd-run --unit=probe-http ${pkgs.python3.interpreter} -m http.server 8080")
+                machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ >/dev/null")
+
+                machine.succeed(as_owner("virsh -c qemu:///session create ${peerDomain}"))
+                try:
+                    peer = machine.wait_until_succeeds(as_owner("${sbxPython} ${leaseOf} ${peerMac}"), timeout=90).strip()
+                except Exception:
+                    # The guest's console tells a failed boot from a missing lease.
+                    print(machine.succeed("cat ${home}/peer.log"))
+                    raise
+                assert peer.startswith("172.16.6."), peer
+                # The host reaches the peer, so only the bridge isolation can block the probe's ping.
+                # Under the periodic refill's 30 s, so only the lease event can add it.
+                machine.wait_until_succeeds("nft list set bridge workload-leases leases-sbx | grep -F ${peerMac}", timeout=10)
+                machine.wait_until_succeeds(f"ping -c 1 -W 1 {peer}", timeout=30)
+
+                host = machine.succeed("ip -4 -o addr show dev eth1 | awk '{ print $4 }' | cut -d/ -f1").strip()
+                machine.succeed(f"sed -e 's/@PEER@/{peer}/' -e 's/@HOST@/{host}/' ${probeDomain} > /run/probe.xml")
+                machine.succeed(
+                    "nft add table inet probe-count"
+                    " && nft 'add chain inet probe-count pre { type filter hook prerouting priority -400; }'"
+                    f" && nft add rule inet probe-count pre iifname vn-sbx udp dport 4444 ip saddr {peer} counter"
+                    f" && nft add rule inet probe-count pre iifname vn-sbx udp dport 4444 ip saddr != {peer} counter"
+                    " && nft 'add chain inet probe-count in { type filter hook input priority 10; }'"
+                    " && nft add rule inet probe-count in udp dport 4444 counter"
+                )
+                machine.succeed(as_owner("virsh -c qemu:///session create /run/probe.xml"))
+                machine.wait_until_succeeds("grep -F 'SBX done' ${home}/probe.log")
+                report = machine.succeed("grep -F SBX ${home}/probe.log")
+                print(report)
+                assert "mtu=1240" in report, report
+                for check in ("gateway-ping", "gateway-tcp", "host-name", "own-tcp"):
+                    assert f"SBX {check}=ok" in report, report
+                for check in ("peer-name", "gateway-http", "host-http", "peer-ping"):
+                    assert f"SBX {check}=blocked" in report, report
+                neighbor = machine.succeed(f"ip neigh show {peer} dev vn-sbx")
+                assert "${peerMac}" in neighbor, neighbor
+                for check in ("arp-sha-sent", "linklocal-ip-sent", "linklocal-sent"):
+                    assert f"SBX {check}=ok" in report and f"SBX {check}=blocked" not in report, report
+                probe = next(line.split()[2].removeprefix("ip=") for line in report.splitlines() if line.startswith("SBX lease"))
+                neighbor = machine.succeed(f"ip neigh show {probe} dev vn-sbx")
+                assert "${probeMac}" in neighbor, neighbor
+
+                def counters(chain):
+                    rules = json.loads(machine.succeed(f"nft -j list chain inet probe-count {chain}"))["nftables"]
+                    return [
+                        next(e["counter"]["packets"] for e in item["rule"]["expr"] if "counter" in e)
+                        for item in rules
+                        if "rule" in item
+                    ]
+
+                spoofed, own = counters("pre")
+                assert (spoofed, own > 0) == (0, True), (spoofed, own)
+                assert counters("in") == [0], counters("in")
+
+                def peer_fdb():
+                    return [
+                        entry["ifname"]
+                        for entry in json.loads(machine.succeed("bridge -j fdb show br vn-sbx"))
+                        if entry["mac"] == "${peerMac}"
+                    ]
+
+                peer_tap = machine.succeed(as_owner("virsh -c qemu:///session domiflist peer")).split("\n")[2].split()[0]
+                assert peer_fdb() == [peer_tap], (peer_fdb(), peer_tap)
+                # Every libvirt bridge, declared guests' included, learns nothing from link-local frames.
+                for bridge in ("vn-default", "vn-lab", "vn-sbx"):
+                    assert machine.succeed(f"cat /sys/class/net/{bridge}/bridge/no_linklocal_learn").strip() == "1", bridge
+                tables = machine.succeed("nft list tables bridge")
+                assert "workload-addresses" in tables and "workload-leases" in tables, tables
+
+            with subtest("a fresh port cannot claim a pinned MAC, and pins outlive a ruleset reload"):
+                machine.succeed(as_owner("virsh -c qemu:///session create ${intruderDomain}"))
+                machine.wait_until_succeeds("grep -F 'SBX intruder-done' ${home}/intruder.log")
+                assert peer_fdb() == [peer_tap], (peer_fdb(), peer_tap)
+                machine.succeed("systemctl reload nftables.service")
+                assert "${peerMac}" in machine.succeed("nft list set bridge workload-leases ports-sbx")
+                assert "${peerMac}" in machine.succeed("nft list set bridge workload-leases leases-sbx")
+
+            def net_info(name):
+                lines = machine.succeed(f"virsh net-info {name}").splitlines()
+                return dict(line.split(":", 1) for line in lines if ":" in line)
+
+            with subtest("the unit, not libvirt autostart, starts a bindLeases network"):
+                assert net_info("sbx")["Autostart"].strip() == "no", net_info("sbx")
+                machine.succeed("systemctl restart libvirtd.service")
+                machine.wait_for_unit("workloads-vm-net-sbx.service")
+                assert net_info("sbx")["Active"].strip() == "yes", net_info("sbx")
+
+            with subtest("dropping the last bindLeases network removes the table"):
+                machine.succeed("${switch "unbound"}")
+                machine.fail("nft list table bridge workload-leases")
+                assert net_info("sbx")["Autostart"].strip() == "yes", net_info("sbx")
           '';
       };
     };

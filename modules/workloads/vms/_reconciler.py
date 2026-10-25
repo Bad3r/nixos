@@ -176,8 +176,8 @@ def sync_live_records(network: libvirt.virNetwork, desired: ET.Element) -> None:
                 log(f"added the live {label} {host}")
 
 
-def reconcile_network(conn: libvirt.virConnect, xml: str, *, autostart: bool) -> None:
-    """Define a declared network; start it when it is inactive and autostarts."""
+def reconcile_network(conn: libvirt.virConnect, xml: str, *, autostart: bool, start: bool) -> None:
+    """Define a declared network; start it when it is inactive and autostarts or `start` is set."""
     desired = parse(xml)
     name = desired.findtext("name", "")
     uuid = desired.findtext("uuid", "")
@@ -198,7 +198,7 @@ def reconcile_network(conn: libvirt.virConnect, xml: str, *, autostart: bool) ->
                 f"`virsh net-destroy {name} && virsh net-start {name}` applies it "
                 "and drops the link of every attached guest"
             )
-    elif autostart:
+    elif autostart or start:
         network.create()
         log(f"started network '{name}'")
 
@@ -718,6 +718,7 @@ def parser() -> argparse.ArgumentParser:
     network = commands.add_parser("network", help="define one rendered network")
     network.add_argument("xml", type=Path)
     network.add_argument("--autostart", action="store_true")
+    network.add_argument("--start", action="store_true", help="start it without libvirt autostart")
     network.add_argument("--connect", default="qemu:///system")
 
     guest = commands.add_parser("guest", help="define or undefine one declared guest")
@@ -747,7 +748,7 @@ def parser() -> argparse.ArgumentParser:
 def run_connected(conn: libvirt.virConnect, args: argparse.Namespace) -> None:
     """Run one subcommand that talks to libvirt."""
     if args.command == "network":
-        reconcile_network(conn, args.xml.read_text(), autostart=args.autostart)
+        reconcile_network(conn, args.xml.read_text(), autostart=args.autostart, start=args.start)
     elif args.command == "guest":
         spec = json.loads(args.spec.read_text())
         if spec["ensure"] == "absent":

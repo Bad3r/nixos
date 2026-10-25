@@ -6,7 +6,7 @@ import json
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from sbx import journal
+from sbx import journal, sleep
 from sbx.core import (
     FLAVOURS,
     NETS,
@@ -23,7 +23,7 @@ from sbx.core import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from pathlib import Path
 
 USAGE_EXIT = 2
@@ -61,7 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
     create_flags = Parser(add_help=False)
     create_flags.add_argument("base", choices=FLAVOURS)
     create_flags.add_argument("--name", help="sandbox name; default <base>-<6 hex>")
-    create_flags.add_argument("--net", choices=NETS, default="none")
+    create_flags.add_argument(
+        "--net", choices=NETS, default="none", help="none: no NIC; egress: DHCP on the sbx bridge"
+    )
     create_flags.add_argument("--mem", help="memory such as 2G")
     create_flags.add_argument("--cpus", type=int)
     create_flags.add_argument("--ttl", help="lifetime such as 30m or 2h")
@@ -111,6 +113,13 @@ def build_parser() -> argparse.ArgumentParser:
     base_verbs.add_parser("list", parents=[common])
     build = base_verbs.add_parser("build", parents=[common])
     build.add_argument("flavour", choices=FLAVOURS)
+
+    host_sleep = verbs.add_parser(
+        "sleep",
+        parents=[common],
+        help="host sleep hook only, not for agents: pause, resume, save, or restore sandboxes",
+    )
+    host_sleep.add_argument("phase", choices=sleep.PHASES)
     return parser
 
 
@@ -183,7 +192,11 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
 
 
 def dispatch(  # noqa: C901, PLR0911, PLR0912
-    sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool
+    sandboxes: Sandboxes,
+    args: argparse.Namespace,
+    *,
+    as_json: bool,
+    attach: Callable[[], Backend] | None = None,
 ) -> tuple[object, int]:
     """Run one verb and return its result and exit code."""
     match args.verb:
@@ -220,6 +233,14 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
             if args.base_verb == "list":
                 return sandboxes.base_list(), 0
             return sandboxes.base_build(args.flavour), 0
+        case "sleep":
+            if attach is None:
+                msg = "sleep needs a connect that never starts the daemon"
+                raise SbxError(msg, code="internal")
+            actions, code = sleep.Sleep(sandboxes, sleep.state_dir(), attach, as_json=as_json).run(
+                args.phase
+            )
+            return (actions if as_json else None), code
         case _:
             msg = f"unknown verb {args.verb}"
             raise SbxError(msg, code="usage")
@@ -262,8 +283,13 @@ def main(settings_path: Path, argv: Sequence[str] | None = None) -> int:
 
             return LibvirtBackend(settings, require_slice=require_slice)
 
+        def attach() -> Backend:
+            from sbx.backend import LibvirtBackend  # noqa: PLC0415
+
+            return LibvirtBackend(settings, require_slice=False, start=False)
+
         sandboxes = Sandboxes(settings, Paths.from_environment(), connect, caller_session())
-        result, code = dispatch(sandboxes, args, as_json=as_json)
+        result, code = dispatch(sandboxes, args, as_json=as_json, attach=attach)
     except (SbxError, OSError) as error:
         code = error.code if isinstance(error, SbxError) else "os-error"
         journal.record(f"failed: {error}", code=code)

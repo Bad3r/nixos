@@ -37,6 +37,18 @@ let
           dhcp = {
             start = hostOffset "Host part of the first address the DHCP range hands out.";
             end = hostOffset "Host part of the last address the DHCP range hands out.";
+
+            leaseMinutes = lib.mkOption {
+              type = types.nullOr types.ints.positive;
+              default = null;
+              description = "Lease time of the DHCP range in minutes; null keeps libvirt's hour.";
+            };
+
+            clientNames = lib.mkOption {
+              type = types.bool;
+              default = true;
+              description = "Whether the resolver answers the hostnames DHCP clients send.";
+            };
           };
 
           autostart = lib.mkOption {
@@ -45,7 +57,8 @@ let
             description = ''
               Whether libvirtd starts the network with the daemon. The
               reconciler also starts an inactive autostart network after
-              defining it.
+              defining it. A `bindLeases` network never autostarts in libvirt;
+              its unit starts it once the lease table is loaded.
             '';
           };
 
@@ -53,6 +66,20 @@ let
             type = types.bool;
             default = false;
             description = "Whether `qemu:///session` guests may attach to the bridge through qemu-bridge-helper.";
+          };
+
+          bindLeases = lib.mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Whether each guest port may send from a single MAC that no
+              other port holds, and IPv4 and ARP only from an address the
+              network's DHCP server leased to that MAC. DHCP to the gateway
+              and ARP probes pass, other frame types are dropped, and the
+              bridge learns no address from link-local frames. DHCP messages
+              may still name any client MAC, which costs pool space, not an
+              address.
+            '';
           };
         };
       };

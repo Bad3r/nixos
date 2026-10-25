@@ -32,6 +32,7 @@ _: {
     workloadNetworkIds = {
       default = 0;
       desktop = 1;
+      sbx = 2;
     };
 
     # The win11 guest (modules/hosts/songbird/workloads.nix): memory in MiB,

@@ -36,8 +36,8 @@ _: {
 ```
 
 - The UUID is the network's identity; generate it once and never change it.
-- The DHCP range is given as host parts of the network's subnet.
-- `autostart` starts the network with the daemon, and `sessionAttach` admits `qemu:///session` guests to the bridge.
+- The DHCP range is given as host parts of the network's subnet; `dhcp.leaseMinutes` shortens its leases, and `dhcp.clientNames = false` keeps hostnames guests send out of DNS.
+- `autostart` starts the network with the daemon, `sessionAttach` admits `qemu:///session` guests to the bridge, and `bindLeases` turns on [lease binding](../../networking/workloads.md#lease-binding).
 - A declared network turns the `libvirt` app row on.
 
 The network uses forward mode `open`, so libvirt writes no firewall rules and only the workload tables govern its traffic.

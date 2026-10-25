@@ -272,6 +272,17 @@ let
           message = "workloads.guests: two interfaces reserve one address: ${lib.concatStringsSep ", " offsets}";
         };
 
+      # libvirtd would start a bindLeases network without its lease table, so
+      # the unit, which waits for the table, starts it instead.
+      startFlag =
+        network:
+        if !network.libvirt.autostart then
+          ""
+        else if network.libvirt.bindLeases then
+          " --start"
+        else
+          " --autostart";
+
       networkUnit = name: network: {
         name = "workloads-vm-net-${name}";
         value = {
@@ -289,7 +300,7 @@ let
           serviceConfig = {
             Type = "oneshot";
             RemainAfterExit = true;
-            ExecStart = "${reconcile} network ${networkXml name network}${lib.optionalString network.libvirt.autostart " --autostart"}";
+            ExecStart = "${reconcile} network ${networkXml name network}${startFlag network}";
           };
         };
       };
