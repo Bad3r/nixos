@@ -1,11 +1,6 @@
 _: {
   flake.homeManagerModules.apps.sbx =
-    {
-      osConfig,
-      lib,
-      pkgs,
-      ...
-    }:
+    { osConfig, lib, ... }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "sbx" "extended" "enable" ] false osConfig;
       cfg = osConfig.programs.sbx.extended;
@@ -49,9 +44,7 @@ _: {
               # Bounds every file QEMU writes; a Windows disk is larger than the cap, so its overlay stops here.
               LimitFSIZE = "${toString cfg.sandbox.maxFile}G";
               # libvirt looks up swtpm for Windows sandbox TPMs on PATH; the shim comes first.
-              Environment = [
-                "PATH=${cfg.finalPackage.swtpmPath}:${lib.makeBinPath [ pkgs.coreutils ]}"
-              ];
+              Environment = [ "PATH=${cfg.finalPackage.daemonPath}" ];
             };
           };
 

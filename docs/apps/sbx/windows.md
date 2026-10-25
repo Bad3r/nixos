@@ -70,7 +70,7 @@ Precondition: no sandbox uses the base.
 1. Delete its exports as the owner:
 
    ```sh
-   rm -r ~/.local/share/sbx/bases/<name>
+   rm -rf ~/.local/share/sbx/bases/<name>
    ```
 
 Verification: `sbx base list` reports the base with `built` false.

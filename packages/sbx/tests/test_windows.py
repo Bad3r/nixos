@@ -40,6 +40,8 @@ class FakeWindows(FakeBackend):
         self.link_in_pack = False
         self.stall_reads = False
         self.exit_on_kill = False
+        self.short_writes = False
+        self.fail_remove = False
         self.counter = 100
 
     def host(self, path: str) -> Path:
@@ -73,7 +75,8 @@ class FakeWindows(FakeBackend):
                 value = self.counter
             case "guest-file-write":
                 data = base64.b64decode(arguments["buf-b64"])
-                value = {"count": self.handles[arguments["handle"]].write(data), "eof": False}
+                written = self.handles[arguments["handle"]].write(data)
+                value = {"count": written - int(self.short_writes), "eof": False}
             case "guest-file-read":
                 handle = self.handles[arguments["handle"]]
                 data = b"" if self.stall_reads else handle.read(arguments["count"])
@@ -96,8 +99,10 @@ class FakeWindows(FakeBackend):
             return {"exitcode": self.kill_exit, "err-data": _b64(b"not found")}
         if argv[0] != windows.POWERSHELL:
             return {"exitcode": 3, "out-data": _b64(" ".join(argv[1:]).encode())}
-        script = base64.b64decode(argv[-1]).decode("utf-16-le")
-        data = json.loads(stdin)
+        return self.powershell(base64.b64decode(argv[-1]).decode("utf-16-le"), json.loads(stdin))
+
+    def powershell(self, script: str, data: dict[str, str]) -> dict[str, Any]:
+        """Emulate the PowerShell operations sbx runs through the guest's tar.exe."""
         if windows.EXTRACT in script:
             destination = self.host(data["destination"])
             destination.mkdir(parents=True, exist_ok=True)
@@ -115,6 +120,8 @@ class FakeWindows(FakeBackend):
                     link.linkname = "/etc/passwd"
                     tar.addfile(link)
         elif windows.REMOVE in script:
+            if self.fail_remove:
+                return {"exitcode": 1, "err-data": _b64(b"access denied")}
             self.host(data["path"]).unlink(missing_ok=True)
         else:
             raise AssertionError(script)
@@ -305,6 +312,31 @@ class WindowsTest(unittest.TestCase):
         self.assertEqual(refused.exception.code, "disk-full")
         self.assertEqual(list((self.paths.sandbox("w") / "xfer").iterdir()), [])
         self.assertEqual(list((self.backend.drive / "Windows" / "Temp").iterdir()), [])
+
+    def test_copy_out_charges_blocks(self) -> None:
+        """Many small files are charged whole blocks, so they cannot slip past the budget."""
+        self.create()
+        many = self.backend.drive / "out" / "many"
+        many.mkdir(parents=True)
+        for index in range(2000):
+            (many / str(index)).write_bytes(b"x")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=4 << 20)
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().copy(r"w:C:\out\many", None)
+        self.assertEqual(refused.exception.code, "disk-full")
+        self.assertEqual(list((self.paths.sandbox("w") / "xfer").iterdir()), [])
+
+    def test_cleanup_keeps_the_original_error(self) -> None:
+        """A cleanup that fails after a failed transfer leaves the transfer's error standing."""
+        self.create()
+        tree = self.scratch / "tmp" / "work"
+        tree.mkdir(parents=True)
+        (tree / "file").write_text("x")
+        self.backend.short_writes = True
+        self.backend.fail_remove = True
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().copy(str(tree), r"w:C:\Users\Public\in")
+        self.assertIn("wrote less", str(refused.exception))
 
     def test_gc_prunes_superseded_exports(self) -> None:
         """Pruning keeps the newest export and any a sandbox uses, and skips partial ones."""

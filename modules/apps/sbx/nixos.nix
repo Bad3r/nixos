@@ -55,7 +55,7 @@ let
       exportManifest = pkgs.writeText "sbx-windows-bases.json" (
         builtins.toJSON (
           lib.mapAttrs (name: base: {
-            golden = "/var/lib/workloads/golden/${base.uuid}";
+            inherit (base) golden;
             disk = "${base.disk}.qcow2";
             directory = "${basesDir}/${name}";
             inherit owner;
@@ -167,9 +167,9 @@ let
           type = types.attrsOf (
             types.submodule {
               options = {
-                uuid = lib.mkOption {
+                golden = lib.mkOption {
                   type = types.str;
-                  description = "UUID of the guest, which names its golden directory.";
+                  description = "Directory of the guest's golden copy.";
                 };
                 disk = lib.mkOption {
                   type = types.str;
@@ -179,9 +179,8 @@ let
             }
           );
           default = lib.mapAttrs (_: guest: {
-            inherit (guest) uuid;
-            # The disk provisioning treats as the OS disk.
-            disk = lib.head (lib.attrNames guest.disks);
+            golden = "${config.workloads.goldenDir}/${guest.uuid}";
+            disk = guest.osDisk;
           }) windowsGuests;
           defaultText = lib.literalMD "every present `workloads.guests` entry of kind `windows`";
           description = ''
@@ -230,6 +229,18 @@ let
           {
             assertion = cfg.limits.ttl <= cfg.limits.maxTtl;
             message = "programs.sbx.extended.limits.ttl exceeds limits.maxTtl";
+          }
+          {
+            # Every base keeps its state under bases/<name>; the Nix flavours are core.FLAVOURS.
+            assertion =
+              lib.intersectLists (lib.attrNames cfg.windowsBases) (
+                [
+                  "nixos"
+                  "nixos-gui"
+                ]
+                ++ lib.attrNames cfg.cloudImages
+              ) == [ ];
+            message = "programs.sbx.extended.windowsBases: a name collides with a Nix flavour or a cloud image";
           }
           {
             assertion =

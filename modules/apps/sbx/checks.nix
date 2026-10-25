@@ -75,17 +75,14 @@ in
                 bootTimeout = 600;
               };
               windowsBases.win11 = {
-                inherit uuid;
+                inherit golden;
                 disk = "root";
               };
             };
             # What the sbx Home Manager part declares.
             systemd.user.services.sbx-libvirt = {
               description = "libvirt session daemon for sbx sandboxes";
-              path = [
-                sbxCfg.finalPackage.swtpmShim
-                config.virtualisation.libvirtd.qemu.swtpm.package
-              ];
+              environment.PATH = pkgs.lib.mkForce sbxCfg.finalPackage.daemonPath;
               serviceConfig = {
                 Type = "notify";
                 ExecStart = "${config.programs.libvirt.extended.package}/bin/virtqemud --timeout 600";

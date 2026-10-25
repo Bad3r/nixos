@@ -16,12 +16,12 @@ import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
-from typing import IO, TYPE_CHECKING, Any, cast
+from typing import IO, TYPE_CHECKING, Any, NoReturn, cast
 
 from sbx import core, journal
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 TASKKILL = r"C:\Windows\System32\taskkill.exe"
@@ -330,31 +330,36 @@ class Guest:
         """Open a guest file for writing."""
         return _Upload(self, self._open(path, "wb"))
 
+    def _read(self, handle: int) -> tuple[bytes, bool]:
+        reply = _object(
+            self.call("guest-file-read", handle=handle, count=FILE_CHUNK), "guest-file-read"
+        )
+        data = _decode(reply.get("buf-b64", ""), "buf-b64")
+        eof = reply.get("eof") is True
+        # Windows signals the end with an empty read, so an empty one without it repeats.
+        if not data and not eof:
+            msg = "guest-file-read returned no data before the end of the file"
+            raise _reply_error(msg)
+        return data, eof
+
     def download(self, path: str, out: IO[bytes], budget: int) -> int:
         """Copy a guest file into `out`, failing once it passes `budget` bytes."""
         handle = self._open(path, "rb")
         total = 0
         try:
             while True:
-                reply = _object(
-                    self.call("guest-file-read", handle=handle, count=FILE_CHUNK),
-                    "guest-file-read",
-                )
-                data = _decode(reply.get("buf-b64", ""), "buf-b64")
-                eof = reply.get("eof") is True
-                # Windows signals the end with an empty read, so an empty one without it repeats.
-                if not data and not eof:
-                    msg = "guest-file-read returned no data before the end of the file"
-                    raise _reply_error(msg)
+                data, eof = self._read(handle)
                 total += len(data)
                 if total > budget:
-                    msg = f"the copy passed its {budget >> 20}M budget under the disk cap and floor"
-                    raise core.SbxError(msg, code="disk-full")
+                    _over_budget(budget)
                 out.write(data)
                 if eof:
-                    return total
-        finally:
-            self.call("guest-file-close", handle=handle)
+                    break
+        except BaseException:
+            cleanup(lambda: self.call("guest-file-close", handle=handle), f"close {path}")
+            raise
+        self.call("guest-file-close", handle=handle)
+        return total
 
 
 class _Upload:
@@ -391,8 +396,13 @@ class _Upload:
             if self._buffer:
                 self._send(bytes(self._buffer))
                 self._buffer.clear()
-        finally:
-            self._guest.call("guest-file-close", handle=self._handle)
+        except BaseException:
+            cleanup(
+                lambda: self._guest.call("guest-file-close", handle=self._handle),
+                "close the guest archive",
+            )
+            raise
+        self._guest.call("guest-file-close", handle=self._handle)
 
 
 def _staging() -> str:
@@ -414,7 +424,7 @@ def copy_in(guest: Guest, source: Path, destination: str) -> str:
         finally:
             upload.close()
     except BaseException:
-        guest.powershell(REMOVE, {"path": archive})
+        cleanup(lambda: guest.powershell(REMOVE, {"path": archive}), f"remove {archive}")
         raise
     guest.powershell(EXTRACT, {"archive": archive, "destination": str(target)})
     return str(target)
@@ -429,16 +439,32 @@ def copy_out(guest: Guest, source: PureWindowsPath, stage: Path, budget: int) ->
                 PACK, {"parent": str(source.parent), "leaf": source.name, "archive": archive}
             )
             size = guest.download(archive, local, budget)
-        finally:
-            guest.powershell(REMOVE, {"path": archive})
+        except BaseException:
+            cleanup(lambda: guest.powershell(REMOVE, {"path": archive}), f"remove {archive}")
+            raise
+        guest.powershell(REMOVE, {"path": archive})
         local.seek(0)
         with tarfile.open(fileobj=local, mode="r:") as tar:
             members = tar.getmembers()
-            _check_members(members, source.name, budget - size)
+            # The archive stays on disk while it is extracted, so its size counts too.
+            _check_members(members, source.name, budget - size, stage.stat().st_blksize)
             tar.extractall(stage, members=members, filter="data")
 
 
-def _check_members(members: list[tarfile.TarInfo], leaf: str, room: int) -> None:
+def _over_budget(budget: int) -> NoReturn:
+    msg = f"the copy passed its {budget >> 20}M budget under the disk cap and floor"
+    raise core.SbxError(msg, code="disk-full")
+
+
+def cleanup(step: Callable[[], object], what: str) -> None:
+    """Run a cleanup on an error path; its own failure is journaled, never raised over the error."""
+    try:
+        step()
+    except core.SbxError as error:
+        journal.record(f"cannot {what}: {error}", code="cleanup-failed")
+
+
+def _check_members(members: list[tarfile.TarInfo], leaf: str, room: int, block: int) -> None:
     total = 0
     for member in members:
         if member.name != leaf and not member.name.startswith(f"{leaf}/"):
@@ -447,7 +473,7 @@ def _check_members(members: list[tarfile.TarInfo], leaf: str, room: int) -> None
         if not (member.isreg() or member.isdir()) or member.issparse():
             msg = f"{member.name!r} is not a plain file or directory"
             raise core.SbxError(msg, code="path-denied")
-        total += member.size
+        # Allocation rounds up to whole blocks, and every entry costs at least one more.
+        total += -(-member.size // block) * block + block
     if total > room:
-        msg = f"the copy passed its {room >> 20}M budget under the disk cap and floor"
-        raise core.SbxError(msg, code="disk-full")
+        _over_budget(room)

@@ -30,7 +30,7 @@ let
           after = [ "libvirtd.service" ];
           serviceConfig = {
             Type = "oneshot";
-            ExecStart = "${python.interpreter} -I ${./_reconciler.py} golden ${manifest} %i";
+            ExecStart = "${python.interpreter} -I ${./_reconciler.py} golden ${manifest} %i --directory ${config.workloads.goldenDir}";
           };
         };
       };

@@ -7,6 +7,7 @@
   python3,
   qemu_kvm,
   swtpm,
+  coreutils,
   openssh,
   socat,
   tesseract,
@@ -133,10 +134,17 @@ stdenvNoCC.mkDerivation {
 
   passthru = {
     inherit settings settingsFile swtpmShim;
-    # swtpm_setup and swtpm_ioctl come from the real package behind the shim.
-    swtpmPath = lib.makeBinPath [
-      swtpmShim
-      swtpm
+    # PATH of sbx-libvirt: the shim wins over swtpm, whose package still gives
+    # swtpm_setup and swtpm_ioctl; the rest is the user manager's own PATH.
+    daemonPath = lib.concatStringsSep ":" [
+      (lib.makeBinPath [
+        swtpmShim
+        swtpm
+        coreutils
+      ])
+      "/run/wrappers/bin"
+      "/etc/profiles/per-user/%u/bin"
+      "/run/current-system/sw/bin"
     ];
   };
 
