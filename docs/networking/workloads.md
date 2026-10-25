@@ -4,18 +4,20 @@
 `modules/workloads/networks.nix` renders its firewall tables, IPv4 forwarding, and egress routing; the runtime that uses the network creates the bridge `vn-<name>` and serves DHCP on it.
 Containers on rootful Podman join a network through [workload services](workload-services.md).
 A network is isolated by default: guests reach the gateway for DHCP and ping, and for DNS on `warp` networks, and nothing else on the host, the LAN, Mesh, or another network.
+[Workload links](workload-links.md) open single paths through that isolation.
 
 ## Table ownership
 
-| Table                   | Owner           | Role                                   |
-| ----------------------- | --------------- | -------------------------------------- |
-| `inet nixos-fw`         | NixOS firewall  | opens DHCP, DNS, host ports per bridge |
-| `inet workload`         | workload module | anti-spoof, input filter, forward, NAT |
-| `bridge workload-peers` | workload module | drops guest-to-guest on one bridge     |
-| `inet cloudflare-warp`  | warp-svc        | admits the workload block on its own   |
+| Table                    | Owner                     | Role                                   |
+| ------------------------ | ------------------------- | -------------------------------------- |
+| `inet nixos-fw`          | NixOS firewall            | opens DHCP, DNS, host ports per bridge |
+| `inet workload`          | workload module           | anti-spoof, input filter, forward, NAT |
+| `bridge workload-peers`  | workload module           | drops guest-to-guest on one bridge     |
+| `bridge workload-leases` | `workload-leases.service` | binds guests to their DHCP leases      |
+| `inet cloudflare-warp`   | warp-svc                  | admits the workload block on its own   |
 
 The `inet workload` prerouting chain drops packets from a bridge whose source lies outside its subnet before conntrack sees them, so a guest cannot inject into another network's flows.
-The input chain runs one priority ahead of `nixos-fw`.
+The input chain runs one priority ahead of `nixos-fw`, and drops traffic that reaches the host on a bridge port (`vnet*`, `vg-*`, `tap*`) instead of the bridge, as link-local frames do.
 A drop in any base chain is final, so new traffic from a bridge never reaches the ports `nixos-fw` opens on every interface, and the pre-filter narrows the per-bridge opens to the gateway address.
 The forward chain drops all forwarding that neither enters nor leaves a `vn-*` bridge, so turning forwarding on never makes the host a router between the LAN, Mesh, and WARP.
 Once any network is declared, forwarding through other interfaces, such as rootful Podman's `podman0`, is dropped as well.
@@ -47,6 +49,22 @@ _: {
 
 `bridge`, `subnet`, `gateway`, and `mtu` are read-only and derived from the name, the id, and the egress mode; runtime modules read them.
 The bridge name must fit the kernel's interface name limit, which the option type enforces.
+
+## Lease binding
+
+`isolatePeers` drops frames between guest ports only, so a guest could still claim another guest's address toward the host, through ARP or as an IP source.
+A libvirt network with `libvirt.bindLeases` closes that gap in `bridge workload-leases`.
+
+- Each guest port sends from the first MAC it uses, and no other port may use that MAC; a pin lapses after an hour of silence.
+- That MAC sends IPv4 and ARP only from an address its DHCP server leased to it, until the lease expires.
+- DHCP to the gateway and ARP probes pass, every other frame type is dropped, and no libvirt bridge learns an address from link-local frames.
+- DHCP messages may still name any client MAC, so a guest can use up the pool or release a lease whose MAC it guesses, but it cannot send from another guest's address.
+
+`workload-leases.service` owns the table, so a ruleset reload leaves the port pins in place.
+It watches libvirt's lease file and reloads the leased pairs on every change and every 30 seconds, dropping the pins of ports that are gone.
+A network with `bindLeases` never autostarts in libvirt; its `workloads-vm-net-<network>` unit starts it, and only once the table has loaded.
+A `flush ruleset` reload would still empty it, so an evaluation assertion requires `networking.nftables.flushRuleset = false`.
+A guest whose lease expired loses traffic until it renews.
 
 ## Egress modes
 

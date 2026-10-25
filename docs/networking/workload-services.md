@@ -74,7 +74,7 @@ On a `warp` network, aardvark-dns answers on the gateway, resolves the names of 
 The gateway is the container's only nameserver, so Podman appends no public fallback servers.
 A `none` network has DNS turned off, and Podman writes no `/etc/resolv.conf` into its containers; an image's own file stays unchanged.
 Containers start from an empty hosts file instead of the host's `/etc/hosts`, which carries Mesh names.
-Host-side names: [Workload names](workload-names.md).
+Names on the host and in linked guests' networks: [Workload names](workload-names.md).
 
 ## Verify
 

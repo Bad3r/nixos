@@ -79,7 +79,7 @@ let
       lines = lib.concatStringsSep "\n";
 
       egressRules =
-        network:
+        name: network:
         let
           pref = offset: toString (31000 + 10 * network.id + offset);
           rule = offset: action: "rule add pref ${pref offset} iif ${network.bridge} ${action}";
@@ -88,6 +88,9 @@ let
         # carry guest traffic out the uplink.
         lib.optionals network.lanAccess (
           lib.imap0 (index: cidr: rule index "to ${cidr} lookup main") lanCidrs
+        )
+        ++ map (address: rule 4 "to ${address} lookup main") (
+          config.workloads.routedAddresses.${name} or [ ]
         )
         ++ lib.optional (network.egress == "warp") (rule 5 "lookup ${toString warpTable}")
         ++ [ (rule 9 "unreachable") ];
@@ -181,13 +184,38 @@ let
         };
     in
     {
-      options.workloads.networks = lib.mkOption {
-        type = types.attrsOf (types.submodule networkModule);
-        default = { };
-        description = ''
-          Workload networks: one bridge each, isolated from the host, the
-          LAN, and each other except where an option opens a path.
-        '';
+      options.workloads = {
+        networks = lib.mkOption {
+          type = types.attrsOf (types.submodule networkModule);
+          default = { };
+          description = ''
+            Workload networks: one bridge each, isolated from the host, the
+            LAN, and each other except where an option opens a path.
+          '';
+        };
+
+        routedAddresses = lib.mkOption {
+          type = types.attrsOf (types.listOf types.str);
+          default = { };
+          internal = true;
+          description = "Addresses on other workload networks that traffic from each network's bridge routes to through the main table; the forward chain still decides what passes.";
+        };
+
+        nftables = {
+          inputRules = lib.mkOption {
+            type = types.lines;
+            default = "";
+            internal = true;
+            description = "Rules the `inet workload` input chain evaluates ahead of its final drop.";
+          };
+
+          forwardRules = lib.mkOption {
+            type = types.lines;
+            default = "";
+            internal = true;
+            description = "Rules the `inet workload` forward chain evaluates ahead of its cross-network drops.";
+          };
+        };
       };
 
       config = lib.mkMerge [
@@ -240,9 +268,15 @@ let
             workload.content = lib.mkAfter ''
               chain input {
                 type filter hook input priority filter - 1; policy accept;
+                # Link-local frames reach the stack on the bridge port itself: libvirt's
+                # vnet taps, declared guests' vg- taps, and qemu-bridge-helper's session taps.
+                iifname "vnet*" drop
+                iifname "vg-*" drop
+                iifname "tap*" drop
                 iifname != "vn-*" accept
                 ct state vmap { established : accept, related : accept, invalid : drop }
                 ${lines (lib.concatMap inputRules networks)}
+                ${config.workloads.nftables.inputRules}
                 drop
               }
 
@@ -251,6 +285,7 @@ let
                 iifname != "vn-*" oifname != "vn-*" drop
                 ct state vmap { established : accept, related : accept, invalid : drop }
                 ${lines sameBridgeRules}
+                ${config.workloads.nftables.forwardRules}
                 iifname != "vn-*" drop
                 oifname "vn-*" drop
                 ${lines lanAccessRules}
@@ -297,7 +332,11 @@ let
             script = ''
               {
                 ip rule show | awk -F: '$1 >= 31000 && $1 <= 31999 { print "rule del pref " $1 }'
-                cat ${pkgs.writeText "workload-egress-rules" (lines (lib.concatMap egressRules networks) + "\n")}
+                cat ${
+                  pkgs.writeText "workload-egress-rules" (
+                    lines (lib.concatLists (lib.mapAttrsToList egressRules config.workloads.networks)) + "\n"
+                  )
+                }
               } | ip -batch -
             '';
           };

@@ -37,6 +37,18 @@ let
           dhcp = {
             start = hostOffset "Host part of the first address the DHCP range hands out.";
             end = hostOffset "Host part of the last address the DHCP range hands out.";
+
+            leaseMinutes = lib.mkOption {
+              type = types.nullOr types.ints.positive;
+              default = null;
+              description = "Lease time of the DHCP range in minutes; null keeps libvirt's hour.";
+            };
+
+            clientNames = lib.mkOption {
+              type = types.bool;
+              default = true;
+              description = "Whether the resolver answers the hostnames DHCP clients send.";
+            };
           };
 
           autostart = lib.mkOption {
@@ -45,7 +57,8 @@ let
             description = ''
               Whether libvirtd starts the network with the daemon. The
               reconciler also starts an inactive autostart network after
-              defining it.
+              defining it. A `bindLeases` network never autostarts in libvirt;
+              its unit starts it once the lease table is loaded.
             '';
           };
 
@@ -54,24 +67,48 @@ let
             default = false;
             description = "Whether `qemu:///session` guests may attach to the bridge through qemu-bridge-helper.";
           };
-        };
-      };
 
-      mediaModule = {
-        options = {
-          source = lib.mkOption {
-            # A string, so the file never enters the store.
-            type = types.strMatching "/.+";
-            description = "Absolute runtime path of the regular file to stage, read with the owner's permissions.";
-          };
-
-          sha256 = lib.mkOption {
-            type = types.nullOr (types.strMatching "[0-9a-f]{64}");
-            default = null;
-            description = "Hex SHA-256 the staged copy must match.";
+          bindLeases = lib.mkOption {
+            type = types.bool;
+            default = false;
+            description = ''
+              Whether each guest port may send from a single MAC that no
+              other port holds, and IPv4 and ARP only from an address the
+              network's DHCP server leased to that MAC. DHCP to the gateway
+              and ARP probes pass, other frame types are dropped, and the
+              bridge learns no address from link-local frames. DHCP messages
+              may still name any client MAC, which costs pool space, not an
+              address.
+            '';
           };
         };
       };
+
+      mediaModule =
+        { name, ... }:
+        {
+          options = {
+            path = lib.mkOption {
+              type = types.str;
+              readOnly = true;
+              default = "/var/lib/workloads/media/${name}";
+              defaultText = lib.literalExpression ''"/var/lib/workloads/media/<name>"'';
+              description = "Path of the staged copy.";
+            };
+
+            source = lib.mkOption {
+              # A string, so the file never enters the store.
+              type = types.strMatching "/.+";
+              description = "Absolute runtime path of the regular file to stage, read with the owner's permissions.";
+            };
+
+            sha256 = lib.mkOption {
+              type = types.nullOr (types.strMatching "[0-9a-f]{64}");
+              default = null;
+              description = "Hex SHA-256 the staged copy must match.";
+            };
+          };
+        };
 
       imageModule =
         { name, ... }:
@@ -232,6 +269,9 @@ let
               1
               2
             ];
+          # vnet and macvtap names are libvirt's own and never kept.
+          tapOf =
+            nic: "vg-" + builtins.substring 0 12 (builtins.hashString "sha256" "${config.uuid}/${nic}/tap");
           networkOf =
             nic:
             networks.${config.interfaces.${nic}.network}
@@ -285,7 +325,8 @@ let
               ];
               description = ''
                 Trust class. Untrusted guests get no SPICE agent channel, so
-                no clipboard, file transfer, or display resizing.
+                no clipboard, file transfer, or display resizing, unless
+                `allowUntrustedClipboard` lets them have a clipboard.
               '';
             };
 
@@ -358,6 +399,15 @@ let
               default = trusted;
               defaultText = lib.literalExpression ''trust == "trusted"'';
               description = "Whether the SPICE console shares the clipboard with the guest.";
+            };
+
+            allowUntrustedClipboard = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Whether an untrusted guest may set `clipboard = true`, which
+                gives it the SPICE agent channel. File transfer stays off.
+              '';
             };
 
             fileTransfer = lib.mkOption {
@@ -437,6 +487,12 @@ let
                 "MAC address of each interface, derived from the UUID and the interface name."
                 (lib.mapAttrs (nic: _: macOf nic) config.interfaces)
                 "{ <nic> = \"52:54:00:...\"; }";
+
+            tap =
+              derived (types.attrsOf types.str)
+                "Host-side tap device of each interface, derived from the UUID and the interface name."
+                (lib.mapAttrs (nic: _: tapOf nic) config.interfaces)
+                "{ <nic> = \"vg-<hash>\"; }";
 
             bridge = derived (types.attrsOf types.str) "Bridge each interface attaches to." (lib.mapAttrs (
               nic: _: (networkOf nic).bridge

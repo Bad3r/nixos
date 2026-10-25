@@ -61,7 +61,9 @@ def build_parser() -> argparse.ArgumentParser:
     create_flags = Parser(add_help=False)
     create_flags.add_argument("base", choices=FLAVOURS)
     create_flags.add_argument("--name", help="sandbox name; default <base>-<6 hex>")
-    create_flags.add_argument("--net", choices=NETS, default="none")
+    create_flags.add_argument(
+        "--net", choices=NETS, default="none", help="none: no NIC; egress: DHCP on the sbx bridge"
+    )
     create_flags.add_argument("--mem", help="memory such as 2G")
     create_flags.add_argument("--cpus", type=int)
     create_flags.add_argument("--ttl", help="lifetime such as 30m or 2h")

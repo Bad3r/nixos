@@ -32,6 +32,7 @@ _: {
     workloadNetworkIds = {
       default = 0;
       desktop = 1;
+      sbx = 2;
     };
 
     # The win11 guest (modules/hosts/songbird/workloads.nix): memory in MiB,
@@ -44,6 +45,8 @@ _: {
       # /data is a nofail LUKS mount; workloads-vm-media requires it.
       installIso = "/data/Misc/windows/en-us_windows_11_business.iso";
       installIsoSha256 = "9a9428dcf8ad48391744ac63062619e05758230fe4e9c9753515d413cfc316bb";
+      # `{ source; sha256; }` of an OfficeSetup.exe that provisioning runs, or null.
+      officeInstaller = null;
     };
 
     # Ceilings for every sbx sandbox together (modules/apps/sbx/nixos.nix).

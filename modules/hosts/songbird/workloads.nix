@@ -12,6 +12,7 @@ let
   secretFile = secretsRoot + "/workloads.yaml";
   # Both halves, as every other secret consumer here gates (services.nix).
   win11Ready = policy.sopsRuntimeReady && builtins.pathExists secretFile;
+  withOffice = win11.officeInstaller != null;
 in
 {
   perSystem.workloads.artifacts = {
@@ -46,12 +47,15 @@ in
             };
 
             workloads = {
-              media = lib.mkIf win11Installing {
-                win11-iso = {
-                  source = win11.installIso;
-                  sha256 = win11.installIsoSha256;
-                };
-              };
+              media = lib.mkMerge [
+                (lib.mkIf win11Installing {
+                  win11-iso = {
+                    source = win11.installIso;
+                    sha256 = win11.installIsoSha256;
+                  };
+                })
+                (lib.mkIf withOffice { office-setup = win11.officeInstaller; })
+              ];
 
               # Drivers to install by hand; an image, so a stale out-link only
               # matters before the first define.
@@ -79,6 +83,7 @@ in
                   };
                   timeZone = "Arab Standard Time";
                   services.ssh.port = 22;
+                  office.installer = lib.mkIf withOffice "office-setup";
                 };
               };
             };
@@ -91,6 +96,17 @@ in
         ];
 
       workloads = {
+        host.services.dev = {
+          ports = [
+            {
+              from = 8000;
+              to = 8999;
+            }
+          ];
+          bind = "any";
+          grantable = true;
+        };
+
         networks = {
           default = {
             egress = "warp";
@@ -115,6 +131,25 @@ in
                 start = 100;
                 end = 254;
               };
+            };
+          };
+
+          # sbx sandboxes on `--net egress`; none holds a reservation, so the pool spans the subnet.
+          sbx = {
+            egress = "warp";
+            isolatePeers = true;
+            libvirt = {
+              enable = true;
+              uuid = "ba3452f4-c558-479f-9ec4-c10cdf3f85cc";
+              dhcp = {
+                start = 2;
+                end = 254;
+                leaseMinutes = 10;
+                clientNames = false;
+              };
+              autostart = true;
+              sessionAttach = true;
+              bindLeases = true;
             };
           };
         };

@@ -111,6 +111,8 @@
   - Declared containers on rootful Podman: networks, user namespaces, firewall ownership, published ports, and DNS.
 - [networking/workloads.md](networking/workloads.md)
   - Workload bridge networks: table ownership, declaring a network, egress modes, and verification.
+- [networking/workload-links.md](networking/workload-links.md)
+  - Host services, links from guests to host services and other guests, and gateway proxies.
 
 ## Packaging
 
@@ -297,7 +299,9 @@
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
   - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
 - [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)
-  - Running an ad-hoc virt-manager guest from a staged ISO, and installing, activating, and finishing the `win11` guest.
+  - Running an ad-hoc virt-manager guest from a staged ISO, and dropping the ISO.
+- [hosts/songbird/songbird-runbook-win11.md](hosts/songbird/songbird-runbook-win11.md)
+  - Installing, activating, adding Office to, and finishing the `win11` guest.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
@@ -461,6 +465,8 @@
 ### sbx
 
 - [apps/sbx/README.md](apps/sbx/README.md)
-  - Agent sandboxes on `qemu:///session`: trust model, verbs, copy roots, Nix bases, the slice and ceilings, state, gc, and failures.
+  - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, Nix bases, the slice and ceilings, state, and gc.
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)
   - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
+- [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)
+  - `sbx` failures by error code: a daemon outside the slice, vsock listeners, boot timeouts, and an unavailable egress bridge or lease.

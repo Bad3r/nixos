@@ -48,7 +48,11 @@ in
     ${dns}
     <ip address="${network.gateway}" prefix="24">
       <dhcp>
-        <range start="${address libvirt.dhcp.start}" end="${address libvirt.dhcp.end}"/>
+        <range start="${address libvirt.dhcp.start}" end="${address libvirt.dhcp.end}">${
+          lib.optionalString (
+            libvirt.dhcp.leaseMinutes != null
+          ) ''<lease expiry="${toString libvirt.dhcp.leaseMinutes}" unit="minutes"/>''
+        }</range>
         ${lib.concatMapStrings (
           host: ''<host mac="${host.mac}" name="${host.name}" ip="${host.ip}"/>''
         ) hosts}
@@ -56,6 +60,9 @@ in
     </ip>
     <dnsmasq:options>
       <dnsmasq:option value="no-hosts"/>
+      ${lib.optionalString (
+        !libvirt.dhcp.clientNames
+      ) ''<dnsmasq:option value="dhcp-ignore-names"/>''}
       ${lib.optionalString (network.egress != "none") ''<dnsmasq:option value="local=/vm/"/>''}
     </dnsmasq:options>
   </network>
