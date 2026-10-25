@@ -2,12 +2,13 @@
 """One-shot runs: create, copy in, exec, copy out, and destroy."""
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING
+from pathlib import Path
+from typing import TYPE_CHECKING, cast
 
 from sbx import journal, windows
 from sbx.errors import SbxError, error_document
 from sbx.lifecycle import Lifecycle
-from sbx.transfer import Transfer
+from sbx.transfer import Transfer, guest_source
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -22,6 +23,15 @@ SANDBOX_FIELDS = ("name", "base", "net", "memory_mib", "cpus", "session", "token
 
 def _phases() -> dict[str, str]:
     return dict.fromkeys(PHASES, "skipped")
+
+
+@dataclass(frozen=True)
+class RunPlan:
+    """The host side of a run, checked before it boots."""
+
+    inputs: tuple[Path, ...]
+    # Each guest path to copy out, with the host path it lands at.
+    outputs: tuple[tuple[str, Path], ...]
 
 
 @dataclass
@@ -85,15 +95,48 @@ class RunResult:
 class Pipeline(Lifecycle, Transfer):
     """`sbx run`."""
 
+    def plan_run(
+        self, request: Request, inputs: Sequence[str], outputs: Sequence[str], to: str | None
+    ) -> RunPlan:
+        """Check a run's host paths, base, network, and disk before it boots or queues.
+
+        Each step checks its own part again when it acts.
+        """
+        if outputs and to is None:
+            msg = "--out needs --to"
+            raise SbxError(msg, code="usage")
+        if to is not None and not outputs:
+            msg = "--to needs --out"
+            raise SbxError(msg, code="usage")
+        sources = tuple(self._source(Path(path)) for path in inputs)
+        landing: dict[str, Path] = {}
+        for source in sources:
+            if source.name in landing:
+                msg = f"--in {landing[source.name]} and {source} both copy in as '{source.name}'"
+                raise SbxError(msg, code="invalid-argument")
+            landing[source.name] = source
+        on_windows = self.windows_base(request.base) is not None
+        targets: dict[Path, str] = {}
+        for path in outputs:
+            leaf = guest_source(path, on_windows=on_windows).name
+            target = self._destination(Path(cast("str", to)), leaf)
+            if target in targets:
+                msg = f"--out {targets[target]} and {path} both land at {target}"
+                raise SbxError(msg, code="invalid-argument")
+            targets[target] = path
+        self.base_image(request.base)
+        if request.net == "egress":
+            self._check_egress()
+        self.check_disk()
+        return RunPlan(sources, tuple((path, target) for target, path in targets.items()))
+
     def run_once(  # noqa: PLR0913
         self,
         request: Request,
+        plan: RunPlan,
         command: Sequence[str],
         options: ExecOptions,
         *,
-        inputs: Sequence[str],
-        outputs: Sequence[str],
-        to: str | None,
         attached: bool,
         token: str | None = None,
     ) -> RunResult:
@@ -110,9 +153,7 @@ class Pipeline(Lifecycle, Transfer):
         result.phases["create"] = "ok"
         # Every step and the cleanup act only on this creation, never on a later namesake.
         try:
-            self._steps(
-                result, command, options, inputs=inputs, outputs=outputs, to=to, attached=attached
-            )
+            self._steps(result, plan, command, options, attached=attached)
         finally:
             try:
                 result.destroyed = self.destroy_created(token)
@@ -124,23 +165,21 @@ class Pipeline(Lifecycle, Transfer):
                 result.phases["cleanup"] = "failed"
         return result
 
-    def _steps(  # noqa: PLR0913
+    def _steps(
         self,
         result: RunResult,
+        plan: RunPlan,
         command: Sequence[str],
         options: ExecOptions,
         *,
-        inputs: Sequence[str],
-        outputs: Sequence[str],
-        to: str | None,
         attached: bool,
     ) -> None:
         name, token = str(result.sandbox["name"]), str(result.sandbox["token"])
         try:
             agent_only = self.agent_only(name, token=token)
             inbox = windows.INBOX if agent_only else "/root/"
-            for path in inputs:
-                result.copied_in.append(self.copy(path, f"{name}:{inbox}", token=token))
+            for source in plan.inputs:
+                result.copied_in.append(self.copy(str(source), f"{name}:{inbox}", token=token))
         except (SbxError, OSError) as error:
             result.phases["in"], result.failure = "failed", error
             return
@@ -160,9 +199,9 @@ class Pipeline(Lifecycle, Transfer):
             return
         result.phases["exec"] = "ok"
         result.phases["out"] = "ok"
-        for path in outputs:
+        for path, target in plan.outputs:
             try:
-                result.copied_out.append(self.copy(f"{name}:{path}", to, token=token))
+                result.copied_out.append(self.copy(f"{name}:{path}", str(target), token=token))
             except (SbxError, OSError) as error:
                 result.copied_out.append({"from": f"{name}:{path}", "error": error_document(error)})
                 result.phases["out"] = "failed"

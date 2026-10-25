@@ -227,23 +227,10 @@ def _run(
     sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool, token: str | None
 ) -> tuple[object, int]:
     command = _command(args)
-    if args.outputs and args.to is None:
-        msg = "--out needs --to"
-        raise SbxError(msg, code="usage")
-    if args.to is not None and not args.outputs:
-        msg = "--to needs --out"
-        raise SbxError(msg, code="usage")
+    request = _request(sandboxes, args)
+    plan = sandboxes.plan_run(request, args.inputs, args.outputs, args.to)
     options = _exec_options(sandboxes, args)
-    result = sandboxes.run_once(
-        _request(sandboxes, args),
-        command,
-        options,
-        inputs=args.inputs,
-        outputs=args.outputs,
-        to=args.to,
-        attached=not as_json,
-        token=token,
-    )
+    result = sandboxes.run_once(request, plan, command, options, attached=not as_json, token=token)
     code = None if result.execution is None else result.execution.status()
     if not as_json:
         if result.execution is not None:

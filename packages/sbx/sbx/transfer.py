@@ -55,6 +55,15 @@ def _strip_exec_bits(path: Path) -> None:
             file.chmod(stat.S_IMODE(info.st_mode) & 0o666)
 
 
+def guest_source(guest_path: str, *, on_windows: bool) -> PurePosixPath | PureWindowsPath:
+    """Parse a guest path to copy out, which must name a file or directory."""
+    source = windows.guest_path(guest_path) if on_windows else PurePosixPath(guest_path)
+    if source.name in {"", ".", ".."}:
+        msg = f"'{guest_path}' names no file or directory to copy out"
+        raise SbxError(msg, code="invalid-argument")
+    return source
+
+
 class Transfer(Execution, Storage):
     """`sbx cp` in both directions, bounded by the disk cap."""
 
@@ -193,11 +202,8 @@ class Transfer(Execution, Storage):
     ) -> dict[str, object]:
         sandbox = self._running(name, token)
         on_windows = self.windows_base(sandbox.meta.base) is not None
-        source = windows.guest_path(guest_path) if on_windows else PurePosixPath(guest_path)
+        source = guest_source(guest_path, on_windows=on_windows)
         leaf = source.name
-        if leaf in {"", ".", ".."}:
-            msg = f"'{guest_path}' names no file or directory to copy out"
-            raise SbxError(msg, code="invalid-argument")
         xfer = self.paths.sandbox(name) / "xfer"
         if destination is None:
             target = xfer / leaf

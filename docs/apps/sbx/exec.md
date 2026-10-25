@@ -75,6 +75,10 @@ Both output modes exit with:
 
 The phases are `create`, `in`, `exec`, `out`, and `cleanup`.
 
+Before it boots or queues, `run` checks each `--in` and every `--out` target under `--to`, the base, the egress bridge, and the disk limits.
+Two inputs with one name, an output path that names no file, two outputs with one target, and an existing target refuse there.
+Each step checks its part again when it acts.
+
 - A failed copy in skips `exec` and `out`; a failed `exec` or a transport error skips `out`.
 - Each copy out runs on its own: a failed one carries `error` in place of `to`, and the others still publish.
 - The sandbox is destroyed in every case, and a failed destroy lands in `cleanup.error` beside the command's result.

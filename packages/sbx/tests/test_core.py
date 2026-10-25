@@ -1132,16 +1132,42 @@ class SandboxesTest(Fixture):
         self.assertEqual(argv[4:], ["sbx", "/work", "setsid", "A=1", "B=2", "--", "env"])
 
     def test_run_refusals_before_create(self) -> None:
-        """--out without --to, --to without --out, and a bad --timeout create nothing."""
-        for argv in (
-            ("run", "nixos", "--name", "r", "--out", "/x", "--", "true"),
-            ("run", "nixos", "--name", "r", "--to", ".", "--", "true"),
-            ("run", "nixos", "--name", "r", "--timeout", "5x", "--", "true"),
-            ("run", "nixos", "--name", "r", "--timeout", "0s", "--", "true"),
-        ):
-            with self.subTest(argv=argv), self.assertRaises(SbxError):
+        """Bad flags, host paths, and output leaves refuse before anything boots or queues."""
+        tmp, outside = self.scratch / "tmp", self.scratch / "outside"
+        outside.mkdir()
+        for directory in ("a", "b"):
+            (tmp / directory).mkdir()
+            (tmp / directory / "f").write_text(directory)
+        (tmp / "taken").write_text("")
+        to = ("--to", str(tmp))
+        cases: list[tuple[tuple[str, ...], str]] = [
+            (("--out", "/x"), "usage"),
+            (("--to", "."), "usage"),
+            (("--timeout", "5x"), "invalid-argument"),
+            (("--timeout", "0s"), "invalid-argument"),
+            (("--in", str(tmp / "missing")), "os-error"),
+            (("--in", str(outside)), "path-denied"),
+            (("--in", str(tmp / "a" / "f"), "--in", str(tmp / "b" / "f")), "invalid-argument"),
+            (("--out", "/root/x", "--to", str(outside)), "path-denied"),
+            (("--out", "/", *to), "invalid-argument"),
+            (("--out", "/root/..", *to), "invalid-argument"),
+            (("--out", "/root/a/x", "--out", "/root/b/x", *to), "invalid-argument"),
+            (("--out", "/root/taken", *to), "exists"),
+            (("--wait", "10m", "--in", str(outside)), "path-denied"),
+        ]
+        for flags, code in cases:
+            argv = ("run", "nixos", "--name", "r", *flags, "--", "true")
+            with (
+                self.subTest(flags=flags),
+                mock.patch.object(self.backend, "start") as start,
+                self.assertRaises((SbxError, OSError)) as refused,
+            ):
                 self.dispatch(*argv)
+            failure = refused.exception
+            self.assertEqual(failure.code if isinstance(failure, SbxError) else "os-error", code)
+            start.assert_not_called()
             self.assert_no_sandbox("r")
+        self.assertFalse(self.paths.queue.exists() and any(self.paths.queue.iterdir()))
 
     def run_incomplete(self, *argv: str) -> tuple[str, dict[str, Any]]:
         """Run a run that fails after create; return its failed phase and result document."""
@@ -1155,16 +1181,16 @@ class SandboxesTest(Fixture):
 
     def test_run_destroys_on_failure(self) -> None:
         """A failed copy in or exec skips the later steps and still destroys the run sandbox."""
-        outside = self.scratch / "outside"
-        outside.mkdir()
-        phase, run = self.run_incomplete("--in", str(outside), "--", "true")
-        self.assertEqual(phase, "in")
-        self.assertEqual(run["failure"]["code"], "path-denied")
+        tmp = self.scratch / "tmp"
+        (tmp / "input").write_text("")
+        failure = SbxError("boom", code="test")
+        with mock.patch.object(Sandboxes, "copy", side_effect=failure):
+            phase, run = self.run_incomplete("--in", str(tmp / "input"), "--", "true")
+        self.assertEqual((phase, run["failure"]["code"]), ("in", "test"))
         self.assertEqual((run["phases"]["exec"], run["exec"]), ("skipped", None))
         self.assert_no_sandbox("r")
-        failure = SbxError("boom", code="test")
         with mock.patch.object(Sandboxes, "exec_capture", side_effect=failure):
-            phase, run = self.run_incomplete("--out", "/root/x", "--to", str(outside), "--", "true")
+            phase, run = self.run_incomplete("--out", "/root/x", "--to", str(tmp), "--", "true")
         self.assertEqual((phase, run["failure"]["code"]), ("exec", "test"))
         self.assertEqual((run["phases"]["out"], run["out"]), ("skipped", []))
         self.assertEqual(run["cleanup"], {"destroyed": ["r"], "error": None})
