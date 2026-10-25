@@ -45,7 +45,7 @@ workloads revoke --all sbx-<name>
 - Without a port, the grant opens every grantable port of the target, which for a range is every listener in it.
 - `--ttl` takes `s`, `m`, `h`, or `d`; the default is 30 minutes, and the rule's `maxTtl` caps it.
 - A grant permits all traffic on its path, established connections included, only until its TTL ends.
-  When it expires or is revoked, every connection it admitted stops at once; connections of other grants keep working.
+  When it expires or is revoked, every connection it admitted [stops at once](workload-grant-lifetime.md); connections of other grants keep working.
 - An expired grant is gone, so `revoke` answers `not-found` for it.
 - `revoke --all` takes the grants at the source's address and those made under its name; `sbx destroy` and `sbx gc` run it for each sandbox they remove.
 - Every verb takes `--json`; failures print `{"error": {"code", "message"}}` and exit 1, or 2 for `usage`.
@@ -68,7 +68,7 @@ workloads revoke --all sbx-<name>
 | `policy-file`       | `/etc/workloads/grants.json` is broken   |
 | `journal`           | the journal refused the record           |
 | `nft`, `route`      | the grant table or rules are unusable    |
-| `conntrack`         | conntrack entries could not be removed   |
+| `conntrack`         | ended grants' entries were not removed   |
 | `vsock-listener`    | no vsock listener in the sandbox         |
 | `vsock-unconfirmed` | revoked; the vsock proxy did not confirm |
 | `vsock-list`        | the vsock grant list is unusable         |
@@ -84,27 +84,18 @@ workloads revoke --all sbx-<name>
 - One element per port range in the `grants` set of `inet workload_grants`, keyed on ingress bridge, source address, destination address, protocol, and ports, with the TTL as its timeout.
 - One element in its `sources` set binds the ingress bridge and source address to the source's MAC for as long as its longest grant lives.
 - The table's chains run one priority ahead of `inet workload` and mark the conntrack entry of each new connection that matches both sets.
-- They drop every packet of a marked connection whose original tuple has left `grants`, in both directions, and every packet it sends from a MAC `sources` does not bind, so no expired or revoked connection lives on.
+- They drop every packet a marked connection sends from a MAC `sources` does not bind.
 - They drop every forwarded packet of a marked connection that would leave through anything but a `vn-*` bridge, established ones included, so a grant never follows the default route to the uplink.
 - `inet workload` accepts the mark ahead of its drops, and `nixos-fw` accepts it too, since a drop in any base chain is final.
 - A host service answers at the gateway of the source's network; a loopback service gets a gateway proxy on every network a rule's sources sit on.
 - A grant between two networks adds an `ip rule` each way ahead of the `workload-egress` band; the next grant or revoke removes the rules of expired grants.
-- Revoke also deletes the marked conntrack entries on the grant's ports.
-
-## Survival across reloads
-
-`networking.nftables.tables` reloads delete and recreate each declared table, which would empty the sets, so the grant table stays outside them.
-`workload-grants.service` owns it and loads it with `add` and `flush chain` only, which keeps the elements; a switch, an `nftables` reload or restart, and a restart of the unit all leave live grants in place.
-An `nftables` reload propagates to the unit, which recreates the chains when something deleted the table.
-A change to a set's type fails the unit until the table is recreated.
-With no rule and no present guest declared, the unit deletes the table and the grant routes instead.
 
 ## The helper
 
 `workload-grantd.socket` listens on `/run/workloads/grant.sock`, owned by the owner and mode 0600, so only the owner and root connect.
 Each connection starts one `workload-grantd@` instance as root with `CAP_NET_ADMIN` as its only capability.
 It reads one JSON request, checks it against `/etc/workloads/grants.json` and the sandbox network's lease file.
-It only adds or removes set elements, conntrack entries, the grant routes, vsock grant list entries, and [runtime shares](workload-shares.md).
+It only adds or removes set elements, the marked conntrack entries of ended grants, the grant routes, vsock grant list entries, and [runtime shares](workload-shares.md).
 Before it applies a decision, it journals the caller's pid, uid, and command line, the agent session the client reports, and the decision.
 
 The allowlist is a guard rail, not a boundary, while the owner holds root-equivalent groups.

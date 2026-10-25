@@ -204,6 +204,20 @@ class GrantTest(unittest.TestCase):
             (4242, 1000, "grant", SANDBOX),
         )
 
+    def test_sweeps_ended_flows(self) -> None:
+        """Marked entries an ended grant left on the new paths go before the element lands."""
+        harness = Harness()
+        harness.kernel.conntrack = [
+            Flow("tcp", str(SANDBOX), str(GATEWAY), 40000, 8080),
+            Flow("tcp", str(SANDBOX), str(GATEWAY), 40001, 8081),
+        ]
+        harness.grant("host:dev:8080")
+        self.assertEqual(
+            harness.events,
+            ["lock", "journal granted", "routes 30900", "drop 8080", "add 1 ttl=600", "unlock"],
+        )
+        self.assertEqual([flow.dport for flow in harness.kernel.conntrack], [8081])
+
     def test_session(self) -> None:
         """The client's agent session reaches the journal."""
         harness = Harness()
@@ -329,10 +343,10 @@ class IdentityTest(unittest.TestCase):
 
 
 class RevokeTest(unittest.TestCase):
-    """Revoking deletes the elements, their conntrack entries, and their routes."""
+    """Revoking deletes the elements and their routes; conntrack entries stay for the chains."""
 
     def test_revoke(self) -> None:
-        """Only flows on the revoked ports go."""
+        """Only the revoked grant goes, and its flows stay marked."""
         harness = Harness()
         harness.grant("guest:dev:8080")
         harness.grant("host:dev:8000")
@@ -349,14 +363,13 @@ class RevokeTest(unittest.TestCase):
                 "lock",
                 "journal revoked",
                 "remove 1",
-                "drop 8080",
                 "routes 30900",
                 "route- vn-desktop",
                 "route- vn-sbx",
                 "unlock",
             ],
         )
-        self.assertEqual([flow.dport for flow in harness.kernel.conntrack], [8000])
+        self.assertEqual([flow.dport for flow in harness.kernel.conntrack], [8080, 8000])
 
     def test_revoke_all(self) -> None:
         """--all takes every grant of one source and leaves the others."""

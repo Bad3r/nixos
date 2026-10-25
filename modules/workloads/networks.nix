@@ -88,6 +88,10 @@ let
 
       lines = lib.concatStringsSep "\n";
 
+      # Only a bare SYN opens a TCP connection on a bridge, so a flow whose
+      # conntrack entry is gone never resumes as a loosely picked-up one.
+      midStream = "ct state new tcp flags & (fin | syn | rst | ack) != syn drop";
+
       egressRules =
         name: network:
         let
@@ -299,6 +303,7 @@ let
                 iifname "vg-*" drop
                 iifname "tap*" drop
                 iifname != "vn-*" accept
+                ${midStream}
                 ct state vmap { established : accept, related : accept, invalid : drop }
                 ${lines (lib.concatMap inputRules networks)}
                 ${config.workloads.nftables.inputRules}
@@ -308,6 +313,7 @@ let
               chain forward {
                 type filter hook forward priority filter - 1; policy accept;
                 iifname != "vn-*" oifname != "vn-*" drop
+                ${midStream}
                 # Ahead of conntrack, so a rerouted established flow is caught too.
                 iifname "vn-*" oifname != "vn-*" jump outbound
                 ct state vmap { established : accept, related : accept, invalid : drop }
@@ -317,6 +323,11 @@ let
                 oifname "vn-*" drop
                 ${lines lanAccessRules}
                 ip daddr { ${lib.concatStringsSep ", " privateCidrs} } drop
+              }
+
+              chain output {
+                type filter hook output priority filter - 1; policy accept;
+                oifname "vn-*" ${midStream}
               }
 
               # Holds whatever state the ip rule band is in.

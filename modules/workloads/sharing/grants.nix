@@ -29,6 +29,7 @@ let
       helper = cfg.allow != [ ] || runtimeShares != { };
 
       # The bit the grant chains set on connections they admit; no other table uses ct mark.
+      mark = "0x00100000/0x00f00000";
       marked = "ct mark & 0x00f00000 == 0x00100000";
       markAccept = "${marked} accept";
       # A grant admits only the MAC whose lease named the source address.
@@ -36,15 +37,41 @@ let
       # A marked connection lives only while its own element does: the
       # original tuple, not the shared mark, names the grant.
       original = "ct original ip saddr . ct original ip daddr . ct original protocol . ct original proto-dst";
-      dropSent = "${marked} ct direction original iifname . ${original} != @grants drop";
+      # A reset tells the sending end at once; other protocols just drop.
+      cut = match: [
+        "${match} meta l4proto tcp reject with tcp reset"
+        "${match} drop"
+      ];
+      cutSent = cut "${marked} ct direction original iifname . ${original} != @grants";
+      cutReplies = cut "${marked} ct direction reply oifname . ${original} != @grants";
       dropMoved = "${marked} ct direction original iifname . ether saddr . ip saddr != @sources drop";
-      dropReplies = "${marked} ct direction reply oifname . ${original} != @grants drop";
+      # The resets carry the connection's mark as related, which no TCP segment off the wire is.
+      passResets = "${marked} ct state related meta l4proto tcp accept";
       # A destination bridge that is gone leaves the main table's default route,
       # and `inet workload` accepts established traffic before its own checks.
       dropUplink = ''${marked} oifname != "vn-*" drop'';
       # Ahead of the workload-egress band, 31000-31999.
       routePreference = 30900;
 
+      chainRules = {
+        input = [
+          passResets
+        ]
+        ++ cutSent
+        ++ [
+          dropMoved
+          markGrant
+        ];
+        forward =
+          cutSent
+          ++ [ dropMoved ]
+          ++ cutReplies
+          ++ [
+            markGrant
+            dropUplink
+          ];
+        output = [ passResets ] ++ cutReplies;
+      };
       # Idempotent: `add` keeps the sets and their elements, `flush chain` only the rules.
       tableFile = pkgs.writeTextFile {
         name = "workload-grants.nft";
@@ -58,16 +85,11 @@ let
           flush chain inet workload_grants input
           flush chain inet workload_grants forward
           flush chain inet workload_grants output
-          add rule inet workload_grants input ${dropSent}
-          add rule inet workload_grants input ${dropMoved}
-          add rule inet workload_grants input ${markGrant}
-          add rule inet workload_grants forward ${dropSent}
-          add rule inet workload_grants forward ${dropMoved}
-          add rule inet workload_grants forward ${dropReplies}
-          add rule inet workload_grants forward ${markGrant}
-          add rule inet workload_grants forward ${dropUplink}
-          add rule inet workload_grants output ${dropReplies}
-        '';
+          ${lib.concatLines (
+            lib.concatLists (
+              lib.mapAttrsToList (chain: map (rule: "add rule inet workload_grants ${chain} ${rule}")) chainRules
+            )
+          )}'';
         checkPhase = ''
           LD_PRELOAD="${pkgs.buildPackages.lklWithFirewall.lib}/lib/liblkl-hijack.so" \
             ${pkgs.buildPackages.nftables}/bin/nft --check --file $out
@@ -389,6 +411,7 @@ let
             wantedBy = [ "multi-user.target" ];
             after = [ "nftables.service" ];
             path = [
+              pkgs.conntrack-tools
               pkgs.iproute2
               pkgs.nftables
             ];
@@ -396,10 +419,20 @@ let
               Type = "oneshot";
               RemainAfterExit = true;
             };
+            # Emptying the set first keeps every marked connection cut until its entry is gone.
             script = ''
               rm -f /run/workloads/vsock-grants.json
             ''
             + lib.optionalString (networks != { }) ''
+              if nft list table inet workload_grants > /dev/null 2>&1; then
+                nft flush set inet workload_grants grants
+              fi
+              if ! deleted=$(conntrack -D -f ipv4 -m ${mark} 2>&1); then
+                case $deleted in
+                  *"0 flow entries have been deleted"*) ;;
+                  *) echo "$deleted" >&2; exit 1 ;;
+                esac
+              fi
               nft destroy table inet workload_grants
               while ip rule show pref ${toString routePreference} | grep -q .; do
                 ip rule del pref ${toString routePreference}

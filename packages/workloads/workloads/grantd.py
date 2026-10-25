@@ -110,7 +110,7 @@ class Kernel(Protocol):
         ...
 
     def flows(self, path: Path) -> list[Flow]:
-        """Marked conntrack entries the path admitted."""
+        """Marked conntrack entries on the path's addresses and ports."""
         ...
 
     def drop_flow(self, flow: Flow) -> None:
@@ -712,6 +712,10 @@ class Service:
             # The source stays as long as the longest grant it holds.
             # Listed expiries are whole seconds rounded down.
             same = [e.expires + 1 for e in live if e.path.place in places]
+            # An ended grant's entries on these paths would ride the new element.
+            for path in paths:
+                for flow in self.kernel.flows(path):
+                    self.kernel.drop_flow(flow)
             self.kernel.add(elements, ttl, max([ttl, *same]))
         return {"grant": describe(elements)[0]}
 
@@ -834,10 +838,8 @@ class Service:
                     if (e.path.place, e.path.mac) not in held
                 }.values()
             )
+            # Marked entries stay cut until the next grant of their path deletes them.
             self.kernel.remove(chosen, emptied)
-            for element in chosen:
-                for flow in self.kernel.flows(element.path):
-                    self.kernel.drop_flow(flow)
             self._sync_routes(policy, kept)
         answer: Record = {"revoked": revoked}
         if cut:

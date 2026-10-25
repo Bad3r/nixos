@@ -115,8 +115,10 @@
   - Workload bridge networks: table ownership, declaring a network, egress modes, and verification.
 - [networking/workload-links.md](networking/workload-links.md)
   - Host services, links from guests to host services and other guests, and gateway proxies.
+- [networking/workload-grant-lifetime.md](networking/workload-grant-lifetime.md)
+  - Runtime grant lifetime: how an ended grant's connections stop, and the grant table across reloads.
 - [networking/workload-grants.md](networking/workload-grants.md)
-  - Runtime grants: allow rules, `workloads grant`, the grant table across reloads, and the helper socket.
+  - Runtime grants: allow rules, `workloads grant`, the grant table, and the helper socket.
 - [networking/workload-shares.md](networking/workload-shares.md)
   - Runtime shares: `workloads share attach|detach` for system guests and sbx sandboxes, and how each attaches.
 
