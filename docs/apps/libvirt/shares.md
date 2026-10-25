@@ -33,7 +33,7 @@ libvirt calls the wrapper at `/etc/workloads/virtiofsd-<owner>`, a path that sur
 - No guest account can do more in the directory than the owner's uid or primary group may; supplementary groups do not count.
 - A `readOnly` share is refused by virtiofsd itself, so remounting it read-write in the guest changes nothing.
 - A guest with any enabled share gets shared memfd memory, which virtiofs needs.
-- Managed save and restore keep the shares working, live-attached ones included.
+- Managed save and restore keep the shares working, live-attached ones included. A share removed while its guest is saved still restores when its owner is a normal user, since every normal user keeps a wrapper.
 
 ## NixOS guests
 

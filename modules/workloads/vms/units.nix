@@ -95,20 +95,33 @@ let
             ${libvirtCfg.virtiofsdPackage}/bin/virtiofsd "$@"
         '';
 
-      shareFiles = lib.flatten (
-        lib.mapAttrsToList (
-          guestName: guest:
-          lib.mapAttrsToList (
-            tag: share:
-            [
-              (lib.nameValuePair "workloads/virtiofsd-${share.owner}" { source = virtiofsdAs share.owner; })
-            ]
-            ++ lib.optional share.runtime (
-              lib.nameValuePair "workloads/shares/${guestName}/${tag}.xml" { text = share.deviceXml; }
-            )
-          ) (enabledShares guest)
-        ) presentGuests
+      shareOwners = lib.concatMap (
+        guest: map (share: share.owner) (lib.attrValues (enabledShares guest))
+      ) (lib.attrValues presentGuests);
+
+      # Every normal user keeps a wrapper: a managed-save image still names the
+      # wrapper of a share removed since the save.
+      wrapperOwners = lib.optionals (presentGuests != { }) (
+        lib.unique (
+          shareOwners ++ lib.attrNames (lib.filterAttrs (_: user: user.isNormalUser) config.users.users)
+        )
       );
+
+      shareFiles =
+        map (
+          owner: lib.nameValuePair "workloads/virtiofsd-${owner}" { source = virtiofsdAs owner; }
+        ) wrapperOwners
+        ++ lib.flatten (
+          lib.mapAttrsToList (
+            guestName: guest:
+            lib.mapAttrsToList (
+              tag: share:
+              lib.optional share.runtime (
+                lib.nameValuePair "workloads/shares/${guestName}/${tag}.xml" { text = share.deviceXml; }
+              )
+            ) (enabledShares guest)
+          ) presentGuests
+        );
 
       directory = mode: user: group: {
         d = { inherit mode user group; };
