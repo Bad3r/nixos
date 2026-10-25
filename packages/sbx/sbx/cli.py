@@ -223,7 +223,9 @@ def _print_exec(result: ExecResult) -> int:
     return result.status()
 
 
-def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tuple[object, int]:
+def _run(
+    sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool, token: str | None
+) -> tuple[object, int]:
     command = _command(args)
     if args.outputs and args.to is None:
         msg = "--out needs --to"
@@ -240,10 +242,20 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
         outputs=args.outputs,
         to=args.to,
         attached=not as_json,
+        token=token,
     )
+    code = None if result.execution is None else result.execution.status()
     if not as_json:
-        return None, _print_exec(result.execution)
-    return result.as_json(args.output_encoding), result.execution.status()
+        if result.execution is not None:
+            _print_exec(result.execution)
+        for entry in result.failed_outputs():
+            error = cast("dict[str, object]", entry["error"])
+            print(f"sbx: copy out of {entry['from']} failed: {error['message']}", file=sys.stderr)
+        if result.cleanup_error is not None:
+            print(f"sbx: cleanup failed: {result.cleanup_error}", file=sys.stderr)
+    if code is None or result.failed_phase() is not None:
+        raise result.incomplete(args.output_encoding)
+    return (result.as_json(args.output_encoding) if as_json else None), code
 
 
 def dispatch(  # noqa: C901, PLR0911, PLR0912
@@ -252,13 +264,14 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
     *,
     as_json: bool,
     attach: Callable[[], Backend] | None = None,
+    token: str | None = None,
 ) -> tuple[object, int]:
-    """Run one verb and return its result and exit code."""
+    """Run one verb and return its result and exit code; `token` marks a run's sandbox."""
     match args.verb:
         case "create":
             return sandboxes.create(_request(sandboxes, args)), 0
         case "run":
-            return _run(sandboxes, args, as_json=as_json)
+            return _run(sandboxes, args, as_json=as_json, token=token)
         case "exec":
             command = _command(args)
             options = _exec_options(sandboxes, args)

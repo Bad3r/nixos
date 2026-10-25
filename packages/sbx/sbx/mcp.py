@@ -10,7 +10,6 @@ also include an image content block for the client to display.
 import base64
 import binascii
 import dataclasses
-import functools
 import json
 import os
 import secrets
@@ -303,8 +302,11 @@ TOOLS = (
         "Run a command in a one-shot sandbox",
         "Create a sandbox, copy inputs to /root/ (C:\\sbx\\ on Windows), run the command, "
         "copy outputs out, and destroy the sandbox even when a step fails; returns "
-        "{sandbox, in, exec, out}. With wait, a run the host's limits refuse queues for "
-        "capacity first.",
+        "{sandbox, phases, in, exec, out, cleanup, failure}, with exec shaped as the exec "
+        "tool's result. A failed copy in, a transport error, a failed copy out, or a failed "
+        "cleanup is a tool error with code run-incomplete whose run field holds that whole "
+        "document, so exec still carries the command's result. With wait, a run the host's "
+        "limits refuse queues for capacity first.",
         (
             *CREATE_PARAMS,
             Param("in", _list("host paths copied into /root/ or C:\\sbx\\"), flag="--in"),
@@ -589,9 +591,8 @@ class Server:
             sandboxes = self._open(session)
             if record is not None:
                 sandboxes.cancelled = lambda: record.cancelled or self._closed.is_set()
-                if record.token is not None:
-                    sandboxes.create = functools.partial(sandboxes.create, token=record.token)
-            document, _code = dispatch(sandboxes, args, as_json=True)
+            token = None if record is None else record.token
+            document, _code = dispatch(sandboxes, args, as_json=True, token=token)
             if tool.name == "screenshot":
                 return _screenshot(cast("Json", document))
         except (SbxError, OSError) as error:

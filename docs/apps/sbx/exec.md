@@ -1,6 +1,6 @@
 # Commands in sbx sandboxes
 
-`sbx exec` and `sbx run` run one command in a sandbox; the [sbx README](README.md) covers the other verbs.
+`sbx exec` runs one command in a sandbox, and `sbx run` runs one in a sandbox of its own; the [sbx README](README.md) covers the other verbs.
 
 ## Transports
 
@@ -58,3 +58,28 @@ Both output modes exit with:
 - 255 for a transport error, which `transport_error` tells apart from a guest's own exit 255.
 
 [Troubleshooting](troubleshooting.md#exec-reports-a-transport-error) covers transport errors.
+
+## One-shot runs
+
+`run` creates a sandbox, copies each `--in` into `/root/` (`C:\sbx\` on Windows), runs the command, copies each `--out` to `--to`, and destroys the sandbox.
+`run --json` prints one document, and the MCP `run` tool returns the same:
+
+| Field       | Meaning                                        |
+| ----------- | ---------------------------------------------- |
+| `sandbox`   | name, base, net, size, session, token, created |
+| `phases`    | `ok`, `failed`, or `skipped` per phase         |
+| `in`, `out` | each copy's `from` and `to`                    |
+| `exec`      | the result above, or null                      |
+| `cleanup`   | the `destroyed` names and an `error`           |
+| `failure`   | the error that stopped `in` or `exec`          |
+
+The phases are `create`, `in`, `exec`, `out`, and `cleanup`.
+
+- A failed copy in skips `exec` and `out`; a failed `exec` or a transport error skips `out`.
+- Each copy out runs on its own: a failed one carries `error` in place of `to`, and the others still publish.
+- The sandbox is destroyed in every case, and a failed destroy lands in `cleanup.error` beside the command's result.
+- A failed create reports its own error, such as `over-limit`, since nothing ran.
+
+A run exits with the guest status only when every phase succeeded.
+Otherwise it fails with `run-incomplete` and exits 1; the error object adds the first failed `phase` and the whole document under `run`, so `run.exec` keeps the command's result.
+Without `--json`, stderr gets one line per failed copy out and for a failed cleanup.

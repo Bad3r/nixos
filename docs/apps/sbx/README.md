@@ -43,7 +43,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `vsock serve`, `vsock sync`      | vsock grant proxy, for `workloads grant`    |
 
 `create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, `--gui`, and `--wait`, which [Resources](#resources) covers.
-`exec` and `run` exit with the guest command's status; [commands](exec.md) covers their transports, timeouts, and `--json` result.
+`exec` and `run` exit with the guest command's status; [commands](exec.md) covers their transports, timeouts, `--json` results, and a run that fails partway.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code or Codex session, its subagents included.
 `/new`, `/clear`, and a fork start a new session, whose `--mine` leaves the old session's sandboxes out.
 Every removal, by `destroy`, `gc`, a failed `create`, or the MCP server's cleanup, revokes the [workload grants](../../networking/workload-grants.md) of the sandbox it removes; a revoke that fails is reported on stderr and in the journal, and the sandbox is removed anyway.

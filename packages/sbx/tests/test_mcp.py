@@ -9,6 +9,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     import argparse
 
     from sbx.model import Meta
+    from sbx.sandboxes import Sandboxes
 
 SAMPLES: dict[str, object] = {
     "base": "nixos",
@@ -313,6 +315,47 @@ class ServerTest(unittest.TestCase):
         ]
         self.assertEqual(codes, ["base-missing", "unknown-base"])
 
+    def test_failed_run(self) -> None:
+        """A run whose export fails is a tool error that keeps the command's result.
+
+        The run's sandbox carries the call's token, passed without replacing create.
+        """
+        opened: list[Sandboxes] = []
+
+        def open_sandboxes(session: str | None) -> Any:  # noqa: ANN401
+            opened.append(self.core.sandboxes(session))
+            return opened[-1]
+
+        output = io.BytesIO()
+        server = mcp.Server(open_sandboxes, output, "0.0.0")
+        arguments = {
+            "base": "nixos",
+            "name": "r",
+            "out": ["/root/missing.json"],
+            "to": str(self.core.scratch / "tmp"),
+            "command": ["true"],
+        }
+
+        def token_hex(_size: int) -> str:
+            return "feedfacecafebeef"
+
+        tokens = SimpleNamespace(token_hex=token_hex)
+        with mock.patch.object(mcp, "secrets", tokens):
+            server.receive(json.dumps(self.call(1, "run", arguments)).encode())
+        # The end of input would cancel the create, so it waits for the response.
+        deadline = time.monotonic() + 10
+        while not output.getvalue() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        server.serve([])
+        result = json.loads(output.getvalue())["result"]
+        self.assertTrue(result["isError"])
+        error = json.loads(result["content"][0]["text"])["error"]
+        self.assertEqual((error["code"], error["phase"]), ("run-incomplete", "out"))
+        self.assertEqual(error["run"]["exec"]["exit_code"], 0)
+        self.assertEqual(error["run"]["sandbox"]["token"], "feedfacecafebeef")
+        self.assertEqual(error["run"]["cleanup"]["destroyed"], ["r"])
+        self.assertNotIn("create", vars(opened[0]))
+
     def test_screenshot_image_and_optional_ocr(self) -> None:
         """PNG and PPM captures include a viewable image, with OCR only when requested."""
         for image_format, mime in (("PNG", "image/png"), ("PPM", "image/x-portable-pixmap")):
@@ -412,12 +455,19 @@ class Stub:
             self.released.set()
         return names
 
-    def dispatch(self, sandboxes: Any, args: argparse.Namespace, *, as_json: bool) -> object:  # noqa: ANN401
-        """Run like cli._run: create, then destroy by name."""
+    def dispatch(
+        self,
+        sandboxes: Any,  # noqa: ANN401
+        args: argparse.Namespace,
+        *,
+        as_json: bool,
+        token: str | None = None,
+    ) -> object:
+        """Run like cli._run: create with the call's token, then destroy by name."""
         if not as_json:
             raise AssertionError
         name = args.name or "nixos-gen"
-        sandboxes.create(name)
+        sandboxes.create(name, token=token)
         sandboxes.destroy(name)
         return {"name": name}, 0
 

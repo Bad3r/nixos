@@ -119,7 +119,12 @@ let
       captured through qemu-ga; output arrives once the command exits. A
       `*_lossy` flag means invalid UTF-8 was replaced; rerun with
       `--output-encoding base64` (MCP `encoding`) for the exact bytes.
-    - `run`: `{sandbox, in, exec, out}`, with `exec` shaped as above.
+    - `run`: `{sandbox, phases, in, exec, out, cleanup, failure}`. `sandbox`
+      is what was created (name, base, net, memory_mib, cpus, session, token,
+      created); the sandbox is gone once `run` returns. `phases` maps
+      `create`, `in`, `exec`, `out`, and `cleanup` to `ok`, `failed`, or
+      `skipped`; `exec` is shaped as above; `cleanup` is
+      `{destroyed, error}`.
     - `key`: `{sandbox, keys}`; `type`: `{sandbox, characters}`. Both return
       once the input reached the guest's keyboard, not once an app handled it,
       so check the effect with `exec` or `screenshot`.
@@ -131,10 +136,13 @@ let
       with `transport_error` set means qemu-ga or SSH failed mid-command, and
       the command may have run in part; without it, 255 is the guest's own.
     - Failures print `{"error": {"code", "message"}}` and exit 1, or 2 for a
-      usage error. A copy out that fails after the command ran makes `run`
-      fail this way, and the command's result is lost. `base-missing` means
-      `sbx base build <base>` comes first, or for a cloud base the owner's
-      `sbx base prepare`.
+      usage error. `base-missing` means `sbx base build <base>` comes first,
+      or for a cloud base the owner's `sbx base prepare`.
+    - A `run` that boots but does not finish every phase, such as a copy out
+      that fails after the command ran, fails with `run-incomplete`: the
+      error adds the first failed `phase` and the whole `run` document, so
+      `error.run.exec` still holds the command's result and `error.run.out`
+      the copies that worked. Each failed copy out carries its own `error`.
 
     ## MCP Tools
 

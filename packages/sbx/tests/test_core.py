@@ -25,12 +25,14 @@ from sbx import (
     config,
     context,
     domain,
+    errors,
     execution,
     fsutil,
     gui,
     lifecycle,
     model,
     net,
+    pipeline,
     prepare,
     proc,
     storage,
@@ -76,6 +78,7 @@ STUBS = {
     "scp": (
         'printf "%s\\n" "$@" > "$SBX_TEST_LOG"; for t; do :; done; '
         'case "$t" in root@*) exit 0;; esac; '
+        'case "$*" in *missing*) echo "scp: no such file" >&2; exit 1;; esac; '
         'if [ -n "$SBX_TEST_BIG" ]; then exec head -c "$SBX_TEST_BIG" /dev/zero > "$t"; fi; '
         'if [ -n "$SBX_TEST_MANY" ]; then mkdir "$t"; for i in 1 2 3 4 5 6; do '
         'head -c "$SBX_TEST_MANY" /dev/urandom > "$t/$i"; sleep 0.4; done; '
@@ -651,13 +654,13 @@ class SandboxesTest(Fixture):
             ["run", "nixos", "--name=r", "--out=/root/x", f"--to={self.scratch / 'tmp'}"]
         )
         args.command = ["blockme"]
-        errors: list[str] = []
+        failures: list[SbxError] = []
 
         def worker() -> None:
             try:
                 cli.dispatch(self.sandboxes(), args, as_json=True)
             except SbxError as error:
-                errors.append(error.code)
+                failures.append(error)
 
         with mock.patch.dict(os.environ, {"SBX_TEST_GATE": str(gate)}):
             thread = threading.Thread(target=worker)
@@ -671,7 +674,11 @@ class SandboxesTest(Fixture):
             replacement = other.create(self.request(name="r"))
             gate.touch()
             thread.join(5)
-        self.assertEqual(errors, ["replaced"])
+        (error,) = failures
+        self.assertEqual((error.code, error.details["phase"]), ("run-incomplete", "out"))
+        run = cast("dict[str, Any]", error.details["run"])
+        self.assertEqual(run["out"][0]["error"]["code"], "replaced")
+        self.assertEqual(run["cleanup"], {"destroyed": [], "error": None})
         self.assertEqual(
             cast("Meta", self.backend.domains_by_name["sbx-r"].meta).token, replacement["token"]
         )
@@ -1136,25 +1143,74 @@ class SandboxesTest(Fixture):
                 self.dispatch(*argv)
             self.assert_no_sandbox("r")
 
+    def run_incomplete(self, *argv: str) -> tuple[str, dict[str, Any]]:
+        """Run a run that fails after create; return its failed phase and result document."""
+        with self.assertRaises(SbxError) as refused:
+            self.dispatch("--json", "run", "nixos", "--name", "r", *argv)
+        error = refused.exception
+        self.assertEqual(error.code, "run-incomplete")
+        document = errors.error_document(error)
+        self.assertEqual(document["run"], error.details["run"])
+        return str(document["phase"]), cast("dict[str, Any]", document["run"])
+
     def test_run_destroys_on_failure(self) -> None:
-        """A failed copy in, exec, or copy out still destroys the run sandbox."""
+        """A failed copy in or exec skips the later steps and still destroys the run sandbox."""
         outside = self.scratch / "outside"
         outside.mkdir()
-        cases: list[tuple[tuple[str, ...], Any]] = [
-            (("--in", str(outside)), None),
-            ((), SbxError("boom", code="test")),
-            (("--out", "/root/x", "--to", str(outside)), None),
-        ]
-        for flags, failure in cases:
-            argv = ("run", "nixos", "--name", "r", *flags, "--", "true")
-            patch = mock.patch.object(Sandboxes, "exec_capture", side_effect=failure)
-            with self.subTest(flags=flags), self.assertRaises(SbxError):
-                if failure is None:
-                    self.dispatch(*argv)
-                else:
-                    with patch:
-                        self.dispatch(*argv)
-            self.assert_no_sandbox("r")
+        phase, run = self.run_incomplete("--in", str(outside), "--", "true")
+        self.assertEqual(phase, "in")
+        self.assertEqual(run["failure"]["code"], "path-denied")
+        self.assertEqual((run["phases"]["exec"], run["exec"]), ("skipped", None))
+        self.assert_no_sandbox("r")
+        failure = SbxError("boom", code="test")
+        with mock.patch.object(Sandboxes, "exec_capture", side_effect=failure):
+            phase, run = self.run_incomplete("--out", "/root/x", "--to", str(outside), "--", "true")
+        self.assertEqual((phase, run["failure"]["code"]), ("exec", "test"))
+        self.assertEqual((run["phases"]["out"], run["out"]), ("skipped", []))
+        self.assertEqual(run["cleanup"], {"destroyed": ["r"], "error": None})
+        self.assert_no_sandbox("r")
+
+    def test_run_keeps_the_result_of_a_failed_export(self) -> None:
+        """A failed copy out keeps the command's result, and the other outputs still publish."""
+        self.backend.exit_status = {"exitcode": 7}
+        target = self.scratch / "tmp"
+        phase, run = self.run_incomplete(
+            "--out", "/root/missing.json", "--out", "/root/report.txt", "--to", str(target),
+            "--", "sh", "-c", "exit 7",
+        )  # fmt: skip
+        self.assertEqual(phase, "out")
+        self.assertEqual(run["exec"]["exit_code"], 7)
+        self.assertEqual(run["phases"], dict.fromkeys(pipeline.PHASES, "ok") | {"out": "failed"})
+        failed, published = run["out"]
+        self.assertEqual(failed["from"], "r:/root/missing.json")
+        self.assertEqual(failed["error"]["code"], "command-failed")
+        self.assertEqual(published["to"], str(target / "report.txt"))
+        self.assertTrue((target / "report.txt").is_file())
+        self.assertEqual(run["cleanup"], {"destroyed": ["r"], "error": None})
+        self.assert_no_sandbox("r")
+
+    def test_run_cleanup_failure(self) -> None:
+        """A failed destroy lands in cleanup.error without masking the command's result."""
+        failure = SbxError("daemon gone", code="libvirt")
+        with mock.patch.object(Sandboxes, "destroy_created", side_effect=failure):
+            phase, run = self.run_incomplete("--", "true")
+        self.assertEqual(phase, "cleanup")
+        self.assertEqual(run["exec"]["exit_code"], 0)
+        self.assertEqual(run["cleanup"]["destroyed"], [])
+        self.assertEqual(run["cleanup"]["error"]["code"], "libvirt")
+        self.assertIsNone(run["failure"])
+
+    def test_run_document(self) -> None:
+        """A complete run reports creation metadata only, every phase, and its cleanup."""
+        result, code = self.dispatch("--json", "run", "nixos", "--name", "r", "--", "true")
+        document = cast("dict[str, Any]", result)
+        self.assertEqual(code, 0)
+        self.assertEqual(tuple(document["sandbox"]), pipeline.SANDBOX_FIELDS)
+        self.assertEqual(document["phases"], dict.fromkeys(pipeline.PHASES, "ok"))
+        self.assertEqual(document["cleanup"], {"destroyed": ["r"], "error": None})
+        self.assertIsNone(document["failure"])
+        self.assertEqual(document["exec"]["exit_code"], 0)
+        self.assert_no_sandbox("r")
 
     def egress(self, flags: str = "0x1003") -> Path:
         """Configure vn-sbx with a fake sysfs entry and return its lease file."""
