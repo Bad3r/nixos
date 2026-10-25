@@ -42,16 +42,59 @@ EXPANSIONS = frozenset("${*?[")
 REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|", "<>"})
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'")
-SHELL_C = re.compile(r"-[A-Za-z]*c[A-Za-z]*")
+# -c of a shell, -C of fish, and -S of env take the script as their argument.
+SCRIPT_FLAG = re.compile(r"-[A-Za-z]*[cCS][A-Za-z]*")
+SCRIPT_LONG = frozenset({"--command", "--init-command", "--split-string"})
 # Shell options whose argument precedes the -c script.
 SHELL_OPTION_ARGS = frozenset({"-o", "-O", "+o", "+O"})
 STDIN_RUNNERS = frozenset({"xargs", "parallel"})
 OPEN_VERBS = frozenset({"create", "run", "share"})
 SHELLS = frozenset({"sh", "ash", "bash", "dash", "zsh", "ksh", "mksh", "fish"})
 SOURCES = frozenset({"source", "."})
-WRAPPERS = frozenset({"sudo", "doas", "env", "exec", "command", "builtin", "nohup", "time", "nice"})
+# Builtins and keywords that can precede source; external wrappers cannot run a builtin.
+SOURCE_PREFIXES = frozenset(
+    {"command", "builtin", "time", "!", "{", "if", "then", "else", "elif", "do", "while", "until"}
+)
+# Short shell options that take an argument; every other letter is a flag.
+SHELL_ARG_LETTERS = {"fish": "CdDfop", "ksh": "oO" + "T", "mksh": "oO" + "T"}
+SHELL_LONG_ARG = frozenset(
+    {
+        "--rcfile",
+        "--init-file",
+        "--init-command",
+        "--profile",
+        "--profile-startup",
+        "--debug",
+        "--debug-output",
+        "--debug-stack-frames",
+        "--features",
+        "--emulate",
+    }
+)
+SHELL_LONG_FLAGS = frozenset(
+    {
+        "--login",
+        "--noprofile",
+        "--norc",
+        "--posix",
+        "--restricted",
+        "--verbose",
+        "--version",
+        "--help",
+        "--debugger",
+        "--dump-strings",
+        "--dump-po-strings",
+        "--noediting",
+        "--pretty-print",
+        "--interactive",
+        "--private",
+        "--no-execute",
+        "--no-config",
+        "--print-rusage-self",
+        "--print-debug-categories",
+    }
+)
 STDIN_FILES = frozenset({"-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"})
-SHELL_S = re.compile(r"-[A-Za-z]*s[A-Za-z]*")
 HEREDOC_END = frozenset(" \t\n;|&<>()")
 # Delimiter, strip leading tabs, body is a shell script, body expands substitutions.
 type Heredoc = tuple[str, bool, bool, bool]
@@ -313,33 +356,46 @@ def check(command: str, depth: int = 0) -> None:
 
 
 def reads_stdin(segment: list[str]) -> bool:
-    """Whether a shell or source in the command reads its script from stdin or a pipe."""
+    """Whether any shell or source in the command reads its script from stdin or a pipe.
+
+    Every word naming a shell may be the real command (env SHELL=/bin/bash bash), so each counts.
+    """
     command_position = True
     for index, word in enumerate(segment):
         name = basename(word)
-        if name in SHELLS:
-            return shell_reads_stdin(segment[index + 1 :])
-        if name in SOURCES and command_position:
-            return index + 1 == len(segment) or segment[index + 1] in STDIN_FILES
+        if name in SHELLS and shell_reads_stdin(name, segment[index + 1 :]):
+            return True
+        source = name in SOURCES and command_position
+        if source and (index + 1 == len(segment) or segment[index + 1] in STDIN_FILES):
+            return True
         command_position = command_position and (
-            word.startswith("-") or "=" in word or name in WRAPPERS
+            word.startswith("-") or "=" in word or word in SOURCE_PREFIXES
         )
     return False
 
 
-def shell_reads_stdin(args: list[str]) -> bool:
+def shell_reads_stdin(shell: str, args: list[str]) -> bool:
     """Whether a shell given these arguments reads its script from stdin."""
+    letters = SHELL_ARG_LETTERS.get(shell, "oO")
     index = 0
     while index < len(args) and args[index].startswith(("-", "+")):
         word = args[index]
-        if SHELL_C.fullmatch(word):
+        index += 1
+        if word in {"-", "--"}:
+            return word == "-" or index >= len(args) or args[index] in STDIN_FILES
+        if word.startswith("--"):
+            option, equals, _ = word.partition("=")
+            if option == "--command":
+                return False
+            if option not in SHELL_LONG_ARG | SHELL_LONG_FLAGS:
+                raise GateError(OPAQUE)
+            index += option in SHELL_LONG_ARG and not equals
+            continue
+        if "c" in word:
             return False
-        if word == "-" or SHELL_S.fullmatch(word):
+        if "s" in word:
             return True
-        if word == "--":
-            index += 1
-            break
-        index += 2 if word in SHELL_OPTION_ARGS else 1
+        index += sum(letter in letters for letter in word[1:])
     return index >= len(args) or args[index] in STDIN_FILES
 
 
@@ -360,7 +416,8 @@ def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
     candidates = 0
     for index, word in enumerate(segment):
         name = basename(word)
-        if name == "sbx-mcp":
+        # An option with its script attached, such as -S'sbx ...' or --split-string='sbx ...'.
+        if name == "sbx-mcp" or (word.startswith("-") and " " in word and mentions(word)):
             raise GateError(OPAQUE)
         if name in {"sbx", "workloads"}:
             candidates += 1
@@ -376,7 +433,7 @@ def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
         elif script and not word.startswith(("-", "+")):
             script = False
             nested(word, depth)
-        elif SHELL_C.fullmatch(word):
+        elif SCRIPT_FLAG.fullmatch(word) or word in SCRIPT_LONG:
             script = True
         stdin = stdin or name in STDIN_RUNNERS
         evaluating = evaluating or name == "eval"
