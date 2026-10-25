@@ -23,7 +23,7 @@ from sbx.keys import MAX_CHORDS
 from sbx.model import ENCODINGS, FLAVOURS, NETS, SHARED
 from sbx.results import Document, Result, Results
 from sbx.sandboxes import running_daemon
-from sbx.shares import Shares
+from sbx.shares import MOUNT_ROOT, Shares
 
 if TYPE_CHECKING:
     from sbx.model import ExecOptions, Request
@@ -319,7 +319,9 @@ def _list(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
 
 
 def _info(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
-    return sandboxes.info(args.text("name"))
+    name = args.text("name")
+    view = sandboxes.info(name)
+    return dataclasses.replace(view, shares=Shares(sandboxes).views(sandboxes.find(name)))
 
 
 def _screenshot(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
@@ -376,11 +378,13 @@ def _window_list(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
 
 
 def _share_attach(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
-    return Shares(sandboxes).attach(args.text("name"), args.text("share"))
+    return Shares(sandboxes).attach(
+        args.text("name"), args.text("share"), mount=not args.flag("no_mount")
+    )
 
 
 def _share_detach(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
-    return Shares(sandboxes).detach(args.text("name"), args.text("share"))
+    return Shares(sandboxes).detach(args.text("name"), args.text("share"), force=args.flag("force"))
 
 
 def _gc(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
@@ -518,6 +522,24 @@ SHARE_PARAMS = (
         required=True,
     ),
 )
+SHARE_ATTACH_PARAMS = (
+    *SHARE_PARAMS,
+    Param(
+        "no_mount",
+        f"attach only; the guest does not mount it on {MOUNT_ROOT}/<tag>",
+        kind="boolean",
+        flag="--no-mount",
+    ),
+)
+SHARE_DETACH_PARAMS = (
+    *SHARE_PARAMS,
+    Param(
+        "force",
+        "unmount a busy share lazily instead of refusing with share-busy",
+        kind="boolean",
+        flag="--force",
+    ),
+)
 
 OPERATIONS = (
     Operation(
@@ -639,7 +661,9 @@ OPERATIONS = (
         _info,
         (NAME,),
         "Describe a sandbox",
-        "Describe one sandbox as list does.",
+        "Describe one sandbox as list does, adding its console log, its base image, and "
+        "shares: [{tag, read_only, host_path, mountpoint}] for each share it holds, with "
+        "mountpoint only where the guest mounted it.",
         read_only=True,
     ),
     Operation(
@@ -819,24 +843,31 @@ OPERATIONS = (
     ),
     Operation(
         ("share", "attach"),
-        "hot-plug a share into a running sandbox",
+        f"hot-plug a share into a running sandbox and mount it on {MOUNT_ROOT}/<tag>",
         _share_attach,
-        SHARE_PARAMS,
+        SHARE_ATTACH_PARAMS,
         "Attach a share to a sandbox",
         "Hot-plug a virtiofs share into a running Linux sandbox until it is detached or "
         f"stops: {SHARED}, the sandbox's own read-write directory, or a declared "
-        "read-only host directory. Returns {sandbox, tag, read_only, host_path, "
-        "attached}; the guest mounts it with mount -t virtiofs <tag> <directory>.",
+        f"read-only host directory. The guest then mounts it on {MOUNT_ROOT}/<tag> unless "
+        "no_mount is set. Returns {sandbox, tag, read_only, host_path, attached, "
+        "mountpoint, mounted, mount_command, unmount_command}; a failed mount keeps the "
+        "share attached with mounted false and adds mount_error. Files keep their mode "
+        "bits, executable ones included.",
     ),
     Operation(
         ("share", "detach"),
-        "remove a share; fails while the guest still holds it",
+        "unmount a share in the guest, then remove it",
         _share_detach,
-        SHARE_PARAMS,
+        SHARE_DETACH_PARAMS,
         "Detach a share from a sandbox",
-        "Remove a share and wait until the guest releases it; returns the share as "
-        "share_attach does, with attached false. A share the guest still holds is "
-        "a detach-pending error; unmount it in the guest first.",
+        "Unmount every guest mount of a share, then remove it and wait until the guest "
+        "releases it; returns {sandbox, tag, read_only, host_path, attached, "
+        "guest_unmounted, unmounted}, unmounted listing the mountpoints. A busy mount is a "
+        "share-busy "
+        "error unless force unmounts it lazily. A guest that does not answer is still "
+        "detached, with guest_unmounted false and a recovery_command that clears its "
+        "stale mounts; a guest that keeps the device is a detach-pending error.",
     ),
     Operation(
         ("gc",),

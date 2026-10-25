@@ -9,6 +9,8 @@ itself instead of asking the helper.
 
 import json
 import os
+import re
+import shlex
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -18,11 +20,12 @@ from typing import TYPE_CHECKING, Protocol, cast
 from sbx import journal
 from sbx.errors import SbxError
 from sbx.model import DOMAIN_PREFIX, SHARED
-from sbx.results import GcAction, ShareResult
+from sbx.results import GcAction, GuestMount, GuestUnmount, ShareResult, ShareView
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
+    from collections.abc import Callable, Sequence
 
+    from sbx.model import ExecResult, Sandbox
     from sbx.sandboxes import Sandboxes
 
 # Written by modules/workloads/sharing/grants.nix.
@@ -30,6 +33,11 @@ POLICY = Path("/etc/workloads/grants.json")
 # libvirt itself waits five seconds for the guest to release a device.
 DETACH_WAIT = 15.0
 DETACH_POLL = 0.5
+# Bounds each guest helper: the mount, findmnt, and every umount.
+GUEST_TIMEOUT = 30.0
+MOUNT_ROOT = "/mnt"
+# findmnt --raw writes a byte outside printable ASCII, a space, or a backslash as \xHH.
+RAW_ESCAPE = re.compile(rb"\\x([0-9a-fA-F]{2})")
 
 
 class ShareBackend(Protocol):
@@ -109,6 +117,49 @@ def device_xml(virtiofsd: str, source: Path, tag: str, *, read_only: bool) -> st
     return ET.tostring(element, encoding="unicode")
 
 
+def mountpoint(tag: str) -> str:
+    """Return the guest directory `share attach` mounts a tag on."""
+    return f"{MOUNT_ROOT}/{tag}"
+
+
+def mount_command(tag: str, *, read_only: bool) -> str:
+    """Return the guest shell command that mounts a tag on its mountpoint."""
+    target = shlex.quote(mountpoint(tag))
+    options = " -o ro" if read_only else ""
+    return f"mkdir -p {target} && mount -t virtiofs{options} {shlex.quote(tag)} {target}"
+
+
+def find_command(tag: str) -> list[str]:
+    """Return the guest argv that lists every mountpoint of a tag, one per line."""
+    return ["findmnt", "-t", "virtiofs", "-S", tag, "-o", "TARGET", "-n", "-r"]
+
+
+def recovery_command(name: str, tag: str) -> str:
+    """Return the host command that lazily unmounts what a detach left in the guest."""
+    script = f"{shlex.join(find_command(tag))} | xargs -r umount -l"
+    return shlex.join(["sbx", "exec", name, "--", "sh", "-c", script])
+
+
+def _unescape(field: bytes) -> str:
+    return RAW_ESCAPE.sub(lambda match: bytes([int(match[1], 16)]), field).decode(errors="replace")
+
+
+def _detail(result: ExecResult) -> str:
+    text = result.stderr.decode(errors="replace").strip()
+    return "".join(c if c.isprintable() else " " for c in text)[:300] or "no message"
+
+
+def _failure(result: ExecResult) -> str | None:
+    """Why a guest helper failed, or None when it exited 0."""
+    if result.transport_error is not None:
+        return result.transport_error
+    if result.timed_out:
+        return f"it did not finish in {GUEST_TIMEOUT:g} s"
+    if result.exit_code != 0:
+        return f"it exited {result.status()}: {_detail(result)}"
+    return None
+
+
 class Shares:
     """`sbx share attach` and `detach`."""
 
@@ -163,8 +214,12 @@ class Shares:
             raise SbxError(msg, code="path-denied")
         return path, True
 
-    def attach(self, name: str, tag: str) -> ShareResult:
-        """Hot-plug a share into a running sandbox; it stays until detached or stopped."""
+    def attach(self, name: str, tag: str, *, mount: bool = True) -> ShareResult:
+        """Hot-plug a share into a running sandbox; it stays until detached or stopped.
+
+        With `mount`, the guest then mounts it on its mountpoint; a failed mount
+        leaves the share attached and says why.
+        """
         with self.sandboxes.locked():
             sandbox = self.sandboxes.running(name)
             if self.sandboxes.windows_base(sandbox.meta.base) is not None:
@@ -189,10 +244,39 @@ class Shares:
             )
             virtiofsd = self.sandboxes.settings.tools.virtiofsd
             backend.attach_device(domain, device_xml(virtiofsd, source, tag, read_only=read_only))
-        return ShareResult(name, tag, read_only=read_only, host_path=str(source), attached=True)
+        command = mount_command(tag, read_only=read_only)
+        error = self._mount(sandbox, tag, command) if mount else None
+        guest = GuestMount(
+            mountpoint(tag),
+            mounted=mount and error is None,
+            mount_command=command,
+            unmount_command=shlex.join(["umount", mountpoint(tag)]),
+            error=error,
+        )
+        return ShareResult(
+            name, tag, read_only=read_only, host_path=str(source), attached=True, guest=guest
+        )
 
-    def detach(self, name: str, tag: str) -> ShareResult:
-        """Remove a share and wait until the guest releases it; a held share is an error."""
+    def _mount(self, sandbox: Sandbox, tag: str, command: str) -> str | None:
+        """Mount an attached share in the guest; return why that failed, or None."""
+        try:
+            result = self.sandboxes.guest_helper(
+                sandbox, ["sh", "-c", command], timeout=GUEST_TIMEOUT
+            )
+            failure = _failure(result)
+        except SbxError as error:
+            failure = f"qemu-ga: {error}"
+        if failure is not None:
+            failure = f"the guest did not mount {tag}: {failure}"
+            journal.record(failure, verb="share", sandbox=sandbox.name, share=tag)
+        return failure
+
+    def detach(self, name: str, tag: str, *, force: bool = False) -> ShareResult:
+        """Unmount a share in the guest, then remove it and wait until the guest releases it.
+
+        A busy mount refuses unless `force` unmounts it lazily; a guest that does
+        not answer leaves its mounts, and the result says how to clear them.
+        """
         with self.sandboxes.locked():
             sandbox = self.sandboxes.find(name)
             if sandbox.domain.managed_save:
@@ -204,10 +288,104 @@ class Shares:
                 msg = f"sandbox '{name}' holds no {tag}"
                 raise SbxError(msg, code="not-attached")
             device = held[tag]
+            guest = self._unmount(sandbox, tag, force=force)
             self._detach(name, tag, device)
         return ShareResult(
-            name, tag, read_only=device.read_only, host_path=device.source, attached=False
+            name,
+            tag,
+            read_only=device.read_only,
+            host_path=device.source,
+            attached=False,
+            guest=guest,
         )
+
+    def _helper(self, sandbox: Sandbox, command: Sequence[str]) -> ExecResult | str:
+        """Run a guest helper; return its result, or why the guest did not answer."""
+        try:
+            result = self.sandboxes.guest_helper(sandbox, command, timeout=GUEST_TIMEOUT)
+        except SbxError as error:
+            if error.code == "agent-reply":
+                raise
+            return f"qemu-ga: {error}"
+        if result.transport_error is not None:
+            return result.transport_error
+        if result.timed_out:
+            return f"{command[0]} did not finish in {GUEST_TIMEOUT:g} s"
+        return result
+
+    def _unmount(self, sandbox: Sandbox, tag: str, *, force: bool) -> GuestUnmount:
+        """Unmount every guest mount of a tag, topmost first; lazily with `force`."""
+        name = sandbox.name
+        unmounted: list[str] = []
+
+        def abandon(reason: str) -> GuestUnmount:
+            journal.record(
+                f"share {tag} of {name} stays mounted in the guest: {reason}",
+                verb="share",
+                sandbox=name,
+                share=tag,
+            )
+            return GuestUnmount(tuple(unmounted), recovery_command(name, tag))
+
+        found = self._helper(sandbox, find_command(tag))
+        if isinstance(found, str):
+            return abandon(found)
+        # findmnt exits 1 when nothing matches.
+        if found.exit_code not in {0, 1}:
+            reason = f"findmnt exited {found.status()}: {_detail(found)}"
+            if not force:
+                msg = f"cannot list the mounts of {tag} in {name}: {reason}"
+                raise SbxError(msg, code="guest-command")
+            return abandon(reason)
+        targets = [_unescape(line) for line in found.stdout.splitlines() if line]
+        for target in reversed(targets):
+            result = self._helper(
+                sandbox, ["umount", "-l", target] if force else ["umount", target]
+            )
+            if isinstance(result, str):
+                return abandon(result)
+            if result.exit_code != 0:
+                detail = _detail(result)
+                reason = f"umount {target} exited {result.status()}: {detail}"
+                if force:
+                    return abandon(reason)
+                if "busy" in detail:
+                    msg = (
+                        f"{target} in {name} is busy: {reason}; stop what uses it, or detach"
+                        " with --force to unmount it lazily"
+                    )
+                    raise SbxError(msg, code="share-busy")
+                raise SbxError(reason, code="guest-command")
+            unmounted.append(target)
+        return GuestUnmount(tuple(unmounted))
+
+    def views(self, sandbox: Sandbox) -> tuple[ShareView, ...]:
+        """Describe the shares a running sandbox holds, with each one's first guest mountpoint."""
+        if not sandbox.domain.active:
+            return ()
+        held = attached(self._backend().live_xml(sandbox.domain.name))
+        if not held:
+            return ()
+        mounts = self._mounts(sandbox)
+        return tuple(
+            ShareView(tag, device.read_only, device.source, mounts.get(tag))
+            for tag, device in held.items()
+        )
+
+    def _mounts(self, sandbox: Sandbox) -> dict[str, str]:
+        """Map each mounted virtiofs tag to its first mountpoint; empty when the guest is silent."""
+        command = ["findmnt", "-t", "virtiofs", "-o", "SOURCE,TARGET", "-n", "-r"]
+        found = self._helper(sandbox, command)
+        if isinstance(found, str) or found.exit_code not in {0, 1}:
+            reason = found if isinstance(found, str) else f"findmnt exited {found.status()}"
+            journal.record(f"no guest mounts for {sandbox.name}: {reason}", sandbox=sandbox.name)
+            return {}
+        mounts: dict[str, str] = {}
+        for line in found.stdout.splitlines():
+            source, _, target = line.partition(b" ")
+            if target:
+                mounts.setdefault(_unescape(source), _unescape(target))
+        return mounts
 
     def _detach(self, name: str, tag: str, device: Device, reason: str = "") -> None:
         """Detach under the caller's lock and wait until the device leaves."""

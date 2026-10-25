@@ -1,12 +1,14 @@
 # Copyright (c) 2026 Bad3r
 """Runtime shares of sandboxes against the core tests' fake backend."""
 
+import base64
 import dataclasses
 import json
+import shlex
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 from unittest import mock
 
 from sbx.errors import SbxError
@@ -17,8 +19,15 @@ from sbx.windows import WindowsSettings
 from tests.test_core import NOW, FakeBackend, Fixture, dispatch
 
 
+def _b64(text: str) -> str:
+    return base64.b64encode(text.encode()).decode()
+
+
 class ShareFake(FakeBackend):
-    """Adds live virtiofs devices; a detached one lingers for `linger` polls, or forever."""
+    """Adds live virtiofs devices; a detached one lingers for `linger` polls, or forever.
+
+    Guest helpers act on `mounts`, each tag's guest mountpoints in mount order.
+    """
 
     def __init__(self) -> None:
         """No device is attached."""
@@ -28,6 +37,59 @@ class ShareFake(FakeBackend):
         self.linger: int | None = 2
         self.stuck: set[str] = set()
         self.vanished: set[str] = set()
+        self.mounts: dict[str, list[str]] = {}
+        self.guest_commands: list[list[str]] = []
+        self.busy: set[str] = set()
+        self.mount_fails = False
+        self.silent = False
+        self.helper_statuses: dict[int, dict[str, Any]] = {}
+
+    def _guest(self, argv: list[str]) -> dict[str, Any]:
+        """Answer one guest helper as a NixOS guest would."""
+        if argv[:2] == ["sh", "-c"]:
+            if self.mount_fails:
+                return {"exitcode": 32, "err-data": _b64("mount: unknown filesystem type")}
+            words = shlex.split(argv[2])
+            self.mounts.setdefault(words[-2], []).append(words[-1])
+            return {"exitcode": 0}
+        if argv[0] == "findmnt":
+            if "-S" in argv:
+                targets = self.mounts.get(argv[argv.index("-S") + 1], [])
+                lines = "".join(f"{target}\n" for target in targets)
+            else:
+                lines = "".join(
+                    f"{tag} {target}\n"
+                    for tag, targets in self.mounts.items()
+                    for target in targets
+                )
+            return {"exitcode": 0 if lines else 1, "out-data": _b64(lines)}
+        if argv[0] == "umount":
+            target = argv[-1]
+            if target in self.busy and "-l" not in argv:
+                return {"exitcode": 32, "err-data": _b64(f"umount: {target}: target is busy.")}
+            for targets in self.mounts.values():
+                if target in targets:
+                    targets.remove(target)
+            return {"exitcode": 0}
+        raise AssertionError(argv)
+
+    def agent(self, domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:
+        """Run guest helpers against `mounts`; a silent guest answers nothing."""
+        execute = command["execute"]
+        if execute not in {"guest-exec", "guest-exec-status"}:
+            return super().agent(domain, command, timeout)
+        if self.silent:
+            msg = "Guest agent is not responding: QEMU guest agent is not connected"
+            raise SbxError(msg, code="libvirt")
+        arguments = cast("dict[str, Any]", command["arguments"])
+        if execute == "guest-exec-status":
+            return {"return": self.helper_statuses.pop(arguments["pid"])}
+        argv = [arguments["path"], *arguments["arg"]]
+        helper = argv[argv.index("--") + 1 :]
+        self.guest_commands.append(helper)
+        pid = len(self.guest_commands)
+        self.helper_statuses[pid] = {"exited": True, **self._guest(helper)}
+        return {"return": {"pid": pid}}
 
     def live_xml(self, domain: str) -> str:
         """The devices, wrapped like a domain definition."""
@@ -110,6 +172,10 @@ class SharesTest(Fixture):
                 "read_only": False,
                 "host_path": str(self.paths.sandbox("s").resolve() / "shared"),
                 "attached": True,
+                "mountpoint": "/mnt/shared",
+                "mounted": True,
+                "mount_command": "mkdir -p /mnt/shared && mount -t virtiofs shared /mnt/shared",
+                "unmount_command": "umount /mnt/shared",
             },
         )
         self.assertTrue((self.paths.sandbox("s") / "shared").is_dir())
@@ -185,6 +251,117 @@ class SharesTest(Fixture):
         with self.assertRaises(SbxError) as refused:
             self.shares().detach("s", "shared")
         self.assertEqual(refused.exception.code, "detach-pending")
+
+    def test_mount_commands(self) -> None:
+        """The guest mounts a read-only share with -o ro, and --no-mount runs nothing."""
+        self.add_running("s")
+        self.shares().attach("s", "shared")
+        self.shares().attach("s", "docs")
+        self.assertEqual(
+            self.backend.guest_commands,
+            [
+                ["sh", "-c", "mkdir -p /mnt/shared && mount -t virtiofs shared /mnt/shared"],
+                ["sh", "-c", "mkdir -p /mnt/docs && mount -t virtiofs -o ro docs /mnt/docs"],
+            ],
+        )
+        self.add_running("t")
+        result, _ = dispatch(
+            self.sandboxes(), "share", "attach", "--json", "t", "shared", "--no-mount"
+        )
+        document = cast("dict[str, object]", result)
+        self.assertEqual((document["attached"], document["mounted"]), (True, False))
+        self.assertNotIn("mount_error", document)
+        self.assertEqual(len(self.backend.guest_commands), 2)
+
+    def test_failed_mount_keeps_the_share(self) -> None:
+        """A mount the guest refuses leaves the device attached and reports why."""
+        self.add_running("s")
+        self.backend.mount_fails = True
+        document = self.shares().attach("s", "docs").as_json()
+        self.assertEqual((document["attached"], document["mounted"]), (True, False))
+        self.assertIn("unknown filesystem type", str(document["mount_error"]))
+        self.assertIn("docs", attached(self.backend.live_xml("sbx-s")))
+        self.backend.silent = True
+        document = self.shares().attach("s", "shared").as_json()
+        self.assertEqual((document["attached"], document["mounted"]), (True, False))
+        self.assertIn("not responding", str(document["mount_error"]))
+        self.assertIn("shared", attached(self.backend.live_xml("sbx-s")))
+
+    def test_detach_unmounts_first(self) -> None:
+        """Detach unmounts every mount of the tag, topmost first, and leaves none behind."""
+        self.add_running("s")
+        self.shares().attach("s", "shared")
+        self.backend.mounts["shared"].append("/srv/again")
+        self.backend.guest_commands.clear()
+        document = self.shares().detach("s", "shared").as_json()
+        self.assertEqual(
+            self.backend.guest_commands,
+            [
+                ["findmnt", "-t", "virtiofs", "-S", "shared", "-o", "TARGET", "-n", "-r"],
+                ["umount", "/srv/again"],
+                ["umount", "/mnt/shared"],
+            ],
+        )
+        self.assertEqual(
+            (document["guest_unmounted"], document["unmounted"]),
+            (True, ["/srv/again", "/mnt/shared"]),
+        )
+        self.assertNotIn("recovery_command", document)
+        self.assertEqual(self.backend.mounts["shared"], [])
+
+    def test_busy_detach(self) -> None:
+        """A busy mount refuses and keeps the share; --force unmounts it lazily."""
+        self.add_running("s")
+        self.shares().attach("s", "shared")
+        self.backend.busy.add("/mnt/shared")
+        with self.assertRaises(SbxError) as refused:
+            self.shares().detach("s", "shared")
+        self.assertEqual(refused.exception.code, "share-busy")
+        self.assertIn("shared", attached(self.backend.live_xml("sbx-s")))
+        self.backend.guest_commands.clear()
+        result, _ = dispatch(
+            self.sandboxes(), "share", "detach", "--json", "s", "shared", "--force"
+        )
+        self.assertEqual(self.backend.guest_commands[-1], ["umount", "-l", "/mnt/shared"])
+        self.assertTrue(cast("dict[str, object]", result)["guest_unmounted"])
+        self.assertNotIn("shared", attached(self.backend.live_xml("sbx-s")))
+
+    def test_silent_guest_still_detaches(self) -> None:
+        """A guest that does not answer loses the device and the result says how to recover."""
+        self.add_running("s")
+        self.shares().attach("s", "docs")
+        self.backend.silent = True
+        document = self.shares().detach("s", "docs").as_json()
+        self.assertEqual((document["attached"], document["guest_unmounted"]), (False, False))
+        self.assertEqual(
+            document["recovery_command"],
+            "sbx exec s -- sh -c 'findmnt -t virtiofs -S docs -o TARGET -n -r"
+            " | xargs -r umount -l'",
+        )
+        self.assertNotIn("docs", attached(self.backend.live_xml("sbx-s")))
+
+    def test_info_lists_shares(self) -> None:
+        """`info` lists each held share, with a mountpoint only where the guest mounted it."""
+        self.add_running("s")
+        self.shares().attach("s", "shared")
+        self.shares().attach("s", "docs", mount=False)
+        result, _ = dispatch(self.sandboxes(), "info", "--json", "s")
+        self.assertEqual(
+            cast("dict[str, object]", result)["shares"],
+            [
+                {
+                    "tag": "shared",
+                    "read_only": False,
+                    "host_path": str(self.paths.sandbox("s").resolve() / "shared"),
+                    "mountpoint": "/mnt/shared",
+                },
+                {"tag": "docs", "read_only": True, "host_path": str(self.docs)},
+            ],
+        )
+        self.backend.silent = True
+        result, _ = dispatch(self.sandboxes(), "info", "--json", "s")
+        shares = cast("list[dict[str, object]]", cast("dict[str, object]", result)["shares"])
+        self.assertEqual([share.get("mountpoint") for share in shares], [None, None])
 
     def test_detach_saved(self) -> None:
         """A saved sandbox brings its shares back at restore, so detach refuses it."""

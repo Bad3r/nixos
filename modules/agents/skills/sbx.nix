@@ -109,7 +109,7 @@ let
     | `destroy <name>` / `--mine` / `--expired`    | stop and delete sandboxes                  |
     | `list [--mine]`, `info <name>`               | state, CID, TTL left, `xfer` directory     |
     | `screenshot <name> [--ocr] [--to PATH]`      | display to a new PNG or PPM file           |
-    | `share attach <name> shared` / `detach`      | hot-plug `shared` RW or a declared one RO  |
+    | `share attach <name> shared` / `detach`      | mount `shared` RW or a declared share RO   |
     | `key <name> <chord>...`                      | press chords on a GUI sandbox              |
     | `type <name> <text>`                         | type text on a GUI sandbox                 |
     | `mouse <name> --to X,Y [--click B]`          | point and click on a GUI sandbox           |
@@ -150,6 +150,16 @@ let
       mid-command, and the command may have run in part; without it, 255 is
       the guest's own. A `run` whose transport failed exits 1 with
       `run-incomplete` instead.
+    - `share attach`: `{sandbox, tag, read_only, host_path, attached,
+      mountpoint, mounted, mount_command, unmount_command}`. The guest mounts
+      the share on `/mnt/<tag>` unless `--no-mount`; a failed mount keeps it
+      attached with `mounted: false` and `mount_error`. Files there keep
+      their execute bits, which `cp` out strips.
+    - `share detach` unmounts the share in the guest first and adds
+      `guest_unmounted` and `unmounted`. `share-busy` means a guest process
+      still uses it (`--force` unmounts lazily); `guest_unmounted: false`
+      comes with a `recovery_command` for the stale mount. `info` lists
+      held shares under `shares`.
     - Failures print `{"error": {"code", "message"}}` and exit 1, or 2 for a
       usage error. `base-missing` means `sbx base build <base>` comes first,
       or for a cloud base the owner's `sbx base prepare`.

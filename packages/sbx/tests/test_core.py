@@ -230,6 +230,10 @@ class FakeBackend:
             return {"return": {"pid": pid}}
         return {"return": self.statuses.pop(arguments["pid"])}
 
+    def live_xml(self, domain: str) -> str:
+        """The definition a domain started with, or an empty one."""
+        return self.xml.get(domain, "<domain><devices/></domain>")
+
     def screenshot(self, domain: str, target: Path) -> str:  # noqa: ARG002
         """Write a placeholder image of its own to a new file, recorded by the calling thread."""
         with self.lock:

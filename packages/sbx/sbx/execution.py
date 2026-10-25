@@ -235,6 +235,20 @@ class Execution(Context):
             argv[0], argv[1:], timeout=timeout, limit=limit, stdin=stdin, stops=agent.group_stops()
         )
 
+    def guest_helper(
+        self, sandbox: Sandbox, command: Sequence[str], *, timeout: float
+    ) -> ExecResult:
+        """Run a short root helper in `/` through qemu-ga, unjournaled; a failed start raises."""
+        agent = self._guest_exec(sandbox.domain.name)
+        argv = launcher(command, ExecOptions(cwd="/"), session=True)
+        return agent.run(
+            argv[0],
+            argv[1:],
+            timeout=timeout,
+            limit=self.settings.output_limit,
+            stops=agent.group_stops(),
+        )
+
     def ssh_capture(
         self, sandbox: Sandbox, command: Sequence[str], *, timeout: float | None
     ) -> ExecResult:

@@ -65,6 +65,8 @@ SAMPLES: dict[str, object] = {
     "class": "XTerm",
     "id": 4194,
     "share": "shared",
+    "no_mount": True,
+    "force": True,
 }
 SNAPSHOT = Path(__file__).with_name("mcp-tools.json")
 
@@ -479,8 +481,15 @@ class ServerTest(unittest.TestCase):
         )
         host_path = str(self.core.paths.sandbox("s").resolve() / "shared")
         share = {"sandbox": "s", "tag": "shared", "read_only": False, "host_path": host_path}
-        self.assertEqual(attached, (False, share | {"attached": True}))
-        self.assertEqual(detached, (False, share | {"attached": False}))
+        mount = {
+            "mountpoint": "/mnt/shared",
+            "mounted": True,
+            "mount_command": "mkdir -p /mnt/shared && mount -t virtiofs shared /mnt/shared",
+            "unmount_command": "umount /mnt/shared",
+        }
+        unmount = {"guest_unmounted": True, "unmounted": ["/mnt/shared"]}
+        self.assertEqual(attached, (False, share | {"attached": True} | mount))
+        self.assertEqual(detached, (False, share | {"attached": False} | unmount))
         self.assertEqual((missing[0], missing[1]["error"]["code"]), (True, "not-attached"))
 
     def test_stdin_conflict(self) -> None:

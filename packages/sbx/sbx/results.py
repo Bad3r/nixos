@@ -56,7 +56,7 @@ class Results(Result):
 
 @dataclass(frozen=True)
 class SandboxView(Result):
-    """One sandbox as list, info, and create describe it; info adds console and image."""
+    """One sandbox as list, info, and create describe it; info adds console, image, and shares."""
 
     name: str
     domain: str
@@ -76,6 +76,7 @@ class SandboxView(Result):
     xfer: str
     console: str | None = None
     image: str | None = None
+    shares: tuple[ShareView, ...] | None = None
 
     def as_json(self) -> dict[str, object]:
         """Return the fields, leaving out console and image outside info."""
@@ -101,6 +102,8 @@ class SandboxView(Result):
             document["console"] = self.console
         if self.image is not None:
             document["image"] = self.image
+        if self.shares is not None:
+            document["shares"] = [share.as_json() for share in self.shares]
         return document
 
 
@@ -160,24 +163,90 @@ class TypeResult(Result):
 
 
 @dataclass(frozen=True)
+class ShareView:
+    """One share a sandbox holds; `mountpoint` is where the guest mounted it first."""
+
+    tag: str
+    read_only: bool
+    host_path: str
+    mountpoint: str | None = None
+
+    def as_json(self) -> dict[str, object]:
+        """Return {tag, read_only, host_path}, with mountpoint when the guest mounted it."""
+        document: dict[str, object] = {
+            "tag": self.tag,
+            "read_only": self.read_only,
+            "host_path": self.host_path,
+        }
+        if self.mountpoint is not None:
+            document["mountpoint"] = self.mountpoint
+        return document
+
+
+@dataclass(frozen=True)
+class GuestMount:
+    """How an attached share is mounted in the guest, and whether it is."""
+
+    mountpoint: str
+    mounted: bool
+    mount_command: str
+    unmount_command: str
+    error: str | None = None
+
+    def as_json(self) -> dict[str, object]:
+        """Return the fields, with mount_error when the mount failed."""
+        document: dict[str, object] = {
+            "mountpoint": self.mountpoint,
+            "mounted": self.mounted,
+            "mount_command": self.mount_command,
+            "unmount_command": self.unmount_command,
+        }
+        if self.error is not None:
+            document["mount_error"] = self.error
+        return document
+
+
+@dataclass(frozen=True)
+class GuestUnmount:
+    """The guest mounts a detach removed; `recovery` is set when the guest did not answer."""
+
+    unmounted: tuple[str, ...]
+    recovery: str | None = None
+
+    def as_json(self) -> dict[str, object]:
+        """Return {guest_unmounted, unmounted}, with recovery_command when it failed."""
+        document: dict[str, object] = {
+            "guest_unmounted": self.recovery is None,
+            "unmounted": list(self.unmounted),
+        }
+        if self.recovery is not None:
+            document["recovery_command"] = self.recovery
+        return document
+
+
+@dataclass(frozen=True)
 class ShareResult(Result):
-    """A share attached to or detached from a sandbox."""
+    """A share attached to or detached from a sandbox, with what the guest did about it."""
 
     sandbox: str
     tag: str
     read_only: bool
     host_path: str
     attached: bool
+    guest: GuestMount | GuestUnmount | None = None
 
     def as_json(self) -> dict[str, object]:
-        """Return the fields."""
-        return {
+        """Return the fields and the guest's part."""
+        document: dict[str, object] = {
             "sandbox": self.sandbox,
             "tag": self.tag,
             "read_only": self.read_only,
             "host_path": self.host_path,
             "attached": self.attached,
         }
+        if self.guest is not None:
+            document |= self.guest.as_json()
+        return document
 
 
 @dataclass(frozen=True)

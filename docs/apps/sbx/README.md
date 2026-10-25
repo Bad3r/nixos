@@ -35,7 +35,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `list`, `info <name>`            | state, CID, address, TTL left, session      |
 | `screenshot <name>`              | display to PNG; `--ocr`, `--to`             |
 | `key`, `type`, `mouse`, `window` | input and windows on a GUI base             |
-| `share attach`, `share detach`   | hot-plug or remove a runtime share          |
+| `share attach`, `share detach`   | hot-plug and mount, or unmount and remove   |
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
 | `base prepare <image>`           | turn a cloud image into a base, owner only  |

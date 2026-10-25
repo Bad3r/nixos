@@ -304,7 +304,7 @@
 	{
 		"name": "info",
 		"title": "Describe a sandbox",
-		"description": "Describe one sandbox as list does.",
+		"description": "Describe one sandbox as list does, adding its console log, its base image, and shares: [{tag, read_only, host_path, mountpoint}] for each share it holds, with mountpoint only where the guest mounted it.",
 		"inputSchema": {
 			"type": "object",
 			"properties": {
@@ -549,7 +549,7 @@
 	{
 		"name": "share_attach",
 		"title": "Attach a share to a sandbox",
-		"description": "Hot-plug a virtiofs share into a running Linux sandbox until it is detached or stops: shared, the sandbox's own read-write directory, or a declared read-only host directory. Returns {sandbox, tag, read_only, host_path, attached}; the guest mounts it with mount -t virtiofs <tag> <directory>.",
+		"description": "Hot-plug a virtiofs share into a running Linux sandbox until it is detached or stops: shared, the sandbox's own read-write directory, or a declared read-only host directory. The guest then mounts it on /mnt/<tag> unless no_mount is set. Returns {sandbox, tag, read_only, host_path, attached, mountpoint, mounted, mount_command, unmount_command}; a failed mount keeps the share attached with mounted false and adds mount_error. Files keep their mode bits, executable ones included.",
 		"inputSchema": {
 			"type": "object",
 			"properties": {
@@ -560,6 +560,10 @@
 				"share": {
 					"type": "string",
 					"description": "shared (read-write) or a workloads.grants.sandboxShares name (read-only)"
+				},
+				"no_mount": {
+					"type": "boolean",
+					"description": "attach only; the guest does not mount it on /mnt/<tag>"
 				}
 			},
 			"required": ["name", "share"],
@@ -575,7 +579,7 @@
 	{
 		"name": "share_detach",
 		"title": "Detach a share from a sandbox",
-		"description": "Remove a share and wait until the guest releases it; returns the share as share_attach does, with attached false. A share the guest still holds is a detach-pending error; unmount it in the guest first.",
+		"description": "Unmount every guest mount of a share, then remove it and wait until the guest releases it; returns {sandbox, tag, read_only, host_path, attached, guest_unmounted, unmounted}, unmounted listing the mountpoints. A busy mount is a share-busy error unless force unmounts it lazily. A guest that does not answer is still detached, with guest_unmounted false and a recovery_command that clears its stale mounts; a guest that keeps the device is a detach-pending error.",
 		"inputSchema": {
 			"type": "object",
 			"properties": {
@@ -586,6 +590,10 @@
 				"share": {
 					"type": "string",
 					"description": "shared (read-write) or a workloads.grants.sandboxShares name (read-only)"
+				},
+				"force": {
+					"type": "boolean",
+					"description": "unmount a busy share lazily instead of refusing with share-busy"
 				}
 			},
 			"required": ["name", "share"],
