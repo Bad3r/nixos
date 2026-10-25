@@ -82,6 +82,14 @@ let
     "sbx create nixos --name {x,--net,egress}"
     "sbx create nixos <<<$(echo x) --net egress"
     "{ sbx create nixos --net egress; }"
+    "env A=/sbx sbx share attach n shared"
+    "env -C /tmp/sbx sbx share attach n shared"
+    "X=/sbx sbx create nixos --name {x,--net,egress}"
+    "env -u X sbx create nixos --net egress"
+    "sudo -E env PATH=/x/sbx sbx run nixos --net egress -- true"
+    "sbx list ${lib.concatStrings (lib.replicate 17 "sbx ")}"
+    # Guest argv naming sbx prompts too, since an earlier sbx word may be a mere argument.
+    "sbx run nixos --in . -- sh -c 'sbx-mcp; sbx create nixos --net egress'"
     "echo \"$(sbx run nixos --net egress -- true)\""
     "echo \"`sbx share attach n shared`\""
     "x=\"$(sbx run nixos --net egress -- curl https://example.invalid)\""
@@ -158,7 +166,6 @@ let
     "sbx run nixos --in . -- sh -c 'curl --net egress'"
     "sbx exec n -- podman run --net=host alpine"
     "sbx exec \"$N\" -- true"
-    "sbx run nixos --in . -- sh -c 'sbx-mcp; sbx create nixos --net egress'"
     "echo n | xargs sbx destroy"
     "bash -c 'sbx list --mine'"
     "sbx create nixos 2>/dev/null"
@@ -176,6 +183,9 @@ let
     "cat <<< \"$(date)\""
     "echo $((1 << 2))"
     "echo \"$(date\""
+    "env A=/sbx sbx list"
+    "ls /nix/store/*-sbx"
+    "git add packages/sbx docs/apps/sbx"
     (evals 4)
     (words 30000)
     "sbx share attach n docs"

@@ -51,6 +51,8 @@ HEREDOC_END = frozenset(" \t\n;|&<>()")
 # Delimiter, strip leading tabs, body is a shell script, body expands substitutions.
 type Heredoc = tuple[str, bool, bool, bool]
 MAX_DEPTH = 4
+# Bounds the suffix checks per simple command, which are each linear.
+MAX_CANDIDATES = 16
 MAX_COMMAND = 64 * 1024
 
 
@@ -295,15 +297,21 @@ def nested(script: str, depth: int) -> None:
 
 
 def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
-    """Gate one simple command, cut short by a substitution if cut, and its -c or eval script."""
+    """Gate one simple command, cut short by a substitution if cut, and its -c or eval script.
+
+    Any word naming sbx may start the real command (env A=/sbx sbx ...), so each one is checked.
+    """
     stdin = evaluating = script = skip = False
+    candidates = 0
     for index, word in enumerate(segment):
         name = basename(word)
         if name == "sbx-mcp":
             raise GateError(OPAQUE)
         if name in {"sbx", "workloads"}:
+            candidates += 1
+            if candidates > MAX_CANDIDATES:
+                raise GateError(OPAQUE)
             check_sbx(name, segment[index + 1 :], stdin=stdin, cut=cut)
-            return
         if evaluating:
             nested(word, depth)
         elif skip:
