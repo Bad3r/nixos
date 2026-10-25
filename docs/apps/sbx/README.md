@@ -77,6 +77,7 @@ A base is a Nix-built disk image from `legacyPackages.x86_64-linux.workloads.sbx
 No host closure references a base.
 Each sandbox gets a qcow2 overlay on the base, its own GC root to the base, and a fresh ed25519 key.
 The key reaches the guest as the `ssh.authorized_keys.root` systemd credential over fw_cfg.
+[Windows bases](windows.md) are exported from a Windows guest's golden copy instead, and run without SSH.
 
 ## Resources
 

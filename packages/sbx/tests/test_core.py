@@ -940,6 +940,7 @@ class SandboxesTest(Fixture):
                 "ttlSeconds": 1,
                 "diskBytes": 1,
                 "minFreeBytes": 1,
+                "fileBytes": 1,
             },
             "defaults": {"memoryMiB": 1, "cpus": 1, "ttlSeconds": 1, "diskGiB": 1},
             "cpuset": "0",
@@ -949,6 +950,7 @@ class SandboxesTest(Fixture):
             "outputLimit": 1,
             "bootTimeout": 1,
             "egress": {"bridge": "vn-sbx", "leases": "/leases"},
+            "windows": None,
             "tools": dataclasses.asdict(self.settings.tools),
         }
         path = self.scratch / "settings.json"

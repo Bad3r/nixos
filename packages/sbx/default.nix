@@ -89,6 +89,18 @@ stdenvNoCC.mkDerivation {
     sys.exit(serve(Path("${settingsFile}"), "${version}"))
     EOF
     chmod 0755 $out/bin/sbx $out/bin/sbx-mcp
+    # Root's half of the Windows base export; never on PATH.
+    install -d $out/libexec/sbx
+    cat > $out/libexec/sbx/export-base <<EOF
+    #!${python.interpreter} -I
+    import sys
+
+    sys.path.insert(0, "$out/lib/sbx")
+    from sbx.export import main
+
+    sys.exit(main())
+    EOF
+    chmod 0755 $out/libexec/sbx/export-base
     runHook postInstall
   '';
 

@@ -200,7 +200,12 @@ GUEST_COMMAND = Param(
     required=True,
 )
 CREATE_PARAMS = (
-    Param("base", _string("base to boot", enum=list(FLAVOURS)), required=True),
+    # Windows bases come from the settings, so the schema names no fixed set.
+    Param(
+        "base",
+        _string(f"base to boot: {', '.join(FLAVOURS)}, or a Windows base that base_list reports"),
+        required=True,
+    ),
     Param("name", _string("sandbox name; default <base>-<6 hex>"), flag="--name"),
     Param("net", _string("network; default none", enum=list(NETS)), flag="--net"),
     Param("mem", _string("memory such as 2G"), flag="--mem"),
@@ -221,11 +226,12 @@ TOOLS = (
         "run",
         ("run",),
         "Run a command in a one-shot sandbox",
-        "Create a sandbox, copy inputs to /root/, run the command there, copy outputs out, "
-        "and destroy the sandbox even when a step fails; returns {sandbox, in, exec, out}.",
+        "Create a sandbox, copy inputs to /root/ (C:\\sbx\\ on Windows), run the command, "
+        "copy outputs out, and destroy the sandbox even when a step fails; returns "
+        "{sandbox, in, exec, out}.",
         (
             *CREATE_PARAMS,
-            Param("in", _list("host paths copied into /root/"), flag="--in"),
+            Param("in", _list("host paths copied into /root/ or C:\\sbx\\"), flag="--in"),
             Param("out", _list("guest paths copied to 'to' afterwards"), flag="--out"),
             Param("to", _string("host directory for 'out'"), flag="--to"),
             TIMEOUT,
@@ -237,7 +243,8 @@ TOOLS = (
         "exec",
         ("exec",),
         "Run a command in a sandbox",
-        "Run a command over SSH; returns {exit_code, stdout, stderr, truncated, timed_out}. "
+        "Run a command over SSH, or through qemu-ga on Windows; returns "
+        "{exit_code, stdout, stderr, truncated, timed_out}. "
         "A failing guest command is no tool error: its status is exit_code, 124 after timeout.",
         (
             NAME,

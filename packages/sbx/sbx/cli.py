@@ -6,7 +6,7 @@ import json
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from sbx import journal, sleep
+from sbx import journal, sleep, windows
 from sbx.core import (
     FLAVOURS,
     NETS,
@@ -59,7 +59,8 @@ def build_parser() -> argparse.ArgumentParser:
     verbs = parser.add_subparsers(dest="verb", required=True, parser_class=Parser)
 
     create_flags = Parser(add_help=False)
-    create_flags.add_argument("base", choices=FLAVOURS)
+    # Windows bases come from the settings, which load after parsing.
+    create_flags.add_argument("base", help=f"{', '.join(FLAVOURS)}, or a Windows base")
     create_flags.add_argument("--name", help="sandbox name; default <base>-<6 hex>")
     create_flags.add_argument(
         "--net", choices=NETS, default="none", help="none: no NIC; egress: DHCP on the sbx bridge"
@@ -112,7 +113,7 @@ def build_parser() -> argparse.ArgumentParser:
     base_verbs = base.add_subparsers(dest="base_verb", required=True, parser_class=Parser)
     base_verbs.add_parser("list", parents=[common])
     build = base_verbs.add_parser("build", parents=[common])
-    build.add_argument("flavour", choices=FLAVOURS)
+    build.add_argument("flavour", help=", ".join(FLAVOURS))
 
     host_sleep = verbs.add_parser(
         "sleep",
@@ -166,12 +167,19 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
     name, token = str(created["name"]), str(created["token"])
     # Every step and the cleanup act only on this creation, never on a later namesake.
     try:
-        copied_in = [sandboxes.copy(path, f"{name}:/root/", token=token) for path in args.inputs]
+        agent_only = sandboxes.agent_only(name, token=token)
+        inbox = windows.INBOX if agent_only else "/root/"
+        copied_in = [sandboxes.copy(path, f"{name}:{inbox}", token=token) for path in args.inputs]
         if as_json:
             result = sandboxes.exec_capture(
                 name, command, timeout=timeout, agent=False, token=token
             )
             code = exit_code(result)
+        elif agent_only:
+            code = _print_exec(
+                sandboxes.exec_capture(name, command, timeout=timeout, agent=True, token=token)
+            )
+            result = None
         else:
             code = _attached(sandboxes.exec_attached(name, command, timeout=timeout, token=token))
             result = None
@@ -207,7 +215,7 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
         case "exec":
             command = _command(args)
             timeout = _timeout(args.timeout)
-            if as_json or args.agent:
+            if as_json or args.agent or sandboxes.agent_only(args.name):
                 result = sandboxes.exec_capture(
                     args.name, command, timeout=timeout, agent=args.agent
                 )

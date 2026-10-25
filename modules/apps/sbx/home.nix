@@ -1,6 +1,11 @@
 _: {
   flake.homeManagerModules.apps.sbx =
-    { osConfig, lib, ... }:
+    {
+      osConfig,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       nixosEnabled = lib.attrByPath [ "programs" "sbx" "extended" "enable" ] false osConfig;
       cfg = osConfig.programs.sbx.extended;
@@ -41,6 +46,17 @@ _: {
               Slice = "sbx.slice";
               # Guests outlive a daemon restart, and the next daemon reattaches to them.
               KillMode = "process";
+              # Bounds every file QEMU writes; a Windows disk is larger than the cap, so its overlay stops here.
+              LimitFSIZE = "${toString cfg.sandbox.maxFile}G";
+              # libvirt looks up swtpm for Windows sandbox TPMs on PATH.
+              Environment = [
+                "PATH=${
+                  lib.makeBinPath [
+                    osConfig.virtualisation.libvirtd.qemu.swtpm.package
+                    pkgs.coreutils
+                  ]
+                }"
+              ];
             };
           };
 

@@ -89,6 +89,7 @@ The unit copies the disks, NVRAM, TPM state, and inactive domain XML of any decl
 It refuses a running guest, files that change during the copy, and an existing golden directory, which is moved aside by hand first.
 
 Verification: the log ends with `copied guest '<name>'`.
+[sbx Windows bases](../sbx/windows.md#export-a-windows-base) clone sandboxes from it.
 
 ## Restore a golden copy
 

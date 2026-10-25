@@ -18,6 +18,13 @@ let
       (`pkgs.testers.runNixOSTest`) or `nixos-rebuild build-vm`.
     - Offline one-shots of an OCI image: use `podman --module untrusted run`.
 
+    Windows bases, listed by `sbx base list`, clone a Windows guest: no
+    network, no SSH, and commands run as given through the guest agent as
+    SYSTEM, without a shell (`cmd.exe /c ...`). Guest paths are absolute
+    (`C:\Users\Public\x`); `run --in` copies into `C:\sbx\`. Only the owner
+    can export a missing Windows base; report `base-missing` instead of
+    retrying.
+
     ## One-Shot Work
 
     `sbx run` creates a sandbox, copies inputs in, runs the command, copies
