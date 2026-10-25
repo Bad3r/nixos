@@ -34,7 +34,11 @@ in
               diskSize = 4096;
               additionalPaths = [ base ];
             };
-            boot.kernelModules = [ "vhost_vsock" ];
+            boot = {
+              # sbx-qemu needs vsock network namespaces, which the latest kernel has.
+              kernelPackages = pkgs.linuxPackages_latest;
+              kernelModules = [ "vhost_vsock" ];
+            };
             users.users.${owner} = {
               isNormalUser = true;
               uid = 1000;
