@@ -184,8 +184,7 @@ let
         ${lib.concatStrings (lib.imap0 diskXml diskNames)}
         ${lib.concatStrings (lib.imap0 mediaXml guest.install.media)}
         ${lib.concatStrings (lib.imap0 imageXml guest.install.images)}
-        <controller type="usb" model="qemu-xhci" ports="15"/>
-        ${rootPorts}
+        <controller type="usb" model="qemu-xhci" ports="15"/>${rootPorts}
         ${lib.concatStrings (lib.mapAttrsToList interfaceXml guest.interfaces)}
         ${lib.concatMapStrings (share: share.deviceXml) (lib.filter (share: !share.runtime) shares)}
         <serial type="pty">
