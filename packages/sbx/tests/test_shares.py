@@ -9,13 +9,12 @@ from pathlib import Path
 from typing import cast
 from unittest import mock
 
-from sbx import cli
 from sbx.errors import SbxError
 from sbx.sandboxes import Sandboxes
 from sbx.shares import Shares, attached
 from sbx.windows import WindowsSettings
 
-from tests.test_core import NOW, FakeBackend, Fixture
+from tests.test_core import NOW, FakeBackend, Fixture, dispatch
 
 
 class ShareFake(FakeBackend):
@@ -104,7 +103,7 @@ class SharesTest(Fixture):
         self.add_running("s")
         shared = self.shares().attach("s", "shared")
         self.assertEqual(
-            shared,
+            shared.as_json(),
             {
                 "sandbox": "s",
                 "tag": "shared",
@@ -117,7 +116,7 @@ class SharesTest(Fixture):
         self.assertIsNone(self.device("shared").find("readonly"))
         binary = self.device("shared").find("binary")
         self.assertEqual(binary.get("path"), self.settings.tools.virtiofsd)  # pyright: ignore[reportOptionalMemberAccess]
-        self.assertTrue(self.shares().attach("s", "docs")["read_only"])
+        self.assertTrue(self.shares().attach("s", "docs").read_only)
         self.assertIsNotNone(self.device("docs").find("readonly"))
         with self.assertRaises(SbxError) as refused:
             self.shares().attach("s", "shared")
@@ -174,7 +173,7 @@ class SharesTest(Fixture):
         self.shares().attach("s", "docs")
         detached = self.shares().detach("s", "docs")
         self.assertEqual(
-            (detached["attached"], detached["read_only"], detached["host_path"]),
+            (detached.attached, detached.read_only, detached.host_path),
             (False, True, str(self.docs)),
         )
         self.assertEqual(self.slept, [0.5, 0.5])
@@ -207,12 +206,11 @@ class SharesTest(Fixture):
         with self.assertRaises(SbxError) as refused:
             self.shares().attach("t", "shared")
         self.assertEqual(refused.exception.code, "disk-full")
-        self.assertEqual([action["name"] for action in self.shares().reclaim(dry_run=True)], ["s"])
+        self.assertEqual([action.name for action in self.shares().reclaim(dry_run=True)], ["s"])
         self.assertIn("shared", attached(self.backend.live_xml("sbx-s")))
         self.backend.linger = 0
-        args = cli.build_parser().parse_args(["gc", "--json"])
         with mock.patch.object(Sandboxes, "host_synced", return_value=True):
-            result, _ = cli.dispatch(self.sandboxes(), args, as_json=True)
+            result, _ = dispatch(self.sandboxes(), "gc", "--json")
         self.assertEqual([action["name"] for action in cast("list[dict[str, str]]", result)], ["s"])
         self.assertEqual(set(attached(self.backend.live_xml("sbx-s"))), {"docs"})
         self.assertEqual(set(attached(self.backend.live_xml("sbx-t"))), {"docs"})
@@ -227,8 +225,8 @@ class SharesTest(Fixture):
         (self.paths.sandbox("s") / "shared" / "fill").write_bytes(b"x" * 8192)
         self.backend.stuck.add("sbx-s")
         actions = self.shares().reclaim(dry_run=False)
-        self.assertEqual([action["name"] for action in actions], ["s", "t"])
-        self.assertIn("detach-pending", actions[0]["reason"])
+        self.assertEqual([action.name for action in actions], ["s", "t"])
+        self.assertIn("detach-pending", actions[0].reason)
         self.assertNotIn("shared", attached(self.backend.live_xml("sbx-t")))
 
     def test_reclaim_skips_a_vanished_sandbox(self) -> None:
@@ -250,13 +248,12 @@ class SharesTest(Fixture):
 
         with mock.patch.object(self.backend, "live_xml", side_effect=vanish_t):
             actions = self.shares().reclaim(dry_run=False)
-        self.assertEqual([action["name"] for action in actions], ["u"])
+        self.assertEqual([action.name for action in actions], ["u"])
 
     def test_command_line(self) -> None:
         """`share attach` returns the share's JSON form."""
         self.add_running("s")
-        args = cli.build_parser().parse_args(["share", "attach", "--json", "s", "shared"])
-        result, code = cli.dispatch(self.sandboxes(), args, as_json=True)
+        result, code = dispatch(self.sandboxes(), "share", "attach", "--json", "s", "shared")
         self.assertEqual((code, cast("dict[str, object]", result)["attached"]), (0, True))
 
 

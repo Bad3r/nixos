@@ -129,12 +129,12 @@ def configure(parser: argparse.ArgumentParser, settings_path: Path) -> None:
     completers: dict[str, BaseCompleter] = {
         dest: LocalCompleter(kind, settings_path) for dest, kind in kinds.items()
     }
-    completers.update(
-        flavour=ChoicesCompleter(dict.fromkeys(FLAVOURS, "Nix base")),
-        inputs=PathCompleter(),
-        stdin=PathCompleter(),
-        to=PathCompleter(directories_only=True),
-    )
+    completers |= {
+        "flavour": ChoicesCompleter(dict.fromkeys(FLAVOURS, "Nix base")),
+        "in": PathCompleter(),
+        "stdin_path": PathCompleter(),
+        "to": PathCompleter(directories_only=True),
+    }
 
     def visit(current: argparse.ArgumentParser) -> None:
         for action in current._actions:  # noqa: SLF001

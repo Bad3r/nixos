@@ -20,6 +20,7 @@ from sbx.errors import SbxError
 from sbx.execution import MAX_STDIN, Execution
 from sbx.fsutil import publish
 from sbx.proc import run
+from sbx.results import CopyResult
 from sbx.storage import Storage
 
 if TYPE_CHECKING:
@@ -157,9 +158,7 @@ class Transfer(Execution, Storage):
             raise SbxError(msg, code="invalid-argument")
         return name, path
 
-    def copy(
-        self, source: str, destination: str | None, *, token: str | None = None
-    ) -> dict[str, object]:
+    def copy(self, source: str, destination: str | None, *, token: str | None = None) -> CopyResult:
         """Copy between the host and a sandbox over scp on vsock; with `token`, that creation."""
         remote_source = self._remote(source)
         remote_destination = None if destination is None else self._remote(destination)
@@ -175,10 +174,7 @@ class Transfer(Execution, Storage):
             )
             if self.windows_base(sandbox.meta.base) is not None:
                 guest = self.windows_guest(sandbox.domain.name)
-                return {
-                    "from": str(local),
-                    "to": f"{name}:{windows.copy_in(guest, local, guest_path)}",
-                }
+                return CopyResult(str(local), f"{name}:{windows.copy_in(guest, local, guest_path)}")
             options = self._ssh_options(name, sandbox.domain)
             run(
                 [
@@ -190,7 +186,7 @@ class Transfer(Execution, Storage):
                     f"root@sbx:{guest_path}",
                 ]
             )
-            return {"from": str(local), "to": f"{name}:{guest_path}"}
+            return CopyResult(str(local), f"{name}:{guest_path}")
         if remote_source is None:
             msg = "cp needs a sandbox source"
             raise SbxError(msg, code="invalid-argument")
@@ -199,7 +195,7 @@ class Transfer(Execution, Storage):
 
     def _copy_out(
         self, name: str, guest_path: str, destination: str | None, token: str | None
-    ) -> dict[str, object]:
+    ) -> CopyResult:
         sandbox = self._running(name, token)
         on_windows = self.windows_base(sandbox.meta.base) is not None
         source = guest_source(guest_path, on_windows=on_windows)
@@ -235,7 +231,7 @@ class Transfer(Execution, Storage):
             publish(staged, target)
         finally:
             shutil.rmtree(stage, ignore_errors=True)
-        return {"from": f"{name}:{guest_path}", "to": str(target)}
+        return CopyResult(f"{name}:{guest_path}", str(target))
 
     def _copy_budget(self) -> int:
         """Return the bytes a copy out may write before it passes the cap or the floor."""

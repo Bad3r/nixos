@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING, Protocol, cast
 from sbx import journal
 from sbx.errors import SbxError
 from sbx.model import DOMAIN_PREFIX, SHARED
+from sbx.results import GcAction, ShareResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -108,16 +109,6 @@ def device_xml(virtiofsd: str, source: Path, tag: str, *, read_only: bool) -> st
     return ET.tostring(element, encoding="unicode")
 
 
-def _result(name: str, tag: str, source: str, *, read_only: bool, on: bool) -> dict[str, object]:
-    return {
-        "sandbox": name,
-        "tag": tag,
-        "read_only": read_only,
-        "host_path": source,
-        "attached": on,
-    }
-
-
 class Shares:
     """`sbx share attach` and `detach`."""
 
@@ -172,7 +163,7 @@ class Shares:
             raise SbxError(msg, code="path-denied")
         return path, True
 
-    def attach(self, name: str, tag: str) -> dict[str, object]:
+    def attach(self, name: str, tag: str) -> ShareResult:
         """Hot-plug a share into a running sandbox; it stays until detached or stopped."""
         with self.sandboxes.locked():
             sandbox = self.sandboxes.running(name)
@@ -198,9 +189,9 @@ class Shares:
             )
             virtiofsd = self.sandboxes.settings.tools.virtiofsd
             backend.attach_device(domain, device_xml(virtiofsd, source, tag, read_only=read_only))
-        return _result(name, tag, str(source), read_only=read_only, on=True)
+        return ShareResult(name, tag, read_only=read_only, host_path=str(source), attached=True)
 
-    def detach(self, name: str, tag: str) -> dict[str, object]:
+    def detach(self, name: str, tag: str) -> ShareResult:
         """Remove a share and wait until the guest releases it; a held share is an error."""
         with self.sandboxes.locked():
             sandbox = self.sandboxes.find(name)
@@ -214,7 +205,9 @@ class Shares:
                 raise SbxError(msg, code="not-attached")
             device = held[tag]
             self._detach(name, tag, device)
-        return _result(name, tag, device.source, read_only=device.read_only, on=False)
+        return ShareResult(
+            name, tag, read_only=device.read_only, host_path=device.source, attached=False
+        )
 
     def _detach(self, name: str, tag: str, device: Device, reason: str = "") -> None:
         """Detach under the caller's lock and wait until the device leaves."""
@@ -248,11 +241,11 @@ class Shares:
             return None
         return attached(live).get(SHARED)
 
-    def reclaim(self, *, dry_run: bool) -> list[dict[str, str]]:
+    def reclaim(self, *, dry_run: bool) -> list[GcAction]:
         """Detach every sandbox's shared directory while usage passes the cap or the floor."""
         if not self.sandboxes.has_state():
             return []
-        actions: list[dict[str, str]] = []
+        actions: list[GcAction] = []
         with self.sandboxes.locked():
             problem = self.sandboxes.disk_problem()
             if problem is None:
@@ -273,5 +266,5 @@ class Shares:
                         if error.code != "detach-pending":
                             raise
                         reason = f"{SHARED} still attached, {error.code}: {error}"
-                actions.append({"name": sandbox.name, "reason": reason})
+                actions.append(GcAction(sandbox.name, reason))
         return actions

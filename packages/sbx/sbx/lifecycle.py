@@ -27,6 +27,7 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from sbx.model import Request, Sandbox
+    from sbx.results import SandboxView
 
 
 @contextlib.contextmanager
@@ -69,7 +70,7 @@ class Lifecycle(Admission, Bases, DomainXml, Execution, Cleanup):
         )
         return key.with_suffix(".pub").read_text().strip()
 
-    def create(self, request: Request, *, token: str | None = None) -> dict[str, object]:
+    def create(self, request: Request, *, token: str | None = None) -> SandboxView:
         """Start a sandbox and wait until it accepts commands.
 
         The creation token, the caller's or a fresh one, marks the domain and
@@ -95,7 +96,7 @@ class Lifecycle(Admission, Bases, DomainXml, Execution, Cleanup):
         *,
         root: Path | None,
         agent: bool,
-    ) -> dict[str, object]:
+    ) -> SandboxView:
         """Boot `name` on an overlay of `image`, which `root` keeps alive, and wait for it."""
         directory = self.paths.sandbox(name)
         with self._admitted(request, name) as backend:

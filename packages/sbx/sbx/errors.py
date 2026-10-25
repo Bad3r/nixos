@@ -14,8 +14,12 @@ class SbxError(Exception):
         self.details = details or {}
 
 
+def error_code(error: SbxError | OSError) -> str:
+    """Return the stable code of a failure; an OSError is os-error."""
+    return error.code if isinstance(error, SbxError) else "os-error"
+
+
 def error_document(error: SbxError | OSError) -> dict[str, object]:
     """Return the JSON error object of a failed verb."""
-    if isinstance(error, SbxError):
-        return {"code": error.code, "message": str(error), **error.details}
-    return {"code": "os-error", "message": str(error)}
+    details = error.details if isinstance(error, SbxError) else {}
+    return {"code": error_code(error), "message": str(error), **details}

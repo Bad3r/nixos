@@ -10,9 +10,10 @@ import xml.etree.ElementTree as ET
 from pathlib import Path, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any, cast
 
-from sbx import cli, model, windows
+from sbx import model, windows
 from sbx.errors import SbxError
 from sbx.model import ExecOptions
+from sbx.results import GcAction, SandboxView
 from sbx.sandboxes import Sandboxes
 from sbx.windows import WindowsSettings
 
@@ -169,7 +170,7 @@ class WindowsTest(unittest.TestCase):
             self.settings, self.paths, lambda _slice: self.backend, "claude:one", lambda: NOW
         )
 
-    def create(self, name: str = "w") -> dict[str, object]:
+    def create(self, name: str = "w") -> SandboxView:
         """Create a Windows sandbox with default flags."""
         sandboxes = self.sandboxes()
         request = sandboxes.request(
@@ -205,7 +206,7 @@ class WindowsTest(unittest.TestCase):
             (directory / windows.TPM / "tpm2-00.permall").stat().st_mode & 0o777, 0o600
         )
         self.assertFalse((directory / "id_ed25519").exists())
-        self.assertEqual(self.sandboxes().info("w")["image"], str(newest / windows.DISK))
+        self.assertEqual(self.sandboxes().info("w").image, str(newest / windows.DISK))
 
     def test_refusals(self) -> None:
         """No export, `base build`, and a network are refused with the export unit named."""
@@ -243,10 +244,8 @@ class WindowsTest(unittest.TestCase):
     def test_exec(self) -> None:
         """Commands run as given through guest-exec, with --json exit codes and no SSH."""
         self.create()
-        leading, command = cli.split_command(["exec", "w", "--json", "--", "cmd.exe", "/c", "ver"])
-        args = cli.build_parser().parse_args(leading)
-        args.command = command
-        result, code = cli.dispatch(self.sandboxes(), args, as_json=True)
+        argv = ("exec", "w", "--json", "--", "cmd.exe", "/c", "ver")
+        result, code = test_core.dispatch(self.sandboxes(), *argv)
         self.assertEqual(code, 3)
         self.assertEqual(cast("dict[str, object]", result)["stdout"], "/c ver")
         self.assertEqual(self.backend.commands[-1], ["cmd.exe", "/c", "ver"])
@@ -302,7 +301,7 @@ class WindowsTest(unittest.TestCase):
         (tree / "sub").mkdir(parents=True)
         (tree / "sub" / "file").write_text("x")
         result = sandboxes.copy(str(tree), r"w:C:\Users\Public\in")
-        self.assertEqual(result["to"], r"w:C:\Users\Public\in")
+        self.assertEqual(result.target, r"w:C:\Users\Public\in")
         landed = self.backend.drive / "Users" / "Public" / "in" / "work" / "sub" / "file"
         self.assertEqual(landed.read_text(), "x")
         self.assertEqual(list((self.backend.drive / "Windows" / "Temp").iterdir()), [])
@@ -313,7 +312,7 @@ class WindowsTest(unittest.TestCase):
         (report / "logs").mkdir(parents=True)
         (report / "logs" / "a.txt").write_text("a")
         result = sandboxes.copy(r"w:C:\out\report", None)
-        copied = Path(str(result["to"]))
+        copied = Path(str(result.target))
         self.assertEqual(copied, self.paths.sandbox("w") / "xfer" / "report")
         self.assertEqual((copied / "logs" / "a.txt").read_text(), "a")
         self.assertEqual(list((self.backend.drive / "Windows" / "Temp").iterdir()), [])
@@ -373,9 +372,9 @@ class WindowsTest(unittest.TestCase):
         older, used = (self.base_dir / version for version in VERSIONS)
         self.create()
         (self.base_dir / "20261003T000000Z" / windows.TPM).mkdir(parents=True)
-        superseded = {"reason": "superseded export"}
+        superseded = "superseded export"
         self.assertEqual(
-            self.sandboxes().gc(dry_run=True), [{"name": f"win11/{VERSIONS[0]}", **superseded}]
+            self.sandboxes().gc(dry_run=True), [GcAction(f"win11/{VERSIONS[0]}", superseded)]
         )
         self.assertTrue(older.exists())
         self.sandboxes().gc(dry_run=False)
@@ -383,7 +382,7 @@ class WindowsTest(unittest.TestCase):
         self.assertTrue(used.exists())
         self.sandboxes().destroy("w")
         self.assertEqual(
-            self.sandboxes().gc(dry_run=False), [{"name": f"win11/{VERSIONS[1]}", **superseded}]
+            self.sandboxes().gc(dry_run=False), [GcAction(f"win11/{VERSIONS[1]}", superseded)]
         )
         self.assertTrue((self.base_dir / ".partial-20261003T000000Z").exists())
         listing = self.sandboxes().base_list()

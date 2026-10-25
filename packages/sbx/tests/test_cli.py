@@ -22,7 +22,7 @@ class CommandLineTest(unittest.TestCase):
             contextlib.redirect_stdout(output),
             contextlib.redirect_stderr(errors),
             mock.patch("sbx.cli.Settings.load") as load,
-            mock.patch("sbx.cli.journal.record") as record,
+            mock.patch("sbx.ops.journal.record") as record,
         ):
             self.assertEqual(main(Path("/missing/settings.json"), []), 0)
         self.assertIn("usage: sbx", output.getvalue())
@@ -34,7 +34,7 @@ class CommandLineTest(unittest.TestCase):
     def test_missing_verb_with_json_is_still_an_error(self) -> None:
         """An incomplete JSON command retains its machine-readable usage error."""
         output = io.StringIO()
-        with contextlib.redirect_stdout(output), mock.patch("sbx.cli.journal.record"):
+        with contextlib.redirect_stdout(output), mock.patch("sbx.ops.journal.record"):
             self.assertEqual(main(Path("/missing/settings.json"), ["--json"]), 2)
         self.assertEqual(json.loads(output.getvalue())["error"]["code"], "usage")
 
@@ -52,7 +52,7 @@ class CommandLineTest(unittest.TestCase):
         """Repeated --in and --out flags of run accumulate."""
         leading, _ = split_command(["run", "nixos", "--in", "a", "--in", "b", "--out", "c", "--"])
         args = build_parser().parse_args(leading)
-        self.assertEqual((args.inputs, args.outputs), (["a", "b"], ["c"]))
+        self.assertEqual((getattr(args, "in"), args.out), (["a", "b"], ["c"]))
 
     def test_net_flag(self) -> None:
         """--net defaults to none, takes egress, and rejects anything else."""

@@ -1,0 +1,418 @@
+[
+	{
+		"name": "create",
+		"title": "Create a sandbox",
+		"description": "Start a sandbox and wait until SSH answers; returns its name, CID, and TTL. With wait, a create the host's limits refuse queues for capacity first.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"base": {
+					"type": "string",
+					"description": "base to boot: nixos, nixos-gui, a prepared cloud base, or a Windows base that base_list reports"
+				},
+				"name": {
+					"type": "string",
+					"description": "sandbox name; default <base>-<6 hex>"
+				},
+				"net": {
+					"type": "string",
+					"description": "network; default none",
+					"enum": ["none", "egress"]
+				},
+				"mem": {
+					"type": "string",
+					"description": "memory such as 2G"
+				},
+				"cpus": {
+					"type": "integer",
+					"description": "vCPUs",
+					"minimum": 1
+				},
+				"ttl": {
+					"type": "string",
+					"description": "lifetime such as 30m or 2h"
+				},
+				"wait": {
+					"type": "string",
+					"description": "queue up to this long, such as 30m, when the host's sandbox limits are full"
+				},
+				"gui": {
+					"type": "boolean",
+					"description": "the base's GUI variant, with more default memory"
+				}
+			},
+			"required": ["base"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Create a sandbox",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": true
+		}
+	},
+	{
+		"name": "run",
+		"title": "Run a command in a one-shot sandbox",
+		"description": "Create a sandbox, copy inputs to /root/ (C:\\sbx\\ on Windows), run the command, copy outputs out, and destroy the sandbox even when a step fails; returns {sandbox, phases, in, exec, out, cleanup, failure}, with exec shaped as the exec tool's result. A failed copy in, a transport error, a failed copy out, or a failed cleanup is a tool error with code run-incomplete whose run field holds that whole document, so exec still carries the command's result. With wait, a run the host's limits refuse queues for capacity first.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"base": {
+					"type": "string",
+					"description": "base to boot: nixos, nixos-gui, a prepared cloud base, or a Windows base that base_list reports"
+				},
+				"name": {
+					"type": "string",
+					"description": "sandbox name; default <base>-<6 hex>"
+				},
+				"net": {
+					"type": "string",
+					"description": "network; default none",
+					"enum": ["none", "egress"]
+				},
+				"mem": {
+					"type": "string",
+					"description": "memory such as 2G"
+				},
+				"cpus": {
+					"type": "integer",
+					"description": "vCPUs",
+					"minimum": 1
+				},
+				"ttl": {
+					"type": "string",
+					"description": "lifetime such as 30m or 2h"
+				},
+				"wait": {
+					"type": "string",
+					"description": "queue up to this long, such as 30m, when the host's sandbox limits are full"
+				},
+				"gui": {
+					"type": "boolean",
+					"description": "the base's GUI variant, with more default memory"
+				},
+				"in": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "host paths copied into /root/ or C:\\sbx\\"
+				},
+				"out": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "guest paths copied to 'to' afterwards"
+				},
+				"to": {
+					"type": "string",
+					"description": "host directory for 'out'"
+				},
+				"timeout": {
+					"type": "string",
+					"description": "command timeout such as 10m; then SIGTERM, and SIGKILL 5 s later"
+				},
+				"cwd": {
+					"type": "string",
+					"description": "absolute guest directory; default the user's home"
+				},
+				"env": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "string"
+					},
+					"description": "variables set after the guest profile"
+				},
+				"user": {
+					"type": "string",
+					"description": "guest user; default root"
+				},
+				"encoding": {
+					"type": "string",
+					"description": "stdout and stderr as text, with *_lossy set where invalid UTF-8 was replaced, or as base64 of the raw bytes; default text",
+					"enum": ["text", "base64"]
+				},
+				"stdin": {
+					"type": "string",
+					"description": "text fed to the command's stdin, up to 1 MiB"
+				},
+				"stdin_base64": {
+					"type": "string",
+					"description": "bytes fed to the command's stdin, base64, up to 1 MiB"
+				},
+				"command": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"minItems": 1,
+					"description": "argv of the guest command, run without a shell; wrap pipes in sh -c"
+				}
+			},
+			"required": ["base", "command"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Run a command in a one-shot sandbox",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": true
+		}
+	},
+	{
+		"name": "exec",
+		"title": "Run a command in a sandbox",
+		"description": "Run a command through the guest agent; returns {exit_code, signal, timed_out, killed, transport_error, duration_s, stdout, stderr, stdout_lossy, stderr_lossy, truncated}. A failing guest command is no tool error: exit_code is its status, or null with signal set when a signal ended it. timed_out means the timeout passed and sbx sent SIGTERM, then SIGKILL; transport_error means the guest agent stopped answering mid-command. The command runs as root in /root with HOME=/root unless user, cwd, or env say otherwise; Windows takes none of the three.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				},
+				"timeout": {
+					"type": "string",
+					"description": "command timeout such as 10m; then SIGTERM, and SIGKILL 5 s later"
+				},
+				"cwd": {
+					"type": "string",
+					"description": "absolute guest directory; default the user's home"
+				},
+				"env": {
+					"type": "object",
+					"additionalProperties": {
+						"type": "string"
+					},
+					"description": "variables set after the guest profile"
+				},
+				"user": {
+					"type": "string",
+					"description": "guest user; default root"
+				},
+				"encoding": {
+					"type": "string",
+					"description": "stdout and stderr as text, with *_lossy set where invalid UTF-8 was replaced, or as base64 of the raw bytes; default text",
+					"enum": ["text", "base64"]
+				},
+				"stdin": {
+					"type": "string",
+					"description": "text fed to the command's stdin, up to 1 MiB"
+				},
+				"stdin_base64": {
+					"type": "string",
+					"description": "bytes fed to the command's stdin, base64, up to 1 MiB"
+				},
+				"command": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"minItems": 1,
+					"description": "argv of the guest command, run without a shell; wrap pipes in sh -c"
+				}
+			},
+			"required": ["name", "command"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Run a command in a sandbox",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "cp",
+		"title": "Copy between host and sandbox",
+		"description": "Copy a file or directory; one side is <name>:<path>. Without a destination a copy out lands in the sandbox's xfer directory; copies out never overwrite.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"source": {
+					"type": "string",
+					"description": "host path or <name>:<path>"
+				},
+				"destination": {
+					"type": "string",
+					"description": "<name>:<path> or a host path"
+				}
+			},
+			"required": ["source"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Copy between host and sandbox",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "destroy",
+		"title": "Destroy sandboxes",
+		"description": "Stop and delete one sandbox, every sandbox of this agent session, or every expired one; give exactly one of name, mine, and expired. Returns the destroyed names.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				},
+				"mine": {
+					"type": "boolean",
+					"description": "sandboxes of this agent session and its subagents"
+				},
+				"expired": {
+					"type": "boolean",
+					"description": "sandboxes past their TTL"
+				}
+			},
+			"required": [],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Destroy sandboxes",
+			"readOnlyHint": false,
+			"destructiveHint": true,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "list",
+		"title": "List sandboxes",
+		"description": "Describe every sandbox: state, base, CID, TTL left, session, and xfer directory; creates waiting for capacity follow with state queued and their position.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"mine": {
+					"type": "boolean",
+					"description": "only sandboxes of this agent session and its subagents"
+				}
+			},
+			"required": [],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "List sandboxes",
+			"readOnlyHint": true,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "info",
+		"title": "Describe a sandbox",
+		"description": "Describe one sandbox as list does.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				}
+			},
+			"required": ["name"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Describe a sandbox",
+			"readOnlyHint": true,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "screenshot",
+		"title": "Capture a sandbox display",
+		"description": "Return the display as a PNG image content block alongside its saved path and MIME type. Each capture gets its own file in the sandbox's xfer directory, which destroy removes, or under 'to', which keeps it. Set ocr to also return the text tesseract reads in the text field.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				},
+				"ocr": {
+					"type": "boolean",
+					"description": "add the text tesseract reads"
+				},
+				"to": {
+					"type": "string",
+					"description": "host directory, or a new file, for the image; default the xfer directory"
+				}
+			},
+			"required": ["name"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Capture a sandbox display",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "gc",
+		"title": "Remove expired and orphaned sandboxes",
+		"description": "Remove sandboxes past their TTL, shut-off ones, and orphaned domains or directories; past the disk cap or free-space floor, detach every shared directory.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"dry_run": {
+					"type": "boolean",
+					"description": "report without removing"
+				}
+			},
+			"required": [],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Remove expired and orphaned sandboxes",
+			"readOnlyHint": false,
+			"destructiveHint": true,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "base_list",
+		"title": "List bases",
+		"description": "Report each base and whether it is built.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {},
+			"required": [],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "List bases",
+			"readOnlyHint": true,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	},
+	{
+		"name": "base_build",
+		"title": "Build a base",
+		"description": "Build a Nix base offline from the configured flake; create needs it first.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"flavour": {
+					"type": "string",
+					"description": "base to build",
+					"enum": ["nixos", "nixos-gui"]
+				}
+			},
+			"required": ["flavour"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Build a base",
+			"readOnlyHint": false,
+			"destructiveHint": false,
+			"openWorldHint": false
+		}
+	}
+]

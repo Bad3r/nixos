@@ -11,6 +11,7 @@ from sbx import journal
 from sbx.errors import SbxError
 from sbx.model import DOMAIN_PREFIX, NAME_PATTERN, RESERVED_NAMES, Sandbox
 from sbx.net import lease_address
+from sbx.results import SandboxView
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator
@@ -128,28 +129,28 @@ class Context:
             raise SbxError(msg, code="replaced")
         return sandbox
 
-    def describe(self, sandbox: Sandbox) -> dict[str, object]:
-        """Return the JSON form of one sandbox."""
+    def describe(self, sandbox: Sandbox) -> SandboxView:
+        """Describe one sandbox."""
         domain, meta = sandbox.domain, sandbox.meta
         directory = self.paths.sandbox(sandbox.name)
-        return {
-            "name": sandbox.name,
-            "domain": domain.name,
-            "state": domain.state,
-            "base": meta.base,
-            "net": meta.net,
-            "cid": domain.cid,
-            "address": self.address(sandbox),
-            "memory_mib": domain.memory_mib,
-            "cpus": domain.cpus,
-            "created": _iso(meta.created),
-            "expires": _iso(meta.expires),
-            "ttl_left": max(0, meta.expires - int(self._clock())),
-            "session": meta.session,
-            "token": meta.token,
-            "directory": str(directory),
-            "xfer": str(directory / "xfer"),
-        }
+        return SandboxView(
+            name=sandbox.name,
+            domain=domain.name,
+            state=domain.state,
+            base=meta.base,
+            net=meta.net,
+            cid=domain.cid,
+            address=self.address(sandbox),
+            memory_mib=domain.memory_mib,
+            cpus=domain.cpus,
+            created=_iso(meta.created),
+            expires=_iso(meta.expires),
+            ttl_left=max(0, meta.expires - int(self._clock())),
+            session=meta.session,
+            token=meta.token,
+            directory=str(directory),
+            xfer=str(directory / "xfer"),
+        )
 
     def address(self, sandbox: Sandbox, *, strict: bool = False) -> str | None:
         """Return the address of a running egress sandbox from the host's DHCP leases.

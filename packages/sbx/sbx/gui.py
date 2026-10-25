@@ -12,6 +12,7 @@ from sbx.errors import SbxError
 from sbx.fsutil import publish
 from sbx.model import GUI_BASES
 from sbx.proc import run
+from sbx.results import KeyResult, ScreenshotResult, TypeResult
 from sbx.transfer import Transfer
 
 if TYPE_CHECKING:
@@ -28,7 +29,7 @@ TYPE_LIMIT = 4096
 class Gui(Transfer):
     """Screenshots, key chords, and typed text."""
 
-    def screenshot(self, name: str, *, ocr: bool, to: str | None = None) -> dict[str, object]:
+    def screenshot(self, name: str, *, ocr: bool, to: str | None = None) -> ScreenshotResult:
         """Save the display, optionally with OCR text, in the xfer directory or at `to`.
 
         `to` is a directory under the copy roots or a file there that does not
@@ -50,10 +51,8 @@ class Gui(Transfer):
         finally:
             partial.unlink(missing_ok=True)
         journal.record(f"screenshot of {name} to {path}", verb="screenshot", sandbox=name)
-        result: dict[str, object] = {"path": str(path), "mime": mime}
-        if ocr:
-            result["text"] = run([self.settings.tools.tesseract, str(path), "stdout"])
-        return result
+        text = run([self.settings.tools.tesseract, str(path), "stdout"]) if ocr else None
+        return ScreenshotResult(str(path), mime, text)
 
     def _gui(self, name: str) -> Sandbox:
         sandbox = self._running(name)
@@ -73,7 +72,7 @@ class Gui(Transfer):
             # 1024 queued events, so each chord drains before the next.
             time.sleep(2 * len(codes) * KEY_HOLD_MS / 1000)
 
-    def key(self, name: str, specs: Sequence[str]) -> dict[str, object]:
+    def key(self, name: str, specs: Sequence[str]) -> KeyResult:
         """Press each chord, such as `ctrl+alt+t` or `enter`, in turn."""
         try:
             chords = [keys.chord(spec) for spec in specs]
@@ -84,9 +83,9 @@ class Gui(Transfer):
             f"key in {name}: {' '.join(specs)}", verb="key", sandbox=name, session=self.session
         )
         self._send(sandbox.domain.name, chords)
-        return {"sandbox": name, "keys": list(specs)}
+        return KeyResult(name, tuple(specs))
 
-    def type_text(self, name: str, text: str) -> dict[str, object]:
+    def type_text(self, name: str, text: str) -> TypeResult:
         """Type text as US-layout key presses."""
         if len(text) > TYPE_LIMIT:
             msg = f"type takes at most {TYPE_LIMIT} characters, got {len(text)}; split the text"
@@ -104,4 +103,4 @@ class Gui(Transfer):
             session=self.session,
         )
         self._send(sandbox.domain.name, chords)
-        return {"sandbox": name, "characters": len(text)}
+        return TypeResult(name, len(text))

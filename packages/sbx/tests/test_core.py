@@ -32,6 +32,7 @@ from sbx import (
     lifecycle,
     model,
     net,
+    ops,
     pipeline,
     prepare,
     proc,
@@ -41,6 +42,7 @@ from sbx.cloud import CloudImage
 from sbx.config import Egress, Paths, Settings, Tools
 from sbx.errors import SbxError
 from sbx.model import NS, DomainInfo, ExecOptions, Meta
+from sbx.results import GcAction, Results
 from sbx.sandboxes import Sandboxes
 
 if TYPE_CHECKING:
@@ -49,6 +51,19 @@ if TYPE_CHECKING:
 NOW = 1_800_000_000
 EMULATOR = "/nix/store/0123456789abcdfghijklmnpqrsvwxyz-sbx-qemu"
 MAC = "52:54:00:ab:cd:ef"
+
+
+def dispatch(sandboxes: Sandboxes, *argv: str) -> tuple[object, int]:
+    """Run one verb through the command line's parser and the operation layer, in JSON mode.
+
+    A failure raises its error.
+    """
+    operation, args = cli.parse(argv)
+    outcome = ops.invoke(operation, lambda _session: sandboxes, args, ops.Ctx(sandboxes.session))
+    if isinstance(outcome, ops.Failure):
+        raise outcome.error
+    return outcome.as_json(), outcome.exit_status()
+
 
 STUBS = {
     "ssh-keygen": 'for k; do :; done; echo key > "$k"; echo "ssh-ed25519 AAAA sbx" > "$k.pub"',
@@ -433,9 +448,7 @@ class SandboxesTest(Fixture):
     def test_create_renders_an_untrusted_domain(self) -> None:
         """The domain has no NIC, no vdagent, a disposable disk, and the root key credential."""
         result = self.sandboxes().create(self.request(ttl="1h"))
-        self.assertEqual(result["name"], "t1")
-        self.assertEqual(result["ttl_left"], 3600)
-        self.assertEqual(result["session"], "claude:one")
+        self.assertEqual((result.name, result.ttl_left, result.session), ("t1", 3600, "claude:one"))
         root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
         self.assertIsNone(root.find("devices/interface"))
         self.assertIsNone(root.find("devices/graphics"))
@@ -516,7 +529,7 @@ class SandboxesTest(Fixture):
         self.assertEqual(len(self.backend.domains()), 6)
         self.assertTrue(self.paths.sandbox("stray").exists())
         self.assertEqual(sandboxes.gc(dry_run=False), planned)
-        reasons = {action["name"]: action["reason"] for action in planned}
+        reasons = {action.name: action.reason for action in planned}
         self.assertEqual(
             reasons,
             {
@@ -626,7 +639,7 @@ class SandboxesTest(Fixture):
         self.backend.add("off", expires=NOW - 1, active=False)
         with mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}):
             removed = self.sandboxes().gc(dry_run=False)
-        self.assertEqual(removed, [{"name": "off", "reason": "shut off"}])
+        self.assertEqual(removed, [GcAction("off", "shut off")])
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-old"])
 
     def test_destroy_mine(self) -> None:
@@ -659,15 +672,12 @@ class SandboxesTest(Fixture):
     def test_run_spares_a_namesake(self) -> None:
         """A run whose sandbox is destroyed and renamed mid-command never touches the namesake."""
         gate = self.scratch / "gate"
-        args = cli.build_parser().parse_args(
-            ["run", "nixos", "--name=r", "--out=/root/x", f"--to={self.scratch / 'tmp'}"]
-        )
-        args.command = ["blockme"]
+        argv = ["run", "nixos", "--name=r", "--out=/root/x", f"--to={self.scratch / 'tmp'}"]
         failures: list[SbxError] = []
 
         def worker() -> None:
             try:
-                cli.dispatch(self.sandboxes(), args, as_json=True)
+                self.dispatch(*argv, "--", "blockme")
             except SbxError as error:
                 failures.append(error)
 
@@ -689,7 +699,7 @@ class SandboxesTest(Fixture):
         self.assertEqual(run["out"][0]["error"]["code"], "replaced")
         self.assertEqual(run["cleanup"], {"destroyed": [], "error": None})
         self.assertEqual(
-            cast("Meta", self.backend.domains_by_name["sbx-r"].meta).token, replacement["token"]
+            cast("Meta", self.backend.domains_by_name["sbx-r"].meta).token, replacement.token
         )
         self.assertTrue(self.paths.sandbox("r").is_dir())
 
@@ -715,7 +725,7 @@ class SandboxesTest(Fixture):
         inside.mkdir()
         (inside / "file").write_text("x")
         result = sandboxes.copy(str(inside), "c:/root/")
-        self.assertEqual(result["to"], "c:/root/")
+        self.assertEqual(result.target, "c:/root/")
         outside = self.scratch / "secret"
         outside.write_text("x")
         with self.assertRaises(SbxError) as refused:
@@ -725,7 +735,7 @@ class SandboxesTest(Fixture):
         with self.assertRaises(SbxError):
             sandboxes.copy(str(inside), "c:/root/")
         result = sandboxes.copy("c:/var/log/messages", None)
-        self.assertEqual(result["to"], str(self.paths.sandbox("c") / "xfer" / "messages"))
+        self.assertEqual(result.target, str(self.paths.sandbox("c") / "xfer" / "messages"))
         with self.assertRaises(SbxError):
             sandboxes.copy("c:/etc/passwd", str(outside))
 
@@ -743,7 +753,7 @@ class SandboxesTest(Fixture):
         source = directory / "input.txt"
         source.write_text("report")
         sandboxes = self.sandboxes()
-        self.assertEqual(sandboxes.copy(str(source), "c:/root/")["to"], "c:/root/")
+        self.assertEqual(sandboxes.copy(str(source), "c:/root/").target, "c:/root/")
         destination = directory / "output:report.txt"
         sandboxes.copy("c:/root/report.txt", str(destination))
         self.assertTrue(destination.is_file())
@@ -831,14 +841,16 @@ class SandboxesTest(Fixture):
             with self.subTest(guest=guest), self.assertRaises(SbxError):
                 sandboxes.copy(f"c:{guest}", None)
         result = sandboxes.copy("c:/usr/bin/tool", None)
-        copied = Path(str(result["to"]))
+        copied = Path(str(result.target))
         self.assertEqual(copied, self.paths.sandbox("c") / "xfer" / "tool")
         self.assertEqual(copied.stat().st_mode & 0o7777, 0o644)
         with self.assertRaises(SbxError) as refused:
             sandboxes.copy("c:/usr/bin/tool", None)
         self.assertEqual(refused.exception.code, "exists")
         target = self.scratch / "tmp"
-        self.assertEqual(sandboxes.copy("c:/usr/bin/tool", str(target))["to"], str(target / "tool"))
+        self.assertEqual(
+            sandboxes.copy("c:/usr/bin/tool", str(target)).target, str(target / "tool")
+        )
         with self.assertRaises(SbxError):
             sandboxes.copy("c:/usr/bin/tool", str(target))
         self.assertEqual(list((self.paths.sandbox("c") / "xfer").glob(".stage-*")), [])
@@ -859,15 +871,15 @@ class SandboxesTest(Fixture):
         """Captures at one clock reading get their own files, even from parallel threads."""
         self.add_running("s")
         sandboxes = self.sandboxes()
-        first = Path(str(sandboxes.screenshot("s", ocr=False)["path"]))
-        second = Path(str(sandboxes.screenshot("s", ocr=False)["path"]))
+        first = Path(sandboxes.screenshot("s", ocr=False).path)
+        second = Path(sandboxes.screenshot("s", ocr=False).path)
         self.assertNotEqual(first, second)
         self.assertEqual((first.read_bytes(), second.read_bytes()), (b"png 1", b"png 2"))
         self.assertRegex(first.name, r"^screenshot-20270115T080000\.000000Z-[0-9a-f]{6}\.png$")
         mismatches: list[tuple[bytes, bytes]] = []
 
         def capture() -> None:
-            path = Path(str(self.sandboxes().screenshot("s", ocr=False)["path"]))
+            path = Path(self.sandboxes().screenshot("s", ocr=False).path)
             own = self.backend.captured[threading.get_ident()]
             if path.read_bytes() != own:
                 mismatches.append((path.read_bytes(), own))
@@ -938,7 +950,7 @@ class SandboxesTest(Fixture):
             managed_save=False,
         )
         self.paths.sandbox("x").mkdir(parents=True)
-        self.assertEqual(self.sandboxes().gc(dry_run=False), [{"name": "x", "reason": "no domain"}])
+        self.assertEqual(self.sandboxes().gc(dry_run=False), [GcAction("x", "no domain")])
         self.assertIn("sbx-x", self.backend.domains_by_name)
         self.paths.sandbox("x").mkdir()
         self.sandboxes().destroy("x")
@@ -946,10 +958,7 @@ class SandboxesTest(Fixture):
 
     def dispatch(self, *argv: str) -> tuple[object, int]:
         """Run one verb through the command line, in JSON mode."""
-        leading, command = cli.split_command(argv)
-        args = cli.build_parser().parse_args(leading)
-        args.command = command
-        return cli.dispatch(self.sandboxes(), args, as_json=True)
+        return dispatch(self.sandboxes(), *argv)
 
     def assert_no_sandbox(self, name: str) -> None:
         """Neither a domain nor a run directory remains."""
@@ -1430,7 +1439,7 @@ class SandboxesTest(Fixture):
             )
         )
         result = self.sandboxes().create(self.request(net="egress"))
-        self.assertEqual((result["net"], result["address"]), ("egress", "172.16.2.5"))
+        self.assertEqual((result.net, result.address), ("egress", "172.16.2.5"))
         root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
         interfaces = root.findall("devices/interface")
         self.assertEqual(len(interfaces), 1)
@@ -1439,9 +1448,11 @@ class SandboxesTest(Fixture):
         self.assertEqual(interface.find("source").get("bridge"), "vn-sbx")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(interface.find("model").get("type"), "virtio")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(interface.find("mac").get("address"), MAC)  # pyright: ignore[reportOptionalMemberAccess]
-        listed = self.sandboxes().listing(mine=False)
-        self.assertEqual([entry["address"] for entry in listed], ["172.16.2.5"])
-        self.assertEqual(self.sandboxes().info("t1")["address"], "172.16.2.5")
+        listed = Results(self.sandboxes().listing(mine=False)).as_json()
+        self.assertEqual(
+            [cast("dict[str, object]", entry)["address"] for entry in listed], ["172.16.2.5"]
+        )
+        self.assertEqual(self.sandboxes().info("t1").address, "172.16.2.5")
 
     def test_egress_without_lease(self) -> None:
         """A guest that never takes a lease fails create with no-address and is discarded."""
@@ -1469,7 +1480,7 @@ class SandboxesTest(Fixture):
 
         with mock.patch.object(lifecycle.time, "sleep", side_effect=configure):
             result = self.sandboxes().create(self.request(net="egress"))
-        self.assertEqual(result["address"], "172.16.2.5")
+        self.assertEqual(result.address, "172.16.2.5")
         self.backend.addresses = ["172.16.2.6"]
         ticks = iter(range(0, 10_000, 2))
         with (
@@ -1528,10 +1539,9 @@ class SandboxesTest(Fixture):
         )
         self.sandboxes().create(self.request(net="egress"))
         leases.write_text("{")
-        self.assertEqual(
-            [entry["address"] for entry in self.sandboxes().listing(mine=False)], [None]
-        )
-        self.assertIsNone(self.sandboxes().info("t1")["address"])
+        listed = Results(self.sandboxes().listing(mine=False)).as_json()
+        self.assertEqual([cast("dict[str, object]", entry)["address"] for entry in listed], [None])
+        self.assertIsNone(self.sandboxes().info("t1").address)
         with self.assertRaises(SbxError) as refused:
             self.sandboxes().create(self.request(name="t2", net="egress"))
         self.assertEqual(refused.exception.code, "lease-file")
@@ -1541,7 +1551,7 @@ class SandboxesTest(Fixture):
         """A sandbox without a NIC reports no address even with egress configured."""
         self.egress()
         result = self.sandboxes().create(self.request())
-        self.assertIsNone(result["address"])
+        self.assertIsNone(result.address)
         root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
         self.assertIsNone(root.find("devices/interface"))
 
@@ -1668,7 +1678,7 @@ class SandboxesTest(Fixture):
         self.assert_no_sandbox("t1")
         disk = self.prepared()
         result = self.sandboxes().create(self.request("debian-13"))
-        self.assertEqual(result["base"], "debian-13")
+        self.assertEqual(result.base, "debian-13")
         root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
         self.assertIsNone(root.find("sysinfo"))
         seed_iso = str(self.paths.sandbox("t1") / "seed.iso")
@@ -1678,7 +1688,7 @@ class SandboxesTest(Fixture):
         self.assertTrue((self.paths.sandbox("t1") / "seed.iso").exists())
         self.assertFalse((self.paths.sandbox("t1") / "seed").exists())
         self.assertFalse((self.paths.sandbox("t1") / "base").exists())
-        self.assertEqual(self.sandboxes().info("t1")["image"], str(disk))
+        self.assertEqual(self.sandboxes().info("t1").image, str(disk))
         seed = self.seed()
         user_data = cast("str", seed["user-data"])
         self.assertTrue(user_data.startswith("#cloud-config\n"))

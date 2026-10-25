@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
 from sbx import journal, windows
-from sbx.errors import SbxError, error_document
+from sbx.errors import SbxError, error_code, error_document
 from sbx.lifecycle import Lifecycle
+from sbx.model import TRANSPORT_EXIT
+from sbx.results import CopyResult, Result
 from sbx.transfer import Transfer, guest_source
 
 if TYPE_CHECKING:
@@ -35,14 +37,14 @@ class RunPlan:
 
 
 @dataclass
-class RunResult:
+class RunResult(Result):
     """What each phase of a one-shot run did: ok, failed, or skipped after a failure."""
 
     sandbox: dict[str, object]
     phases: dict[str, str] = field(default_factory=_phases)
-    copied_in: list[dict[str, object]] = field(default_factory=list[dict[str, object]])
+    copied_in: list[CopyResult] = field(default_factory=list[CopyResult])
     execution: ExecResult | None = None
-    copied_out: list[dict[str, object]] = field(default_factory=list[dict[str, object]])
+    copied_out: list[CopyResult] = field(default_factory=list[CopyResult])
     destroyed: list[str] = field(default_factory=list[str])
     cleanup_error: SbxError | OSError | None = None
     # The error that stopped the run at `in` or `exec`.
@@ -52,19 +54,27 @@ class RunResult:
         """Return the first phase that did not succeed, or None for a complete run."""
         return next((phase for phase in PHASES if self.phases[phase] != "ok"), None)
 
-    def failed_outputs(self) -> list[dict[str, object]]:
+    def failed_outputs(self) -> list[CopyResult]:
         """Return the copies out that failed, each with its error."""
-        return [entry for entry in self.copied_out if "error" in entry]
+        return [entry for entry in self.copied_out if entry.failure is not None]
 
-    def as_json(self, encoding: str = "text") -> dict[str, object]:
-        """Return the JSON form; `encoding` applies to the command's output."""
+    def exit_status(self) -> int:
+        """Return the command's status."""
+        return TRANSPORT_EXIT if self.execution is None else self.execution.status()
+
+    def error(self) -> SbxError | None:
+        """Return the run-incomplete error of a run with a failed phase."""
+        return None if self.failed_phase() is None else self.incomplete()
+
+    def as_json(self) -> dict[str, object]:
+        """Return the JSON form."""
         failed = self.failed_phase()
         return {
             "sandbox": self.sandbox,
             "phases": self.phases,
-            "in": self.copied_in,
-            "exec": None if self.execution is None else self.execution.as_json(encoding),
-            "out": self.copied_out,
+            "in": [entry.as_json() for entry in self.copied_in],
+            "exec": None if self.execution is None else self.execution.as_json(),
+            "out": [entry.as_json() for entry in self.copied_out],
             "cleanup": {
                 "destroyed": self.destroyed,
                 "error": None if self.cleanup_error is None else error_document(self.cleanup_error),
@@ -74,7 +84,7 @@ class RunResult:
             else {"phase": failed, **error_document(self.failure)},
         }
 
-    def incomplete(self, encoding: str = "text") -> SbxError:
+    def incomplete(self) -> SbxError:
         """Return the error of a run that did not complete, carrying the whole result."""
         phase = self.failed_phase()
         name = self.sandbox["name"]
@@ -87,9 +97,7 @@ class RunResult:
         else:
             detail = f"its sandbox may remain: {self.cleanup_error}"
         msg = f"the run in '{name}' failed at {phase}: {detail}"
-        return SbxError(
-            msg, code="run-incomplete", details={"phase": phase, "run": self.as_json(encoding)}
-        )
+        return SbxError(msg, code="run-incomplete", details={"phase": phase, "run": self.as_json()})
 
 
 class Pipeline(Lifecycle, Transfer):
@@ -148,8 +156,9 @@ class Pipeline(Lifecycle, Transfer):
         result carries no output. `token`, when given, marks the sandbox.
         """
         created = self.create(request, token=token)
-        name, token = str(created["name"]), str(created["token"])
-        result = RunResult({key: created[key] for key in SANDBOX_FIELDS})
+        name, token = created.name, str(created.token)
+        document = created.as_json()
+        result = RunResult({key: document[key] for key in SANDBOX_FIELDS})
         result.phases["create"] = "ok"
         # Every step and the cleanup act only on this creation, never on a later namesake.
         try:
@@ -159,8 +168,9 @@ class Pipeline(Lifecycle, Transfer):
                 result.destroyed = self.destroy_created(token)
                 result.phases["cleanup"] = "ok"
             except (SbxError, OSError) as error:
-                code = error.code if isinstance(error, SbxError) else "os-error"
-                journal.record(f"cannot destroy run sandbox {name}: {error}", code=code)
+                journal.record(
+                    f"cannot destroy run sandbox {name}: {error}", code=error_code(error)
+                )
                 result.cleanup_error = error
                 result.phases["cleanup"] = "failed"
         return result
@@ -203,5 +213,5 @@ class Pipeline(Lifecycle, Transfer):
             try:
                 result.copied_out.append(self.copy(f"{name}:{path}", str(target), token=token))
             except (SbxError, OSError) as error:
-                result.copied_out.append({"from": f"{name}:{path}", "error": error_document(error)})
+                result.copied_out.append(CopyResult(f"{name}:{path}", None, error))
                 result.phases["out"] = "failed"

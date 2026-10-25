@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
 
 from sbx.errors import SbxError
+from sbx.results import Result
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -130,11 +131,12 @@ class ExecOptions:
 
 
 @dataclass(frozen=True)
-class ExecResult:
+class ExecResult(Result):
     """Outcome of one command in a sandbox.
 
     `timed_out` means the host's deadline passed, whatever the guest status;
-    `killed` that sbx's own signals then ended the command.
+    `killed` that sbx's own signals then ended the command. `encoding`, one of
+    ENCODINGS, is how the JSON form carries the output.
     """
 
     exit_code: int | None
@@ -146,6 +148,7 @@ class ExecResult:
     killed: bool = False
     transport_error: str | None = None
     duration_s: float = 0.0
+    encoding: str = "text"
 
     def status(self) -> int:
         """Return the exit status of `exec` and `run`, as in both output modes."""
@@ -157,10 +160,14 @@ class ExecResult:
             return 128 + signal_number(self.signal)
         return TRANSPORT_EXIT if self.exit_code is None else self.exit_code
 
-    def as_json(self, encoding: str = "text") -> dict[str, object]:
+    def exit_status(self) -> int:
+        """Return the command's status."""
+        return self.status()
+
+    def as_json(self) -> dict[str, object]:
         """Return the JSON form; text output marks a stream whose invalid UTF-8 was replaced."""
-        stdout, stdout_lossy = _encode(self.stdout, encoding)
-        stderr, stderr_lossy = _encode(self.stderr, encoding)
+        stdout, stdout_lossy = _encode(self.stdout, self.encoding)
+        stderr, stderr_lossy = _encode(self.stderr, self.encoding)
         return {
             "exit_code": self.exit_code,
             "signal": self.signal,

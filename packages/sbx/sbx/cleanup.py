@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sbx import cloud, journal, windows
+from sbx.results import GcAction
 from sbx.storage import Storage
 
 if TYPE_CHECKING:
@@ -36,7 +37,7 @@ class Cleanup(Storage):
             return "run directory missing"
         return None
 
-    def gc(self, *, dry_run: bool) -> list[dict[str, str]]:
+    def gc(self, *, dry_run: bool) -> list[GcAction]:
         """Remove stopped, half-removed, and, on a synced clock, expired sandboxes; then exports."""
         has_state = self.has_state()
         if not has_state and self.settings.windows is None:
@@ -48,17 +49,17 @@ class Cleanup(Storage):
         if not dry_run:
             for action in actions:
                 journal.record(
-                    f"gc removed sandbox {action['name']}: {action['reason']}",
+                    f"gc removed sandbox {action.name}: {action.reason}",
                     verb="gc",
-                    sandbox=action["name"],
+                    sandbox=action.name,
                 )
             for action in pruned:
-                journal.record(f"gc removed base export {action['name']}", verb="gc")
+                journal.record(f"gc removed base export {action.name}", verb="gc")
         return actions + pruned
 
-    def _gc_sandboxes(self, *, dry_run: bool) -> tuple[list[dict[str, str]], list[Sandbox]]:
+    def _gc_sandboxes(self, *, dry_run: bool) -> tuple[list[GcAction], list[Sandbox]]:
         """Remove what gc removes under the held lock; return the actions and the survivors."""
-        actions: list[dict[str, str]] = []
+        actions: list[GcAction] = []
         kept: list[Sandbox] = []
         synced = self.host_synced()
         now = self._clock()
@@ -68,29 +69,29 @@ class Cleanup(Storage):
             if reason is None:
                 kept.append(sandbox)
                 continue
-            actions.append({"name": sandbox.name, "reason": reason})
+            actions.append(GcAction(sandbox.name, reason))
             if not dry_run:
                 self._discard(sandbox.name)
         for directory in self.paths.sandbox_dirs():
             if directory.name in owned:
                 continue
-            actions.append({"name": directory.name, "reason": "no domain"})
+            actions.append(GcAction(directory.name, "no domain"))
             if not dry_run:
                 self._discard(directory.name)
         return actions, kept
 
-    def _prune_bases(self, kept: Sequence[Sandbox], *, dry_run: bool) -> list[dict[str, str]]:
+    def _prune_bases(self, kept: Sequence[Sandbox], *, dry_run: bool) -> list[GcAction]:
         """Remove Windows base exports that are neither the newest nor under a sandbox."""
         settings = self.settings.windows
         if settings is None:
             return []
         used = {Path(sandbox.meta.image).parent for sandbox in kept}
-        actions: list[dict[str, str]] = []
+        actions: list[GcAction] = []
         for base, directory in settings.bases.items():
             for version in windows.versions(directory)[:-1]:
                 if version in used:
                     continue
-                actions.append({"name": f"{base}/{version.name}", "reason": "superseded export"})
+                actions.append(GcAction(f"{base}/{version.name}", "superseded export"))
                 if not dry_run:
                     shutil.rmtree(version)
         return actions

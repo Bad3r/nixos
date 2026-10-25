@@ -14,15 +14,15 @@ from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from PIL import Image
-from sbx import gui, mcp
-from sbx.cli import build_parser
+from sbx import gui, mcp, ops
 from sbx.config import caller_session
 from sbx.errors import SbxError
+from sbx.results import Document
 
 from . import test_core
 
 if TYPE_CHECKING:
-    import argparse
+    from collections.abc import Callable
 
     from sbx.model import Meta
     from sbx.sandboxes import Sandboxes
@@ -55,90 +55,77 @@ SAMPLES: dict[str, object] = {
     "dry_run": True,
     "gui": True,
 }
-# destroy takes exactly one of these.
-EXCLUSIVE = ("mine", "expired")
+SNAPSHOT = Path(__file__).with_name("mcp-tools.json")
 
 
-class CommandLineTest(unittest.TestCase):
-    """Tool arguments become verb arguments the CLI parser accepts."""
+def samples(tool: ops.Operation) -> dict[str, object]:
+    """Return a valid value for every argument of a tool, one of each exclusive set."""
+    names = [param.name for param in tool.params if param.mcp]
+    names = [name for name in names if name not in tool.one_of[1:]]
+    return {name: SAMPLES[name] for name in names}
 
-    def test_every_tool_parses(self) -> None:
-        """Each tool with every argument set yields a valid command line."""
+
+class ArgumentsTest(unittest.TestCase):
+    """Tool arguments reach handlers checked and decoded, never as a command line."""
+
+    def test_every_tool_accepts_its_arguments(self) -> None:
+        """Each tool with every argument set decodes, and its schema is closed."""
         for tool in mcp.TOOLS:
-            names = [param.name for param in tool.params]
-            if tool.name == "destroy":
-                names = [name for name in names if name not in EXCLUSIVE]
-            arguments = {name: SAMPLES[name] for name in names}
             with self.subTest(tool=tool.name):
-                argv, _command = tool.command_line(arguments)
-                args = build_parser().parse_args(argv)
-                self.assertEqual(args.verb, tool.verb[0])
-                schema = cast("dict[str, Any]", tool.definition()["inputSchema"])
+                args = mcp.parse_arguments(tool, samples(tool))
+                self.assertIs(args.operation, tool)
+                schema = cast("dict[str, Any]", mcp.definition(tool)["inputSchema"])
                 self.assertFalse(schema["additionalProperties"])
                 self.assertLessEqual(set(schema["required"]), set(schema["properties"]))
 
-    def test_mapping(self) -> None:
-        """Options take the = form, repeat per item, and the command stays apart."""
-        argv, command = mcp.TOOLS_BY_NAME["exec"].command_line(
-            {"name": "a", "timeout": "5m", "command": ["sh", "-c", "x -- y"]}
+    def test_snapshot(self) -> None:
+        """tools/list changes only on purpose; regenerate the file when it does."""
+        self.assertEqual(
+            [mcp.definition(tool) for tool in mcp.TOOLS], json.loads(SNAPSHOT.read_text())
         )
-        self.assertEqual(argv, ["exec", "--timeout=5m", "a"])
-        self.assertEqual(command, ["sh", "-c", "x -- y"])
-        argv, _ = mcp.TOOLS_BY_NAME["run"].command_line(
-            {"base": "nixos", "name": "-x", "in": ["a", "b"], "ttl": None, "command": ["id"]}
+
+    def test_decoding(self) -> None:
+        """Values keep a leading dash, env becomes NAME=VALUE pairs, and base64 becomes bytes."""
+        args = mcp.parse_arguments(
+            mcp.TOOLS_BY_NAME["exec"],
+            {
+                "name": "-x",
+                "env": {"A": "1", "B": "x=y"},
+                "stdin_base64": "AP8=",
+                "command": ["sh", "-c", "x -- y"],
+            },
         )
-        self.assertEqual(argv, ["run", "--name=-x", "--in=a", "--in=b", "nixos"])
-        args = build_parser().parse_args(argv)
-        self.assertEqual((args.name, args.inputs), ("-x", ["a", "b"]))
-        argv, _ = mcp.TOOLS_BY_NAME["create"].command_line({"base": "debian-13", "gui": True})
-        self.assertEqual(argv, ["create", "--gui", "debian-13"])
-        args = build_parser().parse_args(argv)
-        self.assertEqual((args.base, args.gui), ("debian-13", True))
-        argv, _ = mcp.TOOLS_BY_NAME["base_build"].command_line({"flavour": "nixos"})
-        self.assertEqual(argv, ["base", "build", "nixos"])
+        self.assertEqual(args.text("name"), "-x")
+        self.assertEqual(args.strings("env"), ["A=1", "B=x=y"])
+        self.assertEqual(args.data("stdin_base64"), b"\x00\xff")
+        self.assertEqual(args.strings("command"), ["sh", "-c", "x -- y"])
+        self.assertEqual((args.text("encoding"), args.optional("timeout")), ("text", None))
+        listed = mcp.parse_arguments(mcp.TOOLS_BY_NAME["list"], {"mine": None})
+        self.assertFalse(listed.flag("mine"))
 
     def test_refusals(self) -> None:
-        """Malformed arguments are usage errors, and none becomes an option."""
+        """Malformed arguments are usage errors."""
         cases: list[tuple[str, object]] = [
-            ("destroy", {"name": "--mine"}),
-            ("cp", {"source": "-r"}),
+            ("destroy", {"name": "a", "mine": True}),
+            ("destroy", {"mine": False}),
             ("info", {"name": "a", "verbose": True}),
             ("info", {}),
             ("info", ["a"]),
             ("create", {"base": "nixos", "cpus": True}),
             ("create", {"base": "nixos", "cpus": "2"}),
+            ("create", {"base": "nixos", "net": "lan"}),
             ("exec", {"name": "a", "command": "id"}),
             ("exec", {"name": "a", "command": []}),
+            ("exec", {"name": "a", "env": {"A": 1}, "command": ["env"]}),
+            ("exec", {"name": "a", "stdin_base64": "%%", "command": ["cat"]}),
+            ("exec", {"name": "a", "stdin": 1, "command": ["cat"]}),
             ("list", {"mine": "yes"}),
         ]
         for tool, arguments in cases:
             with self.subTest(tool=tool, arguments=arguments):
                 with self.assertRaises(SbxError) as raised:
-                    mcp.TOOLS_BY_NAME[tool].command_line(arguments)
+                    mcp.parse_arguments(mcp.TOOLS_BY_NAME[tool], arguments)
                 self.assertEqual(raised.exception.code, "usage")
-
-    def test_exec_context(self) -> None:
-        """The env object becomes --env pairs; stdin arrives as text or base64, never both."""
-        tool = mcp.TOOLS_BY_NAME["exec"]
-        argv, _ = tool.command_line(
-            {"name": "a", "cwd": "/srv", "env": {"A": "1", "B": "x=y"}, "command": ["env"]}
-        )
-        self.assertEqual(argv, ["exec", "--cwd=/srv", "--env=A=1", "--env=B=x=y", "a"])
-        args = build_parser().parse_args(argv)
-        self.assertEqual((args.cwd, args.env), ("/srv", ["A=1", "B=x=y"]))
-        self.assertEqual(tool.stdin({"stdin": "hé"}), "hé".encode())
-        self.assertEqual(tool.stdin({"stdin_base64": "AP8="}), b"\x00\xff")
-        self.assertIsNone(tool.stdin({"name": "a"}))
-        for arguments in (
-            {"stdin": "a", "stdin_base64": "YQ=="},
-            {"stdin_base64": "%%"},
-            {"stdin": 1},
-        ):
-            with self.subTest(arguments=arguments), self.assertRaises(SbxError) as raised:
-                tool.stdin(arguments)
-            self.assertEqual(raised.exception.code, "usage")
-        with self.assertRaises(SbxError):
-            tool.command_line({"name": "a", "env": {"A": 1}, "command": ["env"]})
 
     def test_session(self) -> None:
         """Codex names its session per call, preferred to the thread; else the environment."""
@@ -259,7 +246,7 @@ class ServerTest(unittest.TestCase):
             replacement = self.core.sandboxes("claude:two").create(self.core.request(name="r"))
             gate.set()
             server.serve([])
-        self.assertEqual(cast("Meta", domains["sbx-r"].meta).token, replacement["token"])
+        self.assertEqual(cast("Meta", domains["sbx-r"].meta).token, replacement.token)
         self.assertTrue(self.core.paths.sandbox("r").is_dir())
         self.assertEqual(output.getvalue(), b"")
 
@@ -406,6 +393,22 @@ class ServerTest(unittest.TestCase):
                         self.assertNotIn("text", document)
                         read.assert_not_called()
 
+    def documents(self, *calls: dict[str, Any]) -> list[tuple[bool, dict[str, Any]]]:
+        """Send calls one at a time; return each result's error flag and document."""
+        results: list[tuple[bool, dict[str, Any]]] = []
+        for call in calls:
+            result = self.exchange(call)[call["id"]]["result"]
+            results.append((result["isError"], json.loads(result["content"][0]["text"])))
+        return results
+
+    def test_stdin_conflict(self) -> None:
+        """Text and base64 stdin together are refused before the command runs."""
+        self.core.backend.add("a", expires=test_core.NOW + 3600)
+        arguments = {"name": "a", "stdin": "x", "stdin_base64": "eA==", "command": ["cat"]}
+        ((failed, document),) = self.documents(self.call(1, "exec", arguments))
+        self.assertEqual((failed, document["error"]["code"]), (True, "usage"))
+        self.assertEqual(self.core.backend.execs, [])
+
     def test_screenshot_failure(self) -> None:
         """A failed capture returns a tool error without an image block."""
         result = self.exchange(self.call(1, "screenshot", {"name": "missing"}))[1]["result"]
@@ -455,32 +458,35 @@ class Stub:
             self.released.set()
         return names
 
-    def dispatch(
+    def invoke(
         self,
-        sandboxes: Any,  # noqa: ANN401
-        args: argparse.Namespace,
-        *,
-        as_json: bool,
-        token: str | None = None,
+        _operation: ops.Operation,
+        open_sandboxes: Callable[[str | None], Any],
+        args: ops.Args,
+        ctx: ops.Ctx,
     ) -> object:
-        """Run like cli._run: create with the call's token, then destroy by name."""
-        if not as_json:
+        """Run like the run handler: create with the call's token, then destroy by name."""
+        if ctx.stdio_attached:
             raise AssertionError
-        name = args.name or "nixos-gen"
-        sandboxes.create(name, token=token)
-        sandboxes.destroy(name)
-        return {"name": name}, 0
+        name = args.optional("name") or "nixos-gen"
+        try:
+            sandboxes = open_sandboxes(ctx.session)
+            sandboxes.create(name, token=ctx.token)
+            sandboxes.destroy(name)
+        except SbxError as error:
+            return ops.fail(error)
+        return Document({"name": name})
 
 
 class CancelTest(unittest.TestCase):
     """Cancelled and interrupted runs remove their own sandbox and nothing else."""
 
     def setUp(self) -> None:
-        """Route every sandbox and dispatch to the stub."""
+        """Route every sandbox and call to the stub."""
         self.stub = Stub()
         self.output = io.BytesIO()
         self.server = mcp.Server(lambda _session: cast("Any", self.stub), self.output, "0.0.0")
-        patch = mock.patch.object(mcp, "dispatch", self.stub.dispatch)
+        patch = mock.patch.object(mcp.ops, "invoke", self.stub.invoke)
         patch.start()
         self.addCleanup(patch.stop)
 
