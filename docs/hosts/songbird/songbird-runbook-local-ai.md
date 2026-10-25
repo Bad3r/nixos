@@ -19,9 +19,9 @@ Verification: `magnitude models status <model-id>` shows `Runtime` as `Ready`.
 
 ## Use a local model in Claude Code
 
-Precondition: a Magnitude model on songbird shows `Ready`; a client on tpnix also needs the Mesh.
+Precondition: a Magnitude model on songbird shows `Ready`.
 
-1. On songbird or tpnix, start `claude-local` on a separate config directory:
+1. On songbird, start `claude-local` on a separate config directory:
 
    ```sh
    CLAUDE_CONFIG_DIR=~/.config/claude-local CLAUDE_LOCAL_MODEL=<model-id> claude-local
@@ -33,9 +33,9 @@ Verification: the same command with `-p 'Reply with the word ready'` appended pr
 
 ## Use a local model in Codex
 
-Precondition: a Magnitude model on songbird shows `Ready`; a client on tpnix also needs the Mesh.
+Precondition: a Magnitude model on songbird shows `Ready`.
 
-1. On songbird or tpnix, start Codex on the `local` profile that Home Manager generates, naming the loaded model:
+1. On songbird, start Codex on the `local` profile that Home Manager generates, naming the loaded model:
 
    ```sh
    codex -p local -m <model-id>
@@ -45,12 +45,12 @@ Verification: `codex exec -p local -m <model-id> --skip-git-repo-check 'Reply wi
 
 ## Build llama.cpp with CUDA for the RTX 5080
 
-Precondition: network access to NVIDIA's CUDA redistributables.
+Precondition: run from the repository root, with network access and no decrypted secrets in the worktree.
 
-1. Build for `sm_120` only, so nvcc compiles kernels for the RTX 5080 alone instead of every architecture in the default capability list:
+1. Build the CUDA package from the nixpkgs input pinned by `flake.lock`:
 
    ```sh
-   nix build --impure --out-link ~/.local/state/llama-cpp-cuda --expr 'with import <nixpkgs> { config = { allowUnfree = true; cudaSupport = true; cudaCapabilities = [ "12.0" ]; cudaForwardCompat = false; }; }; llama-cpp'
+   NIXPKGS_ALLOW_UNFREE=1 nix build --impure --inputs-from path:. nixpkgs#llama-cpp-cuda --out-link ~/.local/state/llama-cpp-cuda
    ```
 
 Verification: `~/.local/state/llama-cpp-cuda/bin/llama-server --list-devices` lists `CUDA0: NVIDIA GeForce RTX 5080`.
@@ -73,7 +73,7 @@ Precondition: `nvidia-smi` lists no inference process, the CUDA build above exis
 
 2. Open `http://<mesh-address>:<port>` in Safari and paste the key into the web UI settings.
 
-Verification, from tpnix:
+Verification, from an enrolled Mesh peer:
 
 - `curl -s -o /dev/null -w '%{http_code}' http://<mesh-address>:<port>/v1/models` prints `401`, and the same request with `-H "Authorization: Bearer <key>"` prints `200`.
 - `curl -s -H "Authorization: Bearer <key>" http://<mesh-address>:<port>/props | jq .modalities.vision` prints `true`.

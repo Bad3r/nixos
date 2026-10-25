@@ -18,7 +18,7 @@ The RTX 5080 runs open-weight models on songbird, so chat, coding side work, spe
 
 ## Speeds
 
-Single-user tokens per second on songbird with llama.cpp, on CUDA for GPU placements, unless the row names another engine.
+Single-user tokens per second on songbird with llama.cpp 0.6.0 (build 11429), using CUDA for GPU placements unless the row names Magnitude.
 People read about 5 tokens per second, so anything above 40 feels instant.
 
 | Model and quantization          | Placement            | Decode | Prefill |
@@ -31,12 +31,13 @@ People read about 5 tokens per second, so anything above 40 feels instant.
 | Gemma 4 26B-A4B, 32K in context | GPU, `q8_0` cache    |    123 |   5,000 |
 
 - Vulkan builds decode about a quarter slower than CUDA on Qwen3.5 9B and match it on Gemma 4 E4B.
-- With DFlash, a small drafter proposing token blocks the main model checks, Magnitude decodes the same Qwen3.5 9B file half again as fast as llama.cpp.
+- The Qwen3.5 9B comparison pairs Magnitude with DFlash drafting against llama.cpp without drafting.
+  DFlash proposes token blocks for the main model to check.
 - The GPU draws about 300 W while decoding, up to 365 W during prefill, and 42 W idle.
 
 ## What it enables
 
-- A private assistant: chat, image questions, and document questions with Qwen3.8 27B or Gemma 4, also served to tpnix and the iPhone over the Mesh.
+- A private assistant: chat, image questions, and document questions with Qwen3.8 27B or Gemma 4, also served to the iPhone over the Mesh.
 - Side work for Claude Code and Codex: commit messages, summaries, log triage, classification, and anything whose data must stay on the host.
 - Local code search and next-edit completion with small embedding and completion models.
 - Speech: push-to-talk dictation, meeting transcripts with speaker labels, and text to speech with voice cloning.
