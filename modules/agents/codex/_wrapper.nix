@@ -15,12 +15,6 @@ let
     lib.mapAttrsToList (name: value: "export ${name}=${lib.escapeShellArg value}") codexEnv.vars
   );
 
-  # Repackaged codex closure that exposes codex-package.json for
-  # InstallContext::from_exe without enabling upstream's zsh fork path.
-  codexPackaged = import ./_packaged-codex.nix {
-    inherit pkgs codexPkg;
-  };
-
   tomlFormat = pkgs.formats.toml { };
   coreutilsId = lib.getExe' pkgs.coreutils "id";
   coreutilsMktemp = lib.getExe' pkgs.coreutils "mktemp";
@@ -257,7 +251,7 @@ let
     fi
 
     prepareBashShellOverride
-    exec ${codexPackaged}/bin/codex "$@"
+    exec ${lib.getExe codexPkg} "$@"
   '';
 in
 {

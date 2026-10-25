@@ -42,7 +42,7 @@
   # Enable JavaScript code mode backed by the standalone host process.
   code_mode = false; # UnderDevelopment; upstream: false
 
-  # Use the code-mode host installed by _packaged-codex.nix.
+  # Use the code-mode host bundled with the Codex package.
   code_mode_host = true; # Stable; upstream: true
 
   # Terminate active code mode cells when their turn is interrupted.
