@@ -10,13 +10,14 @@ import json
 import re
 import shlex
 import sys
-from typing import cast
+from typing import NamedTuple, cast
 
 EGRESS = "This sbx sandbox gets internet egress, so anything copied into it can leave the host."
 SHARE = "This attaches the read-write shared directory, so the guest writes files on the host."
 OPAQUE = "The approval hook cannot see this sbx call's arguments (sbx-mcp, stdin, or expansions)."
 UNREADABLE = "The approval hook cannot read this tool call, so it fails closed."
 TOO_DEEP = "The approval hook does not follow shell scripts nested this deep, so it fails closed."
+STDIN = "A shell here reads a script the approval hook cannot see, and the call names sbx."
 TOO_LONG = "The approval hook does not parse commands over 64 KiB, so it fails closed."
 CODEX = " Codex hooks cannot ask the owner, so hand them the exact command to run, or stay offline."
 
@@ -46,7 +47,11 @@ SHELL_C = re.compile(r"-[A-Za-z]*c[A-Za-z]*")
 SHELL_OPTION_ARGS = frozenset({"-o", "-O", "+o", "+O"})
 STDIN_RUNNERS = frozenset({"xargs", "parallel"})
 OPEN_VERBS = frozenset({"create", "run", "share"})
-SHELLS = frozenset({"sh", "bash", "dash", "zsh", "ksh", "mksh"})
+SHELLS = frozenset({"sh", "ash", "bash", "dash", "zsh", "ksh", "mksh", "fish"})
+SOURCES = frozenset({"source", "."})
+WRAPPERS = frozenset({"sudo", "doas", "env", "exec", "command", "builtin", "nohup", "time", "nice"})
+STDIN_FILES = frozenset({"-", "/dev/stdin", "/dev/fd/0", "/proc/self/fd/0"})
+SHELL_S = re.compile(r"-[A-Za-z]*s[A-Za-z]*")
 HEREDOC_END = frozenset(" \t\n;|&<>()")
 # Delimiter, strip leading tabs, body is a shell script, body expands substitutions.
 type Heredoc = tuple[str, bool, bool, bool]
@@ -147,8 +152,10 @@ def heredoc(text: str, index: int) -> tuple[str, int, Heredoc]:
     if not word:
         msg = "heredoc without a delimiter"
         raise ValueError(msg)
-    line = text[text.rfind("\n", 0, start) + 1 : start]
-    shell = any(basename(part) in SHELLS for part in re.split(r"[\s;|&()]+", line))
+    line_end = text.find("\n", index)
+    line = text[text.rfind("\n", 0, start) + 1 : len(text) if line_end == -1 else line_end]
+    runners = SHELLS | SOURCES
+    shell = any(basename(part) in runners for part in re.split(r"[\s;|&()]+", line))
     expands = not any(char in word for char in "'\"\\")
     delimiter = re.sub(r"[\"'\\]", "", word)
     return text[start:index], index, (delimiter, bool(strip), shell, expands)
@@ -247,24 +254,36 @@ def mark(command: str) -> str:
     return "".join(out)
 
 
-def segments(tokens: list[str]) -> list[tuple[list[str], str]]:
-    """Split words into simple commands, each with the operator ending it; drop redirections."""
-    result: list[tuple[list[str], str]] = []
-    current: list[str] = []
-    target = False
-    for token in tokens:
-        operator = bool(token) and set(token) <= OPERATORS
+class Command(NamedTuple):
+    """A simple command: its words, the operator ending it, and its literal stdin."""
+
+    words: list[str]
+    end: str
+    herestrings: list[str]
+    heredoc: bool
+
+
+def segments(tokens: list[str]) -> list[Command]:
+    """Split words into simple commands, dropping redirections but keeping here-strings."""
+    result: list[Command] = []
+    current = Command([], "", [], heredoc=False)
+    target = ""
+    for part in tokens:
+        operator = bool(part) and set(part) <= OPERATORS
         if target and not operator:
-            target = False
-        elif token in REDIRECTS:
-            target = True
+            if target == "<<<":
+                current.herestrings.append(part)
+            target = ""
+        elif part in REDIRECTS:
+            target = part
+            current = current._replace(heredoc=current.heredoc or part == "<<")
         elif operator:
-            target = False
-            result.append((current, token))
-            current = []
+            target = ""
+            result.append(current._replace(end=part))
+            current = Command([], "", [], heredoc=False)
         else:
-            current.append(token)
-    result.append((current, ""))
+            current.words.append(part)
+    result.append(current)
     return result
 
 
@@ -284,8 +303,44 @@ def check(command: str, depth: int = 0) -> None:
     text, scripts = scan(normalize(command))
     for script in scripts:
         nested(script, depth)
-    for segment, end in segments(words(text)):
-        check_segment(segment, depth, cut="(" in end)
+    for simple in segments(words(text)):
+        check_segment(simple.words, depth, cut="(" in simple.end)
+        if reads_stdin(simple.words):
+            for herestring in simple.herestrings:
+                nested(herestring, depth)
+            if not simple.herestrings and not simple.heredoc:
+                raise GateError(STDIN)
+
+
+def reads_stdin(segment: list[str]) -> bool:
+    """Whether a shell or source in the command reads its script from stdin or a pipe."""
+    command_position = True
+    for index, word in enumerate(segment):
+        name = basename(word)
+        if name in SHELLS:
+            return shell_reads_stdin(segment[index + 1 :])
+        if name in SOURCES and command_position:
+            return index + 1 == len(segment) or segment[index + 1] in STDIN_FILES
+        command_position = command_position and (
+            word.startswith("-") or "=" in word or name in WRAPPERS
+        )
+    return False
+
+
+def shell_reads_stdin(args: list[str]) -> bool:
+    """Whether a shell given these arguments reads its script from stdin."""
+    index = 0
+    while index < len(args) and args[index].startswith(("-", "+")):
+        word = args[index]
+        if SHELL_C.fullmatch(word):
+            return False
+        if word == "-" or SHELL_S.fullmatch(word):
+            return True
+        if word == "--":
+            index += 1
+            break
+        index += 2 if word in SHELL_OPTION_ARGS else 1
+    return index >= len(args) or args[index] in STDIN_FILES
 
 
 def nested(script: str, depth: int) -> None:
@@ -425,6 +480,9 @@ def review(payload: object) -> None:
         raise GateError(UNREADABLE)
     if len(command) > MAX_COMMAND:
         raise GateError(TOO_LONG)
+    # Every gate needs sbx, sbx-mcp, or workloads in the text.
+    if not mentions(command):
+        return
     try:
         check(command)
     except ValueError:
