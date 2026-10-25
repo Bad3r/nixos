@@ -186,6 +186,8 @@ class Meta:
     created: int
     expires: int
     session: str | None
+    # Names the call that created the sandbox, so its cleanup never hits a namesake.
+    token: str | None = None
 
     def element(self) -> ET.Element:
         """Render the metadata element."""
@@ -199,6 +201,8 @@ class Meta:
         }
         if self.session is not None:
             values["session"] = self.session
+        if self.token is not None:
+            values["token"] = self.token
         for key, value in values.items():
             ET.SubElement(root, f"{{{NS}}}{key}").text = value
         return root
@@ -221,6 +225,7 @@ class Meta:
             created=int(text("created")),
             expires=int(text("expires")),
             session=element.findtext(f"{{{NS}}}session"),
+            token=element.findtext(f"{{{NS}}}token"),
         )
 
 
@@ -825,8 +830,8 @@ class Sandboxes:
         if directory.is_dir():
             shutil.rmtree(directory)
 
-    def create(self, request: Request) -> dict[str, object]:
-        """Start a sandbox and wait until it accepts commands."""
+    def create(self, request: Request, *, token: str | None = None) -> dict[str, object]:
+        """Start a sandbox and wait until it accepts commands; `token` lands in its metadata."""
         self._validate(request)
         name = request.name or f"{request.base}-{secrets.token_hex(3)}"
         self._check_name(name)
@@ -859,6 +864,7 @@ class Sandboxes:
                 now,
                 now + request.ttl,
                 self.session,
+                token,
             )
             directory.mkdir(mode=0o700)
             try:
@@ -961,6 +967,18 @@ class Sandboxes:
             self._discard(name)
         journal.record(f"destroyed sandbox {name}", verb="destroy", sandbox=name)
         return [name]
+
+    def destroy_created(self, token: str) -> list[str]:
+        """Remove the sandboxes whose metadata carries `token`."""
+        if not self._has_state():
+            return []
+        with self.locked():
+            removed = [sandbox.name for sandbox in self.owned() if sandbox.meta.token == token]
+            for name in removed:
+                self._discard(name)
+        for name in removed:
+            journal.record(f"destroyed sandbox {name}", verb="destroy", sandbox=name)
+        return removed
 
     def _require_session(self, *, mine: bool) -> None:
         if mine and self.session is None:

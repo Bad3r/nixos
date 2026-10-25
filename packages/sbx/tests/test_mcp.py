@@ -201,44 +201,58 @@ class ServerTest(unittest.TestCase):
 
 
 class Stub:
-    """Sandboxes whose destroy releases a blocked run."""
+    """Sandboxes held as name to creation token; create blocks like a boot until released."""
 
     def __init__(self) -> None:
-        """Start with nothing created or destroyed."""
-        self.existing: set[str] = set()
+        """Start with no domains."""
+        self.domains: dict[str, str | None] = {}
+        self.tokens: list[str | None] = []
         self.destroyed: list[str] = []
-        self.names: list[str | None] = []
-        self.running = threading.Event()
+        self.defined = threading.Event()
         self.released = threading.Event()
 
-    def create(self, name: str) -> dict[str, object]:
-        """Refuse a taken name, after a delay that keeps the call in flight."""
-        if name in self.existing:
+    def create(self, name: str, *, token: str | None = None) -> dict[str, object]:
+        """Refuse a taken name after a delay, or define the domain and boot until released."""
+        if name in self.domains:
             time.sleep(1)
             msg = f"a sandbox named '{name}' exists"
             raise SbxError(msg, code="exists")
+        self.domains[name] = token
+        self.tokens.append(token)
+        self.defined.set()
+        self.released.wait(5)
         return {"name": name}
 
     def destroy(self, name: str) -> list[str]:
-        """Record the name and let the run fail as its sandbox vanished."""
+        """Remove one domain by name, as a run's own cleanup does."""
+        if self.domains.pop(name, "missing") == "missing":
+            msg = f"no sandbox named '{name}'"
+            raise SbxError(msg, code="not-found")
         self.destroyed.append(name)
-        self.released.set()
         return [name]
 
-    def dispatch(self, sandboxes: Any, args: argparse.Namespace, *, as_json: bool) -> None:  # noqa: ANN401
-        """Create through the server's sandboxes, then block like a run in progress."""
+    def destroy_created(self, token: str) -> list[str]:
+        """Remove the domains carrying `token` and end a boot in progress."""
+        names = [name for name, carried in self.domains.items() if carried == token]
+        for name in names:
+            del self.domains[name]
+        self.destroyed.extend(names)
+        if names:
+            self.released.set()
+        return names
+
+    def dispatch(self, sandboxes: Any, args: argparse.Namespace, *, as_json: bool) -> object:  # noqa: ANN401
+        """Run like cli._run: create, then destroy by name."""
         if not as_json:
             raise AssertionError
-        self.names.append(args.name)
-        sandboxes.create(args.name)
-        self.running.set()
-        self.released.wait(5)
-        msg = "no sandbox"
-        raise SbxError(msg, code="not-found")
+        name = args.name or "nixos-gen"
+        sandboxes.create(name)
+        sandboxes.destroy(name)
+        return {"name": name}, 0
 
 
 class CancelTest(unittest.TestCase):
-    """Cancelled and interrupted runs leave no sandbox of theirs behind."""
+    """Cancelled and interrupted runs remove their own sandbox and nothing else."""
 
     def setUp(self) -> None:
         """Route every sandbox and dispatch to the stub."""
@@ -263,28 +277,46 @@ class CancelTest(unittest.TestCase):
         return json.dumps(message).encode()
 
     def test_cancelled_run(self) -> None:
-        """A cancellation destroys the run's generated sandbox and suppresses the response."""
+        """A cancellation destroys the booting sandbox and suppresses the response."""
         self.server.serve([self.run_call(1), self.cancel(1)])
-        self.assertEqual(len(self.stub.destroyed), 1)
-        self.assertTrue(self.stub.destroyed[0].startswith("nixos-"))
-        self.assertEqual(self.stub.names, self.stub.destroyed)
+        self.assertEqual(self.stub.destroyed, ["nixos-gen"])
+        self.assertEqual(self.stub.domains, {})
         self.assertEqual(self.output.getvalue(), b"")
 
     def test_existing_name_survives(self) -> None:
         """A cancelled run named after another sandbox never destroys it."""
-        self.stub.existing.add("x")
+        self.stub.domains["x"] = "other"
         self.server.serve([self.run_call(3, name="x"), self.cancel(3)])
-        self.assertEqual(self.stub.destroyed, [])
         self.server.reap_all()
-        self.assertEqual(self.stub.destroyed, [])
+        self.assertEqual((self.stub.domains, self.stub.destroyed), ({"x": "other"}, []))
 
-    def test_terminate(self) -> None:
-        """reap_all, the SIGTERM path, destroys every run in progress."""
-        self.server.receive(self.run_call(2, name="r1"))
-        self.assertTrue(self.stub.running.wait(5))
+    def test_terminate_during_boot(self) -> None:
+        """reap_all, the SIGTERM path, destroys a run's sandbox while it still boots."""
+        self.server.receive(self.run_call(2))
+        self.assertTrue(self.stub.defined.wait(5))
         self.server.reap_all()
         self.server.serve([])
-        self.assertEqual(self.stub.destroyed, ["r1"])
+        self.assertEqual(self.stub.destroyed, ["nixos-gen"])
         response = json.loads(self.output.getvalue())
         self.assertEqual(response["id"], 2)
         self.assertTrue(response["result"]["isError"])
+
+    def test_replacement_survives(self) -> None:
+        """A stale reaper never destroys a later sandbox of the same name."""
+        self.stub.released.set()
+        self.server.serve([self.run_call(4, name="r")])
+        self.assertEqual(self.stub.destroyed, ["r"])
+        (token,) = self.stub.tokens
+        self.stub.domains["r"] = "replacement"
+        gate = threading.Event()
+        alive = threading.Thread(target=gate.wait)
+        alive.start()
+        reaper = threading.Thread(target=self.server.reap, args=(mcp.Call(alive, None, token),))
+        reaper.start()
+        time.sleep(0.7)
+        gate.set()
+        reaper.join(5)
+        alive.join(5)
+        self.assertIsNotNone(token)
+        self.assertEqual(self.stub.domains, {"r": "replacement"})
+        self.assertEqual(self.stub.destroyed, ["r"])

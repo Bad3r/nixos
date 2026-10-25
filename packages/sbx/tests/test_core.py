@@ -320,6 +320,14 @@ class SandboxesTest(unittest.TestCase):
         with self.assertRaises(SbxError):
             self.sandboxes(session=None).listing(mine=True)
 
+    def test_destroy_created(self) -> None:
+        """A creation token reaches the metadata and selects only its own sandbox."""
+        self.sandboxes().create(self.request(), token="tok")  # noqa: S106
+        self.sandboxes().create(self.request(name="t2"))
+        self.assertEqual(self.sandboxes().destroy_created("other"), [])
+        self.assertEqual(self.sandboxes().destroy_created("tok"), ["t1"])
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-t2"])
+
     def test_copy_roots(self) -> None:
         """Copies in come from the roots only, and copies out default to xfer."""
         self.paths.sandbox("c").mkdir(parents=True)

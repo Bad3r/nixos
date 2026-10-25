@@ -7,6 +7,7 @@ verb accepts and returns the document `sbx <verb> --json` prints.
 """
 
 import dataclasses
+import functools
 import json
 import os
 import secrets
@@ -25,7 +26,6 @@ from sbx.core import (
     NETS,
     Backend,
     Paths,
-    Request,
     Sandboxes,
     SbxError,
     Settings,
@@ -343,28 +343,15 @@ def _valid_id(request_id: object) -> bool:
     )
 
 
-def _named_run(arguments: object) -> tuple[object, str | None]:
-    """Name a run's sandbox up front, as create would, so a cancellation can find it."""
-    if not isinstance(arguments, dict):
-        return arguments, None
-    given = cast("dict[str, object]", arguments)
-    base = given.get("base")
-    if given.get("name") is None and isinstance(base, str):
-        given = {**given, "name": f"{base}-{secrets.token_hex(3)}"}
-    name = given.get("name")
-    return given, name if isinstance(name, str) else None
-
-
 @dataclass
 class Call:
     """A tools/call in progress."""
 
     thread: threading.Thread
     session: str | None
-    sandbox: str | None = None
+    # A run's creation token, which its sandbox's metadata carries from define on.
+    token: str | None = None
     cancelled: bool = False
-    # Set once this call's create returns, so a name that already existed is never reaped.
-    owned: bool = False
 
 
 class Server:
@@ -455,15 +442,13 @@ class Server:
             self._fail(request_id, INVALID_PARAMS, f"unknown tool: {name}")
             return
         arguments: object = params.get("arguments")
-        sandbox: str | None = None
-        if tool.name == "run":
-            arguments, sandbox = _named_run(arguments)
+        token = secrets.token_hex(8) if tool.name == "run" else None
         session = session_of(params.get("_meta"))
         thread = threading.Thread(
             target=self._call, args=(request_id, tool, arguments, session), name=f"sbx-{tool.name}"
         )
         with self._lock:
-            self._calls[request_id] = Call(thread, session, sandbox)
+            self._calls[request_id] = Call(thread, session, token)
         self._spawn(thread)
 
     def _spawn(self, thread: threading.Thread) -> None:
@@ -479,15 +464,8 @@ class Server:
             args = build_parser().parse_args(argv)
             args.command = command
             sandboxes = self._open(session)
-            if record is not None and record.sandbox is not None:
-                create = sandboxes.create
-
-                def owning_create(request: Request) -> dict[str, object]:
-                    created = create(request)
-                    record.owned = True
-                    return created
-
-                sandboxes.create = owning_create
+            if record is not None and record.token is not None:
+                sandboxes.create = functools.partial(sandboxes.create, token=record.token)
             document, _code = dispatch(sandboxes, args, as_json=True)
         except (SbxError, OSError) as error:
             code = error.code if isinstance(error, SbxError) else "os-error"
@@ -522,30 +500,33 @@ class Server:
             if call is None:
                 return
             call.cancelled = True
-        if call.sandbox is not None:
-            reaper = threading.Thread(target=self._reap, args=(call,), name="sbx-cancel")
+        if call.token is not None:
+            reaper = threading.Thread(target=self.reap, args=(call,), name="sbx-cancel")
             self._spawn(reaper)
 
-    def _destroy(self, call: Call) -> None:
-        """Destroy the sandbox a run created; the run's own cleanup may have won."""
+    def _destroy(self, call: Call) -> bool:
+        """Destroy the sandbox carrying the call's token; False while there is none."""
         try:
-            self._open(call.session).destroy(str(call.sandbox))
+            return bool(self._open(call.session).destroy_created(str(call.token)))
         except SbxError as error:
-            if error.code != "not-found":
-                print(f"sbx-mcp: cannot destroy {call.sandbox}: {error}", file=sys.stderr)
+            print(
+                f"sbx-mcp: cannot destroy the sandbox of a cancelled run: {error}", file=sys.stderr
+            )
+            return True
 
-    def _reap(self, call: Call) -> None:
-        # A run still booting owns its sandbox only once create returns.
-        while not call.owned and call.thread.is_alive():
+    def reap(self, call: Call) -> None:
+        """Destroy a cancelled run's sandbox as soon as it exists, until the call ends."""
+        # A namesake created later never carries this call's token.
+        while call.thread.is_alive():
+            if self._destroy(call):
+                return
             time.sleep(0.5)
-        if call.owned:
-            self._destroy(call)
 
     def reap_all(self) -> None:
-        """Destroy the sandbox of every run in progress that created one."""
+        """Destroy the sandbox of every run in progress, booting ones included."""
         # SIGTERM may interrupt the main thread inside a locked section, so no lock here.
         for call in list(self._calls.values()):
-            if call.owned:
+            if call.token is not None:
                 self._destroy(call)
 
     def serve(self, lines: Iterable[bytes]) -> None:
