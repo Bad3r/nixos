@@ -118,6 +118,22 @@ splitWords() {
   [ "$inWord" -eq 0 ] || words+=("$word")
 }
 
+# splitWords keeps expansions literal, so a host target is resolved here the
+# way the shell would, and refused when it cannot be.
+# shellcheck disable=SC2016,SC2088
+checkHostPath() {
+  local path="$1"
+  case "$path" in
+  '$TMPDIR' | '$TMPDIR/'*) path="$scratch${path#'$TMPDIR'}" ;;
+  '${TMPDIR}' | '${TMPDIR}/'*) path="$scratch${path#'${TMPDIR}'}" ;;
+  '~' | '~/'*) path="$HOME${path#'~'}" ;;
+  esac
+  case "$path" in
+  *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out, or use \$TMPDIR ($scratch)." ;;
+  esac
+  checkPath "$path"
+}
+
 # Everything after exec or run's -- runs in the guest, whose /tmp is its own;
 # only --to and a host cp destination write on the host.
 if [[ $command =~ ^[[:space:]]*sbx[[:space:]] ]] && splitWords "$command"; then
@@ -134,16 +150,16 @@ if [[ $command =~ ^[[:space:]]*sbx[[:space:]] ]] && splitWords "$command"; then
       ;;
     --to)
       n=$((n + 1))
-      checkPath "${words[n]-}"
+      checkHostPath "${words[n]-}"
       ;;
-    --to=*) checkPath "${word#--to=}" ;;
+    --to=*) checkHostPath "${word#--to=}" ;;
     -*) ;;
     *) if [ -z "$verb" ]; then verb="$word"; else positional+=("$word"); fi ;;
     esac
   done
   if [ "$verb" = cp ] && [ "${#positional[@]}" -ge 2 ] &&
     ! grep -qE '^[a-z0-9][a-z0-9-]{0,30}:' <<<"${positional[1]}"; then
-    checkPath "${positional[1]}"
+    checkHostPath "${positional[1]}"
   fi
   exit 0
 fi
