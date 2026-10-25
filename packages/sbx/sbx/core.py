@@ -88,6 +88,7 @@ class Tools:
     systemctl: str
     nix: str
     nix_store: str
+    timedatectl: str
 
 
 @dataclass(frozen=True)
@@ -323,6 +324,14 @@ class Backend(Protocol):
         """Set the guest clock to the host's through qemu-ga."""
         ...
 
+    def job_active(self, domain: str) -> bool:
+        """Return whether a job, such as a managed save, runs on a domain."""
+        ...
+
+    def abort_job(self, domain: str) -> None:
+        """Abort a domain's running job."""
+        ...
+
 
 def parse_duration(value: str) -> int:
     """Parse `90`, `90s`, `30m`, `2h`, or `1d` into seconds."""
@@ -552,6 +561,10 @@ class Sandboxes:
         if self._backend is None or require_slice:
             self._backend = self._connect(require_slice)
         return self._backend
+
+    def adopt(self, backend: Backend) -> None:
+        """Use a backend connected some other way, such as without starting the daemon."""
+        self._backend = backend
 
     @contextlib.contextmanager
     def locked(self, timeout: float | None = None) -> Generator[None]:
@@ -959,14 +972,15 @@ class Sandboxes:
         return "\n".join(lines[-15:])
 
     def _wait_ready(self, name: str) -> None:
-        deadline = self._clock() + self.settings.boot_timeout
+        # Monotonic, so a host sleep during the boot wait does not count against it.
+        deadline = time.monotonic() + self.settings.boot_timeout
         domain = DOMAIN_PREFIX + name
         while True:
             try:
                 self.backend().agent(domain, {"execute": "guest-ping"}, 5)
                 break
             except SbxError:
-                if self._clock() > deadline:
+                if time.monotonic() > deadline:
                     tail = self._console_tail(name)
                     msg = f"the guest agent of '{name}' did not answer; console:\n{tail}"
                     raise SbxError(msg, code="boot-timeout") from None
@@ -976,7 +990,7 @@ class Sandboxes:
             result = capture(self._ssh(name, cid, ["true"]), 4096, 30)
             if result.exit_code == 0:
                 return
-            if self._clock() > deadline:
+            if time.monotonic() > deadline:
                 detail = result.stderr.decode(errors="replace").strip()
                 msg = f"ssh over vsock to '{name}' failed: {detail}"
                 raise SbxError(msg, code="boot-timeout")

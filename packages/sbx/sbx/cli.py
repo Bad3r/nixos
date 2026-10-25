@@ -23,7 +23,7 @@ from sbx.core import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from pathlib import Path
 
 USAGE_EXIT = 2
@@ -185,7 +185,11 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
 
 
 def dispatch(  # noqa: C901, PLR0911, PLR0912
-    sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool
+    sandboxes: Sandboxes,
+    args: argparse.Namespace,
+    *,
+    as_json: bool,
+    attach: Callable[[], Backend] | None = None,
 ) -> tuple[object, int]:
     """Run one verb and return its result and exit code."""
     match args.verb:
@@ -223,7 +227,10 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
                 return sandboxes.base_list(), 0
             return sandboxes.base_build(args.flavour), 0
         case "sleep":
-            actions, code = sleep.Sleep(sandboxes, sleep.state_dir(), as_json=as_json).run(
+            if attach is None:
+                msg = "sleep needs a connect that never starts the daemon"
+                raise SbxError(msg, code="internal")
+            actions, code = sleep.Sleep(sandboxes, sleep.state_dir(), attach, as_json=as_json).run(
                 args.phase
             )
             return (actions if as_json else None), code
@@ -269,8 +276,13 @@ def main(settings_path: Path, argv: Sequence[str] | None = None) -> int:
 
             return LibvirtBackend(settings, require_slice=require_slice)
 
+        def attach() -> Backend:
+            from sbx.backend import LibvirtBackend  # noqa: PLC0415
+
+            return LibvirtBackend(settings, require_slice=False, start=False)
+
         sandboxes = Sandboxes(settings, Paths.from_environment(), connect, caller_session())
-        result, code = dispatch(sandboxes, args, as_json=as_json)
+        result, code = dispatch(sandboxes, args, as_json=as_json, attach=attach)
     except (SbxError, OSError) as error:
         code = error.code if isinstance(error, SbxError) else "os-error"
         journal.record(f"failed: {error}", code=code)

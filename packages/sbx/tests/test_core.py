@@ -4,14 +4,18 @@
 import dataclasses
 import os
 import tempfile
+import threading
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from sbx import cli, core
 from sbx.core import NS, DomainInfo, Meta, Paths, Sandboxes, SbxError, Settings, Tools
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 NOW = 1_800_000_000
 
@@ -35,6 +39,7 @@ STUBS = {
     "ss": 'cat "$SBX_TEST_SS" 2>/dev/null || true',
     "git": "exit 1",
     "other": "exit 0",
+    "timedatectl": 'echo "${SBX_TEST_NTP:-yes}"',
 }
 
 
@@ -51,6 +56,12 @@ class FakeBackend:
         self.unconnected: dict[str, int] = {}
         self.synced: list[str] = []
         self.saved_state: dict[str, str] = {}
+        # Polls of job_active left before a domain's save job finishes.
+        self.jobs: dict[str, int] = {}
+        # When set, managed_save calls it, then blocks until abort_job.
+        self.before_save: Callable[[], None] | None = None
+        self.held = threading.Event()
+        self.aborted: list[str] = []
 
     def domains(self) -> list[DomainInfo]:
         """List the fake domains."""
@@ -125,6 +136,12 @@ class FakeBackend:
 
     def managed_save(self, domain: str) -> None:
         """Stop a domain with a managed save."""
+        if self.before_save is not None:
+            self.before_save()
+            self.held.wait(10)
+            if domain in self.aborted:
+                msg = "operation aborted"
+                raise SbxError(msg, code="libvirt")
         state = self.domains_by_name[domain].state
         self._set(domain, "shutoff", active=False, managed_save=True)
         self.saved_state[domain] = state
@@ -132,6 +149,23 @@ class FakeBackend:
     def restore(self, domain: str) -> None:
         """Start a domain in the state it was saved in, as libvirt does."""
         self._set(domain, self.saved_state.pop(domain, "running"), active=True, managed_save=False)
+
+    def job_active(self, domain: str) -> bool:
+        """Report a save job until its polls run out, then finish the save."""
+        left = self.jobs.get(domain)
+        if left is None:
+            return False
+        if left > 0:
+            self.jobs[domain] = left - 1
+            return True
+        del self.jobs[domain]
+        self.managed_save(domain)
+        return False
+
+    def abort_job(self, domain: str) -> None:
+        """Abort a blocked save."""
+        self.aborted.append(domain)
+        self.held.set()
 
     def set_time(self, domain: str) -> None:
         """Answer once the agent has connected."""
@@ -170,6 +204,7 @@ class Fixture(unittest.TestCase):
             systemctl=other,
             nix=other,
             nix_store=str(stubs / "nix-store"),
+            timedatectl=str(stubs / "timedatectl"),
         )
         self.settings = Settings(
             running=3,

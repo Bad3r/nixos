@@ -4,6 +4,8 @@
 import dataclasses
 import fcntl
 import io
+import os
+import signal
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from typing import cast
@@ -17,7 +19,7 @@ from tests.test_core import NOW, FakeBackend, Fixture
 
 
 class SleepTest(Fixture):
-    """pause, resume, save, and restore against the sandbox TTL."""
+    """Pause, resume, save, and restore against the sandbox TTL."""
 
     def setUp(self) -> None:
         """Lay out the core fixture with two running sandboxes."""
@@ -30,28 +32,36 @@ class SleepTest(Fixture):
         self.fake.add("a", expires=NOW + 3600)
         self.fake.add("b", expires=NOW + 3600)
         self.connects = 0
+        self.attaches = 0
+        self.refused = False
+        stub = self.scratch / "stubs" / "inactive"
+        stub.write_text("#!/bin/sh\nexit 3\n")
+        stub.chmod(0o755)
         sleep_patch = mock.patch("sbx.sleep.time.sleep")
         sleep_patch.start()
         self.addCleanup(sleep_patch.stop)
 
     def connect(self, _slice: bool) -> FakeBackend:  # noqa: FBT001
-        """Count connections to the fake daemon."""
+        """Count connections that may start the daemon."""
         self.connects += 1
+        return self.fake
+
+    def attach(self) -> FakeBackend:
+        """Count connections that never start the daemon."""
+        self.attaches += 1
+        if self.refused:
+            msg = "Failed to connect socket"
+            raise SbxError(msg, code="no-daemon")
         return self.fake
 
     def phase(self, phase: str, *, daemon: bool = True) -> tuple[list[dict[str, str]], int]:
         """Run one phase with the daemon unit active or not."""
-        systemctl = "other" if daemon else "inactive"
-        stub = self.scratch / "stubs" / "inactive"
-        stub.write_text("#!/bin/sh\nexit 3\n")
-        stub.chmod(0o755)
-        tools = dataclasses.replace(
-            self.settings.tools, systemctl=str(self.scratch / "stubs" / systemctl)
-        )
+        systemctl = str(self.scratch / "stubs" / ("other" if daemon else "inactive"))
+        tools = dataclasses.replace(self.settings.tools, systemctl=systemctl)
         settings = dataclasses.replace(self.settings, tools=tools)
         sandboxes = Sandboxes(settings, self.paths, self.connect, None, lambda: NOW)
         with redirect_stdout(io.StringIO()), redirect_stderr(io.StringIO()) as errors:
-            actions, code = Sleep(sandboxes, self.state, as_json=True).run(phase)
+            actions, code = Sleep(sandboxes, self.state, self.attach, as_json=True).run(phase)
         self.errors = errors.getvalue()
         return actions, code
 
@@ -67,11 +77,22 @@ class SleepTest(Fixture):
         path = self.state / name
         return path.read_text().splitlines() if path.exists() else []
 
-    def test_inactive_daemon(self) -> None:
-        """Without the daemon unit, pause and save neither connect nor record."""
+    def expire(self, name: str) -> None:
+        """Put a sandbox past its TTL."""
+        info = self.fake.domains_by_name[f"sbx-{name}"]
+        meta = dataclasses.replace(cast("Meta", info.meta), expires=NOW - 1)
+        self.fake.domains_by_name[f"sbx-{name}"] = dataclasses.replace(info, meta=meta)
+
+    def test_no_daemon(self) -> None:
+        """Pause and save never start a daemon, and a refused connection means none runs."""
         for phase in ("pause", "save"):
             with self.subTest(phase=phase):
                 self.assertEqual(self.phase(phase, daemon=False), ([], 0))
+        self.assertEqual(self.attaches, 0)
+        self.refused = True
+        for phase in ("pause", "save"):
+            with self.subTest(phase=phase, refused=True):
+                self.assertEqual(self.phase(phase), ([], 0))
         self.assertEqual(self.connects, 0)
         self.assertFalse(self.state.exists())
 
@@ -80,7 +101,7 @@ class SleepTest(Fixture):
         for phase in ("resume", "restore"):
             with self.subTest(phase=phase):
                 self.assertEqual(self.phase(phase), ([], 0))
-        self.assertEqual(self.connects, 0)
+        self.assertEqual(self.connects + self.attaches, 0)
 
     def test_suspend_cycle(self) -> None:
         """Pause records running sandboxes; resume brings back only those and syncs clocks."""
@@ -97,21 +118,36 @@ class SleepTest(Fixture):
         self.assertEqual(self.fake.synced, ["sbx-a"])
         self.assertFalse((self.state / "paused").exists())
 
-    def test_pause_and_resume_failures_exit_zero(self) -> None:
-        """A sandbox that fails to pause or resume only warns."""
+    def test_pause_and_resume_failures_exit_one(self) -> None:
+        """A sandbox that fails to pause or resume fails the phase; a stale clock only warns."""
         self.fake.add("c", expires=NOW + 3600)
         self.fake.failing.add("sbx-a")
         _, code = self.phase("pause")
-        self.assertEqual(code, 0)
+        self.assertEqual(code, 1)
         self.assertIn("warning: a kept running through suspend", self.errors)
         self.assertEqual(self.states(), {"a": "running", "b": "paused", "c": "paused"})
         self.fake.failing = {"sbx-c"}
+        _, code = self.phase("resume")
+        self.assertEqual(code, 1)
+        self.assertIn("warning: c stays paused", self.errors)
+        self.fake.failing = set()
+        self.fake.suspend("sbx-b")
+        self.state.joinpath("paused").write_text("b\n")
         self.fake.unconnected["sbx-b"] = 1
         with mock.patch("sbx.sleep.AGENT_WAIT", 0):
             _, code = self.phase("resume")
         self.assertEqual(code, 0)
-        self.assertIn("warning: c stays paused", self.errors)
         self.assertIn("warning: b keeps a stale clock", self.errors)
+
+    def test_unsynchronized_host_clock(self) -> None:
+        """Without NTP sync on the host, guest clocks are left alone."""
+        self.phase("pause")
+        with mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}):
+            actions, code = self.phase("resume")
+        self.assertEqual(code, 0)
+        self.assertEqual([item["action"] for item in actions], ["resumed", "resumed"])
+        self.assertIn("not NTP-synchronized", self.errors)
+        self.assertEqual(self.fake.synced, [])
 
     def test_save_destroys_expired_and_saves_the_rest(self) -> None:
         """Save removes sandboxes past their TTL, then saves the active ones."""
@@ -131,6 +167,7 @@ class SleepTest(Fixture):
         self.assertEqual(self.states(), {"a": "shutoff", "b": "shutoff", "off": "shutoff"})
         self.assertFalse(self.paths.sandbox("old").exists())
         self.assertEqual(self.record("saved"), ["a", "b"])
+        self.assertEqual(self.connects, 0)
 
     def test_failed_save_exits_one(self) -> None:
         """The first failed save stops the phase, and the record keeps it for restore."""
@@ -152,48 +189,82 @@ class SleepTest(Fixture):
                 _, code = self.phase("save")
                 self.assertEqual(code, expected)
                 if expected:
-                    self.assertIn("4096M", self.errors)
+                    self.assertIn("takes up to 4096M", self.errors)
                     self.assertEqual(self.states(), {"a": "running", "b": "running"})
         self.assertEqual(self.states(), {"a": "shutoff", "b": "shutoff"})
 
-    def test_held_lock(self) -> None:
-        """A lock another command keeps fails save and restore, and only warns for pause."""
-        with self.paths.lock.open("a") as held, mock.patch("sbx.sleep.LOCK_WAIT", 0):
-            fcntl.flock(held, fcntl.LOCK_EX)
-            self.assertEqual(self.phase("pause"), ([], 0))
-            self.assertIn("warning: pause stopped: another sbx command held", self.errors)
-            self.assertEqual(self.phase("save"), ([], 1))
-            self.assertIn("error: save stopped: another sbx command held", self.errors)
+    def test_save_past_its_budget_aborts_the_job(self) -> None:
+        """A save still running at the budget is aborted, and the guest keeps running."""
+        self.fake.before_save = lambda: None
+        with mock.patch("sbx.sleep.SAVE_BUDGET", 0):
+            _, code = self.phase("save")
+        self.assertEqual(code, 1)
+        self.assertEqual(self.fake.aborted, ["sbx-a"])
+        self.assertIn("ran past 0 s", self.errors)
         self.assertEqual(self.states(), {"a": "running", "b": "running"})
 
-    def test_restore_honours_ttl(self) -> None:
-        """Restore brings back saved sandboxes within TTL and destroys the expired ones."""
+    def test_sigterm_aborts_the_save(self) -> None:
+        """SIGTERM from the hook's timeout aborts the running save job."""
+
+        def terminate() -> None:
+            os.kill(os.getpid(), signal.SIGTERM)
+
+        self.fake.before_save = terminate
+        _, code = self.phase("save")
+        self.assertEqual(code, 1)
+        self.assertEqual(self.fake.aborted, ["sbx-a"])
+        self.assertIn("sbx was stopped", self.errors)
+        self.assertIs(signal.getsignal(signal.SIGTERM), signal.SIG_DFL)
+
+    def test_held_lock(self) -> None:
+        """A lock another command keeps fails each phase after a bounded wait."""
+        self.state.mkdir(parents=True)
+        self.state.joinpath("paused").write_text("a\n")
+        with self.paths.lock.open("a") as held, mock.patch("sbx.sleep.LOCK_WAIT", 0):
+            fcntl.flock(held, fcntl.LOCK_EX)
+            for phase in ("pause", "resume", "save"):
+                with self.subTest(phase=phase):
+                    self.assertEqual(self.phase(phase), ([], 1))
+                    self.assertIn(f"{phase} stopped: another sbx command held", self.errors)
+        self.assertEqual(self.states(), {"a": "running", "b": "running"})
+        self.assertEqual(self.record("paused"), ["a"])
+
+    def test_restore_leaves_expiry_to_gc(self) -> None:
+        """Restore brings back every saved sandbox, even one past its TTL."""
         self.phase("save")
-        saved = self.fake.domains_by_name["sbx-b"]
-        expired = dataclasses.replace(cast("Meta", saved.meta), expires=NOW - 1)
-        self.fake.domains_by_name["sbx-b"] = dataclasses.replace(saved, meta=expired)
+        self.expire("b")
         actions, code = self.phase("restore")
         self.assertEqual(code, 0)
         self.assertEqual(
-            actions,
-            [
-                {"sandbox": "b", "action": "destroyed"},
-                {"sandbox": "a", "action": "restored"},
-                {"sandbox": "a", "action": "synced"},
-            ],
+            [item["action"] for item in actions], ["restored", "restored", "synced", "synced"]
         )
-        self.assertEqual(self.states(), {"a": "running"})
-        self.assertFalse(self.paths.sandbox("b").exists())
+        self.assertEqual(self.states(), {"a": "running", "b": "running"})
         self.assertFalse((self.state / "saved").exists())
 
-    def test_failed_restore_exits_one(self) -> None:
-        """A sandbox that stays saved fails restore, and the others still come back."""
-        self.phase("save")
-        self.fake.failing.add("sbx-a")
+    def test_restore_waits_for_a_running_save(self) -> None:
+        """A recorded sandbox still saving is restored once its job ends."""
+        self.state.mkdir(parents=True)
+        self.state.joinpath("saved").write_text("a\n")
+        self.fake.jobs["sbx-a"] = 3
         actions, code = self.phase("restore")
+        self.assertEqual(code, 0)
+        self.assertIn({"sandbox": "a", "action": "restored"}, actions)
+        self.assertFalse((self.state / "saved").exists())
+
+    def test_restore_keeps_unresolved_names(self) -> None:
+        """A save that outlasts the wait, or a failed restore, stays recorded and exits 1."""
+        self.phase("save")
+        self.fake.add("c", expires=NOW + 3600)
+        self.state.joinpath("saved").write_text("a\nb\nc\n")
+        self.fake.jobs["sbx-c"] = 1000
+        self.fake.failing.add("sbx-a")
+        with mock.patch("sbx.sleep.JOB_WAIT", 0):
+            actions, code = self.phase("restore")
         self.assertEqual(code, 1)
         self.assertIn({"sandbox": "b", "action": "restored"}, actions)
         self.assertIn("error: a stays saved", self.errors)
+        self.assertIn("error: c is still saving", self.errors)
+        self.assertEqual(self.record("saved"), ["a", "c"])
 
     def test_paused_then_saved_comes_back_running(self) -> None:
         """A sandbox paused for suspend and saved for hibernation is restored, then resumed."""
