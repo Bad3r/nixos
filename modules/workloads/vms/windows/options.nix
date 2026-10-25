@@ -97,7 +97,7 @@ let
               description = ''
                 `workloads.media` entry holding a Click-to-Run Office installer,
                 such as the `OfficeSetup.exe` a Microsoft account offers.
-                Provisioning copies it into a guest without Click-to-Run Office
+                Provisioning copies it into a guest that lists no Office suite
                 and runs it; the installer downloads Office itself, and signing
                 in to an Office app licenses it.
               '';

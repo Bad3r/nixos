@@ -43,7 +43,7 @@ AGENT_CONNECT_TIMEOUT = 30 * 60
 PROBE_FAILURES = 20
 POLL_SECONDS = 15
 EXEC_TIMEOUT = 15 * 60
-# The Office installer downloads several gigabytes before it exits.
+# The Office installer downloads several gigabytes.
 OFFICE_TIMEOUT = 60 * 60
 AGENT_TIMEOUT = 60
 CHUNK = 48 * 1024
@@ -170,12 +170,12 @@ class Guest:
     def apply(self, name: str, data: dict, timeout: int = EXEC_TIMEOUT) -> None:
         """Bring the guest in line with a step script."""
         result = self.script(name, "apply", data, timeout)
-        if result.code != 0:
-            msg = f"{name} exited with {result.code}: {result.stderr.strip()}"
-            raise ProvisionError(msg)
         for line in result.stdout.splitlines():
             if line.strip():
                 log(f"{name}: {line.strip()}")
+        if result.code != 0:
+            msg = f"{name} exited with {result.code}: {result.stderr.strip()}"
+            raise ProvisionError(msg)
 
     def exists(self, path: str) -> bool:
         """Return whether a guest path exists."""
@@ -261,15 +261,15 @@ def steps(spec: dict) -> list[Step]:
         script_step("remote-desktop", lambda guest: {"remote": guest.spec["gateways"]}),
         script_step("firewall", lambda guest: {"rules": guest.spec["services"]}),
     ]
-    if spec["officeInstaller"] is not None:
-        result.append(Step("office", office_installed, install_office))
-    # Last: activation depends on Microsoft's servers and the key, so a failure
-    # there leaves access to the guest in place.
+    # Activation and Office depend on Microsoft's servers, so a failure there
+    # leaves access to the guest in place; Office, the longest, goes last.
     key_file = spec["productKeyFile"]
     if key_file is not None and Path(key_file).is_file():
         result.append(script_step("product-key", product_key_data))
     else:
         log("no product key file; Windows stays unactivated")
+    if spec["officeInstaller"] is not None:
+        result.append(Step("office", office_installed, install_office))
     return result
 
 

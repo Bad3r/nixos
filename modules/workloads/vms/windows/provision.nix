@@ -39,7 +39,7 @@ let
             if windows.office.installer == null then
               null
             else
-              "/var/lib/workloads/media/${windows.office.installer}";
+              config.workloads.media.${windows.office.installer}.path;
           inherit gateways;
           services = lib.mapAttrsToList (name: service: {
             inherit name;

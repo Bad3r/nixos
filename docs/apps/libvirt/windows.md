@@ -41,12 +41,13 @@ It waits through the installation for the guest agent and for `firstlogon.ps1`, 
 3. Remote Desktop: on, with its built-in firewall group open to the gateway of each guest network only.
 4. Firewall: one `workloads-<service>` rule per `windows.services` entry, open to the same gateways; undeclared `workloads-*` rules are removed.
    `firstlogon.ps1` removes the rule the OpenSSH installer adds, so port 22 follows `windows.services` too.
-5. Office: with `windows.office.installer` set and no Click-to-Run Office listed under Apps, the staged installer is copied into the guest and run there.
+5. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise Windows stays unactivated.
+6. Office: with `windows.office.installer` set and no Microsoft 365 or Office suite listed under Apps, the staged installer is copied into the guest and run there.
    It downloads Office from Microsoft, and signing in to an Office app with the account that owns the subscription licenses it.
-6. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise Windows stays unactivated.
 
 Every step but the password probes the guest first, changes only what differs, and probes again.
-An Office installer still running at its time limit is stopped, and the step fails unless Office is listed by then.
+The Office step waits for any running Click-to-Run install, then polls until the suite is listed and Click-to-Run is idle.
+It stops the installer's process tree once Office is in place, or at its time limit, when the step fails.
 The product key travels on the guest program's standard input and the password through the agent's set-password command, so no process list shows either.
 libvirtd debug logging records guest agent commands, and with them both secrets.
 A restart reruns every step, for instance after a secret changed:

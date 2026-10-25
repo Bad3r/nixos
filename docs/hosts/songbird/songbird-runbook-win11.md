@@ -86,14 +86,13 @@ Precondition: the win11 guest is installed and running, `/data` is unlocked, and
    sha256sum /data/Misc/windows/OfficeSetup.exe
    ```
 
-2. In `modules/hosts/songbird/workloads.nix`, beside the win11 guest and outside the `win11Installing` condition, declare the installer as media and name it:
+2. In `win11` in `modules/hosts/songbird/policy.nix`, set `officeInstaller`:
 
    ```nix
-   workloads.media.office-setup = {
+   officeInstaller = {
      source = "/data/Misc/windows/OfficeSetup.exe";
      sha256 = "<hash from step 1>";
    };
-   workloads.guests.win11.windows.office.installer = "office-setup";
    ```
 
 3. Switch, then rerun the steps and watch the installation:
@@ -106,7 +105,7 @@ Precondition: the win11 guest is installed and running, `/data` is unlocked, and
 4. Open Word in the guest and sign in with the account that owns the subscription.
 
 Verification: the journal logs `office: applied`, and Word reports the subscription under File > Account.
-Removing both declarations afterwards keeps Office installed; the step then stops reinstalling it.
+Setting `officeInstaller` back to `null` keeps Office installed; the step then stops reinstalling it.
 
 ## Drop the win11 installation media
 
