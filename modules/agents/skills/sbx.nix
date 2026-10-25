@@ -7,8 +7,8 @@ let
       do not trust, when you need to run their scripts or inspect what they do.
     - Checks of what such code does to a machine: files it writes, processes it
       starts, what its display shows (`sbx screenshot`).
-    - GUI checks on `nixos-gui`: run an X client, read the screen with
-      `screenshot --ocr`, and drive it with `key` and `type`.
+    - GUI checks on `nixos-gui`: run an X client, inspect the MCP screenshot
+      image, and drive it with `key` and `type`. OCR is optional.
 
     The `nixos` base carries coreutils, bash, `file`, `git`, `perl`, `python3`,
     and `unzip`; it has no compiler, no `make`, and no network. Fetch inputs on
@@ -129,6 +129,9 @@ let
     error carrying the error object. A failing guest command is no tool error:
     read `exit_code`.
 
+    - `screenshot` also returns a PNG image content block for direct visual
+      inspection alongside the saved `path` and `mime`. Set `ocr: true` only
+      when extracted text is useful; Tesseract adds it under `text`.
     - The checkout copy root and relative host paths follow the directory the
       client started in, not your working directory; give absolute paths.
     - Claude Code hands the server its session when it starts it, so after

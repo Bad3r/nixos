@@ -39,6 +39,10 @@ _: {
 
             pyright = {
               enable = true;
+              args = [
+                "--pythonpath"
+                "${pkgs.python3.withPackages (ps: [ ps.pillow ])}/bin/python3"
+              ];
               files = "\\.py$";
               pass_filenames = false;
               stages = [

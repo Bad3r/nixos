@@ -22,7 +22,10 @@
   settings ? { },
 }:
 let
-  python = python3.withPackages (ps: [ ps.libvirt ]);
+  python = python3.withPackages (ps: [
+    ps.libvirt
+    ps.pillow
+  ]);
   emulatorSource = lib.fileset.toSource {
     root = ./sbx;
     fileset = ./sbx/emulator.py;
