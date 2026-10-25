@@ -111,6 +111,8 @@
   - Declared containers on rootful Podman: networks, user namespaces, firewall ownership, published ports, and DNS.
 - [networking/workloads.md](networking/workloads.md)
   - Workload bridge networks: table ownership, declaring a network, egress modes, and verification.
+- [networking/workload-links.md](networking/workload-links.md)
+  - Host services, links from guests to host services and other guests, and gateway proxies.
 
 ## Packaging
 

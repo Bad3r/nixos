@@ -91,6 +91,17 @@ in
         ];
 
       workloads = {
+        host.services.dev = {
+          ports = [
+            {
+              from = 8000;
+              to = 8999;
+            }
+          ];
+          bind = "any";
+          grantable = true;
+        };
+
         networks = {
           default = {
             egress = "warp";
