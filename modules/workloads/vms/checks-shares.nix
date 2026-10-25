@@ -193,6 +193,15 @@ in
           expected = [ "workloads.guests.win: shares: two shares take the same driveLetter" ];
         }
         {
+          name = "a Windows guest with 21 shares";
+          guests.win = windowsGuest {
+            shares = lib.genAttrs (map (i: "s${toString i}") (lib.range 1 21)) (tag: {
+              hostPath = "/srv/${tag}";
+            });
+          };
+          expected = [ "workloads.guests.win: shares: a Windows guest mounts at most 20 shares, on G to Z" ];
+        }
+        {
           name = "a Windows guest serving two shares through VirtioFsSvc";
           guests.win = windowsGuest {
             windows.virtiofs.mode = "service";
