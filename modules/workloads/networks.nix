@@ -240,6 +240,10 @@ let
             workload.content = lib.mkAfter ''
               chain input {
                 type filter hook input priority filter - 1; policy accept;
+                # Link-local frames reach the stack on the bridge port itself: libvirt's
+                # vnet taps and qemu-bridge-helper's session taps.
+                iifname "vnet*" drop
+                iifname "tap*" drop
                 iifname != "vn-*" accept
                 ct state vmap { established : accept, related : accept, invalid : drop }
                 ${lines (lib.concatMap inputRules networks)}

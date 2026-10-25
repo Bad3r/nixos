@@ -7,16 +7,16 @@ A network is isolated by default: guests reach the gateway for DHCP and ping, an
 
 ## Table ownership
 
-| Table                    | Owner           | Role                                   |
-| ------------------------ | --------------- | -------------------------------------- |
-| `inet nixos-fw`          | NixOS firewall  | opens DHCP, DNS, host ports per bridge |
-| `inet workload`          | workload module | anti-spoof, input filter, forward, NAT |
-| `bridge workload-peers`  | workload module | drops guest-to-guest on one bridge     |
-| `bridge workload-leases` | libvirt engine  | binds guests to their DHCP leases      |
-| `inet cloudflare-warp`   | warp-svc        | admits the workload block on its own   |
+| Table                    | Owner                     | Role                                   |
+| ------------------------ | ------------------------- | -------------------------------------- |
+| `inet nixos-fw`          | NixOS firewall            | opens DHCP, DNS, host ports per bridge |
+| `inet workload`          | workload module           | anti-spoof, input filter, forward, NAT |
+| `bridge workload-peers`  | workload module           | drops guest-to-guest on one bridge     |
+| `bridge workload-leases` | `workload-leases.service` | binds guests to their DHCP leases      |
+| `inet cloudflare-warp`   | warp-svc                  | admits the workload block on its own   |
 
 The `inet workload` prerouting chain drops packets from a bridge whose source lies outside its subnet before conntrack sees them, so a guest cannot inject into another network's flows.
-The input chain runs one priority ahead of `nixos-fw`.
+The input chain runs one priority ahead of `nixos-fw`, and drops traffic that reaches the host on a bridge port (`vnet*`, `tap*`) instead of the bridge, as link-local frames do.
 A drop in any base chain is final, so new traffic from a bridge never reaches the ports `nixos-fw` opens on every interface, and the pre-filter narrows the per-bridge opens to the gateway address.
 The forward chain drops all forwarding that neither enters nor leaves a `vn-*` bridge, so turning forwarding on never makes the host a router between the LAN, Mesh, and WARP.
 Once any network is declared, forwarding through other interfaces, such as rootful Podman's `podman0`, is dropped as well.
@@ -59,7 +59,9 @@ A libvirt network with `libvirt.bindLeases` closes that gap in `bridge workload-
 - DHCP to the gateway and ARP probes pass, every other frame type is dropped, and no libvirt bridge learns an address from link-local frames.
 - DHCP messages may still name any client MAC, so a guest can use up the pool or release a lease whose MAC it guesses, but it cannot send from another guest's address.
 
-`workload-leases.service` watches libvirt's lease file and refills the leased pairs on every change, after each ruleset reload, and every 30 seconds.
+`workload-leases.service` owns the table, so a ruleset reload leaves the port pins in place.
+It watches libvirt's lease file and reloads the leased pairs on every change and every 30 seconds, dropping the pins of ports that are gone.
+A libvirt network with `bindLeases` starts only after the service.
 A guest whose lease expired loses traffic until it renews.
 
 ## Egress modes
