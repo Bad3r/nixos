@@ -1,7 +1,7 @@
 # Owner No-Sudo Operations
 
 Configuration-managed operations available to the system owner user without entering a sudo password.
-Storage diagnostics carry their own capability wrappers and live on separate pages, linked under Related.
+Raw storage tools are not among them; they run under `sudo`.
 
 Scope:
 
@@ -84,12 +84,8 @@ Scope:
 
 - Owner group privilege map:
   - [owner-group-privileges.md](owner-group-privileges.md)
-- Storage inspection and health reporting:
-  - [owner-no-sudo-storage.md](owner-no-sudo-storage.md)
-- NVMe subcommand allowlist:
-  - [owner-no-sudo-nvme.md](owner-no-sudo-nvme.md)
-- Self-encrypting drive management:
-  - [owner-no-sudo-sed.md](owner-no-sudo-sed.md)
+- Storage device access:
+  - [owner-storage-access.md](owner-storage-access.md)
 
 ## Verification
 
