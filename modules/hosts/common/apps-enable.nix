@@ -369,6 +369,7 @@ let
       playwright.extended.enable = lib.mkOverride 1100 true;
       pnpm.extended.enable = lib.mkOverride 1100 true;
       podman.extended.enable = lib.mkOverride 1100 true;
+      "podman-desktop".extended.enable = lib.mkOverride 1100 false;
       "poppler-utils".extended.enable = lib.mkOverride 1100 true;
       potrace.extended.enable = lib.mkOverride 1100 true;
       powershell.extended.enable = lib.mkOverride 1100 true;

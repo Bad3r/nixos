@@ -66,7 +66,20 @@ let
               disks = lib.mapAttrsToList (disk: spec: {
                 path = "${guest.stateDir}/${disk}.qcow2";
                 inherit (spec) size;
-                seed = if spec.seed == null then null else { inherit (images.${spec.seed}) path expected; };
+                seed =
+                  if spec.seed == null then
+                    null
+                  else
+                    let
+                      image = images.${spec.seed};
+                      # The components after /nix/store/<output>.
+                      inner = lib.drop 4 (lib.splitString "/" image.expected);
+                    in
+                    {
+                      inherit (image) expected outLink;
+                      path = lib.concatStringsSep "/" ([ image.outLink ] ++ inner);
+                      build = "nix build .#legacyPackages.${pkgs.stdenv.hostPlatform.system}.workloads.${image.artifact} --out-link ${image.outLink}";
+                    };
               }) guest.disks;
             }
           )

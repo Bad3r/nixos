@@ -172,7 +172,7 @@ in
             };
 
             systemd.tmpfiles.settings.workloads-vms-shares-test = {
-              "/var/lib/workloads/images/epsilon.qcow2"."L+".argument = "${image}/${image.passthru.filePath}";
+              "/var/lib/workloads/images/epsilon"."L+".argument = "${image}";
               "/srv/rw".d = {
                 user = owner;
                 mode = "0777";
@@ -190,10 +190,7 @@ in
             };
 
             workloads = {
-              images.epsilon = {
-                path = "/var/lib/workloads/images/epsilon.qcow2";
-                expected = "${image}/${image.passthru.filePath}";
-              };
+              images.epsilon.expected = "${image}/${image.passthru.filePath}";
 
               guests.epsilon = guest {
                 autostart = true;

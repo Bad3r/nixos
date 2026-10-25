@@ -36,11 +36,11 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 
 `create` and `run` take `--name`, `--mem`, `--cpus`, and `--ttl`.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
-`destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread.
+`destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
 
 ```sh
 sbx base build nixos
-sbx run nixos --in ./repo --out /root/repo/result.txt --to "$TMPDIR" -- make -C repo test
+sbx run nixos --in ./repo --out /root/report.txt --to "$TMPDIR" -- sh -c 'python3 repo/check.py > report.txt'
 sbx create nixos --name probe --ttl 30m
 sbx exec probe -- uname -a
 sbx cp probe:/var/log/build.log
@@ -92,6 +92,11 @@ The TTL counts wall-clock time, host sleep included.
 `sbx-gc.timer` runs `sbx gc` on a schedule.
 It removes sandboxes past their TTL, shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
 `create`, `exec`, `cp`, `screenshot`, `destroy`, `gc`, `base build`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
+
+## Agents
+
+With the `sbx` row on, Claude Code and Codex get the `sbx` skill from `modules/agents/skills/sbx.nix`, a system-prompt line, and an allow rule for `sbx`.
+The Codex allow rule in `modules/agents/codex/_exec-policy.nix` also runs `sbx` outside bwrap, since the CLI writes its state directory and starts user units.
 
 ## Verify
 

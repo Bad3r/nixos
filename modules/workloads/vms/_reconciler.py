@@ -51,6 +51,11 @@ def log(message: str) -> None:
     print(message, flush=True)
 
 
+def warn(message: str) -> None:
+    """Print one journal line at warning priority."""
+    print(f"<4>{message}", flush=True)
+
+
 def parse(xml: str) -> ET.Element:
     """Parse XML that libvirt or the Nix renderer produced."""
     return ET.fromstring(xml)  # noqa: S314
@@ -288,17 +293,38 @@ def check_size(path: Path, size: int) -> None:
         )
 
 
-def seed_source(seed: dict[str, str]) -> Path:
-    """Return the image a seed declares, refusing a stale or missing out-link."""
-    path = Path(seed["path"])
-    resolved = path.resolve()
+def seed_problem(seed: dict[str, str]) -> str | None:
+    """Describe why a seed's out-link cannot seed a disk, or return None when it can."""
+    out_link = Path(seed["outLink"])
+    if not os.path.lexists(out_link):
+        return f"the out-link {out_link} is missing"
+    resolved = Path(seed["path"]).resolve()
     if str(resolved) != seed["expected"] or not resolved.is_file():
-        msg = (
-            f"{path} resolves to {resolved}, declared {seed['expected']}; "
-            "build the image again with `nix build` and this out-link"
+        return (
+            f"the out-link {out_link} is stale: "
+            f"it points at {resolved}, declared {seed['expected']}"
         )
-        raise ReconcileError(msg)
-    return resolved
+    return None
+
+
+def seed_fix(problem: str, seed: dict[str, str]) -> str:
+    """Append the command that rebuilds a seed's out-link to its problem."""
+    return (
+        f"{problem}; build it from the repository root with `{seed['build']}` "
+        "(`path:.#` in a linked worktree)"
+    )
+
+
+def pending_seeds(disks: list[dict]) -> list[str]:
+    """Describe the seeds that block creating a missing disk."""
+    problems = []
+    for disk in disks:
+        seed = disk["seed"]
+        if seed is not None and not Path(disk["path"]).exists():
+            problem = seed_problem(seed)
+            if problem is not None:
+                problems.append(seed_fix(problem, seed))
+    return list(dict.fromkeys(problems))
 
 
 def fill_disk(partial: Path, size: int, seed: dict[str, str] | None) -> None:
@@ -306,7 +332,10 @@ def fill_disk(partial: Path, size: int, seed: dict[str, str] | None) -> None:
     if seed is None:
         qemu_img("create", "-q", "-f", "qcow2", str(partial), f"{size}G")
         return
-    qemu_img("convert", "-f", "qcow2", "-O", "qcow2", str(seed_source(seed)), str(partial))
+    problem = seed_problem(seed)
+    if problem is not None:
+        raise ReconcileError(seed_fix(problem, seed))
+    qemu_img("convert", "-f", "qcow2", "-O", "qcow2", seed["expected"], str(partial))
     if virtual_size(partial) > size * GIB:
         msg = f"the seed {seed['path']} is larger than the declared {size} GiB"
         raise ReconcileError(msg)
@@ -377,13 +406,25 @@ def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
     xml = Path(spec["xml"]).read_text()
     nvram = Path(spec["nvram"])
     state = Path(spec["stateDir"])
-    claim_domain(conn, name, uuid)
+    existing = claim_domain(conn, name, uuid)
     # NVRAM is the last file a first define writes and TPM state appears at the
     # first start, so either one means the guest's files are no longer new.
     provisioned = nvram.exists() or (state / "tpm").exists()
     if provisioned and not nvram.exists():
         msg = f"{nvram} is missing although the guest has TPM state; restore it from a backup"
         raise ReconcileError(msg)
+    # The image is built by hand and changes with every input bump, so a new
+    # guest waits for it instead of failing the switch.
+    pending = [] if provisioned else pending_seeds(spec["disks"])
+    if pending:
+        steps = (
+            f"{'; '.join(pending)}; then `sudo systemctl restart workloads-vm-guest-{name}.service`"
+        )
+        if existing is not None:
+            msg = f"guest '{name}' is defined, but its disk waits for its seed image: {steps}"
+            raise ReconcileError(msg)
+        warn(f"guest '{name}' is not defined until its seed image is built: {steps}")
+        return
     state.mkdir(mode=0o711, exist_ok=True)
     state.chmod(0o711)
     ensure_disks(spec["disks"], create=not provisioned)
@@ -430,11 +471,6 @@ def remove_guest(conn: libvirt.virConnect, spec: dict) -> None:
         libvirt.VIR_DOMAIN_UNDEFINE_KEEP_NVRAM | libvirt.VIR_DOMAIN_UNDEFINE_KEEP_TPM
     )
     log(f"undefined guest '{current}' ({uuid}); its files stay in {spec['stateDir']}")
-
-
-def warn(message: str) -> None:
-    """Print one journal line at warning priority."""
-    print(f"<4>{message}", flush=True)
 
 
 def report_orphans(conn: libvirt.virConnect, declared: dict[str, list[str]]) -> None:

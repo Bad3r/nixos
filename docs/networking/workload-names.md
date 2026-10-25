@@ -1,7 +1,9 @@
 # Workload names
 
 [names.nix](../../modules/workloads/sharing/names.nix) gives declared workloads names on the host and inside [workload networks](workloads.md).
-`workloads.names.<name>` holds each object's address, kind, and network; every present guest with an interface adds itself.
+`workloads.names.<name>` holds each object's address, kind, and network.
+Every present guest with an interface adds itself as kind `guest`, and every [declared service](workload-services.md) on a Podman network as kind `service`.
+Service names resolve on the host only.
 Names match `[a-z0-9][a-z0-9-]*`, and `host` is reserved for the gateway.
 
 ## Host names
@@ -17,7 +19,7 @@ ssh <user>@<name>.vm
 ## Names inside a network
 
 The gateway's resolver answers `host.vm` with the gateway address.
-A network's `resolve` list adds declared names, each as `<name>` and `<name>.vm`:
+A libvirt network's `resolve` list adds guest names, each as `<name>` and `<name>.vm`:
 
 ```nix
 _: {
@@ -26,6 +28,8 @@ _: {
 ```
 
 - A `resolve` entry that is not a `workloads.names` key fails evaluation.
+- A service name fails evaluation, since the forward chain drops traffic between bridges.
+- Inside a Podman network, containers resolve each other through aardvark-dns's own names; `<name>` and `<name>.vm` from `workloads.names` do not resolve there, and a `resolve` list fails evaluation.
 - A guest with an interface on the network resolves to that interface's address there.
 - dnsmasq also answers bare names from DHCP reservations and leases, so guests should look up the `.vm` form.
 - The resolver answers unknown `.vm` names with NXDOMAIN and never forwards them.

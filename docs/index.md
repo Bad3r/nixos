@@ -401,6 +401,8 @@
   - NixOS guest configurations: the guest base, adding a guest, seeding its disk from an image, host key pinning, and deploys over SSH.
 - [apps/libvirt/shares.md](apps/libvirt/shares.md)
   - virtiofs shares for declared guests: the owner-bound virtiofsd, NixOS guest mounts, runtime shares, and failures.
+- [apps/libvirt/sleep.md](apps/libvirt/sleep.md)
+  - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, and failures.
 
 ### mpv
 
