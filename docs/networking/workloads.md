@@ -62,7 +62,8 @@ A libvirt network with `libvirt.bindLeases` closes that gap in `bridge workload-
 
 `workload-leases.service` owns the table, so a ruleset reload leaves the port pins in place.
 It watches libvirt's lease file and reloads the leased pairs on every change and every 30 seconds, dropping the pins of ports that are gone.
-A libvirt network with `bindLeases` starts only after the service.
+The table loads before libvirtd starts, so no network with `bindLeases` comes up without it.
+A `flush ruleset` reload would still empty it, so an evaluation assertion requires `networking.nftables.flushRuleset = false`.
 A guest whose lease expired loses traffic until it renews.
 
 ## Egress modes

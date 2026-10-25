@@ -43,7 +43,6 @@ let
         name = "workload-leases-watch";
         runtimeInputs = [ pkgs.inotify-tools ];
         text = ''
-          ${lib.getExe refill}
           inotifywait -m -q -e close_write,moved_to --format %f \
             --include '(^|/)(${
               lib.concatMapStringsSep "|" (network: lib.escapeRegex network.bridge) (lib.attrValues networks)
@@ -102,6 +101,13 @@ let
         { systemd.services = lib.mapAttrs' linkLocalUnit libvirtNetworks; }
 
         (lib.mkIf (networks != { }) {
+          assertions = [
+            {
+              assertion = !config.networking.nftables.flushRuleset;
+              message = "workloads.networks with libvirt.bindLeases need networking.nftables.flushRuleset = false: a flushing reload deletes bridge workload-leases and its port pins, and a guest could pin a peer's MAC before the refill. A non-empty networking.nftables.ruleset turns flushing on.";
+            }
+          ];
+
           systemd.tmpfiles.settings.workload-leases.${leaseDir}.d = {
             mode = "0755";
             user = "root";
@@ -109,17 +115,20 @@ let
           };
 
           # The service owns `bridge workload-leases`, so a ruleset reload
-          # never empties its port pins; it reloads only to recreate the table
-          # after a flushing reload.
+          # never empties its port pins.
           systemd.services = lib.mapAttrs' networkUnit networks // {
             workload-leases = {
               description = "Bind guests on workload bridges to their DHCP leases";
               wantedBy = [ "multi-user.target" ];
               requires = [ "nftables.service" ];
               after = [ "nftables.service" ];
+              # Autostart networks come up with libvirtd, so the table loads first.
+              before = [ "libvirtd.service" ];
               unitConfig.ReloadPropagatedFrom = [ "nftables.service" ];
               startLimitIntervalSec = 0;
               serviceConfig = {
+                # Units ordered after this one then start with the table loaded.
+                ExecStartPre = lib.getExe refill;
                 ExecStart = lib.getExe watch;
                 ExecReload = lib.getExe refill;
                 Restart = "always";
