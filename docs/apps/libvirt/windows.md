@@ -32,8 +32,8 @@ Installers run from `C:\ProgramData\workloads` as SYSTEM, so `firstlogon.ps1` re
 ## Provisioning
 
 A libvirt hook queues `workloads-provision@<name>.service` when the guest starts or libvirtd reconnects to it, and stops the unit when the guest stops.
-A tmpfiles link puts the hook in place at the switch that adds it, but libvirtd looks for qemu hooks only when it starts.
-When it started without one, the hook stays silent until libvirtd restarts, as [workloads-provision never starts](#workloads-provision-never-starts) describes.
+libvirtd looks for qemu hooks only when it starts, so the hook is installed on every host with libvirtd, Windows guests or not, and does nothing without them.
+A libvirtd that started before the hook existed ignores it until it restarts, as [workloads-provision never starts](#workloads-provision-never-starts) describes.
 The active unit stands for a provisioned run of the guest; a switch never restarts it, so changed steps run at the next start of the guest.
 
 While the OS disk is still empty, the unit presses Enter for the installer's boot prompt.
