@@ -7,7 +7,6 @@
 let
   policy = config.flake.lib.nixos.hosts.songbird;
   inherit (policy) win11;
-  inherit (config.flake.lib.nixos) sriSha256ToHex;
   songbird = config.flake.nixosConfigurations.songbird;
   nixosDevImage = config.flake.nixosConfigurations.nixos-dev.config.system.build.images.qemu-efi;
   secretFile = secretsRoot + "/workloads.yaml";
@@ -37,39 +36,39 @@ in
               mode = "0400";
             };
 
-            workloads.media = {
-              win11-iso = {
+            workloads = {
+              media.win11-iso = {
                 source = win11.installIso;
                 sha256 = win11.installIsoSha256;
               };
-              virtio-win = {
-                source = win11.virtioWinIso;
-                sha256 = sriSha256ToHex pkgs.virtio-win.src.outputHash;
-              };
-            };
 
-            workloads.guests.win11 = {
-              uuid = "7d586a9c-6290-4ece-9593-b8b0b7c26300";
-              kind = "windows";
-              trust = "trusted";
-              inherit (win11) memory vcpus;
-              cpuset = win11.cpus;
-              disks.root.size = win11.disk;
-              interfaces.lan = {
-                network = "desktop";
-                hostOffset = 11;
-              };
-              install.media = [
-                "win11-iso"
-                "virtio-win"
-              ];
-              windows = {
-                account = {
-                  name = metaOwner.username;
-                  authorizedKeys = metaOwner.sshKeys;
+              # Drivers to install by hand; an image, so a stale out-link only
+              # matters before the first define.
+              images.virtio-win.expected = "${pkgs.virtio-win.src}";
+
+              guests.win11 = {
+                uuid = "7d586a9c-6290-4ece-9593-b8b0b7c26300";
+                kind = "windows";
+                trust = "trusted";
+                inherit (win11) memory vcpus;
+                cpuset = win11.cpus;
+                disks.root.size = win11.disk;
+                interfaces.lan = {
+                  network = "desktop";
+                  hostOffset = 11;
                 };
-                timeZone = "Arab Standard Time";
-                services.ssh.port = 22;
+                install = {
+                  media = [ "win11-iso" ];
+                  images = [ "virtio-win" ];
+                };
+                windows = {
+                  account = {
+                    name = metaOwner.username;
+                    authorizedKeys = metaOwner.sshKeys;
+                  };
+                  timeZone = "Arab Standard Time";
+                  services.ssh.port = 22;
+                };
               };
             };
           }

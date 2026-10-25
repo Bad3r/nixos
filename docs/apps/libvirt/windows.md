@@ -19,7 +19,8 @@ A guest without NVRAM stays undefined, with a warning naming each fix, until tha
 ## Answer file
 
 - Setup installs the `windows.edition` image onto a GPT disk and names the computer after the guest, which caps guest names at 15 characters.
-- Volume license media need no product key, and Secure Boot with the TPM passes the hardware checks without registry bypasses.
+- Setup runs without a product key only from volume license media; consumer media stop at the key page.
+- Secure Boot with the TPM passes the hardware checks without registry bypasses.
 - Device encryption stays off and the out-of-box screens are skipped.
 - One local administrator, `windows.account.name`, gets a blank password and a single autologon; Windows refuses blank passwords over the network.
 - The autologon runs `firstlogon.ps1`: guest tools, OpenSSH, hibernation and Fast Startup off, no sleep timeouts, no password expiry.
@@ -43,7 +44,8 @@ It waits through the installation for the guest agent and for `firstlogon.ps1`, 
 5. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise Windows stays unactivated.
 
 Every step but the password probes the guest first, changes only what differs, and probes again.
-Secrets travel on the guest program's standard input, so neither host nor guest process lists show them.
+The product key travels on the guest program's standard input and the password through the agent's set-password command, so no process list shows either.
+libvirtd debug logging records guest agent commands, and with them both secrets.
 A restart reruns every step, for instance after a secret changed:
 
 ```sh
@@ -63,7 +65,7 @@ The provisioning unit reads them as root at runtime, so no secret enters the sto
 
 ## Take a golden copy
 
-Precondition: the guest is shut off without a managed save image, and the host passed a full memtest86+ run.
+Precondition: the guest is shut off without a managed save image.
 
 1. From a session on the host, start the copy and authenticate at the prompt:
 
@@ -78,7 +80,7 @@ Precondition: the guest is shut off without a managed save image, and the host p
    ```
 
 The unit copies the disks, NVRAM, TPM state, and inactive domain XML of any declared guest sparsely into `/var/lib/workloads/golden/<uuid>/`.
-It refuses a running guest, a guest started during the copy, and an existing golden directory, which is moved aside by hand first.
+It refuses a running guest, files that change during the copy, and an existing golden directory, which is moved aside by hand first.
 
 Verification: the log ends with `copied guest '<name>'`.
 
@@ -118,5 +120,21 @@ journalctl -u workloads-provision@<name>.service -b
 ```
 
 Fix: a `firstlogon.ps1` failure quotes its error, and `C:\ProgramData\workloads\firstlogon.log` has the rest.
-After fixing the cause on the console, delete `firstlogon.failed`, run `powershell -ExecutionPolicy Bypass -File <drive>:\firstlogon.ps1` from the `XSEED` drive in an administrator console, and restart the unit.
+A guest shut down while `firstlogon.ps1` ran leaves neither marker, and the unit times out.
+After fixing the cause on the console, delete any `firstlogon.failed`, run `powershell -ExecutionPolicy Bypass -File <drive>:\firstlogon.ps1` from the `XSEED` drive in an administrator console, and restart the unit.
 A failed password step means the guest agent cannot set passwords, and the account keeps its blank password until it can.
+
+## workloads-provision never starts
+
+Cause: libvirtd missed the reload that loads the hook, because the same switch changed its unit in other ways and libvirtd never restarts at a switch.
+
+```sh
+ls -l /var/lib/libvirt/hooks/qemu.d/
+systemctl status 'workloads-provision@*'
+```
+
+Fix: reload libvirtd, which keeps guests running, then shut the guest down and start it:
+
+```sh
+sudo systemctl reload libvirtd.service
+```

@@ -68,26 +68,21 @@ Verification: `yq 'keys' secrets/workloads.yaml` lists `win11_password` and `sop
 Precondition: `/data` is unlocked and `secrets/workloads.yaml` exists.
 Pipeline details are in [Windows guests](../../apps/libvirt/windows.md).
 
-1. Print where the installation ISO goes and the SHA-256 it must have, from `win11` in `modules/hosts/songbird/policy.nix`:
+1. Put the Windows 11 Business ISO at `installIso` from `win11` in `modules/hosts/songbird/policy.nix`, then check that its hash matches `installIsoSha256`:
 
    ```sh
    nix eval --json .#lib.nixos.hosts.songbird.win11 --apply 'w: { inherit (w) installIso installIsoSha256; }'
+   sha256sum /data/Misc/windows/en-us_windows_11_business.iso
    ```
 
-2. Put the Windows 11 Business ISO at `installIso`, then compare its hash with `installIsoSha256`:
-
-   ```sh
-   sha256sum <installIso>
-   ```
-
-3. As the owner in `~/nixos`, build the virtio-win and seed out-links:
+2. As the owner in `~/nixos`, build the virtio-win and seed out-links:
 
    ```sh
    nix build .#legacyPackages.x86_64-linux.workloads.virtio-win --out-link /var/lib/workloads/images/virtio-win
    nix build .#legacyPackages.x86_64-linux.workloads.win11-seed --out-link /var/lib/workloads/images/win11-seed
    ```
 
-4. Switch through [Validate a host change](songbird-runbook.md#validate-a-host-change).
+3. Switch through [Validate a host change](songbird-runbook.md#validate-a-host-change).
    A missing ISO or out-link only leaves the guest undefined with a warning; after supplying it, rerun staging and the definition:
 
    ```sh
@@ -95,7 +90,7 @@ Pipeline details are in [Windows guests](../../apps/libvirt/windows.md).
    journalctl -u workloads-vm-media.service -u workloads-vm-guest-win11.service -b -p warning
    ```
 
-5. Start the guest, which starts provisioning, and watch it, authenticating at each prompt:
+4. Start the guest, which starts provisioning, and watch it, authenticating at each prompt:
 
    ```sh
    virsh -c qemu:///system start win11
@@ -132,9 +127,21 @@ Verification: `journalctl -u workloads-provision@win11.service -b` logs `product
 
 ## Drop the win11 installation media
 
-Precondition: the guest is provisioned, and its golden copy is taken if one is wanted from the fresh install.
+Precondition: the guest is provisioned, and the golden copy below is taken if one is wanted from the fresh install.
 
-1. Remove the `install.media` list and the `win11-iso` and `virtio-win` media from `modules/hosts/songbird/workloads.nix`.
+1. Remove the `install` block, the `win11-iso` media, and the `virtio-win` image from `modules/hosts/songbird/workloads.nix`.
 2. Switch, then shut the guest down and start it, so the CD-ROMs leave its running definition.
 
 Verification: `ls /var/lib/workloads/media/` is empty, and `virsh -r -c qemu:///system domblklist win11` lists only the disk.
+
+## Take the win11 golden copy
+
+Precondition: songbird passed a full memtest86+ run in person, and win11 is shut off.
+
+1. Start the copy as the owner, authenticating at the prompt, as in [Take a golden copy](../../apps/libvirt/windows.md#take-a-golden-copy):
+
+   ```sh
+   systemctl start workloads-golden@win11.service
+   ```
+
+Verification: `journalctl -u workloads-golden@win11.service -b` ends with `copied guest 'win11'`.

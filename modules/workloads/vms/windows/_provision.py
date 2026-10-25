@@ -35,6 +35,9 @@ KEY_ENTER = 28
 FRESH_DISK = 1 << 30
 BOOT_KEY_SECONDS = 30
 FIRSTLOGON_TIMEOUT = 2 * 60 * 60
+# The agent arrives with the guest tools, at the end of an installation.
+INSTALL_AGENT_TIMEOUT = 3 * 60 * 60
+AGENT_CONNECT_TIMEOUT = 30 * 60
 POLL_SECONDS = 15
 EXEC_TIMEOUT = 15 * 60
 AGENT_TIMEOUT = 60
@@ -276,8 +279,8 @@ def press_boot_key(domain: libvirt.virDomain, disk: str) -> None:
         time.sleep(1)
 
 
-def wait_for_agent(conn: libvirt.virConnect, domain: libvirt.virDomain) -> None:
-    """Block until the guest agent connects."""
+def wait_for_agent(conn: libvirt.virConnect, domain: libvirt.virDomain, deadline: float) -> None:
+    """Block until the guest agent connects, failing at the deadline."""
     connected = threading.Event()
 
     def on_lifecycle(
@@ -292,6 +295,12 @@ def wait_for_agent(conn: libvirt.virConnect, domain: libvirt.virDomain) -> None:
     try:
         announced = False
         while not agent_connected(domain):
+            if time.monotonic() > deadline:
+                msg = (
+                    "the guest agent did not connect in time; check on the console that the "
+                    "guest booted and the QEMU Guest Agent service runs, then restart this unit"
+                )
+                raise ProvisionError(msg)
             if not announced:
                 log("waiting for the guest agent")
                 announced = True
@@ -307,19 +316,28 @@ def wait_for_firstlogon(conn: libvirt.virConnect, guest: Guest) -> None:
     deadline = time.monotonic() + FIRSTLOGON_TIMEOUT
     announced = False
     while True:
+        failed = False
         try:
             if guest.exists(rf"{STATE_DIR}\firstlogon.done"):
                 return
-            if guest.exists(rf"{STATE_DIR}\firstlogon.failed"):
-                error = guest.agent.read(rf"{STATE_DIR}\firstlogon.failed").decode(errors="replace")
-                msg = f"firstlogon.ps1 failed: {error.strip()}"
-                raise ProvisionError(msg)
+            failed = guest.exists(rf"{STATE_DIR}\firstlogon.failed")
         except libvirt.libvirtError as error:
             # Installers restart the agent while firstlogon.ps1 runs.
             log(f"the guest agent dropped a command ({error}); waiting for it again")
-            wait_for_agent(conn, guest.agent.domain)
+            wait_for_agent(conn, guest.agent.domain, deadline)
+        except ProvisionError as error:
+            # PowerShell fails to start while the guest tools replace drivers.
+            log(f"probing for firstlogon.ps1 failed ({error}); retrying")
+        if failed:
+            error = guest.agent.read(rf"{STATE_DIR}\firstlogon.failed").decode(errors="replace")
+            msg = f"firstlogon.ps1 failed: {error.strip()}"
+            raise ProvisionError(msg)
         if time.monotonic() > deadline:
-            msg = f"firstlogon.ps1 did not finish within {FIRSTLOGON_TIMEOUT // 60} minutes"
+            msg = (
+                f"firstlogon.ps1 did not finish within {FIRSTLOGON_TIMEOUT // 60} minutes; "
+                "a guest shut down while it ran never finishes it, so run it again by hand "
+                "as the Windows guests page describes, then restart this unit"
+            )
             raise ProvisionError(msg)
         if not announced:
             log("waiting for firstlogon.ps1")
@@ -335,7 +353,8 @@ def provision(conn: libvirt.virConnect, spec: dict, scripts: Path) -> None:
         raise ProvisionError(msg)
     if spec["install"]:
         press_boot_key(domain, spec["osDisk"])
-    wait_for_agent(conn, domain)
+    timeout = INSTALL_AGENT_TIMEOUT if spec["install"] else AGENT_CONNECT_TIMEOUT
+    wait_for_agent(conn, domain, time.monotonic() + timeout)
     guest = Guest(Agent(domain), spec, scripts)
     wait_for_firstlogon(conn, guest)
     converge(guest, steps(spec))
@@ -359,7 +378,7 @@ def main() -> int:
 
     guests = json.loads(args.manifest.read_text())
     if args.name not in guests:
-        print(f"error: no declared Windows guest is named '{args.name}'", file=sys.stderr)
+        print(f"<3>error: no declared Windows guest is named '{args.name}'", file=sys.stderr)
         return 1
 
     libvirt.virEventRegisterDefaultImpl()
@@ -372,7 +391,7 @@ def main() -> int:
         finally:
             conn.close()
     except (ProvisionError, libvirt.libvirtError, OSError) as error:
-        print(f"error: {error}", file=sys.stderr)
+        print(f"<3>error: {error}", file=sys.stderr)
         return 1
     return 0
 

@@ -44,8 +44,6 @@ _: {
       # /data is a nofail LUKS mount; workloads-vm-media requires it.
       installIso = "/data/Misc/windows/en-us_windows_11_business.iso";
       installIsoSha256 = "9a9428dcf8ad48391744ac63062619e05758230fe4e9c9753515d413cfc316bb";
-      # Out-link of legacyPackages.x86_64-linux.workloads.virtio-win.
-      virtioWinIso = "/var/lib/workloads/images/virtio-win";
     };
 
     # Ceilings for every sbx sandbox together (modules/apps/sbx/nixos.nix).

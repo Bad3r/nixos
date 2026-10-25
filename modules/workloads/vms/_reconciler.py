@@ -491,6 +491,36 @@ def remove_guest(conn: libvirt.virConnect, spec: dict) -> None:
     log(f"undefined guest '{current}' ({uuid}); its files stay in {spec['stateDir']}")
 
 
+def fingerprint(paths: list[Path]) -> list[tuple[str, int, int]]:
+    """Record the size and modification time of every file under the paths."""
+    files = []
+    for path in paths:
+        members = [path] if path.is_file() else sorted(p for p in path.rglob("*") if p.is_file())
+        for member in members:
+            info = member.stat()
+            files.append((str(member), info.st_size, info.st_mtime_ns))
+    return files
+
+
+def check_shut_off(domain: libvirt.virDomain, name: str) -> None:
+    """Refuse a guest whose files may change: running, paused, or managed-saved."""
+    if domain.state()[0] != libvirt.VIR_DOMAIN_SHUTOFF:
+        msg = f"guest '{name}' is not shut off; shut it down so its files hold still"
+        raise ReconcileError(msg)
+    if domain.hasManagedSaveImage(0):
+        msg = f"guest '{name}' has a managed save image; start and shut it down first"
+        raise ReconcileError(msg)
+
+
+def golden_sources(spec: dict) -> list[Path]:
+    """Return the disks, NVRAM, and TPM state directory of a guest."""
+    state = Path(spec["stateDir"])
+    sources = [Path(path) for path in spec["disks"]] + [Path(spec["nvram"])]
+    if (state / "tpm").exists():
+        sources.append(state / "tpm")
+    return sources
+
+
 def copy_golden(conn: libvirt.virConnect, spec: dict, directory: Path) -> None:
     """Copy a shut-off guest's disks, NVRAM, TPM state, and definition, keeping holes."""
     name, uuid = spec["name"], spec["uuid"]
@@ -498,25 +528,14 @@ def copy_golden(conn: libvirt.virConnect, spec: dict, directory: Path) -> None:
     if domain is None:
         msg = f"guest '{name}' ({uuid}) is not defined"
         raise ReconcileError(msg)
-
-    def check_shut_off() -> None:
-        if domain.state()[0] != libvirt.VIR_DOMAIN_SHUTOFF:
-            msg = f"guest '{name}' is not shut off; shut it down so its files hold still"
-            raise ReconcileError(msg)
-        if domain.hasManagedSaveImage(0):
-            msg = f"guest '{name}' has a managed save image; start and shut it down first"
-            raise ReconcileError(msg)
-
-    check_shut_off()
+    check_shut_off(domain, name)
     target = directory / uuid
     if target.exists():
         msg = f"{target} exists; move it aside to keep it, or delete it to replace it"
         raise ReconcileError(msg)
 
-    state = Path(spec["stateDir"])
-    sources = [Path(path) for path in spec["disks"]] + [Path(spec["nvram"])]
-    if (state / "tpm").exists():
-        sources.append(state / "tpm")
+    sources = golden_sources(spec)
+    before = fingerprint(sources)
     partial = directory / f".{uuid}.partial"
     if partial.exists():
         shutil.rmtree(partial)
@@ -529,12 +548,17 @@ def copy_golden(conn: libvirt.virConnect, spec: dict, directory: Path) -> None:
             text=True,
         )
         (partial / "domain.xml").write_text(domain.XMLDesc(libvirt.VIR_DOMAIN_XML_INACTIVE))
-        # A start during the copy would leave a torn image behind.
-        check_shut_off()
-        partial.rename(target)
+        check_shut_off(domain, name)
+        # A start during the copy, even one shut down again, leaves a torn copy.
+        changed = fingerprint(sources) != before
     except BaseException:
         shutil.rmtree(partial, ignore_errors=True)
         raise
+    if changed:
+        shutil.rmtree(partial)
+        msg = f"the files of guest '{name}' changed during the copy; keep it shut off and retry"
+        raise ReconcileError(msg)
+    partial.rename(target)
     log(f"copied guest '{name}' to {target}")
 
 
@@ -762,10 +786,10 @@ def main() -> int:
     try:
         run(args)
     except subprocess.CalledProcessError as error:
-        print(f"error: {error}: {error.stderr.strip()}", file=sys.stderr)
+        print(f"<3>error: {error}: {error.stderr.strip()}", file=sys.stderr)
         return 1
     except (ReconcileError, libvirt.libvirtError, OSError) as error:
-        print(f"error: {error}", file=sys.stderr)
+        print(f"<3>error: {error}", file=sys.stderr)
         return 1
     return 0
 

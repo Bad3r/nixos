@@ -4,7 +4,7 @@
 $ErrorActionPreference = 'Stop'
 $state = Join-Path $env:ProgramData 'workloads'
 New-Item -ItemType Directory -Force -Path $state | Out-Null
-Start-Transcript -Path (Join-Path $state 'firstlogon.log') -Append | Out-Null
+$transcript = $false
 
 function Invoke-Installer([string] $file, [string[]] $arguments) {
     $process = Start-Process -FilePath $file -ArgumentList $arguments -Wait -PassThru
@@ -22,11 +22,14 @@ function Invoke-Native([string] $file, [string[]] $arguments) {
 }
 
 try {
+    Start-Transcript -Path (Join-Path $state 'firstlogon.log') -Append | Out-Null
+    $transcript = $true
     Invoke-Installer (Join-Path $PSScriptRoot 'virtio-win-guest-tools.exe') @('/install', '/quiet', '/norestart')
     Invoke-Installer 'msiexec.exe' @('/i', "`"$(Join-Path $PSScriptRoot 'OpenSSH-Win64.msi')`"", '/qn', '/norestart')
     # The MSI opens port 22 to any address; provisioning opens it to the host only.
-    $msiRule = Get-NetFirewallRule -DisplayName 'OpenSSH SSH Server Preview (sshd)' -ErrorAction SilentlyContinue
-    if ($msiRule) { $msiRule | Remove-NetFirewallRule } else { Write-Output 'The OpenSSH MSI added no firewall rule.' }
+    $msiRules = @(Get-NetFirewallApplicationFilter | Where-Object Program -Like '*\sshd.exe' | Get-NetFirewallRule)
+    if ($msiRules.Count -eq 0) { throw 'the OpenSSH installer added no firewall rule for sshd.exe' }
+    $msiRules | Remove-NetFirewallRule
     Set-Service -Name sshd -StartupType Automatic
     Start-Service -Name sshd
 
@@ -47,5 +50,5 @@ catch {
     throw
 }
 finally {
-    Stop-Transcript | Out-Null
+    if ($transcript) { Stop-Transcript | Out-Null }
 }

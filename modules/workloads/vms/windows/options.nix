@@ -43,7 +43,7 @@ let
             edition = lib.mkOption {
               type = types.str;
               default = "Windows 11 Pro";
-              description = "Name of the image in the installation media's `install.wim` that Setup installs.";
+              description = "Name of the image in the installation media's `install.wim` that Setup installs; without a product key, only volume license media install unattended.";
             };
 
             locale = lib.mkOption {
