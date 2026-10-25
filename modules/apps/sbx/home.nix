@@ -41,6 +41,10 @@ _: {
               Slice = "sbx.slice";
               # Guests outlive a daemon restart, and the next daemon reattaches to them.
               KillMode = "process";
+              # Bounds every file QEMU writes; a Windows disk is larger than the cap, so its overlay stops here.
+              LimitFSIZE = "${toString cfg.sandbox.maxFile}G";
+              # libvirt looks up swtpm for Windows sandbox TPMs on PATH; the shim comes first.
+              Environment = [ "PATH=${cfg.finalPackage.daemonPath}" ];
             };
           };
 

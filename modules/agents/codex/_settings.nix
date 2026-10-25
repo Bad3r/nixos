@@ -40,8 +40,8 @@ let
   # Site policy layered over the settings catalog.
   codexSettingsOverrides = {
     # Core settings
-    model = "gpt-6-luna";
-    review_model = "gpt-6-sol";
+    model = "gpt-6.1-sol";
+    review_model = "gpt-6.1-sol";
     approval_policy = "on-request";
     default_permissions = "workspace";
     web_search = "live";
@@ -66,7 +66,7 @@ let
     '';
 
     # Reasoning settings
-    # model_reasoning_effort = "max";
+    model_reasoning_effort = "medium";
     # plan_mode_reasoning_effort = "max"; # none|minimal|low|medium|high|xhigh|max|ultra
     model_verbosity = "high";
 

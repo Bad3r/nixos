@@ -4,8 +4,11 @@
   writeText,
   writeScript,
   writeShellScript,
+  writeScriptBin,
   python3,
   qemu_kvm,
+  swtpm,
+  coreutils,
   openssh,
   socat,
   tesseract,
@@ -41,6 +44,22 @@ let
       --translate-uid=squash-guest:0:0:4294967295 --translate-uid=squash-host:0:1000:4294967295 \
       --translate-gid=squash-guest:0:0:4294967295 --translate-gid=squash-host:0:100:4294967295 \
       "$@"
+  '';
+  # First on sbx-libvirt's PATH: a sandbox's TPM emulator parses guest input,
+  # so it gets no host network; libvirt reaches it over path-based sockets.
+  swtpmShim = writeScriptBin "swtpm" ''
+    #!${python3.interpreter} -I
+    import os
+    import sys
+
+    sys.path.insert(0, "${emulatorSource}")
+    from emulator import LaunchError, private_namespace
+
+    try:
+        private_namespace(os.getuid(), os.getgid())
+    except (LaunchError, OSError) as error:
+        sys.exit(f"sbx-swtpm: {error}")
+    os.execv("${swtpm}/bin/swtpm", ["${swtpm}/bin/swtpm", *sys.argv[1:]])
   '';
   tools = {
     emulator = "${emulator}";
@@ -102,6 +121,18 @@ stdenvNoCC.mkDerivation {
     sys.exit(serve(Path("${settingsFile}"), "${version}"))
     EOF
     chmod 0755 $out/bin/sbx $out/bin/sbx-mcp
+    # Root's half of the Windows base export; never on PATH.
+    install -d $out/libexec/sbx
+    cat > $out/libexec/sbx/export-base <<EOF
+    #!${python.interpreter} -I
+    import sys
+
+    sys.path.insert(0, "$out/lib/sbx")
+    from sbx.export import main
+
+    sys.exit(main())
+    EOF
+    chmod 0755 $out/libexec/sbx/export-base
     runHook postInstall
   '';
 
@@ -112,7 +143,21 @@ stdenvNoCC.mkDerivation {
     runHook postInstallCheck
   '';
 
-  passthru = { inherit settings settingsFile; };
+  passthru = {
+    inherit settings settingsFile swtpmShim;
+    # PATH of sbx-libvirt: the shim wins over swtpm, whose package still gives
+    # swtpm_setup and swtpm_ioctl; the rest is the user manager's own PATH.
+    daemonPath = lib.concatStringsSep ":" [
+      (lib.makeBinPath [
+        swtpmShim
+        swtpm
+        coreutils
+      ])
+      "/run/wrappers/bin"
+      "/etc/profiles/per-user/%u/bin"
+      "/run/current-system/sw/bin"
+    ];
+  };
 
   meta = {
     description = "Disposable agent sandboxes on the owner's qemu:///session";

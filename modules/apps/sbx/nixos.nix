@@ -13,6 +13,7 @@
     --net egress: Attach the sandbox to the sbx workload network instead of leaving it without a NIC.
     --gui: Use the base's GUI variant, which key, type, and screenshot drive.
     run <base> -- CMD: Create, copy in, run, copy out, and destroy in one call.
+    create <windows-base>: Clone a Windows guest's exported golden copy, driven through qemu-ga only.
     exec <name> -- CMD: Run a command over SSH on vsock.
     --json: Print results and errors as JSON.
     sbx-mcp: Serve the verbs as MCP tools on stdio.
@@ -45,6 +46,23 @@ let
       libvirtCfg = config.programs.libvirt.extended;
       egressNetwork = config.workloads.networks.sbx or null;
       gib = 1024 * 1024 * 1024;
+      owner = metaOwner.username;
+      ownerHome = config.users.users.${owner}.home;
+      basesDir = "${ownerHome}/.local/share/sbx/bases";
+      windowsGuests = lib.filterAttrs (_: guest: guest.kind == "windows" && guest.ensure == "present") (
+        config.workloads.guests or { }
+      );
+      exportManifest = pkgs.writeText "sbx-windows-bases.json" (
+        builtins.toJSON (
+          lib.mapAttrs (name: base: {
+            inherit (base) golden;
+            disk = "${base.disk}.qcow2";
+            directory = "${basesDir}/${name}";
+            inherit owner;
+            minFreeBytes = cfg.limits.minFree * gib;
+          }) cfg.windowsBases
+        )
+      );
       positive =
         description:
         lib.mkOption {
@@ -123,6 +141,52 @@ let
             default = 8;
             description = "Virtual GiB of a sandbox disk; create reserves it against the disk cap for every running sandbox.";
           };
+          windowsMemory = lib.mkOption {
+            type = types.ints.positive;
+            default = 4096;
+            description = "Default MiB of a Windows sandbox.";
+          };
+          maxFile = lib.mkOption {
+            type = types.ints.positive;
+            default = 12;
+            description = ''
+              GiB any one file of the session daemon and its guests may reach,
+              enforced as the file size limit of sbx-libvirt.service. A Windows
+              sandbox reserves this much against the disk cap, since its virtual
+              disk is larger.
+            '';
+          };
+          bootTimeout = lib.mkOption {
+            type = types.ints.positive;
+            default = 180;
+            description = "Seconds create waits for a new sandbox to accept commands.";
+          };
+        };
+
+        windowsBases = lib.mkOption {
+          type = types.attrsOf (
+            types.submodule {
+              options = {
+                golden = lib.mkOption {
+                  type = types.str;
+                  description = "Directory of the guest's golden copy.";
+                };
+                disk = lib.mkOption {
+                  type = types.str;
+                  description = "Name of the guest's OS disk in its golden copy.";
+                };
+              };
+            }
+          );
+          default = lib.mapAttrs (_: guest: {
+            golden = "${config.workloads.goldenDir}/${guest.uuid}";
+            disk = guest.osDisk;
+          }) windowsGuests;
+          defaultText = lib.literalMD "every present `workloads.guests` entry of kind `windows`";
+          description = ''
+            Windows sandbox bases, each exported from the golden copy of the
+            guest of its name by `sbx-base@<name>.service`.
+          '';
         };
 
         cloudImages = lib.mkOption {
@@ -167,11 +231,30 @@ let
             message = "programs.sbx.extended.limits.ttl exceeds limits.maxTtl";
           }
           {
+            # Every base keeps its state under bases/<name>; the Nix flavours are core.FLAVOURS.
+            assertion =
+              lib.intersectLists (lib.attrNames cfg.windowsBases) (
+                [
+                  "nixos"
+                  "nixos-gui"
+                ]
+                ++ lib.attrNames cfg.cloudImages
+              ) == [ ];
+            message = "programs.sbx.extended.windowsBases: a name collides with a Nix flavour or a cloud image";
+          }
+          {
             assertion =
               cfg.sandbox.memory <= cfg.sandbox.maxMemory
               && cfg.sandbox.guiMemory <= cfg.sandbox.maxMemory
+              && (cfg.windowsBases == { } || cfg.sandbox.windowsMemory <= cfg.sandbox.maxMemory)
               && cfg.sandbox.cpus <= cfg.sandbox.maxCpus;
             message = "programs.sbx.extended.sandbox: a default exceeds its maximum";
+          }
+          {
+            # A Linux overlay passes sandbox.disk by its qcow2 metadata; a managed save image holds a sandbox's memory.
+            assertion =
+              cfg.sandbox.disk < cfg.sandbox.maxFile && cfg.sandbox.maxMemory < cfg.sandbox.maxFile * 1024;
+            message = "programs.sbx.extended.sandbox.maxFile must hold a full overlay and a managed save image";
           }
           {
             assertion = cfg.sandbox.maxMemory <= cfg.limits.memory * 1024;
@@ -186,6 +269,7 @@ let
         programs.sbx.extended.finalPackage = cfg.package.override {
           qemu_kvm = libvirtCfg.qemuPackage;
           virtiofsd = libvirtCfg.virtiofsdPackage;
+          swtpm = config.virtualisation.libvirtd.qemu.swtpm.package;
           nix = config.nix.package;
           settings = {
             limits = {
@@ -196,6 +280,7 @@ let
               ttlSeconds = cfg.limits.maxTtl * 3600;
               diskBytes = cfg.limits.disk * gib;
               minFreeBytes = cfg.limits.minFree * gib;
+              fileBytes = cfg.sandbox.maxFile * gib;
             };
             defaults = {
               memoryMiB = cfg.sandbox.memory;
@@ -218,14 +303,38 @@ let
                   # libvirt writes it world-readable, so sbx reads leases without a system connection.
                   leases = "/var/lib/libvirt/dnsmasq/${egressNetwork.bridge}.status";
                 };
+            windows =
+              if cfg.windowsBases == { } then
+                null
+              else
+                {
+                  # The golden NVRAM holds keys enrolled under this firmware.
+                  firmware = "${config.virtualisation.libvirtd.qemu.firmwarePackages.ovmf-full}/FV/OVMF_CODE.fd";
+                  memoryMiB = cfg.sandbox.windowsMemory;
+                  bases = lib.mapAttrs (name: _: "${basesDir}/${name}") cfg.windowsBases;
+                  exportUnit = "sbx-base";
+                };
             unit = "sbx-libvirt.service";
             slice = "sbx.slice";
             outputLimit = 1024 * 1024;
-            bootTimeout = 180;
+            inherit (cfg.sandbox) bootTimeout;
           };
         };
 
         environment.systemPackages = [ cfg.finalPackage ];
+
+        # Started by the owner: `systemctl start sbx-base@<name>.service`.
+        systemd.services."sbx-base@" = lib.mkIf (cfg.windowsBases != { }) {
+          description = "Export the golden copy of the %i Windows guest as an sbx base";
+          unitConfig.RequiresMountsFor = [ ownerHome ];
+          serviceConfig = {
+            Type = "oneshot";
+            ExecStart = "${cfg.finalPackage}/libexec/sbx/export-base export ${exportManifest} %i";
+            PrivateNetwork = true;
+            ProtectSystem = "strict";
+            ReadWritePaths = [ ownerHome ];
+          };
+        };
 
         # Each sandbox's QEMU runs in a new namespace, which sbx-qemu refuses unless local.
         boot.kernel.sysctl."net.vsock.child_ns_mode" = "local";

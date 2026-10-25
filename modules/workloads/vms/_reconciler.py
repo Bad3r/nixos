@@ -732,7 +732,7 @@ def parser() -> argparse.ArgumentParser:
     golden = commands.add_parser("golden", help="copy a shut-off guest to its golden directory")
     golden.add_argument("manifest", type=Path)
     golden.add_argument("name")
-    golden.add_argument("--directory", type=Path, default=Path("/var/lib/workloads/golden"))
+    golden.add_argument("--directory", type=Path, required=True)
     golden.add_argument("--connect", default="qemu:///system")
 
     media = commands.add_parser("media", help="stage declared media and prune the rest")

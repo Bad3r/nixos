@@ -482,6 +482,16 @@ let
               derived types.str "UEFI variable store of the guest." "${config.stateDir}/nvram.fd"
                 ''"''${stateDir}/nvram.fd"'';
 
+            osDisk =
+              derived types.str "Name of the disk the guest boots and provisioning treats as its OS disk."
+                (
+                  if config.disks == { } then
+                    throw "workloads.guests.${name} has no disk"
+                  else
+                    lib.head (lib.attrNames config.disks)
+                )
+                "lib.head (lib.attrNames disks)";
+
             mac =
               derived (types.attrsOf types.str)
                 "MAC address of each interface, derived from the UUID and the interface name."
@@ -530,6 +540,13 @@ let
             `workloads-vm-guest-<name>` unit. Definitions apply at the
             guest's next cold boot. Names match `[a-z0-9][a-z0-9-]*`.
           '';
+        };
+
+        goldenDir = lib.mkOption {
+          type = types.str;
+          default = "/var/lib/workloads/golden";
+          readOnly = true;
+          description = "Directory holding each guest's golden copy under its UUID.";
         };
 
         images = lib.mkOption {

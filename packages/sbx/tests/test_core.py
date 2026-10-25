@@ -1075,6 +1075,7 @@ class SandboxesTest(Fixture):
                 "ttlSeconds": 1,
                 "diskBytes": 1,
                 "minFreeBytes": 1,
+                "fileBytes": 1,
             },
             "defaults": {
                 "memoryMiB": 1,
@@ -1091,6 +1092,7 @@ class SandboxesTest(Fixture):
             "bootTimeout": 1,
             "egress": {"bridge": "vn-sbx", "leases": "/leases", "mtu": 1240},
             "cloudImages": {"debian-13": {"url": "https://x/d.qcow2", "hash": "sha256-y"}},
+            "windows": None,
             "tools": dataclasses.asdict(self.settings.tools),
         }
         path = self.scratch / "settings.json"

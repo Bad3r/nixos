@@ -172,7 +172,12 @@ class Shares:
     def attach(self, name: str, tag: str) -> dict[str, object]:
         """Hot-plug a share into a running sandbox; it stays until detached or stopped."""
         with self.sandboxes.locked():
-            domain = self.sandboxes.running(name).domain.name
+            sandbox = self.sandboxes.running(name)
+            if self.sandboxes.windows_base(sandbox.meta.base) is not None:
+                # As for system guests: virtiofs.exe needs a provisioning flow to mount.
+                msg = f"sandbox '{name}' runs Windows, which takes no runtime share"
+                raise SbxError(msg, code="unsupported-guest")
+            domain = sandbox.domain.name
             source, read_only = self._source(name, tag)
             if not read_only:
                 self.sandboxes.check_disk()

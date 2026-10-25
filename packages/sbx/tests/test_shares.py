@@ -12,6 +12,7 @@ from unittest import mock
 from sbx import cli
 from sbx.core import Sandboxes, SbxError
 from sbx.shares import Shares, attached
+from sbx.windows import WindowsSettings
 
 from tests.test_core import NOW, FakeBackend, Fixture
 
@@ -144,6 +145,19 @@ class SharesTest(Fixture):
             with self.subTest(name=name, tag=tag), self.assertRaises(SbxError) as refused:
                 self.shares().attach(name, tag)
             self.assertEqual(refused.exception.code, expected)
+        self.assertEqual(self.backend.devices, {})
+
+    def test_windows_refused(self) -> None:
+        """A sandbox of a Windows base takes no share."""
+        self.settings = dataclasses.replace(
+            self.settings,
+            windows=WindowsSettings("/firmware", 4096, {"win11": self.scratch}, "sbx-base"),
+        )
+        self.backend.add("w", expires=NOW + 60, base="win11")
+        self.paths.sandbox("w").mkdir(parents=True)
+        with self.assertRaises(SbxError) as refused:
+            self.shares().attach("w", "shared")
+        self.assertEqual(refused.exception.code, "unsupported-guest")
         self.assertEqual(self.backend.devices, {})
 
     def test_detach(self) -> None:

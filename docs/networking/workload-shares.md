@@ -50,7 +50,7 @@ sbx exec <name> -- sh -c 'mkdir -p /mnt/<tag> && mount -t virtiofs <tag> /mnt/<t
 - A guest that keeps the device past the wait fails detach with `detach-pending`, and the share stays usable until the guest releases it or stops.
 - `shared` refuses to attach past the sbx disk cap or free-space floor, and `sbx gc` detaches it from every sandbox then.
 - Between those checks a guest writes without bound, since no size-capped filesystem holds `shared`.
-- `workloads share` refuses Windows guests; [guest shares](../apps/libvirt/shares.md#runtime-shares) gives their procedure.
+- `workloads share` refuses Windows guests and Windows sandboxes; [guest shares](../apps/libvirt/shares.md#runtime-shares) gives their procedure.
 - Every verb takes `--json`, with errors shaped as for [grants](workload-grants.md#grant-from-the-command-line).
 
 | Code                | Cause                                   |
