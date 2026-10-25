@@ -25,10 +25,11 @@
       (site policy and MCP composition), _features.nix (feature flags),
       _env.nix (process environment), _wrapper.nix (runtime config merge).
     * Installs the wrapper around programs.codex.extended.package (modules/agents/codex/nixos.nix), which comes from llm-agents.nix.
-    * Config is split into three TOML files merged at launch by the codex wrapper:
+    * Config is split into four TOML files merged at launch by the codex wrapper:
       - config.base.toml: nix-managed base settings (read-only)
       - projects.nix.toml: nix-managed trusted project paths (read-only)
       - trusted-projects.toml: user-managed trusted project paths (mutable)
+      - overrides.toml: optional user settings, merged last (mutable)
     * `codex -p local` layers local.config.toml, a copy generated from the Magnitude endpoint in
       programs.magnitude.extended.client (modules/apps/magnitude.nix).
     * Execpolicy is separate from config.toml and is loaded from the rules/ directory under CODEX_HOME.

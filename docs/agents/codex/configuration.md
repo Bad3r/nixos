@@ -33,6 +33,7 @@ The [launcher](../../../modules/agents/codex/_wrapper.nix) merges these files in
 1. `$CODEX_HOME/config.base.toml`, generated from Nix settings.
 2. `$CODEX_HOME/projects.nix.toml`, generated from declared project trust.
 3. `$CODEX_HOME/trusted-projects.toml`, mutable user project trust.
+4. `$CODEX_HOME/overrides.toml`, optional mutable settings that override the preceding inputs.
 
 Add project trust to the mutable input so it survives regeneration.
 Changes to that input take effect on the next launch.
@@ -45,6 +46,28 @@ Commit attribution policy belongs in agent instructions.
 The launcher executes the pinned Codex package directly so daemon startup and code mode use its package manifest and bundled helpers.
 Eligible interactive launches use the shared local background server by default.
 Use `codex --no-daemon` to run a session without it.
+
+## Approval defaults and runtime overrides
+
+The [site policy](../../../modules/agents/codex/_settings.nix) selects the default approval reviewer.
+The automatic reviewer evaluates requests for additional permissions and commands that execution rules mark for review.
+
+To use human approval by default, create or edit `$CODEX_HOME/overrides.toml` (normally `~/.config/codex/overrides.toml`):
+
+```toml
+approvals_reviewer = "user"
+```
+
+The override takes effect on the next launch without rebuilding or switching.
+It survives regeneration of the managed configuration.
+Remove the entry to restore the managed default.
+Invalid TOML stops the launcher and reports the input file.
+
+For one launch, use `codex -c 'approvals_reviewer="user"'`.
+Use `codex --approve-for-me` to explicitly select automatic review for one launch.
+The `/permissions` picker changes the active session without rebuilding.
+Regeneration can replace choices saved by Codex to `config.toml`.
+Use `overrides.toml` for a persistent default.
 
 ## Unrecognized settings
 

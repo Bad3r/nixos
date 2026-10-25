@@ -61,12 +61,13 @@ let
         return base
 
 
-    base_path, nix_projects_path, user_projects_path, out_path = sys.argv[1:5]
+    base_path, nix_projects_path, user_projects_path, overrides_path, out_path = sys.argv[1:6]
     merged = {}
     for label, path in (
         ("base config", base_path),
         ("nix-managed projects", nix_projects_path),
         ("user-managed projects", user_projects_path),
+        ("user overrides", overrides_path),
     ):
         deep_merge(merged, load_toml(label, path))
 
@@ -79,7 +80,7 @@ let
 
   # Wrapper that assembles config.toml before launching codex.
   # Uses parser-based TOML merge with precedence:
-  # base settings < nix-managed projects < user-managed projects.
+  # base settings < nix-managed projects < user-managed projects < user overrides.
   # Execpolicy is not merged here; Codex loads rules separately from CODEX_HOME/rules/.
   # Re-merges only when the input file hashes change.
   codexWrapped = pkgs.writeShellScriptBin "codex" ''
@@ -89,6 +90,7 @@ let
     base="$cfgDir/config.base.toml"
     nixProjects="$cfgDir/projects.nix.toml"
     userProjects="$cfgDir/trusted-projects.toml"
+    userOverrides="$cfgDir/overrides.toml"
     out="$cfgDir/config.toml"
     mergeStamp="$cfgDir/config.merge.sha256"
     nssDir="$cfgDir/runtime/nss"
@@ -136,7 +138,7 @@ let
     }
 
     hashInputs() {
-      for path in "$base" "$nixProjects" "$userProjects"; do
+      for path in "$base" "$nixProjects" "$userProjects" "$userOverrides"; do
         if [ -f "$path" ]; then
           printf 'file\t%s\t' "$path"
           ${coreutilsSha256sum} "$path"
@@ -220,7 +222,7 @@ let
           exit 1
         }
 
-        if ${tomlMergePython}/bin/python ${tomlMergeScript} "$base" "$nixProjects" "$userProjects" "$tmpOut"; then
+        if ${tomlMergePython}/bin/python ${tomlMergeScript} "$base" "$nixProjects" "$userProjects" "$userOverrides" "$tmpOut"; then
           if [ -s "$tmpOut" ]; then
             if ! printf '%s\n' "$inputHash" > "$tmpStamp"; then
               echo "codex-wrapper: ERROR: failed to write merge stamp to $tmpStamp" >&2
@@ -244,7 +246,7 @@ let
         else
           mergeStatus=$?
           echo "codex-wrapper: ERROR: failed to merge config (exit $mergeStatus)" >&2
-          echo "codex-wrapper: ERROR: base=$base nixProjects=$nixProjects userProjects=$userProjects out=$out" >&2
+          echo "codex-wrapper: ERROR: base=$base nixProjects=$nixProjects userProjects=$userProjects userOverrides=$userOverrides out=$out" >&2
           exit "$mergeStatus"
         fi
       fi

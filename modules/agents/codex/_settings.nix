@@ -43,6 +43,7 @@ let
     model = "gpt-6.1-sol";
     review_model = "gpt-6.1-sol";
     approval_policy = "on-request";
+    approvals_reviewer = "auto_review";
     default_permissions = "workspace";
     web_search = "live";
 
