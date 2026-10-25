@@ -91,6 +91,12 @@ in
           inherit session_id;
           tool_input.command = "sbx cp n:/tmp/a .";
         }
+        {
+          tool_name = "apply_patch";
+          cwd = "/repo";
+          inherit session_id;
+          tool_input.command = "*** Begin Patch\n*** Update File: AGENTS.md\n+see ${sessionDir}/x\n*** End Patch";
+        }
       ]
       ++ map bash [
         "echo hi > /tmp/x"
@@ -153,6 +159,10 @@ in
         "curl --output-dir ${scratchDir} -O https://example.invalid/x"
         "rsync -a src/ ${scratchDir}/."
         "sbx cp n:/tmp/a ${scratchDir}/sessions"
+        "sbx cp n:/tmp/a ${scratchDir}/sessions/stray"
+        "tar -C ${scratchDir} -xf a.tar"
+        "tar -f a.tar -x -C ${scratchDir}"
+        "tar --zstd -xf a.tar -C ${scratchDir}"
         "mkdir ${scratchDir}/tmp && cd ${scratchDir}/tmp"
       ];
       allow = [
@@ -165,6 +175,18 @@ in
         (write "${scratchDir}/issue-123456/x")
         (writeContent "/home/u/.claude/projects/p/memory/x.md" "Report: ${scratchDir}/virt-plan/r.md")
         (writeContent "${sessionDir}/notes.md" "copy of ${sessionDir}/r.md")
+        {
+          tool_name = "apply_patch";
+          cwd = "/repo";
+          inherit session_id;
+          tool_input.command = "*** Begin Patch\n*** Update File: AGENTS.md\n-see ${sessionDir}/x\n+see ${scratchDir}/topic/x\n*** End Patch";
+        }
+        {
+          tool_name = "apply_patch";
+          cwd = "/repo";
+          inherit session_id;
+          tool_input.command = "*** Begin Patch\n*** Update File: AGENTS.md\n+see docs\n*** Update File: src/a.sh\n+echo ${sessionDir}/x\n*** End Patch";
+        }
         {
           tool_name = "Write";
           tool_input.file_path = "${scratchDir}/topic/a";
@@ -213,6 +235,10 @@ in
         "tar -czf ~/b.tgz -C ${scratchDir} my-topic"
         "mkdir ${scratchDir}/vm-debian12"
         "mkdir ${scratchDir}/sidebery-gecko157"
+        "mkdir -p ${scratchDir}/sbx-ubuntu24"
+        "mkdir ${scratchDir}/test-debian13"
+        "mkdir ${scratchDir}/kernel-linux612"
+        "tar -cf b.tar -C ${scratchDir} my-topic"
         "sbx cp n:/tmp/a \"$TMPDIR\""
         "git clone https://example.invalid/r $TMPDIR/repo"
         "cat $TMPDIR/a > out.txt"

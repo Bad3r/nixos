@@ -43,6 +43,7 @@ in
           scratch=${lib.escapeShellArg scratchDir}
           sessions="$scratch/sessions"
 
+          failed=0
           live=" "
           for entry in ${lib.escapeShellArg "${ownerHome}/.claude/sessions"}/*.json; do
             pid="$(jq -r '.pid // empty' "$entry" 2>/dev/null)" || continue
@@ -79,7 +80,10 @@ in
               fi
               if idleFor "$dir" 7; then
                 echo "trashing idle session dir ''${dir%/}"
-                trash-put -- "''${dir%/}" || echo "could not trash ''${dir%/}"
+                trash-put -- "''${dir%/}" || {
+                  echo "failed to trash ''${dir%/}" >&2
+                  failed=1
+                }
               fi
             done
           fi
@@ -87,7 +91,10 @@ in
           for entry in "$scratch"/nix-shell.* "$scratch"/nix-develop-* "$scratch"/pyright-* "$scratch"/tmp.*; do
             if { [ -f "$entry" ] || [ -d "$entry" ]; } && [ ! -L "$entry" ] && idleFor "$entry" 2; then
               echo "trashing tool temp $entry"
-              trash-put -- "$entry" || echo "could not trash $entry"
+              trash-put -- "$entry" || {
+                echo "failed to trash $entry" >&2
+                failed=1
+              }
             fi
           done
 
@@ -98,6 +105,7 @@ in
               echo "topic dir idle for 60+ days: $dir"
             fi
           done
+          exit "$failed"
         '';
       };
       mountGate = mountGateFor scratchDir config.fileSystems utils;

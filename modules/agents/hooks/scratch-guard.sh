@@ -87,8 +87,9 @@ checkPath() {
   fi
   if [ "${2-}" = dest ]; then
     if [ "$path" = "$scratch" ] || [ "$path" = "$scratch/sessions" ] ||
-      { [ "${path%/*}" = "$scratch" ] && [ ! -d "$path" ]; }; then
-      deny "sbx would drop its output loose in ${path%/sessions}; for a directory target, create it first. $hint"
+      { [ "${path%/*}" = "$scratch" ] && [ ! -d "$path" ]; } ||
+      { [ "${path%/*}" = "$scratch/sessions" ] && [ "$path" != "$sessionDir" ] && [ ! -d "$path" ]; }; then
+      deny "sbx would drop its output loose in ${path%/*}; for a directory target, create it first. $hint"
     fi
     return 0
   fi
@@ -124,9 +125,23 @@ isInstructionFile() {
 }
 
 checkCitation() {
-  if isInstructionFile "$1" && grep -qF -- "$scratch/sessions/" <<<"$2"; then
+  local path="$1"
+  case "$path" in
+  /*) ;;
+  *) path="${cwd:-/}/$path" ;;
+  esac
+  if isInstructionFile "$path" && grep -qF -- "$scratch/sessions/" <<<"$2"; then
     deny "$1 would cite a path under $scratch/sessions/, which is swept after a week idle. Move the file to $scratch/<topic>/ and cite that."
   fi
+}
+
+# The lines a patch adds to one file, so removed lines and other files never count.
+patchAdds() {
+  awk -v target="$1" '
+    /^\*\*\* (Add|Update|Delete) File: / { sub(/^\*\*\* (Add|Update|Delete) File: /, ""); inFile = ($0 == target); next }
+    /^\*\*\* End Patch/ { inFile = 0; next }
+    inFile && /^\+/ { print substr($0, 2) }
+  ' <<<"$command"
 }
 
 command="$(jq -r '.tool_input.command // ""' <<<"$input")"
@@ -135,12 +150,14 @@ command="$(jq -r '.tool_input.command // ""' <<<"$input")"
 if [ "$tool" = apply_patch ] || grep -q '^\*\*\* Begin Patch' <<<"$command"; then
   while IFS= read -r path; do
     checkPath "$path"
-    checkCitation "$path" "$command"
+    checkCitation "$path" "$(patchAdds "$path")"
   done < <(sed -nE 's/^\*\*\* Update File: (.*)$/\1/p' <<<"$command")
   while IFS= read -r path; do
     checkPath "$path" create
-    checkCitation "$path" "$command"
   done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
+  while IFS= read -r path; do
+    checkCitation "$path" "$(patchAdds "$path")"
+  done < <(sed -nE 's/^\*\*\* Add File: (.*)$/\1/p' <<<"$command")
   if [ "$tool" != Bash ]; then
     exit 0
   fi
@@ -288,20 +305,26 @@ root="${q}${scratchRe}${q}"
 leaf="${root}/${q}[^/[:space:]\"';|&)<>]+${q}([[:space:];|&)<>]|$)"
 rootEnd="${root}(/\.?)?${q}([[:space:];|&)<>]|$)"
 opt="(=|[[:space:]]*)"
-tarExtract="\btar\b[[:space:]]+(-[A-Za-z]*x|--extract|--get|x)${seg}"
+tarDir="\btar\b${seg}[[:space:]](-C|--directory)${opt}"
+tarExtracts=0
+if grep -qE -- "\btar\b${seg}[[:space:]](-[A-Za-z]*x[A-Za-z]*|--extract|--get|x[A-Za-z]*)([[:space:]]|$)" <<<"$command"; then
+  tarExtracts=1
+fi
 patterns=(
   "(>>?|&>>?|>\|)[[:space:]]*${leaf}"
   "\btee\b${seg}[[:space:]]${leaf}"
   "\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
   "\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${rootEnd}"
   "\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${rootEnd}"
-  "${tarExtract}[[:space:]](-C|--directory)${opt}${rootEnd}"
   "\bunzip\b${seg}[[:space:]]-d${opt}${rootEnd}"
   "\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${rootEnd}"
   "\bcurl\b${seg}[[:space:]]--output-dir${opt}${rootEnd}"
   "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${leaf}"
   "\bof=${leaf}"
 )
+if [ "$tarExtracts" -eq 1 ]; then
+  patterns+=("${tarDir}${rootEnd}")
+fi
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$command"; then
     deny "This command writes a file loose in $scratch. $hint"
@@ -316,12 +339,14 @@ writes=(
   "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${name}"
   "\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${name}${q}[[:space:]]*($|[|;&)])"
   "\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${name}"
-  "${tarExtract}[[:space:]](-C|--directory)${opt}${name}"
   "\bunzip\b${seg}[[:space:]]-d${opt}${name}"
   "\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${name}"
   "\bcurl\b${seg}[[:space:]]--output-dir${opt}${name}"
   "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${name}"
 )
+if [ "$tarExtracts" -eq 1 ]; then
+  writes+=("${tarDir}${name}")
+fi
 for pattern in "${writes[@]}"; do
   while IFS= read -r top; do
     case "$top" in "" | sessions | *[*?[]*) continue ;; esac
