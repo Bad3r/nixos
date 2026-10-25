@@ -95,6 +95,7 @@ SHELL_LONG_FLAGS = frozenset(
     }
 )
 HEREDOC_END = frozenset(" \t\n;|&<>()")
+COMMENT_AFTER = HEREDOC_END
 # Delimiter, strip leading tabs, body is a shell script, body expands substitutions.
 type Heredoc = tuple[str, bool, bool, bool]
 MAX_DEPTH = 4
@@ -223,6 +224,11 @@ def bodies(text: str, index: int, pending: list[Heredoc], scripts: list[str]) ->
     return min(index, len(text))
 
 
+def comment(text: str, index: int) -> bool:
+    """Whether an unquoted # at index starts a comment: it begins a word."""
+    return text[index] == "#" and (index == 0 or text[index - 1] in COMMENT_AFTER)
+
+
 def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
     """Cut heredoc bodies out of shell text; return it with the scripts its substitutions run.
 
@@ -236,6 +242,9 @@ def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
     while index < len(text):
         char = text[index]
         process = not quote and not heredoc_body
+        if process and comment(text, index):
+            index = len(text) if (end := text.find("\n", index)) == -1 else end
+            continue
         found = None if quote == "'" else substitution(text, index, process=process)
         if found:
             scripts.append(found[0])

@@ -23,7 +23,7 @@ The PreToolUse hooks in `modules/agents/hooks/sbx-approval.nix` hold three calls
 
 Claude Code asks the user, even in auto mode.
 Codex refuses, so the user runs the command: its hooks cannot ask, and its execpolicy prompts go to the auto reviewer.
-The hook splits the command into shell words and reads only the options before the first `--`, so offline sandboxes, guest commands, and read-only shares pass.
+The hook drops shell comments, splits the command into shell words, and reads only the options before the first `--`, so offline sandboxes, guest commands, and read-only shares pass.
 A shell or `source` that reads its script from stdin, a pipe, `/dev/stdin`, or a process substitution fails closed when the call names `sbx` anywhere; a here-string or heredoc it reads is checked as a script instead.
 Every word naming a shell counts, an unknown long shell option fails closed, and the argument of `env -S` or fish `-C` is checked as a script; a script operand of `-` or a path through `dev` or `proc` counts as stdin.
 Every word whose basename is `sbx` or `workloads` may start the real command, as in `env A=/sbx sbx ...`, so the hook checks the words after each one; an argument path ending in `/sbx` can add a prompt, and so can an `sbx` call in a guest command after `--`.
