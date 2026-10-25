@@ -37,7 +37,7 @@ let
         {
           inherit (guest) uuid;
           account = windows.account.name;
-          inherit (windows.account) authorizedKeys;
+          inherit (windows.account) authorizedKeys autoLogon;
           passwordFile = config.sops.secrets.${windows.account.passwordSecret}.path;
           productKeyFile =
             if windows.productKeySecret == null then
