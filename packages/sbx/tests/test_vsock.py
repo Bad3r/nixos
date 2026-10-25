@@ -4,6 +4,7 @@
 import json
 import os
 import resource
+import select
 import socket
 import socketserver
 import subprocess
@@ -27,6 +28,8 @@ if TYPE_CHECKING:
 TOKEN = "c" * 16
 # Guests reach the stand-in listeners here; upstream services answer on 127.0.0.1.
 GUEST_SIDE = "127.0.0.2"
+# The stand-in QEMU's program: report that it runs, then outlive the test.
+READY_THEN_SLEEP = "import os, time; os.write(1, b'r'); time.sleep(600)"
 
 
 class Echo(socketserver.StreamRequestHandler):
@@ -143,14 +146,22 @@ class Fixture(unittest.TestCase):
 
     def start_qemu(self, name: str = "a") -> subprocess.Popen[bytes]:
         """A process whose arguments name the sandbox's domain, as QEMU's do."""
-        process = subprocess.Popen(
-            [sys.executable, "-c", "import time; time.sleep(600)", "-name", f"guest=sbx-{name},x"]
-        )
+        ready, signal = os.pipe()
+        try:
+            process = subprocess.Popen(
+                [sys.executable, "-c", READY_THEN_SLEEP, "-name", f"guest=sbx-{name},x"],
+                stdout=signal,
+            )
+        finally:
+            os.close(signal)
         self.addCleanup(process.wait)
         self.addCleanup(process.kill)
-        # The kernel fills in the arguments a moment after exec returns to the parent.
-        while b"guest=" not in Path(f"/proc/{process.pid}/cmdline").read_bytes():
-            time.sleep(0.01)
+        # sys.executable may be a wrapper that execs the interpreter, and the arguments
+        # read empty mid-exec, so wait for the final program to run.
+        try:
+            self.assertEqual(os.read(ready, 1), b"r")
+        finally:
+            os.close(ready)
         pidfile = self.runtime / "libvirt" / "qemu" / "run" / f"sbx-{name}.pid"
         pidfile.write_text(str(process.pid))
         return process
@@ -320,9 +331,9 @@ class RobustnessTest(Fixture):
         self.write(entry("00000001", self.ports[0], 2000.0))
         self.proxy.reconcile()
         self.write()
+        # The rename queues its inotify event, and the reaped QEMU's pidfd reads ready.
         self.qemu.kill()
         self.qemu.wait()
-        time.sleep(0.05)
         self.proxy.step(0.1)
         self.assertEqual(self.proxy.status()["grants"], {})
         self.assertEqual(self.proxy.emulators, {})
@@ -334,9 +345,11 @@ class RobustnessTest(Fixture):
         self.proxy.reconcile()
         self.qemu.kill()
         self.qemu.wait()
+        (listener,) = self.proxy.served["00000001"].listeners
         client = socket.create_connection((GUEST_SIDE, port), timeout=5)
         self.addCleanup(client.close)
-        time.sleep(0.05)
+        # The handshake can finish in softirq after connect returns.
+        self.assertTrue(select.select([listener], [], [], 5)[0], "the connection never queued")
         self.proxy.step(0.1)
         self.assertEqual(self.state_of("00000001"), "waiting")
 
@@ -414,8 +427,9 @@ class RobustnessTest(Fixture):
         for _ in range(10):
             proxy.step(0.02)
         self.assertEqual([len(served.pipes) for served in proxy.served.values()], [2, 1])
+        before = set(proxy.served["00000001"].pipes)
         one.close()
-        self.pump(lambda: len(proxy.served["00000001"].pipes) == cap)
+        self.pump(lambda: len(proxy.served["00000001"].pipes - before) == 1)
         waiting.settimeout(0.0)
         self.assertEqual(self.round_trip(waiting), b"x\n")
 
