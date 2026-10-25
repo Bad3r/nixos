@@ -32,7 +32,7 @@ TTL_TEXT = (
 )
 SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_THREAD_ID", "codex"))
 SHARE_TEXT = (
-    "A guest takes the shares its declaration marks runtime = true; a sandbox takes its xfer"
+    "A guest takes the shares its declaration marks runtime = true; a sandbox takes its shared"
     " directory read-write, or a workloads.grants.sandboxShares entry read-only. A share stays"
     " until detached or the guest stops, managed saves included."
 )
@@ -109,7 +109,7 @@ def build_parser() -> argparse.ArgumentParser:
     ):
         action = share_verbs.add_parser(verb, parents=[common], help=text, description=SHARE_TEXT)
         action.add_argument("target", help="sbx-<name>, guest:<name>, or a guest name")
-        action.add_argument("share", help="a guest's runtime share, or xfer or a sandbox share")
+        action.add_argument("share", help="a guest's runtime share, or shared or a sandbox share")
     return parser
 
 

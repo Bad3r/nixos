@@ -21,7 +21,7 @@ from sbx.core import (
     caller_session,
     parse_duration,
 )
-from sbx.shares import XFER, Shares
+from sbx.shares import SHARED, Shares
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -129,10 +129,14 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
         action.add_argument("name")
         action.add_argument(
             "share",
-            help=f"{XFER} (read-write) or a workloads.grants.sandboxShares name (read-only)",
+            help=f"{SHARED} (read-write) or a workloads.grants.sandboxShares name (read-only)",
         )
 
-    gc = verbs.add_parser("gc", parents=[common], help="remove expired and orphaned sandboxes")
+    gc = verbs.add_parser(
+        "gc",
+        parents=[common],
+        help=f"remove expired and orphaned sandboxes; detach {SHARED} past the disk cap",
+    )
     gc.add_argument("--dry-run", action="store_true")
 
     # No --json between base and its verb, so permission rules see one spelling.
@@ -273,7 +277,8 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
                 return shares.attach(args.name, args.share), 0
             return shares.detach(args.name, args.share), 0
         case "gc":
-            return sandboxes.gc(dry_run=args.dry_run), 0
+            removed = sandboxes.gc(dry_run=args.dry_run)
+            return removed + Shares(sandboxes).reclaim(dry_run=args.dry_run), 0
         case "base":
             if args.base_verb == "list":
                 return sandboxes.base_list(), 0

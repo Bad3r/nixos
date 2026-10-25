@@ -67,7 +67,7 @@ let
     | `destroy <name>` / `--mine` / `--expired`    | stop and delete sandboxes                  |
     | `list [--mine]`, `info <name>`               | state, CID, TTL left, `xfer` directory     |
     | `screenshot <name> [--ocr]`                  | display to PNG or PPM in `xfer`, opt. OCR  |
-    | `share attach <name> xfer` / `detach`        | hot-plug `xfer` RW or a declared share RO  |
+    | `share attach <name> shared` / `detach`      | hot-plug `shared` RW or a declared one RO  |
     | `key <name> <chord>...`                      | press chords on a GUI sandbox              |
     | `type <name> <text>`                         | type text on a GUI sandbox                 |
     | `base list`, `base build <base>`             | show or build Nix bases                    |

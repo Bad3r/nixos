@@ -2,7 +2,7 @@
 
 `workloads share attach` hot-plugs a declared virtiofs share into a running guest or sandbox without a prompt, and `workloads share detach` removes it.
 A guest takes the [guest shares](../apps/libvirt/shares.md) its declaration marks `runtime = true`.
-A sandbox takes its own `xfer` directory read-write, or a `workloads.grants.sandboxShares` entry from [grants.nix](../../modules/workloads/sharing/grants.nix) read-only.
+A sandbox takes its own `shared` directory read-write, or a `workloads.grants.sandboxShares` entry from [grants.nix](../../modules/workloads/sharing/grants.nix) read-only.
 
 ## Declare runtime shares
 
@@ -21,7 +21,7 @@ _: {
 ```
 
 - Either kind turns the `workloads` app on and lands in `/etc/workloads/grants.json`; a guest runtime share also starts `workload-grantd`.
-- A sandbox share tag follows the guest tag rules and is never `xfer`; evaluation fails otherwise.
+- A sandbox share tag follows the guest tag rules and is never `shared`; evaluation fails otherwise.
 - `sbx` refuses a sandbox share whose directory, after links resolve, is missing, is or holds `$HOME`, or overlaps the sbx state directory.
 
 ## Attach and detach
@@ -30,7 +30,7 @@ As the owner on the host:
 
 ```sh
 workloads share attach <guest> <tag>
-workloads share attach sbx-<name> xfer
+workloads share attach sbx-<name> shared
 workloads share attach sbx-<name> <tag>
 workloads share detach <guest> <tag>
 ```
@@ -47,7 +47,8 @@ sbx exec <name> -- sh -c 'mkdir -p /mnt/<tag> && mount -t virtiofs <tag> /mnt/<t
 - Detach returns once the device has left the live definition; unmount the share inside the guest first.
 - Detach also removes a live share that the guest's declaration omits.
 - A guest that keeps the device past the wait fails detach with `detach-pending`, and the share stays usable until the guest releases it or stops.
-- The sbx disk cap does not bound writes through an attached `xfer` share, so detach it when the transfer ends.
+- `shared` refuses to attach past the sbx disk cap or free-space floor, and `sbx gc` detaches it from every sandbox then.
+- Between those checks a guest writes without bound, since no size-capped filesystem holds `shared`.
 - `workloads share` refuses Windows guests; [guest shares](../apps/libvirt/shares.md#runtime-shares) gives their procedure.
 - Every verb takes `--json`, with errors shaped as for [grants](workload-grants.md#grant-from-the-command-line).
 
@@ -56,6 +57,8 @@ sbx exec <name> -- sh -c 'mkdir -p /mnt/<tag> && mount -t virtiofs <tag> /mnt/<t
 | `not-declared`      | no runtime or sandbox share has the tag |
 | `unsupported-guest` | the guest runs Windows                  |
 | `not-running`       | the guest or sandbox is not running     |
+| `not-found`         | no sandbox has the name                 |
+| `disk-full`         | sandboxes pass the disk cap or floor    |
 | `expired`           | the sandbox is past its TTL             |
 | `already-attached`  | the share is attached                   |
 | `not-attached`      | the share is not attached               |
@@ -71,7 +74,9 @@ sbx exec <name> -- sh -c 'mkdir -p /mnt/<tag> && mount -t virtiofs <tag> /mnt/<t
 - libvirtd admits a root client without polkit, so the helper keeps `CAP_NET_ADMIN` as its only capability.
 - The helper attaches the device file the policy names and detaches the live device by its alias.
 - A sandbox share needs no root: `sbx share` reads the policy file, hot-plugs into the sandbox's `qemu:///session` domain, and journals under `SYSLOG_IDENTIFIER=sbx`.
-- Session virtiofsd maps the guest's root to the owner and its other ids into the owner's subordinate range, through the setuid `newuidmap`.
+- `shared` sits in the sandbox's run directory, and no host sbx code writes into it, so a link the guest plants there leads host code nowhere.
+- Session virtiofsd maps no id but the owner's, and squashes every guest uid and gid onto the owner, so the owner can delete every file a guest leaves.
+- The guest sees every file as owned by a GUI base's `sbx` user, so a non-root guest user writes too.
 - Every sandbox has shared memfd memory, which virtiofs needs.
 
 ## Verify
@@ -81,8 +86,8 @@ As the owner on the host:
 ```sh
 journalctl -t workload-grant -n 20
 virsh -r -c qemu:///system dumpxml <guest> | grep -A6 '<filesystem'
-virsh -c qemu:///session dumpxml sbx-<name> | grep -A6 '<filesystem'
 journalctl --user -t sbx -n 20
+sbx exec <name> -- findmnt -t virtiofs
 ```
 
 ## Detach fails with detach-pending
@@ -94,14 +99,3 @@ virsh -r -c qemu:///system dumpxml <guest> | grep -A6 '<filesystem'
 ```
 
 Fix: unmount the share in the guest and detach again, or shut the guest down; `sbx destroy <name>` ends a sandbox's share.
-
-## A sandbox share fails to attach
-
-Cause: session virtiofsd cannot start, often because the owner has no `/etc/subuid` range or the session daemon's PATH lacks `/run/wrappers/bin`.
-
-```sh
-grep "$USER" /etc/subuid
-ls ~/.cache/libvirt/qemu/log/
-```
-
-Fix: give the owner a subordinate range, such as with `users.users.<owner>.autoSubUidGidRange`, and restart `sbx-libvirt.service`.

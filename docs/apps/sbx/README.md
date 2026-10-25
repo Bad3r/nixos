@@ -9,7 +9,7 @@ The app module is `modules/apps/sbx/nixos.nix`; its ceilings come from the host'
 Every sandbox is an untrusted guest.
 
 - Control runs over SSH on vsock and the qemu-ga channel, never over a network.
-- The guest has no vdagent channel, and no shared folder until a [runtime share](../../networking/workload-shares.md) attaches its `xfer` directory or a declared read-only one.
+- The guest has no vdagent channel, and no shared folder until a [runtime share](../../networking/workload-shares.md) attaches its `shared` directory or a declared read-only one.
   Only a [GUI base](bases.md#gui-bases) adds a display socket, with clipboard and file transfer off.
 - `sbx` accepts no domain XML, no host disk path, and no value above a ceiling.
 - Each QEMU runs in its own user and network namespace, and `sbx-qemu` (`packages/sbx/sbx/emulator.py`) starts it only when that namespace's vsock mode is `local`.
@@ -97,14 +97,16 @@ The TTL counts wall-clock time, host sleep included.
 
 ## State
 
-| Path                              | Content                          |
-| --------------------------------- | -------------------------------- |
-| `~/.local/share/sbx/<name>/`      | overlay, NVRAM, key, console log |
-| `~/.local/share/sbx/<name>/xfer/` | copies out, screenshots, share   |
-| `~/.local/share/sbx/bases/<base>` | base out-link or prepared disk   |
+| Path                                | Content                          |
+| ----------------------------------- | -------------------------------- |
+| `~/.local/share/sbx/<name>/`        | overlay, NVRAM, key, console log |
+| `~/.local/share/sbx/<name>/xfer/`   | copies out and screenshots       |
+| `~/.local/share/sbx/<name>/shared/` | the read-write runtime share     |
+| `~/.local/share/sbx/bases/<base>`   | base out-link or prepared disk   |
 
 `sbx-gc.timer` runs `sbx gc` on a schedule.
 It removes shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
+Past the disk cap or the free-space floor, it detaches `shared` from every sandbox.
 It removes sandboxes past their TTL only while `timedatectl` reports the host clock NTP-synchronized, since an RTC clock right after resume can run hours ahead.
 `sbx destroy --expired` refuses with `clock-unsynced` on an unsynced clock.
 On a host that never syncs, expired sandboxes stay until `sbx destroy <name>`.

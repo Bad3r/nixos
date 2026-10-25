@@ -304,7 +304,8 @@ TOOLS = (
         "gc",
         ("gc",),
         "Remove expired and orphaned sandboxes",
-        "Remove sandboxes past their TTL, shut-off ones, and orphaned domains or directories.",
+        "Remove sandboxes past their TTL, shut-off ones, and orphaned domains or directories; "
+        "past the disk cap or free-space floor, detach every shared directory.",
         (Param("dry_run", _boolean("report without removing"), flag="--dry-run"),),
         destructive=True,
     ),

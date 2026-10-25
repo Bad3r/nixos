@@ -1,6 +1,6 @@
 # NixOS VM test for runtime shares: `workloads share` hot-plugs a declared share
-# into a NixOS system guest through workload-grantd and an xfer and a declared
-# share into an sbx sandbox. Needs /dev/kvm with nested virtualization, so CI
+# into a NixOS system guest through workload-grantd and a sandbox's shared
+# directory and a declared share into an sbx sandbox. Needs /dev/kvm with nested virtualization, so CI
 # only forces its drvPath; run it with
 #   nix build "path:.#checks.x86_64-linux.workloads-runtime-shares"
 {
@@ -87,8 +87,6 @@ in
                 ${owner} = {
                   isNormalUser = true;
                   uid = 1000;
-                  # Session virtiofsd maps the guest's other ids into the owner's subordinate range.
-                  autoSubUidGidRange = true;
                   # Keeps the user manager, and so sbx-libvirt, running without a login.
                   linger = true;
                 };
@@ -120,11 +118,9 @@ in
                   };
                 };
               };
-              # What the sbx Home Manager part declares; Home Manager units keep the
-              # user manager's PATH, where virtiofsd finds the setuid newuidmap.
+              # What the sbx Home Manager part declares.
               systemd.user.services.sbx-libvirt = {
                 description = "libvirt session daemon for sbx sandboxes";
-                environment.PATH = lib.mkForce "/run/wrappers/bin:/run/current-system/sw/bin";
                 serviceConfig = {
                   Type = "notify";
                   ExecStart = "${config.programs.libvirt.extended.package}/bin/virtqemud --timeout 600";
@@ -306,20 +302,30 @@ in
             ))
             machine.succeed("modprobe -a vhost_vsock")
             sbx("create nixos --name s --ttl 30m")
-            xfer = "${home}/.local/share/sbx/s/xfer"
+            shared = "${home}/.local/share/sbx/s/shared"
 
-            with subtest("a sandbox takes its xfer directory read-write"):
-                answer = workloads("share attach sbx-s xfer")
+            with subtest("a sandbox takes its shared directory read-write"):
+                answer = workloads("share attach sbx-s shared")
                 assert answer["share"] == {
                     "target": "sbx-s",
-                    "tag": "xfer",
+                    "tag": "shared",
                     "read_only": False,
                     "attached": True,
-                    "host_path": xfer,
+                    "host_path": shared,
                 }, answer
-                code, out = in_sandbox("mkdir -p /mnt/xfer && mount -t virtiofs xfer /mnt/xfer && echo guest > /mnt/xfer/from-guest")
+                code, out = in_sandbox("mkdir -p /mnt/shared && mount -t virtiofs shared /mnt/shared && echo guest > /mnt/shared/from-guest")
                 assert code == 0, out
-                assert machine.succeed(f"stat -c %U {xfer}/from-guest").strip() == "${owner}"
+
+            with subtest("every guest user writes as the owner"):
+                code, out = in_sandbox(
+                    "setpriv --reuid=1000 --regid=100 --clear-groups"
+                    " sh -c 'mkdir -p /mnt/shared/d/e && echo user > /mnt/shared/d/e/f'"
+                    " && mkdir /mnt/shared/closed && touch /mnt/shared/closed/x"
+                    " && chown 4242:4242 /mnt/shared/closed/x && chmod 0 /mnt/shared/closed"
+                )
+                assert code == 0, out
+                owners = machine.succeed(f"find {shared} -printf '%u:%g\\n' | sort -u").split()
+                assert owners == ["${owner}:users"], owners
 
             with subtest("a declared sandbox share is read-only even remounted"):
                 assert workloads("share attach sbx-s docs")["share"]["read_only"] is True
@@ -332,21 +338,23 @@ in
             with subtest("a sandbox gets no other host directory"):
                 refused("share attach sbx-s /srv/docs", "not-declared")
                 refused("share attach sbx-s ${home}", "not-declared")
-                refused("share attach sbx-s xfer", "already-attached")
+                refused("share attach sbx-s shared", "already-attached")
+                refused("share attach sbx-s xfer", "not-declared")
 
             with subtest("sandbox shares survive a managed save"):
                 machine.succeed(as_owner("sbx sleep save"))
                 machine.succeed(as_owner("sbx sleep restore"))
-                code, out = in_sandbox("cat /mnt/xfer/from-guest /mnt/docs/hello")
+                code, out = in_sandbox("cat /mnt/shared/from-guest /mnt/docs/hello")
                 assert (code, out.split()) == (0, ["guest", "hello"]), out
 
-            with subtest("detach removes the sandbox shares"):
-                in_sandbox("umount /mnt/xfer /mnt/docs")
-                for tag in ("xfer", "docs"):
+            with subtest("detach removes the sandbox shares, and destroy their files"):
+                in_sandbox("umount /mnt/shared /mnt/docs")
+                for tag in ("shared", "docs"):
                     assert workloads(f"share detach sbx-s {tag}")["share"]["attached"] is False
                     refused(f"share detach sbx-s {tag}", "not-attached")
                 assert "<filesystem" not in session_xml()
                 sbx("destroy s")
+                machine.fail("test -e ${home}/.local/share/sbx/s")
           '';
       };
     };

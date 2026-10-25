@@ -209,9 +209,9 @@ GUEST_SHARE: dict[str, object] = {
 }
 SANDBOX_SHARE = {
     "sandbox": "ab12",
-    "tag": "xfer",
+    "tag": "shared",
     "read_only": False,
-    "host_path": "/home/vx/.local/share/sbx/ab12/xfer",
+    "host_path": "/home/vx/.local/share/sbx/ab12/shared",
     "attached": True,
 }
 
@@ -245,18 +245,18 @@ class ShareVerbsTest(unittest.TestCase):
             calls.append(list(arguments))
             return 0, json.dumps(SANDBOX_SHARE | {"attached": False})
 
-        code, out, _ = run_grant(helper, runner, "share", "detach", "--json", "sbx-ab12", "xfer")
+        code, out, _ = run_grant(helper, runner, "share", "detach", "--json", "sbx-ab12", "shared")
         self.assertEqual(code, 0)
-        self.assertEqual(calls, [["share", "detach", "ab12", "xfer", "--json"]])
+        self.assertEqual(calls, [["share", "detach", "ab12", "shared", "--json"]])
         self.assertEqual(helper.requests, [])
         self.assertEqual(
             json.loads(out)["share"],
             {
                 "target": "sbx-ab12",
-                "tag": "xfer",
+                "tag": "shared",
                 "read_only": False,
                 "attached": False,
-                "host_path": "/home/vx/.local/share/sbx/ab12/xfer",
+                "host_path": "/home/vx/.local/share/sbx/ab12/shared",
             },
         )
 

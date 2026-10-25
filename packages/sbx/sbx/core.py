@@ -79,6 +79,8 @@ PREPARE_TIMEOUT = 1800
 SHUTDOWN_TIMEOUT = 120
 # Runtime shares one sandbox can hold at once.
 SHARE_SLOTS = 4
+# The run directory's read-write share; no host sbx code writes into it, unlike xfer.
+SHARED = "shared"
 
 ET.register_namespace("sbx", NS)
 
@@ -552,6 +554,19 @@ def _remove(path: Path) -> None:
         path.unlink(missing_ok=True)
 
 
+def _remove_run_directory(directory: Path) -> None:
+    """Remove a run directory after reopening the shared directories a guest closed."""
+    shared = directory / SHARED
+    if shared.is_dir() and not shared.is_symlink():
+        shared.chmod(0o700)
+        for parent, dirs, _files in os.walk(shared):
+            for name in dirs:
+                path = Path(parent) / name
+                if not path.is_symlink():
+                    path.chmod(0o700)
+    shutil.rmtree(directory)
+
+
 def publish(staged: Path, target: Path) -> None:
     """Move a staged copy to a target that must not exist, never replacing one."""
     try:
@@ -771,7 +786,7 @@ class Sandboxes:
             and NAME_PATTERN.fullmatch(entry.name) is not None
         )
 
-    def _has_state(self) -> bool:
+    def has_state(self) -> bool:
         """Return whether any sandbox may exist, without starting the daemon."""
         definitions = self.paths.config / "libvirt" / "qemu"
         return bool(self._sandbox_dirs()) or any(definitions.glob(f"{DOMAIN_PREFIX}*.xml"))
@@ -923,24 +938,29 @@ class Sandboxes:
                         total += (Path(parent) / file).lstat().st_blocks * 512
         return total
 
-    def _check_disk(self, reserve: int = 0) -> None:
-        """Refuse below the free-space floor or when usage plus `reserve` passes the cap."""
+    def disk_problem(self, reserve: int = 0) -> str | None:
+        """Say why usage plus `reserve` passes the free-space floor or the cap, if it does."""
         self.paths.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         stats = os.statvfs(self.paths.root)
         free = stats.f_bavail * stats.f_frsize
         if free < self.settings.min_free_bytes:
-            msg = (
+            return (
                 f"{self.paths.root} has {free // GIB}G free, "
                 f"below the {self.settings.min_free_bytes // GIB}G floor"
             )
-            raise SbxError(msg, code="disk-full")
         used = self._usage()
         if used + reserve > self.settings.disk_cap_bytes:
-            msg = (
+            return (
                 f"sandboxes use {used // GIB}G and need {reserve // GIB}G more of the "
                 f"{self.settings.disk_cap_bytes // GIB}G cap; destroy some or run `sbx gc`"
             )
-            raise SbxError(msg, code="disk-full")
+        return None
+
+    def check_disk(self, reserve: int = 0) -> None:
+        """Refuse below the free-space floor or when usage plus `reserve` passes the cap."""
+        problem = self.disk_problem(reserve)
+        if problem is not None:
+            raise SbxError(problem, code="disk-full")
 
     def _check_capacity(self, request: Request) -> int:
         """Refuse past the running and memory ceilings; return the running count."""
@@ -1010,7 +1030,7 @@ class Sandboxes:
         if flavour not in FLAVOURS:
             msg = f"unknown base '{flavour}'; bases: {', '.join(FLAVOURS)}"
             raise SbxError(msg, code="unknown-base")
-        self._check_disk()
+        self.check_disk()
         self.paths.bases.mkdir(mode=0o700, parents=True, exist_ok=True)
         link = self.paths.bases / flavour
         installable = f"{self.settings.flake}#legacyPackages.x86_64-linux.workloads.sbx-{flavour}"
@@ -1041,7 +1061,7 @@ class Sandboxes:
             raise SbxError(msg, code="unknown-base")
         name = cloud.PREPARE_PREFIX + image
         self._check_name(name)
-        self._check_disk()
+        self.check_disk()
         self._check_egress()
         with self.locked():
             self._check_unused(image, name)
@@ -1274,11 +1294,13 @@ class Sandboxes:
             self.backend().remove(DOMAIN_PREFIX + name)
             removed = True
         directory = self.paths.sandbox(name)
-        if directory.is_dir() and (token is None or self._carries(directory, token)):
-            shutil.rmtree(directory)
-            removed = True
-        if removed:
-            self._revoke_grants(name, address)
+        try:
+            if directory.is_dir() and (token is None or self._carries(directory, token)):
+                removed = True
+                _remove_run_directory(directory)
+        finally:
+            if removed:
+                self._revoke_grants(name, address)
 
     @staticmethod
     def _carries(directory: Path, token: str) -> bool:
@@ -1335,7 +1357,7 @@ class Sandboxes:
             info = json.loads(run([tools.qemu_img, "info", "-U", "--output=json", str(image)]))
             size = max(int(info["virtual-size"]), self.settings.disk_gib * GIB)
             # Every running overlay may still grow to its full virtual size.
-            self._check_disk(reserve=(running + 1) * size)
+            self.check_disk(reserve=(running + 1) * size)
             nic = (self._check_egress(), random_mac()) if request.net == "egress" else None
             now = int(self._clock())
             meta = Meta(
@@ -1506,7 +1528,7 @@ class Sandboxes:
 
     def destroy_created(self, token: str) -> list[str]:
         """Remove the sandboxes whose metadata carries `token`."""
-        if not self._has_state():
+        if not self.has_state():
             return []
         with self.locked():
             removed = [sandbox.name for sandbox in self.owned() if sandbox.meta.token == token]
@@ -1531,7 +1553,7 @@ class Sandboxes:
                 "the host clock is not NTP-synchronized, so TTLs cannot be judged; destroy by name"
             )
             raise SbxError(msg, code="clock-unsynced")
-        if not self._has_state():
+        if not self.has_state():
             return []
         removed: list[str] = []
         now = self._clock()
@@ -1548,7 +1570,7 @@ class Sandboxes:
     def listing(self, *, mine: bool) -> list[dict[str, object]]:
         """Describe every sandbox, or the caller's."""
         self._require_session(mine=mine)
-        if not self._has_state():
+        if not self.has_state():
             return []
         return [
             self.describe(sandbox)
@@ -1584,7 +1606,7 @@ class Sandboxes:
 
     def gc(self, *, dry_run: bool) -> list[dict[str, str]]:
         """Remove stopped and half-removed sandboxes, and expired ones once the clock is synced."""
-        if not self._has_state():
+        if not self.has_state():
             return []
         actions: list[dict[str, str]] = []
         synced = self.host_synced()
@@ -1893,7 +1915,7 @@ class Sandboxes:
             argv = [self.settings.tools.scp, *options, "-q", "-r", f"root@sbx:{guest_path}"]
             self._bounded_transfer([*argv, str(staged)], stage, budget)
             _strip_exec_bits(staged)
-            self._check_disk()
+            self.check_disk()
             publish(staged, target)
         finally:
             shutil.rmtree(stage, ignore_errors=True)

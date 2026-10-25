@@ -383,7 +383,6 @@ class SandboxesTest(Fixture):
         self.assertEqual(root.find("cputune/emulatorpin").get("cpuset"), "8-23")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(root.find("cpu/feature").get("name"), "vmx")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(root.find("features/vmport").get("state"), "off")  # pyright: ignore[reportOptionalMemberAccess]
-        self.assertEqual(root.find("memoryBacking/access").get("mode"), "shared")  # pyright: ignore[reportOptionalMemberAccess]
         entry = root.find("sysinfo/entry")
         self.assertEqual(entry.get("name"), core.CREDENTIAL)  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(entry.text, "ssh-ed25519 AAAA sbx")  # pyright: ignore[reportOptionalMemberAccess]
@@ -505,6 +504,25 @@ class SandboxesTest(Fixture):
         self.assertNotIn("sbx-g", self.backend.domains_by_name)
         self.assertIn("grants of g stay live", str(self.journal_record.call_args_list))
         self.assertTrue(stderr.write.called)
+
+    def test_destroy_reopens_closed_directories(self) -> None:
+        """Directories a guest closed under shared go too, and grants go even when they stay."""
+        closed = self.paths.sandbox("g") / "shared" / "d" / "closed"
+        closed.mkdir(parents=True)
+        (closed / "f").write_text("guest")
+        closed.chmod(0)
+        closed.parent.chmod(0)
+        self.backend.add("g", expires=NOW + 60)
+        with mock.patch.object(core, "revoke_grants") as revoke:
+            self.assertEqual(self.sandboxes().destroy("g"), ["g"])
+            self.assertFalse(self.paths.sandbox("g").exists())
+            self.paths.sandbox("h").mkdir(parents=True)
+            with (
+                mock.patch.object(core.shutil, "rmtree", side_effect=PermissionError("held")),
+                self.assertRaises(PermissionError),
+            ):
+                self.sandboxes().destroy("h")
+        self.assertEqual([call.args[0] for call in revoke.call_args_list], ["g", "h"])
 
     def test_grants_follow_removals(self) -> None:
         """Token removals revoke only what they remove; gc revokes orphaned directories too."""

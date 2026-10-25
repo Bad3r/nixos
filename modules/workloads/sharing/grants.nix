@@ -293,11 +293,11 @@ let
         else
           check true "";
 
-      # A tag is QEMU's virtiofs tag inside the sandbox; xfer is the sandbox's own.
+      # A tag is QEMU's virtiofs tag inside the sandbox; shared is the sandbox's own.
       sandboxShareAssertions = lib.mapAttrsToList (
         tag: _:
-        check (tag != "xfer" && builtins.match "[a-z0-9][a-z0-9-]{0,35}" tag != null)
-          "workloads.grants.sandboxShares.${tag}: tags must match [a-z0-9][a-z0-9-]*, have at most 36 characters, and not be xfer"
+        check (tag != "shared" && builtins.match "[a-z0-9][a-z0-9-]{0,35}" tag != null)
+          "workloads.grants.sandboxShares.${tag}: tags must match [a-z0-9][a-z0-9-]*, have at most 36 characters, and not be shared"
       ) cfg.sandboxShares;
     in
     {
@@ -366,7 +366,7 @@ let
           description = ''
             Directories `workloads share attach sbx-<name> <tag>` hot-plugs
             into a running sandbox, always read-only, keyed by their virtiofs
-            tag. A sandbox's own `xfer` directory is its only read-write share.
+            tag. A sandbox's own `shared` directory is its only read-write share.
           '';
         };
 

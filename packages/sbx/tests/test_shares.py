@@ -1,14 +1,16 @@
 # Copyright (c) 2026 Bad3r
 """Runtime shares of sandboxes against the core tests' fake backend."""
 
+import dataclasses
 import json
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import cast
+from unittest import mock
 
 from sbx import cli
-from sbx.core import SbxError
+from sbx.core import Sandboxes, SbxError
 from sbx.shares import Shares, attached
 
 from tests.test_core import NOW, FakeBackend, Fixture
@@ -47,7 +49,7 @@ class ShareFake(FakeBackend):
 
 
 class SharesTest(Fixture):
-    """xfer read-write, declared directories read-only, nothing else."""
+    """shared read-write, declared directories read-only, nothing else."""
 
     def setUp(self) -> None:
         """Swap in the share-aware backend and write a policy file."""
@@ -80,7 +82,7 @@ class SharesTest(Fixture):
 
     def add_running(self, name: str, *, expires: int = NOW + 60) -> None:
         """Register a running sandbox with its run directory."""
-        (self.paths.sandbox(name) / "xfer").mkdir(parents=True)
+        self.paths.sandbox(name).mkdir(parents=True)
         self.backend.add(name, expires=expires)
 
     def device(self, tag: str) -> ET.Element:
@@ -88,26 +90,27 @@ class SharesTest(Fixture):
         return ET.fromstring(attached(self.backend.live_xml("sbx-s"))[tag].xml)  # noqa: S314
 
     def test_attach(self) -> None:
-        """The xfer directory attaches read-write, a declared one read-only, through virtiofsd."""
+        """The shared directory attaches read-write, a declared one read-only, through virtiofsd."""
         self.add_running("s")
-        xfer = self.shares().attach("s", "xfer")
+        shared = self.shares().attach("s", "shared")
         self.assertEqual(
-            xfer,
+            shared,
             {
                 "sandbox": "s",
-                "tag": "xfer",
+                "tag": "shared",
                 "read_only": False,
-                "host_path": str(self.paths.sandbox("s") / "xfer"),
+                "host_path": str(self.paths.sandbox("s").resolve() / "shared"),
                 "attached": True,
             },
         )
-        self.assertIsNone(self.device("xfer").find("readonly"))
-        binary = self.device("xfer").find("binary")
+        self.assertTrue((self.paths.sandbox("s") / "shared").is_dir())
+        self.assertIsNone(self.device("shared").find("readonly"))
+        binary = self.device("shared").find("binary")
         self.assertEqual(binary.get("path"), self.settings.tools.virtiofsd)  # pyright: ignore[reportOptionalMemberAccess]
         self.assertTrue(self.shares().attach("s", "docs")["read_only"])
         self.assertIsNotNone(self.device("docs").find("readonly"))
         with self.assertRaises(SbxError) as refused:
-            self.shares().attach("s", "xfer")
+            self.shares().attach("s", "shared")
         self.assertEqual(refused.exception.code, "already-attached")
         self.journal_record.assert_any_call(
             "share docs attached to s",
@@ -130,11 +133,12 @@ class SharesTest(Fixture):
             ("s", "state", "path-denied"),
             ("s", "above", "path-denied"),
             ("s", "gone", "path-denied"),
-            ("old", "xfer", "expired"),
-            ("off", "xfer", "not-running"),
-            ("missing", "xfer", "path-denied"),
+            ("s", "xfer", "not-declared"),
+            ("old", "shared", "expired"),
+            ("off", "shared", "not-running"),
+            ("missing", "shared", "not-found"),
         ]
-        (self.paths.sandbox("off") / "xfer").mkdir(parents=True)
+        self.paths.sandbox("off").mkdir(parents=True)
         for name, tag, expected in cases:
             with self.subTest(name=name, tag=tag), self.assertRaises(SbxError) as refused:
                 self.shares().attach(name, tag)
@@ -154,23 +158,46 @@ class SharesTest(Fixture):
         with self.assertRaises(SbxError) as refused:
             self.shares().detach("s", "docs")
         self.assertEqual(refused.exception.code, "not-attached")
-        self.shares().attach("s", "xfer")
+        self.shares().attach("s", "shared")
         self.backend.linger = None
         with self.assertRaises(SbxError) as refused:
-            self.shares().detach("s", "xfer")
+            self.shares().detach("s", "shared")
         self.assertEqual(refused.exception.code, "detach-pending")
 
     def test_detach_saved(self) -> None:
         """A saved sandbox brings its shares back at restore, so detach refuses it."""
         self.backend.add("z", expires=NOW + 60, active=False, managed_save=True)
         with self.assertRaises(SbxError) as refused:
-            self.shares().detach("z", "xfer")
+            self.shares().detach("z", "shared")
         self.assertEqual(refused.exception.code, "saved")
+
+    def test_disk_cap(self) -> None:
+        """Past the cap, shared refuses to attach and gc detaches it; read-only shares stay."""
+        self.add_running("s")
+        self.add_running("t")
+        shares = self.shares()
+        shares.attach("s", "shared")
+        shares.attach("s", "docs")
+        shares.attach("t", "docs")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=0)
+        (self.paths.sandbox("s") / "shared" / "fill").write_bytes(b"x" * 8192)
+        with self.assertRaises(SbxError) as refused:
+            self.shares().attach("t", "shared")
+        self.assertEqual(refused.exception.code, "disk-full")
+        self.assertEqual([action["name"] for action in self.shares().reclaim(dry_run=True)], ["s"])
+        self.assertIn("shared", attached(self.backend.live_xml("sbx-s")))
+        self.backend.linger = 0
+        args = cli.build_parser().parse_args(["gc", "--json"])
+        with mock.patch.object(Sandboxes, "host_synced", return_value=True):
+            result, _ = cli.dispatch(self.sandboxes(), args, as_json=True)
+        self.assertEqual([action["name"] for action in cast("list[dict[str, str]]", result)], ["s"])
+        self.assertEqual(set(attached(self.backend.live_xml("sbx-s"))), {"docs"})
+        self.assertEqual(set(attached(self.backend.live_xml("sbx-t"))), {"docs"})
 
     def test_command_line(self) -> None:
         """`share attach` returns the share's JSON form."""
         self.add_running("s")
-        args = cli.build_parser().parse_args(["share", "attach", "--json", "s", "xfer"])
+        args = cli.build_parser().parse_args(["share", "attach", "--json", "s", "shared"])
         result, code = cli.dispatch(self.sandboxes(), args, as_json=True)
         self.assertEqual((code, cast("dict[str, object]", result)["attached"]), (0, True))
 

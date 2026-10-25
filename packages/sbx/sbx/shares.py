@@ -1,13 +1,14 @@
 # Copyright (c) 2026 Bad3r
 """Runtime virtiofs shares of sandboxes.
 
-A sandbox takes its own xfer directory read-write, or a directory the host
+A sandbox takes its own shared directory read-write, or a directory the host
 declares in `workloads.grants.sandboxShares` read-only, and nothing else.
 Session hot-plug needs no root, so sbx reads the grant helper's policy file
 itself instead of asking the helper.
 """
 
 import json
+import os
 import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
@@ -15,14 +16,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Protocol, cast
 
 from sbx import journal
-from sbx.core import Sandboxes, SbxError
+from sbx.core import DOMAIN_PREFIX, SHARED, Sandboxes, SbxError
 
 if TYPE_CHECKING:
     from collections.abc import Callable
 
 # Written by modules/workloads/sharing/grants.nix.
 POLICY = Path("/etc/workloads/grants.json")
-XFER = "xfer"
 # libvirt itself waits five seconds for the guest to release a device.
 DETACH_WAIT = 15.0
 DETACH_POLL = 0.5
@@ -95,6 +95,11 @@ def device_xml(virtiofsd: str, source: Path, tag: str, *, read_only: bool) -> st
     ET.SubElement(element, "binary", path=virtiofsd)
     ET.SubElement(element, "source", dir=str(source))
     ET.SubElement(element, "target", dir=tag)
+    # Only the owner's ids in virtiofsd's namespace, so libvirt skips its /etc/subuid map;
+    # the sbx-virtiofsd wrapper squashes every guest id onto them.
+    idmap = ET.SubElement(element, "idmap")
+    ET.SubElement(idmap, "uid", start="0", target=str(os.geteuid()), count="1")
+    ET.SubElement(idmap, "gid", start="0", target=str(os.getegid()), count="1")
     if read_only:
         ET.SubElement(element, "readonly")
     return ET.tostring(element, encoding="unicode")
@@ -131,17 +136,22 @@ class Shares:
         return cast("ShareBackend", self.sandboxes.backend())
 
     def _source(self, name: str, tag: str) -> tuple[Path, bool]:
-        """The host directory of a share and whether it is read-only."""
-        if tag == XFER:
-            xfer = self.sandboxes.paths.sandbox(name) / XFER
-            if xfer.is_symlink() or not xfer.is_dir():
-                msg = f"{xfer} is no directory"
+        """The resolved host directory of a share and whether it is read-only."""
+        if tag == SHARED:
+            try:
+                shared = self.sandboxes.paths.sandbox(name).resolve(strict=True) / SHARED
+                shared.mkdir(mode=0o700, exist_ok=True)
+            except OSError as error:
+                msg = f"the {SHARED} directory of {name} is unusable: {error}"
+                raise SbxError(msg, code="path-denied") from error
+            if shared.is_symlink() or not shared.is_dir():
+                msg = f"{shared} is no directory"
                 raise SbxError(msg, code="path-denied")
-            return xfer, False
+            return shared, False
         shares = declared(self.policy)
         if tag not in shares:
             msg = (
-                f"'{tag}' is neither {XFER} nor a workloads.grants.sandboxShares entry;"
+                f"'{tag}' is neither {SHARED} nor a workloads.grants.sandboxShares entry;"
                 " a sandbox gets no other host directory"
             )
             raise SbxError(msg, code="not-declared")
@@ -161,9 +171,11 @@ class Shares:
 
     def attach(self, name: str, tag: str) -> dict[str, object]:
         """Hot-plug a share into a running sandbox; it stays until detached or stopped."""
-        source, read_only = self._source(name, tag)
         with self.sandboxes.locked():
             domain = self.sandboxes.running(name).domain.name
+            source, read_only = self._source(name, tag)
+            if not read_only:
+                self.sandboxes.check_disk()
             backend = self._backend()
             if tag in attached(backend.live_xml(domain)):
                 msg = f"sandbox '{name}' already holds {tag}"
@@ -184,32 +196,57 @@ class Shares:
         """Remove a share and wait until the guest releases it; a held share is an error."""
         with self.sandboxes.locked():
             sandbox = self.sandboxes.find(name)
-            domain = sandbox.domain.name
             if sandbox.domain.managed_save:
                 msg = f"sandbox '{name}' is saved with its shares; restore it, then detach"
                 raise SbxError(msg, code="saved")
             backend = self._backend()
-            held = attached(backend.live_xml(domain)) if sandbox.domain.active else {}
+            held = attached(backend.live_xml(sandbox.domain.name)) if sandbox.domain.active else {}
             if tag not in held:
                 msg = f"sandbox '{name}' holds no {tag}"
                 raise SbxError(msg, code="not-attached")
             device = held[tag]
-            journal.record(
-                f"share {tag} detached from {name}",
-                verb="share",
-                sandbox=name,
-                share=tag,
-                session=self.sandboxes.session,
-            )
-            backend.detach_device(domain, device.xml)
-            deadline = self.clock() + DETACH_WAIT
-            while tag in attached(backend.live_xml(domain)):
-                if self.clock() >= deadline:
-                    msg = (
-                        f"sandbox '{name}' still holds {tag} {DETACH_WAIT:g}s after the detach"
-                        f" request; the share stays usable until the guest releases it, and"
-                        f" `sbx destroy {name}` ends it"
-                    )
-                    raise SbxError(msg, code="detach-pending")
-                self.sleep(DETACH_POLL)
+            self._detach(name, tag, device)
         return _result(name, tag, device.source, read_only=device.read_only, on=False)
+
+    def _detach(self, name: str, tag: str, device: Device, reason: str = "") -> None:
+        """Detach under the caller's lock and wait until the device leaves."""
+        domain = DOMAIN_PREFIX + name
+        backend = self._backend()
+        journal.record(
+            f"share {tag} detached from {name}{reason}",
+            verb="share",
+            sandbox=name,
+            share=tag,
+            session=self.sandboxes.session,
+        )
+        backend.detach_device(domain, device.xml)
+        deadline = self.clock() + DETACH_WAIT
+        while tag in attached(backend.live_xml(domain)):
+            if self.clock() >= deadline:
+                msg = (
+                    f"sandbox '{name}' still holds {tag} {DETACH_WAIT:g}s after the detach"
+                    f" request; the share stays usable until the guest releases it, and"
+                    f" `sbx destroy {name}` ends it"
+                )
+                raise SbxError(msg, code="detach-pending")
+            self.sleep(DETACH_POLL)
+
+    def reclaim(self, *, dry_run: bool) -> list[dict[str, str]]:
+        """Detach every sandbox's shared directory while usage passes the cap or the floor."""
+        if not self.sandboxes.has_state():
+            return []
+        actions: list[dict[str, str]] = []
+        with self.sandboxes.locked():
+            problem = self.sandboxes.disk_problem()
+            if problem is None:
+                return []
+            for sandbox in self.sandboxes.owned():
+                if not sandbox.domain.active:
+                    continue
+                device = attached(self._backend().live_xml(sandbox.domain.name)).get(SHARED)
+                if device is None:
+                    continue
+                actions.append({"name": sandbox.name, "reason": f"{SHARED} detached: {problem}"})
+                if not dry_run:
+                    self._detach(sandbox.name, SHARED, device, f": {problem}")
+        return actions
