@@ -23,8 +23,50 @@ in
           "info probe") echo '{"name": "probe", "domain": "sbx-probe", "address": "172.16.2.50"}' ;;
           "info peer") echo '{"name": "peer", "domain": "sbx-peer", "address": "172.16.2.51"}' ;;
           "info offline") echo '{"name": "offline", "domain": "sbx-offline", "address": null}' ;;
+          "info stale") echo '{"name": "stale", "domain": "sbx-stale", "address": "172.16.2.52"}' ;;
           *) echo '{"error": {"code": "not-found", "message": "no sandbox"}}'; exit 1 ;;
         esac
+      '';
+
+      # Each logs one line per round trip or received datagram, so a stalled flow stops its log.
+      flows = pkgs.writeText "flows.py" ''
+        import socket
+        import socketserver
+        import sys
+        import time
+
+        role, host, port = sys.argv[1], sys.argv[2], int(sys.argv[3])
+
+        class Echo(socketserver.StreamRequestHandler):
+            def handle(self):
+                for line in self.rfile:
+                    self.wfile.write(line)
+
+        if role == "echo-server":
+            socketserver.ThreadingTCPServer.allow_reuse_address = True
+            socketserver.ThreadingTCPServer((host, port), Echo).serve_forever()
+        elif role == "push-server":
+            server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            server.bind((host, port))
+            _, peer = server.recvfrom(64)
+            while True:
+                server.sendto(b"p", peer)
+                time.sleep(0.2)
+        else:
+            log = open(sys.argv[4], "a", buffering=1)
+            if role == "echo-client":
+                stream = socket.create_connection((host, port), timeout=2).makefile("rwb")
+                while True:
+                    stream.write(b"x\n")
+                    stream.flush()
+                    assert stream.readline() == b"x\n"
+                    log.write("ok\n")
+                    time.sleep(0.2)
+            client = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            client.sendto(b"hi", (host, port))
+            while True:
+                client.recv(64)
+                log.write("ok\n")
       '';
     in
     {
@@ -68,7 +110,11 @@ in
                 "vn-*"
                 "w-*"
               ];
-              systemd.tmpfiles.rules = [ "f /srv/www/index.html 0644 root root - granted" ];
+              systemd.tmpfiles.rules = [
+                "f /srv/www/index.html 0644 root root - granted"
+                "f /srv/leak/index.html 0644 root root - leaked"
+                "d /run/flows 0755 root root -"
+              ];
 
               workloads = {
                 networks = {
@@ -76,7 +122,10 @@ in
                     id = 2;
                     egress = "none";
                     isolatePeers = true;
-                    libvirt.sessionAttach = true;
+                    libvirt = {
+                      sessionAttach = true;
+                      bindLeases = true;
+                    };
                   };
                   # The open host port is the positive control for the bridges.
                   desktop = {
@@ -93,9 +142,16 @@ in
                     {
                       network = "desktop";
                       address = "172.16.1.10";
+                      mac = "52:54:00:00:01:10";
                     }
                   ];
-                  ports = [ 8080 ];
+                  ports = [
+                    8080
+                    {
+                      port = 8082;
+                      proto = "udp";
+                    }
+                  ];
                 };
 
                 host.services = {
@@ -109,6 +165,11 @@ in
                       {
                         from = 8000;
                         to = 8999;
+                      }
+                      {
+                        from = 8000;
+                        to = 8999;
+                        proto = "udp";
                       }
                     ];
                     bind = "any";
@@ -129,6 +190,7 @@ in
                         "host:api"
                         "host:dev"
                         "guest:dev:8080"
+                        "guest:dev:8082/udp"
                       ];
                     }
                     {
@@ -151,21 +213,33 @@ in
 
           for bridge, gateway in (("vn-sbx", "172.16.2.1"), ("vn-desktop", "172.16.1.1")):
               machine.succeed(f"ip link add {bridge} type bridge && ip addr add {gateway}/24 dev {bridge} && ip link set {bridge} up")
-          for ns, bridge, address, gateway in (
-              ("sb", "vn-sbx", "172.16.2.50", "172.16.2.1"),
-              ("peer", "vn-sbx", "172.16.2.51", "172.16.2.1"),
-              ("dev", "vn-desktop", "172.16.1.10", "172.16.1.1"),
+          for ns, bridge, address, gateway, mac in (
+              ("sb", "vn-sbx", "172.16.2.50", "172.16.2.1", "52:54:00:00:02:50"),
+              ("peer", "vn-sbx", "172.16.2.51", "172.16.2.1", "52:54:00:00:02:51"),
+              ("dev", "vn-desktop", "172.16.1.10", "172.16.1.1", "52:54:00:00:01:10"),
           ):
               machine.succeed(
                   f"ip netns add {ns}",
                   f"ip link add w-{ns} type veth peer name eth0 netns {ns}",
                   f"ip link set w-{ns} master {bridge} up",
+                  f"ip -n {ns} link set eth0 address {mac}",
                   f"ip -n {ns} addr add {address}/24 dev eth0",
                   f"ip -n {ns} link set eth0 up && ip -n {ns} link set lo up",
                   f"ip -n {ns} route add default via {gateway}",
               )
 
           python = "${pkgs.python3.interpreter}"
+
+          # libvirt's lease file for the bridge, as dnsmasq writes it; .52 holds none.
+          expiry = int(machine.succeed("date +%s")) + 3600
+          leases = [
+              {"ip-address": "172.16.2.50", "mac-address": "52:54:00:00:02:50", "expiry-time": expiry},
+              {"ip-address": "172.16.2.51", "mac-address": "52:54:00:00:02:51", "expiry-time": expiry},
+          ]
+          machine.succeed(
+              "mkdir -p /var/lib/libvirt/dnsmasq",
+              f"echo {shlex.quote(json.dumps(leases))} > /var/lib/libvirt/dnsmasq/vn-sbx.status",
+          )
 
           def serve(name, port, bind, ns=None):
               prefix = f"ip netns exec {ns} " if ns else ""
@@ -256,6 +330,7 @@ in
               refused("not-allowed", "sbx-peer", "host:closed")
               refused("not-allowed", "dev", "host:api")
               refused("no-address", "sbx-offline", "host:dev")
+              refused("no-lease", "sbx-stale", "host:dev")
               refused("invalid-target", "sbx-peer", "10.0.0.1:22")
               expect(opened)
 
@@ -293,11 +368,95 @@ in
               expect({"control", "dev-8100"})
               assert live() == {dev_8100: "host:dev:8100"}
 
-          with subtest("a grant expires with its TTL"):
-              grant("sbx-probe", "host:dev:8001", "--ttl", "5s")
-              machine.succeed("ip netns exec sb curl -sf -m 3 http://172.16.2.1:8001/")
-              machine.wait_until_fails("ip netns exec sb curl -sf --connect-timeout 1 -m 3 http://172.16.2.1:8001/", timeout=30)
+          flows = "${flows}"
+
+          def flow(name, ns, role, endpoint):
+              host, port = endpoint.split(":")
+              log = f" /run/flows/{name}.log" if role.endswith("client") else ""
+              machine.succeed(f"systemd-run --unit=flow-{name} ip netns exec {ns} {python} {flows} {role} {host} {port}{log}")
+
+          def server(name, role, bind, port, ns="dev"):
+              prefix = "" if ns is None else f"ip netns exec {ns} "
+              machine.succeed(f"systemd-run --unit=flow-{name} {prefix}{python} {flows} {role} {bind} {port}")
+
+          def count(name):
+              return int(machine.succeed(f"cat /run/flows/{name}.log 2>/dev/null | wc -l"))
+
+          def alive(name):
+              before = count(name)
+              machine.sleep(2)
+              return count(name) > before
+
+          def wait_stopped(names, timeout):
+              for _ in range(timeout):
+                  if not any(alive(name) for name in names):
+                      return
+              raise AssertionError(f"{names} still pass traffic")
+
+          server("echo-8003", "echo-server", "0.0.0.0", 8003, None)
+          server("echo-8005", "echo-server", "0.0.0.0", 8005, None)
+          server("echo-8006", "echo-server", "0.0.0.0", 8006, None)
+          server("push-8004", "push-server", "0.0.0.0", 8004, None)
+          server("push-8082", "push-server", "172.16.1.10", 8082)
+          machine.wait_until_succeeds("ss -ltn | grep -q ':8006 '")
+
+          with subtest("expiry stops every connection of the grant in both directions"):
+              expiring = grant("sbx-probe", "host:dev:8003", "--ttl", "25s")
+              grant("sbx-probe", "host:dev:8004/udp", "--ttl", "25s")
+              grant("sbx-probe", "guest:dev:8082/udp", "--ttl", "25s")
+              # A TCP round trip to the host, UDP the host pushes back, and UDP a guest pushes back.
+              flow("echo", "sb", "echo-client", "172.16.2.1:8003")
+              flow("host-push", "sb", "push-client", "172.16.2.1:8004")
+              flow("guest-push", "sb", "push-client", "172.16.1.10:8082")
+              for name in ("echo", "host-push", "guest-push"):
+                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{name}.log) -gt 3", timeout=20)
+                  assert alive(name), name
+              wait_stopped(["echo", "host-push", "guest-push"], 20)
               assert live() == {dev_8100: "host:dev:8100"}
+              status, answer = workloads("revoke", expiring)
+              assert status == 1 and answer["error"]["code"] == "not-found", answer
+
+          with subtest("revoke stops only that grant's connections"):
+              first = grant("sbx-probe", "host:dev:8005")
+              grant("sbx-probe", "host:dev:8006")
+              flow("first", "sb", "echo-client", "172.16.2.1:8005")
+              flow("second", "sb", "echo-client", "172.16.2.1:8006")
+              for name in ("first", "second"):
+                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{name}.log) -gt 3", timeout=20)
+              workloads("revoke", first)
+              wait_stopped(["first"], 5)
+              assert alive("second")
+              workloads("revoke", "--all", "sbx-probe")
+              wait_stopped(["second"], 5)
+
+          with subtest("a grant follows the leased MAC, not the address"):
+              moved = grant("sbx-probe", "host:dev:8000")
+              expect({"control", "sb-dev-8000", "dev-8100"})
+              machine.succeed("ip -n sb link set eth0 address 52:54:00:00:02:99", "ip neigh flush dev vn-sbx")
+              expect({"control", "dev-8100"})
+              machine.succeed("ip -n sb link set eth0 address 52:54:00:00:02:50", "ip neigh flush dev vn-sbx")
+              expect({"control", "sb-dev-8000", "dev-8100"})
+              workloads("revoke", moved)
+
+          with subtest("a granted path never leaves through the uplink"):
+              # A namespace behind the host's default route answers for the guest's address.
+              machine.succeed(
+                  "ip netns add lan",
+                  "ip link add w-lan type veth peer name eth0 netns lan",
+                  "ip addr add 192.168.77.1/24 dev w-lan && ip link set w-lan up",
+                  "ip -n lan addr add 192.168.77.2/24 dev eth0 && ip -n lan addr add 172.16.1.10/32 dev lo",
+                  "ip -n lan link set eth0 up && ip -n lan link set lo up",
+                  "ip -n lan route add default via 192.168.77.1",
+                  "ip route replace default via 192.168.77.2 dev w-lan",
+                  f"systemd-run --unit=listen-lan ip netns exec lan {python} -m http.server 8080 --bind 172.16.1.10 --directory /srv/leak",
+              )
+              crossing = grant("sbx-probe", "guest:dev:8080")
+              machine.succeed("ip netns exec sb curl -sf -m 3 http://172.16.1.10:8080/ | grep -Fx granted")
+              machine.succeed("ip link set vn-desktop down")
+              machine.wait_until_succeeds("curl -sf -m 3 http://172.16.1.10:8080/ | grep -Fx leaked")
+              machine.fail("ip netns exec sb curl -sf --connect-timeout 1 -m 3 http://172.16.1.10:8080/")
+              machine.succeed("ip link set vn-desktop up")
+              workloads("revoke", crossing)
 
           with subtest("the journal records caller and decision"):
               entries = [
@@ -305,7 +464,7 @@ in
                   for line in machine.succeed("journalctl -t workload-grant -o json").splitlines()
               ]
               granted = [entry for entry in entries if entry.get("WORKLOAD_GRANT_DECISION") == "granted"]
-              assert len(granted) == 5 and all(entry["WORKLOAD_GRANT_CALLER_UID"] == "1000" for entry in granted), granted
+              assert len(granted) >= 5 and all(entry["WORKLOAD_GRANT_CALLER_UID"] == "1000" for entry in granted), granted
               assert any("workloads" in entry["WORKLOAD_GRANT_CALLER_CMDLINE"] for entry in granted), granted
               assert any(entry.get("WORKLOAD_GRANT_ERROR") == "max-concurrent" for entry in entries)
 

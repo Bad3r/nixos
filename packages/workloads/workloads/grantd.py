@@ -32,6 +32,9 @@ if TYPE_CHECKING:
     from contextlib import AbstractContextManager
 
 SET = ("inet", "workload_grants", "grants")
+# Ingress bridge, MAC, and address of every source that holds a grant.
+SOURCES = ("inet", "workload_grants", "sources")
+COMMAND_TIMEOUT = 10
 # The bit the grant chains set and `inet workload` and `nixos-fw` accept.
 MARK = "0x00100000/0x00f00000"
 REQUEST_LIMIT = 16384
@@ -58,8 +61,8 @@ class Element:
 
     @property
     def comment(self) -> str:
-        """The element comment: id, source, and target."""
-        return f"{self.grant} {self.source} {self.target}"
+        """The element comment: id, source, target, and the source's MAC."""
+        return f"{self.grant} {self.source} {self.target} {self.path.mac}"
 
 
 @dataclass(frozen=True)
@@ -80,12 +83,12 @@ class Kernel(Protocol):
         """Live grant elements."""
         ...
 
-    def add(self, elements: Sequence[Element], ttl: int) -> None:
-        """Add elements in one transaction."""
+    def add(self, elements: Sequence[Element], ttl: int, source_ttl: int) -> None:
+        """Add elements and their source, which must outlive every grant it holds."""
         ...
 
-    def remove(self, elements: Sequence[Element]) -> None:
-        """Remove elements in one transaction; expired ones are no error."""
+    def remove(self, elements: Sequence[Element], sources: Sequence[Path]) -> None:
+        """Remove elements and the sources left without one; expired ones are no error."""
         ...
 
     def flows(self, path: Path) -> list[Flow]:
@@ -119,10 +122,18 @@ class Tools:
 
 
 def run_command(argv: Sequence[str], stdin: str | None) -> tuple[int, str, str]:
-    """Run a tool and capture its output."""
-    result = subprocess.run(
-        list(argv), input=stdin, capture_output=True, text=True, check=False, timeout=20
-    )
+    """Run a tool and capture its output; a hung tool fails like any other."""
+    try:
+        result = subprocess.run(
+            list(argv),
+            input=stdin,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=COMMAND_TIMEOUT,
+        )
+    except subprocess.TimeoutExpired:
+        return 124, "", f"timed out after {COMMAND_TIMEOUT}s"
     return result.returncode, result.stdout, result.stderr
 
 
@@ -131,6 +142,10 @@ def _key(path: Path) -> str:
         f'"{path.bridge}" . {path.source} . {path.destination} . {path.ports.proto}'
         f" . {path.ports.text}"
     )
+
+
+def _source_key(path: Path) -> str:
+    return f'"{path.bridge}" . {path.mac} . {path.source}'
 
 
 def _parse_element(item: object) -> Element:
@@ -145,7 +160,7 @@ def _parse_element(item: object) -> Element:
         first = last = int(cast("int", port))
     comment = str(elem.get("comment", ""))
     parts = comment.split(" ")
-    if len(parts) != 3 or ID_PATTERN.fullmatch(parts[0]) is None:  # noqa: PLR2004
+    if len(parts) != 4 or ID_PATTERN.fullmatch(parts[0]) is None:  # noqa: PLR2004
         msg = (
             f"element {bridge} . {source} . {destination} . {proto} . {first}-{last} carries"
             f" no grant comment ('{comment}'); delete it with nft delete element"
@@ -154,6 +169,7 @@ def _parse_element(item: object) -> Element:
     return Element(
         Path(
             str(bridge),
+            parts[3],
             ipaddress.IPv4Address(str(source)),
             ipaddress.IPv4Address(str(destination)),
             Ports(str(proto), first, last),
@@ -199,24 +215,38 @@ class NftKernel:
             msg = f"nft printed a malformed grant set: {error!r}"
             raise GrantError(msg, code="nft") from error
 
-    def _batch(self, verb: str, items: Sequence[str]) -> None:
-        if items:
-            script = f"{verb} element {' '.join(SET)} {{ {', '.join(items)} }}\n"
-            self._checked("nft", [self.tools.nft, "-f", "-"], script)
+    def _write(self, lines: Sequence[str]) -> None:
+        """One nft transaction, so a grant and its source change together."""
+        if lines:
+            self._checked(
+                "nft", [self.tools.nft, "-f", "-"], "".join(f"{line}\n" for line in lines)
+            )
 
-    def add(self, elements: Sequence[Element], ttl: int) -> None:
-        """Add with the TTL as the element timeout."""
-        self._batch(
-            "add",
+    def add(self, elements: Sequence[Element], ttl: int, source_ttl: int) -> None:
+        """Add with the TTL as the element timeout; re-adding a source moves its timeout."""
+        grants = ", ".join(f'{_key(e.path)} timeout {ttl}s comment "{e.comment}"' for e in elements)
+        sources = ", ".join(
+            sorted({f"{_source_key(e.path)} timeout {source_ttl}s" for e in elements})
+        )
+        self._write(
             [
-                f'{_key(element.path)} timeout {ttl}s comment "{element.comment}"'
-                for element in elements
-            ],
+                f"add element {' '.join(SET)} {{ {grants} }}",
+                f"add element {' '.join(SOURCES)} {{ {sources} }}",
+            ]
+            if elements
+            else []
         )
 
-    def remove(self, elements: Sequence[Element]) -> None:
+    def remove(self, elements: Sequence[Element], sources: Sequence[Path]) -> None:
         """`destroy` tolerates elements that expired since the listing."""
-        self._batch("destroy", [_key(element.path) for element in elements])
+        lines: list[str] = []
+        if elements:
+            keys = ", ".join(_key(element.path) for element in elements)
+            lines.append(f"destroy element {' '.join(SET)} {{ {keys} }}")
+        if sources:
+            keys = ", ".join(sorted({_source_key(path) for path in sources}))
+            lines.append(f"destroy element {' '.join(SOURCES)} {{ {keys} }}")
+        self._write(lines)
 
     def _conntrack(self, path_or_flow: Path | Flow) -> list[str]:
         if isinstance(path_or_flow, Path):
@@ -247,16 +277,14 @@ class NftKernel:
         for line in output.splitlines():
             if not line.strip():
                 continue
-            dport = int(_field(line, "dport"))
+            try:
+                dport, sport = int(_field(line, "dport")), int(_field(line, "sport"))
+            except ValueError as error:
+                msg = f"conntrack printed a malformed port in '{line}'"
+                raise GrantError(msg, code="conntrack") from error
             if path.ports.first <= dport <= path.ports.last:
                 flows.append(
-                    Flow(
-                        path.ports.proto,
-                        _field(line, "src"),
-                        _field(line, "dst"),
-                        int(_field(line, "sport")),
-                        dport,
-                    )
+                    Flow(path.ports.proto, _field(line, "src"), _field(line, "dst"), sport, dport)
                 )
         return flows
 
@@ -277,17 +305,29 @@ class NftKernel:
             "route", [self.tools.ip, "-j", "rule", "show", "pref", str(preference)]
         )
         try:
-            return {
-                Route(
-                    str(rule["iif"]),
-                    ipaddress.IPv4Address(str(rule["src"])),
-                    ipaddress.IPv4Address(str(rule["dst"])),
+            rules = cast("list[Record]", json.loads(output or "[]"))
+            routes: set[Route] = set()
+            for rule in rules:
+                if (
+                    set(rule) != {"priority", "iif", "src", "dst", "table"}
+                    or rule["table"] != "main"
+                ):
+                    msg = (
+                        f"preference {preference} holds a rule no grant made: {rule};"
+                        " move it, since the helper owns that preference"
+                    )
+                    raise GrantError(msg, code="route")
+                routes.add(
+                    Route(
+                        str(rule["iif"]),
+                        ipaddress.IPv4Address(str(rule["src"])),
+                        ipaddress.IPv4Address(str(rule["dst"])),
+                    )
                 )
-                for rule in cast("list[Record]", json.loads(output or "[]"))
-            }
         except (KeyError, TypeError, ValueError) as error:
             msg = f"ip printed a malformed rule at preference {preference}: {error!r}"
             raise GrantError(msg, code="route") from error
+        return routes
 
     def _rule(self, verb: str, preference: int, route: Route) -> None:
         self._checked(
@@ -367,13 +407,15 @@ def describe(elements: Sequence[Element]) -> list[Record]:
 class Service:
     """Validates one request against the policy and applies it."""
 
-    def __init__(
+    def __init__(  # noqa: PLR0913
         self,
         load_policy: Callable[[], Policy],
         kernel: Kernel,
         log: Log,
         lock: Callable[[], AbstractContextManager[object]],
+        *,
         new_id: Callable[[], str] = lambda: secrets.token_hex(4),
+        read_text: Callable[[str], str] | None = None,
     ) -> None:
         """Keep the collaborators; the policy loads per request."""
         self.load_policy = load_policy
@@ -381,6 +423,7 @@ class Service:
         self.log = log
         self.lock = lock
         self.new_id = new_id
+        self.read_text = read_text
 
     def handle(self, raw: bytes, caller: Caller) -> Record:
         """Answer one request; every decision reaches the journal before it applies."""
@@ -438,9 +481,12 @@ class Service:
                 msg = "'ttl' must be a positive number of seconds"
                 raise GrantError(msg, code="invalid-request")
         elif verb == "revoke":
-            _check_keys(request, {"verb"}, {"id", "source", "session"})
+            _check_keys(request, {"verb"}, {"id", "source", "address", "session"})
             if ("id" in request) == ("source" in request):
                 msg = "revoke takes exactly one of 'id' and 'source'"
+                raise GrantError(msg, code="invalid-request")
+            if "address" in request and "source" not in request:
+                msg = "revoke takes 'address' only with 'source'"
                 raise GrantError(msg, code="invalid-request")
         elif verb == "list":
             _check_keys(request, {"verb"}, {"session"})
@@ -452,7 +498,12 @@ class Service:
     def _grant(self, policy: Policy, request: Record, record: Callable[..., None]) -> Record:
         source, ttl = _string(request, "source"), cast("int", request["ttl"])
         target = Target.parse(_string(request, "target"))
-        interfaces = policy.resolve_source(source, _optional_string(request, "address"))
+        address = _optional_string(request, "address")
+        interfaces = (
+            policy.resolve_source(source, address)
+            if self.read_text is None
+            else policy.resolve_source(source, address, self.read_text)
+        )
         max_ttl = policy.max_ttl(source, target)
         if ttl > max_ttl:
             msg = f"a TTL of {ttl}s exceeds the {max_ttl}s the policy allows {source} to {target}"
@@ -467,7 +518,19 @@ class Service:
                         f" {element.target}); revoke it first"
                     )
                     raise GrantError(msg, code="conflict")
-            held = {element.grant for element in live if element.source == source}
+            # By address, so renaming a source never resets its count.
+            places = {(interface.network.bridge, interface.address) for interface in interfaces}
+            held = {element.grant for element in live if element.path.place in places}
+            macs = {path.place: path.mac for path in paths}
+            moved = sorted(
+                {e.grant for e in live if e.path.mac != macs.get(e.path.place, e.path.mac)}
+            )
+            if moved:
+                msg = (
+                    f"grants {', '.join(moved)} at this address belong to another MAC, an"
+                    f" earlier holder of the lease; revoke them first"
+                )
+                raise GrantError(msg, code="conflict")
             if len(held) >= policy.max_concurrent:
                 msg = f"{source} holds {len(held)} grants, the most the policy allows"
                 raise GrantError(msg, code="max-concurrent")
@@ -487,10 +550,13 @@ class Service:
                 target=str(target),
                 ttl=ttl,
                 address=interfaces[0].address,
+                mac=interfaces[0].mac,
             )
             # Routes first: a failed add leaves only a route the forward chain still guards.
             self._sync_routes(policy, [*live, *elements])
-            self.kernel.add(elements, ttl)
+            # The source stays as long as the longest grant it holds.
+            same = [e.expires for e in live if e.path.place in places]
+            self.kernel.add(elements, ttl, max([ttl, *same]))
         return {"grant": describe(elements)[0]}
 
     def _revoke(self, policy: Policy, request: Record, record: Callable[..., None]) -> Record:
@@ -503,12 +569,26 @@ class Service:
         ):
             msg = f"'{source}' is no source: expected sbx-<name> or guest:<name>"
             raise GrantError(msg, code="invalid-source")
+        places: set[tuple[str, ipaddress.IPv4Address]] = set()
+        address = _optional_string(request, "address")
+        if source is not None and (address is not None or not SANDBOX_PATTERN.fullmatch(source)):
+            interfaces = (
+                policy.identify(source, address)
+                if address is not None
+                else policy.sources.get(source, ())
+            )
+            places = {(interface.network.bridge, interface.address) for interface in interfaces}
         with self.lock():
             live = self.kernel.elements()
+            # A source's grants: those at its address, and those made under its name.
             chosen = [
                 element
                 for element in live
-                if (element.grant == grant if grant is not None else element.source == source)
+                if (
+                    element.grant == grant
+                    if grant is not None
+                    else element.source == source or element.path.place in places
+                )
             ]
             if grant is not None and not chosen:
                 msg = f"no live grant {grant}"
@@ -520,11 +600,20 @@ class Service:
                 grant=",".join(revoked),
                 source=source,
             )
-            self.kernel.remove(chosen)
+            kept = [element for element in live if element not in chosen]
+            held = {(e.path.place, e.path.mac) for e in kept}
+            emptied = list(
+                {
+                    (e.path.place, e.path.mac): e.path
+                    for e in chosen
+                    if (e.path.place, e.path.mac) not in held
+                }.values()
+            )
+            self.kernel.remove(chosen, emptied)
             for element in chosen:
                 for flow in self.kernel.flows(element.path):
                     self.kernel.drop_flow(flow)
-            self._sync_routes(policy, [element for element in live if element not in chosen])
+            self._sync_routes(policy, kept)
         return {"revoked": revoked}
 
     def _sync_routes(self, policy: Policy, elements: Sequence[Element]) -> None:

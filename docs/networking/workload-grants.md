@@ -21,10 +21,11 @@ _: {
 - `from` names `sbx-*`, every sandbox, or `guest:<name>`, a present guest.
 - `to` uses the link target grammar; a port narrows the entry to that port.
 - A host service target must be `grantable`; a guest target opens only its `grantable` ports, and a container service its declared ports.
-- `maxConcurrent` bounds the live grants of each source.
-- Evaluation fails on an unknown source or target, an ungrantable service, or a port outside the target's grantable ports.
+- `maxConcurrent` bounds the live grants at each source address, whatever name the caller gives.
+- Evaluation fails on an unknown source or target, an ungrantable service, a port outside the target's grantable ports, or a sandbox network without `libvirt.bindLeases`.
 
-Sandboxes are grant sources on a network with `libvirt.sessionAttach`; the helper accepts only addresses on such a network that no declared object holds.
+A sandbox is a grant source on a network with `libvirt.sessionAttach`, identified by its address and the MAC of its live DHCP lease there.
+A guest source is identified by its declared address and MAC; on a network without lease binding, its peers are trusted not to claim them.
 LAN, Mesh, and internet destinations cannot be named, so they are never grantable.
 
 ## Grant from the command line
@@ -39,45 +40,64 @@ workloads revoke <id>
 workloads revoke --all sbx-<name>
 ```
 
-- A source is `sbx-<name>`, `guest:<name>`, or a bare guest name.
-- Without a port, the grant opens every grantable port of the target.
+- A source is `sbx-<name>`, `guest:<name>`, or a bare guest name; for a sandbox, the command reads its address from `sbx info`.
+- Without a port, the grant opens every grantable port of the target, which for a range is every listener in it.
 - `--ttl` takes `s`, `m`, `h`, or `d`; the default is 30 minutes, and the rule's `maxTtl` caps it.
-- Every verb takes `--json`; failures print `{"error": {"code", "message"}}` and exit 1.
-- For a sandbox, the command reads its address from `sbx info`.
+- A grant permits all traffic on its path, established connections included, only until its TTL ends.
+  When it expires or is revoked, every connection it admitted stops at once; connections of other grants keep working.
+- An expired grant is gone, so `revoke` answers `not-found` for it.
+- `revoke --all` takes the grants at the source's address and those made under its name; `sbx destroy` and `sbx gc` run it for each sandbox they remove.
+- Every verb takes `--json`; failures print `{"error": {"code", "message"}}` and exit 1, or 2 for `usage`.
 
-| Code             | Cause                                    |
-| ---------------- | ---------------------------------------- |
-| `not-allowed`    | no rule names the source and target      |
-| `not-grantable`  | port or target outside the grantable set |
-| `ttl`            | TTL above the rule's `maxTtl`            |
-| `max-concurrent` | the source holds `maxConcurrent` grants  |
-| `conflict`       | another grant covers an overlapping path |
-| `no-address`     | the sandbox sits on no workload network  |
-| `os-error`       | the socket refused the caller            |
+| Code                | Cause                                    |
+| ------------------- | ---------------------------------------- |
+| `not-allowed`       | no rule names the source and target      |
+| `not-grantable`     | port or target outside the grantable set |
+| `already-reachable` | the target shares the source's bridge    |
+| `ttl`               | TTL above the rule's `maxTtl`            |
+| `max-concurrent`    | the address holds `maxConcurrent` grants |
+| `conflict`          | an overlapping or earlier holder's grant |
+| `no-address`        | the sandbox sits on no workload network  |
+| `no-lease`          | no live DHCP lease holds the address     |
+| `lease-file`        | the lease file does not parse            |
+| `not-found`         | no live grant has the id                 |
+| `invalid-target`    | the target does not parse                |
+| `invalid-source`    | the source does not parse or fit         |
+| `invalid-request`   | the helper's request grammar refused it  |
+| `policy-file`       | `/etc/workloads/grants.json` is broken   |
+| `journal`           | the journal refused the record           |
+| `nft`, `route`      | the grant table or rules are unusable    |
+| `conntrack`         | conntrack entries could not be removed   |
+| `no-helper`         | the host declares no grant rule          |
+| `helper`            | the helper answered no JSON object       |
+| `sbx`               | `sbx info` failed                        |
+| `os-error`          | the socket refused the caller            |
+| `usage`             | the command line does not parse          |
 
 ## What a grant renders
 
-- One element per port range in the set of `inet workload_grants`, keyed on ingress bridge, source address, destination address, protocol, and ports, with the TTL as its timeout.
-- The table's input and forward chains run one priority ahead of `inet workload` and mark the conntrack entry of each new connection that matches.
-- `inet workload` accepts the mark ahead of its drops, and `nixos-fw` accepts it too, since a drop in any base chain is final.
+- One element per port range in the `grants` set of `inet workload_grants`, keyed on ingress bridge, source address, destination address, protocol, and ports, with the TTL as its timeout.
+- One element in its `sources` set binds the ingress bridge and source address to the source's MAC for as long as its longest grant lives.
+- The table's chains run one priority ahead of `inet workload` and mark the conntrack entry of each new connection that matches both sets.
+- They drop every packet of a marked connection whose original tuple has left `grants`, in both directions, and every packet it sends from a MAC `sources` does not bind, so no expired or revoked connection lives on.
+- `inet workload` accepts the mark ahead of its drops, forwarding only into a `vn-*` bridge, and `nixos-fw` accepts it too, since a drop in any base chain is final.
 - A host service answers at the gateway of the source's network; a loopback service gets a gateway proxy on every network a rule's sources sit on.
 - A grant between two networks adds an `ip rule` each way ahead of the `workload-egress` band; the next grant or revoke removes the rules of expired grants.
-
-An established connection keeps its mark when the grant expires, until it closes.
-`workloads revoke` deletes the elements and then the marked conntrack entries on their ports, so a revoked connection stops at once.
+- Revoke also deletes the marked conntrack entries on the grant's ports.
 
 ## Survival across reloads
 
-`networking.nftables.tables` reloads delete and recreate each declared table, which would empty the set, so the grant table stays outside them.
+`networking.nftables.tables` reloads delete and recreate each declared table, which would empty the sets, so the grant table stays outside them.
 `workload-grants.service` owns it and loads it with `add` and `flush chain` only, which keeps the elements; a switch, an `nftables` reload or restart, and a restart of the unit all leave live grants in place.
 An `nftables` reload propagates to the unit, which recreates the chains when something deleted the table.
-A change to the set's type fails the unit until the table is recreated, as in the last section.
+A change to a set's type fails the unit until the table is recreated.
+With no rule declared, the unit deletes the table and the grant routes instead.
 
 ## The helper
 
 `workload-grantd.socket` listens on `/run/workloads/grant.sock`, owned by the owner and mode 0600, so only the owner and root connect.
 Each connection starts one `workload-grantd@` instance as root with `CAP_NET_ADMIN` as its only capability.
-It reads one JSON request, checks it against `/etc/workloads/grants.json`, and only adds or removes set elements, conntrack entries, and the grant routes.
+It reads one JSON request, checks it against `/etc/workloads/grants.json` and the sandbox network's lease file, and only adds or removes set elements, conntrack entries, and the grant routes.
 Before it applies a decision, it journals the caller's pid, uid, and command line, the agent session the client reports, and the decision.
 
 The allowlist is a guard rail, not a boundary, while the owner holds root-equivalent groups.
@@ -94,19 +114,9 @@ systemctl status workload-grants.service workload-grantd.socket
 journalctl -t workload-grant -n 20
 ```
 
-## Grant answers no-address
-
-Cause: the sandbox was created without a network, so `sbx info` reports no address.
-
-```sh
-sbx info <name> --json
-```
-
-Fix: create the sandbox on a network that sandboxes attach to.
-
 ## Grant succeeds but the connection times out
 
-Cause: the service listens elsewhere, the source's address differs from the one granted, or the route for a cross-network grant is missing.
+Cause: the service listens elsewhere, the sandbox took a new lease since the grant, or the route for a cross-network grant is missing.
 
 ```sh
 sudo nft list set inet workload_grants grants
@@ -114,7 +124,7 @@ ip rule | grep 'lookup main'
 ss -ltnp | grep <port>
 ```
 
-Fix: bind the service as its `bind` says, or revoke and grant again so the helper reads the current address and restores the routes.
+Fix: bind the service as its `bind` says, or revoke and grant again so the helper reads the current lease and restores the routes.
 
 ## Every grant fails with nft
 

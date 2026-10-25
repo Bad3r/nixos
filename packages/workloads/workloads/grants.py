@@ -3,9 +3,15 @@
 
 import fnmatch
 import ipaddress
+import json
 import re
+import time
 from dataclasses import dataclass
-from typing import cast
+from pathlib import Path as FilePath
+from typing import TYPE_CHECKING, cast
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 type Record = dict[str, object]
 
@@ -14,6 +20,7 @@ SANDBOX_PATTERN = re.compile(r"sbx-[a-z0-9][a-z0-9-]{0,30}")
 GUEST_PATTERN = re.compile(r"guest:([a-z0-9][a-z0-9-]*)")
 DURATION_PATTERN = re.compile(r"([1-9][0-9]*)([smhd]?)")
 DURATION_UNITS = {"": 1, "s": 1, "m": 60, "h": 3600, "d": 86400}
+MAC_PATTERN = re.compile(r"[0-9a-f]{2}(:[0-9a-f]{2}){5}")
 PROTOCOLS = ("tcp", "udp")
 MAX_PORT = 65535
 
@@ -124,14 +131,17 @@ class Network:
     gateway: ipaddress.IPv4Address
     isolate_peers: bool
     sandboxes: bool
+    # The DHCP lease file of a sandbox network.
+    leases: str | None
 
 
 @dataclass(frozen=True)
 class Interface:
-    """An object's address on one network."""
+    """An object's address on one network, and the MAC it sends from when it is a source."""
 
     network: Network
     address: ipaddress.IPv4Address
+    mac: str | None = None
 
 
 @dataclass(frozen=True)
@@ -144,15 +154,21 @@ class Endpoint:
 
 @dataclass(frozen=True, order=True)
 class Path:
-    """One set element: ingress bridge, source, destination, and ports."""
+    """One set element: ingress bridge, source MAC and address, destination, and ports."""
 
     bridge: str
+    mac: str
     source: ipaddress.IPv4Address
     destination: ipaddress.IPv4Address
     ports: Ports
 
+    @property
+    def place(self) -> tuple[str, ipaddress.IPv4Address]:
+        """Ingress bridge and source address: the identity of a source."""
+        return self.bridge, self.source
+
     def conflicts(self, other: Path) -> bool:
-        """Whether both would match the same packet."""
+        """Whether both would match the same connection, whichever MAC opened it."""
         return (self.bridge, self.source, self.destination) == (
             other.bridge,
             other.source,
@@ -163,6 +179,7 @@ class Path:
         """The JSON form."""
         return {
             "bridge": self.bridge,
+            "mac": self.mac,
             "source": str(self.source),
             "destination": str(self.destination),
             "proto": self.ports.proto,
@@ -192,6 +209,29 @@ class Rule:
         return any(fnmatch.fnmatchcase(source, pattern) for pattern in self.sources) and any(
             entry.covers(target) for entry in self.targets
         )
+
+
+def leased_mac(text: str, address: str, now: float) -> str | None:
+    """The MAC a libvirt lease file binds to the address, while the lease lives."""
+    if not text.strip():
+        return None
+    for lease in cast("list[Record]", json.loads(text)):
+        expiry = int(cast("int", lease["expiry-time"]))
+        # libvirt's own reading: an expiry of 0 or below never expires.
+        if lease["ip-address"] == address and (expiry <= 0 or expiry > now):
+            mac = str(lease["mac-address"]).lower()
+            if MAC_PATTERN.fullmatch(mac) is None:
+                msg = f"the lease of {address} names no MAC: {mac!r}"
+                raise GrantError(msg, code="lease-file")
+            return mac
+    return None
+
+
+def _read_text(path: str) -> str:
+    try:
+        return FilePath(path).read_text()
+    except FileNotFoundError:
+        return ""
 
 
 def _ports(value: object) -> tuple[Ports, ...]:
@@ -226,6 +266,7 @@ class Policy:
                     ipaddress.IPv4Address(str(network["gateway"])),
                     bool(network["isolatePeers"]),
                     bool(network["sandboxes"]),
+                    None if network.get("leases") is None else str(network["leases"]),
                 )
                 for name, network in cast("dict[str, Record]", record["networks"]).items()
             }
@@ -235,6 +276,7 @@ class Policy:
                     Interface(
                         networks[str(interface["network"])],
                         ipaddress.IPv4Address(str(interface["address"])),
+                        None if interface.get("mac") is None else str(interface["mac"]).lower(),
                     )
                     for interface in cast("list[Record]", value)
                 )
@@ -279,8 +321,8 @@ class Policy:
             (network for network in self.networks.values() if address in network.subnet), None
         )
 
-    def resolve_source(self, source: str, address: str | None) -> tuple[Interface, ...]:
-        """Return the source's interfaces; a sandbox brings its own address."""
+    def identify(self, source: str, address: str | None) -> tuple[Interface, ...]:
+        """The source's interfaces as named; a sandbox brings its own address."""
         if SANDBOX_PATTERN.fullmatch(source):
             if address is None:
                 msg = f"{source} has no address on a workload network"
@@ -312,6 +354,32 @@ class Policy:
             msg = f"{source} is named by no grant rule"
             raise GrantError(msg, code="not-allowed")
         return interfaces
+
+    def resolve_source(
+        self,
+        source: str,
+        address: str | None,
+        read_text: Callable[[str], str] = _read_text,
+        now: Callable[[], float] = time.time,
+    ) -> tuple[Interface, ...]:
+        """The source's interfaces with the MAC each sends from; a sandbox needs a live lease."""
+        interfaces = self.identify(source, address)
+        if not SANDBOX_PATTERN.fullmatch(source):
+            return interfaces
+        (interface,) = interfaces
+        network = interface.network
+        if network.leases is None:
+            msg = f"{network.name} names no lease file"
+            raise GrantError(msg, code="policy-file")
+        try:
+            mac = leased_mac(read_text(network.leases), str(interface.address), now())
+        except (KeyError, TypeError, ValueError, AttributeError) as error:
+            msg = f"{network.leases} is no libvirt lease file: {error!r}"
+            raise GrantError(msg, code="lease-file") from error
+        if mac is None:
+            msg = f"no live DHCP lease on {network.bridge} holds {interface.address}"
+            raise GrantError(msg, code="no-lease")
+        return (Interface(network, interface.address, mac),)
 
     def max_ttl(self, source: str, target: Target) -> int:
         """The longest TTL any rule naming both allows."""
@@ -354,8 +422,12 @@ class Policy:
                     # Same-bridge peers already reach each other.
                     continue
                 destination = endpoint.interfaces[0].address
+            if interface.mac is None:
+                msg = f"the policy names no MAC for the source on {network.name}"
+                raise GrantError(msg, code="policy-file")
             paths.extend(
-                Path(network.bridge, interface.address, destination, spec) for spec in ports
+                Path(network.bridge, interface.mac, interface.address, destination, spec)
+                for spec in ports
             )
         if not paths:
             msg = f"{target} is already reachable on the source's network"

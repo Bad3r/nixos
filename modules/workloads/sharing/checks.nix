@@ -19,6 +19,7 @@ in
           trust ? "trusted",
           links ? [ ],
           grants ? [ ],
+          bindLeases ? true,
         }:
         let
           system = inputs.nixpkgs.lib.nixosSystem {
@@ -65,6 +66,20 @@ in
                         svc = {
                           id = 2;
                           podman.enable = true;
+                        };
+                        sbx = {
+                          id = 3;
+                          isolatePeers = true;
+                          libvirt = {
+                            enable = true;
+                            uuid = "00000000-0000-4000-8000-000000000103";
+                            dhcp = {
+                              start = 2;
+                              end = 254;
+                            };
+                            sessionAttach = true;
+                            inherit bindLeases;
+                          };
                         };
                       };
 
@@ -180,6 +195,16 @@ in
         assert fails "declares no grantable ports" (grantFailures [ "service:web" ]);
         assert fails "no such workloads.host.services entry" (grantFailures [ "host:nope" ]);
         assert fails "expected host:<service>" (grantFailures [ "10.0.0.1:22" ]);
+        assert fails "which needs libvirt.bindLeases" (failuresWith {
+          links = [ "service:web:80" ];
+          bindLeases = false;
+          grants = [
+            {
+              from = [ "sbx-*" ];
+              to = [ "host:dev" ];
+            }
+          ];
+        });
         pkgs.runCommand "workloads-sharing-eval" { } "touch $out";
     };
 }

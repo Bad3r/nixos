@@ -11,11 +11,12 @@ from typing import TYPE_CHECKING, cast
 from workloads.grantd import Caller, Element, Flow, NftKernel, Service, Tools
 from workloads.grants import GrantError, Path, Ports, Record, Route
 
-from tests.fixtures import policy
+from tests.fixtures import SANDBOX_MAC, policy, read_leases
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
 
+MAC = SANDBOX_MAC
 CALLER = Caller(pid=4242, uid=1000, cmdline="workloads grant sbx-ab12 host:dev")
 SANDBOX = ipaddress.IPv4Address("172.16.2.50")
 GATEWAY = ipaddress.IPv4Address("172.16.2.1")
@@ -31,20 +32,25 @@ class FakeKernel:
         self.live: list[Element] = []
         self.conntrack: list[Flow] = []
         self.rules: set[Route] = set()
+        self.sources: dict[tuple[str, str, ipaddress.IPv4Address], int] = {}
 
     def elements(self) -> list[Element]:
         """Live elements."""
         return list(self.live)
 
-    def add(self, elements: Sequence[Element], ttl: int) -> None:
+    def add(self, elements: Sequence[Element], ttl: int, source_ttl: int) -> None:
         """Record the add."""
         self.events.append(f"add {len(elements)} ttl={ttl}")
         self.live.extend(elements)
+        for element in elements:
+            self.sources[element.path.bridge, element.path.mac, element.path.source] = source_ttl
 
-    def remove(self, elements: Sequence[Element]) -> None:
+    def remove(self, elements: Sequence[Element], sources: Sequence[Path]) -> None:
         """Record the removal."""
         self.events.append(f"remove {len(elements)}")
         self.live = [element for element in self.live if element not in elements]
+        for path in sources:
+            del self.sources[path.bridge, path.mac, path.source]
 
     def flows(self, path: Path) -> list[Flow]:
         """Flows between the path's addresses on its ports."""
@@ -88,7 +94,14 @@ class Harness:
         self.kernel = FakeKernel(self.events)
         self.fail_journal = False
         ids = (f"{number:08x}" for number in itertools.count(1))
-        self.service = Service(policy, self.kernel, self.log, self.lock, lambda: next(ids))
+        self.service = Service(
+            policy,
+            self.kernel,
+            self.log,
+            self.lock,
+            new_id=lambda: next(ids),
+            read_text=read_leases,
+        )
 
     def log(self, message: str, fields: dict[str, object]) -> None:
         """Keep the entry, or fail like a missing journal socket."""
@@ -144,8 +157,10 @@ class GrantTest(unittest.TestCase):
             harness.events, ["lock", "journal granted", "routes 30900", "add 1 ttl=900", "unlock"]
         )
         (element,) = harness.kernel.live
-        self.assertEqual(element.path, Path("vn-sbx", SANDBOX, GATEWAY, Ports("tcp", 8080, 8080)))
-        self.assertEqual(element.comment, "00000001 sbx-ab12 host:dev:8080")
+        self.assertEqual(
+            element.path, Path("vn-sbx", MAC, SANDBOX, GATEWAY, Ports("tcp", 8080, 8080))
+        )
+        self.assertEqual(element.comment, f"00000001 sbx-ab12 host:dev:8080 {MAC}")
         entry = harness.journal[0]
         self.assertEqual(
             (entry["caller_pid"], entry["caller_uid"], entry["verb"], entry["address"]),
@@ -219,6 +234,60 @@ class GrantTest(unittest.TestCase):
         harness.kernel.rules.add(Route("vn-sbx", SANDBOX, ipaddress.IPv4Address("172.16.1.99")))
         harness.grant("host:dev")
         self.assertEqual(harness.kernel.rules, set())
+
+
+class IdentityTest(unittest.TestCase):
+    """A sandbox is its leased address and MAC, whatever name a caller gives."""
+
+    def test_count_by_address(self) -> None:
+        """Renaming the source does not reset maxConcurrent."""
+        harness = Harness()
+        harness.grant("host:dev:8000", source="sbx-n0")
+        harness.grant("host:dev:8001", source="sbx-n1")
+        self.assertEqual(code(harness.grant("host:dev:8002", source="sbx-n2")), "max-concurrent")
+
+    def test_revoke_by_address(self) -> None:
+        """Revoking a source takes the grants at the source's address under any name."""
+        harness = Harness()
+        harness.grant("host:dev:8000", source="sbx-n0")
+        answer = harness.ask({"verb": "revoke", "source": "sbx-n1", "address": str(SANDBOX)})
+        self.assertEqual(answer, {"revoked": ["00000001"]})
+
+    def test_moved_lease(self) -> None:
+        """A new MAC at an address whose earlier holder still has grants is refused."""
+        harness = Harness()
+        harness.grant("host:dev:8000")
+        moved = json.dumps(
+            [{"ip-address": "172.16.2.50", "mac-address": "52:54:00:00:02:99", "expiry-time": 0}]
+        )
+
+        def read_moved(path: str) -> str:
+            del path
+            return moved
+
+        harness.service.read_text = read_moved
+        answer = harness.grant("host:dev:8001")
+        self.assertEqual(code(answer), "conflict")
+        self.assertIn("another MAC", str(answer["error"]))
+
+    def test_source_lifetime(self) -> None:
+        """The source outlives its longest grant and goes with its last one."""
+        harness = Harness()
+        harness.grant("host:dev:8000", ttl=900)
+        harness.grant("host:dev:8001", ttl=60)
+        place = ("vn-sbx", MAC, SANDBOX)
+        self.assertEqual(harness.kernel.sources[place], 900)
+        harness.ask({"verb": "revoke", "id": "00000001"})
+        self.assertIn(place, harness.kernel.sources)
+        harness.ask({"verb": "revoke", "id": "00000002"})
+        self.assertNotIn(place, harness.kernel.sources)
+
+    def test_no_lease(self) -> None:
+        """An address no live lease holds is refused."""
+        harness = Harness()
+        answer = harness.grant("host:dev", address="172.16.2.51")
+        self.assertEqual(code(answer), "no-lease")
+        self.assertEqual(harness.kernel.live, [])
 
 
 class RevokeTest(unittest.TestCase):
@@ -327,15 +396,23 @@ LISTING = {
                             },
                             "timeout": 1800,
                             "expires": 1799,
-                            "comment": "0000000a sbx-ab12 host:dev",
+                            "comment": "0000000a sbx-ab12 host:dev 52:54:00:00:02:50",
                         }
                     },
                     {
                         "elem": {
-                            "val": {"concat": ["vn-sbx", "172.16.2.50", "172.16.1.10", "udp", 53]},
+                            "val": {
+                                "concat": [
+                                    "vn-sbx",
+                                    "172.16.2.50",
+                                    "172.16.1.10",
+                                    "udp",
+                                    53,
+                                ]
+                            },
                             "timeout": 60,
                             "expires": 12,
-                            "comment": "0000000b sbx-ab12 guest:dev:53/udp",
+                            "comment": "0000000b sbx-ab12 guest:dev:53/udp 52:54:00:00:02:50",
                         }
                     },
                 ],
@@ -372,6 +449,8 @@ class Recorder:
 
 TOOLS = Tools(nft="/nft", conntrack="/conntrack", ip="/ip")
 SET_NAME = "inet workload_grants grants"
+SOURCES_NAME = "inet workload_grants sources"
+SOURCE_KEY = '"vn-sbx" . 52:54:00:00:02:50 . 172.16.2.50'
 KEY = '"vn-sbx" . 172.16.2.50 . 172.16.2.1 . tcp . 8000-8999'
 
 
@@ -412,23 +491,27 @@ class NftKernelTest(unittest.TestCase):
         recorder = Recorder({})
         kernel = NftKernel(TOOLS, recorder)
         element = Element(
-            Path("vn-sbx", SANDBOX, GATEWAY, Ports("tcp", 8000, 8999)),
+            Path("vn-sbx", MAC, SANDBOX, GATEWAY, Ports("tcp", 8000, 8999)),
             "0000000a",
             "sbx-ab12",
             "host:dev",
             0,
         )
-        kernel.add([element], 600)
-        kernel.remove([element])
+        kernel.add([element], 600, 900)
+        kernel.remove([element], [element.path])
         kernel.add_route(30900, Route("vn-sbx", SANDBOX, DEV))
         self.assertEqual(
             [stdin for _, stdin in recorder.calls[:2]],
             [
                 (
                     f"add element {SET_NAME} {{ {KEY} timeout 600s"
-                    ' comment "0000000a sbx-ab12 host:dev" }\n'
+                    f' comment "0000000a sbx-ab12 host:dev {MAC}" }}\n'
+                    f"add element {SOURCES_NAME} {{ {SOURCE_KEY} timeout 900s }}\n"
                 ),
-                f"destroy element {SET_NAME} {{ {KEY} }}\n",
+                (
+                    f"destroy element {SET_NAME} {{ {KEY} }}\n"
+                    f"destroy element {SOURCES_NAME} {{ {SOURCE_KEY} }}\n"
+                ),
             ],
         )
         self.assertEqual(
@@ -456,7 +539,7 @@ class NftKernelTest(unittest.TestCase):
             {"-L -f": (0, CONNTRACK, ""), "-D -f": (1, "", "0 flow entries have been deleted.")}
         )
         kernel = NftKernel(TOOLS, recorder)
-        (flow,) = kernel.flows(Path("vn-sbx", SANDBOX, GATEWAY, Ports("tcp", 8000, 8999)))
+        (flow,) = kernel.flows(Path("vn-sbx", MAC, SANDBOX, GATEWAY, Ports("tcp", 8000, 8999)))
         self.assertEqual((flow.sport, flow.dport), (40000, 8080))
         kernel.drop_flow(flow)
         self.assertEqual(recorder.calls[0][0][-2:], ["-m", "0x00100000/0x00f00000"])
@@ -464,6 +547,26 @@ class NftKernelTest(unittest.TestCase):
         failing = NftKernel(TOOLS, Recorder({"-D -f": (1, "", "Operation not permitted")}))
         with self.assertRaises(GrantError):
             failing.drop_flow(flow)
+
+    def test_foreign_route(self) -> None:
+        """A rule at the grant preference that no grant made stops the helper."""
+        rules = [{"priority": 30900, "iif": "eth0", "table": "100"}]
+        kernel = NftKernel(TOOLS, Recorder({"-j rule": (0, json.dumps(rules), "")}))
+        with self.assertRaisesRegex(GrantError, "no grant made"):
+            kernel.routes(30900)
+
+    def test_tool_failures(self) -> None:
+        """A timed-out tool and a malformed conntrack line fail with the tool's code."""
+        hung = NftKernel(TOOLS, Recorder({"-j list": (124, "", "timed out after 10s")}))
+        with self.assertRaisesRegex(GrantError, "timed out") as caught:
+            hung.elements()
+        self.assertEqual(caught.exception.code, "nft")
+        garbled = NftKernel(
+            TOOLS, Recorder({"-L -f": (0, "tcp src=a dst=b sport=x dport=y\n", "")})
+        )
+        with self.assertRaises(GrantError) as caught:
+            garbled.flows(Path("vn-sbx", MAC, SANDBOX, GATEWAY, Ports("tcp", 1, 2)))
+        self.assertEqual(caught.exception.code, "conntrack")
 
     def test_routes(self) -> None:
         """Rules at the preference parse into routes."""

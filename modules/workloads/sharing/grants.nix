@@ -16,23 +16,40 @@ let
       guestEndpoints = sharing.endpoints.guest or { };
 
       # The bit the grant chains set on connections they admit; no other table uses ct mark.
-      markAccept = "ct mark & 0x00f00000 == 0x00100000 accept";
-      markGrant = "ct state new iifname . ip saddr . ip daddr . meta l4proto . th dport @grants ct mark set ct mark & 0xff0fffff | 0x00100000";
+      marked = "ct mark & 0x00f00000 == 0x00100000";
+      markAccept = "${marked} accept";
+      # A grant admits only the MAC whose lease named the source address.
+      markGrant = "ct state new iifname . ether saddr . ip saddr @sources iifname . ip saddr . ip daddr . meta l4proto . th dport @grants ct mark set ct mark & 0xff0fffff | 0x00100000";
+      # A marked connection lives only while its own element does: the
+      # original tuple, not the shared mark, names the grant.
+      original = "ct original ip saddr . ct original ip daddr . ct original protocol . ct original proto-dst";
+      dropSent = "${marked} ct direction original iifname . ${original} != @grants drop";
+      dropMoved = "${marked} ct direction original iifname . ether saddr . ip saddr != @sources drop";
+      dropReplies = "${marked} ct direction reply oifname . ${original} != @grants drop";
       # Ahead of the workload-egress band, 31000-31999.
       routePreference = 30900;
 
-      # Idempotent: `add` keeps the set and its elements, `flush chain` only the rules.
+      # Idempotent: `add` keeps the sets and their elements, `flush chain` only the rules.
       tableFile = pkgs.writeTextFile {
         name = "workload-grants.nft";
         text = ''
           add table inet workload_grants
           add set inet workload_grants grants { typeof iifname . ip saddr . ip daddr . meta l4proto . th dport; flags interval, timeout; }
+          add set inet workload_grants sources { typeof iifname . ether saddr . ip saddr; flags timeout; }
           add chain inet workload_grants input { type filter hook input priority filter - 2; policy accept; }
           add chain inet workload_grants forward { type filter hook forward priority filter - 2; policy accept; }
+          add chain inet workload_grants output { type filter hook output priority filter - 2; policy accept; }
           flush chain inet workload_grants input
           flush chain inet workload_grants forward
+          flush chain inet workload_grants output
+          add rule inet workload_grants input ${dropSent}
+          add rule inet workload_grants input ${dropMoved}
           add rule inet workload_grants input ${markGrant}
+          add rule inet workload_grants forward ${dropSent}
+          add rule inet workload_grants forward ${dropMoved}
+          add rule inet workload_grants forward ${dropReplies}
           add rule inet workload_grants forward ${markGrant}
+          add rule inet workload_grants output ${dropReplies}
         '';
         checkPhase = ''
           LD_PRELOAD="${pkgs.buildPackages.lklWithFirewall.lib}/lib/liblkl-hijack.so" \
@@ -116,7 +133,7 @@ let
       );
 
       interfaceRecords = map (interface: {
-        inherit (interface) network address;
+        inherit (interface) network address mac;
       });
       portRecords = map (spec: {
         inherit (spec) from to proto;
@@ -137,6 +154,8 @@ let
             isolatePeers
             ;
           sandboxes = sandboxNetworks ? ${name};
+          leases =
+            if sandboxNetworks ? ${name} then "/var/lib/libvirt/dnsmasq/${network.bridge}.status" else null;
         }) networks;
         sources = lib.listToAttrs (
           map (name: lib.nameValuePair name (interfaceRecords guestEndpoints.${name}.interfaces)) (
@@ -214,6 +233,27 @@ let
         ) "${prefix}: from ${source}: expected sbx-* or guest:<name> of a present guest"
       ) sources;
 
+      sandboxRules = lib.any (rule: lib.elem "sbx-*" rule.from) cfg.allow;
+
+      # Grants match a sandbox by its leased address and MAC, which only lease binding pins to it.
+      leaseAssertions = lib.optionals sandboxRules (
+        lib.mapAttrsToList (
+          name: network:
+          check (network.libvirt.bindLeases or false
+          ) "${prefix}: sbx-* sources sit on workloads.networks.${name}, which needs libvirt.bindLeases"
+        ) sandboxNetworks
+      );
+
+      macAssertions = map (
+        source:
+        let
+          name = sourceGuest source;
+        in
+        check (lib.all (interface: interface.mac != null) (
+          guestEndpoints.${name}.interfaces or [ ]
+        )) "${prefix}: from ${source}: the guest has an interface without a MAC"
+      ) (lib.filter (source: sourceGuest source != null) sources);
+
       targetAssertion =
         text:
         let
@@ -274,9 +314,11 @@ let
           default = [ ];
           description = ''
             Runtime grants the `workloads grant` command may open without a
-            prompt. A grant matches the ingress bridge, both addresses, the
-            protocol, and the ports, and expires with its TTL. Declaring a
-            rule starts `workload-grantd`.
+            prompt. A grant matches the ingress bridge, the source's MAC and
+            address, the destination, the protocol, and the ports. It permits
+            all traffic on that path only until its TTL ends: at expiry or
+            revoke, every connection it admitted stops, and no other grant's.
+            Declaring a rule starts `workload-grantd`.
           '';
         };
 
@@ -287,93 +329,122 @@ let
         };
       };
 
-      config = lib.mkIf (cfg.allow != [ ]) {
-        assertions = sourceAssertions ++ map targetAssertion targetTexts;
-
-        programs.workloads.extended.enable = lib.mkOverride 1050 true;
-
-        environment.etc."workloads/grants.json".text = builtins.toJSON policy;
-
-        workloads.sharing.gatewayProxies = grantProxies;
-        workloads.nftables = {
-          inputRules = markAccept;
-          forwardRules = markAccept;
-        };
-        # A drop in any base chain is final, so nixos-fw accepts granted ports too.
-        networking.firewall.extraInputRules = markAccept;
-
-        systemd = {
-          services.workload-grants = {
-            # Outside networking.nftables.tables, whose reloads delete and
-            # recreate each table and would empty the set.
-            description = "Netfilter table for workload grants";
+      config = lib.mkMerge [
+        # The table and the routes outlive the service, so dropping the last
+        # rule removes them instead of leaving marks no chain honours.
+        (lib.mkIf (cfg.allow == [ ] && networks != { }) {
+          systemd.services.workload-grants = {
+            description = "Remove the workload grant table and routes";
             wantedBy = [ "multi-user.target" ];
-            requires = [ "nftables.service" ];
             after = [ "nftables.service" ];
-            # A reload restores the chains after a flushed ruleset.
-            unitConfig.ReloadPropagatedFrom = [ "nftables.service" ];
+            path = [
+              pkgs.iproute2
+              pkgs.nftables
+            ];
             serviceConfig = {
               Type = "oneshot";
               RemainAfterExit = true;
-              ExecStart = loadTable;
-              ExecReload = loadTable;
             };
+            script = ''
+              nft destroy table inet workload_grants
+              while ip rule show pref ${toString routePreference} | grep -q .; do
+                ip rule del pref ${toString routePreference}
+              done
+            '';
           };
+        })
 
-          sockets.workload-grantd = {
-            description = "Workload grant helper socket";
-            wantedBy = [ "sockets.target" ];
-            listenStreams = [ "/run/workloads/grant.sock" ];
-            socketConfig = {
-              Accept = true;
-              SocketUser = metaOwner.username;
-              SocketMode = "0600";
-              DirectoryMode = "0755";
-              MaxConnections = 16;
-            };
-          };
+        (lib.mkIf (cfg.allow != [ ]) {
+          assertions =
+            sourceAssertions ++ leaseAssertions ++ macAssertions ++ map targetAssertion targetTexts;
 
-          services."workload-grantd@" = {
-            description = "Workload grant helper";
-            wants = [ "workload-grants.service" ];
-            after = [ "workload-grants.service" ];
-            serviceConfig = {
-              ExecStart = "${config.programs.workloads.extended.package}/bin/workload-grantd";
-              StandardInput = "socket";
-              StandardOutput = "socket";
-              StandardError = "journal";
-              SyslogIdentifier = "workload-grant";
-              RuntimeMaxSec = 30;
-              CapabilityBoundingSet = [ "CAP_NET_ADMIN" ];
-              ReadWritePaths = [ "/run/workloads" ];
-              UMask = "0077";
-              IPAddressDeny = "any";
-              LockPersonality = true;
-              MemoryDenyWriteExecute = true;
-              NoNewPrivileges = true;
-              PrivateDevices = true;
-              PrivateTmp = true;
-              ProtectClock = true;
-              ProtectControlGroups = true;
-              ProtectHome = true;
-              ProtectHostname = true;
-              ProtectKernelLogs = true;
-              ProtectKernelModules = true;
-              ProtectKernelTunables = true;
-              ProtectSystem = "strict";
-              RestrictAddressFamilies = [
-                "AF_UNIX"
-                "AF_NETLINK"
-              ];
-              RestrictNamespaces = true;
-              RestrictRealtime = true;
-              RestrictSUIDSGID = true;
-              SystemCallArchitectures = "native";
-              SystemCallFilter = [ "@system-service" ];
+          programs.workloads.extended.enable = lib.mkOverride 1050 true;
+
+          environment.etc."workloads/grants.json".text = builtins.toJSON policy;
+
+          workloads.sharing.gatewayProxies = grantProxies;
+          workloads.nftables = {
+            inputRules = markAccept;
+            # A destination bridge that is gone leaves the main table's default route.
+            forwardRules = ''oifname "vn-*" ${markAccept}'';
+            serviceTables = [ "inet workload_grants" ];
+          };
+          # A drop in any base chain is final, so nixos-fw accepts granted ports too.
+          networking.firewall.extraInputRules = markAccept;
+
+          systemd = {
+            services.workload-grants = {
+              # Outside networking.nftables.tables, whose reloads delete and
+              # recreate each table and would empty the set.
+              description = "Netfilter table for workload grants";
+              wantedBy = [ "multi-user.target" ];
+              requires = [ "nftables.service" ];
+              after = [ "nftables.service" ];
+              # A reload restores the chains after a flushed ruleset.
+              unitConfig.ReloadPropagatedFrom = [ "nftables.service" ];
+              serviceConfig = {
+                Type = "oneshot";
+                RemainAfterExit = true;
+                ExecStart = loadTable;
+                ExecReload = loadTable;
+              };
+            };
+
+            sockets.workload-grantd = {
+              description = "Workload grant helper socket";
+              wantedBy = [ "sockets.target" ];
+              listenStreams = [ "/run/workloads/grant.sock" ];
+              socketConfig = {
+                Accept = true;
+                SocketUser = metaOwner.username;
+                SocketMode = "0600";
+                DirectoryMode = "0755";
+                MaxConnections = 16;
+              };
+            };
+
+            services."workload-grantd@" = {
+              description = "Workload grant helper";
+              wants = [ "workload-grants.service" ];
+              after = [ "workload-grants.service" ];
+              serviceConfig = {
+                ExecStart = "${config.programs.workloads.extended.package}/bin/workload-grantd";
+                StandardInput = "socket";
+                StandardOutput = "socket";
+                StandardError = "journal";
+                SyslogIdentifier = "workload-grant";
+                RuntimeMaxSec = 60;
+                CapabilityBoundingSet = [ "CAP_NET_ADMIN" ];
+                ReadWritePaths = [ "/run/workloads" ];
+                UMask = "0077";
+                IPAddressDeny = "any";
+                LockPersonality = true;
+                MemoryDenyWriteExecute = true;
+                NoNewPrivileges = true;
+                PrivateDevices = true;
+                PrivateTmp = true;
+                ProtectClock = true;
+                ProtectControlGroups = true;
+                ProtectHome = true;
+                ProtectHostname = true;
+                ProtectKernelLogs = true;
+                ProtectKernelModules = true;
+                ProtectKernelTunables = true;
+                ProtectSystem = "strict";
+                RestrictAddressFamilies = [
+                  "AF_UNIX"
+                  "AF_NETLINK"
+                ];
+                RestrictNamespaces = true;
+                RestrictRealtime = true;
+                RestrictSUIDSGID = true;
+                SystemCallArchitectures = "native";
+                SystemCallFilter = [ "@system-service" ];
+              };
             };
           };
-        };
-      };
+        })
+      ];
     };
 in
 {

@@ -15,7 +15,7 @@ from workloads.grants import (
     parse_duration,
 )
 
-from tests.fixtures import POLICY, policy
+from tests.fixtures import POLICY, SANDBOX_MAC, policy, read_leases
 
 
 def address(text: str) -> ipaddress.IPv4Address:
@@ -69,10 +69,25 @@ class SourceTest(unittest.TestCase):
 
     def test_sandbox(self) -> None:
         """A free address on a sandbox network resolves to that network."""
-        (interface,) = policy().resolve_source("sbx-ab12", "172.16.2.50")
+        (interface,) = policy().resolve_source("sbx-ab12", "172.16.2.50", read_leases)
         self.assertEqual(
             (interface.network.bridge, interface.address), ("vn-sbx", address("172.16.2.50"))
         )
+
+    def test_lease(self) -> None:
+        """The MAC comes from a live lease; no lease, an expired one, or a bad file is refused."""
+        (interface,) = policy().resolve_source("sbx-ab12", "172.16.2.50", read_leases)
+        self.assertEqual(interface.mac, SANDBOX_MAC)
+        for claimed in ("172.16.2.51", "172.16.2.60"):
+            with self.assertRaises(GrantError, msg=claimed) as caught:
+                policy().resolve_source("sbx-ab12", claimed, read_leases)
+            self.assertEqual(caught.exception.code, "no-lease")
+        with self.assertRaises(GrantError) as caught:
+            policy().resolve_source("sbx-ab12", "172.16.2.50", lambda _: "{")
+        self.assertEqual(caught.exception.code, "lease-file")
+        with self.assertRaises(GrantError) as caught:
+            policy().resolve_source("sbx-ab12", "172.16.2.50", lambda _: "")
+        self.assertEqual(caught.exception.code, "no-lease")
 
     def test_sandbox_refusals(self) -> None:
         """Gateways, reserved, foreign, and non-sandbox addresses are refused."""
@@ -85,15 +100,15 @@ class SourceTest(unittest.TestCase):
             "10.0.0.5",
         ):
             with self.assertRaises(GrantError, msg=claimed) as caught:
-                policy().resolve_source("sbx-ab12", claimed)
+                policy().resolve_source("sbx-ab12", claimed, read_leases)
             self.assertEqual(caught.exception.code, "invalid-source")
         with self.assertRaises(GrantError) as caught:
-            policy().resolve_source("sbx-ab12", None)
+            policy().resolve_source("sbx-ab12", None, read_leases)
         self.assertEqual(caught.exception.code, "no-address")
 
     def test_guest(self) -> None:
         """A guest named by a rule resolves from the policy; others are refused."""
-        (interface,) = policy().resolve_source("guest:dev", None)
+        (interface,) = policy().resolve_source("guest:dev", None, read_leases)
         self.assertEqual(interface.address, address("172.16.1.10"))
         cases = {
             ("guest:web", None): "not-allowed",
@@ -103,7 +118,7 @@ class SourceTest(unittest.TestCase):
         }
         for (source, claimed), code in cases.items():
             with self.assertRaises(GrantError, msg=source) as caught:
-                policy().resolve_source(source, claimed)
+                policy().resolve_source(source, claimed, read_leases)
             self.assertEqual(caught.exception.code, code)
 
 
@@ -143,12 +158,13 @@ class PathTest(unittest.TestCase):
     def test_host(self) -> None:
         """A host service sits at the source network's gateway."""
         current = self.sandbox()
-        interfaces = current.resolve_source("sbx-ab12", "172.16.2.50")
+        interfaces = current.resolve_source("sbx-ab12", "172.16.2.50", read_leases)
         self.assertEqual(
             current.paths(interfaces, Target.parse("host:dev")),
             [
                 Path(
                     "vn-sbx",
+                    SANDBOX_MAC,
                     address("172.16.2.50"),
                     address("172.16.2.1"),
                     Ports("tcp", 8000, 8999),
@@ -162,7 +178,7 @@ class PathTest(unittest.TestCase):
     def test_ungrantable(self) -> None:
         """Ports outside the target's grantable ones and unknown targets are refused."""
         current = self.sandbox()
-        interfaces = current.resolve_source("sbx-ab12", "172.16.2.50")
+        interfaces = current.resolve_source("sbx-ab12", "172.16.2.50", read_leases)
         for target in ("host:dev:9000", "host:dev:8080/udp", "guest:dev:8081", "host:secret"):
             with self.assertRaises(GrantError, msg=target) as caught:
                 current.paths(interfaces, Target.parse(target))
@@ -171,7 +187,7 @@ class PathTest(unittest.TestCase):
     def test_guest_across_networks(self) -> None:
         """A guest on another network gets its address and a route each way."""
         current = self.sandbox()
-        interfaces = current.resolve_source("sbx-ab12", "172.16.2.50")
+        interfaces = current.resolve_source("sbx-ab12", "172.16.2.50", read_leases)
         (path,) = current.paths(interfaces, Target.parse("guest:dev:8080"))
         self.assertEqual(path.destination, address("172.16.1.10"))
         self.assertEqual(
@@ -185,7 +201,7 @@ class PathTest(unittest.TestCase):
     def test_same_network(self) -> None:
         """Same-network peers either already talk or are isolated by the bridge."""
         current = self.sandbox()
-        guest = current.resolve_source("guest:dev", None)
+        guest = current.resolve_source("guest:dev", None, read_leases)
         with self.assertRaises(GrantError) as caught:
             current.paths(guest, Target.parse("guest:web:80"))
         self.assertEqual(caught.exception.code, "already-reachable")
@@ -202,7 +218,7 @@ class PathTest(unittest.TestCase):
                 }
             }
         )
-        sandbox = isolated.resolve_source("sbx-ab12", "172.16.2.50")
+        sandbox = isolated.resolve_source("sbx-ab12", "172.16.2.50", read_leases)
         with self.assertRaises(GrantError) as caught:
             isolated.paths(sandbox, Target.parse("guest:box:22"))
         self.assertIn("isolatePeers", str(caught.exception))
@@ -210,18 +226,30 @@ class PathTest(unittest.TestCase):
     def test_conflicts(self) -> None:
         """Overlapping ranges on the same addresses conflict; other protocols do not."""
         base = Path(
-            "vn-sbx", address("172.16.2.50"), address("172.16.2.1"), Ports("tcp", 8000, 8999)
+            "vn-sbx",
+            SANDBOX_MAC,
+            address("172.16.2.50"),
+            address("172.16.2.1"),
+            Ports("tcp", 8000, 8999),
         )
         self.assertTrue(
             base.conflicts(
-                Path(base.bridge, base.source, base.destination, Ports("tcp", 8080, 8080))
+                Path(base.bridge, base.mac, base.source, base.destination, Ports("tcp", 8080, 8080))
             )
         )
         self.assertFalse(
             base.conflicts(
-                Path(base.bridge, base.source, base.destination, Ports("udp", 8080, 8080))
+                Path(base.bridge, base.mac, base.source, base.destination, Ports("udp", 8080, 8080))
             )
         )
         self.assertFalse(
-            base.conflicts(Path(base.bridge, address("172.16.2.51"), base.destination, base.ports))
+            base.conflicts(
+                Path(base.bridge, base.mac, address("172.16.2.51"), base.destination, base.ports)
+            )
+        )
+        # A new MAC at the same address meets the old grant's connections.
+        self.assertTrue(
+            base.conflicts(
+                Path(base.bridge, "52:54:00:00:02:99", base.source, base.destination, base.ports)
+            )
         )

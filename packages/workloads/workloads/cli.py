@@ -25,6 +25,11 @@ if TYPE_CHECKING:
 USAGE_EXIT = 2
 GRANT_SOCKET = "/run/workloads/grant.sock"
 DEFAULT_TTL = "30m"
+TTL_TEXT = (
+    "A grant permits all traffic on its path, established connections included, only until"
+    " its TTL ends. When it expires or is revoked, every connection it admitted stops at once;"
+    " connections of other grants keep working."
+)
 SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_THREAD_ID", "codex"))
 
 type Record = dict[str, object]
@@ -63,16 +68,29 @@ def build_parser() -> argparse.ArgumentParser:
         "names", parents=[common], help="list declared names, resolver records, and sandboxes"
     )
     grant = verbs.add_parser(
-        "grant", parents=[common], help="open a path from a guest or sandbox to a target"
+        "grant",
+        parents=[common],
+        help="open a path from a guest or sandbox to a target",
+        description=TTL_TEXT,
     )
     grant.add_argument("source", help="sbx-<name>, guest:<name>, or a guest name")
     grant.add_argument(
         "target", help="host:<service>, guest:<name>, or service:<name>[:port[/udp]]"
     )
     grant.add_argument(
-        "--ttl", default=DEFAULT_TTL, help=f"lifetime such as 30m or 2h ({DEFAULT_TTL})"
+        "--ttl",
+        default=DEFAULT_TTL,
+        help=f"lifetime such as 30m or 2h; all of the grant's traffic stops then ({DEFAULT_TTL})",
     )
-    revoke = verbs.add_parser("revoke", parents=[common], help="close grants and their connections")
+    revoke = verbs.add_parser(
+        "revoke",
+        parents=[common],
+        help="end grants; their connections stop at once",
+        description=(
+            "End grants now. Every connection of a revoked grant stops at once, established"
+            " ones included; connections of other grants keep working."
+        ),
+    )
     chosen = revoke.add_mutually_exclusive_group(required=True)
     chosen.add_argument("id", nargs="?", help="grant id")
     chosen.add_argument("--all", metavar="SOURCE", dest="source", help="every grant of a source")
@@ -259,6 +277,33 @@ def grant_source(source: str, runner: SbxRunner) -> tuple[str, str | None]:
     return canonical, address
 
 
+def revoke_request(source: str, runner: SbxRunner) -> Record:
+    """Revoke by name, and by address while sbx still knows the sandbox."""
+    canonical = canonical_source(source)
+    request: Record = {"verb": "revoke", "source": canonical}
+    if not SANDBOX_PATTERN.fullmatch(canonical):
+        return request
+    result = runner(["info", canonical.removeprefix("sbx-"), "--json"])
+    if result is None:
+        return request
+    code, output = result
+    try:
+        info: object = json.loads(output)
+    except json.JSONDecodeError:
+        info = None
+    details = cast("Record", info) if isinstance(info, dict) else {}
+    error = details.get("error")
+    if code != 0 or error is not None:
+        if isinstance(error, dict) and cast("Record", error).get("code") == "not-found":
+            # A destroyed sandbox is revoked by the name its grants carry.
+            return request
+        msg = f"sbx info failed: {output.strip()}"
+        raise WorkloadsError(msg, code="sbx")
+    if isinstance(details.get("address"), str):
+        request["address"] = details["address"]
+    return request
+
+
 def _ask(helper: Helper, request: Record) -> Record:
     session = caller_session()
     answer = helper(request | ({"session": session} if session else {}))
@@ -291,9 +336,7 @@ def dispatch(
             case "revoke":
                 if arguments.id is not None:
                     return _ask(helper, {"verb": "revoke", "id": arguments.id})
-                return _ask(
-                    helper, {"verb": "revoke", "source": canonical_source(arguments.source)}
-                )
+                return _ask(helper, revoke_request(arguments.source, runner))
             case _:
                 return _ask(helper, {"verb": "list"})
     except GrantError as error:
