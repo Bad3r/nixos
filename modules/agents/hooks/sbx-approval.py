@@ -190,12 +190,18 @@ def heredoc(text: str, index: int) -> tuple[str, int, Heredoc]:
     index += strip
     while index < len(text) and text[index] in " \t":
         index += 1
-    word_start = index
+    head = text[start:index]
+    parts: list[str] = []
     while index < len(text) and text[index] not in HEREDOC_END:
+        if text.startswith("\\\n", index):
+            index += 2
+            continue
+        part_start = index
         if text[index] in "'\"":
             index = text.index(text[index], index + 1)
         index += 1
-    word = text[word_start:index]
+        parts.append(text[part_start:index])
+    word = "".join(parts)
     if not word:
         msg = "heredoc without a delimiter"
         raise ValueError(msg)
@@ -205,7 +211,25 @@ def heredoc(text: str, index: int) -> tuple[str, int, Heredoc]:
     shell = any(basename(part) in runners for part in re.split(r"[\s;|&()]+", line))
     expands = not any(char in word for char in "'\"\\")
     delimiter = re.sub(r"[\"'\\]", "", word)
-    return text[start:index], index, (delimiter, bool(strip), shell, expands)
+    return head + word, index, (delimiter, bool(strip), shell, expands)
+
+
+def body_line(text: str, index: int, *, join: bool) -> tuple[str, int]:
+    """Read one heredoc body line at index; return it and the index past its newline.
+
+    An unquoted delimiter makes a trailing odd backslash join the next line, as in bash.
+    """
+    parts: list[str] = []
+    while True:
+        end = text.find("\n", index)
+        end = len(text) if end == -1 else end
+        line = text[index:end]
+        index = end + 1
+        trailing = len(line) - len(line.rstrip("\\"))
+        if not (join and trailing % 2 and index <= len(text)):
+            parts.append(line)
+            return "".join(parts), index
+        parts.append(line[:-1])
 
 
 def bodies(text: str, index: int, pending: list[Heredoc], scripts: list[str]) -> int:
@@ -213,10 +237,7 @@ def bodies(text: str, index: int, pending: list[Heredoc], scripts: list[str]) ->
     for delimiter, strip, shell, expands in pending:
         lines: list[str] = []
         while index < len(text):
-            end = text.find("\n", index)
-            end = len(text) if end == -1 else end
-            line = text[index:end]
-            index = end + 1
+            line, index = body_line(text, index, join=expands)
             if (line.lstrip("\t") if strip else line) == delimiter:
                 break
             lines.append(line)
@@ -229,8 +250,13 @@ def bodies(text: str, index: int, pending: list[Heredoc], scripts: list[str]) ->
 
 
 def comment(text: str, index: int, out: list[str]) -> bool:
-    """Whether an unquoted # at index starts a comment: it begins a word of the joined text."""
-    return text[index] == "#" and (not out or out[-1][-1:] in COMMENT_AFTER)
+    """Whether an unquoted # at index starts a comment: it begins a word of the joined text.
+
+    Only a lone separator or <<< emitted before it ends a word; an escaped separator does not.
+    """
+    last = out[-1] if out else ""
+    separator = (len(last) == 1 and last in COMMENT_AFTER) or last == "<<<"
+    return text[index] == "#" and (not out or separator)
 
 
 def prelude(text: str, index: int, out: list[str], *, quote: str, process: bool) -> int:
