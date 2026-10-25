@@ -183,6 +183,9 @@ Bash) ;;
 *) exit 0 ;;
 esac
 
+# Line-oriented patterns below must see a continued command as one line.
+command="${command//$'\\\n'/ }"
+
 # Splits a simple command into words; fails on unquoted shell operators,
 # substitutions, comments, or newlines, which a word list cannot express.
 splitWords() {

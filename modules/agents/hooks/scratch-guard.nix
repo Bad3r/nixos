@@ -170,6 +170,8 @@ in
         "tar -f a.tar -x -C ${scratchDir}"
         "tar --zstd -xf a.tar -C ${scratchDir}"
         "tar xf a.tar -C ${scratchDir}"
+        "tar -xf a.tar \\\n  -C ${scratchDir}"
+        "cp a.txt \\\n  ${scratchDir}"
         "tar -xf a.tar -C ${scratchDir}/tmp"
         "mkdir ${scratchDir}/tmp && cd ${scratchDir}/tmp"
       ];
