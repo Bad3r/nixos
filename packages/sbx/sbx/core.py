@@ -64,6 +64,8 @@ TIMEOUT_EXIT = 124
 WATCH_INTERVAL = 0.5
 AT_FDCWD = -100
 RENAME_NOREPLACE = 1
+# Holds the creation token of a run directory, which its domain metadata also carries.
+CREATION_FILE = "creation"
 KEY_HOLD_MS = 10
 # The prepare boot's lifetime must outlast its provisioning timeout.
 PREPARE_TTL = 3600
@@ -98,6 +100,7 @@ class Tools:
     systemctl: str
     nix: str
     nix_store: str
+    timedatectl: str
     xorriso: str
 
 
@@ -217,6 +220,8 @@ class Meta:
     created: int
     expires: int
     session: str | None
+    # Names the call that created the sandbox, so its cleanup never hits a namesake.
+    token: str | None = None
 
     def element(self) -> ET.Element:
         """Render the metadata element."""
@@ -230,6 +235,8 @@ class Meta:
         }
         if self.session is not None:
             values["session"] = self.session
+        if self.token is not None:
+            values["token"] = self.token
         for key, value in values.items():
             ET.SubElement(root, f"{{{NS}}}{key}").text = value
         return root
@@ -252,6 +259,7 @@ class Meta:
             created=int(text("created")),
             expires=int(text("expires")),
             session=element.findtext(f"{{{NS}}}session"),
+            token=element.findtext(f"{{{NS}}}token"),
         )
 
 
@@ -333,6 +341,34 @@ class Backend(Protocol):
 
     def screenshot(self, domain: str, target: Path) -> str:
         """Write the primary display to a file and return its MIME type."""
+        ...
+
+    def suspend(self, domain: str) -> None:
+        """Pause a running domain."""
+        ...
+
+    def resume(self, domain: str) -> None:
+        """Continue a paused domain."""
+        ...
+
+    def managed_save(self, domain: str) -> None:
+        """Save an active domain's state and stop it."""
+        ...
+
+    def restore(self, domain: str) -> None:
+        """Start a defined domain, from its managed save when it has one."""
+        ...
+
+    def set_time(self, domain: str) -> None:
+        """Set the guest clock to the host's through qemu-ga."""
+        ...
+
+    def job_active(self, domain: str) -> bool:
+        """Return whether a job, such as a managed save, runs on a domain."""
+        ...
+
+    def abort_job(self, domain: str) -> None:
+        """Abort a domain's running job."""
         ...
 
     def send_key(self, domain: str, keycodes: Sequence[int], holdtime: int) -> None:
@@ -588,6 +624,33 @@ def lease_address(path: Path, mac: str, now: float) -> str | None:
     return None if best is None else best[1]
 
 
+def guest_holds(reply: dict[str, Any], mac: str, address: str) -> bool:
+    """Whether a guest-network-get-interfaces reply puts `address` on the NIC with `mac`."""
+    interfaces = reply.get("return")
+    if not isinstance(interfaces, list):
+        msg = "no interface list"
+        raise _agent_error(msg)
+    for interface in cast("list[object]", interfaces):
+        if not isinstance(interface, dict):
+            msg = "an interface is not an object"
+            raise _agent_error(msg)
+        entry = cast("dict[str, object]", interface)
+        owner = entry.get("hardware-address")
+        if not isinstance(owner, str) or owner.lower() != mac.lower():
+            continue
+        addresses = entry.get("ip-addresses", [])
+        if not isinstance(addresses, list):
+            msg = "ip-addresses is not a list"
+            raise _agent_error(msg)
+        for item in cast("list[object]", addresses):
+            if (
+                isinstance(item, dict)
+                and cast("dict[str, object]", item).get("ip-address") == address
+            ):
+                return True
+    return False
+
+
 def bridge_interface(bridge: str, mac: str) -> ET.Element:
     """Render a virtio NIC on a host bridge; session libvirt joins it through qemu-bridge-helper."""
     interface = ET.Element("interface", type="bridge")
@@ -624,12 +687,28 @@ class Sandboxes:
             self._backend = self._connect(require_slice)
         return self._backend
 
+    def adopt(self, backend: Backend) -> None:
+        """Use a backend connected some other way, such as without starting the daemon."""
+        self._backend = backend
+
     @contextlib.contextmanager
-    def locked(self) -> Generator[None]:
-        """Hold the state lock; flock is per open file, so never nest it."""
+    def locked(self, timeout: float | None = None) -> Generator[None]:
+        """Hold the state lock, waiting up to `timeout`; flock is per open file: never nest it."""
         self.paths.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         with self.paths.lock.open("a") as handle:
-            fcntl.flock(handle, fcntl.LOCK_EX)
+            if timeout is None:
+                fcntl.flock(handle, fcntl.LOCK_EX)
+            else:
+                deadline = time.monotonic() + timeout
+                while True:
+                    try:
+                        fcntl.flock(handle, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                        break
+                    except BlockingIOError:
+                        if time.monotonic() >= deadline:
+                            msg = f"another sbx command held {self.paths.lock} for {timeout:g} s"
+                            raise SbxError(msg, code="busy") from None
+                        time.sleep(0.2)
             yield
 
     def _check_name(self, name: str) -> None:
@@ -674,6 +753,14 @@ class Sandboxes:
         msg = f"no sandbox named '{name}'"
         raise SbxError(msg, code="not-found")
 
+    def created(self, name: str, token: str | None) -> Sandbox:
+        """Return a sandbox by name, refusing one another create made under that name."""
+        sandbox = self.find(name)
+        if token is not None and sandbox.meta.token != token:
+            msg = f"sandbox '{name}' was destroyed and its name reused"
+            raise SbxError(msg, code="replaced")
+        return sandbox
+
     def describe(self, sandbox: Sandbox) -> dict[str, object]:
         """Return the JSON form of one sandbox."""
         domain, meta = sandbox.domain, sandbox.meta
@@ -692,6 +779,7 @@ class Sandboxes:
             "expires": _iso(meta.expires),
             "ttl_left": max(0, meta.expires - int(self._clock())),
             "session": meta.session,
+            "token": meta.token,
             "directory": str(directory),
             "xfer": str(directory / "xfer"),
         }
@@ -951,11 +1039,16 @@ class Sandboxes:
         request = Request(
             image, name, "egress", settings.default_memory_mib, settings.default_cpus, PREPARE_TTL
         )
+        token = secrets.token_hex(8)
         # A failed start discards its own sandbox; a name another prepare holds stays.
-        self._start(request, name, source, root=source, agent=False)
+        self._start(request, name, source, token, root=source, agent=False)
         try:
             result = self.exec_capture(
-                name, ["sh", "-c", cloud.PREPARE_SCRIPT], timeout=PREPARE_TIMEOUT, agent=False
+                name,
+                ["sh", "-c", cloud.PREPARE_SCRIPT],
+                timeout=PREPARE_TIMEOUT,
+                agent=False,
+                token=token,
             )
             if result.exit_code != 0:
                 detail = result.stderr.decode(errors="replace").strip()[-2000:]
@@ -964,12 +1057,12 @@ class Sandboxes:
                 raise SbxError(msg, code="prepare-failed")
             # Held to the end, so gc never takes the shut-off domain's disk.
             with self.locked():
-                self._wait_shutoff(name)
+                self._wait_shutoff(name, token)
                 self._check_unused(image, name)
                 disk = self._publish_base(image, self.paths.sandbox(name) / "disk.qcow2")
         finally:
             with self.locked():
-                self._discard(name)
+                self._discard(name, token)
         journal.record(f"prepared base {image}", verb="base-prepare", base=image)
         return {"base": image, "path": str(disk), "url": pinned.url, "hash": pinned.hash}
 
@@ -983,10 +1076,10 @@ class Sandboxes:
             msg = f"sandboxes {', '.join(users)} run on base {image}; destroy them first"
             raise SbxError(msg, code="base-in-use")
 
-    def _wait_shutoff(self, name: str) -> None:
-        deadline = self._clock() + SHUTDOWN_TIMEOUT
-        while self.find(name).domain.active:
-            if self._clock() > deadline:
+    def _wait_shutoff(self, name: str, token: str) -> None:
+        deadline = time.monotonic() + SHUTDOWN_TIMEOUT
+        while self.created(name, token).domain.active:
+            if time.monotonic() > deadline:
                 msg = f"'{name}' did not power off within {SHUTDOWN_TIMEOUT}s"
                 raise SbxError(msg, code="prepare-failed")
             time.sleep(1)
@@ -1098,26 +1191,51 @@ class Sandboxes:
         sub(devices, "memballoon", model="virtio", freePageReporting="on")
         return ET.tostring(domain, encoding="unicode")
 
-    def _discard(self, name: str) -> None:
-        """Remove a sandbox's domain and directory; the caller holds the lock."""
-        if any(sandbox.name == name for sandbox in self.owned()):
+    def _discard(self, name: str, token: str | None = None) -> None:
+        """Remove a sandbox's domain and directory; the caller holds the lock.
+
+        With a token, only a domain and directory that carry it go, so a later
+        sandbox of the same name survives the cleanup of an earlier one.
+        """
+        sandbox = next((sandbox for sandbox in self.owned() if sandbox.name == name), None)
+        if sandbox is not None and (token is None or sandbox.meta.token == token):
             self.backend().remove(DOMAIN_PREFIX + name)
         directory = self.paths.sandbox(name)
-        if directory.is_dir():
-            shutil.rmtree(directory)
+        if not directory.is_dir():
+            return
+        if token is not None:
+            try:
+                carried = (directory / CREATION_FILE).read_text()
+            except FileNotFoundError:
+                return
+            if carried != token:
+                return
+        shutil.rmtree(directory)
 
-    def create(self, request: Request) -> dict[str, object]:
-        """Start a sandbox and wait until it accepts commands."""
+    def create(self, request: Request, *, token: str | None = None) -> dict[str, object]:
+        """Start a sandbox and wait until it accepts commands.
+
+        The creation token, the caller's or a fresh one, marks the domain and
+        run directory and comes back as `token`.
+        """
+        token = token or secrets.token_hex(8)
         self._validate(request)
         name = request.name or f"{request.base}-{secrets.token_hex(3)}"
         self._check_name(name)
         image = self.base_image(request.base)
         # Prepared cloud disks live outside the store.
         root = None if request.base in self.settings.cloud_images else image.parent
-        return self._start(request, name, image, root=root, agent=True)
+        return self._start(request, name, image, token, root=root, agent=True)
 
-    def _start(
-        self, request: Request, name: str, image: Path, *, root: Path | None, agent: bool
+    def _start(  # noqa: PLR0913
+        self,
+        request: Request,
+        name: str,
+        image: Path,
+        token: str,
+        *,
+        root: Path | None,
+        agent: bool,
     ) -> dict[str, object]:
         """Boot `name` on an overlay of `image`, which `root` keeps alive, and wait for it."""
         directory = self.paths.sandbox(name)
@@ -1149,9 +1267,11 @@ class Sandboxes:
                 now,
                 now + request.ttl,
                 self.session,
+                token,
             )
             directory.mkdir(mode=0o700)
             try:
+                (directory / CREATION_FILE).write_text(token)
                 (directory / "xfer").mkdir(mode=0o700)
                 key = directory / "id_ed25519"
                 comment = DOMAIN_PREFIX + name
@@ -1194,7 +1314,7 @@ class Sandboxes:
                     self._write_seed(name, directory, public, network=nic is not None)
                 backend.start(self._domain_xml(name, directory, meta, request, public, nic))
             except BaseException:
-                self._discard(name)
+                self._discard(name, token)
                 raise
         journal.record(
             f"created sandbox {name}",
@@ -1204,12 +1324,12 @@ class Sandboxes:
             session=self.session,
         )
         try:
-            self._wait_ready(name, agent=agent)
+            self._wait_ready(name, token, agent=agent)
         except BaseException:
             with self.locked():
-                self._discard(name)
+                self._discard(name, token)
             raise
-        return self.describe(self.find(name))
+        return self.describe(self.created(name, token))
 
     def _console_tail(self, name: str) -> str:
         path = self.paths.sandbox(name) / "console.log"
@@ -1243,35 +1363,51 @@ class Sandboxes:
         )
         shutil.rmtree(files)
 
-    def _wait_ready(self, name: str, *, agent: bool) -> None:
-        """Wait for qemu-ga unless `agent` is off, then SSH on vsock, then an egress lease."""
-        deadline = self._clock() + self.settings.boot_timeout
+    def _wait_ready(self, name: str, token: str, *, agent: bool) -> None:
+        """Wait for qemu-ga, SSH on vsock, and an egress lease; without `agent`, SSH only."""
+        # Monotonic, so a host sleep during the boot wait does not count against it.
+        deadline = time.monotonic() + self.settings.boot_timeout
         domain = DOMAIN_PREFIX + name
         while agent:
+            self.created(name, token)
             try:
                 self.backend().agent(domain, {"execute": "guest-ping"}, 5)
                 break
             except SbxError:
-                if self._clock() > deadline:
+                if time.monotonic() > deadline:
                     tail = self._console_tail(name)
                     msg = f"the guest agent of '{name}' did not answer; console:\n{tail}"
                     raise SbxError(msg, code="boot-timeout") from None
                 time.sleep(1)
-        sandbox = self.find(name)
         while True:
+            sandbox = self.created(name, token)
             result = capture(self._ssh(name, sandbox.domain.cid, ["true"]), 4096, 30)
             if result.exit_code == 0:
                 break
-            if self._clock() > deadline:
+            if time.monotonic() > deadline:
                 detail = result.stderr.decode(errors="replace").strip()
                 msg = f"ssh over vsock to '{name}' failed: {detail}"
                 raise SbxError(msg, code="boot-timeout")
             time.sleep(1)
-        if sandbox.meta.net != "egress":
-            return
-        while self.address(sandbox, strict=True) is None:
-            if self._clock() > deadline:
-                msg = f"'{name}' got no DHCP lease on its egress bridge; console:\n"
+        # The address check asks qemu-ga; a prepare boot's script waits for the network itself.
+        if agent and sandbox.meta.net == "egress":
+            self._wait_address(sandbox, deadline)
+
+    def _wait_address(self, sandbox: Sandbox, deadline: float) -> None:
+        name, mac = sandbox.name, sandbox.domain.mac
+        while True:
+            address = self.address(sandbox, strict=True)
+            # dnsmasq records the lease before the guest's ARP probe ends and it configures it.
+            if address is not None and mac is not None:
+                command: dict[str, object] = {"execute": "guest-network-get-interfaces"}
+                reply = self.backend().agent(sandbox.domain.name, command, 5)
+                if guest_holds(reply, mac, address):
+                    return
+            if time.monotonic() > deadline:
+                if address is None:
+                    msg = f"'{name}' got no DHCP lease on its egress bridge; console:\n"
+                else:
+                    msg = f"'{name}' never configured its lease {address}; console:\n"
                 raise SbxError(msg + self._console_tail(name), code="no-address")
             time.sleep(1)
 
@@ -1287,19 +1423,38 @@ class Sandboxes:
         journal.record(f"destroyed sandbox {name}", verb="destroy", sandbox=name)
         return [name]
 
+    def destroy_created(self, token: str) -> list[str]:
+        """Remove the sandboxes whose metadata carries `token`."""
+        if not self._has_state():
+            return []
+        with self.locked():
+            removed = [sandbox.name for sandbox in self.owned() if sandbox.meta.token == token]
+            for name in removed:
+                self._discard(name, token)
+        for name in removed:
+            journal.record(f"destroyed sandbox {name}", verb="destroy", sandbox=name)
+        return removed
+
     def _require_session(self, *, mine: bool) -> None:
         if mine and self.session is None:
-            msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID"
+            msg = "--mine needs CLAUDE_CODE_SESSION_ID or CODEX_THREAD_ID, or a Codex MCP call"
             raise SbxError(msg, code="no-session")
 
-    def destroy_where(self, *, mine: bool, expired: bool) -> list[str]:
-        """Remove the caller's sandboxes or the expired ones."""
+    def destroy_where(
+        self, *, mine: bool, expired: bool, timeout: float | None = None
+    ) -> list[str]:
+        """Remove the caller's sandboxes or the expired ones; `timeout` bounds the lock wait."""
         self._require_session(mine=mine)
+        if expired and not self.host_synced():
+            msg = (
+                "the host clock is not NTP-synchronized, so TTLs cannot be judged; destroy by name"
+            )
+            raise SbxError(msg, code="clock-unsynced")
         if not self._has_state():
             return []
         removed: list[str] = []
         now = self._clock()
-        with self.locked():
+        with self.locked(timeout):
             for sandbox in self.owned():
                 meta = sandbox.meta
                 if (mine and meta.session == self.session) or (expired and meta.expires <= now):
@@ -1328,8 +1483,15 @@ class Sandboxes:
         result["image"] = sandbox.meta.image
         return result
 
-    def _gc_reason(self, sandbox: Sandbox, now: float) -> str | None:
-        if sandbox.meta.expires <= now:
+    def host_synced(self) -> bool:
+        """Return whether timedatectl reports the host clock NTP-synchronized."""
+        show = [self.settings.tools.timedatectl, "show", "-p", "NTPSynchronized", "--value"]
+        result = subprocess.run(show, capture_output=True, text=True, check=False)
+        return result.stdout.strip() == "yes"
+
+    def _gc_reason(self, sandbox: Sandbox, now: float, *, synced: bool) -> str | None:
+        # An unsynced clock, such as the RTC's right after resume, may run hours ahead.
+        if synced and sandbox.meta.expires <= now:
             return "expired"
         if not sandbox.domain.active and not sandbox.domain.managed_save:
             return "shut off"
@@ -1338,15 +1500,16 @@ class Sandboxes:
         return None
 
     def gc(self, *, dry_run: bool) -> list[dict[str, str]]:
-        """Remove expired, stopped, and half-removed sandboxes."""
+        """Remove stopped and half-removed sandboxes, and expired ones once the clock is synced."""
         if not self._has_state():
             return []
         actions: list[dict[str, str]] = []
+        synced = self.host_synced()
         with self.locked():
             now = self._clock()
             owned = {sandbox.name: sandbox for sandbox in self.owned()}
             for sandbox in owned.values():
-                reason = self._gc_reason(sandbox, now)
+                reason = self._gc_reason(sandbox, now, synced=synced)
                 if reason is None:
                     continue
                 actions.append({"name": sandbox.name, "reason": reason})
@@ -1398,8 +1561,8 @@ class Sandboxes:
         options = self._ssh_options(name, cid)
         return [self.settings.tools.ssh, *options, "-T", "root@sbx", "--", shlex.join(command)]
 
-    def _running(self, name: str) -> Sandbox:
-        sandbox = self.find(name)
+    def _running(self, name: str, token: str | None = None) -> Sandbox:
+        sandbox = self.created(name, token)
         if sandbox.meta.expires <= self._clock():
             msg = f"sandbox '{name}' is past its TTL; `sbx gc` removes it"
             raise SbxError(msg, code="expired")
@@ -1409,10 +1572,16 @@ class Sandboxes:
         return sandbox
 
     def exec_capture(
-        self, name: str, command: Sequence[str], *, timeout: float | None, agent: bool
+        self,
+        name: str,
+        command: Sequence[str],
+        *,
+        timeout: float | None,
+        agent: bool,
+        token: str | None = None,
     ) -> ExecResult:
-        """Run a command and capture its output."""
-        sandbox = self._running(name)
+        """Run a command and capture its output; with `token`, only in that creation."""
+        sandbox = self._running(name, token)
         journal.record(
             f"exec in {name}: {shlex.join(command)}",
             verb="exec",
@@ -1430,10 +1599,10 @@ class Sandboxes:
         return result
 
     def exec_attached(
-        self, name: str, command: Sequence[str], *, timeout: float | None
+        self, name: str, command: Sequence[str], *, timeout: float | None, token: str | None = None
     ) -> int | None:
         """Run a command with the caller's stdio; return its exit code, or None on timeout."""
-        sandbox = self._running(name)
+        sandbox = self._running(name, token)
         journal.record(
             f"exec in {name}: {shlex.join(command)}",
             verb="exec",
@@ -1567,8 +1736,10 @@ class Sandboxes:
             raise SbxError(msg, code="invalid-argument")
         return name, path
 
-    def copy(self, source: str, destination: str | None) -> dict[str, object]:
-        """Copy between the host and a sandbox over scp on vsock."""
+    def copy(
+        self, source: str, destination: str | None, *, token: str | None = None
+    ) -> dict[str, object]:
+        """Copy between the host and a sandbox over scp on vsock; with `token`, that creation."""
         remote_source = self._remote(source)
         remote_destination = None if destination is None else self._remote(destination)
         if (remote_source is None) == (remote_destination is None):
@@ -1577,7 +1748,7 @@ class Sandboxes:
         if remote_destination is not None:
             name, guest_path = remote_destination
             local = self._source(Path(source))
-            sandbox = self._running(name)
+            sandbox = self._running(name, token)
             journal.record(
                 f"cp {local} {name}:{guest_path}", verb="cp", sandbox=name, session=self.session
             )
@@ -1597,14 +1768,16 @@ class Sandboxes:
             msg = "cp needs a sandbox source"
             raise SbxError(msg, code="invalid-argument")
         name, guest_path = remote_source
-        return self._copy_out(name, guest_path, destination)
+        return self._copy_out(name, guest_path, destination, token)
 
-    def _copy_out(self, name: str, guest_path: str, destination: str | None) -> dict[str, object]:
+    def _copy_out(
+        self, name: str, guest_path: str, destination: str | None, token: str | None
+    ) -> dict[str, object]:
         leaf = PurePosixPath(guest_path).name
         if leaf in {"", ".", ".."}:
             msg = f"'{guest_path}' names no file or directory to copy out"
             raise SbxError(msg, code="invalid-argument")
-        sandbox = self._running(name)
+        sandbox = self._running(name, token)
         xfer = self.paths.sandbox(name) / "xfer"
         if destination is None:
             target = xfer / leaf

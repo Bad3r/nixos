@@ -36,10 +36,12 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
 | `base prepare <image>`           | turn a cloud image into a base, owner only  |
+| `sleep <phase>`                  | host sleep hook only, not for agents        |
 
 `create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, and `--gui`.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
+[sleep.md](sleep.md) covers `sleep` and what host suspend and hibernation do to sandboxes.
 
 ```sh
 sbx base build nixos
@@ -99,13 +101,20 @@ The TTL counts wall-clock time, host sleep included.
 | `~/.local/share/sbx/bases/<base>` | base out-link or prepared disk   |
 
 `sbx-gc.timer` runs `sbx gc` on a schedule.
-It removes sandboxes past their TTL, shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
+It removes shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
+It removes sandboxes past their TTL only while `timedatectl` reports the host clock NTP-synchronized, since an RTC clock right after resume can run hours ahead.
+`sbx destroy --expired` refuses with `clock-unsynced` on an unsynced clock.
+On a host that never syncs, expired sandboxes stay until `sbx destroy <name>`.
 `create`, `exec`, `cp`, `screenshot`, `key`, `type`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
 
 ## Agents
 
 With the `sbx` row on, Claude Code and Codex get the `sbx` skill from `modules/agents/skills/sbx.nix`, a system-prompt line, and an allow rule for `sbx`.
 The Codex allow rule in `modules/agents/codex/_exec-policy.nix` also runs `sbx` outside bwrap, since the CLI writes its state directory and starts user units.
+Both clients also start `sbx-mcp`, the `sbx` entry in `modules/agents/mcp/servers.nix`, whose tools take a verb's flags as arguments and return its `--json` document without an approval prompt.
+Codex names its thread in every tool call, so `--mine` matches sandboxes from the CLI and the MCP tools alike.
+Claude Code passes its session only when it starts the server, so after `/clear` the tools keep the old session until `/mcp` reconnects `sbx`.
+Under MCP, the checkout copy root and relative host paths follow the directory the client started in.
 
 ## Verify
 

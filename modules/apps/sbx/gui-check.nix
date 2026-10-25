@@ -119,7 +119,11 @@ in
                 assert channels == ["org.qemu.guest_agent.0"], channels
 
             with subtest("root reaches the session's display, where a terminal has focus"):
-                machine.wait_until_succeeds(as_owner("sbx exec g -- xdotool search --onlyvisible --class xterm"), timeout=180)
+                try:
+                    machine.wait_until_succeeds(as_owner("sbx exec g -- xdotool search --onlyvisible --class xterm"), timeout=180)
+                except Exception:
+                    print(machine.execute(as_owner("sbx exec g -- sh -c 'ps -eo user,stat,args; tail -40 /home/sbx/.xsession-errors; journalctl -b -o cat | tail -80; xdotool search --name . getwindowname %@'"))[1])
+                    raise
                 title = sbx("exec", "g", "--", "xdotool", "getactivewindow", "getwindowname")["stdout"]
                 assert title.startswith("sbx@sbx"), title
 

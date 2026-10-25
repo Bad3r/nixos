@@ -6,7 +6,7 @@ import json
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from sbx import journal
+from sbx import journal, sleep
 from sbx.core import (
     FLAVOURS,
     NETS,
@@ -23,7 +23,7 @@ from sbx.core import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
     from pathlib import Path
 
 USAGE_EXIT = 2
@@ -127,6 +127,13 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     build.add_argument("flavour", help=", ".join(FLAVOURS))
     prepare = base_verbs.add_parser("prepare", parents=[common])
     prepare.add_argument("image", help="a cloud image from the settings")
+
+    host_sleep = verbs.add_parser(
+        "sleep",
+        parents=[common],
+        help="host sleep hook only, not for agents: pause, resume, save, or restore sandboxes",
+    )
+    host_sleep.add_argument("phase", choices=sleep.PHASES)
     return parser
 
 
@@ -176,18 +183,23 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
         raise SbxError(msg, code="usage")
     timeout = _timeout(args.timeout)
     created = sandboxes.create(_request(sandboxes, args))
-    name = str(created["name"])
+    name, token = str(created["name"]), str(created["token"])
+    # Every step and the cleanup act only on this creation, never on a later namesake.
     try:
-        copied_in = [sandboxes.copy(path, f"{name}:/root/") for path in args.inputs]
+        copied_in = [sandboxes.copy(path, f"{name}:/root/", token=token) for path in args.inputs]
         if as_json:
-            result = sandboxes.exec_capture(name, command, timeout=timeout, agent=False)
+            result = sandboxes.exec_capture(
+                name, command, timeout=timeout, agent=False, token=token
+            )
             code = exit_code(result)
         else:
-            code = _attached(sandboxes.exec_attached(name, command, timeout=timeout))
+            code = _attached(sandboxes.exec_attached(name, command, timeout=timeout, token=token))
             result = None
-        copied_out = [sandboxes.copy(f"{name}:{path}", args.to) for path in args.outputs]
+        copied_out = [
+            sandboxes.copy(f"{name}:{path}", args.to, token=token) for path in args.outputs
+        ]
     finally:
-        sandboxes.destroy(name)
+        sandboxes.destroy_created(token)
     if not as_json:
         return None, code
     payload = {
@@ -200,7 +212,11 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
 
 
 def dispatch(  # noqa: C901, PLR0911, PLR0912
-    sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool
+    sandboxes: Sandboxes,
+    args: argparse.Namespace,
+    *,
+    as_json: bool,
+    attach: Callable[[], Backend] | None = None,
 ) -> tuple[object, int]:
     """Run one verb and return its result and exit code."""
     match args.verb:
@@ -243,6 +259,14 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
             if args.base_verb == "prepare":
                 return sandboxes.base_prepare(args.image), 0
             return sandboxes.base_build(args.flavour), 0
+        case "sleep":
+            if attach is None:
+                msg = "sleep needs a connect that never starts the daemon"
+                raise SbxError(msg, code="internal")
+            actions, code = sleep.Sleep(sandboxes, sleep.state_dir(), attach, as_json=as_json).run(
+                args.phase
+            )
+            return (actions if as_json else None), code
         case _:
             msg = f"unknown verb {args.verb}"
             raise SbxError(msg, code="usage")
@@ -285,8 +309,13 @@ def main(settings_path: Path, argv: Sequence[str] | None = None) -> int:
 
             return LibvirtBackend(settings, require_slice=require_slice)
 
+        def attach() -> Backend:
+            from sbx.backend import LibvirtBackend  # noqa: PLC0415
+
+            return LibvirtBackend(settings, require_slice=False, start=False)
+
         sandboxes = Sandboxes(settings, Paths.from_environment(), connect, caller_session())
-        result, code = dispatch(sandboxes, args, as_json=as_json)
+        result, code = dispatch(sandboxes, args, as_json=as_json, attach=attach)
     except (SbxError, OSError) as error:
         code = error.code if isinstance(error, SbxError) else "os-error"
         journal.record(f"failed: {error}", code=code)

@@ -88,7 +88,23 @@ let
     - Failures print `{"error": {"code", "message"}}` and exit 1, or 2 for a
       usage error. A copy out that fails after the command ran makes `run`
       fail this way, and the command's result is lost. `base-missing` means
-      `sbx base build <base>` comes first.
+      `sbx base build <base>` comes first, or for a cloud base the owner's
+      `sbx base prepare`.
+
+    ## MCP Tools
+
+    The `sbx` MCP server offers each verb in the table above but `key` and
+    `type` as a tool (`base list` is `base_list`); run those two through the
+    CLI. Flags become named arguments, the guest command an argv
+    list, and the result is the `--json` document above; a refusal is a tool
+    error carrying the error object. A failing guest command is no tool error:
+    read `exit_code`.
+
+    - The checkout copy root and relative host paths follow the directory the
+      client started in, not your working directory; give absolute paths.
+    - Claude Code hands the server its session when it starts it, so after
+      `/clear` the tools' `mine` matches the old session until `/mcp`
+      reconnects `sbx`.
   '';
 in
 {

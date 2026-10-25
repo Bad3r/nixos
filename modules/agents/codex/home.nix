@@ -68,6 +68,7 @@ _: {
           agents
           homeDir
           lib
+          osConfig
           pkgs
           ;
       };

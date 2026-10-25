@@ -15,6 +15,7 @@
     run <base> -- CMD: Create, copy in, run, copy out, and destroy in one call.
     exec <name> -- CMD: Run a command over SSH on vsock.
     --json: Print results and errors as JSON.
+    sbx-mcp: Serve the verbs as MCP tools on stdio.
 
   Notes:
     * Sandboxes are untrusted guests: no vdagent channel, no shared folders, and no network unless
@@ -97,7 +98,8 @@ let
           };
           guiMemory = lib.mkOption {
             type = types.ints.positive;
-            default = 4096;
+            default = lib.min 4096 cfg.sandbox.maxMemory;
+            defaultText = lib.literalExpression "lib.min 4096 sandbox.maxMemory";
             description = "Default MiB per sandbox on a GUI base.";
           };
           maxMemory = lib.mkOption {
