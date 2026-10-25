@@ -46,8 +46,10 @@ CLAIM_WAIT = 600
 # How long a guest agent may stay unconnected after resume, shared by all guests.
 AGENT_WAIT = 15
 AGENT_CHANNEL = "devices/channel/target[@name='org.qemu.guest_agent.0']"
-# How long one `sbx sleep` phase may run for one user.
-SESSION_WAIT = 300
+# How long a pre phase waits for the lock a wake holds.
+PRE_WAIT = 120
+# How long one `sbx sleep` phase may run for one user; sbx bounds its own save below this.
+SESSION_WAIT = {"pause": 60, "resume": 60, "save": 300, "restore": 300}
 
 
 def log(message: str) -> None:
@@ -76,13 +78,25 @@ class Sessions:
 
     sbx: str
     runuser: str
+    unit: str
+    systemctl: str
 
-    @staticmethod
-    def users() -> list[str]:
-        """Return the users that have a user manager."""
+    def users(self) -> tuple[list[str], list[str]]:
+        """Return the users whose sbx daemon unit is active, and why others are unknown."""
         listing = ["loginctl", "list-users", "--json=short"]
         output = subprocess.run(listing, check=True, capture_output=True, text=True).stdout
-        return sorted({user["user"] for user in json.loads(output)})
+        active: list[str] = []
+        unknown: list[str] = []
+        for user in sorted({entry["user"] for entry in json.loads(output)}):
+            # Asked as root, so an account runuser's PAM stack refuses is never entered.
+            query = [self.systemctl, "--user", f"--machine={user}@", "is-active", "--quiet"]
+            code = subprocess.run([*query, self.unit], check=False).returncode
+            if code == 0:
+                active.append(user)
+            # 3 is inactive or failed, 4 an unknown unit.
+            elif code not in {3, 4}:
+                unknown.append(f"{self.unit} of {user} is unknown: systemctl exited {code}")
+        return active, unknown
 
     def run(self, user: str, phase: str) -> str | None:
         """Run one phase as `user`; return why it failed, or None."""
@@ -92,7 +106,7 @@ class Sessions:
             command = [self.runuser, "-u", user, "--", self.sbx, "sleep", phase]
             with subprocess.Popen(command, env=env) as process:
                 try:
-                    code = process.wait(SESSION_WAIT)
+                    code = process.wait(SESSION_WAIT[phase])
                 except subprocess.TimeoutExpired:
                     # runuser passes SIGTERM on to sbx.
                     process.terminate()
@@ -100,7 +114,7 @@ class Sessions:
                         process.wait(10)
                     except subprocess.TimeoutExpired:
                         process.kill()
-                    return f"sbx sleep {phase} ran past {SESSION_WAIT} s"
+                    return f"sbx sleep {phase} ran past {SESSION_WAIT[phase]} s"
         except (KeyError, OSError) as error:
             return f"sbx sleep {phase} did not run: {error}"
         return None if code == 0 else f"sbx sleep {phase} exited {code}"
@@ -232,7 +246,7 @@ def locked(deadline: float | None = None) -> Iterator[None]:
                 break
             except BlockingIOError:
                 if time.monotonic() >= deadline:
-                    msg = f"no lock on {LOCK} within {CLAIM_WAIT} s"
+                    msg = f"no lock on {LOCK} in time"
                     raise TimeoutError(msg) from None
                 time.sleep(1)
         else:
@@ -367,15 +381,15 @@ def wake(connect: str, systemctl: str, sleep_units: list[str], sessions: Session
                 except libvirt.libvirtError as error:
                     fail(failures, f"guests may stay paused or saved: {error}")
                 else:
-                    woken = bring_back(conn, paused, saved, failures)
+                    try:
+                        woken = bring_back(conn, paused, saved, failures)
+                        sync_clocks(woken)
+                    finally:
+                        conn.close()
+            # After the system guests, whose clocks would otherwise wait on every user.
             if sessions is not None:
                 bring_back_sessions(sessions, users, failures)
         down = down or len(failures) > earlier
-        if conn is not None:
-            try:
-                sync_clocks(woken)
-            finally:
-                conn.close()
         if failures:
             notify(failures)
 
@@ -408,15 +422,17 @@ def pre_system(phase: str, connect: str, failures: list[str]) -> None:
 def pre_sessions(phase: str, sessions: Sessions, failures: list[str]) -> None:
     """Pause or save each user's sandboxes; a failed save stops at that user."""
     try:
-        users = sessions.users()
+        users, unknown = sessions.users()
         # Recorded first, so wake still runs for a user whose phase failed halfway.
         append(SESSIONS, users)
     except (OSError, ValueError, KeyError, TypeError, subprocess.CalledProcessError) as error:
+        unknown, users = [str(error)], []
+    for why in unknown:
         if phase == "pause":
-            fail(failures, f"sandboxes kept running through suspend: {error}")
+            fail(failures, f"sandboxes may keep running through suspend: {why}")
         else:
-            abort(failures, f"sandboxes not saved, so the host did not sleep: {error}")
-        return
+            abort(failures, f"sandboxes not saved, so the host did not sleep: {why}")
+            return
     for user in users:
         why = sessions.run(user, phase)
         if why is None:
@@ -438,7 +454,7 @@ def pre(phase: str, connect: str, systemctl: str, sessions: Sessions | None) -> 
 
     failures: list[str] = []
     try:
-        with locked():
+        with locked(time.monotonic() + PRE_WAIT):
             if system:
                 pre_system(phase, connect, failures)
             # A failed system save already aborts the transition.
@@ -468,8 +484,11 @@ def main() -> int:
     parser.add_argument("--sleep-unit", action="append", default=[], dest="sleep_units")
     parser.add_argument("--sbx", help="sbx to run as each user")
     parser.add_argument("--runuser", default="runuser")
+    parser.add_argument("--sbx-unit", default="sbx-libvirt.service")
     args = parser.parse_args()
-    sessions = None if args.sbx is None else Sessions(args.sbx, args.runuser)
+    sessions = None
+    if args.sbx is not None:
+        sessions = Sessions(args.sbx, args.runuser, args.sbx_unit, args.systemctl)
 
     # Expected lookup misses would otherwise print to stderr.
     libvirt.registerErrorHandler(lambda _ctx, _error: None, None)

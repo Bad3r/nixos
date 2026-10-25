@@ -252,14 +252,18 @@ in
                 expires = int(machine.succeed("date +%s")) + ttl
                 machine.succeed(
                     f"sed -e 's/@EXPIRES@/{expires}/' -e 's/sbx-x/sbx-{name}/' ${session "x"} > /run/sbx-{name}.xml",
+                    # gc removes a sandbox without its run directory.
+                    as_owner(f"mkdir -p /home/${owner}/.local/share/sbx/{name}"),
                     as_owner(f"virsh -c qemu:///session define /run/sbx-{name}.xml"),
                     as_owner(f"virsh -c qemu:///session start {' '.join(start)} sbx-{name}"),
                 )
 
             with subtest("the hook leaves a user without an active sbx daemon alone"):
                 machine.wait_for_unit("user@1000.service")
-                # Every cycle above ran `sbx sleep` as the owner.
-                machine.succeed("journalctl -b -t runuser | grep -q 'session opened for user ${owner}'")
+                # The cycles above asked as root, so they never entered the owner's account.
+                machine.fail("journalctl -b -t runuser | grep -q 'session opened for user ${owner}'")
+                pre = machine.succeed("journalctl -b -o cat -u systemd-suspend.service -u systemd-hibernate.service")
+                assert "sbx-libvirt.service of" not in pre, pre
                 machine.fail(as_owner("systemctl --user is-active sbx-libvirt.service"))
                 machine.fail("pgrep -u ${owner} virtqemud")
                 machine.fail("test -e /run/user/1000/sbx")
@@ -274,10 +278,11 @@ in
                 assert "sandbox=live action=paused" in suspend and "idle" not in suspend, suspend
                 wake = machine.succeed("journalctl -b -o cat -u workloads-vm-wake.service")
                 assert "sandbox=live action=resumed" in wake, wake
-                # No agent runs in the guest, so the clock resync only warns.
-                assert "warning: live keeps a stale clock" in wake, wake
+                # Nothing synchronizes the VM's clock, so sbx leaves guest clocks alone.
+                assert "not NTP-synchronized" in wake, wake
+                assert "sandboxes of" not in suspend + wake, suspend + wake
 
-            with subtest("hibernation saves sandboxes within their TTL and the wake restores those"):
+            with subtest("hibernation saves sandboxes within their TTL and the wake restores them all"):
                 define("old", -60)
                 define("short", 600)
                 machine.succeed("touch /run/no-wake")
@@ -288,14 +293,18 @@ in
                 assert sessions() == {"live": "shut off", "idle": "shut off", "short": "shut off"}, sessions()
                 saves = machine.succeed(as_owner("virsh -c qemu:///session list --all --with-managed-save --name"))
                 assert len(saves.split()) == 3, saves
-                # short outlives its TTL across the sleep.
+                # short outlives its TTL across the sleep, which restore leaves to gc.
                 machine.succeed("date -s @$(( $(date +%s) + 3600 ))")
                 machine.succeed("rm /run/no-wake", "systemctl start workloads-vm-wake.service")
-                assert sessions() == {"live": "running", "idle": "paused"}, sessions()
+                assert sessions() == {"live": "running", "idle": "paused", "short": "running"}, sessions()
                 wake = machine.succeed(since("-u workloads-vm-wake.service"))
-                for line in ("sandbox=live action=restored", "sandbox=idle action=restored", "sandbox=short action=destroyed"):
+                for line in ("sandbox=live action=restored", "sandbox=idle action=restored", "sandbox=short action=restored"):
                     assert line in wake, wake
+                assert "sandboxes of" not in hibernate + wake, hibernate + wake
                 machine.fail("test -e /run/user/1000/sbx/saved")
+                gc = machine.succeed(as_owner("sbx gc"))
+                assert gc.split() == ["name=short", "reason=expired"], gc
+                assert sessions() == {"live": "running", "idle": "paused"}, sessions()
 
             with subtest("sandboxes that would breach the free-space floor abort hibernation"):
                 avail = int(machine.succeed("df --output=avail -B1 /home/${owner} | tail -1"))
@@ -304,7 +313,8 @@ in
                 since = journal_since()
                 sleep_cycle("systemd-hibernate.service", succeeds=False)
                 hibernate = machine.succeed(since("-u systemd-hibernate.service"))
-                assert "keeps a 1G floor" in hibernate and "sandboxes of ${owner} not saved" in hibernate, hibernate
+                assert "takes up to 128M" in hibernate and "keeps a 1G floor" in hibernate, hibernate
+                assert "sandboxes of ${owner} not saved" in hibernate, hibernate
                 machine.succeed("rm /home/${owner}/fill")
                 assert sessions() == {"live": "running", "idle": "paused"}, sessions()
                 assert states() == {"alpha": "running", "beta": "paused"}, states()

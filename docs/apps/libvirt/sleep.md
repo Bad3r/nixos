@@ -6,9 +6,16 @@ Each sleep unit, once finished, queues `workloads-vm-wake.service` to bring the 
 
 ## sbx sandboxes
 
-With the sbx app enabled, each phase also runs `sbx sleep` through `runuser` as every user `loginctl list-users` shows, after the system guests.
-The hook records those users, and the wake unit runs `sbx sleep restore`, then `sbx sleep resume`, as each of them.
-Each call is bounded in time, and a failure joins the guest failures below.
+With the sbx app enabled, each pre phase also handles the sandboxes on `qemu:///session`, after the system guests and under the same lock.
+
+- It asks, as root through `systemctl --user --machine=<user>@`, which users from `loginctl list-users` have `sbx-libvirt.service` active.
+  It records those users and runs `sbx sleep <phase>` through `runuser` as each; other users are never entered.
+- A user whose unit state cannot be read is a failure: it only warns for suspend and aborts hibernation.
+- The wake unit runs `sbx sleep restore`, then `sbx sleep resume`, as each recorded user, after the system guests' clock sync.
+- Each call is capped: 60 s for pause and resume, 300 s for save and restore.
+  A non-zero exit or a timeout joins the guest failures below.
+- A pre phase waits a bounded time for the lock a running wake holds; past it, suspend proceeds untouched and hibernation aborts.
+
 Other `qemu:///session` guests are not touched; [../sbx/sleep.md](../sbx/sleep.md) covers what each phase does to sandboxes.
 
 ## Suspend
