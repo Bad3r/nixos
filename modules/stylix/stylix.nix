@@ -321,6 +321,13 @@ in
               scalableIconDirs = qogirDarkPanelScalableIconDirs;
             }
             {
+              id = "remmina-tray";
+              source = ./icons/remmina-tray.svg;
+              names = [ "org.remmina.Remmina-status" ];
+              fixedIconSizes = qogirDarkPanelFixedIconSizes;
+              scalableIconDirs = qogirDarkPanelScalableIconDirs;
+            }
+            {
               id = "teams-for-linux";
               source = ./icons/teams-for-linux.svg;
               names = [ "teams-for-linux" ];
