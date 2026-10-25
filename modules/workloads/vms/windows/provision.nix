@@ -71,7 +71,7 @@ let
                 msi = "${winfsp.msi}";
               };
           install = guest.install.media != [ ];
-          osDisk = "${guest.stateDir}/${lib.head (lib.attrNames guest.disks)}.qcow2";
+          osDisk = "${guest.stateDir}/${guest.osDisk}.qcow2";
         };
 
       # The Office step copies its installer from the staged media.

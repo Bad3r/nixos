@@ -31,14 +31,16 @@ import time
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from pathlib import Path, PurePosixPath
+from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any, Protocol, cast
 
-from sbx import cloud, journal, keys
+from sbx import cloud, journal, keys, windows
 from sbx.cloud import CloudImage
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Sequence
+
+    from sbx.windows import WindowsSettings
 
 NS = "https://github.com/Bad3r/nixos/sbx"
 DOMAIN_PREFIX = "sbx-"
@@ -145,6 +147,10 @@ class Settings:
     egress: Egress | str
     cloud_images: dict[str, CloudImage]
     tools: Tools
+    # Present when the host exports Windows bases.
+    windows: WindowsSettings | None = None
+    # The session daemon's file size limit, which every Windows overlay reserves.
+    file_bytes: int = 0
 
     @classmethod
     def load(cls, path: Path) -> Settings:
@@ -184,6 +190,10 @@ class Settings:
                 for name, image in raw["cloudImages"].items()
             },
             tools=Tools(**raw["tools"]),
+            windows=None
+            if raw["windows"] is None
+            else windows.WindowsSettings.load(raw["windows"]),
+            file_bytes=limits["fileBytes"],
         )
 
 
@@ -753,8 +763,18 @@ class Sandboxes:
             msg = f"'{name}' is not a sandbox name: 1-31 of a-z, 0-9, and -, not 'bases'"
             raise SbxError(msg, code="invalid-name")
 
+    def windows_base(self, base: str) -> WindowsSettings | None:
+        """Return the Windows settings when `base` is a Windows base."""
+        settings = self.settings.windows
+        return settings if settings is not None and base in settings.bases else None
+
+    def agent_only(self, name: str, *, token: str | None = None) -> bool:
+        """Return whether a sandbox takes commands through qemu-ga only, as Windows does."""
+        return self.windows_base(self.created(name, token).meta.base) is not None
+
     def _bases(self) -> list[str]:
-        return [*FLAVOURS, *self.settings.cloud_images]
+        windows_bases = [] if self.settings.windows is None else list(self.settings.windows.bases)
+        return [*FLAVOURS, *self.settings.cloud_images, *windows_bases]
 
     def _sandbox_dirs(self) -> list[Path]:
         if not self.paths.root.is_dir():
@@ -877,9 +897,13 @@ class Sandboxes:
                 msg = f"base '{base}' has no GUI variant; GUI bases: {', '.join(sorted(GUI_BASES))}"
                 raise SbxError(msg, code="unknown-base")
             base = f"{base}-gui"
-        default_memory = (
-            settings.default_gui_memory_mib if base in GUI_BASES else settings.default_memory_mib
-        )
+        windows_settings = self.windows_base(base)
+        if windows_settings is not None:
+            default_memory = windows_settings.memory_mib
+        elif base in GUI_BASES:
+            default_memory = settings.default_gui_memory_mib
+        else:
+            default_memory = settings.default_memory_mib
         request = Request(
             base,
             name,
@@ -896,6 +920,10 @@ class Sandboxes:
         if request.base not in self._bases():
             msg = f"unknown base '{request.base}'; bases: {', '.join(self._bases())}"
             raise SbxError(msg, code="unknown-base")
+        # Clones share the golden copy's SIDs, which stay harmless only off the network.
+        if self.windows_base(request.base) is not None and request.net != "none":
+            msg = "Windows bases run without a network"
+            raise SbxError(msg, code="invalid-argument")
         if request.name is not None:
             self._check_name(request.name)
         if request.net not in NETS:
@@ -957,7 +985,9 @@ class Sandboxes:
     # Bases
 
     def base_image(self, base: str) -> Path:
-        """Return the qcow2 image of a built or prepared base."""
+        """Return the qcow2 image of a built, prepared, or exported base."""
+        if (windows_settings := self.windows_base(base)) is not None:
+            return windows.newest(windows_settings, base) / windows.DISK
         if base in self.settings.cloud_images:
             disk = self.paths.bases / base / cloud.DISK
             if not disk.is_file():
@@ -995,10 +1025,28 @@ class Sandboxes:
                     "url": pinned.url,
                 }
             )
+        if self.settings.windows is not None:
+            for base, directory in self.settings.windows.bases.items():
+                found = windows.versions(directory)
+                result.append(
+                    {
+                        "base": base,
+                        "kind": "windows",
+                        "built": bool(found),
+                        "path": str(found[-1]) if found else None,
+                        "versions": [version.name for version in found],
+                    }
+                )
         return result
 
     def base_build(self, flavour: str) -> dict[str, object]:
         """Build a Nix base from the configured flake; its out-link is the GC root."""
+        if (windows_settings := self.windows_base(flavour)) is not None:
+            msg = (
+                f"Windows base '{flavour}' is exported from its guest's golden copy, not built; "
+                f"the owner runs `systemctl start {windows_settings.unit(flavour)}`"
+            )
+            raise SbxError(msg, code="base-export")
         if flavour in self.settings.cloud_images:
             msg = (
                 f"cloud base '{flavour}' comes from `sbx base prepare {flavour}`, run by the owner"
@@ -1245,6 +1293,12 @@ class Sandboxes:
         rng = sub(devices, "rng", model="virtio")
         sub(rng, "backend", "/dev/urandom", model="random")
         sub(devices, "memballoon", model="virtio", freePageReporting="on")
+        return self._serialize(domain, directory, request.base)
+
+    def _serialize(self, domain: ET.Element, directory: Path, base: str) -> str:
+        """Render the domain, adapted first when `base` is a Windows base."""
+        if (windows_settings := self.windows_base(base)) is not None:
+            windows.adapt(domain, directory, windows_settings.firmware)
         return ET.tostring(domain, encoding="unicode")
 
     def _discard(self, name: str, token: str | None = None) -> None:
@@ -1283,6 +1337,26 @@ class Sandboxes:
             journal.record(f"grants of {name} stay live: {error}", code=error.code, sandbox=name)
             print(f"sbx: grants of {name} stay live: {error}", file=sys.stderr)
 
+    def _sandbox_key(self, name: str, directory: Path) -> str:
+        """Generate the sandbox's SSH key and return its public half."""
+        key = directory / "id_ed25519"
+        comment = DOMAIN_PREFIX + name
+        run(
+            [
+                self.settings.tools.ssh_keygen,
+                "-q",
+                "-t",
+                "ed25519",
+                "-N",
+                "",
+                "-C",
+                comment,
+                "-f",
+                str(key),
+            ]
+        )
+        return key.with_suffix(".pub").read_text().strip()
+
     def create(self, request: Request, *, token: str | None = None) -> dict[str, object]:
         """Start a sandbox and wait until it accepts commands.
 
@@ -1294,8 +1368,9 @@ class Sandboxes:
         name = request.name or f"{request.base}-{secrets.token_hex(3)}"
         self._check_name(name)
         image = self.base_image(request.base)
-        # Prepared cloud disks live outside the store.
-        root = None if request.base in self.settings.cloud_images else image.parent
+        # Prepared cloud disks and Windows exports live outside the store.
+        outside = request.base in self.settings.cloud_images or self.windows_base(request.base)
+        root = None if outside else image.parent
         return self._start(request, name, image, token, root=root, agent=True)
 
     def _start(  # noqa: PLR0913
@@ -1317,12 +1392,24 @@ class Sandboxes:
             ):
                 msg = f"a sandbox named '{name}' exists"
                 raise SbxError(msg, code="exists")
-            running = self._check_capacity(request)
+            self._check_capacity(request)
+            windows_settings = self.windows_base(request.base)
+            if windows_settings is not None:
+                # gc prunes superseded exports under this lock, so pick the newest only here.
+                image = windows.newest(windows_settings, request.base) / windows.DISK
             tools = self.settings.tools
             info = json.loads(run([tools.qemu_img, "info", "-U", "--output=json", str(image)]))
             size = max(int(info["virtual-size"]), self.settings.disk_gib * GIB)
-            # Every running overlay may still grow to its full virtual size.
-            self._check_disk(reserve=(running + 1) * size)
+            linux_size = size if windows_settings is None else self.settings.disk_gib * GIB
+            active = [sandbox.meta.base for sandbox in self.owned() if sandbox.domain.active]
+            # Every running overlay may still grow to its full virtual size, or a Windows
+            # one, whose disk is larger, to the daemon's file size limit.
+            self._check_disk(
+                reserve=sum(
+                    self.settings.file_bytes if self.windows_base(base) else linux_size
+                    for base in [*active, request.base]
+                )
+            )
             nic = (self._check_egress(), random_mac()) if request.net == "egress" else None
             now = int(self._clock())
             meta = Meta(
@@ -1338,22 +1425,11 @@ class Sandboxes:
             try:
                 (directory / CREATION_FILE).write_text(token)
                 (directory / "xfer").mkdir(mode=0o700)
-                key = directory / "id_ed25519"
-                comment = DOMAIN_PREFIX + name
-                run(
-                    [
-                        tools.ssh_keygen,
-                        "-q",
-                        "-t",
-                        "ed25519",
-                        "-N",
-                        "",
-                        "-C",
-                        comment,
-                        "-f",
-                        str(key),
-                    ]
-                )
+                if windows_settings is None:
+                    public = self._sandbox_key(name, directory)
+                else:
+                    public = ""
+                    windows.prepare(image.parent, directory)
                 if root is not None:
                     # A per-sandbox root keeps the base through a rebuild and a GC.
                     gc_root = str(directory / "base")
@@ -1374,7 +1450,6 @@ class Sandboxes:
                         str(size),
                     ]
                 )
-                public = key.with_suffix(".pub").read_text().strip()
                 if request.base in self.settings.cloud_images:
                     seed_nic = None if nic is None else (nic[1], nic[0].mtu)
                     self._write_seed(name, directory, public, nic=seed_nic)
@@ -1447,6 +1522,8 @@ class Sandboxes:
                     msg = f"the guest agent of '{name}' did not answer; console:\n{tail}"
                     raise SbxError(msg, code="boot-timeout") from None
                 time.sleep(1)
+        if self.agent_only(name, token=token):
+            return
         while True:
             sandbox = self.created(name, token)
             result = capture(self._ssh(name, sandbox.domain, ["true"]), 4096, 30)
@@ -1570,27 +1647,14 @@ class Sandboxes:
         return None
 
     def gc(self, *, dry_run: bool) -> list[dict[str, str]]:
-        """Remove stopped and half-removed sandboxes, and expired ones once the clock is synced."""
-        if not self._has_state():
+        """Remove stopped, half-removed, and, on a synced clock, expired sandboxes; then exports."""
+        has_state = self._has_state()
+        if not has_state and self.settings.windows is None:
             return []
-        actions: list[dict[str, str]] = []
-        synced = self.host_synced()
         with self.locked():
-            now = self._clock()
-            owned = {sandbox.name: sandbox for sandbox in self.owned()}
-            for sandbox in owned.values():
-                reason = self._gc_reason(sandbox, now, synced=synced)
-                if reason is None:
-                    continue
-                actions.append({"name": sandbox.name, "reason": reason})
-                if not dry_run:
-                    self._discard(sandbox.name)
-            for directory in self._sandbox_dirs():
-                if directory.name in owned:
-                    continue
-                actions.append({"name": directory.name, "reason": "no domain"})
-                if not dry_run:
-                    self._discard(directory.name)
+            # Without sandbox state, gc never starts the daemon.
+            actions, kept = self._gc_sandboxes(dry_run=dry_run) if has_state else ([], [])
+            pruned = self._prune_bases(kept, dry_run=dry_run)
         if not dry_run:
             for action in actions:
                 journal.record(
@@ -1598,6 +1662,47 @@ class Sandboxes:
                     verb="gc",
                     sandbox=action["name"],
                 )
+            for action in pruned:
+                journal.record(f"gc removed base export {action['name']}", verb="gc")
+        return actions + pruned
+
+    def _gc_sandboxes(self, *, dry_run: bool) -> tuple[list[dict[str, str]], list[Sandbox]]:
+        """Remove what gc removes under the held lock; return the actions and the survivors."""
+        actions: list[dict[str, str]] = []
+        kept: list[Sandbox] = []
+        synced = self.host_synced()
+        now = self._clock()
+        owned = {sandbox.name: sandbox for sandbox in self.owned()}
+        for sandbox in owned.values():
+            reason = self._gc_reason(sandbox, now, synced=synced)
+            if reason is None:
+                kept.append(sandbox)
+                continue
+            actions.append({"name": sandbox.name, "reason": reason})
+            if not dry_run:
+                self._discard(sandbox.name)
+        for directory in self._sandbox_dirs():
+            if directory.name in owned:
+                continue
+            actions.append({"name": directory.name, "reason": "no domain"})
+            if not dry_run:
+                self._discard(directory.name)
+        return actions, kept
+
+    def _prune_bases(self, kept: Sequence[Sandbox], *, dry_run: bool) -> list[dict[str, str]]:
+        """Remove Windows base exports that are neither the newest nor under a sandbox."""
+        settings = self.settings.windows
+        if settings is None:
+            return []
+        used = {Path(sandbox.meta.image).parent for sandbox in kept}
+        actions: list[dict[str, str]] = []
+        for base, directory in settings.bases.items():
+            for version in windows.versions(directory)[:-1]:
+                if version in used:
+                    continue
+                actions.append({"name": f"{base}/{version.name}", "reason": "superseded export"})
+                if not dry_run:
+                    shutil.rmtree(version)
         return actions
 
     # Guest access
@@ -1663,6 +1768,9 @@ class Sandboxes:
             sandbox=name,
             session=self.session,
         )
+        if self.windows_base(sandbox.meta.base) is not None:
+            guest = windows.Guest(self.backend(), sandbox.domain.name)
+            return guest.execute(command, timeout=timeout, limit=self.settings.output_limit)
         bounded = guest_command(command, timeout)
         if agent:
             result = self._agent_exec(sandbox.domain.name, bounded, _backstop(timeout))
@@ -1678,6 +1786,9 @@ class Sandboxes:
     ) -> int | None:
         """Run a command with the caller's stdio; return its exit code, or None on timeout."""
         sandbox = self._running(name, token)
+        if self.windows_base(sandbox.meta.base) is not None:
+            msg = f"sandbox '{name}' runs Windows, which takes commands through qemu-ga only"
+            raise SbxError(msg, code="agent-only")
         journal.record(
             f"exec in {name}: {shlex.join(command)}",
             verb="exec",
@@ -1827,6 +1938,12 @@ class Sandboxes:
             journal.record(
                 f"cp {local} {name}:{guest_path}", verb="cp", sandbox=name, session=self.session
             )
+            if self.windows_base(sandbox.meta.base) is not None:
+                guest = windows.Guest(self.backend(), sandbox.domain.name)
+                return {
+                    "from": str(local),
+                    "to": f"{name}:{windows.copy_in(guest, local, guest_path)}",
+                }
             options = self._ssh_options(name, sandbox.domain)
             run(
                 [
@@ -1848,11 +1965,13 @@ class Sandboxes:
     def _copy_out(
         self, name: str, guest_path: str, destination: str | None, token: str | None
     ) -> dict[str, object]:
-        leaf = PurePosixPath(guest_path).name
+        sandbox = self._running(name, token)
+        on_windows = self.windows_base(sandbox.meta.base) is not None
+        source = windows.guest_path(guest_path) if on_windows else PurePosixPath(guest_path)
+        leaf = source.name
         if leaf in {"", ".", ".."}:
             msg = f"'{guest_path}' names no file or directory to copy out"
             raise SbxError(msg, code="invalid-argument")
-        sandbox = self._running(name, token)
         xfer = self.paths.sandbox(name) / "xfer"
         if destination is None:
             target = xfer / leaf
@@ -1872,9 +1991,13 @@ class Sandboxes:
             if not staged.resolve().is_relative_to(stage.resolve()):
                 msg = f"'{guest_path}' leaves the transfer directory"
                 raise SbxError(msg, code="path-denied")
-            options = self._ssh_options(name, sandbox.domain)
-            argv = [self.settings.tools.scp, *options, "-q", "-r", f"root@sbx:{guest_path}"]
-            self._bounded_transfer([*argv, str(staged)], stage, budget)
+            if isinstance(source, PureWindowsPath):
+                guest = windows.Guest(self.backend(), sandbox.domain.name)
+                windows.copy_out(guest, source, stage, budget)
+            else:
+                options = self._ssh_options(name, sandbox.domain)
+                argv = [self.settings.tools.scp, *options, "-q", "-r", f"root@sbx:{guest_path}"]
+                self._bounded_transfer([*argv, str(staged)], stage, budget)
             _strip_exec_bits(staged)
             self._check_disk()
             publish(staged, target)

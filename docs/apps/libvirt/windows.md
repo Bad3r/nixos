@@ -92,6 +92,7 @@ It refuses a running guest, files that change during the copy, and an existing g
 The golden copy of an autologon guest holds the account password in its LSA secret, readable by anything that runs as an administrator in a copy, such as an sbx sandbox.
 
 Verification: the log ends with `copied guest '<name>'`.
+[sbx Windows bases](../sbx/windows.md#export-a-windows-base) clone sandboxes from it.
 
 ## Restore a golden copy
 
