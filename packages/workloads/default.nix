@@ -5,6 +5,7 @@
   nftables,
   conntrack-tools,
   iproute2,
+  libvirt,
 }:
 stdenvNoCC.mkDerivation {
   pname = "workloads";
@@ -47,6 +48,7 @@ stdenvNoCC.mkDerivation {
         nft="${lib.getExe nftables}",
         conntrack="${lib.getExe' conntrack-tools "conntrack"}",
         ip="${lib.getExe' iproute2 "ip"}",
+        virsh="${lib.getExe' libvirt "virsh"}",
     )
     sys.exit(main(Path("/etc/workloads/grants.json"), tools, Path("/run/workloads/grantd.lock")))
     EOF
@@ -62,7 +64,7 @@ stdenvNoCC.mkDerivation {
   '';
 
   meta = {
-    description = "Command line and grant helper for declared workloads and live sandboxes";
+    description = "Command line and grant and share helper for declared workloads and live sandboxes";
     mainProgram = "workloads";
     platforms = lib.platforms.linux;
   };

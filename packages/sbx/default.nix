@@ -3,6 +3,7 @@
   stdenvNoCC,
   writeText,
   writeScript,
+  writeShellScript,
   writeScriptBin,
   python3,
   qemu_kvm,
@@ -16,6 +17,7 @@
   systemd,
   nix,
   xorriso,
+  virtiofsd,
   # Rendered by modules/apps/sbx/nixos.nix; the bare package refuses to run.
   settings ? { },
 }:
@@ -34,6 +36,14 @@ let
     from emulator import main
 
     main("${qemu_kvm}/bin/qemu-system-x86_64", sys.argv[1:])
+  '';
+  # Every guest id writes as the owner, and every host file shows as uid 1000 and gid 100,
+  # the GUI base's sbx user, so a non-root guest user writes too and the owner deletes it all.
+  shareDaemon = writeShellScript "sbx-virtiofsd" ''
+    exec ${virtiofsd}/bin/virtiofsd \
+      --translate-uid=squash-guest:0:0:4294967295 --translate-uid=squash-host:0:1000:4294967295 \
+      --translate-gid=squash-guest:0:0:4294967295 --translate-gid=squash-host:0:100:4294967295 \
+      "$@"
   '';
   # First on sbx-libvirt's PATH: a sandbox's TPM emulator parses guest input,
   # so it gets no host network; libvirt reaches it over path-based sockets.
@@ -66,6 +76,7 @@ let
     nix_store = "${nix}/bin/nix-store";
     timedatectl = "${systemd}/bin/timedatectl";
     xorriso = "${xorriso}/bin/xorriso";
+    virtiofsd = "${shareDaemon}";
   };
   version = "0.1.0";
   settingsFile = writeText "sbx-settings.json" (builtins.toJSON (settings // { inherit tools; }));

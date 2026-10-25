@@ -21,6 +21,7 @@ from sbx.core import (
     caller_session,
     parse_duration,
 )
+from sbx.shares import SHARED, Shares
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
@@ -119,7 +120,25 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     typing.add_argument("name")
     typing.add_argument("text", help="US-layout text; newline presses enter")
 
-    gc = verbs.add_parser("gc", parents=[common], help="remove expired and orphaned sandboxes")
+    # No --json between share and its verb, like base.
+    share = verbs.add_parser("share", help="attach or detach a runtime virtiofs share")
+    share_verbs = share.add_subparsers(dest="share_verb", required=True, parser_class=Parser)
+    for verb, text in (
+        ("attach", "hot-plug a share into a running sandbox"),
+        ("detach", "remove a share; fails while the guest still holds it"),
+    ):
+        action = share_verbs.add_parser(verb, parents=[common], help=text)
+        action.add_argument("name")
+        action.add_argument(
+            "share",
+            help=f"{SHARED} (read-write) or a workloads.grants.sandboxShares name (read-only)",
+        )
+
+    gc = verbs.add_parser(
+        "gc",
+        parents=[common],
+        help=f"remove expired and orphaned sandboxes; detach {SHARED} past the disk cap",
+    )
     gc.add_argument("--dry-run", action="store_true")
 
     # No --json between base and its verb, so permission rules see one spelling.
@@ -261,8 +280,14 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
             return sandboxes.key(args.name, args.keys), 0
         case "type":
             return sandboxes.type_text(args.name, args.text), 0
+        case "share":
+            shares = Shares(sandboxes)
+            if args.share_verb == "attach":
+                return shares.attach(args.name, args.share), 0
+            return shares.detach(args.name, args.share), 0
         case "gc":
-            return sandboxes.gc(dry_run=args.dry_run), 0
+            removed = sandboxes.gc(dry_run=args.dry_run)
+            return removed + Shares(sandboxes).reclaim(dry_run=args.dry_run), 0
         case "base":
             if args.base_verb == "list":
                 return sandboxes.base_list(), 0

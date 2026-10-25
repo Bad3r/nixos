@@ -198,3 +198,87 @@ class GrantVerbsTest(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertEqual(out.splitlines()[0].split(), ["ID", "SOURCE", "TARGET", "EXPIRES", "IN"])
         self.assertIn("sbx-ab12", out)
+
+
+GUEST_SHARE: dict[str, object] = {
+    "guest": "dev",
+    "tag": "late",
+    "read_only": False,
+    "mount_point": "/mnt/late",
+    "attached": True,
+}
+SANDBOX_SHARE = {
+    "sandbox": "ab12",
+    "tag": "shared",
+    "read_only": False,
+    "host_path": "/home/vx/.local/share/sbx/ab12/shared",
+    "attached": True,
+}
+
+
+class ShareVerbsTest(unittest.TestCase):
+    """share attach and detach route guests to the helper and sandboxes to sbx."""
+
+    def test_guest(self) -> None:
+        """A guest share goes to the helper; plain output names the mount."""
+        helper = FakeHelper({"share": GUEST_SHARE})
+        with unittest.mock.patch.dict("os.environ", {}, clear=True):
+            code, out, _ = run_grant(helper, lambda _: None, "share", "attach", "dev", "late")
+        self.assertEqual(code, 0)
+        self.assertEqual(
+            helper.requests, [{"verb": "share-attach", "guest": "dev", "share": "late"}]
+        )
+        self.assertEqual(
+            out.splitlines(),
+            [
+                "attached late to guest:dev, read-write",
+                "mount it in the guest with: mount /mnt/late",
+            ],
+        )
+
+    def test_sandbox(self) -> None:
+        """A sandbox share runs sbx and never asks the helper."""
+        helper = FakeHelper({})
+        calls: list[list[str]] = []
+
+        def runner(arguments: Sequence[str]) -> tuple[int, str]:
+            calls.append(list(arguments))
+            return 0, json.dumps(SANDBOX_SHARE | {"attached": False})
+
+        code, out, _ = run_grant(helper, runner, "share", "detach", "--json", "sbx-ab12", "shared")
+        self.assertEqual(code, 0)
+        self.assertEqual(calls, [["share", "detach", "ab12", "shared", "--json"]])
+        self.assertEqual(helper.requests, [])
+        self.assertEqual(
+            json.loads(out)["share"],
+            {
+                "target": "sbx-ab12",
+                "tag": "shared",
+                "read_only": False,
+                "attached": False,
+                "host_path": "/home/vx/.local/share/sbx/ab12/shared",
+            },
+        )
+
+    def test_refusals(self) -> None:
+        """Refusal codes of sbx and the helper pass through; a bad target fails first."""
+        refused = {"error": {"code": "not-declared", "message": "no such share"}}
+        code, out, _ = run_grant(
+            FakeHelper({}),
+            lambda _: (1, json.dumps(refused)),
+            "--json",
+            "share",
+            "attach",
+            "sbx-ab12",
+            "/home/vx",
+        )
+        self.assertEqual((code, json.loads(out)["error"]["code"]), (1, "not-declared"))
+        helper = FakeHelper({"error": {"code": "detach-pending", "message": "still held"}})
+        code, out, _ = run_grant(helper, lambda _: None, "--json", "share", "detach", "dev", "late")
+        self.assertEqual((code, json.loads(out)["error"]["code"]), (1, "detach-pending"))
+        code, out, _ = run_grant(helper, lambda _: None, "--json", "share", "attach", "Dev!", "x")
+        self.assertEqual(json.loads(out)["error"]["code"], "invalid-target")
+        code, out, _ = run_grant(
+            helper, lambda _: None, "--json", "share", "attach", "sbx-ab12", "x"
+        )
+        self.assertEqual(json.loads(out)["error"]["code"], "sbx")
