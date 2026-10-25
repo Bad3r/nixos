@@ -1,6 +1,8 @@
 { lib, ... }:
 let
-  settings = {
+  # Clients forward the user nix.conf to the daemon, which drops restricted
+  # settings from every user but root with a warning.
+  clientSettings = {
     # Lix ignores untrusted flake nixConfig with a warning in this mode and never prompts.
     accept-flake-config = false;
     # Disabled due to upstream nixpkgs warning in make-options-doc
@@ -12,12 +14,7 @@ let
     # Update both this comment and flake.nix when adding or removing IFD
     # consumers.
     allow-import-from-derivation = true;
-    # Hard-linking on every store write taxes builds and large substitution
-    # runs and serializes on the store lock; the scheduled
-    # nix.optimise.automatic run below deduplicates instead.
-    auto-optimise-store = lib.mkDefault false;
     cores = lib.mkDefault 0;
-    keep-outputs = false;
     experimental-features = [
       "nix-command"
       "flakes"
@@ -31,6 +28,13 @@ let
       "pipe-operator"
       "flake-self-attrs"
     ];
+  };
+  settings = clientSettings // {
+    # Hard-linking on every store write taxes builds and large substitution
+    # runs and serializes on the store lock; the scheduled
+    # nix.optimise.automatic run below deduplicates instead.
+    auto-optimise-store = lib.mkDefault false;
+    keep-outputs = false;
   };
 in
 {
@@ -47,7 +51,7 @@ in
     };
 
     flake.homeManagerModules.base = _: {
-      nix.settings = settings;
+      nix.settings = clientSettings;
     };
   };
 }

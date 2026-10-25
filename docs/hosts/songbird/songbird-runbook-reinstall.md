@@ -86,7 +86,7 @@ Precondition: disk A boots the installer's stock configuration, with no checkout
    The stock configuration enables no experimental features, so the flag carries `nix shell` until `modules/base/nix-settings.nix` lands; `build.sh` bootstraps its own Nix commands.
    `-t songbird` is required because `build.sh` defaults the target to `$(hostname)`, still `nixos` under the stock configuration.
    `--boot` installs the generation for the next reboot instead of switching the running session live, and Home Manager moves any pre-existing `$HOME` file it manages aside with the `.hm.bk` extension rather than failing activation.
-   `--bootstrap` replaces the substituter list with the fleet caches before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
+   `--bootstrap` replaces the daemon's substituters and keys with the fleet caches, which only root may do, before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
    `NH_BYPASS_ROOT_CHECK=1` is required because `nh os` refuses to run as an effective uid of 0, and the stock configuration has no other account to run it from.
    The flake's own configuration declares the owner account, so this same activation creates it; no manual user setup precedes it.
 
