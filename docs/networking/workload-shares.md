@@ -37,7 +37,7 @@ sbx share attach <name> <tag>
 sbx share detach <name> <tag>
 ```
 
-`workloads share attach sbx-<name> <tag>` runs `sbx share attach` and keeps its share fields.
+`workloads share attach sbx-<name> <tag>` runs `sbx share attach`, which mounts the share as well; its answer leaves out the mount fields.
 A NixOS guest's runtime share has a `noauto` fstab entry, so `mount /mnt/<tag>` in the guest mounts it.
 `sbx share attach` mounts the tag on `/mnt/<tag>` in the sandbox, read-only with `-o ro`, and returns `mount_command` and `unmount_command`.
 `--no-mount` only attaches; a mount the guest refuses keeps the share attached with `mounted: false` and `mount_error`.
