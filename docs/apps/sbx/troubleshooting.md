@@ -76,3 +76,23 @@ grep vn-sbx /etc/qemu/bridge.conf
 ```
 
 Fix: an empty lease file with the bridge admitted points at the base's DHCP client; rebuild the base and retry.
+
+## base prepare fails with owner-only
+
+Cause: the shell carries `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID`, so `sbx` takes it for an agent session.
+
+```sh
+env | grep -E '^(CLAUDE_CODE_SESSION_ID|CODEX_THREAD_ID)='
+```
+
+Fix: run `sbx base prepare <image>` from a terminal outside Claude Code and Codex.
+
+## base prepare fails with prepare-failed
+
+Cause: provisioning in the `prepare-<image>` boot exited non-zero or timed out, or the guest did not power off; the error carries the tail of its stderr.
+
+```sh
+sbx run nixos --net egress -- getent hosts deb.debian.org
+```
+
+Fix: once egress resolves, rerun `sbx base prepare <image>`; a failure that repeats points at the pinned image.

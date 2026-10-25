@@ -467,8 +467,10 @@
 ### sbx
 
 - [apps/sbx/README.md](apps/sbx/README.md)
-  - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, Nix bases, the slice and ceilings, state, and gc.
+  - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, the slice and ceilings, state, and gc.
+- [apps/sbx/bases.md](apps/sbx/bases.md)
+  - `sbx` bases: Nix-built `nixos` and `nixos-gui`, keyboard input on GUI sandboxes, and hash-pinned cloud images that `base prepare` provisions.
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)
   - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
 - [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)
-  - `sbx` failures by error code: a daemon outside the slice, the vsock namespace launcher, boot timeouts, and an unavailable egress bridge or lease.
+  - `sbx` failures by error code: a daemon outside the slice, the vsock namespace launcher, boot timeouts, an unavailable egress bridge or lease, and a refused or failed `base prepare`.

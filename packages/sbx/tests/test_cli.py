@@ -32,3 +32,17 @@ class CommandLineTest(unittest.TestCase):
         with self.assertRaises(SbxError) as refused:
             parser.parse_args(["create", "nixos", "--net", "lan"])
         self.assertEqual(refused.exception.code, "usage")
+
+    def test_input_and_base_verbs(self) -> None:
+        """Chords for key, one text for type, one image for base prepare, and --gui parse."""
+        parser = build_parser()
+        self.assertEqual(
+            parser.parse_args(["key", "g", "ctrl+c", "enter"]).keys, ["ctrl+c", "enter"]
+        )
+        self.assertEqual(parser.parse_args(["type", "g", "--json", "ls -l"]).text, "ls -l")
+        self.assertEqual(parser.parse_args(["base", "prepare", "debian-13"]).image, "debian-13")
+        self.assertTrue(parser.parse_args(["create", "nixos", "--gui"]).gui)
+        self.assertFalse(parser.parse_args(["run", "nixos"]).gui)
+        for argv in (["key", "g"], ["type", "g"], ["type", "g", "a", "b"]):
+            with self.subTest(argv=argv), self.assertRaises(SbxError):
+                parser.parse_args(argv)
