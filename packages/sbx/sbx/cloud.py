@@ -44,8 +44,13 @@ class CloudImage:
     hash: str
 
 
-def seed_files(instance_id: str, authorized_key: str, *, network: bool) -> dict[str, str]:
-    """Return the NoCloud seed that lets root in with the sandbox key and nobody else."""
+def seed_files(
+    instance_id: str, authorized_key: str, *, nic: tuple[str, int] | None
+) -> dict[str, str]:
+    """Return the NoCloud seed that lets root in with the sandbox key and nobody else.
+
+    `nic` is the egress NIC's MAC and the network's MTU, or None without a NIC.
+    """
     user_data = {
         # No default user: root holds the only key.
         "users": [],
@@ -65,6 +70,12 @@ def seed_files(instance_id: str, authorized_key: str, *, network: bool) -> dict[
         # JSON is YAML, which cloud-init reads after the header line.
         "user-data": "#cloud-config\n" + json.dumps(user_data),
     }
-    if not network:
-        files["network-config"] = json.dumps({"network": {"config": "disabled"}})
+    if nic is None:
+        network: dict[str, object] = {"config": "disabled"}
+    else:
+        mac, mtu = nic
+        # Nix bases take the MTU from the DHCP server; cloud-init's renderers may not.
+        ethernet = {"match": {"macaddress": mac}, "dhcp4": True, "mtu": mtu}
+        network = {"version": 2, "ethernets": {"egress": ethernet}}
+    files["network-config"] = json.dumps({"network": network})
     return files

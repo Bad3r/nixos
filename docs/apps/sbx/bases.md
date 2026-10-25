@@ -56,7 +56,7 @@ sbx run debian-13 -- cat /etc/os-release
 - The prepared disk is a file any process of the owner can change, and every later cloud sandbox inherits what the prepare boot left on it: the pinned image plus the packages apt fetched over egress.
   Run `base prepare` again to refresh it.
 - Each cloud sandbox boots with a NoCloud seed ISO that carries a fresh instance id, root's key, and no default user, so cloud-init runs again.
-- A `none` sandbox's seed turns cloud-init networking off; an `egress` sandbox takes cloud-init's DHCP fallback on its NIC.
+- A `none` sandbox's seed turns cloud-init networking off; an `egress` sandbox's seed runs DHCP on its NIC at the network's MTU.
 - The seed's `bootcmd` loads the vsock transport and starts `sshd-vsock.socket`, since Debian's cloud kernel loads that module after `systemd-ssh-generator` runs.
 
 To pin a new build, check the download against the build's `SHA512SUMS`, then pin the SHA-256 of the checked file.

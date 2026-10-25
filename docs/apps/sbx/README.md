@@ -56,7 +56,7 @@ sbx destroy probe
 
 - `--net none`, the default, gives the sandbox no network interface.
 - `--net egress` adds one virtio NIC on `vn-sbx`, the bridge of the `sbx` [workload network](../../networking/workloads.md) in `modules/hosts/<host>/workloads.nix`, which sets its egress, isolation, and lease binding.
-- The NIC carries the network's `mtu`, which virtio-net hands the guest driver, so every base uses it whatever its DHCP client does.
+- Guests run the NIC at the network's `mtu`: Nix bases take it from the DHCP server, cloud bases from their seed.
 - The network's resolver ignores the hostnames sandboxes send, so a sandbox cannot look up its peers.
 - `create` waits for the guest's DHCP lease and prints its address.
   `list` and `info` read it from the lease file the host's DHCP server keeps for the bridge, not from the guest agent.

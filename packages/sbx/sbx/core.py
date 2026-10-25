@@ -656,14 +656,13 @@ def guest_holds(reply: dict[str, Any], mac: str, address: str) -> bool:
     return False
 
 
-def bridge_interface(bridge: str, mac: str, mtu: int) -> ET.Element:
+def bridge_interface(bridge: str, mac: str) -> ET.Element:
     """Render a virtio NIC on a host bridge; session libvirt joins it through qemu-bridge-helper."""
     interface = ET.Element("interface", type="bridge")
     ET.SubElement(interface, "mac", address=mac)
     ET.SubElement(interface, "source", bridge=bridge)
     ET.SubElement(interface, "model", type="virtio")
-    # virtio-net hands the guest driver this MTU, whatever its DHCP client applies.
-    ET.SubElement(interface, "mtu", size=str(mtu))
+    # No <mtu>: session libvirt cannot set a tap's MTU, so guests take it from DHCP or the seed.
     return interface
 
 
@@ -1190,7 +1189,7 @@ class Sandboxes:
             sub(seed, "readonly")
         if nic is not None:
             egress, mac = nic
-            devices.append(bridge_interface(egress.bridge, mac, egress.mtu))
+            devices.append(bridge_interface(egress.bridge, mac))
         sub(devices, "controller", type="usb", model="none")
         # Untrusted class: the guest agent channel only, never a vdagent channel.
         channel = sub(devices, "channel", type="unix")
@@ -1331,7 +1330,8 @@ class Sandboxes:
                 )
                 public = key.with_suffix(".pub").read_text().strip()
                 if request.base in self.settings.cloud_images:
-                    self._write_seed(name, directory, public, network=nic is not None)
+                    seed_nic = None if nic is None else (nic[1], nic[0].mtu)
+                    self._write_seed(name, directory, public, nic=seed_nic)
                 backend.start(self._domain_xml(name, directory, meta, request, public, nic))
             except BaseException:
                 self._discard(name, token)
@@ -1359,12 +1359,14 @@ class Sandboxes:
             return ""
         return "\n".join(lines[-15:])
 
-    def _write_seed(self, name: str, directory: Path, public_key: str, *, network: bool) -> None:
+    def _write_seed(
+        self, name: str, directory: Path, public_key: str, *, nic: tuple[str, int] | None
+    ) -> None:
         """Pack the NoCloud seed; a fresh instance id makes cloud-init run again."""
         instance = f"{DOMAIN_PREFIX}{name}-{secrets.token_hex(4)}"
         files = directory / "seed"
         files.mkdir(mode=0o700)
-        for leaf, content in cloud.seed_files(instance, public_key, network=network).items():
+        for leaf, content in cloud.seed_files(instance, public_key, nic=nic).items():
             (files / leaf).write_text(content)
         run(
             [

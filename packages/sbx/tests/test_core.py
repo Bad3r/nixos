@@ -863,7 +863,6 @@ class SandboxesTest(Fixture):
         self.assertEqual(interface.find("source").get("bridge"), "vn-sbx")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(interface.find("model").get("type"), "virtio")  # pyright: ignore[reportOptionalMemberAccess]
         self.assertEqual(interface.find("mac").get("address"), MAC)  # pyright: ignore[reportOptionalMemberAccess]
-        self.assertEqual(interface.find("mtu").get("size"), "1240")  # pyright: ignore[reportOptionalMemberAccess]
         listed = self.sandboxes().listing(mine=False)
         self.assertEqual([entry["address"] for entry in listed], ["172.16.2.5"])
         self.assertEqual(self.sandboxes().info("t1")["address"], "172.16.2.5")
@@ -1115,13 +1114,17 @@ class SandboxesTest(Fixture):
         )
 
     def test_cloud_egress_seed(self) -> None:
-        """An egress cloud sandbox leaves networking to cloud-init's DHCP fallback."""
+        """An egress cloud sandbox's seed runs DHCP on its NIC at the network's MTU."""
         self.prepared()
         self.egress().write_text(
             json.dumps([{"ip-address": "172.16.2.5", "mac-address": MAC, "expiry-time": 0}])
         )
         self.sandboxes().create(self.request("debian-13", net="egress"))
-        self.assertNotIn("network-config", self.seed())
+        network = json.loads(cast("str", self.seed()["network-config"]))["network"]
+        self.assertEqual(
+            network["ethernets"]["egress"],
+            {"match": {"macaddress": MAC}, "dhcp4": True, "mtu": 1240},
+        )
 
     def test_cloud_base_verbs(self) -> None:
         """Listing reports cloud bases, and building refuses them."""
