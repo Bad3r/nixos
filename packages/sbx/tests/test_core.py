@@ -62,6 +62,7 @@ class FakeBackend:
         self.domains_by_name: dict[str, DomainInfo] = {}
         self.xml: dict[str, str] = {}
         self.replies: list[dict[str, Any]] = []
+        self.addresses = ["172.16.2.5"]
         # Host sleep: domains that refuse, unconnected agent answers left, saved states.
         self.failing: set[str] = set()
         self.unconnected: dict[str, int] = {}
@@ -120,9 +121,13 @@ class FakeBackend:
         del self.domains_by_name[domain]
 
     def agent(self, domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:  # noqa: ARG002
-        """Answer guest-ping, then the queued replies."""
+        """Answer guest-ping and guest-network-get-interfaces, then the queued replies."""
         if command["execute"] == "guest-ping":
             return {"return": {}}
+        if command["execute"] == "guest-network-get-interfaces":
+            addresses = [{"ip-address-type": "ipv4", "ip-address": a} for a in self.addresses]
+            nic = {"name": "eth0", "hardware-address": MAC.upper(), "ip-addresses": addresses}
+            return {"return": [{"name": "lo", "hardware-address": "00:00:00:00:00:00"}, nic]}
         return self.replies.pop(0)
 
     def screenshot(self, domain: str, target: Path) -> str:  # noqa: ARG002
@@ -821,6 +826,52 @@ class SandboxesTest(Fixture):
             self.sandboxes(None).create(self.request(net="egress"))
         self.assertEqual(refused.exception.code, "no-address")
         self.assert_no_sandbox("t1")
+
+    def test_egress_waits_for_guest_address(self) -> None:
+        """Create waits past the lease until the guest's NIC carries it, else fails no-address."""
+        self.egress().write_text(
+            json.dumps([{"ip-address": "172.16.2.5", "mac-address": MAC, "expiry-time": 0}])
+        )
+        self.backend.addresses = []
+
+        def configure(_seconds: float) -> None:
+            self.backend.addresses = ["172.16.2.5"]
+
+        with mock.patch.object(core.time, "sleep", side_effect=configure) as sleep:
+            result = self.sandboxes().create(self.request(net="egress"))
+        sleep.assert_called_once()
+        self.assertEqual(result["address"], "172.16.2.5")
+        self.backend.addresses = ["172.16.2.6"]
+        ticks = iter(range(0, 10_000, 2))
+        with (
+            mock.patch.object(core.time, "sleep"),
+            mock.patch.object(core.time, "monotonic", side_effect=lambda: next(ticks)),
+            self.assertRaises(SbxError) as refused,
+        ):
+            self.sandboxes().create(self.request(name="t2", net="egress"))
+        self.assertEqual(refused.exception.code, "no-address")
+        self.assert_no_sandbox("t2")
+
+    def test_guest_interfaces(self) -> None:
+        """The NIC is matched by MAC, other NICs' addresses do not count, bad replies fail."""
+        nic = {"hardware-address": MAC, "ip-addresses": [{"ip-address": "172.16.2.5"}]}
+        self.assertTrue(
+            core.guest_holds({"return": [{"name": "lo"}, nic]}, MAC.upper(), "172.16.2.5")
+        )
+        self.assertFalse(core.guest_holds({"return": [nic]}, "52:54:00:00:00:01", "172.16.2.5"))
+        self.assertFalse(
+            core.guest_holds({"return": [{"hardware-address": MAC}]}, MAC, "172.16.2.5")
+        )
+        bad: list[dict[str, Any]] = [
+            {},
+            {"return": {}},
+            {"return": [1]},
+            {"return": [nic | {"ip-addresses": 1}]},
+        ]
+        for reply in bad:
+            with self.subTest(reply=reply), self.assertRaises(SbxError) as refused:
+                core.guest_holds(reply, MAC, "172.16.2.5")
+            self.assertEqual(refused.exception.code, "agent-reply")
 
     def test_lease_file(self) -> None:
         """Missing and empty files hold no lease, malformed ones fail, IPv6 is skipped."""
