@@ -44,6 +44,7 @@ REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'")
 # Options whose argument is a script: -c of any command, plus these after the named runner.
+OPTION_WORD = re.compile(r"[-+][A-Za-z0-9-]*")
 SCRIPT_OPTIONS = {"env": ("S", "--split-string"), "fish": ("C", "--init-command")}
 # Shell options whose argument precedes the -c script.
 SHELL_OPTION_ARGS = frozenset({"-o", "-O", "+o", "+O"})
@@ -113,13 +114,16 @@ class GateError(Exception):
         self.reason = reason
 
 
-def normalize(command: str) -> str:
-    """Join continued lines and turn $'...' and $"..." into plain quoting."""
-    command = command.replace("\\\n", "")
-    command = ANSI_C.sub(
-        lambda match: shlex.quote(codecs.decode(match[1], "unicode_escape")), command
-    )
-    return command.replace('$"', '"')
+def plain(text: str, index: int, out: list[str]) -> int:
+    """Emit $'...' as plain single quoting and drop the $ of $"..."; return the index past it."""
+    if text.startswith("$'", index):
+        match = ANSI_C.match(text, index)
+        if not match:
+            msg = "unterminated $'"
+            raise ValueError(msg)
+        out.append(shlex.quote(codecs.decode(match[1], "unicode_escape")))
+        return match.end()
+    return index + text.startswith('$"', index)
 
 
 def closing(text: str, start: int) -> int:
@@ -224,9 +228,22 @@ def bodies(text: str, index: int, pending: list[Heredoc], scripts: list[str]) ->
     return min(index, len(text))
 
 
-def comment(text: str, index: int) -> bool:
-    """Whether an unquoted # at index starts a comment: it begins a word."""
-    return text[index] == "#" and (index == 0 or text[index - 1] in COMMENT_AFTER)
+def comment(text: str, index: int, out: list[str]) -> bool:
+    """Whether an unquoted # at index starts a comment: it begins a word of the joined text."""
+    return text[index] == "#" and (not out or out[-1][-1:] in COMMENT_AFTER)
+
+
+def prelude(text: str, index: int, out: list[str], *, quote: str, process: bool) -> int:
+    """Skip a comment or a line continuation, or emit $'...' plainly; return the index past it.
+
+    A comment keeps its own backslash-newline and $'...' literal.
+    """
+    if process and comment(text, index, out):
+        end = text.find("\n", index)
+        return len(text) if end == -1 else end
+    if quote != "'" and text.startswith("\\\n", index):
+        return index + 2
+    return plain(text, index, out) if process else index
 
 
 def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
@@ -242,8 +259,8 @@ def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
     while index < len(text):
         char = text[index]
         process = not quote and not heredoc_body
-        if process and comment(text, index):
-            index = len(text) if (end := text.find("\n", index)) == -1 else end
+        if (after := prelude(text, index, out, quote=quote, process=process)) != index:
+            index = after
             continue
         found = None if quote == "'" else substitution(text, index, process=process)
         if found:
@@ -351,7 +368,7 @@ def mentions(text: str) -> bool:
 
 def check(command: str, depth: int = 0) -> None:
     """Gate shell text and every script it runs, raising ValueError when it does not parse."""
-    text, scripts = scan(normalize(command))
+    text, scripts = scan(command)
     for script in scripts:
         nested(script, depth)
     for simple in segments(words(text)):
@@ -442,7 +459,7 @@ def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
             skip = False
         elif script and word in SHELL_OPTION_ARGS:
             skip = True
-        elif script and not word.startswith(("-", "+")):
+        elif script and not OPTION_WORD.fullmatch(word):
             script = False
             nested(word, depth)
         else:
@@ -562,17 +579,25 @@ def field(mapping: object, key: str) -> object:
     return cast("dict[str, object]", mapping).get(key)
 
 
+def review_mcp(tool: str, tool_input: object) -> None:
+    """Gate an sbx MCP tool call."""
+    if tool in {"mcp__sbx__create", "mcp__sbx__run"}:
+        if field(tool_input, "net") not in (None, "none"):
+            raise GateError(EGRESS)
+    elif tool == "mcp__sbx__share_attach":
+        share = field(tool_input, "share")
+        if not isinstance(share, str) or share == "shared":
+            raise GateError(SHARE)
+
+
 def review(payload: object) -> None:
     """Gate one PreToolUse payload."""
     tool = field(payload, "tool_name")
     tool_input = field(payload, "tool_input")
     if not isinstance(tool, str):
         raise GateError(UNREADABLE)
-    if tool in {"mcp__sbx__create", "mcp__sbx__run"}:
-        if field(tool_input, "net") not in (None, "none"):
-            raise GateError(EGRESS)
-        return
     if tool != "Bash":
+        review_mcp(tool, tool_input)
         return
     command = field(tool_input, "command")
     if not isinstance(command, str):
@@ -585,8 +610,7 @@ def review(payload: object) -> None:
     try:
         check(command)
     except ValueError:
-        if mentions(command):
-            raise GateError(OPAQUE) from None
+        raise GateError(OPAQUE) from None
 
 
 def main() -> int:

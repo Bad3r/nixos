@@ -15,10 +15,10 @@ Both clients start `sbx-mcp`, the `sbx` entry in `modules/agents/mcp/servers.nix
 
 ## Approval hooks
 
-The PreToolUse hooks in `modules/agents/hooks/sbx-approval.nix` hold three calls for the user, on the Bash tool and on the MCP `create` and `run` tools:
+The PreToolUse hooks in `modules/agents/hooks/sbx-approval.nix` hold three calls for the user, on the Bash tool and on the MCP `create`, `run`, and `share_attach` tools:
 
 - a sandbox with egress: a `--net` value other than `none`, `--net` with no value, or MCP `net` other than `none`;
-- `share attach` of `shared`, or with a missing or non-literal tag;
+- `share attach` of `shared`, or with a missing or non-literal tag, and MCP `share_attach` whose `share` is `shared` or not a string;
 - any Bash call of `sbx-mcp`, an `sbx` verb that `xargs` could turn into `create`, `run`, or `share`, and those verbs with an unquoted expansion, brace, or glob before `--`, or an unquoted command or process substitution, which can add arguments.
 
 Claude Code asks the user, even in auto mode.

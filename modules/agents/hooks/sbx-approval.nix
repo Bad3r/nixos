@@ -2,7 +2,7 @@
 # and its execpolicy prompts go to the auto reviewer, so Codex gets a deny.
 { lib, ... }:
 let
-  matcher = "Bash|mcp__sbx__create|mcp__sbx__run";
+  matcher = "Bash|mcp__sbx__create|mcp__sbx__run|mcp__sbx__share_attach";
 
   bash = command: {
     tool_name = "Bash";
@@ -29,6 +29,15 @@ let
       command = [ "true" ];
     })
     (mcp "create" "net=egress")
+    (mcp "share_attach" {
+      name = "n";
+      share = "shared";
+    })
+    (mcp "share_attach" {
+      name = "n";
+      share = [ "shared" ];
+    })
+    (mcp "share_attach" { name = "n"; })
     {
       tool_name = "Bash";
       tool_input = "sbx create nixos --net egress";
@@ -108,6 +117,12 @@ let
     "fish --init-command 'sbx create nixos --net egress'"
     "fish -C 'sbx create nixos --net egress' -c true"
     "# don't\nsbx run nixos --net egress -- true\n# won't"
+    "# x\\\nsbx run nixos --net egress -- true"
+    "# $'\\n' x\nsbx run nixos --net egress -- true\n# '"
+    "bash -c '-x; sbx run nixos --net egress -- true'"
+    "bash -c '+x; sbx run nixos --net egress -- true'"
+    "env -S '-x; sbx run nixos --net egress -- true'"
+    "fish -C '-x; sbx run nixos --net egress -- true'"
     "# say \"hi\nsbx run nixos --net egress -- true\n# bye\""
     "# see $(date\nsbx run nixos --net egress -- true"
     "cat <<EOF\n# don't $(sbx create nixos --net egress)\nEOF"
@@ -179,6 +194,10 @@ let
 
   offline = [
     (mcp "create" { base = "nixos"; })
+    (mcp "share_attach" {
+      name = "n";
+      share = "docs";
+    })
     (mcp "run" {
       base = "nixos";
       net = "none";
@@ -239,6 +258,8 @@ let
     "rg -S sbx docs"
     "sbx list # don't worry"
     "echo a#b && sbx list"
+    "echo a \\\n# b\nsbx list"
+    "bash -c -e -- 'sbx list'"
     "echo \${#x} 'a # b' && sbx list"
     "# it's offline\nsbx run nixos -- true"
     "git commit -S -m 'sbx share attach n shared'"
