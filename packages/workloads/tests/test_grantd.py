@@ -697,6 +697,17 @@ class VsockTest(unittest.TestCase):
         self.assertEqual(code(vsock_grant(harness, "host:dev:8001")), "max-concurrent")
         self.assertIsNone(code(vsock_grant(harness, "host:dev:8001", source="sbx-other")))
 
+    def test_count_across_transports(self) -> None:
+        """A sandbox's address and vsock grants count together toward maxConcurrent."""
+        harness = Harness()
+        harness.grant("host:dev:8000")
+        harness.grant("host:dev:8001")
+        self.assertEqual(code(vsock_grant(harness, "host:api")), "max-concurrent")
+        harness = Harness()
+        vsock_grant(harness, "host:dev:8000")
+        vsock_grant(harness, "host:api")
+        self.assertEqual(code(harness.grant("host:dev:8002")), "max-concurrent")
+
     def test_expiry(self) -> None:
         """Expired entries leave the listing and the next write, and free their ports."""
         harness = Harness()

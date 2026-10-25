@@ -671,6 +671,9 @@ class Service:
             # By address, so renaming a source never resets its count.
             places = {(interface.network.bridge, interface.address) for interface in interfaces}
             held = {element.grant for element in live if element.path.place in places}
+            held |= {
+                grant.grant for grant in self._live_vsock(self.now()) if grant.source == source
+            }
             macs = {path.place: path.mac for path in paths}
             moved = sorted(
                 {e.grant for e in live if e.path.mac != macs.get(e.path.place, e.path.mac)}
@@ -744,7 +747,10 @@ class Service:
                 ):
                     msg = f"{target} overlaps grant {held.grant} ({held.target}); revoke it first"
                     raise GrantError(msg, code="conflict")
-            count = sum(1 for grant in live if grant.source == source)
+            count = len(
+                {grant.grant for grant in live if grant.source == source}
+                | {element.grant for element in self.kernel.elements() if element.source == source}
+            )
             if count >= policy.max_concurrent:
                 msg = f"{source} holds {count} grants, the most the policy allows"
                 raise GrantError(msg, code="max-concurrent")
