@@ -607,6 +607,28 @@
 		}
 	},
 	{
+		"name": "net_cut",
+		"title": "Take a sandbox offline",
+		"description": "Take a running egress sandbox offline for good: set its link down, hot-unplug its NIC, revoke the workload grants keyed on its address, and record net none with the net_cut time. Returns {sandbox, net, net_cut, unplugged}; unplugged false means the guest kept the NIC, whose link stays down. Whatever the sandbox fetched or received while online stays in it. A sandbox without egress, a second cut, and a Windows sandbox are invalid-argument errors.",
+		"inputSchema": {
+			"type": "object",
+			"properties": {
+				"name": {
+					"type": "string",
+					"description": "sandbox name"
+				}
+			},
+			"required": ["name"],
+			"additionalProperties": false
+		},
+		"annotations": {
+			"title": "Take a sandbox offline",
+			"readOnlyHint": false,
+			"destructiveHint": true,
+			"openWorldHint": false
+		}
+	},
+	{
 		"name": "gc",
 		"title": "Remove expired and orphaned sandboxes",
 		"description": "Remove sandboxes past their TTL, shut-off ones, and orphaned domains or directories; past the disk cap or free-space floor, detach every shared directory.",

@@ -36,6 +36,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `screenshot <name>`              | display to PNG; `--ocr`, `--to`             |
 | `key`, `type`, `mouse`, `window` | input and windows on a GUI base             |
 | `share attach`, `share detach`   | hot-plug and mount, or unmount and remove   |
+| `net cut <name>`                 | take an `egress` sandbox offline for good   |
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
 | `base prepare <image>`           | turn a cloud image into a base, owner only  |
@@ -60,14 +61,8 @@ sbx destroy probe
 
 ## Networks
 
-- `--net none`, the default, gives the sandbox no network interface.
-- `--net egress` adds one virtio NIC on `vn-sbx`, the bridge of the `sbx` [workload network](../../networking/workloads.md) in `modules/hosts/<host>/workloads.nix`, which sets its egress, isolation, and lease binding.
-- Guests run the NIC at the network's `mtu`: Nix bases take it from the DHCP server, cloud bases from their seed.
-- The network's resolver ignores the hostnames sandboxes send, so a sandbox cannot look up its peers.
-- `create` waits for the guest's DHCP lease and prints its address.
-  `list` and `info` read it from the lease file the host's DHCP server keeps for the bridge, not from the guest agent.
-- The address is the sandbox's current lease, which the network keeps short.
-- Session libvirt joins the bridge through the setuid `qemu-bridge-helper` wrapper.
+`--net none`, the default, gives no network interface, and `--net egress` one NIC on the `sbx` workload network.
+[Networks](networks.md) covers both, and `net cut`, which takes an `egress` sandbox offline for good.
 
 ## Copies
 

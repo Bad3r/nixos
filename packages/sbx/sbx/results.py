@@ -77,6 +77,7 @@ class SandboxView(Result):
     console: str | None = None
     image: str | None = None
     shares: tuple[ShareView, ...] | None = None
+    net_cut: str | None = None
 
     def as_json(self) -> dict[str, object]:
         """Return the fields, leaving out console and image outside info."""
@@ -104,6 +105,8 @@ class SandboxView(Result):
             document["image"] = self.image
         if self.shares is not None:
             document["shares"] = [share.as_json() for share in self.shares]
+        if self.net_cut is not None:
+            document["net_cut"] = self.net_cut
         return document
 
 
@@ -321,3 +324,26 @@ class FocusResult(Result):
     def as_json(self) -> dict[str, object]:
         """Return {sandbox, window}."""
         return {"sandbox": self.sandbox, "window": self.window.as_json()}
+
+
+@dataclass(frozen=True)
+class NetCutResult(Result):
+    """An egress sandbox taken offline; `grants_error` fails it after the cut."""
+
+    sandbox: str
+    unplugged: bool
+    net_cut: str
+    grants_error: SbxError | None = None
+
+    def as_json(self) -> dict[str, object]:
+        """Return {sandbox, net, net_cut, unplugged}."""
+        return {
+            "sandbox": self.sandbox,
+            "net": "none",
+            "net_cut": self.net_cut,
+            "unplugged": self.unplugged,
+        }
+
+    def error(self) -> SbxError | None:
+        """Return why grants of the offline sandbox may stay live."""
+        return self.grants_error

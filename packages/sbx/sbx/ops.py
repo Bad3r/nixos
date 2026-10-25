@@ -394,6 +394,10 @@ def _share_detach(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
     return Shares(sandboxes).detach(args.text("name"), args.text("share"), force=args.flag("force"))
 
 
+def _net_cut(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
+    return sandboxes.cut_network(args.text("name"))
+
+
 def _gc(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
     dry_run = args.flag("dry_run")
     removed = sandboxes.gc(dry_run=dry_run)
@@ -934,6 +938,21 @@ OPERATIONS = (
         example="sbx share detach probe shared",
     ),
     Operation(
+        ("net", "cut"),
+        "take an egress sandbox offline for the rest of its life",
+        _net_cut,
+        (NAME,),
+        "Take a sandbox offline",
+        "Take a running egress sandbox offline for good: set its link down, hot-unplug its "
+        "NIC, revoke the workload grants keyed on its address, and record net none with the "
+        "net_cut time. Returns {sandbox, net, net_cut, unplugged}; unplugged false means the "
+        "guest kept the NIC, whose link stays down. Whatever the sandbox fetched or received "
+        "while online stays in it. A sandbox without egress, a second cut, and a Windows "
+        "sandbox are invalid-argument errors.",
+        destructive=True,
+        example="sbx net cut probe",
+    ),
+    Operation(
         ("gc",),
         f"remove expired and orphaned sandboxes; detach {SHARED} past the disk cap",
         _gc,
@@ -1001,11 +1020,12 @@ OPERATIONS = (
         mcp_exposed=False,
     ),
 )
-# Verbs that only group others: share and base take no --json before their verb,
+# Verbs that only group others: share, net, and base take no --json before their verb,
 # so permission rules see one spelling.
 GROUPS = {
     "window": "wait for, focus, or list windows on a GUI sandbox",
     "share": "attach or detach a runtime virtiofs share",
+    "net": "change the network of a running sandbox",
     "base": "list, build, or prepare bases",
     "vsock": "grant listeners of sandboxes without a network, for workloads grant",
 }

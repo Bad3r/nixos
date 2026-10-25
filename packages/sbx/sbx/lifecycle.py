@@ -2,12 +2,14 @@
 """Creating, booting, and destroying sandboxes."""
 
 import contextlib
+import dataclasses
 import json
 import secrets
 import shutil
 import signal
 import threading
 import time
+import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 
 from sbx import cloud, journal, windows
@@ -15,12 +17,14 @@ from sbx.admission import Admission
 from sbx.agent import guest_holds
 from sbx.bases import Bases
 from sbx.cleanup import Cleanup
+from sbx.context import iso_time
 from sbx.domain import DomainXml
 from sbx.errors import SbxError
 from sbx.execution import Execution
 from sbx.model import CREATION_FILE, DOMAIN_PREFIX, GIB, Meta
-from sbx.net import random_mac
+from sbx.net import egress_interface, link_down, random_mac, revoke_grants, unplug_xml
 from sbx.proc import capture, run
+from sbx.results import NetCutResult
 
 if TYPE_CHECKING:
     from collections.abc import Generator
@@ -28,6 +32,10 @@ if TYPE_CHECKING:
 
     from sbx.model import Request, Sandbox
     from sbx.results import SandboxView
+
+# libvirt itself waits five seconds for the guest to release a device.
+UNPLUG_WAIT = 15.0
+UNPLUG_POLL = 0.5
 
 
 @contextlib.contextmanager
@@ -309,3 +317,58 @@ class Lifecycle(Admission, Bases, DomainXml, Execution, Cleanup):
         for name in removed:
             journal.record(f"destroyed sandbox {name}", verb="destroy", sandbox=name)
         return removed
+
+    def cut_network(self, name: str) -> NetCutResult:
+        """Take a running egress sandbox offline for good.
+
+        The link goes down first, so the guest is offline even when it keeps the
+        NIC; then the NIC leaves, the grants keyed on its address end, and the
+        metadata records net none with the time of the cut.
+        """
+        with self.locked():
+            sandbox = self.running(name)
+            meta = sandbox.meta
+            if self.windows_base(meta.base) is not None:
+                msg = f"sandbox '{name}' runs Windows, which has no network to cut"
+                raise SbxError(msg, code="invalid-argument")
+            if meta.net_cut is not None:
+                msg = f"the network of '{name}' was already cut at {iso_time(meta.net_cut)}"
+                raise SbxError(msg, code="invalid-argument")
+            if meta.net != "egress":
+                msg = f"sandbox '{name}' has no network to cut: its net is {meta.net}"
+                raise SbxError(msg, code="invalid-argument")
+            backend = self.backend()
+            domain, mac = sandbox.domain.name, sandbox.domain.mac
+            address = self.address(sandbox)
+            journal.record(f"network of {name} cut", verb="net", sandbox=name, session=self.session)
+            unplugged = True
+            interface = egress_interface(backend.live_xml(domain), mac)
+            if interface is not None:
+                backend.update_device(domain, link_down(interface))
+                backend.remove_device(domain, unplug_xml(interface))
+                unplugged = self._unplugged(name, mac)
+            grants_error = None
+            try:
+                revoke_grants(name, address)
+            except SbxError as error:
+                msg = f"the network of '{name}' is cut, but its grants may stay live: {error}"
+                grants_error = SbxError(msg, code=error.code)
+            cut = int(self._clock())
+            offline = dataclasses.replace(meta, net="none", net_cut=cut)
+            backend.set_metadata(domain, ET.tostring(offline.element(namespaced=False), "unicode"))
+        return NetCutResult(name, unplugged, iso_time(cut), grants_error)
+
+    def _unplugged(self, name: str, mac: str | None) -> bool:
+        """Wait until the guest releases its NIC; one it keeps stays with its link down."""
+        domain = DOMAIN_PREFIX + name
+        deadline = self.monotonic() + UNPLUG_WAIT
+        while egress_interface(self.backend().live_xml(domain), mac) is not None:
+            if self.monotonic() >= deadline:
+                journal.record(
+                    f"{name} kept its NIC {UNPLUG_WAIT:g}s after the unplug; its link stays down",
+                    verb="net",
+                    sandbox=name,
+                )
+                return False
+            self.pause(UNPLUG_POLL)
+        return True

@@ -285,6 +285,22 @@ class LibvirtBackend:
         """Ask the running domain to release a device; returns before the guest does."""
         self._call(domain, "detachDeviceFlags", xml, libvirt.VIR_DOMAIN_AFFECT_LIVE)
 
+    def update_device(self, domain: str, xml: str) -> None:
+        """Change a live device in place, such as an interface's link state."""
+        self._call(domain, "updateDeviceFlags", xml, libvirt.VIR_DOMAIN_AFFECT_LIVE)
+
+    def remove_device(self, domain: str, xml: str) -> None:
+        """Ask the running domain to release a device, and drop it from the definition."""
+        flags = libvirt.VIR_DOMAIN_AFFECT_LIVE | libvirt.VIR_DOMAIN_AFFECT_CONFIG
+        self._call(domain, "detachDeviceFlags", xml, flags)
+
+    def set_metadata(self, domain: str, xml: str) -> None:
+        """Replace the sbx metadata of the running domain and its definition."""
+        flags = libvirt.VIR_DOMAIN_AFFECT_LIVE | libvirt.VIR_DOMAIN_AFFECT_CONFIG
+        self._call(
+            domain, "setMetadata", libvirt.VIR_DOMAIN_METADATA_ELEMENT, xml, "sbx", NS, flags
+        )
+
     def send_key(self, domain: str, keycodes: Sequence[int], holdtime: int) -> None:
         """Press Linux keycodes together, then release them."""
         handle = self._lookup(domain)

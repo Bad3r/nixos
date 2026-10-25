@@ -141,6 +141,9 @@ class FakeBackend:
         self.lock = threading.Lock()
         self.captures = 0
         self.captured: dict[int, bytes] = {}
+        # Device changes and removals, by domain.
+        self.updated: list[tuple[str, str]] = []
+        self.removed: list[tuple[str, str]] = []
 
     def domains(self) -> list[DomainInfo]:
         """List the fake domains; a provisioning run over SSH has powered them all off."""
@@ -160,7 +163,7 @@ class FakeBackend:
         meta = Meta(
             kwargs.get("base", "nixos"),
             "/nix/store/x/sbx.qcow2",
-            "none",
+            kwargs.get("net", "none"),
             NOW - 60,
             expires,
             kwargs.get("session"),
@@ -174,6 +177,7 @@ class FakeBackend:
             cid=3 if active else None,
             meta=meta,
             managed_save=kwargs.get("managed_save", False),
+            mac=kwargs.get("mac"),
             pid=4242 if active else None,
             emulator=kwargs.get("emulator", EMULATOR),
         )
@@ -233,6 +237,22 @@ class FakeBackend:
     def live_xml(self, domain: str) -> str:
         """The definition a domain started with, or an empty one."""
         return self.xml.get(domain, "<domain><devices/></domain>")
+
+    def update_device(self, domain: str, xml: str) -> None:
+        """Record a device change."""
+        self.updated.append((domain, xml))
+
+    def remove_device(self, domain: str, xml: str) -> None:
+        """Record a device removal."""
+        self.removed.append((domain, xml))
+
+    def set_metadata(self, domain: str, xml: str) -> None:
+        """Replace a domain's metadata, putting it in the sbx namespace as libvirt does."""
+        root = ET.fromstring(xml)  # noqa: S314
+        for element in root.iter():
+            element.tag = f"{{{NS}}}{element.tag}"
+        info = self.domains_by_name[domain]
+        self.domains_by_name[domain] = dataclasses.replace(info, meta=Meta.parse(root))
 
     def screenshot(self, domain: str, target: Path) -> str:  # noqa: ARG002
         """Write a placeholder image of its own to a new file, recorded by the calling thread."""

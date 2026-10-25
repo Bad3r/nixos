@@ -51,10 +51,13 @@ class Meta:
     session: str | None
     # Names the call that created the sandbox, so its cleanup never hits a namesake.
     token: str | None = None
+    # When `sbx net cut` took the sandbox offline; `net` is none from then on.
+    net_cut: int | None = None
 
-    def element(self) -> ET.Element:
-        """Render the metadata element."""
-        root = ET.Element(f"{{{NS}}}sandbox")
+    def element(self, *, namespaced: bool = True) -> ET.Element:
+        """Render the metadata element; libvirt's setMetadata adds the namespace itself."""
+        prefix = f"{{{NS}}}" if namespaced else ""
+        root = ET.Element(f"{prefix}sandbox")
         values = {
             "base": self.base,
             "image": self.image,
@@ -66,8 +69,10 @@ class Meta:
             values["session"] = self.session
         if self.token is not None:
             values["token"] = self.token
+        if self.net_cut is not None:
+            values["net_cut"] = str(self.net_cut)
         for key, value in values.items():
-            ET.SubElement(root, f"{{{NS}}}{key}").text = value
+            ET.SubElement(root, f"{prefix}{key}").text = value
         return root
 
     @classmethod
@@ -81,6 +86,7 @@ class Meta:
                 raise SbxError(msg, code="metadata")
             return value
 
+        net_cut = element.findtext(f"{{{NS}}}net_cut")
         return cls(
             base=text("base"),
             image=text("image"),
@@ -89,6 +95,7 @@ class Meta:
             expires=int(text("expires")),
             session=element.findtext(f"{{{NS}}}session"),
             token=element.findtext(f"{{{NS}}}token"),
+            net_cut=None if net_cut is None else int(net_cut),
         )
 
 
@@ -278,4 +285,20 @@ class Backend(Protocol):
 
     def send_key(self, domain: str, keycodes: Sequence[int], holdtime: int) -> None:
         """Press Linux keycodes together for `holdtime` ms, then release them."""
+        ...
+
+    def live_xml(self, domain: str) -> str:
+        """Return the live definition."""
+        ...
+
+    def update_device(self, domain: str, xml: str) -> None:
+        """Change a live device in place, such as an interface's link state."""
+        ...
+
+    def remove_device(self, domain: str, xml: str) -> None:
+        """Ask the running domain to release a device, and drop it from the definition."""
+        ...
+
+    def set_metadata(self, domain: str, xml: str) -> None:
+        """Replace the sbx metadata of the running domain and its definition."""
         ...

@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """Egress NICs, DHCP leases, and workload grants of sandboxes."""
 
+import copy
 import json
 import secrets
 import socket
@@ -96,3 +97,35 @@ def bridge_interface(bridge: str, mac: str) -> ET.Element:
     ET.SubElement(interface, "model", type="virtio")
     # No <mtu>: session libvirt cannot set a tap's MTU, so guests take it from DHCP or the seed.
     return interface
+
+
+def egress_interface(xml: str, mac: str | None) -> ET.Element | None:
+    """Return the bridge NIC with `mac` in a domain definition, if it has one."""
+    if mac is None:
+        return None
+    for interface in ET.fromstring(xml).iterfind("devices/interface[@type='bridge']"):  # noqa: S314
+        address = interface.find("mac")
+        if address is not None and str(address.get("address")).lower() == mac.lower():
+            return interface
+    return None
+
+
+def link_down(interface: ET.Element) -> str:
+    """Render a live NIC with its link down, for an in-place update."""
+    changed = copy.deepcopy(interface)
+    for link in changed.findall("link"):
+        changed.remove(link)
+    ET.SubElement(changed, "link", state="down")
+    return ET.tostring(changed, encoding="unicode")
+
+
+def unplug_xml(interface: ET.Element) -> str:
+    """Render the MAC and bridge that name a NIC in both the live and the persistent definition."""
+    mac, source = interface.find("mac"), interface.find("source")
+    if mac is None or source is None:
+        msg = "the egress interface has no MAC or bridge"
+        raise SbxError(msg, code="internal")
+    element = ET.Element("interface", type="bridge")
+    ET.SubElement(element, "mac", address=str(mac.get("address")))
+    ET.SubElement(element, "source", bridge=str(source.get("bridge")))
+    return ET.tostring(element, encoding="unicode")

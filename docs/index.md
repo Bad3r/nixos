@@ -475,7 +475,9 @@
 - [apps/sbx/shell.md](apps/sbx/shell.md)
   - Help and tab completion for Bash, Zsh, and Fish.
 - [apps/sbx/README.md](apps/sbx/README.md)
-  - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, the slice and ceilings, state, and gc.
+  - Agent sandboxes on `qemu:///session`: trust model, verbs, copy roots, the slice and ceilings, state, and gc.
+- [apps/sbx/networks.md](apps/sbx/networks.md)
+  - Sandbox networks: no NIC or one `egress` NIC on the `sbx` workload network, leases and addresses, and `net cut` to continue offline.
 - [apps/sbx/bases.md](apps/sbx/bases.md)
   - `sbx` bases: Nix-built `nixos` and `nixos-gui`, and hash-pinned cloud images that `base prepare` provisions.
 - [apps/sbx/gui.md](apps/sbx/gui.md)

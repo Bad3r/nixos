@@ -21,7 +21,8 @@ if TYPE_CHECKING:
     from sbx.windows import WindowsSettings
 
 
-def _iso(epoch: float) -> str:
+def iso_time(epoch: float) -> str:
+    """Render epoch seconds as a UTC ISO 8601 time."""
     return datetime.fromtimestamp(epoch, UTC).isoformat(timespec="seconds")
 
 
@@ -143,13 +144,14 @@ class Context:
             address=self.address(sandbox),
             memory_mib=domain.memory_mib,
             cpus=domain.cpus,
-            created=_iso(meta.created),
-            expires=_iso(meta.expires),
+            created=iso_time(meta.created),
+            expires=iso_time(meta.expires),
             ttl_left=max(0, meta.expires - int(self._clock())),
             session=meta.session,
             token=meta.token,
             directory=str(directory),
             xfer=str(directory / "xfer"),
+            net_cut=None if meta.net_cut is None else iso_time(meta.net_cut),
         )
 
     def address(self, sandbox: Sandbox, *, strict: bool = False) -> str | None:
@@ -161,6 +163,9 @@ class Context:
         egress = self.settings.egress
         mac = sandbox.domain.mac
         if isinstance(egress, str) or mac is None or not sandbox.domain.active:
+            return None
+        # After `net cut`, a NIC the guest kept stays down, so its lease means nothing.
+        if sandbox.meta.net != "egress":
             return None
         try:
             return lease_address(egress.leases, mac, self._clock())

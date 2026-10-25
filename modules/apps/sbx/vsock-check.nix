@@ -236,6 +236,22 @@ in
                 sbx("cp ${home}/tmp/probe.py e:/root/probe.py")
                 for port in (5554, 5555, 5556):
                     assert guest_reaches("e", 2, port) == "ConnectionResetError", port
+
+            with subtest("net cut takes an egress sandbox offline for good"):
+                held = sbx("exec e -- ip -4 -o addr show scope global")
+                assert created["address"] in held["stdout"], held
+                cut = sbx("net cut e")
+                assert (cut["net"], cut["unplugged"]) == ("none", True), cut
+                info = sbx("info e")
+                assert (info["net"], info["address"], info["net_cut"]) == ("none", None, cut["net_cut"]), info
+                for flags in ("", "--inactive"):
+                    xml = machine.succeed(as_owner(f"virsh -c qemu:///session dumpxml {flags} sbx-e"))
+                    assert "<interface" not in xml, xml
+                assert sbx("exec e -- ip -4 -o addr show scope global")["stdout"] == ""
+                status, result = sbx_status("exec e -- getent hosts example.com")
+                assert status != 0 and result["exit_code"] != 0, result
+                status, result = sbx_status("net cut e")
+                assert status == 1 and result["error"]["code"] == "invalid-argument", result
                 sbx("destroy e")
           '';
       };
