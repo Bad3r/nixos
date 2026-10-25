@@ -1,9 +1,10 @@
 # shellcheck shell=bash
 # scratch and its regex-escaped scratchRe are prepended by scratch-guard.nix.
 # shellcheck disable=SC2154
-# PreToolUse hook: denies writes under /tmp, redirecting agents to $scratch,
-# and new files directly in $scratch, which belong in a topic directory.
-# Reads from /tmp stay allowed.
+# PreToolUse hook that keeps $scratch sorted: writes under /tmp, files loose in
+# $scratch, and new top-level dirs without a task-like name are denied. The
+# shell wrappers point $TMPDIR at $scratch/sessions/<root session id>; named
+# work lives in $scratch/<topic>/. Reads from /tmp stay allowed.
 #
 # Bash detection is a heuristic over the command text: it cannot see paths
 # built at runtime or written by interpreters, and a /tmp path inside a quoted
@@ -12,6 +13,12 @@
 input="$(cat)"
 tool="$(jq -r '.tool_name // ""' <<<"$input")"
 cwd="$(jq -r '.cwd // ""' <<<"$input")"
+sessionId="$(jq -r '.session_id // ""' <<<"$input")"
+
+case "$sessionId" in
+"" | *[!A-Za-z0-9-]*) sessionDir="" ;;
+*) sessionDir="$scratch/sessions/$sessionId" ;;
+esac
 
 deny() {
   jq -n --arg reason "$1" '{
@@ -24,6 +31,13 @@ deny() {
   exit 0
 }
 
+topicHint="files you name to the user, reuse in another session, or cite in memory go in $scratch/<topic>/, named after the PR, branch, or task"
+if [ -n "$sessionDir" ]; then
+  hint="Throwaway files go in this session's $sessionDir (\$TMPDIR in the shell, swept after a week idle); $topicHint."
+else
+  hint="${topicHint^}."
+fi
+
 # X11 and ICE sockets are the only /tmp paths agents legitimately touch.
 isTmp() {
   case "$1" in
@@ -33,11 +47,26 @@ isTmp() {
   esac
 }
 
-topicHint="$scratch/<topic>/ (one directory per task or session, named after it, e.g. the branch)"
+# mktemp-style suffixes and IDs make a dir unfindable later.
+badTopic() {
+  local name="$1"
+  case "$name" in
+  sessions | tmp | temp | scratch | work | test | tests | out | output | misc | data | files | notes | logs | review | main | master | new | stuff) return 0 ;;
+  esac
+  [[ $name =~ ^[a-z0-9][a-z0-9._-]{1,63}$ ]] || return 0
+  [[ $name =~ [0-9a-f]{8}-[0-9a-f]{4} ]] && return 0
+  if [[ $name =~ [._-]([a-z0-9]{6,10})$ ]]; then
+    local suffix="${BASH_REMATCH[1]}"
+    [[ $suffix =~ [0-9] && $suffix =~ [a-z] ]] && return 0
+  fi
+  return 1
+}
 
-# Pass create for tools that make a new file, so it cannot land loose in $scratch.
+topicRule="Name a new top-level dir in $scratch after the PR, branch, or task: a lowercase slug (a-z, 0-9, . _ -), not a generic word, ID, or mktemp-style suffix."
+
+# Pass create for tools that make a new file, so it lands in a session or topic dir.
 checkPath() {
-  local path="$1" rest
+  local path="$1" rest top
   [ -n "$path" ] || return 0
   case "$path" in
   /*) ;;
@@ -47,13 +76,44 @@ checkPath() {
   if isTmp "$path"; then
     rest="${path#/tmp}"
     case "$rest" in
-    /*/*) ;;
-    *) rest="/<topic>$rest" ;;
+    /*/*) deny "$path is under /tmp. Write to $scratch$rest instead. $hint" ;;
+    *) deny "$path is under /tmp. Write to ${sessionDir:-$scratch/<topic>}$rest instead. $hint" ;;
     esac
-    deny "$path is under /tmp. Write to $scratch$rest instead (\$TMPDIR is $scratch), grouping files under $topicHint."
   fi
-  if [ "${2-}" = create ] && [ "${path%/*}" = "$scratch" ]; then
-    deny "$path would sit loose in $scratch. Write it under $topicHint, e.g. $scratch/<topic>/${path##*/}."
+  [ "${2-}" = create ] || return 0
+  case "$path" in
+  "$scratch"/*) ;;
+  *) return 0 ;;
+  esac
+  rest="${path#"$scratch"/}"
+  top="${rest%%/*}"
+  if [ "$top" = "$rest" ]; then
+    deny "$path would sit loose in $scratch. $hint"
+  fi
+  if [ "$top" = sessions ]; then
+    rest="${rest#sessions/}"
+    if [ "${rest%%/*}" = "$rest" ]; then
+      deny "$path would sit loose in $scratch/sessions. $hint"
+    fi
+    if [ "$scratch/sessions/${rest%%/*}" != "$sessionDir" ] && [ ! -d "$scratch/sessions/${rest%%/*}" ]; then
+      deny "$scratch/sessions/${rest%%/*} is not this session's dir; the shell wrappers create those. $hint"
+    fi
+  elif [ ! -e "$scratch/$top" ] && badTopic "$top"; then
+    deny "$scratch/$top is not a findable name. $topicRule $hint"
+  fi
+}
+
+# Session dirs are swept, so instructions and memory must not point into them.
+isInstructionFile() {
+  case "$1" in
+  */CLAUDE.md | */AGENTS.md | */MEMORY.md | */memory/*.md | */memories/*) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
+checkCitation() {
+  if isInstructionFile "$1" && grep -qF -- "$scratch/sessions/" <<<"$2"; then
+    deny "$1 would cite a path under $scratch/sessions/, which is swept after a week idle. Move the file to $scratch/<topic>/ and cite that."
   fi
 }
 
@@ -63,9 +123,11 @@ command="$(jq -r '.tool_input.command // ""' <<<"$input")"
 if [ "$tool" = apply_patch ] || grep -q '^\*\*\* Begin Patch' <<<"$command"; then
   while IFS= read -r path; do
     checkPath "$path"
+    checkCitation "$path" "$command"
   done < <(sed -nE 's/^\*\*\* Update File: (.*)$/\1/p' <<<"$command")
   while IFS= read -r path; do
     checkPath "$path" create
+    checkCitation "$path" "$command"
   done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
   if [ "$tool" != Bash ]; then
     exit 0
@@ -74,11 +136,15 @@ fi
 
 case "$tool" in
 Write)
-  checkPath "$(jq -r '.tool_input.file_path // ""' <<<"$input")" create
+  file="$(jq -r '.tool_input.file_path // ""' <<<"$input")"
+  checkPath "$file" create
+  checkCitation "$file" "$(jq -r '.tool_input.content // ""' <<<"$input")"
   exit 0
   ;;
 Edit | MultiEdit | NotebookEdit)
-  checkPath "$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
+  file="$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
+  checkPath "$file"
+  checkCitation "$file" "$(jq -r '[.tool_input.new_string // empty, (.tool_input.edits // [])[].new_string] | join("\n")' <<<"$input")"
   exit 0
   ;;
 Bash) ;;
@@ -143,16 +209,16 @@ splitWords() {
 checkHostPath() {
   local path="$1"
   case "$path" in
-  '$TMPDIR' | '$TMPDIR/'*) path="$scratch${path#'$TMPDIR'}" ;;
-  '${TMPDIR}' | '${TMPDIR}/'*) path="$scratch${path#'${TMPDIR}'}" ;;
+  '$TMPDIR' | '$TMPDIR/'*) path="${sessionDir:-$scratch}${path#'$TMPDIR'}" ;;
+  '${TMPDIR}' | '${TMPDIR}/'*) path="${sessionDir:-$scratch}${path#'${TMPDIR}'}" ;;
   '~' | '~/'*) path="$HOME${path#'~'}" ;;
   esac
   case "$path" in
-  *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out, or use \$TMPDIR/<topic> ($scratch/<topic>)." ;;
+  *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out. $hint" ;;
   esac
   checkPath "$path"
   if [ "$(realpath -ms -- "$path")" = "$scratch" ]; then
-    deny "sbx would drop its output loose in $scratch. Copy it under $topicHint."
+    deny "sbx would drop its output loose in $scratch. $hint"
   fi
 }
 
@@ -204,12 +270,12 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. Use $scratch (\$TMPDIR) instead, e.g. $scratch/<topic>/<name>, grouping files under $topicHint; a bare mktemp suits throwaway files. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest paths of a bare sbx command (no pipes, redirections, && or env prefix) are not checked."
+    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest paths of a bare sbx command (no pipes, redirections, && or env prefix) are not checked."
   fi
 done
 
-# Directories created in $scratch are topic directories; files belong inside one.
-root="${q}(\\\$TMPDIR|\\\$\\{TMPDIR\\}|${scratchRe})${q}"
+# $TMPDIR is the session dir, so only literal $scratch paths can land loose.
+root="${q}${scratchRe}${q}"
 leaf="${root}/${q}[^/[:space:]\"';|&)<>]+${q}([[:space:];|&)<>]|$)"
 patterns=(
   "(>>?|&>>?|>\|)[[:space:]]*${leaf}"
@@ -221,7 +287,16 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$command"; then
-    deny "This command writes a file loose in $scratch (\$TMPDIR). Put it under $topicHint: mkdir -p \"\$TMPDIR/<topic>\" and write \$TMPDIR/<topic>/<name>."
+    deny "This command writes a file loose in $scratch. $hint"
   fi
 done
+
+# A writing command may create any top-level dir it names.
+if grep -qE '>|\b(mkdir|git|cp|mv|rsync|install|ln|tar|unzip|curl|wget|touch|tee)\b' <<<"$command"; then
+  while IFS= read -r top; do
+    if [ ! -e "$scratch/$top" ] && badTopic "$top"; then
+      deny "$scratch/$top is not a findable name. $topicRule $hint"
+    fi
+  done < <(grep -oE "${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+" <<<"$command" | sed "s#^$scratch/##" | sort -u)
+fi
 exit 0

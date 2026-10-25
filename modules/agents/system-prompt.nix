@@ -69,9 +69,11 @@ let
           what exists. Prefer them over web fetches, and suggest a new mirror when a
           source you use often is missing. The list is managed in
           `~/nixos/modules/hosts/common/mirrors.nix`.
-        - Keep scratch files, clones, captures, and reports under `$TMPDIR`
-          (`${config.flake.lib.agents.scratchDir}`), in a directory per task or
-          session named after it, so related files stay together and findable.
+        - `$TMPDIR` is this session's throwaway dir, shared with subagents and swept
+          after a week idle. Put anything you name to the user, reuse across
+          sessions, cite in memory, or ask the user to run under
+          `${config.flake.lib.agents.scratchDir}/<topic>/`, named after the PR, branch,
+          or task, so it stays findable.
       ''
       + lib.optionalString vars.sbx ''
         - Run unknown binaries, downloads, and untrusted repositories in a disposable

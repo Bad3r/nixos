@@ -1,19 +1,29 @@
 { config, lib, ... }:
 let
   inherit (config.flake.lib.agents) scratchDir;
+  session_id = "0123abcd-0000-4000-8000-000000000000";
+  sessionDir = "${scratchDir}/sessions/${session_id}";
   bash = command: {
     tool_name = "Bash";
     cwd = "/test/path";
+    inherit session_id;
     tool_input = { inherit command; };
   };
   patch = path: {
     tool_name = "apply_patch";
     cwd = "/test/path";
+    inherit session_id;
     tool_input.command = "*** Begin Patch\n*** Add File: ${path}\n+x\n*** End Patch";
   };
   write = file_path: {
     tool_name = "Write";
+    inherit session_id;
     tool_input = { inherit file_path; };
+  };
+  writeContent = file_path: content: {
+    tool_name = "Write";
+    inherit session_id;
+    tool_input = { inherit file_path content; };
   };
 in
 {
@@ -53,6 +63,28 @@ in
         (patch "../../tmp/x")
         (write "${scratchDir}/notes.md")
         (patch "${scratchDir}/notes.md")
+        (write "${scratchDir}/sessions/a")
+        (write "${scratchDir}/sessions/other-session/a")
+        (write "${scratchDir}/tmp/a")
+        (write "${scratchDir}/sessions-old/../work/a")
+        (write "${scratchDir}/sbx-exploration-x_b9mayq/report.md")
+        (write "${scratchDir}/0f1e2d3c-4b5a-6789-abcd-ef0123456789/x")
+        (write "${scratchDir}/Notes/x")
+        (patch "${scratchDir}/catalog-decomp.d1vaz7/x")
+        (writeContent "/home/u/.claude/projects/p/memory/x.md" "Report: ${sessionDir}/r.md")
+        {
+          tool_name = "Edit";
+          inherit session_id;
+          tool_input = {
+            file_path = "/repo/AGENTS.md";
+            new_string = "See ${scratchDir}/sessions/abc/plan.md";
+          };
+        }
+        {
+          tool_name = "apply_patch";
+          inherit session_id;
+          tool_input.command = "*** Begin Patch\n*** Update File: /repo/CLAUDE.md\n+see ${sessionDir}/x\n*** End Patch";
+        }
       ]
       ++ map bash [
         "echo hi > /tmp/x"
@@ -90,21 +122,34 @@ in
         "cd /tmp && sbx exec n -- true"
         "sbx exec n -- true | tee /tmp/y"
         "TMPDIR=/tmp sbx run nixos --out /root/r --to \"$TMPDIR\" -- true"
-        ''echo x > "$TMPDIR/a"''
-        ''echo x > "$TMPDIR"/a''
-        "echo x >> \${TMPDIR}/a.log"
+        "echo x > ${scratchDir}/a"
+        ''echo x > "${scratchDir}"/a''
         "cmd 2>${scratchDir}/err"
-        "ls | tee $TMPDIR/out.txt"
-        "touch $TMPDIR/a"
-        "curl -sL https://example.invalid -o \"$TMPDIR/x.tgz\""
-        "cp a.txt $TMPDIR/"
-        "mv a.txt \"$TMPDIR\""
-        "sbx cp n:/tmp/a \"$TMPDIR\""
-        "sbx run nixos --out /root/r --to \"$TMPDIR\" -- true"
+        "ls | tee ${scratchDir}/out.txt"
+        "touch ${scratchDir}/a"
+        "curl -sL https://example.invalid -o \"${scratchDir}/x.tgz\""
+        "cp a.txt ${scratchDir}/"
+        "mv a.txt \"${scratchDir}\""
+        "sbx cp n:/tmp/a ${scratchDir}"
+        "sbx run nixos --out /root/r --to ${scratchDir}/ -- true"
+        "mkdir -p ${scratchDir}/work"
+        "git clone https://example.invalid/r ${scratchDir}/repo-a1b2c3d4"
+        "mkdir ${scratchDir}/tmp && cd ${scratchDir}/tmp"
       ];
       allow = [
         (write "${scratchDir}/topic/a")
         (patch "${scratchDir}/topic/a")
+        (write "${sessionDir}/a")
+        (write "${sessionDir}/nested/b")
+        (write "${scratchDir}/nixos-pr660/body.md")
+        (write "${scratchDir}/sbx-v020/x")
+        (write "${scratchDir}/issue-123456/x")
+        (writeContent "/home/u/.claude/projects/p/memory/x.md" "Report: ${scratchDir}/virt-plan/r.md")
+        (writeContent "${sessionDir}/notes.md" "copy of ${sessionDir}/r.md")
+        {
+          tool_name = "Write";
+          tool_input.file_path = "${scratchDir}/topic/a";
+        }
         {
           tool_name = "Edit";
           tool_input.file_path = "${scratchDir}/old.md";
@@ -132,6 +177,12 @@ in
         ''echo x > "$TMPDIR/topic/a"''
         ''echo x > "$TMPDIR"/topic/a''
         "mkdir -p \"$TMPDIR/topic\""
+        "echo x > \"$TMPDIR/a\""
+        "ls | tee $TMPDIR/out.txt"
+        "cp a.txt $TMPDIR/"
+        "mkdir -p ${scratchDir}/virt-plan"
+        "grep foo ${scratchDir}/claude-1000/x > out.txt"
+        "sbx cp n:/tmp/a \"$TMPDIR\""
         "git clone https://example.invalid/r $TMPDIR/repo"
         "cat $TMPDIR/a > out.txt"
         "curl -sL https://example.invalid -o $TMPDIR/topic/x.tgz"
