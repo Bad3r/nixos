@@ -29,6 +29,7 @@ from sbx import (
     execution,
     fsutil,
     gui,
+    keys,
     lifecycle,
     model,
     net,
@@ -1724,6 +1725,43 @@ class SandboxesTest(Fixture):
         with self.assertRaises(SbxError) as refused:
             self.dispatch("type", "t1", "--mode", "keys", "\u2713")
         self.assertIn("default mode", str(refused.exception))
+
+    def test_type_failures_keep_the_text_out(self) -> None:
+        """No refusal or guest failure of type names a typed character, in its error or journal."""
+        self.sandboxes().create(self.request(gui=True))
+        echoed = base64.b64encode("I don't know which key produces '\u00e4', skipping.\n".encode())
+        cases = [
+            ((), {"exitcode": 0}, "\u00e4\x07\u00f6", "invalid-argument"),
+            (("--mode", "keys"), {"exitcode": 0}, "\u00e4b\u00f6", "invalid-argument"),
+            ((), {"exitcode": 1, "err-data": echoed.decode()}, "\u00e4\u00f6", "guest-command"),
+            ((), {"exitcode": 0, "err-data": echoed.decode()}, "\u00e4\u00f6", "guest-command"),
+        ]
+        records = cast("mock.Mock", gui.journal.record)
+        for flags, status, text, code in cases:
+            self.backend.exit_status = status
+            records.reset_mock()
+            with self.subTest(text=text, status=status), self.assertRaises(SbxError) as failed:
+                self.dispatch("type", "t1", *flags, text)
+            self.assertEqual(failed.exception.code, code)
+            fields = [str(failed.exception)]
+            for call in records.call_args_list:
+                fields += [*map(str, call.args), *map(str, call.kwargs.values())]
+            self.assertIn(f"failed: {failed.exception}", fields)
+            for character in ("\u00e4", "\u00f6", "\x07"):
+                self.assertFalse([field for field in fields if character in field], text)
+        self.assertEqual(self.backend.keys, [])
+
+    def test_key_cap(self) -> None:
+        """The key verb presses at most MAX_CHORDS chords and refuses more before sending any."""
+        self.sandboxes().create(self.request(gui=True))
+        with mock.patch.object(gui.time, "sleep"):
+            self.dispatch("key", "t1", *["a"] * keys.MAX_CHORDS)
+        self.assertEqual(len(self.backend.keys), keys.MAX_CHORDS)
+        self.backend.keys.clear()
+        with self.assertRaises(SbxError) as refused:
+            self.dispatch("key", "t1", *["a"] * (keys.MAX_CHORDS + 1))
+        self.assertEqual(refused.exception.code, "invalid-argument")
+        self.assertEqual(self.backend.keys, [])
 
     def guest_prints(self, stdout: bytes, code: int = 0) -> None:
         """Make every guest command exit with this status and stdout."""

@@ -19,6 +19,7 @@ from sbx.config import parse_duration
 from sbx.errors import SbxError, error_code, error_document
 from sbx.execution import exec_options
 from sbx.gui import BUTTONS, MAX_COORDINATE, TYPE_LIMIT, TYPE_MODES
+from sbx.keys import MAX_CHORDS
 from sbx.model import ENCODINGS, FLAVOURS, NETS, SHARED
 from sbx.results import Document, Result, Results
 from sbx.sandboxes import running_daemon
@@ -673,6 +674,7 @@ OPERATIONS = (
                 repeatable=True,
                 metavar="KEY",
                 mcp_help="keys or chords such as enter or ctrl+alt+t, pressed in turn",
+                schema={"maxItems": MAX_CHORDS},
             ),
         ),
         "Press keys in a sandbox",

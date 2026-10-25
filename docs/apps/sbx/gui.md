@@ -29,6 +29,7 @@
 - A chord joins key names with `+`; aliases such as `return`, `escape`, `pgup`, `control`, and `win` name the same keys.
   An unknown name fails with the list of known names and aliases.
 - QEMU drops input past its queue, so `sbx` waits for each chord to land, about 20 ms a key.
+- A call past the chord cap fails with `invalid-argument` before any key goes out.
 
 ## Text
 
@@ -36,6 +37,7 @@
 - xdotool releases Caps Lock and held modifiers around the text, and types characters outside the keyboard layout through a spare keycode, so Unicode works.
 - Newline presses Enter and tab presses Tab; any other control character fails, as does text past the length cap.
 - The journal records how many characters `type` sent, never the text.
+  A refusal names the positions of the characters at fault, never the characters.
 - `--mode keys` (MCP `mode: keys`) sends US-layout keycodes from the host instead, for a screen before X starts.
   It refuses characters outside that layout, and the guest's layout must be US for the characters to come out right.
 - Keys mode reads `/sys/class/leds/input*::capslock/brightness` through qemu-ga first and, when the LED is lit, presses Caps Lock before and after the text.

@@ -370,7 +370,8 @@
 						"type": "string"
 					},
 					"minItems": 1,
-					"description": "keys or chords such as enter or ctrl+alt+t, pressed in turn"
+					"description": "keys or chords such as enter or ctrl+alt+t, pressed in turn",
+					"maxItems": 64
 				}
 			},
 			"required": ["name", "keys"],

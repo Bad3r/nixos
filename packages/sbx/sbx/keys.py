@@ -4,8 +4,16 @@
 Both parsers raise ValueError, which `gui` reports as invalid-argument.
 """
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
+
 # virDomainSendKey takes at most this many keys in one chord.
 MAX_CHORD = 16
+# Each chord waits for QEMU's queue, and `key` journals them all.
+MAX_CHORDS = 64
+MAX_POSITIONS = 10
 SHIFT = 42
 
 _LETTERS = dict(
@@ -111,10 +119,17 @@ def chord(spec: str) -> list[int]:
     return [KEYS[name] for name in names]
 
 
+def positions(indices: Sequence[int]) -> str:
+    """Name where characters sit in a text without naming them, which may be a secret."""
+    shown = ", ".join(str(index + 1) for index in indices[:MAX_POSITIONS])
+    more = f" and {len(indices) - MAX_POSITIONS} more" if len(indices) > MAX_POSITIONS else ""
+    return f"{len(indices)} characters, at positions {shown}{more}"
+
+
 def text_chords(text: str) -> list[list[int]]:
     """Translate text into one chord per character, refusing what a US layout cannot type."""
-    untypable = sorted({character for character in text if character not in _TEXT})
+    untypable = [index for index, character in enumerate(text) if character not in _TEXT]
     if untypable:
-        msg = f"no US-layout key types {', '.join(map(repr, untypable))}"
+        msg = f"no US-layout key types {positions(untypable)}"
         raise ValueError(msg)
     return [_TEXT[character] for character in text]

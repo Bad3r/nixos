@@ -145,9 +145,11 @@ let
       `--timeout`, sbx sends SIGTERM to its process group, then SIGKILL 5 s
       later, keeps the partial output, sets `timed_out`, and exits 124; a
       command's own exit 124 leaves `timed_out` false. A signal gives
-      `exit_code: null`, `signal` such as `"KILL"`, and exit 128+n. Exit 255
-      with `transport_error` set means qemu-ga or SSH failed mid-command, and
-      the command may have run in part; without it, 255 is the guest's own.
+      `exit_code: null`, `signal` such as `"KILL"`, and exit 128+n. An `exec`
+      exit 255 with `transport_error` set means qemu-ga or SSH failed
+      mid-command, and the command may have run in part; without it, 255 is
+      the guest's own. A `run` whose transport failed exits 1 with
+      `run-incomplete` instead.
     - Failures print `{"error": {"code", "message"}}` and exit 1, or 2 for a
       usage error. `base-missing` means `sbx base build <base>` comes first,
       or for a cloud base the owner's `sbx base prepare`.

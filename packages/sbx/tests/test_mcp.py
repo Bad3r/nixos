@@ -14,7 +14,7 @@ from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from PIL import Image
-from sbx import gui, mcp, ops
+from sbx import gui, keys, mcp, ops
 from sbx.config import caller_session
 from sbx.errors import SbxError
 from sbx.results import Document
@@ -452,6 +452,17 @@ class ServerTest(unittest.TestCase):
         self.assertEqual((missing[0], missing[1]["error"]["code"]), (True, "usage"))
         self.assertEqual((plain[0], plain[1]["error"]["code"]), (True, "usage"))
         self.assertEqual(self.core.backend.execs, [])
+
+    def test_key_cap(self) -> None:
+        """The key tool advertises its chord cap and refuses a longer list."""
+        schema = cast("dict[str, Any]", mcp.definition(mcp.TOOLS_BY_NAME["key"])["inputSchema"])
+        self.assertEqual(schema["properties"]["keys"]["maxItems"], keys.MAX_CHORDS)
+        self.core.sandboxes().create(self.core.request(gui=True))
+        ((failed, document),) = self.documents(
+            self.call(1, "key", {"name": "t1", "keys": ["a"] * (keys.MAX_CHORDS + 1)})
+        )
+        self.assertEqual((failed, document["error"]["code"]), (True, "invalid-argument"))
+        self.assertEqual(self.core.backend.keys, [])
 
     def test_shares(self) -> None:
         """share_attach and share_detach return the share's JSON form."""

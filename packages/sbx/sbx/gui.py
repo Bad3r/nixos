@@ -3,6 +3,7 @@
 
 import base64
 import binascii
+import dataclasses
 import re
 import secrets
 import time
@@ -50,6 +51,7 @@ GUEST_OUTPUT = 64 * 1024
 CAPS_LOCK = keys.KEYS["capslock"]
 CAPS_LED = "cat /sys/class/leds/input*::capslock/brightness"
 LED_VALUE = re.compile(rb"[0-9]{1,3}")
+SKIPPED = b"I don't know which key produces"
 TYPABLE_CONTROLS = "\n\t"
 # X coordinates are signed 16-bit.
 MAX_COORDINATE = 32767
@@ -144,17 +146,15 @@ def checked(result: ExecResult, what: str) -> ExecResult:
 
 
 def _text_refusal(text: str) -> str | None:
-    controls = sorted(
-        {
-            character
-            for character in text
-            if unicodedata.category(character) in {"Cc", "Cs"} and character not in TYPABLE_CONTROLS
-        }
-    )
+    controls = [
+        index
+        for index, character in enumerate(text)
+        if unicodedata.category(character) in {"Cc", "Cs"} and character not in TYPABLE_CONTROLS
+    ]
     if controls:
         return (
             f"type takes no control characters but newline and tab, got "
-            f"{', '.join(map(repr, controls))}; press keys with `key`"
+            f"{keys.positions(controls)}; press keys with `key`"
         )
     return None
 
@@ -238,6 +238,9 @@ class Gui(Transfer):
 
     def key(self, name: str, specs: Sequence[str]) -> KeyResult:
         """Press each chord, such as `ctrl+alt+t` or `enter`, in turn."""
+        if len(specs) > keys.MAX_CHORDS:
+            msg = f"key takes at most {keys.MAX_CHORDS} chords, got {len(specs)}; split them"
+            raise SbxError(msg, code="invalid-argument")
         try:
             chords = [keys.chord(spec) for spec in specs]
         except ValueError as error:
@@ -317,7 +320,15 @@ class Gui(Transfer):
                 timeout=GUEST_TIMEOUT + TYPE_SECONDS * len(text),
                 stdin=text.encode(),
             )
-            checked(result, "xdotool type")
+            # xdotool skips a character it finds no key for with a warning naming it, and
+            # exits 0; the text may be a secret, so only the count of those lines is kept.
+            lines = result.stderr.splitlines()
+            skipped = sum(SKIPPED in line for line in lines)
+            stderr = b"\n".join(line for line in lines if SKIPPED not in line)
+            checked(dataclasses.replace(result, stderr=stderr), "xdotool type")
+            if skipped:
+                msg = f"xdotool type found no key for {skipped} of the characters and skipped them"
+                raise SbxError(msg, code="guest-command")
         return TypeResult(name, len(text))
 
     def _window_script(

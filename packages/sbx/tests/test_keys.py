@@ -49,6 +49,13 @@ class KeysTest(unittest.TestCase):
         for text in ("é", "a\rb", "\x00"):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 keys.text_chords(text)
+        with self.assertRaises(ValueError) as raised:
+            keys.text_chords("p\u00e4ss\u00f6" + "\u00fc" * 11)
+        self.assertEqual(
+            str(raised.exception),
+            "no US-layout key types 13 characters, at positions 2, 5, 6, 7, 8, 9, 10, 11, 12, 13 "
+            "and 3 more",
+        )
 
 
 if __name__ == "__main__":
