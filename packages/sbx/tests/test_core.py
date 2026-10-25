@@ -4,7 +4,9 @@
 import dataclasses
 import json
 import os
+import socket
 import tempfile
+import threading
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -180,8 +182,11 @@ class SandboxesTest(unittest.TestCase):
         self.addCleanup(self.environment.stop)
         (self.scratch / "tmp").mkdir()
         journal = mock.patch.object(core.journal, "record")
-        journal.start()
+        self.record = journal.start()
         self.addCleanup(journal.stop)
+        grants = mock.patch.object(core, "GRANT_SOCKET", self.scratch / "grant.sock")
+        grants.start()
+        self.addCleanup(grants.stop)
 
     def sandboxes(self, session: str | None = "claude:one") -> Sandboxes:
         """Bind the fake backend at a fixed clock."""
@@ -314,6 +319,44 @@ class SandboxesTest(unittest.TestCase):
         )
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-live", "sbx-saved"])
         self.assertFalse(self.paths.sandbox("stray").exists())
+
+    def serve_grants(self, answer: dict[str, object]) -> list[dict[str, object]]:
+        """Answer one request on the patched grant socket and keep it."""
+        requests: list[dict[str, object]] = []
+        server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+        server.bind(str(core.GRANT_SOCKET))
+        server.listen(1)
+        self.addCleanup(server.close)
+
+        def handle() -> None:
+            connection, _ = server.accept()
+            with connection:
+                requests.append(json.loads(b"".join(iter(lambda: connection.recv(4096), b""))))
+                connection.sendall(json.dumps(answer).encode())
+
+        thread = threading.Thread(target=handle)
+        thread.start()
+        self.addCleanup(thread.join)
+        return requests
+
+    def test_destroy_revokes_grants(self) -> None:
+        """Destroying a sandbox revokes its grants by name."""
+        requests = self.serve_grants({"revoked": ["0000000a"]})
+        self.paths.sandbox("g").mkdir(parents=True)
+        self.backend.add("g", expires=NOW + 60)
+        self.assertEqual(self.sandboxes().destroy("g"), ["g"])
+        self.assertEqual(requests, [{"verb": "revoke", "source": "sbx-g"}])
+
+    def test_destroy_reports_live_grants(self) -> None:
+        """A refused revoke is journaled and the sandbox is still destroyed."""
+        self.serve_grants({"error": {"code": "nft", "message": "no table"}})
+        self.paths.sandbox("g").mkdir(parents=True)
+        self.backend.add("g", expires=NOW + 60)
+        with mock.patch("sys.stderr") as stderr:
+            self.assertEqual(self.sandboxes().destroy("g"), ["g"])
+        self.assertNotIn("sbx-g", self.backend.domains_by_name)
+        self.assertIn("grants of g stay live", str(self.record.call_args_list))
+        self.assertTrue(stderr.write.called)
 
     def test_destroy_mine(self) -> None:
         """--mine removes only the caller's sandboxes."""

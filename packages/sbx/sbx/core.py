@@ -21,8 +21,10 @@ import secrets
 import shlex
 import shutil
 import signal
+import socket
 import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -39,6 +41,8 @@ if TYPE_CHECKING:
 
 NS = "https://github.com/Bad3r/nixos/sbx"
 DOMAIN_PREFIX = "sbx-"
+# workload-grantd's socket; modules/workloads/sharing/grants.nix declares it.
+GRANT_SOCKET = Path("/run/workloads/grant.sock")
 NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
 # Sandbox directories sit beside the base out-links.
 RESERVED_NAMES = frozenset({"bases"})
@@ -532,6 +536,33 @@ def _lease_error(path: Path, detail: str) -> SbxError:
     return SbxError(msg, code="lease-file")
 
 
+def revoke_grants(name: str, address: str | None) -> None:
+    """End the workload grants of a removed sandbox; without the helper there are none."""
+    request: dict[str, object] = {"verb": "revoke", "source": DOMAIN_PREFIX + name}
+    if address is not None:
+        request["address"] = address
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+            connection.settimeout(30)
+            connection.connect(str(GRANT_SOCKET))
+            connection.sendall(json.dumps(request).encode())
+            connection.shutdown(socket.SHUT_WR)
+            answer = b"".join(iter(lambda: connection.recv(65536), b""))
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        msg = f"workload-grantd is unreachable: {error}"
+        raise SbxError(msg, code="grants") from error
+    try:
+        parsed: object = json.loads(answer)
+    except json.JSONDecodeError as error:
+        msg = f"workload-grantd answered no JSON: {error}"
+        raise SbxError(msg, code="grants") from error
+    if not isinstance(parsed, dict) or "revoked" not in parsed:
+        msg = f"workload-grantd refused the revoke: {answer.decode(errors='replace').strip()}"
+        raise SbxError(msg, code="grants")
+
+
 def lease_address(path: Path, mac: str, now: float) -> str | None:
     """Return the IPv4 address the bridge's DHCP server leased to `mac`, if any."""
     mac = mac.lower()
@@ -928,12 +959,20 @@ class Sandboxes:
         return ET.tostring(domain, encoding="unicode")
 
     def _discard(self, name: str) -> None:
-        """Remove a sandbox's domain and directory; the caller holds the lock."""
-        if any(sandbox.name == name for sandbox in self.owned()):
+        """Remove a sandbox's domain, directory, and grants; the caller holds the lock."""
+        owned = next((sandbox for sandbox in self.owned() if sandbox.name == name), None)
+        address = None if owned is None else self.address(owned)
+        if owned is not None:
             self.backend().remove(DOMAIN_PREFIX + name)
         directory = self.paths.sandbox(name)
         if directory.is_dir():
             shutil.rmtree(directory)
+        # The sandbox is gone either way; a grant the helper keeps is reported, not fatal.
+        try:
+            revoke_grants(name, address)
+        except SbxError as error:
+            journal.record(f"grants of {name} stay live: {error}", code=error.code, sandbox=name)
+            print(f"sbx: grants of {name} stay live: {error}", file=sys.stderr)
 
     def create(self, request: Request) -> dict[str, object]:
         """Start a sandbox and wait until it accepts commands."""
