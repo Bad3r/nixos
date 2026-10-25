@@ -342,21 +342,30 @@ class Lifecycle(Admission, Bases, DomainXml, Execution, Cleanup):
             address = self.address(sandbox)
             journal.record(f"network of {name} cut", verb="net", sandbox=name, session=self.session)
             unplugged = True
+            # Once the link is down the sandbox is offline, so the record follows whatever fails.
+            problems: list[SbxError] = []
             interface = egress_interface(backend.live_xml(domain), mac)
             if interface is not None:
                 backend.update_device(domain, link_down(interface))
-                backend.remove_device(domain, unplug_xml(interface))
-                unplugged = self._unplugged(name, mac)
-            grants_error = None
+                try:
+                    backend.remove_device(domain, unplug_xml(interface))
+                    unplugged = self._unplugged(name, mac)
+                except SbxError as error:
+                    unplugged = False
+                    msg = f"its NIC stays plugged in with the link down: {error}"
+                    problems.append(SbxError(msg, code=error.code))
             try:
                 revoke_grants(name, address)
             except SbxError as error:
-                msg = f"the network of '{name}' is cut, but its grants may stay live: {error}"
-                grants_error = SbxError(msg, code=error.code)
+                problems.append(SbxError(f"its grants may stay live: {error}", code=error.code))
             cut = int(self._clock())
             offline = dataclasses.replace(meta, net="none", net_cut=cut)
             backend.set_metadata(domain, ET.tostring(offline.element(namespaced=False), "unicode"))
-        return NetCutResult(name, unplugged, iso_time(cut), grants_error)
+        failure = None
+        if problems:
+            msg = f"the network of '{name}' is cut, but {'; '.join(map(str, problems))}"
+            failure = SbxError(msg, code=problems[0].code)
+        return NetCutResult(name, unplugged, iso_time(cut), failure)
 
     def _unplugged(self, name: str, mac: str | None) -> bool:
         """Wait until the guest releases its NIC; one it keeps stays with its link down."""

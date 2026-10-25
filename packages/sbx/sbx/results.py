@@ -328,12 +328,12 @@ class FocusResult(Result):
 
 @dataclass(frozen=True)
 class NetCutResult(Result):
-    """An egress sandbox taken offline; `grants_error` fails it after the cut."""
+    """An egress sandbox taken offline; `failure` names what the cut left undone."""
 
     sandbox: str
     unplugged: bool
     net_cut: str
-    grants_error: SbxError | None = None
+    failure: SbxError | None = None
 
     def as_json(self) -> dict[str, object]:
         """Return {sandbox, net, net_cut, unplugged}."""
@@ -345,5 +345,5 @@ class NetCutResult(Result):
         }
 
     def error(self) -> SbxError | None:
-        """Return why grants of the offline sandbox may stay live."""
-        return self.grants_error
+        """Return what the cut of the now offline sandbox left undone."""
+        return self.failure

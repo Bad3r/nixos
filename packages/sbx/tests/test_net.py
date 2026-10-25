@@ -165,6 +165,19 @@ class NetCutTest(Fixture):
         self.assertIn("is cut", str(failed.exception))
         self.assertEqual(self.sandboxes().find("e").meta.net, "none")
 
+    def test_failed_unplug_still_records_the_cut(self) -> None:
+        """After the link is down, a refused unplug still revokes, records, and reports."""
+        refused = SbxError("device busy", code="libvirt")
+        with (
+            mock.patch.object(self.backend, "remove_device", side_effect=refused),
+            self.assertRaises(SbxError) as failed,
+        ):
+            self.cut()
+        self.assertEqual(failed.exception.code, "libvirt")
+        self.assertIn("link down: device busy", str(failed.exception))
+        self.assertEqual(self.backend.events, ["link-down", "revoke", "metadata"])
+        self.assertEqual(self.sandboxes().find("e").meta.net, "none")
+
     def test_parser(self) -> None:
         """`net cut` takes one sandbox name."""
         done = NetCutResult("e", unplugged=True, net_cut="2027-01-15T08:00:00+00:00")

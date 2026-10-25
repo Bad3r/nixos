@@ -29,4 +29,4 @@ sbx exec probe -- <command>
 - Whatever the sandbox fetched, or anything planted in it, while it had egress stays in the sandbox.
 - `list` and `info` then show `net: none`, the `net_cut` time, and no address.
 - A second cut, a sandbox without egress, and a Windows sandbox refuse with `invalid-argument`.
-- A revoke the grant helper refuses fails the call with `grants`, after the sandbox is already offline.
+- An unplug libvirt refuses or a revoke the grant helper refuses fails the call, after the link is down and the cut recorded.
