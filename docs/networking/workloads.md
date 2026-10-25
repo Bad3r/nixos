@@ -17,7 +17,7 @@ A network is isolated by default: guests reach the gateway for DHCP and ping, an
 | `inet cloudflare-warp`   | warp-svc                  | admits the workload block on its own   |
 
 The `inet workload` prerouting chain drops packets from a bridge whose source lies outside its subnet before conntrack sees them, so a guest cannot inject into another network's flows.
-The input chain runs one priority ahead of `nixos-fw`, and drops traffic that reaches the host on a bridge port (`vnet*`, `tap*`) instead of the bridge, as link-local frames do.
+The input chain runs one priority ahead of `nixos-fw`, and drops traffic that reaches the host on a bridge port (`vnet*`, `vg-*`, `tap*`) instead of the bridge, as link-local frames do.
 A drop in any base chain is final, so new traffic from a bridge never reaches the ports `nixos-fw` opens on every interface, and the pre-filter narrows the per-bridge opens to the gateway address.
 The forward chain drops all forwarding that neither enters nor leaves a `vn-*` bridge, so turning forwarding on never makes the host a router between the LAN, Mesh, and WARP.
 Once any network is declared, forwarding through other interfaces, such as rootful Podman's `podman0`, is dropped as well.

@@ -845,7 +845,11 @@ in
 
                 peer_tap = machine.succeed(as_owner("virsh -c qemu:///session domiflist peer")).split("\n")[2].split()[0]
                 assert peer_fdb() == [peer_tap], (peer_fdb(), peer_tap)
-                assert machine.succeed("cat /sys/class/net/vn-sbx/bridge/no_linklocal_learn").strip() == "1"
+                # Every libvirt bridge, declared guests' included, learns nothing from link-local frames.
+                for bridge in ("vn-default", "vn-lab", "vn-sbx"):
+                    assert machine.succeed(f"cat /sys/class/net/{bridge}/bridge/no_linklocal_learn").strip() == "1", bridge
+                tables = machine.succeed("nft list tables bridge")
+                assert "workload-addresses" in tables and "workload-leases" in tables, tables
 
             with subtest("a fresh port cannot claim a pinned MAC, and pins outlive a ruleset reload"):
                 machine.succeed(as_owner("virsh -c qemu:///session create ${intruderDomain}"))
