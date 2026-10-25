@@ -35,6 +35,7 @@ DETACH_WAIT = 15.0
 DETACH_POLL = 0.5
 # Bounds each guest helper: the mount, findmnt, and every umount.
 GUEST_TIMEOUT = 30.0
+MOUNT_WAIT = 10.0
 MOUNT_ROOT = "/mnt"
 # findmnt --raw writes a byte outside printable ASCII, a space, or a backslash as \xHH.
 RAW_ESCAPE = re.compile(rb"\\x([0-9a-fA-F]{2})")
@@ -258,14 +259,21 @@ class Shares:
         )
 
     def _mount(self, sandbox: Sandbox, tag: str, command: str) -> str | None:
-        """Mount an attached share in the guest; return why that failed, or None."""
-        try:
-            result = self.sandboxes.guest_helper(
-                sandbox, ["sh", "-c", command], timeout=GUEST_TIMEOUT
-            )
+        """Mount an attached share in the guest; return why that failed, or None.
+
+        The guest probes the hot-plugged device after attach returns, so a mount
+        that fails is retried until MOUNT_WAIT passes.
+        """
+        deadline = self.clock() + MOUNT_WAIT
+        while True:
+            result = self._helper(sandbox, ["sh", "-c", command])
+            if isinstance(result, str):
+                failure: str | None = result
+                break
             failure = _failure(result)
-        except SbxError as error:
-            failure = f"qemu-ga: {error}"
+            if failure is None or self.clock() >= deadline:
+                break
+            self.sleep(DETACH_POLL)
         if failure is not None:
             failure = f"the guest did not mount {tag}: {failure}"
             journal.record(failure, verb="share", sandbox=sandbox.name, share=tag)

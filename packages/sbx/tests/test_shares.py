@@ -13,7 +13,7 @@ from unittest import mock
 
 from sbx.errors import SbxError
 from sbx.sandboxes import Sandboxes
-from sbx.shares import Shares, attached
+from sbx.shares import MOUNT_WAIT, Shares, attached
 from sbx.windows import WindowsSettings
 
 from tests.test_core import NOW, FakeBackend, Fixture, dispatch
@@ -41,13 +41,16 @@ class ShareFake(FakeBackend):
         self.guest_commands: list[list[str]] = []
         self.busy: set[str] = set()
         self.mount_fails = False
+        # Mounts that fail before the guest has probed a hot-plugged device.
+        self.unprobed = 0
         self.silent = False
         self.helper_statuses: dict[int, dict[str, Any]] = {}
 
     def _guest(self, argv: list[str]) -> dict[str, Any]:
         """Answer one guest helper as a NixOS guest would."""
         if argv[:2] == ["sh", "-c"]:
-            if self.mount_fails:
+            if self.mount_fails or self.unprobed > 0:
+                self.unprobed -= 1
                 return {"exitcode": 32, "err-data": _b64("mount: unknown filesystem type")}
             words = shlex.split(argv[2])
             self.mounts.setdefault(words[-2], []).append(words[-1])
@@ -273,6 +276,13 @@ class SharesTest(Fixture):
         self.assertNotIn("mount_error", document)
         self.assertEqual(len(self.backend.guest_commands), 2)
 
+    def test_mount_waits_for_the_device(self) -> None:
+        """A mount that fails until the guest probes the new device is retried."""
+        self.add_running("s")
+        self.backend.unprobed = 2
+        self.assertTrue(self.shares().attach("s", "docs").as_json()["mounted"])
+        self.assertEqual(self.slept, [0.5, 0.5])
+
     def test_failed_mount_keeps_the_share(self) -> None:
         """A mount the guest refuses leaves the device attached and reports why."""
         self.add_running("s")
@@ -280,6 +290,7 @@ class SharesTest(Fixture):
         document = self.shares().attach("s", "docs").as_json()
         self.assertEqual((document["attached"], document["mounted"]), (True, False))
         self.assertIn("unknown filesystem type", str(document["mount_error"]))
+        self.assertEqual(self.now, MOUNT_WAIT)
         self.assertIn("docs", attached(self.backend.live_xml("sbx-s")))
         self.backend.silent = True
         document = self.shares().attach("s", "shared").as_json()

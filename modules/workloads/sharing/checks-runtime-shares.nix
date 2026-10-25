@@ -353,7 +353,9 @@ in
                     assert workloads(f"share detach sbx-s {tag}")["share"]["attached"] is False
                     refused(f"share detach sbx-s {tag}", "not-attached")
                 assert "<filesystem" not in session_xml()
-                assert in_sandbox("findmnt -t virtiofs -n") == (1, ""), "a stale mount stayed"
+                code, out = in_sandbox("findmnt -t virtiofs -n -o SOURCE,TARGET")
+                # findmnt exits 0 or 1 when no mount matches -t alone.
+                assert code in {0, 1} and out.strip() == "", f"a stale mount stayed: {code} {out!r}"
 
             with subtest("sbx share attach mounts, and detach leaves no stale mount"):
                 answer = sbx("share attach s shared")
@@ -368,7 +370,9 @@ in
                 }]
                 answer = sbx("share detach s shared")
                 assert answer["guest_unmounted"] and answer["unmounted"] == ["/mnt/shared"], answer
-                assert in_sandbox("findmnt -t virtiofs -n") == (1, ""), "a stale mount stayed"
+                code, out = in_sandbox("findmnt -t virtiofs -n -o SOURCE,TARGET")
+                # findmnt exits 0 or 1 when no mount matches -t alone.
+                assert code in {0, 1} and out.strip() == "", f"a stale mount stayed: {code} {out!r}"
 
             with subtest("destroy removes the sandbox's files"):
                 sbx("destroy s")
