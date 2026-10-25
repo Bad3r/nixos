@@ -13,6 +13,7 @@
     run <base> -- CMD: Create, copy in, run, copy out, and destroy in one call.
     exec <name> -- CMD: Run a command over SSH on vsock.
     --json: Print results and errors as JSON.
+    sbx-mcp: Serve the verbs as MCP tools on stdio.
 
   Notes:
     * Sandboxes are untrusted guests: no network, no vdagent channel, no shared folders.

@@ -30,11 +30,12 @@ let
     nix = "${nix}/bin/nix";
     nix_store = "${nix}/bin/nix-store";
   };
+  version = "0.1.0";
   settingsFile = writeText "sbx-settings.json" (builtins.toJSON (settings // { inherit tools; }));
 in
 stdenvNoCC.mkDerivation {
   pname = "sbx";
-  version = "0.1.0";
+  inherit version;
 
   src = lib.fileset.toSource {
     root = ./.;
@@ -61,7 +62,17 @@ stdenvNoCC.mkDerivation {
 
     sys.exit(main(Path("${settingsFile}")))
     EOF
-    chmod 0755 $out/bin/sbx
+    cat > $out/bin/sbx-mcp <<EOF
+    #!${python.interpreter} -I
+    import sys
+    from pathlib import Path
+
+    sys.path.insert(0, "$out/lib/sbx")
+    from sbx.mcp import serve
+
+    sys.exit(serve(Path("${settingsFile}"), "${version}"))
+    EOF
+    chmod 0755 $out/bin/sbx $out/bin/sbx-mcp
     runHook postInstall
   '';
 
