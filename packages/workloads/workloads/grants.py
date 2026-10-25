@@ -1,5 +1,5 @@
 # Copyright (c) 2026 Bad3r
-"""Grant policy: targets, sources, and the netfilter paths a grant opens."""
+"""Grant policy: targets, sources, the netfilter paths a grant opens, and runtime shares."""
 
 import fnmatch
 import ipaddress
@@ -244,6 +244,27 @@ def _ports(value: object) -> tuple[Ports, ...]:
 
 
 @dataclass(frozen=True)
+class RuntimeShare:
+    """A declared `runtime = true` share of a system guest."""
+
+    tag: str
+    # The `<filesystem>` element the guest's module installs.
+    device: str
+    read_only: bool
+    mount_point: str | None
+
+
+@dataclass(frozen=True)
+class ShareGuest:
+    """A system guest with runtime shares."""
+
+    name: str
+    domain: str
+    kind: str
+    shares: dict[str, RuntimeShare]
+
+
+@dataclass(frozen=True)
 class Policy:
     """`/etc/workloads/grants.json`, which `modules/workloads/sharing/grants.nix` writes."""
 
@@ -254,6 +275,7 @@ class Policy:
     sources: dict[str, tuple[Interface, ...]]
     targets: dict[str, dict[str, Endpoint]]
     reserved: frozenset[ipaddress.IPv4Address]
+    shares: dict[str, ShareGuest]
 
     @classmethod
     def from_json(cls, data: object) -> Policy:
@@ -316,6 +338,23 @@ class Policy:
                     ipaddress.IPv4Address(str(address))
                     for address in cast("list[object]", record["reserved"])
                 ),
+                shares={
+                    name: ShareGuest(
+                        name,
+                        str(guest["domain"]),
+                        str(guest["kind"]),
+                        {
+                            tag: RuntimeShare(
+                                tag,
+                                str(share["device"]),
+                                bool(share["readOnly"]),
+                                None if share["mountPoint"] is None else str(share["mountPoint"]),
+                            )
+                            for tag, share in cast("dict[str, Record]", guest["shares"]).items()
+                        },
+                    )
+                    for name, guest in cast("dict[str, Record]", record["shares"]).items()
+                },
             )
         except (AttributeError, KeyError, TypeError, ValueError, GrantError) as error:
             msg = f"the grant policy is malformed: {error!r}"
@@ -462,3 +501,19 @@ class Policy:
             Route(source.bridge, path.source, path.destination),
             Route(destination.bridge, path.destination, path.source),
         ]
+
+    def share_guest(self, guest: str) -> ShareGuest:
+        """A declared guest whose shares the helper attaches and detaches."""
+        entry = self.shares.get(guest)
+        if entry is None:
+            msg = f"guest:{guest} is no declared present guest"
+            raise GrantError(msg, code="not-declared")
+        if entry.kind == "windows":
+            # virtio-win's virtiofs.exe remounts every share on each device arrival
+            # (virtio-win/kvm-guest-drivers-windows#1698), so only a provisioning restart converges.
+            msg = (
+                f"guest:{guest} runs Windows, whose runtime shares need a provisioning restart;"
+                " attach them with virsh as docs/apps/libvirt/shares.md describes"
+            )
+            raise GrantError(msg, code="unsupported-guest")
+        return entry

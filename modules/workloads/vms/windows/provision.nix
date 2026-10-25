@@ -37,7 +37,7 @@ let
         {
           inherit (guest) uuid;
           account = windows.account.name;
-          inherit (windows.account) authorizedKeys;
+          inherit (windows.account) authorizedKeys autoLogon;
           passwordFile = config.sops.secrets.${windows.account.passwordSecret}.path;
           productKeyFile =
             if windows.productKeySecret == null then
@@ -71,7 +71,7 @@ let
                 msi = "${winfsp.msi}";
               };
           install = guest.install.media != [ ];
-          osDisk = "${guest.stateDir}/${lib.head (lib.attrNames guest.disks)}.qcow2";
+          osDisk = "${guest.stateDir}/${guest.osDisk}.qcow2";
         };
 
       # The Office step copies its installer from the staged media.

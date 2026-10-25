@@ -9,7 +9,7 @@ The app module is `modules/apps/sbx/nixos.nix`; its ceilings come from the host'
 Every sandbox is an untrusted guest.
 
 - Control runs over SSH on vsock and the qemu-ga channel, never over a network.
-- The guest has no vdagent channel and no shared folder.
+- The guest has no vdagent channel, and no shared folder until a [runtime share](../../networking/workload-shares.md) attaches its `shared` directory or a declared read-only one.
   Only a [GUI base](bases.md#gui-bases) adds a display socket, with clipboard and file transfer off.
 - `sbx` accepts no domain XML, no host disk path, and no value above a ceiling.
 - Each QEMU runs in its own user and network namespace, and `sbx-qemu` (`packages/sbx/sbx/emulator.py`) starts it only when that namespace's vsock mode is `local`.
@@ -34,6 +34,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `list`, `info <name>`            | state, CID, address, TTL left, session      |
 | `screenshot <name>`              | display to PNG; `--ocr` adds text           |
 | `key <name>`, `type <name>`      | keyboard input on a GUI base                |
+| `share attach`, `share detach`   | hot-plug or remove a runtime share          |
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
 | `base prepare <image>`           | turn a cloud image into a base, owner only  |
@@ -80,6 +81,7 @@ sbx destroy probe
 ## Bases
 
 Nix bases, GUI input, and cloud bases with `base prepare`: [bases](bases.md).
+Windows bases, exported from a Windows guest's golden copy and run without SSH: [Windows bases](windows.md).
 
 ## Resources
 
@@ -98,18 +100,20 @@ The TTL counts wall-clock time, host sleep included.
 
 ## State
 
-| Path                              | Content                          |
-| --------------------------------- | -------------------------------- |
-| `~/.local/share/sbx/<name>/`      | overlay, NVRAM, key, console log |
-| `~/.local/share/sbx/<name>/xfer/` | copies out and screenshots       |
-| `~/.local/share/sbx/bases/<base>` | base out-link or prepared disk   |
+| Path                                | Content                          |
+| ----------------------------------- | -------------------------------- |
+| `~/.local/share/sbx/<name>/`        | overlay, NVRAM, key, console log |
+| `~/.local/share/sbx/<name>/xfer/`   | copies out and screenshots       |
+| `~/.local/share/sbx/<name>/shared/` | the read-write runtime share     |
+| `~/.local/share/sbx/bases/<base>`   | base out-link or prepared disk   |
 
 `sbx-gc.timer` runs `sbx gc` on a schedule.
 It removes shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
+Past the disk cap or the free-space floor, it detaches `shared` from every sandbox.
 It removes sandboxes past their TTL only while `timedatectl` reports the host clock NTP-synchronized, since an RTC clock right after resume can run hours ahead.
 `sbx destroy --expired` refuses with `clock-unsynced` on an unsynced clock.
 On a host that never syncs, expired sandboxes stay until `sbx destroy <name>`.
-`create`, `exec`, `cp`, `screenshot`, `key`, `type`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
+`create`, `exec`, `cp`, `share`, `screenshot`, `key`, `type`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
 
 ## Agents
 

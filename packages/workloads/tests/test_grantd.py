@@ -16,7 +16,7 @@ from workloads.grantd import Caller, Element, Flow, NftKernel, Service, Tools
 from workloads.grants import GrantError, Path, Ports, Record, Route
 from workloads.vsock import FileStore, VsockGrant
 
-from tests.fixtures import SANDBOX_MAC, policy, read_leases
+from tests.fixtures import SANDBOX_MAC, FakeLibvirt, policy, read_leases
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Sequence
@@ -116,7 +116,9 @@ class Harness:
         self.journal: list[dict[str, object]] = []
         self.kernel = FakeKernel(self.events)
         self.store = FakeStore(self.events)
-        self.now = 5000.0
+        self.boot = 5000.0
+        self.libvirt = FakeLibvirt(self.events)
+        self.now = 0.0
         self.fail_journal = False
         ids = (f"{number:08x}" for number in itertools.count(1))
         self.service = Service(
@@ -124,11 +126,19 @@ class Harness:
             self.kernel,
             self.log,
             self.lock,
+            libvirt=self.libvirt,
             new_id=lambda: next(ids),
             read_text=read_leases,
             vsock=self.store,
-            now=lambda: self.now,
+            now=lambda: self.boot,
+            sleep=self.sleep,
+            clock=lambda: self.now,
         )
+
+    def sleep(self, seconds: float) -> None:
+        """Advance the clock instead of waiting."""
+        self.events.append(f"sleep {seconds:g}")
+        self.now += seconds
 
     def log(self, message: str, fields: dict[str, object]) -> None:
         """Keep the entry, or fail like a missing journal socket."""
@@ -475,7 +485,7 @@ class Recorder:
         )
 
 
-TOOLS = Tools(nft="/nft", conntrack="/conntrack", ip="/ip")
+TOOLS = Tools(nft="/nft", conntrack="/conntrack", ip="/ip", virsh="/virsh")
 SET_NAME = "inet workload_grants grants"
 SOURCES_NAME = "inet workload_grants sources"
 SOURCE_KEY = '"vn-sbx" . 52:54:00:00:02:50 . 172.16.2.50'
@@ -691,7 +701,7 @@ class VsockTest(unittest.TestCase):
         """Expired entries leave the listing and the next write, and free their ports."""
         harness = Harness()
         vsock_grant(harness, "host:dev:8000", ttl=60)
-        harness.now += 60
+        harness.boot += 60
         self.assertEqual(harness.ask({"verb": "list"}), {"grants": []})
         self.assertIsNone(code(vsock_grant(harness, "host:dev:8000")))
         self.assertEqual([entry.grant for entry in harness.store.listed], ["00000002"])

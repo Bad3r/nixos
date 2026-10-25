@@ -263,6 +263,7 @@ class Fixture(unittest.TestCase):
             nix_store=str(stubs / "nix-store"),
             timedatectl=str(stubs / "timedatectl"),
             xorriso=str(stubs / "xorriso"),
+            virtiofsd="/nix/store/virtiofsd/bin/virtiofsd",
         )
         self.settings = Settings(
             running=3,
@@ -503,6 +504,42 @@ class SandboxesTest(Fixture):
         self.assertNotIn("sbx-g", self.backend.domains_by_name)
         self.assertIn("grants of g stay live", str(self.journal_record.call_args_list))
         self.assertTrue(stderr.write.called)
+
+    def test_destroy_reopens_closed_directories(self) -> None:
+        """Directories a guest closed under shared go too, and grants go even when they stay."""
+        closed = self.paths.sandbox("g") / "shared" / "d" / "closed"
+        closed.mkdir(parents=True)
+        (closed / "f").write_text("guest")
+        closed.chmod(0)
+        closed.parent.chmod(0)
+        self.backend.add("g", expires=NOW + 60)
+        with mock.patch.object(core, "revoke_grants") as revoke:
+            self.assertEqual(self.sandboxes().destroy("g"), ["g"])
+            self.assertFalse(self.paths.sandbox("g").exists())
+            self.paths.sandbox("h").mkdir(parents=True)
+            with (
+                mock.patch.object(core.shutil, "rmtree", side_effect=PermissionError("held")),
+                self.assertRaises(PermissionError),
+            ):
+                self.sandboxes().destroy("h")
+        self.assertEqual([call.args[0] for call in revoke.call_args_list], ["g", "h"])
+
+    def test_usage_counts_closed_directories(self) -> None:
+        """A directory a guest closed under shared counts; one left unreadable fails closed."""
+        closed = self.paths.sandbox("g") / "shared" / "closed"
+        closed.mkdir(parents=True)
+        (closed / "big").write_bytes(b"x" * (64 << 10))
+        closed.chmod(0)
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=32 << 10)
+        problem = self.sandboxes().disk_problem()
+        self.assertIn("cap", str(problem))
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=1 << 30)
+        self.assertIsNone(self.sandboxes().disk_problem())
+        hidden = self.paths.sandbox("g") / "hidden"
+        hidden.mkdir()
+        hidden.chmod(0)
+        self.addCleanup(hidden.chmod, 0o700)
+        self.assertIn("cannot be measured", str(self.sandboxes().disk_problem()))
 
     def test_grants_follow_removals(self) -> None:
         """Token removals revoke only what they remove; gc revokes orphaned directories too."""
@@ -1038,6 +1075,7 @@ class SandboxesTest(Fixture):
                 "ttlSeconds": 1,
                 "diskBytes": 1,
                 "minFreeBytes": 1,
+                "fileBytes": 1,
             },
             "defaults": {
                 "memoryMiB": 1,
@@ -1054,6 +1092,7 @@ class SandboxesTest(Fixture):
             "bootTimeout": 1,
             "egress": {"bridge": "vn-sbx", "leases": "/leases", "mtu": 1240},
             "cloudImages": {"debian-13": {"url": "https://x/d.qcow2", "hash": "sha256-y"}},
+            "windows": None,
             "tools": dataclasses.asdict(self.settings.tools),
         }
         path = self.scratch / "settings.json"

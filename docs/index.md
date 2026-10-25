@@ -117,6 +117,8 @@
   - Host services, links from guests to host services and other guests, and gateway proxies.
 - [networking/workload-grants.md](networking/workload-grants.md)
   - Runtime grants: allow rules, `workloads grant`, the grant table across reloads, and the helper socket.
+- [networking/workload-shares.md](networking/workload-shares.md)
+  - Runtime shares: `workloads share attach|detach` for system guests and sbx sandboxes, and how each attaches.
 
 ## Packaging
 
@@ -478,3 +480,5 @@
   - `sbx` failures by error code: a daemon outside the slice, the vsock namespace launcher, boot timeouts, an unavailable egress bridge or lease, and a refused or failed `base prepare`.
 - [apps/sbx/vsock-grants.md](apps/sbx/vsock-grants.md)
   - Workload grants for sandboxes without a network: listeners inside the QEMU namespace, their lifecycle, fail-closed cases, and the trust split.
+- [apps/sbx/windows.md](apps/sbx/windows.md)
+  - Windows bases exported from a golden copy: the export unit, sandbox firmware and TPM, the disk reservation, commands and copies through qemu-ga, and failures.

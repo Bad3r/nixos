@@ -348,7 +348,7 @@ let
             ${mediaDir} = directory "0755" "root" "root";
             # The owner's `nix build --out-link` targets for guest images.
             "${stateDir}/images" = directory "0755" owner config.users.users.${owner}.group;
-            "${stateDir}/golden" = directory "0700" "root" "root";
+            ${config.workloads.goldenDir} = directory "0700" "root" "root";
           };
 
           systemd.services =

@@ -3,8 +3,12 @@
   stdenvNoCC,
   writeText,
   writeScript,
+  writeShellScript,
+  writeScriptBin,
   python3,
   qemu_kvm,
+  swtpm,
+  coreutils,
   openssh,
   socat,
   tesseract,
@@ -13,6 +17,7 @@
   systemd,
   nix,
   xorriso,
+  virtiofsd,
   # Rendered by modules/apps/sbx/nixos.nix; the bare package refuses to run.
   settings ? { },
 }:
@@ -32,6 +37,30 @@ let
 
     main("${qemu_kvm}/bin/qemu-system-x86_64", sys.argv[1:])
   '';
+  # Every guest id writes as the owner, and every host file shows as uid 1000 and gid 100,
+  # the GUI base's sbx user, so a non-root guest user writes too and the owner deletes it all.
+  shareDaemon = writeShellScript "sbx-virtiofsd" ''
+    exec ${virtiofsd}/bin/virtiofsd \
+      --translate-uid=squash-guest:0:0:4294967295 --translate-uid=squash-host:0:1000:4294967295 \
+      --translate-gid=squash-guest:0:0:4294967295 --translate-gid=squash-host:0:100:4294967295 \
+      "$@"
+  '';
+  # First on sbx-libvirt's PATH: a sandbox's TPM emulator parses guest input,
+  # so it gets no host network; libvirt reaches it over path-based sockets.
+  swtpmShim = writeScriptBin "swtpm" ''
+    #!${python3.interpreter} -I
+    import os
+    import sys
+
+    sys.path.insert(0, "${emulatorSource}")
+    from emulator import LaunchError, private_namespace
+
+    try:
+        private_namespace(os.getuid(), os.getgid())
+    except (LaunchError, OSError) as error:
+        sys.exit(f"sbx-swtpm: {error}")
+    os.execv("${swtpm}/bin/swtpm", ["${swtpm}/bin/swtpm", *sys.argv[1:]])
+  '';
   tools = {
     emulator = "${emulator}";
     qemu_img = "${qemu_kvm}/bin/qemu-img";
@@ -47,6 +76,7 @@ let
     nix_store = "${nix}/bin/nix-store";
     timedatectl = "${systemd}/bin/timedatectl";
     xorriso = "${xorriso}/bin/xorriso";
+    virtiofsd = "${shareDaemon}";
   };
   version = "0.1.0";
   settingsFile = writeText "sbx-settings.json" (builtins.toJSON (settings // { inherit tools; }));
@@ -91,6 +121,18 @@ stdenvNoCC.mkDerivation {
     sys.exit(serve(Path("${settingsFile}"), "${version}"))
     EOF
     chmod 0755 $out/bin/sbx $out/bin/sbx-mcp
+    # Root's half of the Windows base export; never on PATH.
+    install -d $out/libexec/sbx
+    cat > $out/libexec/sbx/export-base <<EOF
+    #!${python.interpreter} -I
+    import sys
+
+    sys.path.insert(0, "$out/lib/sbx")
+    from sbx.export import main
+
+    sys.exit(main())
+    EOF
+    chmod 0755 $out/libexec/sbx/export-base
     runHook postInstall
   '';
 
@@ -101,7 +143,21 @@ stdenvNoCC.mkDerivation {
     runHook postInstallCheck
   '';
 
-  passthru = { inherit settings settingsFile; };
+  passthru = {
+    inherit settings settingsFile swtpmShim;
+    # PATH of sbx-libvirt: the shim wins over swtpm, whose package still gives
+    # swtpm_setup and swtpm_ioctl; the rest is the user manager's own PATH.
+    daemonPath = lib.concatStringsSep ":" [
+      (lib.makeBinPath [
+        swtpmShim
+        swtpm
+        coreutils
+      ])
+      "/run/wrappers/bin"
+      "/etc/profiles/per-user/%u/bin"
+      "/run/current-system/sw/bin"
+    ];
+  };
 
   meta = {
     description = "Disposable agent sandboxes on the owner's qemu:///session";

@@ -72,7 +72,8 @@ workloads revoke --all sbx-<name>
 | `vsock-listener`    | no vsock listener in the sandbox         |
 | `vsock-unconfirmed` | revoked; the vsock proxy did not confirm |
 | `vsock-list`        | the vsock grant list is unusable         |
-| `no-helper`         | the host declares no grant rule          |
+| `no-vsock`          | the sandbox has no vsock device          |
+| `no-helper`         | no grant rule or present guest declared  |
 | `helper`            | the helper answered no JSON object       |
 | `sbx`               | `sbx info` failed                        |
 | `os-error`          | the socket refused the caller            |
@@ -96,13 +97,14 @@ workloads revoke --all sbx-<name>
 `workload-grants.service` owns it and loads it with `add` and `flush chain` only, which keeps the elements; a switch, an `nftables` reload or restart, and a restart of the unit all leave live grants in place.
 An `nftables` reload propagates to the unit, which recreates the chains when something deleted the table.
 A change to a set's type fails the unit until the table is recreated.
-With no rule declared, the unit deletes the table and the grant routes instead.
+With no rule and no present guest declared, the unit deletes the table and the grant routes instead.
 
 ## The helper
 
 `workload-grantd.socket` listens on `/run/workloads/grant.sock`, owned by the owner and mode 0600, so only the owner and root connect.
 Each connection starts one `workload-grantd@` instance as root with `CAP_NET_ADMIN` as its only capability.
-It reads one JSON request, checks it against `/etc/workloads/grants.json` and the sandbox network's lease file, and only adds or removes set elements, conntrack entries, the grant routes, and vsock grant list entries.
+It reads one JSON request, checks it against `/etc/workloads/grants.json` and the sandbox network's lease file.
+It only adds or removes set elements, conntrack entries, the grant routes, vsock grant list entries, and [runtime shares](workload-shares.md).
 Before it applies a decision, it journals the caller's pid, uid, and command line, the agent session the client reports, and the decision.
 
 The allowlist is a guard rail, not a boundary, while the owner holds root-equivalent groups.

@@ -33,6 +33,14 @@ let
       (`pkgs.testers.runNixOSTest`) or `nixos-rebuild build-vm`.
     - Offline one-shots of an OCI image: use `podman --module untrusted run`.
 
+    Windows bases, listed by `sbx base list`, clone a Windows guest: no
+    network, no SSH, and the guest agent runs the command as SYSTEM without a
+    shell; use `cmd.exe /c ...` when a shell is needed (cmd re-parses
+    `&|<>^`). Guest paths are absolute
+    (`C:\Users\Public\x`); `run --in` copies into `C:\sbx\`. Only the owner
+    can export a missing Windows base; report `base-missing` instead of
+    retrying.
+
     ## One-Shot Work
 
     `sbx run` creates a sandbox, copies inputs in, runs the command, copies
@@ -67,6 +75,7 @@ let
     | `destroy <name>` / `--mine` / `--expired`    | stop and delete sandboxes                  |
     | `list [--mine]`, `info <name>`               | state, CID, TTL left, `xfer` directory     |
     | `screenshot <name> [--ocr]`                  | display to PNG or PPM in `xfer`, opt. OCR  |
+    | `share attach <name> shared` / `detach`      | hot-plug `shared` RW or a declared one RO  |
     | `key <name> <chord>...`                      | press chords on a GUI sandbox              |
     | `type <name> <text>`                         | type text on a GUI sandbox                 |
     | `base list`, `base build <base>`             | show or build Nix bases                    |
@@ -95,9 +104,9 @@ let
 
     ## MCP Tools
 
-    The `sbx` MCP server offers each verb in the table above but `key` and
-    `type` as a tool (`base list` is `base_list`); run those two through the
-    CLI. Flags become named arguments, the guest command an argv
+    The `sbx` MCP server offers each verb in the table above but `key`,
+    `type`, and `share` as a tool (`base list` is `base_list`); run those three
+    through the CLI. Flags become named arguments, the guest command an argv
     list, and the result is the `--json` document above; a refusal is a tool
     error carrying the error object. A failing guest command is no tool error:
     read `exit_code`.

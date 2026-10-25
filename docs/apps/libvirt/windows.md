@@ -40,20 +40,20 @@ While the OS disk is still empty, the unit presses Enter for the installer's boo
 It waits through the installation for the guest agent and for `firstlogon.ps1`, then runs the steps in order:
 
 1. Password: libvirt sets it from the `windows.account.passwordSecret` file, never through a command line.
-2. SSH keys: `administrators_authorized_keys` holds `windows.account.authorizedKeys`, readable by SYSTEM and Administrators only.
-3. Remote Desktop: on, with its built-in firewall group open to the gateway of each guest network only.
-4. Firewall: one `workloads-<service>` rule per `windows.services` entry, open to the same gateways; undeclared `workloads-*` rules are removed.
+2. Autologon: with `windows.account.autoLogon`, the default, the account signs on at boot with its password in the LSA secret Sysinternals Autologon uses, since the SPICE clipboard cannot reach the sign-in screen; turned off, both are removed.
+3. SSH keys: `administrators_authorized_keys` holds `windows.account.authorizedKeys`, readable by SYSTEM and Administrators only.
+4. Remote Desktop: on, with its built-in firewall group open to the gateway of each guest network only.
+5. Firewall: one `workloads-<service>` rule per `windows.services` entry, open to the same gateways; undeclared `workloads-*` rules are removed.
    `firstlogon.ps1` removes the rule the OpenSSH installer adds, so port 22 follows `windows.services` too.
-5. Shares: WinFsp and the drive letter of each declared share, as [Guest shares](shares.md#windows-guests) describes.
-6. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise provisioning leaves activation as it is.
-7. Office: with `windows.office.installer` set and no Microsoft 365 or Office suite listed under Apps, the staged installer is copied into the guest and run there.
+6. Shares: WinFsp and the drive letter of each declared share, as [Guest shares](shares.md#windows-guests) describes.
+7. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise provisioning leaves activation as it is.
+8. Office: with `windows.office.installer` set and no Microsoft 365 or Office suite listed under Apps, the staged installer is copied into the guest and run there.
    It downloads Office from Microsoft, and signing in to an Office app with the account that owns the subscription licenses it.
 
 Every step but the password probes the guest first, changes only what differs, and probes again.
 The Office step waits for any running Click-to-Run install, then polls until the suite is listed and Click-to-Run is idle.
 It stops the installer's process tree once Office is in place, or at its time limit, when the step fails.
-The product key travels on the guest program's standard input and the password through the agent's set-password command, so no process list shows either.
-libvirtd debug logging records guest agent commands, and with them both secrets.
+The product key and the autologon password travel on the guest program's standard input and the account password through the agent's set-password command, so no process list shows any of them; libvirtd debug logging records all three.
 A restart reruns every step, for instance after a secret changed:
 
 ```sh
@@ -89,8 +89,10 @@ Precondition: the guest is shut off without a managed save image.
 
 The unit copies the disks, NVRAM, TPM state, and inactive domain XML of any declared guest sparsely into `/var/lib/workloads/golden/<uuid>/`.
 It refuses a running guest, files that change during the copy, and an existing golden directory, which is moved aside by hand first.
+The golden copy of an autologon guest holds the account password in its LSA secret, readable by anything that runs as an administrator in a copy, such as an sbx sandbox.
 
 Verification: the log ends with `copied guest '<name>'`.
+[sbx Windows bases](../sbx/windows.md#export-a-windows-base) clone sandboxes from it.
 
 ## Restore a golden copy
 

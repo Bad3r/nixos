@@ -200,10 +200,13 @@ GUEST_COMMAND = Param(
     required=True,
 )
 CREATE_PARAMS = (
-    # Cloud bases come from the settings, so create validates the name.
+    # Cloud and Windows bases come from the settings, so create validates the name.
     Param(
         "base",
-        _string(f"base to boot: {', '.join(FLAVOURS)}, or a prepared cloud base"),
+        _string(
+            f"base to boot: {', '.join(FLAVOURS)}, a prepared cloud base, "
+            "or a Windows base that base_list reports"
+        ),
         required=True,
     ),
     Param("name", _string("sandbox name; default <base>-<6 hex>"), flag="--name"),
@@ -227,11 +230,12 @@ TOOLS = (
         "run",
         ("run",),
         "Run a command in a one-shot sandbox",
-        "Create a sandbox, copy inputs to /root/, run the command there, copy outputs out, "
-        "and destroy the sandbox even when a step fails; returns {sandbox, in, exec, out}.",
+        "Create a sandbox, copy inputs to /root/ (C:\\sbx\\ on Windows), run the command, "
+        "copy outputs out, and destroy the sandbox even when a step fails; returns "
+        "{sandbox, in, exec, out}.",
         (
             *CREATE_PARAMS,
-            Param("in", _list("host paths copied into /root/"), flag="--in"),
+            Param("in", _list("host paths copied into /root/ or C:\\sbx\\"), flag="--in"),
             Param("out", _list("guest paths copied to 'to' afterwards"), flag="--out"),
             Param("to", _string("host directory for 'out'"), flag="--to"),
             TIMEOUT,
@@ -243,7 +247,8 @@ TOOLS = (
         "exec",
         ("exec",),
         "Run a command in a sandbox",
-        "Run a command over SSH; returns {exit_code, stdout, stderr, truncated, timed_out}. "
+        "Run a command over SSH, or through qemu-ga on Windows; returns "
+        "{exit_code, stdout, stderr, truncated, timed_out}. "
         "A failing guest command is no tool error: its status is exit_code, 124 after timeout.",
         (
             NAME,
@@ -304,7 +309,8 @@ TOOLS = (
         "gc",
         ("gc",),
         "Remove expired and orphaned sandboxes",
-        "Remove sandboxes past their TTL, shut-off ones, and orphaned domains or directories.",
+        "Remove sandboxes past their TTL, shut-off ones, and orphaned domains or directories; "
+        "past the disk cap or free-space floor, detach every shared directory.",
         (Param("dry_run", _boolean("report without removing"), flag="--dry-run"),),
         destructive=True,
     ),

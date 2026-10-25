@@ -39,7 +39,8 @@ workloads grant sbx-probe host:dev:8080 --ttl 30m
   When the proxy does not confirm, it fails with `vsock-unconfirmed`; the grant is already gone from the list.
 - The TTL counts on the boot clock, so host sleep counts against it.
 - A grant names one sandbox creation: a later sandbox of the same name never inherits it.
-- `workloads grant` asks for a vsock grant only for a sandbox without an address.
+- `workloads grant` asks for a vsock grant only for a running sandbox without an address that has a vsock device.
+  A [Windows sandbox](windows.md) has none, so it is refused with `no-vsock`.
   The helper cannot see a sandbox's network, so a caller that sends an egress sandbox's token gets one under the same policy.
 
 ## Fail closed

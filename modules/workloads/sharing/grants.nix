@@ -15,6 +15,19 @@ let
       hostServices = config.workloads.host.services;
       guestEndpoints = sharing.endpoints.guest or { };
 
+      # Every present guest, so a share whose declaration is gone still detaches;
+      # the VM module installs each runtime share's device file.
+      runtimeShares = lib.mapAttrs (name: guest: {
+        domain = guest.domainName;
+        inherit (guest) kind;
+        shares = lib.mapAttrs (tag: share: {
+          device = "/etc/workloads/shares/${name}/${tag}.xml";
+          inherit (share) readOnly mountPoint;
+        }) (lib.filterAttrs (_: share: share.enable && share.runtime or false) guest.shares);
+      }) (lib.filterAttrs (_: guest: (guest.ensure or "present") == "present") config.workloads.guests);
+      # Any present guest may hold a live share after its declaration goes, so it keeps detach.
+      helper = cfg.allow != [ ] || runtimeShares != { };
+
       # The bit the grant chains set on connections they admit; no other table uses ct mark.
       marked = "ct mark & 0x00f00000 == 0x00100000";
       markAccept = "${marked} accept";
@@ -187,6 +200,9 @@ let
             lib.concatMap lib.attrValues (lib.attrValues sharing.endpoints)
           )
         );
+        shares = runtimeShares;
+        # Read by sbx, which hot-plugs sandbox shares itself.
+        sandboxShares = lib.mapAttrs (_: share: { inherit (share) hostPath; }) cfg.sandboxShares;
       };
 
       # Where each rule's sources sit: every sandbox network's subnet, or a guest's addresses.
@@ -278,6 +294,13 @@ let
           fail "the port is not among the target's grantable ports"
         else
           check true "";
+
+      # A tag is QEMU's virtiofs tag inside the sandbox; shared is the sandbox's own.
+      sandboxShareAssertions = lib.mapAttrsToList (
+        tag: _:
+        check (tag != "shared" && builtins.match "[a-z0-9][a-z0-9-]{0,35}" tag != null)
+          "workloads.grants.sandboxShares.${tag}: tags must match [a-z0-9][a-z0-9-]*, have at most 36 characters, and not be shared"
+      ) cfg.sandboxShares;
     in
     {
       options.workloads.grants = {
@@ -325,7 +348,28 @@ let
             granted host TCP ports over vsock. A grant permits all traffic on
             its path only until its TTL ends: at expiry or revoke, every
             connection it admitted stops, and no other grant's. Declaring a
-            rule starts `workload-grantd`.
+            rule, or any present guest, starts `workload-grantd`.
+          '';
+        };
+
+        sandboxShares = lib.mkOption {
+          type = types.attrsOf (
+            types.submodule {
+              options.hostPath = lib.mkOption {
+                type = types.strMatching "/.*";
+                description = ''
+                  Host directory to share. `sbx` refuses one that is or holds
+                  $HOME or the sbx state directory, after resolving links.
+                '';
+              };
+            }
+          );
+          default = { };
+          example.docs.hostPath = "/srv/docs";
+          description = ''
+            Directories `workloads share attach sbx-<name> <tag>` hot-plugs
+            into a running sandbox, always read-only, keyed by their virtiofs
+            tag. A sandbox's own `shared` directory is its only read-write share.
           '';
         };
 
@@ -339,7 +383,7 @@ let
       config = lib.mkMerge [
         # The table and the routes outlive the service, so dropping the last
         # rule removes them instead of leaving marks no chain honours.
-        (lib.mkIf (cfg.allow == [ ]) {
+        (lib.mkIf (!helper) {
           systemd.services.workload-grants = {
             description = "Remove the workload grant table, routes, and vsock grant list";
             wantedBy = [ "multi-user.target" ];
@@ -364,13 +408,17 @@ let
           };
         })
 
-        (lib.mkIf (cfg.allow != [ ]) {
-          assertions =
-            sourceAssertions ++ leaseAssertions ++ macAssertions ++ map targetAssertion targetTexts;
+        (lib.mkIf (helper || cfg.sandboxShares != { }) {
+          assertions = sandboxShareAssertions;
 
           programs.workloads.extended.enable = lib.mkOverride 1050 true;
 
           environment.etc."workloads/grants.json".text = builtins.toJSON policy;
+        })
+
+        (lib.mkIf helper {
+          assertions =
+            sourceAssertions ++ leaseAssertions ++ macAssertions ++ map targetAssertion targetTexts;
 
           workloads.sharing.gatewayProxies = grantProxies;
           workloads.nftables = {
@@ -396,6 +444,10 @@ let
                 RemainAfterExit = true;
                 ExecStart = loadTable;
                 ExecReload = loadTable;
+              }
+              # The helper may run for runtime shares alone; no rule leaves no vsock grant.
+              // lib.optionalAttrs (cfg.allow == [ ]) {
+                ExecStartPre = "${pkgs.coreutils}/bin/rm -f /run/workloads/vsock-grants.json";
               };
             };
 
@@ -423,6 +475,7 @@ let
                 StandardError = "journal";
                 SyslogIdentifier = "workload-grant";
                 RuntimeMaxSec = 60;
+                # libvirtd admits a uid 0 client without polkit, so share verbs need no capability.
                 CapabilityBoundingSet = [ "CAP_NET_ADMIN" ];
                 ReadWritePaths = [ "/run/workloads" ];
                 UMask = "0077";

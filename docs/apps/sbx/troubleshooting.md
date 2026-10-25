@@ -54,6 +54,7 @@ sbx base list
 ```
 
 Fix: rebuild the base with `sbx base build <base>` and retry; a failure that repeats points at the base configuration.
+A console tail that shows the boot still progressing needs a longer `sandbox.bootTimeout`.
 
 ## create fails with egress-unavailable
 
