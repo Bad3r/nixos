@@ -348,6 +348,7 @@ let
       openssh.extended.enable = lib.mkOverride 1100 false;
       openssl.extended.enable = lib.mkOverride 1100 true;
       openvpn.extended.enable = lib.mkOverride 1100 true;
+      orca.extended.enable = lib.mkOverride 1100 false;
       overskride.extended.enable = lib.mkOverride 1100 true;
       ovftool.extended.enable = lib.mkOverride 1100 false;
       p7zip.extended.enable = lib.mkOverride 1100 false;

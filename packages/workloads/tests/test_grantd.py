@@ -5,11 +5,16 @@ import contextlib
 import ipaddress
 import itertools
 import json
+import os
+import stat
+import tempfile
 import unittest
+from pathlib import Path as FilePath
 from typing import TYPE_CHECKING, cast
 
 from workloads.grantd import Caller, Element, Flow, NftKernel, Service, Tools
 from workloads.grants import GrantError, Path, Ports, Record, Route
+from workloads.vsock import FileStore, VsockGrant
 
 from tests.fixtures import SANDBOX_MAC, FakeLibvirt, policy, read_leases
 
@@ -84,6 +89,24 @@ class FakeKernel:
         self.rules.discard(route)
 
 
+class FakeStore:
+    """The vsock grant list in memory; every write lands in `events`."""
+
+    def __init__(self, events: list[str]) -> None:
+        """Start empty."""
+        self.events = events
+        self.listed: list[VsockGrant] = []
+
+    def grants(self) -> list[VsockGrant]:
+        """The list as written."""
+        return list(self.listed)
+
+    def write(self, grants: Sequence[VsockGrant]) -> None:
+        """Record the write."""
+        self.events.append(f"vsock {len(grants)}")
+        self.listed = list(grants)
+
+
 class Harness:
     """A service over a fake kernel with its journal entries and events."""
 
@@ -92,6 +115,8 @@ class Harness:
         self.events: list[str] = []
         self.journal: list[dict[str, object]] = []
         self.kernel = FakeKernel(self.events)
+        self.store = FakeStore(self.events)
+        self.boot = 5000.0
         self.libvirt = FakeLibvirt(self.events)
         self.now = 0.0
         self.fail_journal = False
@@ -104,6 +129,8 @@ class Harness:
             libvirt=self.libvirt,
             new_id=lambda: next(ids),
             read_text=read_leases,
+            vsock=self.store,
+            now=lambda: self.boot,
             sleep=self.sleep,
             clock=lambda: self.now,
         )
@@ -606,3 +633,144 @@ class NftKernelTest(unittest.TestCase):
         ]
         kernel = NftKernel(TOOLS, Recorder({"-j rule": (0, json.dumps(rules), "")}))
         self.assertEqual(kernel.routes(30900), {Route("vn-sbx", SANDBOX, DEV)})
+
+
+# A sandbox creation token, not a credential.
+TOKEN = "c" * 16
+
+
+def vsock_grant(harness: Harness, target: str, ttl: int = 600, **extra: object) -> Record:
+    """Request a vsock grant for the fixture sandbox's creation."""
+    request: dict[str, object] = {
+        "verb": "grant",
+        "source": "sbx-ab12",
+        "target": target,
+        "ttl": ttl,
+        "token": TOKEN,
+    }
+    return harness.ask(request | extra)
+
+
+class VsockTest(unittest.TestCase):
+    """A sandbox without an address gets list entries instead of set elements."""
+
+    def test_grant(self) -> None:
+        """The entry carries the creation, the TCP ports, and a boot-clock deadline."""
+        harness = Harness()
+        answer = vsock_grant(harness, "host:dev:8080", ttl=900)
+        self.assertEqual(harness.events, ["lock", "journal granted", "vsock 1", "unlock"])
+        (entry,) = harness.store.listed
+        self.assertEqual(
+            entry,
+            VsockGrant(
+                "00000001",
+                "sbx-ab12",
+                TOKEN,
+                "host:dev:8080",
+                (Ports("tcp", 8080, 8080),),
+                5900.0,
+                "any",
+            ),
+        )
+        grant = cast("Record", answer["grant"])
+        self.assertEqual(grant["expires_in"], 900)
+        self.assertEqual(cast("list[Record]", grant["paths"])[0]["transport"], "vsock")
+        self.assertEqual(
+            (harness.journal[0]["token"], harness.journal[0]["transport"]), (TOKEN, "vsock")
+        )
+        self.assertEqual(harness.kernel.live, [])
+
+    def test_refusals_change_nothing(self) -> None:
+        """Policy holds as for addresses: rules, grantable ports, TTL, and host targets only."""
+        harness = Harness()
+        cases = {
+            "ttl": vsock_grant(harness, "host:dev", ttl=7201),
+            "not-grantable": vsock_grant(harness, "host:dev:9000"),
+            "not-allowed": vsock_grant(harness, "host:closed"),
+            "invalid-source": vsock_grant(harness, "host:dev", source="guest:dev"),
+        }
+        self.assertEqual(
+            {key: code(answer) for key, answer in cases.items()}, {key: key for key in cases}
+        )
+        self.assertEqual(code(vsock_grant(harness, "guest:dev:8080")), "not-grantable")
+        self.assertEqual(code(vsock_grant(harness, "host:dev:8080/udp")), "not-grantable")
+        malformed = vsock_grant(harness, "host:dev", token="../x")  # noqa: S106
+        self.assertEqual(code(malformed), "invalid-request")
+        self.assertEqual(
+            code(vsock_grant(harness, "host:dev", address=str(SANDBOX))), "invalid-request"
+        )
+        self.assertEqual(harness.store.listed, [])
+
+    def test_conflict_and_count(self) -> None:
+        """Overlapping ports conflict, and maxConcurrent counts the sandbox's entries."""
+        harness = Harness()
+        vsock_grant(harness, "host:dev:8000")
+        self.assertEqual(code(vsock_grant(harness, "host:dev")), "conflict")
+        vsock_grant(harness, "host:api")
+        self.assertEqual(code(vsock_grant(harness, "host:dev:8001")), "max-concurrent")
+        self.assertIsNone(code(vsock_grant(harness, "host:dev:8001", source="sbx-other")))
+
+    def test_count_across_transports(self) -> None:
+        """A sandbox's address and vsock grants count together toward maxConcurrent."""
+        harness = Harness()
+        harness.grant("host:dev:8000")
+        harness.grant("host:dev:8001")
+        self.assertEqual(code(vsock_grant(harness, "host:api")), "max-concurrent")
+        harness = Harness()
+        vsock_grant(harness, "host:dev:8000")
+        vsock_grant(harness, "host:api")
+        self.assertEqual(code(harness.grant("host:dev:8002")), "max-concurrent")
+
+    def test_expiry(self) -> None:
+        """Expired entries leave the listing and the next write, and free their ports."""
+        harness = Harness()
+        vsock_grant(harness, "host:dev:8000", ttl=60)
+        harness.boot += 60
+        self.assertEqual(harness.ask({"verb": "list"}), {"grants": []})
+        self.assertIsNone(code(vsock_grant(harness, "host:dev:8000")))
+        self.assertEqual([entry.grant for entry in harness.store.listed], ["00000002"])
+
+    def test_listing(self) -> None:
+        """Entries list beside set elements."""
+        harness = Harness()
+        harness.grant("host:api")
+        vsock_grant(harness, "host:dev:8000", source="sbx-a")
+        grants = cast("list[Record]", harness.ask({"verb": "list"})["grants"])
+        self.assertEqual([grant["id"] for grant in grants], ["00000002", "00000001"])
+
+    def test_revoke(self) -> None:
+        """Revoke by id or name removes entries and names them for the client to settle."""
+        harness = Harness()
+        vsock_grant(harness, "host:dev:8000")
+        vsock_grant(harness, "host:dev:8001", source="sbx-other")
+        harness.grant("host:api")
+        answer = harness.ask({"verb": "revoke", "id": "00000001"})
+        self.assertEqual(answer, {"revoked": ["00000001"], "vsock": ["00000001"]})
+        vsock_grant(harness, "host:dev:8002")
+        answer = harness.ask({"verb": "revoke", "source": "sbx-ab12", "address": str(SANDBOX)})
+        self.assertEqual(answer, {"revoked": ["00000003", "00000004"], "vsock": ["00000004"]})
+        self.assertEqual([entry.source for entry in harness.store.listed], ["sbx-other"])
+        self.assertEqual(code(harness.ask({"verb": "revoke", "id": "00000004"})), "not-found")
+
+    def test_file_store(self) -> None:
+        """The list is replaced whole, readable by the owner's proxy, and refused when malformed."""
+        entry = VsockGrant(
+            "00000001", "sbx-a", TOKEN, "host:dev", (Ports("tcp", 1, 2),), 9.5, "loopback"
+        )
+        with tempfile.TemporaryDirectory() as directory:
+            store = FileStore(FilePath(directory) / "vsock-grants.json")
+            self.assertEqual(store.grants(), [])
+            previous = os.umask(0o077)
+            try:
+                store.write([entry])
+            finally:
+                os.umask(previous)
+            self.assertEqual(store.grants(), [entry])
+            self.assertEqual(stat.S_IMODE(store.path.stat().st_mode), 0o644)
+            self.assertEqual(
+                [path.name for path in FilePath(directory).iterdir()], [store.path.name]
+            )
+            store.path.write_text("{}")
+            with self.assertRaises(GrantError) as caught:
+                store.grants()
+            self.assertEqual(caught.exception.code, "vsock-list")

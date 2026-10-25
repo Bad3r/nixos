@@ -154,7 +154,7 @@ let
             null
           else
             {
-              inherit (service) ports grantable;
+              inherit (service) ports grantable bind;
               interfaces = [ ];
             }
         else
@@ -211,7 +211,8 @@ let
               ${target.kind}.${target.name} = {
                 ports = portRecords endpoint.ports;
                 interfaces = interfaceRecords endpoint.interfaces;
-              };
+              }
+              // lib.optionalAttrs (endpoint ? bind) { inherit (endpoint) bind; };
             }
           ) targets
         );
@@ -364,10 +365,12 @@ let
           description = ''
             Runtime grants the `workloads grant` command may open without a
             prompt. A grant matches the ingress bridge, the source's MAC and
-            address, the destination, the protocol, and the ports. It permits
-            all traffic on that path only until its TTL ends: at expiry or
-            revoke, every connection it admitted stops, and no other grant's.
-            Declaring a rule, or any present guest, starts `workload-grantd`.
+            address, the destination, the protocol, and the ports. A sandbox
+            without a network is matched by its creation instead and reaches
+            granted host TCP ports over vsock. A grant permits all traffic on
+            its path only until its TTL ends: at expiry or revoke, every
+            connection it admitted stops, and no other grant's. Declaring a
+            rule, or any present guest, starts `workload-grantd`.
           '';
         };
 
@@ -402,9 +405,9 @@ let
       config = lib.mkMerge [
         # The table and the routes outlive the service, so dropping the last
         # rule removes them instead of leaving marks no chain honours.
-        (lib.mkIf (!helper && networks != { }) {
+        (lib.mkIf (!helper) {
           systemd.services.workload-grants = {
-            description = "Remove the workload grant table and routes";
+            description = "Remove the workload grant table, routes, and vsock grant list";
             wantedBy = [ "multi-user.target" ];
             after = [ "nftables.service" ];
             path = [
@@ -418,6 +421,9 @@ let
             };
             # Emptying the set first keeps every marked connection cut until its entry is gone.
             script = ''
+              rm -f /run/workloads/vsock-grants.json
+            ''
+            + lib.optionalString (networks != { }) ''
               if nft list table inet workload_grants > /dev/null 2>&1; then
                 nft flush set inet workload_grants grants
               fi
@@ -471,6 +477,10 @@ let
                 RemainAfterExit = true;
                 ExecStart = loadTable;
                 ExecReload = loadTable;
+              }
+              # The helper may run for runtime shares alone; no rule leaves no vsock grant.
+              // lib.optionalAttrs (cfg.allow == [ ]) {
+                ExecStartPre = "${pkgs.coreutils}/bin/rm -f /run/workloads/vsock-grants.json";
               };
             };
 
