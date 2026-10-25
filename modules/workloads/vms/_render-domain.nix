@@ -1,6 +1,6 @@
 {
   lib,
-  mediaDir,
+  mediaPaths,
   imagePaths,
 }:
 guest:
@@ -36,7 +36,7 @@ let
   mediaXml = index: media: ''
     <disk type="file" device="cdrom">
       <driver name="qemu" type="raw"/>
-      <source file="${mediaDir}/${media}" startupPolicy="optional">
+      <source file="${mediaPaths.${media}}" startupPolicy="optional">
         <seclabel model="dac" relabel="no"/>
       </source>
       <target dev="${mediaTarget index}" bus="sata"/>

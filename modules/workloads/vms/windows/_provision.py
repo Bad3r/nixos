@@ -28,6 +28,7 @@ POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 STATE_DIR = r"C:\ProgramData\workloads"
 AUTHORIZED_KEYS = r"C:\ProgramData\ssh\administrators_authorized_keys"
 WINFSP_MSI = rf"{STATE_DIR}\winfsp.msi"
+OFFICE_SETUP = rf"{STATE_DIR}\OfficeSetup.exe"
 # Step scripts exit with this code when a probe finds the guest differs.
 DIFFERS = 10
 # Linux keycode of Enter, which answers "Press any key to boot from CD or DVD".
@@ -43,6 +44,8 @@ AGENT_CONNECT_TIMEOUT = 30 * 60
 PROBE_FAILURES = 20
 POLL_SECONDS = 15
 EXEC_TIMEOUT = 15 * 60
+# The Office installer downloads several gigabytes.
+OFFICE_TIMEOUT = 60 * 60
 AGENT_TIMEOUT = 60
 CHUNK = 48 * 1024
 
@@ -80,7 +83,7 @@ class Agent:
         reply = libvirt_qemu.qemuAgentCommand(self.domain, json.dumps(request), AGENT_TIMEOUT, 0)
         return json.loads(reply)["return"]
 
-    def run(self, path: str, args: list[str], stdin: bytes) -> Result:
+    def run(self, path: str, args: list[str], stdin: bytes, timeout: int = EXEC_TIMEOUT) -> Result:
         """Run a guest program to completion and capture its output."""
         started = self.call(
             "guest-exec",
@@ -89,13 +92,13 @@ class Agent:
             **{"input-data": base64.b64encode(stdin).decode(), "capture-output": True},
         )
         pid = started["pid"]  # type: ignore[index]
-        deadline = time.monotonic() + EXEC_TIMEOUT
+        deadline = time.monotonic() + timeout
         while True:
             status = self.call("guest-exec-status", pid=pid)
             if status["exited"]:  # type: ignore[index]
                 break
             if time.monotonic() > deadline:
-                msg = f"{path} ran longer than {EXEC_TIMEOUT} s"
+                msg = f"{path} ran longer than {timeout} s"
                 raise ProvisionError(msg)
             time.sleep(1)
 
@@ -141,7 +144,7 @@ class Guest:
     spec: dict
     scripts: Path
 
-    def script(self, name: str, mode: str, data: dict) -> Result:
+    def script(self, name: str, mode: str, data: dict, timeout: int = EXEC_TIMEOUT) -> Result:
         """Run a step script with its input on stdin, never in an argument."""
         source = f"$ErrorActionPreference = 'Stop'\n$Mode = '{mode}'\n"
         source += "$Data = [Console]::In.ReadToEnd() | ConvertFrom-Json\n"
@@ -155,7 +158,7 @@ class Guest:
             "-EncodedCommand",
             encoded,
         ]
-        return self.agent.run(POWERSHELL, args, json.dumps(data).encode())
+        return self.agent.run(POWERSHELL, args, json.dumps(data).encode(), timeout)
 
     def probe(self, name: str, data: dict) -> bool:
         """Return whether a step script finds the guest as declared."""
@@ -165,9 +168,12 @@ class Guest:
             raise ProvisionError(msg)
         return result.code == 0
 
-    def apply(self, name: str, data: dict) -> None:
+    def apply(self, name: str, data: dict, timeout: int = EXEC_TIMEOUT) -> None:
         """Bring the guest in line with a step script."""
-        result = self.script(name, "apply", data)
+        result = self.script(name, "apply", data, timeout)
+        for line in result.stdout.splitlines():
+            if line.strip():
+                log(f"{name}: {line.strip()}")
         if result.code != 0:
             msg = f"{name} exited with {result.code}: {result.stderr.strip()}"
             raise ProvisionError(msg)
@@ -252,6 +258,25 @@ def virtiofs_data(guest: Guest) -> dict:
     return {"mode": virtiofs["mode"], "shares": shares}
 
 
+def office_installed(guest: Guest) -> bool:
+    """Return whether the guest has Click-to-Run Office."""
+    return guest.probe("office", {})
+
+
+def install_office(guest: Guest) -> None:
+    """Copy the staged installer into the guest and run it there."""
+    installer = Path(guest.spec["officeInstaller"])
+    if not installer.is_file():
+        msg = (
+            f"the Office installer {installer} is not staged; "
+            "restart workloads-vm-media.service, then this unit"
+        )
+        raise ProvisionError(msg)
+    guest.agent.write(OFFICE_SETUP, installer.read_bytes())
+    data = {"path": OFFICE_SETUP, "timeout": OFFICE_TIMEOUT}
+    guest.apply("office", data, OFFICE_TIMEOUT + EXEC_TIMEOUT)
+
+
 def script_step(name: str, data: Callable[[Guest], dict]) -> Step:
     """Build a step whose probe and apply are one script's two modes."""
     return Step(
@@ -273,13 +298,15 @@ def steps(spec: dict) -> list[Step]:
         result.append(Step("winfsp", winfsp_in_place, install_winfsp))
     # Also without shares, so removed shares lose their mounts.
     result.append(script_step("virtiofs", virtiofs_data))
-    # Last: activation depends on Microsoft's servers and the key, so a failure
-    # there leaves access to the guest in place.
+    # Activation and Office depend on Microsoft's servers, so a failure there
+    # leaves access to the guest in place; Office, the longest, goes last.
     key_file = spec["productKeyFile"]
     if key_file is not None and Path(key_file).is_file():
         result.append(script_step("product-key", product_key_data))
     else:
         log("no product key file; Windows stays unactivated")
+    if spec["officeInstaller"] is not None:
+        result.append(Step("office", office_installed, install_office))
     return result
 
 

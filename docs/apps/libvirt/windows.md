@@ -43,8 +43,12 @@ It waits through the installation for the guest agent and for `firstlogon.ps1`, 
    `firstlogon.ps1` removes the rule the OpenSSH installer adds, so port 22 follows `windows.services` too.
 5. Shares: WinFsp and the drive letter of each declared share, as [Guest shares](shares.md#windows-guests) describes.
 6. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise Windows stays unactivated.
+7. Office: with `windows.office.installer` set and no Microsoft 365 or Office suite listed under Apps, the staged installer is copied into the guest and run there.
+   It downloads Office from Microsoft, and signing in to an Office app with the account that owns the subscription licenses it.
 
 Every step but the password probes the guest first, changes only what differs, and probes again.
+The Office step waits for any running Click-to-Run install, then polls until the suite is listed and Click-to-Run is idle.
+It stops the installer's process tree once Office is in place, or at its time limit, when the step fails.
 The product key travels on the guest program's standard input and the password through the agent's set-password command, so no process list shows either.
 libvirtd debug logging records guest agent commands, and with them both secrets.
 A restart reruns every step, for instance after a secret changed:
