@@ -62,7 +62,10 @@ _: {
       } osConfig;
 
       claudeEnv = import ./_env.nix;
-      registryClaudeSkills = lib.filterAttrs (_name: skill: skill ? claude) agents.skills.list;
+      sbxEnabled = agents.skills.sbx.enabledOn osConfig;
+      registryClaudeSkills = lib.filterAttrs (
+        _name: skill: skill ? claude && skill.enabledOn osConfig
+      ) agents.skills.list;
 
       # MCP servers via compiled agents.mcp client profile
       mcpServers = agents.mcp.clients.claude.servers pkgs;
@@ -82,7 +85,10 @@ _: {
       settingsJson = mergeParts [
         (import ./_settings.nix)
         (import ./_plugins.nix)
-        (import ./_permissions.nix { inherit (agents) scratchDir; })
+        (import ./_permissions.nix {
+          inherit (agents) scratchDir;
+          sbx = sbxEnabled;
+        })
         (import ./_hooks.nix { inherit agents pkgs; })
         { env = builtins.removeAttrs claudeEnv.vars claudeEnv.launchOnly; }
       ];
@@ -148,7 +154,10 @@ _: {
       };
 
       claudeInstructions = agents.systemPrompt.render {
-        vars.questionTool = "AskUserQuestion";
+        vars = {
+          questionTool = "AskUserQuestion";
+          sbx = sbxEnabled;
+        };
       };
 
       # Install every compiled skill that ships a Claude profile at
