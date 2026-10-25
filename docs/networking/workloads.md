@@ -53,9 +53,13 @@ The bridge name must fit the kernel's interface name limit, which the option typ
 
 `isolatePeers` drops frames between guest ports only, so a guest could still claim another guest's address toward the host, through ARP or as an IP source.
 A libvirt network with `libvirt.bindLeases` closes that gap in `bridge workload-leases`.
-Guests may send IPv4 and ARP only from a MAC and address pair its DHCP server leased; DHCP from `0.0.0.0` and ARP probes pass, and every other frame type is dropped.
-`workload-leases.service` fills the pairs from libvirt's lease file at boot and after each ruleset reload, and a path unit refills them on every lease change.
 
+- Each guest port sends from the first MAC it uses, and no other port may use that MAC; a pin lapses after an hour of silence.
+- That MAC sends IPv4 and ARP only from an address its DHCP server leased to it, until the lease expires.
+- DHCP to the gateway and ARP probes pass, every other frame type is dropped, and no libvirt bridge learns an address from link-local frames.
+- DHCP messages may still name any client MAC, so a guest can use up the pool or release a lease whose MAC it guesses, but it cannot send from another guest's address.
+
+`workload-leases.service` watches libvirt's lease file and refills the leased pairs on every change, after each ruleset reload, and every 30 seconds.
 A guest whose lease expired loses traffic until it renews.
 
 ## Egress modes

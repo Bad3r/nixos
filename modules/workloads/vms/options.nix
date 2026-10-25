@@ -65,9 +65,13 @@ let
             type = types.bool;
             default = false;
             description = ''
-              Whether guests may send IPv4 and ARP only from a MAC and
-              address pair the network's DHCP server leased, so no guest
-              takes over another's address. Frames of other types are dropped.
+              Whether each guest port may send from a single MAC that no
+              other port holds, and IPv4 and ARP only from an address the
+              network's DHCP server leased to that MAC. DHCP to the gateway
+              and ARP probes pass, other frame types are dropped, and the
+              bridge learns no address from link-local frames. DHCP messages
+              may still name any client MAC, which costs pool space, not an
+              address.
             '';
           };
         };
