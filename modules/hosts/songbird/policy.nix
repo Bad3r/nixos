@@ -56,12 +56,12 @@ _: {
     sbx = {
       running = 6;
       memory = 12;
-      sliceMemory = 14;
+      sliceMemory = 15;
       # E-cores; the P-cores stay with the desktop.
       cpus = "8-23";
       ttl = 2;
       maxTtl = 24;
-      disk = 30;
+      disk = 60;
       minFree = 200;
     };
   };
