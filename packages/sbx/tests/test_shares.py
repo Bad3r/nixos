@@ -25,6 +25,7 @@ class ShareFake(FakeBackend):
         self.devices: dict[str, list[str]] = {}
         self.releasing: dict[str, tuple[str, int | None]] = {}
         self.linger: int | None = 2
+        self.stuck: set[str] = set()
 
     def live_xml(self, domain: str) -> str:
         """The devices, wrapped like a domain definition."""
@@ -45,7 +46,7 @@ class ShareFake(FakeBackend):
     def detach_device(self, domain: str, xml: str) -> None:
         """Start releasing the device."""
         self.devices[domain].remove(xml)
-        self.releasing[domain] = (xml, self.linger)
+        self.releasing[domain] = (xml, None if domain in self.stuck else self.linger)
 
 
 class SharesTest(Fixture):
@@ -193,6 +194,20 @@ class SharesTest(Fixture):
         self.assertEqual([action["name"] for action in cast("list[dict[str, str]]", result)], ["s"])
         self.assertEqual(set(attached(self.backend.live_xml("sbx-s"))), {"docs"})
         self.assertEqual(set(attached(self.backend.live_xml("sbx-t"))), {"docs"})
+
+    def test_reclaim_continues_past_a_held_share(self) -> None:
+        """A guest that keeps shared is reported, and the next sandbox still loses it."""
+        self.add_running("s")
+        self.add_running("t")
+        for name in ("s", "t"):
+            self.shares().attach(name, "shared")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=0)
+        (self.paths.sandbox("s") / "shared" / "fill").write_bytes(b"x" * 8192)
+        self.backend.stuck.add("sbx-s")
+        actions = self.shares().reclaim(dry_run=False)
+        self.assertEqual([action["name"] for action in actions], ["s", "t"])
+        self.assertIn("detach-pending", actions[0]["reason"])
+        self.assertNotIn("shared", attached(self.backend.live_xml("sbx-t")))
 
     def test_command_line(self) -> None:
         """`share attach` returns the share's JSON form."""

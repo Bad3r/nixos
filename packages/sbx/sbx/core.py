@@ -554,16 +554,53 @@ def _remove(path: Path) -> None:
         path.unlink(missing_ok=True)
 
 
+def _reopen_shared(directory: Path) -> None:
+    """Give the owner search and read on every directory under shared again.
+
+    A running guest may swap a directory for a link at any time, so each one is
+    opened without following links and changed through its descriptor.
+    """
+    # One open descriptor per level, with the names left to visit in it.
+    levels: list[tuple[int | None, list[str]]] = [(None, [str(directory / SHARED)])]
+    try:
+        while levels:
+            parent, names = levels[-1]
+            if not names:
+                levels.pop()
+                if parent is not None:
+                    os.close(parent)
+                continue
+            try:
+                handle = os.open(
+                    names.pop(), os.O_PATH | os.O_NOFOLLOW | os.O_DIRECTORY, dir_fd=parent
+                )
+            except FileNotFoundError, NotADirectoryError:
+                continue
+            try:
+                info = os.fstat(handle)
+                if not stat.S_ISDIR(info.st_mode):
+                    continue
+                proc = Path(f"/proc/self/fd/{handle}")
+                if info.st_mode & stat.S_IRWXU != stat.S_IRWXU:
+                    proc.chmod(stat.S_IMODE(info.st_mode) | stat.S_IRWXU)
+                listing = os.open(proc, os.O_RDONLY | os.O_DIRECTORY)
+            finally:
+                os.close(handle)
+            try:
+                children = [e.name for e in os.scandir(listing) if e.is_dir(follow_symlinks=False)]
+            except OSError:
+                os.close(listing)
+                raise
+            levels.append((listing, children))
+    finally:
+        for parent, _names in levels:
+            if parent is not None:
+                os.close(parent)
+
+
 def _remove_run_directory(directory: Path) -> None:
     """Remove a run directory after reopening the shared directories a guest closed."""
-    shared = directory / SHARED
-    if shared.is_dir() and not shared.is_symlink():
-        shared.chmod(0o700)
-        for parent, dirs, _files in os.walk(shared):
-            for name in dirs:
-                path = Path(parent) / name
-                if not path.is_symlink():
-                    path.chmod(0o700)
+    _reopen_shared(directory)
     shutil.rmtree(directory)
 
 
@@ -930,9 +967,16 @@ class Sandboxes:
             raise SbxError(msg, code="over-limit")
 
     def _usage(self) -> int:
+        """Bytes under every run directory; a directory that cannot be read raises."""
+
+        def unreadable(error: OSError) -> None:
+            if not isinstance(error, FileNotFoundError):
+                raise error
+
         total = 0
         for directory in self._sandbox_dirs():
-            for parent, _dirs, files in os.walk(directory):
+            _reopen_shared(directory)
+            for parent, _dirs, files in os.walk(directory, onerror=unreadable):
                 for file in files:
                     with contextlib.suppress(FileNotFoundError):
                         total += (Path(parent) / file).lstat().st_blocks * 512
@@ -948,7 +992,10 @@ class Sandboxes:
                 f"{self.paths.root} has {free // GIB}G free, "
                 f"below the {self.settings.min_free_bytes // GIB}G floor"
             )
-        used = self._usage()
+        try:
+            used = self._usage()
+        except OSError as error:
+            return f"sandbox usage cannot be measured, so the cap counts as passed: {error}"
         if used + reserve > self.settings.disk_cap_bytes:
             return (
                 f"sandboxes use {used // GIB}G and need {reserve // GIB}G more of the "

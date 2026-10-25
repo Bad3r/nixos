@@ -524,6 +524,23 @@ class SandboxesTest(Fixture):
                 self.sandboxes().destroy("h")
         self.assertEqual([call.args[0] for call in revoke.call_args_list], ["g", "h"])
 
+    def test_usage_counts_closed_directories(self) -> None:
+        """A directory a guest closed under shared counts; one left unreadable fails closed."""
+        closed = self.paths.sandbox("g") / "shared" / "closed"
+        closed.mkdir(parents=True)
+        (closed / "big").write_bytes(b"x" * (64 << 10))
+        closed.chmod(0)
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=32 << 10)
+        problem = self.sandboxes().disk_problem()
+        self.assertIn("cap", str(problem))
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=1 << 30)
+        self.assertIsNone(self.sandboxes().disk_problem())
+        hidden = self.paths.sandbox("g") / "hidden"
+        hidden.mkdir()
+        hidden.chmod(0)
+        self.addCleanup(hidden.chmod, 0o700)
+        self.assertIn("cannot be measured", str(self.sandboxes().disk_problem()))
+
     def test_grants_follow_removals(self) -> None:
         """Token removals revoke only what they remove; gc revokes orphaned directories too."""
         with mock.patch.object(core, "revoke_grants") as revoke:

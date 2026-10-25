@@ -246,7 +246,13 @@ class Shares:
                 device = attached(self._backend().live_xml(sandbox.domain.name)).get(SHARED)
                 if device is None:
                     continue
-                actions.append({"name": sandbox.name, "reason": f"{SHARED} detached: {problem}"})
+                reason = f"{SHARED} detached: {problem}"
                 if not dry_run:
-                    self._detach(sandbox.name, SHARED, device, f": {problem}")
+                    try:
+                        self._detach(sandbox.name, SHARED, device, f": {problem}")
+                    except SbxError as error:
+                        if error.code != "detach-pending":
+                            raise
+                        reason = f"{SHARED} still attached, {error.code}: {error}"
+                actions.append({"name": sandbox.name, "reason": reason})
         return actions
