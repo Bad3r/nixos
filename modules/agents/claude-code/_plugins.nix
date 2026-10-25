@@ -22,6 +22,7 @@
   # false keeps a plugin installed but disabled. The marketplace after `@` must
   # be registered: extraKnownMarketplaces below, or out of band.
   enabledPlugins = {
+    "cc-plugin-you-should-know@builtin" = true;
     "chrome-devtools-mcp@chrome-devtools-plugins" = true;
     "claude-code-setup@claude-plugins-official" = true;
     # CF bundled MCP server would duplicate the per-endpoint servers in
