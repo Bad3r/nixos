@@ -18,7 +18,8 @@ A guest without NVRAM stays undefined, with a warning naming each fix, until tha
 
 ## Answer file
 
-- Setup installs the `windows.edition` image onto a GPT disk and names the computer after the guest, which caps guest names at 15 characters.
+- Setup installs the `install.wim` image that `windows.edition` names onto a GPT disk, so the value matches an image name on the media.
+- Setup names the computer after the guest, which caps guest names at 15 characters.
 - Setup runs without a product key only from volume license media; consumer media stop at the key page.
 - Secure Boot with the TPM passes the hardware checks without registry bypasses.
 - Device encryption stays off and the out-of-box screens are skipped.
