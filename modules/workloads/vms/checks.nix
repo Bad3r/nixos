@@ -135,11 +135,11 @@ in
             ip addr add "$ip/$mask" dev "$interface"
             ip link set "$interface" mtu "''${mtu:-1500}"
             ip route add default via "$router"
+            echo "$ip" > /lease-ip
             echo "SBX lease ip=$ip router=$router dns=$dns mtu=$mtu"
             ;;
         esac
       '';
-      # Sends three frames of one ethertype; busybox has no raw sender.
       # Store references would pull glibc into the guest's small initrd.
       sendFrame =
         pkgs.runCommandCC "sendframe"
@@ -149,36 +149,7 @@ in
             allowedReferences = [ ];
           }
           ''
-            cp ${pkgs.writeText "sendframe.c" ''
-              #include <linux/if_packet.h>
-              #include <net/if.h>
-              #include <stdio.h>
-              #include <stdlib.h>
-              #include <string.h>
-              #include <sys/socket.h>
-
-              static int mac(const char *text, unsigned char *out) {
-                return sscanf(text, "%hhx:%hhx:%hhx:%hhx:%hhx:%hhx",
-                              &out[0], &out[1], &out[2], &out[3], &out[4], &out[5]) == 6;
-              }
-
-              int main(int argc, char **argv) {
-                unsigned char frame[64] = {0};
-                struct sockaddr_ll to = {0};
-                if (argc != 5 || !mac(argv[3], frame) || !mac(argv[2], frame + 6)) return 2;
-                unsigned long type = strtoul(argv[4], NULL, 16);
-                frame[12] = type >> 8;
-                frame[13] = type & 0xff;
-                int sock = socket(AF_PACKET, SOCK_RAW, 0);
-                to.sll_family = AF_PACKET;
-                to.sll_ifindex = if_nametoindex(argv[1]);
-                to.sll_halen = 6;
-                memcpy(to.sll_addr, frame, 6);
-                for (int i = 0; i < 3; i++)
-                  if (sendto(sock, frame, sizeof frame, 0, (struct sockaddr *)&to, sizeof to) < 0) return 1;
-                return 0;
-              }
-            ''} sendframe.c
+            cp ${./_sendframe.c} sendframe.c
             $CC -static -O2 -o "$out" sendframe.c
             nuke-refs "$out"
           '';
@@ -202,7 +173,11 @@ in
         done
         ip link set lo up
         ip link set eth0 up
-        udhcpc -i eth0 -n -q -t 30 -T 2 -O mtu -x "hostname:$role" -s ${udhcpcScript} || echo "SBX no lease"
+        if [ "$role" = intruder ]; then
+          udhcpc -i eth0 -n -q -t 3 -T 1 -s ${udhcpcScript} || echo "SBX intruder-done"
+        else
+          udhcpc -i eth0 -n -q -t 30 -T 2 -O mtu -x "hostname:$role" -s ${udhcpcScript} || echo "SBX no lease"
+        fi
         if [ "$role" = probe ]; then
           gateway=$(ip route | awk '/^default/ { print $3 }')
           check() { if "$@" >/dev/null 2>&1; then echo ok; else echo blocked; fi; }
@@ -222,8 +197,15 @@ in
           echo spoof | nc -u -w 1 -s "$peer" "$gateway" 4444
           ip addr del "$peer/32" dev eth0
           echo "SBX own-tcp=$(check nc -z -w 3 "$gateway" 53)"
+          own=$(cat /lease-ip)
+          # From this port's own MAC and pair, an ARP whose sender MAC is the peer's.
+          echo "SBX arp-sha-sent=$(check ${sendFrame} eth0 ${probeMac} ff:ff:ff:ff:ff:ff 0806 ${peerMac} "$own" "$gateway")"
+          # Link-local IPv4 reaches the host stack on this port's tap, not on the bridge.
+          for group in 00 03 0e; do
+            echo "SBX linklocal-ip-sent=$(check ${sendFrame} eth0 ${probeMac} 01:80:c2:00:00:$group 0800 "$own" "$gateway")"
+          done
           # The peer's MAC from this port: link-local, then ARP with the peer's leased pair.
-          ${sendFrame} eth0 ${peerMac} 01:80:c2:00:00:0e 88cc
+          echo "SBX linklocal-sent=$(check ${sendFrame} eth0 ${peerMac} 01:80:c2:00:00:0e 88cc)"
           ip link set eth0 down
           ip link set eth0 address ${peerMac}
           ip link set eth0 up
@@ -324,11 +306,21 @@ in
                 cores = 2;
                 memorySize = 2048;
               };
-              networking.nftables.enable = true;
+              networking = {
+                nftables.enable = true;
+                firewall = {
+                  # Open on every interface, so only the workload table keeps session guests out.
+                  allowedTCPPorts = [ 8080 ];
+                  allowedUDPPorts = [ 4444 ];
+                  # Neither reverse-path check runs, so only the workload table keeps
+                  # link-local IPv4 from bridge ports out of the host.
+                  checkReversePath = false;
+                };
+              };
               environment.systemPackages = [ pkgs.dnsutils ];
               programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
-              # Open on every interface, so only the workload table keeps session guests out.
-              networking.firewall.allowedTCPPorts = [ 8080 ];
+              # systemd's own sysctl defaults set 2 on every new interface.
+              boot.kernel.sysctl."net.ipv4.conf.*.rp_filter" = 0;
               users.users.${owner} = {
                 isNormalUser = true;
                 uid = 1000;
@@ -430,6 +422,7 @@ in
             switch = name: "${toplevel}/specialisation/${name}/bin/switch-to-configuration test";
             peerDomain = sessionDomain "peer" peerMac "sbx.role=peer";
             probeDomain = sessionDomain "probe" probeMac "sbx.role=probe sbx.peer=@PEER@ sbx.host=@HOST@";
+            intruderDomain = sessionDomain "intruder" peerMac "sbx.role=intruder";
           in
           ''
             import json
@@ -615,6 +608,8 @@ in
                     raise
                 assert peer.startswith("172.16.6."), peer
                 # The host reaches the peer, so only the bridge isolation can block the probe's ping.
+                # Under the periodic refill's 30 s, so only the lease event can add it.
+                machine.wait_until_succeeds("nft list set bridge workload-leases leases-sbx | grep -F ${peerMac}", timeout=10)
                 machine.wait_until_succeeds(f"ping -c 1 -W 1 {peer}", timeout=30)
 
                 host = machine.succeed("ip -4 -o addr show dev eth1 | awk '{ print $4 }' | cut -d/ -f1").strip()
@@ -624,6 +619,8 @@ in
                     " && nft 'add chain inet probe-count pre { type filter hook prerouting priority -400; }'"
                     f" && nft add rule inet probe-count pre iifname vn-sbx udp dport 4444 ip saddr {peer} counter"
                     f" && nft add rule inet probe-count pre iifname vn-sbx udp dport 4444 ip saddr != {peer} counter"
+                    " && nft 'add chain inet probe-count in { type filter hook input priority 10; }'"
+                    " && nft add rule inet probe-count in udp dport 4444 counter"
                 )
                 machine.succeed(as_owner("virsh -c qemu:///session create /run/probe.xml"))
                 machine.wait_until_succeeds("grep -F 'SBX done' ${home}/probe.log")
@@ -636,21 +633,42 @@ in
                     assert f"SBX {check}=blocked" in report, report
                 neighbor = machine.succeed(f"ip neigh show {peer} dev vn-sbx")
                 assert "${peerMac}" in neighbor, neighbor
-                rules = json.loads(machine.succeed("nft -j list chain inet probe-count pre"))["nftables"]
-                spoofed, own = [
-                    next(e["counter"]["packets"] for e in item["rule"]["expr"] if "counter" in e)
-                    for item in rules
-                    if "rule" in item
-                ]
+                for check in ("arp-sha-sent", "linklocal-ip-sent", "linklocal-sent"):
+                    assert f"SBX {check}=ok" in report and f"SBX {check}=blocked" not in report, report
+                probe = next(line.split()[2].removeprefix("ip=") for line in report.splitlines() if line.startswith("SBX lease"))
+                neighbor = machine.succeed(f"ip neigh show {probe} dev vn-sbx")
+                assert "${probeMac}" in neighbor, neighbor
+
+                def counters(chain):
+                    rules = json.loads(machine.succeed(f"nft -j list chain inet probe-count {chain}"))["nftables"]
+                    return [
+                        next(e["counter"]["packets"] for e in item["rule"]["expr"] if "counter" in e)
+                        for item in rules
+                        if "rule" in item
+                    ]
+
+                spoofed, own = counters("pre")
                 assert (spoofed, own > 0) == (0, True), (spoofed, own)
+                assert counters("in") == [0], counters("in")
+
+                def peer_fdb():
+                    return [
+                        entry["ifname"]
+                        for entry in json.loads(machine.succeed("bridge -j fdb show br vn-sbx"))
+                        if entry["mac"] == "${peerMac}"
+                    ]
+
                 peer_tap = machine.succeed(as_owner("virsh -c qemu:///session domiflist peer")).split("\n")[2].split()[0]
-                fdb = [
-                    entry["ifname"]
-                    for entry in json.loads(machine.succeed("bridge -j fdb show br vn-sbx"))
-                    if entry["mac"] == "${peerMac}"
-                ]
-                assert fdb == [peer_tap], (fdb, peer_tap)
+                assert peer_fdb() == [peer_tap], (peer_fdb(), peer_tap)
                 assert machine.succeed("cat /sys/class/net/vn-sbx/bridge/no_linklocal_learn").strip() == "1"
+
+            with subtest("a fresh port cannot claim a pinned MAC, and pins outlive a ruleset reload"):
+                machine.succeed(as_owner("virsh -c qemu:///session create ${intruderDomain}"))
+                machine.wait_until_succeeds("grep -F 'SBX intruder-done' ${home}/intruder.log")
+                assert peer_fdb() == [peer_tap], (peer_fdb(), peer_tap)
+                machine.succeed("systemctl reload nftables.service")
+                assert "${peerMac}" in machine.succeed("nft list set bridge workload-leases ports-sbx")
+                assert "${peerMac}" in machine.succeed("nft list set bridge workload-leases leases-sbx")
           '';
       };
     };
