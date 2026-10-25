@@ -236,6 +236,15 @@ class Shares:
                 raise SbxError(msg, code="detach-pending")
             self.sleep(DETACH_POLL)
 
+    def _shared_device(self, domain: str) -> Device | None:
+        try:
+            live = self._backend().live_xml(domain)
+        except SbxError as error:
+            if error.code != "not-found":
+                raise
+            return None
+        return attached(live).get(SHARED)
+
     def reclaim(self, *, dry_run: bool) -> list[dict[str, str]]:
         """Detach every sandbox's shared directory while usage passes the cap or the floor."""
         if not self.sandboxes.has_state():
@@ -248,7 +257,7 @@ class Shares:
             for sandbox in self.sandboxes.owned():
                 if not sandbox.domain.active:
                     continue
-                device = attached(self._backend().live_xml(sandbox.domain.name)).get(SHARED)
+                device = self._shared_device(sandbox.domain.name)
                 if device is None:
                     continue
                 reason = f"{SHARED} detached: {problem}"

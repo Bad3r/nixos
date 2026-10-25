@@ -98,6 +98,12 @@ class FakeBackend:
                 self.stop(name)
         return list(self.domains_by_name.values())
 
+    def domain(self, domain: str) -> DomainInfo | None:
+        """Describe one fake domain, after the same poweroff check as the listing."""
+        if Path(os.environ["SBX_TEST_POWEROFF"]).exists() and domain in self.domains_by_name:
+            self.stop(domain)
+        return self.domains_by_name.get(domain)
+
     def add(self, name: str, *, expires: int, active: bool = True, **kwargs: Any) -> None:  # noqa: ANN401
         """Insert a domain as if sbx had created it."""
         meta = Meta(
@@ -574,6 +580,15 @@ class SandboxesTest(Fixture):
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-b"])
         with self.assertRaises(SbxError):
             self.sandboxes(session=None).listing(mine=True)
+
+    def test_find_skips_the_listing(self) -> None:
+        """One sandbox's verbs look it up alone, so other domains cannot fail them."""
+        self.backend.add("a", expires=NOW + 60)
+        with mock.patch.object(self.backend, "domains", side_effect=AssertionError):
+            self.assertEqual(self.sandboxes().find("a").name, "a")
+            with self.assertRaises(SbxError) as raised:
+                self.sandboxes().find("b")
+        self.assertEqual(raised.exception.code, "not-found")
 
     def test_destroy_created(self) -> None:
         """A creation token reaches the metadata and selects only its own sandbox."""

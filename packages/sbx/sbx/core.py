@@ -384,6 +384,10 @@ class Backend(Protocol):
         """List every session domain."""
         ...
 
+    def domain(self, domain: str) -> DomainInfo | None:
+        """Describe one domain, or return None when it does not exist."""
+        ...
+
     def start(self, xml: str) -> None:
         """Define a persistent domain and start it."""
         ...
@@ -902,14 +906,20 @@ class Sandboxes:
             if domain.meta is not None and domain.name.startswith(DOMAIN_PREFIX)
         ]
 
+    def _owned(self, name: str) -> Sandbox | None:
+        domain = self.backend().domain(DOMAIN_PREFIX + name)
+        if domain is None or domain.meta is None:
+            return None
+        return Sandbox(name, domain, domain.meta)
+
     def find(self, name: str) -> Sandbox:
         """Return one sandbox by name."""
         self._check_name(name)
-        for sandbox in self.owned():
-            if sandbox.name == name:
-                return sandbox
-        msg = f"no sandbox named '{name}'"
-        raise SbxError(msg, code="not-found")
+        sandbox = self._owned(name)
+        if sandbox is None:
+            msg = f"no sandbox named '{name}'"
+            raise SbxError(msg, code="not-found")
+        return sandbox
 
     def created(self, name: str, token: str | None) -> Sandbox:
         """Return a sandbox by name, refusing one another create made under that name."""
@@ -1587,7 +1597,7 @@ class Sandboxes:
         With a token, only a domain and directory that carry it go, so a later
         sandbox of the same name survives the cleanup of an earlier one.
         """
-        sandbox = next((sandbox for sandbox in self.owned() if sandbox.name == name), None)
+        sandbox = self._owned(name)
         removed = False
         address = None
         if sandbox is not None and (token is None or sandbox.meta.token == token):
