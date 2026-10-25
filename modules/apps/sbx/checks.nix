@@ -155,6 +155,7 @@ in
                 files = machine.succeed(f"find /proc/{tpm}/root/home ! -type d").split()
                 own = (f"/proc/{tpm}/root{info['directory']}/tpm/", f"/proc/{tpm}/root/home/${owner}/.cache/libvirt/qemu/log/sbx-w-swtpm.log")
                 assert files and all(path.startswith(own) for path in files), files
+                machine.fail(f"test -e /proc/{tpm}/root/run/user/1000/libvirt/qemu/run/swtpm")
                 result = sbx("exec w -- /run/current-system/sw/bin/uname -s")
                 assert result["exit_code"] == 0 and result["stdout"] == "Linux\n", result
 

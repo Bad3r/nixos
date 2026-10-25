@@ -3,7 +3,9 @@
 
 import json
 import os
+import socket
 import stat
+import sys
 import tempfile
 import unittest
 from pathlib import Path
@@ -103,7 +105,9 @@ class EmulatorTest(unittest.TestCase):
             execv.assert_not_called()
             mode.write_text("local\n")
             emulator.main("/qemu", ["-S", "-pidfile", "/run/probe/qmp.pid"])
-            self.assertIn(emulator.Bind("/run/probe", writable=True), confine.call_args.args[0])
+            self.assertIn(
+                emulator.Bind("/run/probe", writable=True, kind="dir"), confine.call_args.args[0]
+            )
             execv.assert_called_once_with(
                 "/qemu", ["/qemu", "-S", "-pidfile", "/run/probe/qmp.pid"]
             )
@@ -171,83 +175,180 @@ class EmulatorTest(unittest.TestCase):
         self.assertCountEqual(
             binds,
             [
-                emulator.Bind(lib, writable=True),
-                emulator.Bind("/nix/store/x-code.fd", writable=False),
-                emulator.Bind(f"{run}/VARS.fd", writable=True),
-                emulator.Bind("/home/o/.local/share/sbx/bases/b/disk.qcow2", writable=False),
-                emulator.Bind(f"{run}/disk.qcow2", writable=True),
+                emulator.Bind(lib, writable=True, kind="dir"),
+                emulator.Bind("/nix/store/x-code.fd", writable=False, kind="file"),
+                emulator.Bind(f"{run}/VARS.fd", writable=True, kind="file"),
                 emulator.Bind(
-                    "/run/user/1/libvirt/qemu/run/swtpm/1-sbx-v-swtpm.sock", writable=True
+                    "/home/o/.local/share/sbx/bases/b/disk.qcow2", writable=False, kind="file"
                 ),
-                emulator.Bind(f"{lib}/spice.sock", writable=True),
+                emulator.Bind(f"{run}/disk.qcow2", writable=True, kind="file"),
+                emulator.Bind(
+                    "/run/user/1/libvirt/qemu/run/swtpm/1-sbx-v-swtpm.sock",
+                    writable=True,
+                    kind="socket",
+                ),
+                emulator.Bind(lib, writable=True, kind="dir"),
             ],
         )
         with self.assertRaises(emulator.LaunchError):
             emulator.qemu_binds(["-blockdev", "driver=file,filename=/dev/sda"])
+        with self.assertRaises(emulator.LaunchError):
+            emulator.qemu_binds(["-chardev", "serial,id=s,path=/dev/ttyS0"])
 
     def test_swtpm_binds(self) -> None:
-        """The state, the log, and the socket's directory come in; capability probes need none."""
+        """The state, the log, and keys come in; the control socket and pidfile never do."""
         argv = [
             "socket",
             "--ctrl",
-            "type=unixio,path=/run/swtpm/v-swtpm.sock,mode=0600",
+            "type=unixio,fd=3",
             "--tpmstate",
             "dir=/home/o/.local/share/sbx/v/tpm,mode=0600,lock",
             "--log",
             "file=/home/o/.cache/libvirt/qemu/log/sbx-v-swtpm.log",
+            "--key",
+            "pwdfd=5,mode=aes-256-cbc",
             "--terminate",
             "--tpm2",
         ]
         self.assertEqual(
             emulator.swtpm_binds(argv),
             [
-                emulator.Bind("/run/swtpm", writable=True),
-                emulator.Bind("/home/o/.local/share/sbx/v/tpm", writable=True),
-                emulator.Bind("/home/o/.cache/libvirt/qemu/log/sbx-v-swtpm.log", writable=True),
+                emulator.Bind("/home/o/.local/share/sbx/v/tpm", writable=True, kind="dir"),
+                emulator.Bind(
+                    "/home/o/.cache/libvirt/qemu/log/sbx-v-swtpm.log", writable=True, kind="file"
+                ),
             ],
         )
         self.assertEqual(emulator.swtpm_binds(["socket", "--print-capabilities"]), [])
+        for flag, value in (("--pid", "file=/run/swtpm/v.pid"), ("--tpmstate", "backend-uri=x:")):
+            with self.subTest(flag=flag), self.assertRaises(emulator.LaunchError):
+                emulator.swtpm_binds(["socket", flag, value])
+
+    def test_listen_ctrl(self) -> None:
+        """The TPM emulator gets a descriptor on its socket path, which replaces a stale socket."""
+        path = self.scratch / "v-swtpm.sock"
+        stale = emulator.listen(str(path), 0o600)
+        os.close(stale)
+        argv = emulator.listen_ctrl(
+            ["socket", "--ctrl", f"type=unixio,path={path},mode=0600", "--tpm2"]
+        )
+        fd = int(emulator.options(argv[2])["fd"])
+        self.addCleanup(os.close, fd)
+        self.assertEqual(argv[2], f"type=unixio,fd={fd}")
+        self.assertTrue(os.get_inheritable(fd))
+        self.assertEqual(stat.S_IMODE(path.stat().st_mode), 0o600)
+        with socket.socket(socket.AF_UNIX) as client:
+            client.connect(str(path))
+        file = self.scratch / "file"
+        file.touch()
+        for value in (f"type=unixio,path={file}", f"type=unixio,path={path},uid=0"):
+            with self.subTest(value=value), self.assertRaises(emulator.LaunchError):
+                emulator.listen_ctrl(["socket", "--ctrl", value])
 
     def test_plan(self) -> None:
         """Parents come first, a bound directory hides its children, and writable wins a tie."""
         planned = emulator.plan(
             [
-                emulator.Bind("/nix/store/x-base.qcow2", writable=False),
-                emulator.Bind("/home/o/lib/spice.sock", writable=True),
-                emulator.Bind("/home/o/run/disk.qcow2", writable=False),
-                emulator.Bind("/home/o/run//disk.qcow2", writable=True),
-                emulator.Bind("/home/o/lib", writable=True),
-                emulator.Bind("/nix/store", writable=False),
+                emulator.Bind("/nix/store/x-base.qcow2", writable=False, kind="file"),
+                emulator.Bind("/home/o/lib/spice.sock", writable=True, kind="socket"),
+                emulator.Bind("/home/o/run/disk.qcow2", writable=False, kind="file"),
+                emulator.Bind("/home/o/run//disk.qcow2", writable=True, kind="file"),
+                emulator.Bind("/home/o/lib", writable=True, kind="dir"),
+                emulator.Bind("/nix/store", writable=False, kind="dir"),
             ]
         )
         self.assertEqual(
             planned,
             [
-                emulator.Bind("/home/o/lib", writable=True),
-                emulator.Bind("/home/o/run/disk.qcow2", writable=True),
-                emulator.Bind("/nix/store", writable=False),
+                emulator.Bind("/home/o/lib", writable=True, kind="dir"),
+                emulator.Bind("/home/o/run/disk.qcow2", writable=True, kind="file"),
+                emulator.Bind("/nix/store", writable=False, kind="dir"),
             ],
         )
-        with self.assertRaises(emulator.LaunchError):
-            emulator.plan([emulator.Bind("relative/disk.qcow2", writable=True)])
+        for binds in (
+            [emulator.Bind("relative/disk.qcow2", writable=True, kind="file")],
+            [
+                emulator.Bind("/a/s", writable=True, kind="socket"),
+                emulator.Bind("/a/s", writable=True, kind="file"),
+            ],
+        ):
+            with self.subTest(binds=binds), self.assertRaises(emulator.LaunchError):
+                emulator.plan(binds)
 
-    def test_bind_refuses_devices(self) -> None:
-        """A block device never comes in, and a character device only from the device list."""
-        target = str(self.scratch / "target")
-        with mock.patch.object(emulator, "_mount") as mount:
-            with self.assertRaises(emulator.LaunchError):
-                emulator.mount_bind("/dev/null", target, writable=True, device=False)
-            block = os.stat_result((stat.S_IFBLK | 0o660, 0, 0, 1, 0, 6, 0, 0, 0, 0))
+    def test_open_source(self) -> None:
+        """A source opens only as its expected kind and never through a symlink."""
+        directory = self.scratch / "dir"
+        directory.mkdir()
+        disk = directory / "disk.qcow2"
+        disk.touch()
+        server = socket.socket(socket.AF_UNIX)
+        self.addCleanup(server.close)
+        server.bind(str(directory / "tpm.sock"))
+        (self.scratch / "link").symlink_to(directory)
+        (directory / "disk-link").symlink_to(disk)
+        opened: tuple[tuple[Path, emulator.Kind], ...] = (
+            (disk, "file"),
+            (directory, "dir"),
+            (directory / "tpm.sock", "socket"),
+        )
+        for path, kind in opened:
+            fd = emulator.open_source(emulator.Bind(str(path), writable=True, kind=kind))
+            if fd is None:
+                self.fail(f"{path} did not open")
+            self.addCleanup(os.close, fd)
+            self.assertEqual(os.fstat(fd).st_ino, path.stat().st_ino)
+        self.assertIsNone(
+            emulator.open_source(emulator.Bind(str(directory / "x"), writable=True, kind="file"))
+        )
+        refused: tuple[tuple[Path, emulator.Kind], ...] = (
+            (self.scratch / "link", "dir"),
+            (self.scratch / "link" / "disk.qcow2", "file"),
+            (directory / "disk-link", "file"),
+            (disk, "socket"),
+            (directory / "tpm.sock", "file"),
+            (directory, "file"),
+            (Path("/dev/null"), "file"),
+        )
+        for path, kind in refused:
+            with self.subTest(path=path, kind=kind), self.assertRaises(emulator.LaunchError):
+                emulator.open_source(emulator.Bind(str(path), writable=True, kind=kind))
+
+    def test_store_sources_resolve_into_the_store_only(self) -> None:
+        """A read-only source may resolve a symlink, but only into the store."""
+        store_file = os.path.realpath(sys.executable)
+        self.assertTrue(store_file.startswith(emulator.STORE + "/"), store_file)
+        into_store = self.scratch / "localtime"
+        into_store.symlink_to(store_file)
+        fd = emulator.open_source(emulator.Bind(str(into_store), writable=False, kind="file"))
+        if fd is None:
+            self.fail(f"{into_store} did not open")
+        self.addCleanup(os.close, fd)
+        self.assertEqual(os.fstat(fd).st_ino, Path(store_file).stat().st_ino)
+        outside = self.scratch / "outside"
+        outside.symlink_to(self.scratch / "missing")
+        for path, writable in ((into_store, True), (outside, False)):
             with (
-                mock.patch.object(emulator.os, "stat", return_value=block),
+                self.subTest(path=path, writable=writable),
                 self.assertRaises(emulator.LaunchError),
             ):
-                emulator.mount_bind("/dev/dm-0", target, writable=True, device=True)
-            mount.assert_not_called()
-            emulator.mount_bind("/dev/null", target, writable=True, device=True)
-            mount.assert_called_once_with(
-                "/dev/null", target, None, emulator.MS_BIND | emulator.MS_REC
-            )
+                emulator.open_source(emulator.Bind(str(path), writable=writable, kind="file"))
+
+    def test_no_kind_admits_a_block_device(self) -> None:
+        """A block device never comes in, whatever kind a bind names."""
+        block = stat.S_IFBLK | 0o660
+        self.assertNotIn(stat.S_IFMT(block), emulator.KINDS.values())
+
+    def test_bind_creates_its_mount_point(self) -> None:
+        """A directory gets a directory, anything else an empty file, and read-only remounts."""
+        target = self.scratch / "root" / "dev" / "null"
+        with mock.patch.object(emulator, "_mount") as mount:
+            emulator.mount_bind("/proc/self/fd/9", str(target), writable=False, directory=False)
+        self.assertTrue(target.is_file())
+        self.assertEqual(
+            mount.call_args_list[0],
+            mock.call("/proc/self/fd/9", str(target), None, emulator.MS_BIND | emulator.MS_REC),
+        )
+        self.assertTrue(mount.call_args_list[1].args[3] & emulator.MS_RDONLY)
 
     def test_main_refuses_an_unreopened_vsock_device(self) -> None:
         """A vsock device without an inherited descriptor stops the launch before any namespace."""

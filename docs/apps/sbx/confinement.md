@@ -14,14 +14,19 @@ That root holds:
 - each file a `-blockdev` names, read-only unless a writable format node sits on it: the sandbox's overlay and NVRAM writable, the base and the seed ISO read-only;
 - libvirt's per-domain directory under `~/.config/libvirt/qemu/lib/`, where the master key, the SPICE socket, screendumps, and hot-plugged virtiofs sockets live;
 - the sockets a `-chardev` names by path, such as a Windows sandbox's TPM socket;
-- for swtpm, its state directory, its log, and the directory of its control socket.
+- for swtpm, its state directory and its log.
 
 Everything else stays out: the rest of `/home`, `/run/user/<uid>/bus`, the systemd user manager's private socket, `/proc`, and `/sys`.
 libvirt hands QEMU its monitor, guest agent, console, tap, and vhost descriptors already open, so QEMU opens no other device.
 Managed saves and restores travel over a descriptor too.
 
-A path the command line names but the host lacks stays out, so QEMU or swtpm fails on it, and any error while building the root stops the launch before the emulator runs.
-A block device, or a character device outside the list, refuses the launch.
+The swtpm shim creates the TPM control socket itself and hands swtpm the listening descriptor, so no swtpm can reach the directory that holds every sandbox's socket.
+
+Each source is opened without following symlinks and bound through that descriptor, so the checked file is the bound file.
+A symlink anywhere in a source path refuses the launch, except that a read-only source, such as `/etc/localtime` or libvirt's firmware link, resolves when it lands in the store, which the root already holds read-only.
+Each source must also be of the kind its option implies: a disk is a regular file, a chardev socket a socket, and a domain directory a directory.
+A block device never matches a kind, so it refuses the launch too.
+A path the command line names but the host lacks stays out, so QEMU or swtpm fails on it, and any other error while building the root stops the launch before the emulator runs.
 
 ## virtiofsd
 
@@ -33,7 +38,7 @@ It enters new user, PID, mount, and network namespaces and pivots into the share
 - The host kernel is shared: KVM, vhost, the vsock namespace code, and user namespaces stay reachable from an escaped emulator.
 - The emulator keeps the host's PID namespace, since libvirt tracks the process it forked and its capability probe reads the pid QEMU writes; Yama's `ptrace_scope` and QEMU's seccomp filter keep it from tracing owner processes, but it can still signal them.
 - The supplementary groups stay, so a kernel bug that reaches a device node the groups open still reaches it.
-- swtpm sees the directory of every sandbox's TPM socket, since swtpm creates its own socket there.
+- QEMU keeps the original `/dev/vhost-vsock` descriptor libvirt opened in the host namespace, alongside the one `sbx-qemu` reopens, so the CID stays reserved; an escaped QEMU can drive that host-namespace device.
 - The session daemon `virtqemud` runs unconfined as the owner and without seccomp; it parses the guest agent's replies, so a libvirt bug there reaches the owner's whole account.
 
 ## Verify

@@ -20,10 +20,11 @@ import ctypes
 import itertools
 import json
 import os
+import socket
 import stat
 import sys
 from pathlib import Path
-from typing import NamedTuple, NoReturn, cast
+from typing import Literal, NamedTuple, NoReturn, cast
 
 VHOST_VSOCK = "/dev/vhost-vsock"
 FD_DIR = Path("/proc/self/fd")
@@ -57,6 +58,14 @@ LOCKED_FLAGS = (
 )
 SYS_PIVOT_ROOT = {"x86_64": 155, "aarch64": 41}
 
+type Kind = Literal["dir", "file", "socket", "device"]
+KINDS: dict[Kind, int] = {
+    "dir": stat.S_IFDIR,
+    "file": stat.S_IFREG,
+    "socket": stat.S_IFSOCK,
+    "device": stat.S_IFCHR,
+}
+
 
 class LaunchError(Exception):
     """A condition under which the sandbox must not start."""
@@ -67,6 +76,7 @@ class Bind(NamedTuple):
 
     path: str
     writable: bool
+    kind: Kind
 
 
 def private_namespace(uid: int, gid: int) -> None:
@@ -204,10 +214,23 @@ def _block_binds(argv: list[str]) -> list[Bind]:
         elif "file" in node:
             readers.setdefault(node["file"], []).append(read_only)
     return [
-        Bind(filename, writable=not read_only and not all(readers.get(node, [False])))
+        Bind(filename, not read_only and not all(readers.get(node, [False])), "file")
         for node, (filename, read_only) in files.items()
         if not filename.startswith("/dev/fdset/")
     ]
+
+
+def _chardev_binds(value: str) -> list[Bind]:
+    backend = fields(value)[0]
+    path = options(value).get("path")
+    if path is None or path.startswith("/dev/fdset/"):
+        return []
+    if backend == "socket":
+        return [Bind(path, writable=True, kind="socket")]
+    if backend == "file":
+        return [Bind(path, writable=True, kind="file")]
+    msg = f"the {backend} chardev path {path!r} is not handled"
+    raise LaunchError(msg)
 
 
 def _option_binds(flag: str, value: str) -> list[Bind]:
@@ -218,19 +241,18 @@ def _option_binds(flag: str, value: str) -> list[Bind]:
         if properties.get("qom-type") == "secret" and isinstance(key, str):
             # libvirt's domain directory, where screendumps, the SPICE socket, and
             # hot-plugged virtiofs sockets appear after QEMU starts.
-            return [Bind(_directory(key), writable=True)]
+            return [Bind(_directory(key), writable=True, kind="dir")]
     elif flag == "-chardev":
-        path = options(value).get("path", "")
-        if path.startswith("/") and not path.startswith("/dev/fdset/"):
-            return [Bind(path, writable=True)]
+        return _chardev_binds(value)
     elif flag == "-spice":
         spice = options(value)
-        if spice.get("unix") == "on" and spice.get("addr", "").startswith("/"):
-            return [Bind(spice["addr"], writable=True)]
+        if spice.get("unix") == "on" and "addr" in spice:
+            return [Bind(_directory(spice["addr"]), writable=True, kind="dir")]
     elif flag == "-qmp" and value.startswith("unix:"):
-        return [Bind(_directory(fields(value.removeprefix("unix:"))[0]), writable=True)]
+        path = fields(value.removeprefix("unix:"))[0]
+        return [Bind(_directory(path), writable=True, kind="dir")]
     elif flag == "-pidfile":
-        return [Bind(_directory(value), writable=True)]
+        return [Bind(_directory(value), writable=True, kind="dir")]
     return []
 
 
@@ -239,46 +261,143 @@ def qemu_binds(argv: list[str]) -> list[Bind]:
     binds = [bind for pair in itertools.pairwise(argv) for bind in _option_binds(*pair)]
     binds += _block_binds(argv)
     if Path(LOCALTIME).exists():
-        binds.append(Bind(LOCALTIME, writable=False))
+        binds.append(Bind(LOCALTIME, writable=False, kind="file"))
     return binds
 
 
+def _tpmstate_binds(found: dict[str, str]) -> list[Bind]:
+    if "dir" in found:
+        return [Bind(found["dir"], writable=True, kind="dir")]
+    uri = found.get("backend-uri", "")
+    if uri.startswith("file://"):
+        return [Bind(uri.removeprefix("file://"), writable=True, kind="file")]
+    if uri.startswith("dir://"):
+        return [Bind(uri.removeprefix("dir://"), writable=True, kind="dir")]
+    msg = f"the TPM state {found!r} is not handled"
+    raise LaunchError(msg)
+
+
 def swtpm_binds(argv: list[str]) -> list[Bind]:
-    """Return the paths swtpm opens itself, from the command line libvirt gives it."""
+    """Return the paths swtpm opens itself, besides the `--ctrl` socket `listen_ctrl` opens."""
     binds: list[Bind] = []
     for flag, value in itertools.pairwise(argv):
         found = options(value)
         if flag == "--tpmstate":
-            if "dir" in found:
-                binds.append(Bind(found["dir"], writable=True))
-            if (uri := found.get("backend-uri", "")).startswith("file://"):
-                binds.append(Bind(uri.removeprefix("file://"), writable=True))
-        elif flag in {"--ctrl", "--server", "--pid"} and (
-            path := found.get("path") or found.get("file")
-        ):
-            # swtpm creates these, so their directory comes in.
-            binds.append(Bind(_directory(path), writable=True))
+            binds += _tpmstate_binds(found)
+        elif flag in {"--server", "--pid"} and ({"path", "file"} & found.keys()):
+            # Its directory would hold every sandbox's swtpm socket.
+            msg = f"swtpm {flag} {value!r} names a path; only descriptors are handled"
+            raise LaunchError(msg)
         elif flag == "--log" and "file" in found:
-            binds.append(Bind(found["file"], writable=True))
+            binds.append(Bind(found["file"], writable=True, kind="file"))
         elif flag in {"--key", "--migration-key"} and "file" in found:
-            binds.append(Bind(found["file"], writable=False))
+            binds.append(Bind(found["file"], writable=False, kind="file"))
     return binds
+
+
+def listen(path: str, mode: int) -> int:
+    """Listen on a unix socket at `path`, replacing only a stale socket; return it inheritable."""
+    try:
+        existing: int | None = os.lstat(path).st_mode
+    except FileNotFoundError:
+        existing = None
+    if existing is not None:
+        if not stat.S_ISSOCK(existing):
+            msg = f"{path} exists and is not a socket"
+            raise LaunchError(msg)
+        Path(path).unlink()
+    server = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+    previous = os.umask(0o177)
+    try:
+        server.bind(path)
+    finally:
+        os.umask(previous)
+    Path(path).chmod(mode)
+    server.listen()
+    fd = server.detach()
+    os.set_inheritable(fd, True)  # noqa: FBT003
+    return fd
+
+
+def listen_ctrl(argv: list[str]) -> list[str]:
+    """Return `argv` with each `--ctrl` socket path replaced by a descriptor listening on it.
+
+    The socket's directory holds every sandbox's swtpm socket, so it stays out of swtpm's root.
+    """
+    result = list(argv)
+    for index, (flag, value) in enumerate(itertools.pairwise(argv)):
+        found = options(value)
+        if flag != "--ctrl" or "path" not in found:
+            continue
+        if found.get("type") != "unixio" or not found.keys() <= {"type", "path", "mode"}:
+            msg = f"swtpm --ctrl {value!r} is not handled"
+            raise LaunchError(msg)
+        fd = listen(found["path"], int(found.get("mode", "0770"), 8))
+        result[index + 1] = f"type=unixio,fd={fd}"
+    return result
 
 
 def plan(binds: list[Bind]) -> list[Bind]:
     """Order binds parents first, dropping those a bound directory already holds."""
-    normal: dict[str, bool] = {}
+    normal: dict[str, Bind] = {}
     for bind in binds:
         if not Path(bind.path).is_absolute():
             msg = f"{bind.path!r} is not an absolute path"
             raise LaunchError(msg)
         path = os.path.normpath(bind.path)
-        normal[path] = normal.get(path, False) or bind.writable
+        seen = normal.get(path)
+        if seen is not None and seen.kind != bind.kind:
+            msg = f"{path} is named both as a {seen.kind} and as a {bind.kind}"
+            raise LaunchError(msg)
+        writable = bind.writable or (seen is not None and seen.writable)
+        normal[path] = Bind(path, writable, bind.kind)
     kept: list[Bind] = []
     for path in sorted(normal):
         if not any(path.startswith(parent.path.rstrip("/") + "/") for parent in kept):
-            kept.append(Bind(path, normal[path]))
+            kept.append(normal[path])
     return kept
+
+
+def _in_store(path: str) -> bool:
+    return path == STORE or path.startswith(STORE + "/")
+
+
+def _open_nofollow(path: str) -> int:
+    """Open `path` as an `O_PATH` descriptor, refusing a symlink in any component."""
+    fd = os.open("/", os.O_PATH | os.O_DIRECTORY)
+    walked = Path("/")
+    for part in Path(path).parts[1:]:
+        walked /= part
+        try:
+            child = os.open(part, os.O_PATH | os.O_NOFOLLOW, dir_fd=fd)
+        finally:
+            os.close(fd)
+        fd = child
+        if stat.S_ISLNK(os.fstat(fd).st_mode):
+            os.close(fd)
+            msg = f"{path} passes through the symlink {walked}"
+            raise LaunchError(msg)
+    return fd
+
+
+def open_source(bind: Bind) -> int | None:
+    """Open a bind's source as an `O_PATH` descriptor, or return None when the host lacks it.
+
+    Only a read-only source resolves symlinks, and only into the store, which the
+    root holds read-only anyway.
+    """
+    path = bind.path
+    if not bind.writable and _in_store(resolved := os.path.realpath(path)):
+        path = resolved
+    try:
+        fd = _open_nofollow(path)
+    except FileNotFoundError:
+        return None
+    if stat.S_IFMT(os.fstat(fd).st_mode) != KINDS[bind.kind]:
+        os.close(fd)
+        msg = f"{bind.path} is not a {bind.kind}"
+        raise LaunchError(msg)
+    return fd
 
 
 _LIBC = ctypes.CDLL(None, use_errno=True)
@@ -317,14 +436,9 @@ def _pivot_root(new_root: str, put_old: str) -> None:
     _check(result, f"pivot into {new_root}")
 
 
-def mount_bind(source: str, target: str, *, writable: bool, device: bool) -> None:
-    """Bind `source` at `target`, read-only unless `writable`; never a block device."""
-    mode = Path(source).stat().st_mode
-    allowed = stat.S_ISDIR(mode) or stat.S_ISREG(mode) or stat.S_ISSOCK(mode)
-    if not allowed and not (device and stat.S_ISCHR(mode)):
-        msg = f"{source.removeprefix('/oldroot')} is not a regular file, directory, or socket"
-        raise LaunchError(msg)
-    if stat.S_ISDIR(mode):
+def mount_bind(source: str, target: str, *, writable: bool, directory: bool) -> None:
+    """Bind `source` at `target`, read-only unless `writable`."""
+    if directory:
         Path(target).mkdir(parents=True, exist_ok=True)
     else:
         Path(target).parent.mkdir(parents=True, exist_ok=True)
@@ -342,11 +456,23 @@ def confine(binds: list[Bind]) -> None:
     The caller has just entered a user and mount namespace of its own. Paths a
     command line names but the host lacks stay out, so the emulator fails on them.
     """
-    wanted = plan([Bind(STORE, writable=False), *(Bind(d, writable=True) for d in DEVICES), *binds])
-    # Resolved in the host's root, since an absolute symlink stops resolving after the pivot.
-    sources = [
-        (bind, str(Path(bind.path).resolve())) for bind in wanted if Path(bind.path).exists()
-    ]
+    wanted = plan(
+        [
+            Bind(STORE, writable=False, kind="dir"),
+            *(Bind(device, writable=True, kind="device") for device in DEVICES),
+            *binds,
+        ]
+    )
+    sources: list[tuple[Bind, int]] = []
+    try:
+        sources.extend((bind, fd) for bind in wanted if (fd := open_source(bind)) is not None)
+        _pivot(sources)
+    finally:
+        for _, fd in sources:
+            os.close(fd)
+
+
+def _pivot(sources: list[tuple[Bind, int]]) -> None:
     _mount(None, "/", None, MS_REC | MS_SLAVE)
     # A tmpfs over /tmp in this namespace only: the staging root for both pivots.
     staging = Path("/tmp")  # noqa: S108
@@ -357,10 +483,13 @@ def confine(binds: list[Bind]) -> None:
     _mount("tmpfs", "newroot", "tmpfs", MS_NOSUID | MS_NODEV, "mode=0755")
     _pivot_root(".", "oldroot")
     os.chdir("/")
-    for bind, source in sources:
-        device = bind.path in DEVICES
+    for bind, fd in sources:
+        # Through the descriptor, so the inode checked is the inode bound.
         mount_bind(
-            "/oldroot" + source, "/newroot" + bind.path, writable=bind.writable, device=device
+            f"/oldroot/proc/self/fd/{fd}",
+            "/newroot" + bind.path,
+            writable=bind.writable,
+            directory=bind.kind == "dir",
         )
     _mount(None, "/oldroot", None, MS_REC | MS_PRIVATE)
     _umount("/oldroot")
@@ -394,6 +523,7 @@ def swtpm_main(swtpm: str, argv: list[str]) -> NoReturn:
     """Start swtpm confined like QEMU, without a host network, or exit 1 without starting it."""
     try:
         binds = swtpm_binds(argv)
+        argv = listen_ctrl(argv)
         private_namespace(os.getuid(), os.getgid())
         confine(binds)
     except (LaunchError, OSError) as error:
