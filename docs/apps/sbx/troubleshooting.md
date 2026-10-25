@@ -90,6 +90,18 @@ grep vn-sbx /etc/qemu/bridge.conf
 
 Fix: an empty lease file with the bridge admitted points at the base's DHCP client; rebuild the base and retry.
 
+## exec reports a transport error
+
+Cause: qemu-ga stopped answering after the command started, or `ssh` exited 255 before the deadline; the command may have run in part.
+`ssh` also exits 255 when a signal ends the remote command, so an attached command that crashes reads as a transport error too.
+
+```sh
+sbx --json info <name>
+sbx --json exec <name> -- true
+```
+
+Fix: check that the sandbox runs, then rerun the command with `--json`, whose qemu-ga path reports the ending signal under `signal`.
+
 ## base prepare fails with owner-only
 
 Cause: the shell carries `CLAUDE_CODE_SESSION_ID` or `CODEX_THREAD_ID`, so `sbx` takes it for an agent session.

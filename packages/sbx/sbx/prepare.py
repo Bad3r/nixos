@@ -63,16 +63,19 @@ class Prepare(Lifecycle):
         # A failed start discards its own sandbox; a name another prepare holds stays.
         self._start(request, name, source, token, root=source, agent=False)
         try:
-            result = self.exec_capture(
-                name,
+            # The image gets qemu-ga from this very script, so it runs over SSH.
+            result = self.ssh_capture(
+                self._running(name, token),
                 ["sh", "-c", cloud.PREPARE_SCRIPT],
                 timeout=PREPARE_TIMEOUT,
-                agent=False,
-                token=token,
             )
-            if result.exit_code != 0:
+            if result.status() != 0:
                 detail = result.stderr.decode(errors="replace").strip()[-2000:]
-                status = "timed out" if result.timed_out else f"exited {result.exit_code}"
+                status = (
+                    "timed out"
+                    if result.timed_out
+                    else result.transport_error or f"exited {result.status()}"
+                )
                 msg = f"provisioning {image} {status}: {detail}"
                 raise SbxError(msg, code="prepare-failed")
             # Unlocked, so sleep and other verbs proceed during the shutdown and the flatten.

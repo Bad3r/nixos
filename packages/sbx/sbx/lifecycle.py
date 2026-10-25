@@ -233,7 +233,7 @@ class Lifecycle(Admission, Bases, DomainXml, Execution, Cleanup):
         while True:
             sandbox = self.created(name, token)
             result = capture(self._ssh(name, sandbox.domain, ["true"]), 4096, 30)
-            if result.exit_code == 0:
+            if result.code == 0:
                 break
             if time.monotonic() > deadline:
                 detail = result.stderr.decode(errors="replace").strip()

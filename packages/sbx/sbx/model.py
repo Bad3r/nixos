@@ -2,6 +2,7 @@
 """Names, records, and the backend protocol every sbx module shares."""
 
 import re
+import signal
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Protocol
@@ -24,6 +25,8 @@ GUI_BASES = frozenset({"nixos-gui"})
 NETS = ("none", "egress")
 GIB = 1 << 30
 TIMEOUT_EXIT = 124
+# A failed transport; `transport_error` tells it from a guest's own exit 255.
+TRANSPORT_EXIT = 255
 # Holds the creation token of a run directory, which its domain metadata also carries.
 CREATION_FILE = "creation"
 # The run directory's read-write share; no host sbx code writes into it, unlike xfer.
@@ -113,23 +116,60 @@ class Sandbox:
 
 @dataclass(frozen=True)
 class ExecResult:
-    """Outcome of one command in a sandbox."""
+    """Outcome of one command in a sandbox.
+
+    `timed_out` means the host's deadline passed, whatever the guest status;
+    `killed` that sbx's own signals then ended the command.
+    """
 
     exit_code: int | None
     stdout: bytes
     stderr: bytes
-    truncated: bool
-    timed_out: bool
+    truncated: bool = False
+    timed_out: bool = False
+    signal: str | None = None
+    killed: bool = False
+    transport_error: str | None = None
+    duration_s: float = 0.0
+
+    def status(self) -> int:
+        """Return the exit status of `exec` and `run`, as in both output modes."""
+        if self.transport_error is not None:
+            return TRANSPORT_EXIT
+        if self.timed_out:
+            return TIMEOUT_EXIT
+        if self.signal is not None:
+            return 128 + signal_number(self.signal)
+        return TRANSPORT_EXIT if self.exit_code is None else self.exit_code
 
     def as_json(self) -> dict[str, object]:
         """Return the JSON form."""
         return {
             "exit_code": self.exit_code,
+            "signal": self.signal,
+            "timed_out": self.timed_out,
+            "killed": self.killed,
+            "transport_error": self.transport_error,
+            "duration_s": round(self.duration_s, 3),
             "stdout": self.stdout.decode(errors="replace"),
             "stderr": self.stderr.decode(errors="replace"),
             "truncated": self.truncated,
-            "timed_out": self.timed_out,
         }
+
+
+def signal_name(number: int) -> str:
+    """Name a Linux signal without its SIG prefix, such as KILL; an unknown one stays a number."""
+    try:
+        return signal.Signals(number).name.removeprefix("SIG")
+    except ValueError:
+        return str(number)
+
+
+def signal_number(name: str) -> int:
+    """Invert `signal_name`."""
+    if name.isdigit():
+        return int(name)
+    return signal.Signals[f"SIG{name}"].value
 
 
 @dataclass(frozen=True)

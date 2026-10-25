@@ -15,7 +15,7 @@ Every sandbox is an untrusted guest.
 - `sbx` accepts no domain XML, no host disk path, and no value above a ceiling.
 - Each QEMU runs in its own user and network namespace, and `sbx-qemu` (`packages/sbx/sbx/emulator.py`) starts it only when that namespace's vsock mode is `local`.
 - The guest's vhost-vsock device belongs to that namespace, so for the sandbox's whole lifetime it reaches no host vsock listener, whenever that listener starts.
-- `exec` and `cp` enter the namespace with `nsenter` to reach the guest's SSH; the module sets `net.vsock.child_ns_mode` to `local` for every new namespace.
+- Attached `exec` and `cp` enter the namespace with `nsenter` to reach the guest's SSH; the module sets `net.vsock.child_ns_mode` to `local` for every new namespace.
 - A [vsock grant](vsock-grants.md) adds listeners inside that namespace for a granted host service, for the grant's lifetime only.
 - The guest sees no nested virtualization and no VMware backdoor port.
 - An expired sandbox refuses `exec`, `cp`, and `screenshot` until `gc` removes it.
@@ -29,7 +29,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | -------------------------------- | ------------------------------------------- |
 | `create <base>`                  | start a sandbox, wait for SSH               |
 | `run <base> -- CMD`              | create, copy in, run, copy out, destroy     |
-| `exec <name> -- CMD`             | run over SSH; `--agent` uses qemu-ga        |
+| `exec <name> -- CMD`             | run a command, attached or captured         |
 | `cp <src> <dst>`                 | scp over vsock; one side is `<name>:<path>` |
 | `destroy <name>`                 | stop, undefine, delete the run directory    |
 | `list`, `info <name>`            | state, CID, address, TTL left, session      |
@@ -43,7 +43,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `vsock serve`, `vsock sync`      | vsock grant proxy, for `workloads grant`    |
 
 `create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, `--gui`, and `--wait`, which [Resources](#resources) covers.
-`exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
+`exec` and `run` exit with the guest command's status; [commands](exec.md) covers their transports, timeouts, and `--json` result.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
 Every removal, by `destroy`, `gc`, a failed `create`, or the MCP server's cleanup, revokes the [workload grants](../../networking/workload-grants.md) of the sandbox it removes; a revoke that fails is reported on stderr and in the journal, and the sandbox is removed anyway.
 [sleep.md](sleep.md) covers `sleep` and what host suspend and hibernation do to sandboxes.

@@ -143,6 +143,10 @@ in
             def sbx(command):
                 return json.loads(machine.succeed(as_owner(f"sbx --json {command}")))
 
+            def sbx_status(command):
+                status, output = machine.execute(as_owner(f"sbx --json {command}"))
+                return status, json.loads(output)
+
             def listen(unit, cid, port, reply, wrap=""):
                 machine.succeed(f"systemd-run --unit {unit} --uid ${owner} {wrap} ${python} ${listener} {cid} {port} {reply}")
                 listening = as_owner(f"{wrap} ss -H -l --vsock") if wrap else "ss -H -l --vsock"
@@ -175,7 +179,17 @@ in
             with subtest("exec and cp reach the guest"):
                 sbx("cp ${home}/tmp/probe.py v:/root/probe.py")
                 result = sbx("exec v -- cat /etc/hostname")
-                assert result == {"exit_code": 0, "stdout": "sbx\n", "stderr": "", "truncated": False, "timed_out": False}, result
+                assert (result["exit_code"], result["stdout"], result["stderr"]) == (0, "sbx\n", ""), result
+                assert not (result["timed_out"] or result["killed"] or result["signal"] or result["transport_error"]), result
+
+            with subtest("timed_out follows the host deadline, and SIGKILL follows an ignored SIGTERM"):
+                status, result = sbx_status("exec v --timeout 30s -- sh -c 'exit 124'")
+                assert status == 124 and result["exit_code"] == 124 and not result["timed_out"], result
+                stubborn = "import signal, time; signal.signal(signal.SIGTERM, signal.SIG_IGN); print('started', flush=True); time.sleep(60)"
+                status, result = sbx_status(f"exec v --timeout 1s -- python3 -c \"{stubborn}\"")
+                assert status == 124, (status, result)
+                assert result["timed_out"] and result["killed"] and result["signal"] == "KILL", result
+                assert result["exit_code"] is None and result["stdout"] == "started\n", result
 
             with subtest("host listeners started after the sandbox stay unreachable"):
                 listen("after-any", "any", 5555, "host")

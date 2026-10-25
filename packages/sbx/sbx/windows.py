@@ -19,13 +19,22 @@ from pathlib import Path, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any, NoReturn, cast
 
 from sbx import journal
+from sbx.agent import (
+    SETTLE,
+    GuestExec,
+    Stop,
+    reply_data,
+    reply_error,
+    reply_int,
+    reply_object,
+    returned,
+)
 from sbx.errors import SbxError
-from sbx.model import ExecResult
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
-    from sbx.model import Backend
+    from sbx.model import Backend, ExecResult
 
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 TASKKILL = r"C:\Windows\System32\taskkill.exe"
@@ -41,8 +50,6 @@ VARS = "VARS.fd"
 FILE_CHUNK = 1 << 20
 AGENT_TIMEOUT = 60
 OPERATION_TIMEOUT = 600
-KILL_TIMEOUT = 30
-POLL_INTERVAL = 0.2
 HYPERV = (
     "relaxed",
     "vapic",
@@ -196,54 +203,30 @@ def guest_path(value: str) -> PureWindowsPath:
     return path
 
 
-def _reply_error(detail: str) -> SbxError:
-    msg = f"qemu-ga sent an unexpected reply: {detail}"
-    return SbxError(msg, code="agent-reply")
-
-
-def _integer(value: object, key: str) -> int:
-    if not isinstance(value, int) or isinstance(value, bool):
-        msg = f"{key} is not an integer"
-        raise _reply_error(msg)
-    return value
-
-
-def _decode(value: object, key: str) -> bytes:
-    if not isinstance(value, str):
-        msg = f"{key} is not a string"
-        raise _reply_error(msg)
-    try:
-        return base64.b64decode(value, validate=True)
-    except ValueError as error:
-        msg = f"{key} is not base64"
-        raise _reply_error(msg) from error
-
-
-def _object(value: object, what: str) -> dict[str, Any]:
-    if not isinstance(value, dict):
-        msg = f"{what} is not an object"
-        raise _reply_error(msg)
-    return cast("dict[str, Any]", value)
-
-
 class Guest:
     """The guest agent of one running Windows sandbox."""
 
-    def __init__(self, backend: Backend, domain: str) -> None:
-        """Bind to a domain."""
+    def __init__(
+        self,
+        backend: Backend,
+        domain: str,
+        *,
+        clock: Callable[[], float] = time.monotonic,
+        pause: Callable[[float], None] = time.sleep,
+    ) -> None:
+        """Bind to a domain; commands' deadlines run on `clock`."""
         self._backend = backend
         self._domain = domain
+        self._exec = GuestExec(
+            lambda execute, arguments: self.call(execute, **arguments), clock=clock, pause=pause
+        )
 
     def call(self, execute: str, **arguments: object) -> object:
         """Run one agent command and return its `return` value."""
         command: dict[str, object] = {"execute": execute}
         if arguments:
             command["arguments"] = arguments
-        reply = self._backend.agent(self._domain, command, AGENT_TIMEOUT)
-        if "return" not in reply:
-            msg = f"no return value for {execute}"
-            raise _reply_error(msg)
-        return reply["return"]
+        return returned(self._backend.agent(self._domain, command, AGENT_TIMEOUT), execute)
 
     def execute(
         self,
@@ -251,69 +234,20 @@ class Guest:
         *,
         timeout: float | None,
         limit: int,
-        stdin: bytes = b"",
-        kill: bool = True,
+        stdin: bytes | None = None,
     ) -> ExecResult:
         """Run a guest program with captured output; a timeout kills its process tree."""
         if not command:
             msg = "give the command after --"
             raise SbxError(msg, code="usage")
-        arguments: dict[str, object] = {
-            "path": command[0],
-            "arg": list(command[1:]),
-            "capture-output": True,
-        }
-        if stdin:
-            arguments["input-data"] = base64.b64encode(stdin).decode()
-        started = _object(self.call("guest-exec", **arguments), "guest-exec")
-        pid = _integer(started.get("pid"), "pid")
-        deadline = None if timeout is None else time.monotonic() + timeout
-        while True:
-            status = _object(self.call("guest-exec-status", pid=pid), "guest-exec-status")
-            exited = status.get("exited")
-            if not isinstance(exited, bool):
-                msg = "exited is not a boolean"
-                raise _reply_error(msg)
-            if exited:
-                break
-            if deadline is not None and time.monotonic() > deadline:
-                note = self._kill(pid) if kill else b""
-                return ExecResult(None, b"", note, truncated=False, timed_out=True)
-            time.sleep(POLL_INTERVAL)
-        stdout = _decode(status.get("out-data", ""), "out-data")
-        stderr = _decode(status.get("err-data", ""), "err-data")
-        truncated = bool(status.get("out-truncated") or status.get("err-truncated"))
-        truncated = truncated or len(stdout) > limit or len(stderr) > limit
-        code = _integer(status.get("exitcode"), "exitcode")
-        return ExecResult(code, stdout[:limit], stderr[:limit], truncated, timed_out=False)
+        stop = Stop(self._kill, SETTLE)
+        return self._exec.run(
+            command[0], command[1:], timeout=timeout, limit=limit, stdin=stdin, stops=(stop,)
+        )
 
-    def _kill(self, pid: int) -> bytes:
-        """Stop a timed-out process tree; a failure lands in the result's stderr."""
-        try:
-            result = self.execute(
-                [TASKKILL, "/PID", str(pid), "/T", "/F"],
-                timeout=KILL_TIMEOUT,
-                limit=4096,
-                kill=False,
-            )
-        except SbxError as error:
-            detail = str(error)
-        else:
-            if result.exit_code == 0:
-                return b""
-            detail = result.stderr.decode(errors="replace").strip() or "timed out"
+    def _kill(self, pid: int) -> str | None:
         # taskkill also fails for a process that exited on its own meanwhile.
-        if self._exited(pid):
-            return b""
-        journal.record(f"cannot stop guest process {pid}: {detail}", code="kill-failed")
-        return f"sbx: the timed-out process {pid} may still run: {detail}\n".encode()
-
-    def _exited(self, pid: int) -> bool:
-        try:
-            status = _object(self.call("guest-exec-status", pid=pid), "guest-exec-status")
-        except SbxError:
-            return False
-        return status.get("exited") is True
+        return self._exec.helper(TASKKILL, ["/PID", str(pid), "/T", "/F"])
 
     def powershell(self, script: str, data: dict[str, str]) -> None:
         """Run a PowerShell script with its input on stdin, never in an argument."""
@@ -322,28 +256,28 @@ class Guest:
         result = self.execute(
             argv, timeout=OPERATION_TIMEOUT, limit=1 << 16, stdin=json.dumps(data).encode()
         )
-        if result.timed_out or result.exit_code != 0:
-            detail = result.stderr.decode(errors="replace").strip()
-            msg = f"a guest operation exited {result.exit_code}: {detail}"
+        if result.status() != 0:
+            detail = result.transport_error or result.stderr.decode(errors="replace").strip()
+            msg = f"a guest operation exited {result.status()}: {detail}"
             raise SbxError(msg, code="guest-command")
 
     def _open(self, path: str, mode: str) -> int:
-        return _integer(self.call("guest-file-open", path=path, mode=mode), "handle")
+        return reply_int(self.call("guest-file-open", path=path, mode=mode), "handle")
 
     def upload(self, path: str) -> _Upload:
         """Open a guest file for writing."""
         return _Upload(self, self._open(path, "wb"))
 
     def _read(self, handle: int) -> tuple[bytes, bool]:
-        reply = _object(
+        reply = reply_object(
             self.call("guest-file-read", handle=handle, count=FILE_CHUNK), "guest-file-read"
         )
-        data = _decode(reply.get("buf-b64", ""), "buf-b64")
+        data = reply_data(reply.get("buf-b64", ""), "buf-b64")
         eof = reply.get("eof") is True
         # Windows signals the end with an empty read, so an empty one without it repeats.
         if not data and not eof:
             msg = "guest-file-read returned no data before the end of the file"
-            raise _reply_error(msg)
+            raise reply_error(msg)
         return data, eof
 
     def download(self, path: str, out: IO[bytes], budget: int) -> int:
@@ -382,7 +316,7 @@ class _Upload:
         return len(data)
 
     def _send(self, data: bytes) -> None:
-        reply = _object(
+        reply = reply_object(
             self._guest.call(
                 "guest-file-write",
                 handle=self._handle,
@@ -390,7 +324,7 @@ class _Upload:
             ),
             "guest-file-write",
         )
-        if _integer(reply.get("count"), "count") != len(data):
+        if reply_int(reply.get("count"), "count") != len(data):
             msg = "guest-file-write wrote less than it was sent"
             raise SbxError(msg, code="guest-command")
 

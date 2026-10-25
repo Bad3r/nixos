@@ -253,15 +253,12 @@ TOOLS = (
         "exec",
         ("exec",),
         "Run a command in a sandbox",
-        "Run a command over SSH, or through qemu-ga on Windows; returns "
-        "{exit_code, stdout, stderr, truncated, timed_out}. "
-        "A failing guest command is no tool error: its status is exit_code, 124 after timeout.",
-        (
-            NAME,
-            TIMEOUT,
-            Param("agent", _boolean("run through qemu-ga instead of SSH"), flag="--agent"),
-            GUEST_COMMAND,
-        ),
+        "Run a command through the guest agent; returns {exit_code, signal, timed_out, "
+        "killed, transport_error, duration_s, stdout, stderr, truncated}. A failing guest "
+        "command is no tool error: exit_code is its status, or null with signal set when a "
+        "signal ended it. timed_out means the timeout passed and sbx sent SIGTERM, then "
+        "SIGKILL; transport_error means the guest agent stopped answering mid-command.",
+        (NAME, TIMEOUT, GUEST_COMMAND),
     ),
     Tool(
         "cp",

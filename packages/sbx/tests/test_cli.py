@@ -40,10 +40,12 @@ class CommandLineTest(unittest.TestCase):
 
     def test_split(self) -> None:
         """Options after the sandbox name stay sbx's; everything after -- is the command."""
-        leading, command = split_command(["exec", "a", "--agent", "--", "sh", "-c", "x", "--", "y"])
-        self.assertEqual(command, ["sh", "-c", "x", "--", "y"])
+        leading, command = split_command(
+            ["exec", "a", "--timeout", "1m", "--", "sh", "-c", "x", "--"]
+        )
+        self.assertEqual(command, ["sh", "-c", "x", "--"])
         args = build_parser().parse_args(leading)
-        self.assertTrue(args.agent)
+        self.assertEqual(args.timeout, "1m")
         self.assertEqual(split_command(["list", "--json"]), (["list", "--json"], []))
 
     def test_run_flags(self) -> None:

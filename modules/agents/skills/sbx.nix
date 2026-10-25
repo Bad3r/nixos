@@ -88,7 +88,7 @@ let
     | `run <base> [flags] -- CMD`                  | create, copy in, exec, copy out, destroy   |
     | `create <base> [--name N] [--ttl 30m]`       | start a sandbox and wait for SSH           |
     | `create nixos --gui`                         | the same base with an X11 session          |
-    | `exec <name> [--timeout T] [--agent] -- CMD` | run over SSH; `--agent` uses qemu-ga       |
+    | `exec <name> [--timeout T] -- CMD`           | run a command; `--json` captures it        |
     | `cp <src> [<dst>]`                           | one side `<name>:<path>`; no dst = `xfer`  |
     | `destroy <name>` / `--mine` / `--expired`    | stop and delete sandboxes                  |
     | `list [--mine]`, `info <name>`               | state, CID, TTL left, `xfer` directory     |
@@ -107,13 +107,20 @@ let
     Pass `--json` before `--`; after it, the flag belongs to the guest command.
     stdout is then one JSON document.
 
-    - `exec`: `{exit_code, stdout, stderr, truncated, timed_out}`.
+    - `exec`: `{exit_code, signal, timed_out, killed, transport_error,
+      duration_s, stdout, stderr, truncated}`, captured through qemu-ga;
+      output arrives once the command exits.
     - `run`: `{sandbox, in, exec, out}`, with `exec` shaped as above.
     - `key`: `{sandbox, keys}`; `type`: `{sandbox, characters}`. Both return
       once the input reached the guest's keyboard, not once an app handled it,
       so check the effect with `exec` or `screenshot`.
-    - `exec` and `run` exit with the guest command's status, 124 after
-      `--timeout`; 255 can also mean SSH to the guest failed.
+    - `exec` and `run` exit with the guest command's status. Past
+      `--timeout`, sbx sends SIGTERM to its process group, then SIGKILL 5 s
+      later, keeps the partial output, sets `timed_out`, and exits 124; a
+      command's own exit 124 leaves `timed_out` false. A signal gives
+      `exit_code: null`, `signal` such as `"KILL"`, and exit 128+n. Exit 255
+      with `transport_error` set means qemu-ga or SSH failed mid-command, and
+      the command may have run in part; without it, 255 is the guest's own.
     - Failures print `{"error": {"code", "message"}}` and exit 1, or 2 for a
       usage error. A copy out that fails after the command ran makes `run`
       fail this way, and the command's result is lost. `base-missing` means

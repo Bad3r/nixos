@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, NoReturn, cast
 from sbx import completion, journal, sleep, vsock, windows
 from sbx.config import Paths, Settings, caller_session, parse_duration
 from sbx.errors import SbxError, error_document
-from sbx.model import FLAVOURS, NETS, TIMEOUT_EXIT, Backend, ExecResult, Request
+from sbx.model import FLAVOURS, NETS, Backend, ExecResult, Request
 from sbx.sandboxes import Sandboxes
 from sbx.shares import SHARED, Shares
 
@@ -81,7 +81,6 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     execute = verbs.add_parser("exec", parents=[common], help="run a command in a sandbox")
     execute.add_argument("name")
     execute.add_argument("--timeout", help="command timeout such as 10m")
-    execute.add_argument("--agent", action="store_true", help="use qemu-ga guest-exec, not SSH")
 
     copy = verbs.add_parser("cp", parents=[common], help="copy between host and sandbox")
     copy.add_argument("source", help="host path or <name>:<path>")
@@ -179,21 +178,9 @@ def _print_exec(result: ExecResult) -> int:
         print("sbx: output truncated", file=sys.stderr)
     if result.timed_out:
         print("sbx: the command timed out", file=sys.stderr)
-    return exit_code(result)
-
-
-def exit_code(result: ExecResult) -> int:
-    """Return the guest's exit status, 124 after a timeout, as in both output modes."""
-    if result.timed_out:
-        return TIMEOUT_EXIT
-    return 255 if result.exit_code is None else result.exit_code
-
-
-def _attached(code: int | None) -> int:
-    if code is None:
-        print("sbx: the command timed out", file=sys.stderr)
-        return TIMEOUT_EXIT
-    return code
+    if result.transport_error is not None:
+        print(f"sbx: {result.transport_error}", file=sys.stderr)
+    return result.status()
 
 
 def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tuple[object, int]:
@@ -213,17 +200,14 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
         inbox = windows.INBOX if agent_only else "/root/"
         copied_in = [sandboxes.copy(path, f"{name}:{inbox}", token=token) for path in args.inputs]
         if as_json:
-            result = sandboxes.exec_capture(
-                name, command, timeout=timeout, agent=False, token=token
-            )
-            code = exit_code(result)
+            result = sandboxes.exec_capture(name, command, timeout=timeout, token=token)
+            code = result.status()
         elif agent_only:
-            code = _print_exec(
-                sandboxes.exec_capture(name, command, timeout=timeout, agent=True, token=token)
-            )
+            code = _print_exec(sandboxes.exec_capture(name, command, timeout=timeout, token=token))
             result = None
         else:
-            code = _attached(sandboxes.exec_attached(name, command, timeout=timeout, token=token))
+            attached = sandboxes.exec_attached(name, command, timeout=timeout, token=token)
+            code = _print_exec(attached)
             result = None
         copied_out = [
             sandboxes.copy(f"{name}:{path}", args.to, token=token) for path in args.outputs
@@ -257,14 +241,13 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
         case "exec":
             command = _command(args)
             timeout = _timeout(args.timeout)
-            if as_json or args.agent or sandboxes.agent_only(args.name):
-                result = sandboxes.exec_capture(
-                    args.name, command, timeout=timeout, agent=args.agent
-                )
+            if as_json or sandboxes.agent_only(args.name):
+                result = sandboxes.exec_capture(args.name, command, timeout=timeout)
                 if as_json:
-                    return result.as_json(), exit_code(result)
+                    return result.as_json(), result.status()
                 return None, _print_exec(result)
-            return None, _attached(sandboxes.exec_attached(args.name, command, timeout=timeout))
+            attached = sandboxes.exec_attached(args.name, command, timeout=timeout)
+            return None, _print_exec(attached)
         case "cp":
             return sandboxes.copy(args.source, args.destination), 0
         case "destroy":

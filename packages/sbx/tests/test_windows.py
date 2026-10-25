@@ -39,6 +39,7 @@ class FakeWindows(FakeBackend):
         self.processes: dict[int, dict[str, Any] | None] = {}
         self.handles: dict[int, IO[bytes]] = {}
         self.commands: list[list[str]] = []
+        self.started: dict[int, list[str]] = {}
         self.hang: set[str] = set()
         self.kill_exit = 0
         self.link_in_pack = False
@@ -66,6 +67,7 @@ class FakeWindows(FakeBackend):
             case "guest-exec":
                 argv = [arguments["path"], *arguments["arg"]]
                 self.commands.append(argv)
+                self.started[self.counter] = argv
                 stdin = base64.b64decode(arguments.get("input-data", ""))
                 running = argv[0] in self.hang
                 self.processes[self.counter] = None if running else self.program(argv, stdin)
@@ -96,7 +98,7 @@ class FakeWindows(FakeBackend):
     def program(self, argv: list[str], stdin: bytes) -> dict[str, Any]:
         """Emulate the guest programs sbx runs; anything else echoes its arguments."""
         if argv[0] == windows.TASKKILL:
-            if self.exit_on_kill:
+            if self.exit_on_kill or self.kill_exit == 0:
                 for pid, status in self.processes.items():
                     if status is None:
                         self.processes[pid] = {"exitcode": 1}
@@ -255,18 +257,31 @@ class WindowsTest(unittest.TestCase):
         """A timeout runs taskkill on the process tree and reports a failed kill."""
         self.create()
         self.backend.hang.add("slow.exe")
-        result = self.sandboxes().exec_capture("w", ["slow.exe"], timeout=0, agent=False)
-        self.assertTrue(result.timed_out)
+        now = [0.0]
+
+        def pause(seconds: float) -> None:
+            now[0] += seconds
+
+        def run() -> model.ExecResult:
+            sandboxes = self.sandboxes()
+            sandboxes.monotonic = lambda: now[0]
+            sandboxes.pause = pause
+            return sandboxes.exec_capture("w", ["slow.exe"], timeout=1)
+
+        result = run()
+        self.assertEqual((result.timed_out, result.killed, result.exit_code), (True, True, 1))
         self.assertEqual(result.stderr, b"")
-        hung = [pid for pid, status in self.backend.processes.items() if status is None]
-        self.assertEqual(self.backend.commands[-1][:3], [windows.TASKKILL, "/PID", str(hung[0])])
+        self.assertEqual(result.status(), 124)
+        hung = next(pid for pid, argv in self.backend.started.items() if argv == ["slow.exe"])
+        self.assertEqual(self.backend.commands[-1][:3], [windows.TASKKILL, "/PID", str(hung)])
         self.backend.kill_exit = 128
-        result = self.sandboxes().exec_capture("w", ["slow.exe"], timeout=0, agent=False)
+        result = run()
+        self.assertFalse(result.killed)
         self.assertIn(b"may still run: not found", result.stderr)
         # A process that exits while taskkill fails is no failed kill.
         self.backend.exit_on_kill = True
-        result = self.sandboxes().exec_capture("w", ["slow.exe"], timeout=0, agent=False)
-        self.assertEqual(result.stderr, b"")
+        result = run()
+        self.assertEqual((result.killed, result.stderr), (True, b""))
 
     def test_copies(self) -> None:
         """Copies in land under the guest directory; copies out arrive in xfer."""

@@ -42,6 +42,9 @@ class Context:
         self._connect = connect
         self._clock = clock
         self._backend: Backend | None = None
+        # Command deadlines; a host sleep does not count against them.
+        self.monotonic: Callable[[], float] = time.monotonic
+        self.pause: Callable[[float], None] = time.sleep
         # Polled while a create waits; the MCP server ends the wait of a cancelled call.
         self.cancelled: Callable[[], bool] = lambda: False
 

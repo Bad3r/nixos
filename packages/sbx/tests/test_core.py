@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """Policy and lifecycle checks of sbx against a fake backend and stub tools."""
 
+import base64
 import dataclasses
 import itertools
 import json
@@ -111,6 +112,10 @@ class FakeBackend:
         self.before_save: Callable[[], None] | None = None
         self.held = threading.Event()
         self.aborted: list[str] = []
+        # guest-exec without queued replies: the argv and stdin of each, and its exit.
+        self.execs: list[tuple[list[str], bytes]] = []
+        self.statuses: dict[int, dict[str, Any]] = {}
+        self.exit_status: dict[str, Any] = {"exitcode": 0}
 
     def domains(self) -> list[DomainInfo]:
         """List the fake domains; a provisioning run over SSH has powered them all off."""
@@ -183,7 +188,22 @@ class FakeBackend:
             addresses = [{"ip-address-type": "ipv4", "ip-address": a} for a in self.addresses]
             nic = {"name": "eth0", "hardware-address": MAC.upper(), "ip-addresses": addresses}
             return {"return": [{"name": "lo", "hardware-address": "00:00:00:00:00:00"}, nic]}
-        return self.replies.pop(0)
+        if self.replies:
+            return self.replies.pop(0)
+        arguments = cast("dict[str, Any]", command["arguments"])
+        if command["execute"] == "guest-exec":
+            stdin = base64.b64decode(arguments.get("input-data", ""))
+            argv = [arguments["path"], *arguments["arg"]]
+            self.execs.append((argv, stdin))
+            if "blockme" in argv:
+                gate = Path(os.environ["SBX_TEST_GATE"])
+                gate.with_name("gate.started").touch()
+                while not gate.exists():
+                    time.sleep(0.05)
+            pid = 100 + len(self.execs)
+            self.statuses[pid] = {"exited": True, **self.exit_status}
+            return {"return": {"pid": pid}}
+        return {"return": self.statuses.pop(arguments["pid"])}
 
     def screenshot(self, domain: str, target: Path) -> str:  # noqa: ARG002
         """Write a placeholder image."""
@@ -452,7 +472,7 @@ class SandboxesTest(Fixture):
         sandboxes = self.sandboxes()
         log = self.scratch / "ssh.log"
         with mock.patch.dict(os.environ, {"SBX_TEST_SSH_LOG": str(log)}):
-            sandboxes.exec_capture("v", ["true"], timeout=None, agent=False)
+            sandboxes.exec_attached("v", ["true"], timeout=None)
         proxy = next(arg for arg in log.read_text().splitlines() if arg.startswith("ProxyCommand="))
         self.assertEqual(
             proxy,
@@ -463,7 +483,7 @@ class SandboxesTest(Fixture):
             self.backend.domains_by_name["sbx-v"], pid=None
         )
         with self.assertRaises(SbxError) as refused:
-            sandboxes.exec_capture("v", ["true"], timeout=None, agent=False)
+            sandboxes.exec_attached("v", ["true"], timeout=None)
         self.assertEqual(refused.exception.code, "not-running")
 
     def test_gc(self) -> None:
@@ -810,7 +830,7 @@ class SandboxesTest(Fixture):
         self.add_running("old", expires=NOW - 1)
         sandboxes = self.sandboxes()
         with self.assertRaises(SbxError) as refused:
-            sandboxes.exec_capture("old", ["true"], timeout=None, agent=False)
+            sandboxes.exec_capture("old", ["true"], timeout=None)
         self.assertEqual(refused.exception.code, "expired")
         with self.assertRaises(SbxError):
             sandboxes.copy("old:/etc/hostname", None)
@@ -823,7 +843,7 @@ class SandboxesTest(Fixture):
         sandboxes = self.sandboxes()
         good = {"exited": True, "exitcode": 3, "out-data": "aGk=", "err-data": ""}
         self.backend.replies = [{"return": {"pid": 7}}, {"return": good}]
-        result = sandboxes.exec_capture("g", ["x"], timeout=None, agent=True)
+        result = sandboxes.exec_capture("g", ["x"], timeout=None)
         self.assertEqual((result.exit_code, result.stdout), (3, b"hi"))
         malformed: list[list[dict[str, Any]]] = [
             [{"return": {"pid": "7"}}],
@@ -834,7 +854,7 @@ class SandboxesTest(Fixture):
         for replies in malformed:
             self.backend.replies = list(replies)
             with self.subTest(replies=replies), self.assertRaises(SbxError) as refused:
-                sandboxes.exec_capture("g", ["x"], timeout=None, agent=True)
+                sandboxes.exec_capture("g", ["x"], timeout=None)
             self.assertEqual(refused.exception.code, "agent-reply")
 
     def test_foreign_domains_untouched(self) -> None:
@@ -896,29 +916,105 @@ class SandboxesTest(Fixture):
         self.assertEqual(target.read_text(), "1")
         self.assertTrue(second.exists())
 
-    def test_guest_timeout(self) -> None:
-        """A timeout bounds the guest command too, with a later host backstop."""
+    def test_ssh_status_before_the_deadline(self) -> None:
+        """An attached command's own exit 124 is no timeout, and an early ssh 255 is transport."""
         self.add_running("t")
-        calls: list[tuple[list[str], float | None]] = []
+        log = self.scratch / "ssh.log"
+        for code in ("124", "255"):
+            environment = {"SBX_TEST_SSH_EXIT": code, "SBX_TEST_SSH_LOG": str(log)}
+            with self.subTest(code=code), mock.patch.dict(os.environ, environment):
+                result = self.sandboxes().exec_attached("t", ["sleep", "9"], timeout=2)
+            self.assertFalse(result.timed_out)
+            self.assertEqual(result.status(), int(code))
+            self.assertEqual(result.transport_error is not None, code == "255")
+            self.assertEqual(result.exit_code, 124 if code == "124" else None)
+        self.assertTrue(log.read_text().splitlines()[-1].startswith("timeout --kill-after=5 2 "))
 
-        def fake(argv: list[str], _limit: int, timeout: float | None) -> model.ExecResult:
-            calls.append((argv, timeout))
-            return model.ExecResult(124, b"", b"", truncated=False, timed_out=False)
+    def test_ssh_status_past_the_deadline(self) -> None:
+        """Past the deadline, timeout's own statuses and ssh's 255 for its SIGKILL time out."""
+        for code, signal in ((124, None), (137, "KILL"), (255, "KILL")):
+            result = execution.ssh_result(code, 2.5, 2)
+            self.assertEqual((result.timed_out, result.signal), (True, signal))
+            self.assertEqual(result.status(), 124)
+        self.assertEqual(execution.ssh_result(0, 2.5, 2).status(), 0)
+        self.assertTrue(execution.ssh_result(None, 12, 2).timed_out)
 
-        with mock.patch.object(execution, "capture", fake):
-            result = self.sandboxes().exec_capture("t", ["sleep", "9"], timeout=2, agent=False)
-        self.assertTrue(result.timed_out)
-        argv, timeout = calls[0]
-        self.assertEqual(argv[-1], "timeout --kill-after=5 2 sleep 9")
-        self.assertEqual(timeout, 2 + execution.HOST_BACKSTOP)
+    def test_agent_signal(self) -> None:
+        """A command a signal ended has no exit code; its status is 128 plus the signal."""
+        self.add_running("s")
+        self.backend.replies = [{"return": {"pid": 7}}, {"return": {"exited": True, "signal": 9}}]
+        result = self.sandboxes().exec_capture("s", ["x"], timeout=None)
+        document = result.as_json()
+        self.assertEqual((document["exit_code"], document["signal"]), (None, "KILL"))
+        self.assertFalse(document["timed_out"])
+        self.assertEqual(result.status(), 137)
+
+    def test_agent_deadline_kills_the_group(self) -> None:
+        """Past the host deadline, SIGTERM then SIGKILL reach the group, and output is kept."""
+        self.add_running("k")
+        now = [0.0]
+        stubborn = 7
+        kills: list[str] = []
+
+        def reply(_domain: str, command: dict[str, object], _timeout: int) -> dict[str, Any]:
+            arguments = cast("dict[str, Any]", command["arguments"])
+            if command["execute"] == "guest-exec":
+                argv = [arguments["path"], *arguments["arg"]]
+                if argv[1] == "-c" and argv[2].startswith("kill "):
+                    kills.append(argv[2])
+                    return {"return": {"pid": 50 + len(kills)}}
+                return {"return": {"pid": stubborn}}
+            if arguments["pid"] != stubborn:
+                return {"return": {"exited": True, "exitcode": 0}}
+            if any("KILL" in kill for kill in kills):
+                partial = base64.b64encode(b"started\n").decode()
+                return {"return": {"exited": True, "signal": 9, "out-data": partial}}
+            now[0] += 0.5
+            return {"return": {"exited": False}}
+
+        sandboxes = self.sandboxes()
+        sandboxes.monotonic = lambda: now[0]
+
+        def pause(seconds: float) -> None:
+            now[0] += seconds
+
+        sandboxes.pause = pause
+        with mock.patch.object(self.backend, "agent", reply):
+            result = sandboxes.exec_capture("k", ["python3", "stubborn.py"], timeout=1)
+        self.assertEqual(kills, ["kill -TERM -- -7", "kill -KILL -- -7"])
+        self.assertEqual((result.timed_out, result.killed, result.signal), (True, True, "KILL"))
+        self.assertIsNone(result.exit_code)
+        self.assertEqual(result.stdout, b"started\n")
+        self.assertEqual(result.status(), 124)
+        self.assertGreaterEqual(result.duration_s, 1 + agent.GUEST_KILL_AFTER)
+
+    def test_agent_transport_error(self) -> None:
+        """A guest agent lost after the start is a transport error, never a guest status."""
+        self.add_running("x")
+        self.backend.replies = [{"return": {"pid": 7}}]
+        lost = SbxError("agent gone", code="libvirt")
+        ping = self.backend.agent
+
+        def reply(domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:
+            if command["execute"] == "guest-exec-status":
+                raise lost
+            return ping(domain, command, timeout)
+
+        with mock.patch.object(self.backend, "agent", reply):
+            result = self.sandboxes().exec_capture("x", ["true"], timeout=None)
+        self.assertEqual(result.transport_error, "qemu-ga: agent gone")
+        self.assertEqual(result.status(), 255)
 
     def test_json_exit_codes(self) -> None:
-        """The guest's status is the exit status of exec --json."""
+        """The guest's status is the exit status of exec --json, which runs through qemu-ga."""
         self.add_running("j")
-        with mock.patch.dict(os.environ, {"SBX_TEST_SSH_EXIT": "3"}):
-            result, code = self.dispatch("--json", "exec", "j", "--", "false")
+        self.backend.exit_status = {"exitcode": 3}
+        result, code = self.dispatch("--json", "exec", "j", "--", "false")
         self.assertEqual(code, 3)
         self.assertEqual(cast("dict[str, object]", result)["exit_code"], 3)
+        argv, _stdin = self.backend.execs[-1]
+        self.assertEqual(argv[-1], "false")
+        self.assertIn("setsid", argv[2])
 
     def test_run_refusals_before_create(self) -> None:
         """--out without --to, --to without --out, and a bad --timeout create nothing."""

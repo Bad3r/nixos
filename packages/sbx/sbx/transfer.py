@@ -153,7 +153,7 @@ class Transfer(Execution, Storage):
                 f"cp {local} {name}:{guest_path}", verb="cp", sandbox=name, session=self.session
             )
             if self.windows_base(sandbox.meta.base) is not None:
-                guest = windows.Guest(self.backend(), sandbox.domain.name)
+                guest = self.windows_guest(sandbox.domain.name)
                 return {
                     "from": str(local),
                     "to": f"{name}:{windows.copy_in(guest, local, guest_path)}",
@@ -206,7 +206,7 @@ class Transfer(Execution, Storage):
                 msg = f"'{guest_path}' leaves the transfer directory"
                 raise SbxError(msg, code="path-denied")
             if isinstance(source, PureWindowsPath):
-                guest = windows.Guest(self.backend(), sandbox.domain.name)
+                guest = self.windows_guest(sandbox.domain.name)
                 windows.copy_out(guest, source, stage, budget)
             else:
                 options = self._ssh_options(name, sandbox.domain)

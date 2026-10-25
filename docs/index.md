@@ -478,10 +478,12 @@
   - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, the slice and ceilings, state, and gc.
 - [apps/sbx/bases.md](apps/sbx/bases.md)
   - `sbx` bases: Nix-built `nixos` and `nixos-gui`, keyboard input on GUI sandboxes, and hash-pinned cloud images that `base prepare` provisions.
+- [apps/sbx/exec.md](apps/sbx/exec.md)
+  - Commands in sandboxes: qemu-ga and SSH transports, host-side timeouts and their signals, the `--json` result, and exit statuses.
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)
   - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
 - [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)
-  - `sbx` failures by error code: a daemon outside the slice, the vsock namespace launcher, boot timeouts, an unavailable egress bridge or lease, and a refused or failed `base prepare`.
+  - `sbx` failures by error code: a daemon outside the slice, the vsock namespace launcher, boot timeouts, an unavailable egress bridge or lease, exec transport errors, and a refused or failed `base prepare`.
 - [apps/sbx/vsock-grants.md](apps/sbx/vsock-grants.md)
   - Workload grants for sandboxes without a network: listeners inside the QEMU namespace, their lifecycle, fail-closed cases, and the trust split.
 - [apps/sbx/windows.md](apps/sbx/windows.md)

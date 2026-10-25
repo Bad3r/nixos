@@ -37,7 +37,6 @@ SAMPLES: dict[str, object] = {
     "out": ["/root/report.txt"],
     "to": "/work",
     "timeout": "5m",
-    "agent": True,
     "command": ["sh", "-c", "true"],
     "source": "probe:/root/x",
     "destination": "/work",
@@ -72,9 +71,9 @@ class CommandLineTest(unittest.TestCase):
     def test_mapping(self) -> None:
         """Options take the = form, repeat per item, and the command stays apart."""
         argv, command = mcp.TOOLS_BY_NAME["exec"].command_line(
-            {"name": "a", "timeout": "5m", "agent": True, "command": ["sh", "-c", "x -- y"]}
+            {"name": "a", "timeout": "5m", "command": ["sh", "-c", "x -- y"]}
         )
-        self.assertEqual(argv, ["exec", "--timeout=5m", "--agent", "a"])
+        self.assertEqual(argv, ["exec", "--timeout=5m", "a"])
         self.assertEqual(command, ["sh", "-c", "x -- y"])
         argv, _ = mcp.TOOLS_BY_NAME["run"].command_line(
             {"base": "nixos", "name": "-x", "in": ["a", "b"], "ttl": None, "command": ["id"]}
