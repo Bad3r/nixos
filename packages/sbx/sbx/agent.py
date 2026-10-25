@@ -20,6 +20,8 @@ GUEST_KILL_AFTER = 5
 # How long a command gets to exit after the last signal before sbx stops waiting.
 SETTLE = 5
 KILL_TIMEOUT = 30
+# SIGRTMAX on Linux.
+MAX_SIGNAL = 64
 
 # Sends one guest agent command and returns its `return` value.
 type Call = Callable[[str, dict[str, object]], object]
@@ -116,6 +118,9 @@ def _result(
     number = _optional_int(status, "signal")
     if code is None and number is None:
         msg = "guest-exec-status has neither exitcode nor signal"
+        raise reply_error(msg)
+    if number is not None and not 1 <= number <= MAX_SIGNAL:
+        msg = f"signal {number} is no Linux signal"
         raise reply_error(msg)
     return ExecResult(
         code,
@@ -217,7 +222,10 @@ class GuestExec:
 
     def helper(self, path: str, args: Sequence[str]) -> str | None:
         """Run a short helper such as kill; return why it failed, or None."""
-        result = self.run(path, args, timeout=KILL_TIMEOUT, limit=4096)
+        try:
+            result = self.run(path, args, timeout=KILL_TIMEOUT, limit=4096)
+        except SbxError as error:
+            return f"qemu-ga: {error}"
         if result.transport_error is not None:
             return result.transport_error
         if result.exit_code == 0:
@@ -229,7 +237,12 @@ class GuestExec:
         """SIGTERM to the process group, then SIGKILL after the grace."""
 
         def signal(name: str) -> Callable[[int], str | None]:
-            # The launcher's setsid makes the process group id the guest-exec pid.
-            return lambda pid: self.helper("/bin/sh", ["-c", f"kill -{name} -- -{pid}"])
+            # The launcher's setsid makes the process group id the guest-exec pid; until it
+            # runs, no such group exists, so the signal goes to the launcher itself.
+            def send(pid: int) -> str | None:
+                script = f"kill -{name} -- -{pid} 2>/dev/null || kill -{name} {pid}"
+                return self.helper("/bin/sh", ["-c", script])
+
+            return send
 
         return (Stop(signal("TERM"), GUEST_KILL_AFTER), Stop(signal("KILL"), SETTLE))

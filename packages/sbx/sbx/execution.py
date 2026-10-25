@@ -33,18 +33,19 @@ def guest_command(command: Sequence[str], timeout: float | None) -> list[str]:
     return ["timeout", f"--kill-after={GUEST_KILL_AFTER}", f"{timeout:g}", *command]
 
 
-# qemu-ga's environment lacks the system profile, so the launcher sources it. Arguments:
+# qemu-ga's environment lacks the system profile, so the launcher sources it once HOME and
+# USER name the target user, whose per-user profile paths it builds from them. Arguments:
 # user, directory (empty: the user's home), "setsid" or empty, NAME=VALUE..., --, command.
 LAUNCH = """\
-export HOME=/root
-. /etc/profile
 user=$1 dir=$2 session=$3
 shift 3
-entry=$(getent passwd "$user") || { echo "sbx: the guest has no user $user" >&2; exit 125; }
+entry=$(PATH="$PATH:/run/current-system/sw/bin"; getent passwd "$user") ||
+  { echo "sbx: the guest has no user $user" >&2; exit 125; }
 IFS=: read -r _ _ uid gid _ home _ <<EOF
 $entry
 EOF
 export HOME="$home" USER="$user" LOGNAME="$user"
+. /etc/profile
 cd -- "${dir:-$home}" || exit 125
 while [ $# -gt 0 ] && [ "$1" != -- ]; do export "$1"; shift; done
 shift

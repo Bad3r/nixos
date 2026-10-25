@@ -1050,12 +1050,91 @@ class SandboxesTest(Fixture):
         sandboxes.pause = pause
         with mock.patch.object(self.backend, "agent", reply):
             result = sandboxes.exec_capture("k", ["python3", "stubborn.py"], ExecOptions(timeout=1))
-        self.assertEqual(kills, ["kill -TERM -- -7", "kill -KILL -- -7"])
+        self.assertEqual(
+            kills,
+            [
+                "kill -TERM -- -7 2>/dev/null || kill -TERM 7",
+                "kill -KILL -- -7 2>/dev/null || kill -KILL 7",
+            ],
+        )
         self.assertEqual((result.timed_out, result.killed, result.signal), (True, True, "KILL"))
         self.assertIsNone(result.exit_code)
         self.assertEqual(result.stdout, b"started\n")
         self.assertEqual(result.status(), 124)
         self.assertGreaterEqual(result.duration_s, 1 + agent.GUEST_KILL_AFTER)
+
+    def test_agent_bad_signal(self) -> None:
+        """A signal outside Linux's range is a malformed reply, never an exit status."""
+        self.add_running("s")
+        for number in (-1, 0, 65, 128):
+            self.backend.replies = [
+                {"return": {"pid": 7}},
+                {"return": {"exited": True, "signal": number}},
+            ]
+            with self.subTest(number=number), self.assertRaises(SbxError) as refused:
+                self.sandboxes().exec_capture("s", ["x"], ExecOptions())
+            self.assertEqual(refused.exception.code, "agent-reply")
+
+    def test_agent_kill_refused(self) -> None:
+        """A kill qemu-ga refuses to start still leads to SIGKILL, and the result timed out."""
+        now = [0.0]
+        kills: list[str] = []
+
+        def call(execute: str, arguments: dict[str, object]) -> object:
+            if execute == "guest-exec":
+                argv = cast("list[str]", arguments["arg"])
+                if argv[:1] == ["-c"]:
+                    kills.append(argv[1])
+                    msg = "guest-exec refused"
+                    raise SbxError(msg, code="libvirt")
+                return {"pid": 7}
+            now[0] += 0.5
+            return {"exited": False}
+
+        def pause(seconds: float) -> None:
+            now[0] += seconds
+
+        guest = agent.GuestExec(call, clock=lambda: now[0], pause=pause)
+        result = guest.run("x", [], timeout=1, limit=1024, stops=guest.group_stops())
+        self.assertEqual([kill.split()[1] for kill in kills], ["-TERM", "-KILL"])
+        self.assertEqual((result.timed_out, result.transport_error), (True, None))
+        self.assertIn(b"may still run: qemu-ga: guest-exec refused", result.stderr)
+        self.assertEqual(result.status(), 124)
+
+    def test_agent_kill_before_setsid(self) -> None:
+        """A kill before the launcher's setsid, with no process group yet, signals the pid."""
+        scripts: list[list[str]] = []
+
+        def call(execute: str, arguments: dict[str, object]) -> object:
+            if execute == "guest-exec":
+                scripts.append([str(arguments["path"]), *cast("list[str]", arguments["arg"])])
+                return {"pid": 1}
+            return {"exited": True, "exitcode": 0}
+
+        guest = agent.GuestExec(call)
+        # A child of this process, so no process group carries its pid.
+        with subprocess.Popen(["sleep", "30"]) as process:
+            self.assertIsNone(guest.group_stops()[0].send(process.pid))
+            subprocess.run(scripts[0], check=True)
+            self.assertEqual(process.wait(5), -15)
+
+    def test_launcher_profile_sees_the_user(self) -> None:
+        """The profile runs once HOME, USER, and LOGNAME name the target user."""
+        home = self.scratch / "home"
+        home.mkdir()
+        stubs = self.scratch / "launcher-stubs"
+        stubs.mkdir()
+        getent = stubs / "getent"
+        getent.write_text(f'#!/bin/sh\necho "alice:x:0:0::{home}:/bin/sh"\n')
+        getent.chmod(0o755)
+        profile = self.scratch / "profile"
+        seen = self.scratch / "seen"
+        profile.write_text(f'echo "$USER $LOGNAME $HOME" > {seen}\n')
+        script = execution.LAUNCH.replace("/etc/profile", str(profile))
+        argv = execution.launcher(["true"], ExecOptions(user="alice"), session=False)
+        environment = {"PATH": f"{stubs}:{os.environ['PATH']}"}
+        subprocess.run([*argv[:2], script, *argv[3:]], check=True, env=environment)
+        self.assertEqual(seen.read_text(), f"alice alice {home}\n")
 
     def test_agent_transport_error(self) -> None:
         """A guest agent lost after the start is a transport error, never a guest status."""
