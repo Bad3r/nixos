@@ -22,6 +22,8 @@ function Invoke-Native([string] $file, [string[]] $arguments) {
 }
 
 try {
+    # Installers run from here as SYSTEM, so only SYSTEM and Administrators may write.
+    Invoke-Native 'icacls.exe' @($state, '/inheritance:r', '/grant:r', '*S-1-5-18:(OI)(CI)F', '*S-1-5-32-544:(OI)(CI)F')
     Start-Transcript -Path (Join-Path $state 'firstlogon.log') -Append | Out-Null
     $transcript = $true
     # Windows counts a positive LogonCount up instead of down, so the answer
