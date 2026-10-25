@@ -57,10 +57,11 @@ badTopic() {
   esac
   [[ $name =~ ^[a-z0-9][a-z0-9._-]{1,63}$ ]] || return 0
   [[ $name =~ [0-9a-f]{8}-[0-9a-f]{4} ]] && return 0
-  # Python's tempfile appends eight of [a-z0-9_]; a hex run is likely a commit.
+  # Python's tempfile appends eight of [a-z0-9_]; a hex run is likely a commit
+  # and letters then digits a version, such as debian12.
   if [[ $name =~ [._-]([a-z0-9_]{8})$ ]]; then
     local suffix="${BASH_REMATCH[1]}"
-    [[ $suffix =~ [0-9] && $suffix =~ [a-z_] && ! $suffix =~ ^[0-9a-f]+$ ]] && return 0
+    [[ $suffix =~ [0-9] && $suffix =~ [a-z_] && ! $suffix =~ ^[0-9a-f]+$ && ! $suffix =~ ^[a-z]+[0-9]+$ ]] && return 0
   fi
   return 1
 }
@@ -85,8 +86,9 @@ checkPath() {
     esac
   fi
   if [ "${2-}" = dest ]; then
-    if [ "$path" = "$scratch" ] || { [ "${path%/*}" = "$scratch" ] && [ ! -d "$path" ]; }; then
-      deny "sbx would drop its output loose in $scratch. $hint"
+    if [ "$path" = "$scratch" ] || [ "$path" = "$scratch/sessions" ] ||
+      { [ "${path%/*}" = "$scratch" ] && [ ! -d "$path" ]; }; then
+      deny "sbx would drop its output loose in ${path%/sessions}; for a directory target, create it first. $hint"
     fi
     return 0
   fi
@@ -284,15 +286,19 @@ done
 # $TMPDIR is the session dir, so only literal $scratch paths can land loose.
 root="${q}${scratchRe}${q}"
 leaf="${root}/${q}[^/[:space:]\"';|&)<>]+${q}([[:space:];|&)<>]|$)"
-rootEnd="${root}/?${q}([[:space:];|&)<>]|$)"
+rootEnd="${root}(/\.?)?${q}([[:space:];|&)<>]|$)"
+opt="(=|[[:space:]]*)"
+tarExtract="\btar\b[[:space:]]+(-[A-Za-z]*x|--extract|--get|x)${seg}"
 patterns=(
   "(>>?|&>>?|>\|)[[:space:]]*${leaf}"
   "\btee\b${seg}[[:space:]]${leaf}"
   "\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
-  "\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${root}/?${q}[[:space:]]*($|[|;&)])"
-  "\btar\b${seg}[[:space:]](-C|--directory)(=|[[:space:]]+)${rootEnd}"
-  "\bunzip\b${seg}[[:space:]]-d[[:space:]]*${rootEnd}"
-  "(^|[[:space:]])(-P|--directory-prefix|--target-directory)(=|[[:space:]]+)${rootEnd}"
+  "\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${rootEnd}"
+  "\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${rootEnd}"
+  "${tarExtract}[[:space:]](-C|--directory)${opt}${rootEnd}"
+  "\bunzip\b${seg}[[:space:]]-d${opt}${rootEnd}"
+  "\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${rootEnd}"
+  "\bcurl\b${seg}[[:space:]]--output-dir${opt}${rootEnd}"
   "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${leaf}"
   "\bof=${leaf}"
 )
@@ -309,11 +315,16 @@ writes=(
   "\b(mkdir|touch|tee|truncate)\b${seg}[[:space:]]${name}"
   "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${name}"
   "\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${name}${q}[[:space:]]*($|[|;&)])"
-  "(^|[[:space:]])(-C|--directory|-d|-o|-O|-P|--output|--output-document|--directory-prefix|--target-directory|--out-link)(=|[[:space:]]+)${name}"
+  "\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${name}"
+  "${tarExtract}[[:space:]](-C|--directory)${opt}${name}"
+  "\bunzip\b${seg}[[:space:]]-d${opt}${name}"
+  "\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${name}"
+  "\bcurl\b${seg}[[:space:]]--output-dir${opt}${name}"
+  "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${name}"
 )
 for pattern in "${writes[@]}"; do
   while IFS= read -r top; do
-    [ -n "$top" ] && [ "$top" != sessions ] || continue
+    case "$top" in "" | sessions | *[*?[]*) continue ;; esac
     if [ ! -e "$scratch/$top" ] && badTopic "$top"; then
       deny "$scratch/$top is not a findable name. $topicRule $hint"
     fi

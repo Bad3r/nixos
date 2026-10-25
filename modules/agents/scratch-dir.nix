@@ -36,8 +36,8 @@ in
           pkgs.coreutils
           pkgs.findutils
           pkgs.jq
+          pkgs.gnugrep
           pkgs.trash-cli
-          pkgs.util-linux
         ];
         text = ''
           scratch=${lib.escapeShellArg scratchDir}
@@ -51,12 +51,14 @@ in
             fi
           done
 
-          # A running Codex thread holds an flock on its writer lock.
+          # A running Codex thread holds an flock on its writer lock; /proc/locks
+          # shows it without opening, so a probe can neither steal nor recreate it.
           codexLive() {
-            local lock
+            local lock ino
             for lock in ${lib.escapeShellArg "${ownerHome}/.config/codex"}/thread-writer-locks/"$1".lock \
               ${lib.escapeShellArg "${ownerHome}/.config/orca/codex-accounts"}/*/home/thread-writer-locks/"$1".lock; do
-              if [ -e "$lock" ] && ! flock -n "$lock" true; then
+              ino="$(stat -c %i -- "$lock" 2>/dev/null)" || continue
+              if grep -q "FLOCK .*:$ino " /proc/locks; then
                 return 0
               fi
             done
@@ -77,7 +79,7 @@ in
               fi
               if idleFor "$dir" 7; then
                 echo "trashing idle session dir ''${dir%/}"
-                trash-put -- "''${dir%/}"
+                trash-put -- "''${dir%/}" || echo "could not trash ''${dir%/}"
               fi
             done
           fi
@@ -85,7 +87,7 @@ in
           for entry in "$scratch"/nix-shell.* "$scratch"/nix-develop-* "$scratch"/pyright-* "$scratch"/tmp.*; do
             if { [ -f "$entry" ] || [ -d "$entry" ]; } && [ ! -L "$entry" ] && idleFor "$entry" 2; then
               echo "trashing tool temp $entry"
-              trash-put -- "$entry"
+              trash-put -- "$entry" || echo "could not trash $entry"
             fi
           done
 
