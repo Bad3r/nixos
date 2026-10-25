@@ -689,6 +689,23 @@ class SandboxesTest(unittest.TestCase):
                 core.lease_address(path, MAC, NOW)
             self.assertEqual(refused.exception.code, "lease-file")
 
+    def test_malformed_leases(self) -> None:
+        """A bad lease file leaves the address out of a listing but fails create."""
+        leases = self.egress()
+        leases.write_text(
+            json.dumps([{"ip-address": "172.16.2.5", "mac-address": MAC, "expiry-time": 0}])
+        )
+        self.sandboxes().create(self.request(net="egress"))
+        leases.write_text("{")
+        self.assertEqual(
+            [entry["address"] for entry in self.sandboxes().listing(mine=False)], [None]
+        )
+        self.assertIsNone(self.sandboxes().info("t1")["address"])
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request(name="t2", net="egress"))
+        self.assertEqual(refused.exception.code, "lease-file")
+        self.assert_no_sandbox("t2")
+
     def test_none_has_no_address(self) -> None:
         """A sandbox without a NIC reports no address even with egress configured."""
         self.egress()

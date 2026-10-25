@@ -673,13 +673,23 @@ class Sandboxes:
             "xfer": str(directory / "xfer"),
         }
 
-    def address(self, sandbox: Sandbox) -> str | None:
-        """Return the address of a running egress sandbox from the host's DHCP leases."""
+    def address(self, sandbox: Sandbox, *, strict: bool = False) -> str | None:
+        """Return the address of a running egress sandbox from the host's DHCP leases.
+
+        A malformed lease file raises only when `strict`; otherwise it is logged
+        and the address left out, so one bad file never fails a listing.
+        """
         egress = self.settings.egress
         mac = sandbox.domain.mac
         if isinstance(egress, str) or mac is None or not sandbox.domain.active:
             return None
-        return lease_address(egress.leases, mac, self._clock())
+        try:
+            return lease_address(egress.leases, mac, self._clock())
+        except SbxError as error:
+            if strict or error.code != "lease-file":
+                raise
+            journal.record(f"no address for {sandbox.name}: {error}", code=error.code)
+            return None
 
     # Policy checks
 
@@ -1052,7 +1062,7 @@ class Sandboxes:
             time.sleep(1)
         if sandbox.meta.net != "egress":
             return
-        while self.address(sandbox) is None:
+        while self.address(sandbox, strict=True) is None:
             if self._clock() > deadline:
                 msg = f"'{name}' got no DHCP lease on its egress bridge; console:\n"
                 raise SbxError(msg + self._console_tail(name), code="no-address")
