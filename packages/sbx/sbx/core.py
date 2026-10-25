@@ -452,6 +452,12 @@ def parse_memory(value: str) -> int:
     return amount * 1024 if match.group(2).upper() == "G" else amount
 
 
+def remote_name(argument: str) -> str | None:
+    """Return the sandbox name of an endpoint, allowing an empty guest path."""
+    name, separator, _path = argument.partition(":")
+    return name if separator and NAME_PATTERN.fullmatch(name) is not None else None
+
+
 def caller_session() -> str | None:
     """Return the agent session that runs sbx, if any."""
     for variable, client in SESSION_VARIABLES:
@@ -2194,9 +2200,10 @@ class Sandboxes:
         return resolved
 
     def _remote(self, argument: str) -> tuple[str, str] | None:
-        name, separator, path = argument.partition(":")
-        if not separator or NAME_PATTERN.fullmatch(name) is None:
+        name = remote_name(argument)
+        if name is None:
             return None
+        path = argument.partition(":")[2]
         if not path:
             msg = f"'{argument}' names no path inside the sandbox"
             raise SbxError(msg, code="invalid-argument")

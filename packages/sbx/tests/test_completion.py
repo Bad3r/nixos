@@ -138,6 +138,18 @@ class CompletionTest(test_core.Fixture):
             with self.subTest(line=line):
                 self.assertEqual(self.complete(line), [])
 
+    def test_copy_colon_host_paths(self) -> None:
+        """Colons in explicit host paths preserve file and opposite-endpoint completion."""
+        self.paths.root.joinpath("probe").mkdir(parents=True)
+        directory = self.scratch / "logs:old"
+        directory.mkdir()
+        (directory / "a.txt").write_text("report")
+        with contextlib.chdir(self.scratch):
+            self.assertEqual(self.complete("sbx cp ./logs:old/a.txt "), ["probe:"])
+            self.assertEqual(self.complete("sbx cp ./logs:old/a"), ["old/a.txt"])
+            self.assertEqual(self.complete("sbx cp probe:/root/file ./logs:old/a"), ["old/a.txt"])
+        self.assertEqual(self.complete(f"sbx cp {directory}/a"), ["old/a.txt"])
+
     def test_shares_and_key_chords(self) -> None:
         """Shares follow local policy and key chords keep their modifier prefix."""
         policy = self.scratch / "grants.json"

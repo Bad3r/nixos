@@ -15,7 +15,7 @@ from argcomplete.completers import (
 from argcomplete.lexers import split_line
 
 from sbx import keys, shares
-from sbx.core import FLAVOURS, Paths, Settings
+from sbx.core import FLAVOURS, Paths, Settings, remote_name
 
 
 class PathCompleter(BaseCompleter):
@@ -83,12 +83,12 @@ class LocalCompleter(BaseCompleter):
         return self._bases()
 
     def _copy(self, prefix: str, parsed_args: argparse.Namespace) -> list[str]:
-        if ":" in prefix:
+        if remote_name(prefix) is not None:
             # Guest paths need a guest command to enumerate, so Tab leaves them alone.
             return []
         # A copy has exactly one guest endpoint.
         source: str | None = getattr(parsed_args, "source", None)
-        if source is not None and ":" in source:
+        if source is not None and remote_name(source) is not None:
             return PathCompleter().paths(prefix)
         names = [path.name for path in Paths.from_environment().sandbox_dirs()]
         endpoints = [f"{name}:" for name in names]
