@@ -37,20 +37,31 @@ in
           pkgs.findutils
           pkgs.jq
           pkgs.trash-cli
+          pkgs.util-linux
         ];
         text = ''
           scratch=${lib.escapeShellArg scratchDir}
           sessions="$scratch/sessions"
 
-          # Codex keeps no live-session registry; its sessions rely on mtime alone.
           live=" "
           for entry in ${lib.escapeShellArg "${ownerHome}/.claude/sessions"}/*.json; do
-            [ -e "$entry" ] || continue
-            pid="$(jq -r '.pid // empty' "$entry")"
+            pid="$(jq -r '.pid // empty' "$entry" 2>/dev/null)" || continue
             if [ -n "$pid" ] && [ -d "/proc/$pid" ]; then
-              live+="$(jq -r '.sessionId // empty' "$entry") "
+              live+="$(jq -r '.sessionId // empty' "$entry" 2>/dev/null) " || continue
             fi
           done
+
+          # A running Codex thread holds an flock on its writer lock.
+          codexLive() {
+            local lock
+            for lock in ${lib.escapeShellArg "${ownerHome}/.config/codex"}/thread-writer-locks/"$1".lock \
+              ${lib.escapeShellArg "${ownerHome}/.config/orca/codex-accounts"}/*/home/thread-writer-locks/"$1".lock; do
+              if [ -e "$lock" ] && ! flock -n "$lock" true; then
+                return 0
+              fi
+            done
+            return 1
+          }
 
           idleFor() {
             [ -z "$(find "$1" -newermt "-$2 days" -print -quit)" ]
@@ -61,6 +72,9 @@ in
               [ -d "$dir" ] || continue
               id="$(basename "$dir")"
               case "$live" in *" $id "*) continue ;; esac
+              if codexLive "$id"; then
+                continue
+              fi
               if idleFor "$dir" 7; then
                 echo "trashing idle session dir ''${dir%/}"
                 trash-put -- "''${dir%/}"

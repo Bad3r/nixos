@@ -47,17 +47,20 @@ isTmp() {
   esac
 }
 
-# mktemp-style suffixes and IDs make a dir unfindable later.
+# Random suffixes and IDs make a dir unfindable later; the tool-temp prefixes
+# are what the scratch sweep trashes after two idle days.
 badTopic() {
   local name="$1"
   case "$name" in
   sessions | tmp | temp | scratch | work | test | tests | out | output | misc | data | files | notes | logs | review | main | master | new | stuff) return 0 ;;
+  nix-shell.* | nix-develop-* | pyright-* | tmp.*) return 0 ;;
   esac
   [[ $name =~ ^[a-z0-9][a-z0-9._-]{1,63}$ ]] || return 0
   [[ $name =~ [0-9a-f]{8}-[0-9a-f]{4} ]] && return 0
-  if [[ $name =~ [._-]([a-z0-9]{6,10})$ ]]; then
+  # Python's tempfile appends eight of [a-z0-9_]; a hex run is likely a commit.
+  if [[ $name =~ [._-]([a-z0-9_]{8})$ ]]; then
     local suffix="${BASH_REMATCH[1]}"
-    [[ $suffix =~ [0-9] && $suffix =~ [a-z] ]] && return 0
+    [[ $suffix =~ [0-9] && $suffix =~ [a-z_] && ! $suffix =~ ^[0-9a-f]+$ ]] && return 0
   fi
   return 1
 }
@@ -277,12 +280,16 @@ done
 # $TMPDIR is the session dir, so only literal $scratch paths can land loose.
 root="${q}${scratchRe}${q}"
 leaf="${root}/${q}[^/[:space:]\"';|&)<>]+${q}([[:space:];|&)<>]|$)"
+rootEnd="${root}/?${q}([[:space:];|&)<>]|$)"
 patterns=(
   "(>>?|&>>?|>\|)[[:space:]]*${leaf}"
   "\btee\b${seg}[[:space:]]${leaf}"
   "\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
-  "\b(cp|mv|install|ln)\b${seg}[[:space:]]${root}/?${q}[[:space:]]*($|[|;&)])"
-  "(^|[[:space:]])(-o|-O|--output|--output-document)(=|[[:space:]]+)${leaf}"
+  "\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${root}/?${q}[[:space:]]*($|[|;&)])"
+  "\btar\b${seg}[[:space:]](-C|--directory)(=|[[:space:]]+)${rootEnd}"
+  "\bunzip\b${seg}[[:space:]]-d[[:space:]]*${rootEnd}"
+  "(^|[[:space:]])(-P|--directory-prefix|--target-directory)(=|[[:space:]]+)${rootEnd}"
+  "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${leaf}"
   "\bof=${leaf}"
 )
 for pattern in "${patterns[@]}"; do
@@ -291,12 +298,21 @@ for pattern in "${patterns[@]}"; do
   fi
 done
 
-# A writing command may create any top-level dir it names.
-if grep -qE '>|\b(mkdir|git|cp|mv|rsync|install|ln|tar|unzip|curl|wget|touch|tee)\b' <<<"$command"; then
+# A top-level dir a command creates must have a findable name.
+name="${q}${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+"
+writes=(
+  "(>>?|&>>?|>\|)[[:space:]]*${name}"
+  "\b(mkdir|touch|tee|truncate)\b${seg}[[:space:]]${name}"
+  "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${name}"
+  "\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${name}${q}[[:space:]]*($|[|;&)])"
+  "(^|[[:space:]])(-C|--directory|-d|-o|-O|-P|--output|--output-document|--directory-prefix|--target-directory|--out-link)(=|[[:space:]]+)${name}"
+)
+for pattern in "${writes[@]}"; do
   while IFS= read -r top; do
+    [ -n "$top" ] && [ "$top" != sessions ] || continue
     if [ ! -e "$scratch/$top" ] && badTopic "$top"; then
       deny "$scratch/$top is not a findable name. $topicRule $hint"
     fi
-  done < <(grep -oE "${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+" <<<"$command" | sed "s#^$scratch/##" | sort -u)
-fi
+  done < <(grep -oE -- "$pattern" <<<"$command" | grep -oE "${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+" | sed "s#^$scratch/##")
+done
 exit 0

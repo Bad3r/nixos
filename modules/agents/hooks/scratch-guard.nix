@@ -70,7 +70,7 @@ in
         (write "${scratchDir}/sbx-exploration-x_b9mayq/report.md")
         (write "${scratchDir}/0f1e2d3c-4b5a-6789-abcd-ef0123456789/x")
         (write "${scratchDir}/Notes/x")
-        (patch "${scratchDir}/catalog-decomp.d1vaz7/x")
+        (patch "${scratchDir}/catalog-decomp.dPVAZU/x")
         (writeContent "/home/u/.claude/projects/p/memory/x.md" "Report: ${sessionDir}/r.md")
         {
           tool_name = "Edit";
@@ -133,7 +133,13 @@ in
         "sbx cp n:/tmp/a ${scratchDir}"
         "sbx run nixos --out /root/r --to ${scratchDir}/ -- true"
         "mkdir -p ${scratchDir}/work"
-        "git clone https://example.invalid/r ${scratchDir}/repo-a1b2c3d4"
+        "git clone https://example.invalid/r ${scratchDir}/raindrop-project-cleanup-42i39umo"
+        "mkdir ${scratchDir}/pyright-upgrade-pr-600"
+        "tar -xf a.tar -C ${scratchDir}"
+        "unzip a.zip -d ${scratchDir}/"
+        "rsync -a src/ ${scratchDir}/"
+        "wget -P ${scratchDir} https://example.invalid/x"
+        "nix build .#x --out-link ${scratchDir}/result"
         "mkdir ${scratchDir}/tmp && cd ${scratchDir}/tmp"
       ];
       allow = [
@@ -182,6 +188,12 @@ in
         "cp a.txt $TMPDIR/"
         "mkdir -p ${scratchDir}/virt-plan"
         "grep foo ${scratchDir}/claude-1000/x > out.txt"
+        "ls -la ${scratchDir}/tmp 2>/dev/null"
+        "mkdir -p ${scratchDir}/review-f0a4fac4"
+        "git clone https://example.invalid/r ${scratchDir}/pr-123-h264enc"
+        "git worktree add ${scratchDir}/test-utf8mb4"
+        "echo x > ${sessionDir}/f"
+        "tar -xf a.tar -C ${scratchDir}/virt-plan"
         "sbx cp n:/tmp/a \"$TMPDIR\""
         "git clone https://example.invalid/r $TMPDIR/repo"
         "cat $TMPDIR/a > out.txt"
