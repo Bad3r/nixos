@@ -21,8 +21,10 @@ import secrets
 import shlex
 import shutil
 import signal
+import socket
 import stat
 import subprocess
+import sys
 import tempfile
 import threading
 import time
@@ -42,6 +44,8 @@ if TYPE_CHECKING:
 
 NS = "https://github.com/Bad3r/nixos/sbx"
 DOMAIN_PREFIX = "sbx-"
+# workload-grantd's socket; modules/workloads/sharing/grants.nix declares it.
+GRANT_SOCKET = Path("/run/workloads/grant.sock")
 NAME_PATTERN = re.compile(r"[a-z0-9][a-z0-9-]{0,30}")
 # Sandbox directories sit beside the base out-links.
 RESERVED_NAMES = frozenset({"bases"})
@@ -601,6 +605,33 @@ def random_mac() -> str:
 def _lease_error(path: Path, detail: str) -> SbxError:
     msg = f"{path} is not a libvirt lease file: {detail}"
     return SbxError(msg, code="lease-file")
+
+
+def revoke_grants(name: str, address: str | None) -> None:
+    """End the workload grants of a removed sandbox; without the helper there are none."""
+    request: dict[str, object] = {"verb": "revoke", "source": DOMAIN_PREFIX + name}
+    if address is not None:
+        request["address"] = address
+    try:
+        with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as connection:
+            connection.settimeout(30)
+            connection.connect(str(GRANT_SOCKET))
+            connection.sendall(json.dumps(request).encode())
+            connection.shutdown(socket.SHUT_WR)
+            answer = b"".join(iter(lambda: connection.recv(65536), b""))
+    except FileNotFoundError:
+        return
+    except OSError as error:
+        msg = f"workload-grantd is unreachable: {error}"
+        raise SbxError(msg, code="grants") from error
+    try:
+        parsed: object = json.loads(answer)
+    except json.JSONDecodeError as error:
+        msg = f"workload-grantd answered no JSON: {error}"
+        raise SbxError(msg, code="grants") from error
+    if not isinstance(parsed, dict) or "revoked" not in parsed:
+        msg = f"workload-grantd refused the revoke: {answer.decode(errors='replace').strip()}"
+        raise SbxError(msg, code="grants")
 
 
 def lease_address(path: Path, mac: str, now: float) -> str | None:
@@ -1271,25 +1302,40 @@ class Sandboxes:
         return ET.tostring(domain, encoding="unicode")
 
     def _discard(self, name: str, token: str | None = None) -> None:
-        """Remove a sandbox's domain and directory; the caller holds the lock.
+        """Remove a sandbox's domain, directory, and grants; the caller holds the lock.
 
         With a token, only a domain and directory that carry it go, so a later
         sandbox of the same name survives the cleanup of an earlier one.
         """
         sandbox = next((sandbox for sandbox in self.owned() if sandbox.name == name), None)
+        removed = False
+        address = None
         if sandbox is not None and (token is None or sandbox.meta.token == token):
+            address = self.address(sandbox)
             self.backend().remove(DOMAIN_PREFIX + name)
+            removed = True
         directory = self.paths.sandbox(name)
-        if not directory.is_dir():
-            return
-        if token is not None:
-            try:
-                carried = (directory / CREATION_FILE).read_text()
-            except FileNotFoundError:
-                return
-            if carried != token:
-                return
-        shutil.rmtree(directory)
+        if directory.is_dir() and (token is None or self._carries(directory, token)):
+            shutil.rmtree(directory)
+            removed = True
+        if removed:
+            self._revoke_grants(name, address)
+
+    @staticmethod
+    def _carries(directory: Path, token: str) -> bool:
+        try:
+            return (directory / CREATION_FILE).read_text() == token
+        except FileNotFoundError:
+            return False
+
+    @staticmethod
+    def _revoke_grants(name: str, address: str | None) -> None:
+        """The sandbox is gone either way; a grant the helper keeps is reported, not fatal."""
+        try:
+            revoke_grants(name, address)
+        except SbxError as error:
+            journal.record(f"grants of {name} stay live: {error}", code=error.code, sandbox=name)
+            print(f"sbx: grants of {name} stay live: {error}", file=sys.stderr)
 
     def _sandbox_key(self, name: str, directory: Path) -> str:
         """Generate the sandbox's SSH key and return its public half."""
@@ -1640,7 +1686,7 @@ class Sandboxes:
                 continue
             actions.append({"name": directory.name, "reason": "no domain"})
             if not dry_run:
-                shutil.rmtree(directory)
+                self._discard(directory.name)
         return actions, kept
 
     def _prune_bases(self, kept: Sequence[Sandbox], *, dry_run: bool) -> list[dict[str, str]]:

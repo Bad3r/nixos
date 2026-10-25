@@ -118,6 +118,11 @@ let
             type = types.str;
             description = "IPv4 address of the interface.";
           };
+          mac = lib.mkOption {
+            type = types.nullOr types.str;
+            default = null;
+            description = "MAC the interface sends from, which grants from the object match.";
+          };
         };
       };
 

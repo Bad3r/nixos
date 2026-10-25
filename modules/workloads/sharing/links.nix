@@ -284,6 +284,7 @@ let
                 interfaces = lib.mapAttrsToList (nic: interface: {
                   inherit (interface) network;
                   address = guest.address.${nic};
+                  mac = guest.mac.${nic};
                 }) guest.interfaces;
                 ports = guest.grantable;
               }) presentGuests;

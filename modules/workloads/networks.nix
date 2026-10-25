@@ -225,11 +225,26 @@ let
             internal = true;
             description = "Rules the `inet workload` forward chain evaluates ahead of its cross-network drops.";
           };
+
+          serviceTables = lib.mkOption {
+            type = types.listOf types.str;
+            default = [ ];
+            internal = true;
+            description = "Tables a service owns and fills at runtime, outside networking.nftables.tables.";
+          };
         };
       };
 
       config = lib.mkMerge [
         {
+          assertions = [
+            {
+              assertion =
+                config.workloads.nftables.serviceTables == [ ] || !config.networking.nftables.flushRuleset;
+              message = "${lib.concatStringsSep " and " config.workloads.nftables.serviceTables} need networking.nftables.flushRuleset = false: a flushing reload deletes the runtime state their services keep there. A non-empty networking.nftables.ruleset turns flushing on.";
+            }
+          ];
+
           # An explicit 0 turns forwarding off again when a switch drops the last network.
           boot.kernel.sysctl."net.ipv4.conf.all.forwarding" = lib.mkDefault false;
 

@@ -14,8 +14,13 @@ in
   perSystem =
     { pkgs, ... }:
     let
-      failuresAs =
-        trust: links:
+      failuresWith =
+        {
+          trust ? "trusted",
+          links ? [ ],
+          grants ? [ ],
+          bindLeases ? true,
+        }:
         let
           system = inputs.nixpkgs.lib.nixosSystem {
             modules = [
@@ -62,12 +67,40 @@ in
                           id = 2;
                           podman.enable = true;
                         };
+                        sbx = {
+                          id = 3;
+                          isolatePeers = true;
+                          libvirt = {
+                            enable = true;
+                            uuid = "00000000-0000-4000-8000-000000000103";
+                            dhcp = {
+                              start = 2;
+                              end = 254;
+                            };
+                            sessionAttach = true;
+                            inherit bindLeases;
+                          };
+                        };
                       };
 
-                      host.services.api = {
-                        ports = [ 7000 ];
-                        bind = "loopback";
+                      host.services = {
+                        api = {
+                          ports = [ 7000 ];
+                          bind = "loopback";
+                        };
+                        dev = {
+                          ports = [
+                            {
+                              from = 8000;
+                              to = 8999;
+                            }
+                          ];
+                          bind = "any";
+                          grantable = true;
+                        };
                       };
+
+                      grants.allow = grants;
 
                       services.web = {
                         image = "web";
@@ -98,7 +131,22 @@ in
           lib.filter (assertion: !assertion.assertion) system.config.assertions
         );
 
+      failuresAs = trust: links: failuresWith { inherit trust links; };
       failures = failuresAs "trusted";
+      grantFailures =
+        to:
+        failuresWith {
+          links = [ "service:web:80" ];
+          grants = [
+            {
+              from = [
+                "sbx-*"
+                "guest:client"
+              ];
+              inherit to;
+            }
+          ];
+        };
       fails =
         fragment: result:
         lib.assertMsg (lib.any (lib.hasInfix fragment) result) "no failure mentions '${fragment}': ${toString result}";
@@ -126,6 +174,37 @@ in
         assert fails "no workloads.guests.nope" (failures [ "guest:nope" ]);
         assert fails "declares no ports" (failures [ "service:web" ]);
         assert fails "reach host services through grants only" (failuresAs "untrusted" [ "host:api" ]);
+        assert lib.assertMsg (
+          grantFailures [
+            "host:dev"
+            "host:dev:8080"
+          ] == [ ]
+        ) "a valid grant rule fails";
+        assert fails "from lan: expected sbx-*" (failuresWith {
+          links = [ "service:web:80" ];
+          grants = [
+            {
+              from = [ "lan" ];
+              to = [ "host:dev" ];
+            }
+          ];
+        });
+        assert fails "the host service is not grantable" (grantFailures [ "host:api" ]);
+        assert fails "not among the target's grantable ports" (grantFailures [ "host:dev:9000" ]);
+        assert fails "declares no grantable ports" (grantFailures [ "guest:client" ]);
+        assert fails "declares no grantable ports" (grantFailures [ "service:web" ]);
+        assert fails "no such workloads.host.services entry" (grantFailures [ "host:nope" ]);
+        assert fails "expected host:<service>" (grantFailures [ "10.0.0.1:22" ]);
+        assert fails "which needs libvirt.bindLeases" (failuresWith {
+          links = [ "service:web:80" ];
+          bindLeases = false;
+          grants = [
+            {
+              from = [ "sbx-*" ];
+              to = [ "host:dev" ];
+            }
+          ];
+        });
         pkgs.runCommand "workloads-sharing-eval" { } "touch $out";
     };
 }
