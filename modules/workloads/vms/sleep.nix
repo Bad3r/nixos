@@ -25,7 +25,7 @@ let
       sbxEnabled = lib.attrByPath [ "programs" "sbx" "extended" "enable" ] false config;
       sbx = config.programs.sbx.extended.finalPackage;
       # Session guests: sbx sandboxes, run per user through `sbx sleep`.
-      sessionArgs = lib.optionalString sbxEnabled " --sbx ${lib.getExe sbx} --sbx-unit ${sbx.settings.unit} --runuser ${pkgs.util-linux}/bin/runuser";
+      sessionArgs = lib.optionalString sbxEnabled " --sbx ${lib.getExe sbx} --sbx-cgroup ${sbx.settings.slice}/${sbx.settings.unit} --runuser ${pkgs.util-linux}/bin/runuser";
 
       hook = phase: [
         "${vmSleep} ${phase} --systemctl ${systemctl} ${

@@ -46,6 +46,7 @@ CLAIM_WAIT = 600
 # How long a guest agent may stay unconnected after resume, shared by all guests.
 AGENT_WAIT = 15
 AGENT_CHANNEL = "devices/channel/target[@name='org.qemu.guest_agent.0']"
+USER_CGROUPS = Path("/sys/fs/cgroup/user.slice")
 # How long a pre phase waits for the lock a wake holds.
 PRE_WAIT = 120
 # How long one `sbx sleep` phase may run for one user; sbx bounds its own save below this.
@@ -78,25 +79,30 @@ class Sessions:
 
     sbx: str
     runuser: str
-    unit: str
-    systemctl: str
+    # The daemon unit's cgroup below user@<uid>.service, such as sbx.slice/sbx-libvirt.service.
+    cgroup: str
 
     def users(self) -> tuple[list[str], list[str]]:
-        """Return the users whose sbx daemon unit is active, and why others are unknown."""
+        """Return the users whose sbx daemon runs, and why others are unknown."""
         listing = ["loginctl", "list-users", "--json=short"]
         output = subprocess.run(listing, check=True, capture_output=True, text=True).stdout
-        active: list[str] = []
+        running: list[str] = []
         unknown: list[str] = []
-        for user in sorted({entry["user"] for entry in json.loads(output)}):
-            # Asked as root, so an account runuser's PAM stack refuses is never entered.
-            query = [self.systemctl, "--user", f"--machine={user}@", "is-active", "--quiet"]
-            code = subprocess.run([*query, self.unit], check=False).returncode
-            if code == 0:
-                active.append(user)
-            # 3 is inactive or failed, 4 an unknown unit.
-            elif code not in {3, 4}:
-                unknown.append(f"{self.unit} of {user} is unknown: systemctl exited {code}")
-        return active, unknown
+        # Read from cgroupfs, so no PAM session or user manager starts for the question,
+        # and a closing user whose manager is gone simply has no such cgroup.
+        for entry in sorted(json.loads(output), key=lambda entry: entry["user"]):
+            uid = entry["uid"]
+            unit = USER_CGROUPS / f"user-{uid}.slice/user@{uid}.service" / self.cgroup
+            try:
+                events = (unit / "cgroup.events").read_text().splitlines()
+            except FileNotFoundError:
+                continue
+            except OSError as error:
+                unknown.append(f"{self.cgroup} of {entry['user']} is unknown: {error}")
+                continue
+            if "populated 1" in events:
+                running.append(entry["user"])
+        return running, unknown
 
     def run(self, user: str, phase: str) -> str | None:
         """Run one phase as `user`; return why it failed, or None."""
@@ -484,11 +490,9 @@ def main() -> int:
     parser.add_argument("--sleep-unit", action="append", default=[], dest="sleep_units")
     parser.add_argument("--sbx", help="sbx to run as each user")
     parser.add_argument("--runuser", default="runuser")
-    parser.add_argument("--sbx-unit", default="sbx-libvirt.service")
+    parser.add_argument("--sbx-cgroup", default="sbx.slice/sbx-libvirt.service")
     args = parser.parse_args()
-    sessions = None
-    if args.sbx is not None:
-        sessions = Sessions(args.sbx, args.runuser, args.sbx_unit, args.systemctl)
+    sessions = None if args.sbx is None else Sessions(args.sbx, args.runuser, args.sbx_cgroup)
 
     # Expected lookup misses would otherwise print to stderr.
     libvirt.registerErrorHandler(lambda _ctx, _error: None, None)

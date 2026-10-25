@@ -88,11 +88,18 @@ in
                 inherit metaOwner;
               };
               networking.nftables.enable = true;
-              users.users.${owner} = {
-                isNormalUser = true;
-                uid = 1000;
-                # Keeps the user manager, and so sbx-libvirt, running without a login.
-                linger = true;
+              users.users = {
+                ${owner} = {
+                  isNormalUser = true;
+                  uid = 1000;
+                  # Keeps the user manager, and so sbx-libvirt, running without a login.
+                  linger = true;
+                };
+                # Left in logind's closing state, without a user manager.
+                closer = {
+                  isNormalUser = true;
+                  uid = 1001;
+                };
               };
               programs.libvirt.extended.enable = true;
               programs.sbx.extended = {
@@ -289,21 +296,38 @@ in
                 since = journal_since()
                 machine.succeed("systemctl start systemd-hibernate.service")
                 hibernate = machine.succeed(since("-u systemd-hibernate.service"))
-                assert "sandbox=old action=destroyed" in hibernate, hibernate
-                assert sessions() == {"live": "shut off", "idle": "shut off", "short": "shut off"}, sessions()
+                # Nothing synchronizes the VM's clock, so no TTL is trusted and old is saved too.
+                assert "expired sandboxes are saved too" in hibernate, hibernate
+                assert set(sessions().values()) == {"shut off"} and len(sessions()) == 4, sessions()
                 saves = machine.succeed(as_owner("virsh -c qemu:///session list --all --with-managed-save --name"))
-                assert len(saves.split()) == 3, saves
+                assert len(saves.split()) == 4, saves
                 # short outlives its TTL across the sleep, which restore leaves to gc.
                 machine.succeed("date -s @$(( $(date +%s) + 3600 ))")
                 machine.succeed("rm /run/no-wake", "systemctl start workloads-vm-wake.service")
-                assert sessions() == {"live": "running", "idle": "paused", "short": "running"}, sessions()
+                assert sessions() == {"live": "running", "idle": "paused", "old": "running", "short": "running"}, sessions()
                 wake = machine.succeed(since("-u workloads-vm-wake.service"))
-                for line in ("sandbox=live action=restored", "sandbox=idle action=restored", "sandbox=short action=restored"):
-                    assert line in wake, wake
+                for name in ("live", "idle", "old", "short"):
+                    assert f"sandbox={name} action=restored" in wake, wake
                 assert "sandboxes of" not in hibernate + wake, hibernate + wake
                 machine.fail("test -e /run/user/1000/sbx/saved")
-                gc = machine.succeed(as_owner("sbx gc"))
-                assert gc.split() == ["name=short", "reason=expired"], gc
+                # gc trusts no TTL on an unsynced clock either.
+                assert machine.succeed(as_owner("sbx gc")).strip() == ""
+                machine.succeed(as_owner("sbx destroy old"), as_owner("sbx destroy short"))
+                assert sessions() == {"live": "running", "idle": "paused"}, sessions()
+
+            with subtest("a closing user without a user manager does not abort hibernation"):
+                # The session ends while its sleep lives on, so logind keeps the user closing.
+                machine.succeed("systemd-run --uid=closer -p PAMName=login sh -c 'sleep 1000 & exit 0' 2>&1")
+                machine.wait_until_succeeds("test \"$(loginctl show-user closer -p State --value)\" = closing")
+                # Its manager stops on its own only later; stopping it now leaves the state the hook must skip.
+                machine.succeed("systemctl stop user@1001.service")
+                assert machine.succeed("loginctl show-user closer -p State --value").strip() == "closing"
+                since = journal_since()
+                sleep_cycle("systemd-hibernate.service")
+                hibernate = machine.succeed(since("-u systemd-hibernate.service"))
+                assert "closer" not in hibernate, hibernate
+                # The hook asked cgroupfs, so it neither opened a session nor restarted the manager.
+                machine.fail("systemctl is-active user@1001.service")
                 assert sessions() == {"live": "running", "idle": "paused"}, sessions()
 
             with subtest("sandboxes that would breach the free-space floor abort hibernation"):
