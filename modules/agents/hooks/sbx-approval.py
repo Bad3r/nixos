@@ -16,6 +16,8 @@ EGRESS = "This sbx sandbox gets internet egress, so anything copied into it can 
 SHARE = "This attaches the read-write shared directory, so the guest writes files on the host."
 OPAQUE = "The approval hook cannot see this sbx call's arguments (sbx-mcp, stdin, or expansions)."
 UNREADABLE = "The approval hook cannot read this tool call, so it fails closed."
+TOO_DEEP = "The approval hook does not follow shell scripts nested this deep, so it fails closed."
+TOO_LONG = "The approval hook does not parse commands over 64 KiB, so it fails closed."
 CODEX = " Codex hooks cannot ask the owner, so hand them the exact command to run, or stay offline."
 
 # argparse also takes a unique prefix of each.
@@ -32,12 +34,17 @@ VALUE_OPTIONS = (
     "--timeout",
 )
 OPERATORS = frozenset("();<>|&")
+# Each drops the word after it, its target, from the simple command.
+REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|", "<>"})
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'")
-SHELL_C = re.compile(r"-[a-z]*c")
+SHELL_C = re.compile(r"-[A-Za-z]*c[A-Za-z]*")
+# Shell options whose argument precedes the -c script.
+SHELL_OPTION_ARGS = frozenset({"-o", "-O", "+o", "+O"})
 STDIN_RUNNERS = frozenset({"xargs", "parallel"})
 OPEN_VERBS = frozenset({"create", "run", "share"})
 MAX_DEPTH = 4
+MAX_COMMAND = 64 * 1024
 
 
 class GateError(Exception):
@@ -51,7 +58,7 @@ class GateError(Exception):
 
 def words(command: str) -> list[str]:
     """Split shell text into words and operators; raise ValueError when it does not parse."""
-    command = command.replace("\\\n", " ")
+    command = command.replace("\\\n", "")
     command = ANSI_C.sub(
         lambda match: shlex.quote(codecs.decode(match[1], "unicode_escape")), command
     )
@@ -63,10 +70,17 @@ def words(command: str) -> list[str]:
 
 
 def segments(tokens: list[str]) -> list[list[str]]:
-    """Split words at shell operators."""
+    """Split words into simple commands at control operators, dropping redirections."""
     result: list[list[str]] = [[]]
+    target = False
     for token in tokens:
-        if token and set(token) <= OPERATORS:
+        operator = bool(token) and set(token) <= OPERATORS
+        if target and not operator:
+            target = False
+        elif token in REDIRECTS:
+            target = True
+        elif operator:
+            target = False
             result.append([])
         else:
             result[-1].append(token)
@@ -84,19 +98,36 @@ def check(command: str, depth: int = 0) -> None:
         check_segment(segment, depth)
 
 
+def nested(script: str, depth: int) -> None:
+    """Gate a script that a -c flag or eval runs."""
+    if depth >= MAX_DEPTH:
+        raise GateError(TOO_DEEP)
+    check(script, depth + 1)
+
+
 def check_segment(segment: list[str], depth: int) -> None:
-    """Gate one simple command, and the script of sh -c or eval."""
+    """Gate one simple command, and the script of a -c flag or eval."""
+    stdin = evaluating = script = skip = False
     for index, word in enumerate(segment):
-        if basename(word) == "sbx-mcp":
+        name = basename(word)
+        if name == "sbx-mcp":
             raise GateError(OPAQUE)
-        for name in ("sbx", "workloads"):
-            if basename(word) == name:
-                stdin = any(basename(before) in STDIN_RUNNERS for before in segment[:index])
-                check_sbx(name, segment[index + 1 :], stdin=stdin)
-                return
-        nested = index > 0 and (SHELL_C.fullmatch(segment[index - 1]) or "eval" in segment[:index])
-        if nested and depth < MAX_DEPTH:
-            check(word, depth + 1)
+        if name in {"sbx", "workloads"}:
+            check_sbx(name, segment[index + 1 :], stdin=stdin)
+            return
+        if evaluating:
+            nested(word, depth)
+        elif skip:
+            skip = False
+        elif script and word in SHELL_OPTION_ARGS:
+            skip = True
+        elif script and not word.startswith(("-", "+")):
+            script = False
+            nested(word, depth)
+        elif SHELL_C.fullmatch(word):
+            script = True
+        stdin = stdin or name in STDIN_RUNNERS
+        evaluating = evaluating or name == "eval"
 
 
 def net_end(args: list[str], index: int, value: str | None) -> int:
@@ -128,7 +159,9 @@ def positionals_of(args: list[str]) -> list[str]:
         if option in {"--ne", "--net"}:
             index = net_end(args, index, value if equals else None)
         elif word.startswith("--") and not equals:
-            index += any(known.startswith(option) for known in VALUE_OPTIONS)
+            # argparse refuses an option word as the value, so it is never consumed.
+            takes = any(known.startswith(option) for known in VALUE_OPTIONS)
+            index += takes and index + 1 < len(args) and not args[index + 1].startswith("-")
         elif not word.startswith("-"):
             positionals.append(word)
         index += 1
@@ -138,15 +171,19 @@ def positionals_of(args: list[str]) -> list[str]:
 def check_sbx(name: str, args: list[str], *, stdin: bool) -> None:
     """Check sbx or workloads options, which end at the first --."""
     positionals = positionals_of(args)
+    if stdin and (not positionals or positionals[0] in OPEN_VERBS):
+        raise GateError(OPAQUE)
     if positionals[:2] == ["share", "attach"]:
-        target, tag = [*positionals[2:], "$", "$"][:2]
-        sandbox = name == "sbx" or target.startswith("sbx-") or NON_LITERAL.search(target)
-        if sandbox and (tag == "shared" or NON_LITERAL.search(tag)):
+        # A redirection's fd number stays a word, so any word past the name may be the tag.
+        operands = positionals[2:]
+        sandbox = name == "sbx" or any(
+            word.startswith("sbx-") or NON_LITERAL.search(word) for word in operands
+        )
+        tags = operands[1:]
+        if sandbox and (not tags or any(t == "shared" or NON_LITERAL.search(t) for t in tags)):
             raise GateError(SHARE)
     elif name != "sbx":
         return
-    elif stdin and (not positionals or positionals[0] in OPEN_VERBS):
-        raise GateError(OPAQUE)
     elif positionals[:1] in (["create"], ["run"]):
         if any(NON_LITERAL.search(word) for word in positionals):
             raise GateError(OPAQUE)
@@ -176,11 +213,13 @@ def review(payload: object) -> None:
     command = field(tool_input, "command")
     if not isinstance(command, str):
         raise GateError(UNREADABLE)
+    if len(command) > MAX_COMMAND:
+        raise GateError(TOO_LONG)
     try:
         check(command)
     except ValueError:
         # Unparsable text that could spell sbx fails closed; a heredoc with an apostrophe passes.
-        if "sbx" in re.sub(r"[\"'\\]", "", command) or "$'" in command:
+        if "sbx" in re.sub(r"[\"'\\]", "", command.replace("\\\n", "")) or "$'" in command:
             raise GateError(OPAQUE) from None
 
 

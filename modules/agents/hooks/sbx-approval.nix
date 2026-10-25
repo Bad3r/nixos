@@ -8,6 +8,10 @@ let
     tool_name = "Bash";
     tool_input = { inherit command; };
   };
+  # eval nested n deep around true.
+  evals = n: if n == 0 then "true" else "eval ${lib.escapeShellArg (evals (n - 1))}";
+  words = n: "echo ${lib.concatStrings (lib.replicate n "x ")}";
+
   mcp = tool: tool_input: {
     tool_name = "mcp__sbx__${tool}";
     inherit tool_input;
@@ -63,10 +67,22 @@ let
     "sbx create nixos --net egress # it's"
     "$'\\x73bx' create nixos --net egress # it's"
     "echo `sbx create nixos --net egress`"
+    "sbx create nixos 2>/dev/null --net egress"
+    "sbx run nixos </dev/null --net egress -- true"
+    "sbx create nixos >out --net egress"
+    "sbx create nixos 2>&1 --net egress"
+    "sbx create nixos --cpus 2 >log --net egress"
+    "sb\\\nx create nixos --net egress"
     "/run/current-system/sw/bin/sbx run nixos --net egress -- true"
     "cd repo && sbx run nixos --net egress -- true"
     "sbx run nixos \\\n  --net egress -- true"
     "bash -lc 'sbx create nixos --net egress'"
+    "bash -ce 'sbx create nixos --net egress'"
+    "bash -cl 'sbx create nixos --net egress'"
+    "bash -c -- 'sbx create nixos --net egress'"
+    "bash -c -o pipefail 'sbx create nixos --net egress'"
+    (evals 5)
+    (words 33000)
     "bash -c 's\"\"bx create nixos --net egress'"
     "command eval 'sbx create nixos --net egress'"
     "echo nixos | xargs -I{} sh -c 'sbx create {} --net egress'"
@@ -83,6 +99,9 @@ let
     "sbx share attach n shar\\ed"
     "sbx share attach n \"$TAG\""
     "sbx share attach n -- shared"
+    "sbx share attach n sha\\\nred"
+    "sbx share attach n 2>/dev/null shared"
+    "echo n | xargs sbx share attach n 2>/dev/null"
     "echo shared | xargs sbx share attach n"
     "workloads share attach sbx-n shared"
     "echo '{\"method\":\"tools/call\"}' | sbx-mcp"
@@ -122,6 +141,11 @@ let
     "sbx run nixos --in . -- sh -c 'sbx-mcp; sbx create nixos --net egress'"
     "echo n | xargs sbx destroy"
     "bash -c 'sbx list --mine'"
+    "sbx create nixos 2>/dev/null"
+    "sbx run nixos --in . 2>&1 -- true | tee log"
+    "sbx exec n -- true > out.txt"
+    (evals 4)
+    (words 30000)
     "sbx share attach n docs"
     "sbx share detach n shared"
     "sbx list --mine"
