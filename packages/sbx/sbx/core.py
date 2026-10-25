@@ -249,6 +249,19 @@ class Paths:
         """Return the run directory of one sandbox."""
         return self.root / name
 
+    def sandbox_dirs(self) -> list[Path]:
+        """List local sandbox directories without connecting to libvirt."""
+        if not self.root.is_dir():
+            return []
+        return sorted(
+            entry
+            for entry in self.root.iterdir()
+            if entry.is_dir()
+            and not entry.is_symlink()
+            and entry.name not in RESERVED_NAMES
+            and NAME_PATTERN.fullmatch(entry.name) is not None
+        )
+
 
 @dataclass(frozen=True)
 class Meta:
@@ -437,6 +450,12 @@ def parse_memory(value: str) -> int:
         raise SbxError(msg, code="invalid-argument")
     amount = int(match.group(1))
     return amount * 1024 if match.group(2).upper() == "G" else amount
+
+
+def remote_name(argument: str) -> str | None:
+    """Return the sandbox name of an endpoint, allowing an empty guest path."""
+    name, separator, _path = argument.partition(":")
+    return name if separator and NAME_PATTERN.fullmatch(name) is not None else None
 
 
 def caller_session() -> str | None:
@@ -870,22 +889,10 @@ class Sandboxes:
         windows_bases = [] if self.settings.windows is None else list(self.settings.windows.bases)
         return [*FLAVOURS, *self.settings.cloud_images, *windows_bases]
 
-    def _sandbox_dirs(self) -> list[Path]:
-        if not self.paths.root.is_dir():
-            return []
-        return sorted(
-            entry
-            for entry in self.paths.root.iterdir()
-            if entry.is_dir()
-            and not entry.is_symlink()
-            and entry.name not in RESERVED_NAMES
-            and NAME_PATTERN.fullmatch(entry.name) is not None
-        )
-
     def has_state(self) -> bool:
         """Return whether any sandbox may exist, without starting the daemon."""
         definitions = self.paths.config / "libvirt" / "qemu"
-        return bool(self._sandbox_dirs()) or any(definitions.glob(f"{DOMAIN_PREFIX}*.xml"))
+        return bool(self.paths.sandbox_dirs()) or any(definitions.glob(f"{DOMAIN_PREFIX}*.xml"))
 
     def owned(self) -> list[Sandbox]:
         """Return the domains sbx created."""
@@ -1050,7 +1057,7 @@ class Sandboxes:
                 raise error
 
         total = 0
-        for directory in self._sandbox_dirs():
+        for directory in self.paths.sandbox_dirs():
             _reopen_shared(directory)
             for parent, _dirs, files in os.walk(directory, onerror=unreadable):
                 for file in files:
@@ -1956,7 +1963,7 @@ class Sandboxes:
             actions.append({"name": sandbox.name, "reason": reason})
             if not dry_run:
                 self._discard(sandbox.name)
-        for directory in self._sandbox_dirs():
+        for directory in self.paths.sandbox_dirs():
             if directory.name in owned:
                 continue
             actions.append({"name": directory.name, "reason": "no domain"})
@@ -2193,9 +2200,10 @@ class Sandboxes:
         return resolved
 
     def _remote(self, argument: str) -> tuple[str, str] | None:
-        name, separator, path = argument.partition(":")
-        if not separator or NAME_PATTERN.fullmatch(name) is None:
+        name = remote_name(argument)
+        if name is None:
             return None
+        path = argument.partition(":")[2]
         if not path:
             msg = f"'{argument}' names no path inside the sandbox"
             raise SbxError(msg, code="invalid-argument")

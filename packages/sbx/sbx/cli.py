@@ -6,7 +6,7 @@ import json
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from sbx import journal, sleep, vsock, windows
+from sbx import completion, journal, sleep, vsock, windows
 from sbx.core import (
     FLAVOURS,
     NETS,
@@ -348,10 +348,16 @@ def split_command(arguments: Sequence[str]) -> tuple[list[str], list[str]]:
 
 def main(settings_path: Path, argv: Sequence[str] | None = None) -> int:
     """Parse, run, print; failures exit non-zero, as JSON under --json."""
-    leading, command = split_command(sys.argv[1:] if argv is None else argv)
+    arguments = list(sys.argv[1:] if argv is None else argv)
+    parser = build_parser()
+    completion.autocomplete(parser, settings_path)
+    if not arguments:
+        parser.print_help()
+        return 0
+    leading, command = split_command(arguments)
     as_json = "--json" in leading
     try:
-        args = build_parser().parse_args(leading)
+        args = parser.parse_args(leading)
         args.command = command
         settings = Settings.load(settings_path)
 

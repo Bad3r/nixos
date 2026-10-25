@@ -657,6 +657,23 @@ class SandboxesTest(Fixture):
         with mock.patch.dict(os.environ, {"SBX_TEST_TOPLEVEL": str(toplevel), **environment}):
             return self.sandboxes().checkout()
 
+    def test_copy_colon_host_paths(self) -> None:
+        """Explicit host paths containing colons work on either side of a copy."""
+        self.paths.sandbox("c").joinpath("xfer").mkdir(parents=True)
+        self.backend.add("c", expires=NOW + 60)
+        directory = self.scratch / "tmp" / "logs:old"
+        directory.mkdir()
+        source = directory / "input.txt"
+        source.write_text("report")
+        sandboxes = self.sandboxes()
+        self.assertEqual(sandboxes.copy(str(source), "c:/root/")["to"], "c:/root/")
+        destination = directory / "output:report.txt"
+        sandboxes.copy("c:/root/report.txt", str(destination))
+        self.assertTrue(destination.is_file())
+        with self.assertRaises(SbxError) as refused:
+            sandboxes.copy("c:", str(destination))
+        self.assertEqual(refused.exception.code, "invalid-argument")
+
     def test_checkout_root(self) -> None:
         """A toplevel counts only if it holds .git and neither is nor holds $HOME."""
         home = self.scratch / "home"
