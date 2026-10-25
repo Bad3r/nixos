@@ -10,7 +10,7 @@ The pipeline and the `windows.*` options live in `modules/workloads/vms/windows/
 - `autounattend.xml`, rendered from the `windows` options;
 - `$WinPEDriver$`, with the virtio storage and network drivers Setup needs to find the disk;
 - the virtio-win guest tools, which bring the guest agent, the SPICE agent, and the other drivers;
-- a hash-pinned Win32-OpenSSH installer, and a hash-pinned WinFsp installer for virtiofs shares;
+- a hash-pinned Win32-OpenSSH installer;
 - `firstlogon.ps1`.
 
 While `install.media` is not empty, the seed is the `<name>-seed` entry of `workloads.images`, attached as a CD-ROM from the out-link `/var/lib/workloads/images/<name>-seed`.
@@ -41,7 +41,8 @@ It waits through the installation for the guest agent and for `firstlogon.ps1`, 
 3. Remote Desktop: on, with its built-in firewall group open to the gateway of each guest network only.
 4. Firewall: one `workloads-<service>` rule per `windows.services` entry, open to the same gateways; undeclared `workloads-*` rules are removed.
    `firstlogon.ps1` removes the rule the OpenSSH installer adds, so port 22 follows `windows.services` too.
-5. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise Windows stays unactivated.
+5. Shares: WinFsp and the drive letter of each declared share, as [Guest shares](shares.md#windows-guests) describes.
+6. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise Windows stays unactivated.
 
 Every step but the password probes the guest first, changes only what differs, and probes again.
 The product key travels on the guest program's standard input and the password through the agent's set-password command, so no process list shows either.

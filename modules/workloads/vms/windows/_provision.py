@@ -27,6 +27,7 @@ AGENT_CHANNEL = "org.qemu.guest_agent.0"
 POWERSHELL = r"C:\Windows\System32\WindowsPowerShell\v1.0\powershell.exe"
 STATE_DIR = r"C:\ProgramData\workloads"
 AUTHORIZED_KEYS = r"C:\ProgramData\ssh\administrators_authorized_keys"
+WINFSP_MSI = rf"{STATE_DIR}\winfsp.msi"
 # Step scripts exit with this code when a probe finds the guest differs.
 DIFFERS = 10
 # Linux keycode of Enter, which answers "Press any key to boot from CD or DVD".
@@ -219,6 +220,38 @@ def write_authorized_keys(guest: Guest) -> None:
     guest.apply("authorized-keys", {"path": AUTHORIZED_KEYS})
 
 
+def winfsp_in_place(guest: Guest) -> bool:
+    """Return whether the guest has the pinned WinFsp or a newer one."""
+    return guest.probe("winfsp", {"version": guest.spec["winfsp"]["version"]})
+
+
+def install_winfsp(guest: Guest) -> None:
+    """Copy the pinned WinFsp MSI into the guest and install it."""
+    winfsp = guest.spec["winfsp"]
+    guest.agent.write(WINFSP_MSI, Path(winfsp["msi"]).read_bytes())
+    guest.apply("winfsp", {"version": winfsp["version"], "path": WINFSP_MSI})
+
+
+def attached_tags(domain: libvirt.virDomain) -> set[str]:
+    """Return the tags of the virtiofs shares in the live definition."""
+    root = ET.fromstring(domain.XMLDesc(0))  # noqa: S314
+    tags = set()
+    for filesystem in root.iterfind("devices/filesystem"):
+        driver = filesystem.find("driver")
+        target = filesystem.find("target")
+        if driver is not None and driver.get("type") == "virtiofs" and target is not None:
+            tags.add(target.get("dir"))
+    return tags
+
+
+def virtiofs_data(guest: Guest) -> dict:
+    """Return the declared shares, each marked with whether the guest has its device now."""
+    virtiofs = guest.spec["virtiofs"]
+    attached = attached_tags(guest.agent.domain)
+    shares = [{**share, "attached": share["tag"] in attached} for share in virtiofs["shares"]]
+    return {"mode": virtiofs["mode"], "shares": shares}
+
+
 def script_step(name: str, data: Callable[[Guest], dict]) -> Step:
     """Build a step whose probe and apply are one script's two modes."""
     return Step(
@@ -236,6 +269,10 @@ def steps(spec: dict) -> list[Step]:
         script_step("remote-desktop", lambda guest: {"remote": guest.spec["gateways"]}),
         script_step("firewall", lambda guest: {"rules": guest.spec["services"]}),
     ]
+    if spec["winfsp"] is not None:
+        result.append(Step("winfsp", winfsp_in_place, install_winfsp))
+    # Also without shares, so removed shares lose their mounts.
+    result.append(script_step("virtiofs", virtiofs_data))
     # Last: activation depends on Microsoft's servers and the key, so a failure
     # there leaves access to the guest in place.
     key_file = spec["productKeyFile"]

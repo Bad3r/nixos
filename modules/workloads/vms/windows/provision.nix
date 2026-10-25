@@ -17,6 +17,14 @@ let
       python = pkgs.python3.withPackages (ps: [ ps.libvirt ]);
       hookName = "workloads-provision";
 
+      winfsp = rec {
+        version = "2.1.25156";
+        msi = pkgs.fetchurl {
+          url = "https://github.com/winfsp/winfsp/releases/download/v2.1/winfsp-${version}.msi";
+          hash = "sha256-Bzpw4A93Qj40vtmLhuYA3vkzk7pYIiBPrFeikyTbn3o=";
+        };
+      };
+
       spec =
         _: guest:
         let
@@ -41,6 +49,21 @@ let
             inherit (service) port protocol;
             remote = gateways;
           }) windows.services;
+          virtiofs = {
+            inherit (windows.virtiofs) mode;
+            shares = lib.mapAttrsToList (tag: letter: {
+              inherit tag letter;
+            }) windows.virtiofs.driveLetters;
+          };
+          # Pushed by the guest agent, so shares declared after the installation get it too.
+          winfsp =
+            if windows.virtiofs.driveLetters == { } then
+              null
+            else
+              {
+                inherit (winfsp) version;
+                msi = "${winfsp.msi}";
+              };
           install = guest.install.media != [ ];
           osDisk = "${guest.stateDir}/${lib.head (lib.attrNames guest.disks)}.qcow2";
         };

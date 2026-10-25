@@ -15,6 +15,32 @@ let
         _: guest: guest.kind == "windows" && guest.ensure == "present"
       ) guests;
 
+      shareModule = {
+        options.driveLetter = lib.mkOption {
+          type = types.nullOr (types.strMatching "[D-Z]");
+          default = null;
+          description = ''
+            Drive letter a Windows guest mounts the share at. Shares without
+            one take the highest free letters from Z down, in tag order.
+          '';
+        };
+      };
+
+      # Highest letters first, away from the ones Windows gives disks and CD-ROMs.
+      freeLetters = lib.reverseList (lib.stringToCharacters "DEFGHIJKLMNOPQRSTUVWXYZ");
+
+      driveLetters =
+        shares:
+        let
+          enabled = lib.filterAttrs (_: share: share.enable) shares;
+          pinned = lib.filterAttrs (_: share: share.driveLetter != null) enabled;
+          taken = lib.mapAttrsToList (_: share: share.driveLetter) pinned;
+          free = lib.filter (letter: !lib.elem letter taken) freeLetters;
+          unpinned = lib.attrNames (removeAttrs enabled (lib.attrNames pinned));
+        in
+        lib.mapAttrs (_: share: share.driveLetter) pinned
+        // lib.listToAttrs (lib.imap0 (i: tag: lib.nameValuePair tag (lib.elemAt free i)) unpinned);
+
       serviceModule = {
         options = {
           port = lib.mkOption {
@@ -39,6 +65,10 @@ let
           inherit (config) windows;
         in
         {
+          options.shares = lib.mkOption {
+            type = types.attrsOf (types.submodule shareModule);
+          };
+
           options.windows = {
             edition = lib.mkOption {
               type = types.str;
@@ -101,6 +131,30 @@ let
               '';
             };
 
+            virtiofs = {
+              mode = lib.mkOption {
+                type = types.enum [
+                  "launcher"
+                  "service"
+                ];
+                default = "launcher";
+                description = ''
+                  How the guest mounts its shares. `launcher` starts one WinFsp
+                  launcher instance per share from a startup task, a virtio-win
+                  Tech Preview; `service` runs the single `VirtioFsSvc` service
+                  for one share attached at boot.
+                '';
+              };
+
+              driveLetters = lib.mkOption {
+                type = types.attrsOf types.str;
+                readOnly = true;
+                default = driveLetters config.shares;
+                defaultText = lib.literalMD "each enabled share's `driveLetter`, or the letter assigned to it";
+                description = "Drive letter of each enabled share, keyed by tag.";
+              };
+            };
+
             seedIso = lib.mkOption {
               type = types.package;
               readOnly = true;
@@ -129,6 +183,10 @@ let
             message = "workloads.guests.${name}: ${message}";
           };
           inherit (guest.windows) productKeySecret;
+          shares = lib.filterAttrs (_: share: share.enable) guest.shares;
+          pinned = lib.filter (letter: letter != null) (
+            lib.mapAttrsToList (_: share: share.driveLetter) shares
+          );
         in
         [
           (check (lib.stringLength name <= 15) "Windows computer names have at most 15 characters")
@@ -140,6 +198,13 @@ let
           (check (
             productKeySecret == null || config.sops.secrets ? ${productKeySecret}
           ) "windows.productKeySecret names no sops.secrets entry")
+          (check (lib.allUnique pinned) "shares: two shares take the same driveLetter")
+          (check (
+            guest.windows.virtiofs.mode != "service"
+            || (
+              lib.length (lib.attrNames shares) <= 1 && lib.all (share: !share.runtime) (lib.attrValues shares)
+            )
+          ) "windows.virtiofs.mode = \"service\" mounts one share, attached at boot")
         ];
     in
     {
