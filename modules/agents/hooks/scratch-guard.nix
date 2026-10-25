@@ -85,6 +85,12 @@ in
           inherit session_id;
           tool_input.command = "*** Begin Patch\n*** Update File: /repo/CLAUDE.md\n+see ${sessionDir}/x\n*** End Patch";
         }
+        {
+          tool_name = "Bash";
+          cwd = scratchDir;
+          inherit session_id;
+          tool_input.command = "sbx cp n:/tmp/a .";
+        }
       ]
       ++ map bash [
         "echo hi > /tmp/x"
@@ -131,6 +137,7 @@ in
         "cp a.txt ${scratchDir}/"
         "mv a.txt \"${scratchDir}\""
         "sbx cp n:/tmp/a ${scratchDir}"
+        "sbx cp n:/tmp/a ${scratchDir}/a"
         "sbx run nixos --out /root/r --to ${scratchDir}/ -- true"
         "mkdir -p ${scratchDir}/work"
         "git clone https://example.invalid/r ${scratchDir}/raindrop-project-cleanup-42i39umo"

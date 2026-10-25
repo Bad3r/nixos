@@ -67,7 +67,8 @@ badTopic() {
 
 topicRule="Name a new top-level dir in $scratch after the PR, branch, or task: a lowercase slug (a-z, 0-9, . _ -), not a generic word, ID, or mktemp-style suffix."
 
-# Pass create for tools that make a new file, so it lands in a session or topic dir.
+# Pass create for tools that make a new file, so it lands in a session or topic
+# dir, or dest for an sbx host target, which may also name a directory.
 checkPath() {
   local path="$1" rest top
   [ -n "$path" ] || return 0
@@ -83,6 +84,12 @@ checkPath() {
     *) deny "$path is under /tmp. Write to ${sessionDir:-$scratch/<topic>}$rest instead. $hint" ;;
     esac
   fi
+  if [ "${2-}" = dest ]; then
+    if [ "$path" = "$scratch" ] || { [ "${path%/*}" = "$scratch" ] && [ ! -d "$path" ]; }; then
+      deny "sbx would drop its output loose in $scratch. $hint"
+    fi
+    return 0
+  fi
   [ "${2-}" = create ] || return 0
   case "$path" in
   "$scratch"/*) ;;
@@ -90,7 +97,7 @@ checkPath() {
   esac
   rest="${path#"$scratch"/}"
   top="${rest%%/*}"
-  if [ "$top" = "$rest" ]; then
+  if [ "$top" = "$rest" ] && [ ! -e "$path" ]; then
     deny "$path would sit loose in $scratch. $hint"
   fi
   if [ "$top" = sessions ]; then
@@ -219,10 +226,7 @@ checkHostPath() {
   case "$path" in
   *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out. $hint" ;;
   esac
-  checkPath "$path"
-  if [ "$(realpath -ms -- "$path")" = "$scratch" ]; then
-    deny "sbx would drop its output loose in $scratch. $hint"
-  fi
+  checkPath "$path" dest
 }
 
 # Everything after exec or run's -- runs in the guest, whose /tmp is its own;
