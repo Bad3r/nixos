@@ -33,6 +33,7 @@ in
         import socket
         import socketserver
         import sys
+        import threading
         import time
 
         role, host, port = sys.argv[1], sys.argv[2], int(sys.argv[3])
@@ -60,6 +61,23 @@ in
                 time.sleep(0.2)
         else:
             log = open(sys.argv[4], "a", buffering=1)
+            if role.startswith("stream-"):
+                # Either end sends unprompted and logs what it reads.
+                if role == "stream-server":
+                    stream, _ = socket.create_server((host, port)).accept()
+                else:
+                    stream = socket.create_connection((host, port), timeout=2)
+                    stream.settimeout(None)
+
+                def send():
+                    while True:
+                        stream.sendall(b"x\n")
+                        time.sleep(0.2)
+
+                threading.Thread(target=send, daemon=True).start()
+                for _ in stream.makefile("rb"):
+                    log.write("ok\n")
+                sys.exit()
             if role == "udp-sink":
                 sink = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 sink.bind((host, port))
@@ -126,10 +144,7 @@ in
 
               networking.nftables.enable = true;
               programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
-              environment.systemPackages = [
-                fakeSbx
-                pkgs.conntrack-tools
-              ];
+              environment.systemPackages = [ fakeSbx ];
               networking.dhcpcd.denyInterfaces = [
                 "vn-*"
                 "w-*"
@@ -377,16 +392,9 @@ in
               assert len(live()) == 4
               expect(opened)
 
-          with subtest("revoke deletes the element and its connections"):
-              machine.succeed(
-                  f"systemd-run --unit=hold ip netns exec sb {python} -c"
-                  " \"import socket, time; s = socket.create_connection(('172.16.2.1', 8000)); time.sleep(300)\""
-              )
-              marked = "conntrack -L -f ipv4 -s 172.16.2.50 -d 172.16.2.1 -p tcp --dport 8000 -m 0x00100000/0x00f00000"
-              machine.wait_until_succeeds(f"{marked} | grep -F ESTABLISHED")
+          with subtest("revoke deletes the element"):
               status, answer = workloads("revoke", dev_8000)
               assert status == 0 and answer == {"revoked": [dev_8000]}, answer
-              machine.fail(f"{marked} | grep -F ESTABLISHED")
               opened -= {"sb-dev-8000"}
               expect(opened)
 
@@ -420,7 +428,7 @@ in
               for _ in range(timeout):
                   if not any(alive(name) for name in names):
                       return
-              raise AssertionError(f"{names} still pass traffic")
+              raise AssertionError(f"{[name for name in names if alive(name)]} still pass traffic")
 
           server("echo-8003", "echo-server", "0.0.0.0", 8003, None)
           server("echo-8005", "echo-server", "0.0.0.0", 8005, None)
@@ -499,6 +507,44 @@ in
               machine.succeed("ip -n sb link set eth0 address 52:54:00:00:02:50", "ip neigh flush dev vn-sbx")
               expect({"control", "sb-dev-8000", "dev-8100"})
               workloads("revoke", moved)
+
+          def two_way(name, ns, endpoint, server_ns=None):
+              host, port = endpoint.split(":")
+              bind = host if server_ns else "0.0.0.0"
+              prefix = f"ip netns exec {server_ns} " if server_ns else ""
+              machine.succeed(f"systemd-run --unit=flow-{name}-server {prefix}{python} {flows} stream-server {bind} {port} /run/flows/{name}-server.log")
+              machine.wait_until_succeeds(f"{prefix}ss -ltn | grep -q ':{port} '")
+              flow(name, ns, "stream-client", endpoint)
+              for log in (name, f"{name}-server"):
+                  machine.wait_until_succeeds(f"test $(wc -l < /run/flows/{log}.log) -gt 3", timeout=20)
+
+          with subtest("revoke stops connections the target side keeps sending on"):
+              pushed = grant("sbx-probe", "host:dev:8020")
+              kept = grant("sbx-probe", "host:dev:8021")
+              pushed_udp = grant("sbx-peer", "host:dev:8022/udp")
+              forwarded = grant("sbx-probe", "guest:dev:8080")
+              machine.succeed("systemctl stop listen-dev-8080")
+              two_way("pushed", "sb", "172.16.2.1:8020")
+              two_way("kept", "sb", "172.16.2.1:8021")
+              two_way("forwarded", "sb", "172.16.1.10:8080", "dev")
+              server("push-8022", "push-server", "0.0.0.0", 8022, None)
+              flow("pushed-udp", "peer", "push-client", "172.16.2.1:8022")
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/pushed-udp.log) -gt 3", timeout=20)
+              for grant_id in (pushed, pushed_udp, forwarded):
+                  status, answer = workloads("revoke", grant_id)
+                  assert status == 0 and answer == {"revoked": [grant_id]}, answer
+              wait_stopped(["pushed", "pushed-server", "pushed-udp", "forwarded", "forwarded-server"], 5)
+              assert alive("kept") and alive("kept-server")
+              machine.succeed("systemctl restart workload-grants.service")
+              machine.succeed("systemctl restart nftables.service")
+              machine.wait_for_unit("workload-grants.service")
+              assert not any(alive(name) for name in ("pushed", "pushed-server", "pushed-udp", "forwarded", "forwarded-server"))
+              assert alive("kept") and alive("kept-server")
+              workloads("revoke", kept)
+              wait_stopped(["kept", "kept-server"], 5)
+              machine.succeed("systemctl stop flow-forwarded-server")
+              serve("dev-8080", 8080, "172.16.1.10", "dev")
+              machine.wait_until_succeeds("ip netns exec dev curl -sf http://172.16.1.10:8080/ | grep -Fx granted")
 
           with subtest("a granted path never leaves through the uplink"):
               # A namespace behind the host's default route answers for the guest's address.

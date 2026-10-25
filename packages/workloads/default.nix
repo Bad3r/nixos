@@ -3,7 +3,6 @@
   stdenvNoCC,
   python3,
   nftables,
-  conntrack-tools,
   iproute2,
   libvirt,
 }:
@@ -46,7 +45,6 @@ stdenvNoCC.mkDerivation {
 
     tools = Tools(
         nft="${lib.getExe nftables}",
-        conntrack="${lib.getExe' conntrack-tools "conntrack"}",
         ip="${lib.getExe' iproute2 "ip"}",
         virsh="${lib.getExe' libvirt "virsh"}",
     )
