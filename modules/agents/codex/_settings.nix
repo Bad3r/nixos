@@ -2,13 +2,14 @@
   agents,
   homeDir,
   lib,
+  osConfig,
   pkgs,
 }:
 let
   # MCP servers via compiled agents.mcp client profile
-  codexMcpServerNames = agents.mcp.clients.codex.names;
+  codexMcpServerNames = agents.mcp.clients.codex.enabledNames osConfig;
   codexMcpServerMeta = map (name: agents.mcp.servers.${name}) codexMcpServerNames;
-  codexMcpServers = agents.mcp.clients.codex.servers pkgs;
+  codexMcpServers = agents.mcp.clients.codex.servers { inherit pkgs osConfig; };
 
   codexMcpAllowedDomains = builtins.sort builtins.lessThan (
     lib.unique (

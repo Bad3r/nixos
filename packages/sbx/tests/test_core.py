@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -29,7 +30,11 @@ STUBS = {
         'if [ "$1" = info ]; then echo \'{"virtual-size": 1073741824}\'; '
         'else eval "disk=\\${$(($# - 1))}"; touch "$disk"; fi'
     ),
-    "ssh": 'exit "${SBX_TEST_SSH_EXIT:-0}"',
+    "ssh": (
+        'case "$*" in *blockme*) touch "$SBX_TEST_GATE.started"; '
+        'while [ ! -e "$SBX_TEST_GATE" ]; do sleep 0.05; done;; esac; '
+        'exit "${SBX_TEST_SSH_EXIT:-0}"'
+    ),
     "scp": (
         'printf "%s\\n" "$@" > "$SBX_TEST_LOG"; for t; do :; done; '
         'case "$t" in root@*) exit 0;; esac; '
@@ -415,6 +420,47 @@ class SandboxesTest(Fixture):
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-b"])
         with self.assertRaises(SbxError):
             self.sandboxes(session=None).listing(mine=True)
+
+    def test_destroy_created(self) -> None:
+        """A creation token reaches the metadata and selects only its own sandbox."""
+        self.sandboxes().create(self.request(), token="tok")  # noqa: S106
+        self.sandboxes().create(self.request(name="t2"))
+        self.assertEqual(self.sandboxes().destroy_created("other"), [])
+        self.assertEqual(self.sandboxes().destroy_created("tok"), ["t1"])
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-t2"])
+
+    def test_run_spares_a_namesake(self) -> None:
+        """A run whose sandbox is destroyed and renamed mid-command never touches the namesake."""
+        gate = self.scratch / "gate"
+        args = cli.build_parser().parse_args(
+            ["run", "nixos", "--name=r", "--out=/root/x", f"--to={self.scratch / 'tmp'}"]
+        )
+        args.command = ["blockme"]
+        errors: list[str] = []
+
+        def worker() -> None:
+            try:
+                cli.dispatch(self.sandboxes(), args, as_json=True)
+            except SbxError as error:
+                errors.append(error.code)
+
+        with mock.patch.dict(os.environ, {"SBX_TEST_GATE": str(gate)}):
+            thread = threading.Thread(target=worker)
+            thread.start()
+            started = gate.with_name("gate.started")
+            deadline = time.monotonic() + 5
+            while not started.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            other = self.sandboxes(session="claude:two")
+            other.destroy("r")
+            replacement = other.create(self.request(name="r"))
+            gate.touch()
+            thread.join(5)
+        self.assertEqual(errors, ["replaced"])
+        self.assertEqual(
+            cast("Meta", self.backend.domains_by_name["sbx-r"].meta).token, replacement["token"]
+        )
+        self.assertTrue(self.paths.sandbox("r").is_dir())
 
     def test_destroy_expired_unsynced(self) -> None:
         """--expired refuses while the host clock is unsynced."""
