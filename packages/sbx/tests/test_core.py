@@ -432,10 +432,11 @@ class SandboxesTest(Fixture):
         self.assertEqual(refused.exception.code, "not-running")
 
     def test_gc(self) -> None:
-        """Expired, stopped, and directory-less sandboxes go; managed saves and live ones stay."""
-        for name in ("live", "old", "off", "saved"):
+        """Expired, stopped, and directory-less sandboxes go; saves, prepares, live ones stay."""
+        for name in ("live", "old", "off", "saved", "prepare-debian-13"):
             self.paths.sandbox(name).mkdir(parents=True)
         self.backend.add("live", expires=NOW + 60)
+        self.backend.add("prepare-debian-13", expires=NOW + 60, active=False)
         self.backend.add("old", expires=NOW - 1)
         self.backend.add("off", expires=NOW + 60, active=False)
         self.backend.add("saved", expires=NOW + 60, active=False, managed_save=True)
@@ -443,7 +444,7 @@ class SandboxesTest(Fixture):
         self.paths.sandbox("stray").mkdir()
         sandboxes = self.sandboxes()
         planned = sandboxes.gc(dry_run=True)
-        self.assertEqual(len(self.backend.domains()), 5)
+        self.assertEqual(len(self.backend.domains()), 6)
         self.assertTrue(self.paths.sandbox("stray").exists())
         self.assertEqual(sandboxes.gc(dry_run=False), planned)
         reasons = {action["name"]: action["reason"] for action in planned}
@@ -456,7 +457,9 @@ class SandboxesTest(Fixture):
                 "stray": "no domain",
             },
         )
-        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-live", "sbx-saved"])
+        self.assertEqual(
+            sorted(self.backend.domains_by_name), ["sbx-live", "sbx-prepare-debian-13", "sbx-saved"]
+        )
         self.assertFalse(self.paths.sandbox("stray").exists())
 
     def test_gc_with_an_unsynced_clock(self) -> None:

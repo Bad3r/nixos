@@ -120,7 +120,8 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     gc = verbs.add_parser("gc", parents=[common], help="remove expired and orphaned sandboxes")
     gc.add_argument("--dry-run", action="store_true")
 
-    base = verbs.add_parser("base", parents=[common], help="list, build, or prepare bases")
+    # No --json between base and its verb, so permission rules see one spelling.
+    base = verbs.add_parser("base", help="list, build, or prepare bases")
     base_verbs = base.add_subparsers(dest="base_verb", required=True, parser_class=Parser)
     base_verbs.add_parser("list", parents=[common])
     build = base_verbs.add_parser("build", parents=[common])

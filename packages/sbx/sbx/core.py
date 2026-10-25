@@ -1515,7 +1515,9 @@ class Sandboxes:
         # An unsynced clock, such as the RTC's right after resume, may run hours ahead.
         if synced and sandbox.meta.expires <= now:
             return "expired"
-        if not sandbox.domain.active and not sandbox.domain.managed_save:
+        # A prepare guest powers itself off before its disk is published.
+        preparing = sandbox.name.startswith(cloud.PREPARE_PREFIX)
+        if not sandbox.domain.active and not sandbox.domain.managed_save and not preparing:
             return "shut off"
         if not self.paths.sandbox(sandbox.name).is_dir():
             return "run directory missing"
