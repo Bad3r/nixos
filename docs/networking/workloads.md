@@ -4,7 +4,7 @@
 `modules/workloads/networks.nix` renders its firewall tables, IPv4 forwarding, and egress routing; the runtime that uses the network creates the bridge `vn-<name>` and serves DHCP on it.
 Containers on rootful Podman join a network through [workload services](workload-services.md).
 A network is isolated by default: guests reach the gateway for DHCP and ping, and for DNS on `warp` networks, and nothing else on the host, the LAN, Mesh, or another network.
-[Workload links](workload-links.md) open single paths through that isolation.
+[Workload links](workload-links.md) open single paths through that isolation, and [grants](workload-grants.md) open them for a bounded time.
 
 ## Table ownership
 
@@ -14,6 +14,7 @@ A network is isolated by default: guests reach the gateway for DHCP and ping, an
 | `inet workload`          | workload module           | anti-spoof, input filter, forward, NAT |
 | `bridge workload-peers`  | workload module           | drops guest-to-guest on one bridge     |
 | `bridge workload-leases` | `workload-leases.service` | binds guests to their DHCP leases      |
+| `inet workload_grants`   | `workload-grants.service` | marks granted connections              |
 | `inet cloudflare-warp`   | warp-svc                  | admits the workload block on its own   |
 
 The `inet workload` prerouting chain drops packets from a bridge whose source lies outside its subnet before conntrack sees them, so a guest cannot inject into another network's flows.

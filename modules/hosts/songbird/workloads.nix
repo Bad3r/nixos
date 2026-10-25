@@ -107,6 +107,18 @@ in
           grantable = true;
         };
 
+        grants.allow = [
+          {
+            from = [ "sbx-*" ];
+            to = [ "host:dev" ];
+          }
+          {
+            from = [ "guest:nixos-dev" ];
+            to = [ "host:dev" ];
+            maxTtl = "24h";
+          }
+        ];
+
         networks = {
           default = {
             egress = "warp";

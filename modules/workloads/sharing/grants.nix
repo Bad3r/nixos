@@ -1,0 +1,381 @@
+_:
+let
+  grantsModule =
+    {
+      config,
+      lib,
+      pkgs,
+      metaOwner,
+      ...
+    }:
+    let
+      inherit (lib) types;
+      cfg = config.workloads.grants;
+      inherit (config.workloads) networks sharing;
+      hostServices = config.workloads.host.services;
+      guestEndpoints = sharing.endpoints.guest or { };
+
+      # The bit the grant chains set on connections they admit; no other table uses ct mark.
+      markAccept = "ct mark & 0x00f00000 == 0x00100000 accept";
+      markGrant = "ct state new iifname . ip saddr . ip daddr . meta l4proto . th dport @grants ct mark set ct mark & 0xff0fffff | 0x00100000";
+      # Ahead of the workload-egress band, 31000-31999.
+      routePreference = 30900;
+
+      # Idempotent: `add` keeps the set and its elements, `flush chain` only the rules.
+      tableFile = pkgs.writeTextFile {
+        name = "workload-grants.nft";
+        text = ''
+          add table inet workload_grants
+          add set inet workload_grants grants { typeof iifname . ip saddr . ip daddr . meta l4proto . th dport; flags interval, timeout; }
+          add chain inet workload_grants input { type filter hook input priority filter - 2; policy accept; }
+          add chain inet workload_grants forward { type filter hook forward priority filter - 2; policy accept; }
+          flush chain inet workload_grants input
+          flush chain inet workload_grants forward
+          add rule inet workload_grants input ${markGrant}
+          add rule inet workload_grants forward ${markGrant}
+        '';
+        checkPhase = ''
+          LD_PRELOAD="${pkgs.buildPackages.lklWithFirewall.lib}/lib/liblkl-hijack.so" \
+            ${pkgs.buildPackages.nftables}/bin/nft --check --file $out
+        '';
+      };
+      loadTable = "${lib.getExe pkgs.nftables} -f ${tableFile}";
+
+      units = {
+        s = 1;
+        m = 60;
+        h = 3600;
+        d = 86400;
+      };
+      seconds =
+        text:
+        let
+          match = builtins.match "([1-9][0-9]*)([smhd])" text;
+        in
+        lib.toInt (lib.elemAt match 0) * units.${lib.elemAt match 1};
+
+      parseTarget =
+        text:
+        let
+          match = builtins.match "(host|guest|service):([a-z0-9][a-z0-9-]*)(:([1-9][0-9]{0,4})(/udp)?)?" text;
+          portText = lib.elemAt match 3;
+          port = lib.toInt portText;
+        in
+        if match == null || (portText != null && port > 65535) then
+          null
+        else
+          {
+            kind = lib.elemAt match 0;
+            name = lib.elemAt match 1;
+            port =
+              if portText == null then
+                null
+              else
+                {
+                  from = port;
+                  to = port;
+                  proto = if lib.elemAt match 4 == null then "tcp" else "udp";
+                };
+          };
+
+      sourceGuest =
+        source:
+        let
+          match = builtins.match "guest:([a-z0-9][a-z0-9-]*)" source;
+        in
+        if match == null then null else lib.head match;
+
+      covers = spec: port: spec.proto == port.proto && spec.from <= port.from && port.to <= spec.to;
+
+      # Host services carry no interfaces; they answer at the source network's gateway.
+      endpointOf =
+        target:
+        if target.kind == "host" then
+          let
+            service = hostServices.${target.name} or null;
+          in
+          if service == null then
+            null
+          else
+            {
+              inherit (service) ports grantable;
+              interfaces = [ ];
+            }
+        else
+          let
+            endpoint = sharing.endpoints.${target.kind}.${target.name} or null;
+          in
+          if endpoint == null then null else endpoint // { grantable = true; };
+
+      sandboxNetworks = lib.filterAttrs (_: network: network.libvirt.sessionAttach or false) networks;
+
+      sources = lib.unique (lib.concatMap (rule: rule.from) cfg.allow);
+      targetTexts = lib.unique (lib.concatMap (rule: rule.to) cfg.allow);
+      targets = lib.filter (target: target != null && endpointOf target != null) (
+        map parseTarget targetTexts
+      );
+
+      interfaceRecords = map (interface: {
+        inherit (interface) network address;
+      });
+      portRecords = map (spec: {
+        inherit (spec) from to proto;
+      });
+
+      policy = {
+        inherit (cfg) maxConcurrent;
+        inherit routePreference;
+        rules = map (rule: {
+          inherit (rule) from to;
+          maxTtl = seconds rule.maxTtl;
+        }) cfg.allow;
+        networks = lib.mapAttrs (name: network: {
+          inherit (network)
+            bridge
+            subnet
+            gateway
+            isolatePeers
+            ;
+          sandboxes = sandboxNetworks ? ${name};
+        }) networks;
+        sources = lib.listToAttrs (
+          map (name: lib.nameValuePair name (interfaceRecords guestEndpoints.${name}.interfaces)) (
+            lib.filter (name: name != null && guestEndpoints ? ${name}) (map sourceGuest sources)
+          )
+        );
+        targets = lib.foldl' lib.recursiveUpdate { } (
+          map (
+            target:
+            let
+              endpoint = endpointOf target;
+            in
+            {
+              ${target.kind}.${target.name} = {
+                ports = portRecords endpoint.ports;
+                interfaces = interfaceRecords endpoint.interfaces;
+              };
+            }
+          ) targets
+        );
+        # A sandbox never claims a declared object's address.
+        reserved = lib.unique (
+          lib.concatMap (endpoint: map (interface: interface.address) endpoint.interfaces) (
+            lib.concatMap lib.attrValues (lib.attrValues sharing.endpoints)
+          )
+        );
+      };
+
+      # Where each rule's sources sit: every sandbox network's subnet, or a guest's addresses.
+      sitesOf =
+        source:
+        if source == "sbx-*" then
+          lib.mapAttrsToList (name: network: {
+            network = name;
+            address = network.subnet;
+          }) sandboxNetworks
+        else
+          let
+            name = sourceGuest source;
+          in
+          map (interface: { inherit (interface) network address; }) (
+            guestEndpoints.${name}.interfaces or [ ]
+          );
+
+      grantProxies = lib.concatMap (
+        rule:
+        lib.concatMap (
+          text:
+          let
+            target = parseTarget text;
+            service = if target == null then null else hostServices.${target.name} or null;
+          in
+          if target == null || target.kind != "host" || service == null || service.bind != "loopback" then
+            [ ]
+          else
+            lib.concatMap (
+              site:
+              map (port: {
+                inherit (site) network;
+                service = target.name;
+                inherit port;
+                sources = [ site.address ];
+              }) (if target.port == null then map (spec: spec.from) service.ports else [ target.port.from ])
+            ) (lib.concatMap sitesOf rule.from)
+        ) rule.to
+      ) cfg.allow;
+
+      check = assertion: message: { inherit assertion message; };
+      prefix = "workloads.grants.allow";
+
+      sourceAssertions = map (
+        source:
+        check (
+          source == "sbx-*" || guestEndpoints ? ${toString (sourceGuest source)}
+        ) "${prefix}: from ${source}: expected sbx-* or guest:<name> of a present guest"
+      ) sources;
+
+      targetAssertion =
+        text:
+        let
+          target = parseTarget text;
+          endpoint = endpointOf target;
+          fail = message: check false "${prefix}: to ${text}: ${message}";
+        in
+        if target == null then
+          fail "expected host:<service>, guest:<name>, or service:<name>, with an optional :<port>[/udp]"
+        else if endpoint == null then
+          fail "no such ${if target.kind == "host" then "workloads.host.services" else target.kind} entry"
+        else if !endpoint.grantable then
+          fail "the host service is not grantable"
+        else if endpoint.ports == [ ] then
+          fail "the target declares no grantable ports"
+        else if target.port != null && !lib.any (spec: covers spec target.port) endpoint.ports then
+          fail "the port is not among the target's grantable ports"
+        else
+          check true "";
+    in
+    {
+      options.workloads.grants = {
+        allow = lib.mkOption {
+          type = types.listOf (
+            types.submodule {
+              options = {
+                from = lib.mkOption {
+                  type = types.nonEmptyListOf types.str;
+                  example = [
+                    "sbx-*"
+                    "guest:nixos-dev"
+                  ];
+                  description = "Sources: `sbx-*` for every sandbox, or `guest:<name>` for a declared guest.";
+                };
+
+                to = lib.mkOption {
+                  type = types.nonEmptyListOf types.str;
+                  example = [
+                    "host:llm"
+                    "guest:nixos-dev:8080"
+                  ];
+                  description = ''
+                    Targets, in the link grammar. A host service must be
+                    `grantable`; a guest or container service opens its
+                    `grantable` or declared ports. A port narrows the entry to
+                    that port.
+                  '';
+                };
+
+                maxTtl = lib.mkOption {
+                  type = types.strMatching "[1-9][0-9]*[smhd]";
+                  default = "2h";
+                  description = "Longest lifetime a grant under this rule may request.";
+                };
+              };
+            }
+          );
+          default = [ ];
+          description = ''
+            Runtime grants the `workloads grant` command may open without a
+            prompt. A grant matches the ingress bridge, both addresses, the
+            protocol, and the ports, and expires with its TTL. Declaring a
+            rule starts `workload-grantd`.
+          '';
+        };
+
+        maxConcurrent = lib.mkOption {
+          type = types.ints.positive;
+          default = 8;
+          description = "Live grants one source may hold.";
+        };
+      };
+
+      config = lib.mkIf (cfg.allow != [ ]) {
+        assertions = sourceAssertions ++ map targetAssertion targetTexts;
+
+        programs.workloads.extended.enable = lib.mkOverride 1050 true;
+
+        environment.etc."workloads/grants.json".text = builtins.toJSON policy;
+
+        workloads.sharing.gatewayProxies = grantProxies;
+        workloads.nftables = {
+          inputRules = markAccept;
+          forwardRules = markAccept;
+        };
+        # A drop in any base chain is final, so nixos-fw accepts granted ports too.
+        networking.firewall.extraInputRules = markAccept;
+
+        systemd = {
+          services.workload-grants = {
+            # Outside networking.nftables.tables, whose reloads delete and
+            # recreate each table and would empty the set.
+            description = "Netfilter table for workload grants";
+            wantedBy = [ "multi-user.target" ];
+            requires = [ "nftables.service" ];
+            after = [ "nftables.service" ];
+            # A reload restores the chains after a flushed ruleset.
+            unitConfig.ReloadPropagatedFrom = [ "nftables.service" ];
+            serviceConfig = {
+              Type = "oneshot";
+              RemainAfterExit = true;
+              ExecStart = loadTable;
+              ExecReload = loadTable;
+            };
+          };
+
+          sockets.workload-grantd = {
+            description = "Workload grant helper socket";
+            wantedBy = [ "sockets.target" ];
+            listenStreams = [ "/run/workloads/grant.sock" ];
+            socketConfig = {
+              Accept = true;
+              SocketUser = metaOwner.username;
+              SocketMode = "0600";
+              DirectoryMode = "0755";
+              MaxConnections = 16;
+            };
+          };
+
+          services."workload-grantd@" = {
+            description = "Workload grant helper";
+            wants = [ "workload-grants.service" ];
+            after = [ "workload-grants.service" ];
+            serviceConfig = {
+              ExecStart = "${config.programs.workloads.extended.package}/bin/workload-grantd";
+              StandardInput = "socket";
+              StandardOutput = "socket";
+              StandardError = "journal";
+              SyslogIdentifier = "workload-grant";
+              RuntimeMaxSec = 30;
+              CapabilityBoundingSet = [ "CAP_NET_ADMIN" ];
+              ReadWritePaths = [ "/run/workloads" ];
+              UMask = "0077";
+              IPAddressDeny = "any";
+              LockPersonality = true;
+              MemoryDenyWriteExecute = true;
+              NoNewPrivileges = true;
+              PrivateDevices = true;
+              PrivateTmp = true;
+              ProtectClock = true;
+              ProtectControlGroups = true;
+              ProtectHome = true;
+              ProtectHostname = true;
+              ProtectKernelLogs = true;
+              ProtectKernelModules = true;
+              ProtectKernelTunables = true;
+              ProtectSystem = "strict";
+              RestrictAddressFamilies = [
+                "AF_UNIX"
+                "AF_NETLINK"
+              ];
+              RestrictNamespaces = true;
+              RestrictRealtime = true;
+              RestrictSUIDSGID = true;
+              SystemCallArchitectures = "native";
+              SystemCallFilter = [ "@system-service" ];
+            };
+          };
+        };
+      };
+    };
+in
+{
+  flake.nixosModules."workloads-sharing" = grantsModule;
+}
