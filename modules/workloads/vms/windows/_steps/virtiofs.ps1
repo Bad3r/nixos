@@ -1,7 +1,6 @@
 # Drive letters for $Data.shares. In launcher mode the workloads-virtiofs task
 # starts one WinFsp.Launcher instance of the virtiofs class per share at every
-# boot; in service mode VirtioFsSvc serves the only share. virtiofs.exe waits
-# for its device, so a share attached later mounts when it arrives.
+# boot; in service mode VirtioFsSvc serves the only share.
 $shares = @($Data.shares)
 $launched = @(if ($Data.mode -eq 'launcher') { $shares })
 $served = @(if ($Data.mode -eq 'service') { $shares })
@@ -15,6 +14,11 @@ $classCommandLine = "-t %1 -m %2 $fsArguments"
 $taskName = 'workloads-virtiofs'
 $powershell = Join-Path $env:SystemRoot 'System32\WindowsPowerShell\v1.0\powershell.exe'
 $log = Join-Path $env:ProgramData 'workloads\virtiofs.log'
+# Every running virtiofs.exe restarts its file system on any virtio-fs device
+# arrival, which can break mounted shares, so a change in the attached tags
+# restarts every instance.
+$attachedFile = Join-Path $env:ProgramData 'workloads\virtiofs.attached'
+$attached = @($launched | Where-Object attached | ForEach-Object tag | Sort-Object) -join ' '
 $winfsp = Get-ItemProperty -LiteralPath 'HKLM:\SOFTWARE\WOW6432Node\WinFsp' -ErrorAction SilentlyContinue
 $launchctl = if ($winfsp) { Join-Path $winfsp.InstallDir 'bin\launchctl-x64.exe' }
 $service = Get-CimInstance -ClassName Win32_Service -Filter "Name='VirtioFsSvc'"
@@ -58,9 +62,24 @@ function Test-Task {
     $triggers.Count -eq 1 -and $triggers[0].CimClass.CimClassName -eq 'MSFT_TaskBootTrigger'
 }
 
+function Get-Class { Get-Item -LiteralPath $classKey -ErrorAction SilentlyContinue }
+
 function Test-Class {
-    $record = Get-ItemProperty -LiteralPath $classKey -ErrorAction SilentlyContinue
-    $record -and $record.Executable -eq $exe -and $record.CommandLine -eq $classCommandLine -and $record.JobControl -eq 1
+    $key = Get-Class
+    if (-not $key) { return $false }
+    (@($key.GetValueNames() | Sort-Object) -join ',') -eq 'CommandLine,Executable,JobControl' -and $key.SubKeyCount -eq 0 -and
+    $key.GetValue('Executable') -eq $exe -and $key.GetValue('CommandLine') -eq $classCommandLine -and
+    "$($key.GetValueKind('JobControl'))" -eq 'DWord' -and $key.GetValue('JobControl') -eq 1
+}
+
+function Get-Recorded {
+    if (Test-Path -LiteralPath $attachedFile) { "$(Get-Content -LiteralPath $attachedFile -Raw)".Trim() }
+}
+
+function Get-BrokenDevices {
+    @(Get-CimInstance -ClassName Win32_PnPEntity | Where-Object {
+            $_.PNPDeviceID -like 'PCI\VEN_1AF4&DEV_105A*' -and ($_.Service -ne 'VirtioFsDrv' -or $_.Status -ne 'OK')
+        })
 }
 
 # Running virtiofs instances, by name, with their command lines unquoted.
@@ -94,7 +113,7 @@ function Test-Service {
 function Test-InPlace {
     $script:service = Get-CimInstance -ClassName Win32_Service -Filter "Name='VirtioFsSvc'"
     if (-not (Test-Service) -or -not (Test-Task)) { return $false }
-    if ($launched.Count -gt 0 -and -not (Test-Class)) { return $false }
+    if ($launched.Count -gt 0 -and (-not (Test-Class) -or (Get-Recorded) -ne $attached)) { return $false }
     $instances = Get-Instances
     if ($instances.Count -ne $launched.Count) { return $false }
     foreach ($share in $launched) {
@@ -115,10 +134,11 @@ if ($served.Count -eq 0 -and $service -and -not (Test-Service)) {
     }
     Set-Service -Name VirtioFsSvc -StartupType Disabled
 }
+$restartAll = $launched.Count -gt 0 -and (Get-Recorded) -ne $attached
 $instances = Get-Instances
 foreach ($name in @($instances.Keys)) {
     $share = $launched | Where-Object tag -EQ $name
-    if ($share -and $instances[$name] -eq (Get-CommandLine $share)) { continue }
+    if (-not $restartAll -and $share -and $instances[$name] -eq (Get-CommandLine $share)) { continue }
     $result = @(& $launchctl stop virtiofs $name) -join ' '
     if ($result -notlike 'OK*') { throw "launchctl stop virtiofs $name failed: $result" }
     $instances.Remove($name)
@@ -128,19 +148,28 @@ if ($launched.Count -eq 0 -and (Get-Task)) {
 }
 if ($active.Count -eq 0) { exit 0 }
 
-$devices = @(Get-CimInstance -ClassName Win32_PnPEntity | Where-Object { $_.PNPDeviceID -like 'PCI\VEN_1AF4&DEV_105A*' })
-if (@($devices | Where-Object { $_.Service -ne 'VirtioFsDrv' -or $_.Status -ne 'OK' }).Count -gt 0) {
+if ((Get-BrokenDevices).Count -gt 0) {
     & pnputil.exe /add-driver (Join-Path $env:ProgramFiles 'Virtio-Win\VioFS\viofs.inf') /install | Out-Null
-    # 259: a newer installed driver outranks this one.
-    if ($LASTEXITCODE -notin 0, 259) { throw "pnputil exited with $LASTEXITCODE" }
+    $code = $LASTEXITCODE
+    if ($code -eq 3010) { throw 'pnputil installed the viofs driver, which needs a restart: reboot the guest' }
+    # 259: no device took the driver.
+    if ($code -notin 0, 259) { throw "pnputil exited with $code" }
+    $broken = Get-BrokenDevices
+    if ($broken.Count -gt 0) {
+        $states = ($broken | ForEach-Object { "$($_.PNPDeviceID) is $($_.Status), problem $($_.ConfigManagerErrorCode)" }) -join '; '
+        throw "virtio-fs devices lack a working viofs driver: $states"
+    }
 }
 
 $servedInPlace = $served.Count -gt 0 -and (Test-Service)
-# A running VirtioFsSvc may hold the letter itself; it restarts below.
-$serviceHolds = $served.Count -gt 0 -and $service.State -ne 'Stopped'
+# A running VirtioFsSvc holds its own letter until it restarts below.
+$serviceLetter = if ($service -and $service.State -ne 'Stopped' -and $service.PathName -match ' -m ([A-Z]):') { $Matches[1] }
+# Instances read after the drives, so a letter an instance mounted meanwhile counts as its own.
 $taken = @([System.IO.DriveInfo]::GetDrives() | ForEach-Object Name)
+$instances = Get-Instances
 foreach ($share in $active) {
-    if ($instances.ContainsKey($share.tag) -or $serviceHolds) { continue }
+    if ($instances.ContainsKey($share.tag)) { continue }
+    if ($served.Count -gt 0 -and $share.letter -eq $serviceLetter) { continue }
     if ("$($share.letter):\" -in $taken) {
         throw "drive $($share.letter): is in use, so share $($share.tag) cannot mount there; free it or set the share's driveLetter"
     }
@@ -156,6 +185,7 @@ if ($served.Count -gt 0 -and -not $servedInPlace) {
 
 if ($launched.Count -gt 0) {
     if (-not (Test-Class)) {
+        if (Get-Class) { Remove-Item -LiteralPath $classKey -Recurse }
         New-Item -Path $classKey -Force | Out-Null
         New-ItemProperty -LiteralPath $classKey -Name Executable -Value $exe -PropertyType String -Force | Out-Null
         New-ItemProperty -LiteralPath $classKey -Name CommandLine -Value $classCommandLine -PropertyType String -Force | Out-Null
@@ -170,10 +200,12 @@ if ($launched.Count -gt 0) {
     }
     if ("$((Get-Service -Name 'WinFsp.Launcher').Status)" -ne 'Running') { Start-Service -Name 'WinFsp.Launcher' }
     Start-ScheduledTask -TaskName $taskName -TaskPath '\'
+    Set-Content -LiteralPath $attachedFile -Value $attached
 }
 
+$where = if ($served.Count -gt 0) { 'VirtioFsSvc logs to the Application event log' } else { "launcher results are in $log" }
 $deadline = (Get-Date).AddMinutes(2)
 while (-not (Test-InPlace)) {
-    if ((Get-Date) -gt $deadline) { throw "the shares did not mount within two minutes; launcher results are in $log" }
+    if ((Get-Date) -gt $deadline) { throw "the shares did not mount within two minutes; $where" }
     Start-Sleep -Seconds 2
 }

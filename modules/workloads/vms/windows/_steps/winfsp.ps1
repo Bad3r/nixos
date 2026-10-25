@@ -1,5 +1,6 @@
-# WinFsp at $Data.version or newer, which virtiofs.exe runs on; apply installs
-# the MSI the host copied to $Data.path and deletes it.
+# WinFsp at $Data.version or newer, which virtiofs.exe runs on; apply checks
+# the MSI the host copied to $Data.path against $Data.sha256, installs it, and
+# deletes it.
 $wanted = [version] $Data.version
 $uninstall = 'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall'
 
@@ -16,6 +17,11 @@ if ($Mode -eq 'probe') {
     exit 10
 }
 $log = Join-Path (Split-Path -Parent $Data.path) 'winfsp-install.log'
+$hash = (Get-FileHash -LiteralPath $Data.path -Algorithm SHA256).Hash
+if ($hash -ne $Data.sha256) {
+    Remove-Item -LiteralPath $Data.path
+    throw "the WinFsp MSI copy has SHA-256 $hash, not $($Data.sha256)"
+}
 $process = Start-Process -FilePath (Join-Path $env:SystemRoot 'System32\msiexec.exe') -Wait -PassThru -ArgumentList @(
     '/i', "`"$($Data.path)`"", '/qn', '/norestart', '/l*v', "`"$log`""
 )

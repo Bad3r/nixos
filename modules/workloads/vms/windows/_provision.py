@@ -235,7 +235,8 @@ def install_winfsp(guest: Guest) -> None:
     """Copy the pinned WinFsp MSI into the guest and install it."""
     winfsp = guest.spec["winfsp"]
     guest.agent.write(WINFSP_MSI, Path(winfsp["msi"]).read_bytes())
-    guest.apply("winfsp", {"version": winfsp["version"], "path": WINFSP_MSI})
+    data = {"version": winfsp["version"], "sha256": winfsp["sha256"], "path": WINFSP_MSI}
+    guest.apply("winfsp", data)
 
 
 def attached_tags(domain: libvirt.virDomain) -> set[str]:
@@ -289,6 +290,8 @@ def script_step(name: str, data: Callable[[Guest], dict]) -> Step:
 def steps(spec: dict) -> list[Step]:
     """Return the steps a declaration asks for, in order."""
     result = [
+        # First: later steps copy installers into the state directory and run them as SYSTEM.
+        script_step("state-dir", lambda _guest: {"path": STATE_DIR}),
         Step("password", None, set_password),
         Step("authorized-keys", authorized_keys_in_place, write_authorized_keys),
         script_step("remote-desktop", lambda guest: {"remote": guest.spec["gateways"]}),

@@ -55,17 +55,19 @@ A share whose `mountPoint` clashes with another file system fails the guest's ev
 
 `workloads-provision@<name>` gives every enabled share a drive letter at each start of a [Windows guest](windows.md).
 
-- A share's `driveLetter` pins its letter; the others take the highest free letters from Z down, in tag order, so adding a share can move them.
-  The read-only `windows.virtiofs.driveLetters` holds the result.
+- A share's `driveLetter` pins a letter from G to Z, since D to F stay free for the installation CD-ROMs.
+  The others take the highest letters no other share pins, from Z down in tag order, so adding a share can move them.
+  The read-only `windows.virtiofs.driveLetters` holds the result; other guest kinds ignore `driveLetter`.
 - The host copies its pinned WinFsp installer in through the guest agent while the guest lacks that version or a newer one.
 - The viofs driver and `virtiofs.exe` come with the virtio-win guest tools.
+- virtio-win calls virtiofs on Windows a Tech Preview, in either mode.
 - `windows.virtiofs.mode = "launcher"`, the default, keeps `VirtioFsSvc` disabled.
-  The startup task `workloads-virtiofs` starts one WinFsp launcher instance of the `virtiofs` class per share, as SYSTEM; virtio-win calls this a Tech Preview.
+  The startup task `workloads-virtiofs` starts one WinFsp launcher instance of the `virtiofs` class per share, as SYSTEM.
 - `windows.virtiofs.mode = "service"` mounts a single share, attached at boot, through `VirtioFsSvc`.
-- An instance waits for its device, so a runtime share mounts once attached.
 - Provisioning stops instances nothing declares, and removes the task once no share is left.
+- When the set of attached shares changed since its last run, provisioning restarts every instance.
 
-The drives belong to SYSTEM, so every session sees them.
+The drives belong to SYSTEM, so every session sees them, unless a mapped network drive on the same letter hides the share in that session.
 In the guest, each launcher start appends its result to `C:\ProgramData\workloads\virtiofs.log`.
 
 ## Runtime shares
@@ -80,9 +82,15 @@ Its `<filesystem>` element is the derived `deviceXml` option, installed as `/etc
    ```
 
 2. In a NixOS guest, the fstab entry is `noauto`, so mount it with `mount /mnt/<tag>`.
-   A Windows guest mounts it at its drive letter by itself.
+   In a Windows guest, restart provisioning, which restarts every launcher instance:
+
+   ```sh
+   sudo systemctl restart workloads-provision@<name>.service
+   ```
 
 `virsh -c qemu:///system detach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live` removes it again after an unmount in the guest.
+A Windows guest needs the same provisioning restart after a detach.
+Each running `virtiofs.exe` remounts itself whenever any virtio-fs device arrives, which can break shares that are already mounted, until provisioning restarts them.
 
 ## Verify
 

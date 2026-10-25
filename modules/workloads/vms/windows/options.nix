@@ -17,17 +17,19 @@ let
 
       shareModule = {
         options.driveLetter = lib.mkOption {
-          type = types.nullOr (types.strMatching "[D-Z]");
+          type = types.nullOr (types.strMatching "[G-Z]");
           default = null;
           description = ''
-            Drive letter a Windows guest mounts the share at. Shares without
-            one take the highest free letters from Z down, in tag order.
+            Drive letter a Windows guest mounts the share at; D to F stay
+            free for the installation CD-ROMs. Shares without one take the
+            highest letters no other share pins, from Z down in tag order.
+            Other guest kinds ignore it.
           '';
         };
       };
 
       # Highest letters first, away from the ones Windows gives disks and CD-ROMs.
-      freeLetters = lib.reverseList (lib.stringToCharacters "DEFGHIJKLMNOPQRSTUVWXYZ");
+      freeLetters = lib.reverseList (lib.stringToCharacters "GHIJKLMNOPQRSTUVWXYZ");
 
       driveLetters =
         shares:
@@ -151,10 +153,11 @@ let
                 ];
                 default = "launcher";
                 description = ''
-                  How the guest mounts its shares. `launcher` starts one WinFsp
-                  launcher instance per share from a startup task, a virtio-win
-                  Tech Preview; `service` runs the single `VirtioFsSvc` service
-                  for one share attached at boot.
+                  How the guest mounts its shares, all of which virtio-win
+                  calls a Tech Preview on Windows. `launcher` starts one WinFsp
+                  launcher instance per share from a startup task; `service`
+                  runs the single `VirtioFsSvc` service for one share attached
+                  at boot.
                 '';
               };
 

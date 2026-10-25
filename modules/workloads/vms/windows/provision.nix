@@ -19,9 +19,10 @@ let
 
       winfsp = rec {
         version = "2.1.25156";
+        sha256 = "073a70e00f77423e34bed98b86e600def93393ba5822204fac57a29324db9f7a";
         msi = pkgs.fetchurl {
           url = "https://github.com/winfsp/winfsp/releases/download/v2.1/winfsp-${version}.msi";
-          hash = "sha256-Bzpw4A93Qj40vtmLhuYA3vkzk7pYIiBPrFeikyTbn3o=";
+          inherit sha256;
         };
       };
 
@@ -66,7 +67,7 @@ let
               null
             else
               {
-                inherit (winfsp) version;
+                inherit (winfsp) version sha256;
                 msi = "${winfsp.msi}";
               };
           install = guest.install.media != [ ];

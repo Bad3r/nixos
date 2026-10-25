@@ -26,6 +26,7 @@ A guest without NVRAM stays undefined, with a warning naming each fix, until tha
 - The autologon runs `firstlogon.ps1`: guest tools, OpenSSH, hibernation and Fast Startup off, no sleep timeouts, no password expiry.
 
 `firstlogon.ps1` logs to `C:\ProgramData\workloads\firstlogon.log` and ends by writing `firstlogon.done`, or `firstlogon.failed` with the error.
+Installers run from `C:\ProgramData\workloads` as SYSTEM, so `firstlogon.ps1` restricts it to SYSTEM and Administrators, and every provisioning run first restores that.
 
 ## Provisioning
 
