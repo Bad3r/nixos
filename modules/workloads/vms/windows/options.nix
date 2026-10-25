@@ -119,7 +119,7 @@ let
               description = ''
                 `sops.secrets` entry holding a Windows product key, which
                 provisioning installs and activates. Without one, or while its
-                file is absent, Windows stays unactivated.
+                file is absent, provisioning leaves activation as it is.
               '';
             };
 

@@ -45,7 +45,7 @@ It waits through the installation for the guest agent and for `firstlogon.ps1`, 
 4. Firewall: one `workloads-<service>` rule per `windows.services` entry, open to the same gateways; undeclared `workloads-*` rules are removed.
    `firstlogon.ps1` removes the rule the OpenSSH installer adds, so port 22 follows `windows.services` too.
 5. Shares: WinFsp and the drive letter of each declared share, as [Guest shares](shares.md#windows-guests) describes.
-6. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise Windows stays unactivated.
+6. Product key: with `windows.productKeySecret` set and its file present, the licensing calls behind `slmgr.vbs /ipk` and `/ato` install and activate it; otherwise provisioning leaves activation as it is.
 7. Office: with `windows.office.installer` set and no Microsoft 365 or Office suite listed under Apps, the staged installer is copied into the guest and run there.
    It downloads Office from Microsoft, and signing in to an Office app with the account that owns the subscription licenses it.
 

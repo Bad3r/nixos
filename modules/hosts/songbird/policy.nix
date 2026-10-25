@@ -46,7 +46,10 @@ _: {
       installIso = "/data/Misc/windows/en-us_windows_11_business.iso";
       installIsoSha256 = "9a9428dcf8ad48391744ac63062619e05758230fe4e9c9753515d413cfc316bb";
       # `{ source; sha256; }` of an OfficeSetup.exe that provisioning runs, or null.
-      officeInstaller = null;
+      officeInstaller = {
+        source = "/data/Misc/windows/OfficeSetup.exe";
+        sha256 = "948aefde9482f101d154c989a05fcd151f4f47470fb2a043df7f1b4bf4043933";
+      };
     };
 
     # Ceilings for every sbx sandbox together (modules/apps/sbx/nixos.nix).
