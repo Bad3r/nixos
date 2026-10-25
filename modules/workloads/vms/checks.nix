@@ -22,7 +22,9 @@ in
         gamma = "00000000-0000-4000-8000-00000000000c";
         delta = "00000000-0000-4000-8000-00000000000d";
         zeta = "00000000-0000-4000-8000-00000000000f";
+        eta = "00000000-0000-4000-8000-000000000e1a";
         adhoc = "00000000-0000-4000-8000-0000000000ad";
+        epsilon = "00000000-0000-4000-8000-00000000000e";
         sbx = "00000000-0000-4000-8000-0000000000bb";
       };
 
@@ -87,6 +89,11 @@ in
         interfaces.eth.network = "lab";
         interfaces.eth.hostOffset = 12;
       };
+      epsilon = guest {
+        uuid = uuids.epsilon;
+        interfaces.eth.network = "default";
+        interfaces.eth.hostOffset = 10;
+      };
       zeta = guest {
         uuid = uuids.zeta;
         disks.root = {
@@ -94,6 +101,12 @@ in
           seed = "late";
         };
       };
+      eta = guest {
+        uuid = uuids.eta;
+        install.media = [ "installer" ];
+      };
+      installerSource = "/srv/media/installer.iso";
+      installerContent = "installer";
       changedAlpha = lib.recursiveUpdate alpha { memory = 192; };
       seedLink = "/var/lib/workloads/images/seed.qcow2";
       lateLink = "/var/lib/workloads/images/late.qcow2";
@@ -286,6 +299,7 @@ in
               workloadsApp
               flakeModules."workloads-networks"
               flakeModules."workloads-vms"
+              flakeModules."workloads-sharing"
               flakeModules."workloads-names"
               # workloads-names registers services too.
               flakeModules."workloads-services"
@@ -317,7 +331,10 @@ in
                   checkReversePath = false;
                 };
               };
-              environment.systemPackages = [ pkgs.dnsutils ];
+              environment.systemPackages = [
+                pkgs.dnsutils
+                pkgs.socat
+              ];
               programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
               # systemd's own sysctl defaults set 2 on every new interface.
               boot.kernel.sysctl."net.ipv4.conf.*.rp_filter" = 0;
@@ -328,7 +345,20 @@ in
                 linger = true;
               };
 
-              systemd.tmpfiles.settings.workloads-vms-test.${seedLink}."L+".argument = "${seedImage}";
+              systemd = {
+                services =
+                  lib.mapAttrs
+                    (_: command: {
+                      wantedBy = [ "multi-user.target" ];
+                      serviceConfig.ExecStart = "${pkgs.socat}/bin/socat ${command}";
+                    })
+                    {
+                      echo-loopback = "TCP-LISTEN:7000,bind=127.0.0.1,fork,reuseaddr SYSTEM:'echo loopback'";
+                      echo-any = "TCP-LISTEN:7004,fork,reuseaddr SYSTEM:'echo any'";
+                    };
+
+                tmpfiles.settings.workloads-vms-test.${seedLink}."L+".argument = "${seedImage}";
+              };
 
               workloads = {
                 networks = {
@@ -386,8 +416,32 @@ in
                   expected = "${seedImage}";
                 };
 
+                host.services.echo = {
+                  ports = [ 7000 ];
+                  bind = "loopback";
+                };
+
+                # The test script writes the source, standing in for a manual download.
+                media.installer = {
+                  source = installerSource;
+                  sha256 = builtins.hashString "sha256" installerContent;
+                };
+
                 # Specialisations replace the whole set.
-                guests = lib.mkDefault { inherit alpha gamma zeta; };
+                guests = lib.mkDefault {
+                  inherit
+                    alpha
+                    epsilon
+                    zeta
+                    eta
+                    ;
+                  gamma = gamma // {
+                    links = [
+                      "host:echo"
+                      "guest:epsilon:7001"
+                    ];
+                  };
+                };
               };
 
               specialisation = {
@@ -420,6 +474,8 @@ in
           let
             toplevel = nodes.machine.system.build.toplevel;
             switch = name: "${toplevel}/specialisation/${name}/bin/switch-to-configuration test";
+            inherit (nodes.machine.workloads) guests;
+            nicOf = name: "\"${guests.${name}.tap.eth}\", \"${guests.${name}.mac.eth}\"";
             peerDomain = sessionDomain "peer" peerMac "sbx.role=peer";
             probeDomain = sessionDomain "probe" probeMac "sbx.role=probe sbx.peer=@PEER@ sbx.host=@HOST@";
             intruderDomain = sessionDomain "intruder" peerMac "sbx.role=intruder";
@@ -484,6 +540,93 @@ in
                 lab = machine.succeed("virsh net-dumpxml lab")
                 assert "ip='172.16.5.10'" in lab and "ip='172.16.5.11'" in lab, lab
 
+            with subtest("links reach only their targets, from their own guest"):
+                machine.wait_for_unit("workloads-vm-net-default.service")
+                # Network namespaces stand in for guests; a declared guest's
+                # stand-in takes its pinned tap name and MAC.
+                ports = {}
+                # STP holds a port that comes up in listening and learning first.
+                def forwarding(ns):
+                    machine.wait_until_succeeds(f"bridge link show dev {ports[ns]} | grep -q 'state forwarding'")
+                def attach(ns, bridge, address, gateway, tap=None, mac=None):
+                    ports[ns] = tap or f"{ns}-host"
+                    machine.succeed(
+                        f"ip netns add {ns}",
+                        f"ip link add {ports[ns]} type veth peer name eth0 netns {ns}",
+                        f"ip link set {ports[ns]} master {bridge} up",
+                        f"ip -n {ns} link set eth0 address {mac or '02:00:00:00:00:01'} up",
+                        f"ip -n {ns} addr add {address}/24 dev eth0",
+                        f"ip -n {ns} route add default via {gateway}",
+                    )
+                    forwarding(ns)
+                def listen(ns, port, reply):
+                    machine.succeed(
+                        f"ip netns exec {ns} socat TCP-LISTEN:{port},fork,reuseaddr SYSTEM:'echo {reply}' >&2 &"
+                    )
+                    machine.wait_until_succeeds(f"ip netns exec {ns} ss -ltn | grep -q :{port}")
+                connect = "ip netns exec {} socat -T3 - TCP:{},connect-timeout=3 </dev/null"
+                def reaches(ns, target, reply):
+                    assert machine.succeed(connect.format(ns, target)).strip() == reply
+                def refused(ns, target):
+                    machine.fail(connect.format(ns, target))
+
+                attach("gamma", "vn-lab", "172.16.5.11", "172.16.5.1", ${nicOf "gamma"})
+                attach("other", "vn-lab", "172.16.5.13", "172.16.5.1")
+                attach("epsilon", "vn-default", "172.16.0.10", "172.16.0.1", ${nicOf "epsilon"})
+                listen("epsilon", 7001, "epsilon")
+                listen("epsilon", 7002, "unlinked")
+                listen("gamma", 7003, "gamma")
+
+                reaches("gamma", "172.16.5.1:7000", "loopback")
+                reaches("gamma", "172.16.0.10:7001", "epsilon")
+                refused("gamma", "172.16.0.10:7002")
+                refused("gamma", "172.16.5.1:7004")
+                refused("other", "172.16.5.1:7000")
+                refused("other", "172.16.0.10:7001")
+                refused("epsilon", "172.16.5.11:7003")
+                refused("epsilon", "172.16.5.1:7000")
+                # The proxy socket admits only the linked addresses, the host's own included.
+                machine.fail("socat -T3 - TCP:172.16.5.1:7000,connect-timeout=3 </dev/null")
+
+            with subtest("another port claiming a linked MAC or address is dropped"):
+                def claim(ns, address, own):
+                    machine.succeed(
+                        f"ip -n {ns} addr flush dev eth0",
+                        f"ip -n {ns} addr add {address}/24 dev eth0",
+                        f"ip -n {ns} addr add {own}/24 dev eth0",
+                        f"ip -n {ns} route add default via 172.16.5.1",
+                        "ip neigh flush dev vn-lab",
+                    )
+                    refused(ns, "172.16.5.1:7000")
+                    refused(ns, "172.16.0.10:7001")
+                    # The port still works from its own address.
+                    machine.succeed(f"ip netns exec {ns} ping -c1 -W2 -I {own} 172.16.5.1")
+                def mac_dropped(ns, mac, own_mac, own):
+                    ping = f"ip netns exec {ns} ping -c1 -W2 -I {own} 172.16.5.1"
+                    machine.succeed(f"ip -n {ns} link set eth0 address {mac}", "ip neigh flush dev vn-lab")
+                    machine.fail(ping)
+                    machine.succeed(f"ip -n {ns} link set eth0 address {own_mac}", "ip neigh flush dev vn-lab")
+                    machine.succeed(ping)
+
+                # Down, so the owner cannot answer the host's replies itself.
+                machine.succeed("ip -n gamma link set eth0 down")
+                claim("other", "172.16.5.11", "172.16.5.13")
+                attach("alpha", "vn-lab", "172.16.5.10", "172.16.5.1", ${nicOf "alpha"})
+                claim("alpha", "172.16.5.11", "172.16.5.10")
+                mac_dropped("alpha", "02:00:00:00:00:02", "${guests.alpha.mac.eth}", "172.16.5.10")
+                mac_dropped("other", "${guests.gamma.mac.eth}", "02:00:00:00:00:01", "172.16.5.13")
+                assert ports["other"] not in machine.succeed("bridge fdb show br vn-lab | grep -i ${guests.gamma.mac.eth} || true")
+
+                machine.succeed(
+                    "ip -n gamma link set eth0 up",
+                    "ip -n gamma route add default via 172.16.5.1",
+                )
+                forwarding("gamma")
+                reaches("gamma", "172.16.5.1:7000", "loopback")
+                # alpha's tap name is needed when the guest starts.
+                # Namespace teardown is asynchronous, so the tap goes first.
+                machine.succeed(f"ip link del {ports['alpha']}", "ip netns del alpha", "ip netns del other")
+
             with subtest("a seeded guest stays undefined until its image is built"):
                 zeta_unit = "workloads-vm-guest-zeta.service"
                 zeta_disk = "${stateDir "zeta"}/root.qcow2"
@@ -512,6 +655,26 @@ in
                 machine.succeed(f"mv {zeta_disk}.moved {zeta_disk}")
                 machine.succeed(restart(zeta_unit))
 
+            with subtest("a guest with install media stays undefined until they are staged"):
+                eta_unit = "workloads-vm-guest-eta.service"
+                media_unit = "workloads-vm-media.service"
+                machine.wait_for_unit(eta_unit)
+                assert machine.succeed(f"systemctl show -P SubState {media_unit}").strip() == "exited"
+                assert "${installerSource} is missing, so 'installer' is not staged" in warnings(media_unit)
+                assert "staged medium /var/lib/workloads/media/installer is missing" in warnings(eta_unit)
+                machine.fail("virsh dominfo eta")
+                machine.succeed("install -d -o ${metaOwner.username} /srv/media")
+                # A present source with the wrong content fails instead of waiting.
+                machine.succeed("su ${metaOwner.username} -c 'printf wrong > ${installerSource}'")
+                machine.fail(restart(media_unit))
+                assert "declared" in journal(media_unit)
+                machine.fail("test -e /var/lib/workloads/media/installer")
+                machine.succeed("su ${metaOwner.username} -c 'printf ${installerContent} > ${installerSource}'")
+                machine.succeed(restart(media_unit))
+                machine.succeed("test -f /var/lib/workloads/media/installer")
+                machine.succeed(restart(eta_unit))
+                assert state("eta") == "shut off"
+
             with subtest("the host and the network's resolver answer declared names"):
                 assert machine.succeed("getent hosts gamma.vm").split() == ["172.16.5.11", "gamma", "gamma.vm"]
                 assert dig("host.vm") == "172.16.0.1"
@@ -519,8 +682,23 @@ in
                 assert dig("gamma") == dig("gamma.vm") == "172.16.0.11"
                 machine.fail("dig +time=1 +tries=1 @172.16.5.1 host.vm")
                 report = json.loads(machine.succeed("workloads names --json"))
-                assert [entry["name"] for entry in report["names"]] == ["alpha", "gamma"], report
+                assert [entry["name"] for entry in report["names"]] == ["alpha", "epsilon", "gamma"], report
                 assert report["sandboxes"] is None, report
+
+            with subtest("a golden copy needs a shut-off guest and never replaces one"):
+                golden_unit = "workloads-golden@alpha.service"
+                golden = "/var/lib/workloads/golden/${uuids.alpha}"
+                machine.succeed("virsh start alpha")
+                machine.fail(f"systemctl start {golden_unit}")
+                assert "is not shut off" in journal(golden_unit)
+                machine.fail(f"test -e {golden}")
+                machine.succeed("virsh destroy alpha")
+                machine.succeed(restart(golden_unit))
+                for item in ["root.qcow2", "nvram.fd", "tpm", "domain.xml"]:
+                    machine.succeed(f"test -e {golden}/{item}")
+                # A successful oneshot is unloaded, so there is no failed state to reset.
+                machine.fail(f"systemctl start {golden_unit}")
+                assert "exists; move it aside" in journal(golden_unit)
 
             with subtest("a running guest keeps its definition and running networks gain reservations"):
                 machine.succeed("virsh start --paused alpha")
@@ -532,6 +710,13 @@ in
                 lab = machine.succeed("virsh net-dumpxml lab")
                 assert "ip='172.16.5.12'" in lab, lab
                 assert "older definition" not in journal("workloads-vm-net-lab.service")
+
+            with subtest("a switch without the links removes their rules and proxy"):
+                assert "to 172.16." not in machine.succeed("ip rule")
+                assert "172.16.0.10" not in machine.succeed("nft list chain inet workload forward")
+                assert "172.16.5.11" not in machine.succeed("nft list chain inet workload input")
+                machine.fail("systemctl is-active workload-proxy-lab-7000.socket")
+                refused("gamma", "172.16.0.10:7001")
 
             with subtest("a rename waits until the guest is shut off"):
                 machine.fail("${switch "renamed"}")

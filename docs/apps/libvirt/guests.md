@@ -29,17 +29,22 @@ _: {
 - Disks, NVRAM, and TPM state live in `/var/lib/workloads/guests/<uuid>/`; MAC addresses derive from the UUID and the interface name.
 - Each interface gets a DHCP reservation at its host offset, which lies outside the network's DHCP range.
 - `kind = "windows"` requires Secure Boot with Microsoft keys enrolled and a TPM.
+  [Windows guests](windows.md) covers the unattended install, provisioning, and golden copies of any guest.
 - `install.media` attaches staged media as CD-ROMs that boot after the disks, so an empty disk falls through to the installer.
+  `install.images` attaches `workloads.images` entries as CD-ROMs that never boot.
 - A declared guest turns the `libvirt` app row on.
 
 ## Trust classes
 
-| Setting                   | trusted       | untrusted   |
-| ------------------------- | ------------- | ----------- |
-| SPICE agent channel       | yes           | no          |
-| Clipboard, file transfer  | on by default | off, forced |
-| Display resizing by agent | yes           | no          |
+| Setting                   | trusted       | untrusted      |
+| ------------------------- | ------------- | -------------- |
+| SPICE agent channel       | yes           | with clipboard |
+| Clipboard                 | on by default | opt-in         |
+| File transfer             | on by default | off, forced    |
+| Display resizing by agent | yes           | with clipboard |
+| [Shares](shares.md)       | declared      | none           |
 
+An untrusted guest gets a clipboard, and with it the SPICE agent channel, only with `clipboard = true` and `allowUntrustedClipboard = true`.
 A SPICE console listens on a unix socket only, so opening it goes through an authenticated libvirt connection.
 `display = "headless"` drops the SPICE console and leaves the serial console; the guest agent channel follows `guestAgent` either way.
 
@@ -73,6 +78,7 @@ A guest added to a running network gets its reservation live; the network keeps 
 
 A seed names an image by the out-link `nix build` leaves under `/var/lib/workloads/images`, so no image enters the system closure.
 While the out-link is stale or missing, a guest that libvirt has not defined and whose disk does not exist yet stays undefined, and its unit logs a warning.
+The same holds for `install.images` out-links and for `install.media` that are not staged yet, while the guest has no NVRAM.
 A defined guest in that state fails the unit; neither seeds an old image.
 [NixOS guests](nixos-guests.md) covers building such an image from a guest configuration.
 

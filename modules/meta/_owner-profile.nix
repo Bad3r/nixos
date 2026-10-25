@@ -3,6 +3,7 @@ let
 in
 {
   username = "vx";
+  uid = 1000;
   email = "bad3r@unsigned.sh";
   name = "Bad3r";
   matrix = "@bad3r:matrix.org";

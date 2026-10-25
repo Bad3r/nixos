@@ -1,10 +1,16 @@
 _:
 let
   optionsModule =
-    { config, lib, ... }:
+    {
+      config,
+      lib,
+      metaOwner,
+      ...
+    }:
     let
       inherit (lib) types;
       inherit (config.workloads) networks;
+      renderShare = import ./_render-share.nix { inherit lib; };
 
       # libvirt reports UUIDs in lowercase.
       uuidType = types.strMatching "[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}";
@@ -114,7 +120,7 @@ let
               type = types.strMatching "/nix/store/.+";
               apply = builtins.unsafeDiscardStringContext;
               description = ''
-                Store path of the qcow2 image: the build output, followed by
+                Store path of the image: the build output, followed by
                 the image's path inside it when the output is a directory.
                 While `outLink` does not lead to it, a guest that libvirt has
                 not defined and whose disk is missing stays undefined.
@@ -162,6 +168,79 @@ let
         };
       };
 
+      shareModule =
+        { name, config, ... }:
+        {
+          options = {
+            enable = lib.mkOption {
+              type = types.bool;
+              default = true;
+              description = "Whether the guest gets the share.";
+            };
+
+            hostPath = lib.mkOption {
+              type = types.strMatching "/[^\"&<>]*";
+              description = ''
+                Host directory the share exports. It must exist when the guest
+                starts, and the owner's uid or primary group needs access to
+                it: virtiofsd drops supplementary groups.
+              '';
+            };
+
+            readOnly = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = "Whether virtiofsd refuses every write to the share.";
+            };
+
+            owner = lib.mkOption {
+              type = types.str;
+              default = metaOwner.username;
+              defaultText = lib.literalExpression "metaOwner.username";
+              description = ''
+                Host account other than root that virtiofsd runs as, with its
+                primary group and no supplementary groups. Guest root and the
+                guest uid and gid equal to the owner's write as the owner; any
+                other guest uid or gid gets EINVAL.
+              '';
+            };
+
+            mountPoint = lib.mkOption {
+              type = types.nullOr (types.strMatching "/.+");
+              default = "/mnt/${name}";
+              defaultText = lib.literalExpression ''"/mnt/<tag>"'';
+              description = "Where a guest built on `workloads-guest-base` mounts the share; null leaves it unmounted.";
+            };
+
+            runtime = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Whether the share stays out of the definition, to be attached
+                to the running guest with `deviceXml`. The guest still gets the
+                shared memory backing hot-plug needs, and its mount is `noauto`.
+              '';
+            };
+
+            deviceXml = lib.mkOption {
+              type = types.str;
+              readOnly = true;
+              default = renderShare {
+                tag = name;
+                inherit (config) hostPath readOnly;
+                # Stable across switches, so a live definition never points at a collected path.
+                binary = "/etc/workloads/virtiofsd-${config.owner}";
+              };
+              defaultText = lib.literalExpression "<filesystem> element";
+              description = ''
+                The share's `<filesystem>` device, for `virsh attach-device`
+                and `detach-device`; a runtime share's is also
+                {file}`/etc/workloads/shares/<guest>/<tag>.xml`.
+              '';
+            };
+          };
+        };
+
       guestModule =
         { name, config, ... }:
         let
@@ -179,6 +258,9 @@ let
               1
               2
             ];
+          # vnet and macvtap names are libvirt's own and never kept.
+          tapOf =
+            nic: "vg-" + builtins.substring 0 12 (builtins.hashString "sha256" "${config.uuid}/${nic}/tap");
           networkOf =
             nic:
             networks.${config.interfaces.${nic}.network}
@@ -232,7 +314,8 @@ let
               ];
               description = ''
                 Trust class. Untrusted guests get no SPICE agent channel, so
-                no clipboard, file transfer, or display resizing.
+                no clipboard, file transfer, or display resizing, unless
+                `allowUntrustedClipboard` lets them have a clipboard.
               '';
             };
 
@@ -307,6 +390,15 @@ let
               description = "Whether the SPICE console shares the clipboard with the guest.";
             };
 
+            allowUntrustedClipboard = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = ''
+                Whether an untrusted guest may set `clipboard = true`, which
+                gives it the SPICE agent channel. File transfer stays off.
+              '';
+            };
+
             fileTransfer = lib.mkOption {
               type = types.bool;
               default = trusted;
@@ -330,10 +422,27 @@ let
               '';
             };
 
+            shares = lib.mkOption {
+              type = types.attrsOf (types.submodule shareModule);
+              default = { };
+              description = ''
+                virtiofs shares keyed by their mount tag, which matches
+                `[a-z0-9][a-z0-9-]*` and has at most 36 characters. Any
+                enabled share gives the guest shared memfd memory. Untrusted
+                guests get none.
+              '';
+            };
+
             install.media = lib.mkOption {
               type = types.listOf types.str;
               default = [ ];
               description = "`workloads.media` entries attached as read-only CD-ROMs, booted after the disks.";
+            };
+
+            install.images = lib.mkOption {
+              type = types.listOf types.str;
+              default = [ ];
+              description = "`workloads.images` entries attached as read-only CD-ROMs after the media, never booted.";
             };
 
             autostart = lib.mkOption {
@@ -368,6 +477,12 @@ let
                 (lib.mapAttrs (nic: _: macOf nic) config.interfaces)
                 "{ <nic> = \"52:54:00:...\"; }";
 
+            tap =
+              derived (types.attrsOf types.str)
+                "Host-side tap device of each interface, derived from the UUID and the interface name."
+                (lib.mapAttrs (nic: _: tapOf nic) config.interfaces)
+                "{ <nic> = \"vg-<hash>\"; }";
+
             bridge = derived (types.attrsOf types.str) "Bridge each interface attaches to." (lib.mapAttrs (
               nic: _: (networkOf nic).bridge
             ) config.interfaces) "{ <nic> = workloads.networks.<network>.bridge; }";
@@ -379,6 +494,14 @@ let
                   "${lib.removeSuffix ".0/24" (networkOf nic).subnet}.${toString interface.hostOffset}"
                 ) config.interfaces)
                 "{ <nic> = \"<network prefix>.<hostOffset>\"; }";
+
+            mounts =
+              derived (types.attrsOf types.attrs)
+                "Enabled shares with a mount point, keyed by tag, in the shape `workloads-guest-base` takes as `workloads.guest.shares`."
+                (lib.mapAttrs (_: share: { inherit (share) mountPoint readOnly runtime; }) (
+                  lib.filterAttrs (_: share: share.enable && share.mountPoint != null) config.shares
+                ))
+                "{ <tag> = { mountPoint; readOnly; runtime; }; }";
           };
         };
     in

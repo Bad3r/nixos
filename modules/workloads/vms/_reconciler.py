@@ -6,6 +6,7 @@
 `orphans` warns about owned objects that nothing declares.
 `media` stages declared media files and prunes the ones no longer declared.
 `read-source` streams one source file for `media`, run with the owner's credentials.
+`golden` copies a shut-off guest's files to its golden directory.
 """
 
 import argparse
@@ -327,6 +328,21 @@ def pending_seeds(disks: list[dict]) -> list[str]:
     return list(dict.fromkeys(problems))
 
 
+def pending_install(install: dict) -> list[str]:
+    """Describe the staged media and images a first install still lacks."""
+    problems = [
+        f"the staged medium {path} is missing; put its source in place and run "
+        "`sudo systemctl restart workloads-vm-media.service`"
+        for path in install["media"]
+        if not Path(path).is_file()
+    ]
+    for image in install["images"]:
+        problem = seed_problem(image)
+        if problem is not None:
+            problems.append(seed_fix(problem, image))
+    return problems
+
+
 def fill_disk(partial: Path, size: int, seed: dict[str, str] | None) -> None:
     """Write an empty or seeded qcow2 image of the declared size."""
     if seed is None:
@@ -413,17 +429,19 @@ def reconcile_guest(conn: libvirt.virConnect, spec: dict) -> None:
     if provisioned and not nvram.exists():
         msg = f"{nvram} is missing although the guest has TPM state; restore it from a backup"
         raise ReconcileError(msg)
-    # The image is built by hand and changes with every input bump, so a new
-    # guest waits for it instead of failing the switch.
-    pending = [] if provisioned else pending_seeds(spec["disks"])
+    # Images and media are built or fetched by hand, and images change with
+    # every input bump, so a new guest waits for them instead of failing the switch.
+    pending = [] if provisioned else pending_seeds(spec["disks"]) + pending_install(spec["install"])
     if pending:
         steps = (
             f"{'; '.join(pending)}; then `sudo systemctl restart workloads-vm-guest-{name}.service`"
         )
         if existing is not None:
-            msg = f"guest '{name}' is defined, but its disk waits for its seed image: {steps}"
+            msg = (
+                f"guest '{name}' is defined, but its disk waits for files to install from: {steps}"
+            )
             raise ReconcileError(msg)
-        warn(f"guest '{name}' is not defined until its seed image is built: {steps}")
+        warn(f"guest '{name}' is not defined until its installation files exist: {steps}")
         return
     state.mkdir(mode=0o711, exist_ok=True)
     state.chmod(0o711)
@@ -471,6 +489,77 @@ def remove_guest(conn: libvirt.virConnect, spec: dict) -> None:
         libvirt.VIR_DOMAIN_UNDEFINE_KEEP_NVRAM | libvirt.VIR_DOMAIN_UNDEFINE_KEEP_TPM
     )
     log(f"undefined guest '{current}' ({uuid}); its files stay in {spec['stateDir']}")
+
+
+def fingerprint(paths: list[Path]) -> list[tuple[str, int, int]]:
+    """Record the size and modification time of every file under the paths."""
+    files = []
+    for path in paths:
+        members = [path] if path.is_file() else sorted(p for p in path.rglob("*") if p.is_file())
+        for member in members:
+            info = member.stat()
+            files.append((str(member), info.st_size, info.st_mtime_ns))
+    return files
+
+
+def check_shut_off(domain: libvirt.virDomain, name: str) -> None:
+    """Refuse a guest whose files may change: running, paused, or managed-saved."""
+    if domain.state()[0] != libvirt.VIR_DOMAIN_SHUTOFF:
+        msg = f"guest '{name}' is not shut off; shut it down so its files hold still"
+        raise ReconcileError(msg)
+    if domain.hasManagedSaveImage(0):
+        msg = f"guest '{name}' has a managed save image; start and shut it down first"
+        raise ReconcileError(msg)
+
+
+def golden_sources(spec: dict) -> list[Path]:
+    """Return the disks, NVRAM, and TPM state directory of a guest."""
+    state = Path(spec["stateDir"])
+    sources = [Path(path) for path in spec["disks"]] + [Path(spec["nvram"])]
+    if (state / "tpm").exists():
+        sources.append(state / "tpm")
+    return sources
+
+
+def copy_golden(conn: libvirt.virConnect, spec: dict, directory: Path) -> None:
+    """Copy a shut-off guest's disks, NVRAM, TPM state, and definition, keeping holes."""
+    name, uuid = spec["name"], spec["uuid"]
+    domain = owned_domain(conn, uuid)
+    if domain is None:
+        msg = f"guest '{name}' ({uuid}) is not defined"
+        raise ReconcileError(msg)
+    check_shut_off(domain, name)
+    target = directory / uuid
+    if target.exists():
+        msg = f"{target} exists; move it aside to keep it, or delete it to replace it"
+        raise ReconcileError(msg)
+
+    sources = golden_sources(spec)
+    before = fingerprint(sources)
+    partial = directory / f".{uuid}.partial"
+    if partial.exists():
+        shutil.rmtree(partial)
+    partial.mkdir(mode=0o700)
+    try:
+        subprocess.run(
+            ["cp", "--archive", "--sparse=always", "--", *map(str, sources), str(partial)],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        (partial / "domain.xml").write_text(domain.XMLDesc(libvirt.VIR_DOMAIN_XML_INACTIVE))
+        check_shut_off(domain, name)
+        # A start during the copy, even one shut down again, leaves a torn copy.
+        changed = fingerprint(sources) != before
+    except BaseException:
+        shutil.rmtree(partial, ignore_errors=True)
+        raise
+    if changed:
+        shutil.rmtree(partial)
+        msg = f"the files of guest '{name}' changed during the copy; keep it shut off and retry"
+        raise ReconcileError(msg)
+    partial.rename(target)
+    log(f"copied guest '{name}' to {target}")
 
 
 def report_orphans(conn: libvirt.virConnect, declared: dict[str, list[str]]) -> None:
@@ -601,7 +690,15 @@ def stage_media(manifest_path: Path, directory: Path, owner: str) -> None:
     """Stage every declared media file, then prune the undeclared ones."""
     manifest: dict[str, dict[str, str]] = json.loads(manifest_path.read_text())
     for name, spec in sorted(manifest.items()):
-        stage(name, Path(spec["source"]), directory / name, spec.get("sha256"), owner)
+        source = Path(spec["source"])
+        # Media are fetched by hand, so a missing one waits instead of failing the switch.
+        if not source.exists():
+            warn(
+                f"{source} is missing, so '{name}' is not staged; put it in place and run "
+                "`sudo systemctl restart workloads-vm-media.service`"
+            )
+            continue
+        stage(name, source, directory / name, spec.get("sha256"), owner)
 
     for entry in sorted(directory.iterdir()):
         if entry.name in manifest:
@@ -613,8 +710,8 @@ def stage_media(manifest_path: Path, directory: Path, owner: str) -> None:
         log(f"pruned {entry}")
 
 
-def main() -> int:
-    """Run one subcommand."""
+def parser() -> argparse.ArgumentParser:
+    """Describe the subcommands."""
     parser = argparse.ArgumentParser(description=__doc__)
     commands = parser.add_subparsers(dest="command", required=True)
 
@@ -631,6 +728,12 @@ def main() -> int:
     orphans.add_argument("declared", type=Path)
     orphans.add_argument("--connect", default="qemu:///system")
 
+    golden = commands.add_parser("golden", help="copy a shut-off guest to its golden directory")
+    golden.add_argument("manifest", type=Path)
+    golden.add_argument("name")
+    golden.add_argument("--directory", type=Path, default=Path("/var/lib/workloads/golden"))
+    golden.add_argument("--connect", default="qemu:///system")
+
     media = commands.add_parser("media", help="stage declared media and prune the rest")
     media.add_argument("manifest", type=Path)
     media.add_argument("directory", type=Path)
@@ -638,35 +741,55 @@ def main() -> int:
 
     source = commands.add_parser("read-source", help="stream one source file for `media`")
     source.add_argument("path", type=Path)
+    return parser
 
-    args = parser.parse_args()
-    try:
-        if args.command in {"network", "guest", "orphans"}:
-            # Expected lookup misses would otherwise print to stderr.
-            libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
-            conn = libvirt.open(args.connect)
-            try:
-                if args.command == "network":
-                    reconcile_network(conn, args.xml.read_text(), autostart=args.autostart)
-                elif args.command == "guest":
-                    spec = json.loads(args.spec.read_text())
-                    if spec["ensure"] == "absent":
-                        remove_guest(conn, spec)
-                    else:
-                        reconcile_guest(conn, spec)
-                else:
-                    report_orphans(conn, json.loads(args.declared.read_text()))
-            finally:
-                conn.close()
-        elif args.command == "media":
-            stage_media(args.manifest, args.directory, args.owner)
+
+def run_connected(conn: libvirt.virConnect, args: argparse.Namespace) -> None:
+    """Run one subcommand that talks to libvirt."""
+    if args.command == "network":
+        reconcile_network(conn, args.xml.read_text(), autostart=args.autostart)
+    elif args.command == "guest":
+        spec = json.loads(args.spec.read_text())
+        if spec["ensure"] == "absent":
+            remove_guest(conn, spec)
         else:
-            read_source(args.path)
+            reconcile_guest(conn, spec)
+    elif args.command == "golden":
+        guests = json.loads(args.manifest.read_text())
+        if args.name not in guests:
+            msg = f"no declared guest is named '{args.name}'"
+            raise ReconcileError(msg)
+        copy_golden(conn, {"name": args.name, **guests[args.name]}, args.directory)
+    else:
+        report_orphans(conn, json.loads(args.declared.read_text()))
+
+
+def run(args: argparse.Namespace) -> None:
+    """Run one subcommand."""
+    if args.command in {"network", "guest", "orphans", "golden"}:
+        # Expected lookup misses would otherwise print to stderr.
+        libvirt.registerErrorHandler(lambda _ctx, _error: None, None)
+        conn = libvirt.open(args.connect)
+        try:
+            run_connected(conn, args)
+        finally:
+            conn.close()
+    elif args.command == "media":
+        stage_media(args.manifest, args.directory, args.owner)
+    else:
+        read_source(args.path)
+
+
+def main() -> int:
+    """Run the subcommand the arguments name."""
+    args = parser().parse_args()
+    try:
+        run(args)
     except subprocess.CalledProcessError as error:
-        print(f"error: {error}: {error.stderr.strip()}", file=sys.stderr)
+        print(f"<3>error: {error}: {error.stderr.strip()}", file=sys.stderr)
         return 1
     except (ReconcileError, libvirt.libvirtError, OSError) as error:
-        print(f"error: {error}", file=sys.stderr)
+        print(f"<3>error: {error}", file=sys.stderr)
         return 1
     return 0
 

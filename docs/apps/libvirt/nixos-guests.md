@@ -11,7 +11,8 @@ Every later change reaches the running guest through `nixos-rebuild` over SSH, n
 
 - the disk layout of the `qemu-efi` image, so a deployed system boots the disk the image seeded;
 - the QEMU guest agent and a serial console;
-- sshd with the owner's keys for root and the owner.
+- sshd with the owner's keys for root and the owner;
+- fstab entries for the guest's [shares](shares.md).
 
 A guest has no password, so a console login needs one set with `passwd` over SSH first.
 
@@ -24,6 +25,8 @@ A guest has no password, so a console login needs one set with `passwd` over SSH
    {
      configurations.nixos.<name>.module = {
        imports = [ config.flake.nixosModules."workloads-guest-base" ];
+       workloads.guest.shares =
+         config.flake.nixosConfigurations.<host>.config.workloads.guests.<name>.mounts;
        system.stateVersion = "<release>";
      };
 
