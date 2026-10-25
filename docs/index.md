@@ -472,6 +472,8 @@
 
 ### sbx
 
+- [apps/sbx/shell.md](apps/sbx/shell.md)
+  - Help and tab completion for Bash, Zsh, and Fish.
 - [apps/sbx/README.md](apps/sbx/README.md)
   - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, the slice and ceilings, state, and gc.
 - [apps/sbx/bases.md](apps/sbx/bases.md)

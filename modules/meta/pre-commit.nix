@@ -41,7 +41,12 @@ _: {
               enable = true;
               args = [
                 "--pythonpath"
-                "${pkgs.python3.withPackages (ps: [ ps.pillow ])}/bin/python3"
+                "${
+                  pkgs.python3.withPackages (ps: [
+                    ps.argcomplete
+                    ps.pillow
+                  ])
+                }/bin/python3"
               ];
               files = "\\.py$";
               pass_filenames = false;

@@ -1,6 +1,7 @@
 # sbx
 
 `sbx` runs disposable VMs on the owner's `qemu:///session` for unknown binaries, untrusted repositories, and screenshots of a guest display.
+[Shell use](shell.md) covers help and tab completion.
 Agents reach it as a plain command; it needs no group, no polkit prompt, and no access to `qemu:///system`.
 The app module is `modules/apps/sbx/nixos.nix`; its ceilings come from the host's `sbx` entry in `modules/hosts/<host>/policy.nix`.
 

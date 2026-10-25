@@ -1,14 +1,42 @@
 # Copyright (c) 2026 Bad3r
 """Argument handling of the sbx command line."""
 
+import contextlib
+import io
+import json
 import unittest
+from pathlib import Path
+from unittest import mock
 
-from sbx.cli import build_parser, split_command
+from sbx.cli import build_parser, main, split_command
 from sbx.core import SbxError
 
 
 class CommandLineTest(unittest.TestCase):
     """The guest command never reaches option parsing."""
+
+    def test_no_arguments_prints_help(self) -> None:
+        """A bare invocation succeeds without settings, services, or journal writes."""
+        output, errors = io.StringIO(), io.StringIO()
+        with (
+            contextlib.redirect_stdout(output),
+            contextlib.redirect_stderr(errors),
+            mock.patch("sbx.cli.Settings.load") as load,
+            mock.patch("sbx.cli.journal.record") as record,
+        ):
+            self.assertEqual(main(Path("/missing/settings.json"), []), 0)
+        self.assertIn("usage: sbx", output.getvalue())
+        self.assertIn("start a sandbox", output.getvalue())
+        self.assertEqual(errors.getvalue(), "")
+        load.assert_not_called()
+        record.assert_not_called()
+
+    def test_missing_verb_with_json_is_still_an_error(self) -> None:
+        """An incomplete JSON command retains its machine-readable usage error."""
+        output = io.StringIO()
+        with contextlib.redirect_stdout(output), mock.patch("sbx.cli.journal.record"):
+            self.assertEqual(main(Path("/missing/settings.json"), ["--json"]), 2)
+        self.assertEqual(json.loads(output.getvalue())["error"]["code"], "usage")
 
     def test_split(self) -> None:
         """Options after the sandbox name stay sbx's; everything after -- is the command."""

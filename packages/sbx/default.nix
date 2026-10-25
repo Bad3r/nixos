@@ -1,6 +1,10 @@
 {
   lib,
   stdenvNoCC,
+  installShellFiles,
+  bash,
+  zsh,
+  fish,
   writeText,
   writeScript,
   writeShellScript,
@@ -23,6 +27,7 @@
 }:
 let
   python = python3.withPackages (ps: [
+    ps.argcomplete
     ps.libvirt
     ps.pillow
   ]);
@@ -98,6 +103,7 @@ stdenvNoCC.mkDerivation {
 
   dontConfigure = true;
   dontBuild = true;
+  nativeBuildInputs = [ installShellFiles ];
 
   installPhase = ''
     runHook preInstall
@@ -124,6 +130,10 @@ stdenvNoCC.mkDerivation {
     sys.exit(serve(Path("${settingsFile}"), "${version}"))
     EOF
     chmod 0755 $out/bin/sbx $out/bin/sbx-mcp
+    installShellCompletion --cmd sbx \
+      --bash <(${python}/bin/register-python-argcomplete --no-defaults --shell bash sbx) \
+      --zsh <(${python}/bin/register-python-argcomplete --no-defaults --shell zsh sbx) \
+      --fish <(${python}/bin/register-python-argcomplete --shell fish sbx)
     # Root's half of the Windows base export; never on PATH.
     install -d $out/libexec/sbx
     cat > $out/libexec/sbx/export-base <<EOF
@@ -142,7 +152,12 @@ stdenvNoCC.mkDerivation {
   doInstallCheck = true;
   installCheckPhase = ''
     runHook preInstallCheck
-    HOME=$TMPDIR SBX_TEST_GIT=${lib.getExe git} ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .
+    HOME=$TMPDIR SBX_TEST_GIT=${lib.getExe git} \
+      SBX_TEST_PACKAGE=$out \
+      SBX_TEST_BASH=${lib.getExe bash} \
+      SBX_TEST_ZSH=${lib.getExe zsh} \
+      SBX_TEST_FISH=${lib.getExe fish} \
+      ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .
     runHook postInstallCheck
   '';
 
