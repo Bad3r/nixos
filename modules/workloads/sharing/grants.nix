@@ -319,10 +319,12 @@ let
           description = ''
             Runtime grants the `workloads grant` command may open without a
             prompt. A grant matches the ingress bridge, the source's MAC and
-            address, the destination, the protocol, and the ports. It permits
-            all traffic on that path only until its TTL ends: at expiry or
-            revoke, every connection it admitted stops, and no other grant's.
-            Declaring a rule starts `workload-grantd`.
+            address, the destination, the protocol, and the ports. A sandbox
+            without a network is matched by its creation instead and reaches
+            granted host TCP ports over vsock. A grant permits all traffic on
+            its path only until its TTL ends: at expiry or revoke, every
+            connection it admitted stops, and no other grant's. Declaring a
+            rule starts `workload-grantd`.
           '';
         };
 
@@ -350,6 +352,7 @@ let
               RemainAfterExit = true;
             };
             script = ''
+              rm -f /run/workloads/vsock-grants.json
               nft destroy table inet workload_grants
               while ip rule show pref ${toString routePreference} | grep -q .; do
                 ip rule del pref ${toString routePreference}

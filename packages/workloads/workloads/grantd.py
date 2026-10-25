@@ -26,6 +26,14 @@ from workloads.grants import (
     Route,
     Target,
 )
+from workloads.vsock import (
+    TOKEN_PATTERN,
+    FileStore,
+    VsockGrant,
+    VsockStore,
+    boottime,
+    stream_ports,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Generator, Sequence
@@ -42,7 +50,7 @@ ID_PATTERN = re.compile(r"[0-9a-f]{8}")
 # nft refuses longer element comments.
 COMMENT_LIMIT = 128
 JOURNAL_SOCKET = "/run/systemd/journal/socket"
-KERNEL_CODES = frozenset({"nft", "conntrack", "route", "journal"})
+KERNEL_CODES = frozenset({"nft", "conntrack", "route", "journal", "vsock-list"})
 
 # Runs argv with optional stdin and returns the exit code, stdout, and stderr.
 type Runner = Callable[[Sequence[str], str | None], tuple[int, str, str]]
@@ -420,6 +428,8 @@ class Service:
         *,
         new_id: Callable[[], str] = lambda: secrets.token_hex(4),
         read_text: Callable[[str], str] | None = None,
+        vsock: VsockStore | None = None,
+        now: Callable[[], float] = boottime,
     ) -> None:
         """Keep the collaborators; the policy loads per request."""
         self.load_policy = load_policy
@@ -428,6 +438,8 @@ class Service:
         self.lock = lock
         self.new_id = new_id
         self.read_text = read_text
+        self.vsock = FileStore() if vsock is None else vsock
+        self.now = now
 
     def handle(self, raw: bytes, caller: Caller) -> Record:
         """Answer one request; every decision reaches the journal before it applies."""
@@ -453,13 +465,21 @@ class Service:
             }
             policy = self.load_policy()
             match request["verb"]:
+                case "grant" if "token" in request:
+                    return self._grant_vsock(policy, request, record)
                 case "grant":
                     return self._grant(policy, request, record)
                 case "revoke":
                     return self._revoke(policy, request, record)
                 case _:
                     record("listed", "listed grants")
-                    return {"grants": describe(self.kernel.elements())}
+                    now = self.now()
+                    listed = describe(self.kernel.elements()) + [
+                        grant.describe(now) for grant in self._live_vsock(now)
+                    ]
+                    return {
+                        "grants": sorted(listed, key=lambda item: (str(item["source"]), item["id"]))
+                    }
         except GrantError as error:
             decision = "failed" if error.code in KERNEL_CODES else "refused"
             with contextlib.suppress(GrantError):
@@ -479,7 +499,12 @@ class Service:
         request = cast("Record", parsed)
         verb = request.get("verb")
         if verb == "grant":
-            _check_keys(request, {"verb", "source", "target", "ttl"}, {"address", "session"})
+            _check_keys(
+                request, {"verb", "source", "target", "ttl"}, {"address", "token", "session"}
+            )
+            if "address" in request and "token" in request:
+                msg = "grant takes 'address' or 'token', not both"
+                raise GrantError(msg, code="invalid-request")
             ttl = request["ttl"]
             if not isinstance(ttl, int) or isinstance(ttl, bool) or ttl < 1:
                 msg = "'ttl' must be a positive number of seconds"
@@ -538,7 +563,9 @@ class Service:
             if len(held) >= policy.max_concurrent:
                 msg = f"{source} holds {len(held)} grants, the most the policy allows"
                 raise GrantError(msg, code="max-concurrent")
-            taken = {element.grant for element in live}
+            taken = {element.grant for element in live} | {
+                grant.grant for grant in self.vsock.grants()
+            }
             grant = self.new_id()
             while grant in taken:
                 grant = self.new_id()
@@ -563,6 +590,61 @@ class Service:
             same = [e.expires + 1 for e in live if e.path.place in places]
             self.kernel.add(elements, ttl, max([ttl, *same]))
         return {"grant": describe(elements)[0]}
+
+    def _live_vsock(self, now: float) -> list[VsockGrant]:
+        return [grant for grant in self.vsock.grants() if grant.deadline > now]
+
+    def _grant_vsock(self, policy: Policy, request: Record, record: Callable[..., None]) -> Record:
+        """A grant for a sandbox without an address, keyed on its name and creation token."""
+        source, ttl = _string(request, "source"), cast("int", request["ttl"])
+        token = _string(request, "token")
+        if SANDBOX_PATTERN.fullmatch(source) is None:
+            msg = f"'{source}': only sandboxes take vsock grants"
+            raise GrantError(msg, code="invalid-source")
+        if TOKEN_PATTERN.fullmatch(token) is None:
+            msg = f"'{token}' is no sandbox creation token"
+            raise GrantError(msg, code="invalid-request")
+        target = Target.parse(_string(request, "target"))
+        if target.kind != "host":
+            msg = f"{target}: a sandbox without an address reaches host services only"
+            raise GrantError(msg, code="not-grantable")
+        max_ttl = policy.max_ttl(source, target)
+        if ttl > max_ttl:
+            msg = f"a TTL of {ttl}s exceeds the {max_ttl}s the policy allows {source} to {target}"
+            raise GrantError(msg, code="ttl")
+        ports = stream_ports(str(target), policy.ports(target))
+        with self.lock():
+            now = self.now()
+            live = self._live_vsock(now)
+            for held in live:
+                if held.source == source and any(
+                    mine.overlaps(theirs) for mine in ports for theirs in held.ports
+                ):
+                    msg = f"{target} overlaps grant {held.grant} ({held.target}); revoke it first"
+                    raise GrantError(msg, code="conflict")
+            count = sum(1 for grant in live if grant.source == source)
+            if count >= policy.max_concurrent:
+                msg = f"{source} holds {count} grants, the most the policy allows"
+                raise GrantError(msg, code="max-concurrent")
+            taken = {element.grant for element in self.kernel.elements()} | {
+                grant.grant for grant in self.vsock.grants()
+            }
+            grant = self.new_id()
+            while grant in taken:
+                grant = self.new_id()
+            created = VsockGrant(grant, source, token, str(target), ports, now + ttl)
+            record(
+                "granted",
+                f"granted {grant}: {source} to {target} over vsock for {ttl}s",
+                grant=grant,
+                source=source,
+                target=str(target),
+                ttl=ttl,
+                token=token,
+                transport="vsock",
+            )
+            self.vsock.write([*live, created])
+        return {"grant": created.describe(now)}
 
     def _revoke(self, policy: Policy, request: Record, record: Callable[..., None]) -> Record:
         grant, source = _optional_string(request, "id"), _optional_string(request, "source")
@@ -595,16 +677,26 @@ class Service:
                     else element.source == source or element.path.place in places
                 )
             ]
-            if grant is not None and not chosen:
+            now = self.now()
+            listed = self._live_vsock(now)
+            # A vsock grant names its sandbox only, so the address plays no part.
+            cut = [
+                held
+                for held in listed
+                if (held.grant == grant if grant is not None else held.source == source)
+            ]
+            if grant is not None and not chosen and not cut:
                 msg = f"no live grant {grant}"
                 raise GrantError(msg, code="not-found")
-            revoked = sorted({element.grant for element in chosen})
+            revoked = sorted({element.grant for element in chosen} | {held.grant for held in cut})
             record(
                 "revoked",
                 f"revoked {', '.join(revoked) or 'nothing'}",
                 grant=",".join(revoked),
                 source=source,
             )
+            if cut:
+                self.vsock.write([held for held in listed if held not in cut])
             kept = [element for element in live if element not in chosen]
             held = {(e.path.place, e.path.mac) for e in kept}
             emptied = list(
@@ -619,7 +711,11 @@ class Service:
                 for flow in self.kernel.flows(element.path):
                     self.kernel.drop_flow(flow)
             self._sync_routes(policy, kept)
-        return {"revoked": revoked}
+        answer: Record = {"revoked": revoked}
+        if cut:
+            # The client waits for the owner's proxy to close these.
+            answer["vsock"] = sorted(held.grant for held in cut)
+        return answer
 
     def _sync_routes(self, policy: Policy, elements: Sequence[Element]) -> None:
         """Routes of expired grants go too; until then the forward chain drops their traffic."""

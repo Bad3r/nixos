@@ -402,6 +402,10 @@ class Policy:
             raise GrantError(msg, code="not-grantable")
         return endpoint, (port,)
 
+    def ports(self, target: Target) -> tuple[Ports, ...]:
+        """The grantable ports a grant to the target opens."""
+        return self._endpoint(target)[1]
+
     def paths(self, interfaces: tuple[Interface, ...], target: Target) -> list[Path]:
         """The set elements a grant from these interfaces to the target needs."""
         endpoint, ports = self._endpoint(target)
