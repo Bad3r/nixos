@@ -6,10 +6,14 @@ through the CLI's parser and dispatch in JSON mode, so a tool accepts what its
 verb accepts and returns the document `sbx <verb> --json` prints.
 """
 
+import dataclasses
 import json
 import os
+import secrets
+import signal
 import sys
 import threading
+import time
 import traceback
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, BinaryIO, cast
@@ -31,7 +35,8 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
     from pathlib import Path
 
-PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
+# 2025-03-26 is left out: it requires JSON-RPC batches, which this server rejects.
+PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2024-11-05")
 PARSE_ERROR = -32700
 INVALID_REQUEST = -32600
 METHOD_NOT_FOUND = -32601
@@ -40,9 +45,12 @@ INTERNAL_ERROR = -32603
 COMMAND = "command"
 INSTRUCTIONS = (
     "Disposable VMs for unknown binaries, downloads, and untrusted repositories; "
-    "the sbx skill says when to use them. Host paths are absolute and sit under "
-    "the caller's git checkout, ~/trees, or $TMPDIR."
+    "the sbx skill says when to use them. Host paths sit under the git checkout of "
+    "the directory the client started in, ~/trees, or $TMPDIR; relative paths "
+    "resolve against that directory, so pass absolute ones."
 )
+# Clients cut long tool results, so a lower cap keeps `truncated` truthful.
+OUTPUT_LIMIT = 64 * 1024
 
 type Json = dict[str, object]
 
@@ -69,6 +77,7 @@ class Tool:
     params: tuple[Param, ...] = ()
     read_only: bool = False
     destructive: bool = False
+    open_world: bool = False
 
     def definition(self) -> Json:
         """Return the tools/list entry."""
@@ -88,7 +97,7 @@ class Tool:
                 "title": self.title,
                 "readOnlyHint": self.read_only,
                 "destructiveHint": self.destructive,
-                "openWorldHint": False,
+                "openWorldHint": self.open_world,
             },
         }
 
@@ -205,6 +214,7 @@ TOOLS = (
         "Create a sandbox",
         "Start a sandbox and wait until SSH answers; returns its name, CID, and TTL.",
         CREATE_PARAMS,
+        open_world=True,
     ),
     Tool(
         "run",
@@ -220,6 +230,7 @@ TOOLS = (
             TIMEOUT,
             GUEST_COMMAND,
         ),
+        open_world=True,
     ),
     Tool(
         "exec",
@@ -321,7 +332,36 @@ def session_of(meta: object) -> str | None:
 
 
 def _text(document: object, *, error: bool) -> Json:
-    return {"content": [{"type": "text", "text": json.dumps(document, indent=2)}], "isError": error}
+    text = json.dumps(document, separators=(",", ":"))
+    return {"content": [{"type": "text", "text": text}], "isError": error}
+
+
+def _valid_id(request_id: object) -> bool:
+    return isinstance(request_id, str) or (
+        isinstance(request_id, int) and not isinstance(request_id, bool)
+    )
+
+
+def _named_run(arguments: object) -> tuple[object, str | None]:
+    """Name a run's sandbox up front, as create would, so a cancellation can find it."""
+    if not isinstance(arguments, dict):
+        return arguments, None
+    given = cast("dict[str, object]", arguments)
+    base = given.get("base")
+    if given.get("name") is None and isinstance(base, str):
+        given = {**given, "name": f"{base}-{secrets.token_hex(3)}"}
+    name = given.get("name")
+    return given, name if isinstance(name, str) else None
+
+
+@dataclass
+class Call:
+    """A tools/call in progress."""
+
+    thread: threading.Thread
+    session: str | None
+    sandbox: str | None = None
+    cancelled: bool = False
 
 
 class Server:
@@ -335,7 +375,8 @@ class Server:
         self._output = output
         self._version = version
         self._lock = threading.Lock()
-        self._calls: list[threading.Thread] = []
+        self._calls: dict[object, Call] = {}
+        self._threads: list[threading.Thread] = []
 
     def send(self, message: Json) -> None:
         """Write one message as a single line."""
@@ -363,12 +404,19 @@ class Server:
         self.handle(cast("Json", message))
 
     def handle(self, message: Json) -> None:
-        """Answer a request; notifications and responses need no answer."""
+        """Answer a request or act on a notification; responses need nothing."""
         method = message.get("method")
-        if "id" not in message or not isinstance(method, str):
+        params: object = message.get("params") or {}
+        if "id" not in message:
+            if method == "notifications/cancelled" and isinstance(params, dict):
+                self.cancel(cast("Json", params).get("requestId"))
             return
         request_id = message["id"]
-        params: object = message.get("params") or {}
+        if "method" not in message:
+            return
+        if not _valid_id(request_id) or not isinstance(method, str):
+            self._fail(None, INVALID_REQUEST, "a request needs a string or integer id and a method")
+            return
         if not isinstance(params, dict):
             self._fail(request_id, INVALID_PARAMS, "params must be an object")
             return
@@ -381,23 +429,7 @@ class Server:
             case "tools/list":
                 self._reply(request_id, {"tools": [tool.definition() for tool in TOOLS]})
             case "tools/call":
-                name = params.get("name")
-                tool = TOOLS_BY_NAME.get(name) if isinstance(name, str) else None
-                if tool is None:
-                    self._fail(request_id, INVALID_PARAMS, f"unknown tool: {name}")
-                    return
-                call = threading.Thread(
-                    target=self._call,
-                    args=(
-                        request_id,
-                        tool,
-                        params.get("arguments"),
-                        session_of(params.get("_meta")),
-                    ),
-                    name=f"sbx-{tool.name}",
-                )
-                self._calls = [*filter(threading.Thread.is_alive, self._calls), call]
-                call.start()
+                self.start(request_id, params)
             case _:
                 self._fail(request_id, METHOD_NOT_FOUND, f"unknown method: {method}")
 
@@ -411,6 +443,29 @@ class Server:
             "serverInfo": {"name": "sbx", "title": "sbx sandboxes", "version": self._version},
             "instructions": INSTRUCTIONS,
         }
+
+    def start(self, request_id: object, params: Json) -> None:
+        """Run one tools/call on its own thread."""
+        name = params.get("name")
+        tool = TOOLS_BY_NAME.get(name) if isinstance(name, str) else None
+        if tool is None:
+            self._fail(request_id, INVALID_PARAMS, f"unknown tool: {name}")
+            return
+        arguments: object = params.get("arguments")
+        sandbox: str | None = None
+        if tool.name == "run":
+            arguments, sandbox = _named_run(arguments)
+        session = session_of(params.get("_meta"))
+        thread = threading.Thread(
+            target=self._call, args=(request_id, tool, arguments, session), name=f"sbx-{tool.name}"
+        )
+        with self._lock:
+            self._calls[request_id] = Call(thread, session, sandbox)
+        self._spawn(thread)
+
+    def _spawn(self, thread: threading.Thread) -> None:
+        self._threads = [*filter(threading.Thread.is_alive, self._threads), thread]
+        thread.start()
 
     def call(self, tool: Tool, arguments: object, session: str | None) -> Json:
         """Run one tool and return its result; sbx refusals are tool errors."""
@@ -426,21 +481,64 @@ class Server:
         return _text(document, error=False)
 
     def _call(self, request_id: object, tool: Tool, arguments: object, session: str | None) -> None:
+        result: Json | None = None
+        failure = ""
         try:
             result = self.call(tool, arguments, session)
         except Exception as error:  # noqa: BLE001
             traceback.print_exc(file=sys.stderr)
-            self._fail(request_id, INTERNAL_ERROR, f"{tool.name}: {error!r}")
+            failure = f"{tool.name}: {error!r}"
+        with self._lock:
+            call = self._calls.pop(request_id, None)
+        # A cancelled request gets no response.
+        if call is not None and call.cancelled:
             return
-        self._reply(request_id, result)
+        if result is None:
+            self._fail(request_id, INTERNAL_ERROR, failure)
+        else:
+            self._reply(request_id, result)
+
+    def cancel(self, request_id: object) -> None:
+        """Drop the response to a call and destroy the sandbox of a cancelled run."""
+        with self._lock:
+            call = self._calls.get(request_id)
+            if call is None:
+                return
+            call.cancelled = True
+        if call.sandbox is not None:
+            reaper = threading.Thread(target=self._reap, args=(call,), name="sbx-cancel")
+            self._spawn(reaper)
+
+    def _destroy(self, call: Call) -> bool:
+        """Destroy a run's sandbox; False while it does not exist yet."""
+        try:
+            self._open(call.session).destroy(str(call.sandbox))
+        except SbxError as error:
+            if error.code != "not-found":
+                print(f"sbx-mcp: cannot destroy {call.sandbox}: {error}", file=sys.stderr)
+                return True
+            return False
+        return True
+
+    def _reap(self, call: Call) -> None:
+        # Retry until the run defines its domain or ends; its own cleanup covers the rest.
+        while not self._destroy(call) and call.thread.is_alive():
+            time.sleep(0.5)
+
+    def reap_all(self) -> None:
+        """Destroy the sandbox of every run in progress."""
+        with self._lock:
+            calls = [call for call in self._calls.values() if call.sandbox is not None]
+        for call in calls:
+            self._destroy(call)
 
     def serve(self, lines: Iterable[bytes]) -> None:
         """Handle input until it ends, then wait for running calls."""
         for line in lines:
             if line.strip():
                 self.receive(line)
-        for call in self._calls:
-            call.join()
+        for thread in self._threads:
+            thread.join()
 
 
 def serve(settings_path: Path, version: str) -> int:
@@ -453,6 +551,7 @@ def serve(settings_path: Path, version: str) -> int:
     except SbxError as error:
         print(f"sbx-mcp: {error}", file=sys.stderr)
         return 1
+    settings = dataclasses.replace(settings, output_limit=min(settings.output_limit, OUTPUT_LIMIT))
     # Helpers inherit fds 0 and 1, so the protocol moves to private copies.
     protocol_in = os.fdopen(os.dup(0), "rb")
     protocol_out = os.fdopen(os.dup(1), "wb")
@@ -469,5 +568,13 @@ def serve(settings_path: Path, version: str) -> int:
 
         return Sandboxes(settings, Paths.from_environment(), connect, session)
 
-    Server(open_sandboxes, protocol_out, version).serve(protocol_in)
+    server = Server(open_sandboxes, protocol_out, version)
+
+    def terminate(signum: int, _frame: object) -> None:
+        # Codex follows SIGTERM with SIGKILL two seconds later; gc removes what remains.
+        server.reap_all()
+        os._exit(128 + signum)
+
+    signal.signal(signal.SIGTERM, terminate)
+    server.serve(protocol_in)
     return 0

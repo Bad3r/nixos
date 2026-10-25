@@ -4,8 +4,9 @@
 import io
 import json
 import os
+import threading
 import unittest
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from sbx import mcp
@@ -13,6 +14,9 @@ from sbx.cli import build_parser
 from sbx.core import SbxError
 
 from . import test_core
+
+if TYPE_CHECKING:
+    import argparse
 
 SAMPLES: dict[str, object] = {
     "base": "nixos",
@@ -156,6 +160,19 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(names, [tool.name for tool in mcp.TOOLS])
         self.assertEqual(responses[4]["error"]["code"], mcp.METHOD_NOT_FOUND)
         self.assertEqual(responses[None]["error"]["code"], mcp.PARSE_ERROR)
+        tools = {tool["name"]: tool for tool in responses[3]["result"]["tools"]}
+        self.assertTrue(tools["run"]["annotations"]["openWorldHint"])
+        self.assertFalse(tools["exec"]["annotations"]["openWorldHint"])
+
+    def test_invalid_requests(self) -> None:
+        """A null id or a non-string method is an invalid request."""
+        for message in (
+            {"jsonrpc": "2.0", "id": None, "method": "ping"},
+            {"jsonrpc": "2.0", "id": 7, "method": 5},
+        ):
+            with self.subTest(message=message):
+                responses = self.exchange(message)
+                self.assertEqual(responses[None]["error"]["code"], mcp.INVALID_REQUEST)
 
     def test_calls(self) -> None:
         """Results carry the --json document; refusals are tool errors."""
@@ -180,3 +197,66 @@ class ServerTest(unittest.TestCase):
         exclusive = json.loads(responses[4]["result"]["content"][0]["text"])
         self.assertEqual(exclusive["error"]["code"], "usage")
         self.assertIn("sbx-a", self.core.backend.domains_by_name)
+
+
+class Stub:
+    """Sandboxes whose destroy releases a blocked dispatch."""
+
+    def __init__(self) -> None:
+        """Start with nothing destroyed."""
+        self.destroyed: list[str] = []
+        self.released = threading.Event()
+        self.names: list[str | None] = []
+
+    def destroy(self, name: str) -> list[str]:
+        """Record the name and let the run fail as its sandbox vanished."""
+        self.destroyed.append(name)
+        self.released.set()
+        return [name]
+
+    def dispatch(self, _sandboxes: object, args: argparse.Namespace, *, as_json: bool) -> None:
+        """Block like a run in progress until destroy is called."""
+        if not as_json:
+            raise AssertionError
+        self.names.append(args.name)
+        self.released.wait(5)
+        msg = "no sandbox"
+        raise SbxError(msg, code="not-found")
+
+
+class CancelTest(unittest.TestCase):
+    """Cancelled and interrupted runs leave no sandbox behind."""
+
+    def setUp(self) -> None:
+        """Route every sandbox and dispatch to the stub."""
+        self.stub = Stub()
+        self.output = io.BytesIO()
+        self.server = mcp.Server(lambda _session: cast("Any", self.stub), self.output, "0.0.0")
+        patch = mock.patch.object(mcp, "dispatch", self.stub.dispatch)
+        patch.start()
+        self.addCleanup(patch.stop)
+
+    def run_call(self, request_id: int, **arguments: object) -> bytes:
+        """Encode a run of id in the nixos base."""
+        params = {"name": "run", "arguments": {"base": "nixos", "command": ["id"], **arguments}}
+        message = {"jsonrpc": "2.0", "id": request_id, "method": "tools/call", "params": params}
+        return json.dumps(message).encode()
+
+    def test_cancelled_run(self) -> None:
+        """A cancellation destroys the run's generated sandbox and suppresses the response."""
+        cancel = {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": 1}}
+        self.server.serve([self.run_call(1), json.dumps(cancel).encode()])
+        self.assertEqual(len(self.stub.destroyed), 1)
+        self.assertTrue(self.stub.destroyed[0].startswith("nixos-"))
+        self.assertEqual(self.stub.names, self.stub.destroyed)
+        self.assertEqual(self.output.getvalue(), b"")
+
+    def test_terminate(self) -> None:
+        """reap_all, the SIGTERM path, destroys every run in progress."""
+        self.server.receive(self.run_call(2, name="r1"))
+        self.server.reap_all()
+        self.server.serve([])
+        self.assertEqual(self.stub.destroyed, ["r1"])
+        response = json.loads(self.output.getvalue())
+        self.assertEqual(response["id"], 2)
+        self.assertTrue(response["result"]["isError"])
