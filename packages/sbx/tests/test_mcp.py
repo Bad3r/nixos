@@ -56,6 +56,7 @@ SAMPLES: dict[str, object] = {
     "gui": True,
     "keys": ["ctrl+alt+t", "enter"],
     "text": "-x",
+    "mode": "keys",
     "share": "shared",
 }
 SNAPSHOT = Path(__file__).with_name("mcp-tools.json")
@@ -422,10 +423,8 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(pressed, (False, {"sandbox": "t1", "keys": ["ctrl+alt+t", "enter"]}))
         self.assertEqual(typed, (False, {"sandbox": "t1", "characters": 3}))
         self.assertEqual((refused[0], refused[1]["error"]["code"]), (True, "usage"))
-        self.assertEqual(
-            [codes for _domain, codes in self.core.backend.keys],
-            [[29, 56, 20], [28], [12], [45], [28]],
-        )
+        self.assertEqual([codes for _domain, codes in self.core.backend.keys], [[29, 56, 20], [28]])
+        self.assertEqual(self.core.backend.execs[-1][1], b"-x\n")
 
     def test_shares(self) -> None:
         """share_attach and share_detach return the share's JSON form."""

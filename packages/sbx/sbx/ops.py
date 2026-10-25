@@ -17,7 +17,7 @@ from sbx import journal, sleep, vsock
 from sbx.config import parse_duration
 from sbx.errors import SbxError, error_code, error_document
 from sbx.execution import exec_options
-from sbx.gui import TYPE_LIMIT
+from sbx.gui import TYPE_LIMIT, TYPE_MODES
 from sbx.model import ENCODINGS, FLAVOURS, NETS, SHARED
 from sbx.results import Document, Result, Results
 from sbx.sandboxes import running_daemon
@@ -329,7 +329,7 @@ def _key(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
 
 
 def _type(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
-    return sandboxes.type_text(args.text("name"), args.text("text"))
+    return sandboxes.type_text(args.text("name"), args.text("text"), mode=args.text("mode"))
 
 
 def _share_attach(sandboxes: Sandboxes, args: Args, _ctx: Ctx) -> Result:
@@ -638,14 +638,28 @@ OPERATIONS = (
             NAME,
             Param(
                 "text",
-                "US-layout text; newline presses enter",
+                "text; newline presses enter",
                 required=True,
                 schema={"maxLength": TYPE_LIMIT},
             ),
+            Param(
+                "mode",
+                "xdotool types any text in the X session; keys sends US-layout keycodes, "
+                "also before X starts",
+                flag="--mode",
+                enum=TYPE_MODES,
+                default="xdotool",
+                mcp_help="xdotool (default) or keys",
+            ),
         ),
         "Type text in a sandbox",
-        "Type text as US-layout key presses on the display of a sandbox with a GUI base; "
-        "returns {sandbox, characters}. The journal records only the text's length.",
+        "Type text on the display of a sandbox with a GUI base; returns {sandbox, characters}. "
+        "By default xdotool types it in the X session as the user sbx, Unicode included and "
+        "whatever the Caps Lock state; newline presses enter, and other control characters "
+        "are refused. Mode keys sends US-layout keycodes from the host instead, for screens "
+        "before X starts; it refuses characters outside that layout and turns Caps Lock off "
+        "around the text when the guest's LED shows it on. The journal records only the "
+        "text's length.",
     ),
     Operation(
         ("share", "attach"),

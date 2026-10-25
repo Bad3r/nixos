@@ -1,6 +1,6 @@
 # The `nixos-gui` sbx base, layered on `_base-nixos.nix`: an X11 session
 # logged in as `sbx`, with an IceWM desktop and a focused xterm, which root
-# reaches on DISPLAY :0 from SSH and qemu-ga commands.
+# and `sbx` reach on DISPLAY :0 from SSH and qemu-ga commands.
 { lib, pkgs, ... }:
 {
   services = {
@@ -8,7 +8,7 @@
       enable = true;
       windowManager.icewm.enable = true;
       displayManager.sessionCommands = ''
-        ${lib.getExe pkgs.xhost} +SI:localuser:root
+        ${lib.getExe pkgs.xhost} +SI:localuser:root +SI:localuser:sbx
         ${lib.getExe pkgs.xterm} -fa Monospace -fs 12 &
       '';
     };

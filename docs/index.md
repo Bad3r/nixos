@@ -477,7 +477,9 @@
 - [apps/sbx/README.md](apps/sbx/README.md)
   - Agent sandboxes on `qemu:///session`: trust model, verbs, networks, copy roots, the slice and ceilings, state, and gc.
 - [apps/sbx/bases.md](apps/sbx/bases.md)
-  - `sbx` bases: Nix-built `nixos` and `nixos-gui`, keyboard input on GUI sandboxes, and hash-pinned cloud images that `base prepare` provisions.
+  - `sbx` bases: Nix-built `nixos` and `nixos-gui`, and hash-pinned cloud images that `base prepare` provisions.
+- [apps/sbx/gui.md](apps/sbx/gui.md)
+  - Display input on GUI sandboxes: screenshots, key chords and aliases, text through xdotool or keycodes, and Caps Lock.
 - [apps/sbx/exec.md](apps/sbx/exec.md)
   - Commands in sandboxes: qemu-ga and SSH transports, the user, directory, environment, and stdin, host-side timeouts and their signals, the `--json` result, and exit statuses.
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)

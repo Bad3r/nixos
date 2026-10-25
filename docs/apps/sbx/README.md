@@ -82,7 +82,7 @@ sbx destroy probe
 
 ## Bases
 
-Nix bases, GUI input, and cloud bases with `base prepare`: [bases](bases.md).
+Nix bases and cloud bases with `base prepare`: [bases](bases.md); display input: [GUI input](gui.md).
 Windows bases, exported from a Windows guest's golden copy and run without SSH: [Windows bases](windows.md).
 
 ## Resources

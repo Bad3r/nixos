@@ -19,8 +19,11 @@ let
     with `DISPLAY=:0`, so
     `sbx exec <name> -- sh -c 'some-app >/dev/null 2>&1 </dev/null &'` opens a
     window there; without the redirections, `exec` waits until the app exits.
-    The terminal itself runs as the user `sbx`. `type` takes US-layout
-    ASCII (a newline presses enter), and `key` takes chords such as `ctrl+c`.
+    The terminal itself runs as the user `sbx`. `type` types any text,
+    Unicode included, through xdotool in the session whatever the Caps Lock
+    state (a newline presses enter); `type --mode keys` sends US-layout
+    keycodes for screens before X starts. `key` takes chords such as `ctrl+c`
+    and aliases such as `return` or `escape`.
 
     Cloud bases such as `debian-13` run cloud images with apt, and `--net egress`
     lets apt fetch packages. A cloud base that reports `base-missing` needs
@@ -129,8 +132,8 @@ let
       `skipped`; `exec` is shaped as above; `cleanup` is
       `{destroyed, error}`.
     - `key`: `{sandbox, keys}`; `type`: `{sandbox, characters}`. Both return
-      once the input reached the guest's keyboard, not once an app handled it,
-      so check the effect with `exec` or `screenshot`.
+      once the input reached the X server or the guest's keyboard, not once
+      an app handled it, so check the effect with `exec` or `screenshot`.
     - `exec` and `run` exit with the guest command's status. Past
       `--timeout`, sbx sends SIGTERM to its process group, then SIGKILL 5 s
       later, keeps the partial output, sets `timed_out`, and exits 124; a

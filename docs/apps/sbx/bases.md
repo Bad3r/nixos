@@ -15,27 +15,12 @@ The key reaches the guest as the `ssh.authorized_keys.root` systemd credential o
 
 - `nixos-gui` logs the user `sbx` into an X11 session with IceWM and a focused xterm.
 - Commands from `exec` run as root with `DISPLAY` set to that session, so X clients such as `xdotool` show up there.
+  The session admits `exec --user sbx` as well.
 - `create nixos --gui` is `create nixos-gui`, and both default to the `guiMemory` option instead of `memory`.
 - The domain carries a SPICE display on a unix socket, with clipboard and file transfer off and no vdagent channel.
   `virsh -c qemu:///session domdisplay sbx-<name>` prints its URI for a libvirt client.
 
-| Verb                        | Effect                                   |
-| --------------------------- | ---------------------------------------- |
-| `screenshot <name> [--ocr]` | display to a new file, opt. OCR          |
-| `key <name> <chord>...`     | press each chord, such as `ctrl+alt+t`   |
-| `type <name> <text>`        | type US-layout ASCII; newline is `enter` |
-
-- Each screenshot is named `screenshot-<UTC time to the microsecond>-<6 hex>.png`, or `.ppm` when the display hands out PPM, and never replaces a file.
-- It lands in the sandbox's `xfer` directory, which `destroy` removes, or under `--to` (MCP `to`), a directory or a new file under the copy roots.
-  A `--to` outside the roots or onto an existing file refuses before the capture.
-  A `--to` naming a new file keeps that name whatever the image type.
-- A chord joins key names with `+`; aliases such as `return`, `escape`, `pgup`, `control`, and `win` name the same keys.
-  An unknown name fails with the list of known names and aliases.
-- `key` and `type` refuse a sandbox on any other base with `no-display`.
-- A key or character outside the layout, or text past the length cap, fails with `invalid-argument` before anything reaches the guest.
-- The journal records how many characters `type` sent, never the text.
-- QEMU drops input past its queue, so `sbx` waits for each chord to land; a character takes about 20 ms, a shifted one about 40 ms.
-- The guest's keyboard layout must be US for `type` to produce the characters it was given.
+Screenshots, keys, and text: [GUI input](gui.md).
 
 ## Cloud bases
 

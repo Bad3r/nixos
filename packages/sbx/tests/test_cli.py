@@ -70,6 +70,8 @@ class CommandLineTest(unittest.TestCase):
             parser.parse_args(["key", "g", "ctrl+c", "enter"]).keys, ["ctrl+c", "enter"]
         )
         self.assertEqual(parser.parse_args(["type", "g", "--json", "ls -l"]).text, "ls -l")
+        self.assertEqual(parser.parse_args(["type", "g", "x"]).mode, "xdotool")
+        self.assertEqual(parser.parse_args(["type", "g", "--mode", "keys", "x"]).mode, "keys")
         self.assertEqual(parser.parse_args(["base", "prepare", "debian-13"]).image, "debian-13")
         self.assertTrue(parser.parse_args(["create", "nixos", "--gui"]).gui)
         self.assertFalse(parser.parse_args(["run", "nixos"]).gui)

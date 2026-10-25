@@ -1621,21 +1621,79 @@ class SandboxesTest(Fixture):
         self.assertEqual(channels, ["org.qemu.guest_agent.0"])
 
     def test_key_and_type(self) -> None:
-        """Chords and text reach the display as Linux keycodes, one send per chord."""
+        """Chords reach the display as Linux keycodes; text goes to xdotool in the session."""
         self.sandboxes().create(self.request(gui=True))
-        with mock.patch.object(gui.time, "sleep"):
-            result, _ = self.dispatch("key", "t1", "ctrl+alt+t", "Enter")
-            self.assertEqual(result, {"sandbox": "t1", "keys": ["ctrl+alt+t", "Enter"]})
-            result, _ = self.dispatch("type", "t1", "Hi!\n")
-            self.assertEqual(result, {"sandbox": "t1", "characters": 4})
-        self.assertEqual(
-            [codes for _domain, codes in self.backend.keys],
-            [[29, 56, 20], [28], [42, 35], [23], [42, 2], [28]],
-        )
+        text = "H\u00e9 \u2713!\n"
+        with (
+            mock.patch.object(gui.time, "sleep"),
+            mock.patch.object(self.backend, "agent", wraps=self.backend.agent) as agent_call,
+        ):
+            result, _ = self.dispatch("key", "t1", "ctrl+alt+t", "Return")
+            self.assertEqual(result, {"sandbox": "t1", "keys": ["ctrl+alt+t", "Return"]})
+            result, _ = self.dispatch("type", "t1", text)
+            self.assertEqual(result, {"sandbox": "t1", "characters": len(text)})
+        self.assertEqual([codes for _domain, codes in self.backend.keys], [[29, 56, 20], [28]])
         self.assertEqual({domain for domain, _codes in self.backend.keys}, {"sbx-t1"})
-        logged = [call.args[0] for call in cast("mock.Mock", gui.journal.record).call_args_list]
-        self.assertIn("type in t1: 4 characters", logged)
-        self.assertFalse([line for line in logged if "Hi!" in line])
+        (started,) = [
+            call.args[1]["arguments"]
+            for call in agent_call.call_args_list
+            if call.args[1]["execute"] == "guest-exec"
+        ]
+        self.assertEqual(started["input-data"], base64.b64encode(text.encode()).decode())
+        (argv, stdin) = self.backend.execs[-1]
+        self.assertEqual(stdin, text.encode())
+        self.assertEqual(argv[4:8], ["sbx", "", "setsid", "DISPLAY=:0"])
+        self.assertEqual(argv[8:], ["--", "xdotool", "type", "--clearmodifiers", "--file", "-"])
+        self.assert_text_unlogged(text, "type in t1: 6 characters")
+
+    def assert_text_unlogged(self, text: str, line: str) -> None:
+        """The journal names the text's length and nothing of the text."""
+        records = cast("mock.Mock", gui.journal.record).call_args_list
+        logged = [call.args[0] for call in records]
+        self.assertIn(line, logged)
+        for call in records:
+            fields = [*map(str, call.args), *map(str, call.kwargs.values())]
+            self.assertFalse([field for field in fields if text.strip() in field], call)
+
+    def test_type_keys_mode(self) -> None:
+        """Keycode typing turns a lit Caps Lock off around the text and back on after it."""
+        self.sandboxes().create(self.request(gui=True))
+        lit = {"exitcode": 0, "out-data": base64.b64encode(b"1\n0\n").decode()}
+        for led, expected in (
+            (lit, [[58], [42, 35], [23], [58]]),
+            ({"exitcode": 0, "out-data": base64.b64encode(b"0\n").decode()}, [[42, 35], [23]]),
+        ):
+            self.backend.keys.clear()
+            self.backend.exit_status = led
+            with self.subTest(led=led), mock.patch.object(gui.time, "sleep"):
+                result, _ = self.dispatch("type", "t1", "--mode", "keys", "Hi")
+                self.assertEqual(result, {"sandbox": "t1", "characters": 2})
+                self.assertEqual([codes for _domain, codes in self.backend.keys], expected)
+                argv, stdin = self.backend.execs[-1]
+                self.assertEqual((argv, stdin), (["/bin/sh", "-c", gui.CAPS_LED], b""))
+        self.assert_text_unlogged("Hi", "type in t1: 2 characters")
+        self.backend.keys.clear()
+        for reply in (
+            {"exitcode": 0, "out-data": base64.b64encode(b"on").decode()},
+            {"exitcode": 0},
+            {"exitcode": 1},
+        ):
+            self.backend.exit_status = reply
+            with self.subTest(reply=reply), self.assertRaises(SbxError) as refused:
+                self.dispatch("type", "t1", "--mode", "keys", "Hi")
+            self.assertIn(refused.exception.code, {"agent-reply", "guest-command"})
+        self.assertEqual(self.backend.keys, [])
+
+    def test_type_failure(self) -> None:
+        """A failing xdotool is a guest-command error that quotes its stderr, not the text."""
+        self.sandboxes().create(self.request(gui=True))
+        stderr = base64.b64encode(b"Can't open display: :0\n").decode()
+        self.backend.exit_status = {"exitcode": 1, "err-data": stderr}
+        with self.assertRaises(SbxError) as failed:
+            self.dispatch("type", "t1", "secret")
+        self.assertEqual(failed.exception.code, "guest-command")
+        self.assertIn("Can't open display", str(failed.exception))
+        self.assertNotIn("secret", str(failed.exception))
 
     def test_input_refusals(self) -> None:
         """Unknown keys, untypable text, and sandboxes without a display send nothing."""
@@ -1645,11 +1703,16 @@ class SandboxesTest(Fixture):
         cases = [
             (("key", "t1", "ctrl+nope"), "invalid-argument"),
             (("key", "t1", "+".join(["a"] * 17)), "invalid-argument"),
-            (("type", "t1", "x\u00e9"), "invalid-argument"),
+            (("type", "t1", "--mode", "keys", "x\u00e9"), "invalid-argument"),
             (("type", "t1", "a\rb"), "invalid-argument"),
+            (("type", "t1", "a\x00b"), "invalid-argument"),
+            (("type", "t1", "a\ud800"), "invalid-argument"),
+            (("type", "t1", "--mode", "keys", "a\rb"), "invalid-argument"),
             (("type", "t1", "x" * (gui.TYPE_LIMIT + 1)), "invalid-argument"),
+            (("type", "t1", "--mode", "mouse", "x"), "usage"),
             (("key", "plain", "enter"), "no-display"),
             (("type", "plain", "x"), "no-display"),
+            (("type", "plain", "--mode", "keys", "x"), "no-display"),
             (("key", "old", "enter"), "expired"),
         ]
         for argv, code in cases:
@@ -1657,6 +1720,10 @@ class SandboxesTest(Fixture):
                 self.dispatch(*argv)
             self.assertEqual(refused.exception.code, code)
         self.assertEqual(self.backend.keys, [])
+        self.assertEqual(self.backend.execs, [])
+        with self.assertRaises(SbxError) as refused:
+            self.dispatch("type", "t1", "--mode", "keys", "\u2713")
+        self.assertIn("default mode", str(refused.exception))
 
     def prepared(self) -> Path:
         """Lay out a prepared debian-13 base."""
