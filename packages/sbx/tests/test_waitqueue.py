@@ -114,6 +114,24 @@ class WaitQueueTest(Fixture):
         messages = [call.args[0] for call in self.journal_record.call_args_list]
         self.assertTrue(any("t1 queues for capacity" in message for message in messages))
 
+    def test_late_waiter_never_starts(self) -> None:
+        """A waiter that wakes past its deadline to free capacity times out instead."""
+        sleep = time.sleep
+
+        def oversleep(seconds: float) -> None:
+            self.backend.domains_by_name.pop("sbx-r0", None)
+            sleep(seconds + 0.5)
+
+        with (
+            mock.patch.object(core.time, "sleep", oversleep),
+            self.assertRaises(SbxError) as refused,
+        ):
+            self.sandboxes().create(self.wait_request("t1", wait=0.3))
+        self.assertEqual(refused.exception.code, "wait-timeout")
+        self.assertNotIn("sbx-t1", self.backend.domains_by_name)
+        self.assertFalse(self.paths.sandbox("t1").exists())
+        self.assertEqual(self.queued(), [])
+
     def test_fifo_order(self) -> None:
         """Waiters start in arrival order as slots free, and list shows their positions."""
         first = self.start("a")
@@ -200,9 +218,10 @@ class WaitQueueTest(Fixture):
         self.assertEqual(list(self.paths.queue.iterdir()), [])
 
     def test_wait_ceiling_and_disk_refuse_before_queueing(self) -> None:
-        """A wait past the longest TTL, or a disk limit already passed, never queues."""
+        """A wait past the longest TTL less the boot time, or a passed disk limit, never queues."""
+        self.assertEqual(self.request(wait="1439m").wait, 1439 * 60)
         with self.assertRaises(SbxError) as refused:
-            self.request(wait="25h")
+            self.request(wait="24h")
         self.assertEqual(refused.exception.code, "over-limit")
         self.settings = dataclasses.replace(self.settings, min_free_bytes=1 << 62)
         began = time.monotonic()

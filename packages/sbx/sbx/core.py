@@ -660,9 +660,9 @@ def publish(staged: Path, target: Path) -> None:
 
 
 @contextlib.contextmanager
-def _terminate_raises(*, enabled: bool) -> Generator[None]:
+def _terminate_raises() -> Generator[None]:
     """Turn SIGTERM into SystemExit in the main thread, so cleanups run as on SIGINT."""
-    if not enabled or threading.current_thread() is not threading.main_thread():
+    if threading.current_thread() is not threading.main_thread():
         yield
         return
 
@@ -1034,9 +1034,12 @@ class Sandboxes:
         if not 60 <= request.ttl <= settings.max_ttl:  # noqa: PLR2004
             msg = f"ttl must be 1m to {settings.max_ttl // 3600}h"
             raise SbxError(msg, code="over-limit")
-        # The MCP tool timeout is the longest TTL, so a longer wait would outlive its call.
-        if request.wait is not None and request.wait > settings.max_ttl:
-            msg = f"wait must be at most {settings.max_ttl // 3600}h"
+        # The MCP tool timeout is the longest TTL, which must also cover the boot.
+        longest_wait = settings.max_ttl - settings.boot_timeout
+        if request.wait is not None and request.wait > longest_wait:
+            msg = (
+                f"wait must be at most {longest_wait // 60}m, the longest TTL less the boot timeout"
+            )
             raise SbxError(msg, code="over-limit")
 
     def _usage(self) -> int:
@@ -1181,7 +1184,8 @@ class Sandboxes:
         self, request: Request, name: str, ticket: waitqueue.Ticket | None
     ) -> tuple[str | None, int]:
         """Refuse a taken name; return what keeps the request out and the count queued ahead."""
-        backend = self.backend(require_slice=ticket is None)
+        # Each attempt reconnects, since a waiter may outlast a daemon restart.
+        backend = self.backend(require_slice=True)
         if self.paths.sandbox(name).exists() or any(
             info.name == DOMAIN_PREFIX + name for info in backend.domains()
         ):
@@ -1204,35 +1208,42 @@ class Sandboxes:
         started = waitqueue.boottime()
         deadline = started + (request.wait or 0)
         ticket: waitqueue.Ticket | None = None
-        with _terminate_raises(enabled=request.wait is not None):
-            try:
-                while True:
-                    if self.cancelled():
-                        msg = f"the create of '{name}' was cancelled while it waited"
-                        raise SbxError(msg, code="cancelled")
-                    # Waiters behind the head skip the lock and the daemon.
-                    if ticket is None or not self._ahead(ticket):
-                        with self.locked():
-                            problem, ahead = self._claim(request, name, ticket)
-                            if problem is None:
-                                self._dequeue(ticket, started)
-                                # A waiter's connection may predate a daemon restart.
-                                yield self.backend(require_slice=ticket is not None)
-                                return
-                            if request.wait is None:
-                                raise self._capacity_error(problem, ahead, code="over-limit")
-                            ticket = ticket or self._enqueue(
-                                request, name, problem, ahead + 1, deadline
+        try:
+            while True:
+                if self.cancelled():
+                    msg = f"the create of '{name}' was cancelled while it waited"
+                    raise SbxError(msg, code="cancelled")
+                # Waiters behind the head skip the lock and the daemon.
+                if ticket is None or not self._ahead(ticket):
+                    with self.locked():
+                        problem, ahead = self._claim(request, name, ticket)
+                        # A waiter woken past its deadline, as after host sleep, never starts.
+                        if problem is None and (ticket is None or waitqueue.boottime() < deadline):
+                            self._dequeue(ticket, started)
+                            yield self.backend()
+                            return
+                        if request.wait is None:
+                            raise self._capacity_error(
+                                cast("str", problem), ahead, code="over-limit"
                             )
-                    remaining = deadline - waitqueue.boottime()
-                    if remaining <= 0:
-                        problem = self._capacity_problem(request) or "earlier creates queue"
-                        problem = f"'{name}' waited {request.wait:g} s for capacity: {problem}"
-                        ahead = len(self._ahead(ticket))
-                        raise self._capacity_error(problem, ahead, code="wait-timeout")
-                    time.sleep(min(WAIT_POLL, remaining))
-            finally:
-                self._dequeue(ticket, None)
+                        ticket = ticket or self._enqueue(
+                            request, name, cast("str", problem), ahead + 1, deadline
+                        )
+                remaining = deadline - waitqueue.boottime()
+                if remaining <= 0:
+                    raise self._wait_timeout(request, name, ticket)
+                time.sleep(min(WAIT_POLL, remaining))
+        finally:
+            self._dequeue(ticket, None)
+
+    def _wait_timeout(
+        self, request: Request, name: str, ticket: waitqueue.Ticket | None
+    ) -> SbxError:
+        problem = self._capacity_problem(request)
+        message = f"'{name}' waited {request.wait:g} s for capacity"
+        if problem is not None:
+            message += f": {problem}"
+        return self._capacity_error(message, len(self._ahead(ticket)), code="wait-timeout")
 
     # Bases
 
@@ -1635,7 +1646,8 @@ class Sandboxes:
         # Prepared cloud disks and Windows exports live outside the store.
         outside = request.base in self.settings.cloud_images or self.windows_base(request.base)
         root = None if outside else image.parent
-        return self._start(request, name, image, token, root=root, agent=True)
+        with _terminate_raises():
+            return self._start(request, name, image, token, root=root, agent=True)
 
     def _start(  # noqa: PLR0913
         self,
