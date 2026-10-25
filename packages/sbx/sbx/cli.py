@@ -163,18 +163,23 @@ def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tu
         raise SbxError(msg, code="usage")
     timeout = _timeout(args.timeout)
     created = sandboxes.create(_request(sandboxes, args))
-    name = str(created["name"])
+    name, token = str(created["name"]), str(created["token"])
+    # Every step and the cleanup act only on this creation, never on a later namesake.
     try:
-        copied_in = [sandboxes.copy(path, f"{name}:/root/") for path in args.inputs]
+        copied_in = [sandboxes.copy(path, f"{name}:/root/", token=token) for path in args.inputs]
         if as_json:
-            result = sandboxes.exec_capture(name, command, timeout=timeout, agent=False)
+            result = sandboxes.exec_capture(
+                name, command, timeout=timeout, agent=False, token=token
+            )
             code = exit_code(result)
         else:
-            code = _attached(sandboxes.exec_attached(name, command, timeout=timeout))
+            code = _attached(sandboxes.exec_attached(name, command, timeout=timeout, token=token))
             result = None
-        copied_out = [sandboxes.copy(f"{name}:{path}", args.to) for path in args.outputs]
+        copied_out = [
+            sandboxes.copy(f"{name}:{path}", args.to, token=token) for path in args.outputs
+        ]
     finally:
-        sandboxes.destroy(name)
+        sandboxes.destroy_created(token)
     if not as_json:
         return None, code
     payload = {

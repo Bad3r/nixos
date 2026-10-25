@@ -12,6 +12,7 @@ let
     "http"
     "sse"
     "npx"
+    "app"
   ];
 
   registry = import ./_registry.nix { inherit lib; };
@@ -38,6 +39,10 @@ let
     http = [ "url" ];
     sse = [ "url" ];
     npx = [ "package" ];
+    app = [
+      "app"
+      "program"
+    ];
   };
 
   optionalFields = {
@@ -47,6 +52,11 @@ let
     npx = [
       "timeout"
       "args"
+    ];
+    app = [
+      "timeout"
+      "toolTimeout"
+      "autoApprove"
     ];
   };
 
@@ -159,10 +169,13 @@ let
       throw "Agent MCP server '${serverName}' has invalid source '${source}'. Valid: ${toString validSources}"
     else if missingFields != [ ] then
       throw "Agent MCP server '${serverName}' (${source}) missing required fields: ${toString missingFields}"
+    else if validatedServer ? app && !(config.flake.lib.nixos.hasApp validatedServer.app) then
+      throw "Agent MCP server '${serverName}' names app '${validatedServer.app}', which has no flake.nixosModules.apps entry"
     else
       validatedServer
       // {
         name = serverName;
+        autoApprove = validatedServer.autoApprove or false;
         clients = validateClients serverName validatedServer.clients;
         docs = validateDocs serverName validatedServer.docs;
         network =
@@ -184,8 +197,23 @@ let
     startup_timeout_ms = sec * 1000;
   };
 
+  # Claude Code reads `timeout`, Codex `tool_timeout_sec`.
+  mkToolTimeouts = sec: {
+    tool_timeout_sec = sec;
+    timeout = sec * 1000;
+  };
+
+  # An app's server exists only where the host turns the app's row on.
+  enabledOn =
+    osConfig: server:
+    !(server ? app) || lib.attrByPath [ "programs" server.app "extended" "enable" ] false osConfig;
+
   mkServerConfig =
-    { pkgs, mcpPkgs }:
+    {
+      pkgs,
+      mcpPkgs,
+      osConfig,
+    }:
     name:
     let
       meta =
@@ -241,6 +269,20 @@ let
           type = "http";
         }
         // timeouts;
+
+        # `toolTimeout` may read the app's settings.
+        app =
+          let
+            cfg = osConfig.programs.${meta.app}.extended;
+            toolTimeout = if lib.isFunction meta.toolTimeout then meta.toolTimeout cfg else meta.toolTimeout;
+          in
+          {
+            command = lib.getExe' (cfg.finalPackage or cfg.package) meta.program;
+            args = [ ];
+            type = "stdio";
+          }
+          // timeouts
+          // lib.optionalAttrs (meta ? toolTimeout) (mkToolTimeouts toolTimeout);
 
         sse = {
           command = "${lib.getExe' pkgs.nodejs "npx"}";
@@ -341,18 +383,19 @@ let
       or (throw "Unknown MCP source type: ${meta.source}. Valid: ${toString (lib.attrNames handlers)}");
 
   mkServer =
-    pkgs: name:
+    { pkgs, osConfig }:
+    name:
     let
       mcpPkgs = inputs.mcp-servers-nix.packages.${pkgs.stdenv.hostPlatform.system};
     in
-    mkServerConfig { inherit pkgs mcpPkgs; } name;
+    mkServerConfig { inherit pkgs mcpPkgs osConfig; } name;
 
   mkServers =
-    pkgs: enabled:
+    args: enabled:
     let
       inherit (lib.partition (name: validatedServers ? ${name}) enabled) right wrong;
       catalogNames = lib.concatStringsSep ", " (lib.attrNames validatedServers);
-      result = lib.genAttrs right (mkServer pkgs);
+      result = lib.genAttrs right (mkServer args);
     in
     if wrong != [ ] then
       lib.warn "Unknown MCP server(s): ${lib.concatStringsSep ", " wrong}. Valid: ${catalogNames}" result
@@ -360,18 +403,22 @@ let
       result;
 
   mkClientServers =
-    client: pkgs: enabled:
+    client: args: enabled:
     let
-      servers = mkServers pkgs enabled;
+      servers = mkServers args enabled;
     in
     # Codex infers transport from command/url and uses seconds for timeouts.
     if client == "codex" then
       lib.mapAttrs (
-        _: server:
+        name: server:
         builtins.removeAttrs server [
           "type"
           "startup_timeout_ms"
+          "timeout"
         ]
+        // lib.optionalAttrs validatedServers.${name}.autoApprove {
+          default_tools_approval_mode = "approve";
+        }
       ) servers
     else
       servers;
@@ -382,10 +429,21 @@ let
       builtins.sort builtins.lessThan (lib.attrNames validatedServers)
     );
 
-  compiledClients = lib.genAttrs validClients (client: {
-    names = clientServerNames client;
-    servers = pkgs: mkClientServers client pkgs (clientServerNames client);
-  });
+  compiledClients = lib.genAttrs validClients (
+    client:
+    let
+      names = clientServerNames client;
+      enabledNames = osConfig: lib.filter (name: enabledOn osConfig validatedServers.${name}) names;
+    in
+    {
+      inherit names enabledNames;
+      servers =
+        { pkgs, osConfig }: mkClientServers client { inherit pkgs osConfig; } (enabledNames osConfig);
+      # Claude Code approves MCP tools through permission rules, not server entries.
+      autoApproved =
+        osConfig: lib.filter (name: validatedServers.${name}.autoApprove) (enabledNames osConfig);
+    }
+  );
 
   renderClientList =
     clients:

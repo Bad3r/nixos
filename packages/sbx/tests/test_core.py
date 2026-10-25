@@ -7,6 +7,7 @@ import json
 import os
 import tempfile
 import threading
+import time
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -31,6 +32,8 @@ STUBS = {
     ),
     "ssh": (
         'if [ -n "$SBX_TEST_SSH_LOG" ]; then printf "%s\\n" "$@" > "$SBX_TEST_SSH_LOG"; fi; '
+        'case "$*" in *blockme*) touch "$SBX_TEST_GATE.started"; '
+        'while [ ! -e "$SBX_TEST_GATE" ]; do sleep 0.05; done;; esac; '
         'exit "${SBX_TEST_SSH_EXIT:-0}"'
     ),
     "scp": (
@@ -59,6 +62,7 @@ class FakeBackend:
         self.domains_by_name: dict[str, DomainInfo] = {}
         self.xml: dict[str, str] = {}
         self.replies: list[dict[str, Any]] = []
+        self.addresses = ["172.16.2.5"]
         # Host sleep: domains that refuse, unconnected agent answers left, saved states.
         self.failing: set[str] = set()
         self.unconnected: dict[str, int] = {}
@@ -119,9 +123,13 @@ class FakeBackend:
         del self.domains_by_name[domain]
 
     def agent(self, domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:  # noqa: ARG002
-        """Answer guest-ping, then the queued replies."""
+        """Answer guest-ping and guest-network-get-interfaces, then the queued replies."""
         if command["execute"] == "guest-ping":
             return {"return": {}}
+        if command["execute"] == "guest-network-get-interfaces":
+            addresses = [{"ip-address-type": "ipv4", "ip-address": a} for a in self.addresses]
+            nic = {"name": "eth0", "hardware-address": MAC.upper(), "ip-addresses": addresses}
+            return {"return": [{"name": "lo", "hardware-address": "00:00:00:00:00:00"}, nic]}
         return self.replies.pop(0)
 
     def screenshot(self, domain: str, target: Path) -> str:  # noqa: ARG002
@@ -427,6 +435,47 @@ class SandboxesTest(Fixture):
         self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-b"])
         with self.assertRaises(SbxError):
             self.sandboxes(session=None).listing(mine=True)
+
+    def test_destroy_created(self) -> None:
+        """A creation token reaches the metadata and selects only its own sandbox."""
+        self.sandboxes().create(self.request(), token="tok")  # noqa: S106
+        self.sandboxes().create(self.request(name="t2"))
+        self.assertEqual(self.sandboxes().destroy_created("other"), [])
+        self.assertEqual(self.sandboxes().destroy_created("tok"), ["t1"])
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-t2"])
+
+    def test_run_spares_a_namesake(self) -> None:
+        """A run whose sandbox is destroyed and renamed mid-command never touches the namesake."""
+        gate = self.scratch / "gate"
+        args = cli.build_parser().parse_args(
+            ["run", "nixos", "--name=r", "--out=/root/x", f"--to={self.scratch / 'tmp'}"]
+        )
+        args.command = ["blockme"]
+        errors: list[str] = []
+
+        def worker() -> None:
+            try:
+                cli.dispatch(self.sandboxes(), args, as_json=True)
+            except SbxError as error:
+                errors.append(error.code)
+
+        with mock.patch.dict(os.environ, {"SBX_TEST_GATE": str(gate)}):
+            thread = threading.Thread(target=worker)
+            thread.start()
+            started = gate.with_name("gate.started")
+            deadline = time.monotonic() + 5
+            while not started.exists() and time.monotonic() < deadline:
+                time.sleep(0.05)
+            other = self.sandboxes(session="claude:two")
+            other.destroy("r")
+            replacement = other.create(self.request(name="r"))
+            gate.touch()
+            thread.join(5)
+        self.assertEqual(errors, ["replaced"])
+        self.assertEqual(
+            cast("Meta", self.backend.domains_by_name["sbx-r"].meta).token, replacement["token"]
+        )
+        self.assertTrue(self.paths.sandbox("r").is_dir())
 
     def test_destroy_expired_unsynced(self) -> None:
         """--expired refuses while the host clock is unsynced."""
@@ -787,6 +836,52 @@ class SandboxesTest(Fixture):
             self.sandboxes(None).create(self.request(net="egress"))
         self.assertEqual(refused.exception.code, "no-address")
         self.assert_no_sandbox("t1")
+
+    def test_egress_waits_for_guest_address(self) -> None:
+        """Create waits past the lease until the guest's NIC carries it, else fails no-address."""
+        self.egress().write_text(
+            json.dumps([{"ip-address": "172.16.2.5", "mac-address": MAC, "expiry-time": 0}])
+        )
+        self.backend.addresses = []
+
+        def configure(_seconds: float) -> None:
+            self.backend.addresses = ["172.16.2.5"]
+
+        with mock.patch.object(core.time, "sleep", side_effect=configure) as sleep:
+            result = self.sandboxes().create(self.request(net="egress"))
+        sleep.assert_called_once()
+        self.assertEqual(result["address"], "172.16.2.5")
+        self.backend.addresses = ["172.16.2.6"]
+        ticks = iter(range(0, 10_000, 2))
+        with (
+            mock.patch.object(core.time, "sleep"),
+            mock.patch.object(core.time, "monotonic", side_effect=lambda: next(ticks)),
+            self.assertRaises(SbxError) as refused,
+        ):
+            self.sandboxes().create(self.request(name="t2", net="egress"))
+        self.assertEqual(refused.exception.code, "no-address")
+        self.assert_no_sandbox("t2")
+
+    def test_guest_interfaces(self) -> None:
+        """The NIC is matched by MAC, other NICs' addresses do not count, bad replies fail."""
+        nic = {"hardware-address": MAC, "ip-addresses": [{"ip-address": "172.16.2.5"}]}
+        self.assertTrue(
+            core.guest_holds({"return": [{"name": "lo"}, nic]}, MAC.upper(), "172.16.2.5")
+        )
+        self.assertFalse(core.guest_holds({"return": [nic]}, "52:54:00:00:00:01", "172.16.2.5"))
+        self.assertFalse(
+            core.guest_holds({"return": [{"hardware-address": MAC}]}, MAC, "172.16.2.5")
+        )
+        bad: list[dict[str, Any]] = [
+            {},
+            {"return": {}},
+            {"return": [1]},
+            {"return": [nic | {"ip-addresses": 1}]},
+        ]
+        for reply in bad:
+            with self.subTest(reply=reply), self.assertRaises(SbxError) as refused:
+                core.guest_holds(reply, MAC, "172.16.2.5")
+            self.assertEqual(refused.exception.code, "agent-reply")
 
     def test_lease_file(self) -> None:
         """Missing and empty files hold no lease, malformed ones fail, IPv6 is skipped."""

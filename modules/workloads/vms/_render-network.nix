@@ -32,7 +32,8 @@ let
       )
       + "\n  </dns>";
   # no-hosts keeps the host's /etc/hosts, Mesh names included, from guests;
-  # local=/vm/ answers unknown .vm names instead of forwarding them.
+  # local=/vm/ answers unknown .vm names instead of forwarding them;
+  # filter-AAAA drops answers no guest can use, since no network has IPv6.
 in
 ''
   <network xmlns:dnsmasq="http://libvirt.org/schemas/network/dnsmasq/1.0">
@@ -60,6 +61,7 @@ in
     </ip>
     <dnsmasq:options>
       <dnsmasq:option value="no-hosts"/>
+      <dnsmasq:option value="filter-AAAA"/>
       ${lib.optionalString (
         !libvirt.dhcp.clientNames
       ) ''<dnsmasq:option value="dhcp-ignore-names"/>''}

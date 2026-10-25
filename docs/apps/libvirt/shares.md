@@ -2,6 +2,7 @@
 
 `workloads.guests.<name>.shares.<tag>` exports a host directory to a [declared guest](guests.md) over virtiofs.
 The options and their defaults are documented in `modules/workloads/vms/options.nix`.
+Trusted guests also get a [drop](../../networking/workload-drops.md), a share with the tag `drop`.
 
 ## Declare a share
 
@@ -17,7 +18,7 @@ _: {
 ```
 
 - The tag names the share inside the guest.
-- The directory is not created; a guest whose share directory is missing fails to start.
+- The directory is not created, except for the drop; a guest whose share directory is missing fails to start.
 - The share assertions in `modules/workloads/vms/units.nix` and `modules/workloads/vms/windows/options.nix`, covered by the `workloads-vms-share-assertions` check, refuse shares on untrusted guests, root owners, and invalid tags.
   On Windows guests they also refuse a drive letter taken twice, and a `service` mode that cannot serve every share.
 - A new or changed share applies at the guest's next cold boot: a running guest and a managed-save restore keep the old definition.
@@ -58,6 +59,7 @@ A share whose `mountPoint` clashes with another file system fails the guest's ev
 - A share's `driveLetter` pins a letter from G to Z, since D to F stay free for the installation CD-ROMs.
   The others take the highest letters no other share pins, from Z down in tag order, so adding a share can move them.
   The read-only `windows.virtiofs.driveLetters` holds the result; other guest kinds ignore `driveLetter`.
+- A trusted guest's [drop](../../networking/workload-drops.md) is one of these shares, so it takes a letter and counts toward the share cap and `service` mode's single share.
 - The host copies its pinned WinFsp installer in through the guest agent while the guest lacks that version or a newer one.
 - The viofs driver and `virtiofs.exe` come with the virtio-win guest tools.
 - virtio-win calls virtiofs on Windows a Tech Preview, in either mode.
@@ -90,7 +92,7 @@ Its `<filesystem>` element is the derived `deviceXml` option, installed as `/etc
 
 `virsh -c qemu:///system detach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live` removes it again after an unmount in the guest.
 A Windows guest needs the same provisioning restart after a detach.
-Each running `virtiofs.exe` remounts itself whenever any virtio-fs device arrives, which can break shares that are already mounted, until provisioning restarts them.
+Each running `virtiofs.exe` remounts itself whenever any virtio-fs device arrives, which can break shares that are already mounted, until provisioning restarts them ([virtio-win issue 1698](https://github.com/virtio-win/kvm-guest-drivers-windows/issues/1698)).
 
 ## Verify
 
