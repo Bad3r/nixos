@@ -2,6 +2,7 @@
 
 `workloads.guests.<name>.shares.<tag>` exports a host directory to a [declared guest](guests.md) over virtiofs.
 The options and their defaults are documented in `modules/workloads/vms/options.nix`.
+Trusted guests also get a [drop](../../networking/workload-drops.md), a share with the tag `drop`.
 
 ## Declare a share
 
@@ -17,7 +18,7 @@ _: {
 ```
 
 - The tag names the share inside the guest.
-- The directory is not created; a guest whose share directory is missing fails to start.
+- The directory is not created, except for the drop; a guest whose share directory is missing fails to start.
 - The share assertions in `modules/workloads/vms/units.nix` and `modules/workloads/vms/windows/options.nix`, covered by the `workloads-vms-share-assertions` check, refuse shares on untrusted guests, root owners, and invalid tags.
   On Windows guests they also refuse a drive letter taken twice, and a `service` mode that cannot serve every share.
 - A new or changed share applies at the guest's next cold boot: a running guest and a managed-save restore keep the old definition.
