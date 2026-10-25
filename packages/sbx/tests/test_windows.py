@@ -10,7 +10,7 @@ import xml.etree.ElementTree as ET
 from pathlib import Path, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any, cast
 
-from sbx import model, windows
+from sbx import model, pipeline, windows
 from sbx.errors import SbxError
 from sbx.model import ExecOptions
 from sbx.results import GcAction, SandboxView
@@ -262,6 +262,27 @@ class WindowsTest(unittest.TestCase):
             self.assertEqual(refused.exception.code, "unsupported")
         result = self.sandboxes().exec_capture("w", ["echo.exe"], ExecOptions(stdin=b"in"))
         self.assertEqual(result.exit_code, 3)
+
+    def test_run_inputs_ignore_case(self) -> None:
+        """Two inputs whose names differ only in case collide in the Windows inbox, not on Linux."""
+        tmp = self.scratch / "tmp"
+        inputs: list[str] = []
+        for directory, leaf in (("a", "Report.txt"), ("b", "report.txt")):
+            (tmp / directory).mkdir()
+            (tmp / directory / leaf).write_text(leaf)
+            inputs.append(str(tmp / directory / leaf))
+        sandboxes = self.sandboxes()
+
+        def plan(base: str) -> pipeline.RunPlan:
+            request = sandboxes.request(
+                base, name="r", net="none", memory=None, cpus=None, ttl=None
+            )
+            return sandboxes.plan_run(request, inputs, [], None)
+
+        with self.assertRaises(SbxError) as refused:
+            plan("win11")
+        self.assertEqual(refused.exception.code, "invalid-argument")
+        self.assertEqual(len(plan("nixos").inputs), 2)
 
     def test_timeout_kills_the_process_tree(self) -> None:
         """A timeout runs taskkill on the process tree and reports a failed kill."""

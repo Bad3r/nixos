@@ -116,14 +116,16 @@ class Pipeline(Lifecycle, Transfer):
         if to is not None and not outputs:
             msg = "--to needs --out"
             raise SbxError(msg, code="usage")
+        on_windows = self.windows_base(request.base) is not None
         sources = tuple(self._source(Path(path)) for path in inputs)
         landing: dict[str, Path] = {}
         for source in sources:
-            if source.name in landing:
-                msg = f"--in {landing[source.name]} and {source} both copy in as '{source.name}'"
+            # NTFS names in C:\sbx\ ignore case.
+            key = source.name.casefold() if on_windows else source.name
+            if key in landing:
+                msg = f"--in {landing[key]} and {source} both copy in as '{source.name}'"
                 raise SbxError(msg, code="invalid-argument")
-            landing[source.name] = source
-        on_windows = self.windows_base(request.base) is not None
+            landing[key] = source
         targets: dict[Path, str] = {}
         for path in outputs:
             leaf = guest_source(path, on_windows=on_windows).name

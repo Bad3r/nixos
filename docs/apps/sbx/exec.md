@@ -50,7 +50,7 @@ The MCP tools take the same as `cwd`, `env` (an object), `user`, and `stdin` tex
 
 `--output-encoding base64`, `encoding` in MCP, returns `stdout` and `stderr` as base64 of the raw bytes, and the `*_lossy` fields stay false.
 
-Both output modes exit with:
+`exec` exits in both output modes with:
 
 - the guest status;
 - 124 once the deadline passed;

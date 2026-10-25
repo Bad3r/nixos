@@ -1062,8 +1062,8 @@ class SandboxesTest(Fixture):
         self.assertEqual(
             kills,
             [
-                "kill -TERM -- -7 2>/dev/null || kill -TERM 7",
-                "kill -KILL -- -7 2>/dev/null || kill -KILL 7",
+                "kill -TERM -7 2>/dev/null || kill -TERM 7",
+                "kill -KILL -7 2>/dev/null || kill -KILL 7",
             ],
         )
         self.assertEqual((result.timed_out, result.killed, result.signal), (True, True, "KILL"))

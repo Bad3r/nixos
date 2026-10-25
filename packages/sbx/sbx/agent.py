@@ -240,7 +240,8 @@ class GuestExec:
             # The launcher's setsid makes the process group id the guest-exec pid; until it
             # runs, no such group exists, so the signal goes to the launcher itself.
             def send(pid: int) -> str | None:
-                script = f"kill -{name} -- -{pid} 2>/dev/null || kill -{name} {pid}"
+                # No --: dash's kill takes it for the pid and fails with "Illegal number".
+                script = f"kill -{name} -{pid} 2>/dev/null || kill -{name} {pid}"
                 return self.helper("/bin/sh", ["-c", script])
 
             return send

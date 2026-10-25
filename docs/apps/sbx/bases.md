@@ -28,6 +28,7 @@ The key reaches the guest as the `ssh.authorized_keys.root` systemd credential o
 - Each screenshot is named `screenshot-<UTC time to the microsecond>-<6 hex>.png`, or `.ppm` when the display hands out PPM, and never replaces a file.
 - It lands in the sandbox's `xfer` directory, which `destroy` removes, or under `--to` (MCP `to`), a directory or a new file under the copy roots.
   A `--to` outside the roots or onto an existing file refuses before the capture.
+  A `--to` naming a new file keeps that name whatever the image type.
 - A chord joins key names with `+`; an unknown name fails with the list of known ones.
 - `key` and `type` refuse a sandbox on any other base with `no-display`.
 - A key or character outside the layout, or text past the length cap, fails with `invalid-argument` before anything reaches the guest.
