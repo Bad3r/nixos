@@ -14,19 +14,12 @@ _: {
     {
       config = lib.mkIf nixosEnabled {
         # An unprivileged libvirt reads firmware descriptors from here, not from /var/lib/qemu.
-        xdg.configFile =
-          lib.listToAttrs (
-            map (file: {
-              name = "qemu/firmware/${file}";
-              value.source = "${libvirtCfg.qemuPackage}/share/qemu/firmware/${file}";
-            }) descriptors
-          )
-          // {
-            # Temporary: drop once the nixpkgs pin carries the libvirt QEMU_BRIDGE_HELPER fix.
-            "libvirt/qemu.conf".text = ''
-              bridge_helper = "${osConfig.security.wrapperDir}/qemu-bridge-helper"
-            '';
-          };
+        xdg.configFile = lib.listToAttrs (
+          map (file: {
+            name = "qemu/firmware/${file}";
+            value.source = "${libvirtCfg.qemuPackage}/share/qemu/firmware/${file}";
+          }) descriptors
+        );
 
         systemd.user = {
           slices.sbx = {

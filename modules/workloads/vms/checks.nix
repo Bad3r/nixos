@@ -428,10 +428,6 @@ in
           let
             toplevel = nodes.machine.system.build.toplevel;
             switch = name: "${toplevel}/specialisation/${name}/bin/switch-to-configuration test";
-            # What the sbx Home Manager part writes.
-            sessionQemuConf = pkgs.writeText "qemu.conf" ''
-              bridge_helper = "${nodes.machine.security.wrapperDir}/qemu-bridge-helper"
-            '';
             peerDomain = sessionDomain "peer" peerMac "sbx.role=peer";
             probeDomain = sessionDomain "probe" probeMac "sbx.role=probe sbx.peer=@PEER@ sbx.host=@HOST@";
           in
@@ -597,7 +593,8 @@ in
 
             def as_owner(command):
                 return (
-                    "runuser -u ${owner} -- env HOME=${home} XDG_RUNTIME_DIR=/run/user/1000 "
+                    # No /run/wrappers on PATH: libvirt must name the setuid bridge helper itself.
+                    "runuser -u ${owner} -- env HOME=${home} XDG_RUNTIME_DIR=/run/user/1000 PATH=/run/current-system/sw/bin "
                     + command
                 )
 
@@ -606,7 +603,6 @@ in
                 machine.wait_for_unit("user@1000.service")
                 machine.succeed("grep -Fx 'allow vn-sbx' /etc/qemu/bridge.conf")
                 assert "expiry='10'" in machine.succeed("virsh net-dumpxml sbx")
-                machine.succeed(as_owner("install -D -m 0644 ${sessionQemuConf} ${home}/.config/libvirt/qemu.conf"))
                 machine.succeed("systemd-run --unit=probe-http ${pkgs.python3.interpreter} -m http.server 8080")
                 machine.wait_until_succeeds("curl -sf http://127.0.0.1:8080/ >/dev/null")
 

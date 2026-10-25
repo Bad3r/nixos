@@ -55,7 +55,7 @@ sbx destroy probe
 - `create` waits for the guest's DHCP lease and prints its address.
   `list` and `info` read it from the lease file the host's DHCP server keeps for the bridge, not from the guest agent.
 - The address is the sandbox's current lease, which the network keeps short.
-- Session libvirt joins the bridge through the setuid `qemu-bridge-helper`, which the Home Manager part pins in `~/.config/libvirt/qemu.conf`.
+- Session libvirt joins the bridge through the setuid `qemu-bridge-helper` wrapper.
 
 ## Copies
 
