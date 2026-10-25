@@ -5,6 +5,7 @@ import io
 import json
 import os
 import threading
+import time
 import unittest
 from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
@@ -200,13 +201,23 @@ class ServerTest(unittest.TestCase):
 
 
 class Stub:
-    """Sandboxes whose destroy releases a blocked dispatch."""
+    """Sandboxes whose destroy releases a blocked run."""
 
     def __init__(self) -> None:
-        """Start with nothing destroyed."""
+        """Start with nothing created or destroyed."""
+        self.existing: set[str] = set()
         self.destroyed: list[str] = []
-        self.released = threading.Event()
         self.names: list[str | None] = []
+        self.running = threading.Event()
+        self.released = threading.Event()
+
+    def create(self, name: str) -> dict[str, object]:
+        """Refuse a taken name, after a delay that keeps the call in flight."""
+        if name in self.existing:
+            time.sleep(1)
+            msg = f"a sandbox named '{name}' exists"
+            raise SbxError(msg, code="exists")
+        return {"name": name}
 
     def destroy(self, name: str) -> list[str]:
         """Record the name and let the run fail as its sandbox vanished."""
@@ -214,18 +225,20 @@ class Stub:
         self.released.set()
         return [name]
 
-    def dispatch(self, _sandboxes: object, args: argparse.Namespace, *, as_json: bool) -> None:
-        """Block like a run in progress until destroy is called."""
+    def dispatch(self, sandboxes: Any, args: argparse.Namespace, *, as_json: bool) -> None:  # noqa: ANN401
+        """Create through the server's sandboxes, then block like a run in progress."""
         if not as_json:
             raise AssertionError
         self.names.append(args.name)
+        sandboxes.create(args.name)
+        self.running.set()
         self.released.wait(5)
         msg = "no sandbox"
         raise SbxError(msg, code="not-found")
 
 
 class CancelTest(unittest.TestCase):
-    """Cancelled and interrupted runs leave no sandbox behind."""
+    """Cancelled and interrupted runs leave no sandbox of theirs behind."""
 
     def setUp(self) -> None:
         """Route every sandbox and dispatch to the stub."""
@@ -242,18 +255,33 @@ class CancelTest(unittest.TestCase):
         message = {"jsonrpc": "2.0", "id": request_id, "method": "tools/call", "params": params}
         return json.dumps(message).encode()
 
+    @staticmethod
+    def cancel(request_id: int) -> bytes:
+        """Encode a cancellation of one request."""
+        params = {"requestId": request_id}
+        message = {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": params}
+        return json.dumps(message).encode()
+
     def test_cancelled_run(self) -> None:
         """A cancellation destroys the run's generated sandbox and suppresses the response."""
-        cancel = {"jsonrpc": "2.0", "method": "notifications/cancelled", "params": {"requestId": 1}}
-        self.server.serve([self.run_call(1), json.dumps(cancel).encode()])
+        self.server.serve([self.run_call(1), self.cancel(1)])
         self.assertEqual(len(self.stub.destroyed), 1)
         self.assertTrue(self.stub.destroyed[0].startswith("nixos-"))
         self.assertEqual(self.stub.names, self.stub.destroyed)
         self.assertEqual(self.output.getvalue(), b"")
 
+    def test_existing_name_survives(self) -> None:
+        """A cancelled run named after another sandbox never destroys it."""
+        self.stub.existing.add("x")
+        self.server.serve([self.run_call(3, name="x"), self.cancel(3)])
+        self.assertEqual(self.stub.destroyed, [])
+        self.server.reap_all()
+        self.assertEqual(self.stub.destroyed, [])
+
     def test_terminate(self) -> None:
         """reap_all, the SIGTERM path, destroys every run in progress."""
         self.server.receive(self.run_call(2, name="r1"))
+        self.assertTrue(self.stub.running.wait(5))
         self.server.reap_all()
         self.server.serve([])
         self.assertEqual(self.stub.destroyed, ["r1"])

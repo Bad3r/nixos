@@ -25,6 +25,7 @@ from sbx.core import (
     NETS,
     Backend,
     Paths,
+    Request,
     Sandboxes,
     SbxError,
     Settings,
@@ -362,6 +363,8 @@ class Call:
     session: str | None
     sandbox: str | None = None
     cancelled: bool = False
+    # Set once this call's create returns, so a name that already existed is never reaped.
+    owned: bool = False
 
 
 class Server:
@@ -467,13 +470,25 @@ class Server:
         self._threads = [*filter(threading.Thread.is_alive, self._threads), thread]
         thread.start()
 
-    def call(self, tool: Tool, arguments: object, session: str | None) -> Json:
+    def call(
+        self, tool: Tool, arguments: object, session: str | None, record: Call | None = None
+    ) -> Json:
         """Run one tool and return its result; sbx refusals are tool errors."""
         try:
             argv, command = tool.command_line(arguments)
             args = build_parser().parse_args(argv)
             args.command = command
-            document, _code = dispatch(self._open(session), args, as_json=True)
+            sandboxes = self._open(session)
+            if record is not None and record.sandbox is not None:
+                create = sandboxes.create
+
+                def owning_create(request: Request) -> dict[str, object]:
+                    created = create(request)
+                    record.owned = True
+                    return created
+
+                sandboxes.create = owning_create
+            document, _code = dispatch(sandboxes, args, as_json=True)
         except (SbxError, OSError) as error:
             code = error.code if isinstance(error, SbxError) else "os-error"
             journal.record(f"failed: {error}", code=code)
@@ -483,8 +498,10 @@ class Server:
     def _call(self, request_id: object, tool: Tool, arguments: object, session: str | None) -> None:
         result: Json | None = None
         failure = ""
+        with self._lock:
+            record = self._calls.get(request_id)
         try:
-            result = self.call(tool, arguments, session)
+            result = self.call(tool, arguments, session, record)
         except Exception as error:  # noqa: BLE001
             traceback.print_exc(file=sys.stderr)
             failure = f"{tool.name}: {error!r}"
@@ -509,28 +526,27 @@ class Server:
             reaper = threading.Thread(target=self._reap, args=(call,), name="sbx-cancel")
             self._spawn(reaper)
 
-    def _destroy(self, call: Call) -> bool:
-        """Destroy a run's sandbox; False while it does not exist yet."""
+    def _destroy(self, call: Call) -> None:
+        """Destroy the sandbox a run created; the run's own cleanup may have won."""
         try:
             self._open(call.session).destroy(str(call.sandbox))
         except SbxError as error:
             if error.code != "not-found":
                 print(f"sbx-mcp: cannot destroy {call.sandbox}: {error}", file=sys.stderr)
-                return True
-            return False
-        return True
 
     def _reap(self, call: Call) -> None:
-        # Retry until the run defines its domain or ends; its own cleanup covers the rest.
-        while not self._destroy(call) and call.thread.is_alive():
+        # A run still booting owns its sandbox only once create returns.
+        while not call.owned and call.thread.is_alive():
             time.sleep(0.5)
+        if call.owned:
+            self._destroy(call)
 
     def reap_all(self) -> None:
-        """Destroy the sandbox of every run in progress."""
-        with self._lock:
-            calls = [call for call in self._calls.values() if call.sandbox is not None]
-        for call in calls:
-            self._destroy(call)
+        """Destroy the sandbox of every run in progress that created one."""
+        # SIGTERM may interrupt the main thread inside a locked section, so no lock here.
+        for call in list(self._calls.values()):
+            if call.owned:
+                self._destroy(call)
 
     def serve(self, lines: Iterable[bytes]) -> None:
         """Handle input until it ends, then wait for running calls."""
