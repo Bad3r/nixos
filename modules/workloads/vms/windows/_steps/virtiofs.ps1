@@ -136,12 +136,20 @@ if ($served.Count -eq 0 -and $service -and -not (Test-Service)) {
 }
 $restartAll = $launched.Count -gt 0 -and (Get-Recorded) -ne $attached
 $instances = Get-Instances
+$stopped = @()
 foreach ($name in @($instances.Keys)) {
     $share = $launched | Where-Object tag -EQ $name
     if (-not $restartAll -and $share -and $instances[$name] -eq (Get-CommandLine $share)) { continue }
     $result = @(& $launchctl stop virtiofs $name) -join ' '
     if ($result -notlike 'OK*') { throw "launchctl stop virtiofs $name failed: $result" }
     $instances.Remove($name)
+    $stopped += $name
+}
+# launchctl stop only signals the instance; a start under a live name collides.
+$deadline = (Get-Date).AddSeconds(30)
+while (@($stopped | Where-Object { (Get-Instances).ContainsKey($_) }).Count -gt 0) {
+    if ((Get-Date) -gt $deadline) { throw "virtiofs instances $($stopped -join ', ') did not exit after launchctl stop" }
+    Start-Sleep -Milliseconds 500
 }
 if ($launched.Count -eq 0 -and (Get-Task)) {
     Unregister-ScheduledTask -TaskName $taskName -TaskPath '\' -Confirm:$false

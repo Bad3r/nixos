@@ -41,7 +41,7 @@ let
           unpinned = lib.attrNames (removeAttrs enabled (lib.attrNames pinned));
         in
         lib.mapAttrs (_: share: share.driveLetter) pinned
-        // lib.listToAttrs (lib.imap0 (i: tag: lib.nameValuePair tag (lib.elemAt free i)) unpinned);
+        // lib.listToAttrs (lib.zipListsWith lib.nameValuePair unpinned free);
 
       serviceModule = {
         options = {
@@ -217,6 +217,9 @@ let
             office.installer == null || config.workloads.media ? ${office.installer}
           ) "windows.office.installer names no workloads.media entry")
           (check (lib.allUnique pinned) "shares: two shares take the same driveLetter")
+          (check (
+            lib.length (lib.attrNames shares) <= 20
+          ) "shares: a Windows guest mounts at most 20 shares, on G to Z")
           (check (
             guest.windows.virtiofs.mode != "service"
             || (

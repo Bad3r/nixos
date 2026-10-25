@@ -37,7 +37,15 @@ if ($Mode -eq 'probe') {
     exit 10
 }
 Invoke-Icacls @($path, '/setowner', '*S-1-5-32-544', '/T', '/C')
-Invoke-Icacls @($path, '/inheritance:r', '/grant:r', '*S-1-5-18:(OI)(CI)F', '*S-1-5-32-544:(OI)(CI)F')
+# A fresh DACL drops explicit entries for other accounts, which icacls /inheritance:r keeps.
+$acl = New-Object System.Security.AccessControl.DirectorySecurity
+$acl.SetAccessRuleProtection($true, $false)
+foreach ($sid in $wanted) {
+    $acl.AddAccessRule((New-Object System.Security.AccessControl.FileSystemAccessRule(
+                (New-Object System.Security.Principal.SecurityIdentifier $sid), 'FullControl',
+                'ContainerInherit, ObjectInherit', 'None', 'Allow')))
+}
+Set-Acl -LiteralPath $path -AclObject $acl
 if (@(Get-ChildItem -LiteralPath $path -Force).Count -gt 0) {
     Invoke-Icacls @((Join-Path $path '*'), '/reset', '/T', '/C')
 }
