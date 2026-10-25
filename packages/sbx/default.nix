@@ -68,7 +68,7 @@ stdenvNoCC.mkDerivation {
   doInstallCheck = true;
   installCheckPhase = ''
     runHook preInstallCheck
-    HOME=$TMPDIR ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .
+    HOME=$TMPDIR SBX_TEST_GIT=${lib.getExe git} ${python.interpreter} -I -m unittest discover --start-directory tests --top-level-directory .
     runHook postInstallCheck
   '';
 
