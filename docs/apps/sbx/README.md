@@ -95,9 +95,10 @@ The user manager has no cpuset controller, so each domain pins its vCPUs and emu
 - its filesystem falls below the free-space floor.
 
 `--wait 30m` turns the running and memory refusals into a wait: the create queues behind earlier waiters and starts once it is first and fits.
-A queued large request is never overtaken, and a create without `--wait` refuses while others queue.
-A request past a per-sandbox ceiling or a disk limit refuses at once, and a wait that runs out fails with `wait-timeout`.
-Both codes name the running sandboxes under `holders` in the `--json` error, `over-limit` adds a `retry` hint, and `list` shows waiters as `queued` with a `position`.
+A sandbox held in a managed save across host sleep keeps its slot, and a queued large request is never overtaken.
+A create without `--wait` refuses while others queue, and a wait that runs out fails with `wait-timeout`.
+A request past a per-sandbox ceiling, a `--wait` above the longest TTL, or a disk limit already passed refuses before it queues.
+Both codes name the slot holders under `holders` in the `--json` error, `over-limit` adds a `retry` hint, and `list` shows waiters as `queued` with a `position`.
 
 The TTL counts wall-clock time, host sleep included, from the moment the sandbox starts.
 

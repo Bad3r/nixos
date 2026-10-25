@@ -1,12 +1,15 @@
 # Copyright (c) 2026 Bad3r
 """The capacity wait queue of create against the core tests' fake backend."""
 
+import dataclasses
+import json
 import os
 import signal
 import subprocess
 import threading
 import time
 import unittest
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
@@ -155,7 +158,7 @@ class WaitQueueTest(Fixture):
         with self.assertRaises(SbxError) as refused:
             self.sandboxes().create(self.request(memory="1G"))
         self.assertEqual(refused.exception.code, "over-limit")
-        self.assertEqual(refused.exception.details["queued"], 2)
+        self.assertEqual(refused.exception.details["waiting"], 2)
         self.free("big")
         wait_until(lambda: set(self.results) == {"large", "small"})
         self.assertEqual(self.results["large"]["name"], "large")
@@ -177,6 +180,48 @@ class WaitQueueTest(Fixture):
             path.write_text("{}")
         self.assertEqual(self.sandboxes().create(self.request())["name"], "t1")
         self.assertEqual(list(self.paths.queue.iterdir()), [])
+
+    def test_expired_and_zombie_tickets_are_dropped(self) -> None:
+        """A ticket past its deadline, as a stopped waiter leaves, or of a zombie never blocks."""
+        self.free("r0")
+        zombie = subprocess.Popen(["true"])
+        self.addCleanup(zombie.wait)
+        stat = Path(f"/proc/{zombie.pid}/stat")
+        wait_until(lambda: stat.read_text().rpartition(")")[2].split()[0] == "Z")
+        start = int(stat.read_text().rpartition(")")[2].split()[19])
+        self.paths.queue.mkdir(parents=True)
+        fields = {"name": "x", "base": "nixos", "memory_mib": 256, "session": None, "queued": NOW}
+        expired = fields | {"deadline": waitqueue.boottime() - waitqueue.GRACE - 1}
+        own = self.paths.queue / f"0000000001-{os.getpid()}-{waitqueue.process_start(os.getpid())}"
+        own.write_text(json.dumps(expired))
+        dead = self.paths.queue / f"0000000002-{zombie.pid}-{start}"
+        dead.write_text(json.dumps(fields | {"deadline": waitqueue.boottime() + 600}))
+        self.assertEqual(self.sandboxes().create(self.request())["name"], "t1")
+        self.assertEqual(list(self.paths.queue.iterdir()), [])
+
+    def test_wait_ceiling_and_disk_refuse_before_queueing(self) -> None:
+        """A wait past the longest TTL, or a disk limit already passed, never queues."""
+        with self.assertRaises(SbxError) as refused:
+            self.request(wait="25h")
+        self.assertEqual(refused.exception.code, "over-limit")
+        self.settings = dataclasses.replace(self.settings, min_free_bytes=1 << 62)
+        began = time.monotonic()
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.wait_request("t1"))
+        self.assertEqual(refused.exception.code, "disk-full")
+        self.assertLess(time.monotonic() - began, 1)
+        self.assertEqual(self.queued(), [])
+
+    def test_managed_save_keeps_its_slot(self) -> None:
+        """A sandbox saved across host sleep holds its slot until restore."""
+        self.free("r2")
+        with self.sandboxes().locked():
+            self.backend.add("h", expires=NOW + 60, active=False, managed_save=True)
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().create(self.request())
+        self.assertEqual(refused.exception.code, "over-limit")
+        holders = cast("list[dict[str, object]]", refused.exception.details["holders"])
+        self.assertIn("h", [holder["name"] for holder in holders])
 
     def test_signals_remove_the_ticket(self) -> None:
         """SIGTERM and SIGINT during a wait remove the ticket and restore SIGTERM's handler."""

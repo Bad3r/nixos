@@ -68,10 +68,11 @@ let
     `create` and `run` fail with `over-limit` when the running count or the
     declared memory is used up; the error names the `holders` and a `retry`.
 
-    - Rerun the same command with `--wait 30m` (MCP: `wait`) as a background
-      task (Claude Code `run_in_background`; Codex: a short `yield_time_ms`,
-      then poll with `write_stdin`) and do other work until it reports. Waiters
-      start in arrival order; the TTL starts with the sandbox.
+    - Rerun the same command with `--wait 30m` as a background task (Claude
+      Code `run_in_background`; Codex: a short `yield_time_ms`, then poll with
+      `write_stdin`) and do other work until it reports. An MCP call with
+      `wait` blocks until the sandbox starts. Waiters start in arrival order;
+      the TTL starts with the sandbox.
     - `sbx list --mine` shows a waiting create as `queued` with its `position`;
       `wait-timeout` means the wait ran out.
     - An `over-limit` naming a per-sandbox ceiling never clears; ask for less.

@@ -239,7 +239,8 @@ TOOLS = (
         "Run a command in a one-shot sandbox",
         "Create a sandbox, copy inputs to /root/ (C:\\sbx\\ on Windows), run the command, "
         "copy outputs out, and destroy the sandbox even when a step fails; returns "
-        "{sandbox, in, exec, out}.",
+        "{sandbox, in, exec, out}. With wait, a run the host's limits refuse queues for "
+        "capacity first.",
         (
             *CREATE_PARAMS,
             Param("in", _list("host paths copied into /root/ or C:\\sbx\\"), flag="--in"),
@@ -292,7 +293,8 @@ TOOLS = (
         "list",
         ("list",),
         "List sandboxes",
-        "Describe every sandbox: state, base, CID, TTL left, session, and xfer directory.",
+        "Describe every sandbox: state, base, CID, TTL left, session, and xfer directory; "
+        "creates waiting for capacity follow with state queued and their position.",
         (Param("mine", _boolean("only sandboxes of this agent session"), flag="--mine"),),
         read_only=True,
     ),
@@ -386,6 +388,8 @@ class Server:
         self._lock = threading.Lock()
         self._calls: dict[object, Call] = {}
         self._threads: list[threading.Thread] = []
+        # Set at the end of input, which ends every wait for capacity.
+        self._closed = threading.Event()
 
     def send(self, message: Json) -> None:
         """Write one message as a single line."""
@@ -484,7 +488,7 @@ class Server:
             args.command = command
             sandboxes = self._open(session)
             if record is not None:
-                sandboxes.cancelled = lambda: record.cancelled
+                sandboxes.cancelled = lambda: record.cancelled or self._closed.is_set()
                 if record.token is not None:
                     sandboxes.create = functools.partial(sandboxes.create, token=record.token)
             document, _code = dispatch(sandboxes, args, as_json=True)
@@ -551,10 +555,11 @@ class Server:
                 self._destroy(call)
 
     def serve(self, lines: Iterable[bytes]) -> None:
-        """Handle input until it ends, then wait for running calls."""
+        """Handle input until it ends, which ends every wait for capacity, then join the calls."""
         for line in lines:
             if line.strip():
                 self.receive(line)
+        self._closed.set()
         for thread in self._threads:
             thread.join()
 

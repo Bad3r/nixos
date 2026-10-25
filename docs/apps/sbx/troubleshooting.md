@@ -47,7 +47,7 @@ Fix: `sbx destroy <name>` and create the sandbox again.
 
 ## create fails with over-limit or wait-timeout
 
-Cause: running sandboxes use up the running count or the declared memory, or earlier creates queue for it; the error lists them under `holders`.
+Cause: sandboxes that run or sit in a managed save use up the running count or the declared memory, or earlier creates queue for it; the error lists them under `holders`.
 
 ```sh
 sbx list --json

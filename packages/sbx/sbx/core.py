@@ -1034,6 +1034,10 @@ class Sandboxes:
         if not 60 <= request.ttl <= settings.max_ttl:  # noqa: PLR2004
             msg = f"ttl must be 1m to {settings.max_ttl // 3600}h"
             raise SbxError(msg, code="over-limit")
+        # The MCP tool timeout is the longest TTL, so a longer wait would outlive its call.
+        if request.wait is not None and request.wait > settings.max_ttl:
+            msg = f"wait must be at most {settings.max_ttl // 3600}h"
+            raise SbxError(msg, code="over-limit")
 
     def _usage(self) -> int:
         """Bytes under every run directory; a directory that cannot be read raises."""
@@ -1078,9 +1082,17 @@ class Sandboxes:
         if problem is not None:
             raise SbxError(problem, code="disk-full")
 
+    def _holders(self) -> list[Sandbox]:
+        """Return the sandboxes that take a slot: running ones and those a managed save holds."""
+        return [
+            sandbox
+            for sandbox in self.owned()
+            if sandbox.domain.active or sandbox.domain.managed_save
+        ]
+
     def _capacity_problem(self, request: Request) -> str | None:
         """Say why the running or memory ceiling leaves no room for `request`, if one does."""
-        running = [sandbox.domain for sandbox in self.owned() if sandbox.domain.active]
+        running = [sandbox.domain for sandbox in self._holders()]
         if len(running) >= self.settings.running:
             return f"{len(running)} sandboxes run, the ceiling is {self.settings.running}"
         declared = sum(domain.memory_mib for domain in running)
@@ -1094,7 +1106,7 @@ class Sandboxes:
     def _capacity_error(self, problem: str, ahead: int, *, code: str) -> SbxError:
         """Name who holds the capacity and, for over-limit, how to get it."""
         now = int(self._clock())
-        running = [sandbox for sandbox in self.owned() if sandbox.domain.active]
+        running = self._holders()
         held = ", ".join(
             f"{sandbox.name} ({sandbox.meta.session or 'no session'}, "
             f"{max(0, sandbox.meta.expires - now) // 60}m left)"
@@ -1113,13 +1125,13 @@ class Sandboxes:
                 }
                 for sandbox in running
             ],
-            "queued": ahead,
+            "waiting": ahead,
         }
         if code == "over-limit":
             msg += (
                 f". Rerun the same command with --wait {RETRY_WAIT} (MCP: wait) in the "
-                "background, so your harness notifies you when it starts, or destroy your "
-                "own idle sandboxes with `sbx destroy --mine`"
+                "background and check back, or destroy your own idle sandboxes with "
+                "`sbx destroy --mine`"
             )
             details["retry"] = {"wait": RETRY_WAIT}
         return SbxError(msg, code=code, details=details)
@@ -1130,8 +1142,10 @@ class Sandboxes:
         return [entry for entry in queue if ticket is None or entry.seq < ticket.seq]
 
     def _enqueue(
-        self, request: Request, name: str, problem: str, position: int
+        self, request: Request, name: str, problem: str, position: int, deadline: float
     ) -> waitqueue.Ticket:
+        # Waiting never clears a disk limit already passed.
+        self.check_disk()
         ticket = waitqueue.enqueue(
             self.paths.queue,
             name=name,
@@ -1139,6 +1153,7 @@ class Sandboxes:
             memory_mib=request.memory_mib,
             session=self.session,
             queued=int(self._clock()),
+            deadline=deadline,
         )
         journal.record(
             f"{name} queues for capacity at position {position}: {problem}",
@@ -1156,7 +1171,7 @@ class Sandboxes:
         ticket.path.unlink(missing_ok=True)
         if started is not None:
             journal.record(
-                f"{ticket.name} leaves the queue after {time.monotonic() - started:.0f} s",
+                f"{ticket.name} leaves the queue after {waitqueue.boottime() - started:.0f} s",
                 verb="create",
                 sandbox=ticket.name,
                 session=self.session,
@@ -1186,7 +1201,8 @@ class Sandboxes:
         waiters and proceeds only at the head of the queue, so a large request
         is never overtaken. A request without a wait never jumps the queue.
         """
-        started = time.monotonic()
+        started = waitqueue.boottime()
+        deadline = started + (request.wait or 0)
         ticket: waitqueue.Ticket | None = None
         with _terminate_raises(enabled=request.wait is not None):
             try:
@@ -1200,12 +1216,15 @@ class Sandboxes:
                             problem, ahead = self._claim(request, name, ticket)
                             if problem is None:
                                 self._dequeue(ticket, started)
-                                yield self.backend()
+                                # A waiter's connection may predate a daemon restart.
+                                yield self.backend(require_slice=ticket is not None)
                                 return
                             if request.wait is None:
                                 raise self._capacity_error(problem, ahead, code="over-limit")
-                            ticket = ticket or self._enqueue(request, name, problem, ahead + 1)
-                    remaining = started + cast("float", request.wait) - time.monotonic()
+                            ticket = ticket or self._enqueue(
+                                request, name, problem, ahead + 1, deadline
+                            )
+                    remaining = deadline - waitqueue.boottime()
                     if remaining <= 0:
                         problem = self._capacity_problem(request) or "earlier creates queue"
                         problem = f"'{name}' waited {request.wait:g} s for capacity: {problem}"
