@@ -144,7 +144,12 @@ stdenvNoCC.mkDerivation {
   '';
 
   passthru = {
-    inherit settings settingsFile swtpmShim;
+    inherit
+      emulator
+      settings
+      settingsFile
+      swtpmShim
+      ;
     # PATH of sbx-libvirt: the shim wins over swtpm, whose package still gives
     # swtpm_setup and swtpm_ioctl; the rest is the user manager's own PATH.
     daemonPath = lib.concatStringsSep ":" [
