@@ -118,14 +118,20 @@ splitWords() {
   [ "$inWord" -eq 0 ] || words+=("$word")
 }
 
-# Everything after -- runs in the guest, whose /tmp is its own; only --to and
-# a host cp destination write on the host.
+# Everything after exec or run's -- runs in the guest, whose /tmp is its own;
+# only --to and a host cp destination write on the host.
 if [[ $command =~ ^[[:space:]]*sbx[[:space:]] ]] && splitWords "$command"; then
   verb="" positional=()
   for ((n = 1; n < ${#words[@]}; n++)); do
     word="${words[n]}"
     case "$word" in
-    --) break ;;
+    --)
+      case "$verb" in
+      exec | run) ;;
+      *) positional+=("${words[@]:n+1}") ;;
+      esac
+      break
+      ;;
     --to)
       n=$((n + 1))
       checkPath "${words[n]-}"

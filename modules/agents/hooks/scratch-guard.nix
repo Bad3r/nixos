@@ -73,6 +73,7 @@ in
         "apply_patch <<'EOF'\n*** Begin Patch\n*** Add File: /tmp/a\n+x\n*** End Patch\nEOF"
         "cat > p.diff <<'EOF'\n*** Begin Patch\n*** Add File: a\n+x\n*** End Patch\nEOF\necho x > /tmp/x"
         "sbx cp n:/etc/hosts /tmp/x"
+        "sbx cp n:/etc/hosts -- /tmp/x"
         "sbx cp n:/etc/hosts ../../tmp/"
         "sbx run nixos --out /root/r --to /tmp -- true"
         "sbx run nixos --out /root/r --to=/tmp/out -- true"
