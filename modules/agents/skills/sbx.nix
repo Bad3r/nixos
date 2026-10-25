@@ -56,6 +56,8 @@ let
     - `--out GUEST_PATH` (repeatable) needs `--to DIR`, a host directory.
     - Host paths sit under the caller's git checkout, `~/trees`, or `$TMPDIR`; a
       copy out never overwrites an existing target.
+    - Guest paths such as `/tmp` belong to the guest and are fine to write;
+      `$TMPDIR` is a host path.
     - `--timeout 10m` bounds the command; `--ttl`, `--mem`, and `--cpus` size the
       sandbox within the host ceilings.
 

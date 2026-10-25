@@ -66,6 +66,82 @@ Bash) ;;
 *) exit 0 ;;
 esac
 
+# Splits a simple command into words; fails on unquoted shell operators,
+# substitutions, comments, or newlines, which a word list cannot express.
+splitWords() {
+  local s="$1" c word="" quote="" i=0 inWord=0
+  words=()
+  while [ "$i" -lt "${#s}" ]; do
+    c="${s:i:1}"
+    i=$((i + 1))
+    if [ "$quote" = "'" ]; then
+      if [ "$c" = "'" ]; then quote=""; else word+="$c"; fi
+      continue
+    fi
+    case "$c" in
+    \\)
+      [ "${s:i:1}" = $'\n' ] || word+="${s:i:1}"
+      i=$((i + 1))
+      ;;
+    '"')
+      if [ "$quote" = '"' ]; then quote=""; else quote='"'; fi
+      ;;
+    '`') return 1 ;;
+    '$')
+      [ "${s:i:1}" != "(" ] || return 1
+      word+="$c"
+      ;;
+    *)
+      if [ -n "$quote" ]; then
+        word+="$c"
+      else
+        case "$c" in
+        ' ' | $'\t')
+          [ "$inWord" -eq 0 ] || words+=("$word")
+          word="" inWord=0
+          continue
+          ;;
+        "'") quote="'" ;;
+        '|' | '&' | ';' | '<' | '>' | '(' | ')' | $'\n') return 1 ;;
+        '#')
+          [ "$inWord" -eq 1 ] || return 1
+          word+="$c"
+          ;;
+        *) word+="$c" ;;
+        esac
+      fi
+      ;;
+    esac
+    inWord=1
+  done
+  [ -z "$quote" ] || return 1
+  [ "$inWord" -eq 0 ] || words+=("$word")
+}
+
+# Everything after -- runs in the guest, whose /tmp is its own; only --to and
+# a host cp destination write on the host.
+if [[ $command =~ ^[[:space:]]*sbx[[:space:]] ]] && splitWords "$command"; then
+  verb="" positional=()
+  for ((n = 1; n < ${#words[@]}; n++)); do
+    word="${words[n]}"
+    case "$word" in
+    --) break ;;
+    --to)
+      n=$((n + 1))
+      checkPath "${words[n]-}"
+      ;;
+    --to=*) checkPath "${word#--to=}" ;;
+    -*) ;;
+    *) if [ -z "$verb" ]; then verb="$word"; else positional+=("$word"); fi ;;
+    esac
+  done
+  if [ "$verb" = cp ] && [ "${#positional[@]}" -ge 2 ] &&
+    ! grep -qE '^[a-z0-9][a-z0-9-]{0,30}:' <<<"${positional[1]}"; then
+    checkPath "${positional[1]}"
+  fi
+  exit 0
+fi
+
 text="$(sed -E 's#/tmp/\.(X11|ICE)-unix#/allowed-socket#g' <<<"$command")"
 q="[\"']?"
 t="${q}/tmp(/|[\"'[:space:];|&)]|$)"
@@ -84,7 +160,7 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. Use $scratch (\$TMPDIR) instead, e.g. $scratch/<name> or a bare mktemp. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position."
+    deny "This command writes under /tmp. Use $scratch (\$TMPDIR) instead, e.g. $scratch/<name> or a bare mktemp. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest paths of a bare sbx command (no pipes, redirections, && or env prefix) are not checked."
   fi
 done
 exit 0

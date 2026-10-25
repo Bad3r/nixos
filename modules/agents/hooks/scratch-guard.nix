@@ -72,6 +72,16 @@ in
         "cat > /tmp/p.diff <<'EOF'\n*** Begin Patch\n*** Add File: a\n+x\n*** End Patch\nEOF"
         "apply_patch <<'EOF'\n*** Begin Patch\n*** Add File: /tmp/a\n+x\n*** End Patch\nEOF"
         "cat > p.diff <<'EOF'\n*** Begin Patch\n*** Add File: a\n+x\n*** End Patch\nEOF\necho x > /tmp/x"
+        "sbx cp n:/etc/hosts /tmp/x"
+        "sbx cp n:/etc/hosts ../../tmp/"
+        "sbx run nixos --out /root/r --to /tmp -- true"
+        "sbx run nixos --out /root/r --to=/tmp/out -- true"
+        "sbx exec n -- cat /etc/os-release > /tmp/x"
+        "sbx exec n -- sh -c 'echo x' > /tmp/x"
+        "sbx exec n -- sh -c \"echo $(touch /tmp/x)\""
+        "cd /tmp && sbx exec n -- true"
+        "sbx exec n -- true | tee /tmp/y"
+        "TMPDIR=/tmp sbx run nixos --out /root/r --to \"$TMPDIR\" -- true"
       ];
       allow = [
         (write "${scratchDir}/a")
@@ -97,6 +107,13 @@ in
         "cd /tmpfoo"
         ''echo x > "$TMPDIR/a"''
         "apply_patch <<'EOF'\n*** Begin Patch\n*** Add File: src/a\n+x\n*** End Patch\nEOF"
+        "sbx exec n --json -- sh -c 'app > /tmp/app.log 2>&1 </dev/null &'"
+        "sbx exec n -- sh -c 'echo x > /tmp/a'"
+        "sbx exec n -- mkdir -p /tmp/work"
+        "sbx run nixos --out /tmp/r --to \"$TMPDIR\" -- sh -c 'check > /tmp/r'"
+        "sbx cp n:/tmp/a \"$TMPDIR\""
+        "sbx cp ${scratchDir}/in n:/tmp/in"
+        "sbx run nixos --in /tmp/x -- true"
       ];
     };
   };
