@@ -45,6 +45,12 @@ in
         if role == "echo-server":
             socketserver.ThreadingTCPServer.allow_reuse_address = True
             socketserver.ThreadingTCPServer((host, port), Echo).serve_forever()
+        elif role == "udp-echo-server":
+            server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            server.bind((host, port))
+            while True:
+                data, peer = server.recvfrom(64)
+                server.sendto(data, peer)
         elif role == "push-server":
             server = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
             server.bind((host, port))
@@ -54,6 +60,24 @@ in
                 time.sleep(0.2)
         else:
             log = open(sys.argv[4], "a", buffering=1)
+            if role == "udp-sink":
+                sink = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                sink.bind((host, port))
+                while True:
+                    sink.recv(64)
+                    log.write("leak\n")
+            if role == "udp-pinger":
+                # Keeps sending whether or not echoes come back.
+                pinger = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                pinger.settimeout(0.5)
+                while True:
+                    pinger.sendto(b"x", (host, port))
+                    try:
+                        pinger.recv(64)
+                        log.write("ok\n")
+                    except TimeoutError:
+                        pass
+                    time.sleep(0.2)
             if role == "echo-client":
                 stream = socket.create_connection((host, port), timeout=2).makefile("rwb")
                 while True:
@@ -151,6 +175,10 @@ in
                       port = 8082;
                       proto = "udp";
                     }
+                    {
+                      port = 8083;
+                      proto = "udp";
+                    }
                   ];
                 };
 
@@ -191,6 +219,7 @@ in
                         "host:dev"
                         "guest:dev:8080"
                         "guest:dev:8082/udp"
+                        "guest:dev:8083/udp"
                       ];
                     }
                     {
@@ -372,7 +401,7 @@ in
 
           def flow(name, ns, role, endpoint):
               host, port = endpoint.split(":")
-              log = f" /run/flows/{name}.log" if role.endswith("client") else ""
+              log = f" /run/flows/{name}.log" if role.endswith(("client", "pinger", "sink")) else ""
               machine.succeed(f"systemd-run --unit=flow-{name} ip netns exec {ns} {python} {flows} {role} {host} {port}{log}")
 
           def server(name, role, bind, port, ns="dev"):
@@ -396,6 +425,9 @@ in
           server("echo-8003", "echo-server", "0.0.0.0", 8003, None)
           server("echo-8005", "echo-server", "0.0.0.0", 8005, None)
           server("echo-8006", "echo-server", "0.0.0.0", 8006, None)
+          server("echo-8011", "echo-server", "0.0.0.0", 8011, None)
+          server("echo-8013", "echo-server", "0.0.0.0", 8013, None)
+          server("udp-8083", "udp-echo-server", "172.16.1.10", 8083)
           server("push-8004", "push-server", "0.0.0.0", 8004, None)
           server("push-8082", "push-server", "172.16.1.10", 8082)
           machine.wait_until_succeeds("ss -ltn | grep -q ':8006 '")
@@ -429,6 +461,36 @@ in
               workloads("revoke", "--all", "sbx-probe")
               wait_stopped(["second"], 5)
 
+          def wait_expired(grant_id):
+              for _ in range(60):
+                  if grant_id not in live():
+                      return
+                  machine.sleep(1)
+              raise AssertionError(f"{grant_id} outlived its TTL")
+
+          with subtest("a later grant outlives an earlier one of the same source"):
+              short = grant("sbx-probe", "host:dev:8010", "--ttl", "6s")
+              grant("sbx-probe", "host:dev:8011", "--ttl", "40s")
+              flow("longer", "sb", "echo-client", "172.16.2.1:8011")
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/longer.log) -gt 3", timeout=20)
+              wait_expired(short)
+              machine.sleep(2)
+              assert alive("longer")
+              workloads("revoke", "--all", "sbx-probe")
+              wait_stopped(["longer"], 5)
+              # Equal TTLs started apart: the second must not end with the first.
+              first = grant("sbx-probe", "host:dev:8012", "--ttl", "20s")
+              machine.sleep(8)
+              grant("sbx-probe", "host:dev:8013", "--ttl", "20s")
+              flow("equal", "sb", "echo-client", "172.16.2.1:8013")
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/equal.log) -gt 3", timeout=20)
+              wait_expired(first)
+              machine.sleep(2)
+              assert alive("equal")
+              flow("equal-new", "sb", "echo-client", "172.16.2.1:8013")
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/equal-new.log) -gt 3", timeout=10)
+              workloads("revoke", "--all", "sbx-probe")
+
           with subtest("a grant follows the leased MAC, not the address"):
               moved = grant("sbx-probe", "host:dev:8000")
               expect({"control", "sb-dev-8000", "dev-8100"})
@@ -451,12 +513,22 @@ in
                   f"systemd-run --unit=listen-lan ip netns exec lan {python} -m http.server 8080 --bind 172.16.1.10 --directory /srv/leak",
               )
               crossing = grant("sbx-probe", "guest:dev:8080")
+              stream = grant("sbx-probe", "guest:dev:8083/udp")
               machine.succeed("ip netns exec sb curl -sf -m 3 http://172.16.1.10:8080/ | grep -Fx granted")
+              # An established stream across the bridge, and a sink behind the uplink.
+              machine.succeed("touch /run/flows/leak.log")
+              flow("leak", "lan", "udp-sink", "172.16.1.10:8083")
+              flow("stream", "sb", "udp-pinger", "172.16.1.10:8083")
+              machine.wait_until_succeeds("test $(wc -l < /run/flows/stream.log) -gt 3", timeout=20)
               machine.succeed("ip link set vn-desktop down")
+              machine.sleep(3)
+              assert not alive("stream")
+              assert count("leak") == 0, machine.succeed("cat /run/flows/leak.log | wc -l")
               machine.wait_until_succeeds("curl -sf -m 3 http://172.16.1.10:8080/ | grep -Fx leaked")
               machine.fail("ip netns exec sb curl -sf --connect-timeout 1 -m 3 http://172.16.1.10:8080/")
               machine.succeed("ip link set vn-desktop up")
               workloads("revoke", crossing)
+              workloads("revoke", stream)
 
           with subtest("the journal records caller and decision"):
               entries = [

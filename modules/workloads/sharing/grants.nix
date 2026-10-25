@@ -26,6 +26,9 @@ let
       dropSent = "${marked} ct direction original iifname . ${original} != @grants drop";
       dropMoved = "${marked} ct direction original iifname . ether saddr . ip saddr != @sources drop";
       dropReplies = "${marked} ct direction reply oifname . ${original} != @grants drop";
+      # A destination bridge that is gone leaves the main table's default route,
+      # and `inet workload` accepts established traffic before its own checks.
+      dropUplink = ''${marked} oifname != "vn-*" drop'';
       # Ahead of the workload-egress band, 31000-31999.
       routePreference = 30900;
 
@@ -49,6 +52,7 @@ let
           add rule inet workload_grants forward ${dropMoved}
           add rule inet workload_grants forward ${dropReplies}
           add rule inet workload_grants forward ${markGrant}
+          add rule inet workload_grants forward ${dropUplink}
           add rule inet workload_grants output ${dropReplies}
         '';
         checkPhase = ''
@@ -365,8 +369,7 @@ let
           workloads.sharing.gatewayProxies = grantProxies;
           workloads.nftables = {
             inputRules = markAccept;
-            # A destination bridge that is gone leaves the main table's default route.
-            forwardRules = ''oifname "vn-*" ${markAccept}'';
+            forwardRules = markAccept;
             serviceTables = [ "inet workload_grants" ];
           };
           # A drop in any base chain is final, so nixos-fw accepts granted ports too.

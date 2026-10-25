@@ -223,18 +223,22 @@ class NftKernel:
             )
 
     def add(self, elements: Sequence[Element], ttl: int, source_ttl: int) -> None:
-        """Add with the TTL as the element timeout; re-adding a source moves its timeout."""
+        """Add with the TTL as the element timeout, and set the source's expiry afresh.
+
+        Re-adding an existing element need not move its expiry, so the source is
+        destroyed and added again in the same transaction.
+        """
+        if not elements:
+            return
         grants = ", ".join(f'{_key(e.path)} timeout {ttl}s comment "{e.comment}"' for e in elements)
-        sources = ", ".join(
-            sorted({f"{_source_key(e.path)} timeout {source_ttl}s" for e in elements})
-        )
+        keys = sorted({_source_key(e.path) for e in elements})
+        sources = ", ".join(f"{key} timeout {source_ttl}s" for key in keys)
         self._write(
             [
                 f"add element {' '.join(SET)} {{ {grants} }}",
+                f"destroy element {' '.join(SOURCES)} {{ {', '.join(keys)} }}",
                 f"add element {' '.join(SOURCES)} {{ {sources} }}",
             ]
-            if elements
-            else []
         )
 
     def remove(self, elements: Sequence[Element], sources: Sequence[Path]) -> None:
@@ -555,7 +559,8 @@ class Service:
             # Routes first: a failed add leaves only a route the forward chain still guards.
             self._sync_routes(policy, [*live, *elements])
             # The source stays as long as the longest grant it holds.
-            same = [e.expires for e in live if e.path.place in places]
+            # Listed expiries are whole seconds rounded down.
+            same = [e.expires + 1 for e in live if e.path.place in places]
             self.kernel.add(elements, ttl, max([ttl, *same]))
         return {"grant": describe(elements)[0]}
 

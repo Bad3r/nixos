@@ -276,7 +276,8 @@ class IdentityTest(unittest.TestCase):
         harness.grant("host:dev:8000", ttl=900)
         harness.grant("host:dev:8001", ttl=60)
         place = ("vn-sbx", MAC, SANDBOX)
-        self.assertEqual(harness.kernel.sources[place], 900)
+        # The fake lists the full TTL as remaining; the helper adds the rounding second.
+        self.assertEqual(harness.kernel.sources[place], 901)
         harness.ask({"verb": "revoke", "id": "00000001"})
         self.assertIn(place, harness.kernel.sources)
         harness.ask({"verb": "revoke", "id": "00000002"})
@@ -506,6 +507,7 @@ class NftKernelTest(unittest.TestCase):
                 (
                     f"add element {SET_NAME} {{ {KEY} timeout 600s"
                     f' comment "0000000a sbx-ab12 host:dev {MAC}" }}\n'
+                    f"destroy element {SOURCES_NAME} {{ {SOURCE_KEY} }}\n"
                     f"add element {SOURCES_NAME} {{ {SOURCE_KEY} timeout 900s }}\n"
                 ),
                 (

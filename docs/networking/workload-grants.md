@@ -80,7 +80,8 @@ workloads revoke --all sbx-<name>
 - One element in its `sources` set binds the ingress bridge and source address to the source's MAC for as long as its longest grant lives.
 - The table's chains run one priority ahead of `inet workload` and mark the conntrack entry of each new connection that matches both sets.
 - They drop every packet of a marked connection whose original tuple has left `grants`, in both directions, and every packet it sends from a MAC `sources` does not bind, so no expired or revoked connection lives on.
-- `inet workload` accepts the mark ahead of its drops, forwarding only into a `vn-*` bridge, and `nixos-fw` accepts it too, since a drop in any base chain is final.
+- They drop every forwarded packet of a marked connection that would leave through anything but a `vn-*` bridge, established ones included, so a grant never follows the default route to the uplink.
+- `inet workload` accepts the mark ahead of its drops, and `nixos-fw` accepts it too, since a drop in any base chain is final.
 - A host service answers at the gateway of the source's network; a loopback service gets a gateway proxy on every network a rule's sources sit on.
 - A grant between two networks adds an `ip rule` each way ahead of the `workload-egress` band; the next grant or revoke removes the rules of expired grants.
 - Revoke also deletes the marked conntrack entries on the grant's ports.
