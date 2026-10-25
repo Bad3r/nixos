@@ -266,8 +266,7 @@ class Lifecycle(Admission, Bases, DomainXml, Execution, Cleanup):
         """Remove one sandbox."""
         self._check_name(name)
         with self.locked():
-            known = any(sandbox.name == name for sandbox in self.owned())
-            if not known and not self.paths.sandbox(name).is_dir():
+            if self._owned(name) is None and not self.paths.sandbox(name).is_dir():
                 msg = f"no sandbox named '{name}'"
                 raise SbxError(msg, code="not-found")
             self._discard(name)

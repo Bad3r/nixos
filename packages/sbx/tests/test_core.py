@@ -100,6 +100,8 @@ class FakeBackend:
         self.addresses = ["172.16.2.5"]
         # Host sleep: domains that refuse, unconnected agent answers left, saved states.
         self.failing: set[str] = set()
+        # Domains another client removed after the listing.
+        self.vanished: set[str] = set()
         self.unconnected: dict[str, int] = {}
         self.synced: list[str] = []
         self.saved_state: dict[str, str] = {}
@@ -170,8 +172,8 @@ class FakeBackend:
         )
 
     def remove(self, domain: str) -> None:
-        """Forget a domain."""
-        del self.domains_by_name[domain]
+        """Forget a domain; one already gone counts as removed."""
+        self.domains_by_name.pop(domain, None)
 
     def agent(self, domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:  # noqa: ARG002
         """Answer guest-ping and guest-network-get-interfaces, then the queued replies."""
@@ -203,6 +205,9 @@ class FakeBackend:
         if domain in self.failing:
             msg = f"{domain} refused"
             raise SbxError(msg, code="libvirt")
+        if domain in self.vanished:
+            msg = f"no domain {domain}"
+            raise SbxError(msg, code="not-found")
         info = self.domains_by_name[domain]
         self.domains_by_name[domain] = dataclasses.replace(
             info, state=state, active=active, managed_save=managed_save

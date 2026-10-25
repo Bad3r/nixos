@@ -143,6 +143,16 @@ class SleepTest(Fixture):
         self.assertEqual(code, 0)
         self.assertIn("warning: b keeps a stale clock", self.errors)
 
+    def test_vanished_sandboxes_are_skipped(self) -> None:
+        """A domain another client removes mid-phase fails neither pause nor save."""
+        self.fake.vanished.add("sbx-a")
+        _, code = self.phase("pause")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.states(), {"a": "running", "b": "paused"})
+        _, code = self.phase("save")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.states(), {"a": "running", "b": "shutoff"})
+
     def test_unsynchronized_host_clock(self) -> None:
         """Without NTP sync on the host, guest clocks are left alone."""
         self.phase("pause")

@@ -28,9 +28,13 @@ class ShareFake(FakeBackend):
         self.releasing: dict[str, tuple[str, int | None]] = {}
         self.linger: int | None = 2
         self.stuck: set[str] = set()
+        self.vanished: set[str] = set()
 
     def live_xml(self, domain: str) -> str:
         """The devices, wrapped like a domain definition."""
+        if domain in self.vanished:
+            msg = f"no domain {domain}"
+            raise SbxError(msg, code="not-found")
         devices = list(self.devices.get(domain, []))
         if domain in self.releasing:
             xml, left = self.releasing[domain]
@@ -47,6 +51,9 @@ class ShareFake(FakeBackend):
 
     def detach_device(self, domain: str, xml: str) -> None:
         """Start releasing the device."""
+        if domain in self.vanished:
+            msg = f"no domain {domain}"
+            raise SbxError(msg, code="not-found")
         self.devices[domain].remove(xml)
         self.releasing[domain] = (xml, None if domain in self.stuck else self.linger)
 
@@ -223,6 +230,27 @@ class SharesTest(Fixture):
         self.assertEqual([action["name"] for action in actions], ["s", "t"])
         self.assertIn("detach-pending", actions[0]["reason"])
         self.assertNotIn("shared", attached(self.backend.live_xml("sbx-t")))
+
+    def test_reclaim_skips_a_vanished_sandbox(self) -> None:
+        """A domain another client removes mid-reclaim is skipped, before or after its lookup."""
+        for name in ("s", "t", "u"):
+            self.add_running(name)
+            self.shares().attach(name, "shared")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=0)
+        (self.paths.sandbox("s") / "shared" / "fill").write_bytes(b"x" * 8192)
+        self.backend.vanished.add("sbx-s")
+        self.backend.linger = 0
+        real = self.backend.live_xml
+
+        def vanish_t(domain: str) -> str:
+            xml = real(domain)
+            if domain == "sbx-t":
+                self.backend.vanished.add(domain)
+            return xml
+
+        with mock.patch.object(self.backend, "live_xml", side_effect=vanish_t):
+            actions = self.shares().reclaim(dry_run=False)
+        self.assertEqual([action["name"] for action in actions], ["u"])
 
     def test_command_line(self) -> None:
         """`share attach` returns the share's JSON form."""

@@ -268,6 +268,8 @@ class Shares:
                     try:
                         self._detach(sandbox.name, SHARED, device, f": {problem}")
                     except SbxError as error:
+                        if error.code == "not-found":
+                            continue
                         if error.code != "detach-pending":
                             raise
                         reason = f"{SHARED} still attached, {error.code}: {error}"

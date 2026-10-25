@@ -162,6 +162,8 @@ class Sleep:
                 try:
                     backend.set_time(sandbox.domain.name)
                 except SbxError as failure:
+                    if failure.code == "not-found":
+                        break
                     if failure.code == "agent-unresponsive" and time.monotonic() < deadline:
                         time.sleep(1)
                         continue
@@ -186,6 +188,8 @@ class Sleep:
                 try:
                     backend.suspend(sandbox.domain.name)
                 except SbxError as failure:
+                    if failure.code == "not-found":
+                        continue
                     self._fail("pause", f"{sandbox.name} kept running through suspend: {failure}")
                 else:
                     self._emit(sandbox.name, "paused")
@@ -207,6 +211,8 @@ class Sleep:
                 try:
                     backend.resume(sandbox.domain.name)
                 except SbxError as failure:
+                    if failure.code == "not-found":
+                        continue
                     self._fail("resume", f"{name} stays paused: {failure}")
                 else:
                     self._emit(name, "resumed")
@@ -241,7 +247,8 @@ class Sleep:
             try:
                 backend.managed_save(sandbox.domain.name)
             except SbxError as failure:
-                failures.append(failure)
+                if failure.code != "not-found":
+                    failures.append(failure)
             finally:
                 done.set()
 

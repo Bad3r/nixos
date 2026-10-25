@@ -222,9 +222,7 @@ class Admission(Storage):
         """Refuse a taken name; return what keeps the request out and the count queued ahead."""
         # Each attempt reconnects, since a waiter may outlast a daemon restart.
         backend = self.backend(require_slice=True)
-        if self.paths.sandbox(name).exists() or any(
-            info.name == DOMAIN_PREFIX + name for info in backend.domains()
-        ):
+        if self.paths.sandbox(name).exists() or backend.domain(DOMAIN_PREFIX + name) is not None:
             msg = f"a sandbox named '{name}' exists"
             raise SbxError(msg, code="exists")
         ahead = len(self._ahead(ticket))
