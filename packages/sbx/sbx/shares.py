@@ -139,8 +139,12 @@ def find_command(tag: str) -> list[str]:
 
 
 def recovery_command(name: str, tag: str) -> str:
-    """Return the host command that lazily unmounts what a detach left in the guest."""
-    script = f"{shlex.join(find_command(tag))} | xargs -r umount -l"
+    """Return the host command that lazily unmounts what a detach left in the guest.
+
+    umount takes the tag as the source, topmost mount first, so no mountpoint is
+    parsed; from /, a relative tag names no directory.
+    """
+    script = f"cd / && while umount -l -t virtiofs {shlex.quote(tag)} 2>/dev/null; do :; done"
     return shlex.join(["sbx", "exec", name, "--", "sh", "-c", script])
 
 

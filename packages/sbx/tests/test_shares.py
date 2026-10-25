@@ -5,6 +5,7 @@ import base64
 import dataclasses
 import json
 import shlex
+import subprocess
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path
@@ -13,7 +14,14 @@ from unittest import mock
 
 from sbx.errors import SbxError
 from sbx.sandboxes import Sandboxes
-from sbx.shares import MAX_TARGETS, MOUNT_WAIT, UNMOUNT_WAIT, Shares, attached
+from sbx.shares import (
+    MAX_TARGETS,
+    MOUNT_WAIT,
+    UNMOUNT_WAIT,
+    Shares,
+    attached,
+    recovery_command,
+)
 from sbx.windows import WindowsSettings
 
 from tests.test_core import NOW, FakeBackend, Fixture, dispatch
@@ -350,8 +358,8 @@ class SharesTest(Fixture):
         self.assertEqual((document["attached"], document["guest_unmounted"]), (False, False))
         self.assertEqual(
             document["recovery_command"],
-            "sbx exec s -- sh -c 'findmnt -t virtiofs -S docs -o TARGET -n -r"
-            " | xargs -r umount -l'",
+            "sbx exec s -- sh -c 'cd / && while umount -l -t virtiofs docs 2>/dev/null;"
+            " do :; done'",
         )
         self.assertNotIn("docs", attached(self.backend.live_xml("sbx-s")))
 
@@ -401,6 +409,24 @@ class SharesTest(Fixture):
         self.assertEqual(refused.exception.code, "share-busy")
         self.assertNotIn("\x1b", str(refused.exception))
         self.assertIn("/mnt/ [31mred", str(refused.exception))
+
+    def test_recovery_clears_odd_mountpoints(self) -> None:
+        """Recovery unmounts by tag, so spaces and backslashes in mountpoints do not matter."""
+        root = self.scratch / "odd"
+        targets = [root / "with space", root / "back\\slash", root / "with space"]
+        for target in targets:
+            target.mkdir(parents=True, exist_ok=True)
+        mount = " && ".join(f"mount -t tmpfs docs {shlex.quote(str(t))}" for t in targets)
+        script = shlex.split(recovery_command("s", "docs"))[-1].replace("virtiofs", "tmpfs")
+        probe = f"{mount} && {script} && findmnt -S docs -n -r -o TARGET; echo rc=$?"
+        unshare = ["unshare", "--user", "--map-root-user", "--mount", "sh", "-c", probe]
+        try:
+            ran = subprocess.run(unshare, capture_output=True, text=True, check=False)
+        except FileNotFoundError:
+            self.skipTest("no unshare")
+        if "rc=" not in ran.stdout:
+            self.skipTest(f"no user namespaces: {ran.stderr.strip()}")
+        self.assertEqual(ran.stdout, "rc=1\n")
 
     def test_info_lists_shares(self) -> None:
         """`info` lists each held share, with a mountpoint only where the guest mounted it."""
