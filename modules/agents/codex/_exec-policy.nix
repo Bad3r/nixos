@@ -1,9 +1,11 @@
 {
   lib,
   pkgs,
+  scratchDir,
   sbx ? null,
 }:
 let
+  sessionTmpdir = import ../_session-tmpdir.nix { inherit lib scratchDir; };
   execPolicyRule =
     {
       pattern,
@@ -46,6 +48,8 @@ let
     # Only `rm` lives in this dir, so prepending shadows nothing else; on PATH so
     # bare `rm` is shimmed for every shell invocation form, not just -c below.
     export PATH=${rmShim}/bin''${PATH:+:$PATH}
+
+    ${sessionTmpdir "CODEX_SESSION_ID"}
 
     restoreCodexShellEnv() {
       if [ -n "''${CODEX_ORIGINAL_LD_PRELOAD-}" ]; then

@@ -691,6 +691,17 @@ class SandboxesTest(Fixture):
             with mock.patch.dict(os.environ, {"SBX_TEST_TOPLEVEL": str(home)}):
                 self.assertNotIn(home.resolve(), self.sandboxes().host_roots())
 
+    def test_settings_copy_roots(self) -> None:
+        """A configured copy root counts beside a narrower $TMPDIR."""
+        shared = self.scratch / "shared"
+        session = shared / "sessions" / "one"
+        session.mkdir(parents=True)
+        self.settings = dataclasses.replace(self.settings, copy_roots=(shared,))
+        with mock.patch.dict(os.environ, {"TMPDIR": str(session)}):
+            roots = self.sandboxes().host_roots()
+        self.assertIn(shared.resolve(), roots)
+        self.assertIn(session.resolve(), roots)
+
     @unittest.skipUnless(os.environ.get("SBX_TEST_GIT"), "needs SBX_TEST_GIT")
     def test_checkout_root_core_worktree(self) -> None:
         """A repository whose core.worktree is $HOME adds no copy root."""
@@ -1110,6 +1121,7 @@ class SandboxesTest(Fixture):
             "egress": {"bridge": "vn-sbx", "leases": "/leases", "mtu": 1240},
             "cloudImages": {"debian-13": {"url": "https://x/d.qcow2", "hash": "sha256-y"}},
             "windows": None,
+            "copyRoots": ["/scratch"],
             "tools": dataclasses.asdict(self.settings.tools),
         }
         path = self.scratch / "settings.json"
@@ -1120,6 +1132,7 @@ class SandboxesTest(Fixture):
             loaded.cloud_images, {"debian-13": CloudImage("https://x/d.qcow2", "sha256-y")}
         )
         self.assertEqual(loaded.default_gui_memory_mib, 2)
+        self.assertEqual(loaded.copy_roots, (Path("/scratch"),))
         path.write_text(json.dumps(raw | {"egress": "why"}))
         self.assertEqual(Settings.load(path).egress, "why")
 

@@ -71,7 +71,7 @@ sbx destroy probe
 
 ## Copies
 
-- A host source must sit under the caller's git checkout, `~/trees`, or `$TMPDIR`.
+- A host source must sit under the caller's git checkout, `~/trees`, the agent scratch dir (`/data/agents`), or `$TMPDIR`.
   A symlink inside it may point only to a file within those roots, never to a directory.
 - A copy out names a file or directory, never `.`, `..`, or `/`.
   It is staged in the sandbox's `xfer` directory, which `info` prints, and loses execute, setuid, and setgid bits.

@@ -1,8 +1,10 @@
 # shellcheck shell=bash
-# scratch is prepended by scratch-guard.nix.
+# scratch and its regex-escaped scratchRe are prepended by scratch-guard.nix.
 # shellcheck disable=SC2154
-# PreToolUse hook: denies writes under /tmp, redirecting agents to $scratch.
-# Reads from /tmp stay allowed.
+# PreToolUse hook that keeps $scratch sorted: writes under /tmp, files loose in
+# $scratch, and new top-level dirs without a task-like name are denied. The
+# shell wrappers point $TMPDIR at $scratch/sessions/<root session id>; named
+# work lives in $scratch/<topic>/. Reads from /tmp stay allowed.
 #
 # Bash detection is a heuristic over the command text: it cannot see paths
 # built at runtime or written by interpreters, and a /tmp path inside a quoted
@@ -11,6 +13,12 @@
 input="$(cat)"
 tool="$(jq -r '.tool_name // ""' <<<"$input")"
 cwd="$(jq -r '.cwd // ""' <<<"$input")"
+sessionId="$(jq -r '.session_id // ""' <<<"$input")"
+
+case "$sessionId" in
+"" | *[!A-Za-z0-9-]*) sessionDir="" ;;
+*) sessionDir="$scratch/sessions/$sessionId" ;;
+esac
 
 deny() {
   jq -n --arg reason "$1" '{
@@ -23,6 +31,13 @@ deny() {
   exit 0
 }
 
+topicHint="files you name to the user, reuse in another session, or cite in memory go in $scratch/<topic>/, named after the PR, branch, or task"
+if [ -n "$sessionDir" ]; then
+  hint="Throwaway files go in this session's $sessionDir (\$TMPDIR in the shell, swept after a week idle); $topicHint."
+else
+  hint="${topicHint^}."
+fi
+
 # X11 and ICE sockets are the only /tmp paths agents legitimately touch.
 isTmp() {
   case "$1" in
@@ -32,8 +47,31 @@ isTmp() {
   esac
 }
 
+# Random suffixes and IDs make a dir unfindable later; the tool-temp prefixes
+# are what the scratch sweep trashes after two idle days.
+badTopic() {
+  local name="$1"
+  case "$name" in
+  sessions | tmp | temp | scratch | work | test | tests | out | output | misc | data | files | notes | logs | review | main | master | new | stuff) return 0 ;;
+  nix-shell.* | nix-develop-* | pyright-* | tmp.*) return 0 ;;
+  esac
+  [[ $name =~ ^[a-z0-9][a-z0-9._-]{1,63}$ ]] || return 0
+  [[ $name =~ [0-9a-f]{8}-[0-9a-f]{4} ]] && return 0
+  # Python's tempfile appends eight of [a-z0-9_]; a hex run is likely a commit
+  # and letters then digits a version, such as debian12.
+  if [[ $name =~ [._-]([a-z0-9_]{8})$ ]]; then
+    local suffix="${BASH_REMATCH[1]}"
+    [[ $suffix =~ [0-9] && $suffix =~ [a-z_] && ! $suffix =~ ^[0-9a-f]+$ && ! $suffix =~ ^[a-z]+[0-9]+$ ]] && return 0
+  fi
+  return 1
+}
+
+topicRule="Name a new top-level dir in $scratch after the PR, branch, or task: a lowercase slug (a-z, 0-9, . _ -), not a generic word, ID, or mktemp-style suffix."
+
+# Pass create for tools that make a new file, so it lands in a session or topic
+# dir, or dest for an sbx host target, which may also name a directory.
 checkPath() {
-  local path="$1"
+  local path="$1" rest top
   [ -n "$path" ] || return 0
   case "$path" in
   /*) ;;
@@ -41,8 +79,72 @@ checkPath() {
   esac
   path="$(realpath -ms -- "$path")"
   if isTmp "$path"; then
-    deny "$path is under /tmp. Write to $scratch${path#/tmp} instead (\$TMPDIR is $scratch)."
+    rest="${path#/tmp}"
+    case "$rest" in
+    /*/*) deny "$path is under /tmp. Write to $scratch$rest instead. $hint" ;;
+    *) deny "$path is under /tmp. Write to ${sessionDir:-$scratch/<topic>}$rest instead. $hint" ;;
+    esac
   fi
+  if [ "${2-}" = dest ]; then
+    if [ "$path" = "$scratch" ] || [ "$path" = "$scratch/sessions" ] ||
+      { [ "${path%/*}" = "$scratch" ] && [ ! -d "$path" ]; } ||
+      { [ "${path%/*}" = "$scratch/sessions" ] && [ "$path" != "$sessionDir" ] && [ ! -d "$path" ]; }; then
+      if [ -d "$path" ]; then
+        deny "sbx would drop its output loose in $path. $hint"
+      fi
+      deny "sbx would drop its output loose in ${path%/*}; for a directory target, create it first. $hint"
+    fi
+    return 0
+  fi
+  [ "${2-}" = create ] || return 0
+  case "$path" in
+  "$scratch"/*) ;;
+  *) return 0 ;;
+  esac
+  rest="${path#"$scratch"/}"
+  top="${rest%%/*}"
+  if [ "$top" = "$rest" ] && [ ! -e "$path" ]; then
+    deny "$path would sit loose in $scratch. $hint"
+  fi
+  if [ "$top" = sessions ]; then
+    rest="${rest#sessions/}"
+    if [ "${rest%%/*}" = "$rest" ]; then
+      deny "$path would sit loose in $scratch/sessions. $hint"
+    fi
+    if [ "$scratch/sessions/${rest%%/*}" != "$sessionDir" ] && [ ! -d "$scratch/sessions/${rest%%/*}" ]; then
+      deny "$scratch/sessions/${rest%%/*} is not this session's dir; the shell wrappers create those. $hint"
+    fi
+  elif [ ! -e "$scratch/$top" ] && badTopic "$top"; then
+    deny "$scratch/$top is not a findable name. $topicRule $hint"
+  fi
+}
+
+# Session dirs are swept, so instructions and memory must not point into them.
+isInstructionFile() {
+  case "$1" in
+  */CLAUDE.md | */AGENTS.md | */MEMORY.md | */memory/*.md | */memories/*) return 0 ;;
+  *) return 1 ;;
+  esac
+}
+
+checkCitation() {
+  local path="$1"
+  case "$path" in
+  /*) ;;
+  *) path="${cwd:-/}/$path" ;;
+  esac
+  if isInstructionFile "$path" && grep -qF -- "$scratch/sessions/" <<<"$2"; then
+    deny "$1 would cite a path under $scratch/sessions/, which is swept after a week idle. Move the file to $scratch/<topic>/ and cite that."
+  fi
+}
+
+# The lines a patch adds to one file, so removed lines and other files never count.
+patchAdds() {
+  awk -v target="$1" '
+    /^\*\*\* ((Add|Update|Delete) File|Move to): / { sub(/^\*\*\* ((Add|Update|Delete) File|Move to): /, ""); inFile = ($0 == target); next }
+    /^\*\*\* End Patch/ { inFile = 0; next }
+    inFile && /^\+/ { print substr($0, 2) }
+  ' <<<"$command"
 }
 
 command="$(jq -r '.tool_input.command // ""' <<<"$input")"
@@ -51,20 +153,38 @@ command="$(jq -r '.tool_input.command // ""' <<<"$input")"
 if [ "$tool" = apply_patch ] || grep -q '^\*\*\* Begin Patch' <<<"$command"; then
   while IFS= read -r path; do
     checkPath "$path"
-  done < <(sed -nE 's/^\*\*\* (Add File|Update File|Move to): (.*)$/\2/p' <<<"$command")
+    checkCitation "$path" "$(patchAdds "$path")"
+  done < <(sed -nE 's/^\*\*\* Update File: (.*)$/\1/p' <<<"$command")
+  while IFS= read -r path; do
+    checkPath "$path" create
+  done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
+  while IFS= read -r path; do
+    checkCitation "$path" "$(patchAdds "$path")"
+  done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
   if [ "$tool" != Bash ]; then
     exit 0
   fi
 fi
 
 case "$tool" in
-Write | Edit | MultiEdit | NotebookEdit)
-  checkPath "$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
+Write)
+  file="$(jq -r '.tool_input.file_path // ""' <<<"$input")"
+  checkPath "$file" create
+  checkCitation "$file" "$(jq -r '.tool_input.content // ""' <<<"$input")"
+  exit 0
+  ;;
+Edit | MultiEdit | NotebookEdit)
+  file="$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
+  checkPath "$file"
+  checkCitation "$file" "$(jq -r '[.tool_input.new_string // empty, (.tool_input.edits // [])[].new_string] | join("\n")' <<<"$input")"
   exit 0
   ;;
 Bash) ;;
 *) exit 0 ;;
 esac
+
+# Line-oriented patterns below must see a continued command as one line.
+command="${command//$'\\\n'/ }"
 
 # Splits a simple command into words; fails on unquoted shell operators,
 # substitutions, comments, or newlines, which a word list cannot express.
@@ -124,14 +244,14 @@ splitWords() {
 checkHostPath() {
   local path="$1"
   case "$path" in
-  '$TMPDIR' | '$TMPDIR/'*) path="$scratch${path#'$TMPDIR'}" ;;
-  '${TMPDIR}' | '${TMPDIR}/'*) path="$scratch${path#'${TMPDIR}'}" ;;
+  '$TMPDIR' | '$TMPDIR/'*) path="${sessionDir:-$scratch}${path#'$TMPDIR'}" ;;
+  '${TMPDIR}' | '${TMPDIR}/'*) path="${sessionDir:-$scratch}${path#'${TMPDIR}'}" ;;
   '~' | '~/'*) path="$HOME${path#'~'}" ;;
   esac
   case "$path" in
-  *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out, or use \$TMPDIR ($scratch)." ;;
+  *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out. $hint" ;;
   esac
-  checkPath "$path"
+  checkPath "$path" dest
 }
 
 # Everything after exec or run's -- runs in the guest, whose /tmp is its own;
@@ -182,7 +302,67 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. Use $scratch (\$TMPDIR) instead, e.g. $scratch/<name> or a bare mktemp. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest paths of a bare sbx command (no pipes, redirections, && or env prefix) are not checked."
+    deny "This command writes under /tmp. $hint A bare mktemp lands in \$TMPDIR. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest paths of a bare sbx command (no pipes, redirections, && or env prefix) are not checked."
   fi
+done
+
+# $TMPDIR is the session dir, so only literal $scratch paths can land loose.
+# sessions/ holds only the wrappers' per-session dirs, so files there are loose too.
+root="${q}${scratchRe}(/sessions)?${q}"
+leaf="${root}/${q}[^/[:space:]\"';|&)<>]+${q}([[:space:];|&)<>]|$)"
+rootEnd="${root}(/\.?)?${q}([[:space:];|&)<>]|$)"
+opt="(=|[[:space:]]*)"
+tarDir="\btar\b${seg}[[:space:]](-C|--directory)${opt}"
+# Extracting tar segments only; a bundled x-flag word must directly follow tar.
+tarExtracting="$(tr '|;&' '\n' <<<"$command" |
+  grep -E -- "\btar([[:space:]]+x[A-Za-z]*([[:space:]]|$)|${seg}[[:space:]](-[A-Za-z]*x[A-Za-z]*|--extract|--get)([[:space:]]|$))" || true)"
+patterns=(
+  "(>>?|&>>?|>\|)[[:space:]]*${leaf}"
+  "\btee\b${seg}[[:space:]]${leaf}"
+  "\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
+  "\b(cp|mv|install|ln|rsync|scp)\b${seg}[[:space:]]${rootEnd}"
+  "\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${rootEnd}"
+  "\bunzip\b${seg}[[:space:]]-d${opt}${rootEnd}"
+  "\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${rootEnd}"
+  "\bcurl\b${seg}[[:space:]]--output-dir${opt}${rootEnd}"
+  "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${leaf}"
+  "\bof=${leaf}"
+)
+if [ -n "$tarExtracting" ] && grep -qE -- "${tarDir}${rootEnd}" <<<"$tarExtracting"; then
+  deny "This command writes a file loose in $scratch. $hint"
+fi
+for pattern in "${patterns[@]}"; do
+  if grep -qE -- "$pattern" <<<"$command"; then
+    deny "This command writes a file loose in $scratch. $hint"
+  fi
+done
+
+# A top-level dir a command creates must have a findable name.
+name="${q}${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+"
+writes=(
+  "(>>?|&>>?|>\|)[[:space:]]*${name}"
+  "\b(mkdir|touch|tee|truncate)\b${seg}[[:space:]]${name}"
+  "\bgit\b${seg}\b(clone|init|worktree[[:space:]]+add)\b${seg}[[:space:]]${name}"
+  "\b(cp|mv|install|rsync|ln|scp)\b${seg}[[:space:]]${name}${q}[[:space:]]*($|[|;&)])"
+  "\b(cp|mv|install|ln)\b${seg}[[:space:]](-t|--target-directory)${opt}${name}"
+  "\bunzip\b${seg}[[:space:]]-d${opt}${name}"
+  "\bwget\b${seg}[[:space:]](-P|--directory-prefix)${opt}${name}"
+  "\bcurl\b${seg}[[:space:]]--output-dir${opt}${name}"
+  "(^|[[:space:]])(-o|-O|--output|--output-document|--out-link)(=|[[:space:]]+)${name}"
+)
+for pattern in "${writes[@]}" "TAR:${tarDir}${name}"; do
+  text="$command"
+  case "$pattern" in
+  TAR:*)
+    pattern="${pattern#TAR:}"
+    text="$tarExtracting"
+    ;;
+  esac
+  while IFS= read -r top; do
+    case "$top" in "" | sessions | *[*?[]*) continue ;; esac
+    if [ ! -e "$scratch/$top" ] && badTopic "$top"; then
+      deny "$scratch/$top is not a findable name. $topicRule $hint"
+    fi
+  done < <(grep -oE -- "$pattern" <<<"$text" | grep -oE "${scratchRe}/[^/[:space:]\"';|&)<>\$\`]+" | sed "s#^$scratch/##")
 done
 exit 0

@@ -61,6 +61,7 @@ _: {
 
       execPolicy = import ./_exec-policy.nix {
         inherit lib pkgs;
+        inherit (agents) scratchDir;
         sbx = if sbxEnabled then osConfig.programs.sbx.extended.finalPackage else null;
       };
 

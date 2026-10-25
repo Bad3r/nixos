@@ -169,6 +169,8 @@ class Settings:
     windows: WindowsSettings | None = None
     # The session daemon's file size limit, which every Windows overlay reserves.
     file_bytes: int = 0
+    # Fixed copy roots beside $TMPDIR, which agent shells narrow to a per-session dir.
+    copy_roots: tuple[Path, ...] = ()
 
     @classmethod
     def load(cls, path: Path) -> Settings:
@@ -212,6 +214,7 @@ class Settings:
             if raw["windows"] is None
             else windows.WindowsSettings.load(raw["windows"]),
             file_bytes=limits["fileBytes"],
+            copy_roots=tuple(Path(root) for root in raw["copyRoots"]),
         )
 
 
@@ -2132,7 +2135,7 @@ class Sandboxes:
 
     def host_roots(self) -> list[Path]:
         """Return the host directories `cp` reads from and writes to."""
-        roots = [Path.home() / "trees"]
+        roots = [Path.home() / "trees", *self.settings.copy_roots]
         if tmpdir := os.environ.get("TMPDIR"):
             roots.append(Path(tmpdir))
         if checkout := self.checkout():
