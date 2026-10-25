@@ -5,6 +5,7 @@
 Standalone skills and plugin skills use different controls.
 
 - Nix-authored standalone skills live in `modules/agents/skills/` and are installed under `~/.claude/skills/` by Home Manager.
+  A skill that sets `app` installs only on hosts where that app's row is on.
 - Plugin-owned skills stay in their plugin source.
   The plugin enablement entry controls the skills and any MCP servers bundled by that plugin.
 - MCP servers in `modules/agents/mcp/servers.nix` remain independent unless a plugin manifest bundles the same provider.

@@ -52,6 +52,7 @@ let
     stash = true;
     websocat = true;
     nvtop = true;
+    "podman-desktop" = true;
     sbx = true;
   };
 

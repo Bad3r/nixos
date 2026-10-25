@@ -117,6 +117,7 @@ let
         "title"
         "description"
         "body"
+        "app"
       ]
       ++ validClients;
       validatedSpec = validateAllowedFields "'${registryKey}'" allowedFields spec;
@@ -124,6 +125,8 @@ let
       title = validateNonEmptyString registryKey "title" validatedSpec.title;
       description = validateNonEmptyString registryKey "description" validatedSpec.description;
       body = validateNonEmptyString registryKey "body" validatedSpec.body;
+      app =
+        if validatedSpec ? app then validateNonEmptyString registryKey "app" validatedSpec.app else null;
       presentClients = lib.filter (client: validatedSpec ? ${client}) validClients;
       validatedClients = lib.genAttrs presentClients (
         client: validateClientSpec name client validatedSpec.${client}
@@ -133,6 +136,8 @@ let
       throw "Agent skill registry key '${registryKey}' must match skill name '${name}'"
     else if lib.elem name reservedPublicSkillNames then
       throw "Agent skill '${name}' uses reserved public name '${name}'"
+    else if app != null && !(config.flake.lib.nixos.hasApp app) then
+      throw "Agent skill '${name}' names app '${app}', which has no flake.nixosModules.apps entry"
     else
       {
         inherit
@@ -140,6 +145,7 @@ let
           title
           description
           body
+          app
           ;
       }
       // validatedClients;
@@ -237,6 +243,9 @@ let
         title
         description
         ;
+      enabledOn =
+        osConfig:
+        spec.app == null || lib.attrByPath [ "programs" spec.app "extended" "enable" ] false osConfig;
     }
     // lib.optionalAttrs (spec ? claude) {
       claude = claudeMarkdown;
