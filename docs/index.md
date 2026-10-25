@@ -476,3 +476,5 @@
   - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
 - [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)
   - `sbx` failures by error code: a daemon outside the slice, the vsock namespace launcher, boot timeouts, an unavailable egress bridge or lease, and a refused or failed `base prepare`.
+- [apps/sbx/vsock-grants.md](apps/sbx/vsock-grants.md)
+  - Workload grants for sandboxes without a network: listeners inside the QEMU namespace, their lifecycle, fail-closed cases, and the trust split.

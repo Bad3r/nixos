@@ -32,23 +32,57 @@ _: {
             };
           };
 
-          # sbx starts it before connecting; QEMU, virtlogd, and their helpers inherit its cgroup.
-          services.sbx-libvirt = {
-            Unit.Description = "libvirt session daemon for sbx sandboxes";
-            Service = {
-              Type = "notify";
-              ExecStart = "${libvirtCfg.package}/bin/virtqemud --timeout 600";
-              Slice = "sbx.slice";
-              # Guests outlive a daemon restart, and the next daemon reattaches to them.
-              KillMode = "process";
+          # `workloads grant` and `revoke` reach the proxy through it, which starts on first use.
+          sockets.sbx-vsock = {
+            Unit.Description = "Control socket of the sbx vsock grant proxy";
+            Socket = {
+              ListenStream = "%t/sbx/vsock.sock";
+              SocketMode = "0600";
+              DirectoryMode = "0700";
             };
+            Install.WantedBy = [ "sockets.target" ];
           };
 
-          services.sbx-gc = {
-            Unit.Description = "Remove expired and orphaned sbx sandboxes";
-            Service = {
-              Type = "oneshot";
-              ExecStart = "${sbx} gc";
+          services = {
+            # sbx starts it before connecting; QEMU, virtlogd, and their helpers inherit its cgroup.
+            sbx-libvirt = {
+              Unit.Description = "libvirt session daemon for sbx sandboxes";
+              Service = {
+                Type = "notify";
+                ExecStart = "${libvirtCfg.package}/bin/virtqemud --timeout 600";
+                Slice = "sbx.slice";
+                # Guests outlive a daemon restart, and the next daemon reattaches to them.
+                KillMode = "process";
+              };
+            };
+
+            # Holds every vsock grant's listeners and connections, so they all close with it.
+            sbx-vsock = {
+              Unit = {
+                Description = "Listeners for vsock grants inside sbx sandbox namespaces";
+                # A restarted socket reaches only a proxy started after it.
+                PartOf = [ "sbx-vsock.socket" ];
+              };
+              Service = {
+                ExecStart = "${sbx} vsock serve";
+                Restart = "on-failure";
+                # A grant without a port listens on every port of its ranges.
+                LimitNOFILE = 65536;
+                NoNewPrivileges = true;
+                RestrictAddressFamilies = [
+                  "AF_UNIX"
+                  "AF_INET"
+                  "AF_VSOCK"
+                ];
+              };
+            };
+
+            sbx-gc = {
+              Unit.Description = "Remove expired and orphaned sbx sandboxes";
+              Service = {
+                Type = "oneshot";
+                ExecStart = "${sbx} gc";
+              };
             };
           };
 

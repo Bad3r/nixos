@@ -6,7 +6,7 @@ import json
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from sbx import journal, sleep
+from sbx import journal, sleep, vsock
 from sbx.core import (
     FLAVOURS,
     NETS,
@@ -135,6 +135,13 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
         help="host sleep hook only, not for agents: pause, resume, save, or restore sandboxes",
     )
     host_sleep.add_argument("phase", choices=sleep.PHASES)
+
+    proxy = verbs.add_parser(
+        "vsock", help="grant listeners of sandboxes without a network, for workloads grant"
+    )
+    proxy_verbs = proxy.add_subparsers(dest="vsock_verb", required=True, parser_class=Parser)
+    proxy_verbs.add_parser("serve", help="run the proxy; sbx-vsock.service starts it")
+    proxy_verbs.add_parser("sync", parents=[common], help="apply the grant list now")
     return parser
 
 
@@ -268,6 +275,10 @@ def dispatch(  # noqa: C901, PLR0911, PLR0912
                 args.phase
             )
             return (actions if as_json else None), code
+        case "vsock":
+            if args.vsock_verb == "serve":
+                vsock.serve(sandboxes.paths)
+            return vsock.sync(vsock.control_path()), 0
         case _:
             msg = f"unknown verb {args.verb}"
             raise SbxError(msg, code="usage")

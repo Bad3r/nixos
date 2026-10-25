@@ -26,6 +26,7 @@ _: {
 
 A sandbox is a grant source on a network with `libvirt.sessionAttach`, identified by its address and the MAC of its live DHCP lease there.
 A guest source is identified by its declared address and MAC; on a network without lease binding, its peers are trusted not to claim them.
+A sandbox without a network is identified by its name and creation token, and reaches granted host TCP ports over [vsock](../apps/sbx/vsock-grants.md).
 LAN, Mesh, and internet destinations cannot be named, so they are never grantable.
 
 ## Grant from the command line
@@ -40,7 +41,7 @@ workloads revoke <id>
 workloads revoke --all sbx-<name>
 ```
 
-- A source is `sbx-<name>`, `guest:<name>`, or a bare guest name; for a sandbox, the command reads its address from `sbx info`.
+- A source is `sbx-<name>`, `guest:<name>`, or a bare guest name; for a sandbox, the command reads its address or creation token from `sbx info`.
 - Without a port, the grant opens every grantable port of the target, which for a range is every listener in it.
 - `--ttl` takes `s`, `m`, `h`, or `d`; the default is 30 minutes, and the rule's `maxTtl` caps it.
 - A grant permits all traffic on its path, established connections included, only until its TTL ends.
@@ -68,6 +69,8 @@ workloads revoke --all sbx-<name>
 | `journal`           | the journal refused the record           |
 | `nft`, `route`      | the grant table or rules are unusable    |
 | `conntrack`         | conntrack entries could not be removed   |
+| `vsock-listener`    | no vsock listener in the sandbox         |
+| `vsock-list`        | the vsock grant list is unusable         |
 | `no-helper`         | the host declares no grant rule          |
 | `helper`            | the helper answered no JSON object       |
 | `sbx`               | `sbx info` failed                        |
@@ -98,7 +101,7 @@ With no rule declared, the unit deletes the table and the grant routes instead.
 
 `workload-grantd.socket` listens on `/run/workloads/grant.sock`, owned by the owner and mode 0600, so only the owner and root connect.
 Each connection starts one `workload-grantd@` instance as root with `CAP_NET_ADMIN` as its only capability.
-It reads one JSON request, checks it against `/etc/workloads/grants.json` and the sandbox network's lease file, and only adds or removes set elements, conntrack entries, and the grant routes.
+It reads one JSON request, checks it against `/etc/workloads/grants.json` and the sandbox network's lease file, and only adds or removes set elements, conntrack entries, the grant routes, and vsock grant list entries.
 Before it applies a decision, it journals the caller's pid, uid, and command line, the agent session the client reports, and the decision.
 
 The allowlist is a guard rail, not a boundary, while the owner holds root-equivalent groups.
