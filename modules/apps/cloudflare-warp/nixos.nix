@@ -168,11 +168,11 @@ let
           warp_active=false
           if systemctl is-active --quiet cloudflare-warp.service; then
             warp_active=true
-            for ((try = 1; ; try++)); do
+            for ((try = 0; ; try++)); do
               status=$(warp-cli --accept-tos -j status 2>/dev/null | jq -r '.status // empty') || status=
               [[ $status == Connected ]] && break
-              if ((try == 30)); then
-                echo "warp-svc did not reach Connected within 60 s, last status: $status" >&2
+              if ((try == 90)); then
+                echo "warp-svc did not reach Connected within 180 s, last status: $status" >&2
                 exit 1
               fi
               sleep 2
