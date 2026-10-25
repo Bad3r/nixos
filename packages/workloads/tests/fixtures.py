@@ -4,6 +4,7 @@
 import copy
 import json
 
+from workloads.grantd import LiveShare
 from workloads.grants import Policy, Record
 
 POLICY: Record = {
@@ -51,6 +52,30 @@ POLICY: Record = {
         },
     },
     "reserved": ["172.16.1.10", "172.16.2.9"],
+    "shares": {
+        "dev": {
+            "domain": "dev",
+            "kind": "nixos",
+            "shares": {
+                "late": {
+                    "device": "/etc/workloads/shares/dev/late.xml",
+                    "readOnly": False,
+                    "mountPoint": "/mnt/late",
+                }
+            },
+        },
+        "win11": {
+            "domain": "win11",
+            "kind": "windows",
+            "shares": {
+                "isos": {
+                    "device": "/etc/workloads/shares/win11/isos.xml",
+                    "readOnly": True,
+                    "mountPoint": None,
+                }
+            },
+        },
+    },
 }
 
 
@@ -78,3 +103,48 @@ def read_leases(path: str) -> str:
     if path != "/leases/vn-sbx.status":
         raise FileNotFoundError(path)
     return LEASES
+
+
+class FakeLibvirt:
+    """Live virtiofs tags per domain; a detached tag lingers for `linger` polls, or forever."""
+
+    def __init__(self, events: list[str]) -> None:
+        """Every guest runs and holds nothing."""
+        self.events = events
+        self.states = {"dev": "running", "win11": "running"}
+        self.saved_domains: set[str] = set()
+        self.live: dict[str, set[str]] = {"dev": set(), "win11": set()}
+        self.releasing: dict[str, tuple[str, int | None]] = {}
+        self.linger: int | None = 2
+
+    def state(self, domain: str) -> str:
+        """The scripted state."""
+        return self.states[domain]
+
+    def saved(self, domain: str) -> bool:
+        """Whether the domain was marked saved."""
+        return domain in self.saved_domains
+
+    def shares(self, domain: str) -> dict[str, LiveShare]:
+        """Live tags, with a releasing one until its polls run out; `ro-` tags are read-only."""
+        tags = set(self.live[domain])
+        if domain in self.releasing:
+            tag, left = self.releasing[domain]
+            if left == 0:
+                del self.releasing[domain]
+            else:
+                tags.add(tag)
+                self.releasing[domain] = (tag, None if left is None else left - 1)
+        return {tag: LiveShare(f"fs-{tag}", tag.startswith("ro-")) for tag in tags}
+
+    def attach(self, domain: str, device: str) -> None:
+        """Plug the device; its tag is the file's stem."""
+        self.events.append(f"attach {domain} {device}")
+        self.live[domain].add(device.rsplit("/", 1)[1].removesuffix(".xml"))
+
+    def detach(self, domain: str, alias: str) -> None:
+        """Start releasing the device."""
+        self.events.append(f"detach {domain} {alias}")
+        tag = alias.removeprefix("fs-")
+        self.live[domain].discard(tag)
+        self.releasing[domain] = (tag, self.linger)

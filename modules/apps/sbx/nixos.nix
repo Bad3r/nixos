@@ -268,6 +268,7 @@ let
 
         programs.sbx.extended.finalPackage = cfg.package.override {
           qemu_kvm = libvirtCfg.qemuPackage;
+          virtiofsd = libvirtCfg.virtiofsdPackage;
           swtpm = config.virtualisation.libvirtd.qemu.swtpm.package;
           nix = config.nix.package;
           settings = {

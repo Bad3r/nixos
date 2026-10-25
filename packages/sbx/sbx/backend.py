@@ -240,6 +240,22 @@ class LibvirtBackend:
                 str(error), code="agent-unresponsive" if unconnected else "libvirt"
             ) from error
 
+    def live_xml(self, domain: str) -> str:
+        """Return the live definition."""
+        handle = self._lookup(domain)
+        try:
+            return str(handle.XMLDesc(0))
+        except libvirt.libvirtError as error:
+            raise _error(error) from error
+
+    def attach_device(self, domain: str, xml: str) -> None:
+        """Hot-plug a device into the running domain only."""
+        self._call(domain, "attachDeviceFlags", xml, libvirt.VIR_DOMAIN_AFFECT_LIVE)
+
+    def detach_device(self, domain: str, xml: str) -> None:
+        """Ask the running domain to release a device; returns before the guest does."""
+        self._call(domain, "detachDeviceFlags", xml, libvirt.VIR_DOMAIN_AFFECT_LIVE)
+
     def send_key(self, domain: str, keycodes: Sequence[int], holdtime: int) -> None:
         """Press Linux keycodes together, then release them."""
         handle = self._lookup(domain)
