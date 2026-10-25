@@ -34,6 +34,9 @@ VALUE_OPTIONS = (
     "--timeout",
 )
 OPERATORS = frozenset("();<>|&")
+# Marks an unquoted expansion, brace, or glob, which can split into more words.
+UNQUOTED = "\ue000"
+EXPANSIONS = frozenset("${*?[")
 # Each drops the word after it, its target, from the simple command.
 REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|", "<>"})
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
@@ -62,16 +65,38 @@ def words(command: str) -> list[str]:
     command = ANSI_C.sub(
         lambda match: shlex.quote(codecs.decode(match[1], "unicode_escape")), command
     )
-    command = command.replace('$"', '"').replace("`", " ; ").replace("\n", " ; ")
+    command = mark(command.replace('$"', '"')).replace("\n", " ; ")
     lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
     lexer.whitespace_split = True
     lexer.commenters = ""
     return list(lexer)
 
 
-def segments(tokens: list[str]) -> list[list[str]]:
-    """Split words into simple commands at control operators, dropping redirections."""
-    result: list[list[str]] = [[]]
+def mark(command: str) -> str:
+    """Prefix unquoted expansions with UNQUOTED; an unquoted backtick opens a substitution."""
+    out: list[str] = []
+    quote = ""
+    escaped = False
+    for char in command:
+        if escaped:
+            escaped = False
+        elif char == "\\" and quote != "'":
+            escaped = True
+        elif char in "'\"" and quote in {"", char}:
+            quote = "" if quote else char
+        elif char == "`" and not quote:
+            out.append(" ( ")
+            continue
+        elif char in EXPANSIONS and not quote:
+            out.append(UNQUOTED)
+        out.append(char)
+    return "".join(out)
+
+
+def segments(tokens: list[str]) -> list[tuple[list[str], str]]:
+    """Split words into simple commands, each with the operator ending it; drop redirections."""
+    result: list[tuple[list[str], str]] = []
+    current: list[str] = []
     target = False
     for token in tokens:
         operator = bool(token) and set(token) <= OPERATORS
@@ -81,9 +106,11 @@ def segments(tokens: list[str]) -> list[list[str]]:
             target = True
         elif operator:
             target = False
-            result.append([])
+            result.append((current, token))
+            current = []
         else:
-            result[-1].append(token)
+            current.append(token)
+    result.append((current, ""))
     return result
 
 
@@ -94,8 +121,8 @@ def basename(word: str) -> str:
 
 def check(command: str, depth: int = 0) -> None:
     """Gate shell text, raising ValueError when it does not parse."""
-    for segment in segments(words(command)):
-        check_segment(segment, depth)
+    for segment, end in segments(words(command)):
+        check_segment(segment, depth, cut="(" in end)
 
 
 def nested(script: str, depth: int) -> None:
@@ -105,15 +132,15 @@ def nested(script: str, depth: int) -> None:
     check(script, depth + 1)
 
 
-def check_segment(segment: list[str], depth: int) -> None:
-    """Gate one simple command, and the script of a -c flag or eval."""
+def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
+    """Gate one simple command, cut short by a substitution if cut, and its -c or eval script."""
     stdin = evaluating = script = skip = False
     for index, word in enumerate(segment):
         name = basename(word)
         if name == "sbx-mcp":
             raise GateError(OPAQUE)
         if name in {"sbx", "workloads"}:
-            check_sbx(name, segment[index + 1 :], stdin=stdin)
+            check_sbx(name, segment[index + 1 :], stdin=stdin, cut=cut)
             return
         if evaluating:
             nested(word, depth)
@@ -168,11 +195,24 @@ def positionals_of(args: list[str]) -> list[str]:
     return positionals
 
 
-def check_sbx(name: str, args: list[str], *, stdin: bool) -> None:
+def check_split(args: list[str], positionals: list[str], *, stdin: bool, cut: bool) -> None:
+    """Gate sbx arguments that a substitution, stdin, or word splitting could extend."""
+    share = positionals[:1] == ["share"]
+    if cut and (share or "--" not in args):
+        raise GateError(OPAQUE)
+    if positionals and positionals[0] not in OPEN_VERBS and not NON_LITERAL.search(positionals[0]):
+        return
+    if stdin:
+        raise GateError(OPAQUE)
+    head = args if share or "--" not in args else args[: args.index("--")]
+    if any(UNQUOTED in word for word in head):
+        raise GateError(OPAQUE)
+
+
+def check_sbx(name: str, args: list[str], *, stdin: bool, cut: bool) -> None:
     """Check sbx or workloads options, which end at the first --."""
     positionals = positionals_of(args)
-    if stdin and (not positionals or positionals[0] in OPEN_VERBS):
-        raise GateError(OPAQUE)
+    check_split(args, positionals, stdin=stdin, cut=cut)
     if positionals[:2] == ["share", "attach"]:
         # A redirection's fd number stays a word, so any word past the name may be the tag.
         operands = positionals[2:]

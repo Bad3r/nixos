@@ -19,7 +19,7 @@ The PreToolUse hooks in `modules/agents/hooks/sbx-approval.nix` hold three calls
 
 - a sandbox with egress: a `--net` value other than `none`, `--net` with no value, or MCP `net` other than `none`;
 - `share attach` of `shared`, or with a missing or non-literal tag;
-- any Bash call of `sbx-mcp`, an `sbx` verb that `xargs` could turn into `create`, `run`, or `share`, and `create` or `run` carrying expansions.
+- any Bash call of `sbx-mcp`, an `sbx` verb that `xargs` could turn into `create`, `run`, or `share`, and those verbs with an unquoted expansion, brace, or glob before `--`, or an unquoted command or process substitution, which can add arguments.
 
 Claude Code asks the user, even in auto mode.
 Codex refuses, so the user runs the command: its hooks cannot ask, and its execpolicy prompts go to the auto reviewer.
