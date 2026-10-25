@@ -11,6 +11,16 @@ from unittest import mock
 from sbx.cli import build_parser, main, split_command
 from sbx.errors import SbxError
 
+from .test_core import Fixture
+
+
+def help_text(arguments: list[str], settings_path: Path | None = None) -> str:
+    """Return what `sbx <arguments> --help` prints, through main and its settings."""
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output), contextlib.suppress(SystemExit):
+        main(settings_path or Path("/missing/settings.json"), [*arguments, "--help"])
+    return output.getvalue()
+
 
 class CommandLineTest(unittest.TestCase):
     """The guest command never reaches option parsing."""
@@ -78,3 +88,30 @@ class CommandLineTest(unittest.TestCase):
         for argv in (["key", "g"], ["type", "g"], ["type", "g", "a", "b"]):
             with self.subTest(argv=argv), self.assertRaises(SbxError):
                 parser.parse_args(argv)
+
+
+class HelpTest(Fixture):
+    """Verb help shows the command syntax, an example, and the host's defaults."""
+
+    def test_usage_shows_the_command(self) -> None:
+        """The usage of `run` and `exec` shows the guest command after --."""
+        self.assertIn("usage: sbx run [options] BASE -- CMD [ARG...]", help_text(["run"]))
+        self.assertIn("usage: sbx exec [options] NAME -- CMD [ARG...]", help_text(["exec"]))
+        self.assertIn("example:\n  sbx exec probe", help_text(["exec"]))
+
+    def test_defaults_follow_the_settings(self) -> None:
+        """With readable settings, sizing flags show their defaults and ceilings."""
+        settings = self.scratch / "settings.json"
+        with mock.patch("sbx.cli.Settings.load", return_value=self.settings) as load:
+            text = " ".join(help_text(["create"], settings).split())
+        load.assert_called_once_with(settings)
+        self.assertIn("memory such as 2G; default 2G, 4G with --gui; at most 6G", text)
+        self.assertIn("vCPUs; default 2; at most 8", text)
+        self.assertIn("default 2h; at most 1d", text)
+
+    def test_without_settings(self) -> None:
+        """Help, parsing, and completion need no settings."""
+        text = " ".join(help_text(["create"]).split())
+        self.assertIn("memory such as 2G", text)
+        self.assertNotIn("default 2G", text)
+        self.assertEqual(build_parser(None).parse_args(["create", "nixos"]).mem, None)

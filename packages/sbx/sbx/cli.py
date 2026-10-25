@@ -3,6 +3,7 @@
 
 import argparse
 import json
+import os
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
@@ -33,7 +34,15 @@ class Parser(argparse.ArgumentParser):
         raise SbxError(msg, code="usage")
 
 
-def _arguments(parser: argparse.ArgumentParser, operation: ops.Operation) -> None:
+def _help(param: ops.Param, settings: Settings | None) -> str | None:
+    if settings is None or param.limits is None:
+        return param.help
+    return f"{param.help}; {param.limits(settings)}"
+
+
+def _arguments(
+    parser: argparse.ArgumentParser, operation: ops.Operation, settings: Settings | None
+) -> None:
     exclusive = parser.add_mutually_exclusive_group(required=True) if operation.one_of else None
     for param in operation.params:
         # The guest command follows --, which split_command takes off first.
@@ -41,19 +50,20 @@ def _arguments(parser: argparse.ArgumentParser, operation: ops.Operation) -> Non
             continue
         target = exclusive if exclusive is not None and param.name in operation.one_of else parser
         choices = param.enum or None
+        help_text = _help(param, settings)
         if param.flag is None:
             if param.repeatable:
                 nargs = "+" if param.required else "*"
             else:
                 nargs = None if param.required else "?"
             target.add_argument(
-                param.name, nargs=nargs, choices=choices, metavar=param.metavar, help=param.help
+                param.name, nargs=nargs, choices=choices, metavar=param.metavar, help=help_text
             )
         elif param.kind == "boolean":
-            target.add_argument(param.flag, dest=param.name, action="store_true", help=param.help)
+            target.add_argument(param.flag, dest=param.name, action="store_true", help=help_text)
         elif param.kind == "integer":
             target.add_argument(
-                param.flag, dest=param.name, type=int, metavar=param.metavar, help=param.help
+                param.flag, dest=param.name, type=int, metavar=param.metavar, help=help_text
             )
         elif param.repeatable or param.kind == "env":
             target.add_argument(
@@ -62,7 +72,7 @@ def _arguments(parser: argparse.ArgumentParser, operation: ops.Operation) -> Non
                 action="append",
                 default=[],
                 metavar=param.metavar,
-                help=param.help,
+                help=help_text,
             )
         else:
             target.add_argument(
@@ -71,16 +81,18 @@ def _arguments(parser: argparse.ArgumentParser, operation: ops.Operation) -> Non
                 choices=choices,
                 default=param.default,
                 metavar=param.metavar,
-                help=param.help,
+                help=help_text,
             )
 
 
-def build_parser() -> argparse.ArgumentParser:
-    """Describe every verb of the registry."""
+def build_parser(settings: Settings | None = None) -> argparse.ArgumentParser:
+    """Describe every verb of the registry; `settings` add the host's defaults and ceilings."""
     parser = Parser(prog="sbx", description="Disposable agent sandboxes on qemu:///session.")
     parser.add_argument("--json", action="store_true", help="print JSON, errors included")
     common = Parser(add_help=False)
-    common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+    common.add_argument(
+        "--json", action="store_true", default=argparse.SUPPRESS, help="print JSON, errors included"
+    )
     verbs = parser.add_subparsers(dest="verb", required=True, parser_class=Parser)
     for group, operations in ops.grouped():
         target = verbs
@@ -90,9 +102,18 @@ def build_parser() -> argparse.ArgumentParser:
             target = holder.add_subparsers(dest=f"{name}_verb", required=True, parser_class=Parser)
         for operation in operations:
             parents = [common] if operation.takes_json else []
-            leaf = target.add_parser(operation.path[-1], parents=parents, help=operation.help)
+            example = operation.example
+            leaf = target.add_parser(
+                operation.path[-1],
+                parents=parents,
+                help=operation.help,
+                description=operation.help,
+                usage=operation.usage,
+                epilog=None if example is None else f"example:\n  {example}",
+                formatter_class=argparse.RawDescriptionHelpFormatter,
+            )
             leaf.set_defaults(operation=operation)
-            _arguments(leaf, operation)
+            _arguments(leaf, operation, settings)
     return parser
 
 
@@ -194,10 +215,21 @@ def render(outcome: Result | ops.Failure, *, as_json: bool) -> int:
     return outcome.exit_status()
 
 
+def _help_settings(path: Path) -> Settings | None:
+    """Return the settings for help text; a verb loads them again and reports what fails."""
+    try:
+        return Settings.load(path)
+    except OSError, ValueError, KeyError, TypeError, SbxError:
+        return None
+
+
 def main(settings_path: Path, argv: Sequence[str] | None = None) -> int:
     """Parse, run, print; failures exit non-zero, as JSON under --json."""
     arguments = list(sys.argv[1:] if argv is None else argv)
-    parser = build_parser()
+    # Completion and the bare help show no defaults, so they never read the settings.
+    completing = "_ARGCOMPLETE" in os.environ
+    settings = None if completing or not arguments else _help_settings(settings_path)
+    parser = build_parser(settings)
     completion.autocomplete(parser, settings_path)
     if not arguments:
         parser.print_help()
@@ -210,6 +242,6 @@ def main(settings_path: Path, argv: Sequence[str] | None = None) -> int:
     ctx = ops.Ctx(session=caller_session(), stdio_attached=not as_json)
 
     def connect(session: str | None) -> Sandboxes:
-        return open_sandboxes(Settings.load(settings_path), session)
+        return open_sandboxes(settings or Settings.load(settings_path), session)
 
     return render(ops.invoke(operation, connect, args, ctx), as_json=as_json)
