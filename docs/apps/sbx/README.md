@@ -104,7 +104,8 @@ The TTL counts wall-clock time, host sleep included.
 `sbx-gc.timer` runs `sbx gc` on a schedule.
 It removes shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.
 It removes sandboxes past their TTL only while `timedatectl` reports the host clock NTP-synchronized, since an RTC clock right after resume can run hours ahead.
-On a host that never syncs, expired sandboxes stay until `sbx destroy`.
+`sbx destroy --expired` refuses with `clock-unsynced` on an unsynced clock.
+On a host that never syncs, expired sandboxes stay until `sbx destroy <name>`.
 `create`, `exec`, `cp`, `screenshot`, `destroy`, `gc`, `base build`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
 
 ## Agents

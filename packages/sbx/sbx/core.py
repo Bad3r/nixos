@@ -1136,6 +1136,11 @@ class Sandboxes:
     ) -> list[str]:
         """Remove the caller's sandboxes or the expired ones; `timeout` bounds the lock wait."""
         self._require_session(mine=mine)
+        if expired and not self.host_synced():
+            msg = (
+                "the host clock is not NTP-synchronized, so TTLs cannot be judged; destroy by name"
+            )
+            raise SbxError(msg, code="clock-unsynced")
         if not self._has_state():
             return []
         removed: list[str] = []

@@ -416,6 +416,18 @@ class SandboxesTest(Fixture):
         with self.assertRaises(SbxError):
             self.sandboxes(session=None).listing(mine=True)
 
+    def test_destroy_expired_unsynced(self) -> None:
+        """--expired refuses while the host clock is unsynced."""
+        self.paths.sandbox("old").mkdir(parents=True)
+        self.backend.add("old", expires=NOW - 60)
+        with (
+            mock.patch.dict(os.environ, {"SBX_TEST_NTP": "no"}),
+            self.assertRaises(SbxError) as caught,
+        ):
+            self.sandboxes().destroy_where(mine=False, expired=True)
+        self.assertEqual(caught.exception.code, "clock-unsynced")
+        self.assertEqual(sorted(self.backend.domains_by_name), ["sbx-old"])
+
     def test_copy_roots(self) -> None:
         """Copies in come from the roots only, and copies out default to xfer."""
         self.paths.sandbox("c").mkdir(parents=True)
