@@ -103,6 +103,46 @@ let
         builtins.toJSON (lib.mapAttrs (_: entry: { inherit (entry) source sha256; }) media)
       );
 
+      enabledShares = guest: lib.filterAttrs (_: share: share.enable) guest.shares;
+
+      # libvirt starts virtiofsd as root; dropping to the owner before its
+      # sandbox keeps every guest write owned by that account.
+      virtiofsdAs =
+        owner:
+        pkgs.writeShellScript "virtiofsd-${owner}" ''
+          exec ${pkgs.util-linux}/bin/setpriv --reuid=${owner} --regid=${config.users.users.${owner}.group} \
+            --clear-groups --no-new-privs \
+            ${libvirtCfg.virtiofsdPackage}/bin/virtiofsd "$@"
+        '';
+
+      shareOwners = lib.concatMap (
+        guest: map (share: share.owner) (lib.attrValues (enabledShares guest))
+      ) (lib.attrValues presentGuests);
+
+      # Every normal user keeps a wrapper: a managed-save image still names the
+      # wrapper of a share removed since the save.
+      wrapperOwners = lib.optionals (presentGuests != { }) (
+        lib.unique (
+          shareOwners ++ lib.attrNames (lib.filterAttrs (_: user: user.isNormalUser) config.users.users)
+        )
+      );
+
+      shareFiles =
+        map (
+          owner: lib.nameValuePair "workloads/virtiofsd-${owner}" { source = virtiofsdAs owner; }
+        ) wrapperOwners
+        ++ lib.flatten (
+          lib.mapAttrsToList (
+            guestName: guest:
+            lib.mapAttrsToList (
+              tag: share:
+              lib.optional share.runtime (
+                lib.nameValuePair "workloads/shares/${guestName}/${tag}.xml" { text = share.deviceXml; }
+              )
+            ) (enabledShares guest)
+          ) presentGuests
+        );
+
       directory = mode: user: group: {
         d = { inherit mode user group; };
       };
@@ -154,13 +194,35 @@ let
             (check (
               !firmware.enrolledKeys || firmware.secureBoot
             ) "firmware.enrolledKeys needs firmware.secureBoot")
+            (check (guest.trust == "trusted" || !guest.fileTransfer) "untrusted guests get no file transfer")
             (check (
-              guest.trust == "trusted" || !(guest.clipboard || guest.fileTransfer)
-            ) "untrusted guests share no clipboard or files")
+              guest.trust == "trusted" || !guest.clipboard || guest.allowUntrustedClipboard
+            ) "clipboard on an untrusted guest needs allowUntrustedClipboard = true")
             (check (
               !guest.usbRedirection || guest.display == "spice"
             ) "usbRedirection needs display = \"spice\"")
+            (check (guest.trust == "trusted" || enabledShares guest == { }) "untrusted guests get no shares")
           ]
+          ++ lib.mapAttrsToList (
+            tag: _:
+            # QEMU refuses a virtiofs tag longer than 36 bytes when the guest starts.
+            check (
+              builtins.match "[a-z0-9][a-z0-9-]{0,35}" tag != null
+            ) "shares.${tag}: tags must match [a-z0-9][a-z0-9-]* and have at most 36 characters"
+          ) guest.shares
+          ++ lib.mapAttrsToList (
+            tag: share:
+            # As root, virtiofsd would let guest root create setuid-root files.
+            check (
+              share.owner != "root" && (config.users.users.${share.owner}.uid or null) != 0
+            ) "shares.${tag}: the owner must not be root"
+          ) (enabledShares guest)
+          ++ lib.mapAttrsToList (
+            tag: share:
+            check (
+              config.users.users ? ${share.owner}
+            ) "shares.${tag}: owner ${share.owner} is not a declared user"
+          ) (enabledShares guest)
           ++ lib.mapAttrsToList (
             disk: spec:
             check (
@@ -259,6 +321,8 @@ let
           virtualisation.spiceUSBRedirection.enable = lib.mkIf (lib.any (guest: guest.usbRedirection) (
             lib.attrValues presentGuests
           )) true;
+
+          environment.etc = lib.listToAttrs shareFiles;
 
           virtualisation.libvirtd.allowedBridges = map (network: network.bridge) (
             lib.filter (network: network.libvirt.sessionAttach) (lib.attrValues networks)

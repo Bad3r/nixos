@@ -8,9 +8,10 @@ let
   windows = guest.kind == "windows";
   spice = guest.display == "spice";
   # The vdagent channel carries clipboard, file transfer, and display resizing.
-  agentChannel = spice && guest.trust == "trusted";
+  agentChannel = spice && (guest.trust == "trusted" || guest.clipboard);
   yesNo = value: if value then "yes" else "no";
   letter = index: builtins.substring index 1 "abcdefghijklmnopqrstuvwxyz";
+  shares = lib.filter (share: share.enable) (lib.attrValues guest.shares);
 
   diskNames = lib.attrNames guest.disks;
   virtioDisks = lib.filter (disk: guest.disks.${disk}.bus == "virtio") diskNames;
@@ -59,6 +60,7 @@ let
     <interface type="network">
       <mac address="${guest.mac.${nic}}"/>
       <source network="${interface.network}"/>
+      <target dev="${guest.tap.${nic}}"/>
       <model type="virtio"/>
     </interface>
   '';
@@ -131,6 +133,12 @@ let
       </metadata>
       <memory unit="MiB">${toString guest.memory}</memory>
       <currentMemory unit="MiB">${toString guest.memory}</currentMemory>
+      ${lib.optionalString (shares != [ ]) ''
+        <memoryBacking>
+          <source type="memfd"/>
+          <access mode="shared"/>
+        </memoryBacking>
+      ''}
       <vcpu placement="static"${
         lib.optionalString (guest.cpuset != null) " cpuset=\"${guest.cpuset}\""
       }>${toString guest.vcpus}</vcpu>
@@ -168,6 +176,7 @@ let
         ${lib.concatStrings (lib.imap0 imageXml guest.install.images)}
         <controller type="usb" model="qemu-xhci" ports="15"/>
         ${lib.concatStrings (lib.mapAttrsToList interfaceXml guest.interfaces)}
+        ${lib.concatMapStrings (share: share.deviceXml) (lib.filter (share: !share.runtime) shares)}
         <serial type="pty">
           <target port="0"/>
         </serial>

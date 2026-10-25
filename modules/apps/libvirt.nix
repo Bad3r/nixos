@@ -47,6 +47,8 @@ let
         package = lib.mkPackageOption pkgs "libvirt" { };
 
         qemuPackage = lib.mkPackageOption pkgs "qemu_kvm" { };
+
+        virtiofsdPackage = lib.mkPackageOption pkgs "virtiofsd" { };
       };
 
       config = lib.mkIf cfg.enable {
@@ -61,7 +63,7 @@ let
             package = cfg.qemuPackage;
             runAsRoot = false;
             swtpm.enable = true;
-            vhostUserPackages = [ pkgs.virtiofsd ];
+            vhostUserPackages = [ cfg.virtiofsdPackage ];
             firmwarePackages.ovmf-full = pkgs.OVMFFull.fd;
             # The first line is the nixpkgs default. Consoles without a listen
             # address get a unix socket that only libvirt clients reach, instead

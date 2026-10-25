@@ -36,12 +36,15 @@ _: {
 
 ## Trust classes
 
-| Setting                   | trusted       | untrusted   |
-| ------------------------- | ------------- | ----------- |
-| SPICE agent channel       | yes           | no          |
-| Clipboard, file transfer  | on by default | off, forced |
-| Display resizing by agent | yes           | no          |
+| Setting                   | trusted       | untrusted      |
+| ------------------------- | ------------- | -------------- |
+| SPICE agent channel       | yes           | with clipboard |
+| Clipboard                 | on by default | opt-in         |
+| File transfer             | on by default | off, forced    |
+| Display resizing by agent | yes           | with clipboard |
+| [Shares](shares.md)       | declared      | none           |
 
+An untrusted guest gets a clipboard, and with it the SPICE agent channel, only with `clipboard = true` and `allowUntrustedClipboard = true`.
 A SPICE console listens on a unix socket only, so opening it goes through an authenticated libvirt connection.
 `display = "headless"` drops the SPICE console and leaves the serial console; the guest agent channel follows `guestAgent` either way.
 
