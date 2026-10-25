@@ -52,7 +52,7 @@ A target on the guest's own network without `isolatePeers` already reaches it an
 - `host:` link: an `inet workload` input accept from the guest address to the gateway on the service ports, plus the ports in `networking.firewall.interfaces.<bridge>` so `nixos-fw` accepts them too.
 - `guest:` or `service:` link across networks: a forward accept on source bridge, destination bridge, both addresses, protocol, and port for `ct state new`, ahead of the cross-network drop; replies ride conntrack.
   `workload-egress.service` adds an `ip rule` per direction that sends the peer address to the main table ahead of the WARP lookup.
-- Loopback service: `workload-proxy-<network>-<service>-<port>.socket` listens on the gateway with `FreeBind=yes`, so it binds before the runtime creates the bridge.
+- Loopback service: `workload-proxy-<network>-<port>.socket` listens on the gateway with `FreeBind=yes`, so it binds before the runtime creates the bridge.
   The socket accepts only the linked guests' addresses.
 
 Removing a link leaves established connections in conntrack until they close or expire; `sudo conntrack -D -s <guest address>` clears them.

@@ -14,8 +14,8 @@ in
   perSystem =
     { pkgs, ... }:
     let
-      failures =
-        links:
+      failuresAs =
+        trust: links:
         let
           system = inputs.nixpkgs.lib.nixosSystem {
             modules = [
@@ -64,6 +64,11 @@ in
                         };
                       };
 
+                      host.services.api = {
+                        ports = [ 7000 ];
+                        bind = "loopback";
+                      };
+
                       services.web = {
                         image = "web";
                         network = "svc";
@@ -73,7 +78,7 @@ in
                       guests.client = {
                         uuid = "00000000-0000-4000-8000-000000000102";
                         kind = "linux";
-                        trust = "trusted";
+                        inherit trust;
                         memory = 256;
                         vcpus = 1;
                         interfaces.eth = {
@@ -93,6 +98,11 @@ in
           lib.filter (assertion: !assertion.assertion) system.config.assertions
         );
 
+      failures = failuresAs "trusted";
+      fails =
+        fragment: result:
+        lib.assertMsg (lib.any (lib.hasInfix fragment) result) "no failure mentions '${fragment}': ${toString result}";
+
       linked = failures [ "service:web:80" ];
       unlinked = failures [ ];
     in
@@ -101,6 +111,21 @@ in
         assert lib.assertMsg (linked == [ ]) "a linked service in resolve fails: ${toString linked}";
         assert lib.assertMsg (lib.any (lib.hasInfix "web is a service") unlinked)
           "an unlinked service in resolve passes: ${toString unlinked}";
+        assert lib.assertMsg (
+          failures [
+            "service:web:80"
+            "host:api"
+          ] == [ ]
+        ) "a linked host service fails";
+        assert fails "take grants" (failures [ "guest:sbx-x" ]);
+        assert fails "no workloads.host.services.nope" (failures [ "host:nope" ]);
+        assert fails "expected host:" (failures [ "bogus" ]);
+        assert fails "ports lie between" (failures [ "service:web:70000" ]);
+        assert fails "is not among the service's ports" (failures [ "host:api:7001" ]);
+        assert fails "unknown kind" (failures [ "disk:web" ]);
+        assert fails "no workloads.guests.nope" (failures [ "guest:nope" ]);
+        assert fails "declares no ports" (failures [ "service:web" ]);
+        assert fails "reach host services through grants only" (failuresAs "untrusted" [ "host:api" ]);
         pkgs.runCommand "workloads-sharing-eval" { } "touch $out";
     };
 }

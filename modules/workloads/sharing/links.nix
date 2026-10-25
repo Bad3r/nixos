@@ -55,10 +55,10 @@ let
           peerInterface = lib.head (if peerInterfaces != [ ] then peerInterfaces else peer.interfaces);
           peerPorts = if portText == null then peer.ports else explicit;
         in
-        if lib.hasPrefix "sbx-" target then
-          fail "sandboxes are runtime objects and take grants"
-        else if match == null then
+        if match == null then
           fail "expected host:<service>, guest:<name>, or service:<name>, with an optional :<port>[/udp]"
+        else if lib.hasPrefix "sbx-" targetName then
+          fail "sandboxes are runtime objects and take grants"
         else if portText != null && port > 65535 then
           fail "ports lie between 1 and 65535"
         else if targetKind == "host" then
@@ -248,7 +248,8 @@ let
         ) presentGuests
       );
 
-      proxyName = proxy: "workload-proxy-${proxy.network}-${proxy.service}-${toString proxy.port}";
+      # One gateway port serves one service, so network and port name the proxy.
+      proxyName = proxy: "workload-proxy-${proxy.network}-${toString proxy.port}";
       proxies = lib.mapAttrsToList (
         _: entries:
         lib.head entries
@@ -257,14 +258,21 @@ let
         }
       ) (lib.groupBy proxyName sharing.gatewayProxies);
 
-      proxyAssertions = lib.mapAttrsToList (
-        listen: entries:
-        let
-          services = lib.unique (map (proxy: proxy.service) entries);
-        in
-        check (lib.length services == 1)
-          "workloads.host.services: ${lib.concatStringsSep " and " services} are linked from one network with the same loopback port, ${listen}"
-      ) (lib.groupBy (proxy: "${networks.${proxy.network}.gateway}:${toString proxy.port}") proxies);
+      proxyAssertions =
+        lib.mapAttrsToList
+          (
+            listen: entries:
+            let
+              services = lib.unique (map (proxy: proxy.service) entries);
+            in
+            check (lib.length services == 1)
+              "workloads.host.services: ${lib.concatStringsSep " and " services} are linked from one network with the same loopback port, ${listen}"
+          )
+          (
+            lib.groupBy (
+              proxy: "${networks.${proxy.network}.gateway}:${toString proxy.port}"
+            ) sharing.gatewayProxies
+          );
     in
     {
       config = {

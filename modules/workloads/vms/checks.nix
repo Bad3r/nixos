@@ -451,7 +451,7 @@ in
                 assert "to 172.16." not in machine.succeed("ip rule")
                 assert "172.16.0.10" not in machine.succeed("nft list chain inet workload forward")
                 assert "172.16.5.11" not in machine.succeed("nft list chain inet workload input")
-                machine.fail("systemctl is-active workload-proxy-lab-echo-7000.socket")
+                machine.fail("systemctl is-active workload-proxy-lab-7000.socket")
                 refused("gamma", "172.16.0.10:7001")
 
             with subtest("a rename waits until the guest is shut off"):
