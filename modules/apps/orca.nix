@@ -15,6 +15,7 @@
 
   Notes:
     * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
+    * Enables the AT-SPI accessibility bus for Linux computer use.
 */
 { inputs, ... }:
 {
@@ -46,6 +47,7 @@
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+        services.gnome.at-spi2-core.enable = true;
       };
     };
 }
