@@ -24,6 +24,17 @@ unshare --user --map-current-user --net cat /proc/sys/net/vsock/ns_mode
 
 Fix: boot a generation with the `sbx` module, which sets `net.vsock.child_ns_mode` to `local`; the first write locks the value, so a host that wrote `global` first needs a reboot.
 
+## create fails with cannot create a user and network namespace
+
+Cause: the kernel refuses unprivileged user namespaces, which `sbx-qemu` needs to give QEMU its own network namespace.
+
+```sh
+sysctl kernel.unprivileged_userns_clone user.max_user_namespaces
+unshare --user --map-current-user --net true
+```
+
+Fix: allow unprivileged user namespaces (`kernel.unprivileged_userns_clone=1` where the kernel has it, `user.max_user_namespaces` above 0) and retry.
+
 ## exec fails with reassociate to namespaces failed
 
 Cause: the sandbox's QEMU shares the caller's user namespace, so it did not start through `sbx-qemu`.

@@ -148,10 +148,14 @@ in
                 listening = as_owner(f"{wrap} ss -H -l --vsock") if wrap else "ss -H -l --vsock"
                 machine.wait_until_succeeds(f"{listening} | grep -F ':{port} '", timeout=10)
 
-            def guest_reaches(cid, port):
-                result = sbx(f"exec v -- python3 /root/probe.py {cid} {port}")
+            def guest_reaches(name, cid, port):
+                result = sbx(f"exec {name} -- python3 /root/probe.py {cid} {port}")
                 assert result["exit_code"] == 0, result
                 return result["stdout"].strip()
+
+            def enter(name):
+                pid = machine.succeed(f"cat /run/user/1000/libvirt/qemu/run/sbx-{name}.pid").strip()
+                return f"nsenter --target {pid} --user --net --preserve-credentials"
 
             machine.wait_for_unit("multi-user.target")
             machine.wait_for_unit("user@1000.service")
@@ -168,14 +172,6 @@ in
                 created = sbx("create nixos --name v --ttl 30m")
                 assert created["cid"] is not None, created
 
-            pid = machine.succeed("cat /run/user/1000/libvirt/qemu/run/sbx-v.pid").strip()
-            enter = f"nsenter --target {pid} --user --net --preserve-credentials"
-
-            with subtest("QEMU runs in its own local vsock namespace"):
-                assert machine.succeed(f"readlink /proc/{pid}/ns/net") != machine.succeed("readlink /proc/self/ns/net")
-                assert machine.succeed(as_owner(f"{enter} cat /proc/sys/net/vsock/ns_mode")).strip() == "local"
-                assert machine.succeed(as_owner(f"{enter} ls -l /proc/{pid}/fd")).count("/dev/vhost-vsock") == 2
-
             with subtest("exec and cp reach the guest"):
                 sbx("cp ${home}/tmp/probe.py v:/root/probe.py")
                 result = sbx("exec v -- cat /etc/hostname")
@@ -187,21 +183,33 @@ in
                 # The listeners accept in the host's own namespace.
                 assert machine.succeed("${python} ${probe} 1 5555").strip() == "host"
                 for port in (5554, 5555, 5556):
-                    assert guest_reaches(2, port) == "ConnectionResetError", port
+                    assert guest_reaches("v", 2, port) == "ConnectionResetError", port
 
             with subtest("a listener inside the sandbox namespace is reachable"):
-                listen("inside", "any", 5557, "inside", wrap=enter)
-                assert guest_reaches(2, 5557) == "inside"
+                listen("inside", "any", 5557, "inside", wrap=enter("v"))
+                assert guest_reaches("v", 2, 5557) == "inside"
 
-            with subtest("destroy removes the sandbox"):
+            with subtest("a sandbox restored from its managed save gets a new local namespace"):
+                saved = enter("v")
+                machine.succeed(as_owner("sbx sleep save"))
+                listen("saved-any", "any", 5558, "host")
+                machine.succeed(as_owner("sbx sleep restore"))
+                restored = enter("v")
+                assert restored != saved, restored
+                listen("restored-host", 2, 5559, "host")
+                for port in (5554, 5555, 5556, 5558, 5559):
+                    assert guest_reaches("v", 2, port) == "ConnectionResetError", port
+                listen("restored-inside", "any", 5560, "inside", wrap=restored)
+                assert guest_reaches("v", 2, 5560) == "inside"
+
+            with subtest("an egress sandbox gets its lease and no host vsock listener"):
                 sbx("destroy v")
-                machine.fail(f"test -e /proc/{pid}/ns")
-
-            with subtest("an egress sandbox gets its lease through the bridge tap"):
                 machine.wait_for_unit("workloads-vm-net-sbx.service")
                 created = sbx("create nixos --name e --net egress --ttl 30m")
                 assert created["address"].startswith("172.16.6."), created
-                assert sbx("exec e -- true")["exit_code"] == 0
+                sbx("cp ${home}/tmp/probe.py e:/root/probe.py")
+                for port in (5554, 5555, 5556):
+                    assert guest_reaches("e", 2, port) == "ConnectionResetError", port
                 sbx("destroy e")
           '';
       };

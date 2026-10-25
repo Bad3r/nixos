@@ -259,6 +259,7 @@ class DomainInfo:
     managed_save: bool
     mac: str | None = None
     pid: int | None = None
+    emulator: str | None = None
 
 
 @dataclass(frozen=True)

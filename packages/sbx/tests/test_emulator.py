@@ -30,15 +30,33 @@ class EmulatorTest(unittest.TestCase):
         with self.assertRaises(emulator.LaunchError):
             emulator.check_local(self.scratch / "missing")
 
-    def test_vhost_vsock_fds(self) -> None:
-        """Descriptors on the vhost-vsock device are found, others ignored."""
-        fds = self.scratch / "fd"
-        fds.mkdir()
-        (fds / "0").symlink_to("/dev/null")
-        (fds / "28").symlink_to(emulator.VHOST_VSOCK)
-        (fds / "7").symlink_to(emulator.VHOST_VSOCK)
-        (fds / "9").symlink_to("socket:[1]")
-        self.assertEqual(emulator.vhost_vsock_fds(fds), [7, 28])
+    def test_device_fds(self) -> None:
+        """Descriptors are matched by device number, so other files and a missing node give none."""
+        device = os.open("/dev/null", os.O_RDONLY)
+        self.addCleanup(os.close, device)
+        other = os.open(self.scratch, os.O_RDONLY)
+        self.addCleanup(os.close, other)
+        found = emulator.device_fds(emulator.FD_DIR, "/dev/null")
+        self.assertIn(device, found)
+        self.assertNotIn(other, found)
+        self.assertEqual(emulator.device_fds(emulator.FD_DIR, str(self.scratch / "none")), [])
+
+    def test_check_vhostfds(self) -> None:
+        """Every vsock device needs a reopened descriptor, and every such descriptor a device."""
+        vsock = '{"driver":"vhost-vsock-pci","id":"vsock0","guest-cid":3,"vhostfd":"28"}'
+        emulator.check_vhostfds(["-machine", "none,accel=kvm", "-qmp", "unix:/x"], [])
+        emulator.check_vhostfds(["-name", "guest=sbx-v", "-device", vsock], [28])
+        refused: tuple[tuple[list[str], list[int]], ...] = (
+            (["-device", vsock], []),
+            (["-device", vsock], [27]),
+            (["-device", vsock.replace('"28"', '"/dev/fdset/1"')], [28]),
+            (["-device", '{"driver":"vhost-vsock-pci","id":"vsock0","guest-cid":3}'], []),
+            (["-device", "vhost-vsock-pci,id=vsock0,vhostfd=28"], [28]),
+            (["-name", "guest=sbx-v"], [28]),
+        )
+        for argv, fds in refused:
+            with self.subTest(argv=argv, fds=fds), self.assertRaises(emulator.LaunchError):
+                emulator.check_vhostfds(argv, fds)
 
     def test_rebind(self) -> None:
         """The descriptor number now holds the freshly opened device; the original stays open."""
@@ -69,6 +87,7 @@ class EmulatorTest(unittest.TestCase):
         with (
             mock.patch.object(emulator, "NS_MODE", mode),
             mock.patch.object(emulator, "private_namespace") as private,
+            mock.patch.object(emulator, "device_fds", return_value=[]),
             mock.patch.object(emulator.os, "execv") as execv,
             mock.patch.object(emulator, "rebind") as rebind,
         ):
@@ -81,6 +100,19 @@ class EmulatorTest(unittest.TestCase):
             mode.write_text("local\n")
             emulator.main("/qemu", ["-S"])
             execv.assert_called_once_with("/qemu", ["/qemu", "-S"])
+
+    def test_main_refuses_an_unreopened_vsock_device(self) -> None:
+        """A vsock device without an inherited descriptor stops the launch before any namespace."""
+        argv = ["-device", '{"driver":"vhost-vsock-pci","id":"vsock0","vhostfd":"28"}']
+        with (
+            mock.patch.object(emulator, "device_fds", return_value=[]),
+            mock.patch.object(emulator, "private_namespace") as private,
+            mock.patch.object(emulator.os, "execv") as execv,
+            self.assertRaises(SystemExit),
+        ):
+            emulator.main("/qemu", argv)
+        private.assert_not_called()
+        execv.assert_not_called()
 
 
 if __name__ == "__main__":

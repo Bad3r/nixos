@@ -299,6 +299,15 @@ class Sleep:
         if not sandbox.domain.managed_save:
             self._fail("restore", f"{sandbox.name} has no managed save, so it stays shut off")
             return True
+        emulator = self.sandboxes.settings.tools.emulator
+        if sandbox.domain.emulator != emulator:
+            self._fail(
+                "restore",
+                f"{sandbox.name} stays saved: its emulator {sandbox.domain.emulator} is not "
+                f"{emulator}, which keeps vsock inside the sandbox; "
+                f"run `sbx destroy {sandbox.name}`",
+            )
+            return True
         try:
             backend.restore(sandbox.domain.name)
         except SbxError as failure:

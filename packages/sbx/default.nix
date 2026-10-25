@@ -17,20 +17,17 @@
 }:
 let
   python = python3.withPackages (ps: [ ps.libvirt ]);
-  src = lib.fileset.toSource {
-    root = ./.;
-    fileset = lib.fileset.unions [
-      ./sbx
-      ./tests
-    ];
+  emulatorSource = lib.fileset.toSource {
+    root = ./sbx;
+    fileset = ./sbx/emulator.py;
   };
-  # libvirt runs it as each sandbox's emulator.
+  # libvirt runs it as each sandbox's emulator; domains and save images pin its path.
   emulator = writeScript "sbx-qemu" ''
     #!${python3.interpreter} -I
     import sys
 
-    sys.path.insert(0, "${src}")
-    from sbx.emulator import main
+    sys.path.insert(0, "${emulatorSource}")
+    from emulator import main
 
     main("${qemu_kvm}/bin/qemu-system-x86_64", sys.argv[1:])
   '';
@@ -56,7 +53,13 @@ stdenvNoCC.mkDerivation {
   pname = "sbx";
   inherit version;
 
-  inherit src;
+  src = lib.fileset.toSource {
+    root = ./.;
+    fileset = lib.fileset.unions [
+      ./sbx
+      ./tests
+    ];
+  };
 
   dontConfigure = true;
   dontBuild = true;

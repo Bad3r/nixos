@@ -136,6 +136,7 @@ class LibvirtBackend:
                         managed_save=bool(domain.hasManagedSaveImage(0)),
                         mac=None if mac is None else mac.get("address"),
                         pid=_qemu_pid(domain.name()) if domain.isActive() else None,
+                        emulator=root.findtext("devices/emulator"),
                     )
                 )
         except libvirt.libvirtError as error:

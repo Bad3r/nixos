@@ -21,6 +21,7 @@ if TYPE_CHECKING:
     from collections.abc import Callable
 
 NOW = 1_800_000_000
+EMULATOR = "/nix/store/sbx-qemu"
 MAC = "52:54:00:ab:cd:ef"
 
 STUBS = {
@@ -94,6 +95,7 @@ class FakeBackend:
             meta=meta,
             managed_save=kwargs.get("managed_save", False),
             pid=4242 if active else None,
+            emulator=kwargs.get("emulator", EMULATOR),
         )
 
     def start(self, xml: str) -> None:
@@ -116,6 +118,7 @@ class FakeBackend:
             managed_save=False,
             mac=None if mac is None else mac.get("address"),
             pid=4242,
+            emulator=root.findtext("devices/emulator"),
         )
 
     def remove(self, domain: str) -> None:
@@ -212,7 +215,7 @@ class Fixture(unittest.TestCase):
             path.chmod(0o755)
         other = str(stubs / "other")
         tools = Tools(
-            emulator="/nix/store/qemu/bin/qemu-system-x86_64",
+            emulator=EMULATOR,
             qemu_img=str(stubs / "qemu-img"),
             ssh=str(stubs / "ssh"),
             scp=str(stubs / "scp"),
