@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """Shell completion through the CLI entry point and argcomplete's real parser."""
 
+import argparse
 import contextlib
 import dataclasses
 import io
@@ -8,18 +9,14 @@ import json
 import os
 import shlex
 import sys
-from typing import TYPE_CHECKING
 from unittest import mock
 
 from argcomplete.completers import SuppressCompleter
 from argcomplete.finders import CompletionFinder
 from sbx import cli, completion, windows
-from sbx.core import Paths
+from sbx.core import FLAVOURS, Paths, SbxError
 
 from . import test_core
-
-if TYPE_CHECKING:
-    import argparse
 
 
 class CompletionTest(test_core.Fixture):
@@ -97,6 +94,30 @@ class CompletionTest(test_core.Fixture):
         )
         self.assertEqual(self.complete("sbx base prepare "), ["debian-13"])
         self.assertEqual(self.complete("sbx exec pr"), ["probe"])
+
+    def test_unconfigured_bases(self) -> None:
+        """The bare package offers Nix bases without treating missing configuration as a crash."""
+        settings_path = self.scratch / "unconfigured.json"
+        settings_path.write_text("{}")
+        parser = cli.build_parser()
+        action = argparse.Action([], "base")
+        for kind, expected in (("bases", list(FLAVOURS)), ("cloud", [])):
+            with self.subTest(kind=kind):
+                completer = completion.LocalCompleter(kind, settings_path)
+                self.assertEqual(
+                    completer(
+                        prefix="", action=action, parser=parser, parsed_args=argparse.Namespace()
+                    ),
+                    expected,
+                )
+        completer = completion.LocalCompleter("bases", settings_path)
+        with (
+            mock.patch.object(
+                completion.Settings, "load", side_effect=SbxError("bad settings", code="internal")
+            ),
+            self.assertRaises(SbxError),
+        ):
+            completer(prefix="", action=action, parser=parser, parsed_args=argparse.Namespace())
 
     def test_copy_and_host_paths(self) -> None:
         """Copy endpoints select the opposite side, and host paths preserve spaces."""

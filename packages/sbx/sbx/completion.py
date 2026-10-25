@@ -15,7 +15,7 @@ from argcomplete.completers import (
 from argcomplete.lexers import split_line
 
 from sbx import keys, shares
-from sbx.core import FLAVOURS, Paths, Settings, remote_name
+from sbx.core import FLAVOURS, Paths, SbxError, Settings, remote_name
 
 
 class PathCompleter(BaseCompleter):
@@ -97,7 +97,9 @@ class LocalCompleter(BaseCompleter):
     def _bases(self) -> list[str]:
         try:
             settings = Settings.load(self.settings_path)
-        except FileNotFoundError:
+        except (FileNotFoundError, SbxError) as error:
+            if isinstance(error, SbxError) and error.code != "unconfigured":
+                raise
             return list(FLAVOURS) if self.kind == "bases" else []
         if self.kind == "cloud":
             return list(settings.cloud_images)
