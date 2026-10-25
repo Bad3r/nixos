@@ -64,6 +64,111 @@
     in
     {
       checks = {
+        # Exercise the launcher's actual shell and trash backend. A function
+        # pointing at a store path is not evidence of a coreutils rm bypass.
+        "claude-code/rm-trash" =
+          let
+            fakeClaude = pkgs.writeShellScriptBin "claude" ''
+              exec "$CLAUDE_CODE_SHELL" "$@"
+            '';
+            fakeDirenv = pkgs.writeShellScriptBin "direnv" ''
+              printf 'export PATH=%s\n' "$CLAUDE_TEST_PATH"
+            '';
+            launcher = import ./_launcher.nix {
+              inherit lib;
+              pkgs = pkgs // {
+                direnv = fakeDirenv;
+              };
+              claudePkg = fakeClaude;
+              bunInstallDir = "/unused";
+              externalBinary = "/unused";
+              installMethods = installMethodVariants.nix;
+              scratchDir = "/tmp/claude-rm-trash-check";
+            };
+          in
+          pkgs.runCommandLocal "claude-code-rm-trash"
+            {
+              passthru.runtimeCheck = true;
+              nativeBuildInputs = [ pkgs.python3 ];
+            }
+            ''
+              python3 - ${lib.getExe launcher.claudeWrapped} <<'PY'
+              import os
+              from pathlib import Path
+              import subprocess
+              import sys
+              from urllib.parse import unquote
+
+              launcher = sys.argv[1]
+              root = Path.cwd()
+              home = root / "home"
+              home.mkdir()
+              trash = home / "data/Trash"
+              environment = dict(
+                  os.environ,
+                  HOME=str(home),
+                  XDG_DATA_HOME=str(home / "data"),
+                  # Simulate nix-direnv replacing PATH with a dev shell that
+                  # contains coreutils rm. The launcher must restore its shim.
+                  CLAUDE_TEST_PATH="${
+                    lib.makeBinPath [
+                      pkgs.coreutils
+                      pkgs.findutils
+                      pkgs.bashInteractive
+                    ]
+                  }",
+              )
+
+              def launch(command, flags=("-c",)):
+                  return subprocess.run(
+                      [launcher, *flags, command], cwd=root, env=environment,
+                      capture_output=True, text=True, timeout=30,
+                  )
+
+              # Claude captures functions and PATH, then sources them in later
+              # tool calls. Reproduce that round trip with the controlled shell.
+              result = launch("declare -f rm; declare -p PATH")
+              assert result.returncode == 0, result.stderr
+              (root / "snapshot.sh").write_text(result.stdout)
+
+              routes = {
+                  "bare": 'rm -rf -- "$CLAUDE_TEST_VICTIM"',
+                  "command": 'command rm -rf -- "$CLAUDE_TEST_VICTIM"',
+                  "xargs": 'printf "%s\\0" "$CLAUDE_TEST_VICTIM" | xargs -0 -r rm -rf --',
+                  "find": 'find "./$CLAUDE_TEST_VICTIM" -maxdepth 0 -exec rm -rf -- {} +',
+                  "nested": """bash -c 'rm -rf -- "$CLAUDE_TEST_VICTIM"'""",
+                  "snapshot": 'source ./snapshot.sh; rm -rf -- "$CLAUDE_TEST_VICTIM"',
+              }
+              for flags in (("-c",), ("-lc",), ("-c", "-l"), ("--login", "-c")):
+                  for name, command in routes.items():
+                      # Leading hyphens and spaces must survive every argv hop.
+                      target = root / ("-" + name + " " + "_".join(flags))
+                      target.mkdir()
+                      (target / "payload").write_text("recoverable " + name)
+                      environment["CLAUDE_TEST_VICTIM"] = target.name
+                      result = launch(command, flags)
+                      assert result.returncode == 0, (flags, name, result.stderr)
+                      assert not target.exists(), (flags, name, "not removed")
+                      matches = [
+                          info for info in (trash / "info").glob("*.trashinfo")
+                          if f"Path={target}\n" in unquote(info.read_text())
+                      ]
+                      assert len(matches) == 1, (flags, name, "missing trash record")
+                      payload = trash / "files" / matches[0].stem / "payload"
+                      assert payload.read_text() == "recoverable " + name
+
+              result = launch("rm -rf -- nonexistent")
+              assert result.returncode == 0, result.stderr
+              protected = root / "unsupported-option"
+              protected.write_text("keep")
+              result = launch("rm --unsupported-option -- unsupported-option")
+              assert result.returncode != 0, "unsupported rm option accepted"
+              assert protected.read_text() == "keep"
+              print("ok: Claude rm routes preserve payloads and original paths in trash")
+              PY
+              touch "$out"
+            '';
+
         "claude-code/wrapper-target-contract" =
           assert lib.assertMsg (driftedPatchRegexes == [ ])
             "packages/tweakcc/shell-wrapper.patch changed its ${lib.concatStringsSep ", " driftedPatchRegexes} regex; re-run the claude-code/wrapper-target-contract build and update modules/agents/claude-code/checks.nix";
