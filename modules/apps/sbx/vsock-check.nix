@@ -172,6 +172,19 @@ in
                 created = sbx("create nixos --name v --ttl 30m")
                 assert created["cid"] is not None, created
 
+            with subtest("QEMU sees only its own files, and no block device or user bus"):
+                qemu = machine.succeed("cat /run/user/1000/libvirt/qemu/run/sbx-v.pid").strip()
+                root = f"/proc/{qemu}/root"
+                mounts = machine.succeed(f"readlink /proc/{qemu}/ns/mnt /proc/1/ns/mnt").split()
+                assert mounts[0] != mounts[1], mounts
+                own = (f"{root}${home}/.local/share/sbx/v/", f"{root}${home}/.config/libvirt/qemu/lib/domain-")
+                files = machine.succeed(f"find {root}${home} ! -type d").split()
+                assert files and all(path.startswith(own) for path in files), files
+                machine.succeed("test -e ${home}/.local/share/sbx/v/id_ed25519 -a -S /run/user/1000/systemd/private")
+                machine.fail(f"test -e {root}${home}/.local/share/sbx/v/id_ed25519")
+                assert machine.succeed(f"find {root}/dev -type b") == ""
+                machine.fail(f"test -e {root}/run/user/1000/bus -o -e {root}/run/user/1000/systemd/private")
+
             with subtest("exec and cp reach the guest"):
                 sbx("cp ${home}/tmp/probe.py v:/root/probe.py")
                 result = sbx("exec v -- cat /etc/hostname")
@@ -196,6 +209,8 @@ in
                 machine.succeed(as_owner("sbx sleep restore"))
                 restored = enter("v")
                 assert restored != saved, restored
+                qemu = machine.succeed("cat /run/user/1000/libvirt/qemu/run/sbx-v.pid").strip()
+                machine.fail(f"test -e /proc/{qemu}/root${home}/tmp")
                 listen("restored-host", 2, 5559, "host")
                 for port in (5554, 5555, 5556, 5558, 5559):
                     assert guest_reaches("v", 2, port) == "ConnectionResetError", port

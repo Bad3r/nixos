@@ -315,6 +315,11 @@ in
                 }, answer
                 code, out = in_sandbox("mkdir -p /mnt/shared && mount -t virtiofs shared /mnt/shared && echo guest > /mnt/shared/from-guest")
                 assert code == 0, out
+                # virtiofsd's own namespace sandbox makes the shared directory its root.
+                daemon = machine.succeed(f"pgrep -n -u ${owner} -f -- '--shared-dir {shared}'").strip()
+                mounts = machine.succeed(f"readlink /proc/{daemon}/ns/mnt /proc/1/ns/mnt").split()
+                assert mounts[0] != mounts[1], mounts
+                machine.succeed(f"test -f /proc/{daemon}/root/from-guest -a ! -e /proc/{daemon}/root/home")
 
             with subtest("every guest user writes as the owner"):
                 code, out = in_sandbox(
