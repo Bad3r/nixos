@@ -77,6 +77,7 @@ workloads.media.<name> = {
 `workloads-vm-media.service` copies each source to `/var/lib/workloads/media/<name>` as a root-owned file that QEMU can read.
 It reads the source with the owner's permissions and accepts only a regular file, so a symlink to a root-only file or a device stages nothing.
 It copies again only when the size or modification time changes, checks the optional hash on every run, and deletes staged files without a declaration.
+A missing source logs a warning and stages nothing for that name, keeping any earlier copy; a present source with the wrong hash fails the unit.
 A partial copy never stays behind, and a hash mismatch publishes nothing.
 libvirt hands an attached image to `qemu-libvirtd` and never gives it back; the next run of the unit, at boot or a switch, resets owner and mode.
 Names are lowercase letters, digits, `.`, `_`, and `-`, starting with a letter or digit.
