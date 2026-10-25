@@ -91,7 +91,7 @@ Its `<filesystem>` element is the derived `deviceXml` option, installed as `/etc
 
 `virsh -c qemu:///system detach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live` removes it again after an unmount in the guest.
 A Windows guest needs the same provisioning restart after a detach.
-Each running `virtiofs.exe` remounts itself whenever any virtio-fs device arrives, which can break shares that are already mounted, until provisioning restarts them.
+Each running `virtiofs.exe` remounts itself whenever any virtio-fs device arrives, which can break shares that are already mounted, until provisioning restarts them ([virtio-win issue 1698](https://github.com/virtio-win/kvm-guest-drivers-windows/issues/1698)).
 
 ## Verify
 
