@@ -10,6 +10,7 @@
 let
   inherit (config.flake) nixosModules;
   inherit (nixosAppHelpers) getApp;
+  owner = metaOwner.username;
 in
 {
   perSystem =
@@ -26,6 +27,7 @@ in
               nixosModules."workloads-services"
               nixosModules."workloads-vms"
               nixosModules."workloads-names"
+              nixosModules."workloads-sharing"
               (getApp "podman")
               (getApp "docker-compose")
               (getApp "libvirt")
@@ -50,7 +52,10 @@ in
               programs.workloads.extended.package = pkgs.callPackage ../../../packages/workloads { };
               networking.hosts."10.9.9.9" = [ "mesh-marker.internal" ];
               virtualisation.memorySize = 1536;
-              systemd.tmpfiles.rules = [ "d /var/lib/workloads-test 0755 root root -" ];
+              systemd.tmpfiles.rules = [
+                "d /var/lib/workloads-test 0755 root root -"
+                "d /var/lib/workloads-ro 0755 ${owner} users -"
+              ];
 
               # A spec change: none turns DNS off and drops the MTU to 1500.
               specialisation.none.configuration.workloads.networks.test.egress = "none";
@@ -84,6 +89,13 @@ in
                 network = "test";
                 address = 10;
                 volumes = [ "/var/lib/workloads-test:/data:idmap" ];
+                shares = {
+                  drop.enable = true;
+                  ro = {
+                    hostPath = "/var/lib/workloads-ro";
+                    readOnly = true;
+                  };
+                };
                 ports = [
                   {
                     host = 8080;
@@ -141,6 +153,21 @@ in
               machine.succeed("podman exec svc-web touch /data/probe")
               owner = machine.succeed("stat -c %u /var/lib/workloads-test/probe").strip()
               assert owner == "0", owner
+
+          with subtest("container root reads and writes a share as its owner"):
+              drop = "/var/lib/workloads/shares/${owner}/web"
+              for path in [drop, "/var/lib/workloads/shares/${owner}"]:
+                  assert machine.succeed(f"stat -c '%U %G %a' {path}").split() == ["${owner}", "users", "700"]
+              machine.succeed(f"runuser -u ${owner} -- sh -c 'echo host > {drop}/from-host'")
+              assert machine.succeed("podman exec svc-web stat -c '%u %g' /mnt/drop/from-host").split() == ["0", "0"]
+              assert machine.succeed("podman exec svc-web cat /mnt/drop/from-host").strip() == "host"
+              machine.succeed("podman exec svc-web touch /mnt/drop/from-container")
+              assert machine.succeed(f"stat -c '%U %G' {drop}/from-container").split() == ["${owner}", "users"]
+              machine.fail("podman exec svc-web touch /mnt/ro/x")
+
+          with subtest("a share root opened by the container stays closed to other accounts"):
+              machine.succeed("podman exec svc-web chmod 0777 /mnt/drop")
+              machine.fail(f"runuser -u nobody -- ls {drop}")
 
           with subtest("an unchanged network is kept"):
               before = label()

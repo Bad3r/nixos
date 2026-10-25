@@ -105,6 +105,8 @@
   - systemd-udevd `.link` address policies, device matching, and when a change applies.
 - [networking/stable-mac-rekey.md](networking/stable-mac-rekey.md)
   - Re-keying DHCP reservations and MAC allowlists after the `"stable"` cutover and after profile, name, or identity changes.
+- [networking/workload-drops.md](networking/workload-drops.md)
+  - File drops for declared guests and services: the default `drop` share, its directory, and the `~/workloads/<name>` link.
 - [networking/workload-names.md](networking/workload-names.md)
   - Names of declared workloads on the host and inside workload networks, and `workloads names`.
 - [networking/workload-services.md](networking/workload-services.md)

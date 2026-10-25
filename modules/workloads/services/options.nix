@@ -1,7 +1,7 @@
 _:
 let
   optionsModule =
-    { lib, ... }:
+    { lib, metaOwner, ... }:
     let
       inherit (lib) types;
 
@@ -31,6 +31,51 @@ let
           };
         };
       };
+
+      # Colons and commas separate the fields and options of `--volume`.
+      volumePath = types.strMatching "/[^:,]*";
+
+      shareModule =
+        { name, ... }:
+        {
+          options = {
+            enable = lib.mkOption {
+              type = types.bool;
+              default = true;
+              description = "Whether the container gets the share.";
+            };
+
+            hostPath = lib.mkOption {
+              type = volumePath;
+              description = "Host directory the share mounts; it must exist when the container starts.";
+            };
+
+            mountPoint = lib.mkOption {
+              type = volumePath;
+              default = "/mnt/${name}";
+              defaultText = lib.literalExpression ''"/mnt/<tag>"'';
+              description = "Where the container sees the share.";
+            };
+
+            readOnly = lib.mkOption {
+              type = types.bool;
+              default = false;
+              description = "Whether the share is mounted read-only.";
+            };
+
+            owner = lib.mkOption {
+              type = types.str;
+              default = metaOwner.username;
+              defaultText = lib.literalExpression "metaOwner.username";
+              description = ''
+                Host account other than root that container root reads and
+                writes as, with the account's primary group and no others.
+                Other container ids create nothing in the share, and files of
+                other host ids show as the overflow id.
+              '';
+            };
+          };
+        };
 
       serviceModule = {
         options = {
@@ -68,6 +113,15 @@ let
             type = types.listOf types.str;
             default = [ ];
             description = "Mounts in `podman run --volume` syntax.";
+          };
+
+          shares = lib.mkOption {
+            type = types.attrsOf (types.submodule shareModule);
+            default = { };
+            description = ''
+              Host directories mounted through an idmapped mount that maps
+              the owner to container root, keyed by a tag.
+            '';
           };
 
           autostart = lib.mkOption {
