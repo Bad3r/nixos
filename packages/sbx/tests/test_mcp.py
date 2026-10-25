@@ -27,6 +27,7 @@ SAMPLES: dict[str, object] = {
     "mem": "2G",
     "cpus": 2,
     "ttl": "30m",
+    "wait": "10m",
     "in": ["/work/a", "/work/b"],
     "out": ["/root/report.txt"],
     "to": "/work",
@@ -220,6 +221,26 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(cast("Meta", domains["sbx-r"].meta).token, replacement["token"])
         self.assertTrue(self.core.paths.sandbox("r").is_dir())
         self.assertEqual(output.getvalue(), b"")
+
+    def test_end_of_input_ends_a_wait(self) -> None:
+        """A create waiting for capacity when the client closes stdin fails and drops its ticket."""
+        for index in range(3):
+            self.core.backend.add(f"r{index}", expires=test_core.NOW + 60)
+        output = io.BytesIO()
+        server = mcp.Server(self.core.sandboxes, output, "0.0.0")
+        call = self.call(1, "create", {"base": "nixos", "name": "w", "wait": "10m"})
+        server.receive(json.dumps(call).encode())
+        queue = self.core.paths.queue
+        deadline = time.monotonic() + 5
+        while not (queue.is_dir() and any(queue.iterdir())) and time.monotonic() < deadline:
+            time.sleep(0.05)
+        self.assertTrue(any(queue.iterdir()))
+        server.serve([])
+        self.assertLess(time.monotonic(), deadline + 5)
+        response = json.loads(output.getvalue())
+        refused = json.loads(response["result"]["content"][0]["text"])
+        self.assertEqual(refused["error"]["code"], "cancelled")
+        self.assertEqual(list(queue.iterdir()), [])
 
     def test_calls(self) -> None:
         """Results carry the --json document; refusals are tool errors."""

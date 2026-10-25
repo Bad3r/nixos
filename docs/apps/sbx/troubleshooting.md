@@ -45,6 +45,18 @@ sbx info <name>
 
 Fix: `sbx destroy <name>` and create the sandbox again.
 
+## create fails with over-limit or wait-timeout
+
+Cause: sandboxes that run or sit in a managed save use up the running count or the declared memory, or earlier creates queue for it; the error lists them under `holders`.
+
+```sh
+sbx list --json
+journalctl --user -t sbx -g queue -n 20
+```
+
+Fix: destroy idle sandboxes of the session with `sbx destroy --mine`, or rerun the command with `--wait 30m` as a background task.
+A message that names a per-sandbox ceiling, such as `memory must be 256M to ...`, clears only with a smaller request.
+
 ## create fails with boot-timeout
 
 Cause: the guest did not answer qemu-ga or SSH on vsock in time; the error carries the console tail.

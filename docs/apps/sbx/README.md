@@ -41,7 +41,7 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `sleep <phase>`                  | host sleep hook only, not for agents        |
 | `vsock serve`, `vsock sync`      | vsock grant proxy, for `workloads grant`    |
 
-`create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, and `--gui`.
+`create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, `--gui`, and `--wait`, which [Resources](#resources) covers.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
 `destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
 Every removal, by `destroy`, `gc`, a failed `create`, or the MCP server's cleanup, revokes the [workload grants](../../networking/workload-grants.md) of the sandbox it removes; a revoke that fails is reported on stderr and in the journal, and the sandbox is removed anyway.
@@ -96,7 +96,13 @@ The user manager has no cpuset controller, so each domain pins its vCPUs and emu
 - the state directory's usage plus a full disk for every running sandbox and the new one would pass the disk cap;
 - its filesystem falls below the free-space floor.
 
-The TTL counts wall-clock time, host sleep included.
+`--wait 30m` turns the running and memory refusals into a wait: the create queues behind earlier waiters and starts once it is first and fits.
+A sandbox held in a managed save across host sleep keeps its slot, and a queued large request is never overtaken.
+A create without `--wait` refuses while others queue, and a wait that runs out fails with `wait-timeout`.
+A request past a per-sandbox ceiling, a `--wait` above the longest TTL less the boot timeout, or a disk limit already passed refuses before it queues.
+Both codes name the slot holders under `holders` in the `--json` error, `over-limit` adds a `retry` hint, and `list` shows waiters as `queued` with a `position`.
+
+The TTL counts wall-clock time, host sleep included, from the moment the sandbox starts.
 
 ## State
 
@@ -106,6 +112,7 @@ The TTL counts wall-clock time, host sleep included.
 | `~/.local/share/sbx/<name>/xfer/`   | copies out and screenshots       |
 | `~/.local/share/sbx/<name>/shared/` | the read-write runtime share     |
 | `~/.local/share/sbx/bases/<base>`   | base out-link or prepared disk   |
+| `~/.local/share/sbx/.queue/`        | tickets of creates that wait     |
 
 `sbx-gc.timer` runs `sbx gc` on a schedule.
 It removes shut-off sandboxes without a managed save, domains without a run directory, and run directories without a domain.

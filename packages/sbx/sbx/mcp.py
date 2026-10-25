@@ -30,6 +30,7 @@ from sbx.core import (
     SbxError,
     Settings,
     caller_session,
+    error_document,
 )
 
 if TYPE_CHECKING:
@@ -214,6 +215,11 @@ CREATE_PARAMS = (
     Param("mem", _string("memory such as 2G"), flag="--mem"),
     Param("cpus", {"type": "integer", "minimum": 1, "description": "vCPUs"}, flag="--cpus"),
     Param("ttl", _string("lifetime such as 30m or 2h"), flag="--ttl"),
+    Param(
+        "wait",
+        _string("queue up to this long, such as 30m, when the host's sandbox limits are full"),
+        flag="--wait",
+    ),
     Param("gui", _boolean("the base's GUI variant, with more default memory"), flag="--gui"),
 )
 
@@ -222,7 +228,8 @@ TOOLS = (
         "create",
         ("create",),
         "Create a sandbox",
-        "Start a sandbox and wait until SSH answers; returns its name, CID, and TTL.",
+        "Start a sandbox and wait until SSH answers; returns its name, CID, and TTL. "
+        "With wait, a create the host's limits refuse queues for capacity first.",
         CREATE_PARAMS,
         open_world=True,
     ),
@@ -232,7 +239,8 @@ TOOLS = (
         "Run a command in a one-shot sandbox",
         "Create a sandbox, copy inputs to /root/ (C:\\sbx\\ on Windows), run the command, "
         "copy outputs out, and destroy the sandbox even when a step fails; returns "
-        "{sandbox, in, exec, out}.",
+        "{sandbox, in, exec, out}. With wait, a run the host's limits refuse queues for "
+        "capacity first.",
         (
             *CREATE_PARAMS,
             Param("in", _list("host paths copied into /root/ or C:\\sbx\\"), flag="--in"),
@@ -285,7 +293,8 @@ TOOLS = (
         "list",
         ("list",),
         "List sandboxes",
-        "Describe every sandbox: state, base, CID, TTL left, session, and xfer directory.",
+        "Describe every sandbox: state, base, CID, TTL left, session, and xfer directory; "
+        "creates waiting for capacity follow with state queued and their position.",
         (Param("mine", _boolean("only sandboxes of this agent session"), flag="--mine"),),
         read_only=True,
     ),
@@ -379,6 +388,8 @@ class Server:
         self._lock = threading.Lock()
         self._calls: dict[object, Call] = {}
         self._threads: list[threading.Thread] = []
+        # Set at the end of input, which ends every wait for capacity.
+        self._closed = threading.Event()
 
     def send(self, message: Json) -> None:
         """Write one message as a single line."""
@@ -476,13 +487,15 @@ class Server:
             args = build_parser().parse_args(argv)
             args.command = command
             sandboxes = self._open(session)
-            if record is not None and record.token is not None:
-                sandboxes.create = functools.partial(sandboxes.create, token=record.token)
+            if record is not None:
+                sandboxes.cancelled = lambda: record.cancelled or self._closed.is_set()
+                if record.token is not None:
+                    sandboxes.create = functools.partial(sandboxes.create, token=record.token)
             document, _code = dispatch(sandboxes, args, as_json=True)
         except (SbxError, OSError) as error:
             code = error.code if isinstance(error, SbxError) else "os-error"
             journal.record(f"failed: {error}", code=code)
-            return _text({"error": {"code": code, "message": str(error)}}, error=True)
+            return _text({"error": error_document(error)}, error=True)
         return _text(document, error=False)
 
     def _call(self, request_id: object, tool: Tool, arguments: object, session: str | None) -> None:
@@ -542,10 +555,11 @@ class Server:
                 self._destroy(call)
 
     def serve(self, lines: Iterable[bytes]) -> None:
-        """Handle input until it ends, then wait for running calls."""
+        """Handle input until it ends, which ends every wait for capacity, then join the calls."""
         for line in lines:
             if line.strip():
                 self.receive(line)
+        self._closed.set()
         for thread in self._threads:
             thread.join()
 

@@ -65,6 +65,22 @@ let
     an env prefix, and set the directory through the tool's working-directory
     parameter. Codex runs only such a bare `sbx` outside its own sandbox.
 
+    ## When The Host Is Full
+
+    `create` and `run` fail with `over-limit` when the running count or the
+    declared memory is used up; the error names the `holders` and a `retry`.
+
+    - Rerun the same command with `--wait 30m` as a background task (Claude
+      Code `run_in_background`; Codex: a short `yield_time_ms`, then poll with
+      `write_stdin`) and do other work until it reports. An MCP call with
+      `wait` blocks until the sandbox starts. Waiters start in arrival order;
+      the TTL starts with the sandbox.
+    - `sbx list --mine` shows a waiting create as `queued` with its `position`;
+      `wait-timeout` means the wait ran out.
+    - An `over-limit` naming a per-sandbox ceiling never clears; ask for less.
+    - Prefer `sbx run` for one-shot work, reuse one sandbox for several
+      commands, and destroy each sandbox as soon as you are done.
+
     ## Verbs
 
     | Verb                                         | Effect                                     |

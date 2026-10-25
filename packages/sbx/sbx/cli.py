@@ -19,6 +19,7 @@ from sbx.core import (
     SbxError,
     Settings,
     caller_session,
+    error_document,
     parse_duration,
 )
 from sbx.shares import SHARED, Shares
@@ -71,6 +72,9 @@ def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
     create_flags.add_argument("--mem", help="memory such as 2G")
     create_flags.add_argument("--cpus", type=int)
     create_flags.add_argument("--ttl", help="lifetime such as 30m or 2h")
+    create_flags.add_argument(
+        "--wait", help="queue up to this long, such as 30m, when the host's sandbox limits are full"
+    )
     create_flags.add_argument(
         "--gui", action="store_true", help="the base's GUI variant, with more default memory"
     )
@@ -175,6 +179,7 @@ def _request(sandboxes: Sandboxes, args: argparse.Namespace) -> Request:
         cpus=args.cpus,
         ttl=args.ttl,
         gui=args.gui,
+        wait=args.wait,
     )
 
 
@@ -366,7 +371,7 @@ def main(settings_path: Path, argv: Sequence[str] | None = None) -> int:
         code = error.code if isinstance(error, SbxError) else "os-error"
         journal.record(f"failed: {error}", code=code)
         if as_json:
-            print(json.dumps({"error": {"code": code, "message": str(error)}}))
+            print(json.dumps({"error": error_document(error)}))
         else:
             print(f"sbx: {error}", file=sys.stderr)
         return USAGE_EXIT if code == "usage" else 1
