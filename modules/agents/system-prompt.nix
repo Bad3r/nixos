@@ -73,8 +73,8 @@ let
           (`${config.flake.lib.agents.scratchDir}`).
       ''
       + lib.optionalString vars.sbx ''
-        - Run untrusted code (unknown binaries, downloads, untrusted repositories) in
-          a disposable `sbx` VM; the `sbx` skill covers its use.
+        - Run unknown binaries, downloads, and untrusted repositories in a disposable
+          `sbx` VM so they never touch the host.
       ''
       + builtins.concatStringsSep "" vars.shellRules;
 

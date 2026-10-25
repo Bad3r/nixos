@@ -56,7 +56,7 @@ _: {
       agentsDir = "${config.xdg.configHome}/agents";
       codexEnv = import ./_env.nix;
 
-      sbxEnabled = lib.attrByPath [ "programs" "sbx" "extended" "enable" ] false osConfig;
+      sbxEnabled = agents.skills.sbx.enabledOn osConfig;
 
       execPolicy = import ./_exec-policy.nix {
         inherit lib pkgs;

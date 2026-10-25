@@ -62,7 +62,7 @@ _: {
       } osConfig;
 
       claudeEnv = import ./_env.nix;
-      sbxEnabled = lib.attrByPath [ "programs" "sbx" "extended" "enable" ] false osConfig;
+      sbxEnabled = agents.skills.sbx.enabledOn osConfig;
       registryClaudeSkills = lib.filterAttrs (
         _name: skill: skill ? claude && skill.enabledOn osConfig
       ) agents.skills.list;

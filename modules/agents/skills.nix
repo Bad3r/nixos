@@ -136,6 +136,8 @@ let
       throw "Agent skill registry key '${registryKey}' must match skill name '${name}'"
     else if lib.elem name reservedPublicSkillNames then
       throw "Agent skill '${name}' uses reserved public name '${name}'"
+    else if app != null && !(config.flake.lib.nixos.hasApp app) then
+      throw "Agent skill '${name}' names app '${app}', which has no flake.nixosModules.apps entry"
     else
       {
         inherit

@@ -36,11 +36,11 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 
 `create` and `run` take `--name`, `--mem`, `--cpus`, and `--ttl`.
 `exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
-`destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread.
+`destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
 
 ```sh
 sbx base build nixos
-sbx run nixos --in ./repo --out /root/repo/result.txt --to "$TMPDIR" -- make -C repo test
+sbx run nixos --in ./repo --out /root/report.txt --to "$TMPDIR" -- sh -c 'python3 repo/check.py > report.txt'
 sbx create nixos --name probe --ttl 30m
 sbx exec probe -- uname -a
 sbx cp probe:/var/log/build.log
