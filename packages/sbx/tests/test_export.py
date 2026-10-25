@@ -78,7 +78,7 @@ class ExportTest(unittest.TestCase):
         )
 
     def test_refusals(self) -> None:
-        """A missing golden copy, a link, and the free-space floor stop the export."""
+        """A missing golden copy, a FIFO, a link, and the free-space floor stop the export."""
         missing = {**self.spec, "golden": str(self.scratch / "absent")}
         with self.assertRaises(export.ExportError) as refused:
             export.export(missing, "win11", "20261001T000000Z", RECEIVER)
@@ -88,6 +88,12 @@ class ExportTest(unittest.TestCase):
         with self.assertRaises(export.subprocess.CalledProcessError):
             export.export(floor, "win11", "20261001T000000Z", RECEIVER)
         self.assertEqual(list(self.directory.iterdir()), [])
+
+        fifo = self.golden / "tpm" / "fifo"
+        os.mkfifo(fifo)
+        with self.assertRaises(export.ExportError):
+            self.export("20261001T000000Z")
+        fifo.unlink()
 
         (self.golden / "tpm" / "link").symlink_to(self.golden / "domain.xml")
         with self.assertRaises(OSError):

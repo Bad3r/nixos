@@ -61,7 +61,8 @@ def export(spec: dict[str, Any], guest: str, version: str, receiver: Sequence[st
         arguments: list[str] = []
         source: list[list[object]] = []
         for name, path in files:
-            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_CLOEXEC)
+            # O_NONBLOCK keeps a FIFO from blocking the open; fstat then rejects it.
+            fd = os.open(path, os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK | os.O_CLOEXEC)
             descriptors.append(fd)
             info = os.fstat(fd)
             if not stat.S_ISREG(info.st_mode):

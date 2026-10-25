@@ -298,8 +298,18 @@ class Guest:
             if result.exit_code == 0:
                 return b""
             detail = result.stderr.decode(errors="replace").strip() or "timed out"
+        # taskkill also fails for a process that exited on its own meanwhile.
+        if self._exited(pid):
+            return b""
         journal.record(f"cannot stop guest process {pid}: {detail}", code="kill-failed")
         return f"sbx: the timed-out process {pid} may still run: {detail}\n".encode()
+
+    def _exited(self, pid: int) -> bool:
+        try:
+            status = _object(self.call("guest-exec-status", pid=pid), "guest-exec-status")
+        except core.SbxError:
+            return False
+        return status.get("exited") is True
 
     def powershell(self, script: str, data: dict[str, str]) -> None:
         """Run a PowerShell script with its input on stdin, never in an argument."""
@@ -331,12 +341,17 @@ class Guest:
                     "guest-file-read",
                 )
                 data = _decode(reply.get("buf-b64", ""), "buf-b64")
+                eof = reply.get("eof") is True
+                # Windows signals the end with an empty read, so an empty one without it repeats.
+                if not data and not eof:
+                    msg = "guest-file-read returned no data before the end of the file"
+                    raise _reply_error(msg)
                 total += len(data)
                 if total > budget:
                     msg = f"the copy passed its {budget >> 20}M budget under the disk cap and floor"
                     raise core.SbxError(msg, code="disk-full")
                 out.write(data)
-                if reply.get("eof") is True:
+                if eof:
                     return total
         finally:
             self.call("guest-file-close", handle=handle)

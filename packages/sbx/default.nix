@@ -3,8 +3,10 @@
   stdenvNoCC,
   writeText,
   writeScript,
+  writeScriptBin,
   python3,
   qemu_kvm,
+  swtpm,
   openssh,
   socat,
   tesseract,
@@ -31,6 +33,22 @@ let
     from emulator import main
 
     main("${qemu_kvm}/bin/qemu-system-x86_64", sys.argv[1:])
+  '';
+  # First on sbx-libvirt's PATH: a sandbox's TPM emulator parses guest input,
+  # so it gets no host network; libvirt reaches it over path-based sockets.
+  swtpmShim = writeScriptBin "swtpm" ''
+    #!${python3.interpreter} -I
+    import os
+    import sys
+
+    sys.path.insert(0, "${emulatorSource}")
+    from emulator import LaunchError, private_namespace
+
+    try:
+        private_namespace(os.getuid(), os.getgid())
+    except (LaunchError, OSError) as error:
+        sys.exit(f"sbx-swtpm: {error}")
+    os.execv("${swtpm}/bin/swtpm", ["${swtpm}/bin/swtpm", *sys.argv[1:]])
   '';
   tools = {
     emulator = "${emulator}";
@@ -113,7 +131,14 @@ stdenvNoCC.mkDerivation {
     runHook postInstallCheck
   '';
 
-  passthru = { inherit settings settingsFile; };
+  passthru = {
+    inherit settings settingsFile swtpmShim;
+    # swtpm_setup and swtpm_ioctl come from the real package behind the shim.
+    swtpmPath = lib.makeBinPath [
+      swtpmShim
+      swtpm
+    ];
+  };
 
   meta = {
     description = "Disposable agent sandboxes on the owner's qemu:///session";

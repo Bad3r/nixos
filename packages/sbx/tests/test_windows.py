@@ -38,6 +38,8 @@ class FakeWindows(FakeBackend):
         self.hang: set[str] = set()
         self.kill_exit = 0
         self.link_in_pack = False
+        self.stall_reads = False
+        self.exit_on_kill = False
         self.counter = 100
 
     def host(self, path: str) -> Path:
@@ -73,8 +75,10 @@ class FakeWindows(FakeBackend):
                 data = base64.b64decode(arguments["buf-b64"])
                 value = {"count": self.handles[arguments["handle"]].write(data), "eof": False}
             case "guest-file-read":
-                data = self.handles[arguments["handle"]].read(arguments["count"])
-                value = {"count": len(data), "buf-b64": _b64(data), "eof": not data}
+                handle = self.handles[arguments["handle"]]
+                data = b"" if self.stall_reads else handle.read(arguments["count"])
+                eof = not data and not self.stall_reads
+                value = {"count": len(data), "buf-b64": _b64(data), "eof": eof}
             case "guest-file-close":
                 self.handles.pop(arguments["handle"]).close()
                 value = {}
@@ -85,6 +89,10 @@ class FakeWindows(FakeBackend):
     def program(self, argv: list[str], stdin: bytes) -> dict[str, Any]:
         """Emulate the guest programs sbx runs; anything else echoes its arguments."""
         if argv[0] == windows.TASKKILL:
+            if self.exit_on_kill:
+                for pid, status in self.processes.items():
+                    if status is None:
+                        self.processes[pid] = {"exitcode": 1}
             return {"exitcode": self.kill_exit, "err-data": _b64(b"not found")}
         if argv[0] != windows.POWERSHELL:
             return {"exitcode": 3, "out-data": _b64(" ".join(argv[1:]).encode())}
@@ -244,6 +252,10 @@ class WindowsTest(unittest.TestCase):
         self.backend.kill_exit = 128
         result = self.sandboxes().exec_capture("w", ["slow.exe"], timeout=0, agent=False)
         self.assertIn(b"may still run: not found", result.stderr)
+        # A process that exits while taskkill fails is no failed kill.
+        self.backend.exit_on_kill = True
+        result = self.sandboxes().exec_capture("w", ["slow.exe"], timeout=0, agent=False)
+        self.assertEqual(result.stderr, b"")
 
     def test_copies(self) -> None:
         """Copies in land under the guest directory; copies out arrive in xfer."""
@@ -273,10 +285,15 @@ class WindowsTest(unittest.TestCase):
                 sandboxes.copy(f"w:{guest}", None)
 
     def test_copy_out_refusals(self) -> None:
-        """A link in the guest archive or a copy past the budget leaves nothing behind."""
+        """A link, endless empty reads, or a copy past the budget leave nothing behind."""
         self.create()
         (self.backend.drive / "out" / "dir").mkdir(parents=True)
         (self.backend.drive / "out" / "dir" / "big").write_bytes(b"x" * (3 << 20))
+        self.backend.stall_reads = True
+        with self.assertRaises(SbxError) as refused:
+            self.sandboxes().copy(r"w:C:\out\dir", None)
+        self.assertEqual(refused.exception.code, "agent-reply")
+        self.backend.stall_reads = False
         self.backend.link_in_pack = True
         with self.assertRaises(SbxError) as refused:
             self.sandboxes().copy(r"w:C:\out\dir", None)

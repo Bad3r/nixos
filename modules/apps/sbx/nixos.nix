@@ -156,6 +156,11 @@ let
               disk is larger.
             '';
           };
+          bootTimeout = lib.mkOption {
+            type = types.ints.positive;
+            default = 180;
+            description = "Seconds create waits for a new sandbox to accept commands.";
+          };
         };
 
         windowsBases = lib.mkOption {
@@ -235,9 +240,9 @@ let
             message = "programs.sbx.extended.sandbox: a default exceeds its maximum";
           }
           {
-            # A Linux overlay grows to sandbox.disk, a managed save image to a sandbox's memory.
+            # A Linux overlay passes sandbox.disk by its qcow2 metadata; a managed save image holds a sandbox's memory.
             assertion =
-              cfg.sandbox.disk <= cfg.sandbox.maxFile && cfg.sandbox.maxMemory < cfg.sandbox.maxFile * 1024;
+              cfg.sandbox.disk < cfg.sandbox.maxFile && cfg.sandbox.maxMemory < cfg.sandbox.maxFile * 1024;
             message = "programs.sbx.extended.sandbox.maxFile must hold a full overlay and a managed save image";
           }
           {
@@ -252,6 +257,7 @@ let
 
         programs.sbx.extended.finalPackage = cfg.package.override {
           qemu_kvm = libvirtCfg.qemuPackage;
+          swtpm = config.virtualisation.libvirtd.qemu.swtpm.package;
           nix = config.nix.package;
           settings = {
             limits = {
@@ -299,7 +305,7 @@ let
             unit = "sbx-libvirt.service";
             slice = "sbx.slice";
             outputLimit = 1024 * 1024;
-            bootTimeout = 180;
+            inherit (cfg.sandbox) bootTimeout;
           };
         };
 
