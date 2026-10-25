@@ -71,7 +71,8 @@ A guest whose lease expired loses traffic until it renews.
 - `warp`: traffic leaves through the WARP tunnel, masqueraded to the host's Mesh address.
   With the tunnel gone the route is unreachable, so the network fails closed instead of falling back to the uplink.
   Guests resolve names through the gateway.
-- `none`: the route is unreachable and the gateway answers no DNS, so the host resolver is no exfiltration channel.
+- `none`: the `outbound` chain drops the traffic, and the gateway answers no DNS, so the host resolver is no exfiltration channel.
+  WARP's rule may route that traffic toward the tunnel first, ahead of the network's `unreachable` rule.
 
 The main table answers only the LAN destinations of a `lanAccess` network, so no route there, default or not, carries guest traffic to the uplink.
 
@@ -88,24 +89,21 @@ It has no stop action, so the rules outlive the unit and stay in place while the
 
 ## Verify
 
-Run as the owner on the host:
+Run as the owner on the host, with a guest address on the bridge:
 
 ```sh
 sudo nft list table inet workload
+sudo nft list chain inet workload outbound
 sudo nft list table bridge workload-peers
 sudo nft list chain inet nixos-fw input-allow | grep vn-
 ip rule | grep vn-
+ip route get 1.1.1.1 from <guest address> iif vn-<name>
 sysctl net.ipv4.conf.all.forwarding
 systemctl status workload-egress.service
 ```
 
-Check the route a guest's traffic takes, with a guest address on the bridge:
-
-```sh
-ip route get 1.1.1.1 from <guest address> iif vn-<name>
-```
-
-A `warp` network answers `dev CloudflareWARP` while WARP is connected and `Network is unreachable` while it is not; a `none` network is always unreachable.
+For a `warp` network, `ip route get` answers `dev CloudflareWARP` while WARP is connected and `Network is unreachable` while it is not.
+A `none` bridge has no `CloudflareWARP` rule in the `outbound` chain, so its traffic toward the tunnel or the uplink is dropped whichever route it takes.
 
 ## Guest gets no address
 
