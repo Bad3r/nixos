@@ -56,6 +56,9 @@ in
               <channel type="unix">
                 <target type="virtio" name="org.qemu.guest_agent.0"/>
               </channel>
+              <vsock model="virtio">
+                <cid auto="yes"/>
+              </vsock>
             </devices>
           </domain>
         '';
@@ -86,6 +89,11 @@ in
               _module.args = {
                 hostName = "machine";
                 inherit metaOwner;
+              };
+              # The latest kernel has the vsock namespaces sbx-qemu requires.
+              boot = {
+                kernelPackages = pkgs.linuxPackages_latest;
+                kernelModules = [ "vhost_vsock" ];
               };
               networking.nftables.enable = true;
               users.users = {
@@ -144,7 +152,7 @@ in
         testScript =
           { nodes, ... }:
           let
-            session = sandbox "${nodes.machine.programs.libvirt.extended.qemuPackage}/bin/qemu-system-x86_64";
+            session = sandbox nodes.machine.programs.sbx.extended.finalPackage.emulator;
           in
           ''
             def state(name):
