@@ -229,18 +229,12 @@
 
 - [security/owner-group-privileges.md](security/owner-group-privileges.md)
   - Security-relevant access granted by owner group membership.
-- [security/owner-disk-group.md](security/owner-disk-group.md)
-  - Raw storage access and the filtered diagnostic wrappers the owner's `disk` group grants.
+- [security/owner-storage-access.md](security/owner-storage-access.md)
+  - Why the owner holds no group that opens block or NVMe device nodes, and which storage tools need `sudo`.
 - [security/owner-optional-groups.md](security/owner-optional-groups.md)
   - Groups the owner profile leaves unassigned and optional device groups, with their security impact.
 - [security/owner-no-sudo-operations.md](security/owner-no-sudo-operations.md)
   - Configuration-managed operations available to the owner user without a sudo password.
-- [security/owner-no-sudo-storage.md](security/owner-no-sudo-storage.md)
-  - Storage inventory and health diagnostics without a sudo password, and the capability wrappers that grant them.
-- [security/owner-no-sudo-nvme.md](security/owner-no-sudo-nvme.md)
-  - Which `nvme` subcommands keep the wrapper's storage capability, which clear it, and why each exclusion exists.
-- [security/owner-no-sudo-sed.md](security/owner-no-sudo-sed.md)
-  - Opal self-encrypting drive queries without a sudo password, and the state-changing actions that stay behind it.
 - [security/usbguard/README.md](security/usbguard/README.md)
   - USBGuard USB device access control with rules stored encrypted via sops.
 
@@ -484,6 +478,8 @@
   - Display input and control on GUI sandboxes: screenshots, key chords and aliases, text through xdotool or keycodes, Caps Lock, the pointer, and windows.
 - [apps/sbx/exec.md](apps/sbx/exec.md)
   - Commands in sandboxes: qemu-ga and SSH transports, the user, directory, environment, and stdin, host-side timeouts and their signals, the `--json` result, and exit statuses.
+- [apps/sbx/confinement.md](apps/sbx/confinement.md)
+  - What QEMU, swtpm, and virtiofsd see from the host: the private mount namespace, its bind rules, and the limits that remain.
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)
   - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
 - [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)

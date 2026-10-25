@@ -70,7 +70,7 @@ class Transfer(Execution, Storage):
 
     def host_roots(self) -> list[Path]:
         """Return the host directories `cp` reads from and writes to."""
-        roots = [Path.home() / "trees"]
+        roots = [Path.home() / "trees", *self.settings.copy_roots]
         if tmpdir := os.environ.get("TMPDIR"):
             roots.append(Path(tmpdir))
         if checkout := self.checkout():

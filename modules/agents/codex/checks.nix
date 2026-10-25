@@ -27,7 +27,10 @@ in
           ;
         homeDir = "/home/codex-config-check";
       };
-      execPolicy = import ./_exec-policy.nix { inherit lib pkgs; };
+      execPolicy = import ./_exec-policy.nix {
+        inherit lib pkgs;
+        scratchDir = "/tmp/codex-config-check-scratch";
+      };
       runtime = import ./_wrapper.nix {
         inherit lib pkgs codexPkg;
         scratchDir = "/tmp/codex-config-check-scratch";

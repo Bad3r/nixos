@@ -54,20 +54,15 @@ let
       "$@"
   '';
   # First on sbx-libvirt's PATH: a sandbox's TPM emulator parses guest input,
-  # so it gets no host network; libvirt reaches it over path-based sockets.
+  # so it gets QEMU's confinement; libvirt reaches it over path-based sockets.
   swtpmShim = writeScriptBin "swtpm" ''
     #!${python3.interpreter} -I
-    import os
     import sys
 
     sys.path.insert(0, "${emulatorSource}")
-    from emulator import LaunchError, private_namespace
+    from emulator import swtpm_main
 
-    try:
-        private_namespace(os.getuid(), os.getgid())
-    except (LaunchError, OSError) as error:
-        sys.exit(f"sbx-swtpm: {error}")
-    os.execv("${swtpm}/bin/swtpm", ["${swtpm}/bin/swtpm", *sys.argv[1:]])
+    swtpm_main("${swtpm}/bin/swtpm", sys.argv[1:])
   '';
   tools = {
     emulator = "${emulator}";

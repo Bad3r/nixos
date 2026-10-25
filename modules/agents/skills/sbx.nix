@@ -1,5 +1,6 @@
-_:
+{ config, ... }:
 let
+  inherit (config.flake.lib.agents) scratchDir;
   skillBody = ''
     ## When To Use
 
@@ -66,8 +67,8 @@ let
     - `--in PATH` (repeatable) copies a host path into `/root/`, the command's
       working directory.
     - `--out GUEST_PATH` (repeatable) needs `--to DIR`, a host directory.
-    - Host paths sit under the caller's git checkout, `~/trees`, or `$TMPDIR`; a
-      copy out never overwrites an existing target.
+    - Host paths sit under the caller's git checkout, `~/trees`, `${scratchDir}`,
+      or `$TMPDIR`; a copy out never overwrites an existing target.
     - Missing or out-of-root host paths, two inputs or outputs with one name,
       an existing target, an unbuilt base, and a full disk refuse before the
       sandbox boots or queues.

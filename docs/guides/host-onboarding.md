@@ -106,7 +106,7 @@ Precondition: the host is registered, with a module directory and policy flags i
    A plain `security.repoSecrets.enable = false;` host override suppresses the repo-gated rclone declarations, but other common system and Home Manager secret modules have independent enables.
    The override cannot make a fully populated `secrets/` submodule safe without the age identity; if used for a targeted bootstrap, remove it after both age identity copies are installed and before the secret-bearing rebuild in [Host secrets and handoff](host-onboarding-secrets.md).
    Land the target's checkout instead as a clone made without `--recurse-submodules`, per [Songbird runbook: reinstall](../hosts/songbird/songbird-runbook-reinstall.md), which keeps `secrets/` empty through this step.
-   `--bootstrap` replaces the substituter list with the fleet caches before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
+   `--bootstrap` replaces the daemon's substituters and keys with the fleet caches, which only root may do, before `modules/hosts/common/nix-substituters.nix` activates, and `--skip-hooks` drops the `pre-commit run --all-files` stage that would build the whole devshell first; `nix flake check` still runs.
    `NH_BYPASS_ROOT_CHECK=1` is required because `nh os` refuses to run as an effective uid of 0, and a freshly installed target has no other account to run it from.
    `modules/meta/owner.nix` declares the owner account, so this same activation creates it; no manual user setup precedes it.
 

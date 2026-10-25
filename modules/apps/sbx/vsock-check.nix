@@ -136,6 +136,7 @@ in
           in
           ''
             import json
+            import re
 
             def as_owner(command):
                 return f"runuser -u ${owner} -- env XDG_RUNTIME_DIR=/run/user/1000 TMPDIR=${home}/tmp {command}"
@@ -157,6 +158,20 @@ in
                 assert result["exit_code"] == 0, result
                 return result["stdout"].strip()
 
+            def assert_confined(name):
+                qemu = machine.succeed(f"cat /run/user/1000/libvirt/qemu/run/sbx-{name}.pid").strip()
+                root = f"/proc/{qemu}/root"
+                mounts = machine.succeed(f"readlink /proc/{qemu}/ns/mnt /proc/1/ns/mnt").split()
+                assert mounts[0] != mounts[1], mounts
+                files = machine.succeed(f"find -H {root} -path {root}/nix/store -prune -o ! -type d -print").split()
+                devices = [f"/dev/{node}" for node in ("full", "kvm", "null", "random", "urandom", "zero")]
+                exact = {root + path for path in (*devices, "/etc/localtime", f"${home}/.local/share/sbx/{name}/disk.qcow2", f"${home}/.local/share/sbx/{name}/VARS.fd")}
+                domain = re.compile(re.escape(f"{root}${home}/.config/libvirt/qemu/lib/domain-") + r"[0-9]+-" + re.escape(f"sbx-{name}/") + r"[^/]+")
+                assert files and all(path in exact or domain.fullmatch(path) for path in files), files
+                assert machine.succeed(f"find {root}/dev -type b") == ""
+                machine.succeed(f"test -e ${home}/.local/share/sbx/{name}/id_ed25519 -a -S /run/user/1000/bus -a -S /run/user/1000/systemd/private")
+                machine.fail(f"test -e {root}${home}/.local/share/sbx/{name}/id_ed25519 -o -e {root}/run/user/1000/bus -o -e {root}/run/user/1000/systemd/private")
+
             def enter(name):
                 pid = machine.succeed(f"cat /run/user/1000/libvirt/qemu/run/sbx-{name}.pid").strip()
                 return f"nsenter --target {pid} --user --net --preserve-credentials"
@@ -175,6 +190,9 @@ in
                 listen("before", "any", 5554, "host")
                 created = sbx("create nixos --name v --ttl 30m")
                 assert created["cid"] is not None, created
+
+            with subtest("QEMU sees only its own files, and no block device or user bus"):
+                assert_confined("v")
 
             with subtest("exec and cp reach the guest"):
                 sbx("cp ${home}/tmp/probe.py v:/root/probe.py")
@@ -222,6 +240,7 @@ in
                 machine.succeed(as_owner("sbx sleep restore"))
                 restored = enter("v")
                 assert restored != saved, restored
+                assert_confined("v")
                 listen("restored-host", 2, 5559, "host")
                 for port in (5554, 5555, 5556, 5558, 5559):
                     assert guest_reaches("v", 2, port) == "ConnectionResetError", port

@@ -84,6 +84,8 @@ class Settings:
     windows: WindowsSettings | None = None
     # The session daemon's file size limit, which every Windows overlay reserves.
     file_bytes: int = 0
+    # Fixed copy roots beside $TMPDIR, which agent shells narrow to a per-session dir.
+    copy_roots: tuple[Path, ...] = ()
 
     @classmethod
     def load(cls, path: Path) -> Settings:
@@ -127,6 +129,7 @@ class Settings:
             if raw["windows"] is None
             else windows.WindowsSettings.load(raw["windows"]),
             file_bytes=limits["fileBytes"],
+            copy_roots=tuple(Path(root) for root in raw["copyRoots"]),
         )
 
 

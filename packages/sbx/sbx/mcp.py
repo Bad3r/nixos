@@ -47,8 +47,8 @@ INTERNAL_ERROR = -32603
 INSTRUCTIONS = (
     "Disposable VMs for unknown binaries, downloads, and untrusted repositories; "
     "the sbx skill says when to use them. Host paths sit under the git checkout of "
-    "the directory the client started in, ~/trees, or $TMPDIR; relative paths "
-    "resolve against that directory, so pass absolute ones."
+    "the directory the client started in, ~/trees, the agent scratch dir, or $TMPDIR; "
+    "relative paths resolve against that directory, so pass absolute ones."
 )
 # Clients cut long tool results, so a lower cap keeps `truncated` truthful.
 OUTPUT_LIMIT = 64 * 1024

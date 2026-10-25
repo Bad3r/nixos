@@ -30,6 +30,7 @@
 { config, ... }:
 let
   hostsRegistry = config.flake.lib.nixos.hosts or { };
+  inherit (config.flake.lib.agents) scratchDir;
 
   SbxModule =
     {
@@ -318,6 +319,7 @@ let
             slice = "sbx.slice";
             outputLimit = 1024 * 1024;
             inherit (cfg.sandbox) bootTimeout;
+            copyRoots = [ scratchDir ];
           };
         };
 

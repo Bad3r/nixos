@@ -12,11 +12,6 @@ Scope:
   - `modules/security/polkit.nix`
   - `modules/hosts/common/sudo.nix`
   - `modules/hosts/common/boot.nix`
-  - `modules/hosts/common/storage-diagnostics.nix`
-  - `modules/apps/smartmontools.nix`
-  - `modules/apps/nvme-cli.nix`
-  - `modules/apps/hdparm.nix`
-  - `modules/apps/sedutil.nix`
 
 ## Groups Assigned To Owner In Baseline Profile
 
@@ -90,10 +85,6 @@ Scope:
   - security impact:
     - read/modify queued print jobs and printer-facing data.
 
-- `disk`:
-
-  - access and wrapper filters: [Owner disk group privileges](owner-disk-group.md).
-
 ## Additional Owner Groups Added By Other Modules
 
 - `wireshark` (when Wireshark app module is enabled):
@@ -108,6 +99,7 @@ Scope:
 ## Unassigned And Optional Groups
 
 - [Owner optional groups](owner-optional-groups.md)
+- [Owner storage device access](owner-storage-access.md), including why `disk` stays unassigned
 
 ## Audit Commands
 
@@ -122,5 +114,4 @@ Scope:
   - `find /dev -xdev -group input | head`
   - `find /dev -xdev -group video | head`
   - `find /dev -xdev -group audio | head`
-  - `find /dev -xdev -group disk | head`
   - `find /var -xdev -group systemd-journal | head`

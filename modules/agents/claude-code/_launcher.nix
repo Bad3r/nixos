@@ -17,6 +17,7 @@
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
+  sessionTmpdir = import ../_session-tmpdir.nix { inherit lib scratchDir; };
 
   # _env.nix vars minus launchOnly, rendered as shell exports.
   claudeEnv = import ./_env.nix;
@@ -50,6 +51,8 @@ let
     # Only `rm` lives in this dir, so prepending shadows nothing else; on PATH so
     # bare `rm` is shimmed for every shell invocation form, not just -c below.
     export PATH=${rmShim}/bin''${PATH:+:$PATH}
+
+    ${sessionTmpdir "CLAUDE_CODE_SESSION_ID"}
 
     # Claude Code runs its shell tool as `bash [OPTS] <command> [ARG...]`. OPTS is
     # any order/mix of short flags (-c, -l, -i, or bundles like -lc) and long
@@ -133,7 +136,7 @@ let
     ${envExports}
     ${launchOnlyBlock}
 
-    # Shared scratch root for agent temp files.
+    # Scratch root for Claude's own temp; its shell tool narrows TMPDIR per session.
     tmpDir=${lib.escapeShellArg scratchDir}
     mkdir -p "$tmpDir"
     export TMPDIR="$tmpDir"

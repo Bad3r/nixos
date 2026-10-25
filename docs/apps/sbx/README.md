@@ -13,7 +13,8 @@ Every sandbox is an untrusted guest.
 - The guest has no vdagent channel, and no shared folder until a [runtime share](../../networking/workload-shares.md) attaches its `shared` directory or a declared read-only one.
   Only a [GUI base](bases.md#gui-bases) adds a display socket, with clipboard and file transfer off.
 - `sbx` accepts no domain XML, no host disk path, and no value above a ceiling.
-- Each QEMU runs in its own user and network namespace, and `sbx-qemu` (`packages/sbx/sbx/emulator.py`) starts it only when that namespace's vsock mode is `local`.
+- Each QEMU runs in its own user, network, and mount namespace, and `sbx-qemu` (`packages/sbx/sbx/emulator.py`) starts it only when that namespace's vsock mode is `local`.
+  It sees the store, a few character devices, and its own sandbox's files, which [confinement.md](confinement.md) lists with the limits.
 - The guest's vhost-vsock device belongs to that namespace, so for the sandbox's whole lifetime it reaches no host vsock listener, whenever that listener starts.
 - Attached `exec` and `cp` enter the namespace with `nsenter` to reach the guest's SSH; the module sets `net.vsock.child_ns_mode` to `local` for every new namespace.
 - A [vsock grant](vsock-grants.md) adds listeners inside that namespace for a granted host service, for the grant's lifetime only.
@@ -66,7 +67,7 @@ sbx destroy probe
 
 ## Copies
 
-- A host source must sit under the caller's git checkout, `~/trees`, or `$TMPDIR`.
+- A host source must sit under the caller's git checkout, `~/trees`, the agent scratch dir (`/data/agents`), or `$TMPDIR`.
   A symlink inside it may point only to a file within those roots, never to a directory.
 - A copy out names a file or directory, never `.`, `..`, or `/`.
   It is staged in the sandbox's `xfer` directory, which `info` prints, and loses execute, setuid, and setgid bits.
