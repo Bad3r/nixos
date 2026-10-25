@@ -95,6 +95,12 @@ in
           tool_name = "apply_patch";
           cwd = "/repo";
           inherit session_id;
+          tool_input.command = "*** Begin Patch\n*** Update File: notes.md\n*** Move to: AGENTS.md\n+see ${sessionDir}/x\n*** End Patch";
+        }
+        {
+          tool_name = "apply_patch";
+          cwd = "/repo";
+          inherit session_id;
           tool_input.command = "*** Begin Patch\n*** Update File: AGENTS.md\n+see ${sessionDir}/x\n*** End Patch";
         }
       ]
@@ -163,6 +169,8 @@ in
         "tar -C ${scratchDir} -xf a.tar"
         "tar -f a.tar -x -C ${scratchDir}"
         "tar --zstd -xf a.tar -C ${scratchDir}"
+        "tar xf a.tar -C ${scratchDir}"
+        "tar -xf a.tar -C ${scratchDir}/tmp"
         "mkdir ${scratchDir}/tmp && cd ${scratchDir}/tmp"
       ];
       allow = [
@@ -239,6 +247,8 @@ in
         "mkdir ${scratchDir}/test-debian13"
         "mkdir ${scratchDir}/kernel-linux612"
         "tar -cf b.tar -C ${scratchDir} my-topic"
+        "tar -czf ~/b.tgz -C ${scratchDir} xorg"
+        "tar -xzf s.tgz -C build && tar -czf o.tgz -C ${scratchDir} my-topic"
         "sbx cp n:/tmp/a \"$TMPDIR\""
         "git clone https://example.invalid/r $TMPDIR/repo"
         "cat $TMPDIR/a > out.txt"
