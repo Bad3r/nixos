@@ -1868,7 +1868,6 @@ class SandboxesTest(Fixture):
             self.dispatch("window", "wait", "t1", "--name", "x")
         self.assertEqual(refused.exception.code, "agent-reply")
         cases = [
-            (gui.INVALID_EXIT, ("window", "wait", "t1", "--name", "("), "invalid-argument"),
             (gui.INVALID_EXIT, ("mouse", "t1", "--to", "5000,5"), "invalid-argument"),
             (gui.MISSING_EXIT, ("window", "focus", "t1", "--id", "9"), "no-window"),
             (1, ("window", "list", "t1"), "guest-command"),
@@ -1907,6 +1906,13 @@ class SandboxesTest(Fixture):
             (("window", "focus", "t1"), "usage"),
             (("window", "focus", "t1", "--id", "0"), "invalid-argument"),
             (("window", "focus", "t1", "--id", str(1 << 32)), "invalid-argument"),
+            # GNU grep -E takes these, but xdotool's regcomp refuses them.
+            *(
+                (("window", verb, "t1", "--name", pattern, *extra), "invalid-argument")
+                for pattern in ("*foo", "+x", "a{1", "foo|*", "(")
+                for verb, extra in (("wait", ("--timeout", "10m")), ("focus", ()))
+            ),
+            (("window", "wait", "t1", "--class", "a{1"), "invalid-argument"),
             (("mouse", "plain", "--to", "1,1"), "no-display"),
             (("window", "wait", "plain", "--class", "xterm"), "no-display"),
             (("window", "focus", "plain", "--id", "1"), "no-display"),

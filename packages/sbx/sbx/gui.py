@@ -3,6 +3,7 @@
 
 import base64
 import binascii
+import ctypes
 import dataclasses
 import re
 import secrets
@@ -59,33 +60,32 @@ BUTTONS = {"left": 1, "middle": 2, "right": 3}
 MAX_WINDOW_ID = (1 << 32) - 1
 MAX_PATTERN = 1024
 NAME_LIMIT = 1024
-# A guest script exits so when its pattern is no regular expression, its window is missing,
-# or its point lies off the display.
+# xdotool compiles window patterns with glibc's regcomp and these flags, as the host can.
+REG_EXTENDED = 1
+REG_ICASE = 2
+# glibc's regex_t takes 64 bytes on x86_64.
+REGEX_SIZE = 256
+# A guest script exits so when its window is missing, or its point lies off the display.
 INVALID_EXIT = 4
 MISSING_EXIT = 3
 READY = b"ready\n"
 # Shell functions of the window verbs. describe prints one line per window that still
 # exists: its id, `getwindowgeometry --shell` on one line, and its name in base64.
-WINDOW_HELPERS = f"""\
-describe() {{
+WINDOW_HELPERS = """\
+describe() {
   for id; do
     geometry=$(xdotool getwindowgeometry --shell "$id" 2>&1) || continue
     case $geometry in *failed*) continue ;; esac
     name=$(xdotool getwindowname "$id" 2>/dev/null | base64 -w0) || continue
     printf '%s %s %s\\n' "$id" "$(printf '%s' "$geometry" | tr '\\n' ' ')" "$name"
   done
-}}
-pattern() {{
-  grep -E -e "$1" </dev/null >/dev/null 2>&1
-  [ $? != 2 ] || {{ echo "sbx: '$1' is no extended regular expression" >&2; exit {INVALID_EXIT}; }}
-}}
+}
 """
 # Arguments: name or class, pattern. X answers first, so a timeout tells the two waits apart.
 WINDOW_WAIT = f"""\
 {WINDOW_HELPERS}
 until xdotool getdisplaygeometry >/dev/null 2>&1; do sleep 0.2; done
 echo ready
-pattern "$2"
 ids=$(xdotool search --sync --onlyvisible "--$1" -- "$2") || exit
 describe $ids
 """
@@ -94,7 +94,6 @@ WINDOW_FOCUS = f"""\
 {WINDOW_HELPERS}
 target=$2
 if [ "$1" = name ]; then
-  pattern "$2"
   target=$(xdotool search --onlyvisible --limit 1 --name -- "$2")
 fi
 [ -n "$target" ] && xdotool getwindowname "$target" >/dev/null 2>&1 || exit {MISSING_EXIT}
@@ -183,9 +182,26 @@ def parse_windows(output: bytes) -> tuple[Window, ...]:
     return tuple(windows)
 
 
+def regex_error(pattern: str) -> str | None:
+    """Return why glibc's regcomp refuses an extended, case-insensitive pattern, or None."""
+    libc = ctypes.CDLL("libc.so.6")
+    compiled = ctypes.create_string_buffer(REGEX_SIZE)
+    code = int(libc.regcomp(compiled, pattern.encode(), REG_EXTENDED | REG_ICASE))
+    if code == 0:
+        libc.regfree(compiled)
+        return None
+    message = ctypes.create_string_buffer(256)
+    libc.regerror(code, compiled, message, ctypes.sizeof(message))
+    return message.value.decode(errors="replace")
+
+
 def _pattern(pattern: str) -> str:
     if not pattern or len(pattern) > MAX_PATTERN or "\0" in pattern:
         msg = f"a window pattern has 1 to {MAX_PATTERN} characters and no NUL"
+        raise SbxError(msg, code="invalid-argument")
+    error = regex_error(pattern)
+    if error is not None:
+        msg = f"{pattern!r} is no extended regular expression: {error}"
         raise SbxError(msg, code="invalid-argument")
     return pattern
 
@@ -372,8 +388,9 @@ class Gui(Transfer):
         if kind not in {"name", "class"}:
             msg = f"window wait matches a name or a class, not {kind!r}"
             raise SbxError(msg, code="internal")
+        pattern = _pattern(pattern)
         sandbox = self._gui(name)
-        result = self._window_script(sandbox, WINDOW_WAIT, [kind, _pattern(pattern)], timeout)
+        result = self._window_script(sandbox, WINDOW_WAIT, [kind, pattern], timeout)
         if result.timed_out:
             if result.stdout.startswith(READY):
                 msg = f"no visible window of {name} matched {kind} {pattern!r} in {timeout:g} s"
