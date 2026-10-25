@@ -8,8 +8,8 @@ let
     tool_name = "Bash";
     tool_input = { inherit command; };
   };
-  # eval nested n deep around true.
-  evals = n: if n == 0 then "true" else "eval ${lib.escapeShellArg (evals (n - 1))}";
+  # eval nested n deep around an offline sbx call.
+  evals = n: if n == 0 then "sbx list --mine" else "eval ${lib.escapeShellArg (evals (n - 1))}";
   words = n: "echo ${lib.concatStrings (lib.replicate n "x ")}";
 
   mcp = tool: tool_input: {
@@ -82,6 +82,16 @@ let
     "sbx create nixos --name {x,--net,egress}"
     "sbx create nixos <<<$(echo x) --net egress"
     "{ sbx create nixos --net egress; }"
+    "echo \"$(sbx run nixos --net egress -- true)\""
+    "echo \"`sbx share attach n shared`\""
+    "x=\"$(sbx run nixos --net egress -- curl https://example.invalid)\""
+    "export x=$(sbx run nixos --net egress -- true)"
+    "\"$(echo \"$(sbx create nixos --net egress)\")\""
+    "cat <(sbx create nixos --net egress)"
+    "cat <<EOF\n$(sbx run nixos --net egress -- true)\nEOF"
+    "cat <<-EOF\n\t`sbx share attach n shared`\n\tEOF\necho done"
+    "bash <<'EOF'\nsbx create nixos --net egress\nEOF"
+    "echo \"$(sbx create nixos --net egress\""
     "/run/current-system/sw/bin/sbx run nixos --net egress -- true"
     "cd repo && sbx run nixos --net egress -- true"
     "sbx run nixos \\\n  --net egress -- true"
@@ -159,6 +169,13 @@ let
     "sbx create nixos <<< \"a b\""
     "sbx run nixos --in \"$TMPDIR/dl/tool\" --to \"$TMPDIR\" --out /root/r -- sh -c 'tool > r'"
     "for n in $(sbx list --json | jq -r '.[].name'); do sbx info $n; done"
+    "x=\"$(sbx list --json)\""
+    "cat <<'EOF'\n$(sbx run nixos --net egress)\nEOF"
+    "echo \"$(date)\""
+    "echo '$(sbx create nixos --net egress)'"
+    "cat <<< \"$(date)\""
+    "echo $((1 << 2))"
+    "echo \"$(date\""
     (evals 4)
     (words 30000)
     "sbx share attach n docs"
