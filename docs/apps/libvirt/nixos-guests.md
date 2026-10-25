@@ -39,7 +39,6 @@ A guest has no password, so a console login needs one set with `passwd` over SSH
    ```nix
    configurations.nixos.<host>.module.workloads = {
      images.<name> = {
-       path = "/var/lib/workloads/images/<name>/${image.passthru.filePath}";
        expected = "${image}/${image.passthru.filePath}";
      };
      guests.<name> = {
@@ -59,15 +58,21 @@ CI builds and checks the guest's system like a host's, and never builds its imag
 ## Seed and boot a guest
 
 Precondition: the guest is declared, and the host runs a generation with the libvirt app.
+A switch before the image exists succeeds, and a guest that libvirt has not defined yet stays undefined until step 2.
 
-1. Build the image as the owner, from the repository root on the host:
+1. Build the image as the owner, from the repository root on the host, with `path:.#` in a linked worktree:
 
    ```sh
    nix build .#legacyPackages.x86_64-linux.workloads.<name> --out-link /var/lib/workloads/images/<name>
    ```
 
-2. Switch the host.
-   `workloads-vm-guest-<name>.service` copies the image into the guest directory, grows it to the declared size, and defines the guest.
+2. Define the guest: switch the host, or restart its unit when the running generation already declares it:
+
+   ```sh
+   sudo systemctl restart workloads-vm-guest-<name>.service
+   ```
+
+   The unit copies the image into the guest directory, grows it to the declared size, and defines the guest.
 
 3. Start the guest and watch it boot on the serial console; `Ctrl+]` detaches:
 
@@ -84,6 +89,7 @@ Precondition: the guest is declared, and the host runs a generation with the lib
 
 The root file system grows to the full disk at first boot.
 The image is read only when the disk is created, so the out-link can go once the guest has booted.
+A stale out-link never touches an existing disk.
 
 Verification: `ssh root@<name> systemctl is-system-running` prints `running`.
 
@@ -118,12 +124,13 @@ The host builds the system and copies it to the guest, which never builds.
 
 Verification: `ssh root@<name> readlink /run/current-system` prints the path that `nix eval --raw .#nixosConfigurations.<name>.config.system.build.toplevel` prints.
 
-## workloads-vm-guest-name fails on a stale image
+## A declared guest is missing from virsh list --all
 
-Cause: the out-link is missing or points at an older build of the image, and the guest disk does not exist yet.
+Cause: libvirt has not defined the guest, its disk does not exist yet, and the image out-link is missing or points at an older build.
+The unit then succeeds without defining the guest and logs a warning that names the out-link and the `nix build` command:
 
 ```sh
-journalctl -u workloads-vm-guest-<name>.service -b
+journalctl -u workloads-vm-guest-<name>.service -b -p warning
 ```
 
-Fix: build the image again with the command from [Seed and boot a guest](#seed-and-boot-a-guest), then `sudo systemctl restart workloads-vm-guest-<name>.service`.
+Fix: run the `nix build` command from the warning as the owner in the repository root, with `path:.#` in a linked worktree, then `sudo systemctl restart workloads-vm-guest-<name>.service`.

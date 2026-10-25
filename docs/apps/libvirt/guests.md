@@ -74,7 +74,8 @@ A guest added to a running network gets its reservation live; the network keeps 
 - A changed firmware option leaves the existing NVRAM in place, so new Secure Boot keys need an NVRAM reset at the next start.
 
 A seed names an image by the out-link `nix build` leaves under `/var/lib/workloads/images`, so no image enters the system closure.
-A stale or missing out-link fails the unit instead of seeding an old image.
+While the out-link is stale or missing, a guest that libvirt has not defined and whose disk does not exist yet stays undefined, and its unit logs a warning.
+A defined guest in that state fails the unit; neither seeds an old image.
 [NixOS guests](nixos-guests.md) covers building such an image from a guest configuration.
 
 ## Grow a disk

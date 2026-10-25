@@ -56,6 +56,7 @@ let
     "obsidian"
     "p7zip-rar"
     "planify"
+    "podman-desktop"
     "proton-vpn"
     "rustdesk"
     "searchfox-cli"

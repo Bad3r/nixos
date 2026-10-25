@@ -67,21 +67,35 @@ let
         };
       };
 
-      imageModule = {
-        options = {
-          path = lib.mkOption {
-            type = types.strMatching "/.+";
-            description = "Absolute runtime path of the qcow2 image, inside the `nix build --out-link` result that keeps it alive.";
-          };
+      imageModule =
+        { name, ... }:
+        {
+          options = {
+            artifact = lib.mkOption {
+              type = types.str;
+              default = name;
+              description = "`legacyPackages.<system>.workloads` attribute that builds the image.";
+            };
 
-          expected = lib.mkOption {
-            # Without string context, so the image stays out of the closure.
-            type = types.strMatching "/nix/store/.+";
-            apply = builtins.unsafeDiscardStringContext;
-            description = "Store path `path` must resolve to; a stale or missing out-link fails the guest unit instead of seeding an old image.";
+            outLink = lib.mkOption {
+              type = types.strMatching "/.+";
+              default = "/var/lib/workloads/images/${name}";
+              description = "`nix build --out-link` result that keeps the image alive.";
+            };
+
+            expected = lib.mkOption {
+              # Without string context, so the image stays out of the closure.
+              type = types.strMatching "/nix/store/.+";
+              apply = builtins.unsafeDiscardStringContext;
+              description = ''
+                Store path of the qcow2 image: the build output, followed by
+                the image's path inside it when the output is a directory.
+                While `outLink` does not lead to it, a guest that libvirt has
+                not defined and whose disk is missing stays undefined.
+              '';
+            };
           };
         };
-      };
 
       diskModule = {
         options = {
