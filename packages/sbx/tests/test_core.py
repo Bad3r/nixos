@@ -37,7 +37,10 @@ STUBS = {
         'echo out > "$t"; chmod 755 "$t"'
     ),
     "ss": 'cat "$SBX_TEST_SS" 2>/dev/null || true',
-    "git": "exit 1",
+    "git": (
+        'if [ -n "$GIT_DIR" ] || [ -z "$SBX_TEST_TOPLEVEL" ]; then exit 1; fi; '
+        'echo "$SBX_TEST_TOPLEVEL"'
+    ),
     "other": "exit 0",
     "timedatectl": 'echo "${SBX_TEST_NTP:-yes}"',
 }
@@ -419,6 +422,47 @@ class SandboxesTest(Fixture):
         self.assertEqual(result["to"], str(self.paths.sandbox("c") / "xfer" / "messages"))
         with self.assertRaises(SbxError):
             sandboxes.copy("c:/etc/passwd", str(outside))
+
+    def checkout_root(self, toplevel: Path, **environment: str) -> Path | None:
+        """Return the checkout root sbx derives from a reported toplevel."""
+        with mock.patch.dict(os.environ, {"SBX_TEST_TOPLEVEL": str(toplevel), **environment}):
+            return self.sandboxes().checkout()
+
+    def test_checkout_root(self) -> None:
+        """A toplevel counts only if it holds .git and neither is nor holds $HOME."""
+        home = self.scratch / "home"
+        repo = home / "repo"
+        (repo / ".git").mkdir(parents=True)
+        with mock.patch.dict(os.environ, {"HOME": str(home)}):
+            self.assertEqual(self.checkout_root(repo), repo.resolve())
+            self.assertEqual(self.checkout_root(repo, GIT_DIR="/elsewhere"), repo.resolve())
+            # A repository with core.worktree=$HOME reports $HOME, which holds no .git.
+            self.assertIsNone(self.checkout_root(home))
+            (home / ".git").mkdir()
+            self.assertIsNone(self.checkout_root(home))
+            (self.scratch / ".git").mkdir()
+            self.assertIsNone(self.checkout_root(self.scratch))
+            with mock.patch.dict(os.environ, {"SBX_TEST_TOPLEVEL": str(home)}):
+                self.assertNotIn(home.resolve(), self.sandboxes().host_roots())
+
+    @unittest.skipUnless(os.environ.get("SBX_TEST_GIT"), "needs SBX_TEST_GIT")
+    def test_checkout_root_core_worktree(self) -> None:
+        """A repository whose core.worktree is $HOME adds no copy root."""
+        git = os.environ["SBX_TEST_GIT"]
+        self.settings = dataclasses.replace(
+            self.settings, tools=dataclasses.replace(self.settings.tools, git=git)
+        )
+        home = self.scratch / "home"
+        repo = home / "repo"
+        repo.mkdir(parents=True)
+        core.run([git, "init", "-q", str(repo)])
+        cwd = Path.cwd()
+        self.addCleanup(os.chdir, cwd)
+        os.chdir(repo)
+        with mock.patch.dict(os.environ, {"HOME": str(home)}):
+            self.assertEqual(self.sandboxes().checkout(), repo.resolve())
+            core.run([git, "config", "core.worktree", str(home)])
+            self.assertIsNone(self.sandboxes().checkout())
 
     def add_running(self, name: str, *, expires: int = NOW + 60) -> None:
         """Register a running sandbox with its run directory."""

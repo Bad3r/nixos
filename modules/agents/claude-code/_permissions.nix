@@ -5,7 +5,7 @@
 # Rules evaluate deny -> ask -> allow; first match wins, so an ask/deny rule
 # overrides a broader allow. `Edit(path)` covers every file-editing tool
 # (Edit, Write, MultiEdit, NotebookEdit), hence `Edit(**)` and no `Write(**)`.
-{ scratchDir }:
+{ scratchDir, sbx }:
 let
   # Canonical Bash prefix rule; the trailing ` *` keeps a word boundary, so
   # `Bash(git *)` matches `git`/`git status` but not `github`.
@@ -55,7 +55,8 @@ let
     "uv"
     "wc"
     "zsh"
-  ];
+  ]
+  ++ (if sbx then [ "sbx" ] else [ ]);
 
   # Destructive commands that must ask first; ask is evaluated before allow,
   # so these override the broad allows even under

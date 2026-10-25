@@ -12,6 +12,7 @@ let
     ownerUser = metaOwner.username;
     questionTool = defaultQuestionTool;
     shellRules = [ ];
+    sbx = false;
   };
 
   questionToolText =
@@ -70,6 +71,10 @@ let
           `~/nixos/modules/hosts/common/mirrors.nix`.
         - Keep scratch files, clones, captures, and reports under `$TMPDIR`
           (`${config.flake.lib.agents.scratchDir}`).
+      ''
+      + lib.optionalString vars.sbx ''
+        - Run unknown binaries, downloads, and untrusted repositories in a disposable
+          `sbx` VM so they never touch the host.
       ''
       + builtins.concatStringsSep "" vars.shellRules;
 
