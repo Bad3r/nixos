@@ -34,7 +34,7 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import IO, TYPE_CHECKING, Any, Protocol, cast
 
-from sbx import cloud, journal, keys, windows
+from sbx import cloud, journal, keys, waitqueue, windows
 from sbx.cloud import CloudImage
 
 if TYPE_CHECKING:
@@ -83,6 +83,9 @@ SHUTDOWN_TIMEOUT = 120
 SHARE_SLOTS = 4
 # The run directory's read-write share; no host sbx code writes into it, unlike xfer.
 SHARED = "shared"
+WAIT_POLL = 2.0
+# The `--wait` an over-limit refusal suggests.
+RETRY_WAIT = "30m"
 
 ET.register_namespace("sbx", NS)
 
@@ -90,10 +93,20 @@ ET.register_namespace("sbx", NS)
 class SbxError(Exception):
     """A request sbx refuses or cannot complete."""
 
-    def __init__(self, message: str, *, code: str) -> None:
-        """Keep a stable error code next to the message."""
+    def __init__(
+        self, message: str, *, code: str, details: dict[str, object] | None = None
+    ) -> None:
+        """Keep a stable error code, and fields for the JSON error object, next to the message."""
         super().__init__(message)
         self.code = code
+        self.details = details or {}
+
+
+def error_document(error: SbxError | OSError) -> dict[str, object]:
+    """Return the JSON error object of a failed verb."""
+    if isinstance(error, SbxError):
+        return {"code": error.code, "message": str(error), **error.details}
+    return {"code": "os-error", "message": str(error)}
 
 
 @dataclass(frozen=True)
@@ -227,6 +240,11 @@ class Paths:
         """Serializes ceiling checks against starts and removals."""
         return self.root / ".lock"
 
+    @property
+    def queue(self) -> Path:
+        """Tickets of creates that wait for capacity."""
+        return self.root / ".queue"
+
     def sandbox(self, name: str) -> Path:
         """Return the run directory of one sandbox."""
         return self.root / name
@@ -342,6 +360,8 @@ class Request:
     memory_mib: int
     cpus: int
     ttl: int
+    # Seconds to queue for the running and memory ceilings; None refuses at once.
+    wait: float | None = None
 
 
 class Backend(Protocol):
@@ -639,6 +659,23 @@ def publish(staged: Path, target: Path) -> None:
         raise
 
 
+@contextlib.contextmanager
+def _terminate_raises(*, enabled: bool) -> Generator[None]:
+    """Turn SIGTERM into SystemExit in the main thread, so cleanups run as on SIGINT."""
+    if not enabled or threading.current_thread() is not threading.main_thread():
+        yield
+        return
+
+    def terminate(signum: int, _frame: object) -> None:
+        raise SystemExit(128 + signum)
+
+    previous = signal.signal(signal.SIGTERM, terminate)
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, previous)
+
+
 def _strip_exec_bits(path: Path) -> None:
     """Drop execute, setuid, and setgid bits from every file under a copied-out path."""
     files = (
@@ -780,6 +817,8 @@ class Sandboxes:
         self._connect = connect
         self._clock = clock
         self._backend: Backend | None = None
+        # Polled while a create waits; the MCP server ends the wait of a cancelled call.
+        self.cancelled: Callable[[], bool] = lambda: False
 
     # Plumbing
 
@@ -944,6 +983,7 @@ class Sandboxes:
         cpus: int | None,
         ttl: str | None,
         gui: bool = False,
+        wait: str | None = None,
     ) -> Request:
         """Turn create flags into a request within the ceilings; `gui` picks `<base>-gui`."""
         settings = self.settings
@@ -966,6 +1006,7 @@ class Sandboxes:
             default_memory if memory is None else parse_memory(memory),
             settings.default_cpus if cpus is None else cpus,
             settings.default_ttl if ttl is None else parse_duration(ttl),
+            None if wait is None else parse_duration(wait),
         )
         self._validate(request)
         return request
@@ -1037,20 +1078,142 @@ class Sandboxes:
         if problem is not None:
             raise SbxError(problem, code="disk-full")
 
-    def _check_capacity(self, request: Request) -> int:
-        """Refuse past the running and memory ceilings; return the running count."""
+    def _capacity_problem(self, request: Request) -> str | None:
+        """Say why the running or memory ceiling leaves no room for `request`, if one does."""
         running = [sandbox.domain for sandbox in self.owned() if sandbox.domain.active]
         if len(running) >= self.settings.running:
-            msg = f"{len(running)} sandboxes run, the ceiling is {self.settings.running}"
-            raise SbxError(msg, code="over-limit")
+            return f"{len(running)} sandboxes run, the ceiling is {self.settings.running}"
         declared = sum(domain.memory_mib for domain in running)
         if declared + request.memory_mib > self.settings.memory_mib:
-            msg = (
+            return (
                 f"running sandboxes declare {declared}M; {request.memory_mib}M more exceeds "
                 f"the {self.settings.memory_mib}M ceiling"
             )
-            raise SbxError(msg, code="over-limit")
-        return len(running)
+        return None
+
+    def _capacity_error(self, problem: str, ahead: int, *, code: str) -> SbxError:
+        """Name who holds the capacity and, for over-limit, how to get it."""
+        now = int(self._clock())
+        running = [sandbox for sandbox in self.owned() if sandbox.domain.active]
+        held = ", ".join(
+            f"{sandbox.name} ({sandbox.meta.session or 'no session'}, "
+            f"{max(0, sandbox.meta.expires - now) // 60}m left)"
+            for sandbox in running
+        )
+        msg = f"{problem}; held by {held or 'no sbx sandbox'}"
+        if ahead:
+            msg += f"; {ahead} queued ahead"
+        details: dict[str, object] = {
+            "holders": [
+                {
+                    "name": sandbox.name,
+                    "session": sandbox.meta.session,
+                    "memory_mib": sandbox.domain.memory_mib,
+                    "ttl_left": max(0, sandbox.meta.expires - now),
+                }
+                for sandbox in running
+            ],
+            "queued": ahead,
+        }
+        if code == "over-limit":
+            msg += (
+                f". Rerun the same command with --wait {RETRY_WAIT} (MCP: wait) in the "
+                "background, so your harness notifies you when it starts, or destroy your "
+                "own idle sandboxes with `sbx destroy --mine`"
+            )
+            details["retry"] = {"wait": RETRY_WAIT}
+        return SbxError(msg, code=code, details=details)
+
+    def _ahead(self, ticket: waitqueue.Ticket | None) -> list[waitqueue.Ticket]:
+        """Return the live tickets older than `ticket`, or every one for a new request."""
+        queue = waitqueue.live(self.paths.queue)
+        return [entry for entry in queue if ticket is None or entry.seq < ticket.seq]
+
+    def _enqueue(
+        self, request: Request, name: str, problem: str, position: int
+    ) -> waitqueue.Ticket:
+        ticket = waitqueue.enqueue(
+            self.paths.queue,
+            name=name,
+            base=request.base,
+            memory_mib=request.memory_mib,
+            session=self.session,
+            queued=int(self._clock()),
+        )
+        journal.record(
+            f"{name} queues for capacity at position {position}: {problem}",
+            verb="create",
+            sandbox=name,
+            session=self.session,
+        )
+        print(f"sbx: {name} queues at position {position}: {problem}", file=sys.stderr)
+        return ticket
+
+    def _dequeue(self, ticket: waitqueue.Ticket | None, started: float | None) -> None:
+        """Drop a ticket; with `started`, its create proceeds, which the journal records."""
+        if ticket is None or not ticket.path.exists():
+            return
+        ticket.path.unlink(missing_ok=True)
+        if started is not None:
+            journal.record(
+                f"{ticket.name} leaves the queue after {time.monotonic() - started:.0f} s",
+                verb="create",
+                sandbox=ticket.name,
+                session=self.session,
+            )
+
+    def _claim(
+        self, request: Request, name: str, ticket: waitqueue.Ticket | None
+    ) -> tuple[str | None, int]:
+        """Refuse a taken name; return what keeps the request out and the count queued ahead."""
+        backend = self.backend(require_slice=ticket is None)
+        if self.paths.sandbox(name).exists() or any(
+            info.name == DOMAIN_PREFIX + name for info in backend.domains()
+        ):
+            msg = f"a sandbox named '{name}' exists"
+            raise SbxError(msg, code="exists")
+        ahead = len(self._ahead(ticket))
+        problem = self._capacity_problem(request)
+        if problem is None and ahead:
+            problem = "earlier creates queue for capacity"
+        return problem, ahead
+
+    @contextlib.contextmanager
+    def _admitted(self, request: Request, name: str) -> Generator[Backend]:
+        """Hold the lock once `name` is free and the request fits the running and memory ceilings.
+
+        With `request.wait`, a request that does not fit queues behind earlier
+        waiters and proceeds only at the head of the queue, so a large request
+        is never overtaken. A request without a wait never jumps the queue.
+        """
+        started = time.monotonic()
+        ticket: waitqueue.Ticket | None = None
+        with _terminate_raises(enabled=request.wait is not None):
+            try:
+                while True:
+                    if self.cancelled():
+                        msg = f"the create of '{name}' was cancelled while it waited"
+                        raise SbxError(msg, code="cancelled")
+                    # Waiters behind the head skip the lock and the daemon.
+                    if ticket is None or not self._ahead(ticket):
+                        with self.locked():
+                            problem, ahead = self._claim(request, name, ticket)
+                            if problem is None:
+                                self._dequeue(ticket, started)
+                                yield self.backend()
+                                return
+                            if request.wait is None:
+                                raise self._capacity_error(problem, ahead, code="over-limit")
+                            ticket = ticket or self._enqueue(request, name, problem, ahead + 1)
+                    remaining = started + cast("float", request.wait) - time.monotonic()
+                    if remaining <= 0:
+                        problem = self._capacity_problem(request) or "earlier creates queue"
+                        problem = f"'{name}' waited {request.wait:g} s for capacity: {problem}"
+                        ahead = len(self._ahead(ticket))
+                        raise self._capacity_error(problem, ahead, code="wait-timeout")
+                    time.sleep(min(WAIT_POLL, remaining))
+            finally:
+                self._dequeue(ticket, None)
 
     # Bases
 
@@ -1467,14 +1630,7 @@ class Sandboxes:
     ) -> dict[str, object]:
         """Boot `name` on an overlay of `image`, which `root` keeps alive, and wait for it."""
         directory = self.paths.sandbox(name)
-        with self.locked():
-            backend = self.backend(require_slice=True)
-            if directory.exists() or any(
-                info.name == DOMAIN_PREFIX + name for info in backend.domains()
-            ):
-                msg = f"a sandbox named '{name}' exists"
-                raise SbxError(msg, code="exists")
-            self._check_capacity(request)
+        with self._admitted(request, name) as backend:
             windows_settings = self.windows_base(request.base)
             if windows_settings is not None:
                 # gc prunes superseded exports under this lock, so pick the newest only here.
@@ -1692,15 +1848,21 @@ class Sandboxes:
         return removed
 
     def listing(self, *, mine: bool) -> list[dict[str, object]]:
-        """Describe every sandbox, or the caller's."""
+        """Describe every sandbox, or the caller's, then the creates queued for capacity."""
         self._require_session(mine=mine)
+        queued = [
+            ticket.as_json(position)
+            for position, ticket in enumerate(waitqueue.live(self.paths.queue), 1)
+            if not mine or ticket.session == self.session
+        ]
         if not self.has_state():
-            return []
-        return [
+            return queued
+        sandboxes = [
             self.describe(sandbox)
             for sandbox in self.owned()
             if not mine or sandbox.meta.session == self.session
         ]
+        return sandboxes + queued
 
     def info(self, name: str) -> dict[str, object]:
         """Describe one sandbox with its files."""

@@ -27,6 +27,7 @@ SAMPLES: dict[str, object] = {
     "mem": "2G",
     "cpus": 2,
     "ttl": "30m",
+    "wait": "10m",
     "in": ["/work/a", "/work/b"],
     "out": ["/root/report.txt"],
     "to": "/work",

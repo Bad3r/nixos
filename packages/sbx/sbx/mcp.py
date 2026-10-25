@@ -30,6 +30,7 @@ from sbx.core import (
     SbxError,
     Settings,
     caller_session,
+    error_document,
 )
 
 if TYPE_CHECKING:
@@ -214,6 +215,11 @@ CREATE_PARAMS = (
     Param("mem", _string("memory such as 2G"), flag="--mem"),
     Param("cpus", {"type": "integer", "minimum": 1, "description": "vCPUs"}, flag="--cpus"),
     Param("ttl", _string("lifetime such as 30m or 2h"), flag="--ttl"),
+    Param(
+        "wait",
+        _string("queue up to this long, such as 30m, when the host's sandbox limits are full"),
+        flag="--wait",
+    ),
     Param("gui", _boolean("the base's GUI variant, with more default memory"), flag="--gui"),
 )
 
@@ -222,7 +228,8 @@ TOOLS = (
         "create",
         ("create",),
         "Create a sandbox",
-        "Start a sandbox and wait until SSH answers; returns its name, CID, and TTL.",
+        "Start a sandbox and wait until SSH answers; returns its name, CID, and TTL. "
+        "With wait, a create the host's limits refuse queues for capacity first.",
         CREATE_PARAMS,
         open_world=True,
     ),
@@ -476,13 +483,15 @@ class Server:
             args = build_parser().parse_args(argv)
             args.command = command
             sandboxes = self._open(session)
-            if record is not None and record.token is not None:
-                sandboxes.create = functools.partial(sandboxes.create, token=record.token)
+            if record is not None:
+                sandboxes.cancelled = lambda: record.cancelled
+                if record.token is not None:
+                    sandboxes.create = functools.partial(sandboxes.create, token=record.token)
             document, _code = dispatch(sandboxes, args, as_json=True)
         except (SbxError, OSError) as error:
             code = error.code if isinstance(error, SbxError) else "os-error"
             journal.record(f"failed: {error}", code=code)
-            return _text({"error": {"code": code, "message": str(error)}}, error=True)
+            return _text({"error": error_document(error)}, error=True)
         return _text(document, error=False)
 
     def _call(self, request_id: object, tool: Tool, arguments: object, session: str | None) -> None:

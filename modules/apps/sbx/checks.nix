@@ -170,9 +170,21 @@ in
                 size = int(machine.succeed(f"stat -c %s {info['directory']}/disk.qcow2"))
                 assert size <= 2 << 30, size
 
-            with subtest("destroy removes the sandbox, and gc then its export"):
+            with subtest("a full host names the holder, and a create with --wait queues"):
+                refused = json.loads(machine.fail(as_owner("sbx --json create win11 --name w2")))["error"]
+                assert refused["code"] == "over-limit" and refused["retry"] == {"wait": "30m"}, refused
+                assert [holder["name"] for holder in refused["holders"]] == ["w"], refused
+                machine.succeed(as_owner("sh -c 'sbx --json create win11 --name w2 --wait 15m </dev/null >/tmp/w2.json 2>/tmp/w2.err &'"))
+                machine.wait_until_succeeds(as_owner("sbx --json list | grep -q queued"))
+                queued = [(entry["name"], entry["position"]) for entry in sbx("list") if entry["state"] == "queued"]
+                assert queued == [("w2", 1)], queued
+
+            with subtest("destroy removes the sandbox and starts the waiter, and gc then its export"):
                 sbx("destroy w")
                 machine.fail(f"test -e {info['directory']}")
+                machine.wait_until_succeeds("grep -q '\"name\": \"w2\"' /tmp/w2.json")
+                assert "w2 queues at position 1" in machine.succeed("cat /tmp/w2.err")
+                sbx("destroy w2")
                 sbx("gc")
                 assert versions() == [newest]
           '';

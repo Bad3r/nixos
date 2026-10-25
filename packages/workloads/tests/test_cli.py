@@ -46,11 +46,13 @@ class NamesTest(unittest.TestCase):
         self.assertIn("sbx is not installed", err)
 
     def test_with_sbx(self) -> None:
-        """Live sandboxes join the table under their domain name."""
-        code, out, err = run(lambda _: (0, json.dumps([SANDBOX])))
+        """Live sandboxes join the table under their domain name; queued creates do not."""
+        queued = {"name": "nixos-cd34", "state": "queued", "position": 1}
+        code, out, err = run(lambda _: (0, json.dumps([SANDBOX, queued])))
         self.assertEqual((code, err), (0, ""))
         self.assertIn("sbx-ab12", out)
         self.assertIn("host.vm", out)
+        self.assertNotIn("nixos-cd34", out)
 
     def test_sbx_failure(self) -> None:
         """A failing sbx fails the command with its message."""

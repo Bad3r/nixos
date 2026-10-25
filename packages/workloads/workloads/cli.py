@@ -161,6 +161,8 @@ def sandboxes(runner: SbxRunner) -> list[Record] | None:
                 "state": sandbox.get("state"),
             }
             for sandbox in cast("list[Record]", parsed)
+            # A create queued for capacity has no domain yet.
+            if sandbox.get("state") != "queued"
         ]
     except (AttributeError, KeyError, TypeError) as error:
         msg = f"sbx list printed a malformed sandbox: {error!r}"
