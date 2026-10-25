@@ -568,6 +568,33 @@ def lease_address(path: Path, mac: str, now: float) -> str | None:
     return None if best is None else best[1]
 
 
+def guest_holds(reply: dict[str, Any], mac: str, address: str) -> bool:
+    """Whether a guest-network-get-interfaces reply puts `address` on the NIC with `mac`."""
+    interfaces = reply.get("return")
+    if not isinstance(interfaces, list):
+        msg = "no interface list"
+        raise _agent_error(msg)
+    for interface in cast("list[object]", interfaces):
+        if not isinstance(interface, dict):
+            msg = "an interface is not an object"
+            raise _agent_error(msg)
+        entry = cast("dict[str, object]", interface)
+        owner = entry.get("hardware-address")
+        if not isinstance(owner, str) or owner.lower() != mac.lower():
+            continue
+        addresses = entry.get("ip-addresses", [])
+        if not isinstance(addresses, list):
+            msg = "ip-addresses is not a list"
+            raise _agent_error(msg)
+        for item in cast("list[object]", addresses):
+            if (
+                isinstance(item, dict)
+                and cast("dict[str, object]", item).get("ip-address") == address
+            ):
+                return True
+    return False
+
+
 def bridge_interface(bridge: str, mac: str) -> ET.Element:
     """Render a virtio NIC on a host bridge; session libvirt joins it through qemu-bridge-helper."""
     interface = ET.Element("interface", type="bridge")
@@ -1060,11 +1087,24 @@ class Sandboxes:
                 msg = f"ssh over vsock to '{name}' failed: {detail}"
                 raise SbxError(msg, code="boot-timeout")
             time.sleep(1)
-        if sandbox.meta.net != "egress":
-            return
-        while self.address(sandbox, strict=True) is None:
+        if sandbox.meta.net == "egress":
+            self._wait_address(sandbox, deadline)
+
+    def _wait_address(self, sandbox: Sandbox, deadline: float) -> None:
+        name, mac = sandbox.name, sandbox.domain.mac
+        while True:
+            address = self.address(sandbox, strict=True)
+            # dnsmasq records the lease before the guest's ARP probe ends and it configures it.
+            if address is not None and mac is not None:
+                command: dict[str, object] = {"execute": "guest-network-get-interfaces"}
+                reply = self.backend().agent(sandbox.domain.name, command, 5)
+                if guest_holds(reply, mac, address):
+                    return
             if self._clock() > deadline:
-                msg = f"'{name}' got no DHCP lease on its egress bridge; console:\n"
+                if address is None:
+                    msg = f"'{name}' got no DHCP lease on its egress bridge; console:\n"
+                else:
+                    msg = f"'{name}' never configured its lease {address}; console:\n"
                 raise SbxError(msg + self._console_tail(name), code="no-address")
             time.sleep(1)
 
