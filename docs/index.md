@@ -229,18 +229,12 @@
 
 - [security/owner-group-privileges.md](security/owner-group-privileges.md)
   - Security-relevant access granted by owner group membership.
-- [security/owner-disk-group.md](security/owner-disk-group.md)
-  - Raw storage access and the filtered diagnostic wrappers the owner's `disk` group grants.
+- [security/owner-storage-access.md](security/owner-storage-access.md)
+  - Why the owner holds no group that opens block or NVMe device nodes, and which storage tools need `sudo`.
 - [security/owner-optional-groups.md](security/owner-optional-groups.md)
   - Groups the owner profile leaves unassigned and optional device groups, with their security impact.
 - [security/owner-no-sudo-operations.md](security/owner-no-sudo-operations.md)
   - Configuration-managed operations available to the owner user without a sudo password.
-- [security/owner-no-sudo-storage.md](security/owner-no-sudo-storage.md)
-  - Storage inventory and health diagnostics without a sudo password, and the capability wrappers that grant them.
-- [security/owner-no-sudo-nvme.md](security/owner-no-sudo-nvme.md)
-  - Which `nvme` subcommands keep the wrapper's storage capability, which clear it, and why each exclusion exists.
-- [security/owner-no-sudo-sed.md](security/owner-no-sudo-sed.md)
-  - Opal self-encrypting drive queries without a sudo password, and the state-changing actions that stay behind it.
 - [security/usbguard/README.md](security/usbguard/README.md)
   - USBGuard USB device access control with rules stored encrypted via sops.
 
