@@ -16,8 +16,10 @@ let
 
     `nixos-gui` (or `create nixos --gui`) adds an X11 IceWM session with a
     focused xterm, `xdotool`, and 4 GiB by default. `exec` commands run as root
-    with `DISPLAY=:0`, so `sbx exec <name> -- sh -c 'some-app &'` opens a window
-    there; the terminal itself runs as the user `sbx`. `type` takes US-layout
+    with `DISPLAY=:0`, so
+    `sbx exec <name> -- sh -c 'some-app >/dev/null 2>&1 </dev/null &'` opens a
+    window there; without the redirections, `exec` waits until the app exits.
+    The terminal itself runs as the user `sbx`. `type` takes US-layout
     ASCII (a newline presses enter), and `key` takes chords such as `ctrl+c`.
 
     Cloud bases such as `debian-13` run cloud images with apt, and `--net egress`
