@@ -1,15 +1,18 @@
 # Copyright (c) 2026 Bad3r
 """The MCP front end of sbx against the fake backend of the core tests."""
 
+import base64
 import io
 import json
 import os
 import threading
 import time
 import unittest
+from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
+from PIL import Image
 from sbx import mcp
 from sbx.cli import build_parser
 from sbx.core import Meta, SbxError
@@ -273,6 +276,65 @@ class ServerTest(unittest.TestCase):
             for n in (5, 6)
         ]
         self.assertEqual(codes, ["base-missing", "unknown-base"])
+
+    def test_screenshot_image_and_optional_ocr(self) -> None:
+        """PNG and PPM captures include a viewable image, with OCR only when requested."""
+        for image_format, mime in (("PNG", "image/png"), ("PPM", "image/x-portable-pixmap")):
+            for ocr in (None, False, True):
+                with self.subTest(image_format=image_format, ocr=ocr):
+                    self.core.backend.add("screen", expires=test_core.NOW + 3600)
+                    self.core.paths.sandbox("screen").joinpath("xfer").mkdir(
+                        parents=True, exist_ok=True
+                    )
+
+                    def screenshot(
+                        _domain: str,
+                        target: Path,
+                        *,
+                        source_format: str = image_format,
+                        source_mime: str = mime,
+                    ) -> str:
+                        Image.new("RGB", (3, 2), (20, 40, 60)).save(target, format=source_format)
+                        return source_mime
+
+                    arguments: dict[str, object] = {"name": "screen"}
+                    if ocr is not None:
+                        arguments["ocr"] = ocr
+                    with (
+                        mock.patch.object(self.core.backend, "screenshot", screenshot),
+                        mock.patch.object(
+                            test_core.core, "run", return_value="screen text\n"
+                        ) as read,
+                    ):
+                        result = self.exchange(self.call(1, "screenshot", arguments))[1]["result"]
+                    self.assertFalse(result["isError"])
+                    text, image = result["content"]
+                    self.assertEqual(text["type"], "text")
+                    document = json.loads(text["text"])
+                    self.assertEqual(document["mime"], mime)
+                    saved = self.core.paths.sandbox("screen") / "xfer"
+                    self.assertEqual(saved, Path(document["path"]).parent)
+                    self.assertTrue(Path(document["path"]).is_file())
+                    self.assertEqual((image["type"], image["mimeType"]), ("image", "image/png"))
+                    data = base64.b64decode(image["data"], validate=True)
+                    with Image.open(io.BytesIO(data)) as decoded:
+                        self.assertEqual((decoded.format, decoded.size), ("PNG", (3, 2)))
+                        self.assertEqual(decoded.getpixel((1, 1)), (20, 40, 60))
+                    if ocr:
+                        self.assertEqual(document["text"], "screen text\n")
+                        read.assert_called_once_with(
+                            [self.core.settings.tools.tesseract, document["path"], "stdout"]
+                        )
+                    else:
+                        self.assertNotIn("text", document)
+                        read.assert_not_called()
+
+    def test_screenshot_failure(self) -> None:
+        """A failed capture returns a tool error without an image block."""
+        result = self.exchange(self.call(1, "screenshot", {"name": "missing"}))[1]["result"]
+        self.assertTrue(result["isError"])
+        (text,) = result["content"]
+        self.assertEqual(json.loads(text["text"])["error"]["code"], "not-found")
 
 
 class Stub:

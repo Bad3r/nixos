@@ -3,9 +3,11 @@
 
 Each tool turns its arguments into the command line of one verb and runs it
 through the CLI's parser and dispatch in JSON mode, so a tool accepts what its
-verb accepts and returns the document `sbx <verb> --json` prints.
+verb accepts and returns the document `sbx <verb> --json` prints. Screenshots
+also include an image content block for the client to display.
 """
 
+import base64
 import dataclasses
 import functools
 import json
@@ -17,7 +19,11 @@ import threading
 import time
 import traceback
 from dataclasses import dataclass
+from io import BytesIO
+from pathlib import Path
 from typing import TYPE_CHECKING, BinaryIO, cast
+
+from PIL import Image
 
 from sbx import journal
 from sbx.cli import build_parser, dispatch
@@ -35,7 +41,6 @@ from sbx.core import (
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable
-    from pathlib import Path
 
 # 2025-03-26 is left out: it requires JSON-RPC batches, which this server rejects.
 PROTOCOL_VERSIONS = ("2025-11-25", "2025-06-18", "2024-11-05")
@@ -310,8 +315,8 @@ TOOLS = (
         "screenshot",
         ("screenshot",),
         "Capture a sandbox display",
-        "Save the display as PNG or PPM in the sandbox's xfer directory and return its path, "
-        "with the text tesseract reads under ocr.",
+        "Return the display as a PNG image content block alongside its saved path and MIME type. "
+        "Set ocr to also return the text tesseract reads in the text field.",
         (NAME, Param("ocr", _boolean("add the text tesseract reads"), flag="--ocr")),
     ),
     Tool(
@@ -356,6 +361,27 @@ def session_of(meta: object) -> str | None:
 def _text(document: object, *, error: bool) -> Json:
     text = json.dumps(document, separators=(",", ":"))
     return {"content": [{"type": "text", "text": text}], "isError": error}
+
+
+def _screenshot(document: Json) -> Json:
+    path = Path(cast("str", document["path"]))
+    if document["mime"] == "image/png":
+        data = path.read_bytes()
+    else:
+        with Image.open(path, formats=("PPM",)) as image, BytesIO() as output:
+            image.save(output, format="PNG")
+            data = output.getvalue()
+    return {
+        "content": [
+            {"type": "text", "text": json.dumps(document, separators=(",", ":"))},
+            {
+                "type": "image",
+                "data": base64.b64encode(data).decode("ascii"),
+                "mimeType": "image/png",
+            },
+        ],
+        "isError": False,
+    }
 
 
 def _valid_id(request_id: object) -> bool:
@@ -492,6 +518,8 @@ class Server:
                 if record.token is not None:
                     sandboxes.create = functools.partial(sandboxes.create, token=record.token)
             document, _code = dispatch(sandboxes, args, as_json=True)
+            if tool.name == "screenshot":
+                return _screenshot(cast("Json", document))
         except (SbxError, OSError) as error:
             code = error.code if isinstance(error, SbxError) else "os-error"
             journal.record(f"failed: {error}", code=code)
