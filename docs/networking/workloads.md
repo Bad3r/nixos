@@ -75,8 +75,14 @@ A guest whose lease expired loses traffic until it renews.
 
 The main table answers only the LAN destinations of a `lanAccess` network, so no route there, default or not, carries guest traffic to the uplink.
 
-`workload-egress.service` installs one `ip rule iif vn-<name>` set per network in a preference band above WARP's own rule.
-It replaces the band in one `ip -batch` call and never touches WARP's rule.
+The `outbound` chain of `inet workload` enforces both modes without relying on routing.
+Traffic from a bridge to an interface outside the workload networks passes only to `CloudflareWARP` from a `warp` network, or to the LAN from a `lanAccess` network.
+Everything else is dropped, established flows included.
+nftables loads the chain in one transaction, so it holds while the routing rules change, after a run that fails part-way, and in whatever order they sit.
+
+`workload-egress.service` owns the `ip rule iif vn-<name>` rules in the workload preference band, one set per network.
+Each run adds missing rules before deleting stale ones, so no network's `unreachable` rule lapses, and it leaves every other rule in the band alone.
+WARP's own rule lands one below the lowest preference in use when warp-svc connects, which can be inside or ahead of the band.
 It runs at boot before `network-pre.target`, each time the WARP tunnel device appears, and on every switch.
 It has no stop action, so the rules outlive the unit and stay in place while the bridge or the tunnel is absent.
 
@@ -138,7 +144,7 @@ Fix: none when the result is `success` and the rules are listed; otherwise read 
 Cause: the unit has no stop action, so the band stays until the next boot; it is harmless once the bridges are gone.
 
 ```sh
-ip rule show | awk -F: '/iif vn-/ { print $1 }' | xargs -rn1 sudo ip rule del pref
+ip -j rule show | jq -r '.[] | select(.iif // "" | startswith("vn-")) | "rule del pref \(.priority) iif \(.iif)"' | sudo ip -batch -
 ```
 
 WARP itself is covered in [WARP on the fleet](../apps/cloudflare/warp/README.md).
