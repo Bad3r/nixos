@@ -239,7 +239,7 @@ def ask_helper(request: Record) -> Record:
         try:
             connection.connect(GRANT_SOCKET)
         except FileNotFoundError as error:
-            msg = f"{GRANT_SOCKET} is missing; no grant rule or runtime share is declared"
+            msg = f"{GRANT_SOCKET} is missing; no grant rule or present guest is declared"
             raise WorkloadsError(msg, code="no-helper") from error
         connection.sendall(json.dumps(request).encode())
         connection.shutdown(socket.SHUT_WR)

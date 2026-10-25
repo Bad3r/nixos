@@ -68,7 +68,7 @@ workloads revoke --all sbx-<name>
 | `journal`           | the journal refused the record           |
 | `nft`, `route`      | the grant table or rules are unusable    |
 | `conntrack`         | conntrack entries could not be removed   |
-| `no-helper`         | no grant rule or runtime share declared  |
+| `no-helper`         | no grant rule or present guest declared  |
 | `helper`            | the helper answered no JSON object       |
 | `sbx`               | `sbx info` failed                        |
 | `os-error`          | the socket refused the caller            |
@@ -92,7 +92,7 @@ workloads revoke --all sbx-<name>
 `workload-grants.service` owns it and loads it with `add` and `flush chain` only, which keeps the elements; a switch, an `nftables` reload or restart, and a restart of the unit all leave live grants in place.
 An `nftables` reload propagates to the unit, which recreates the chains when something deleted the table.
 A change to a set's type fails the unit until the table is recreated.
-With no rule and no runtime share declared, the unit deletes the table and the grant routes instead.
+With no rule and no present guest declared, the unit deletes the table and the grant routes instead.
 
 ## The helper
 

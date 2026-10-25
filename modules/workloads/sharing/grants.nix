@@ -25,7 +25,8 @@ let
           inherit (share) readOnly mountPoint;
         }) (lib.filterAttrs (_: share: share.enable && share.runtime or false) guest.shares);
       }) (lib.filterAttrs (_: guest: (guest.ensure or "present") == "present") config.workloads.guests);
-      helper = cfg.allow != [ ] || lib.any (guest: guest.shares != { }) (lib.attrValues runtimeShares);
+      # Any present guest may hold a live share after its declaration goes, so it keeps detach.
+      helper = cfg.allow != [ ] || runtimeShares != { };
 
       # The bit the grant chains set on connections they admit; no other table uses ct mark.
       marked = "ct mark & 0x00f00000 == 0x00100000";
@@ -344,8 +345,7 @@ let
             address, the destination, the protocol, and the ports. It permits
             all traffic on that path only until its TTL ends: at expiry or
             revoke, every connection it admitted stops, and no other grant's.
-            Declaring a rule, or a guest share with `runtime = true`, starts
-            `workload-grantd`.
+            Declaring a rule, or any present guest, starts `workload-grantd`.
           '';
         };
 

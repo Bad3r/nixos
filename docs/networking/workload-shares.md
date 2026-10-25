@@ -20,7 +20,8 @@ _: {
 }
 ```
 
-- Either kind turns the `workloads` app on and lands in `/etc/workloads/grants.json`; a guest runtime share also starts `workload-grantd`.
+- Either kind turns the `workloads` app on and lands in `/etc/workloads/grants.json`.
+- Any present guest starts `workload-grantd`, so a live share stays detachable after its declaration goes.
 - A sandbox share tag follows the guest tag rules and is never `shared`; evaluation fails otherwise.
 - `sbx` refuses a sandbox share whose directory, after links resolve, is missing, is or holds `$HOME`, or overlaps the sbx state directory.
 
