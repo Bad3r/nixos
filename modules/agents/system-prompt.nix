@@ -70,7 +70,8 @@ let
           source you use often is missing. The list is managed in
           `~/nixos/modules/hosts/common/mirrors.nix`.
         - Keep scratch files, clones, captures, and reports under `$TMPDIR`
-          (`${config.flake.lib.agents.scratchDir}`).
+          (`${config.flake.lib.agents.scratchDir}`), in a directory per task or
+          session named after it, so related files stay together and findable.
       ''
       + lib.optionalString vars.sbx ''
         - Run unknown binaries, downloads, and untrusted repositories in a disposable

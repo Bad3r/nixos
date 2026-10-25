@@ -1,7 +1,8 @@
 # shellcheck shell=bash
-# scratch is prepended by scratch-guard.nix.
+# scratch and its regex-escaped scratchRe are prepended by scratch-guard.nix.
 # shellcheck disable=SC2154
-# PreToolUse hook: denies writes under /tmp, redirecting agents to $scratch.
+# PreToolUse hook: denies writes under /tmp, redirecting agents to $scratch,
+# and new files directly in $scratch, which belong in a topic directory.
 # Reads from /tmp stay allowed.
 #
 # Bash detection is a heuristic over the command text: it cannot see paths
@@ -32,8 +33,11 @@ isTmp() {
   esac
 }
 
+topicHint="$scratch/<topic>/ (one directory per task or session, named after it, e.g. the branch)"
+
+# Pass create for tools that make a new file, so it cannot land loose in $scratch.
 checkPath() {
-  local path="$1"
+  local path="$1" rest
   [ -n "$path" ] || return 0
   case "$path" in
   /*) ;;
@@ -41,7 +45,15 @@ checkPath() {
   esac
   path="$(realpath -ms -- "$path")"
   if isTmp "$path"; then
-    deny "$path is under /tmp. Write to $scratch${path#/tmp} instead (\$TMPDIR is $scratch)."
+    rest="${path#/tmp}"
+    case "$rest" in
+    /*/*) ;;
+    *) rest="/<topic>$rest" ;;
+    esac
+    deny "$path is under /tmp. Write to $scratch$rest instead (\$TMPDIR is $scratch), grouping files under $topicHint."
+  fi
+  if [ "${2-}" = create ] && [ "${path%/*}" = "$scratch" ]; then
+    deny "$path would sit loose in $scratch. Write it under $topicHint, e.g. $scratch/<topic>/${path##*/}."
   fi
 }
 
@@ -51,14 +63,21 @@ command="$(jq -r '.tool_input.command // ""' <<<"$input")"
 if [ "$tool" = apply_patch ] || grep -q '^\*\*\* Begin Patch' <<<"$command"; then
   while IFS= read -r path; do
     checkPath "$path"
-  done < <(sed -nE 's/^\*\*\* (Add File|Update File|Move to): (.*)$/\2/p' <<<"$command")
+  done < <(sed -nE 's/^\*\*\* Update File: (.*)$/\1/p' <<<"$command")
+  while IFS= read -r path; do
+    checkPath "$path" create
+  done < <(sed -nE 's/^\*\*\* (Add File|Move to): (.*)$/\2/p' <<<"$command")
   if [ "$tool" != Bash ]; then
     exit 0
   fi
 fi
 
 case "$tool" in
-Write | Edit | MultiEdit | NotebookEdit)
+Write)
+  checkPath "$(jq -r '.tool_input.file_path // ""' <<<"$input")" create
+  exit 0
+  ;;
+Edit | MultiEdit | NotebookEdit)
   checkPath "$(jq -r '.tool_input.file_path // .tool_input.notebook_path // ""' <<<"$input")"
   exit 0
   ;;
@@ -129,9 +148,12 @@ checkHostPath() {
   '~' | '~/'*) path="$HOME${path#'~'}" ;;
   esac
   case "$path" in
-  *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out, or use \$TMPDIR ($scratch)." ;;
+  *[\$\`*?[]*) deny "Cannot resolve the sbx host path $1. Spell it out, or use \$TMPDIR/<topic> ($scratch/<topic>)." ;;
   esac
   checkPath "$path"
+  if [ "$(realpath -ms -- "$path")" = "$scratch" ]; then
+    deny "sbx would drop its output loose in $scratch. Copy it under $topicHint."
+  fi
 }
 
 # Everything after exec or run's -- runs in the guest, whose /tmp is its own;
@@ -182,7 +204,24 @@ patterns=(
 )
 for pattern in "${patterns[@]}"; do
   if grep -qE -- "$pattern" <<<"$text"; then
-    deny "This command writes under /tmp. Use $scratch (\$TMPDIR) instead, e.g. $scratch/<name> or a bare mktemp. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest paths of a bare sbx command (no pipes, redirections, && or env prefix) are not checked."
+    deny "This command writes under /tmp. Use $scratch (\$TMPDIR) instead, e.g. $scratch/<topic>/<name>, grouping files under $topicHint; a bare mktemp suits throwaway files. If /tmp only appears in quoted text or as a read source, rephrase so no /tmp path sits in a write position. Guest paths of a bare sbx command (no pipes, redirections, && or env prefix) are not checked."
+  fi
+done
+
+# Directories created in $scratch are topic directories; files belong inside one.
+root="${q}(\\\$TMPDIR|\\\$\\{TMPDIR\\}|${scratchRe})${q}"
+leaf="${root}/${q}[^/[:space:]\"';|&)<>]+${q}([[:space:];|&)<>]|$)"
+patterns=(
+  "(>>?|&>>?|>\|)[[:space:]]*${leaf}"
+  "\btee\b${seg}[[:space:]]${leaf}"
+  "\b(touch|truncate)\b${seg}[[:space:]]${leaf}"
+  "\b(cp|mv|install|ln)\b${seg}[[:space:]]${root}/?${q}[[:space:]]*($|[|;&)])"
+  "(^|[[:space:]])(-o|-O|--output|--output-document)(=|[[:space:]]+)${leaf}"
+  "\bof=${leaf}"
+)
+for pattern in "${patterns[@]}"; do
+  if grep -qE -- "$pattern" <<<"$command"; then
+    deny "This command writes a file loose in $scratch (\$TMPDIR). Put it under $topicHint: mkdir -p \"\$TMPDIR/<topic>\" and write \$TMPDIR/<topic>/<name>."
   fi
 done
 exit 0

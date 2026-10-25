@@ -33,6 +33,7 @@ in
         ];
         text = ''
           scratch=${lib.escapeShellArg scratchDir}
+          scratchRe=${lib.escapeShellArg (lib.escapeRegex scratchDir)}
           ${builtins.readFile ./scratch-guard.sh}
         '';
       };
@@ -50,6 +51,8 @@ in
         }
         (patch "/tmp/notes.md")
         (patch "../../tmp/x")
+        (write "${scratchDir}/notes.md")
+        (patch "${scratchDir}/notes.md")
       ]
       ++ map bash [
         "echo hi > /tmp/x"
@@ -87,9 +90,25 @@ in
         "cd /tmp && sbx exec n -- true"
         "sbx exec n -- true | tee /tmp/y"
         "TMPDIR=/tmp sbx run nixos --out /root/r --to \"$TMPDIR\" -- true"
+        ''echo x > "$TMPDIR/a"''
+        ''echo x > "$TMPDIR"/a''
+        "echo x >> \${TMPDIR}/a.log"
+        "cmd 2>${scratchDir}/err"
+        "ls | tee $TMPDIR/out.txt"
+        "touch $TMPDIR/a"
+        "curl -sL https://example.invalid -o \"$TMPDIR/x.tgz\""
+        "cp a.txt $TMPDIR/"
+        "mv a.txt \"$TMPDIR\""
+        "sbx cp n:/tmp/a \"$TMPDIR\""
+        "sbx run nixos --out /root/r --to \"$TMPDIR\" -- true"
       ];
       allow = [
-        (write "${scratchDir}/a")
+        (write "${scratchDir}/topic/a")
+        (patch "${scratchDir}/topic/a")
+        {
+          tool_name = "Edit";
+          tool_input.file_path = "${scratchDir}/old.md";
+        }
         (write "/tmp/../home/x")
         (write "/var/tmp/x")
         (patch "src/a.md")
@@ -101,7 +120,7 @@ in
       ++ map bash [
         "cat /tmp/x"
         "ls -la /tmp"
-        "cp /tmp/x ${scratchDir}/"
+        "cp /tmp/x ${scratchDir}/topic/"
         "mv /tmp/old ${scratchDir}/old"
         "rsync -a /tmp/src/ ${scratchDir}/src/"
         "grep foo /tmp/log > out.txt"
@@ -110,13 +129,19 @@ in
         "mktemp -d"
         "ls /tmp/.X11-unix"
         "cd /tmpfoo"
-        ''echo x > "$TMPDIR/a"''
+        ''echo x > "$TMPDIR/topic/a"''
+        ''echo x > "$TMPDIR"/topic/a''
+        "mkdir -p \"$TMPDIR/topic\""
+        "git clone https://example.invalid/r $TMPDIR/repo"
+        "cat $TMPDIR/a > out.txt"
+        "curl -sL https://example.invalid -o $TMPDIR/topic/x.tgz"
+        "echo x > $TMPDIRX/a"
         "apply_patch <<'EOF'\n*** Begin Patch\n*** Add File: src/a\n+x\n*** End Patch\nEOF"
         "sbx exec n --json -- sh -c 'app > /tmp/app.log 2>&1 </dev/null &'"
         "sbx exec n -- sh -c 'echo x > /tmp/a'"
         "sbx exec n -- mkdir -p /tmp/work"
-        "sbx run nixos --out /tmp/r --to \"$TMPDIR\" -- sh -c 'check > /tmp/r'"
-        "sbx cp n:/tmp/a \"$TMPDIR\""
+        "sbx run nixos --out /tmp/r --to \"$TMPDIR/topic\" -- sh -c 'check > /tmp/r'"
+        "sbx cp n:/tmp/a \"$TMPDIR/topic\""
         "sbx cp n:/tmp/a \${TMPDIR}/a"
         "sbx cp n:/tmp/a ~/out"
         "sbx cp ${scratchDir}/in n:/tmp/in"
