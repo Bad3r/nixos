@@ -37,8 +37,8 @@ POLICY: Record = {
     },
     "targets": {
         "host": {
-            "dev": {"ports": [{"from": 8000, "to": 8999, "proto": "tcp"}]},
-            "api": {"ports": [{"from": 7000, "to": 7000, "proto": "tcp"}]},
+            "dev": {"ports": [{"from": 8000, "to": 8999, "proto": "tcp"}], "bind": "any"},
+            "api": {"ports": [{"from": 7000, "to": 7000, "proto": "tcp"}], "bind": "loopback"},
         },
         "guest": {
             "dev": {

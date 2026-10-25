@@ -28,7 +28,8 @@ DEFAULT_TTL = "30m"
 TTL_TEXT = (
     "A grant permits all traffic on its path, established connections included, only until"
     " its TTL ends. When it expires or is revoked, every connection it admitted stops at once;"
-    " connections of other grants keep working."
+    " connections of other grants keep working. A sandbox without an address reaches a granted"
+    " host service over vsock, at CID 2 on the service's port."
 )
 SESSION_VARIABLES = (("CLAUDE_CODE_SESSION_ID", "claude"), ("CODEX_THREAD_ID", "codex"))
 SHARE_TEXT = (
@@ -277,20 +278,86 @@ def canonical_source(source: str, role: str = "source") -> str:
     return canonical
 
 
-def grant_source(source: str, runner: SbxRunner) -> tuple[str, str | None]:
-    """Canonical source and, for a sandbox, its address from `sbx info`."""
+def grant_source(source: str, runner: SbxRunner) -> tuple[str, Record]:
+    """Canonical source and how the helper identifies a sandbox, from `sbx info`.
+
+    An egress sandbox is its address; one without a network is its creation
+    token, and its grant is served over vsock.
+    """
     canonical = canonical_source(source)
     if not SANDBOX_PATTERN.fullmatch(canonical):
-        return canonical, None
+        return canonical, {}
     info = _sbx_json(runner, ["info", canonical.removeprefix("sbx-"), "--json"])
     if info is None:
         msg = f"{canonical} is a sandbox, and sbx is not installed"
         raise WorkloadsError(msg, code="sbx")
-    address = cast("Record", info).get("address") if isinstance(info, dict) else None
-    if not isinstance(address, str):
-        msg = f"{canonical} has no address on a workload network"
-        raise WorkloadsError(msg, code="no-address")
-    return canonical, address
+    details = cast("Record", info) if isinstance(info, dict) else {}
+    address, token = details.get("address"), details.get("token")
+    if isinstance(address, str):
+        return canonical, {"address": address}
+    if details.get("net") == "none" and isinstance(token, str):
+        if not isinstance(details.get("cid"), int):
+            msg = f"{canonical} has no vsock device, as a Windows sandbox, or is not running"
+            raise WorkloadsError(msg, code="no-vsock")
+        return canonical, {"token": token}
+    msg = f"{canonical} has no address on a workload network"
+    raise WorkloadsError(msg, code="no-address")
+
+
+def vsock_states(runner: SbxRunner) -> dict[str, Record]:
+    """Have the owner's vsock proxy apply the grant list now, and return each grant's state."""
+    status = _sbx_json(runner, ["vsock", "sync", "--json"])
+    if status is None:
+        msg = "sbx is not installed, so no vsock grant can be served"
+        raise WorkloadsError(msg, code="sbx")
+    grants = cast("Record", status).get("grants") if isinstance(status, dict) else None
+    if not isinstance(grants, dict):
+        msg = "sbx vsock sync printed no grant states"
+        raise WorkloadsError(msg, code="sbx")
+    return {
+        str(grant): cast("Record", state) if isinstance(state, dict) else {}
+        for grant, state in cast("Record", grants).items()
+    }
+
+
+def confirm_vsock(runner: SbxRunner, helper: Helper, answer: Record) -> Record:
+    """Keep a vsock grant only once its listener sits in the sandbox; otherwise revoke it."""
+    grant = cast("Record", answer["grant"])
+    try:
+        state = vsock_states(runner).get(str(grant["id"]), {})
+        failure = (
+            None
+            if state.get("state") == "listening"
+            else str(state.get("error") or f"the proxy reports {state.get('state', 'nothing')}")
+        )
+    except (WorkloadsError, OSError) as error:
+        failure = str(error)
+    if failure is None:
+        return answer
+    _ask(helper, {"verb": "revoke", "id": grant["id"]})
+    msg = (
+        f"grant {grant['id']} is revoked: its listener is not inside the sandbox's"
+        f" namespace: {failure}"
+    )
+    raise WorkloadsError(msg, code="vsock-listener")
+
+
+def settle_vsock(runner: SbxRunner, answer: Record) -> Record:
+    """Return once the owner's vsock proxy has closed every revoked vsock grant."""
+    revoked = answer.get("vsock")
+    if not isinstance(revoked, list) or not revoked:
+        return answer
+    names = ", ".join(str(grant) for grant in cast("list[object]", revoked))
+    unconfirmed = f"grants {names} are revoked from the vsock grant list, but"
+    try:
+        states = vsock_states(runner)
+    except (WorkloadsError, OSError) as error:
+        msg = f"{unconfirmed} the vsock proxy did not confirm closing them: {error}"
+        raise WorkloadsError(msg, code="vsock-unconfirmed") from error
+    if any(grant in states for grant in cast("list[object]", revoked)):
+        msg = f"{unconfirmed} the vsock proxy still serves them"
+        raise WorkloadsError(msg, code="vsock-unconfirmed")
+    return answer
 
 
 def revoke_request(source: str, runner: SbxRunner) -> Record:
@@ -382,20 +449,21 @@ def dispatch(
             case "names":
                 return names(load_names(names_path), runner)
             case "grant":
-                source, address = grant_source(arguments.source, runner)
+                source, identity = grant_source(arguments.source, runner)
                 request: Record = {
                     "verb": "grant",
                     "source": source,
                     "target": arguments.target,
                     "ttl": parse_duration(arguments.ttl),
-                }
-                if address is not None:
-                    request["address"] = address
-                return _ask(helper, request)
+                } | identity
+                answer = _ask(helper, request)
+                return confirm_vsock(runner, helper, answer) if "token" in identity else answer
             case "revoke":
                 if arguments.id is not None:
-                    return _ask(helper, {"verb": "revoke", "id": arguments.id})
-                return _ask(helper, revoke_request(arguments.source, runner))
+                    return settle_vsock(
+                        runner, _ask(helper, {"verb": "revoke", "id": arguments.id})
+                    )
+                return settle_vsock(runner, _ask(helper, revoke_request(arguments.source, runner)))
             case "share":
                 return share(
                     arguments.share_verb, arguments.target, arguments.share, runner, helper
