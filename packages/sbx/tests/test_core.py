@@ -29,7 +29,10 @@ STUBS = {
         'if [ "$1" = info ]; then echo \'{"virtual-size": 1073741824}\'; '
         'else eval "disk=\\${$(($# - 1))}"; touch "$disk"; fi'
     ),
-    "ssh": 'exit "${SBX_TEST_SSH_EXIT:-0}"',
+    "ssh": (
+        'if [ -n "$SBX_TEST_SSH_LOG" ]; then printf "%s\\n" "$@" > "$SBX_TEST_SSH_LOG"; fi; '
+        'exit "${SBX_TEST_SSH_EXIT:-0}"'
+    ),
     "scp": (
         'printf "%s\\n" "$@" > "$SBX_TEST_LOG"; for t; do :; done; '
         'case "$t" in root@*) exit 0;; esac; '
@@ -39,7 +42,6 @@ STUBS = {
         'touch "$SBX_TEST_DONE"; exit 0; fi; '
         'echo out > "$t"; chmod 755 "$t"'
     ),
-    "ss": 'cat "$SBX_TEST_SS" 2>/dev/null || true',
     "git": (
         'if [ -n "$GIT_DIR" ] || [ -z "$SBX_TEST_TOPLEVEL" ]; then exit 1; fi; '
         'echo "$SBX_TEST_TOPLEVEL"'
@@ -87,6 +89,7 @@ class FakeBackend:
             cid=3 if active else None,
             meta=meta,
             managed_save=kwargs.get("managed_save", False),
+            pid=4242 if active else None,
         )
 
     def start(self, xml: str) -> None:
@@ -108,6 +111,7 @@ class FakeBackend:
             meta=Meta.parse(element),
             managed_save=False,
             mac=None if mac is None else mac.get("address"),
+            pid=4242,
         )
 
     def remove(self, domain: str) -> None:
@@ -207,7 +211,7 @@ class Fixture(unittest.TestCase):
             ssh_keygen=str(stubs / "ssh-keygen"),
             socat=other,
             tesseract=other,
-            ss=str(stubs / "ss"),
+            nsenter="/nix/store/util-linux/bin/nsenter",
             git=str(stubs / "git"),
             systemctl=other,
             nix=other,
@@ -226,7 +230,6 @@ class Fixture(unittest.TestCase):
             default_cpus=2,
             default_ttl=2 * 3600,
             disk_gib=8,
-            vsock_allowlist=frozenset({7000}),
             cpuset="8-23",
             flake="/flake",
             unit="sbx-libvirt.service",
@@ -247,7 +250,6 @@ class Fixture(unittest.TestCase):
             os.environ,
             {
                 "TMPDIR": str(self.scratch / "tmp"),
-                "SBX_TEST_SS": str(self.scratch / "ss"),
                 "SBX_TEST_LOG": str(self.scratch / "scp.log"),
                 "SBX_TEST_DONE": str(self.scratch / "scp.done"),
             },
@@ -357,15 +359,25 @@ class SandboxesTest(Fixture):
         self.assertEqual(refused.exception.code, "disk-full")
         self.assertFalse(self.paths.sandbox("t1").exists())
 
-    def test_vsock_listeners(self) -> None:
-        """Reachable host listeners outside the allowlist refuse a sandbox."""
-        ss = self.scratch / "ss"
-        ss.write_text("v_str LISTEN 0 0 *:7000 *:*\nv_str LISTEN 0 0 1:5000 *:*\n")
-        self.sandboxes().create(self.request())
-        ss.write_text("v_str LISTEN 0 0 2:5999 *:*\n")
+    def test_ssh_enters_the_qemu_namespace(self) -> None:
+        """SSH reaches the guest's CID from inside its QEMU's namespaces, never the host's."""
+        self.add_running("v")
+        sandboxes = self.sandboxes()
+        log = self.scratch / "ssh.log"
+        with mock.patch.dict(os.environ, {"SBX_TEST_SSH_LOG": str(log)}):
+            sandboxes.exec_capture("v", ["true"], timeout=None, agent=False)
+        proxy = next(arg for arg in log.read_text().splitlines() if arg.startswith("ProxyCommand="))
+        self.assertEqual(
+            proxy,
+            "ProxyCommand=/nix/store/util-linux/bin/nsenter --target 4242 --user --net "
+            f"--preserve-credentials -- {self.settings.tools.socat} - VSOCK-CONNECT:3:22",
+        )
+        self.backend.domains_by_name["sbx-v"] = dataclasses.replace(
+            self.backend.domains_by_name["sbx-v"], pid=None
+        )
         with self.assertRaises(SbxError) as refused:
-            self.sandboxes().create(self.request(name="t2"))
-        self.assertEqual(refused.exception.code, "vsock-listener")
+            sandboxes.exec_capture("v", ["true"], timeout=None, agent=False)
+        self.assertEqual(refused.exception.code, "not-running")
 
     def test_gc(self) -> None:
         """Expired, stopped, and directory-less sandboxes go; managed saves and live ones stay."""
@@ -819,14 +831,6 @@ class SandboxesTest(Fixture):
         root = ET.fromstring(self.backend.xml["sbx-t1"])  # noqa: S314
         self.assertIsNone(root.find("devices/interface"))
 
-    def test_egress_checks_vsock_listeners(self) -> None:
-        """A NIC does not remove vsock, so egress sandboxes get the listener check too."""
-        self.egress()
-        (self.scratch / "ss").write_text("v_str LISTEN 0 0 2:5999 *:*\n")
-        with self.assertRaises(SbxError) as refused:
-            self.sandboxes().create(self.request(net="egress"))
-        self.assertEqual(refused.exception.code, "vsock-listener")
-
     def test_settings_egress(self) -> None:
         """The rendered settings carry the egress bridge, or why there is none."""
         raw: dict[str, object] = {
@@ -840,7 +844,6 @@ class SandboxesTest(Fixture):
                 "minFreeBytes": 1,
             },
             "defaults": {"memoryMiB": 1, "cpus": 1, "ttlSeconds": 1, "diskGiB": 1},
-            "vsockAllowlist": [],
             "cpuset": "0",
             "flake": "/flake",
             "unit": "u",

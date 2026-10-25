@@ -469,4 +469,4 @@
 - [apps/sbx/sleep.md](apps/sbx/sleep.md)
   - Sandboxes across host suspend and hibernation: the `sbx sleep` phases, TTL handling, the save floor, records, and failures.
 - [apps/sbx/troubleshooting.md](apps/sbx/troubleshooting.md)
-  - `sbx` failures by error code: a daemon outside the slice, vsock listeners, boot timeouts, and an unavailable egress bridge or lease.
+  - `sbx` failures by error code: a daemon outside the slice, the vsock namespace launcher, boot timeouts, and an unavailable egress bridge or lease.

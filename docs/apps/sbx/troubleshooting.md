@@ -13,15 +13,26 @@ systemctl --user status sbx-libvirt.service
 
 Fix: close that client's session connection, stop the stray `virtqemud`, and rerun the command.
 
-## create fails with vsock-listener
+## create fails with libvirt and an sbx-qemu message
 
-Cause: a host process listens on vsock, so a sandbox could reach it.
+Cause: the namespace `sbx-qemu` creates for QEMU is not in `local` vsock mode, or the kernel has no vsock namespaces.
 
 ```sh
-ss -l --vsock
+cat /proc/sys/net/vsock/child_ns_mode
+unshare --user --map-current-user --net cat /proc/sys/net/vsock/ns_mode
 ```
 
-Fix: stop the listener, or add its port to `vsockAllowlist` when every sandbox may reach it.
+Fix: boot a generation with the `sbx` module, which sets `net.vsock.child_ns_mode` to `local`; the first write locks the value, so a host that wrote `global` first needs a reboot.
+
+## exec fails with reassociate to namespaces failed
+
+Cause: the sandbox's QEMU shares the caller's user namespace, so it did not start through `sbx-qemu`.
+
+```sh
+sbx info <name>
+```
+
+Fix: `sbx destroy <name>` and create the sandbox again.
 
 ## create fails with boot-timeout
 
