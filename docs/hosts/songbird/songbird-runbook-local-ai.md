@@ -57,26 +57,27 @@ Verification: `~/.local/state/llama-cpp-cuda/bin/llama-server --list-devices` li
 
 ## Serve a model to the iPhone
 
-Precondition: `nvidia-smi` lists no inference process, the CUDA build above exists, and the iPhone is on the Mesh.
+Precondition: `nvidia-smi` lists no inference process, the CUDA build above exists, and the iPhone is on the LAN or the Mesh.
 
-1. Serve llama-server on songbird's Mesh address (`ip -4 addr show CloudflareWARP`) and a port inside `firewallLocalTcpPortRanges` in `modules/hosts/songbird/policy.nix`, behind a key file:
+1. Serve llama-server on all interfaces and a port inside `firewallLocalTcpPortRanges` in `modules/hosts/songbird/policy.nix`, behind a key file:
 
    ```sh
    install -d -m 700 ~/.config/llama
    [ -s ~/.config/llama/api-key ] || head -c 24 /dev/urandom | base64 >| ~/.config/llama/api-key
-   spwnd ~/.local/state/llama-cpp-cuda/bin/llama-server -m <model.gguf> --mmproj <mmproj.gguf> --host <mesh-address> --port <port> --api-key-file ~/.config/llama/api-key
+   spwnd ~/.local/state/llama-cpp-cuda/bin/llama-server -m <model.gguf> --mmproj <mmproj.gguf> --host 0.0.0.0 --port <port> --api-key-file ~/.config/llama/api-key
    ```
 
    `--mmproj` loads the vision projector, the `mmproj` GGUF published beside the model, so the web UI accepts images.
+   The firewall opens that range to the LAN and the Mesh only, and the key guards every inference request.
 
-   Never add `--tools`, `--agent`, `--ui-mcp-proxy`, `--mcp-servers-config`, or `--mcp-servers-json` to a server on the Mesh; they expose shell commands, MCP server tools, or a URL proxy.
+   Never add `--tools`, `--agent`, `--ui-mcp-proxy`, `--mcp-servers-config`, or `--mcp-servers-json` to a server on the network; they expose shell commands, MCP server tools, or a URL proxy.
 
-2. Open `http://<mesh-address>:<port>` in Safari and paste the key into the web UI settings.
+2. Open `http://<songbird-address>:<port>` in Safari, using songbird's LAN address or its Mesh address (`ip -4 addr show CloudflareWARP`), and paste the key into the web UI settings.
 
-Verification, from an enrolled Mesh peer:
+Verification, from a LAN host or an enrolled Mesh peer:
 
-- `curl -s -o /dev/null -w '%{http_code}' http://<mesh-address>:<port>/v1/models` prints `401`, and the same request with `-H "Authorization: Bearer <key>"` prints `200`.
-- `curl -s -H "Authorization: Bearer <key>" http://<mesh-address>:<port>/props | jq .modalities.vision` prints `true`.
+- `curl -s -o /dev/null -w '%{http_code}' http://<songbird-address>:<port>/v1/models` prints `401`, and the same request with `-H "Authorization: Bearer <key>"` prints `200`.
+- `curl -s -H "Authorization: Bearer <key>" http://<songbird-address>:<port>/props | jq .modalities.vision` prints `true`.
 
 ## Free the GPU
 
