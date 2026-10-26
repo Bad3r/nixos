@@ -1,6 +1,6 @@
 # Songbird troubleshooting: Windows
 
-NixOS entries are in [songbird-troubleshooting.md](songbird-troubleshooting.md).
+- [songbird-troubleshooting.md](songbird-troubleshooting.md)
 
 ## /portal is missing after boot
 
