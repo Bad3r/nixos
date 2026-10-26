@@ -52,15 +52,18 @@
             _ccp_quoted="$_ccp_quoted $(printf '%q' "$_ccp_arg")"
           fi
         done
-        local _ccp_out
-        _ccp_out=$(mktemp -t ccp.XXXXXX) || return 1
-        { printf '$ %s\n' "$_ccp_quoted"; "$@"; } 2>&1 | tee "$_ccp_out"
-        if ! xsel -ib <"$_ccp_out" >/dev/null; then
-          rm -f "$_ccp_out"
-          printf 'ccp: clipboard write failed\n' >&2
-          return 1
-        fi
-        rm -f "$_ccp_out"
+        # The subshell scopes the traps, so Ctrl-C removes the capture file
+        # without replacing the caller's own traps.
+        (
+          _ccp_out=$(mktemp -t ccp.XXXXXX) || exit 1
+          trap 'rm -f "$_ccp_out"' EXIT
+          trap 'exit 130' INT TERM
+          { printf '$ %s\n' "$_ccp_quoted"; "$@"; } 2>&1 | tee "$_ccp_out"
+          if ! xsel -ib <"$_ccp_out" >/dev/null; then
+            printf 'ccp: clipboard write failed\n' >&2
+            exit 1
+          fi
+        )
       }
     '';
   };
