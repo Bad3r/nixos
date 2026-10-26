@@ -1337,6 +1337,7 @@ class SandboxesTest(Fixture):
             (("--out", "/root/a/x", "--out", "/root/b/x", *to), "invalid-argument"),
             (("--out", "/root/taken", *to), "exists"),
             (("--wait", "10m", "--in", str(outside)), "path-denied"),
+            (("--user", "sbx", "--in", str(tmp / "a" / "f")), "invalid-argument"),
         ]
         for flags, code in cases:
             argv = ("run", "nixos", "--name", "r", *flags, "--", "true")

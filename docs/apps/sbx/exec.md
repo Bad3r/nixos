@@ -62,6 +62,7 @@ The MCP tools take the same as `cwd`, `env` (an object), `user`, and `stdin` tex
 ## One-shot runs
 
 `run` creates a sandbox, copies each `--in` into `/root/` (`C:\sbx\` on Windows), runs the command, copies each `--out` to `--to`, and destroys the sandbox.
+`/root/` is readable only by root, so on Linux `run` refuses `--in` with a `--user` other than root.
 `run --json` prints one document, and the MCP `run` tool returns the same:
 
 | Field       | Meaning                                        |

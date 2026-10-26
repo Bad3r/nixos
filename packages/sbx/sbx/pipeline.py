@@ -104,7 +104,12 @@ class Pipeline(Lifecycle, Transfer):
     """`sbx run`."""
 
     def plan_run(
-        self, request: Request, inputs: Sequence[str], outputs: Sequence[str], to: str | None
+        self,
+        request: Request,
+        inputs: Sequence[str],
+        outputs: Sequence[str],
+        to: str | None,
+        user: str | None = None,
     ) -> RunPlan:
         """Check a run's host paths, base, network, and disk before it boots or queues.
 
@@ -117,6 +122,9 @@ class Pipeline(Lifecycle, Transfer):
             msg = "--to needs --out"
             raise SbxError(msg, code="usage")
         on_windows = self.windows_base(request.base) is not None
+        if inputs and not on_windows and user not in (None, "root"):
+            msg = "--in lands in /root/, which only root can read; drop --user or --in"
+            raise SbxError(msg, code="invalid-argument")
         sources = tuple(self._source(Path(path)) for path in inputs)
         landing: dict[str, Path] = {}
         for source in sources:

@@ -289,8 +289,9 @@ def _run(sandboxes: Sandboxes, args: Args, ctx: Ctx) -> Result:
     encoding = args.text("encoding")
     command = _command(args)
     request = _request(sandboxes, args)
-    plan = sandboxes.plan_run(request, args.strings("in"), args.strings("out"), args.optional("to"))
+    inputs, outputs, to = args.strings("in"), args.strings("out"), args.optional("to")
     options = _exec_options(sandboxes, args)
+    plan = sandboxes.plan_run(request, inputs, outputs, to, options.user)
     result = sandboxes.run_once(
         request, plan, command, options, attached=ctx.stdio_attached, token=ctx.token
     )
