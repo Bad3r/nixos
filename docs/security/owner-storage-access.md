@@ -57,6 +57,8 @@ System units that run owner processes, such as the `r2-mount-*` FUSE mounts, kee
   - should not list `disk`.
 - `getent group disk`
   - should end in an empty member list.
+- `ps -u "$USER" -o supgrp= | grep -cw disk`
+  - should print `0`.
 - `ls /run/wrappers/bin`
   - should list none of `smartctl`, `nvme`, `hdparm`, or `sedutil-cli`.
 - `head -c 1 /dev/nvme0n1 >/dev/null`
