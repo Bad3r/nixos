@@ -44,17 +44,6 @@ in
       llamaVision = llamaCommon // {
         mmproj-auto = true;
       };
-      llamaGemma12b = llamaVision // {
-        hf-repo = "unsloth/gemma-4-12B-it-qat-GGUF:UD-Q4_K_XL";
-        ctx-size = 128000;
-        # An image must fit in one ubatch, so the default 512 caps Gemma 4's 1120 image tokens.
-        # 2048 costs ~2.2 GiB more VRAM, which the 26B cannot spare.
-        ubatch-size = 2048;
-      };
-      llamaQwen9b = llamaVision // {
-        hf-repo = "unsloth/Qwen3.5-9B-MTP-GGUF:UD-Q5_K_XL";
-        ctx-size = 128000;
-      };
       llamaMinicpm2b = llamaCommon // {
         hf-repo = "openbmb/MiniCPM5-2B-GGUF:Q8_0";
         ctx-size = 131072;
@@ -62,44 +51,24 @@ in
       # llama-server models preset: one section per model, named as clients request it.
       # n-gpu-layers = all makes a model that does not fit in VRAM fail to load instead of offloading.
       llamaModels = {
-        gemma-4-12b-it-qat = llamaGemma12b // {
+        # Gemma 4 vision caps an image at ubatch-size tokens, and the 26B has no VRAM for more than the default 512.
+        gemma-4-26b-a4b = llamaVision // {
+          hf-repo = "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ3_S";
+          ctx-size = 128000;
           load-on-startup = true;
-        };
-        gemma-4-12b-it-qat-mtp = llamaGemma12b // {
-          spec-draft-hf = "magnitudedev/gemma-4-12B-it-qat-MTP-GGUF:Q4_0";
-          spec-type = "draft-mtp";
-        };
-        "qwen3.5-9b" = llamaQwen9b;
-        # Without a draft file, draft-mtp uses the model's own MTP layers.
-        "qwen3.5-9b-mtp" = llamaQwen9b // {
-          spec-type = "draft-mtp";
-        };
-        "qwen3.5-9b-dflash" = llamaQwen9b // {
-          spec-draft-hf = "magnitudedev/Qwen3.5-9B-DFlash-GGUF:Q8_0";
-          spec-type = "draft-dflash";
         };
         minicpm5-2b = llamaMinicpm2b;
         minicpm5-2b-dspark = llamaMinicpm2b // {
           spec-draft-hf = "magnitudedev/MiniCPM5-2B-DSpark-GGUF:DSpark";
           spec-type = "draft-dspark";
         };
-        gemma-4-26b-a4b = llamaVision // {
-          hf-repo = "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ3_S";
-          ctx-size = 128000;
-        };
         "qwen3.8-27b" = llamaVision // {
           hf-repo = "unsloth/Qwen3.8-27B-GGUF:UD-IQ3_XXS";
           ctx-size = 65536;
         };
-        "qwen3.6-35b-a3b" = llamaVision // {
-          hf-repo = "unsloth/Qwen3.6-35B-A3B-GGUF:UD-IQ3_XXS";
-          ctx-size = 65536;
-          # Weights, KV, and projector do not all fit in 16 GiB, so the projector runs on the CPU.
-          mmproj-offload = false;
-        };
       };
       # The model `claude-local` and `codex -p local` request.
-      llamaModel = "gemma-4-12b-it-qat";
+      llamaModel = "gemma-4-26b-a4b";
       llamaPort = 10100;
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
         globalSection.version = 1;

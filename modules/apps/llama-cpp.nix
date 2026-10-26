@@ -83,7 +83,7 @@ in
 
           model = lib.mkOption {
             type = lib.types.str;
-            example = "gemma-4-12b-it-qat";
+            example = "gemma-4-26b-a4b";
             description = "Model name, a section of the server's models preset, that `claude-local` and the Codex `local` profile request.";
           };
 
@@ -91,7 +91,7 @@ in
             type = lib.types.attrsOf lib.types.ints.positive;
             default = { };
             example = {
-              gemma-4-12b-it-qat = 119808;
+              gemma-4-26b-a4b = 119808;
             };
             description = ''
               Context size, in tokens, that the clients compact within, per model name the
