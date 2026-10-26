@@ -12,8 +12,9 @@
   Notes:
     * The host sets `services.llama-cpp.settings`: listener, router flags, and models preset.
     * The service reads the API key from secrets/llama-cpp.yaml through a systemd credential.
-      Without that secret, or before the host's sopsRuntimeReady, it runs without a key, so the
-      host binds a non-loopback listener only while `services.llama-cpp.apiKeyFile` is set.
+      Without that secret, before the host's sopsRuntimeReady, or with security.repoSecrets
+      disabled, it runs without a key, so the host binds a non-loopback listener only while
+      `services.llama-cpp.apiKeyFile` is set.
     * `client.*` configures `claude-local` (modules/agents/claude-code) and the Codex `local`
       profile (modules/agents/codex).
     * The default package substitutes from cache.nixos-cuda.org; without that cache the host
@@ -54,7 +55,9 @@ in
       # before the age identity would activate sops.secrets with no key to
       # decrypt and fail activation mid-switch.
       apiKeyReady =
-        (hostsRegistry.${hostName}.sopsRuntimeReady or false) && builtins.pathExists apiKeySecretFile;
+        (hostsRegistry.${hostName}.sopsRuntimeReady or false)
+        && lib.attrByPath [ "security" "repoSecrets" "enable" ] true config
+        && builtins.pathExists apiKeySecretFile;
       keyNeeded = cfg.enable || cfg.client.endpoint != null;
       ownerHome = config.home-manager.users.${owner} or null;
     in
@@ -146,13 +149,13 @@ in
 
         (lib.mkIf (cfg.enable && !apiKeyReady) {
           warnings = [
-            "programs.llama-cpp.extended.enable is true but ${toString apiKeySecretFile} is missing or flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady is false; llama-server runs without an API key."
+            "programs.llama-cpp.extended.enable is true but ${toString apiKeySecretFile} is missing, flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady is false, or security.repoSecrets.enable is false; llama-server runs without an API key."
           ];
         })
 
         (lib.mkIf (!cfg.enable && cfg.client.endpoint != null && cfg.client.apiKeyFile == null) {
           warnings = [
-            "programs.llama-cpp.extended.client.endpoint is ${cfg.client.endpoint} but client.apiKeyFile is null, which is the default when ${toString apiKeySecretFile} is missing or sops is not ready on ${hostName}; a remote llama-server answers requests without a key with 401."
+            "programs.llama-cpp.extended.client.endpoint is ${cfg.client.endpoint} but client.apiKeyFile is null, which is the default when ${toString apiKeySecretFile} is missing, sops is not ready on ${hostName}, or repo secrets are disabled; a remote llama-server answers requests without a key with 401."
           ];
         })
       ];
