@@ -205,8 +205,9 @@ _: {
             };
           }
           # Orca offers a launch slot only for agents it finds on PATH, and OpenClaude's slot
-          # launches with Claude Code's flags.
-          // lib.optionalAttrs (localClient.endpoint != null && orcaEnabled) {
+          # launches with Claude Code's flags. The nix install wraps bin/claude, so its comm
+          # would be .claude-wrapped instead of openclaude.
+          // lib.optionalAttrs (localClient.endpoint != null && orcaEnabled && !installMethods.nix.enable) {
             ".local/bin/openclaude" = {
               source = lib.getExe claudeRuntime.openclaudeLocalWrapped;
               executable = true;
