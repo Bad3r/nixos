@@ -191,10 +191,17 @@ let
     runtimeInputs = [ pkgs.jq ];
     text = ''
       model=''${CLAUDE_LOCAL_MODEL:-${lib.escapeShellArg localClient.model}}
+      context=$(jq -nr --arg model "$model" \
+        --argjson windows ${lib.escapeShellArg (builtins.toJSON localClient.contextWindows)} \
+        '$windows[$model] // empty | tostring')
+      if [ -z "$context" ]; then
+        echo "claude-local: unknown model '$model'; known: ${lib.concatStringsSep " " (lib.attrNames localClient.contextWindows)}" >&2
+        exit 64
+      fi
       settings=$(jq -cn \
         --arg model "$model" \
         --arg url ${lib.escapeShellArg localClient.endpoint} \
-        --arg context ${toString localClient.contextWindow} \
+        --arg context "$context" \
         --arg keyHelper ${lib.escapeShellArg keyHelper} '
           {
             model: $model,

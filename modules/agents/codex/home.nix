@@ -110,45 +110,48 @@ _: {
       } osConfig;
 
       # A static catalog stops Codex from fetching /v1/models, whose llama.cpp shape it cannot
-      # decode. The entry mirrors Codex's fallback metadata for unknown models; the schema
-      # requires the instructions inline.
+      # decode. Each entry mirrors Codex's fallback metadata for unknown models; the schema
+      # requires the instructions inline. A slug outside it gets a cloud-sized fallback window.
       codexLocalCatalogPath = "${configDir}/local-models.json";
       codexLocalCatalog =
         pkgs.runCommand "codex-local-models.json"
           {
             nativeBuildInputs = [ pkgs.jq ];
-            model = builtins.toJSON {
-              slug = localClient.model;
-              display_name = localClient.model;
-              supported_reasoning_levels = [ ];
-              shell_type = "unified_exec";
-              visibility = "list";
-              supported_in_api = true;
-              priority = 0;
-              include_apps_usage_instructions = false;
-              default_reasoning_summary = "auto";
-              support_verbosity = false;
-              web_search_tool_type = "text";
-              truncation_policy = {
-                mode = "bytes";
-                limit = 10000;
-              };
-              experimental_supported_tools = [ ];
-            };
+            models = builtins.toJSON (
+              lib.mapAttrsToList (slug: window: {
+                inherit slug;
+                display_name = slug;
+                # max_context_window caps a model_context_window from another config layer.
+                context_window = window;
+                max_context_window = window;
+                supported_reasoning_levels = [ ];
+                shell_type = "unified_exec";
+                visibility = "list";
+                supported_in_api = true;
+                priority = 0;
+                include_apps_usage_instructions = false;
+                default_reasoning_summary = "auto";
+                support_verbosity = false;
+                web_search_tool_type = "text";
+                truncation_policy = {
+                  mode = "bytes";
+                  limit = 10000;
+                };
+                experimental_supported_tools = [ ];
+              }) localClient.contextWindows
+            );
           }
           ''
-            jq -n --argjson model "$model" \
+            jq -n --argjson models "$models" \
               --rawfile prompt ${codexPkg.src}/codex-rs/models-manager/prompt.md \
-              '{models: [$model + {model_messages: {instructions_template: $prompt}}]}' > "$out"
+              '{models: [$models[] + {model_messages: {instructions_template: $prompt}}]}' > "$out"
           '';
 
-      # Layered over config.toml by `codex -p local`. The context window also covers `-m` models
-      # outside the catalog, which otherwise get a cloud-sized fallback.
+      # Layered over config.toml by `codex -p local`.
       codexLocalProfile = (pkgs.formats.toml { }).generate "codex-local.config.toml" {
         inherit (localClient) model;
         review_model = localClient.model;
         model_provider = "llama-cpp";
-        model_context_window = localClient.contextWindow;
         model_catalog_json = codexLocalCatalogPath;
         # The auto reviewer asks this provider for `codex-auto-review` and fails closed on the 400.
         # MCP elicitations default to it whenever guardian_approval is on, whatever the reviewer.

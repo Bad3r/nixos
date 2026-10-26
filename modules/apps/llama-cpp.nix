@@ -87,13 +87,17 @@ in
             description = "Model name, a section of the server's models preset, that `claude-local` and the Codex `local` profile request.";
           };
 
-          contextWindow = lib.mkOption {
-            type = lib.types.ints.positive;
-            default = 128000;
+          contextWindows = lib.mkOption {
+            type = lib.types.attrsOf lib.types.ints.positive;
+            default = { };
+            example = {
+              gemma-4-12b-it-qat = 119808;
+            };
             description = ''
-              Context size, in tokens, that the clients compact within. Codex and Claude
-              Code assume a larger window for unknown model names; keep it some thousands of
-              tokens under the server's context for the model, because llama-server's
+              Context size, in tokens, that the clients compact within, per model name the
+              clients may request; it must cover `model`. Codex and Claude Code assume a
+              larger window for unknown model names; keep each some thousands of tokens
+              under the server's context for that model, because llama-server's
               over-context error may not trigger the clients' reactive compaction.
             '';
           };
@@ -130,6 +134,15 @@ in
             mode = "0400";
             restartUnits = lib.optional cfg.enable "llama-cpp.service";
           };
+        })
+
+        (lib.mkIf (cfg.client.endpoint != null) {
+          assertions = [
+            {
+              assertion = cfg.client.contextWindows ? ${cfg.client.model};
+              message = "programs.llama-cpp.extended.client.contextWindows has no entry for client.model ${cfg.client.model}.";
+            }
+          ];
         })
 
         (lib.mkIf (cfg.client.endpoint != null && ownerHome != null) {
