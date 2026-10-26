@@ -255,6 +255,7 @@ let
       libsecret.extended.enable = lib.mkOverride 1100 false;
       libstdcxx.extended.enable = lib.mkOverride 1100 true;
       libvirt.extended.enable = lib.mkOverride 1100 true;
+      "llama-cpp".extended.enable = lib.mkOverride 1100 false;
       localsend.extended.enable = lib.mkOverride 1100 true;
       logseq.extended.enable = lib.mkOverride 1100 true;
       "logseq-cli".extended.enable = lib.mkOverride 1100 true;
