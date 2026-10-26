@@ -31,6 +31,29 @@ in
     let
       sambaMediaShareTemplatePath = config.sops.templates.${sambaMediaShareTemplate}.path;
       powerProfile = import ../common/_power-profile-unit.nix pkgs;
+
+      # llama-server models preset: one section per model, named as clients request it.
+      llamaModels = {
+        gemma-4-12b-it-qat = {
+          hf-repo = "unsloth/gemma-4-12B-it-qat-GGUF:UD-Q4_K_XL";
+          ctx-size = 128000;
+          n-gpu-layers = "all";
+          cache-type-k = "q8_0";
+          cache-type-v = "q8_0";
+          # One slot gets the whole context, so the clients compact within ctx-size.
+          parallel = 1;
+          mmproj-auto = true;
+          sleep-idle-seconds = 1800;
+          dedup-cache-models = true;
+          load-on-startup = true;
+        };
+      };
+      # The model `claude-local` and `codex -p local` request.
+      llamaModel = "gemma-4-12b-it-qat";
+      llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
+        globalSection.version = 1;
+        sections = llamaModels;
+      };
     in
     {
       imports =
@@ -104,8 +127,22 @@ in
       # Desktop chassis: no lid switch to handle.
       services.logind.settings.Login.HandlePowerKey = "lock";
 
+      programs.llama-cpp.extended.client = {
+        model = llamaModel;
+        contextWindow = llamaModels.${llamaModel}.ctx-size;
+      };
+
       services = {
         cloudflared.enable = true;
+
+        # Router mode: no model on the command line, one loaded model at a time.
+        llama-cpp.settings = {
+          # Without an API key the server stays on loopback.
+          host = if config.services.llama-cpp.apiKeyFile != null then "0.0.0.0" else "127.0.0.1";
+          port = 10100;
+          models-preset = "${llamaPreset}";
+          models-max = 1;
+        };
 
         samba = {
           enable = true;

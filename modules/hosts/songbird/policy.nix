@@ -26,6 +26,11 @@ _: {
         from = 8000;
         to = 8999;
       }
+      # llama.cpp server (services.nix).
+      {
+        from = 10100;
+        to = 10100;
+      }
     ];
 
     # Address registry for workloads.networks (modules/workloads/networks.nix).

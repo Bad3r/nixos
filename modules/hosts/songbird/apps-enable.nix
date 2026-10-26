@@ -41,6 +41,7 @@ let
     ilspycmd = true;
     imhex = true;
     jadx = true;
+    "llama-cpp" = true;
     magnitude = true;
     malimite = true;
     mono = true;
