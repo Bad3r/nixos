@@ -28,6 +28,7 @@ zap* # modules/apps/zap.nix
 # Deliberate feature or environment overrides.
 nixos-icons* # stylix.targets.nixos-icons recolors the logo source (leaf package)
 nixos-option* # rebuilt against the host nix package (Lix, modules/base/nix-package.nix)
+wordlists* # symlink join with wfuzz-wordlists in place of the wfuzz app closure (modules/csec/wordlists.nix)
 
 # Configuration wrappers around substituted unwrapped packages; only the
 # small wrapper derivation rebuilds locally.
