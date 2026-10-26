@@ -39,6 +39,17 @@ in
         homeDir = "/home/codex-config-check";
         configDir = "/home/codex-config-check/.config/codex";
       };
+      local = import ./_local.nix {
+        inherit lib pkgs codexPkg;
+        inherit (settings) baseSettings;
+        localClient = {
+          endpoint = "http://127.0.0.1:9";
+          model = "stub-model";
+          contextWindows.stub-model = 32768;
+          apiKeyFile = "/run/codex-config-check/api-key";
+        };
+        catalogPath = "${local.catalog}";
+      };
       codexServers = settings.baseSettings.mcp_servers;
       claudeServers = agents.mcp.clients.claude.servers { inherit pkgs osConfig; };
       sharedNames = lib.intersectLists (lib.attrNames codexServers) (lib.attrNames claudeServers);
@@ -53,6 +64,17 @@ in
         ];
     in
     {
+      checks."codex/local-config" = pkgs.runCommandLocal "codex-local-config-check" { } ''
+        mkdir -p "$PWD/codex-local"
+        ln -s ${local.baseConfigFile} "$PWD/codex-local/config.base.toml"
+        ln -s ${runtime.nixProjectsFile} "$PWD/codex-local/projects.nix.toml"
+        touch "$PWD/codex-local/trusted-projects.toml"
+
+        env CODEX_HOME="$PWD/codex-local" \
+          ${lib.getExe runtime.codexWrapped} --strict-config app-server --stdio < /dev/null
+        touch "$out"
+      '';
+
       checks."codex/config" =
         assert lib.assertMsg (
           !(settings.baseSettings ? commit_attribution)

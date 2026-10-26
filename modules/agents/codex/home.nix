@@ -23,7 +23,8 @@
       (modules/agents/system-prompt.nix)
     * Private helpers: _default-settings.nix (settings catalog), _settings.nix
       (site policy and MCP composition), _features.nix (feature flags),
-      _env.nix (process environment), _wrapper.nix (runtime config merge).
+      _env.nix (process environment), _wrapper.nix (runtime config merge),
+      _local.nix (codex-local base config and model catalog).
     * Installs the wrapper around programs.codex.extended.package (modules/agents/codex/nixos.nix), which comes from llm-agents.nix.
     * Config is split into four TOML files merged at launch by the codex wrapper:
       - config.base.toml: nix-managed base settings (read-only)
@@ -114,70 +115,15 @@ _: {
         endpoint = null;
       } osConfig;
 
-      # A static catalog stops Codex from fetching /v1/models, whose llama.cpp shape it cannot
-      # decode. Each entry mirrors Codex's fallback metadata for unknown models; the schema
-      # requires the instructions inline. A slug outside it gets a cloud-sized fallback window.
-      codexLocalCatalogPath = "${localConfigDir}/local-models.json";
-      codexLocalCatalog =
-        pkgs.runCommand "codex-local-models.json"
-          {
-            nativeBuildInputs = [ pkgs.jq ];
-            models = builtins.toJSON (
-              lib.mapAttrsToList (slug: window: {
-                inherit slug;
-                display_name = slug;
-                # max_context_window caps a model_context_window from another config layer.
-                context_window = window;
-                max_context_window = window;
-                supported_reasoning_levels = [ ];
-                shell_type = "unified_exec";
-                visibility = "list";
-                supported_in_api = true;
-                priority = 0;
-                include_apps_usage_instructions = false;
-                default_reasoning_summary = "auto";
-                support_verbosity = false;
-                web_search_tool_type = "text";
-                truncation_policy = {
-                  mode = "bytes";
-                  limit = 10000;
-                };
-                experimental_supported_tools = [ ];
-              }) localClient.contextWindows
-            );
-          }
-          ''
-            jq -n --argjson models "$models" \
-              --rawfile prompt ${codexPkg.src}/codex-rs/models-manager/prompt.md \
-              '{models: [$models[] + {model_messages: {instructions_template: $prompt}}]}' > "$out"
-          '';
-
-      codexLocalBaseFile = (pkgs.formats.toml { }).generate "codex-local-config-base" (
-        lib.recursiveUpdate codexSettings.baseSettings codexLocalSettings
-      );
-      codexLocalSettings = {
-        inherit (localClient) model;
-        review_model = localClient.model;
-        model_provider = "llama-cpp";
-        model_catalog_json = codexLocalCatalogPath;
-        # The auto reviewer asks this provider for `codex-auto-review` and fails closed on the 400.
-        # MCP elicitations default to it whenever guardian_approval is on, whatever the reviewer.
-        approvals_reviewer = "user";
-        features.guardian_approval = false;
-        # The flag gates startup extraction; generate_memories excludes local threads from it.
-        features.memories = false;
-        memories.generate_memories = false;
-        model_providers.llama-cpp = {
-          name = "llama.cpp";
-          base_url = "${localClient.endpoint}/v1";
-          wire_api = "responses";
-        }
-        // lib.optionalAttrs (localClient.apiKeyFile != null) {
-          auth = {
-            command = lib.getExe' pkgs.coreutils "cat";
-            args = [ localClient.apiKeyFile ];
-          };
-        };
+      codexLocalFiles = import ./_local.nix {
+        inherit
+          codexPkg
+          lib
+          localClient
+          pkgs
+          ;
+        inherit (codexSettings) baseSettings;
+        catalogPath = "${localConfigDir}/local-models.json";
       };
 
       codexLocal = pkgs.writeShellScriptBin "codex-local" ''
@@ -297,7 +243,7 @@ _: {
           "codex/AGENTS.md".source = codexInstructions;
         }
         // lib.optionalAttrs (localClient.endpoint != null) {
-          "codex-local/config.base.toml".source = codexLocalBaseFile;
+          "codex-local/config.base.toml".source = codexLocalFiles.baseConfigFile;
           "codex-local/projects.nix.toml".source = codexRuntime.nixProjectsFile;
           "codex-local/trusted-projects.toml".source =
             config.lib.file.mkOutOfStoreSymlink "${configDir}/trusted-projects.toml";
@@ -306,7 +252,7 @@ _: {
           "codex-local/rules/default.rules".source =
             config.lib.file.mkOutOfStoreSymlink "${configDir}/rules/default.rules";
           "codex-local/AGENTS.md".source = codexInstructions;
-          "codex-local/local-models.json".source = codexLocalCatalog;
+          "codex-local/local-models.json".source = codexLocalFiles.catalog;
         }
         # Skills (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
         // codexSkillDirs;
