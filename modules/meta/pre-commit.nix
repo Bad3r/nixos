@@ -196,6 +196,10 @@ _: {
               enable = true;
               name = "pre-commit-config-sync";
               description = "Refresh generated hook state offline when hook sources change.";
+              # Manual sweeps enter through nix develop, which already syncs
+              # hooks. Keep the commit freshness guard without entering the
+              # same devshell again during those sweeps.
+              stages = [ "pre-commit" ];
               entry = "${config.packages.hook-pre-commit-config-sync}/bin/hook-pre-commit-config-sync";
               pass_filenames = false;
               files = builtins.concatStringsSep "|" [
