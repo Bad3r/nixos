@@ -270,6 +270,18 @@ class WaitQueueTest(Fixture):
                 self.assertEqual(list(self.paths.queue.iterdir()), [])
                 self.assertIs(signal.getsignal(signal.SIGTERM), previous)
 
+    def test_interrupt_after_publish_removes_the_ticket(self) -> None:
+        """An interrupt between a ticket's publish and the wait loop still removes it."""
+
+        def interrupt(message: str, **_fields: object) -> None:
+            if "queues for capacity" in message:
+                raise KeyboardInterrupt
+
+        self.journal_record.side_effect = interrupt
+        with self.assertRaises(KeyboardInterrupt):
+            self.sandboxes().create(self.wait_request("t1"))
+        self.assertEqual(list(self.paths.queue.iterdir()), [])
+
     def test_cancel_ends_the_wait(self) -> None:
         """A cancelled MCP call stops waiting and removes its ticket."""
         sandboxes = self.sandboxes()

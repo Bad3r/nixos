@@ -455,7 +455,7 @@ class Shares:
         return attached(live).get(SHARED)
 
     def reclaim(self, *, dry_run: bool) -> list[GcAction]:
-        """Detach every sandbox's shared directory while usage passes the cap or the floor."""
+        """Unmount and detach each sandbox's shared directory while usage passes a disk limit."""
         if not self.sandboxes.has_state():
             return []
         actions: list[GcAction] = []
@@ -469,15 +469,30 @@ class Shares:
                 device = self._shared_device(sandbox.domain.name)
                 if device is None:
                     continue
-                reason = f"{SHARED} detached: {problem}"
-                if not dry_run:
-                    try:
-                        self._detach(sandbox.name, SHARED, device, f": {problem}")
-                    except SbxError as error:
-                        if error.code == "not-found":
-                            continue
-                        if error.code != "detach-pending":
-                            raise
-                        reason = f"{SHARED} still attached, {error.code}: {error}"
-                actions.append(GcAction(sandbox.name, reason))
+                reason = (
+                    f"{SHARED} detached: {problem}"
+                    if dry_run
+                    else self._reclaim(sandbox, device, problem)
+                )
+                if reason is not None:
+                    actions.append(GcAction(sandbox.name, reason))
         return actions
+
+    def _reclaim(self, sandbox: Sandbox, device: Device, problem: str) -> str | None:
+        """Unmount and detach one sandbox's shared directory; None when its domain is gone."""
+        # Lazily, since a busy mount must not keep the disk full.
+        guest = self._unmount(sandbox, SHARED, force=True)
+        note = (
+            ""
+            if guest.recovery is None
+            else f"; the guest keeps its mounts until `{guest.recovery}`"
+        )
+        try:
+            self._detach(sandbox.name, SHARED, device, f": {problem}")
+        except SbxError as error:
+            if error.code == "not-found":
+                return None
+            if error.code != "detach-pending":
+                raise
+            return f"{SHARED} still attached, {error.code}: {error}{note}"
+        return f"{SHARED} detached: {problem}{note}"
