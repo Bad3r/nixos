@@ -137,6 +137,7 @@ def closing(text: str, start: int) -> int:
     """Return the index of the ) that closes the substitution body starting at start."""
     depth = 1
     quote = ""
+    pending: list[Heredoc] = []
     index = start
     while index < len(text):
         char = text[index]
@@ -149,10 +150,9 @@ def closing(text: str, start: int) -> int:
             index = closing(text, index + 2)
         elif char == "`":
             index = backtick_end(text, index + 1)
-        elif char == "#" and text[index - 1] in COMMENT_AFTER:
-            # A comment may hide the ), and a # inside ${ is not a comment.
-            msg = "# in a substitution"
-            raise ValueError(msg)
+        elif (after := substitution_step(text, index, pending)) != index:
+            index = after
+            continue
         elif char in "'\"":
             quote = "" if char == quote else char
         elif char in "()":
@@ -162,6 +162,23 @@ def closing(text: str, start: int) -> int:
         index += 1
     msg = "unbalanced substitution"
     raise ValueError(msg)
+
+
+def substitution_step(text: str, index: int, pending: list[Heredoc]) -> int:
+    """Refuse a comment, or skip a << or the heredoc bodies a newline starts; return the end."""
+    if text[index] == "#" and text[index - 1] in COMMENT_AFTER:
+        # A comment may hide the ), and a # inside ${ is not a comment.
+        msg = "# in a substitution"
+        raise ValueError(msg)
+    if text.startswith("<<", index) and not text.startswith("<<<", index):
+        _, end, body = heredoc(text, index)
+        pending.append(body)
+        return end
+    if text[index] == "\n" and pending:
+        end = bodies(text, index + 1, pending, [])
+        pending.clear()
+        return end
+    return index
 
 
 def backtick_end(text: str, start: int) -> int:
@@ -330,8 +347,8 @@ def nest(
     if quote != "'" and SPLIT.match(text, index):
         msg = "opener split by a line continuation"
         raise ValueError(msg)
-    # Inside a double-quoted ${, single quotes quote too.
-    if closers[-1:] == [("}", '"')] and quote == '"' and text[index] == "'":
+    # Whether a ' quotes inside a double-quoted ${ depends on the operator and nesting.
+    if text[index] == "'" and ("}", '"') in closers:
         msg = "' inside a double-quoted ${"
         raise ValueError(msg)
     if opened in {"${", "$["} and quote != "'":
@@ -372,7 +389,8 @@ def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
         found = None if quote == "'" else substitution(text, index, process=process)
         if found:
             scripts.append(found[0])
-            out.append(text[index : found[1]])
+            # The body is checked as a script; its text here would re-quote what follows.
+            out.append("``" if char == "`" else char + "()")
             index = found[1]
             continue
         step = 3 if text.startswith("<<<", index) else 2 if char == "\\" and quote != "'" else 0
