@@ -269,7 +269,6 @@ let
       lynis.extended.enable = lib.mkOverride 1100 true;
       maestral.extended.enable = lib.mkOverride 1100 false;
       "maestral-gui".extended.enable = lib.mkOverride 1100 true;
-      magnitude.extended.enable = lib.mkOverride 1100 false;
       maim.extended.enable = lib.mkOverride 1100 true;
       malimite.extended.enable = lib.mkOverride 1100 false;
       markitdown.extended.enable = lib.mkOverride 1100 true;

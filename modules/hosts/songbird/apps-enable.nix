@@ -42,7 +42,6 @@ let
     imhex = true;
     jadx = true;
     "llama-cpp" = true;
-    magnitude = true;
     malimite = true;
     mono = true;
     "pentesting-devshell" = true;
