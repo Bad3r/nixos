@@ -2,7 +2,8 @@
 # spec to _internal.hooks.raw; a harness installs every hook that carries its
 # block (e.g. claude/codex). New hooks need no per-client wiring.
 #
-# tests.deny/tests.allow are PreToolUse payloads; each hook with tests gets
+# tests.deny/tests.ask/tests.allow are PreToolUse payloads, or one-line strings
+# fed verbatim for malformed input; each hook with tests gets
 # checks."agents/hooks/<name>", which compares them against the
 # permissionDecision the hook prints (no output counts as allow).
 { config, lib, ... }:
@@ -67,14 +68,19 @@ let
       context = "'${registryKey}'.tests";
       validated = validateAllowedFields context [
         "deny"
+        "ask"
         "allow"
       ] tests;
       badKinds = lib.filter (
-        kind: !(builtins.isList validated.${kind} && lib.all builtins.isAttrs validated.${kind})
+        kind:
+        !(
+          builtins.isList validated.${kind}
+          && lib.all (case: builtins.isAttrs case || builtins.isString case) validated.${kind}
+        )
       ) (lib.attrNames validated);
     in
     if badKinds != [ ] then
-      throw "Agent hook ${context}.${lib.concatStringsSep ", " badKinds} must be a list of payload attribute sets"
+      throw "Agent hook ${context}.${lib.concatStringsSep ", " badKinds} must be a list of payload attribute sets or strings"
     else
       validated;
 
@@ -135,14 +141,14 @@ in
             pkgs.runCommandLocal "agent-hook-${name}-check" { nativeBuildInputs = [ pkgs.jq ]; } ''
               set -euo pipefail
               fail=0
-              for expect in deny allow; do
+              for expect in deny ask allow; do
                 while IFS= read -r case; do
                   got="$(${lib.getExe (hook.package pkgs)} <<<"$case" | jq -rs '.[0].hookSpecificOutput.permissionDecision // "allow"')"
                   if [ "$got" != "$expect" ]; then
                     echo "expected $expect, got $got: $case" >&2
                     fail=1
                   fi
-                done < <(jq -c ".$expect // [] | .[]" ${cases})
+                done < <(jq -r ".$expect // [] | .[] | if type == \"string\" then . else tojson end" ${cases})
               done
               [ "$fail" -eq 0 ]
               touch "$out"
