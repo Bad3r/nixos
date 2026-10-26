@@ -314,6 +314,8 @@
   - Installing, activating, adding Office to, and finishing the `win11` guest.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [hosts/songbird/songbird-troubleshooting-file-sharing.md](hosts/songbird/songbird-troubleshooting-file-sharing.md)
+  - Samba media share and qBittorrent failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-local-ai.md](hosts/songbird/songbird-troubleshooting-local-ai.md)
   - Local AI failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)

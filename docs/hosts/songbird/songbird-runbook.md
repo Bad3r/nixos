@@ -1,11 +1,17 @@
 # Songbird runbook
 
-Reinstall procedures are in [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md), Windows procedures in [songbird-runbook-windows.md](songbird-runbook-windows.md), virtual machine procedures in [songbird-runbook-vms.md](songbird-runbook-vms.md), and the win11 guest in [songbird-runbook-win11.md](songbird-runbook-win11.md).
+- [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md)
+- [songbird-runbook-windows.md](songbird-runbook-windows.md)
+- [songbird-runbook-portal.md](songbird-runbook-portal.md)
+- [songbird-runbook-vms.md](songbird-runbook-vms.md)
+- [songbird-runbook-win11.md](songbird-runbook-win11.md)
+- [songbird-runbook-local-ai.md](songbird-runbook-local-ai.md)
 
 ## Validate a host change
 
 Precondition: the change sits in a linked worktree whose `secrets/` submodule is initialized (`git submodule update --init --recursive`).
-A linked worktree always takes the `path:` reference, which copies the tree instead of fetching it, so `self.submodules = true` never applies and an uninitialized `secrets/` builds a generation with every `sops.secrets` declaration dropped.
+A linked worktree always takes the `path:` reference, which copies the tree instead of fetching it, so `self.submodules = true` never applies.
+An uninitialized `secrets/` then builds a generation with every `sops.secrets` declaration dropped.
 
 1. Run the format, check, and closure rungs of the [Validation ladder](../../guides/host-onboarding.md#validation-ladder) with `songbird` as the host.
 
