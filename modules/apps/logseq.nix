@@ -26,8 +26,6 @@ let
     }:
     let
       cfg = config.programs.logseq.extended;
-      cacheSubstituter = "https://nix-logseq-git-flake.cachix.org";
-      cachePublicKey = "nix-logseq-git-flake.cachix.org-1:DSBNW07PSRyCvS926tpIWahb53OIydwwZhsP6LhJNZo=";
       basePackage = inputs.nix-logseq-git-flake.packages.${pkgs.stdenv.hostPlatform.system}.logseq;
     in
     {
@@ -46,9 +44,6 @@ let
       };
 
       config = lib.mkIf cfg.enable {
-        nix.settings.extra-substituters = lib.mkAfter [ cacheSubstituter ];
-        nix.settings.extra-trusted-public-keys = lib.mkAfter [ cachePublicKey ];
-
         environment.systemPackages = [ cfg.package ];
       };
     };

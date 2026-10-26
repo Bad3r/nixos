@@ -11,6 +11,8 @@ let
     # IFD consumers in this repo (mirrors flake.nix#nixConfig):
     #   * nix-doom-emacs-unstraightened: evaluates a JSON manifest produced
     #     by a build derivation.
+    #   * nix-logseq-git-flake: logseq-cli resolves its opam closure with
+    #     opam-nix `buildOpamProject`.
     # Update both this comment and flake.nix when adding or removing IFD
     # consumers.
     allow-import-from-derivation = true;
