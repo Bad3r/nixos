@@ -37,7 +37,7 @@ let
       cfg = config.services.paperless.extended;
       paperless = config.services.paperless;
       llama = config.programs.llama-cpp.extended;
-      keySecret = "llama-cpp/paperless-api-key";
+      keySecret = llama.apiKeySecrets.paperless;
       keyed = config.sops.secrets ? ${keySecret};
       envTemplate = "paperless/ai.env";
       loopback = port: "http://127.0.0.1:${toString port}/v1";

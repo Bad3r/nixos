@@ -100,6 +100,14 @@ in
           '';
         };
 
+        apiKeySecrets = lib.mkOption {
+          type = lib.types.attrsOf lib.types.str;
+          readOnly = true;
+          default = lib.mapAttrs (name: _: consumerSecret name) cfg.apiKeys;
+          defaultText = lib.literalExpression ''lib.mapAttrs (name: _: "llama-cpp/''${name}-api-key") apiKeys'';
+          description = "Name of the `sops.secrets` entry holding each `apiKeys` consumer's key.";
+        };
+
         embeddings = {
           enable = lib.mkEnableOption "the `llama-cpp-embed` embeddings server on loopback, CPU only";
 
