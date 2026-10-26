@@ -13,7 +13,7 @@
   externalBinary,
   installMethods,
   scratchDir,
-  magnitudeClient ? null,
+  localClient ? null,
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
@@ -174,18 +174,18 @@ let
     exec ${lib.getExe claudeWrapped} "$@"
   '';
 
-  # Points every model slot at one Magnitude model. The launcher and settings.json
+  # Points every model slot at one local model. The launcher and settings.json
   # pin the haiku and subagent slots to cloud models, and only `--settings` env
-  # outranks both; Magnitude holds one model at a time, so mixed slots reload it.
+  # outranks both; llama-server holds one model at a time, so mixed slots reload it.
   claudeLocalWrapped = pkgs.writeShellApplication {
     name = "claude-local";
     runtimeInputs = [ pkgs.jq ];
     text = ''
-      model=''${CLAUDE_LOCAL_MODEL:-${lib.escapeShellArg magnitudeClient.model}}
+      model=''${CLAUDE_LOCAL_MODEL:-${lib.escapeShellArg localClient.model}}
       settings=$(jq -cn \
         --arg model "$model" \
-        --arg url ${lib.escapeShellArg "${magnitudeClient.endpoint}/inference/anthropic"} \
-        --arg context ${toString magnitudeClient.contextWindow} '
+        --arg url ${lib.escapeShellArg localClient.endpoint} \
+        --arg context ${toString localClient.contextWindow} '
           {
             model: $model,
             env: {
@@ -200,10 +200,10 @@ let
           }
         ')
       ${
-        if magnitudeClient.apiKeyFile == null then
-          "ANTHROPIC_AUTH_TOKEN=magnitude-local"
+        if localClient.apiKeyFile == null then
+          "ANTHROPIC_AUTH_TOKEN=llama-cpp-local"
         else
-          "ANTHROPIC_AUTH_TOKEN=$(<${lib.escapeShellArg magnitudeClient.apiKeyFile})"
+          "ANTHROPIC_AUTH_TOKEN=$(<${lib.escapeShellArg localClient.apiKeyFile})"
       }
       export ANTHROPIC_AUTH_TOKEN
 
