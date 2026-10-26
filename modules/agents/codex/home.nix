@@ -150,6 +150,10 @@ _: {
         model_provider = "llama-cpp";
         model_context_window = localClient.contextWindow;
         model_catalog_json = codexLocalCatalogPath;
+        # The auto reviewer asks this provider for `codex-auto-review` and fails closed on the 400.
+        # MCP elicitations default to it whenever guardian_approval is on, whatever the reviewer.
+        approvals_reviewer = "user";
+        features.guardian_approval = false;
         # The flag gates startup extraction; generate_memories excludes local threads from it.
         features.memories = false;
         memories.generate_memories = false;
