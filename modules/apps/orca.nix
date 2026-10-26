@@ -16,6 +16,7 @@
   Notes:
     * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
     * Enables the AT-SPI accessibility bus for Linux computer use.
+    * Opens TCP port 6768 for mobile sync.
 */
 { inputs, ... }:
 {
@@ -47,6 +48,7 @@
 
       config = lib.mkIf cfg.enable {
         environment.systemPackages = [ cfg.package ];
+        networking.firewall.allowedTCPPorts = [ 6768 ];
         services.gnome.at-spi2-core.enable = true;
       };
     };
