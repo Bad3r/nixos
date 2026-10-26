@@ -527,9 +527,9 @@ for host in "${HOSTS[@]}"; do
         continue
       fi
       built_drvs+=("${drv}")
-      printf '%s|%s|%s|%s|%s|%s|%s\n' \
+      printf '%s|%s|%s|%s|%s|%s|%s|%s\n' \
         "${drv}" "${name}" "${pname}" "${version}" "${fod}" "${sys}" \
-        "${first_unserved}" >>"${tmp}/meta"
+        "${first_unserved}" "${outpaths}" >>"${tmp}/meta"
       read -ra input_arr <<<"${inputs}"
       for child in "${input_arr[@]}"; do
         [[ -n ${SEEN[${child}]:-} ]] && continue
@@ -564,7 +564,7 @@ for host in "${HOSTS[@]}"; do
   # (config texts, wrappers) never match a stock attribute.
   declare -A CAND1=() CAND2=() CAND3=() LOCAL_VER=()
   all_candidates=()
-  while IFS='|' read -r drv name pname version _fod sys _outpath; do
+  while IFS='|' read -r drv name pname version _fod sys _outpath _outpaths; do
     # Builds for a foreign system (the i686 support libraries pulled in by
     # nvidia and steam 32-bit userspace) can share a name with a host-system
     # attribute; the stock baseline is evaluated for the host system only,
@@ -672,7 +672,7 @@ for host in "${HOSTS[@]}"; do
   # fills the STOCK_* maps in the current shell.
   declare -A STOCK_ATTR=() STOCK_PATH=()
   : >"${tmp}/stock.urls"
-  while IFS='|' read -r drv name _pname version _fod _sys _outpath; do
+  while IFS='|' read -r drv name _pname version _fod _sys _outpath _outpaths; do
     chosen_attr=""
     chosen_path=""
     local_ver="${LOCAL_VER[${drv}]}"
@@ -710,7 +710,7 @@ for host in "${HOSTS[@]}"; do
   local_only=()
   host_unexpected_size=0
 
-  while IFS='|' read -r drv name pname _version fod _sys outpath; do
+  while IFS='|' read -r drv name pname _version fod _sys outpath outpaths; do
     attr="${STOCK_ATTR[${drv}]}"
     spath="${STOCK_PATH[${drv}]}"
 
@@ -722,7 +722,9 @@ for host in "${HOSTS[@]}"; do
       local_only+=("${name}")
       continue
     fi
-    if [[ ${spath} == "${outpath}" ]]; then
+    # The stock outPath is the default output, while outpath is the first
+    # unserved one (doc or man sorts before out), so match against them all.
+    if [[ " ${outpaths} " == *" ${spath} "* ]]; then
       uncached_stock+=("${name}")
       continue
     fi
