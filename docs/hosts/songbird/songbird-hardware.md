@@ -21,7 +21,7 @@
 
 | Disk | Model                 | Slot or bus                          | Serial          | Role                            |
 | ---- | --------------------- | ------------------------------------ | --------------- | ------------------------------- |
-| A    | WD_BLACK SN8100 4TB   | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`) | 252415800489    | NixOS root, swap, ESP           |
+| A    | WD_BLACK SN8100 4TB   | M.2_1, CPU PCIe 5.0 (`0000:01:00.0`) | 252415800489    | NixOS root, swap, shared ESP    |
 | S    | Samsung 860 PRO 2TB   | SATA, chipset (`0000:80:17.0`)       | S45DNF0K503930R | LUKS data volume at `/data`     |
 | W    | WDC PC SN720 1TB      | M.2_2, CPU PCIe 4.0 (`0000:03:00.0`) | 192461421492    | Windows                         |
 | P    | Samsung 970 PRO 512GB | Chipset M.2 (`0000:82:00.0`)         | S469NF0K509254D | NTFS portal shared with Windows |
@@ -31,7 +31,7 @@
 | Device                   | Id          | Address               | Driver                |
 | ------------------------ | ----------- | --------------------- | --------------------- |
 | iGPU (Xe-LPG)            | `8086:7d67` | `0000:00:02.0`        | i915 (xe also loaded) |
-| NPU 4                    | `8086:ad1d` | `0000:00:0b.0`        | intel_vpu             |
+| NPU (37xx, AI Boost)     | `8086:ad1d` | `0000:00:0b.0`        | intel_vpu             |
 | Thunderbolt 4 / USB4     | `8086:7ec2` | `0000:00:0d.2`        | thunderbolt           |
 | RTX 5080                 | `10de:2c02` | `0000:02:00.0`        | nvidia                |
 | RTX 5080 HDMI audio      | `10de:22e9` | `0000:02:00.1`        | snd_hda_intel         |
@@ -47,14 +47,17 @@
 
 ## Constraints
 
-- M.2_3 and M.2_4 stay empty; populating either drops the GPU slot from PCIe 5.0 x16 to x8.
+- M.2_3 and M.2_4 stay empty; populating either drops the GPU slot from x16 to x8.
+- The GPU slot is PCIe 5.0 x16-capable, but root port `0000:00:06.0` advertises only 16 GT/s, so the RTX 5080 links at PCIe 4.0 x16.
+  The unverified suspect is the UEFI `ALT_PCIE_MODE` setting.
 - Disk A sits under the motherboard's M.2_1 heatsink; without it, sustained writes throttle.
 - `/dev/nvmeN` indices reshuffle across boots. Address a drive by PCI address or serial, never by index.
-- DDR5-8400 is an XMP profile above the CPU's native DDR5-6400. The fallback ladder is 8000, 7600, 6400; four DIMMs forfeit 8400.
-- All fan and pump control runs through BIOS Q-Fan; no OS-side fan software exists.
+- The DIMMs run at 7400 MT/s because their DDR5-8400 XMP profile is unstable on this host. The fallback ladder runs down to the CPU's native DDR5-6400; four DIMMs forfeit 8400.
+- Case fans and the AIO pump follow BIOS Q-Fan curves, and the RTX 5080's fans follow the card's own curve.
 - Use only the PSU's own modular cables. A cable from another unit can damage drives.
 - Remove the GPU with Q-Release Slim: lift the rear-I/O end at an angle, never pull it straight out.
-- Each OS keeps its own ESP on its own disk, so Windows updates cannot touch the NixOS boot chain.
+- Windows Boot Manager shares disk A's ESP, so a reinstall that reformats it leaves Windows unbootable: [songbird-runbook-windows.md](songbird-runbook-windows.md#move-windows-boot-manager-to-disk-w).
+- systemd-boot lists Windows from that ESP, and booting it through that entry triggers a BitLocker recovery prompt.
 
 ### UEFI settings
 
@@ -64,7 +67,7 @@
 | Intel PTT                        | On                           | BitLocker                  |
 | Above 4G Decoding, Resizable BAR | On                           | GPU requires it            |
 | VT-x, VT-d                       | On                           | KVM                        |
-| XMP                              | On                           | DDR5-8400 profile          |
+| DRAM frequency                   | DDR5-7400                    | XMP 8400 is unstable       |
 | Fast Boot                        | Off                          | USB and initrd reliability |
 | Boot order                       | systemd-boot on disk A first | default OS                 |
 

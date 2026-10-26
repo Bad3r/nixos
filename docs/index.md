@@ -44,6 +44,8 @@
   - Phase 3 of the Chromium web-app migration: the `programs.webapps` module on brave-origin, plus the decisions table, the fact table, and the self-review for the series.
 - [drafts/duplicati-r2-readonly-mount-investigation.md](drafts/duplicati-r2-readonly-mount-investigation.md)
   - Investigation into a read-only mount for encrypted R2 backup archives (issue #204).
+- [drafts/songbird-local-ai-plan.md](drafts/songbird-local-ai-plan.md)
+  - Draft plan for replacing Magnitude with llama.cpp on `songbird` and declaring LACT, with the decisions taken and the ones still open.
 
 ## Guides
 
@@ -294,18 +296,26 @@
   - Parts, storage roles, device inventory, and operating constraints of the `songbird` workstation.
 - [hosts/songbird/songbird-configuration.md](hosts/songbird/songbird-configuration.md)
   - Non-obvious operational deviations from the hosts-common baseline.
+- [hosts/songbird/songbird-local-ai.md](hosts/songbird/songbird-local-ai.md)
+  - Model fit across VRAM and RAM, decode speeds, uses, and limits of local AI on the `songbird` RTX 5080.
 - [hosts/songbird/songbird-runbook.md](hosts/songbird/songbird-runbook.md)
   - Validation procedure for a `songbird` change.
+- [hosts/songbird/songbird-runbook-local-ai.md](hosts/songbird/songbird-runbook-local-ai.md)
+  - Magnitude models, Claude Code and Codex on local models, CUDA llama.cpp, iPhone access, and freeing the GPU on `songbird`.
+- [hosts/songbird/songbird-runbook-portal.md](hosts/songbird/songbird-runbook-portal.md)
+  - Converting the `/portal` drive to BitLocker and unlocking it from NixOS on `songbird`.
 - [hosts/songbird/songbird-runbook-reinstall.md](hosts/songbird/songbird-runbook-reinstall.md)
   - Reinstall, first switch, secrets, and `/data` key-slot procedures for `songbird`.
 - [hosts/songbird/songbird-runbook-windows.md](hosts/songbird/songbird-runbook-windows.md)
-  - Booting Windows once, installing Windows on disk W, and converting portal to BitLocker.
+  - Booting Windows once, installing Windows on disk W, and moving Windows Boot Manager to its own ESP on disk W.
 - [hosts/songbird/songbird-runbook-vms.md](hosts/songbird/songbird-runbook-vms.md)
   - Running an ad-hoc virt-manager guest from a staged ISO, and dropping the ISO.
 - [hosts/songbird/songbird-runbook-win11.md](hosts/songbird/songbird-runbook-win11.md)
   - Installing, activating, adding Office to, and finishing the `win11` guest.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
+- [hosts/songbird/songbird-troubleshooting-local-ai.md](hosts/songbird/songbird-troubleshooting-local-ai.md)
+  - Local AI failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-windows.md](hosts/songbird/songbird-troubleshooting-windows.md)
   - Windows dual-boot and `/portal` failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 
