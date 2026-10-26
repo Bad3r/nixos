@@ -21,12 +21,13 @@
     * Wired through `environment.interactiveShellInit`, which NixOS folds
       into both `programs.bash.interactiveShellInit` and
       `programs.zsh.interactiveShellInit`. The function syntax used is
-      compatible with both shells (POSIX function, `local`, `printf %q`,
-      and process substitution `>(...)`).
+      compatible with both shells (POSIX function, `local`, `printf %q`).
     * Captures stderr alongside stdout (`2>&1`) so error messages also
       land in the clipboard.
     * Aliases at the call site are NOT expanded (e.g. `ccp ls` runs the
       `ls` binary, not an `ls=eza` alias). Pass the underlying command.
+    * Returns 1 when xsel cannot write the clipboard (for example with no
+      display reachable), after the output has reached the terminal.
     * Requires `xsel`, which apps-enable.nix enables.
 */
 {
@@ -51,7 +52,18 @@
             _ccp_quoted="$_ccp_quoted $(printf '%q' "$_ccp_arg")"
           fi
         done
-        { printf '$ %s\n' "$_ccp_quoted"; "$@"; } 2>&1 | tee >(xsel -ib >/dev/null)
+        # The subshell scopes the traps, so Ctrl-C removes the capture file
+        # without replacing the caller's own traps.
+        (
+          _ccp_out=$(mktemp -t ccp.XXXXXX) || exit 1
+          trap 'rm -f "$_ccp_out"' EXIT
+          trap 'exit 130' INT TERM
+          { printf '$ %s\n' "$_ccp_quoted"; "$@"; } 2>&1 | tee "$_ccp_out"
+          if ! xsel -ib <"$_ccp_out" >/dev/null; then
+            printf 'ccp: clipboard write failed\n' >&2
+            exit 1
+          fi
+        )
       }
     '';
   };
