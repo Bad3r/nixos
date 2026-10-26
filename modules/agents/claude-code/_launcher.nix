@@ -174,6 +174,14 @@ let
     exec ${lib.getExe claudeWrapped} "$@"
   '';
 
+  # Claude Code sends the helper's output as both `Authorization: Bearer` and
+  # `X-Api-Key`, and keeps it out of the environment that tools and MCP servers inherit.
+  keyHelper =
+    if localClient.apiKeyFile == null then
+      "echo llama-cpp-local"
+    else
+      "${lib.getExe' pkgs.coreutils "cat"} ${lib.escapeShellArg localClient.apiKeyFile}";
+
   # Points every model slot at one local model, since llama-server answers 400 for any
   # other name and holds one model at a time. `--settings` env outranks the launcher
   # and settings.json env; SMALL_FAST outranks the haiku slot, and FORCE drops the
@@ -186,9 +194,11 @@ let
       settings=$(jq -cn \
         --arg model "$model" \
         --arg url ${lib.escapeShellArg localClient.endpoint} \
-        --arg context ${toString localClient.contextWindow} '
+        --arg context ${toString localClient.contextWindow} \
+        --arg keyHelper ${lib.escapeShellArg keyHelper} '
           {
             model: $model,
+            apiKeyHelper: $keyHelper,
             env: {
               ANTHROPIC_BASE_URL: $url,
               ANTHROPIC_DEFAULT_HAIKU_MODEL: $model,
@@ -203,14 +213,8 @@ let
             }
           }
         ')
-      ${
-        if localClient.apiKeyFile == null then
-          "ANTHROPIC_AUTH_TOKEN=llama-cpp-local"
-        else
-          "ANTHROPIC_AUTH_TOKEN=$(<${lib.escapeShellArg localClient.apiKeyFile})"
-      }
-      export ANTHROPIC_AUTH_TOKEN
-
+      # Inherited tokens would outrank the helper.
+      unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY
       exec ${lib.getExe claudeWrapped} --settings "$settings" "$@"
     '';
   };
