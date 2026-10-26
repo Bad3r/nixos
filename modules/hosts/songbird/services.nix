@@ -48,6 +48,15 @@ in
         hf-repo = "openbmb/MiniCPM5-2B-GGUF:Q8_0";
         ctx-size = 131072;
       };
+      llamaQwen27bGsq = llamaVision // {
+        # The IQ3_XXS file carries the MTP head; the tag names it in full, as `:IQ3_XXS` resolves to it anyway.
+        hf-repo = "ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF:IQ3_XXS-mtp";
+        ctx-size = 65536;
+      };
+      llamaLfm24b = llamaCommon // {
+        hf-repo = "unsloth/LFM2.5-24B-A2B-GGUF:UD-Q3_K_XL";
+        ctx-size = 131072;
+      };
       # llama-server models preset: one section per model, named as clients request it.
       # n-gpu-layers = all makes a model that does not fit in VRAM fail to load instead of offloading.
       llamaModels = {
@@ -65,6 +74,26 @@ in
         "qwen3.8-27b" = llamaVision // {
           hf-repo = "unsloth/Qwen3.8-27B-GGUF:UD-IQ3_XXS";
           ctx-size = 65536;
+        };
+        "qwen3.8-27b-gsq" = llamaQwen27bGsq;
+        "qwen3.8-27b-gsq-mtp" = llamaQwen27bGsq // {
+          spec-type = "draft-mtp";
+        };
+        muse-glimmer-30b = llamaVision // {
+          hf-repo = "unsloth/Muse-Glimmer-30B-GGUF:UD-Q3_K_XL";
+          ctx-size = 65536;
+          # Weights, KV, and projector do not all fit in 16 GiB, so the projector runs on the CPU.
+          mmproj-offload = false;
+        };
+        # The only DFlash drafter for it is the Qwen3.5-9B one, whose GGUF llama.cpp 0.7.0 rejects.
+        "mimo-v2.6-9b" = llamaVision // {
+          hf-repo = "ggml-org/MiMo-V2.6-Distill-Qwen-9B-GGUF:Q8_0";
+          ctx-size = 128000;
+        };
+        "lfm2.5-24b-a2b" = llamaLfm24b;
+        "lfm2.5-24b-a2b-dspark" = llamaLfm24b // {
+          spec-draft-hf = "LiquidAI/LFM2.5-24B-A2B-DSpark-GGUF:F16";
+          spec-type = "draft-dspark";
         };
       };
       # The model `claude-local` and `codex -p local` request.
