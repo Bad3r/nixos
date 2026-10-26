@@ -43,7 +43,6 @@ EXPANSIONS = frozenset("${*?[")
 REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|", "<>"})
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'")
-ARITHMETIC = re.compile(r"(?<!\$)\(\(")
 DOUBLE = re.compile(r'"((?:[^"\\]|\\.)*)"', re.DOTALL)
 # Inside double quotes a backslash escapes only these, and it drops an escaped newline.
 DOUBLE_ESCAPE = re.compile(r'\\([$`"\\\n])|[$`]')
@@ -103,6 +102,8 @@ HEREDOC_END = frozenset(" \t\n;|&<>()")
 COMMENT_AFTER = HEREDOC_END
 # Delimiter, strip leading tabs, body is a shell script, body expands substitutions.
 type Heredoc = tuple[str, bool, bool, bool]
+# bash reads ${ to its first }, but $[ and (( count nested brackets.
+NESTS = {"]": "[", ")": "("}
 MAX_DEPTH = 4
 # Bounds the suffix checks per simple command, which are each linear.
 MAX_CANDIDATES = 16
@@ -308,6 +309,33 @@ def prelude(text: str, index: int, out: list[str], *, quote: str, process: bool)
     return plain(text, index, out) if process else index
 
 
+def nest(
+    text: str, index: int, quote: str, closers: list[tuple[str, str]], pending: list[Heredoc]
+) -> int:
+    """Open or close a ${, $[, or bare (( at index; return the index past an opener.
+
+    bash reads these as text, where << is literal or a shift, and reads pending heredoc
+    bodies only after a newline outside them.
+    """
+    opened = text[index : index + 2]
+    if closers and not quote and (opened == "<<" or (pending and text[index] == "\n")):
+        msg = "<< or a heredoc body inside ${, $[, or (("
+        raise ValueError(msg)
+    if opened in {"${", "$["} and quote != "'":
+        closers.append(("}" if opened == "${" else "]", quote))
+        return index + 2
+    if opened == "((" and not quote:
+        closers += [(")", "")] * 2
+        return index + 2
+    if closers and closers[-1][1] == quote:
+        closer = closers[-1][0]
+        if text[index] == closer:
+            closers.pop()
+        elif text[index] == NESTS.get(closer):
+            closers.append(closers[-1])
+    return index
+
+
 def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
     """Cut heredoc bodies out of shell text; return it with the scripts its substitutions run.
 
@@ -316,6 +344,8 @@ def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
     out: list[str] = []
     scripts: list[str] = []
     pending: list[Heredoc] = []
+    # Each open ${, $[, or bare ((: its closer and the quote it opened in.
+    closers: list[tuple[str, str]] = []
     quote = ""
     index = 0
     while index < len(text):
@@ -335,15 +365,15 @@ def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
             out.append(text[index : index + step])
             index += step
             continue
+        if not heredoc_body and (after := nest(text, index, quote, closers, pending)) != index:
+            out.append(text[index:after])
+            index = after
+            continue
         if heredoc_body:
             pass
         elif char in "'\"" and quote in {"", char}:
             quote = "" if quote else char
         elif not quote and text.startswith("<<", index):
-            # In a bare (( )) command << shifts, and telling it from a heredoc takes a parser.
-            if ARITHMETIC.search("".join(out)):
-                msg = "<< after (("
-                raise ValueError(msg)
             operator, index, body = heredoc(text, index)
             out.append(operator)
             pending.append(body)
