@@ -250,7 +250,7 @@ in
         import xml.etree.ElementTree as ET
 
         sys.path.insert(0, "${sbxPackage}/lib/sbx")
-        from sbx.core import bridge_interface
+        from sbx.net import bridge_interface
 
         name, mac, cmdline = sys.argv[1:]
         domain = ET.Element("domain", type="kvm")
@@ -288,7 +288,7 @@ in
         from pathlib import Path
 
         sys.path.insert(0, "${sbxPackage}/lib/sbx")
-        from sbx.core import lease_address
+        from sbx.net import lease_address
 
         address = lease_address(Path("/var/lib/libvirt/dnsmasq/vn-sbx.status"), sys.argv[1], time.time())
         if address is None:

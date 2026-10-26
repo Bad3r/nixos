@@ -9,18 +9,23 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
 from PIL import Image
-from sbx import mcp
-from sbx.cli import build_parser
-from sbx.core import Meta, SbxError
+from sbx import gui, keys, mcp, ops
+from sbx.config import caller_session
+from sbx.errors import SbxError
+from sbx.results import Document
 
-from . import test_core
+from . import test_core, test_shares
 
 if TYPE_CHECKING:
-    import argparse
+    from collections.abc import Callable
+
+    from sbx.model import Meta
+    from sbx.sandboxes import Sandboxes
 
 SAMPLES: dict[str, object] = {
     "base": "nixos",
@@ -35,7 +40,12 @@ SAMPLES: dict[str, object] = {
     "out": ["/root/report.txt"],
     "to": "/work",
     "timeout": "5m",
-    "agent": True,
+    "cwd": "/srv",
+    "encoding": "base64",
+    "env": {"A": "1", "B": "x y"},
+    "user": "sbx",
+    "stdin": "text",
+    "stdin_base64": "AAE=",
     "command": ["sh", "-c", "true"],
     "source": "probe:/root/x",
     "destination": "/work",
@@ -44,75 +54,116 @@ SAMPLES: dict[str, object] = {
     "ocr": True,
     "dry_run": True,
     "gui": True,
+    "keys": ["ctrl+alt+t", "enter"],
+    "text": "-x",
+    "mode": "keys",
+    "x": 10,
+    "y": 20,
+    "click": "left",
+    "double": True,
+    "title": "xterm",
+    "class": "XTerm",
+    "id": 4194,
+    "share": "shared",
+    "no_mount": True,
+    "force": True,
 }
-# destroy takes exactly one of these.
-EXCLUSIVE = ("mine", "expired")
+SNAPSHOT = Path(__file__).with_name("mcp-tools.json")
 
 
-class CommandLineTest(unittest.TestCase):
-    """Tool arguments become verb arguments the CLI parser accepts."""
+def samples(tool: ops.Operation) -> dict[str, object]:
+    """Return a valid value for every argument of a tool, one of each exclusive set."""
+    names = [param.name for param in tool.params if param.mcp]
+    names = [name for name in names if name not in tool.one_of[1:]]
+    return {name: SAMPLES[name] for name in names}
 
-    def test_every_tool_parses(self) -> None:
-        """Each tool with every argument set yields a valid command line."""
+
+class ArgumentsTest(unittest.TestCase):
+    """Tool arguments reach handlers checked and decoded, never as a command line."""
+
+    def test_every_tool_accepts_its_arguments(self) -> None:
+        """Each tool with every argument set decodes, and its schema is closed."""
         for tool in mcp.TOOLS:
-            names = [param.name for param in tool.params]
-            if tool.name == "destroy":
-                names = [name for name in names if name not in EXCLUSIVE]
-            arguments = {name: SAMPLES[name] for name in names}
             with self.subTest(tool=tool.name):
-                argv, _command = tool.command_line(arguments)
-                args = build_parser().parse_args(argv)
-                self.assertEqual(args.verb, tool.verb[0])
-                schema = cast("dict[str, Any]", tool.definition()["inputSchema"])
+                args = mcp.parse_arguments(tool, samples(tool))
+                self.assertIs(args.operation, tool)
+                schema = cast("dict[str, Any]", mcp.definition(tool)["inputSchema"])
                 self.assertFalse(schema["additionalProperties"])
                 self.assertLessEqual(set(schema["required"]), set(schema["properties"]))
 
-    def test_mapping(self) -> None:
-        """Options take the = form, repeat per item, and the command stays apart."""
-        argv, command = mcp.TOOLS_BY_NAME["exec"].command_line(
-            {"name": "a", "timeout": "5m", "agent": True, "command": ["sh", "-c", "x -- y"]}
+    def test_snapshot(self) -> None:
+        """tools/list changes only on purpose; regenerate the file when it does."""
+        self.assertEqual(
+            [mcp.definition(tool) for tool in mcp.TOOLS], json.loads(SNAPSHOT.read_text())
         )
-        self.assertEqual(argv, ["exec", "--timeout=5m", "--agent", "a"])
-        self.assertEqual(command, ["sh", "-c", "x -- y"])
-        argv, _ = mcp.TOOLS_BY_NAME["run"].command_line(
-            {"base": "nixos", "name": "-x", "in": ["a", "b"], "ttl": None, "command": ["id"]}
+
+    def test_decoding(self) -> None:
+        """Values keep a leading dash, env becomes NAME=VALUE pairs, and base64 becomes bytes."""
+        args = mcp.parse_arguments(
+            mcp.TOOLS_BY_NAME["exec"],
+            {
+                "name": "-x",
+                "env": {"A": "1", "B": "x=y"},
+                "stdin_base64": "AP8=",
+                "command": ["sh", "-c", "x -- y"],
+            },
         )
-        self.assertEqual(argv, ["run", "--name=-x", "--in=a", "--in=b", "nixos"])
-        args = build_parser().parse_args(argv)
-        self.assertEqual((args.name, args.inputs), ("-x", ["a", "b"]))
-        argv, _ = mcp.TOOLS_BY_NAME["create"].command_line({"base": "debian-13", "gui": True})
-        self.assertEqual(argv, ["create", "--gui", "debian-13"])
-        args = build_parser().parse_args(argv)
-        self.assertEqual((args.base, args.gui), ("debian-13", True))
-        argv, _ = mcp.TOOLS_BY_NAME["base_build"].command_line({"flavour": "nixos"})
-        self.assertEqual(argv, ["base", "build", "nixos"])
+        self.assertEqual(args.text("name"), "-x")
+        self.assertEqual(args.strings("env"), ["A=1", "B=x=y"])
+        self.assertEqual(args.data("stdin_base64"), b"\x00\xff")
+        self.assertEqual(args.strings("command"), ["sh", "-c", "x -- y"])
+        self.assertEqual((args.text("encoding"), args.optional("timeout")), ("text", None))
+        typed = mcp.parse_arguments(mcp.TOOLS_BY_NAME["type"], {"name": "g", "text": "--help"})
+        self.assertEqual(typed.text("text"), "--help")
+        listed = mcp.parse_arguments(mcp.TOOLS_BY_NAME["list"], {"mine": None})
+        self.assertFalse(listed.flag("mine"))
 
     def test_refusals(self) -> None:
-        """Malformed arguments are usage errors, and none becomes an option."""
+        """Malformed arguments are usage errors."""
         cases: list[tuple[str, object]] = [
-            ("destroy", {"name": "--mine"}),
-            ("cp", {"source": "-r"}),
+            ("destroy", {"name": "a", "mine": True}),
+            ("destroy", {"mine": False}),
             ("info", {"name": "a", "verbose": True}),
             ("info", {}),
             ("info", ["a"]),
             ("create", {"base": "nixos", "cpus": True}),
             ("create", {"base": "nixos", "cpus": "2"}),
+            ("create", {"base": "nixos", "net": "lan"}),
             ("exec", {"name": "a", "command": "id"}),
             ("exec", {"name": "a", "command": []}),
+            ("exec", {"name": "a", "env": {"A": 1}, "command": ["env"]}),
+            ("exec", {"name": "a", "stdin_base64": "%%", "command": ["cat"]}),
+            ("exec", {"name": "a", "stdin": 1, "command": ["cat"]}),
             ("list", {"mine": "yes"}),
+            ("key", {"name": "g", "keys": "a"}),
+            ("key", {"name": "g", "keys": []}),
+            ("type", {"name": "g", "text": ["a"]}),
+            ("share_attach", {"name": "g"}),
+            ("mouse", {"name": "g", "x": 1}),
+            ("mouse", {"name": "g", "x": 1, "y": "2"}),
+            ("mouse", {"name": "g", "x": 1, "y": 2, "click": "back"}),
+            ("window_wait", {"name": "g"}),
+            ("window_wait", {"name": "g", "title": "a", "class": "b"}),
+            ("window_focus", {"name": "g"}),
+            ("window_focus", {"name": "g", "id": "1"}),
         ]
         for tool, arguments in cases:
             with self.subTest(tool=tool, arguments=arguments):
                 with self.assertRaises(SbxError) as raised:
-                    mcp.TOOLS_BY_NAME[tool].command_line(arguments)
+                    mcp.parse_arguments(mcp.TOOLS_BY_NAME[tool], arguments)
                 self.assertEqual(raised.exception.code, "usage")
 
     def test_session(self) -> None:
-        """Codex names its thread per call; otherwise the environment decides."""
+        """Codex names its session per call, preferred to the thread; else the environment."""
         with mock.patch.dict(os.environ, {"CLAUDE_CODE_SESSION_ID": "s1"}):
+            meta = {"sessionId": "root", "threadId": "child"}
+            self.assertEqual(mcp.session_of(meta), "codex:root")
             self.assertEqual(mcp.session_of({"threadId": "t1"}), "codex:t1")
-            self.assertEqual(mcp.session_of({"threadId": ""}), "claude:s1")
+            self.assertEqual(mcp.session_of({"sessionId": "", "threadId": ""}), "claude:s1")
             self.assertEqual(mcp.session_of(None), "claude:s1")
+        environment = {"CODEX_SESSION_ID": "root", "CODEX_THREAD_ID": "child"}
+        with mock.patch.dict(os.environ, environment, clear=True):
+            self.assertEqual(caller_session(), "codex:root")
 
 
 class ServerTest(unittest.TestCase):
@@ -221,7 +272,7 @@ class ServerTest(unittest.TestCase):
             replacement = self.core.sandboxes("claude:two").create(self.core.request(name="r"))
             gate.set()
             server.serve([])
-        self.assertEqual(cast("Meta", domains["sbx-r"].meta).token, replacement["token"])
+        self.assertEqual(cast("Meta", domains["sbx-r"].meta).token, replacement.token)
         self.assertTrue(self.core.paths.sandbox("r").is_dir())
         self.assertEqual(output.getvalue(), b"")
 
@@ -251,7 +302,7 @@ class ServerTest(unittest.TestCase):
             self.core.backend.add(name, expires=test_core.NOW + 3600, session=session)
             self.core.paths.sandbox(name).mkdir(parents=True)
         responses = self.exchange(
-            self.call(1, "list", {"mine": True}, threadId="t1"),
+            self.call(1, "list", {"mine": True}, sessionId="t1", threadId="child"),
             self.call(2, "info", {"name": "missing"}),
             self.call(3, "nope", {}),
             self.call(4, "destroy", {"name": "a", "mine": True}),
@@ -270,12 +321,53 @@ class ServerTest(unittest.TestCase):
         exclusive = json.loads(responses[4]["result"]["content"][0]["text"])
         self.assertEqual(exclusive["error"]["code"], "usage")
         self.assertIn("sbx-a", self.core.backend.domains_by_name)
-        # Cloud bases reach core, which also gets the GUI flag.
+        # Cloud bases reach the sandboxes, which also get the GUI flag.
         codes = [
             json.loads(responses[n]["result"]["content"][0]["text"])["error"]["code"]
             for n in (5, 6)
         ]
         self.assertEqual(codes, ["base-missing", "unknown-base"])
+
+    def test_failed_run(self) -> None:
+        """A run whose export fails is a tool error that keeps the command's result.
+
+        The run's sandbox carries the call's token, passed without replacing create.
+        """
+        opened: list[Sandboxes] = []
+
+        def open_sandboxes(session: str | None) -> Any:  # noqa: ANN401
+            opened.append(self.core.sandboxes(session))
+            return opened[-1]
+
+        output = io.BytesIO()
+        server = mcp.Server(open_sandboxes, output, "0.0.0")
+        arguments = {
+            "base": "nixos",
+            "name": "r",
+            "out": ["/root/missing.json"],
+            "to": str(self.core.scratch / "tmp"),
+            "command": ["true"],
+        }
+
+        def token_hex(_size: int) -> str:
+            return "feedfacecafebeef"
+
+        tokens = SimpleNamespace(token_hex=token_hex)
+        with mock.patch.object(mcp, "secrets", tokens):
+            server.receive(json.dumps(self.call(1, "run", arguments)).encode())
+        # The end of input would cancel the create, so it waits for the response.
+        deadline = time.monotonic() + 10
+        while not output.getvalue() and time.monotonic() < deadline:
+            time.sleep(0.05)
+        server.serve([])
+        result = json.loads(output.getvalue())["result"]
+        self.assertTrue(result["isError"])
+        error = json.loads(result["content"][0]["text"])["error"]
+        self.assertEqual((error["code"], error["phase"]), ("run-incomplete", "out"))
+        self.assertEqual(error["run"]["exec"]["exit_code"], 0)
+        self.assertEqual(error["run"]["sandbox"]["token"], "feedfacecafebeef")
+        self.assertEqual(error["run"]["cleanup"]["destroyed"], ["r"])
+        self.assertNotIn("create", vars(opened[0]))
 
     def test_screenshot_image_and_optional_ocr(self) -> None:
         """PNG and PPM captures include a viewable image, with OCR only when requested."""
@@ -302,9 +394,7 @@ class ServerTest(unittest.TestCase):
                         arguments["ocr"] = ocr
                     with (
                         mock.patch.object(self.core.backend, "screenshot", screenshot),
-                        mock.patch.object(
-                            test_core.core, "run", return_value="screen text\n"
-                        ) as read,
+                        mock.patch.object(gui, "run", return_value="screen text\n") as read,
                     ):
                         result = self.exchange(self.call(1, "screenshot", arguments))[1]["result"]
                     self.assertFalse(result["isError"])
@@ -328,6 +418,87 @@ class ServerTest(unittest.TestCase):
                     else:
                         self.assertNotIn("text", document)
                         read.assert_not_called()
+
+    def documents(self, *calls: dict[str, Any]) -> list[tuple[bool, dict[str, Any]]]:
+        """Send calls one at a time; return each result's error flag and document."""
+        results: list[tuple[bool, dict[str, Any]]] = []
+        for call in calls:
+            result = self.exchange(call)[call["id"]]["result"]
+            results.append((result["isError"], json.loads(result["content"][0]["text"])))
+        return results
+
+    def test_gui_input(self) -> None:
+        """Keys and text reach a GUI display; text may start with a dash, keys must be a list."""
+        self.core.sandboxes().create(self.core.request(gui=True))
+        with mock.patch.object(gui.time, "sleep"):
+            pressed, typed, refused = self.documents(
+                self.call(1, "key", {"name": "t1", "keys": ["ctrl+alt+t", "enter"]}),
+                self.call(2, "type", {"name": "t1", "text": "-x\n"}),
+                self.call(3, "key", {"name": "t1", "keys": "a"}),
+            )
+        self.assertEqual(pressed, (False, {"sandbox": "t1", "keys": ["ctrl+alt+t", "enter"]}))
+        self.assertEqual(typed, (False, {"sandbox": "t1", "characters": 3}))
+        self.assertEqual((refused[0], refused[1]["error"]["code"]), (True, "usage"))
+        self.assertEqual([codes for _domain, codes in self.core.backend.keys], [[29, 56, 20], [28]])
+        self.assertEqual(self.core.backend.execs[-1][1], b"-x\n")
+
+    def test_gui_control_refusals(self) -> None:
+        """Negative coordinates and a missing pattern are tool errors before the guest runs."""
+        self.core.sandboxes().create(self.core.request(gui=True))
+        negative, missing, plain = self.documents(
+            self.call(1, "mouse", {"name": "t1", "x": -1, "y": 5}),
+            self.call(2, "window_wait", {"name": "t1", "timeout": "5s"}),
+            self.call(3, "window_list", {"name": "t1", "title": "x"}),
+        )
+        self.assertEqual((negative[0], negative[1]["error"]["code"]), (True, "invalid-argument"))
+        self.assertEqual((missing[0], missing[1]["error"]["code"]), (True, "usage"))
+        self.assertEqual((plain[0], plain[1]["error"]["code"]), (True, "usage"))
+        self.assertEqual(self.core.backend.execs, [])
+
+    def test_key_cap(self) -> None:
+        """The key tool advertises its chord cap and refuses a longer list."""
+        schema = cast("dict[str, Any]", mcp.definition(mcp.TOOLS_BY_NAME["key"])["inputSchema"])
+        self.assertEqual(schema["properties"]["keys"]["maxItems"], keys.MAX_CHORDS)
+        self.core.sandboxes().create(self.core.request(gui=True))
+        ((failed, document),) = self.documents(
+            self.call(1, "key", {"name": "t1", "keys": ["a"] * (keys.MAX_CHORDS + 1)})
+        )
+        self.assertEqual((failed, document["error"]["code"]), (True, "invalid-argument"))
+        self.assertEqual(self.core.backend.keys, [])
+
+    def test_shares(self) -> None:
+        """share_attach and share_detach return the share's JSON form."""
+        backend = test_shares.ShareFake()
+        backend.linger = 0
+        self.core.backend = backend
+        backend.add("s", expires=test_core.NOW + 3600)
+        self.core.paths.sandbox("s").mkdir(parents=True)
+        arguments = {"name": "s", "share": "shared"}
+        attached, detached, missing = self.documents(
+            self.call(1, "share_attach", arguments),
+            self.call(2, "share_detach", arguments),
+            self.call(3, "share_detach", arguments),
+        )
+        host_path = str(self.core.paths.sandbox("s").resolve() / "shared")
+        share = {"sandbox": "s", "tag": "shared", "read_only": False, "host_path": host_path}
+        mount = {
+            "mountpoint": "/mnt/shared",
+            "mounted": True,
+            "mount_command": "mkdir -p /mnt/shared && mount -t virtiofs shared /mnt/shared",
+            "unmount_command": "umount /mnt/shared",
+        }
+        unmount = {"guest_unmounted": True, "unmounted": ["/mnt/shared"]}
+        self.assertEqual(attached, (False, share | {"attached": True} | mount))
+        self.assertEqual(detached, (False, share | {"attached": False} | unmount))
+        self.assertEqual((missing[0], missing[1]["error"]["code"]), (True, "not-attached"))
+
+    def test_stdin_conflict(self) -> None:
+        """Text and base64 stdin together are refused before the command runs."""
+        self.core.backend.add("a", expires=test_core.NOW + 3600)
+        arguments = {"name": "a", "stdin": "x", "stdin_base64": "eA==", "command": ["cat"]}
+        ((failed, document),) = self.documents(self.call(1, "exec", arguments))
+        self.assertEqual((failed, document["error"]["code"]), (True, "usage"))
+        self.assertEqual(self.core.backend.execs, [])
 
     def test_screenshot_failure(self) -> None:
         """A failed capture returns a tool error without an image block."""
@@ -378,25 +549,35 @@ class Stub:
             self.released.set()
         return names
 
-    def dispatch(self, sandboxes: Any, args: argparse.Namespace, *, as_json: bool) -> object:  # noqa: ANN401
-        """Run like cli._run: create, then destroy by name."""
-        if not as_json:
+    def invoke(
+        self,
+        _operation: ops.Operation,
+        open_sandboxes: Callable[[str | None], Any],
+        args: ops.Args,
+        ctx: ops.Ctx,
+    ) -> object:
+        """Run like the run handler: create with the call's token, then destroy by name."""
+        if ctx.stdio_attached:
             raise AssertionError
-        name = args.name or "nixos-gen"
-        sandboxes.create(name)
-        sandboxes.destroy(name)
-        return {"name": name}, 0
+        name = args.optional("name") or "nixos-gen"
+        try:
+            sandboxes = open_sandboxes(ctx.session)
+            sandboxes.create(name, token=ctx.token)
+            sandboxes.destroy(name)
+        except SbxError as error:
+            return ops.fail(error)
+        return Document({"name": name})
 
 
 class CancelTest(unittest.TestCase):
     """Cancelled and interrupted runs remove their own sandbox and nothing else."""
 
     def setUp(self) -> None:
-        """Route every sandbox and dispatch to the stub."""
+        """Route every sandbox and call to the stub."""
         self.stub = Stub()
         self.output = io.BytesIO()
         self.server = mcp.Server(lambda _session: cast("Any", self.stub), self.output, "0.0.0")
-        patch = mock.patch.object(mcp, "dispatch", self.stub.dispatch)
+        patch = mock.patch.object(mcp.ops, "invoke", self.stub.invoke)
         patch.start()
         self.addCleanup(patch.stop)
 

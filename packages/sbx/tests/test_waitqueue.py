@@ -13,8 +13,10 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, cast
 from unittest import mock
 
-from sbx import core, waitqueue
-from sbx.core import Request, Sandboxes, SbxError
+from sbx import admission, errors, waitqueue
+from sbx.errors import SbxError
+from sbx.model import Request
+from sbx.sandboxes import Sandboxes
 
 from tests.test_core import NOW, Fixture
 
@@ -38,7 +40,7 @@ class WaitQueueTest(Fixture):
     def setUp(self) -> None:
         """Poll fast and fill the running ceiling with three sandboxes of other sessions."""
         super().setUp()
-        poll = mock.patch.object(core, "WAIT_POLL", 0.05)
+        poll = mock.patch.object(admission, "WAIT_POLL", 0.05)
         poll.start()
         self.addCleanup(poll.stop)
         for index in range(3):
@@ -81,7 +83,7 @@ class WaitQueueTest(Fixture):
         self.assertIn("r0 (codex:other, 30m left)", str(error))
         self.assertIn("--wait 30m", str(error))
         self.assertIn("sbx destroy --mine", str(error))
-        document = core.error_document(error)
+        document = errors.error_document(error)
         self.assertEqual(document["retry"], {"wait": "30m"})
         self.assertEqual(
             document["holders"][0],  # pyright: ignore[reportIndexIssue]
@@ -123,7 +125,7 @@ class WaitQueueTest(Fixture):
             sleep(seconds + 0.5)
 
         with (
-            mock.patch.object(core.time, "sleep", oversleep),
+            mock.patch.object(admission.time, "sleep", oversleep),
             self.assertRaises(SbxError) as refused,
         ):
             self.sandboxes().create(self.wait_request("t1", wait=0.3))
@@ -138,24 +140,31 @@ class WaitQueueTest(Fixture):
         wait_until(lambda: self.queued() == ["a"])
         self.start("b")
         wait_until(lambda: self.queued() == ["a", "b"])
-        listed = self.sandboxes().listing(mine=False)
+        listed = [
+            cast("dict[str, object]", entry.as_json())
+            for entry in self.sandboxes().listing(mine=False)
+        ]
         self.assertEqual(
             [(entry["name"], entry["state"]) for entry in listed[-2:]],
             [("a", "queued"), ("b", "queued")],
         )
         self.assertEqual([entry["position"] for entry in listed[-2:]], [1, 2])
         self.assertEqual(
-            [entry["name"] for entry in self.sandboxes().listing(mine=True)], ["a", "b"]
+            [
+                cast("dict[str, object]", entry.as_json())["name"]
+                for entry in self.sandboxes().listing(mine=True)
+            ],
+            ["a", "b"],
         )
         self.free("r0")
         first.join(10)
-        self.assertEqual(self.results["a"]["name"], "a")
+        self.assertEqual(self.results["a"].name, "a")
         time.sleep(0.3)
         self.assertNotIn("b", self.results)
         self.assertEqual(self.queued(), ["b"])
         self.free("r1")
         wait_until(lambda: "b" in self.results)
-        self.assertEqual(self.results["b"]["name"], "b")
+        self.assertEqual(self.results["b"].name, "b")
         self.assertEqual(self.queued(), [])
         messages = [call.args[0] for call in self.journal_record.call_args_list]
         self.assertTrue(any(message.startswith("b leaves the queue") for message in messages))
@@ -179,8 +188,8 @@ class WaitQueueTest(Fixture):
         self.assertEqual(refused.exception.details["waiting"], 2)
         self.free("big")
         wait_until(lambda: set(self.results) == {"large", "small"})
-        self.assertEqual(self.results["large"]["name"], "large")
-        self.assertEqual(self.results["small"]["name"], "small")
+        self.assertEqual(self.results["large"].name, "large")
+        self.assertEqual(self.results["small"].name, "small")
 
     def test_dead_tickets_are_dropped(self) -> None:
         """Tickets of exited processes or reused pids, staged ones included, never block."""
@@ -196,7 +205,7 @@ class WaitQueueTest(Fixture):
         ]
         for path in stale:
             path.write_text("{}")
-        self.assertEqual(self.sandboxes().create(self.request())["name"], "t1")
+        self.assertEqual(self.sandboxes().create(self.request()).name, "t1")
         self.assertEqual(list(self.paths.queue.iterdir()), [])
 
     def test_expired_and_zombie_tickets_are_dropped(self) -> None:
@@ -214,7 +223,7 @@ class WaitQueueTest(Fixture):
         own.write_text(json.dumps(expired))
         dead = self.paths.queue / f"0000000002-{zombie.pid}-{start}"
         dead.write_text(json.dumps(fields | {"deadline": waitqueue.boottime() + 600}))
-        self.assertEqual(self.sandboxes().create(self.request())["name"], "t1")
+        self.assertEqual(self.sandboxes().create(self.request()).name, "t1")
         self.assertEqual(list(self.paths.queue.iterdir()), [])
 
     def test_wait_ceiling_and_disk_refuse_before_queueing(self) -> None:
@@ -279,7 +288,7 @@ class WaitQueueTest(Fixture):
         )
         threading.Timer(2.0, self.free, ("r0",)).start()
         result = sandboxes.create(self.wait_request("t1"))
-        self.assertGreaterEqual(cast("int", result["ttl_left"]), 3599)
+        self.assertGreaterEqual(result.ttl_left, 3599)
 
 
 if __name__ == "__main__":

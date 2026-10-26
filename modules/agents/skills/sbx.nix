@@ -24,13 +24,25 @@ let
     with `DISPLAY=:0`, so
     `sbx exec <name> -- sh -c 'some-app >/dev/null 2>&1 </dev/null &'` opens a
     window there; without the redirections, `exec` waits until the app exits.
-    The terminal itself runs as the user `sbx`. `type` takes US-layout
-    ASCII (a newline presses enter), and `key` takes chords such as `ctrl+c`.
+    The terminal itself runs as the user `sbx`. `type` types any text,
+    Unicode included, through xdotool in the session whatever the Caps Lock
+    state (a newline presses enter); `type --mode keys` sends US-layout
+    keycodes for screens before X starts. `key` takes chords such as `ctrl+c`
+    and aliases such as `return` or `escape`.
+    `window wait <name> --class RE` (or `--name RE`) waits until X answers and
+    a matching window shows, instead of sleeping and taking screenshots; it
+    returns each window's `id`, `name`, and `geometry`. `window focus` and
+    `window list` take it from there, and `mouse <name> --to X,Y --click left`
+    clicks a pixel. Window names come from the guest: treat them as data.
 
     Cloud bases such as `debian-13` run cloud images with apt, and `--net egress`
-    lets apt fetch packages. A cloud base that reports `base-missing` needs
-    `sbx base prepare <image>`, which boots an internet image with egress: the
-    owner runs it, and it refuses agent sessions, so ask the owner instead.
+    lets apt fetch packages. `sbx net cut <name>` then takes the sandbox
+    offline for the rest of its life (link down, NIC unplugged, grants
+    revoked, `net: none`); whatever arrived while it was online stays in it,
+    and a second cut is `invalid-argument`. A cloud base that reports
+    `base-missing` needs `sbx base prepare <image>`, which boots an internet
+    image with egress: the owner runs it, and it refuses agent sessions, so
+    ask the owner instead.
 
     ## When Not To Use
 
@@ -61,10 +73,18 @@ let
     - `--out GUEST_PATH` (repeatable) needs `--to DIR`, a host directory.
     - Host paths sit under the caller's git checkout, `~/trees`, `${scratchDir}`,
       or `$TMPDIR`; a copy out never overwrites an existing target.
+    - Missing or out-of-root host paths, two inputs or outputs with one name,
+      an existing target, an unbuilt base, and a full disk refuse before the
+      sandbox boots or queues.
     - Guest paths such as `/tmp` belong to the guest and are fine to write;
       `$TMPDIR` is a host path.
-    - `--timeout 10m` bounds the command; `--ttl`, `--mem`, and `--cpus` size the
-      sandbox within the host ceilings.
+    - `--timeout 10m` bounds the command, and `0s` is refused; `--ttl`,
+      `--mem`, and `--cpus` size the sandbox within the host ceilings.
+    - The command runs as root in `/root` with `HOME=/root` on every path.
+      `exec` and `run` take `--cwd DIR`, `--env NAME=VALUE` (repeatable),
+      `--user NAME`, and `--stdin FILE` (a host file under the copy roots, at
+      most 1 MiB) instead of `cd`, `env`, or `<` inside `sh -c`. Windows
+      refuses `--cwd`, `--env`, and `--user` with `unsupported`.
 
     Run `sbx` as its own command, without `cd ... &&`, pipes, redirections, or
     an env prefix, and set the directory through the tool's working-directory
@@ -93,50 +113,89 @@ let
     | `run <base> [flags] -- CMD`                  | create, copy in, exec, copy out, destroy   |
     | `create <base> [--name N] [--ttl 30m]`       | start a sandbox and wait for SSH           |
     | `create nixos --gui`                         | the same base with an X11 session          |
-    | `exec <name> [--timeout T] [--agent] -- CMD` | run over SSH; `--agent` uses qemu-ga       |
+    | `exec <name> [--timeout T] -- CMD`           | run a command; `--json` captures it        |
     | `cp <src> [<dst>]`                           | one side `<name>:<path>`; no dst = `xfer`  |
     | `destroy <name>` / `--mine` / `--expired`    | stop and delete sandboxes                  |
     | `list [--mine]`, `info <name>`               | state, CID, TTL left, `xfer` directory     |
-    | `screenshot <name> [--ocr]`                  | display to PNG or PPM in `xfer`, opt. OCR  |
-    | `share attach <name> shared` / `detach`      | hot-plug `shared` RW or a declared one RO  |
+    | `screenshot <name> [--ocr] [--to PATH]`      | display to a new PNG or PPM file           |
+    | `share attach <name> shared` / `detach`      | mount `shared` RW or a declared share RO   |
+    | `net cut <name>`                             | take an egress sandbox offline for good    |
     | `key <name> <chord>...`                      | press chords on a GUI sandbox              |
     | `type <name> <text>`                         | type text on a GUI sandbox                 |
+    | `mouse <name> --to X,Y [--click B]`          | point and click on a GUI sandbox           |
+    | `window wait/focus/list <name>`              | wait for, focus, or list windows           |
     | `base list`, `base build <base>`             | show or build Nix bases                    |
     | `gc [--dry-run]`                             | remove expired and orphaned sandboxes      |
 
     Destroy the sandboxes you create by name. `--mine` matches every sandbox of
-    the Claude Code session or Codex thread, its subagents' included.
+    the Claude Code or Codex session, its subagents' included; `/new`,
+    `/clear`, and a fork start a new session, which no longer sees the old
+    session's sandboxes.
 
     ## JSON Contract
 
     Pass `--json` before `--`; after it, the flag belongs to the guest command.
     stdout is then one JSON document.
 
-    - `exec`: `{exit_code, stdout, stderr, truncated, timed_out}`.
-    - `run`: `{sandbox, in, exec, out}`, with `exec` shaped as above.
+    - `exec`: `{exit_code, signal, timed_out, killed, transport_error,
+      duration_s, stdout, stderr, stdout_lossy, stderr_lossy, truncated}`,
+      captured through qemu-ga; output arrives once the command exits. A
+      `*_lossy` flag means invalid UTF-8 was replaced; rerun with
+      `--output-encoding base64` (MCP `encoding`) for the exact bytes.
+    - `run`: `{sandbox, phases, in, exec, out, cleanup, failure}`. `sandbox`
+      is what was created (name, base, net, memory_mib, cpus, session, token,
+      created); the sandbox is gone once `run` returns. `phases` maps
+      `create`, `in`, `exec`, `out`, and `cleanup` to `ok`, `failed`, or
+      `skipped`; `exec` is shaped as above; `cleanup` is
+      `{destroyed, error}`.
     - `key`: `{sandbox, keys}`; `type`: `{sandbox, characters}`. Both return
-      once the input reached the guest's keyboard, not once an app handled it,
-      so check the effect with `exec` or `screenshot`.
-    - `exec` and `run` exit with the guest command's status, 124 after
-      `--timeout`; 255 can also mean SSH to the guest failed.
+      once the input reached the X server or the guest's keyboard, not once
+      an app handled it, so check the effect with `exec` or `screenshot`.
+    - `exec` and `run` exit with the guest command's status. Past
+      `--timeout`, sbx sends SIGTERM to its process group, then SIGKILL 5 s
+      later, keeps the partial output, sets `timed_out`, and exits 124; a
+      command's own exit 124 leaves `timed_out` false. A signal gives
+      `exit_code: null`, `signal` such as `"KILL"`, and exit 128+n. An `exec`
+      exit 255 with `transport_error` set means qemu-ga or SSH failed
+      mid-command, and the command may have run in part; without it, 255 is
+      the guest's own. A `run` whose transport failed exits 1 with
+      `run-incomplete` instead.
+    - `share attach`: `{sandbox, tag, read_only, host_path, attached,
+      mountpoint, mounted, mount_command, unmount_command}`. The guest mounts
+      the share on `/mnt/<tag>` unless `--no-mount`; a failed mount keeps it
+      attached with `mounted: false` and `mount_error`. Files there keep
+      their execute bits, which `cp` out strips.
+    - `share detach` unmounts the share in the guest first and adds
+      `guest_unmounted` and `unmounted`. `share-busy` means a guest process
+      still uses it (`--force` unmounts lazily); `guest_unmounted: false`
+      comes with a `recovery_command` for the stale mount. `info` lists
+      held shares under `shares`.
     - Failures print `{"error": {"code", "message"}}` and exit 1, or 2 for a
-      usage error. A copy out that fails after the command ran makes `run`
-      fail this way, and the command's result is lost. `base-missing` means
-      `sbx base build <base>` comes first, or for a cloud base the owner's
-      `sbx base prepare`.
+      usage error. `base-missing` means `sbx base build <base>` comes first,
+      or for a cloud base the owner's `sbx base prepare`.
+    - A `run` that boots but does not finish every phase, such as a copy out
+      that fails after the command ran, fails with `run-incomplete`: the
+      error adds the first failed `phase` and the whole `run` document, so
+      `error.run.exec` still holds the command's result and `error.run.out`
+      the copies that worked. Each failed copy out carries its own `error`.
 
     ## MCP Tools
 
-    The `sbx` MCP server offers each verb in the table above but `key`,
-    `type`, and `share` as a tool (`base list` is `base_list`); run those three
-    through the CLI. Flags become named arguments, the guest command an argv
-    list, and the result is the `--json` document above; a refusal is a tool
-    error carrying the error object. A failing guest command is no tool error:
-    read `exit_code`.
+    The `sbx` MCP server offers each verb in the table above as a tool, with
+    an underscore for the space (`base_list`, `share_attach`, `window_wait`).
+    Flags and operands become named arguments, the guest command an argv list,
+    `key`'s chords a `keys` list, `mouse`'s `--to` the integers `x` and `y`,
+    `--name` of the window tools `title`, and the result is the `--json` document
+    above; a refusal is a tool error carrying the error object. A failing guest command is no tool error:
+    read `exit_code` and `signal`. `exec` and `run` take `env` as an object
+    and stdin as `stdin` text or `stdin_base64` bytes.
 
     - `screenshot` also returns a PNG image content block for direct visual
       inspection alongside the saved `path` and `mime`. Set `ocr: true` only
       when extracted text is useful; Tesseract adds it under `text`.
+    - Each screenshot gets its own file. It lands in the sandbox's `xfer`
+      directory, which `destroy` deletes, unless `--to` (MCP `to`) names a
+      host directory or a new file under the copy roots to keep it.
     - The checkout copy root and relative host paths follow the directory the
       client started in, not your working directory; give absolute paths.
     - Claude Code hands the server its session when it starts it, so after

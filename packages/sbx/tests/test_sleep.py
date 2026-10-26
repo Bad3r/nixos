@@ -8,14 +8,18 @@ import os
 import signal
 import unittest
 from contextlib import redirect_stderr, redirect_stdout
-from typing import cast
+from typing import TYPE_CHECKING, cast
 from unittest import mock
 
 from sbx import cli
-from sbx.core import Meta, Sandboxes, SbxError
+from sbx.errors import SbxError
+from sbx.sandboxes import Sandboxes
 from sbx.sleep import Sleep
 
 from tests.test_core import NOW, FakeBackend, Fixture
+
+if TYPE_CHECKING:
+    from sbx.model import Meta
 
 
 class SleepTest(Fixture):
@@ -138,6 +142,16 @@ class SleepTest(Fixture):
             _, code = self.phase("resume")
         self.assertEqual(code, 0)
         self.assertIn("warning: b keeps a stale clock", self.errors)
+
+    def test_vanished_sandboxes_are_skipped(self) -> None:
+        """A domain another client removes mid-phase fails neither pause nor save."""
+        self.fake.vanished.add("sbx-a")
+        _, code = self.phase("pause")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.states(), {"a": "running", "b": "paused"})
+        _, code = self.phase("save")
+        self.assertEqual(code, 0)
+        self.assertEqual(self.states(), {"a": "running", "b": "shutoff"})
 
     def test_unsynchronized_host_clock(self) -> None:
         """Without NTP sync on the host, guest clocks are left alone."""

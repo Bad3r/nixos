@@ -30,10 +30,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, NoReturn, cast
 
 from sbx import emulator, journal
-from sbx.core import CREATION_FILE, DOMAIN_PREFIX, NAME_PATTERN, Paths, SbxError
+from sbx.errors import SbxError
+from sbx.model import CREATION_FILE, DOMAIN_PREFIX, NAME_PATTERN
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
+
+    from sbx.config import Paths
 
 # workload-grantd writes it (packages/workloads/workloads/vsock.py).
 STATE = Path("/run/workloads/vsock-grants.json")

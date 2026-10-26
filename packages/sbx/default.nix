@@ -81,7 +81,7 @@ let
     xorriso = "${xorriso}/bin/xorriso";
     virtiofsd = "${shareDaemon}";
   };
-  version = "0.1.0";
+  version = "0.2.0";
   settingsFile = writeText "sbx-settings.json" (builtins.toJSON (settings // { inherit tools; }));
 in
 stdenvNoCC.mkDerivation {

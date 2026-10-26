@@ -15,7 +15,9 @@ from argcomplete.completers import (
 from argcomplete.lexers import split_line
 
 from sbx import keys, shares
-from sbx.core import FLAVOURS, Paths, SbxError, Settings, remote_name
+from sbx.config import Paths, Settings, remote_name
+from sbx.errors import SbxError
+from sbx.model import FLAVOURS
 
 
 class PathCompleter(BaseCompleter):
@@ -127,11 +129,12 @@ def configure(parser: argparse.ArgumentParser, settings_path: Path) -> None:
     completers: dict[str, BaseCompleter] = {
         dest: LocalCompleter(kind, settings_path) for dest, kind in kinds.items()
     }
-    completers.update(
-        flavour=ChoicesCompleter(dict.fromkeys(FLAVOURS, "Nix base")),
-        inputs=PathCompleter(),
-        to=PathCompleter(directories_only=True),
-    )
+    completers |= {
+        "flavour": ChoicesCompleter(dict.fromkeys(FLAVOURS, "Nix base")),
+        "in": PathCompleter(),
+        "stdin_path": PathCompleter(),
+        "to": PathCompleter(directories_only=True),
+    }
 
     def visit(current: argparse.ArgumentParser) -> None:
         for action in current._actions:  # noqa: SLF001

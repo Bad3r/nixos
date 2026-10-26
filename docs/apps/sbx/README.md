@@ -17,7 +17,7 @@ Every sandbox is an untrusted guest.
 - Each QEMU runs in its own user, network, and mount namespace, and `sbx-qemu` (`packages/sbx/sbx/emulator.py`) starts it only when that namespace's vsock mode is `local`.
   It sees the store, a few character devices, and its own sandbox's files, which [confinement.md](confinement.md) lists with the limits.
 - The guest's vhost-vsock device belongs to that namespace, so for the sandbox's whole lifetime it reaches no host vsock listener, whenever that listener starts.
-- `exec` and `cp` enter the namespace with `nsenter` to reach the guest's SSH; the module sets `net.vsock.child_ns_mode` to `local` for every new namespace.
+- Attached `exec` and `cp` enter the namespace with `nsenter` to reach the guest's SSH; the module sets `net.vsock.child_ns_mode` to `local` for every new namespace.
 - A [vsock grant](vsock-grants.md) adds listeners inside that namespace for a granted host service, for the grant's lifetime only.
 - The guest sees no nested virtualization and no VMware backdoor port.
 - An expired sandbox refuses `exec`, `cp`, and `screenshot` until `gc` removes it.
@@ -31,13 +31,14 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | -------------------------------- | ------------------------------------------- |
 | `create <base>`                  | start a sandbox, wait for SSH               |
 | `run <base> -- CMD`              | create, copy in, run, copy out, destroy     |
-| `exec <name> -- CMD`             | run over SSH; `--agent` uses qemu-ga        |
+| `exec <name> -- CMD`             | run a command, attached or captured         |
 | `cp <src> <dst>`                 | scp over vsock; one side is `<name>:<path>` |
 | `destroy <name>`                 | stop, undefine, delete the run directory    |
 | `list`, `info <name>`            | state, CID, address, TTL left, session      |
-| `screenshot <name>`              | display to PNG; `--ocr` adds text           |
-| `key <name>`, `type <name>`      | keyboard input on a GUI base                |
-| `share attach`, `share detach`   | hot-plug or remove a runtime share          |
+| `screenshot <name>`              | display to PNG; `--ocr`, `--to`             |
+| `key`, `type`, `mouse`, `window` | input and windows on a GUI base             |
+| `share attach`, `share detach`   | hot-plug and mount, or unmount and remove   |
+| `net cut <name>`                 | take an `egress` sandbox offline for good   |
 | `gc`                             | remove expired and orphaned sandboxes       |
 | `base list`, `base build <base>` | show or build Nix bases                     |
 | `base prepare <image>`           | turn a cloud image into a base, owner only  |
@@ -45,8 +46,9 @@ Every verb takes `--json`; a failure then prints `{"error": {"code", "message"}}
 | `vsock serve`, `vsock sync`      | vsock grant proxy, for `workloads grant`    |
 
 `create` and `run` take `--name`, `--net`, `--mem`, `--cpus`, `--ttl`, `--gui`, and `--wait`, which [Resources](#resources) covers.
-`exec` and `run` exit with the guest command's status in both output modes, or 124 after `--timeout`, which also stops the command inside the guest.
-`destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code session or Codex thread, subagents included.
+`exec` and `run` exit with the guest command's status; [commands](exec.md) covers their transports, timeouts, `--json` results, and a run that fails partway.
+`destroy --mine` and `list --mine` act on sandboxes started from the caller's Claude Code or Codex session, its subagents included.
+`/new`, `/clear`, and a fork start a new session, whose `--mine` leaves the old session's sandboxes out.
 Every removal, by `destroy`, `gc`, a failed `create`, or the MCP server's cleanup, revokes the [workload grants](../../networking/workload-grants.md) of the sandbox it removes; a revoke that fails is reported on stderr and in the journal, and the sandbox is removed anyway.
 [sleep.md](sleep.md) covers `sleep` and what host suspend and hibernation do to sandboxes.
 
@@ -61,14 +63,8 @@ sbx destroy probe
 
 ## Networks
 
-- `--net none`, the default, gives the sandbox no network interface.
-- `--net egress` adds one virtio NIC on `vn-sbx`, the bridge of the `sbx` [workload network](../../networking/workloads.md) in `modules/hosts/<host>/workloads.nix`, which sets its egress, isolation, and lease binding.
-- Guests run the NIC at the network's `mtu`: Nix bases take it from the DHCP server, cloud bases from their seed.
-- The network's resolver ignores the hostnames sandboxes send, so a sandbox cannot look up its peers.
-- `create` waits for the guest's DHCP lease and prints its address.
-  `list` and `info` read it from the lease file the host's DHCP server keeps for the bridge, not from the guest agent.
-- The address is the sandbox's current lease, which the network keeps short.
-- Session libvirt joins the bridge through the setuid `qemu-bridge-helper` wrapper.
+`--net none`, the default, gives no network interface, and `--net egress` one NIC on the `sbx` workload network.
+[Networks](networks.md) covers both, and `net cut`, which takes an `egress` sandbox offline for good.
 
 ## Copies
 
@@ -83,7 +79,7 @@ sbx destroy probe
 
 ## Bases
 
-Nix bases, GUI input, and cloud bases with `base prepare`: [bases](bases.md).
+Nix bases and cloud bases with `base prepare`: [bases](bases.md); display input: [GUI input and control](gui.md).
 Windows bases, exported from a Windows guest's golden copy and run without SSH: [Windows bases](windows.md).
 
 ## Resources
@@ -123,7 +119,7 @@ Past the disk cap or the free-space floor, it detaches `shared` from every sandb
 It removes sandboxes past their TTL only while `timedatectl` reports the host clock NTP-synchronized, since an RTC clock right after resume can run hours ahead.
 `sbx destroy --expired` refuses with `clock-unsynced` on an unsynced clock.
 On a host that never syncs, expired sandboxes stay until `sbx destroy <name>`.
-`create`, `exec`, `cp`, `share`, `screenshot`, `key`, `type`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
+`create`, `exec`, `cp`, `share`, `screenshot`, `key`, `type`, `mouse`, `window focus`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
 
 ## Verify
 

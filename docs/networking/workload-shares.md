@@ -31,21 +31,24 @@ As the owner on the host:
 
 ```sh
 workloads share attach <guest> <tag>
-workloads share attach sbx-<name> shared
-workloads share attach sbx-<name> <tag>
 workloads share detach <guest> <tag>
+sbx share attach <name> shared
+sbx share attach <name> <tag>
+sbx share detach <name> <tag>
 ```
 
+`workloads share attach sbx-<name> <tag>` runs `sbx share attach`, which mounts the share as well; its answer leaves out the mount fields.
 A NixOS guest's runtime share has a `noauto` fstab entry, so `mount /mnt/<tag>` in the guest mounts it.
-A sandbox mounts the tag by hand:
-
-```sh
-sbx exec <name> -- sh -c 'mkdir -p /mnt/<tag> && mount -t virtiofs <tag> /mnt/<tag>'
-```
+`sbx share attach` mounts the tag on `/mnt/<tag>` in the sandbox, read-only with `-o ro`, and returns `mount_command` and `unmount_command`.
+`--no-mount` only attaches; a mount the guest refuses keeps the share attached with `mounted: false` and `mount_error`.
 
 - A share stays until it is detached or the guest stops; a managed save and its restore keep it.
 - A guest has a hot-plug slot for each runtime share it declares, and a sandbox for a few shares; a further attach fails with `libvirt`.
-- Detach returns once the device has left the live definition; unmount the share inside the guest first.
+- Detach returns once the device has left the live definition; unmount a system guest's share inside the guest first.
+- `sbx share detach` unmounts every guest mount of the tag first, and refuses a busy one with `share-busy` unless `--force` unmounts it lazily.
+- A sandbox whose guest agent does not answer is detached anyway, with `guest_unmounted: false` and a `recovery_command`.
+- `sbx info <name>` lists the shares a sandbox holds, each with its mountpoint when the guest mounted it.
+- A share shows host files with their mode bits, so executables stay executable; a `cp` out strips execute, setuid, and setgid bits.
 - Detach also removes a live share that the guest's declaration omits.
 - A guest that keeps the device past the wait fails detach with `detach-pending`, and the share stays usable until the guest releases it or stops.
 - `shared` refuses to attach past the sbx disk cap or free-space floor, and `sbx gc` detaches it from every sandbox then.
@@ -65,6 +68,7 @@ sbx exec <name> -- sh -c 'mkdir -p /mnt/<tag> && mount -t virtiofs <tag> /mnt/<t
 | `not-attached`      | the share is not attached               |
 | `saved`             | a managed save holds the share          |
 | `detach-pending`    | the guest still holds the device        |
+| `share-busy`        | a guest process uses the mount          |
 | `path-denied`       | the sandbox share directory is refused  |
 | `libvirt`           | virsh or libvirt failed                 |
 | `invalid-target`    | the target does not parse               |
@@ -100,3 +104,13 @@ virsh -r -c qemu:///system dumpxml <guest> | grep -A6 '<filesystem'
 ```
 
 Fix: unmount the share in the guest and detach again, or shut the guest down; `sbx destroy <name>` ends a sandbox's share.
+
+## Guest I/O fails with Transport endpoint is not connected
+
+Cause: the share left while the guest still had it mounted, as after a detach whose guest agent did not answer.
+
+```sh
+sbx exec <name> -- findmnt -t virtiofs
+```
+
+Fix: run the `recovery_command` the detach returned, which unmounts the stale mounts lazily.

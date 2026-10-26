@@ -10,6 +10,9 @@ sbx create --help
 sbx share attach --help
 ```
 
+A command's help shows its usage, one example, and the host's defaults and ceilings for `--mem`, `--cpus`, `--ttl`, and `--wait`.
+Those values come from the rendered settings, so help leaves them out where the settings do not load.
+
 ## Tab completion
 
 The package installs completion scripts for Bash, Zsh, and Fish in their standard discovery directories.

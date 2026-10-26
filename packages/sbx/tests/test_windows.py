@@ -8,14 +8,20 @@ import tarfile
 import unittest
 import xml.etree.ElementTree as ET
 from pathlib import Path, PureWindowsPath
-from typing import IO, Any, cast
+from typing import IO, TYPE_CHECKING, Any, cast
 
-from sbx import cli, core, windows
-from sbx.core import Sandboxes, SbxError, Settings
+from sbx import model, pipeline, windows
+from sbx.errors import SbxError
+from sbx.model import ExecOptions
+from sbx.results import GcAction, SandboxView
+from sbx.sandboxes import Sandboxes
 from sbx.windows import WindowsSettings
 
 from . import test_core
 from .test_core import NOW, FakeBackend
+
+if TYPE_CHECKING:
+    from sbx.config import Settings
 
 FIRMWARE = "/nix/store/ovmf/FV/OVMF_CODE.fd"
 VERSIONS = ("20261001T000000Z", "20261002T000000Z")
@@ -35,6 +41,7 @@ class FakeWindows(FakeBackend):
         self.processes: dict[int, dict[str, Any] | None] = {}
         self.handles: dict[int, IO[bytes]] = {}
         self.commands: list[list[str]] = []
+        self.started: dict[int, list[str]] = {}
         self.hang: set[str] = set()
         self.kill_exit = 0
         self.link_in_pack = False
@@ -62,6 +69,7 @@ class FakeWindows(FakeBackend):
             case "guest-exec":
                 argv = [arguments["path"], *arguments["arg"]]
                 self.commands.append(argv)
+                self.started[self.counter] = argv
                 stdin = base64.b64decode(arguments.get("input-data", ""))
                 running = argv[0] in self.hang
                 self.processes[self.counter] = None if running else self.program(argv, stdin)
@@ -92,7 +100,7 @@ class FakeWindows(FakeBackend):
     def program(self, argv: list[str], stdin: bytes) -> dict[str, Any]:
         """Emulate the guest programs sbx runs; anything else echoes its arguments."""
         if argv[0] == windows.TASKKILL:
-            if self.exit_on_kill:
+            if self.exit_on_kill or self.kill_exit == 0:
                 for pid, status in self.processes.items():
                     if status is None:
                         self.processes[pid] = {"exitcode": 1}
@@ -162,7 +170,7 @@ class WindowsTest(unittest.TestCase):
             self.settings, self.paths, lambda _slice: self.backend, "claude:one", lambda: NOW
         )
 
-    def create(self, name: str = "w") -> dict[str, object]:
+    def create(self, name: str = "w") -> SandboxView:
         """Create a Windows sandbox with default flags."""
         sandboxes = self.sandboxes()
         request = sandboxes.request(
@@ -198,7 +206,7 @@ class WindowsTest(unittest.TestCase):
             (directory / windows.TPM / "tpm2-00.permall").stat().st_mode & 0o777, 0o600
         )
         self.assertFalse((directory / "id_ed25519").exists())
-        self.assertEqual(self.sandboxes().info("w")["image"], str(newest / windows.DISK))
+        self.assertEqual(self.sandboxes().info("w").image, str(newest / windows.DISK))
 
     def test_refusals(self) -> None:
         """No export, `base build`, and a network are refused with the export unit named."""
@@ -230,39 +238,81 @@ class WindowsTest(unittest.TestCase):
         self.assertEqual(refused.exception.code, "disk-full")
         # Two Windows overlays and one 8G Linux overlay pass the 30G cap too.
         with self.assertRaises(SbxError) as refused:
-            self.sandboxes().create(core.Request("nixos", "l1", "none", 2048, 2, 3600))
+            self.sandboxes().create(model.Request("nixos", "l1", "none", 2048, 2, 3600))
         self.assertEqual(refused.exception.code, "disk-full")
 
     def test_exec(self) -> None:
         """Commands run as given through guest-exec, with --json exit codes and no SSH."""
         self.create()
-        leading, command = cli.split_command(["exec", "w", "--json", "--", "cmd.exe", "/c", "ver"])
-        args = cli.build_parser().parse_args(leading)
-        args.command = command
-        result, code = cli.dispatch(self.sandboxes(), args, as_json=True)
+        argv = ("exec", "w", "--json", "--", "cmd.exe", "/c", "ver")
+        result, code = test_core.dispatch(self.sandboxes(), *argv)
         self.assertEqual(code, 3)
         self.assertEqual(cast("dict[str, object]", result)["stdout"], "/c ver")
         self.assertEqual(self.backend.commands[-1], ["cmd.exe", "/c", "ver"])
         with self.assertRaises(SbxError) as refused:
-            self.sandboxes().exec_attached("w", ["cmd.exe"], timeout=None)
+            self.sandboxes().exec_attached("w", ["cmd.exe"], ExecOptions())
         self.assertEqual(refused.exception.code, "agent-only")
+        for options in (
+            ExecOptions(cwd="C:/"),
+            ExecOptions(user="admin"),
+            ExecOptions(env=("A=1",)),
+        ):
+            with self.subTest(options=options), self.assertRaises(SbxError) as refused:
+                self.sandboxes().exec_capture("w", ["cmd.exe"], options)
+            self.assertEqual(refused.exception.code, "unsupported")
+        result = self.sandboxes().exec_capture("w", ["echo.exe"], ExecOptions(stdin=b"in"))
+        self.assertEqual(result.exit_code, 3)
+
+    def test_run_inputs_ignore_case(self) -> None:
+        """Two inputs whose names differ only in case collide in the Windows inbox, not on Linux."""
+        tmp = self.scratch / "tmp"
+        inputs: list[str] = []
+        for directory, leaf in (("a", "Report.txt"), ("b", "report.txt")):
+            (tmp / directory).mkdir()
+            (tmp / directory / leaf).write_text(leaf)
+            inputs.append(str(tmp / directory / leaf))
+        sandboxes = self.sandboxes()
+
+        def plan(base: str) -> pipeline.RunPlan:
+            request = sandboxes.request(
+                base, name="r", net="none", memory=None, cpus=None, ttl=None
+            )
+            return sandboxes.plan_run(request, inputs, [], None)
+
+        with self.assertRaises(SbxError) as refused:
+            plan("win11")
+        self.assertEqual(refused.exception.code, "invalid-argument")
+        self.assertEqual(len(plan("nixos").inputs), 2)
 
     def test_timeout_kills_the_process_tree(self) -> None:
         """A timeout runs taskkill on the process tree and reports a failed kill."""
         self.create()
         self.backend.hang.add("slow.exe")
-        result = self.sandboxes().exec_capture("w", ["slow.exe"], timeout=0, agent=False)
-        self.assertTrue(result.timed_out)
+        now = [0.0]
+
+        def pause(seconds: float) -> None:
+            now[0] += seconds
+
+        def run() -> model.ExecResult:
+            sandboxes = self.sandboxes()
+            sandboxes.monotonic = lambda: now[0]
+            sandboxes.pause = pause
+            return sandboxes.exec_capture("w", ["slow.exe"], ExecOptions(timeout=1))
+
+        result = run()
+        self.assertEqual((result.timed_out, result.killed, result.exit_code), (True, True, 1))
         self.assertEqual(result.stderr, b"")
-        hung = [pid for pid, status in self.backend.processes.items() if status is None]
-        self.assertEqual(self.backend.commands[-1][:3], [windows.TASKKILL, "/PID", str(hung[0])])
+        self.assertEqual(result.status(), 124)
+        hung = next(pid for pid, argv in self.backend.started.items() if argv == ["slow.exe"])
+        self.assertEqual(self.backend.commands[-1][:3], [windows.TASKKILL, "/PID", str(hung)])
         self.backend.kill_exit = 128
-        result = self.sandboxes().exec_capture("w", ["slow.exe"], timeout=0, agent=False)
+        result = run()
+        self.assertFalse(result.killed)
         self.assertIn(b"may still run: not found", result.stderr)
         # A process that exits while taskkill fails is no failed kill.
         self.backend.exit_on_kill = True
-        result = self.sandboxes().exec_capture("w", ["slow.exe"], timeout=0, agent=False)
-        self.assertEqual(result.stderr, b"")
+        result = run()
+        self.assertEqual((result.killed, result.stderr), (True, b""))
 
     def test_copies(self) -> None:
         """Copies in land under the guest directory; copies out arrive in xfer."""
@@ -272,7 +322,7 @@ class WindowsTest(unittest.TestCase):
         (tree / "sub").mkdir(parents=True)
         (tree / "sub" / "file").write_text("x")
         result = sandboxes.copy(str(tree), r"w:C:\Users\Public\in")
-        self.assertEqual(result["to"], r"w:C:\Users\Public\in")
+        self.assertEqual(result.target, r"w:C:\Users\Public\in")
         landed = self.backend.drive / "Users" / "Public" / "in" / "work" / "sub" / "file"
         self.assertEqual(landed.read_text(), "x")
         self.assertEqual(list((self.backend.drive / "Windows" / "Temp").iterdir()), [])
@@ -283,7 +333,7 @@ class WindowsTest(unittest.TestCase):
         (report / "logs").mkdir(parents=True)
         (report / "logs" / "a.txt").write_text("a")
         result = sandboxes.copy(r"w:C:\out\report", None)
-        copied = Path(str(result["to"]))
+        copied = Path(str(result.target))
         self.assertEqual(copied, self.paths.sandbox("w") / "xfer" / "report")
         self.assertEqual((copied / "logs" / "a.txt").read_text(), "a")
         self.assertEqual(list((self.backend.drive / "Windows" / "Temp").iterdir()), [])
@@ -343,9 +393,9 @@ class WindowsTest(unittest.TestCase):
         older, used = (self.base_dir / version for version in VERSIONS)
         self.create()
         (self.base_dir / "20261003T000000Z" / windows.TPM).mkdir(parents=True)
-        superseded = {"reason": "superseded export"}
+        superseded = "superseded export"
         self.assertEqual(
-            self.sandboxes().gc(dry_run=True), [{"name": f"win11/{VERSIONS[0]}", **superseded}]
+            self.sandboxes().gc(dry_run=True), [GcAction(f"win11/{VERSIONS[0]}", superseded)]
         )
         self.assertTrue(older.exists())
         self.sandboxes().gc(dry_run=False)
@@ -353,7 +403,7 @@ class WindowsTest(unittest.TestCase):
         self.assertTrue(used.exists())
         self.sandboxes().destroy("w")
         self.assertEqual(
-            self.sandboxes().gc(dry_run=False), [{"name": f"win11/{VERSIONS[1]}", **superseded}]
+            self.sandboxes().gc(dry_run=False), [GcAction(f"win11/{VERSIONS[1]}", superseded)]
         )
         self.assertTrue((self.base_dir / ".partial-20261003T000000Z").exists())
         listing = self.sandboxes().base_list()

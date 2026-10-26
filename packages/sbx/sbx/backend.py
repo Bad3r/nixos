@@ -14,10 +14,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, BinaryIO
 
-from sbx.core import NS, DomainInfo, Meta, SbxError, Settings
+from sbx.errors import SbxError
+from sbx.model import NS, DomainInfo, Meta
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
+
+    from sbx.config import Settings
 
 # libvirt-python ships no type information the checker can read.
 libvirt: Any = importlib.import_module("libvirt")
@@ -85,8 +88,35 @@ def _write(_stream: object, data: bytes, out: BinaryIO) -> int:
     return out.write(data)
 
 
-def _error(error: Exception) -> SbxError:
-    return SbxError(str(error), code="libvirt")
+def _gone(error: Any) -> bool:  # noqa: ANN401
+    return error.get_error_code() == libvirt.VIR_ERR_NO_DOMAIN
+
+
+def _error(error: Any) -> SbxError:  # noqa: ANN401
+    return SbxError(str(error), code="not-found" if _gone(error) else "libvirt")
+
+
+def _describe(handle: Any) -> DomainInfo:  # noqa: ANN401
+    root = ET.fromstring(handle.XMLDesc(0))  # noqa: S314
+    element = root.find(f"metadata/{{{NS}}}sandbox")
+    cid = root.find("devices/vsock/cid")
+    address = None if cid is None else cid.get("address")
+    mac = root.find("devices/interface[@type='bridge']/mac")
+    name = handle.name()
+    active = bool(handle.isActive())
+    return DomainInfo(
+        name=name,
+        state=STATES.get(handle.state()[0], "unknown"),
+        active=active,
+        memory_mib=int(root.findtext("memory", "0")) // 1024,
+        cpus=int(root.findtext("vcpu", "0")),
+        cid=None if address is None else int(address),
+        meta=None if element is None else Meta.parse(element),
+        managed_save=bool(handle.hasManagedSaveImage(0)),
+        mac=None if mac is None else mac.get("address"),
+        pid=_qemu_pid(name) if active else None,
+        emulator=root.findtext("devices/emulator"),
+    )
 
 
 class LibvirtBackend:
@@ -117,34 +147,32 @@ class LibvirtBackend:
             raise _error(error) from error
 
     def domains(self) -> list[DomainInfo]:
-        """List every session domain with its sbx metadata."""
-        result: list[DomainInfo] = []
+        """List every session domain with its sbx metadata.
+
+        A domain another client removes mid-listing is left out rather than
+        failing the listing for every other sandbox.
+        """
         try:
-            for domain in self._conn.listAllDomains(0):
-                root = ET.fromstring(domain.XMLDesc(0))  # noqa: S314
-                element = root.find(f"metadata/{{{NS}}}sandbox")
-                cid = root.find("devices/vsock/cid")
-                address = None if cid is None else cid.get("address")
-                mac = root.find("devices/interface[@type='bridge']/mac")
-                state = domain.state()[0]
-                result.append(
-                    DomainInfo(
-                        name=domain.name(),
-                        state=STATES.get(state, "unknown"),
-                        active=bool(domain.isActive()),
-                        memory_mib=int(root.findtext("memory", "0")) // 1024,
-                        cpus=int(root.findtext("vcpu", "0")),
-                        cid=None if address is None else int(address),
-                        meta=None if element is None else Meta.parse(element),
-                        managed_save=bool(domain.hasManagedSaveImage(0)),
-                        mac=None if mac is None else mac.get("address"),
-                        pid=_qemu_pid(domain.name()) if domain.isActive() else None,
-                        emulator=root.findtext("devices/emulator"),
-                    )
-                )
+            handles = self._conn.listAllDomains(0)
         except libvirt.libvirtError as error:
             raise _error(error) from error
+        result: list[DomainInfo] = []
+        for handle in handles:
+            try:
+                result.append(_describe(handle))
+            except libvirt.libvirtError as error:
+                if not _gone(error):
+                    raise _error(error) from error
         return result
+
+    def domain(self, domain: str) -> DomainInfo | None:
+        """Describe one domain, or return None when it does not exist."""
+        try:
+            return _describe(self._conn.lookupByName(domain))
+        except libvirt.libvirtError as error:
+            if _gone(error):
+                return None
+            raise _error(error) from error
 
     def start(self, xml: str) -> None:
         """Define a persistent domain and start it."""
@@ -154,8 +182,7 @@ class LibvirtBackend:
             raise _error(error) from error
 
     def remove(self, domain: str) -> None:
-        """Stop a domain if it runs, then undefine it with NVRAM and saved state."""
-        handle = self._lookup(domain)
+        """Stop a domain if it runs, then undefine it; a domain already gone counts as removed."""
         flags = (
             libvirt.VIR_DOMAIN_UNDEFINE_NVRAM
             | libvirt.VIR_DOMAIN_UNDEFINE_MANAGED_SAVE
@@ -163,11 +190,13 @@ class LibvirtBackend:
             | libvirt.VIR_DOMAIN_UNDEFINE_CHECKPOINTS_METADATA
         )
         try:
+            handle = self._conn.lookupByName(domain)
             if handle.isActive():
                 handle.destroy()
             handle.undefineFlags(flags)
         except libvirt.libvirtError as error:
-            raise _error(error) from error
+            if not _gone(error):
+                raise _error(error) from error
 
     def agent(self, domain: str, command: dict[str, object], timeout: int) -> dict[str, Any]:
         """Run one qemu-ga command."""
@@ -179,12 +208,12 @@ class LibvirtBackend:
         return json.loads(reply)
 
     def screenshot(self, domain: str, target: Path) -> str:
-        """Stream the primary display into a file."""
+        """Stream the primary display into a new file."""
         handle = self._lookup(domain)
         stream = self._conn.newStream(0)
         try:
             mime = handle.screenshot(stream, 0, 0)
-            with target.open("wb") as out:
+            with target.open("xb") as out:
                 stream.recvAll(_write, out)
             stream.finish()
         except libvirt.libvirtError as error:
@@ -255,6 +284,22 @@ class LibvirtBackend:
     def detach_device(self, domain: str, xml: str) -> None:
         """Ask the running domain to release a device; returns before the guest does."""
         self._call(domain, "detachDeviceFlags", xml, libvirt.VIR_DOMAIN_AFFECT_LIVE)
+
+    def update_device(self, domain: str, xml: str) -> None:
+        """Change a live device in place, such as an interface's link state."""
+        self._call(domain, "updateDeviceFlags", xml, libvirt.VIR_DOMAIN_AFFECT_LIVE)
+
+    def remove_device(self, domain: str, xml: str) -> None:
+        """Ask the running domain to release a device, and drop it from the definition."""
+        flags = libvirt.VIR_DOMAIN_AFFECT_LIVE | libvirt.VIR_DOMAIN_AFFECT_CONFIG
+        self._call(domain, "detachDeviceFlags", xml, flags)
+
+    def set_metadata(self, domain: str, xml: str) -> None:
+        """Replace the sbx metadata of the running domain and its definition."""
+        flags = libvirt.VIR_DOMAIN_AFFECT_LIVE | libvirt.VIR_DOMAIN_AFFECT_CONFIG
+        self._call(
+            domain, "setMetadata", libvirt.VIR_DOMAIN_METADATA_ELEMENT, xml, "sbx", NS, flags
+        )
 
     def send_key(self, domain: str, keycodes: Sequence[int], holdtime: int) -> None:
         """Press Linux keycodes together, then release them."""

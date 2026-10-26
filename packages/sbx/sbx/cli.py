@@ -1,32 +1,26 @@
 # Copyright (c) 2026 Bad3r
-"""Command line of sbx."""
+"""Command line of sbx, built from the operation registry."""
 
 import argparse
 import json
+import os
 import sys
 from typing import TYPE_CHECKING, NoReturn, cast
 
-from sbx import completion, journal, sleep, vsock, windows
-from sbx.core import (
-    FLAVOURS,
-    NETS,
-    TIMEOUT_EXIT,
-    Backend,
-    ExecResult,
-    Paths,
-    Request,
-    Sandboxes,
-    SbxError,
-    Settings,
-    caller_session,
-    error_document,
-    parse_duration,
-)
-from sbx.shares import SHARED, Shares
+from sbx import completion, ops
+from sbx.config import Settings, caller_session
+from sbx.errors import SbxError
+from sbx.model import ExecResult
+from sbx.pipeline import RunResult
+from sbx.results import FocusResult, WindowsResult
+from sbx.sandboxes import open_sandboxes
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Sequence
+    from collections.abc import Sequence
     from pathlib import Path
+
+    from sbx.results import Result, Window
+    from sbx.sandboxes import Sandboxes
 
 USAGE_EXIT = 2
 
@@ -40,301 +34,87 @@ class Parser(argparse.ArgumentParser):
         raise SbxError(msg, code="usage")
 
 
-def _command(args: argparse.Namespace) -> list[str]:
-    command: list[str] = args.command
-    if not command:
-        msg = "give the command after --"
-        raise SbxError(msg, code="usage")
-    return command
+def _help(param: ops.Param, settings: Settings | None) -> str | None:
+    if settings is None or param.limits is None:
+        return param.help
+    return f"{param.help}; {param.limits(settings)}"
 
 
-def _timeout(value: str | None) -> float | None:
-    return None if value is None else float(parse_duration(value))
+def _arguments(
+    parser: argparse.ArgumentParser, operation: ops.Operation, settings: Settings | None
+) -> None:
+    exclusive = parser.add_mutually_exclusive_group(required=True) if operation.one_of else None
+    for param in operation.params:
+        # The guest command follows --, which split_command takes off first.
+        if not param.cli or param.kind == "command":
+            continue
+        target = exclusive if exclusive is not None and param.name in operation.one_of else parser
+        choices = param.enum or None
+        help_text = _help(param, settings)
+        if param.flag is None:
+            if param.repeatable:
+                nargs = "+" if param.required else "*"
+            else:
+                nargs = None if param.required else "?"
+            target.add_argument(
+                param.name, nargs=nargs, choices=choices, metavar=param.metavar, help=help_text
+            )
+        elif param.kind == "boolean":
+            target.add_argument(param.flag, dest=param.name, action="store_true", help=help_text)
+        elif param.kind == "integer":
+            target.add_argument(
+                param.flag, dest=param.name, type=int, metavar=param.metavar, help=help_text
+            )
+        elif param.repeatable or param.kind == "env":
+            target.add_argument(
+                param.flag,
+                dest=param.name,
+                action="append",
+                default=[],
+                metavar=param.metavar,
+                help=help_text,
+            )
+        else:
+            target.add_argument(
+                param.flag,
+                dest=param.name,
+                choices=choices,
+                default=param.default,
+                metavar=param.metavar,
+                help=help_text,
+            )
 
 
-def build_parser() -> argparse.ArgumentParser:  # noqa: PLR0915
-    """Describe every verb."""
+def build_parser(settings: Settings | None = None) -> argparse.ArgumentParser:
+    """Describe every verb of the registry; `settings` add the host's defaults and ceilings."""
     parser = Parser(prog="sbx", description="Disposable agent sandboxes on qemu:///session.")
     parser.add_argument("--json", action="store_true", help="print JSON, errors included")
     common = Parser(add_help=False)
-    common.add_argument("--json", action="store_true", default=argparse.SUPPRESS)
+    common.add_argument(
+        "--json", action="store_true", default=argparse.SUPPRESS, help="print JSON, errors included"
+    )
     verbs = parser.add_subparsers(dest="verb", required=True, parser_class=Parser)
-
-    create_flags = Parser(add_help=False)
-    # Cloud and Windows bases come from the settings, which load after parsing.
-    create_flags.add_argument(
-        "base", help=f"{', '.join(FLAVOURS)}, a prepared cloud base, or a Windows base"
-    )
-    create_flags.add_argument("--name", help="sandbox name; default <base>-<6 hex>")
-    create_flags.add_argument(
-        "--net", choices=NETS, default="none", help="none: no NIC; egress: DHCP on the sbx bridge"
-    )
-    create_flags.add_argument("--mem", help="memory such as 2G")
-    create_flags.add_argument("--cpus", type=int)
-    create_flags.add_argument("--ttl", help="lifetime such as 30m or 2h")
-    create_flags.add_argument(
-        "--wait", help="queue up to this long, such as 30m, when the host's sandbox limits are full"
-    )
-    create_flags.add_argument(
-        "--gui", action="store_true", help="the base's GUI variant, with more default memory"
-    )
-
-    verbs.add_parser("create", parents=[common, create_flags], help="start a sandbox")
-
-    run = verbs.add_parser(
-        "run", parents=[common, create_flags], help="create, copy in, exec, copy out, destroy"
-    )
-    run.add_argument("--in", dest="inputs", action="append", default=[], metavar="PATH")
-    run.add_argument("--out", dest="outputs", action="append", default=[], metavar="GUEST_PATH")
-    run.add_argument("--to", help="host directory for --out")
-    run.add_argument("--timeout", help="command timeout such as 10m")
-
-    execute = verbs.add_parser("exec", parents=[common], help="run a command in a sandbox")
-    execute.add_argument("name")
-    execute.add_argument("--timeout", help="command timeout such as 10m")
-    execute.add_argument("--agent", action="store_true", help="use qemu-ga guest-exec, not SSH")
-
-    copy = verbs.add_parser("cp", parents=[common], help="copy between host and sandbox")
-    copy.add_argument("source", help="host path or <name>:<path>")
-    copy.add_argument(
-        "destination", nargs="?", help="<name>:<path>, or a host path; default the xfer directory"
-    )
-
-    destroy = verbs.add_parser("destroy", parents=[common], help="remove sandboxes")
-    target = destroy.add_mutually_exclusive_group(required=True)
-    target.add_argument("name", nargs="?")
-    target.add_argument("--mine", action="store_true")
-    target.add_argument("--expired", action="store_true")
-
-    listing = verbs.add_parser("list", parents=[common], help="list sandboxes")
-    listing.add_argument("--mine", action="store_true")
-
-    info = verbs.add_parser("info", parents=[common], help="describe one sandbox")
-    info.add_argument("name")
-
-    screenshot = verbs.add_parser("screenshot", parents=[common], help="capture the display")
-    screenshot.add_argument("name")
-    screenshot.add_argument("--ocr", action="store_true", help="add the text tesseract reads")
-
-    key = verbs.add_parser("key", parents=[common], help="press keys on a GUI sandbox")
-    key.add_argument("name")
-    key.add_argument("keys", nargs="+", metavar="KEY", help="a key or chord such as ctrl+alt+t")
-
-    typing = verbs.add_parser("type", parents=[common], help="type text on a GUI sandbox")
-    typing.add_argument("name")
-    typing.add_argument("text", help="US-layout text; newline presses enter")
-
-    # No --json between share and its verb, like base.
-    share = verbs.add_parser("share", help="attach or detach a runtime virtiofs share")
-    share_verbs = share.add_subparsers(dest="share_verb", required=True, parser_class=Parser)
-    for verb, text in (
-        ("attach", "hot-plug a share into a running sandbox"),
-        ("detach", "remove a share; fails while the guest still holds it"),
-    ):
-        action = share_verbs.add_parser(verb, parents=[common], help=text)
-        action.add_argument("name")
-        action.add_argument(
-            "share",
-            help=f"{SHARED} (read-write) or a workloads.grants.sandboxShares name (read-only)",
-        )
-
-    gc = verbs.add_parser(
-        "gc",
-        parents=[common],
-        help=f"remove expired and orphaned sandboxes; detach {SHARED} past the disk cap",
-    )
-    gc.add_argument("--dry-run", action="store_true")
-
-    # No --json between base and its verb, so permission rules see one spelling.
-    base = verbs.add_parser("base", help="list, build, or prepare bases")
-    base_verbs = base.add_subparsers(dest="base_verb", required=True, parser_class=Parser)
-    base_verbs.add_parser("list", parents=[common])
-    build = base_verbs.add_parser("build", parents=[common])
-    build.add_argument("flavour", help=", ".join(FLAVOURS))
-    prepare = base_verbs.add_parser("prepare", parents=[common])
-    prepare.add_argument("image", help="a cloud image from the settings")
-
-    host_sleep = verbs.add_parser(
-        "sleep",
-        parents=[common],
-        help="host sleep hook only, not for agents: pause, resume, save, or restore sandboxes",
-    )
-    host_sleep.add_argument("phase", choices=sleep.PHASES)
-
-    proxy = verbs.add_parser(
-        "vsock", help="grant listeners of sandboxes without a network, for workloads grant"
-    )
-    proxy_verbs = proxy.add_subparsers(dest="vsock_verb", required=True, parser_class=Parser)
-    proxy_verbs.add_parser("serve", help="run the proxy; sbx-vsock.service starts it")
-    proxy_verbs.add_parser("sync", parents=[common], help="apply the grant list now")
+    for group, operations in ops.grouped():
+        target = verbs
+        if group:
+            (name,) = group
+            holder = verbs.add_parser(name, help=ops.GROUPS[name])
+            target = holder.add_subparsers(dest=f"{name}_verb", required=True, parser_class=Parser)
+        for operation in operations:
+            parents = [common] if operation.takes_json else []
+            example = operation.example
+            leaf = target.add_parser(
+                operation.path[-1],
+                parents=parents,
+                help=operation.help,
+                description=operation.help,
+                usage=operation.usage,
+                epilog=None if example is None else f"example:\n  {example}",
+                formatter_class=argparse.RawDescriptionHelpFormatter,
+            )
+            leaf.set_defaults(operation=operation)
+            _arguments(leaf, operation, settings)
     return parser
-
-
-def _request(sandboxes: Sandboxes, args: argparse.Namespace) -> Request:
-    return sandboxes.request(
-        args.base,
-        name=args.name,
-        net=args.net,
-        memory=args.mem,
-        cpus=args.cpus,
-        ttl=args.ttl,
-        gui=args.gui,
-        wait=args.wait,
-    )
-
-
-def _print_exec(result: ExecResult) -> int:
-    sys.stdout.buffer.write(result.stdout)
-    sys.stderr.buffer.write(result.stderr)
-    if result.truncated:
-        print("sbx: output truncated", file=sys.stderr)
-    if result.timed_out:
-        print("sbx: the command timed out", file=sys.stderr)
-    return exit_code(result)
-
-
-def exit_code(result: ExecResult) -> int:
-    """Return the guest's exit status, 124 after a timeout, as in both output modes."""
-    if result.timed_out:
-        return TIMEOUT_EXIT
-    return 255 if result.exit_code is None else result.exit_code
-
-
-def _attached(code: int | None) -> int:
-    if code is None:
-        print("sbx: the command timed out", file=sys.stderr)
-        return TIMEOUT_EXIT
-    return code
-
-
-def _run(sandboxes: Sandboxes, args: argparse.Namespace, *, as_json: bool) -> tuple[object, int]:
-    command = _command(args)
-    if args.outputs and args.to is None:
-        msg = "--out needs --to"
-        raise SbxError(msg, code="usage")
-    if args.to is not None and not args.outputs:
-        msg = "--to needs --out"
-        raise SbxError(msg, code="usage")
-    timeout = _timeout(args.timeout)
-    created = sandboxes.create(_request(sandboxes, args))
-    name, token = str(created["name"]), str(created["token"])
-    # Every step and the cleanup act only on this creation, never on a later namesake.
-    try:
-        agent_only = sandboxes.agent_only(name, token=token)
-        inbox = windows.INBOX if agent_only else "/root/"
-        copied_in = [sandboxes.copy(path, f"{name}:{inbox}", token=token) for path in args.inputs]
-        if as_json:
-            result = sandboxes.exec_capture(
-                name, command, timeout=timeout, agent=False, token=token
-            )
-            code = exit_code(result)
-        elif agent_only:
-            code = _print_exec(
-                sandboxes.exec_capture(name, command, timeout=timeout, agent=True, token=token)
-            )
-            result = None
-        else:
-            code = _attached(sandboxes.exec_attached(name, command, timeout=timeout, token=token))
-            result = None
-        copied_out = [
-            sandboxes.copy(f"{name}:{path}", args.to, token=token) for path in args.outputs
-        ]
-    finally:
-        sandboxes.destroy_created(token)
-    if not as_json:
-        return None, code
-    payload = {
-        "sandbox": created,
-        "in": copied_in,
-        "exec": None if result is None else result.as_json(),
-        "out": copied_out,
-    }
-    return payload, code
-
-
-def dispatch(  # noqa: C901, PLR0911, PLR0912
-    sandboxes: Sandboxes,
-    args: argparse.Namespace,
-    *,
-    as_json: bool,
-    attach: Callable[[], Backend] | None = None,
-) -> tuple[object, int]:
-    """Run one verb and return its result and exit code."""
-    match args.verb:
-        case "create":
-            return sandboxes.create(_request(sandboxes, args)), 0
-        case "run":
-            return _run(sandboxes, args, as_json=as_json)
-        case "exec":
-            command = _command(args)
-            timeout = _timeout(args.timeout)
-            if as_json or args.agent or sandboxes.agent_only(args.name):
-                result = sandboxes.exec_capture(
-                    args.name, command, timeout=timeout, agent=args.agent
-                )
-                if as_json:
-                    return result.as_json(), exit_code(result)
-                return None, _print_exec(result)
-            return None, _attached(sandboxes.exec_attached(args.name, command, timeout=timeout))
-        case "cp":
-            return sandboxes.copy(args.source, args.destination), 0
-        case "destroy":
-            if args.name is not None:
-                return sandboxes.destroy(args.name), 0
-            return sandboxes.destroy_where(mine=args.mine, expired=args.expired), 0
-        case "list":
-            return sandboxes.listing(mine=args.mine), 0
-        case "info":
-            return sandboxes.info(args.name), 0
-        case "screenshot":
-            return sandboxes.screenshot(args.name, ocr=args.ocr), 0
-        case "key":
-            return sandboxes.key(args.name, args.keys), 0
-        case "type":
-            return sandboxes.type_text(args.name, args.text), 0
-        case "share":
-            shares = Shares(sandboxes)
-            if args.share_verb == "attach":
-                return shares.attach(args.name, args.share), 0
-            return shares.detach(args.name, args.share), 0
-        case "gc":
-            removed = sandboxes.gc(dry_run=args.dry_run)
-            return removed + Shares(sandboxes).reclaim(dry_run=args.dry_run), 0
-        case "base":
-            if args.base_verb == "list":
-                return sandboxes.base_list(), 0
-            if args.base_verb == "prepare":
-                return sandboxes.base_prepare(args.image), 0
-            return sandboxes.base_build(args.flavour), 0
-        case "sleep":
-            if attach is None:
-                msg = "sleep needs a connect that never starts the daemon"
-                raise SbxError(msg, code="internal")
-            actions, code = sleep.Sleep(sandboxes, sleep.state_dir(), attach, as_json=as_json).run(
-                args.phase
-            )
-            return (actions if as_json else None), code
-        case "vsock":
-            if args.vsock_verb == "serve":
-                vsock.serve(sandboxes.paths)
-            return vsock.sync(vsock.control_path()), 0
-        case _:
-            msg = f"unknown verb {args.verb}"
-            raise SbxError(msg, code="usage")
-
-
-def _plain(result: object) -> None:
-    if result is None:
-        return
-    if isinstance(result, list):
-        for item in cast("list[object]", result):
-            _plain(item)
-        return
-    if isinstance(result, dict):
-        fields = cast("dict[str, object]", result)
-        print(" ".join(f"{key}={value}" for key, value in fields.items() if value is not None))
-        return
-    print(result)
 
 
 def split_command(arguments: Sequence[str]) -> tuple[list[str], list[str]]:
@@ -346,43 +126,122 @@ def split_command(arguments: Sequence[str]) -> tuple[list[str], list[str]]:
     return arguments[:split], arguments[split + 1 :]
 
 
+def parse(
+    arguments: Sequence[str], parser: argparse.ArgumentParser | None = None
+) -> tuple[ops.Operation, ops.Args]:
+    """Return the operation a command line names and its arguments."""
+    leading, command = split_command(arguments)
+    namespace = (parser or build_parser()).parse_args(leading)
+    operation = cast("ops.Operation", namespace.operation)
+    values: dict[str, object] = {
+        param.name: getattr(namespace, param.name)
+        for param in operation.params
+        if param.cli and param.kind != "command"
+    }
+    if operation.param("command") is not None:
+        values["command"] = command
+    return operation, ops.Args(operation, values)
+
+
+def _print_exec(result: ExecResult) -> None:
+    sys.stdout.buffer.write(result.stdout)
+    sys.stderr.buffer.write(result.stderr)
+    if result.truncated:
+        print("sbx: output truncated", file=sys.stderr)
+    if result.timed_out:
+        print("sbx: the command timed out", file=sys.stderr)
+    if result.transport_error is not None:
+        print(f"sbx: {result.transport_error}", file=sys.stderr)
+
+
+def _print_run(result: RunResult) -> None:
+    if result.execution is not None:
+        _print_exec(result.execution)
+    for entry in result.failed_outputs():
+        print(f"sbx: copy out of {entry.source} failed: {entry.failure}", file=sys.stderr)
+    if result.cleanup_error is not None:
+        print(f"sbx: cleanup failed: {result.cleanup_error}", file=sys.stderr)
+
+
+def _plain(document: object) -> None:
+    if document is None:
+        return
+    if isinstance(document, list):
+        for item in cast("list[object]", document):
+            _plain(item)
+        return
+    if isinstance(document, dict):
+        fields = cast("dict[str, object]", document)
+        print(" ".join(f"{key}={value}" for key, value in fields.items() if value is not None))
+        return
+    print(document)
+
+
+def _print_window(window: Window) -> None:
+    print(
+        f"id={window.id} x={window.x} y={window.y} width={window.width} "
+        f"height={window.height} name={json.dumps(window.name)}"
+    )
+
+
+def _print(result: Result) -> None:
+    if isinstance(result, ExecResult):
+        _print_exec(result)
+    elif isinstance(result, RunResult):
+        _print_run(result)
+    elif isinstance(result, WindowsResult):
+        for window in result.windows:
+            _print_window(window)
+    elif isinstance(result, FocusResult):
+        _print_window(result.window)
+    else:
+        _plain(result.as_json())
+
+
+def render(outcome: Result | ops.Failure, *, as_json: bool) -> int:
+    """Print an outcome and return the exit code."""
+    if isinstance(outcome, ops.Failure):
+        if as_json:
+            print(json.dumps(outcome.as_json()))
+        else:
+            if outcome.partial is not None:
+                _print(outcome.partial)
+            print(f"sbx: {outcome.error}", file=sys.stderr)
+        return USAGE_EXIT if outcome.code == "usage" else 1
+    if as_json:
+        print(json.dumps(outcome.as_json(), indent=2))
+    else:
+        _print(outcome)
+    return outcome.exit_status()
+
+
+def _help_settings(path: Path) -> Settings | None:
+    """Return the settings for help text; a verb loads them again and reports what fails."""
+    try:
+        return Settings.load(path)
+    except OSError, ValueError, KeyError, TypeError, SbxError:
+        return None
+
+
 def main(settings_path: Path, argv: Sequence[str] | None = None) -> int:
     """Parse, run, print; failures exit non-zero, as JSON under --json."""
     arguments = list(sys.argv[1:] if argv is None else argv)
-    parser = build_parser()
+    # Completion and the bare help show no defaults, so they never read the settings.
+    completing = "_ARGCOMPLETE" in os.environ
+    settings = None if completing or not arguments else _help_settings(settings_path)
+    parser = build_parser(settings)
     completion.autocomplete(parser, settings_path)
     if not arguments:
         parser.print_help()
         return 0
-    leading, command = split_command(arguments)
-    as_json = "--json" in leading
+    as_json = "--json" in split_command(arguments)[0]
     try:
-        args = parser.parse_args(leading)
-        args.command = command
-        settings = Settings.load(settings_path)
+        operation, args = parse(arguments, parser)
+    except SbxError as error:
+        return render(ops.fail(error), as_json=as_json)
+    ctx = ops.Ctx(session=caller_session(), stdio_attached=not as_json)
 
-        def connect(require_slice: bool) -> Backend:  # noqa: FBT001
-            from sbx.backend import LibvirtBackend  # noqa: PLC0415
+    def connect(session: str | None) -> Sandboxes:
+        return open_sandboxes(settings or Settings.load(settings_path), session)
 
-            return LibvirtBackend(settings, require_slice=require_slice)
-
-        def attach() -> Backend:
-            from sbx.backend import LibvirtBackend  # noqa: PLC0415
-
-            return LibvirtBackend(settings, require_slice=False, start=False)
-
-        sandboxes = Sandboxes(settings, Paths.from_environment(), connect, caller_session())
-        result, code = dispatch(sandboxes, args, as_json=as_json, attach=attach)
-    except (SbxError, OSError) as error:
-        code = error.code if isinstance(error, SbxError) else "os-error"
-        journal.record(f"failed: {error}", code=code)
-        if as_json:
-            print(json.dumps({"error": error_document(error)}))
-        else:
-            print(f"sbx: {error}", file=sys.stderr)
-        return USAGE_EXIT if code == "usage" else 1
-    if as_json:
-        print(json.dumps(result, indent=2))
-    else:
-        _plain(result)
-    return code
+    return render(ops.invoke(operation, connect, args, ctx), as_json=as_json)

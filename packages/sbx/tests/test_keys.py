@@ -20,6 +20,17 @@ class KeysTest(unittest.TestCase):
             with self.subTest(spec=spec), self.assertRaises(ValueError):
                 keys.chord(spec)
 
+    def test_aliases(self) -> None:
+        """Each alias presses its key, and an unknown name's error lists every alias."""
+        for alias, name in keys.ALIASES.items():
+            with self.subTest(alias=alias):
+                self.assertEqual(keys.chord(alias), [keys.KEYS[name]])
+                self.assertEqual(keys.chord(f"ctrl+{alias.upper()}"), [29, keys.KEYS[name]])
+        with self.assertRaises(ValueError) as raised:
+            keys.chord("hyper")
+        for alias, name in keys.ALIASES.items():
+            self.assertIn(f"{alias}={name}", str(raised.exception))
+
     def test_printable_ascii(self) -> None:
         """Every printable character but CR, VT, and FF types, shifted ones with shift."""
         typable = [c for c in string.printable if c not in "\r\x0b\x0c"]
@@ -38,6 +49,13 @@ class KeysTest(unittest.TestCase):
         for text in ("é", "a\rb", "\x00"):
             with self.subTest(text=text), self.assertRaises(ValueError):
                 keys.text_chords(text)
+        with self.assertRaises(ValueError) as raised:
+            keys.text_chords("p\u00e4ss\u00f6" + "\u00fc" * 11)
+        self.assertEqual(
+            str(raised.exception),
+            "no US-layout key types 13 characters, at positions 2, 5, 6, 7, 8, 9, 10, 11, 12, 13 "
+            "and 3 more",
+        )
 
 
 if __name__ == "__main__":

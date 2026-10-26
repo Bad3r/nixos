@@ -19,11 +19,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from sbx import journal
-from sbx.core import GIB, Backend, Sandbox, Sandboxes, SbxError
+from sbx.errors import SbxError
+from sbx.model import GIB, Backend, Sandbox
 
 if TYPE_CHECKING:
     from collections.abc import Callable
     from types import FrameType
+
+    from sbx.sandboxes import Sandboxes
 
 PHASES = ("pause", "resume", "save", "restore")
 MIB = 1 << 20
@@ -159,6 +162,8 @@ class Sleep:
                 try:
                     backend.set_time(sandbox.domain.name)
                 except SbxError as failure:
+                    if failure.code == "not-found":
+                        break
                     if failure.code == "agent-unresponsive" and time.monotonic() < deadline:
                         time.sleep(1)
                         continue
@@ -183,6 +188,8 @@ class Sleep:
                 try:
                     backend.suspend(sandbox.domain.name)
                 except SbxError as failure:
+                    if failure.code == "not-found":
+                        continue
                     self._fail("pause", f"{sandbox.name} kept running through suspend: {failure}")
                 else:
                     self._emit(sandbox.name, "paused")
@@ -204,6 +211,8 @@ class Sleep:
                 try:
                     backend.resume(sandbox.domain.name)
                 except SbxError as failure:
+                    if failure.code == "not-found":
+                        continue
                     self._fail("resume", f"{name} stays paused: {failure}")
                 else:
                     self._emit(name, "resumed")
@@ -238,7 +247,8 @@ class Sleep:
             try:
                 backend.managed_save(sandbox.domain.name)
             except SbxError as failure:
-                failures.append(failure)
+                if failure.code != "not-found":
+                    failures.append(failure)
             finally:
                 done.set()
 

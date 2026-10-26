@@ -14,7 +14,9 @@ from unittest import mock
 from argcomplete.completers import SuppressCompleter
 from argcomplete.finders import CompletionFinder
 from sbx import cli, completion, windows
-from sbx.core import FLAVOURS, Paths, SbxError
+from sbx.config import Paths
+from sbx.errors import SbxError
+from sbx.model import FLAVOURS
 
 from . import test_core
 
@@ -50,8 +52,8 @@ class CompletionTest(test_core.Fixture):
             mock.patch.object(completion.argcomplete, "autocomplete", side_effect=find),
             mock.patch.object(Paths, "from_environment", return_value=self.paths),
             mock.patch.object(completion.Settings, "load", return_value=self.settings),
-            mock.patch.object(cli, "dispatch") as dispatch,
-            mock.patch.object(cli.journal, "record") as record,
+            mock.patch.object(cli.ops, "invoke") as dispatch,
+            mock.patch.object(cli.ops.journal, "record") as record,
             contextlib.redirect_stdout(stdout),
             contextlib.redirect_stderr(stderr),
             self.assertRaises(SystemExit) as exit_status,

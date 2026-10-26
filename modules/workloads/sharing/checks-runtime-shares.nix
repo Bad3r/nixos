@@ -313,7 +313,8 @@ in
                     "attached": True,
                     "host_path": shared,
                 }, answer
-                code, out = in_sandbox("mkdir -p /mnt/shared && mount -t virtiofs shared /mnt/shared && echo guest > /mnt/shared/from-guest")
+                # sbx mounts what it attaches on /mnt/<tag>.
+                code, out = in_sandbox("echo guest > /mnt/shared/from-guest")
                 assert code == 0, out
                 # virtiofsd's own namespace sandbox makes the shared directory its root.
                 daemon = machine.succeed(f"pgrep -n -u ${owner} -f -- '--shared-dir {shared}'").strip()
@@ -334,7 +335,7 @@ in
 
             with subtest("a declared sandbox share is read-only even remounted"):
                 assert workloads("share attach sbx-s docs")["share"]["read_only"] is True
-                code, out = in_sandbox("mkdir -p /mnt/docs && mount -t virtiofs docs /mnt/docs && cat /mnt/docs/hello")
+                code, out = in_sandbox("cat /mnt/docs/hello")
                 assert (code, out.strip()) == (0, "hello"), out
                 code, out = in_sandbox("mount -o remount,rw /mnt/docs && touch /mnt/docs/x")
                 assert code != 0, out
@@ -352,12 +353,33 @@ in
                 code, out = in_sandbox("cat /mnt/shared/from-guest /mnt/docs/hello")
                 assert (code, out.split()) == (0, ["guest", "hello"]), out
 
-            with subtest("detach removes the sandbox shares, and destroy their files"):
-                in_sandbox("umount /mnt/shared /mnt/docs")
+            with subtest("detach unmounts and removes the sandbox shares"):
                 for tag in ("shared", "docs"):
                     assert workloads(f"share detach sbx-s {tag}")["share"]["attached"] is False
                     refused(f"share detach sbx-s {tag}", "not-attached")
                 assert "<filesystem" not in session_xml()
+                code, out = in_sandbox("findmnt -t virtiofs -n -o SOURCE,TARGET")
+                # findmnt exits 0 or 1 when no mount matches -t alone.
+                assert code in {0, 1} and out.strip() == "", f"a stale mount stayed: {code} {out!r}"
+
+            with subtest("sbx share attach mounts, and detach leaves no stale mount"):
+                answer = sbx("share attach s shared")
+                assert (answer["mounted"], answer["mountpoint"]) == (True, "/mnt/shared"), answer
+                code, out = in_sandbox("ls /mnt/shared")
+                assert code == 0 and "from-guest" in out.split(), out
+                assert sbx("info s")["shares"] == [{
+                    "tag": "shared",
+                    "read_only": False,
+                    "host_path": shared,
+                    "mountpoint": "/mnt/shared",
+                }]
+                answer = sbx("share detach s shared")
+                assert answer["guest_unmounted"] and answer["unmounted"] == ["/mnt/shared"], answer
+                code, out = in_sandbox("findmnt -t virtiofs -n -o SOURCE,TARGET")
+                # findmnt exits 0 or 1 when no mount matches -t alone.
+                assert code in {0, 1} and out.strip() == "", f"a stale mount stayed: {code} {out!r}"
+
+            with subtest("destroy removes the sandbox's files"):
                 sbx("destroy s")
                 machine.fail("test -e ${home}/.local/share/sbx/s")
           '';

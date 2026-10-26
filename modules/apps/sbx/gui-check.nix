@@ -131,16 +131,74 @@ in
                 typed = sbx("exec", "g", "--", "cat", "/home/sbx/typed")["stdout"]
                 assert typed == text + "\n", typed
 
+            def typed(path, *steps):
+                """Run cat > path in the focused terminal, press steps, end it, and read the file."""
+                sbx("type", "g", f"cat > {path}\n")
+                for step in steps:
+                    step()
+                sbx("key", "g", "ctrl+d")
+                machine.wait_until_succeeds(as_owner(f"sbx exec g -- test -s {path}"), timeout=30)
+                return sbx("exec", "g", "--", "cat", path)["stdout"]
+
+            def caps_led():
+                leds = sbx("exec", "g", "--", "sh", "-c", "cat /sys/class/leds/input*::capslock/brightness")
+                return any(int(value) for value in leds["stdout"].split())
+
+            with subtest("type keeps its case under Caps Lock"):
+                text = typed(
+                    "/home/sbx/caps",
+                    lambda: sbx("key", "g", "capslock"),
+                    lambda: sbx("type", "g", "abc ABC\n"),
+                )
+                sbx("key", "g", "capslock")
+                assert text == "abc ABC\n", text
+
+            with subtest("type sends Unicode"):
+                text = typed("/home/sbx/unicode", lambda: sbx("type", "g", "h\u00e9llo \u2713\n"))
+                assert text == "h\u00e9llo \u2713\n", text
+
+            with subtest("the Caps Lock LED follows X, and --mode keys types through it"):
+                def lit():
+                    sbx("key", "g", "capslock")
+                    assert caps_led(), "the LED stays dark with Caps Lock on"
+                    sbx("type", "g", "--mode", "keys", "abc ABC\n")
+                text = typed("/home/sbx/keys", lit)
+                assert caps_led(), "keys mode left Caps Lock off"
+                sbx("key", "g", "capslock")
+                assert not caps_led(), "the LED stays lit with Caps Lock off"
+                assert text == "abc ABC\n", text
+
+            with subtest("window wait finds the terminal, and the pointer clicks it"):
+                (window,) = sbx("window", "wait", "g", "--class", "^xterm$", "--timeout", "60s")["windows"]
+                assert window["name"].startswith("sbx@sbx"), window
+                listed = sbx("window", "list", "g")["windows"]
+                assert window in listed, listed
+                assert sbx("window", "focus", "g", "--id", str(window["id"]))["window"] == window
+                geometry = window["geometry"]
+                x, y = geometry["x"] + geometry["width"] // 2, geometry["y"] + geometry["height"] // 2
+                clicked = sbx("mouse", "g", "--to", f"{x},{y}", "--click", "left")
+                assert clicked == {"sandbox": "g", "x": x, "y": y, "click": "left", "double": False}, clicked
+                location = sbx("exec", "g", "--", "xdotool", "getmouselocation", "--shell")["stdout"]
+                assert f"X={x}\nY={y}\n" in location, location
+
             with subtest("screenshot OCR reads what was typed"):
                 sbx("type", "g", "clear; echo SBXOCROK\n")
                 machine.wait_until_succeeds(
                     as_owner("sbx --json screenshot g --ocr | grep -q SBXOCROK"), timeout=60
                 )
 
+            with subtest("screenshots get their own files, and --to keeps one"):
+                first, second = sbx("screenshot", "g")["path"], sbx("screenshot", "g")["path"]
+                assert first != second, first
+                machine.succeed(as_owner("mkdir -p /home/${owner}/trees/shots"))
+                kept = sbx("screenshot", "g", "--to", "/home/${owner}/trees/shots")["path"]
+                assert kept.startswith("/home/${owner}/trees/shots/screenshot-"), kept
+
             with subtest("destroy removes the sandbox"):
                 sbx("destroy", "g")
                 machine.fail("test -e ${state}/g")
                 assert sbx("list") == []
+                machine.succeed(f"test -s {kept}")
           '';
       };
     };

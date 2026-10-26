@@ -9,7 +9,17 @@ from pathlib import Path
 from unittest import mock
 
 from sbx.cli import build_parser, main, split_command
-from sbx.core import SbxError
+from sbx.errors import SbxError
+
+from .test_core import Fixture
+
+
+def help_text(arguments: list[str], settings_path: Path | None = None) -> str:
+    """Return what `sbx <arguments> --help` prints, through main and its settings."""
+    output = io.StringIO()
+    with contextlib.redirect_stdout(output), contextlib.suppress(SystemExit):
+        main(settings_path or Path("/missing/settings.json"), [*arguments, "--help"])
+    return output.getvalue()
 
 
 class CommandLineTest(unittest.TestCase):
@@ -22,7 +32,7 @@ class CommandLineTest(unittest.TestCase):
             contextlib.redirect_stdout(output),
             contextlib.redirect_stderr(errors),
             mock.patch("sbx.cli.Settings.load") as load,
-            mock.patch("sbx.cli.journal.record") as record,
+            mock.patch("sbx.ops.journal.record") as record,
         ):
             self.assertEqual(main(Path("/missing/settings.json"), []), 0)
         self.assertIn("usage: sbx", output.getvalue())
@@ -34,23 +44,25 @@ class CommandLineTest(unittest.TestCase):
     def test_missing_verb_with_json_is_still_an_error(self) -> None:
         """An incomplete JSON command retains its machine-readable usage error."""
         output = io.StringIO()
-        with contextlib.redirect_stdout(output), mock.patch("sbx.cli.journal.record"):
+        with contextlib.redirect_stdout(output), mock.patch("sbx.ops.journal.record"):
             self.assertEqual(main(Path("/missing/settings.json"), ["--json"]), 2)
         self.assertEqual(json.loads(output.getvalue())["error"]["code"], "usage")
 
     def test_split(self) -> None:
         """Options after the sandbox name stay sbx's; everything after -- is the command."""
-        leading, command = split_command(["exec", "a", "--agent", "--", "sh", "-c", "x", "--", "y"])
-        self.assertEqual(command, ["sh", "-c", "x", "--", "y"])
+        leading, command = split_command(
+            ["exec", "a", "--timeout", "1m", "--", "sh", "-c", "x", "--"]
+        )
+        self.assertEqual(command, ["sh", "-c", "x", "--"])
         args = build_parser().parse_args(leading)
-        self.assertTrue(args.agent)
+        self.assertEqual(args.timeout, "1m")
         self.assertEqual(split_command(["list", "--json"]), (["list", "--json"], []))
 
     def test_run_flags(self) -> None:
         """Repeated --in and --out flags of run accumulate."""
         leading, _ = split_command(["run", "nixos", "--in", "a", "--in", "b", "--out", "c", "--"])
         args = build_parser().parse_args(leading)
-        self.assertEqual((args.inputs, args.outputs), (["a", "b"], ["c"]))
+        self.assertEqual((getattr(args, "in"), args.out), (["a", "b"], ["c"]))
 
     def test_net_flag(self) -> None:
         """--net defaults to none, takes egress, and rejects anything else."""
@@ -68,9 +80,38 @@ class CommandLineTest(unittest.TestCase):
             parser.parse_args(["key", "g", "ctrl+c", "enter"]).keys, ["ctrl+c", "enter"]
         )
         self.assertEqual(parser.parse_args(["type", "g", "--json", "ls -l"]).text, "ls -l")
+        self.assertEqual(parser.parse_args(["type", "g", "x"]).mode, "xdotool")
+        self.assertEqual(parser.parse_args(["type", "g", "--mode", "keys", "x"]).mode, "keys")
         self.assertEqual(parser.parse_args(["base", "prepare", "debian-13"]).image, "debian-13")
         self.assertTrue(parser.parse_args(["create", "nixos", "--gui"]).gui)
         self.assertFalse(parser.parse_args(["run", "nixos"]).gui)
         for argv in (["key", "g"], ["type", "g"], ["type", "g", "a", "b"]):
             with self.subTest(argv=argv), self.assertRaises(SbxError):
                 parser.parse_args(argv)
+
+
+class HelpTest(Fixture):
+    """Verb help shows the command syntax, an example, and the host's defaults."""
+
+    def test_usage_shows_the_command(self) -> None:
+        """The usage of `run` and `exec` shows the guest command after --."""
+        self.assertIn("usage: sbx run [options] BASE -- CMD [ARG...]", help_text(["run"]))
+        self.assertIn("usage: sbx exec [options] NAME -- CMD [ARG...]", help_text(["exec"]))
+        self.assertIn("example:\n  sbx exec probe", help_text(["exec"]))
+
+    def test_defaults_follow_the_settings(self) -> None:
+        """With readable settings, sizing flags show their defaults and ceilings."""
+        settings = self.scratch / "settings.json"
+        with mock.patch("sbx.cli.Settings.load", return_value=self.settings) as load:
+            text = " ".join(help_text(["create"], settings).split())
+        load.assert_called_once_with(settings)
+        self.assertIn("memory such as 2G; default 2G, 4G with --gui; at most 6G", text)
+        self.assertIn("vCPUs; default 2; at most 8", text)
+        self.assertIn("default 2h; at most 1d", text)
+
+    def test_without_settings(self) -> None:
+        """Help, parsing, and completion need no settings."""
+        text = " ".join(help_text(["create"]).split())
+        self.assertIn("memory such as 2G", text)
+        self.assertNotIn("default 2G", text)
+        self.assertEqual(build_parser(None).parse_args(["create", "nixos"]).mem, None)
