@@ -257,6 +257,12 @@ let
       path = hostConfig: hostConfig.programs.steam.package;
       installed = { hostConfig, ... }: hostConfig.programs.steam.enable;
     };
+    # Upstream's virtualisation.podman.package re-overrides the package with
+    # extraRuntimes (gvisor here) and systemd, which rebuilds podman itself.
+    podman = {
+      path = hostConfig: hostConfig.virtualisation.podman.package;
+      installed = { hostConfig, ... }: hostConfig.virtualisation.podman.enable;
+    };
   };
 
   appEnabled =
