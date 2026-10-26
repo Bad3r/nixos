@@ -9,7 +9,6 @@ Scope: replace Magnitude with llama.cpp, declare LACT settings, and retain the h
 Songbird runs open-weight models on its RTX 5080 through one default engine, llama.cpp's `llama-server`.
 It serves `claude-local` and `codex -p local` locally, and its web UI serves the LAN and the iPhone over the Cloudflare Mesh behind a sops-managed key.
 The implementation removes Magnitude's module, service, firewall entry, secret wiring, and usage documentation together.
-This documentation PR does not implement that replacement.
 
 ## 2. Acceptance criteria
 
@@ -56,9 +55,8 @@ Owner decisions of 2026-10-26: key holders may download and delete router models
 
 ### Package and service
 
-The lock on main selects Bad3r/nixpkgs `5d62642594b09f84050d6e2be5dfc50a33336bcb`.
-The fork's `nixpkgs-unstable` head `a4b6aef616e977490ff24c44e37d412ac6b7b990` adds only the service fixes below.
-Both build llama.cpp 0.7.0, build 11669, source commit `620d222`, from the same derivation.
+The lock on main selects the fork's `nixpkgs-unstable` head `a4b6aef616e977490ff24c44e37d412ac6b7b990`, which adds only the service fixes below to upstream `5d62642594b0`.
+Both revisions build llama.cpp 0.7.0, build 11669, source commit `620d222`, from the same derivation.
 The recorded benchmark workload uses llama.cpp 0.6.0, build 11429; it is not a performance or cache result for the selected package.
 Recheck source behavior and cache availability whenever the lock changes.
 
@@ -103,7 +101,8 @@ A request naming another model unloads the current one; a missing or unknown mod
 Clients must name a preset model, and the web UI must offer the expected choices.
 
 Each section sets `hf-repo` to the repository or `repo:quant`; use the separate `hf-file` key for an exact GGUF filename.
-Set the alias, context, GPU layers, optional drafter, and idle timeout explicitly; set both `ctk` and `ctv` to `q8_0`.
+The section name is the model ID clients send, and the router sets it as the child's alias, so sections carry no `alias` key.
+Set the context, GPU layers, optional drafter, and idle timeout explicitly; set both `ctk` and `ctv` to `q8_0`.
 Use one parallel slot per model before equating the client context window with the server context, and verify the accepted context at runtime.
 Keep per-model choices in the preset: router CLI parameters override matching preset values.
 An unknown preset key is fatal at startup.
