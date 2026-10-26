@@ -1,6 +1,6 @@
 # Songbird local AI plan
 
-Status: implementation steps 1 to 3 done; the engine swap is next, and the runtime and isolation gates run against it.\
+Status: implementation steps 1 to 5 done; the runtime and isolation gates and the model trial run against the deployed service.\
 Host: Songbird serves its local clients, the LAN, and the iPhone over the Mesh.\
 Scope: replace Magnitude with llama.cpp, declare LACT settings, and retain the hardware follow-ups from the local AI evaluation.
 
@@ -92,7 +92,7 @@ cache.nixos-cuda.org serves the output and its 18-path, 1.2 GiB runtime closure,
 Without the cache, the plan compiles 26 derivations, including CUDA llama.cpp and nodejs.
 
 `vx` is not a trusted user, so the host daemon ignores a client-side `extra-substituters`.
-A separate commit on main adds the URL and key to `extra-substituters` and `extra-trusted-public-keys` in `.github/actions/install-lix/substituters.conf`, and Songbird switches to it before the engine swap is switched.
+Main commit `a4a73a25` adds the URL and key to `extra-substituters` and `extra-trusted-public-keys` in `.github/actions/install-lix/substituters.conf` and `build.sh`; Songbird runs it before the engine swap is switched.
 `modules/hosts/common/nix-substituters.nix` reads that file; the installer action applies it in CI, and `ci-substituter-parity` checks the integration.
 After a lock change, rerun `scripts/cache-coverage.sh --host songbird --allow-dirty --verbose` and inspect the CUDA output's graph: a zero exit code alone permits `uncached-stock`.
 
@@ -207,8 +207,8 @@ The store-managed configuration must preserve the intended settings after restar
 1. Done 2026-10-26: source, cache, and client compatibility gates; CUDA hardening and isolation need the running service (gates 05 and 07).
 2. Done: verified LACT settings landed on main as `75eafe79`.
 3. Done: the service fixes are on the fork's `nixpkgs-unstable` at `a4b6aef616e9`.
-4. Add the cache to `substituters.conf` in a separate commit on main and switch Songbird to it.
-5. Update the lock to the fork head, then add the new app, preset, credentials, clients, firewall policy, and registry rows in one engine-swap PR; remove Magnitude's wiring and update its documentation atomically.
+4. Done: the cache landed on main as `a4a73a25`, and Songbird switched to it.
+5. Done in this change, on a lock that pins the fork head: add the new app, preset, credentials, clients, firewall policy, and registry rows in one engine-swap PR; remove Magnitude's wiring and update its documentation atomically.
 6. Trial each model, tool-calling workflow, and drafter; choose the default model and context from those results.
 7. Verify rollback with retained Magnitude state and credentials before any separately approved cleanup. Archive recoverable state before removing it.
 8. Remove the Magnitude package from the llm-agents fork only as a separate optional cleanup.
