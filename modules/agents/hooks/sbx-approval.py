@@ -138,24 +138,29 @@ def closing(text: str, start: int) -> int:
     depth = 1
     quote = ""
     pending: list[Heredoc] = []
+    closers: list[tuple[str, str]] = []
     index = start
     while index < len(text):
         char = text[index]
         if char == "\\" and quote != "'":
             index += 2
             continue
+        # Inside ${, $[, and (( a paren, #, or << is text or arithmetic.
+        inside = bool(closers)
+        if (after := nest(text, index, quote, closers, pending)) != index:
+            index = after
+            continue
         if quote == "'" or (quote == '"' and char not in '"$`'):
             quote = "" if char == quote else quote
-        elif char == "$" and text.startswith("(", index + 1):
-            index = closing(text, index + 2)
-        elif char == "`":
-            index = backtick_end(text, index + 1)
-        elif (after := substitution_step(text, index, pending)) != index:
+        elif found := substitution(text, index, process=False):
+            index = found[1]
+            continue
+        elif not inside and (after := substitution_step(text, index, pending)) != index:
             index = after
             continue
         elif char in "'\"":
             quote = "" if char == quote else char
-        elif char in "()":
+        elif char in "()" and not inside:
             depth += 1 if char == "(" else -1
             if depth == 0:
                 return index
