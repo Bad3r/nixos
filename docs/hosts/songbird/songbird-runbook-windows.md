@@ -95,7 +95,8 @@ Precondition: Windows boots through the `Windows Boot Manager` firmware entry, d
    lsblk -o NAME,PARTTYPENAME /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492
    ```
 
-5. Create a firmware entry on disk W's ESP, then set the order to `Linux Boot Manager`, the new entry, and the remaining entries:
+5. Note the current `Windows Boot Manager` entry number in `efibootmgr` as `<old-windows-entry>`.
+   Create a firmware entry on disk W's ESP, then set the order to `Linux Boot Manager`, the new entry, and the remaining entries:
 
    ```sh
    sudo efibootmgr --create-only --disk /dev/disk/by-id/nvme-WDC_PC_SN720_SDAQNTW-1T00-1001_192461421492 --part <esp-partition-number> --label 'Windows Boot Manager' --loader '\EFI\Microsoft\Boot\bootmgfw.efi'
@@ -118,14 +119,24 @@ Precondition: Windows boots through the `Windows Boot Manager` firmware entry, d
    reagentc /enable
    ```
 
-8. Back in NixOS, delete the old firmware entry and remove the old boot files from disk A's ESP, which also drops the Windows entry from the systemd-boot menu:
+8. Back in NixOS, confirm `<old-windows-entry>`: its `Windows Boot Manager` line in `efibootmgr -v` carries disk A's ESP PARTUUID, which this prints:
+
+   ```sh
+   findmnt -no PARTUUID /boot
+   ```
+
+   Delete that entry, remove the old boot files from disk A's ESP, and put `Linux Boot Manager` first again, since booting Windows reorders the entries:
 
    ```sh
    sudo efibootmgr --bootnum <old-windows-entry> --delete-bootnum
    sudo rip /boot/EFI/Microsoft
+   sudo efibootmgr --bootorder <linux-entry>,<new-windows-entry>,<remaining-entries>
    ```
+
+   Removing the boot files also drops the Windows entry from the systemd-boot menu.
 
 Verification:
 
 - `efibootmgr -v` shows `Windows Boot Manager` only on the PARTUUID that `lsblk -o NAME,PARTUUID` reports for disk W's ESP.
+- `efibootmgr` shows `BootOrder` starting with the `Linux Boot Manager` entry.
 - In Windows, `manage-bde -status C:` reports `Protection On`, and `reagentc /info` reports `Enabled`.
