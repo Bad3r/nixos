@@ -120,6 +120,14 @@ let
     "# x\\\nsbx run nixos --net egress -- true"
     "cat <<EOF\nx\nEO\\\nF\nsbx run nixos --net egress -- true"
     "cat <<E\\\nOF\nEOF\nsbx run nixos --net egress -- true"
+    "cat <<E\\;\nE;\nsbx run nixos --net egress -- true\nE"
+    "cat <<E\\ X\nE X\nsbx run nixos --net egress -- true\nE"
+    "cat <<E\\\\F\nEF\ncat <<Z\nE\\F\nsbx run nixos --net egress -- true\nZ"
+    "cat <<\"E\\\"F\"\nE\"F\nsbx run nixos --net egress -- true\nE"
+    "cat <<\"E\\\"F\\\"G\"\nE\"F\"G\nsbx run nixos --net egress -- true\nEFG"
+    "cat <<\"E\\\nOF\"\nEOF\nsbx run nixos --net egress -- true\nE"
+    "cat <<$'E\\x41'\nEA\nsbx run nixos --net egress -- true\nE"
+    "cat <<$\"E\"\nE\nsbx run nixos --net egress -- true\n$E"
     "echo $(true)#$(sbx run nixos --net egress -- true)"
     "echo \\ #$(sbx run nixos --net egress -- true)"
     "echo \\;#$(sbx run nixos --net egress -- true)"
@@ -285,6 +293,8 @@ let
     "git commit -m 'sbx: read --net egress and share attach n shared'"
     "workloads share attach guest:dev shared"
     "cat <<'EOF'\nit's fine\nEOF"
+    "cat << \\\n EOF\nsbx run nixos --net egress -- true\nEOF"
+    "cat <<\"E\\\\F\"\nsbx run nixos --net egress -- true\nE\\F"
   ];
 
   hook = name: client: decision: {
