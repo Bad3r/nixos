@@ -43,9 +43,9 @@ EXPANSIONS = frozenset("${*?[")
 REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|", "<>"})
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'")
-DOUBLE = re.compile(r'\$?"((?:[^"\\]|\\.)*)"', re.DOTALL)
+DOUBLE = re.compile(r'"((?:[^"\\]|\\.)*)"', re.DOTALL)
 # Inside double quotes a backslash escapes only these, and it drops an escaped newline.
-DOUBLE_ESCAPE = re.compile(r'\\([$`"\\\n])')
+DOUBLE_ESCAPE = re.compile(r'\\([$`"\\\n])|[$`]')
 # Options whose argument is a script: -c of any command, plus these after the named runner.
 OPTION_WORD = re.compile(r"[-+][A-Za-z0-9-]*")
 SCRIPT_OPTIONS = {"env": ("S", "--split-string"), "fish": ("C", "--init-command")}
@@ -185,6 +185,14 @@ def substitution(text: str, index: int, *, process: bool) -> tuple[str, int] | N
     return None
 
 
+def unescape(escape: re.Match[str]) -> str:
+    """Return the character a double-quote escape keeps; refuse a bare $ or backquote."""
+    if escape[1] is None:
+        msg = "heredoc delimiter with an expansion"
+        raise ValueError(msg)
+    return escape[1].strip("\n")
+
+
 def delimiter_word(text: str, index: int) -> tuple[str, int, bool]:
     """Read a heredoc word at index; return it unquoted, the index past it, and its quoting."""
     parts: list[str] = []
@@ -194,7 +202,11 @@ def delimiter_word(text: str, index: int) -> tuple[str, int, bool]:
         if text.startswith("\\\n", index):
             index += 2
             continue
-        if char not in "\\'\"" and not text.startswith(("$'", '$"'), index):
+        # bash reads $'...', $"...", $$, and expansions in the word as units.
+        if char in "$`":
+            msg = "heredoc delimiter with an expansion"
+            raise ValueError(msg)
+        if char not in "\\'\"":
             parts.append(char)
             index += 1
             continue
@@ -208,21 +220,17 @@ def delimiter_word(text: str, index: int) -> tuple[str, int, bool]:
             parts.append(text[index + 1 : end])
             index = end + 1
             continue
-        ansi = text.startswith("$'", index)
-        match = (ANSI_C if ansi else DOUBLE).match(text, index)
+        match = DOUBLE.match(text, index)
         if not match:
             msg = "unterminated quote"
             raise ValueError(msg)
-        if ansi:
-            parts.append(codecs.decode(match[1], "unicode_escape"))
-        else:
-            parts.append(DOUBLE_ESCAPE.sub(lambda escape: escape[1].strip("\n"), match[1]))
+        parts.append(DOUBLE_ESCAPE.sub(unescape, match[1]))
         index = match.end()
     return "".join(parts), index, quoted
 
 
 def heredoc(text: str, index: int) -> tuple[str, int, Heredoc]:
-    """Read the << operator at index; return it, the index past it, and its pending body."""
+    """Read the << operator at index; return it requoted, the index past it, and its body."""
     start = index
     index += 2
     strip = text.startswith("-", index)
