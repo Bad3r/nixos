@@ -15,8 +15,6 @@
     # IFD consumers in this repo:
     #   * nix-doom-emacs-unstraightened: lib.importJSON of
     #     `doom-intermediates/packages.json`.
-    #   * nix-logseq-git-flake: logseq-cli resolves its opam closure with
-    #     opam-nix `buildOpamProject`.
     # Update both this comment and modules/base/nix-settings.nix when adding
     # or removing IFD consumers.
     allow-import-from-derivation = true;

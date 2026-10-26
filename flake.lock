@@ -856,11 +856,11 @@
         "opam-repository": "opam-repository"
       },
       "locked": {
-        "lastModified": 1792990626,
-        "narHash": "sha256-ymCKvHDWGeYHMuSyPj4mCB24mlGTyg8FLscY68HjaMg=",
+        "lastModified": 1793038318,
+        "narHash": "sha256-hNkxAHHRgR5wbAPTU+mQPkXnZchb/siasSIIOH6dYUg=",
         "owner": "Bad3r",
         "repo": "nix-logseq-git-flake",
-        "rev": "d37c4d0d3e12dd4fe62702e42a0db8bb83961e4f",
+        "rev": "2accdb743d46c8c586bad72b8fe6d9fb52bd861c",
         "type": "github"
       },
       "original": {
