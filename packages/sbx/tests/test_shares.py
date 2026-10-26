@@ -523,6 +523,18 @@ class SharesTest(Fixture):
         self.assertIn(recovery_command("s", "shared"), actions[0].reason)
         self.assertNotIn("shared", attached(self.backend.live_xml("sbx-s")))
 
+    def test_pending_reclaim_names_the_recovery_of_a_silent_guest(self) -> None:
+        """A silent guest whose device lingers still gets the unmount command in the gc reason."""
+        self.add_running("s")
+        self.shares().attach("s", "shared")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=0)
+        (self.paths.sandbox("s") / "shared" / "fill").write_bytes(b"x" * 8192)
+        self.backend.silent = True
+        self.backend.stuck.add("sbx-s")
+        actions = self.shares().reclaim(dry_run=False)
+        self.assertIn("detach-pending", actions[0].reason)
+        self.assertIn(recovery_command("s", "shared"), actions[0].reason)
+
     def test_reclaim_continues_past_a_held_share(self) -> None:
         """A guest that keeps shared is reported, and the next sandbox still loses it."""
         self.add_running("s")

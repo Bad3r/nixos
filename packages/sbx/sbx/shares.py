@@ -480,11 +480,13 @@ class Shares:
 
     def _reclaim(self, sandbox: Sandbox, device: Device, problem: str) -> str | None:
         """Unmount and detach one sandbox's shared directory; None when its domain is gone."""
-        reason = f"{SHARED} detached: {problem}"
         # Lazily, since a busy mount must not keep the disk full.
         guest = self._unmount(sandbox, SHARED, force=True)
-        if guest.recovery is not None:
-            reason += f"; the guest keeps its mounts until `{guest.recovery}`"
+        note = (
+            ""
+            if guest.recovery is None
+            else f"; the guest keeps its mounts until `{guest.recovery}`"
+        )
         try:
             self._detach(sandbox.name, SHARED, device, f": {problem}")
         except SbxError as error:
@@ -492,5 +494,5 @@ class Shares:
                 return None
             if error.code != "detach-pending":
                 raise
-            return f"{SHARED} still attached, {error.code}: {error}"
-        return reason
+            return f"{SHARED} still attached, {error.code}: {error}{note}"
+        return f"{SHARED} detached: {problem}{note}"
