@@ -1,5 +1,6 @@
 { config, secretsRoot, ... }:
 let
+  inherit (config.flake.lib.nixos) _firewallLocalNetworkCidrs;
   sambaSecretFile = secretsRoot + "/songbird.yaml";
   sambaSecretExists = builtins.pathExists sambaSecretFile;
   songbirdSopsRuntimeReady = config.flake.lib.nixos.hosts.songbird.sopsRuntimeReady;
@@ -23,6 +24,7 @@ in
   configurations.nixos.songbird.module =
     {
       config,
+      options,
       pkgs,
       lib,
       metaOwner,
@@ -83,6 +85,7 @@ in
       # The model `claude-local` and `codex -p local` request.
       llamaModel = "gemma-4-26b-a4b";
       llamaPort = 10100;
+      paperlessRoot = "/data/paperless";
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
         globalSection.version = 1;
         sections = llamaModels // {
@@ -124,6 +127,18 @@ in
             };
           }
         ]
+        ++ [
+          {
+            # Declared only while the r2-flake modules are imported.
+            config = lib.optionalAttrs (options.services ? r2-restic) (
+              lib.mkIf config.services.paperless.enable {
+                services.r2-restic.paths = [ config.services.paperless.exporter.directory ];
+                # A late or persistent backup run waits for an export in progress.
+                systemd.services.r2-restic-backup.after = [ "paperless-exporter.service" ];
+              }
+            );
+          }
+        ]
         ++ lib.optionals (!sambaSecretsReady) [
           {
             warnings = [
@@ -151,13 +166,25 @@ in
         # all, so without its own rebind it advertised this host over
         # WS-Discovery at every boot with no share behind it.
         targets.samba.wantedBy = lib.mkForce [ ];
-        services.samba-wsdd = {
-          wantedBy = lib.mkForce [ "samba.target" ];
-          partOf = [ "samba.target" ];
-        };
+        services = {
+          samba-wsdd = {
+            wantedBy = lib.mkForce [ "samba.target" ];
+            partOf = [ "samba.target" ];
+          };
 
-        # Force the power-profiles-daemon profile to performance at boot.
-        services.songbird-power-profile = powerProfile.unit;
+          # Force the power-profiles-daemon profile to performance at boot.
+          songbird-power-profile = powerProfile.unit;
+
+          paperless-web = lib.mkIf config.services.paperless.enable {
+            serviceConfig.IPAddressAllow =
+              _firewallLocalNetworkCidrs
+              ++ lib.optional config.programs.cloudflare-warp.extended.enable meshRange;
+          };
+          # Copies keep the media files' 0600 mode, and r2-restic-backup reads them as the owner.
+          paperless-exporter = lib.mkIf config.services.paperless.enable {
+            serviceConfig.ExecStartPost = "+${lib.getExe' pkgs.acl "setfacl"} -R -m u:${metaOwner.username}:rX ${config.services.paperless.exporter.directory}";
+          };
+        };
       };
 
       # lock = logind Lock signal -> systemd-lock-handler -> lock.target (i3lock).
@@ -185,6 +212,20 @@ in
 
       services = {
         cloudflared.enable = true;
+
+        # dataDir and PostgreSQL stay on the root disk; documents go to /data.
+        paperless = {
+          address = "0.0.0.0";
+          mediaDir = "${paperlessRoot}/media";
+          consumptionDir = "${paperlessRoot}/consume";
+          # The owner drops scans into the inbox.
+          consumptionDirIsPublic = true;
+          exporter = {
+            directory = "${paperlessRoot}/export";
+            # Clear of r2-restic-backup's 00:00 to 01:00 window.
+            onCalendar = "23:00:00";
+          };
+        };
 
         # Router mode: no model on the command line, one loaded model at a time.
         llama-cpp.settings = {

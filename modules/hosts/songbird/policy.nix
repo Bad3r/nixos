@@ -31,6 +31,11 @@ _: {
         from = 10100;
         to = 10100;
       }
+      # paperless-ngx web UI (services.nix).
+      {
+        from = 28981;
+        to = 28981;
+      }
     ];
 
     # Address registry for workloads.networks (modules/workloads/networks.nix).
