@@ -97,9 +97,14 @@ in
       };
       # The model `claude-local` and `codex -p local` request.
       llamaModel = "gemma-4-12b-it-qat";
+      llamaPort = 10100;
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
         globalSection.version = 1;
-        sections = llamaModels;
+        sections = llamaModels // {
+          # [*] reaches every keyless child but not the router, which strips child CORS
+          # headers; the default reflects any Origin, so any web page could read a child.
+          "*".cors-origins = "http://127.0.0.1:${toString llamaPort}";
+        };
       };
     in
     {
@@ -186,7 +191,7 @@ in
         llama-cpp.settings = {
           # Without an API key the server stays on loopback.
           host = if config.services.llama-cpp.apiKeyFile != null then "0.0.0.0" else "127.0.0.1";
-          port = 10100;
+          port = llamaPort;
           models-preset = "${llamaPreset}";
           models-max = 1;
         };
