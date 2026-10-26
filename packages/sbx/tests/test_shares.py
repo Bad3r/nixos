@@ -480,6 +480,49 @@ class SharesTest(Fixture):
         self.assertEqual(set(attached(self.backend.live_xml("sbx-s"))), {"docs"})
         self.assertEqual(set(attached(self.backend.live_xml("sbx-t"))), {"docs"})
 
+    def test_reclaim_unmounts_first(self) -> None:
+        """Reclaim unmounts shared in the guest, busy or not, before it detaches the device."""
+        self.add_running("s")
+        self.shares().attach("s", "shared")
+        self.backend.mounts["shared"].append("/srv/again")
+        self.backend.busy.add("/mnt/shared")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=0)
+        (self.paths.sandbox("s") / "shared" / "fill").write_bytes(b"x" * 8192)
+        self.backend.guest_commands.clear()
+        self.backend.linger = 0
+        mounted_at_detach: list[list[str]] = []
+        real = self.backend.detach_device
+
+        def detach_device(domain: str, xml: str) -> None:
+            mounted_at_detach.append(list(self.backend.mounts["shared"]))
+            real(domain, xml)
+
+        with mock.patch.object(self.backend, "detach_device", side_effect=detach_device):
+            actions = self.shares().reclaim(dry_run=False)
+        self.assertEqual(
+            self.backend.guest_commands,
+            [
+                ["findmnt", "-t", "virtiofs", "-S", "shared", "-o", "TARGET", "-n", "-r"],
+                ["umount", "-l", "/srv/again"],
+                ["umount", "-l", "/mnt/shared"],
+            ],
+        )
+        self.assertEqual(mounted_at_detach, [[]])
+        self.assertNotIn("keeps its mounts", actions[0].reason)
+        self.assertNotIn("shared", attached(self.backend.live_xml("sbx-s")))
+
+    def test_reclaim_names_the_recovery_of_a_silent_guest(self) -> None:
+        """A guest that does not answer still loses shared, and gc says how to unmount it."""
+        self.add_running("s")
+        self.shares().attach("s", "shared")
+        self.settings = dataclasses.replace(self.settings, disk_cap_bytes=0)
+        (self.paths.sandbox("s") / "shared" / "fill").write_bytes(b"x" * 8192)
+        self.backend.silent = True
+        self.backend.linger = 0
+        actions = self.shares().reclaim(dry_run=False)
+        self.assertIn(recovery_command("s", "shared"), actions[0].reason)
+        self.assertNotIn("shared", attached(self.backend.live_xml("sbx-s")))
+
     def test_reclaim_continues_past_a_held_share(self) -> None:
         """A guest that keeps shared is reported, and the next sandbox still loses it."""
         self.add_running("s")
