@@ -43,9 +43,6 @@ EXPANSIONS = frozenset("${*?[")
 REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|", "<>"})
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'")
-DOUBLE = re.compile(r'"((?:[^"\\]|\\.)*)"', re.DOTALL)
-# Inside double quotes a backslash escapes only these, and it drops an escaped newline.
-DOUBLE_ESCAPE = re.compile(r'\\([$`"\\\n])|[$`]')
 # Options whose argument is a script: -c of any command, plus these after the named runner.
 OPTION_WORD = re.compile(r"[-+][A-Za-z0-9-]*")
 SCRIPT_OPTIONS = {"env": ("S", "--split-string"), "fish": ("C", "--init-command")}
@@ -98,14 +95,9 @@ SHELL_LONG_FLAGS = frozenset(
         "--print-debug-categories",
     }
 )
-HEREDOC_END = frozenset(" \t\n;|&<>()")
-COMMENT_AFTER = HEREDOC_END
-# Delimiter, strip leading tabs, body is a shell script, body expands substitutions.
-type Heredoc = tuple[str, bool, bool, bool]
-# bash reads ${ to its first }, but $[ and (( count nested brackets.
-NESTS = {"]": "[", ")": "("}
-# bash joins a line continuation inside each of these openers.
-SPLIT = re.compile(r"\$(?:\\\n)+[{[('\"]|\((?:\\\n)+\(|<(?:\\\n)+<")
+COMMENT_AFTER = frozenset(" \t\n;|&<>()")
+# Heredocs, ${, $[, ((, and line continuations need bash's parser to read, so they ask.
+OPAQUE_SYNTAX = re.compile(r"(?<!<)<<(?!<)|\$[{\[]|(?<!\$)\(\(|\\\n")
 MAX_DEPTH = 4
 # Bounds the suffix checks per simple command, which are each linear.
 MAX_CANDIDATES = 16
@@ -137,53 +129,31 @@ def closing(text: str, start: int) -> int:
     """Return the index of the ) that closes the substitution body starting at start."""
     depth = 1
     quote = ""
-    pending: list[Heredoc] = []
-    closers: list[tuple[str, str]] = []
     index = start
     while index < len(text):
         char = text[index]
         if char == "\\" and quote != "'":
             index += 2
             continue
-        # Inside ${, $[, and (( a paren, #, or << is text or arithmetic.
-        inside = bool(closers)
-        if (after := nest(text, index, quote, closers, pending)) != index:
-            index = after
-            continue
         if quote == "'" or (quote == '"' and char not in '"$`'):
             quote = "" if char == quote else quote
-        elif found := substitution(text, index, process=False):
-            index = found[1]
-            continue
-        elif not inside and (after := substitution_step(text, index, pending)) != index:
-            index = after
-            continue
+        elif char == "$" and text.startswith("(", index + 1):
+            index = closing(text, index + 2)
+        elif char == "`":
+            index = backtick_end(text, index + 1)
+        elif char == "#" and text[index - 1] in COMMENT_AFTER:
+            # A comment may hide the ).
+            msg = "# in a substitution"
+            raise ValueError(msg)
         elif char in "'\"":
             quote = "" if char == quote else char
-        elif char in "()" and not inside:
+        elif char in "()":
             depth += 1 if char == "(" else -1
             if depth == 0:
                 return index
         index += 1
     msg = "unbalanced substitution"
     raise ValueError(msg)
-
-
-def substitution_step(text: str, index: int, pending: list[Heredoc]) -> int:
-    """Refuse a comment, or skip a << or the heredoc bodies a newline starts; return the end."""
-    if text[index] == "#" and text[index - 1] in COMMENT_AFTER:
-        # A comment may hide the ), and a # inside ${ is not a comment.
-        msg = "# in a substitution"
-        raise ValueError(msg)
-    if text.startswith("<<", index) and not text.startswith("<<<", index):
-        _, end, body = heredoc(text, index)
-        pending.append(body)
-        return end
-    if text[index] == "\n" and pending:
-        end = bodies(text, index + 1, pending, [])
-        pending.clear()
-        return end
-    return index
 
 
 def backtick_end(text: str, start: int) -> int:
@@ -203,7 +173,7 @@ def backtick_end(text: str, start: int) -> int:
 def substitution(text: str, index: int, *, process: bool) -> tuple[str, int] | None:
     """Return the body of a substitution opening at index, and the index past it.
 
-    process allows <(...) and >(...), which quotes and heredoc bodies keep literal.
+    process allows <(...) and >(...), which quotes keep literal.
     """
     if text[index] == "`":
         end = backtick_end(text, index + 1)
@@ -213,105 +183,6 @@ def substitution(text: str, index: int, *, process: bool) -> tuple[str, int] | N
         end = closing(text, index + 2)
         return text[index + 2 : end], end + 1
     return None
-
-
-def unescape(escape: re.Match[str]) -> str:
-    """Return the character a double-quote escape keeps; refuse a bare $ or backquote."""
-    if escape[1] is None:
-        msg = "heredoc delimiter with an expansion"
-        raise ValueError(msg)
-    return escape[1].strip("\n")
-
-
-def delimiter_word(text: str, index: int) -> tuple[str, int, bool]:
-    """Read a heredoc word at index; return it unquoted, the index past it, and its quoting."""
-    parts: list[str] = []
-    quoted = False
-    while index < len(text) and text[index] not in HEREDOC_END:
-        char = text[index]
-        if text.startswith("\\\n", index):
-            index += 2
-            continue
-        # bash reads $'...', $"...", $$, and expansions in the word as units.
-        if char in "$`":
-            msg = "heredoc delimiter with an expansion"
-            raise ValueError(msg)
-        if char not in "\\'\"":
-            parts.append(char)
-            index += 1
-            continue
-        quoted = True
-        if char == "\\":
-            parts.append(text[index + 1 : index + 2])
-            index += 2
-            continue
-        if char == "'":
-            end = text.index("'", index + 1)
-            parts.append(text[index + 1 : end])
-            index = end + 1
-            continue
-        match = DOUBLE.match(text, index)
-        if not match:
-            msg = "unterminated quote"
-            raise ValueError(msg)
-        parts.append(DOUBLE_ESCAPE.sub(unescape, match[1]))
-        index = match.end()
-    return "".join(parts), index, quoted
-
-
-def heredoc(text: str, index: int) -> tuple[str, int, Heredoc]:
-    """Read the << operator at index; return it requoted, the index past it, and its body."""
-    start = index
-    index += 2
-    strip = text.startswith("-", index)
-    index += strip
-    while index < len(text) and (text[index] in " \t" or text.startswith("\\\n", index)):
-        index += 1 + (text[index] == "\\")
-    word_start = index
-    delimiter, index, quoted = delimiter_word(text, index)
-    if index == word_start:
-        msg = "heredoc without a delimiter"
-        raise ValueError(msg)
-    line_end = text.find("\n", index)
-    line = text[text.rfind("\n", 0, start) + 1 : len(text) if line_end == -1 else line_end]
-    runners = SHELLS | SOURCES
-    shell = any(basename(part) in runners for part in re.split(r"[\s;|&()]+", line))
-    return "<<" + shlex.quote(delimiter), index, (delimiter, bool(strip), shell, not quoted)
-
-
-def body_line(text: str, index: int, *, join: bool) -> tuple[str, int]:
-    """Read one heredoc body line at index; return it and the index past its newline.
-
-    An unquoted delimiter makes a trailing odd backslash join the next line, as in bash.
-    """
-    parts: list[str] = []
-    while True:
-        end = text.find("\n", index)
-        end = len(text) if end == -1 else end
-        line = text[index:end]
-        index = end + 1
-        trailing = len(line) - len(line.rstrip("\\"))
-        if not (join and trailing % 2 and index <= len(text)):
-            parts.append(line)
-            return "".join(parts), index
-        parts.append(line[:-1])
-
-
-def bodies(text: str, index: int, pending: list[Heredoc], scripts: list[str]) -> int:
-    """Consume the heredoc bodies after a newline, collecting what they run; return the end."""
-    for delimiter, strip, shell, expands in pending:
-        lines: list[str] = []
-        while index < len(text):
-            line, index = body_line(text, index, join=expands)
-            if (line.lstrip("\t") if strip else line) == delimiter:
-                break
-            lines.append(line)
-        body = "\n".join(lines)
-        if shell:
-            scripts.append(body)
-        elif expands:
-            scripts.extend(scan(body, heredoc_body=True)[1])
-    return min(index, len(text))
 
 
 def comment(text: str, index: int, out: list[str]) -> bool:
@@ -324,77 +195,32 @@ def comment(text: str, index: int, out: list[str]) -> bool:
     return text[index] == "#" and (not out or separator)
 
 
-def prelude(text: str, index: int, out: list[str], *, quote: str, process: bool) -> int:
-    """Skip a comment or a line continuation, or emit $'...' plainly; return the index past it.
-
-    A comment keeps its own backslash-newline and $'...' literal.
-    """
-    if process and comment(text, index, out):
+def prelude(text: str, index: int, out: list[str], *, process: bool) -> int:
+    """Skip a comment, or emit $'...' plainly; return the index past it."""
+    if not process:
+        return index
+    if comment(text, index, out):
         end = text.find("\n", index)
         return len(text) if end == -1 else end
-    if quote != "'" and text.startswith("\\\n", index):
-        return index + 2
-    return plain(text, index, out) if process else index
+    return plain(text, index, out)
 
 
-def nest(
-    text: str, index: int, quote: str, closers: list[tuple[str, str]], pending: list[Heredoc]
-) -> int:
-    """Open or close a ${, $[, or bare (( at index; return the index past an opener.
-
-    bash reads these as text, where << is literal or a shift, and reads pending heredoc
-    bodies only after a newline outside them.
-    """
-    opened = text[index : index + 2]
-    if closers and not quote and (opened == "<<" or (pending and text[index] == "\n")):
-        msg = "<< or a heredoc body inside ${, $[, or (("
-        raise ValueError(msg)
-    if quote != "'" and SPLIT.match(text, index):
-        msg = "opener split by a line continuation"
-        raise ValueError(msg)
-    # Whether a ' quotes inside a double-quoted ${ depends on the operator and nesting.
-    if text[index] == "'" and ("}", '"') in closers:
-        msg = "' inside a double-quoted ${"
-        raise ValueError(msg)
-    if opened in {"${", "$["} and quote != "'":
-        closers.append(("}" if opened == "${" else "]", quote))
-        return index + 2
-    if opened == "((" and not quote:
-        closers += [(")", "")] * 2
-        return index + 2
-    if closers and closers[-1][1] == quote:
-        closer = closers[-1][0]
-        if text[index] == closer:
-            closers.pop()
-        elif text[index] == NESTS.get(closer):
-            closers.append(closers[-1])
-    return index
-
-
-def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
-    """Cut heredoc bodies out of shell text; return it with the scripts its substitutions run.
-
-    A heredoc body treats quotes as literal text and has no heredocs of its own.
-    """
+def scan(text: str) -> tuple[str, list[str]]:
+    """Cut substitutions out of shell text; return it with the scripts they run."""
     out: list[str] = []
     scripts: list[str] = []
-    pending: list[Heredoc] = []
-    # Each open ${, $[, or bare ((: its closer and the quote it opened in.
-    closers: list[tuple[str, str]] = []
     quote = ""
     index = 0
     while index < len(text):
         char = text[index]
-        process = not quote and not heredoc_body
-        # ${, $[, and (( have no comments, and $'...' never starts with #.
-        mode = process and not (closers and char == "#")
-        if (after := prelude(text, index, out, quote=quote, process=mode)) != index:
+        process = not quote
+        if (after := prelude(text, index, out, process=process)) != index:
             index = after
             continue
         found = None if quote == "'" else substitution(text, index, process=process)
         if found:
             scripts.append(found[0])
-            # The body is checked as a script; its text here would re-quote what follows.
+            # The body is checked as a script; its text here could re-quote what follows.
             out.append("``" if char == "`" else char + "()")
             index = found[1]
             continue
@@ -403,24 +229,8 @@ def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
             out.append(text[index : index + step])
             index += step
             continue
-        if not heredoc_body and (after := nest(text, index, quote, closers, pending)) != index:
-            out.append(text[index:after])
-            index = after
-            continue
-        if heredoc_body:
-            pass
-        elif char in "'\"" and quote in {"", char}:
+        if char in "'\"" and quote in {"", char}:
             quote = "" if quote else char
-        elif not quote and text.startswith("<<", index):
-            operator, index, body = heredoc(text, index)
-            out.append(operator)
-            pending.append(body)
-            continue
-        elif char == "\n" and not quote and pending:
-            out.append(char)
-            index = bodies(text, index + 1, pending, scripts)
-            pending = []
-            continue
         out.append(char)
         index += 1
     return "".join(out), scripts
@@ -457,18 +267,17 @@ def mark(command: str) -> str:
 
 
 class Command(NamedTuple):
-    """A simple command: its words, the operator ending it, and its literal stdin."""
+    """A simple command: its words, the operator ending it, and its here-strings."""
 
     words: list[str]
     end: str
     herestrings: list[str]
-    heredoc: bool
 
 
 def segments(tokens: list[str]) -> list[Command]:
     """Split words into simple commands, dropping redirections but keeping here-strings."""
     result: list[Command] = []
-    current = Command([], "", [], heredoc=False)
+    current = Command([], "", [])
     target = ""
     for part in tokens:
         operator = bool(part) and set(part) <= OPERATORS
@@ -478,11 +287,10 @@ def segments(tokens: list[str]) -> list[Command]:
             target = ""
         elif part in REDIRECTS:
             target = part
-            current = current._replace(heredoc=current.heredoc or part == "<<")
         elif operator:
             target = ""
             result.append(current._replace(end=part))
-            current = Command([], "", [], heredoc=False)
+            current = Command([], "", [])
         else:
             current.words.append(part)
     result.append(current)
@@ -502,6 +310,9 @@ def mentions(text: str) -> bool:
 
 def check(command: str, depth: int = 0) -> None:
     """Gate shell text and every script it runs, raising ValueError when it does not parse."""
+    if OPAQUE_SYNTAX.search(command):
+        msg = "heredoc, ${, $[, ((, or line continuation"
+        raise ValueError(msg)
     text, scripts = scan(command)
     for script in scripts:
         nested(script, depth)
@@ -510,7 +321,7 @@ def check(command: str, depth: int = 0) -> None:
         if reads_stdin(simple.words):
             for herestring in simple.herestrings:
                 nested(herestring, depth)
-            if not simple.herestrings and not simple.heredoc:
+            if not simple.herestrings:
                 raise GateError(STDIN)
 
 
@@ -567,7 +378,7 @@ def stdin_path(word: str) -> bool:
 
 
 def nested(script: str, depth: int) -> None:
-    """Gate a script that a substitution, heredoc, -c flag, or eval runs."""
+    """Gate a script that a substitution, here-string, -c flag, or eval runs."""
     if depth < MAX_DEPTH:
         check(script, depth + 1)
     elif mentions(script):
