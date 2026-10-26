@@ -105,70 +105,31 @@ jobs:
           URL="https://github.com/"
           git config --global url."$URL".insteadOf git@github.com:
           git config --global url."$URL".insteadOf ssh://git@github.com/
-      # "path:." bypasses the git fetcher: self.submodules = true would
-      # make a git-based self fetch pull the private secrets submodule
-      # that CI cannot read; the per-file pathExists guards then evaluate
-      # the secretless configuration. nix eval instead of
-      # `nix flake check --no-build` and `nix build --dry-run`: Lix forces
-      # read-only store mode for both (lix/nix/flake.cc), so eval-time
-      # store writes (interpolated source copies, IFD derivations) fail on
-      # the fresh runner store. Forcing every check's drvPath keeps the
-      # same eval surface as `nix flake check`: package-checks.nix mirrors
-      # every package into checks and make-shell exposes each dev shell as
-      # a `<name>-shell` check, so both still evaluate here; apps is empty
-      # and formatter runs in the format-check job. Never builds check
-      # outputs (the checks include every host toplevel, and building them
-      # exceeds runner disk).
+      # "path:." avoids fetching the private secrets submodule. nix eval
+      # allows the eval-time store writes that Lix's flake check --no-build
+      # rejects on a fresh runner. Force every check, including the host
+      # toplevels, packages and dev shells, in one evaluation; save runtime
+      # build targets so the next step does not evaluate the flake again.
       - name: Check flake
         run: |
+          nix eval --json --file .github/tests/check-compliance.nix
           nix eval --accept-flake-config --json \
             "path:.#checks.x86_64-linux" \
-            --apply 'checks: builtins.mapAttrs (_: check: check.drvPath) checks'
-      # The step above only forces drvPaths, so checks that assert at run time
-      # would never execute. Build just those by name: they are small and
-      # sandbox-clean, unlike the host toplevels the exclusion above exists
-      # for. The list comes from the flake: a script suite matches by name, and
-      # anything else opts in by setting runtimeCheck on its derivation, so a
-      # new runtime check is covered without editing this workflow. An empty
-      # list fails rather than passing vacuously.
+            --apply "$(cat .github/check-compliance.nix)" \
+            > "$RUNNER_TEMP/compliance-checks.json"
+          jq . "$RUNNER_TEMP/compliance-checks.json"
+      # Only build checks that opt in through runtimeCheck or script-tests-*.
+      # All other checks, including host closures, were evaluated above.
       - name: Run runtime check suites
         run: |
-          suites=$(nix eval --accept-flake-config --json \
-            "path:.#checks.x86_64-linux" --apply 'checks:
-              builtins.filter
-                (n: ((builtins.getAttr n checks).runtimeCheck or false)
-                    || builtins.match "script-tests-.*" n != null)
-                (builtins.attrNames checks)' \
-            | jq -r '.[]')
-          if [ -z "$suites" ]; then
+          mapfile -t installables < <(jq -r '.runtimeChecks[]' \
+            "$RUNNER_TEMP/compliance-checks.json")
+          if [ "${#installables[@]}" -eq 0 ]; then
             echo "no runtime checks found" >&2
             exit 1
           fi
-          installables=()
-          for s in $suites; do
-            installables+=("path:.#checks.x86_64-linux.\"$s\"")
-          done
           nix build --accept-flake-config --no-link \
             --print-build-logs "${installables[@]}"
-      # Force every host closure's drvPath. The host list comes from the
-      # flake, so a new host is covered without editing this workflow; an
-      # empty list fails instead of passing vacuously. nix eval (not
-      # nix build --dry-run) because Lix forces read-only store mode for
-      # dry-run, which breaks eval-time store writes on the fresh runner.
-      - name: Build configurations
-        run: |
-          hosts=$(nix eval --accept-flake-config --json \
-            "path:.#nixosConfigurations" --apply builtins.attrNames \
-            | jq -r '.[]')
-          if [ -z "$hosts" ]; then
-            echo "no nixosConfigurations found" >&2
-            exit 1
-          fi
-          for host in $hosts; do
-            echo "Forcing $host toplevel drvPath..."
-            nix eval --accept-flake-config --raw \
-              "path:.#nixosConfigurations.$host.config.system.build.toplevel.drvPath"
-          done
 
   format-check:
     runs-on: ubuntu-latest
