@@ -47,6 +47,9 @@ in
       llamaGemma12b = llamaVision // {
         hf-repo = "unsloth/gemma-4-12B-it-qat-GGUF:UD-Q4_K_XL";
         ctx-size = 128000;
+        # An image must fit in one ubatch, so the default 512 caps Gemma 4's 1120 image tokens.
+        # 2048 costs ~2.2 GiB more VRAM, which the 26B cannot spare.
+        ubatch-size = 2048;
       };
       llamaQwen9b = llamaVision // {
         hf-repo = "unsloth/Qwen3.5-9B-MTP-GGUF:UD-Q5_K_XL";
