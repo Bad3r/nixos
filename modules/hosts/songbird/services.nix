@@ -80,7 +80,7 @@ in
           ctx-size = 131072;
         };
       };
-      # The model `claude-local` and `codex -p local` request.
+      # The model `claude-local` and `codex-local` request.
       llamaModel = "gemma-4-26b-a4b";
       llamaPort = 10100;
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {

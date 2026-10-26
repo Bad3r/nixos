@@ -31,7 +31,7 @@ Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
 
    ```sh
    CLAUDE_LOCAL_MODEL=<model> claude-local
-   codex -p local -m <model>
+   codex-local -m <model>
    ```
 
    The router unloads the current model before it loads the requested one.
@@ -73,16 +73,18 @@ Verification: `claude-local -p 'Reply with the word ready'` prints `ready`.
 
 Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
 
-1. Start Codex on the `local` profile that Home Manager generates:
+1. Start Codex on its local home, `~/.config/codex-local`, which Home Manager generates:
 
    ```sh
-   codex -p local
+   codex-local
    ```
 
-   The profile turns memories off, so the local model neither reads memories nor extracts them from past sessions.
-   Approval requests go to the user, since the automatic reviewer requests a model the local server does not serve.
+   Its threads stay out of the `codex` home, where `exec resume` or `fork` would send them to OpenAI.
+   Resume and fork them with `codex-local resume` and `codex-local fork`.
+   Project trust and command approvals are shared with the `codex` home.
+   Memories are off, and approval requests go to the user, since the automatic reviewer requests a model the local server does not serve.
 
-Verification: `codex exec -p local --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `provider: llama-cpp` and `ready`.
+Verification: `codex-local exec --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `provider: llama-cpp` and `ready`.
 
 ## Open the web UI from the iPhone
 

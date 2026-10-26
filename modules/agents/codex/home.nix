@@ -30,8 +30,9 @@
       - projects.nix.toml: nix-managed trusted project paths (read-only)
       - trusted-projects.toml: user-managed trusted project paths (mutable)
       - overrides.toml: optional user settings, merged last (mutable)
-    * `codex -p local` layers local.config.toml, a copy generated from the llama.cpp endpoint in
-      programs.llama-cpp.extended.client (modules/apps/llama-cpp.nix).
+    * `codex-local` runs the same wrapper with CODEX_HOME at ~/.config/codex-local, whose base config
+      targets the llama.cpp endpoint in programs.llama-cpp.extended.client (modules/apps/llama-cpp.nix).
+      It links trusted-projects.toml and rules/default.rules to the codex home's copies.
     * Execpolicy is separate from config.toml and is loaded from the rules/ directory under CODEX_HOME.
       The nix-managed layer is written to codex/rules/20-managed.rules.
     * To trust a new project, add it to ~/.config/codex/trusted-projects.toml:
@@ -54,6 +55,8 @@ _: {
       codexPkg = lib.attrByPath [ "programs" "codex" "extended" "package" ] pkgs.codex osConfig;
       homeDir = config.home.homeDirectory;
       configDir = "${config.xdg.configHome}/codex";
+      # A separate CODEX_HOME: from the cloud home, `exec resume` and `fork` send a thread to OpenAI.
+      localConfigDir = "${config.xdg.configHome}/codex-local";
       agentsDir = "${config.xdg.configHome}/agents";
       codexEnv = import ./_env.nix;
 
@@ -91,12 +94,14 @@ _: {
           ;
       };
 
-      codexInstructions = agents.systemPrompt.render {
-        vars = {
-          questionTool = "request_user_input";
-          sbx = sbxEnabled;
-        };
-      };
+      codexInstructions = pkgs.writeText "codex-AGENTS.md" (
+        agents.systemPrompt.render {
+          vars = {
+            questionTool = "request_user_input";
+            sbx = sbxEnabled;
+          };
+        }
+      );
 
       # Install every compiled skill that ships a Codex profile under
       # ~/.config/agents/skills/<name> (discovered by Codex at ~/.agents/skills),
@@ -112,7 +117,7 @@ _: {
       # A static catalog stops Codex from fetching /v1/models, whose llama.cpp shape it cannot
       # decode. Each entry mirrors Codex's fallback metadata for unknown models; the schema
       # requires the instructions inline. A slug outside it gets a cloud-sized fallback window.
-      codexLocalCatalogPath = "${configDir}/local-models.json";
+      codexLocalCatalogPath = "${localConfigDir}/local-models.json";
       codexLocalCatalog =
         pkgs.runCommand "codex-local-models.json"
           {
@@ -147,8 +152,10 @@ _: {
               '{models: [$models[] + {model_messages: {instructions_template: $prompt}}]}' > "$out"
           '';
 
-      # Layered over config.toml by `codex -p local`.
-      codexLocalProfile = (pkgs.formats.toml { }).generate "codex-local.config.toml" {
+      codexLocalBaseFile = (pkgs.formats.toml { }).generate "codex-local-config-base" (
+        lib.recursiveUpdate codexSettings.baseSettings codexLocalSettings
+      );
+      codexLocalSettings = {
         inherit (localClient) model;
         review_model = localClient.model;
         model_provider = "llama-cpp";
@@ -172,6 +179,11 @@ _: {
           };
         };
       };
+
+      codexLocal = pkgs.writeShellScriptBin "codex-local" ''
+        export CODEX_HOME=${lib.escapeShellArg localConfigDir}
+        exec ${codexRuntime.codexWrapped}/bin/codex "$@"
+      '';
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -183,7 +195,10 @@ _: {
         };
 
         home = {
-          packages = [ codexRuntime.codexWrapped ];
+          packages = [
+            codexRuntime.codexWrapped
+          ]
+          ++ lib.optional (localClient.endpoint != null) codexLocal;
 
           # Seed user-managed trusted projects file on first activation
           activation = {
@@ -261,12 +276,6 @@ _: {
               run mkdir -p "${agentsDir}/skills"
               run ln -sfnT "${agentsDir}" "$agentsHome"
             '';
-          }
-          // lib.optionalAttrs (localClient.endpoint != null) {
-            # A copy, not a store link: under `-p local` Codex saves config edits to the profile.
-            codexLocalProfile = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-              run install -D -m 0644 ${codexLocalProfile} "${configDir}/local.config.toml"
-            '';
           };
 
           sessionVariables = codexEnv.vars // {
@@ -285,10 +294,19 @@ _: {
           "codex/rules/20-managed.rules".source = execPolicy.execPolicyManagedRulesFile;
 
           # User-level Codex instructions under XDG config home
-          "codex/AGENTS.md".text = codexInstructions;
+          "codex/AGENTS.md".source = codexInstructions;
         }
         // lib.optionalAttrs (localClient.endpoint != null) {
-          "codex/local-models.json".source = codexLocalCatalog;
+          "codex-local/config.base.toml".source = codexLocalBaseFile;
+          "codex-local/projects.nix.toml".source = codexRuntime.nixProjectsFile;
+          "codex-local/trusted-projects.toml".source =
+            config.lib.file.mkOutOfStoreSymlink "${configDir}/trusted-projects.toml";
+          "codex-local/rules/20-managed.rules".source = execPolicy.execPolicyManagedRulesFile;
+          # Codex appends approvals in place, so both homes share one file; codexExecPolicySeed creates it.
+          "codex-local/rules/default.rules".source =
+            config.lib.file.mkOutOfStoreSymlink "${configDir}/rules/default.rules";
+          "codex-local/AGENTS.md".source = codexInstructions;
+          "codex-local/local-models.json".source = codexLocalCatalog;
         }
         # Skills (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
         // codexSkillDirs;

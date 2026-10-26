@@ -57,7 +57,7 @@ Lower `ctx-size` in the model's `llamaModels` entry; when the model then fits, a
 `codex exec` appends standard input to the prompt when stdin is not a terminal, so a script or agent shell leaves it waiting forever.
 
 ```sh
-codex exec --profile local --skip-git-repo-check '<prompt>' < /dev/null
+codex-local exec --skip-git-repo-check '<prompt>' < /dev/null
 ```
 
 Close stdin with `< /dev/null` on every non-interactive run.

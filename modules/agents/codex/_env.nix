@@ -11,6 +11,7 @@
   vars = {
     # Storage: state/src/lib.rs and core/src/config/mod.rs.
     # Used when sqlite_home is unset; an exact managed requirement takes priority.
+    # A shared path merges the codex and codex-local thread indexes, exposing local threads to the cloud home.
     # CODEX_SQLITE_HOME = "/absolute/path/state";
 
     # TLS: http-client/src/custom_ca.rs. CODEX_CA_CERTIFICATE takes precedence

@@ -15,8 +15,8 @@
       Without that secret, before the host's sopsRuntimeReady, or with security.repoSecrets
       disabled, it runs without a key, so the host binds a non-loopback listener only while
       `services.llama-cpp.apiKeyFile` is set.
-    * `client.*` configures `claude-local` (modules/agents/claude-code) and the Codex `local`
-      profile (modules/agents/codex).
+    * `client.*` configures `claude-local` (modules/agents/claude-code) and `codex-local`
+      (modules/agents/codex).
     * The nixpkgs fork patches llama-cpp-cuda only, so no cache serves this package while the CPU
       llama-cpp and its dependents stay cached. The host compiles it against CUDA libraries from
       cache.nixos-cuda.org; songbird builds it for sm_120 only, in about 4 minutes.
@@ -79,13 +79,13 @@ in
               if cfg.enable then "http://127.0.0.1:${toString config.services.llama-cpp.settings.port}" else null;
             defaultText = lib.literalExpression ''if enable then "http://127.0.0.1:''${toString config.services.llama-cpp.settings.port}" else null'';
             example = "http://songbird.internal:10100";
-            description = "Server origin for `claude-local` and the Codex `local` profile, or null to install neither.";
+            description = "Server origin for `claude-local` and `codex-local`, or null to install neither.";
           };
 
           model = lib.mkOption {
             type = lib.types.str;
             example = "gemma-4-26b-a4b";
-            description = "Model name, a section of the server's models preset, that `claude-local` and the Codex `local` profile request.";
+            description = "Model name, a section of the server's models preset, that `claude-local` and `codex-local` request.";
           };
 
           contextWindows = lib.mkOption {
@@ -156,8 +156,9 @@ in
             }
             {
               assertion =
-                !(config.programs.codex.extended.enable or false) || ownerHome.home.activation ? codexLocalProfile;
-              message = "programs.llama-cpp.extended.client.endpoint is set, but modules/agents/codex writes no local profile; it reads the client options from another path.";
+                !(config.programs.codex.extended.enable or false)
+                || ownerHome.xdg.configFile ? "codex-local/config.base.toml";
+              message = "programs.llama-cpp.extended.client.endpoint is set, but modules/agents/codex writes no codex-local home; it reads the client options from another path.";
             }
           ];
         })

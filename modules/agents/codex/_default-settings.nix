@@ -71,6 +71,7 @@
   cli_auth_credentials_store = "auto"; # auto | file | keyring | ephemeral
   # forced_login_method = "chatgpt"; # chatgpt | api
   # forced_chatgpt_workspace_id = "";
+  # A shared path merges the codex and codex-local thread indexes, exposing local threads to the cloud home.
   # sqlite_home = "/absolute/path/state";
   # log_dir = "/absolute/path/logs";
   # Seconds before app-server unloads an idle thread; requires a server restart.

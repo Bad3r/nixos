@@ -7,14 +7,14 @@ Scope: replace Magnitude with llama.cpp, declare LACT settings, and retain the h
 ## 1. Goal
 
 Songbird runs open-weight models on its RTX 5080 through one default engine, llama.cpp's `llama-server`.
-It serves `claude-local` and `codex -p local` locally, and its web UI serves the LAN and the iPhone over the Cloudflare Mesh behind a sops-managed key.
+It serves `claude-local` and `codex-local` locally, and its web UI serves the LAN and the iPhone over the Cloudflare Mesh behind a sops-managed key.
 The implementation removes Magnitude's module, service, firewall entry, secret wiring, and usage documentation together.
 
 ## 2. Acceptance criteria
 
 1. Only the selected inference engine holds the GPU; the desktop remains usable.
 2. `claude-local -p 'Reply with the word ready'` prints `ready` on Songbird.
-3. `codex exec -p local --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `ready` on Songbird.
+3. `codex-local exec --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `ready` on Songbird.
 4. Both clients complete a multi-turn tool call and consume its result through the intended local provider.
 5. The iPhone authenticates to the web UI and receives an answer about an attached photo.
 6. Requests without the key get HTTP 401 on every inference endpoint of the authenticated listener, over the LAN, the Mesh, and loopback.
@@ -172,7 +172,7 @@ Preserve Codex's `wire_api = "responses"`, local `model` and `review_model`, and
 Use a non-reserved provider ID and a base URL ending in `/v1`.
 Preserve both `features.memories = false` and `memories.generate_memories = false`; verify the pinned client's behavior without claiming these exclude every possible source of context.
 The Responses adapter rejects nonempty `previous_response_id`, `input_file`, and unknown item types, and drops non-function tools.
-Test fresh one-shot execution and interactive/profile startup, including shared-daemon behavior and persistent configuration overrides.
+Test fresh one-shot execution and interactive `codex-local` startup, including its per-home daemon and persistent configuration overrides.
 Exercise a harmless request that triggers automatic approval review and verify that subsystem's provider and context handling separately.
 Setting `review_model` does not by itself prove where automatic approval-review traffic goes; resolve any unintended hosted routing before accepting private local use.
 Keep client context limits consistent with the selected model's server context.
@@ -233,7 +233,7 @@ Upstream llama.cpp has no fold: https://github.com/ggml-org/llama.cpp/issues/273
 
 Explicitly stop Magnitude Desktop, `magnitude-server`, and ad hoc GPU processes before starting the system service.
 After switching, check the removed user unit is stopped; a successful NixOS activation does not prove user-manager state.
-Do not remove the generated Codex local profile during cleanup; activation owns its contents.
+Do not remove `~/.config/codex-local` during cleanup; it holds the local Codex threads.
 
 ## 6. Validation gates
 
