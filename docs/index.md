@@ -483,7 +483,7 @@
 - [apps/sbx/networks.md](apps/sbx/networks.md)
   - Sandbox networks: no NIC or one `egress` NIC on the `sbx` workload network, leases and addresses, and `net cut` to continue offline.
 - [apps/sbx/agents.md](apps/sbx/agents.md)
-  - Agent access to `sbx`: the skill, the MCP server, the approval hooks for egress and the read-write share, and their limits.
+  - Agent access to `sbx`: the skill and the MCP server.
 - [apps/sbx/bases.md](apps/sbx/bases.md)
   - `sbx` bases: Nix-built `nixos` and `nixos-gui`, and hash-pinned cloud images that `base prepare` provisions.
 - [apps/sbx/gui.md](apps/sbx/gui.md)

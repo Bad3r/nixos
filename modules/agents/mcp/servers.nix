@@ -199,7 +199,7 @@ _: {
       ];
       docs = {
         primaryUse = "Run untrusted code in disposable sbx VMs.";
-        accessNotes = "Local stdio server of the `sbx` app, present only where its row is on; tools mirror the `sbx` verbs and their `--json` output, and run without approval prompts unless `net` is `egress` or `share_attach` attaches `shared`.";
+        accessNotes = "Local stdio server of the `sbx` app, present only where its row is on; tools mirror the `sbx` verbs and their `--json` output.";
         example = "`run` with `{\"base\": \"nixos\", \"command\": [\"uname\", \"-a\"]}`";
       };
     };
