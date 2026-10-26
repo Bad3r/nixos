@@ -127,6 +127,26 @@ in
           openFirewall = true;
         };
 
+        # A non-empty settings makes /etc/lact/config.yaml a store symlink, so
+        # lactd cannot save GUI changes; they last only until it restarts.
+        lact.settings = {
+          version = 7;
+          daemon = {
+            log_level = "info";
+            admin_group = "wheel";
+            disable_clocks_cleanup = false;
+          };
+          apply_settings_timer = 5;
+          gpus."10DE:2C02-1043:8A47-0000:02:00.0" = {
+            fan_control_enabled = false;
+            power_mizer_mode = "PreferMaximumPerformance";
+            power_cap = 450.0;
+            voltage_boost = 100;
+          };
+          current_profile = null;
+          auto_switch_profiles = false;
+        };
+
         # intel_pstate on the 285K exposes the energy-performance preference
         # that power-profiles-daemon drives; the shared i3 launcher shells out
         # to powerprofilesctl.
