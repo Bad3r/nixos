@@ -33,6 +33,7 @@ Unparsable shell text that names `sbx`, scripts nested more than four levels dee
 A heredoc whose delimiter is quoted whole, as `'WORD'`, `"WORD"`, or `\WORD`, is data the hook skips, so a commit or pull request message naming `sbx` passes.
 Its body runs from the next newline outside quotes to the first line equal to the word, ignoring leading tabs after `<<-`.
 Any other heredoc asks, as does a quoted one on a line naming a shell, `eval`, `source`, `ssh`, `perl`, `ruby`, `node`, or `python`, or in a command holding a backquote or `$((`.
+A command substitution holding a heredoc asks unquoted, or where its output could be the command: first in a simple command, or after a wrapper such as `env` or `sudo`.
 Outside heredoc bodies, text naming `sbx` that holds `${`, `$[`, a `((` outside `$((`, or a line continuation asks without parsing, even inside quotes.
 
 ## Limits of the hooks

@@ -52,12 +52,40 @@ STDIN_RUNNERS = frozenset({"xargs", "parallel"})
 OPEN_VERBS = frozenset({"create", "run", "share"})
 SHELLS = frozenset({"sh", "ash", "bash", "dash", "zsh", "ksh", "mksh", "fish"})
 SOURCES = frozenset({"source", "."})
-# A heredoc on a line naming one of these, or python*, may be code, so it asks.
-HEREDOC_RUNNERS = frozenset({"eval", "perl", "ruby", "node", "ssh"})
 # Builtins and keywords that can precede source; external wrappers cannot run a builtin.
 SOURCE_PREFIXES = frozenset(
     {"command", "builtin", "time", "!", "{", "if", "then", "else", "elif", "do", "while", "until"}
 )
+# A heredoc on a line naming one of these, or python*, may be code, so it asks.
+HEREDOC_RUNNERS = frozenset({"eval", "perl", "ruby", "node", "ssh"})
+# Commands that run their next words, so a heredoc substitution after them may name a command.
+EXEC_PREFIXES = SOURCE_PREFIXES | {
+    "env",
+    "sudo",
+    "doas",
+    "run0",
+    "exec",
+    "nohup",
+    "nice",
+    "ionice",
+    "timeout",
+    "setsid",
+    "stdbuf",
+    "flock",
+    "systemd-run",
+    "watch",
+    "chroot",
+    "unshare",
+    "nsenter",
+    "bwrap",
+    "strace",
+    "find",
+    "xargs",
+    "parallel",
+}
+# Stands in for a double-quoted substitution that holds a heredoc.
+HEREDOC_SUBSTITUTION = "$(<<)"
+ASSIGNMENT = re.compile(r"[A-Za-z_]\w*=")
 # Short shell options that take an argument; every other letter is a flag.
 SHELL_ARG_LETTERS = {"fish": "CdDfop", "ksh": "oO" + "T", "mksh": "oO" + "T"}
 SHELL_LONG_ARG = frozenset(
@@ -274,6 +302,19 @@ def prelude(text: str, index: int, out: list[str], *, process: bool) -> int:
     return plain(text, index, out)
 
 
+def placeholder(char: str, quote: str, *, heredoc: bool) -> str:
+    """Return what stands in for a substitution opening with char.
+
+    Unquoted, a heredoc's output splits into words that can form a command.
+    """
+    if not heredoc:
+        return "``" if char == "`" else char + "()"
+    if not quote:
+        msg = "unquoted substitution with a heredoc"
+        raise ValueError(msg)
+    return HEREDOC_SUBSTITUTION
+
+
 def scan(text: str, spans: list[tuple[int, int]]) -> tuple[str, list[str]]:
     """Cut substitutions and heredoc bodies out of shell text; return it and what it runs."""
     out: list[str] = []
@@ -287,11 +328,12 @@ def scan(text: str, spans: list[tuple[int, int]]) -> tuple[str, list[str]]:
         if (after := prelude(text, index, out, process=process)) != index:
             index = after
             continue
+        bodies = len(spans)
         found = None if quote == "'" else substitution(text, index, spans, process=process)
         if found:
             scripts.append(found[0])
             # The body is checked as a script; its text here could re-quote what follows.
-            out.append("``" if char == "`" else char + "()")
+            out.append(placeholder(char, quote, heredoc=len(spans) > bodies))
             index = found[1]
             continue
         step = 3 if text.startswith("<<<", index) else 2 if char == "\\" and quote != "'" else 0
@@ -408,6 +450,8 @@ def check(command: str, depth: int = 0) -> None:
     for script in scripts:
         nested(script, depth)
     for simple in segments(words(text)):
+        if heredoc_command(simple.words):
+            raise GateError(OPAQUE)
         check_segment(simple.words, depth, cut="(" in simple.end)
         if reads_stdin(simple.words):
             for herestring in simple.herestrings:
@@ -474,6 +518,23 @@ def nested(script: str, depth: int) -> None:
         check(script, depth + 1)
     elif mentions(script):
         raise GateError(TOO_DEEP)
+
+
+def heredoc_command(segment: list[str]) -> bool:
+    """Whether a heredoc substitution may name the command: first, or after a runner."""
+    head: list[str] = []
+    for word in segment:
+        if not head and ASSIGNMENT.match(word):
+            continue
+        if HEREDOC_SUBSTITUTION in word:
+            return not head or any(
+                NON_LITERAL.search(name)
+                or name in EXEC_PREFIXES | SHELLS | SOURCES | HEREDOC_RUNNERS
+                or name.startswith("python")
+                for name in map(basename, head)
+            )
+        head.append(word)
+    return False
 
 
 def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
