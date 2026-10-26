@@ -41,7 +41,7 @@ let
     ilspycmd = true;
     imhex = true;
     jadx = true;
-    magnitude = true;
+    "llama-cpp" = true;
     malimite = true;
     mono = true;
     "pentesting-devshell" = true;

@@ -1,6 +1,6 @@
 # Songbird local AI plan
 
-Status: proposed implementation; runtime and cache gates must pass before the engine swap.\
+Status: implementation steps 1 to 5 done; the runtime and isolation gates and the model trial run against the deployed service.\
 Host: Songbird serves its local clients, the LAN, and the iPhone over the Mesh.\
 Scope: replace Magnitude with llama.cpp, declare LACT settings, and retain the hardware follow-ups from the local AI evaluation.
 
@@ -9,7 +9,6 @@ Scope: replace Magnitude with llama.cpp, declare LACT settings, and retain the h
 Songbird runs open-weight models on its RTX 5080 through one default engine, llama.cpp's `llama-server`.
 It serves `claude-local` and `codex -p local` locally, and its web UI serves the LAN and the iPhone over the Cloudflare Mesh behind a sops-managed key.
 The implementation removes Magnitude's module, service, firewall entry, secret wiring, and usage documentation together.
-This documentation PR does not implement that replacement.
 
 ## 2. Acceptance criteria
 
@@ -42,7 +41,7 @@ The engine choices remain:
 | O2  | Stock `pkgs.llama-cpp-cuda` from cache.nixos-cuda.org; coverage required |
 | O3  | Router mode with `--models-max 1`                                        |
 | O4  | Reuse port 10100, LAN and Mesh                                           |
-| O5  | Trial existing model candidates before choosing the default              |
+| O5  | Gemma 4 12B QAT default until the trial picks one                        |
 | O6  | Measure DFlash first; choose drafters per model                          |
 | O7  | Hugging Face downloads into the service cache                            |
 | O8  | Unauthenticated children accessible to trusted host processes            |
@@ -50,23 +49,27 @@ The engine choices remain:
 
 O8 does not authorize guest or container access to child listeners.
 The isolation gate below verifies that boundary before deployment.
+Owner decisions of 2026-10-26: key holders may download and delete router models through the model API, an accepted risk; Gemma 4 12B QAT is the initial default model.
 
 ## 4. Target design
 
 ### Package and service
 
-The lock selects Bad3r/nixpkgs `e6258921cf40e0372c1f70700cdb55a24e2bb858`: llama.cpp 0.7.0, build 11669, source commit `620d222`.
+The lock on main selects the fork's `nixpkgs-unstable` head `a4b6aef616e977490ff24c44e37d412ac6b7b990`, which adds only the service fixes below to upstream `5d62642594b0`.
+Both revisions build llama.cpp 0.7.0, build 11669, source commit `620d222`, from the same derivation.
 The recorded benchmark workload uses llama.cpp 0.6.0, build 11429; it is not a performance or cache result for the selected package.
 Recheck source behavior and cache availability whenever the lock changes.
 
 Use the nixpkgs system service with its dynamic user, state directory, `LLAMA_CACHE=/var/cache/llama-cpp`, and GPU device access.
 The system service must serve without a desktop login and start when `/data` remains locked.
-Generic fixes belong on a focused branch of Bad3r/nixpkgs, validated with `--override-input nixpkgs`, published, then consumed by an explicit lock update:
+The fork head carries the generic service fixes; the engine-swap PR consumes them through a lock update:
 
-- Remove `ExecReload` sending SIGHUP: the pinned server handles SIGINT and SIGTERM, and a default SIGHUP termination can leave `Restart=on-failure` inactive.
-- Reduce `RestartSec=300` and test recovery after a crash.
-- Quote settings with systemd-aware argument escaping; test spaces, quotes, literal percent signs, and `%d` credential expansion.
-- Test CUDA under `ProcSubset=pid` and `MemoryDenyWriteExecute=true`; relax only a setting demonstrated to block CUDA, with the failure recorded in the fix.
+- No `ExecReload`: the pinned server handles only SIGINT and SIGTERM, and a SIGHUP exit left `Restart=on-failure` inactive.
+- `RestartSec = 10`; gate 05 tests recovery after a crash.
+- `utils.escapeSystemdExecArgs` escapes every setting, so spaces, quotes, `%`, and `$` reach the server literally.
+- `apiKeyFile` loads the key through `LoadCredential` and appends `--api-key-file %d/api-key`; an assertion rejects `settings.api-key` and `settings.api-key-file` beside it.
+
+Still open: test CUDA under `ProcSubset=pid` and `MemoryDenyWriteExecute=true`; relax only a setting demonstrated to block CUDA, with the failure recorded in a fork fix.
 
 Keep host-specific preset, credential, port, and firewall configuration in this repository.
 Do not add consumer-side service workarounds for defects that can be fixed in the fork.
@@ -78,18 +81,18 @@ Follow [apps-module-registry.md](../guides/apps-module-registry.md): add a commo
 Keep any CLI installation in the app module; a prerequisite requests another app at priority 1050 rather than installing its package elsewhere.
 Remove Magnitude's baseline and host rows atomically with its module.
 
-Use the stock CUDA capability set unless a measured requirement justifies changing it.
-Evaluate the package after Songbird's overlays and allowlisted-unfree policy; package name and version alone do not establish the output path.
-No store path, closure size, or cache-hit result from the 0.6.0 evaluation proves substitution for this derivation.
+The app's `package` defaults to `pkgs.llama-cpp-cuda` with the stock CUDA capability set, which includes 12.0; the service's own default is the CPU build.
+Songbird's pkgs refuse the CUDA build until the app module allowlists `cccl`, `cuda_cudart`, `cuda_nvcc`, `libnvvm`, `cuda_crt`, `libcublas`, and `cuda_nvrtc` in `nixpkgs.allowedUnfreePackages`.
+Through Songbird's overlays, the output is `/nix/store/6avc3v3yrns0imfy308qy2zs4bgqd3gh-llama-cpp-0.7.0`.
 
-Add the approved `https://cache.nixos-cuda.org` URL and verified signing key to `extra-substituters` and `extra-trusted-public-keys` in `.github/actions/install-lix/substituters.conf`.
+Gate 03 passed on 2026-10-26 for the main lock.
+cache.nixos-cuda.org serves the output and its 18-path, 1.2 GiB runtime closure, every path verifies against key `cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=`, and a fresh-store plan with cache.nixos.org builds nothing.
+Without the cache, the plan compiles 26 derivations, including CUDA llama.cpp and nodejs.
+
+`vx` is not a trusted user, so the host daemon ignores a client-side `extra-substituters`.
+Main commit `a4a73a25` adds the URL and key to `extra-substituters` and `extra-trusted-public-keys` in `.github/actions/install-lix/substituters.conf` and `build.sh`; Songbird runs it before the engine swap is switched.
 `modules/hosts/common/nix-substituters.nix` reads that file; the installer action applies it in CI, and `ci-substituter-parity` checks the integration.
-Confirm the cache's current key from its primary documentation and verify the selected output's signature.
-
-Run `scripts/cache-coverage.sh --host songbird --allow-dirty --verbose` after enabling the proposed service.
-Inspect the selected CUDA output and its dependency graph: a zero exit code alone permits report classes such as `uncached-stock` and does not prove substitution.
-A fresh-store build plan must contain no CUDA compilation; unpublished or inconclusive coverage blocks deployment pending a publication or build decision.
-If CI publication is needed, review the app-package inventory in `modules/meta/cache-roots.nix` and [binary-cache-coverage-extension.md](../reference/binary-cache-coverage-extension.md).
+After a lock change, rerun `scripts/cache-coverage.sh --host songbird --allow-dirty --verbose` and inspect the CUDA output's graph: a zero exit code alone permits `uncached-stock`.
 
 ### Router, models, and storage
 
@@ -98,12 +101,14 @@ A request naming another model unloads the current one; a missing or unknown mod
 Clients must name a preset model, and the web UI must offer the expected choices.
 
 Each section sets `hf-repo` to the repository or `repo:quant`; use the separate `hf-file` key for an exact GGUF filename.
-Set the alias, context, GPU layers, optional drafter, and idle timeout explicitly; set both `ctk` and `ctv` to `q8_0`.
+The section name is the model ID clients send, and the router sets it as the child's alias, so sections carry no `alias` key.
+Set the context, GPU layers, optional drafter, and idle timeout explicitly; set both `ctk` and `ctv` to `q8_0`.
 Use one parallel slot per model before equating the client context window with the server context, and verify the accepted context at runtime.
 Keep per-model choices in the preset: router CLI parameters override matching preset values.
 An unknown preset key is fatal at startup.
-Only the chosen default's section uses `load-on-startup`, keeping startup loads within the one-model cap; downloads should finish before the client trial.
-The router also discovers cached models, so the preset is not a strict allowlist. Inspect `/v1/models` and control cache discovery before exposing additional models.
+Only the default's section, Gemma 4 12B QAT until the trial picks one, uses `load-on-startup`, keeping startup loads within the one-model cap; downloads should finish before the client trial.
+The router always lists and loads every model in its cache; no flag disables that, and `dedup-cache-models` only hides a cache entry a preset section resolves to.
+Authenticated clients can download any Hugging Face repository with `POST /models` and delete cache-sourced models with `DELETE /models`; no flag disables either.
 Automatic projector discovery is enabled unless disabled; verify the downloaded projector and image input with each vision model.
 
 Models remain outside the Nix store in `/var/cache/llama-cpp` on disk A.
@@ -114,7 +119,8 @@ The recorded model files are under `~/.magnitude/models/hub` and `~/.cache/llama
 
 Measure Qwen3.5 9B with and without its DFlash drafter before assigning drafters per model.
 The pinned server supports DFlash, DSpark, EAGLE3, MTP, plain draft models, and n-gram lookup.
-DFlash and DSpark draft files identify their type; a plain draft GGUF needs `spec-type = draft-simple`.
+DFlash and DSpark draft files and MTP heads are detected automatically.
+A local EAGLE3 draft needs `spec-type = draft-eagle3`, and a plain draft GGUF needs `spec-type = draft-simple`.
 Use `--spec-draft-n-max` and `--spec-draft-n-min`; do not carry the obsolete `--draft`, `--draft-max`, or `--draft-min` flags.
 Record model revision, context, cache types, GPU occupancy, and power settings for every new performance result.
 
@@ -129,10 +135,10 @@ Binding one interface's address would shut out the other network and tie service
 
 Create a fresh value in `secrets/llama-cpp.yaml`, key `llama_cpp_api_key`, and render `/run/secrets/llama-cpp/api-key` on Songbird.
 Follow the host's secret-readiness contract, including `sopsRuntimeReady`, rather than enabling decryption merely because the encrypted file exists.
-Use `LoadCredential` and `settings.api-key-file = "%d/api-key"`; keep key material out of argv and the Nix store.
+Set `services.llama-cpp.apiKeyFile` to that path; the module loads it as a systemd credential, keeping key material out of argv and the Nix store.
 Do not reuse the value copied into Magnitude's plaintext configuration.
 
-Pass `--api-key-file`, not `LLAMA_API_KEY`: router children inherit the environment, while the router strips their API-key arguments and sends unauthenticated internal requests.
+Never set `LLAMA_API_KEY` instead of `apiKeyFile`: router children inherit the environment, while the router strips their API-key arguments and sends unauthenticated internal requests.
 Key files carry one key per line, skip `#` lines, and do not trim whitespace.
 Clients send `Authorization: Bearer`; `X-Api-Key` is considered only when that header is absent or empty.
 Health and UI resources remain public; model administration and inference require authentication at the main listener.
@@ -197,13 +203,14 @@ The store-managed configuration must preserve the intended settings after restar
 
 ## 5. Implementation sequence
 
-1. Resolve source, cache, client compatibility, and isolation gates before scheduling the swap.
-2. Declare verified LACT settings; check the managed file and effective power limit after switching.
-3. Fix demonstrated generic service defects in the nixpkgs fork, validate against Songbird with `--override-input`, publish, and update the consuming lock deliberately.
-4. Add the new app, preset, credentials, clients, firewall policy, and registry rows in one engine-swap PR; remove Magnitude's wiring and update its documentation atomically.
-5. Trial each model, tool-calling workflow, and drafter; choose the default model and context from those results.
-6. Verify rollback with retained Magnitude state and credentials before any separately approved cleanup. Archive recoverable state before removing it.
-7. Remove the Magnitude package from the llm-agents fork only as a separate optional cleanup.
+1. Done 2026-10-26: source, cache, and client compatibility gates; CUDA hardening and isolation need the running service (gates 05 and 07).
+2. Done: verified LACT settings landed on main as `75eafe79`.
+3. Done: the service fixes are on the fork's `nixpkgs-unstable` at `a4b6aef616e9`.
+4. Done: the cache landed on main as `a4a73a25`, and Songbird switched to it.
+5. Done in this change, on a lock that pins the fork head: add the new app, preset, credentials, clients, firewall policy, and registry rows in one engine-swap PR; remove Magnitude's wiring and update its documentation atomically.
+6. Trial each model, tool-calling workflow, and drafter; choose the default model and context from those results.
+7. Verify rollback with retained Magnitude state and credentials before any separately approved cleanup. Archive recoverable state before removing it.
+8. Remove the Magnitude package from the llm-agents fork only as a separate optional cleanup.
 
 Explicitly stop Magnitude Desktop, `magnitude-server`, and ad hoc GPU processes before starting the system service.
 After switching, check the removed user unit is stopped; a successful NixOS activation does not prove user-manager state.
@@ -231,10 +238,10 @@ The engine trial does not authorize deletion or promise rollback after state rem
 
 ## 8. Sources
 
-- Pinned package: <https://github.com/Bad3r/nixpkgs/blob/e6258921cf40e0372c1f70700cdb55a24e2bb858/pkgs/by-name/ll/llama-cpp/package.nix>
+- Fork head package: <https://github.com/Bad3r/nixpkgs/blob/a4b6aef616e977490ff24c44e37d412ac6b7b990/pkgs/by-name/ll/llama-cpp/package.nix>
 - Server, router, adapters, and credentials: <https://github.com/ggml-org/llama.cpp/tree/v0.7.0/tools/server>
 - Model arguments and preset keys: <https://github.com/ggml-org/llama.cpp/blob/v0.7.0/common/arg.cpp>
 - Speculative decoding: <https://github.com/ggml-org/llama.cpp/blob/v0.7.0/docs/speculative.md>
-- Pinned service: <https://github.com/Bad3r/nixpkgs/blob/e6258921cf40e0372c1f70700cdb55a24e2bb858/nixos/modules/services/misc/llama-cpp.nix>
-- Pinned LACT module: <https://github.com/Bad3r/nixpkgs/blob/e6258921cf40e0372c1f70700cdb55a24e2bb858/nixos/modules/services/hardware/lact.nix>
+- Fork head service: <https://github.com/Bad3r/nixpkgs/blob/a4b6aef616e977490ff24c44e37d412ac6b7b990/nixos/modules/services/misc/llama-cpp.nix>
+- Fork head LACT module: <https://github.com/Bad3r/nixpkgs/blob/a4b6aef616e977490ff24c44e37d412ac6b7b990/nixos/modules/services/hardware/lact.nix>
 - Cache key and CUDA packaging guidance: <https://wiki.nixos.org/wiki/CUDA>

@@ -279,8 +279,6 @@
   - Custom espanso matches, form, shell, and clipboard variables, and regex triggers.
 - [usage/espanso-configuration.md](usage/espanso-configuration.md)
   - App-specific espanso configs, X11 and Wayland support, and the package override.
-- [usage/magnitude.md](usage/magnitude.md)
-  - Running Claude Code and Codex on local models served by Magnitude on songbird.
 - [usage/pentesting-devshell.md](usage/pentesting-devshell.md)
   - Pentesting tools devshell usage including desktop launchers and adding new tools.
 - [usage/podman-untrusted.md](usage/podman-untrusted.md)
@@ -301,7 +299,7 @@
 - [hosts/songbird/songbird-runbook.md](hosts/songbird/songbird-runbook.md)
   - Validation procedure for a `songbird` change.
 - [hosts/songbird/songbird-runbook-local-ai.md](hosts/songbird/songbird-runbook-local-ai.md)
-  - Magnitude models, Claude Code and Codex on local models, CUDA llama.cpp, iPhone access, and freeing the GPU on `songbird`.
+  - The llama.cpp service, model switching, Claude Code and Codex on local models, iPhone access, and freeing the GPU on `songbird`.
 - [hosts/songbird/songbird-runbook-portal.md](hosts/songbird/songbird-runbook-portal.md)
   - Converting the `/portal` drive to BitLocker and unlocking it from NixOS on `songbird`.
 - [hosts/songbird/songbird-runbook-reinstall.md](hosts/songbird/songbird-runbook-reinstall.md)

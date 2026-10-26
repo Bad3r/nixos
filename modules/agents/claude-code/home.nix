@@ -11,8 +11,8 @@
     * User-level instructions generated via flake.lib.agents.systemPrompt
       (modules/agents/system-prompt.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
-    * `claude-local` runs the same launcher against the Magnitude endpoint in
-      programs.magnitude.extended.client (modules/apps/magnitude.nix).
+    * `claude-local` runs the same launcher against the llama.cpp endpoint in
+      programs.llama-cpp.extended.client (modules/apps/llama-cpp.nix).
     * Plugins, LSP plugins included, are enabledPlugins in _plugins.nix; an
       enabled *-lsp entry also installs its language server
       (modules/agents/claude-code/nixos.nix). skillOverrides sits in the same file.
@@ -137,7 +137,7 @@ _: {
       };
       inherit (activationResult) activation;
 
-      magnitudeClient = lib.attrByPath [ "programs" "magnitude" "extended" "client" ] {
+      localClient = lib.attrByPath [ "programs" "llama-cpp" "extended" "client" ] {
         endpoint = null;
       } osConfig;
 
@@ -149,7 +149,7 @@ _: {
           bunInstallDir
           externalBinary
           installMethods
-          magnitudeClient
+          localClient
           ;
         inherit (agents) scratchDir;
       };
@@ -195,7 +195,7 @@ _: {
               executable = true;
             };
           }
-          // lib.optionalAttrs (magnitudeClient.endpoint != null) {
+          // lib.optionalAttrs (localClient.endpoint != null) {
             ".local/bin/claude-local" = {
               source = lib.getExe claudeRuntime.claudeLocalWrapped;
               executable = true;
