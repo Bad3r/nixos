@@ -73,10 +73,10 @@ Verification: the command exits 0, and the document chat answers a question abou
 
 Precondition: an empty paperless instance on a fresh generation, and the export directory restored from `r2-restic`.
 
-1. Stop the units that write to the database:
+1. Stop the export timer and the units that write to the database, since a nightly export during the import deletes files from the export directory and restarts the services:
 
    ```sh
-   sudo systemctl stop paperless-web paperless-task-queue paperless-consumer
+   sudo systemctl stop paperless-exporter.timer paperless-scheduler paperless-web paperless-task-queue paperless-consumer
    ```
 
 2. Hand the restored files to the paperless user, since the restore leaves them owned by the owner with mode 0600:
@@ -91,10 +91,10 @@ Precondition: an empty paperless instance on a fresh generation, and the export 
    sudo paperless-manage document_importer /data/paperless/export
    ```
 
-4. Start the units again, then rebuild the AI index as above:
+4. Start the units and the export timer again, then rebuild the AI index as above:
 
    ```sh
-   sudo systemctl start paperless-scheduler paperless-web paperless-task-queue paperless-consumer
+   sudo systemctl start paperless-exporter.timer paperless-scheduler paperless-web paperless-task-queue paperless-consumer
    ```
 
 Verification: the document list matches the exported `manifest.json` count.
