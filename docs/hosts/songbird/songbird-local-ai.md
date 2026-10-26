@@ -73,6 +73,8 @@ Each role names a section of the models preset in [services.nix](../../../module
 - The PCIe 4.0 link in [songbird-hardware.md](songbird-hardware.md) slows prefill whenever weights stream from RAM.
 - The 37xx NPU runs small OpenVINO models only, so language models stay on the RTX 5080.
 - Model files take up to 25 GB each on disk A, plus up to 1.4 GB per drafter or vision projector.
+- Orca's OpenClaude agent runs `claude-local` on `~/.claude`, so it ignores the hooks and skills Orca writes to `~/.openclaude`, and its panes report no working or idle state.
+- Orca's Codex agent stays on hosted models, since Orca runs Codex on its own `CODEX_HOME`, which has no `local` profile.
 
 ## Sources
 

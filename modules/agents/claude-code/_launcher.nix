@@ -114,23 +114,17 @@ let
     exec "$realBash" "''${originalArgs[@]}"
   '';
 
-  # Keep this assignment standalone. packages/tweakcc/shell-wrapper.patch
-  # parses it to reach the wrapped Claude executable.
-  targetScript =
+  claudeBinary =
     if installMethods.bun.enable then
-      ''
-        target=${lib.escapeShellArg "${bunInstallDir}/bin/claude"}
-      ''
+      "${bunInstallDir}/bin/claude"
     else if installMethods.nix.enable then
-      ''
-        target=${lib.escapeShellArg "${claudePkg}/bin/claude"}
-      ''
+      "${claudePkg}/bin/claude"
     else
-      ''
-        target=${lib.escapeShellArg externalBinary}
-      '';
+      externalBinary;
 
-  wrapperBody = ''
+  # Keep the `target=` assignment standalone. packages/tweakcc/shell-wrapper.patch
+  # parses it to reach the wrapped Claude executable.
+  mkWrapperBody = binary: ''
     set -euo pipefail
 
     ${envExports}
@@ -147,7 +141,7 @@ let
 
     export CLAUDE_CODE_SHELL=${lib.escapeShellArg "${claudeBashWrapper}/bin/bash"}
 
-    ${targetScript}
+    target=${lib.escapeShellArg binary}
 
     if [ ! -x "$target" ]; then
       echo "claude-wrapper: ERROR: Claude Code binary not found or not executable at $target" >&2
@@ -157,7 +151,20 @@ let
     exec "$target" "$@"
   '';
 
+  wrapperBody = mkWrapperBody claudeBinary;
+
   claudeWrapped = pkgs.writeShellScriptBin "claude" wrapperBody;
+
+  # Orca names a pane's agent after its foreground process, whose comm the kernel takes
+  # from the basename of the executed path, so OpenClaude panes exec Claude by this name.
+  openclaudeBinary = pkgs.runCommandLocal "openclaude-binary" { } ''
+    mkdir -p "$out/bin"
+    ln -s ${lib.escapeShellArg claudeBinary} "$out/bin/openclaude"
+  '';
+
+  openclaudeWrapped = pkgs.writeShellScriptBin "openclaude-claude" (
+    mkWrapperBody "${openclaudeBinary}/bin/openclaude"
+  );
 
   # Opt-in launcher for `claude rc`. Remote Control is gated on vB() in the
   # 2.1.247 binary, which is false when DISABLE_GROWTHBOOK is set or when x()
@@ -186,51 +193,62 @@ let
   # other name and holds one model at a time. `--settings` env outranks the launcher
   # and settings.json env; SMALL_FAST outranks the haiku slot, and FORCE drops the
   # models that agent definitions and spawn calls pin.
-  claudeLocalWrapped = pkgs.writeShellApplication {
-    name = "claude-local";
-    runtimeInputs = [ pkgs.jq ];
-    text = ''
-      model=''${CLAUDE_LOCAL_MODEL:-${lib.escapeShellArg localClient.model}}
-      context=$(jq -nr --arg model "$model" \
-        --argjson windows ${lib.escapeShellArg (builtins.toJSON localClient.contextWindows)} \
-        '$windows[$model] // empty | tostring')
-      if [ -z "$context" ]; then
-        echo "claude-local: unknown model '$model'; known: ${lib.concatStringsSep " " (lib.attrNames localClient.contextWindows)}" >&2
-        exit 64
-      fi
-      settings=$(jq -cn \
-        --arg model "$model" \
-        --arg url ${lib.escapeShellArg localClient.endpoint} \
-        --arg context "$context" \
-        --arg keyHelper ${lib.escapeShellArg keyHelper} '
-          {
-            model: $model,
-            apiKeyHelper: $keyHelper,
-            env: {
-              ANTHROPIC_BASE_URL: $url,
-              ANTHROPIC_DEFAULT_HAIKU_MODEL: $model,
-              ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: $model,
-              ANTHROPIC_DEFAULT_SONNET_MODEL: $model,
-              ANTHROPIC_DEFAULT_OPUS_MODEL: $model,
-              ANTHROPIC_DEFAULT_FABLE_MODEL: $model,
-              ANTHROPIC_SMALL_FAST_MODEL: $model,
-              CLAUDE_CODE_SUBAGENT_MODEL: $model,
-              CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "1",
-              CLAUDE_CODE_MAX_CONTEXT_TOKENS: $context
+  mkLocalLauncher =
+    name: wrapped:
+    pkgs.writeShellApplication {
+      inherit name;
+      runtimeInputs = [ pkgs.jq ];
+      text = ''
+        model=''${CLAUDE_LOCAL_MODEL:-${lib.escapeShellArg localClient.model}}
+        context=$(jq -nr --arg model "$model" \
+          --argjson windows ${lib.escapeShellArg (builtins.toJSON localClient.contextWindows)} \
+          '$windows[$model] // empty | tostring')
+        if [ -z "$context" ]; then
+          echo "${name}: unknown model '$model'; known: ${lib.concatStringsSep " " (lib.attrNames localClient.contextWindows)}" >&2
+          exit 64
+        fi
+        settings=$(jq -cn \
+          --arg model "$model" \
+          --arg url ${lib.escapeShellArg localClient.endpoint} \
+          --arg context "$context" \
+          --arg keyHelper ${lib.escapeShellArg keyHelper} '
+            {
+              model: $model,
+              apiKeyHelper: $keyHelper,
+              env: {
+                ANTHROPIC_BASE_URL: $url,
+                ANTHROPIC_DEFAULT_HAIKU_MODEL: $model,
+                ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: $model,
+                ANTHROPIC_DEFAULT_SONNET_MODEL: $model,
+                ANTHROPIC_DEFAULT_OPUS_MODEL: $model,
+                ANTHROPIC_DEFAULT_FABLE_MODEL: $model,
+                ANTHROPIC_SMALL_FAST_MODEL: $model,
+                CLAUDE_CODE_SUBAGENT_MODEL: $model,
+                CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "1",
+                CLAUDE_CODE_MAX_CONTEXT_TOKENS: $context
+              }
             }
-          }
-        ')
-      # Inherited tokens would outrank the helper.
-      unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY
-      exec ${lib.getExe claudeWrapped} --settings "$settings" "$@"
-    '';
-  };
+          ')
+        # Inherited tokens would outrank the helper.
+        unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY
+        # An Orca-selected Claude account points CLAUDE_CONFIG_DIR at a profile home
+        # without the Home Manager settings; a user-set value differs from Orca's marker.
+        if [ -n "''${CLAUDE_CONFIG_DIR:-}" ] && [ "$CLAUDE_CONFIG_DIR" = "''${ORCA_CLAUDE_INJECTED_CONFIG_DIR:-}" ]; then
+          unset CLAUDE_CONFIG_DIR ORCA_CLAUDE_INJECTED_CONFIG_DIR
+        fi
+        exec ${lib.getExe wrapped} --settings "$settings" "$@"
+      '';
+    };
+
+  claudeLocalWrapped = mkLocalLauncher "claude-local" claudeWrapped;
+  openclaudeLocalWrapped = mkLocalLauncher "openclaude" openclaudeWrapped;
 in
 {
   inherit
     claudeWrapped
     claudeRcWrapped
     claudeLocalWrapped
+    openclaudeLocalWrapped
     wrapperBody
     ;
 }

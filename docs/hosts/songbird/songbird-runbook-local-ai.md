@@ -84,6 +84,23 @@ Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
 
 Verification: `codex exec -p local --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `provider: llama-cpp` and `ready`.
 
+## Use a local model in Orca
+
+Precondition: [Use a local model in Claude Code](#use-a-local-model-in-claude-code) passes, and Orca is open.
+
+1. In Orca, open Settings, then Agents, and select Refresh, so Orca finds the `openclaude` launcher, which runs `claude-local`.
+
+2. Start the OpenClaude agent from a new agent tab, or from the CLI:
+
+   ```sh
+   orca agent launch --agent openclaude --surface terminal --focus
+   ```
+
+   A supervised worker takes the same agent through `orca orchestration worker-start --agent openclaude`.
+   To try another preset model, set `CLAUDE_LOCAL_MODEL` in the OpenClaude launch environment under Settings, Agents.
+
+Verification: `/status` in the OpenClaude pane names the local model, and a prompt there makes `journalctl -u llama-cpp -f` print `proxying request to model <model>`.
+
 ## Open the web UI from the iPhone
 
 Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes, and the iPhone is on the LAN or the Mesh.
