@@ -41,11 +41,12 @@ System units that run owner processes, such as the `r2-mount-*` FUSE mounts, kee
 
 2. Log back in and confirm that `loginctl user-status "$USER"` lists only the new session.
 
-3. List the units whose owner processes still hold `disk`, and restart each one, for example the R2 mounts:
+3. Restart the system services whose owner processes still hold `disk`, such as the R2 mounts; the filter skips scopes, which cannot restart, and `user@.service`, which step 2 recycles:
 
    ```sh
-   ps -u "$USER" -o unit=,supgrp= | grep -w disk | awk '{print $1}' | sort -u
-   sudo systemctl restart 'r2-mount-*.service'
+   ps -u "$USER" -o unit=,supgrp= | grep -w disk |
+     awk '$1 ~ /\.service$/ && $1 !~ /^user@/ {print $1}' | sort -u |
+     xargs -r sudo systemctl restart
    ```
 
 4. Check the result with the commands below.
