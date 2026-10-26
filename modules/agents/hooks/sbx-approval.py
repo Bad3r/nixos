@@ -104,6 +104,8 @@ COMMENT_AFTER = HEREDOC_END
 type Heredoc = tuple[str, bool, bool, bool]
 # bash reads ${ to its first }, but $[ and (( count nested brackets.
 NESTS = {"]": "[", ")": "("}
+# bash joins a line continuation inside each of these openers.
+SPLIT = re.compile(r"\$(?:\\\n)+[{[('\"]|\((?:\\\n)+\(|<(?:\\\n)+<")
 MAX_DEPTH = 4
 # Bounds the suffix checks per simple command, which are each linear.
 MAX_CANDIDATES = 16
@@ -147,6 +149,10 @@ def closing(text: str, start: int) -> int:
             index = closing(text, index + 2)
         elif char == "`":
             index = backtick_end(text, index + 1)
+        elif char == "#" and text[index - 1] in COMMENT_AFTER:
+            # A comment may hide the ), and a # inside ${ is not a comment.
+            msg = "# in a substitution"
+            raise ValueError(msg)
         elif char in "'\"":
             quote = "" if char == quote else char
         elif char in "()":
@@ -321,6 +327,13 @@ def nest(
     if closers and not quote and (opened == "<<" or (pending and text[index] == "\n")):
         msg = "<< or a heredoc body inside ${, $[, or (("
         raise ValueError(msg)
+    if quote != "'" and SPLIT.match(text, index):
+        msg = "opener split by a line continuation"
+        raise ValueError(msg)
+    # Inside a double-quoted ${, single quotes quote too.
+    if closers[-1:] == [("}", '"')] and quote == '"' and text[index] == "'":
+        msg = "' inside a double-quoted ${"
+        raise ValueError(msg)
     if opened in {"${", "$["} and quote != "'":
         closers.append(("}" if opened == "${" else "]", quote))
         return index + 2
@@ -351,7 +364,9 @@ def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
     while index < len(text):
         char = text[index]
         process = not quote and not heredoc_body
-        if (after := prelude(text, index, out, quote=quote, process=process)) != index:
+        # ${, $[, and (( have no comments, and $'...' never starts with #.
+        mode = process and not (closers and char == "#")
+        if (after := prelude(text, index, out, quote=quote, process=mode)) != index:
             index = after
             continue
         found = None if quote == "'" else substitution(text, index, process=process)
@@ -459,7 +474,7 @@ def basename(word: str) -> str:
 def mentions(text: str) -> bool:
     """Whether shell text could name sbx, sbx-mcp, or workloads."""
     bare = re.sub(r"[\"'\\]", "", text.replace("\\\n", ""))
-    return "sbx" in bare or "workloads" in bare or "$'" in text
+    return "sbx" in bare or "workloads" in bare or "$'" in text.replace("\\\n", "")
 
 
 def check(command: str, depth: int = 0) -> None:
