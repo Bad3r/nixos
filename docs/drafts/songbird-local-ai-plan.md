@@ -1,13 +1,13 @@
 # Songbird local AI plan
 
 Status: proposed implementation; runtime and cache gates must pass before the engine swap.\
-Host: Songbird serves its local clients and the iPhone over the Mesh.\
+Host: Songbird serves its local clients, the LAN, and the iPhone over the Mesh.\
 Scope: replace Magnitude with llama.cpp, declare LACT settings, and retain the hardware follow-ups from the local AI evaluation.
 
 ## 1. Goal
 
 Songbird runs open-weight models on its RTX 5080 through one default engine, llama.cpp's `llama-server`.
-It serves `claude-local` and `codex -p local` locally, and its web UI serves the iPhone over the Cloudflare Mesh behind a sops-managed key.
+It serves `claude-local` and `codex -p local` locally, and its web UI serves the LAN and the iPhone over the Cloudflare Mesh behind a sops-managed key.
 The implementation removes Magnitude's module, service, firewall entry, secret wiring, and usage documentation together.
 This documentation PR does not implement that replacement.
 
@@ -18,7 +18,7 @@ This documentation PR does not implement that replacement.
 3. `codex exec -p local --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `ready` on Songbird.
 4. Both clients complete a multi-turn tool call and consume its result through the intended local provider.
 5. The iPhone authenticates to the web UI and receives an answer about an attached photo.
-6. Requests without the key get HTTP 401 on every inference endpoint of the authenticated listener, over the Mesh and loopback.
+6. Requests without the key get HTTP 401 on every inference endpoint of the authenticated listener, over the LAN, the Mesh, and loopback.
 7. The selected CUDA package and its dependencies substitute from approved caches; missing coverage blocks rollout instead of silently compiling CUDA.
 8. `/etc/lact/config.yaml` is Nix-managed and carries verified GPU settings.
 9. The host documentation describes the deployed engine; `docs/usage/magnitude.md` and its index entries are removed with the module.
@@ -41,7 +41,7 @@ The engine choices remain:
 | O1  | nixpkgs `services.llama-cpp`; generic fixes in the fork                  |
 | O2  | Stock `pkgs.llama-cpp-cuda` from cache.nixos-cuda.org; coverage required |
 | O3  | Router mode with `--models-max 1`                                        |
-| O4  | Reuse port 10100, Mesh-only                                              |
+| O4  | Reuse port 10100, LAN and Mesh                                           |
 | O5  | Trial existing model candidates before choosing the default              |
 | O6  | Measure DFlash first; choose drafters per model                          |
 | O7  | Hugging Face downloads into the service cache                            |
@@ -121,9 +121,11 @@ Record model revision, context, cache types, GPU occupancy, and power settings f
 ### Network, credentials, and isolation
 
 Bind the authenticated listener on all interfaces, with `services.llama-cpp.openFirewall` disabled.
-Open port 10100 only on `CloudflareWARP`, using the existing Magnitude interface-scoped pattern.
-Keep it outside the development range and verify the generated nftables rules; LAN and workload bridges must not gain access implicitly.
-Binding a dynamic Mesh address directly makes service startup depend on interface readiness.
+Add port 10100 to `firewallLocalTcpPortRanges` in `modules/hosts/songbird/policy.nix`, replacing Magnitude's `CloudflareWARP`-only rule.
+`modules/hosts/common/firewall.nix` opens those ranges from 10.0.0.0/8, 192.168.0.0/16, and on `CloudflareWARP`, so the LAN and the Mesh reach the listener on equal terms.
+Workload bridges stay closed: the `inet workload` input chain drops new `vn-*` traffic before `nixos-fw`.
+Podman's default subnet pools in `modules/apps/podman/nixos.nix` sit outside both LAN ranges; verify the generated nftables rules.
+Binding one interface's address would shut out the other network and tie service startup to that interface's readiness.
 
 Create a fresh value in `secrets/llama-cpp.yaml`, key `llama_cpp_api_key`, and render `/run/secrets/llama-cpp/api-key` on Songbird.
 Follow the host's secret-readiness contract, including `sopsRuntimeReady`, rather than enabling decryption merely because the encrypted file exists.
@@ -134,7 +136,7 @@ Pass `--api-key-file`, not `LLAMA_API_KEY`: router children inherit the environm
 Key files carry one key per line, skip `#` lines, and do not trim whitespace.
 Clients send `Authorization: Bearer`; `X-Api-Key` is considered only when that header is absent or empty.
 Health and UI resources remain public; model administration and inference require authentication at the main listener.
-Do not enable shell, agent, MCP, or URL-proxy features on the Mesh listener.
+Do not enable shell, agent, MCP, or URL-proxy features on the network listener.
 
 Router children bind random ports on `127.0.0.1` without a key; processes sharing the host network namespace can reach them.
 Retain O8's accepted access for trusted host processes, while documenting that native agent execution may share that namespace.
@@ -214,8 +216,8 @@ Do not remove the generated Codex local profile during cleanup; activation owns 
 03. Cache coverage, signature verification, and a fresh-store build plan for the actual selected package and dependencies.
 04. Build Songbird only: `nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel"` after the cache gate.
 05. Runtime: service active without desktop login or `/data`; GPU occupancy, crash recovery, configuration restart, and model switching all behave as intended.
-06. Auth: exercise `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, and administration from loopback and a Mesh peer, with missing, wrong, and valid keys.
-07. Isolation: deny the main listener from LAN and ungranted workload bridges; confirm child listeners stay on loopback and cannot be reached from guests, containers, or `sbx` guests.
+06. Auth: exercise `/v1/chat/completions`, `/v1/responses`, `/v1/messages`, and administration from loopback, a LAN peer, and a Mesh peer, with missing, wrong, and valid keys.
+07. Isolation: a LAN request without the key gets 401; deny the main listener from ungranted workload bridges; confirm child listeners stay on loopback and cannot be reached from guests, containers, or `sbx` guests.
 08. Clients: ready checks, multi-turn tools and results, interactive and daemon paths, context handling, memory exclusions, and iPhone image input.
 09. Router vision: authenticated `/props?model=<alias>` reports vision for the loaded model; plain `/props` describes the router.
 10. Rollback: stop the new system service, switch generation, start the old user service, and serve a verified request with retained state.
