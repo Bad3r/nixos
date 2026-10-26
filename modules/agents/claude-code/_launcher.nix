@@ -174,9 +174,10 @@ let
     exec ${lib.getExe claudeWrapped} "$@"
   '';
 
-  # Points every model slot at one local model. The launcher and settings.json
-  # pin the haiku and subagent slots to cloud models, and only `--settings` env
-  # outranks both; llama-server holds one model at a time, so mixed slots reload it.
+  # Points every model slot at one local model, since llama-server answers 400 for any
+  # other name and holds one model at a time. `--settings` env outranks the launcher
+  # and settings.json env; SMALL_FAST outranks the haiku slot, and FORCE drops the
+  # models that agent definitions and spawn calls pin.
   claudeLocalWrapped = pkgs.writeShellApplication {
     name = "claude-local";
     runtimeInputs = [ pkgs.jq ];
@@ -194,7 +195,10 @@ let
               ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: $model,
               ANTHROPIC_DEFAULT_SONNET_MODEL: $model,
               ANTHROPIC_DEFAULT_OPUS_MODEL: $model,
+              ANTHROPIC_DEFAULT_FABLE_MODEL: $model,
+              ANTHROPIC_SMALL_FAST_MODEL: $model,
               CLAUDE_CODE_SUBAGENT_MODEL: $model,
+              CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "1",
               CLAUDE_CODE_MAX_CONTEXT_TOKENS: $context
             }
           }
