@@ -180,12 +180,11 @@ class Admission(Storage):
         queue = waitqueue.live(self.paths.queue)
         return [entry for entry in queue if ticket is None or entry.seq < ticket.seq]
 
-    def _enqueue(
-        self, request: Request, name: str, problem: str, position: int, deadline: float
-    ) -> waitqueue.Ticket:
+    def _reserve(self, request: Request, name: str, deadline: float) -> waitqueue.Ticket:
+        """Return the request's place at the back of the queue, still unpublished."""
         # Waiting never clears a disk limit already passed.
         self.check_disk()
-        ticket = waitqueue.enqueue(
+        return waitqueue.reserve(
             self.paths.queue,
             name=name,
             base=request.base,
@@ -194,14 +193,17 @@ class Admission(Storage):
             queued=int(self._clock()),
             deadline=deadline,
         )
+
+    def _enqueue(self, ticket: waitqueue.Ticket, problem: str, position: int) -> None:
+        """Publish a reserved ticket and announce it."""
+        waitqueue.publish(ticket)
         journal.record(
-            f"{name} queues for capacity at position {position}: {problem}",
+            f"{ticket.name} queues for capacity at position {position}: {problem}",
             verb="create",
-            sandbox=name,
+            sandbox=ticket.name,
             session=self.session,
         )
-        print(f"sbx: {name} queues at position {position}: {problem}", file=sys.stderr)
-        return ticket
+        print(f"sbx: {ticket.name} queues at position {position}: {problem}", file=sys.stderr)
 
     def _dequeue(self, ticket: waitqueue.Ticket | None, started: float | None) -> None:
         """Drop a ticket; with `started`, its create proceeds, which the journal records."""
@@ -260,9 +262,9 @@ class Admission(Storage):
                             raise self._capacity_error(
                                 cast("str", problem), ahead, code="over-limit"
                             )
-                        ticket = ticket or self._enqueue(
-                            request, name, cast("str", problem), ahead + 1, deadline
-                        )
+                        if ticket is None:
+                            ticket = self._reserve(request, name, deadline)
+                            self._enqueue(ticket, cast("str", problem), ahead + 1)
                 remaining = deadline - waitqueue.boottime()
                 if remaining <= 0:
                     raise self._wait_timeout(request, name, ticket)

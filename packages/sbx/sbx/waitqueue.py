@@ -101,7 +101,7 @@ def live(directory: Path) -> list[Ticket]:
     return sorted(tickets, key=lambda ticket: ticket.seq)
 
 
-def enqueue(  # noqa: PLR0913
+def reserve(  # noqa: PLR0913
     directory: Path,
     *,
     name: str,
@@ -111,20 +111,32 @@ def enqueue(  # noqa: PLR0913
     queued: int,
     deadline: float,
 ) -> Ticket:
-    """Add a ticket behind every live one; the caller holds the state lock."""
+    """Return a ticket behind every live one, not yet in the queue; the caller holds the state lock.
+
+    The caller takes the ticket before `publish` creates its file, so an
+    exception or signal at any point leaves it something to remove.
+    """
     directory.mkdir(mode=0o700, exist_ok=True)
     seq = max((ticket.seq for ticket in live(directory)), default=0) + 1
     pid = os.getpid()
     path = directory / f"{seq:010d}-{pid}-{process_start(pid)}"
-    staged = path.with_name(f".{path.name}")
-    fields = {
-        "name": name,
-        "base": base,
-        "memory_mib": memory_mib,
-        "session": session,
-        "queued": queued,
-        "deadline": deadline,
-    }
-    staged.write_text(json.dumps(fields))
-    staged.rename(path)
     return Ticket(path, seq, name, base, memory_mib, session, queued, deadline)
+
+
+def publish(ticket: Ticket) -> None:
+    """Put a reserved ticket in the queue; on failure only its own path can remain."""
+    staged = ticket.path.with_name(f".{ticket.path.name}")
+    fields = {
+        "name": ticket.name,
+        "base": ticket.base,
+        "memory_mib": ticket.memory_mib,
+        "session": ticket.session,
+        "queued": ticket.queued,
+        "deadline": ticket.deadline,
+    }
+    try:
+        staged.write_text(json.dumps(fields))
+        staged.rename(ticket.path)
+    except BaseException:
+        staged.unlink(missing_ok=True)
+        raise
