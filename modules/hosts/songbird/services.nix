@@ -180,10 +180,23 @@ in
       # Desktop chassis: no lid switch to handle.
       services.logind.settings.Login.HandlePowerKey = "lock";
 
-      programs.llama-cpp.extended.client = {
-        model = llamaModel;
-        # Headroom for a large tool result that lands after the clients' last compaction check.
-        contextWindows = lib.mapAttrs (_: preset: preset.ctx-size - 8192) llamaModels;
+      programs.llama-cpp.extended = {
+        # Only for the RTX 5080 (sm_120), the host's one GPU.
+        package = pkgs.llama-cpp-cuda.override {
+          llama-cpp = pkgs.llama-cpp.override {
+            cudaPackages = pkgs.cudaPackages.override {
+              config = pkgs.config // {
+                cudaCapabilities = [ "12.0" ];
+              };
+            };
+          };
+        };
+
+        client = {
+          model = llamaModel;
+          # Headroom for a large tool result that lands after the clients' last compaction check.
+          contextWindows = lib.mapAttrs (_: preset: preset.ctx-size - 8192) llamaModels;
+        };
       };
 
       services = {

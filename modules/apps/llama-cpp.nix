@@ -17,8 +17,8 @@
       `services.llama-cpp.apiKeyFile` is set.
     * `client.*` configures `claude-local` (modules/agents/claude-code) and the Codex `local`
       profile (modules/agents/codex).
-    * The default package substitutes from cache.nixos-cuda.org; without that cache the host
-      compiles CUDA llama.cpp.
+    * The nixpkgs fork patches llama-cpp, so no cache serves the package and the host compiles it;
+      cache.nixos-cuda.org serves the CUDA libraries it builds against.
 */
 { config, ... }:
 let
