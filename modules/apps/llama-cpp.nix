@@ -92,8 +92,9 @@ in
             default = 128000;
             description = ''
               Context size, in tokens, that the clients compact within. Codex and Claude
-              Code assume a larger window for unknown model names; keep it within the
-              server's context for the model.
+              Code assume a larger window for unknown model names; keep it some thousands of
+              tokens under the server's context for the model, because llama-server's
+              over-context error may not trigger the clients' reactive compaction.
             '';
           };
 

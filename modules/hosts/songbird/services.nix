@@ -184,7 +184,8 @@ in
 
       programs.llama-cpp.extended.client = {
         model = llamaModel;
-        contextWindow = llamaModels.${llamaModel}.ctx-size;
+        # Headroom for a large tool result that lands after the clients' last compaction check.
+        contextWindow = llamaModels.${llamaModel}.ctx-size - 8192;
       };
 
       services = {
