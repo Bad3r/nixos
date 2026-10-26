@@ -2,6 +2,7 @@
 
 - [songbird-runbook-reinstall.md](songbird-runbook-reinstall.md)
 - [songbird-runbook-windows.md](songbird-runbook-windows.md)
+- [songbird-runbook-portal.md](songbird-runbook-portal.md)
 - [songbird-runbook-vms.md](songbird-runbook-vms.md)
 - [songbird-runbook-win11.md](songbird-runbook-win11.md)
 - [songbird-runbook-local-ai.md](songbird-runbook-local-ai.md)
