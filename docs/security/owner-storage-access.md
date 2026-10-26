@@ -35,10 +35,21 @@ Supplementary groups are set at login, so every process started before the switc
 That includes the user service manager, which outlives a single session while another one stays open.
 Existing NVMe controller and generic nodes keep their `root:disk 0660` mode until the next boot, because udev applies rule changes only to new events.
 No login user is in `disk` after that re-login, so the stale mode grants nothing.
+System units that run owner processes, such as the `r2-mount-*` FUSE mounts, keep `disk` across a re-login, because a switch restarts only units whose unit file changed.
 
 1. End every owner session, local and SSH, and stop any process that outlives logout, such as a tmux server.
+
 2. Log back in and confirm that `loginctl user-status "$USER"` lists only the new session.
-3. Check the result with the commands below.
+
+3. Restart the system services whose owner processes still hold `disk`, such as the R2 mounts; the filter skips scopes, which cannot restart, and `user@.service`, which step 2 recycles:
+
+   ```sh
+   ps -u "$USER" -o unit=,supgrp= | grep -w disk |
+     awk '$1 ~ /\.service$/ && $1 !~ /^user@/ {print $1}' | sort -u |
+     xargs -r sudo systemctl restart
+   ```
+
+4. Check the result with the commands below.
 
 ## Verification
 
@@ -46,6 +57,8 @@ No login user is in `disk` after that re-login, so the stale mode grants nothing
   - should not list `disk`.
 - `getent group disk`
   - should end in an empty member list.
+- `ps -u "$USER" -o supgrp= | grep -cw disk`
+  - should print `0`.
 - `ls /run/wrappers/bin`
   - should list none of `smartctl`, `nvme`, `hdparm`, or `sedutil-cli`.
 - `head -c 1 /dev/nvme0n1 >/dev/null`
