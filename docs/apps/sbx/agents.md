@@ -27,10 +27,13 @@ The hook drops shell comments, splits the command into shell words, and reads on
 A shell or `source` that reads its script from stdin, a pipe, `/dev/stdin`, or a process substitution fails closed when the call names `sbx` anywhere; a here-string it reads is checked as a script instead.
 Every word naming a shell counts, an unknown long shell option fails closed, and the argument of `env -S` or fish `-C` is checked as a script; a script operand of `-` or a path through `dev` or `proc` counts as stdin.
 Every word whose basename is `sbx` or `workloads` may start the real command, as in `env A=/sbx sbx ...`, so the hook checks the words after each one; an argument path ending in `/sbx` can add a prompt, and so can an `sbx` call in a guest command after `--`.
-It checks the body of every command or process substitution, quoted or not, as a script of its own.
-Text naming `sbx` that holds a heredoc, `${`, `$[`, a `((` outside `$((`, or a line continuation asks without parsing, even inside quotes.
-A commit message heredoc that mentions `sbx` therefore asks under Claude Code and is refused under Codex.
+It checks the body of every command or process substitution, quoted or not, as a script of its own, and a word that spells `sbx` once empty substitutions drop out, as in `"$()"sbx`, asks.
 Unparsable shell text that names `sbx`, scripts nested more than four levels deep that mention `sbx` or `workloads`, commands over 64 KiB, and an unreadable tool call fail closed.
+
+A heredoc whose delimiter is quoted whole, as `'WORD'`, `"WORD"`, or `\WORD`, is data the hook skips, so a commit or pull request message naming `sbx` passes.
+Its body runs from the next newline outside quotes to the first line equal to the word, ignoring leading tabs after `<<-`.
+Any other heredoc asks, as does a quoted one on a line naming a shell, `eval`, `source`, `ssh`, `perl`, `ruby`, `node`, or `python`, or in a command holding a backquote or `$((`.
+Outside heredoc bodies, text naming `sbx` that holds `${`, `$[`, a `((` outside `$((`, or a line continuation asks without parsing, even inside quotes.
 
 ## Limits of the hooks
 
