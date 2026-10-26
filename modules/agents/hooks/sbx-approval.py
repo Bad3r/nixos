@@ -56,7 +56,7 @@ SOURCES = frozenset({"source", "."})
 SOURCE_PREFIXES = frozenset(
     {"command", "builtin", "time", "!", "{", "if", "then", "else", "elif", "do", "while", "until"}
 )
-# A heredoc on a line naming one of these, or python*, may be code, so it asks.
+# A heredoc in a command with a word naming one of these, or python*, may be code, so it asks.
 HEREDOC_RUNNERS = frozenset({"eval", "perl", "ruby", "node", "ssh"})
 # Commands that run their next words, so a heredoc substitution after them may name a command.
 EXEC_PREFIXES = SOURCE_PREFIXES | {
@@ -242,15 +242,6 @@ def heredoc_step(
         if not match:
             msg = "heredoc delimiter other than a quoted word"
             raise ValueError(msg)
-        start = text.rfind("\n", 0, index) + 1
-        end = text.find("\n", index)
-        line = re.sub(r"[\\'\"]", "", text[start : len(text) if end == -1 else end])
-        names = {basename(part) for part in re.split(r"[\s;|&()<>`$]+", line)}
-        if names & (SHELLS | SOURCES | HEREDOC_RUNNERS) or any(
-            n.startswith("python") for n in names
-        ):
-            msg = "heredoc fed to a shell or interpreter"
-            raise ValueError(msg)
         pending.append((match[2] or match[3] or match[4], bool(match[1])))
         return match.end()
     if pending and text[index] == ")":
@@ -270,10 +261,14 @@ def heredoc_bodies(
         while index <= len(text):
             end = text.find("\n", index)
             end = len(text) if end == -1 else end
-            line = text[index:end]
+            line = text[index:end].lstrip("\t") if strip else text[index:end]
             index = end + 1
-            if (line.lstrip("\t") if strip else line) == word:
+            if line == word:
                 break
+            # Inside $( ), bash also ends the body at a delimiter followed by ).
+            if line.startswith(word):
+                msg = "heredoc line that starts with its delimiter"
+                raise ValueError(msg)
         else:
             msg = "heredoc without its delimiter line"
             raise ValueError(msg)
@@ -447,9 +442,14 @@ def check(command: str, depth: int = 0) -> None:
     ):
         msg = "${, $[, ((, a line continuation, or a heredoc beside ` or $(("
         raise ValueError(msg)
+    simples = segments(words(text))
+    # The command reading a heredoc can sit on a later line of the same pipeline or loop.
+    if spans and any(runs_code(word) for simple in simples for word in simple.words):
+        msg = "heredoc beside a shell or interpreter"
+        raise ValueError(msg)
     for script in scripts:
         nested(script, depth)
-    for simple in segments(words(text)):
+    for simple in simples:
         if heredoc_command(simple.words):
             raise GateError(OPAQUE)
         check_segment(simple.words, depth, cut="(" in simple.end)
@@ -458,6 +458,12 @@ def check(command: str, depth: int = 0) -> None:
                 nested(herestring, depth)
             if not simple.herestrings:
                 raise GateError(STDIN)
+
+
+def runs_code(word: str) -> bool:
+    """Whether a word names a shell, source, or interpreter that may run a heredoc as code."""
+    name = basename(word)
+    return name in SHELLS | SOURCES | HEREDOC_RUNNERS or name.startswith("python")
 
 
 def reads_stdin(segment: list[str]) -> bool:
@@ -544,6 +550,10 @@ def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
     """
     stdin = evaluating = script = skip = False
     candidates = 0
+    evals = [index for index, word in enumerate(segment) if basename(word) == "eval"]
+    if evals:
+        # eval joins its arguments with spaces before it parses them.
+        nested(" ".join(segment[evals[0] + 1 :]), depth)
     letters, longs = "c", {"--command"}
     for index, word in enumerate(segment):
         name = basename(word)
@@ -553,9 +563,7 @@ def check_segment(segment: list[str], depth: int, *, cut: bool) -> None:
         candidates += candidate(name, segment[index + 1 :], stdin=stdin, cut=cut)
         if candidates > MAX_CANDIDATES:
             raise GateError(OPAQUE)
-        if evaluating:
-            nested(word, depth)
-        elif skip:
+        if evaluating or skip:
             skip = False
         elif script and word in SHELL_OPTION_ARGS:
             skip = True
