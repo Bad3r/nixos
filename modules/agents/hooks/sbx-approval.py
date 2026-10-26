@@ -43,6 +43,7 @@ EXPANSIONS = frozenset("${*?[")
 REDIRECTS = frozenset({"<", ">", ">>", "<<", "<<<", ">&", "<&", "&>", "&>>", ">|", "<>"})
 NON_LITERAL = re.compile(r"[$`{}*?\[]")
 ANSI_C = re.compile(r"\$'((?:[^'\\]|\\.)*)'")
+ARITHMETIC = re.compile(r"(?<!\$)\(\(")
 DOUBLE = re.compile(r'"((?:[^"\\]|\\.)*)"', re.DOTALL)
 # Inside double quotes a backslash escapes only these, and it drops an escaped newline.
 DOUBLE_ESCAPE = re.compile(r'\\([$`"\\\n])|[$`]')
@@ -339,6 +340,10 @@ def scan(text: str, *, heredoc_body: bool = False) -> tuple[str, list[str]]:
         elif char in "'\"" and quote in {"", char}:
             quote = "" if quote else char
         elif not quote and text.startswith("<<", index):
+            # In a bare (( )) command << shifts, and telling it from a heredoc takes a parser.
+            if ARITHMETIC.search("".join(out)):
+                msg = "<< after (("
+                raise ValueError(msg)
             operator, index, body = heredoc(text, index)
             out.append(operator)
             pending.append(body)
