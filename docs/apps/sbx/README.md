@@ -2,6 +2,7 @@
 
 `sbx` runs disposable VMs on the owner's `qemu:///session` for unknown binaries, untrusted repositories, and screenshots of a guest display.
 [Shell use](shell.md) covers help and tab completion.
+[Agent access](agents.md) covers the skill, the MCP server, and the approval hooks.
 Agents reach it as a plain command; it needs no group, no polkit prompt, and no access to `qemu:///system`.
 The app module is `modules/apps/sbx/nixos.nix`; its ceilings come from the host's `sbx` entry in `modules/hosts/<host>/policy.nix`.
 
@@ -119,17 +120,6 @@ It removes sandboxes past their TTL only while `timedatectl` reports the host cl
 `sbx destroy --expired` refuses with `clock-unsynced` on an unsynced clock.
 On a host that never syncs, expired sandboxes stay until `sbx destroy <name>`.
 `create`, `exec`, `cp`, `share`, `screenshot`, `key`, `type`, `mouse`, `window focus`, `destroy`, `gc`, `base build`, `base prepare`, and every refusal log to the journal under `SYSLOG_IDENTIFIER=sbx`.
-
-## Agents
-
-With the `sbx` row on, Claude Code and Codex get the `sbx` skill from `modules/agents/skills/sbx.nix`, a system-prompt line, and an allow rule for `sbx`.
-The Codex allow rule in `modules/agents/codex/_exec-policy.nix` also runs `sbx` outside bwrap, since the CLI writes its state directory and starts user units.
-Both clients also start `sbx-mcp`, the `sbx` entry in `modules/agents/mcp/servers.nix`, whose tools, one per agent-facing verb, take the verb's arguments by name and return its `--json` document without an approval prompt.
-The MCP screenshot tool also returns a PNG image content block for direct visual inspection, alongside the saved path and MIME type.
-Its optional `ocr` argument adds Tesseract output under `text`; image inspection needs no OCR.
-Codex names its session in every tool call, and `CODEX_SESSION_ID` in every shell, so `--mine` matches sandboxes from the CLI and the MCP tools alike.
-Claude Code passes its session only when it starts the server, so after `/clear` the tools keep the old session until `/mcp` reconnects `sbx`.
-Under MCP, the checkout copy root and relative host paths follow the directory the client started in.
 
 ## Verify
 
