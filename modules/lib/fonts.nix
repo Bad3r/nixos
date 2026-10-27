@@ -1,0 +1,56 @@
+{ lib, secretsRoot, ... }:
+let
+  officeParts = map (part: secretsRoot + "/fonts/windows-office.tar.zst.part-${part}") [
+    "00"
+    "01"
+  ];
+  monolisaArchive = secretsRoot + "/fonts/monolisa.tar.zst";
+  fontPackages =
+    pkgs:
+    lib.optionalAttrs (builtins.pathExists monolisaArchive) {
+      monolisa = pkgs.callPackage ../../packages/private-fonts {
+        pname = "monolisa";
+        version = "3.0";
+        archives = [ monolisaArchive ];
+        fontRoot = "monolisa";
+        requiredFamilies = [
+          "MonoLisaCode"
+          "MonoLisaText"
+        ];
+        documentation = [ "monolisa/README.md" ];
+      };
+    }
+    // lib.optionalAttrs (builtins.all builtins.pathExists officeParts) {
+      windows-office-fonts = pkgs.callPackage ../../packages/private-fonts {
+        pname = "windows-office-fonts";
+        version = "2026-10-27";
+        archives = officeParts;
+        fontRoot = "fonts";
+        requiredFamilies = [
+          "Aptos"
+          "Aptos Slab"
+          "Georgia Pro"
+          "Verdana Pro"
+          "Wingdings 2"
+          "Wingdings 3"
+          "MT Extra"
+        ];
+        checkManifest = true;
+        documentation = [
+          "licenses"
+          "FONT-CATALOG.tsv"
+          "FAMILIES.txt"
+        ];
+      };
+    };
+in
+{
+  options.flake.lib.fonts.packages = lib.mkOption {
+    type = lib.types.raw;
+    description = "Build private font packages with the supplied nixpkgs instance.";
+  };
+  config = {
+    flake.lib.fonts.packages = fontPackages;
+    perSystem = { pkgs, ... }: { packages = fontPackages pkgs; };
+  };
+}

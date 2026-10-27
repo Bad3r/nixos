@@ -19,6 +19,7 @@
 }:
 let
   secretsDir = secretsRoot;
+  fontArchiveHashes = builtins.fromJSON (builtins.readFile ./_font-archive-hashes.json);
   # An absent or empty submodule is the secretless checkout used by CI
   # (see issue #333); scanning is only meaningful when content is present.
   secretsPresent = builtins.pathExists secretsDir && builtins.readDir secretsDir != { };
@@ -115,6 +116,14 @@ let
   policyDrift = map (fixture: fixture.name) (lib.filter (fixture: !fixture.want) policyFixtures);
 
   exemptionFixtures = {
+    "fonts/monolisa.tar.zst" = false;
+    "fonts/monolisa-code-webfont.zip" = false;
+    "fonts/monolisa-text-webfont.zip" = false;
+    "fonts/windows-office.tar.zst.part-00" = false;
+    "fonts/windows-office.tar.zst.part-01" = false;
+    "fonts/credentials.yaml" = true;
+    "fonts/unlisted.tar.zst" = true;
+    "sub/fonts/monolisa.tar.zst" = true;
     "notes.md" = true;
     "runbook" = true;
     "sub/NOTES" = true;
@@ -237,7 +246,8 @@ let
     && !(lib.any (part: lib.hasPrefix "decrypted_" part) parts)
     && !(lib.any (part: lib.hasInfix ".dec." part) parts)
     && !(lib.elem base gitMetadataNames)
-    && !(lib.elem ".git" parts);
+    && !(lib.elem ".git" parts)
+    && !(builtins.hasAttr path fontArchiveHashes);
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
   # megabyte-scale strings (std::regex recursion; the sops-encrypted font
@@ -481,6 +491,16 @@ let
     !(hasSopsMarkers content);
 
   secretEntries = if secretsPresent then listEntries secretsDir "" else [ ];
+  fontArchiveDrift = map (entry: entry.path) (
+    lib.filter (
+      entry:
+      builtins.hasAttr entry.path fontArchiveHashes
+      && (
+        entry.entryType != "regular"
+        || builtins.hashFile "sha256" (secretsDir + "/${entry.path}") != fontArchiveHashes.${entry.path}
+      )
+    ) secretEntries
+  );
   secretsFiles = map (entry: entry.path) (
     lib.filter (entry: entry.entryType == "regular") secretEntries
   );
@@ -558,6 +578,12 @@ in
           throw (
             "sops-cleartext-check.nix hasSopsMarkers misclassified these fixtures: "
             + lib.concatStringsSep ", " markerDrift
+          )
+        else if fontArchiveDrift != [ ] then
+          throw (
+            "Private font archives differ from the approved asset hashes or are not regular files: "
+            + lib.concatStringsSep ", " fontArchiveDrift
+            + ". Verify the assets and update modules/security/_font-archive-hashes.json with intentional font updates."
           )
         else if unsupportedEntries != [ ] then
           throw (
