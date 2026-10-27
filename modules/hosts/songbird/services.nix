@@ -48,7 +48,7 @@ in
           load-on-startup = true;
         };
       };
-      # The model `claude-local` and `codex -p local` request.
+      # The model qwen-code requests.
       llamaModel = "gemma-4-12b-it-qat";
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
         globalSection.version = 1;
