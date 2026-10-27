@@ -17,7 +17,8 @@
       the environment. Without secrets/llama-cpp.yaml the router runs keyless on loopback
       and paperless sends no key.
     * An AI key typed into the admin UI lands in the exporter output, so keys stay in sops.
-    * `paperless-manage` sources the environment file, so run it as root.
+    * `paperless-manage` re-runs itself as paperless through sudo before it sources the
+      environment file, a file only paperless and root can read.
 
   Example Usage:
     * `sudo paperless-manage createsuperuser` -- Create the first login.
