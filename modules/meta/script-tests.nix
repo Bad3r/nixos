@@ -23,24 +23,6 @@ let
   # break the check itself. Declaring all of them keeps the list a readable
   # inventory of what a suite needs rather than of what stdenv forgot.
   suites = {
-    office-fonts = {
-      dir = ../../tests/office-fonts;
-      subjects = [
-        {
-          src = ../hosts/common/_office-fonts-install.sh;
-          dest = "modules/hosts/common/_office-fonts-install.sh";
-        }
-      ];
-      extraInputs =
-        pkgs: with pkgs; [
-          age
-          sops
-          gnutar
-          zstd
-          gnugrep
-          findutils
-        ];
-    };
     duplicati-r2-generator = {
       dir = ../../tests/duplicati-r2-generator;
       subjects = [ ];

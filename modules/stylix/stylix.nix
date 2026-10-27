@@ -1,5 +1,6 @@
 {
   inputs,
+  config,
   lib,
   ...
 }:
@@ -11,37 +12,36 @@ let
     polarity = lib.mkDefault "dark";
   };
 
-  # Shared stylix font set for the NixOS and Home Manager scopes. MonoLisa v3
-  # installs through the hosts-common encrypted-archive pipeline, not a
-  # nixpkgs package, so the package attrs stay empty. Keeping both scopes on
-  # the same set makes stylix's fontconfig defaultFonts injection (mkOrder
-  # 600) agree with the hosts-common lists instead of prepending DejaVu.
-  # All four families carry the same mkDefault priority as the baseTheme
-  # values, so a host re-picks any one of them without reaching for mkForce.
-  monoLisaFonts = pkgs: {
-    sansSerif = lib.mkDefault {
-      package = pkgs.emptyDirectory;
-      name = "MonoLisaText";
+  fontPackages = config.flake.lib.fonts.packages;
+  monoLisaFonts =
+    pkgs:
+    let
+      monolisa = (fontPackages pkgs).monolisa or pkgs.emptyDirectory;
+    in
+    {
+      sansSerif = lib.mkDefault {
+        package = monolisa;
+        name = "MonoLisaText";
+      };
+      serif = lib.mkDefault {
+        package = monolisa;
+        name = "MonoLisaText";
+      };
+      monospace = lib.mkDefault {
+        package = monolisa;
+        name = "MonoLisaCode";
+      };
+      emoji = lib.mkDefault {
+        package = pkgs.noto-fonts-color-emoji;
+        name = "Noto Color Emoji";
+      };
+      sizes = lib.mkDefault {
+        applications = 11;
+        desktop = 12;
+        popups = 11;
+        terminal = 12;
+      };
     };
-    serif = lib.mkDefault {
-      package = pkgs.emptyDirectory;
-      name = "MonoLisaText";
-    };
-    monospace = lib.mkDefault {
-      package = pkgs.emptyDirectory;
-      name = "MonoLisaCode";
-    };
-    emoji = lib.mkDefault {
-      package = pkgs.noto-fonts-color-emoji;
-      name = "Noto Color Emoji";
-    };
-    sizes = lib.mkDefault {
-      applications = 11;
-      desktop = 12;
-      popups = 11;
-      terminal = 12;
-    };
-  };
 in
 {
   flake = {
@@ -56,8 +56,6 @@ in
             targets = {
               gnome.enable = false;
               regreet.enable = false;
-              # Hosts boot systemd-boot; keep the grub target off so it
-              # can never run grub-mkfont against the empty font packages.
               grub.enable = false;
               # Enable Chromium theming (applies to Google Chrome via browser policies)
               chromium.enable = true;
