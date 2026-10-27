@@ -10,9 +10,8 @@ target-version = "py314"
 # Every `#!/usr/bin/env python3` entry script here runs under whatever python3
 # is on PATH, which is the criterion for this list; how each one is reached
 # only changes who hits the SyntaxError first.
-#   update-firefoxpwa-extension.py  run by the update-flake and
-#                                   update-firefoxpwa-extension workflows on
-#                                   ubuntu-latest
+#   update-firefoxpwa-extension.py  run by the update-firefoxpwa-extension
+#                                   workflow on ubuntu-latest
 #   update-gecko-userscripts.py     no workflow; operator-run only
 #   usbguard-ensure-allow.py        exec'd by `EDITOR=... sops` from a dev shell
 #                                   that modules/meta/devshell.nix gives no python
