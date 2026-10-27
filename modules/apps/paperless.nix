@@ -85,8 +85,9 @@ let
             PAPERLESS_AI_LLM_CONTEXT_SIZE = 16384;
             # Covers a model swap plus a wait behind an interactive client in the router's one slot.
             PAPERLESS_AI_LLM_REQUEST_TIMEOUT = 300;
+            # The OpenAI SDK rejects non-standard top-level arguments; extra_body merges into the request JSON.
             PAPERLESS_AI_LLM_EXTRA_PARAMS = builtins.toJSON {
-              chat_template_kwargs.enable_thinking = false;
+              extra_body.chat_template_kwargs.enable_thinking = false;
             };
             PAPERLESS_AI_LLM_EMBEDDING_BACKEND = "openai-like";
             PAPERLESS_AI_LLM_EMBEDDING_ENDPOINT = loopback llama.embeddings.port;
