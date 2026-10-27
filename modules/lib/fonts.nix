@@ -15,13 +15,15 @@ let
     "01"
   ];
   monolisaArchive = secretsRoot + "/fonts/monolisa.tar.zst";
+  checkedMonolisaArchive = checkedArchive monolisaArchive;
+  checkedOfficeParts = map checkedArchive officeParts;
   fontPackages =
     pkgs:
     lib.optionalAttrs (builtins.pathExists monolisaArchive) {
       monolisa = pkgs.callPackage ../../packages/private-fonts {
         pname = "monolisa";
         version = "3.0";
-        archives = [ (checkedArchive monolisaArchive) ];
+        archives = [ checkedMonolisaArchive ];
         fontRoot = "monolisa";
         requiredFamilies = [
           "MonoLisaCode"
@@ -34,7 +36,7 @@ let
       windows-office-fonts = pkgs.callPackage ../../packages/private-fonts {
         pname = "windows-office-fonts";
         version = "2026-10-27";
-        archives = map checkedArchive officeParts;
+        archives = checkedOfficeParts;
         fontRoot = "fonts";
         requiredFamilies = [
           "Aptos"

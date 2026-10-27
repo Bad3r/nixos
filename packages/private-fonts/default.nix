@@ -62,7 +62,10 @@ runCommand "${pname}-${version}"
     cat ${lib.escapeShellArgs (map (archive: "${archive}") archives)} | tar -I zstd -xf -
     ${lib.optionalString checkManifest "sha256sum --check --strict SHA256SUMS"}
     fontRoot=${lib.escapeShellArg fontRoot}
-    test -d "$fontRoot"
+    if [ ! -d "$fontRoot" ]; then
+      echo "${pname} archive has no font directory $fontRoot" >&2
+      exit 1
+    fi
     families="$(find "$fontRoot" -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.ttc' \) -exec fc-query -f '%{[]family{%{family}\n}}' {} +)"
     for wanted in ${lib.escapeShellArgs requiredFamilies}; do
       if ! grep -Fxq -- "$wanted" <<<"$families"; then

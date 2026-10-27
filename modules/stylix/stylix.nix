@@ -13,30 +13,35 @@ let
   };
 
   fontPackages = config.flake.lib.fonts.packages;
-  monoLisaFonts = pkgs: {
-    sansSerif = lib.mkDefault {
-      package = (fontPackages pkgs).monolisa or pkgs.emptyDirectory;
-      name = "MonoLisaText";
+  monoLisaFonts =
+    pkgs:
+    let
+      monolisa = (fontPackages pkgs).monolisa or pkgs.emptyDirectory;
+    in
+    {
+      sansSerif = lib.mkDefault {
+        package = monolisa;
+        name = "MonoLisaText";
+      };
+      serif = lib.mkDefault {
+        package = monolisa;
+        name = "MonoLisaText";
+      };
+      monospace = lib.mkDefault {
+        package = monolisa;
+        name = "MonoLisaCode";
+      };
+      emoji = lib.mkDefault {
+        package = pkgs.noto-fonts-color-emoji;
+        name = "Noto Color Emoji";
+      };
+      sizes = lib.mkDefault {
+        applications = 11;
+        desktop = 12;
+        popups = 11;
+        terminal = 12;
+      };
     };
-    serif = lib.mkDefault {
-      package = (fontPackages pkgs).monolisa or pkgs.emptyDirectory;
-      name = "MonoLisaText";
-    };
-    monospace = lib.mkDefault {
-      package = (fontPackages pkgs).monolisa or pkgs.emptyDirectory;
-      name = "MonoLisaCode";
-    };
-    emoji = lib.mkDefault {
-      package = pkgs.noto-fonts-color-emoji;
-      name = "Noto Color Emoji";
-    };
-    sizes = lib.mkDefault {
-      applications = 11;
-      desktop = 12;
-      popups = 11;
-      terminal = 12;
-    };
-  };
 in
 {
   flake = {
