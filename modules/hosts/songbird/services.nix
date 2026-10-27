@@ -48,7 +48,7 @@ in
           load-on-startup = true;
         };
       };
-      # The model qwen-code requests.
+      # The default model clients request.
       llamaModel = "gemma-4-12b-it-qat";
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
         globalSection.version = 1;

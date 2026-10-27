@@ -15,7 +15,7 @@
       Without that secret, before the host's sopsRuntimeReady, or with security.repoSecrets
       disabled, it runs without a key, so the host binds a non-loopback listener only while
       `services.llama-cpp.apiKeyFile` is set.
-    * `client.*` configures qwen-code (modules/apps/qwen-code.nix) for this server.
+    * `client.*` holds the endpoint, default model, context sizes, and API key that local clients use.
     * The default package substitutes from cache.nixos-cuda.org; without that cache the host
       compiles CUDA llama.cpp.
 */
@@ -76,13 +76,13 @@ in
               if cfg.enable then "http://127.0.0.1:${toString config.services.llama-cpp.settings.port}" else null;
             defaultText = lib.literalExpression ''if enable then "http://127.0.0.1:''${toString config.services.llama-cpp.settings.port}" else null'';
             example = "http://songbird.internal:10100";
-            description = "Server origin that qwen-code uses, or null to leave qwen-code on its own defaults.";
+            description = "Server origin local clients use, or null for none.";
           };
 
           model = lib.mkOption {
             type = lib.types.str;
             example = "gemma-4-12b-it-qat";
-            description = "Model name, a section of the server's models preset, that qwen-code requests.";
+            description = "Model name, a section of the server's models preset, that clients request by default.";
           };
 
           models = lib.mkOption {
@@ -96,9 +96,9 @@ in
             };
             description = ''
               Context size, in tokens, per model of the server's models preset that
-              qwen-code may request, keyed by section name. qwen-code compacts within
-              it and guesses the window from the model name otherwise; keep each within
-              the server's context for the model.
+              clients may request, keyed by section name. Clients compact within it
+              and otherwise guess the window from the model name; keep each within the
+              server's context for the model.
             '';
           };
 
@@ -106,7 +106,7 @@ in
             type = lib.types.nullOr lib.types.str;
             default = if apiKeyReady && keyNeeded then apiKeyPath else null;
             defaultText = lib.literalExpression ''"${apiKeyPath}" when secrets/llama-cpp.yaml is available'';
-            description = "File holding the API key that qwen-code sends, or null to send a placeholder.";
+            description = "File holding the API key clients send, or null for a placeholder key.";
           };
         };
       };
