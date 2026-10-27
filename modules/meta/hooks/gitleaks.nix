@@ -7,6 +7,13 @@
       ...
     }:
     let
+      isBinary = pkgs.writeText "gitleaks-is-binary.py" ''
+        import sys
+
+        with open(sys.argv[1], "rb") as source:
+            print("binary" if b"\0" in source.read(8000) else "text")
+      '';
+
       # Listed from the tree rather than restated: gitleaks-guards.nix lists
       # the same configs for its managed-config contract, and
       # gitleaks-allowlist-scope.nix derives managedGitleaksFiles the same
@@ -23,12 +30,21 @@
       packages.hook-gitleaks = pkgs.writeShellApplication {
         name = "hook-gitleaks";
         runtimeInputs = [
+          pkgs.coreutils
           pkgs.gitleaks
           pkgs.git
+          pkgs.python3
         ];
         text = # bash
           ''
             set -euo pipefail
+
+            changed=0
+            case "$#:$*" in
+              0:) ;;
+              1:--changed) changed=1 ;;
+              *) echo "usage: hook-gitleaks [--changed]" >&2; exit 2 ;;
+            esac
 
             root=$(
               unset GIT_DIR GIT_WORK_TREE GIT_COMMON_DIR \
@@ -37,6 +53,12 @@
               git rev-parse --show-toplevel
             )
             cd "$root"
+
+            is_binary() {
+              local classification
+              classification=$(python3 ${isBinary} "$1") || exit 1
+              [ "$classification" = binary ]
+            }
 
             # --ignore-gitleaks-allow: without it a trailing `gitleaks:allow`
             # comment on the leaking line drops that finding with no config edit
@@ -207,6 +229,65 @@
               fi
             done
 
+            if [ "$changed" -eq 1 ] \
+              && [ -z "''${PRE_COMMIT_REMOTE_NAME:-}" ] \
+              && [ -z "''${PRE_COMMIT_FROM_REF:-}''${PRE_COMMIT_TO_REF:-}" ]; then
+              snapshot=$(mktemp -d)
+              trap 'rm -rf -- "$snapshot"' EXIT
+              scan_changed() {
+                local repo=$1 destination=$2 path mode
+                local count=0
+                mkdir -p "$destination"
+                git_in_repo "$repo" diff --cached --name-only --diff-filter=ACMRT -z > "$snapshot/staged"
+                git_in_repo "$repo" diff --name-only --diff-filter=ACMRT -z > "$snapshot/working"
+                git_in_repo "$repo" ls-files --others --exclude-standard -z >> "$snapshot/working"
+                while IFS= read -r -d "" path; do
+                  mode=$(git_in_repo "$repo" ls-files -s -- "$path")
+                  case "$mode" in
+                    100644\ *|100755\ *)
+                      mkdir -p -- "$destination/index/$(dirname -- "$path")"
+                      git_in_repo "$repo" show ":$path" > "$destination/index/$path"
+                      if [ "$repo" = secrets ] && is_binary "$destination/index/$path"; then
+                        rm -- "$destination/index/$path"
+                        echo "hook-gitleaks: skipping binary file in $repo (index)" >&2
+                      else
+                        count=$((count + 1))
+                      fi
+                      ;;
+                  esac
+                done < "$snapshot/staged"
+                while IFS= read -r -d "" path; do
+                  if [ -f "$repo/$path" ] && [ ! -L "$repo/$path" ]; then
+                    if [ "$repo" = secrets ] && is_binary "$repo/$path"; then
+                      echo "hook-gitleaks: skipping binary file in $repo (worktree)" >&2
+                      continue
+                    fi
+                    mkdir -p -- "$destination/worktree/$(dirname -- "$path")"
+                    cp -- "$repo/$path" "$destination/worktree/$path"
+                    count=$((count + 1))
+                  fi
+                done < "$snapshot/working"
+                echo "hook-gitleaks: $repo: scanning $count changed file versions (index, worktree and untracked); repository history is NOT scanned" >&2
+              }
+
+              scan_changed . "$snapshot/superproject"
+              gitleaks dir "''${common[@]}" --config ".gitleaks/default.toml" "$snapshot/superproject" || status=1
+              for sm in "''${submodules[@]}"; do
+                [ -e "$sm/.git" ] || continue
+                submodule_config=".gitleaks/default.toml"
+                for private_gitlink in "''${private_config_gitlinks[@]}"; do
+                  if [ "$sm" = "$private_gitlink" ]; then
+                    submodule_config=".gitleaks/secrets.toml"
+                    break
+                  fi
+                done
+                scan_changed "$sm" "$snapshot/submodule"
+                gitleaks dir "''${common[@]}" --config "$submodule_config" "$snapshot/submodule" || status=1
+                rm -rf -- "$snapshot/submodule"
+              done
+              exit "$status"
+            fi
+
             # gitleaks git reads whatever the clone has, so a shallow
             # superproject scans only the fetched tip and exits 0 with "no
             # leaks found": the same vacuous green the submodule assertion
@@ -231,8 +312,8 @@
             #
             # Absent variables mean full history, and that half is the
             # load-bearing one: check.yml's gitleaks-scan runs
-            # `nix run .#hook-gitleaks` and the manual stage runs the hook
-            # directly, neither with a range, so the merge-path sweep this hook
+            # `nix run .#hook-gitleaks` runs the hook without --changed or a
+            # range, so the merge-path sweep this hook
             # is the only credential gate for still reads everything.
             # hook_impl.py also omits both variables when the push carries a
             # root commit, which is that same full-history case, and resolves
@@ -478,9 +559,40 @@
                   fi
                 done
                 if [ -n "$sub_log_opts" ]; then
-                  sub_args+=(--log-opts "$sub_log_opts")
-                  echo "hook-gitleaks: submodule pass scoped to $sub_log_opts, the history $sm/ newly reaches in this push" >&2
+                  snapshot=$(mktemp -d)
+                  trap 'rm -rf -- "$snapshot"' EXIT
+                  mkdir -p "$snapshot/files"
+                  read -r -a revisions <<< "$sub_log_opts"
+                  git -C "$sm" rev-list "''${revisions[@]}" > "$snapshot/commits" || exit 1
+                  declare -A seen_blobs=()
+                  count=0
+                  while IFS= read -r commit; do
+                    git -C "$sm" diff-tree --root -m --no-commit-id --raw --no-abbrev \
+                      --no-textconv --no-ext-diff --no-renames -r -z "$commit" > "$snapshot/paths" || exit 1
+                    while IFS= read -r -d "" entry <&3; do
+                      IFS= read -r -d "" path <&3 || exit 1
+                      read -r _oldmode mode _oldblob blob _change <<< "''${entry#:}"
+                      case "$mode" in 100644|100755) ;; *) continue ;; esac
+                      key="$blob:$path"
+                      [ -z "''${seen_blobs[$key]+set}" ] || continue
+                      seen_blobs[$key]=1
+                      parent="''${path%/*}"
+                      [ "$parent" != "$path" ] || parent=.
+                      mkdir -p -- "$snapshot/files/$commit/$parent" || exit 1
+                      git -C "$sm" cat-file blob "$blob" > "$snapshot/files/$commit/$path" || exit 1
+                      if [ "$sm" = secrets ] && is_binary "$snapshot/files/$commit/$path"; then
+                        rm -- "$snapshot/files/$commit/$path" || exit 1
+                        echo "hook-gitleaks: skipping binary blob in $sm" >&2
+                        continue
+                      fi
+                      count=$((count + 1))
+                    done 3< "$snapshot/paths"
+                  done < "$snapshot/commits"
+                  echo "hook-gitleaks: submodule pass scoped to $sub_log_opts; scanning $count unique changed file versions in $sm without patches" >&2
+                  gitleaks dir "''${sub_args[@]}" "$snapshot/files"
+                  exit "$?"
                 fi
+                sub_args+=(--log-opts "--full-history --all --no-text --no-textconv --no-ext-diff")
                 # Built after the history guard above rather than before it, for
                 # the reason the superproject's announcement moved below its own
                 # guards: a shallow gitlink can still carry a committed

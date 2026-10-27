@@ -55,7 +55,7 @@
             hook_out=""
             run_hook() {
               set +e
-              hook_out=$(hook-gitleaks 2>&1)
+              hook_out=$(hook-gitleaks "$@" 2>&1)
               rc=$?
               set -e
             }
@@ -69,7 +69,7 @@
             run_hook_range() {
               export PRE_COMMIT_FROM_REF="$1" PRE_COMMIT_TO_REF="$2"
               [ $# -lt 3 ] || export PRE_COMMIT_REMOTE_NAME="$3"
-              run_hook
+              run_hook --changed
               unset PRE_COMMIT_FROM_REF PRE_COMMIT_TO_REF PRE_COMMIT_REMOTE_NAME
             }
 
@@ -219,14 +219,14 @@
             # needs no = adjacent to the name: read -a private_config_gitlinks
             # or mapfile -t private_config_gitlinks would leave the equality
             # above true while holding an entry nothing reviewed. The reviewed
-            # script names the array on exactly two lines: the assignment
-            # above and the for loop that reads it.
+            # script names the array on exactly three lines: the assignment
+            # and the changed-file and history loops that read it.
             hook_private_mentions=$(
               grep -v '^[[:space:]]*#' ${config.packages.hook-gitleaks}/bin/hook-gitleaks \
                 | grep -c 'private_config_gitlinks' || true
             )
-            [ "$hook_private_mentions" -eq 2 ] \
-              || fail "hook names private_config_gitlinks on $hook_private_mentions lines; only the reviewed assignment and its read are permitted"
+            [ "$hook_private_mentions" -eq 3 ] \
+              || fail "hook names private_config_gitlinks on $hook_private_mentions lines; only the reviewed assignment and its two reads are permitted"
 
             # The configs that actually ship, not a stand-in. gitleaks-allowlist-scope
             # can only pin the config text, and states so: the KV entry's
@@ -991,7 +991,111 @@
             cd "$work/remotes" && run_hook_range "$remotes_base" "$remotes_leak" "$work/my repo.git"
             expect_finding "push destination carrying a space"
 
-            echo "hook-gitleaks-guards: all 39 fixtures passed"
+            echo "hook-gitleaks-guards: manual checks exclude unchanged files and history"
+            new_repo "$work/changed"
+            cd "$work/changed"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > historical.txt
+            git add historical.txt
+            git commit -qm "historical fixture"
+            echo modified > file.txt
+            run_hook --changed
+            expect_clean "unchanged credential excluded from manual scan"
+            printf '%s' "$hook_out" | grep -q 'repository history is NOT scanned' \
+              || fail "manual scope was not announced"
+
+            echo "hook-gitleaks-guards: manual checks detect unstaged and untracked credentials"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > file.txt
+            run_hook --changed
+            expect_finding "unstaged credential"
+            echo ordinary > file.txt
+            changed_path=$'-new file\nwith newline.txt'
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$changed_path"
+            run_hook --changed
+            expect_finding "untracked credential with unusual filename"
+
+            echo "hook-gitleaks-guards: staged credentials remain visible when worktree content differs"
+            git add -- "$changed_path"
+            echo ordinary > "$changed_path"
+            run_hook --changed
+            expect_finding "staged credential hidden by worktree"
+            git add -- "$changed_path"
+            run_hook --changed
+            expect_clean "clean replacement in index and worktree"
+
+            echo "hook-gitleaks-guards: deleted files and symlinks do not scan unchanged targets"
+            git rm -q historical.txt
+            ln -s "$work/changed/$changed_path" link.txt
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > "$work/symlink-target"
+            ln -s "$work/symlink-target" outside.txt
+            run_hook --changed
+            expect_clean "deletion and symlinks"
+
+            echo "hook-gitleaks-guards: manual checks cover changed submodule files"
+            cd "$work/sub-leak"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > secrets/new-token.txt
+            run_hook --changed
+            expect_finding "untracked submodule credential"
+            echo ordinary > secrets/new-token.txt
+            run_hook --changed
+            expect_clean "unchanged submodule history excluded"
+
+            echo "hook-gitleaks-guards: manual scans refuse incomplete push environments"
+            cd "$work/changed"
+            PRE_COMMIT_REMOTE_NAME=origin run_hook --changed
+            expect_finding "root push still scans committed history"
+
+            echo "hook-gitleaks-guards: binary secrets are excluded from manual, push and audit scans"
+            git init -q --initial-branch=main "$work/binary-up"
+            printf '\0%s_%s\n' "$pat_prefix" "$pat_body" > "$work/binary-up/archive.dat"
+            git -C "$work/binary-up" add archive.dat
+            git -C "$work/binary-up" commit -qm "binary fixture"
+            new_repo "$work/binary"
+            git -C "$work/binary" -c protocol.file.allow=always \
+              submodule add -q "file://$work/binary-up" secrets
+            git -C "$work/binary" commit -qm "add binary submodule"
+            binary_base=$(git -C "$work/binary" rev-parse HEAD)
+            cd "$work/binary" && run_hook
+            expect_clean "full audit skips binary secret content"
+            printf '\0%s_%s\nchanged\n' "$pat_prefix" "$pat_body" > secrets/archive.dat
+            git -C secrets add archive.dat
+            run_hook --changed
+            expect_clean "manual scan skips staged binary secret content"
+            printf '\0%s_%s\nuntracked\n' "$pat_prefix" "$pat_body" > secrets/other.dat
+            run_hook --changed
+            expect_clean "manual scan skips untracked binary secret content"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > secrets/archive.dat
+            run_hook --changed
+            expect_finding "text worktree replacement of a staged binary"
+            git -C secrets checkout -- archive.dat
+            git -C secrets commit -qm "change binary blob"
+            git add secrets
+            git commit -qm "bump binary submodule"
+            binary_tip=$(git rev-parse HEAD)
+            run_hook_range "$binary_base" "$binary_tip"
+            expect_clean "push scan skips binary secret content"
+            printf '%s' "$hook_out" | grep -q 'scanning 0 unique changed file versions in secrets without patches' \
+              || fail "binary push did not use the changed-file scanner"
+
+            echo "hook-gitleaks-guards: submodule push detects text added and deleted before the tip"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > secrets/transient.txt
+            git -C secrets add transient.txt
+            git -C secrets commit -qm "transient text credential"
+            git -C secrets rm -q transient.txt
+            git -C secrets commit -qm "remove transient text credential"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > secrets/transient.txt
+            git -C secrets add transient.txt
+            git -C secrets commit -qm "repeat the same text version"
+            git -C secrets rm -q transient.txt
+            git -C secrets commit -qm "remove repeated text version"
+            git add secrets
+            git commit -qm "bump past transient text credential"
+            transient_tip=$(git rev-parse HEAD)
+            run_hook_range "$binary_tip" "$transient_tip"
+            expect_finding "transient submodule text credential"
+            printf '%s' "$hook_out" | grep -q 'scanning 1 unique changed file versions in secrets without patches' \
+              || fail "transient push did not scan exactly its changed text content"
+
+            echo "hook-gitleaks-guards: all history, push and changed-file fixtures passed"
             touch $out
           '';
     };

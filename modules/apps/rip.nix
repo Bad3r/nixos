@@ -17,6 +17,7 @@ let
         text = ''
           TRASH_DIR_ARGS=()
           FORCE=false
+          VERBOSE=false
           UNBURY=false
           EMPTY_TRASH=false
           SEANCE=false
@@ -77,6 +78,9 @@ let
                   directories natively so recursive and empty-dir flags are
                   redundant. Enables muscle-memory usage like: rip -rfd path/
 
+            -v, --verbose
+                  Explain what is being moved to trash.
+
             -h, --help
                   Print this help and exit.
 
@@ -105,6 +109,7 @@ let
               s) SEANCE=true ;;
               i) INSPECT=true ;;
               f) FORCE=true ;;
+              v) VERBOSE=true ;;
               u) UNBURY=true ;;
               *) echo "rip: unknown option: -$1" >&2; exit 1 ;;
             esac
@@ -122,6 +127,7 @@ let
                 done ;;
               --inspect) INSPECT=true; shift ;;
               --force) FORCE=true; shift ;;
+              --verbose) VERBOSE=true; shift ;;
               --graveyard)
                 TRASH_DIR_ARGS=(--trash-dir "''${2:?--graveyard requires an argument}")
                 shift 2 ;;
@@ -242,6 +248,7 @@ let
 
           TRASH_PUT_ARGS=()
           $FORCE && TRASH_PUT_ARGS+=(-f)
+          $VERBOSE && TRASH_PUT_ARGS+=(-v)
           trash-put "''${TRASH_PUT_ARGS[@]}" "''${TRASH_DIR_ARGS[@]}" -- "''${FILES[@]}"
         '';
       };
@@ -292,6 +299,7 @@ let
               '(--empty-trash --seance -s --unbury -u -i --inspect *)'{-u,--unbury}'[restore trashed files (interactive picker if no PATH)]:*::path to restore:_rip_files' \
               '(--empty-trash --seance -s --unbury -u)'{-i,--inspect}'[inspect (ls -la) and prompt before trashing]' \
               {-f,--force}'[skip all confirmation prompts]' \
+              {-v,--verbose}'[explain what is being moved to trash]' \
               '--graveyard=[override trash directory for this invocation]:trash dir:_files -/' \
               {-r,-R,-d}'[rm compat, no-op]' \
               '*:files to trash:_rip_files'
