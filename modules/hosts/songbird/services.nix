@@ -180,6 +180,10 @@ in
               _firewallLocalNetworkCidrs
               ++ lib.optional config.programs.cloudflare-warp.extended.enable meshRange;
           };
+          # The owner drops scans into the inbox; the default ACL lets paperless read them under any umask.
+          paperless-consumer = lib.mkIf config.services.paperless.enable {
+            serviceConfig.ExecStartPre = "+${lib.getExe' pkgs.acl "setfacl"} -m u:${metaOwner.username}:rwx,d:u:${metaOwner.username}:rwx,d:u:${config.services.paperless.user}:rwx ${config.services.paperless.consumptionDir}";
+          };
           # Copies keep the media files' 0600 mode, and r2-restic-backup reads them as the owner.
           paperless-exporter = lib.mkIf config.services.paperless.enable {
             serviceConfig.ExecStartPost = "+${lib.getExe' pkgs.acl "setfacl"} -R -m u:${metaOwner.username}:rX ${config.services.paperless.exporter.directory}";
@@ -218,8 +222,6 @@ in
           address = "0.0.0.0";
           mediaDir = "${paperlessRoot}/media";
           consumptionDir = "${paperlessRoot}/consume";
-          # The owner drops scans into the inbox.
-          consumptionDirIsPublic = true;
           exporter = {
             directory = "${paperlessRoot}/export";
             # Clear of r2-restic-backup's 00:00 to 01:00 window.

@@ -52,6 +52,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 - paperless-ngx serves its web UI on every interface with its port open to the LAN and the Mesh, behind its own login: [services.nix](../../../modules/hosts/songbird/services.nix).
 - Its web and task-queue units, Tika, and Gotenberg pass IP traffic only to and from loopback, the web UI adding the LAN and Mesh ranges, so a compromised document parser reaches nothing outside the host: [paperless.nix](../../../modules/apps/paperless.nix).
 - Its database and indexes stay on the root disk, while documents, the inbox, and the nightly export live under `/data/paperless`, so its units require the `/data` mount: [services.nix](../../../modules/hosts/songbird/services.nix).
+- An ACL gives the owner alone write access to the inbox, and its default entries let paperless read whatever the owner creates there: [services.nix](../../../modules/hosts/songbird/services.nix).
 - The nightly export joins the `r2-restic` backup paths, and an ACL lets the owner, as whom the backup runs, read the exported files: [services.nix](../../../modules/hosts/songbird/services.nix).
 - Cloudflare WARP enrolls with the host's service token in `warp` mode, so systemd-resolved sends every lookup to the WARP resolver while its tunnel is up: [cloudflare-warp.nix](../../../modules/hosts/songbird/cloudflare-warp.nix).
 - thermald stays off, since a desktop K-SKU under an AIO with BIOS Q-Fan curves gives it no platform to manage: [services.nix](../../../modules/hosts/songbird/services.nix).
