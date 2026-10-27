@@ -237,8 +237,13 @@ in
             # Clear of r2-restic-backup's 00:00 to 01:00 window.
             onCalendar = "23:00:00";
           };
-          # Uploads would otherwise queue behind LLM index updates.
-          settings.PAPERLESS_TASK_WORKERS = 2;
+          settings = {
+            # Uploads would otherwise queue behind LLM index updates.
+            PAPERLESS_TASK_WORKERS = 2;
+            # AI suggestions see the stored filename, not the original one.
+            PAPERLESS_FILENAME_FORMAT = "{{ created_year }}/{{ correspondent }}/{{ title }}";
+            PAPERLESS_FILENAME_FORMAT_REMOVE_NONE = true;
+          };
         };
 
         # Router mode: no model on the command line, one loaded model at a time.
