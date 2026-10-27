@@ -3,6 +3,7 @@
 The RTX 5080 runs open-weight models on songbird, so chat, coding side work, speech, images, and document conversion stay on the host.
 
 - [songbird-runbook-local-ai.md](songbird-runbook-local-ai.md)
+- [songbird-runbook-paperless.md](songbird-runbook-paperless.md)
 - [songbird-troubleshooting-local-ai.md](songbird-troubleshooting-local-ai.md)
 
 ## How models are served
@@ -13,6 +14,8 @@ The RTX 5080 runs open-weight models on songbird, so chat, coding side work, spe
 - One port serves the OpenAI and Anthropic APIs and the web UI to loopback, the LAN, and the Mesh; every request except health checks and web UI assets needs the sops API key.
 - A key holder can also download any Hugging Face model into the cache, or delete a cached one, through the router's `/models` API.
 - Child processes listen on loopback without a key, so any process in the host network namespace reaches the loaded model.
+- A second service, `llama-cpp-embed`, serves one pinned embedding model on the CPU to loopback, so paperless embeddings never evict the router's model.
+- paperless-ngx sends its suggestions and document chat to the router's default model with a key of its own, so it never makes the router swap models: [paperless.nix](../../../modules/apps/paperless.nix).
 
 ## How a model fits
 
@@ -44,10 +47,20 @@ People read about 5 tokens per second, so anything above 40 feels instant.
   DFlash proposes token blocks for the main model to check.
 - The GPU draws about 300 W while decoding, up to 365 W during prefill, and 42 W idle.
 
+## Model roles
+
+Each role names a section of the models preset in [services.nix](../../../modules/hosts/songbird/services.nix), measured with llama.cpp 0.7.0 on CUDA.
+
+- `gemma-4-26b-a4b` is the default, as the only preset that passes every client, tool-call, and vision check.
+- `lfm2.5-24b-a2b` decodes 273 tokens per second at a 1.9k-token prompt and 230 at 31k, text only; its weaker tool picks suit bulk work, not agents.
+- `mimo-v2.6-9b` is the light vision and agent model, but it ignores a required tool choice in 5 of 9 requests, so paperless avoids it.
+- `qwen3.8-27b-gsq-mtp`'s chat template rejects system messages after the first, which agent clients commonly send.
+  It passed the client checks only through a proxy that folds them into the first.
+- `minicpm5-2b` is the small text-only preset, and `minicpm5-2b-dspark` adds DSpark drafting, which decodes 1.5 times as fast.
+
 ## What it enables
 
 - A private assistant: chat, image questions, and document questions with Qwen3.8 27B or Gemma 4, also served to the iPhone over the Mesh.
-- Coding agent work in qwen-code against the default local model.
 - Side work for any agent or API client: commit messages, summaries, log triage, classification, and anything whose data must stay on the host.
 - Local code search and next-edit completion with small embedding and completion models.
 - Speech: push-to-talk dictation, meeting transcripts with speaker labels, and text to speech with voice cloning.
@@ -64,6 +77,7 @@ People read about 5 tokens per second, so anything above 40 feels instant.
 - The PCIe 4.0 link in [songbird-hardware.md](songbird-hardware.md) slows prefill whenever weights stream from RAM.
 - The 37xx NPU runs small OpenVINO models only, so language models stay on the RTX 5080.
 - Model files take up to 25 GB each on disk A, plus up to 1.4 GB per drafter or vision projector.
+- `mimo-v2.6-9b` ignores `tool_choice = required`, which paperless AI suggestions need, so it cannot replace the default model while paperless uses it.
 
 ## Sources
 

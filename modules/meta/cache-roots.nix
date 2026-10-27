@@ -246,6 +246,13 @@ let
       installed =
         { hostConfig, ... }: nvidiaLoaded hostConfig && hostConfig.hardware.nvidia.nvidiaSettings;
     };
+    # The module's `apply` overrides tesseract, so pkgs.paperless-ngx is not the
+    # derivation hosts run, and the stock one is not on cache.nixos.org either.
+    # Its closure carries the Python dependencies that only paperless pulls in.
+    paperless-ngx = {
+      path = hostConfig: hostConfig.services.paperless.package;
+      installed = { hostConfig, ... }: hostConfig.services.paperless.enable;
+    };
     # modules/apps/steam.nix installs nothing itself: it sets
     # programs.steam.enable with extraCompatPackages and extraPackages, and
     # upstream's programs.steam.package carries an `apply` that re-overrides

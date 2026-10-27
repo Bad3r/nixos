@@ -573,6 +573,7 @@ let
       "input-remapper".extended.enable = lib.mkOverride 1100 true;
       lact.extended.enable = lib.mkOverride 1100 false;
       "nextcloud-client".extended.enable = lib.mkOverride 1100 false;
+      paperless.extended.enable = lib.mkOverride 1100 false;
       pcscd.extended.enable = lib.mkOverride 1100 true;
       "protonmail-bridge".extended.enable = lib.mkOverride 1100 false;
       thinkfan.extended.enable = lib.mkOverride 1100 false;

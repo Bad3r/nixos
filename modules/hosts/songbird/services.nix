@@ -1,5 +1,6 @@
 { config, secretsRoot, ... }:
 let
+  inherit (config.flake.lib.nixos) _firewallLocalNetworkCidrs;
   sambaSecretFile = secretsRoot + "/songbird.yaml";
   sambaSecretExists = builtins.pathExists sambaSecretFile;
   songbirdSopsRuntimeReady = config.flake.lib.nixos.hosts.songbird.sopsRuntimeReady;
@@ -23,6 +24,7 @@ in
   configurations.nixos.songbird.module =
     {
       config,
+      options,
       pkgs,
       lib,
       metaOwner,
@@ -32,27 +34,63 @@ in
       sambaMediaShareTemplatePath = config.sops.templates.${sambaMediaShareTemplate}.path;
       powerProfile = import ../common/_power-profile-unit.nix pkgs;
 
+      llamaCommon = {
+        n-gpu-layers = "all";
+        cache-type-k = "q8_0";
+        cache-type-v = "q8_0";
+        # One slot gets the whole context, so the clients compact within ctx-size.
+        parallel = 1;
+        sleep-idle-seconds = 1800;
+        dedup-cache-models = true;
+      };
+      llamaVision = llamaCommon // {
+        mmproj-auto = true;
+      };
+      llamaMinicpm2b = llamaCommon // {
+        hf-repo = "openbmb/MiniCPM5-2B-GGUF:Q8_0";
+        ctx-size = 131072;
+      };
       # llama-server models preset: one section per model, named as clients request it.
+      # n-gpu-layers = all makes a model that does not fit in VRAM fail to load instead of offloading.
       llamaModels = {
-        gemma-4-12b-it-qat = {
-          hf-repo = "unsloth/gemma-4-12B-it-qat-GGUF:UD-Q4_K_XL";
+        # Gemma 4 vision caps an image at ubatch-size tokens, and the 26B has no VRAM for more than the default 512.
+        gemma-4-26b-a4b = llamaVision // {
+          hf-repo = "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ3_S";
           ctx-size = 128000;
-          n-gpu-layers = "all";
-          cache-type-k = "q8_0";
-          cache-type-v = "q8_0";
-          # One slot gets the whole context, so the clients compact within ctx-size.
-          parallel = 1;
-          mmproj-auto = true;
-          sleep-idle-seconds = 1800;
-          dedup-cache-models = true;
           load-on-startup = true;
+        };
+        minicpm5-2b = llamaMinicpm2b;
+        minicpm5-2b-dspark = llamaMinicpm2b // {
+          spec-draft-hf = "magnitudedev/MiniCPM5-2B-DSpark-GGUF:DSpark";
+          spec-type = "draft-dspark";
+        };
+        # Its chat template rejects system messages after the first, which agent clients commonly send.
+        "qwen3.8-27b-gsq-mtp" = llamaVision // {
+          # The IQ3_XXS file carries the MTP head; the tag names it in full, as `:IQ3_XXS` resolves to it anyway.
+          hf-repo = "ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF:IQ3_XXS-mtp";
+          ctx-size = 65536;
+          spec-type = "draft-mtp";
+        };
+        # The only DFlash drafter for it is the Qwen3.5-9B one, whose GGUF llama.cpp 0.7.0 rejects.
+        "mimo-v2.6-9b" = llamaVision // {
+          hf-repo = "ggml-org/MiMo-V2.6-Distill-Qwen-9B-GGUF:Q8_0";
+          ctx-size = 128000;
+        };
+        "lfm2.5-24b-a2b" = llamaCommon // {
+          hf-repo = "unsloth/LFM2.5-24B-A2B-GGUF:UD-Q3_K_XL";
+          ctx-size = 131072;
         };
       };
       # The default model clients request.
-      llamaModel = "gemma-4-12b-it-qat";
+      llamaModel = "gemma-4-26b-a4b";
+      llamaPort = 10100;
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
         globalSection.version = 1;
-        sections = llamaModels;
+        sections = llamaModels // {
+          # [*] reaches every keyless child but not the router, which strips child CORS
+          # headers; the default reflects any Origin, so any web page could read a child.
+          "*".cors-origins = "http://127.0.0.1:${toString llamaPort}";
+        };
       };
     in
     {
@@ -87,6 +125,18 @@ in
             };
           }
         ]
+        ++ [
+          {
+            # Declared only while the r2-flake modules are imported.
+            config = lib.optionalAttrs (options.services ? r2-restic) (
+              lib.mkIf config.services.paperless.enable {
+                services.r2-restic.paths = [ config.services.paperless.exporter.directory ];
+                # A late or persistent backup run waits for an export in progress.
+                systemd.services.r2-restic-backup.after = [ "paperless-exporter.service" ];
+              }
+            );
+          }
+        ]
         ++ lib.optionals (!sambaSecretsReady) [
           {
             warnings = [
@@ -114,32 +164,78 @@ in
         # all, so without its own rebind it advertised this host over
         # WS-Discovery at every boot with no share behind it.
         targets.samba.wantedBy = lib.mkForce [ ];
-        services.samba-wsdd = {
-          wantedBy = lib.mkForce [ "samba.target" ];
-          partOf = [ "samba.target" ];
-        };
+        services = {
+          samba-wsdd = {
+            wantedBy = lib.mkForce [ "samba.target" ];
+            partOf = [ "samba.target" ];
+          };
 
-        # Force the power-profiles-daemon profile to performance at boot.
-        services.songbird-power-profile = powerProfile.unit;
+          # Force the power-profiles-daemon profile to performance at boot.
+          songbird-power-profile = powerProfile.unit;
+
+          paperless-web = lib.mkIf config.services.paperless.enable {
+            serviceConfig.IPAddressAllow =
+              _firewallLocalNetworkCidrs
+              ++ lib.optional config.programs.cloudflare-warp.extended.enable meshRange;
+          };
+          # The owner drops scans into the inbox; the default ACL lets paperless read them under any umask.
+          paperless-consumer = lib.mkIf config.services.paperless.enable {
+            serviceConfig.ExecStartPre = "+${lib.getExe' pkgs.acl "setfacl"} -m u:${metaOwner.username}:rwx,d:u:${metaOwner.username}:rwx,d:u:${config.services.paperless.user}:rwx ${config.services.paperless.consumptionDir}";
+          };
+          # Copies keep the media files' 0600 mode, and r2-restic-backup reads them as the owner.
+          paperless-exporter = lib.mkIf config.services.paperless.enable {
+            serviceConfig.ExecStartPost = "+${lib.getExe' pkgs.acl "setfacl"} -R -m u:${metaOwner.username}:rX ${config.services.paperless.exporter.directory}";
+          };
+        };
+        # Runs a 23:00 export missed while the host was off at the next boot.
+        timers.paperless-exporter = lib.mkIf config.services.paperless.enable {
+          timerConfig.Persistent = true;
+        };
       };
 
       # lock = logind Lock signal -> systemd-lock-handler -> lock.target (i3lock).
       # Desktop chassis: no lid switch to handle.
       services.logind.settings.Login.HandlePowerKey = "lock";
 
-      programs.llama-cpp.extended.client = {
-        model = llamaModel;
-        models = lib.mapAttrs (_: m: m.ctx-size) llamaModels;
+      programs.llama-cpp.extended = {
+        # Only for the RTX 5080 (sm_120), the host's one GPU.
+        package = pkgs.llama-cpp-cuda.override {
+          llama-cpp = pkgs.llama-cpp.override {
+            cudaPackages = pkgs.cudaPackages.override {
+              config = pkgs.config // {
+                cudaCapabilities = [ "12.0" ];
+              };
+            };
+          };
+        };
+
+        client = {
+          model = llamaModel;
+          # Headroom for a large tool result that lands after the clients' last compaction check.
+          contextWindows = lib.mapAttrs (_: preset: preset.ctx-size - 8192) llamaModels;
+        };
       };
 
       services = {
         cloudflared.enable = true;
 
+        # dataDir and PostgreSQL stay on the root disk; documents go to /data.
+        paperless = {
+          address = "0.0.0.0";
+          mediaDir = "${paperlessRoot}/media";
+          consumptionDir = "${paperlessRoot}/consume";
+          exporter = {
+            directory = "${paperlessRoot}/export";
+            # Clear of r2-restic-backup's 00:00 to 01:00 window.
+            onCalendar = "23:00:00";
+          };
+        };
+
         # Router mode: no model on the command line, one loaded model at a time.
         llama-cpp.settings = {
           # Without an API key the server stays on loopback.
           host = if config.services.llama-cpp.apiKeyFile != null then "0.0.0.0" else "127.0.0.1";
-          port = 10100;
+          port = llamaPort;
           models-preset = "${llamaPreset}";
           models-max = 1;
         };
