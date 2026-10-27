@@ -30,8 +30,7 @@ Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
 1. For one launch, name another preset model:
 
    ```sh
-   CLAUDE_LOCAL_MODEL=<model> claude-local
-   codex -p local -m <model>
+   qwen -m <model>
    ```
 
    The router unloads the current model before it loads the requested one.
@@ -48,20 +47,19 @@ Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
 
 Verification: `/v1/models` shows the model with status `loaded`.
 
-## Use a local model in Claude Code
+## Use a local model in qwen-code
 
 Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
 
-1. Start Claude Code with every model slot on the default local model:
+1. Start qwen-code in the project directory:
 
    ```sh
-   claude-local
+   qwen
    ```
 
-   It keeps the usual settings, hooks, and MCP servers, while plain `claude` stays on the hosted models.
-   `claude-local --model` moves only the main slot, and the router reloads weights whenever two slots name different models.
+   `qwen` reads the API key at launch and asks before every file edit and shell command.
 
-2. For a smaller prompt, start it on a separate config directory, which drops the hosted login, hooks, plugins, and MCP servers:
+2. To change a default, override its key in `~/.qwen/settings.json`; `/etc/qwen-code/system-defaults.json` holds the Nix-managed values.
 
    ```sh
    CLAUDE_CONFIG_DIR=~/.config/claude-local claude-local

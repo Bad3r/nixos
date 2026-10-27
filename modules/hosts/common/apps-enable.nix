@@ -392,6 +392,7 @@ let
       qpwgraph.extended.enable = lib.mkOverride 1100 true;
       qrencode.extended.enable = lib.mkOverride 1100 true;
       quarto.extended.enable = lib.mkOverride 1100 true;
+      "qwen-code".extended.enable = lib.mkOverride 1100 false;
       radare2.extended.enable = lib.mkOverride 1100 false;
       raindrop.extended.enable = lib.mkOverride 1100 true;
       rar.extended.enable = lib.mkOverride 1100 true;

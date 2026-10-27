@@ -71,6 +71,7 @@ Each role names a section of the models preset in [services.nix](../../../module
 ## Limits
 
 - Long multi-file engineering stays with hosted frontier models, which lead every model that fits by a wide margin on the Artificial Analysis Intelligence Index.
+- Claude Code and Codex run only against hosted models; local agent work runs in qwen-code, which is built for OpenAI-compatible servers.
 - One engine owns the GPU at a time: language, image, and speech models share the same 16 GB, and a second engine evicts or starves the first.
 - Models whose 4-bit file exceeds about 40 GB, such as GLM-5.3, Kimi K3, and Qwen3.5 122B-A10B, fit in neither VRAM nor the RAM the desktop leaves free.
 - The PCIe 4.0 link in [songbird-hardware.md](songbird-hardware.md) slows prefill whenever weights stream from RAM.

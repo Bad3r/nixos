@@ -172,7 +172,7 @@ in
             type = lib.types.nullOr lib.types.str;
             default = if apiKeyReady && keyNeeded then apiKeyPath else null;
             defaultText = lib.literalExpression ''"${apiKeyPath}" when secrets/llama-cpp.yaml is available'';
-            description = "File holding the API key that the clients send, or null to send none.";
+            description = "File holding the API key clients send, or null for a placeholder key.";
           };
         };
       };
@@ -325,6 +325,15 @@ in
         (lib.mkIf (cfg.enable && !apiKeyReady) {
           warnings = [
             "programs.llama-cpp.extended.enable is true but ${toString apiKeySecretFile} is missing, flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady is false, or security.repoSecrets.enable is false; llama-server runs without an API key."
+          ];
+        })
+
+        (lib.mkIf (cfg.client.endpoint != null) {
+          assertions = [
+            {
+              assertion = cfg.client.models ? ${cfg.client.model};
+              message = "programs.llama-cpp.extended.client.models has no entry for client.model ${cfg.client.model}.";
+            }
           ];
         })
 

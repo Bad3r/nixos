@@ -51,13 +51,3 @@ journalctl -u llama-cpp -b -g 'tensor overrides to CPU'
 ```
 
 Lower `ctx-size` in the model's `llamaModels` entry; when the model then fits, add `fit = "off"` to keep every tensor on the GPU.
-
-## codex exec waits at Reading additional input from stdin
-
-`codex exec` appends standard input to the prompt when stdin is not a terminal, so a script or agent shell leaves it waiting forever.
-
-```sh
-codex exec --profile local --skip-git-repo-check '<prompt>' < /dev/null
-```
-
-Close stdin with `< /dev/null` on every non-interactive run.

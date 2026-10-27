@@ -13,7 +13,6 @@
   externalBinary,
   installMethods,
   scratchDir,
-  localClient ? null,
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
@@ -173,64 +172,11 @@ let
 
     exec ${lib.getExe claudeWrapped} "$@"
   '';
-
-  # Claude Code sends the helper's output as both `Authorization: Bearer` and
-  # `X-Api-Key`, and keeps it out of the environment that tools and MCP servers inherit.
-  keyHelper =
-    if localClient.apiKeyFile == null then
-      "echo llama-cpp-local"
-    else
-      "${lib.getExe' pkgs.coreutils "cat"} ${lib.escapeShellArg localClient.apiKeyFile}";
-
-  # Points every model slot at one local model, since llama-server answers 400 for any
-  # other name and holds one model at a time. `--settings` env outranks the launcher
-  # and settings.json env; SMALL_FAST outranks the haiku slot, and FORCE drops the
-  # models that agent definitions and spawn calls pin.
-  claudeLocalWrapped = pkgs.writeShellApplication {
-    name = "claude-local";
-    runtimeInputs = [ pkgs.jq ];
-    text = ''
-      model=''${CLAUDE_LOCAL_MODEL:-${lib.escapeShellArg localClient.model}}
-      context=$(jq -nr --arg model "$model" \
-        --argjson windows ${lib.escapeShellArg (builtins.toJSON localClient.contextWindows)} \
-        '$windows[$model] // empty | tostring')
-      if [ -z "$context" ]; then
-        echo "claude-local: unknown model '$model'; known: ${lib.concatStringsSep " " (lib.attrNames localClient.contextWindows)}" >&2
-        exit 64
-      fi
-      settings=$(jq -cn \
-        --arg model "$model" \
-        --arg url ${lib.escapeShellArg localClient.endpoint} \
-        --arg context "$context" \
-        --arg keyHelper ${lib.escapeShellArg keyHelper} '
-          {
-            model: $model,
-            apiKeyHelper: $keyHelper,
-            env: {
-              ANTHROPIC_BASE_URL: $url,
-              ANTHROPIC_DEFAULT_HAIKU_MODEL: $model,
-              ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: $model,
-              ANTHROPIC_DEFAULT_SONNET_MODEL: $model,
-              ANTHROPIC_DEFAULT_OPUS_MODEL: $model,
-              ANTHROPIC_DEFAULT_FABLE_MODEL: $model,
-              ANTHROPIC_SMALL_FAST_MODEL: $model,
-              CLAUDE_CODE_SUBAGENT_MODEL: $model,
-              CLAUDE_CODE_SUBAGENT_MODEL_FORCE: "1",
-              CLAUDE_CODE_MAX_CONTEXT_TOKENS: $context
-            }
-          }
-        ')
-      # Inherited tokens would outrank the helper.
-      unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_API_KEY
-      exec ${lib.getExe claudeWrapped} --settings "$settings" "$@"
-    '';
-  };
 in
 {
   inherit
     claudeWrapped
     claudeRcWrapped
-    claudeLocalWrapped
     wrapperBody
     ;
 }
