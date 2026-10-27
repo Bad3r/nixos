@@ -49,7 +49,7 @@ The engine choices remain:
 
 O8 does not authorize guest or container access to child listeners.
 The isolation gate below verifies that boundary before deployment.
-Owner decisions of 2026-10-26: key holders may download and delete router models through the model API, an accepted risk; Gemma 4 12B QAT is the initial default model.
+Owner decisions of 2026-10-26: key holders may download and delete router models through the model API, an accepted risk; "Trial outcome" below names the default model.
 
 ## 4. Target design
 
@@ -159,7 +159,7 @@ If the measured boundary exceeds O8, stop and resolve it before deploying the ro
 
 ### Clients
 
-Move `endpoint`, `model`, `contextWindow`, and `apiKeyFile` into `programs.llama-cpp.extended.client`.
+Move `endpoint`, `model`, `contextWindows`, and `apiKeyFile` into `programs.llama-cpp.extended.client`.
 Update `modules/agents/claude-code/home.nix`, its `_launcher.nix`, and `modules/agents/codex/home.nix` together.
 Both consumers use a null endpoint fallback; assert or test that a non-null endpoint produces both local clients so a missed rename cannot silently remove them.
 Preserve launcher behavior, configuration layering, and daemon startup while changing the provider wiring.
@@ -227,7 +227,7 @@ Upstream llama.cpp has no fold: https://github.com/ggml-org/llama.cpp/issues/273
 3. Done: the service fixes are on the fork's `nixpkgs-unstable` at `a4b6aef616e9`.
 4. Done: the cache landed on main as `a4a73a25`, and Songbird switched to it.
 5. Done in this change, on a lock that pins the fork head: add the new app, preset, credentials, clients, firewall policy, and registry rows in one engine-swap PR; remove Magnitude's wiring and update its documentation atomically.
-6. Done 2026-10-27: trialled each model, tool-calling workflow, and drafter; the outcome is under "Trial outcome" below.
+6. Done 2026-10-27: trialled each model, tool-calling workflow, and drafter; the outcome is under "Trial outcome" in section 4.
 7. Verify rollback with retained Magnitude state and credentials before any separately approved cleanup. Archive recoverable state before removing it.
 8. Remove the Magnitude package from the llm-agents fork only as a separate optional cleanup.
 
