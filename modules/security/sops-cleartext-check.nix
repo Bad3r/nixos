@@ -227,8 +227,8 @@ let
 
   # Deny by default to keep new extensions and extensionless names covered.
   # Exemptions are intentional cleartext conventions: *.example templates,
-  # local decryption artifacts, exact Git metadata basenames, and .git path
-  # segments. A .git segment excludes its internal metadata files without
+  # local decryption artifacts, exact Git metadata basenames, reviewed font
+  # assets, and .git path segments. A .git segment excludes its internal metadata files without
   # exempting .git-* filenames.
   gitMetadataNames = [
     ".gitignore"
@@ -250,8 +250,8 @@ let
     && !(builtins.hasAttr path fontArchiveHashes);
 
   # lib.hasInfix is regex-based and overflows the evaluator stack on
-  # megabyte-scale strings (std::regex recursion; the sops-encrypted font
-  # blob is ~1 MiB), so scan each needle in bounded chunks with a needle-sized
+  # megabyte-scale strings (std::regex recursion), so scan each needle in
+  # bounded chunks with a needle-sized
   # overlap. SOPS 3.13.3 emits lastmodified metadata in every supported
   # encrypted format, using sops_lastmodified for dotenv and an aligned mac =
   # field for INI. Requiring the configured host recipient alongside the full

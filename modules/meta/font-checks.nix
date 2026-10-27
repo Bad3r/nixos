@@ -43,6 +43,7 @@
         assert lib.all (name: lib.elem name installedNames) (builtins.attrNames privateFonts);
         pkgs.runCommand "font-packages-check"
           {
+            passthru.runtimeCheck = true;
             nativeBuildInputs = [
               pkgs.fontconfig
               pkgs.findutils
