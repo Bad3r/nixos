@@ -7,6 +7,7 @@
 - [songbird-runbook-win11.md](songbird-runbook-win11.md)
 - [songbird-runbook-win11-use.md](songbird-runbook-win11-use.md)
 - [songbird-runbook-local-ai.md](songbird-runbook-local-ai.md)
+- [songbird-runbook-paperless.md](songbird-runbook-paperless.md)
 
 ## Validate a host change
 

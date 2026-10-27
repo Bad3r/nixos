@@ -300,6 +300,8 @@
   - Validation procedure for a `songbird` change.
 - [hosts/songbird/songbird-runbook-local-ai.md](hosts/songbird/songbird-runbook-local-ai.md)
   - The llama.cpp service, model switching, Claude Code and Codex on local models, iPhone access, and freeing the GPU on `songbird`.
+- [hosts/songbird/songbird-runbook-paperless.md](hosts/songbird/songbird-runbook-paperless.md)
+  - First login and AI workflow, AI service checks, AI index rebuilds, and restores from the export for paperless on `songbird`.
 - [hosts/songbird/songbird-runbook-portal.md](hosts/songbird/songbird-runbook-portal.md)
   - Converting the `/portal` drive to BitLocker and unlocking it from NixOS on `songbird`.
 - [hosts/songbird/songbird-runbook-reinstall.md](hosts/songbird/songbird-runbook-reinstall.md)

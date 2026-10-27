@@ -3,6 +3,7 @@
 The RTX 5080 runs open-weight models on songbird, so chat, coding side work, speech, images, and document conversion stay on the host.
 
 - [songbird-runbook-local-ai.md](songbird-runbook-local-ai.md)
+- [songbird-runbook-paperless.md](songbird-runbook-paperless.md)
 - [songbird-troubleshooting-local-ai.md](songbird-troubleshooting-local-ai.md)
 
 ## How models are served
@@ -13,6 +14,8 @@ The RTX 5080 runs open-weight models on songbird, so chat, coding side work, spe
 - One port serves the OpenAI and Anthropic APIs and the web UI to loopback, the LAN, and the Mesh; every request except health checks and web UI assets needs the sops API key.
 - A key holder can also download any Hugging Face model into the cache, or delete a cached one, through the router's `/models` API.
 - Child processes listen on loopback without a key, so any process in the host network namespace reaches the loaded model.
+- A second service, `llama-cpp-embed`, serves one pinned embedding model on the CPU to loopback, so paperless embeddings never evict the router's model.
+- paperless-ngx sends its suggestions and document chat to the router's default model with a key of its own, so it never makes the router swap models: [paperless.nix](../../../modules/apps/paperless.nix).
 
 ## How a model fits
 
@@ -73,6 +76,7 @@ Each role names a section of the models preset in [services.nix](../../../module
 - The PCIe 4.0 link in [songbird-hardware.md](songbird-hardware.md) slows prefill whenever weights stream from RAM.
 - The 37xx NPU runs small OpenVINO models only, so language models stay on the RTX 5080.
 - Model files take up to 25 GB each on disk A, plus up to 1.4 GB per drafter or vision projector.
+- `mimo-v2.6-9b` ignores `tool_choice = required`, which paperless AI suggestions need, so it cannot replace the default model while paperless uses it.
 
 ## Sources
 

@@ -1,0 +1,138 @@
+/*
+  Package: paperless-ngx
+  Description: Document management system that scans, indexes, and archives documents.
+  Homepage: https://docs.paperless-ngx.com/
+  Documentation: https://docs.paperless-ngx.com/configuration/
+  Repository: https://github.com/paperless-ngx/paperless-ngx
+
+  Summary:
+    * Runs the nixpkgs `services.paperless` units with a local PostgreSQL database, Redis,
+      and Tika with Gotenberg for Office and e-mail files.
+    * Points the built-in AI at llama.cpp: generation goes to the router's client model and
+      embeddings to the `llama-cpp-embed` instance, with a key of their own.
+    * Writes a nightly `document_exporter` copy of every document and its metadata.
+
+  Notes:
+    * The key reaches paperless as an environment file, since paperless reads it only from
+      the environment. Without secrets/llama-cpp.yaml the router runs keyless on loopback
+      and paperless sends no key.
+    * An AI key typed into the admin UI lands in the exporter output, so keys stay in sops.
+    * `paperless-manage` re-runs itself as paperless through sudo before it sources the
+      environment file, a file only paperless and root can read.
+
+  Example Usage:
+    * `sudo paperless-manage createsuperuser` -- Create the first login.
+    * `sudo paperless-manage document_llmindex rebuild` -- Re-embed every document after the
+      embedding model changes.
+*/
+_:
+let
+  PaperlessModule =
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
+    let
+      cfg = config.services.paperless.extended;
+      paperless = config.services.paperless;
+      llama = config.programs.llama-cpp.extended;
+      keySecret = llama.apiKeySecrets.paperless;
+      keyed = config.sops.secrets ? ${keySecret};
+      envTemplate = "paperless/ai.env";
+      loopback = port: "http://127.0.0.1:${toString port}/v1";
+      loopbackOnly = {
+        IPAddressDeny = [ "any" ];
+        IPAddressAllow = [ "localhost" ];
+      };
+      dataPaths = [
+        paperless.mediaDir
+        paperless.consumptionDir
+      ];
+    in
+    {
+      options.services.paperless.extended = {
+        enable = lib.mkOption {
+          type = lib.types.bool;
+          default = false;
+          description = "Whether to enable paperless-ngx with local AI.";
+        };
+
+        package = lib.mkPackageOption pkgs "paperless-ngx" { };
+      };
+
+      config = lib.mkIf cfg.enable {
+        programs.llama-cpp.extended = {
+          enable = lib.mkOverride 1050 true;
+          embeddings.enable = true;
+          apiKeys.paperless = "llama_cpp_paperless_api_key";
+        };
+
+        services.paperless = {
+          enable = true;
+          inherit (cfg) package;
+          database.createLocally = true;
+          configureTika = true;
+          environmentFile = lib.mkIf keyed config.sops.templates.${envTemplate}.path;
+          exporter.enable = true;
+          settings = {
+            PAPERLESS_AI_ENABLED = true;
+            PAPERLESS_AI_LLM_BACKEND = "openai-like";
+            PAPERLESS_AI_LLM_ENDPOINT = loopback config.services.llama-cpp.settings.port;
+            # The clients' model, so paperless never makes the router swap away from it.
+            PAPERLESS_AI_LLM_MODEL = llama.client.model;
+            PAPERLESS_AI_LLM_CONTEXT_SIZE = 16384;
+            # Covers a model swap plus a wait behind an interactive client in the router's one slot.
+            PAPERLESS_AI_LLM_REQUEST_TIMEOUT = 300;
+            PAPERLESS_AI_LLM_EXTRA_PARAMS = builtins.toJSON {
+              chat_template_kwargs.enable_thinking = false;
+            };
+            PAPERLESS_AI_LLM_EMBEDDING_BACKEND = "openai-like";
+            PAPERLESS_AI_LLM_EMBEDDING_ENDPOINT = loopback llama.embeddings.port;
+            PAPERLESS_AI_LLM_EMBEDDING_MODEL = llama.embeddings.name;
+          };
+        };
+
+        # Owned by paperless rather than root: the exporter runs paperless-manage as paperless,
+        # and the units already hold the key in their environment.
+        sops.templates.${envTemplate} = lib.mkIf keyed {
+          content = ''
+            PAPERLESS_AI_LLM_API_KEY=${config.sops.placeholder.${keySecret}}
+            PAPERLESS_AI_LLM_EMBEDDING_API_KEY=${config.sops.placeholder.${keySecret}}
+          '';
+          inherit (paperless) group;
+          owner = paperless.user;
+          mode = "0400";
+          restartUnits = [
+            "paperless-consumer.service"
+            "paperless-scheduler.service"
+            "paperless-task-queue.service"
+            "paperless-web.service"
+          ];
+        };
+
+        systemd.services = {
+          # Only loopback: the AI endpoints, Tika, and Gotenberg. Mail fetch would need its server here.
+          paperless-task-queue = {
+            unitConfig.RequiresMountsFor = dataPaths;
+            serviceConfig = loopbackOnly;
+          };
+          # The filter also checks the source of inbound connections, so a host serving the
+          # web UI beyond loopback adds its client ranges to IPAddressAllow.
+          paperless-web = {
+            unitConfig.RequiresMountsFor = dataPaths;
+            serviceConfig = loopbackOnly;
+          };
+          paperless-consumer.unitConfig.RequiresMountsFor = dataPaths;
+          # They parse untrusted documents and only answer paperless on loopback.
+          tika.serviceConfig = loopbackOnly;
+          gotenberg.serviceConfig = loopbackOnly;
+          paperless-exporter.unitConfig.RequiresMountsFor = dataPaths;
+        };
+      };
+    };
+in
+{
+  flake.nixosModules.apps.paperless = PaperlessModule;
+}
