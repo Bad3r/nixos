@@ -7,13 +7,13 @@ Guests created in virt-manager stay outside the declarations and are never touch
 ## Access
 
 - No user joins the `libvirtd` group.
-  A read-write `qemu:///system` connection asks for admin authentication on every connect, never reusing a recent one.
+  Wheel members connect to `qemu:///system` without a password; other users need fresh admin authentication for every read-write connection.
 - A read-only connection (`virsh -r -c qemu:///system`) needs no authentication.
 - Root bypasses polkit, so the units below need no prompt.
 - Plain `virsh` as the owner talks to `qemu:///session`, since no default URI is set.
   virt-manager connects to `qemu:///system` on its own.
 - QEMU runs as `qemu-libvirtd`, so a file a guest opens must be readable by that user.
-- SPICE and VNC consoles without a listen address use a unix socket, so opening one goes through an authenticated libvirt connection.
+- SPICE and VNC consoles without a listen address use a unix socket, so opening one goes through a libvirt connection authorized by polkit.
 - Host shutdown asks each running guest to shut down and waits at most `shutdownTimeout` from `modules/apps/libvirt.nix` per guest; boot resumes none.
 - Host suspend pauses running guests and hibernation saves them: [Guests across host sleep](sleep.md).
 

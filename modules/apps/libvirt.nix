@@ -76,6 +76,7 @@ let
           };
         };
 
+        # Sorts ahead of the nixpkgs libvirtd-group rule.
         security.polkit.extraConfig = lib.mkBefore ''
           polkit.addRule(function(action, subject) {
             if (action.id === "org.libvirt.unix.manage") {

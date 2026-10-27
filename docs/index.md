@@ -420,7 +420,9 @@
 - [apps/libvirt/sleep.md](apps/libvirt/sleep.md)
   - Guests across host suspend and hibernation: pause, managed save, restore, clock resync, the per-user `sbx sleep` calls, and failures.
 - [apps/libvirt/windows.md](apps/libvirt/windows.md)
-  - Windows guests: seed CD-ROM, answer file, provisioning steps, secrets, golden copies and restore, and failures.
+  - Windows guests: seed CD-ROM, answer file, provisioning steps, secrets, golden copies and restore.
+- [apps/libvirt/windows-troubleshooting.md](apps/libvirt/windows-troubleshooting.md)
+  - Windows guest definition and provisioning failures.
 
 ### mpv
 
