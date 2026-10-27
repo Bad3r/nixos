@@ -1,6 +1,11 @@
 _: {
   perSystem =
-    { config, pkgs, ... }:
+    {
+      config,
+      lib,
+      pkgs,
+      ...
+    }:
     let
       # flake-checker injects numDaysOld as a scalar. CEL has() only accepts
       # field selectors, not bare variables.
@@ -124,8 +129,9 @@ _: {
             gitleaks = {
               enable = true;
               name = "gitleaks";
-              description = "Detect hardcoded secrets in repository history.";
+              description = "Scan changed files manually and outgoing commits before pushing.";
               entry = "${config.packages.hook-gitleaks}/bin/hook-gitleaks";
+              args = lib.mkForce [ "--changed" ];
               pass_filenames = false;
               always_run = true;
               stages = [
