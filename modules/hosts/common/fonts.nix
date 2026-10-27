@@ -1,30 +1,5 @@
-# Shared font stack plus the MonoLisa secret-font install pipeline. The
-# encrypted archive ships MonoLisa v3 as two variable families under
-# monolisa/{code,text}: MonoLisaCode (monospace) and MonoLisaText
-# (proportional). The install path activates only when the encrypted archive
-# exists and the host registry sets sopsRuntimeReady. Hosts append fontconfig
-# rules through the host.fontconfig.extraRules option declared here.
-{
-  config,
-  lib,
-  secretsRoot,
-  ...
-}:
+{ config, lib, ... }:
 let
-  fontArchive = secretsRoot + "/fonts/monolisa.tar.zst";
-  inherit (config.flake.lib.security) sopsInstallSecretsDeps;
-  secretExists = builtins.pathExists fontArchive;
-  secretName = "fonts/monolisa.archive";
-  secretRuntimePath = "/run/secrets/fonts/monolisa.archive";
-  fontInstallDir = "/var/lib/fonts/monolisa";
-  hostsRegistry = config.flake.lib.nixos.hosts or { };
-
-  # Symbol and icon fallbacks appended after the primary family; the
-  # monospace list prefers the Mono variant so glyphs keep cell width.
-  # Every generic class keeps a real text face ahead of these: the MonoLisa
-  # families only exist once monolisa-fonts.service has installed the archive,
-  # and with an icon-only face next in line `fc-match sans-serif:lang=en`
-  # resolves to Symbols Nerd Font, which carries no Latin coverage.
   symbolFallback = [
     "Symbols Nerd Font"
     "Symbols Nerd Font Mono"
@@ -39,16 +14,9 @@ let
   ];
 
   body =
-    {
-      config,
-      hostName,
-      pkgs,
-      ...
-    }:
+    { config, pkgs, ... }:
     let
-      installSecretsDeps = sopsInstallSecretsDeps config;
-      sopsRuntimeReady = (hostsRegistry.${hostName} or { }).sopsRuntimeReady or false;
-      installReady = secretExists && sopsRuntimeReady;
+      privateFonts = configFonts pkgs;
     in
     {
       options.host.fontconfig.extraRules = lib.mkOption {
@@ -56,12 +24,12 @@ let
         default = "";
         description = "Extra fontconfig XML fragments appended to the shared local.conf.";
       };
-
-      config = lib.mkMerge [
-        {
-          fonts = {
-            enableDefaultPackages = true;
-            packages = with pkgs; [
+      config = {
+        fonts = {
+          enableDefaultPackages = true;
+          packages =
+            with pkgs;
+            [
               noto-fonts
               noto-fonts-cjk-sans
               noto-fonts-color-emoji
@@ -72,154 +40,49 @@ let
               font-awesome_6
               material-icons
               nerd-fonts.symbols-only
-            ];
+            ]
+            ++ lib.optional (privateFonts ? monolisa) privateFonts.monolisa;
 
-            fontconfig = {
-              defaultFonts = {
-                serif = [
-                  "MonoLisaText"
-                  "Noto Serif"
-                ]
-                ++ symbolFallback;
-                sansSerif = [
-                  "MonoLisaText"
-                  "Noto Sans"
-                ]
-                ++ symbolFallback;
-                monospace = [
-                  "MonoLisaCode"
-                  "Liberation Mono"
-                ]
-                ++ monoSymbolFallback;
-                emoji = [
-                  "Noto Color Emoji"
-                  "Symbols Nerd Font"
-                  "Symbols Nerd Font Mono"
-                ];
-              };
-              localConf = ''
-                <?xml version="1.0"?>
-                <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
-                <fontconfig>
-                  ${lib.optionalString installReady "<dir>${fontInstallDir}</dir>"}
-                  ${config.host.fontconfig.extraRules}
-                </fontconfig>
-              '';
+          fontconfig = {
+            defaultFonts = {
+              serif = [
+                "MonoLisaText"
+                "Noto Serif"
+              ]
+              ++ symbolFallback;
+              sansSerif = [
+                "MonoLisaText"
+                "Noto Sans"
+              ]
+              ++ symbolFallback;
+              monospace = [
+                "MonoLisaCode"
+                "Liberation Mono"
+              ]
+              ++ monoSymbolFallback;
+              emoji = [
+                "Noto Color Emoji"
+                "Symbols Nerd Font"
+                "Symbols Nerd Font Mono"
+              ];
             };
-          };
-        }
-        (lib.optionalAttrs installReady {
-          sops.secrets.${secretName} = {
-            sopsFile = fontArchive;
-            format = "binary";
-            path = secretRuntimePath;
-            owner = "root";
-            group = "root";
-            mode = "0400";
-            restartUnits = [ "monolisa-fonts.service" ];
-          };
-
-          systemd.tmpfiles.rules = [
-            "d /var/lib/fonts 0755 root root -"
-            "d ${fontInstallDir} 0755 root root -"
-          ];
-
-          systemd.services.monolisa-fonts = {
-            description = "Install MonoLisa font families from encrypted archive";
-            wantedBy = [ "multi-user.target" ];
-            after = installSecretsDeps;
-            requires = installSecretsDeps;
-            path = [
-              pkgs.coreutils
-              pkgs.findutils
-              pkgs.gnutar
-              pkgs.zstd
-              pkgs.fontconfig
-            ];
-            serviceConfig = {
-              Type = "oneshot";
-              User = "root";
-              Group = "root";
-              Restart = "on-failure";
-            };
-            script = ''
-              set -euo pipefail
-
-              if [ ! -s "${secretRuntimePath}" ]; then
-                echo "MonoLisa font secret is missing or empty" >&2
-                exit 1
-              fi
-
-              tmpdir="$(mktemp -d)"
-              trap 'rm -rf "$tmpdir"' EXIT
-
-              tar -C "$tmpdir" --strip-components=1 -I zstd -xf "${secretRuntimePath}"
-
-              # Refuse to install unless the archive carries a payload for each
-              # family. A repack missing one would otherwise swap in a tree
-              # without it and then drop the .old copy that still had it.
-              for family in code text; do
-                if [ -z "$(find "$tmpdir/$family" -type f \( -iname '*.ttf' -o -iname '*.otf' \) -print -quit 2>/dev/null)" ]; then
-                  echo "MonoLisa archive extracted with no font payload under $family/" >&2
-                  exit 1
-                fi
-              done
-
-              # The family strings are the contract between this archive and every
-              # consumer: the generic classes above, the stylix font set, the gecko
-              # profile, and the Doom font-specs. Nothing else checks them, so a
-              # repack whose name tables disagree would drop the whole stack to the
-              # Noto and Liberation fallbacks without failing anything.
-              extractedFamilies="$(find "$tmpdir" -type f \( -iname '*.ttf' -o -iname '*.otf' \) -exec fc-query -f '%{family}\n' {} +)"
-              for wanted in MonoLisaCode MonoLisaText; do
-                if [[ "$extractedFamilies" != *"$wanted"* ]]; then
-                  echo "no extracted face declares the family $wanted" >&2
-                  exit 1
-                fi
-              done
-
-              staging="${fontInstallDir}.new"
-              # Roll the rotated tree back before cleaning, so an interrupted
-              # swap cannot leave the families stranded at .old. The test is
-              # emptiness rather than existence, because the tmpfiles rule above
-              # recreates the live path as an empty directory on every boot, and
-              # the empty live path is cleared first so the mv lands on it
-              # instead of nesting inside it.
-              cleanup() {
-                rm -rf "$tmpdir" "$staging"
-                if [ -d "${fontInstallDir}.old" ] && [ -z "$(find "${fontInstallDir}" -mindepth 1 -print -quit 2>/dev/null)" ]; then
-                  rm -rf "${fontInstallDir}"
-                  mv "${fontInstallDir}.old" "${fontInstallDir}"
-                fi
-                rm -rf "${fontInstallDir}.old"
-              }
-              trap cleanup EXIT
-              rm -rf "$staging"
-              install -d -m 0755 "$staging"
-              cp -R "$tmpdir"/. "$staging/"
-              find "$staging" -type d -exec chmod 0755 {} +
-              find "$staging" -type f -exec chmod 0644 {} +
-              rm -rf "${fontInstallDir}.old"
-              if [ -d "${fontInstallDir}" ]; then
-                mv "${fontInstallDir}" "${fontInstallDir}.old"
-              fi
-              mv "$staging" "${fontInstallDir}"
-              rm -rf "${fontInstallDir}.old"
-              fc-cache -f "${fontInstallDir}"
+            localConf = ''
+              <?xml version="1.0"?>
+              <!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+              <fontconfig>
+                ${config.host.fontconfig.extraRules}
+              </fontconfig>
             '';
           };
-        })
-        (lib.optionalAttrs (secretExists && (!sopsRuntimeReady)) {
-          warnings = [
-            "MonoLisa secret font install is disabled on ${hostName} until flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady is set."
-          ];
-        })
-      ];
+        };
+      };
     };
+  configFonts = config.flake.lib.fonts.packages;
 in
 {
-  # corefonts ships under an unfree-redistributable EULA; gate it through the
-  # shared allowlist so allowUnfreePredicate lets the font derivation build.
-  nixpkgs.allowedUnfreePackages = [ "corefonts" ];
+  nixpkgs.allowedUnfreePackages = [
+    "corefonts"
+    "monolisa"
+  ];
   flake.nixosModules.hosts-common.imports = [ body ];
 }

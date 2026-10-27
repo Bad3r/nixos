@@ -67,32 +67,35 @@ The policy and the age key are in [sops-nix Usage](README.md).
 
 ## Font archives
 
-Keep plaintext archives outside the checkout while packing or encrypting fonts.
-The MonoLisa and Windows/Office installers decrypt archives at runtime, keeping plaintext font files out of the Nix store.
-The Windows/Office service streams decryption from the encrypted store files using the host's age identity.
-Its archive parts are not declared as runtime SOPS secrets, so decrypted archives do not remain resident after installation.
+Font archives in the private repository contain licensed assets, not credentials, and remain unencrypted.
+`modules/security/_font-archive-hashes.json` restricts the cleartext exception to reviewed archive paths and content hashes.
+Other files remain subject to the encryption policy.
 
-For Windows/Office updates, retain the archive's `fonts/` directory, provenance, licenses, and `SHA256SUMS` manifest.
+The packages in `modules/lib/fonts.nix` extract and validate these archives during the Nix build.
+NixOS and Stylix use the resulting font packages directly.
+
+For Windows/Office updates, retain the archive's `fonts/` directory, licenses, and `SHA256SUMS` manifest.
 Regenerate the manifest after changing the payload, excluding the manifest itself.
-Split the compressed archive into parts before encryption to stay below GitHub's file size limit.
-The installer declares the required parts in `modules/hosts/common/office-fonts.nix`; update that list if the archive needs more parts.
-Encrypt each part using the repository's SOPS policy, with plaintext files outside the checkout:
+Split the compressed archive to stay below GitHub's file size limit:
 
 ```sh
 split -b 64M -d -a 2 /path/outside/checkout/windows-office.tar.zst \
-  /path/outside/checkout/windows-office.tar.zst.part-
-for part in /path/outside/checkout/windows-office.tar.zst.part-*; do
-  target="secrets/fonts/$(basename "$part")"
-  sops encrypt --input-type binary --output-type binary \
-    --filename-override "$target" --output "$target" "$part"
-done
+  secrets/fonts/windows-office.tar.zst.part-
+sha256sum secrets/fonts/*
 ```
 
-Commit and push the encrypted archive in the secrets repository, then update the parent repository's submodule pointer.
-After switching the NixOS configuration, verify the installer and font selection:
+Update the reviewed hashes and the archive part list when necessary.
+Commit and push the font assets in the private repository, then update the parent repository's submodule pointer.
+Build and verify the packages:
 
 ```sh
-systemctl status windows-office-fonts.service
+nix build --no-link path:.#monolisa path:.#windows-office-fonts
+```
+
+After switching the configuration, verify font selection:
+
+```sh
+fc-match 'MonoLisaCode'
 fc-match 'Aptos'
 fc-match 'Georgia Pro'
 ```

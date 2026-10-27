@@ -22,6 +22,8 @@ Either way, the `builtins.pathExists` guards evaluate against the real checkout 
   Plaintext lives under a `decrypted_*` name or a `*.dec.*` name, which the submodule's `.gitignore` hides and the check exempts.
 - `modules/security/sops-runtime.nix` owns the shared NixOS sops-nix import and points `sops.age.keyFile` to `/var/lib/sops-nix/key.txt`; the `age` and `sops` CLIs come from their app rows.
 - `modules/security/secrets.nix` declares `security.repoSecrets.enable`, the gate app modules such as rclone consult before declaring their system secrets.
+- Font archives are unencrypted assets in the private repository.
+  `modules/security/_font-archive-hashes.json` pins the paths and content accepted by the cleartext check.
 - Each secret declaration is guarded with `builtins.pathExists`, so a missing encrypted file, such as `secrets/rclone_gdrive.env`, skips its block instead of failing evaluation.
 - Secret files resolve from `${rootPath}/secrets` through the shared `secretsRoot` module argument, with no dedicated flake input.
 - Templates write to stable paths, such as `/run/secrets/r2/credentials.env`, and take their ownership from `config.flake.lib.meta.owner.username`.
