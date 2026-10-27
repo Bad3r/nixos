@@ -79,7 +79,7 @@ in
           ctx-size = 131072;
         };
       };
-      # The model the configured local clients request.
+      # The default model clients request.
       llamaModel = "gemma-4-26b-a4b";
       llamaPort = 10100;
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {

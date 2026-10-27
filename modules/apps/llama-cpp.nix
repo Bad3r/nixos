@@ -15,8 +15,7 @@
       Without that secret, before the host's sopsRuntimeReady, or with security.repoSecrets
       disabled, it runs without a key, so the host binds a non-loopback listener only while
       `services.llama-cpp.apiKeyFile` is set.
-    * `client.*` configures `claude-local` (modules/agents/claude-code) and the Codex `local`
-      profile (modules/agents/codex).
+    * `client.*` holds the endpoint, default model, and context sizes that local clients use.
     * songbird overrides llama-cpp-cuda's `cudaCapabilities` to sm_120, so no cache serves its
       build. The host compiles it against CUDA libraries from cache.nixos-cuda.org in about 4 minutes.
 */
@@ -78,13 +77,13 @@ in
               if cfg.enable then "http://127.0.0.1:${toString config.services.llama-cpp.settings.port}" else null;
             defaultText = lib.literalExpression ''if enable then "http://127.0.0.1:''${toString config.services.llama-cpp.settings.port}" else null'';
             example = "http://songbird.internal:10100";
-            description = "Server origin for `claude-local` and the Codex `local` profile, or null to install neither.";
+            description = "Server origin local clients use, or null for none.";
           };
 
           model = lib.mkOption {
             type = lib.types.str;
             example = "gemma-4-26b-a4b";
-            description = "Model name, a section of the server's models preset, that `claude-local` and the Codex `local` profile request.";
+            description = "Model name, a section of the server's models preset, that clients request by default.";
           };
 
           contextWindows = lib.mkOption {
