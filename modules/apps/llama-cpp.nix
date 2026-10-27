@@ -17,9 +17,8 @@
       `services.llama-cpp.apiKeyFile` is set.
     * `client.*` configures `claude-local` (modules/agents/claude-code) and the Codex `local`
       profile (modules/agents/codex).
-    * The nixpkgs fork patches llama-cpp-cuda only, so no cache serves this package while the CPU
-      llama-cpp and its dependents stay cached. The host compiles it against CUDA libraries from
-      cache.nixos-cuda.org; songbird builds it for sm_120 only, in about 4 minutes.
+    * songbird overrides llama-cpp-cuda's `cudaCapabilities` to sm_120, so no cache serves its
+      build. The host compiles it against CUDA libraries from cache.nixos-cuda.org in about 4 minutes.
 */
 { config, ... }:
 let

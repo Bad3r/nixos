@@ -62,8 +62,7 @@ in
           spec-draft-hf = "magnitudedev/MiniCPM5-2B-DSpark-GGUF:DSpark";
           spec-type = "draft-dspark";
         };
-        # Its chat template rejects the mid-conversation system messages that Claude Code and Codex
-        # send; the nixpkgs fork's llama-cpp-cuda folds them into the first, untested in service.
+        # Its chat template rejects the mid-conversation system messages that Claude Code and Codex send.
         "qwen3.8-27b-gsq-mtp" = llamaVision // {
           # The IQ3_XXS file carries the MTP head; the tag names it in full, as `:IQ3_XXS` resolves to it anyway.
           hf-repo = "ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF:IQ3_XXS-mtp";

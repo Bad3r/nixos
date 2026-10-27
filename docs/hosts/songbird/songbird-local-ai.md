@@ -52,7 +52,7 @@ Each role names a section of the models preset in [services.nix](../../../module
 - `lfm2.5-24b-a2b` decodes 273 tokens per second at a 1.9k-token prompt and 230 at 31k, text only; its weaker tool picks suit bulk work, not agents.
 - `mimo-v2.6-9b` is the light vision and agent model, but it ignores a required tool choice in 5 of 9 requests, so paperless avoids it.
 - `qwen3.8-27b-gsq-mtp`'s chat template rejects the non-leading system messages that Claude Code and Codex send.
-  Claude Code passed its client checks through a proxy that folds them into the first; the nixpkgs fork's CUDA llama-cpp folds them in the server, meant to cover both clients.
+  Claude Code passed its client checks through a proxy that folds them into the first.
 - `minicpm5-2b` is the small text-only preset, and `minicpm5-2b-dspark` adds DSpark drafting, which decodes 1.5 times as fast.
 
 ## What it enables
