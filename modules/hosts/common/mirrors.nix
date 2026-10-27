@@ -69,6 +69,10 @@ let
             "mozilla/enterprise-admin-reference" # Documentation for policy behavior and syntax
             "python/cpython" # Source for docs.python.org
 
+            # Model Context Protocol
+            "modelcontextprotocol/modelcontextprotocol" # Specification and https://modelcontextprotocol.io
+            "modelcontextprotocol/python-sdk"
+
             # Applications
             "https://codeberg.org/librewolf/settings.git"
             "better-auth/better-auth"

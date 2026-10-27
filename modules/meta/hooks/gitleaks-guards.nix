@@ -1044,6 +1044,57 @@
             PRE_COMMIT_REMOTE_NAME=origin run_hook --changed
             expect_finding "root push still scans committed history"
 
+            echo "hook-gitleaks-guards: binary secrets are excluded from manual, push and audit scans"
+            git init -q --initial-branch=main "$work/binary-up"
+            printf '\0%s_%s\n' "$pat_prefix" "$pat_body" > "$work/binary-up/archive.dat"
+            git -C "$work/binary-up" add archive.dat
+            git -C "$work/binary-up" commit -qm "binary fixture"
+            new_repo "$work/binary"
+            git -C "$work/binary" -c protocol.file.allow=always \
+              submodule add -q "file://$work/binary-up" secrets
+            git -C "$work/binary" commit -qm "add binary submodule"
+            binary_base=$(git -C "$work/binary" rev-parse HEAD)
+            cd "$work/binary" && run_hook
+            expect_clean "full audit skips binary secret content"
+            printf '\0%s_%s\nchanged\n' "$pat_prefix" "$pat_body" > secrets/archive.dat
+            git -C secrets add archive.dat
+            run_hook --changed
+            expect_clean "manual scan skips staged binary secret content"
+            printf '\0%s_%s\nuntracked\n' "$pat_prefix" "$pat_body" > secrets/other.dat
+            run_hook --changed
+            expect_clean "manual scan skips untracked binary secret content"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > secrets/archive.dat
+            run_hook --changed
+            expect_finding "text worktree replacement of a staged binary"
+            git -C secrets checkout -- archive.dat
+            git -C secrets commit -qm "change binary blob"
+            git add secrets
+            git commit -qm "bump binary submodule"
+            binary_tip=$(git rev-parse HEAD)
+            run_hook_range "$binary_base" "$binary_tip"
+            expect_clean "push scan skips binary secret content"
+            printf '%s' "$hook_out" | grep -q 'scanning 0 unique changed file versions in secrets without patches' \
+              || fail "binary push did not use the changed-file scanner"
+
+            echo "hook-gitleaks-guards: submodule push detects text added and deleted before the tip"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > secrets/transient.txt
+            git -C secrets add transient.txt
+            git -C secrets commit -qm "transient text credential"
+            git -C secrets rm -q transient.txt
+            git -C secrets commit -qm "remove transient text credential"
+            printf '%s_%s\n' "$pat_prefix" "$pat_body" > secrets/transient.txt
+            git -C secrets add transient.txt
+            git -C secrets commit -qm "repeat the same text version"
+            git -C secrets rm -q transient.txt
+            git -C secrets commit -qm "remove repeated text version"
+            git add secrets
+            git commit -qm "bump past transient text credential"
+            transient_tip=$(git rev-parse HEAD)
+            run_hook_range "$binary_tip" "$transient_tip"
+            expect_finding "transient submodule text credential"
+            printf '%s' "$hook_out" | grep -q 'scanning 1 unique changed file versions in secrets without patches' \
+              || fail "transient push did not scan exactly its changed text content"
+
             echo "hook-gitleaks-guards: all history, push and changed-file fixtures passed"
             touch $out
           '';

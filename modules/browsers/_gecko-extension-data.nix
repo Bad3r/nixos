@@ -50,14 +50,14 @@ let
   # The extension ships only through AMO, whose download URL needs a per-version
   # opaque file id that cannot be derived from the version string. The pin is
   # generated from the nixpkgs connector version by
-  # scripts/update-firefoxpwa-extension.py (refreshed on flake bumps by
-  # update-flake.yml and on a schedule by update-firefoxpwa-extension.yml), so
-  # the file id is never hand-maintained. The extension and connector only need a
-  # shared major version to stay protocol-compatible (upstream checkNativeStatus
-  # reports a differing minor/patch as compatible), and the generator pins the
-  # newest published extension at or below the connector version. A stale pin
-  # (package bumped before the generator reran) fails fast below instead of
-  # silently installing a mismatched extension.
+  # scripts/update-firefoxpwa-extension.py (refreshed on a schedule by
+  # update-firefoxpwa-extension.yml), so the file id is never hand-maintained.
+  # The extension and connector only need a shared major version to stay
+  # protocol-compatible (upstream checkNativeStatus reports a differing
+  # minor/patch as compatible), and the generator pins the newest published
+  # extension at or below the connector version. A stale pin (package bumped
+  # before the generator reran) fails fast below instead of silently installing
+  # a mismatched extension.
   firefoxpwaExtensionPin = builtins.fromJSON (builtins.readFile ./_firefoxpwa-extension-pin.json);
   mkFirefoxpwaInstallUrl =
     version:

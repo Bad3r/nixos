@@ -42,12 +42,10 @@ appends the `substituters.conf` beside it to the runner's
 or drops its verification of the installed result.
 
 `cache-push.yml` triggers on `workflow_dispatch` and on pushes to `main`
-touching `flake.lock`, `modules/**`, or `packages/**`. Lock freshness rides on
-`update-flake.yml`, which opens a daily `automated/flake-update` pull request;
-merging it touches `flake.lock` and fires a push. A cache hit requires the
-exact derivation a consumer evaluates, so tracking the merged lock is what
-makes the cache usable: it holds derivations for the revision hosts evaluate
-against.
+touching `flake.lock`, `modules/**`, or `packages/**`, so a pushed lock bump
+from `./build.sh --update` fires a run. A cache hit requires the exact
+derivation a consumer evaluates, so tracking the pushed lock is what makes the
+cache usable: it holds derivations for the revision hosts evaluate against.
 
 Alternatives were considered and rejected. Attic and Harmonia reintroduce a
 server to operate, which is the dependency this design removed. FlakeHub Cache
