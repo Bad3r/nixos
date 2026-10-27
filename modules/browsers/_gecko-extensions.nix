@@ -42,6 +42,8 @@ let
     mkPrivateBrowsingPolicy
     ;
 
+  sideberySidebarCommand = "${lib.removeSuffix "-browser-action" (toWidgetId sidebery)}-sidebar-action";
+
   stylixEnabled = config.stylix.enable or false;
   stylixPolarity = config.stylix.polarity or "auto";
   stylixColors = lib.attrByPath [ "lib" "stylix" "colors" ] { } config;
@@ -166,13 +168,24 @@ let
         builtins.readFile ../stylix/icons/${name}-outline.svg
       )
     );
-  userChrome = lib.concatStrings (
-    lib.mapAttrsToList (extension: name: ''
-      #${toWidgetId extension} .unified-extensions-item-action-button {
-        list-style-image: url("file://${mkToolbarIcon name}") !important;
+  userChrome =
+    lib.concatStrings (
+      lib.mapAttrsToList (extension: name: ''
+        #${toWidgetId extension} .unified-extensions-item-action-button {
+          list-style-image: url("file://${mkToolbarIcon name}") !important;
+        }
+      '') toolbarIcons
+    )
+    + ''
+      /* Keep tabs accessible when Sidebery is closed, disabled, or unavailable. */
+      :root:has(#sidebar-box[sidebarcommand="${sideberySidebarCommand}"]:not([hidden])) #TabsToolbar {
+        display: none !important;
       }
-    '') toolbarIcons
-  );
+
+      :root:not([inFullscreen]):has(#sidebar-box[sidebarcommand="${sideberySidebarCommand}"]:not([hidden])) #nav-bar {
+        margin-top: calc(0px - var(--uc-toolbar-height));
+      }
+    '';
 
   pageActionsPersistedActions = {
     ids = [
@@ -324,7 +337,7 @@ in
       "sidebar.main.tools" = builtins.concatStringsSep "," sidebarTools;
       # SessionStore's per-window state takes precedence over this fallback.
       "sidebar.backupState" = builtins.toJSON {
-        command = "${lib.removeSuffix "-browser-action" (toWidgetId sidebery)}-sidebar-action";
+        command = sideberySidebarCommand;
         panelOpen = true;
         launcherVisible = false;
         launcherExpanded = false;
