@@ -24,6 +24,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 
 ## Network
 
+- Private SSH aliases and their 1Password public identity render through user SOPS, keeping connection details encrypted: [ssh-private-host.nix](../../../modules/hosts/songbird/ssh-private-host.nix).
 - Per-NIC and Wi-Fi `.link` units displace the default link policy so no MAC-derived altname exposes the factory address, and they pin no name, so eth0 and eth1 stay under kernel enumeration: [networking.nix](../../../modules/hosts/songbird/networking.nix).
 - A TCP range for local dev servers opens to LAN sources and on the Cloudflare Mesh interface, since Mesh counts as a local network: [policy.nix](../../../modules/hosts/songbird/policy.nix).
 - qBittorrent runs as a service inside the `torrent` network namespace, whose only route is a Proton VPN WireGuard tunnel, so a dropped tunnel leaves it no other way out: [qbittorrent.nix](../../../modules/hosts/songbird/qbittorrent.nix).
