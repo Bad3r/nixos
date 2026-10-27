@@ -23,17 +23,9 @@ toolbar#nav-bar::after {
 	--uc-toolbar-height: 38px;
 }
 
-#TabsToolbar {
-	display: none !important;
-}
-
 /* Gecko drops this tab-strip separator only under vertical tabs ([tabs-hidden]). */
 #nav-bar {
 	border-top: none !important;
-}
-
-:root:not([inFullscreen]) #nav-bar {
-	margin-top: calc(0px - var(--uc-toolbar-height));
 }
 
 #toolbar-menubar {

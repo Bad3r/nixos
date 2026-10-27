@@ -87,3 +87,8 @@ The target rules are in [Stylix Integration](stylix-integration.md).
 
 Gecko browser extensions are not sourced from NUR.
 `modules/browsers/_gecko-extension-data.nix` pins their IDs and AMO install URLs, and `modules/browsers/_gecko-extensions.nix` renders them into `ExtensionSettings` policies and per-profile extension lists.
+
+Home Manager writes browser preferences to `user.js`, which the browser reads at startup.
+A switch preserves mutable profile data, including saved windows, sidebar selection, and extension storage that has no declarative owner.
+Saved window sidebar state takes precedence over the configured startup fallback, so switching does not reopen a closed Sidebery panel.
+Open Sidebery with its toolbar button or `Ctrl+E`; the native tab strip remains available while Sidebery is closed.
