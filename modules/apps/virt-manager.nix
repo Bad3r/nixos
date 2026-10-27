@@ -10,7 +10,7 @@
     * Seeds qemu:///system as its autoconnected connection through dconf.
 
   Example Usage:
-    * `virt-manager` -- Open the manager; connecting to qemu:///system asks for admin authentication.
+    * `virt-manager` -- Open the manager; wheel members connect to qemu:///system without a password.
     * `virt-manager --connect qemu:///session` -- Manage the owner's unprivileged guests.
 
   Notes:

@@ -11,14 +11,14 @@
       Microsoft keys enrolled for domains that request enrolled-keys.
 
   Options:
-    -c qemu:///system: Connect to the system daemon; a read-write connection asks for admin authentication.
+    -c qemu:///system: Connect to the system daemon; wheel members need no password for read-write access.
     -r: Open a read-only connection, which needs no authentication.
 
   Notes:
     * Plain virsh as the owner talks to qemu:///session: no LIBVIRT_DEFAULT_URI is set, so nothing
       raises a system prompt by accident.
-    * No user joins the libvirtd group; every read-write qemu:///system connection authenticates
-      through polkit, and root connections bypass polkit.
+    * Wheel members manage system guests without a password through polkit. Other users need
+      fresh admin authentication for each read-write connection; root connections bypass polkit.
     * libvirtd and virtlockd do not restart on switch: after a libvirt bump, `systemctl restart
       libvirtd` keeps running guests (KillMode=process).
     * libvirt-guests shuts guests down on host shutdown and resumes none at boot; autostart is per
@@ -76,11 +76,12 @@ let
           };
         };
 
-        # Not libvirt's auth_admin_keep: no process in the session rides a
-        # recent authentication. Sorts ahead of the nixpkgs libvirtd-group rule.
         security.polkit.extraConfig = lib.mkBefore ''
           polkit.addRule(function(action, subject) {
             if (action.id === "org.libvirt.unix.manage") {
+              if (subject.isInGroup("wheel")) {
+                return polkit.Result.YES;
+              }
               return polkit.Result.AUTH_ADMIN;
             }
           });
