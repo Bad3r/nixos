@@ -1,14 +1,10 @@
 {
   config,
   lib,
-  secretsRoot,
   ...
 }:
 let
-  parts = map (part: secretsRoot + "/fonts/windows-office.tar.zst.part-${part}") [
-    "00"
-    "01"
-  ];
+  parts = config.flake.lib.fonts.officeParts;
   complete = builtins.all builtins.pathExists parts;
   fontPackages = config.flake.lib.fonts.packages;
 in
