@@ -76,7 +76,7 @@ in
           spec-type = "draft-mtp";
           load-on-startup = true;
         };
-        # The only DFlash drafter for it is the Qwen3.5-9B one, whose GGUF llama.cpp 0.7.0 rejects.
+        # The only DFlash drafter for it is the Qwen3.5-9B one, whose GGUF llama.cpp rejects.
         "mimo-v2.6-9b" = llamaVision // {
           hf-repo = "ggml-org/MiMo-V2.6-Distill-Qwen-9B-GGUF:Q8_0";
           ctx-size = 128000;
@@ -231,10 +231,21 @@ in
             };
           }).overrideAttrs
             (old: {
-              # The source has no .git, so CMake would report build 0, commit unknown.
               cmakeFlags = old.cmakeFlags ++ [
+                # The source has no .git, so CMake would report build 0, commit unknown.
                 (lib.cmakeFeature "LLAMA_BUILD_NUMBER" buildNumber)
                 (lib.cmakeFeature "LLAMA_BUILD_COMMIT" src.shortRev)
+                (lib.cmakeBool "LLAMA_BUILD_TESTS" false)
+                (lib.cmakeBool "LLAMA_BUILD_EXAMPLES" false)
+                # SOURCE_DATE_EPOCH turns every x86 ISA extension off with GGML_NATIVE;
+                # these are the Core Ultra 9 285K's (no AVX-512), for llama-cpp-embed on the CPU.
+                (lib.cmakeBool "GGML_SSE42" true)
+                (lib.cmakeBool "GGML_AVX" true)
+                (lib.cmakeBool "GGML_AVX2" true)
+                (lib.cmakeBool "GGML_AVX_VNNI" true)
+                (lib.cmakeBool "GGML_BMI2" true)
+                (lib.cmakeBool "GGML_FMA" true)
+                (lib.cmakeBool "GGML_F16C" true)
               ];
             });
 
