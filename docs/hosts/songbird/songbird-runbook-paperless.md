@@ -47,7 +47,7 @@ Verification: every unit is `active (running)`, step 2 prints the vector length 
 
 ## Write an export after a late switch
 
-Precondition: a switch that started or changed `paperless-exporter.timer` ran after 23:00, so the timer, which does not catch up on a missed run, waits until the next night.
+Precondition: a switch that started or changed `paperless-exporter.timer` ran after 23:00, so the timer, which has no stamp of an earlier run to catch up from, waits until the next night.
 
 1. Run the export now, so the next `r2-restic` backup carries it:
 

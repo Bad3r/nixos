@@ -189,6 +189,10 @@ in
             serviceConfig.ExecStartPost = "+${lib.getExe' pkgs.acl "setfacl"} -R -m u:${metaOwner.username}:rX ${config.services.paperless.exporter.directory}";
           };
         };
+        # Runs a 23:00 export missed while the host was off at the next boot.
+        timers.paperless-exporter = lib.mkIf config.services.paperless.enable {
+          timerConfig.Persistent = true;
+        };
       };
 
       # lock = logind Lock signal -> systemd-lock-handler -> lock.target (i3lock).
