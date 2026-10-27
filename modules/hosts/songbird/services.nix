@@ -57,7 +57,6 @@ in
         gemma-4-26b-a4b = llamaVision // {
           hf-repo = "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ3_S";
           ctx-size = 128000;
-          load-on-startup = true;
         };
         minicpm5-2b = llamaMinicpm2b;
         minicpm5-2b-dspark = llamaMinicpm2b // {
@@ -70,6 +69,7 @@ in
           hf-repo = "ISTA-DASLab/Qwen3.8-27B-GSQ-RCO-GGUF:IQ3_XXS-mtp";
           ctx-size = 65536;
           spec-type = "draft-mtp";
+          load-on-startup = true;
         };
         # The only DFlash drafter for it is the Qwen3.5-9B one, whose GGUF llama.cpp 0.7.0 rejects.
         "mimo-v2.6-9b" = llamaVision // {
@@ -82,7 +82,7 @@ in
         };
       };
       # The default model clients request.
-      llamaModel = "gemma-4-26b-a4b";
+      llamaModel = "qwen3.8-27b-gsq-mtp";
       llamaPort = 10100;
       paperlessRoot = "/data/paperless";
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {

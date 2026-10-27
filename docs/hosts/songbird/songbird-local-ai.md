@@ -51,7 +51,8 @@ People read about 5 tokens per second, so anything above 40 feels instant.
 
 Each role names a section of the models preset in [services.nix](../../../modules/hosts/songbird/services.nix), measured with llama.cpp 0.7.0 on CUDA.
 
-- `gemma-4-26b-a4b` is the default, as the only preset that passes every client, tool-call, and vision check.
+- `qwen3.8-27b-gsq-mtp` is the default: paperless suggestions pass with it and map existing tags that Gemma 4 leaves as new names.
+- `gemma-4-26b-a4b` is the only preset that passes every client, tool-call, and vision check, and suggests about 2.5 times as fast as the default.
 - `lfm2.5-24b-a2b` decodes 273 tokens per second at a 1.9k-token prompt and 230 at 31k, text only; its weaker tool picks suit bulk work, not agents.
 - `mimo-v2.6-9b` is the light vision and agent model, but it ignores a required tool choice in 5 of 9 requests, so paperless avoids it.
 - `qwen3.8-27b-gsq-mtp`'s chat template rejects system messages after the first, which agent clients commonly send.
