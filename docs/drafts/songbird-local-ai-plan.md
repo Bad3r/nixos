@@ -55,7 +55,7 @@ Owner decisions of 2026-10-26: key holders may download and delete router models
 
 ### Package and service
 
-The lock selects the fork's `nixpkgs-unstable` head `7c92858a6089f5f0ad7e62a7ea8b90fef988da47`, which adds the service fixes below and the CUDA-only system-message fold to upstream `5d62642594b0`.
+The lock selects the fork's `nixpkgs-unstable` head `ccf94403077a05ae063e66a4342fb0d5852290dc`, which adds the service fixes below and the CUDA-only system-message fold to upstream `5d62642594b0`.
 It builds llama.cpp 0.7.0, build 11669, source commit `620d222`; the CPU package keeps its stock derivation.
 The recorded benchmark workload uses llama.cpp 0.6.0, build 11429; it is not a performance or cache result for the selected package.
 Recheck source behavior and cache availability whenever the lock changes.
@@ -86,7 +86,7 @@ Songbird sets it to the same package built for capability 12.0 alone, through a 
 The fork applies its system-message fold to llama-cpp-cuda only, which already keeps cache.nixos-cuda.org from serving it; dropping the nine other architectures cuts the local compile to about 4 to 5 minutes.
 CPU llama-cpp, whisper-cpp, and ffmpeg-full keep their stock derivations and come from cache.nixos.org.
 Songbird's pkgs refuse the CUDA build until the app module allowlists `cccl`, `cuda_cudart`, `cuda_nvcc`, `libnvvm`, `cuda_crt`, `libcublas`, and `cuda_nvrtc` in `nixpkgs.allowedUnfreePackages`.
-Through Songbird's overlays and the sm_120 override, the output is `/nix/store/56shfsjz4nkmy0w7r82hxcl91r51a55r-llama-cpp-0.7.0`.
+Through Songbird's overlays and the sm_120 override, the output is `/nix/store/6b18cz21ycbz9slyfzmm97wvz9nj8cps-llama-cpp-cuda-0.7.0`.
 Gate 03 checked the stock output of its lock, `/nix/store/6avc3v3yrns0imfy308qy2zs4bgqd3gh-llama-cpp-0.7.0`.
 
 Gate 03 passed on 2026-10-26 for the main lock, before the fold patch and the sm_120 override made the package a local build.
@@ -257,7 +257,7 @@ The engine trial does not authorize deletion or promise rollback after state rem
 
 ## 8. Sources
 
-- Fork head package: <https://github.com/Bad3r/nixpkgs/blob/7c92858a6089f5f0ad7e62a7ea8b90fef988da47/pkgs/by-name/ll/llama-cpp-cuda/package.nix>
+- Fork head package: <https://github.com/Bad3r/nixpkgs/blob/ccf94403077a05ae063e66a4342fb0d5852290dc/pkgs/by-name/ll/llama-cpp-cuda/package.nix>
 - Server, router, adapters, and credentials: <https://github.com/ggml-org/llama.cpp/tree/v0.7.0/tools/server>
 - Model arguments and preset keys: <https://github.com/ggml-org/llama.cpp/blob/v0.7.0/common/arg.cpp>
 - Speculative decoding: <https://github.com/ggml-org/llama.cpp/blob/v0.7.0/docs/speculative.md>
