@@ -5,6 +5,7 @@ pkgs.writeShellScriptBin "rm" ''
   set -euo pipefail
 
   force=0
+  verbose=0
   operands=()
 
   while [ "$#" -gt 0 ]; do
@@ -21,12 +22,16 @@ pkgs.writeShellScriptBin "rm" ''
         force=1
         shift
         ;;
-      -r|-R|--recursive)
+      -r|-R|--recursive|-d|--dir)
+        shift
+        ;;
+      -v|--verbose)
+        verbose=1
         shift
         ;;
       -[!-]*)
         bundle="''${1#-}"
-        unsupported="''${bundle//[fRr]/}"
+        unsupported="''${bundle//[dfRrv]/}"
         if [ -n "$unsupported" ]; then
           echo "rm shim: unsupported rm option '$1'; use rip directly for nonstandard flags" >&2
           exit 2
@@ -34,6 +39,11 @@ pkgs.writeShellScriptBin "rm" ''
         case "$bundle" in
           *f*)
             force=1
+            ;;
+        esac
+        case "$bundle" in
+          *v*)
+            verbose=1
             ;;
         esac
         shift
@@ -52,6 +62,9 @@ pkgs.writeShellScriptBin "rm" ''
   cmd=(${lib.getExe' pkgs.trash-cli "trash-put"})
   if [ "$force" -eq 1 ]; then
     cmd+=(-f)
+  fi
+  if [ "$verbose" -eq 1 ]; then
+    cmd+=(-v)
   fi
 
   if [ "''${#operands[@]}" -eq 0 ]; then
