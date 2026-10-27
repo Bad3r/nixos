@@ -15,7 +15,7 @@
 # place of `nix flake check --no-build` because Lix forces read-only store mode
 # there), so an eval-time failure is the only thing that gates them: check.yml's
 # check-compliance job, which the workflow-level pull_request trigger runs on
-# every pull request and not only on dispatch, and update-flake.yml.
+# every pull request and not only on dispatch.
 { lib, ... }:
 {
   perSystem =
