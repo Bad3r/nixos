@@ -7,6 +7,13 @@
       ...
     }:
     let
+      isBinary = pkgs.writeText "gitleaks-is-binary.py" ''
+        import sys
+
+        with open(sys.argv[1], "rb") as source:
+            print("binary" if b"\0" in source.read(8000) else "text")
+      '';
+
       # Listed from the tree rather than restated: gitleaks-guards.nix lists
       # the same configs for its managed-config contract, and
       # gitleaks-allowlist-scope.nix derives managedGitleaksFiles the same
@@ -26,6 +33,7 @@
           pkgs.coreutils
           pkgs.gitleaks
           pkgs.git
+          pkgs.python3
         ];
         text = # bash
           ''
@@ -45,6 +53,12 @@
               git rev-parse --show-toplevel
             )
             cd "$root"
+
+            is_binary() {
+              local classification
+              classification=$(python3 ${isBinary} "$1") || exit 1
+              [ "$classification" = binary ]
+            }
 
             # --ignore-gitleaks-allow: without it a trailing `gitleaks:allow`
             # comment on the leaking line drops that finding with no config edit
@@ -233,12 +247,21 @@
                     100644\ *|100755\ *)
                       mkdir -p -- "$destination/index/$(dirname -- "$path")"
                       git_in_repo "$repo" show ":$path" > "$destination/index/$path"
-                      count=$((count + 1))
+                      if [ "$repo" = secrets ] && is_binary "$destination/index/$path"; then
+                        rm -- "$destination/index/$path"
+                        echo "hook-gitleaks: skipping binary file in $repo (index)" >&2
+                      else
+                        count=$((count + 1))
+                      fi
                       ;;
                   esac
                 done < "$snapshot/staged"
                 while IFS= read -r -d "" path; do
                   if [ -f "$repo/$path" ] && [ ! -L "$repo/$path" ]; then
+                    if [ "$repo" = secrets ] && is_binary "$repo/$path"; then
+                      echo "hook-gitleaks: skipping binary file in $repo (worktree)" >&2
+                      continue
+                    fi
                     mkdir -p -- "$destination/worktree/$(dirname -- "$path")"
                     cp -- "$repo/$path" "$destination/worktree/$path"
                     count=$((count + 1))
@@ -536,9 +559,40 @@
                   fi
                 done
                 if [ -n "$sub_log_opts" ]; then
-                  sub_args+=(--log-opts "$sub_log_opts")
-                  echo "hook-gitleaks: submodule pass scoped to $sub_log_opts, the history $sm/ newly reaches in this push" >&2
+                  snapshot=$(mktemp -d)
+                  trap 'rm -rf -- "$snapshot"' EXIT
+                  mkdir -p "$snapshot/files"
+                  read -r -a revisions <<< "$sub_log_opts"
+                  git -C "$sm" rev-list "''${revisions[@]}" > "$snapshot/commits" || exit 1
+                  declare -A seen_blobs=()
+                  count=0
+                  while IFS= read -r commit; do
+                    git -C "$sm" diff-tree --root -m --no-commit-id --raw --no-abbrev \
+                      --no-textconv --no-ext-diff --no-renames -r -z "$commit" > "$snapshot/paths" || exit 1
+                    while IFS= read -r -d "" entry <&3; do
+                      IFS= read -r -d "" path <&3 || exit 1
+                      read -r _oldmode mode _oldblob blob _change <<< "''${entry#:}"
+                      case "$mode" in 100644|100755) ;; *) continue ;; esac
+                      key="$blob:$path"
+                      [ -z "''${seen_blobs[$key]+set}" ] || continue
+                      seen_blobs[$key]=1
+                      parent="''${path%/*}"
+                      [ "$parent" != "$path" ] || parent=.
+                      mkdir -p -- "$snapshot/files/$commit/$parent" || exit 1
+                      git -C "$sm" cat-file blob "$blob" > "$snapshot/files/$commit/$path" || exit 1
+                      if [ "$sm" = secrets ] && is_binary "$snapshot/files/$commit/$path"; then
+                        rm -- "$snapshot/files/$commit/$path" || exit 1
+                        echo "hook-gitleaks: skipping binary blob in $sm" >&2
+                        continue
+                      fi
+                      count=$((count + 1))
+                    done 3< "$snapshot/paths"
+                  done < "$snapshot/commits"
+                  echo "hook-gitleaks: submodule pass scoped to $sub_log_opts; scanning $count unique changed file versions in $sm without patches" >&2
+                  gitleaks dir "''${sub_args[@]}" "$snapshot/files"
+                  exit "$?"
                 fi
+                sub_args+=(--log-opts "--full-history --all --no-text --no-textconv --no-ext-diff")
                 # Built after the history guard above rather than before it, for
                 # the reason the superproject's announcement moved below its own
                 # guards: a shallow gitlink can still carry a committed

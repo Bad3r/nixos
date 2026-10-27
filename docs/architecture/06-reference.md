@@ -33,6 +33,9 @@ second exclusion for the pushed ref, and each gitlink to the commits its pointer
 newly reaches across that same set, so a push does not re-read history it has
 already published and a second pushed ref is not left unscanned. Every reduced
 scope is named in the hook's own output.
+Submodule push scans inspect unique changed file contents across those commits without parsing patches, including versions later replaced or deleted.
+Manual and push scans skip binary content in `secrets`, detected by a NUL byte in the first 8,000 bytes.
+The full-history audit also disables Git's text conversion and forced text diffs so binary patches are excluded.
 
 The full sweep runs without `--changed` or push variables, as invoked by `.github/workflows/check.yml` and this command:
 
