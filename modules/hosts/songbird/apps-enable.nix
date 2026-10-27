@@ -42,6 +42,7 @@ let
     imhex = true;
     jadx = true;
     "llama-cpp" = true;
+    "qwen-code" = true;
     malimite = true;
     mono = true;
     "pentesting-devshell" = true;
