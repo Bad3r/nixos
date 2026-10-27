@@ -310,6 +310,8 @@
   - Running an ad-hoc virt-manager guest from a staged ISO, and dropping the ISO.
 - [hosts/songbird/songbird-runbook-win11.md](hosts/songbird/songbird-runbook-win11.md)
   - Installing, activating, adding Office to, and finishing the `win11` guest.
+- [hosts/songbird/songbird-runbook-win11-use.md](hosts/songbird/songbird-runbook-win11-use.md)
+  - Desktop access, SSH commands, file exchange, power controls, and diagnostics for the installed persistent `win11` VM.
 - [hosts/songbird/songbird-troubleshooting.md](hosts/songbird/songbird-troubleshooting.md)
   - Known failures on `songbird` by symptom, each with its cause, diagnostic, and fix.
 - [hosts/songbird/songbird-troubleshooting-file-sharing.md](hosts/songbird/songbird-troubleshooting-file-sharing.md)
