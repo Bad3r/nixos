@@ -179,6 +179,13 @@ in
               _firewallLocalNetworkCidrs
               ++ lib.optional config.programs.cloudflare-warp.extended.enable meshRange;
           };
+          # tmpfiles refuses a hop from the vx-owned /data into a foreign-owned child, and its
+          # implicit parent creation would leave paperlessRoot root-owned.
+          paperless-secret-key = lib.mkIf config.services.paperless.enable {
+            serviceConfig.ExecStartPre = lib.mkBefore [
+              "+${config.systemd.package}/bin/systemd-tmpfiles --create ${pkgs.writeText "paperless-root.conf" "d '${paperlessRoot}' 0755 ${metaOwner.username} users - -"}"
+            ];
+          };
           # The owner drops scans into the inbox; the default ACL lets paperless read them under any umask.
           paperless-consumer = lib.mkIf config.services.paperless.enable {
             serviceConfig.ExecStartPre = "+${lib.getExe' pkgs.acl "setfacl"} -m u:${metaOwner.username}:rwx,d:u:${metaOwner.username}:rwx,d:u:${config.services.paperless.user}:rwx ${config.services.paperless.consumptionDir}";
