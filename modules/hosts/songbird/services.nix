@@ -78,10 +78,12 @@ in
           spec-type = "draft-mtp";
           load-on-startup = true;
         };
-        # The only DFlash drafter for it is the Qwen3.5-9B one, whose GGUF llama.cpp rejects.
-        "mimo-v2.6-9b" = llamaVision // {
-          hf-repo = "ggml-org/MiMo-V2.6-Distill-Qwen-9B-GGUF:Q8_0";
-          ctx-size = 128000;
+        "ornith-1.5-9b" = llamaVision // {
+          hf-repo = "ornith-ai/Ornith-1.5-9B-GGUF:Q8_0";
+          ctx-size = 131072;
+          # The GGUF's template silently drops system messages after the first two; this copy renders them in place.
+          chat-template-file = "${./ornith-1.5-9b-chat-template.jinja}";
+          spec-type = "draft-mtp";
         };
         "lfm2.5-24b-a2b" = llamaCommon // {
           hf-repo = "unsloth/LFM2.5-24B-A2B-GGUF:UD-Q3_K_XL";
