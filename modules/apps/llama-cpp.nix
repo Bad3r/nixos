@@ -59,7 +59,6 @@ in
         && lib.attrByPath [ "security" "repoSecrets" "enable" ] true config
         && builtins.pathExists apiKeySecretFile;
       keyNeeded = cfg.enable || cfg.client.endpoint != null;
-      ownerHome = config.home-manager.users.${owner} or null;
     in
     {
       options.programs.llama-cpp.extended = {
@@ -129,16 +128,6 @@ in
             mode = "0400";
             restartUnits = lib.optional cfg.enable "llama-cpp.service";
           };
-        })
-
-        (lib.mkIf (cfg.client.endpoint != null && ownerHome != null) {
-          assertions = [
-            {
-              assertion =
-                !(config.programs.codex.extended.enable or false) || ownerHome.home.activation ? codexLocalProfile;
-              message = "programs.llama-cpp.extended.client.endpoint is set, but modules/agents/codex writes no local profile; it reads the client options from another path.";
-            }
-          ];
         })
 
         (lib.mkIf (cfg.enable && !apiKeyReady) {

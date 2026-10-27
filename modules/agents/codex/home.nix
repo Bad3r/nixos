@@ -30,8 +30,6 @@
       - projects.nix.toml: nix-managed trusted project paths (read-only)
       - trusted-projects.toml: user-managed trusted project paths (mutable)
       - overrides.toml: optional user settings, merged last (mutable)
-    * `codex -p local` layers local.config.toml, a copy generated from the llama.cpp endpoint in
-      programs.llama-cpp.extended.client (modules/apps/llama-cpp.nix).
     * Execpolicy is separate from config.toml and is loaded from the rules/ directory under CODEX_HOME.
       The nix-managed layer is written to codex/rules/20-managed.rules.
     * To trust a new project, add it to ~/.config/codex/trusted-projects.toml:
@@ -104,33 +102,6 @@ _: {
       codexSkillDirs = lib.mapAttrs' (
         name: skill: lib.nameValuePair "agents/skills/${name}" { source = (skill.codex pkgs).dir; }
       ) (lib.filterAttrs (_name: skill: skill ? codex && skill.enabledOn osConfig) agents.skills.list);
-
-      localClient = lib.attrByPath [ "programs" "llama-cpp" "extended" "client" ] {
-        endpoint = null;
-      } osConfig;
-
-      # Layered over config.toml by `codex -p local`. Codex has no metadata for
-      # local model names and otherwise assumes a cloud-sized context window.
-      codexLocalProfile = (pkgs.formats.toml { }).generate "codex-local.config.toml" {
-        inherit (localClient) model;
-        review_model = localClient.model;
-        model_provider = "llama-cpp";
-        model_context_window = localClient.contextWindow;
-        # The flag gates startup extraction; generate_memories excludes local threads from it.
-        features.memories = false;
-        memories.generate_memories = false;
-        model_providers.llama-cpp = {
-          name = "llama.cpp";
-          base_url = "${localClient.endpoint}/v1";
-          wire_api = "responses";
-        }
-        // lib.optionalAttrs (localClient.apiKeyFile != null) {
-          auth = {
-            command = lib.getExe' pkgs.coreutils "cat";
-            args = [ localClient.apiKeyFile ];
-          };
-        };
-      };
     in
     {
       config = lib.mkIf nixosEnabled {
@@ -219,12 +190,6 @@ _: {
 
               run mkdir -p "${agentsDir}/skills"
               run ln -sfnT "${agentsDir}" "$agentsHome"
-            '';
-          }
-          // lib.optionalAttrs (localClient.endpoint != null) {
-            # A copy, not a store link: under `-p local` Codex saves config edits to the profile.
-            codexLocalProfile = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
-              run install -D -m 0644 ${codexLocalProfile} "${configDir}/local.config.toml"
             '';
           };
 
