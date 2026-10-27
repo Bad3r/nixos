@@ -92,7 +92,6 @@ let
     (toWidgetId printEdit)
     (toWidgetId savePage)
     (toWidgetId foxyproxy)
-    (toWidgetId sidebery)
   ];
 
   navBarWidgets = [
@@ -105,6 +104,7 @@ let
     "developer-button"
     (toWidgetId ublockOrigin)
     "urlbar-container"
+    (toWidgetId sidebery)
     (toWidgetId raindrop)
     (toWidgetId onePassword)
     "unified-extensions-button"
@@ -118,7 +118,7 @@ let
     "unified-extensions-area" = unifiedExtensionsArea;
     "nav-bar" = navBarWidgets;
     "toolbar-menubar" = [ "menubar-items" ];
-    # userChrome.css hides this strip; Sidebery lists the tabs in the sidebar.
+    # userChrome.css hides this strip while Sidebery is open.
     TabsToolbar = [
       "tabbrowser-tabs"
       "new-tab-button"
@@ -131,6 +131,7 @@ let
     (toWidgetId onePassword)
     (toWidgetId raindrop)
     (toWidgetId ublockOrigin)
+    (toWidgetId sidebery)
     "developer-button"
     "screenshot-button"
   ];
@@ -321,6 +322,13 @@ in
     {
       "sidebar.installed.extensions" = builtins.concatStringsSep "," sidebarExtensionIds;
       "sidebar.main.tools" = builtins.concatStringsSep "," sidebarTools;
+      # SessionStore's per-window state takes precedence over this fallback.
+      "sidebar.backupState" = builtins.toJSON {
+        command = "${lib.removeSuffix "-browser-action" (toWidgetId sidebery)}-sidebar-action";
+        panelOpen = true;
+        launcherVisible = false;
+        launcherExpanded = false;
+      };
     };
 
   toolbarSettings = {

@@ -23,7 +23,12 @@ toolbar#nav-bar::after {
 	--uc-toolbar-height: 38px;
 }
 
-#TabsToolbar {
+/* Keep tabs accessible when Sidebery is closed, disabled, or unavailable. */
+:root:has(
+	#sidebar-box[sidebarcommand="_3c078156-979c-498b-8990-85f7987dd929_-sidebar-action"]:not(
+			[hidden]
+		)
+) #TabsToolbar {
 	display: none !important;
 }
 
@@ -32,7 +37,12 @@ toolbar#nav-bar::after {
 	border-top: none !important;
 }
 
-:root:not([inFullscreen]) #nav-bar {
+:root:not([inFullscreen]):has(
+		#sidebar-box[sidebarcommand="_3c078156-979c-498b-8990-85f7987dd929_-sidebar-action"]:not(
+				[hidden]
+			)
+	)
+	#nav-bar {
 	margin-top: calc(0px - var(--uc-toolbar-height));
 }
 
