@@ -28,7 +28,7 @@ in
         runtimeReady = (hostsRegistry.${hostName} or { }).sopsRuntimeReady or false;
         installReady = archiveExists && runtimeReady;
         installDir = "/var/lib/fonts/windows-office";
-        archiveFiles = map archivePart parts;
+        archiveFiles = map (part: "${archivePart part}") parts;
         installSecretsDeps = sopsInstallSecretsDeps config;
       in
       {
@@ -89,7 +89,7 @@ in
               Restart = "on-failure";
             };
             script = ''
-              fontArchives=( ${lib.escapeShellArgs (map toString archiveFiles)} )
+              fontArchives=( ${lib.escapeShellArgs archiveFiles} )
             ''
             + builtins.readFile ./_office-fonts-install.sh;
           };
