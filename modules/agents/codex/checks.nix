@@ -64,16 +64,18 @@ in
         ];
     in
     {
-      checks."codex/local-config" = pkgs.runCommandLocal "codex-local-config-check" { } ''
-        mkdir -p "$PWD/codex-local"
-        ln -s ${local.baseConfigFile} "$PWD/codex-local/config.base.toml"
-        ln -s ${runtime.nixProjectsFile} "$PWD/codex-local/projects.nix.toml"
-        touch "$PWD/codex-local/trusted-projects.toml"
+      checks."codex/local-config" =
+        pkgs.runCommandLocal "codex-local-config-check" { passthru.runtimeCheck = true; }
+          ''
+            mkdir -p "$PWD/codex-local"
+            ln -s ${local.baseConfigFile} "$PWD/codex-local/config.base.toml"
+            ln -s ${runtime.nixProjectsFile} "$PWD/codex-local/projects.nix.toml"
+            touch "$PWD/codex-local/trusted-projects.toml"
 
-        env CODEX_HOME="$PWD/codex-local" \
-          ${lib.getExe runtime.codexWrapped} --strict-config app-server --stdio < /dev/null
-        touch "$out"
-      '';
+            env CODEX_HOME="$PWD/codex-local" \
+              ${lib.getExe runtime.codexWrapped} --strict-config app-server --stdio < /dev/null
+            touch "$out"
+          '';
 
       checks."codex/config" =
         assert lib.assertMsg (
