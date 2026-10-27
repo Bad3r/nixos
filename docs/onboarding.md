@@ -105,4 +105,4 @@ Packaging machinery in Python:
 
 CI and shell tooling:
 
-- `.github/scripts/upstream-tracker.sh`, `.github/workflows/{check,update-flake}.yml`, `scripts/gh-cli/pr-comments-mgmt.sh`, and `scripts/url-catalog-add.py`.
+- `.github/scripts/upstream-tracker.sh`, `.github/workflows/check.yml`, `scripts/gh-cli/pr-comments-mgmt.sh`, and `scripts/url-catalog-add.py`.
