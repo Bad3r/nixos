@@ -1,4 +1,9 @@
-{ config, secretsRoot, ... }:
+{
+  config,
+  inputs,
+  secretsRoot,
+  ...
+}:
 let
   inherit (config.flake.lib.nixos) _firewallLocalNetworkCidrs;
   sambaSecretFile = secretsRoot + "/songbird.yaml";
@@ -206,16 +211,32 @@ in
       services.logind.settings.Login.HandlePowerKey = "lock";
 
       programs.llama-cpp.extended = {
-        # Only for the RTX 5080 (sm_120), the host's one GPU.
-        package = pkgs.llama-cpp-cuda.override {
-          llama-cpp = pkgs.llama-cpp.override {
+        # Only for the RTX 5080 (sm_120), the host's one GPU. The flake's
+        # packages.cuda imports its own nixpkgs for every capability, so the
+        # scope is built from this host's pkgs instead.
+        package =
+          let
+            src = inputs.llama-cpp;
+            buildNumber = toString src.revCount;
+            llamaPackages = pkgs.callPackage "${src}/.devops/nix/scope.nix" {
+              llamaVersion = buildNumber;
+            };
+          in
+          (llamaPackages.llama-cpp.override {
+            useCuda = true;
             cudaPackages = pkgs.cudaPackages.override {
               config = pkgs.config // {
                 cudaCapabilities = [ "12.0" ];
               };
             };
-          };
-        };
+          }).overrideAttrs
+            (old: {
+              # The source has no .git, so CMake would report build 0, commit unknown.
+              cmakeFlags = old.cmakeFlags ++ [
+                (lib.cmakeFeature "LLAMA_BUILD_NUMBER" buildNumber)
+                (lib.cmakeFeature "LLAMA_BUILD_COMMIT" src.shortRev)
+              ];
+            });
 
         client = {
           model = llamaModel;

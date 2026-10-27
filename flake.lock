@@ -675,6 +675,29 @@
         "type": "github"
       }
     },
+    "llama-cpp": {
+      "inputs": {
+        "flake-parts": [
+          "flake-parts"
+        ],
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1793126524,
+        "narHash": "sha256-qhfEsOvwDNHZhVk5nhZzI5cwpc0vqekxIMEnODXvh5k=",
+        "ref": "refs/heads/master",
+        "rev": "338fce6511c744893cc0d3d958b275f40552c7a4",
+        "revCount": 11942,
+        "type": "git",
+        "url": "https://github.com/ggml-org/llama.cpp"
+      },
+      "original": {
+        "type": "git",
+        "url": "https://github.com/ggml-org/llama.cpp"
+      }
+    },
     "llm-agents": {
       "inputs": {
         "bun2nix": "bun2nix",
@@ -1194,6 +1217,7 @@
         "git-hooks": "git-hooks",
         "home-manager": "home-manager",
         "import-tree": "import-tree",
+        "llama-cpp": "llama-cpp",
         "llm-agents": "llm-agents",
         "make-shell": "make-shell",
         "mcp-servers-nix": "mcp-servers-nix",

@@ -37,6 +37,15 @@
       url = "github:vic/import-tree";
     };
 
+    llama-cpp = {
+      # git+https, unlike github:, gives revCount: llama.cpp's build number.
+      url = "git+https://github.com/ggml-org/llama.cpp";
+      inputs = {
+        flake-parts.follows = "flake-parts";
+        nixpkgs.follows = "nixpkgs";
+      };
+    };
+
     llm-agents = {
       url = "github:Bad3r/llm-agents.nix";
       inputs = {

@@ -9,6 +9,7 @@ The RTX 5080 runs open-weight models on songbird, so chat, coding side work, spe
 ## How models are served
 
 - The `llama-cpp` system service runs llama.cpp's `llama-server` with CUDA from [llama-cpp.nix](../../../modules/apps/llama-cpp.nix), so it serves without a login and without `/data`.
+- `llama-server` builds from llama.cpp master through the `llama-cpp` flake input, so updating that input brings in models upstream merged since the last update.
 - In router mode it keeps one model loaded, in a child process, and swaps models when a request names another preset entry from [services.nix](../../../modules/hosts/songbird/services.nix).
 - Models download from Hugging Face on first load into `/var/cache/llama-cpp` on disk A.
 - One port serves the OpenAI and Anthropic APIs and the web UI to loopback, the LAN, and the Mesh; every request except health checks and web UI assets needs the sops API key.
