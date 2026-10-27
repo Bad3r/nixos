@@ -47,6 +47,7 @@ People read about 5 tokens per second, so anything above 40 feels instant.
 ## What it enables
 
 - A private assistant: chat, image questions, and document questions with Qwen3.8 27B or Gemma 4, also served to the iPhone over the Mesh.
+- Coding agent work in qwen-code against the default local model.
 - Side work for Claude Code and Codex: commit messages, summaries, log triage, classification, and anything whose data must stay on the host.
 - Local code search and next-edit completion with small embedding and completion models.
 - Speech: push-to-talk dictation, meeting transcripts with speaker labels, and text to speech with voice cloning.
@@ -57,6 +58,7 @@ People read about 5 tokens per second, so anything above 40 feels instant.
 ## Limits
 
 - Long multi-file engineering stays with hosted frontier models, which lead every model that fits by a wide margin on the Artificial Analysis Intelligence Index.
+- Claude Code and Codex run only against hosted models; local agent work runs in qwen-code, which is built for OpenAI-compatible servers.
 - One engine owns the GPU at a time: language, image, and speech models share the same 16 GB, and a second engine evicts or starves the first.
 - Models whose 4-bit file exceeds about 40 GB, such as GLM-5.3, Kimi K3, and Qwen3.5 122B-A10B, fit in neither VRAM nor the RAM the desktop leaves free.
 - The PCIe 4.0 link in [songbird-hardware.md](songbird-hardware.md) slows prefill whenever weights stream from RAM.

@@ -7,15 +7,15 @@ Scope: replace Magnitude with llama.cpp, declare LACT settings, and retain the h
 ## 1. Goal
 
 Songbird runs open-weight models on its RTX 5080 through one default engine, llama.cpp's `llama-server`.
-It serves `claude-local` and `codex -p local` locally, and its web UI serves the LAN and the iPhone over the Cloudflare Mesh behind a sops-managed key.
+It serves qwen-code locally, and its web UI serves the LAN and the iPhone over the Cloudflare Mesh behind a sops-managed key.
 The implementation removes Magnitude's module, service, firewall entry, secret wiring, and usage documentation together.
 
 ## 2. Acceptance criteria
 
 1. Only the selected inference engine holds the GPU; the desktop remains usable.
-2. `claude-local -p 'Reply with the word ready'` prints `ready` on Songbird.
-3. `codex exec -p local --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `ready` on Songbird.
-4. Both clients complete a multi-turn tool call and consume its result through the intended local provider.
+2. `qwen -p 'Reply with the word ready'` prints `ready` on Songbird.
+3. Claude Code and Codex carry no local client; they stay on hosted models.
+4. qwen-code completes a multi-turn tool call and consumes its result through the local provider.
 5. The iPhone authenticates to the web UI and receives an answer about an attached photo.
 6. Requests without the key get HTTP 401 on every inference endpoint of the authenticated listener, over the LAN, the Mesh, and loopback.
 7. The selected CUDA package and its dependencies substitute from approved caches; missing coverage blocks rollout instead of silently compiling CUDA.
@@ -154,22 +154,11 @@ If the measured boundary exceeds O8, stop and resolve it before deploying the ro
 
 ### Clients
 
-Move `endpoint`, `model`, `contextWindow`, and `apiKeyFile` into `programs.llama-cpp.extended.client`.
-Update `modules/agents/claude-code/home.nix`, its `_launcher.nix`, and `modules/agents/codex/home.nix` together.
-Both consumers use a null endpoint fallback; assert or test that a non-null endpoint produces both local clients so a missed rename cannot silently remove them.
-Preserve launcher behavior, configuration layering, and daemon startup while changing the provider wiring.
-
-Claude's base URL becomes the bare server origin for `/v1/messages`; retain the bearer token, explicit context size, and every model-slot override.
-The adapter maps a named `tool_choice` to `required`, only maps `thinking.type = "enabled"`, and represents tools as functions, using empty schemas when `input_schema` is absent.
+`programs.llama-cpp.extended.client` holds `endpoint`, `model`, `contextWindow`, and `apiKeyFile`, and qwen-code (`modules/apps/qwen-code.nix`) consumes them.
+Its system defaults select the OpenAI chat-completions provider at the endpoint plus `/v1`, the client model, its context window, and approvals by the user.
+The `qwen` launcher reads the key file at launch, so the key never enters the store.
+Claude Code and Codex have no local launcher or profile.
 Exercise actual client tool calls rather than treating HTTP 200 as full compatibility.
-
-Preserve Codex's `wire_api = "responses"`, local `model` and `review_model`, and key-file `cat` authentication with a separate path argument.
-Use a non-reserved provider ID and a base URL ending in `/v1`.
-Preserve both `features.memories = false` and `memories.generate_memories = false`; verify the pinned client's behavior without claiming these exclude every possible source of context.
-The Responses adapter rejects nonempty `previous_response_id`, `input_file`, and unknown item types, and drops non-function tools.
-Test fresh one-shot execution and interactive/profile startup, including shared-daemon behavior and persistent configuration overrides.
-Exercise a harmless request that triggers automatic approval review and verify that subsystem's provider and context handling separately.
-Setting `review_model` does not by itself prove where automatic approval-review traffic goes; resolve any unintended hosted routing before accepting private local use.
 Keep client context limits consistent with the selected model's server context.
 The iPhone uses the authenticated built-in web UI, replacing the ad hoc runbook server after deployment.
 
@@ -214,12 +203,11 @@ The store-managed configuration must preserve the intended settings after restar
 
 Explicitly stop Magnitude Desktop, `magnitude-server`, and ad hoc GPU processes before starting the system service.
 After switching, check the removed user unit is stopped; a successful NixOS activation does not prove user-manager state.
-Do not remove the generated Codex local profile during cleanup; activation owns its contents.
 
 ## 6. Validation gates
 
 01. Targeted formatting and hooks for the edited files; a secrets-guard sweep precedes unfiltered `path:` evaluation.
-02. Structural evaluation: `nix flake check path:. --accept-flake-config --no-build --offline`, including registry and client-presence checks.
+02. Structural evaluation: `nix flake check path:. --accept-flake-config --no-build --offline`, including registry checks.
 03. Cache coverage, signature verification, and a fresh-store build plan for the actual selected package and dependencies.
 04. Build Songbird only: `nix build "path:.#nixosConfigurations.songbird.config.system.build.toplevel"` after the cache gate.
 05. Runtime: service active without desktop login or `/data`; GPU occupancy, crash recovery, configuration restart, and model switching all behave as intended.
