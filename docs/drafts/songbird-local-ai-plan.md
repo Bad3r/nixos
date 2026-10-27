@@ -108,7 +108,7 @@ Clients must name a preset model, and the web UI must offer the expected choices
 Each section sets `hf-repo` to the repository or `repo:quant`; use the separate `hf-file` key for an exact GGUF filename.
 The section name is the model ID clients send, and the router sets it as the child's alias, so sections carry no `alias` key.
 Set the context, GPU layers, optional drafter, and idle timeout explicitly; set both `ctk` and `ctv` to `q8_0`.
-Use one parallel slot per model before equating the client context window with the server context, and verify the accepted context at runtime.
+Use one parallel slot per model, and set each client context window 8192 tokens under the server context, leaving room for a tool result that lands after the clients' last compaction check; verify the accepted context at runtime.
 Keep per-model choices in the preset: router CLI parameters override matching preset values.
 An unknown preset key is fatal at startup.
 Only the default's section, Gemma 4 26B-A4B, uses `load-on-startup`, keeping startup loads within the one-model cap; downloads should finish before the client trial.
