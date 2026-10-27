@@ -33,7 +33,7 @@ Installers run from `C:\ProgramData\workloads` as SYSTEM, so `firstlogon.ps1` re
 
 A libvirt hook queues `workloads-provision@<name>.service` when the guest starts or libvirtd reconnects to it, and stops the unit when the guest stops.
 libvirtd looks for qemu hooks only when it starts, so the hook is installed on every host with libvirtd, Windows guests or not, and does nothing without them.
-A libvirtd that started before the hook existed ignores it until it restarts, as [workloads-provision never starts](#workloads-provision-never-starts) describes.
+A libvirtd that started before the hook existed ignores it until it restarts, as [workloads-provision never starts](windows-troubleshooting.md#workloads-provision-never-starts) describes.
 The active unit stands for a provisioned run of the guest; a switch never restarts it, so changed steps run at the next start of the guest.
 
 While the OS disk is still empty, the unit presses Enter for the installer's boot prompt.
@@ -75,10 +75,10 @@ The provisioning unit reads them as root at runtime, so no secret enters the sto
 
 Precondition: the guest is shut off without a managed save image.
 
-1. From a session on the host, start the copy and authenticate at the prompt:
+1. From a session on the host, start the copy:
 
    ```sh
-   systemctl start workloads-golden@<name>.service
+   sudo systemctl start workloads-golden@<name>.service
    ```
 
 2. Read its log:
@@ -111,41 +111,4 @@ Precondition: the guest is shut off without a managed save image.
 
 Verification: the guest boots into the golden state; `guests/<uuid>.replaced` stays until deleted by hand.
 
-## A Windows guest stays undefined
-
-Cause: the seed out-link is missing or older than the declaration, or an install medium is not staged.
-
-```sh
-journalctl -u workloads-vm-guest-<name>.service -b -p warning
-```
-
-Fix: run the commands the warning names, which build the seed and restart the media and guest units.
-
-## workloads-provision fails
-
-Cause: a step failed in the guest, `firstlogon.ps1` failed, or the guest agent refused a command.
-
-```sh
-journalctl -u workloads-provision@<name>.service -b
-```
-
-Fix: a `firstlogon.ps1` failure quotes its error, and `C:\ProgramData\workloads\firstlogon.log` has the rest.
-A guest shut down while `firstlogon.ps1` ran leaves neither marker, and the unit times out.
-After fixing the cause on the console, delete any `firstlogon.failed`, run `powershell -ExecutionPolicy Bypass -File <drive>:\firstlogon.ps1` from the `XSEED` drive in an administrator console, and restart the unit.
-A failed password step means the guest agent cannot set passwords, and the account keeps its blank password until it can.
-
-## workloads-provision never starts
-
-Cause: libvirtd started before any qemu hook existed, so it never calls one; a reload does not look for hooks again.
-
-```sh
-ls -l /var/lib/libvirt/hooks/qemu.d/
-systemctl status 'workloads-provision@*'
-```
-
-Fix: restart libvirtd.
-Running guests keep running, and libvirtd reconnects to them, which queues their provisioning:
-
-```sh
-sudo systemctl restart libvirtd.service
-```
+[Windows guest troubleshooting](windows-troubleshooting.md) covers definition and provisioning failures.

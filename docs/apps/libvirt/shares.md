@@ -80,7 +80,7 @@ On NixOS and Linux guests, [runtime shares](../../networking/workload-shares.md)
 
 Each running `virtiofs.exe` remounts itself whenever any virtio-fs device arrives, which can break shares that are already mounted, until provisioning restarts them ([virtio-win issue 1698](https://github.com/virtio-win/kvm-guest-drivers-windows/issues/1698)).
 `workloads share` therefore refuses Windows guests.
-On a Windows guest, attach as the owner, answering the admin prompt, then restart provisioning, which restarts every launcher instance:
+On a Windows guest, attach as the owner, then restart provisioning, which restarts every launcher instance:
 
 ```sh
 virsh -c qemu:///system attach-device <name> /etc/workloads/shares/<name>/<tag>.xml --live

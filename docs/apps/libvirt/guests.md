@@ -45,7 +45,7 @@ _: {
 | [Shares](shares.md)       | declared      | none           |
 
 An untrusted guest gets a clipboard, and with it the SPICE agent channel, only with `clipboard = true` and `allowUntrustedClipboard = true`.
-A SPICE console listens on a unix socket only, so opening it goes through an authenticated libvirt connection.
+A SPICE console listens on a unix socket only, so opening it goes through a libvirt connection authorized by polkit.
 `display = "headless"` drops the SPICE console and leaves the serial console; the guest agent channel follows `guestAgent` either way.
 
 ## How a guest is applied

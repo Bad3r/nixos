@@ -42,7 +42,7 @@ Precondition: `/data` is unlocked and `secrets/workloads.yaml` exists; the pipel
    journalctl -u workloads-vm-media.service -u workloads-vm-guest-win11.service -b -p warning
    ```
 
-4. Start the guest, which starts provisioning, and watch it, authenticating at each prompt:
+4. Start the guest, which starts provisioning, and watch it:
 
    ```sh
    virsh -c qemu:///system start win11
@@ -125,10 +125,10 @@ Verification: `ls /var/lib/workloads/media/` omits `win11-iso`, and `virsh -r -c
 
 Precondition: songbird passed a full memtest86+ run in person, and win11 is shut off.
 
-1. Start the copy as the owner, authenticating at the prompt, as in [Take a golden copy](../../apps/libvirt/windows.md#take-a-golden-copy):
+1. Start the copy as the owner, as in [Take a golden copy](../../apps/libvirt/windows.md#take-a-golden-copy):
 
    ```sh
-   systemctl start workloads-golden@win11.service
+   sudo systemctl start workloads-golden@win11.service
    ```
 
 Verification: `journalctl -u workloads-golden@win11.service -b` ends with `copied guest 'win11'`.
