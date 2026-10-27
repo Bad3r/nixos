@@ -87,6 +87,7 @@ in
               Group = "root";
               UMask = "0077";
               Restart = "on-failure";
+              RemainAfterExit = true;
             };
             script = ''
               fontArchives=( ${lib.escapeShellArgs archiveFiles} )
