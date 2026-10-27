@@ -211,9 +211,6 @@ _: {
           # User-level Codex instructions under XDG config home
           "codex/AGENTS.md".text = codexInstructions;
         }
-        // lib.optionalAttrs (localClient.endpoint != null) {
-          "codex/local-models.json".source = codexLocalCatalog;
-        }
         # Skills (user-scoped, discovered by SkillsManager at ~/.agents/skills/)
         // codexSkillDirs;
       };

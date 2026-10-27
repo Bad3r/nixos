@@ -15,7 +15,7 @@
       Without that secret, before the host's sopsRuntimeReady, or with security.repoSecrets
       disabled, it runs without a key, so the host binds a non-loopback listener only while
       `services.llama-cpp.apiKeyFile` is set.
-    * `client.*` holds the endpoint, default model, and context sizes that local clients use.
+    * `client.*` holds the endpoint, default model, context sizes, and API key that local clients use.
     * songbird overrides llama-cpp-cuda's `cudaCapabilities` to sm_120, so no cache serves its
       build. The host compiles it against CUDA libraries from cache.nixos-cuda.org in about 4 minutes.
 */
@@ -59,7 +59,6 @@ in
         && lib.attrByPath [ "security" "repoSecrets" "enable" ] true config
         && builtins.pathExists apiKeySecretFile;
       keyNeeded = cfg.enable || cfg.client.endpoint != null;
-      ownerHome = config.home-manager.users.${owner} or null;
       consumerSecret = name: "llama-cpp/${name}-api-key";
       consumerSecrets = map consumerSecret (lib.attrNames cfg.apiKeys);
       # llama-server reads one key per line; the placeholders render without a trailing newline.
@@ -153,18 +152,20 @@ in
             description = "Model name, a section of the server's models preset, that clients request by default.";
           };
 
-          contextWindows = lib.mkOption {
+          models = lib.mkOption {
             type = lib.types.attrsOf lib.types.ints.positive;
-            default = { };
+            default = {
+              ${cfg.client.model} = 128000;
+            };
+            defaultText = lib.literalExpression "{ \${client.model} = 128000; }";
             example = {
               gemma-4-26b-a4b = 119808;
             };
             description = ''
-              Context size, in tokens, that the clients compact within, per model name the
-              clients may request; it must cover `model`. harnesses commonly assume a
-              larger window for unknown model names; keep each some thousands of tokens
-              under the server's context for that model, because llama-server's
-              over-context error may not trigger the clients' reactive compaction.
+              Context size, in tokens, per model of the server's models preset that
+              clients may request, keyed by section name. Clients compact within it
+              and otherwise guess the window from the model name; keep each within the
+              server's context for the model.
             '';
           };
 
@@ -295,31 +296,6 @@ in
             mode = "0400";
             restartUnits = lib.optional cfg.enable "llama-cpp.service";
           };
-        })
-
-        (lib.mkIf (cfg.client.endpoint != null) {
-          assertions = [
-            {
-              assertion = cfg.client.contextWindows ? ${cfg.client.model};
-              message = "programs.llama-cpp.extended.client.contextWindows has no entry for client.model ${cfg.client.model}.";
-            }
-          ];
-        })
-
-        (lib.mkIf (cfg.client.endpoint != null && ownerHome != null) {
-          assertions = [
-            {
-              assertion =
-                !(config.programs.claude-code.extended.enable or false)
-                || ownerHome.home.file ? ".local/bin/claude-local";
-              message = "programs.llama-cpp.extended.client.endpoint is set, but modules/agents/claude-code installs no claude-local; it reads the client options from another path.";
-            }
-            {
-              assertion =
-                !(config.programs.codex.extended.enable or false) || ownerHome.home.activation ? codexLocalProfile;
-              message = "programs.llama-cpp.extended.client.endpoint is set, but modules/agents/codex writes no local profile; it reads the client options from another path.";
-            }
-          ];
         })
 
         (lib.mkIf (cfg.enable && !apiKeyReady) {

@@ -84,6 +84,7 @@ in
       # The default model clients request.
       llamaModel = "gemma-4-26b-a4b";
       llamaPort = 10100;
+      paperlessRoot = "/data/paperless";
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
         globalSection.version = 1;
         sections = llamaModels // {
@@ -212,7 +213,7 @@ in
         client = {
           model = llamaModel;
           # Headroom for a large tool result that lands after the clients' last compaction check.
-          contextWindows = lib.mapAttrs (_: preset: preset.ctx-size - 8192) llamaModels;
+          models = lib.mapAttrs (_: preset: preset.ctx-size - 8192) llamaModels;
         };
       };
 
