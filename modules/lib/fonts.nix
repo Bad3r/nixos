@@ -46,6 +46,11 @@ let
           "MT Extra"
         ];
         checkManifest = true;
+        # The source faces report normal weight despite their Light names.
+        fontWeights = {
+          "Candara-Light.ttf" = 300;
+          "Candara-LightItalic.ttf" = 300;
+        };
         documentation = [
           "licenses"
           "FONT-CATALOG.tsv"
