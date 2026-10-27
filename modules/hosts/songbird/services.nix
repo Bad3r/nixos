@@ -53,10 +53,12 @@ in
       # llama-server models preset: one section per model, named as clients request it.
       # n-gpu-layers = all makes a model that does not fit in VRAM fail to load instead of offloading.
       llamaModels = {
-        # Gemma 4 vision caps an image at ubatch-size tokens, and the 26B has no VRAM for more than the default 512.
+        # Gemma 4 vision caps an image at ubatch-size tokens; the full 1120-token budget fits only at 65536 ctx.
         gemma-4-26b-a4b = llamaVision // {
           hf-repo = "unsloth/gemma-4-26B-A4B-it-GGUF:UD-IQ3_S";
-          ctx-size = 128000;
+          ctx-size = 65536;
+          ubatch-size = 1152;
+          image-max-tokens = 1120;
         };
         minicpm5-2b = llamaMinicpm2b;
         minicpm5-2b-dspark = llamaMinicpm2b // {
