@@ -95,7 +95,7 @@ in
             };
             description = ''
               Context size, in tokens, that the clients compact within, per model name the
-              clients may request; it must cover `model`. Codex and Claude Code assume a
+              clients may request; it must cover `model`. Agent clients commonly assume a
               larger window for unknown model names; keep each some thousands of tokens
               under the server's context for that model, because llama-server's
               over-context error may not trigger the clients' reactive compaction.

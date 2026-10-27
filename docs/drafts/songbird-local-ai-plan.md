@@ -213,8 +213,8 @@ The preset in `modules/hosts/songbird/services.nix` keeps six sections; raw resu
 - `gemma-4-26b-a4b` stays the default: it is the only preset that passes every client, tool, and vision check.
 - `lfm2.5-24b-a2b` is the fast text-only preset, decoding 273 and 230 tokens per second at 1.9k and 31k-token prompts; its weaker tool picks make it a bulk-work model.
 - `mimo-v2.6-9b` is the light vision and agent preset, but it ignores `tool_choice = required` in 5 of 9 requests, so paperless does not use it.
-- `qwen3.8-27b-gsq-mtp`: its chat template rejects the non-leading system messages that Claude Code and Codex send.
-  Claude Code passed through a folding proxy.
+- `qwen3.8-27b-gsq-mtp`: its chat template rejects system messages after the first, which agent clients commonly send.
+  It passed the client checks only through a folding proxy.
 - `minicpm5-2b` and `minicpm5-2b-dspark` stay as the small preset and its DSpark-drafted variant.
 - Dropped: `muse-glimmer-30b`, the unsloth `qwen3.8-27b`, `qwen3.8-27b-gsq` without MTP, and `lfm2.5-24b-a2b-dspark`.
 
