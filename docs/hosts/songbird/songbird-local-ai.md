@@ -48,7 +48,7 @@ People read about 5 tokens per second, so anything above 40 feels instant.
 
 - A private assistant: chat, image questions, and document questions with Qwen3.8 27B or Gemma 4, also served to the iPhone over the Mesh.
 - Coding agent work in qwen-code against the default local model.
-- Side work for Claude Code and Codex: commit messages, summaries, log triage, classification, and anything whose data must stay on the host.
+- Side work through qwen-code or the server's API: commit messages, summaries, log triage, classification, and anything whose data must stay on the host.
 - Local code search and next-edit completion with small embedding and completion models.
 - Speech: push-to-talk dictation, meeting transcripts with speaker labels, and text to speech with voice cloning.
 - Images and video: image generation and editing, and short 720p clips with sound.
