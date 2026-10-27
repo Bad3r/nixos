@@ -13,8 +13,9 @@
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
     * `claude-local` runs the same launcher against the llama.cpp endpoint in
       programs.llama-cpp.extended.client (modules/apps/llama-cpp.nix).
-    * With Orca enabled, `openclaude` is `claude-local` under the name Orca's
-      OpenClaude agent detects, so that agent runs the local model.
+    * With Orca enabled, a llama.cpp endpoint set, and installMethods.nix off,
+      `openclaude` is `claude-local` under the name Orca's OpenClaude agent
+      detects, so that agent runs the local model.
     * Plugins, LSP plugins included, are enabledPlugins in _plugins.nix; an
       enabled *-lsp entry also installs its language server
       (modules/agents/claude-code/nixos.nix). skillOverrides sits in the same file.
@@ -205,8 +206,8 @@ _: {
             };
           }
           # Orca offers a launch slot only for agents it finds on PATH, and OpenClaude's slot
-          # launches with Claude Code's flags. The nix install wraps bin/claude, so its comm
-          # would be .claude-wrapped instead of openclaude.
+          # launches with Claude Code's flags. The nix install's inner wrapper re-execs with
+          # argv[0] fixed to claude, which hides the openclaude name from Orca.
           // lib.optionalAttrs (localClient.endpoint != null && orcaEnabled && !installMethods.nix.enable) {
             ".local/bin/openclaude" = {
               source = lib.getExe claudeRuntime.openclaudeLocalWrapped;

@@ -124,7 +124,7 @@ let
 
   # Keep the `target=` assignment standalone. packages/tweakcc/shell-wrapper.patch
   # parses it to reach the wrapped Claude executable.
-  mkWrapperBody = binary: ''
+  mkWrapperBody = execArgs: ''
     set -euo pipefail
 
     ${envExports}
@@ -141,30 +141,22 @@ let
 
     export CLAUDE_CODE_SHELL=${lib.escapeShellArg "${claudeBashWrapper}/bin/bash"}
 
-    target=${lib.escapeShellArg binary}
+    target=${lib.escapeShellArg claudeBinary}
 
     if [ ! -x "$target" ]; then
       echo "claude-wrapper: ERROR: Claude Code binary not found or not executable at $target" >&2
       exit 127
     fi
 
-    exec "$target" "$@"
+    exec ${execArgs}"$target" "$@"
   '';
 
-  wrapperBody = mkWrapperBody claudeBinary;
+  wrapperBody = mkWrapperBody "";
 
   claudeWrapped = pkgs.writeShellScriptBin "claude" wrapperBody;
 
-  # Orca names a pane's agent after its foreground process, whose comm the kernel takes
-  # from the basename of the executed path, so OpenClaude panes exec Claude by this name.
-  openclaudeBinary = pkgs.runCommandLocal "openclaude-binary" { } ''
-    mkdir -p "$out/bin"
-    ln -s ${lib.escapeShellArg claudeBinary} "$out/bin/openclaude"
-  '';
-
-  openclaudeWrapped = pkgs.writeShellScriptBin "openclaude-claude" (
-    mkWrapperBody "${openclaudeBinary}/bin/openclaude"
-  );
+  # Orca names a pane's agent after the basename of its foreground process's argv[0].
+  openclaudeWrapped = pkgs.writeShellScriptBin "openclaude-claude" (mkWrapperBody "-a openclaude ");
 
   # Opt-in launcher for `claude rc`. Remote Control is gated on vB() in the
   # 2.1.247 binary, which is false when DISABLE_GROWTHBOOK is set or when x()
