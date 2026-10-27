@@ -19,8 +19,9 @@
     * /etc/qwen-code/system-defaults.json holds the Nix-managed defaults; ~/.qwen/settings.json
       stays writable and overrides them.
     * With programs.llama-cpp.extended.client.endpoint set (modules/apps/llama-cpp.nix), the
-      defaults select that server's OpenAI-compatible API and `client.model`, and `qwen` reads
-      the API key from `client.apiKeyFile` at launch.
+      defaults select that server's OpenAI-compatible API and `client.model`, register every
+      model in `client.models` for `qwen -m`, and `qwen` reads the API key from
+      `client.apiKeyFile` at launch.
 */
 { inputs, ... }:
 let
@@ -50,15 +51,13 @@ let
       // lib.optionalAttrs useLocalServer {
         security.auth.selectedType = "openai";
         model.name = client.model;
-        modelProviders.openai = [
-          {
-            id = client.model;
-            name = "${client.model} (llama.cpp)";
-            envKey = keyVar;
-            baseUrl = "${client.endpoint}/v1";
-            generationConfig.contextWindowSize = client.contextWindow;
-          }
-        ];
+        modelProviders.openai = lib.mapAttrsToList (id: contextWindowSize: {
+          inherit id;
+          name = "${id} (llama.cpp)";
+          envKey = keyVar;
+          baseUrl = "${client.endpoint}/v1";
+          generationConfig = { inherit contextWindowSize; };
+        }) client.models;
       };
 
       launcher = pkgs.writeShellApplication {

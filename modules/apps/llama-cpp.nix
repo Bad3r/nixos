@@ -85,13 +85,20 @@ in
             description = "Model name, a section of the server's models preset, that qwen-code requests.";
           };
 
-          contextWindow = lib.mkOption {
-            type = lib.types.ints.positive;
-            default = 128000;
+          models = lib.mkOption {
+            type = lib.types.attrsOf lib.types.ints.positive;
+            default = {
+              ${cfg.client.model} = 128000;
+            };
+            defaultText = lib.literalExpression "{ \${client.model} = 128000; }";
+            example = {
+              gemma-4-12b-it-qat = 128000;
+            };
             description = ''
-              Context size, in tokens, that qwen-code compacts within. qwen-code
-              guesses the window from the model name otherwise; keep it within the
-              server's context for the model.
+              Context size, in tokens, per model of the server's models preset that
+              qwen-code may request, keyed by section name. qwen-code compacts within
+              it and guesses the window from the model name otherwise; keep each within
+              the server's context for the model.
             '';
           };
 
@@ -132,6 +139,15 @@ in
         (lib.mkIf (cfg.enable && !apiKeyReady) {
           warnings = [
             "programs.llama-cpp.extended.enable is true but ${toString apiKeySecretFile} is missing, flake.lib.nixos.hosts.${hostName}.sopsRuntimeReady is false, or security.repoSecrets.enable is false; llama-server runs without an API key."
+          ];
+        })
+
+        (lib.mkIf (cfg.client.endpoint != null) {
+          assertions = [
+            {
+              assertion = cfg.client.models ? ${cfg.client.model};
+              message = "programs.llama-cpp.extended.client.models has no entry for client.model ${cfg.client.model}.";
+            }
           ];
         })
 

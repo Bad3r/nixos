@@ -154,8 +154,8 @@ If the measured boundary exceeds O8, stop and resolve it before deploying the ro
 
 ### Clients
 
-`programs.llama-cpp.extended.client` holds `endpoint`, `model`, `contextWindow`, and `apiKeyFile`, and qwen-code (`modules/apps/qwen-code.nix`) consumes them.
-Its system defaults select the OpenAI chat-completions provider at the endpoint plus `/v1`, the client model, its context window, and approvals by the user.
+`programs.llama-cpp.extended.client` holds `endpoint`, `model`, `models`, and `apiKeyFile`, and qwen-code (`modules/apps/qwen-code.nix`) consumes them.
+Its system defaults select the OpenAI chat-completions provider at the endpoint plus `/v1`, the client model as the default, one provider entry with its context window per model in `models`, and approvals by the user.
 The `qwen` launcher reads the key file at launch, so the key never enters the store.
 Claude Code and Codex have no local launcher or profile.
 Exercise actual client tool calls rather than treating HTTP 200 as full compatibility.

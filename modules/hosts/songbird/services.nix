@@ -129,7 +129,7 @@ in
 
       programs.llama-cpp.extended.client = {
         model = llamaModel;
-        contextWindow = llamaModels.${llamaModel}.ctx-size;
+        models = lib.mapAttrs (_: m: m.ctx-size) llamaModels;
       };
 
       services = {
