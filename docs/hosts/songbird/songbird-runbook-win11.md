@@ -2,6 +2,8 @@
 
 The pipeline behind these procedures is in [Windows guests](../../apps/libvirt/windows.md), and ad-hoc guests are in [songbird-runbook-vms.md](songbird-runbook-vms.md).
 
+[Use the installed VM: desktop, SSH, files, and power](songbird-runbook-win11-use.md).
+
 ## Create the win11 secret
 
 Precondition: `secrets/workloads.yaml` does not exist; the win11 guest, its media, and its secret stay out of every generation until it does.

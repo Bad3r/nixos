@@ -5,6 +5,7 @@
 - [songbird-runbook-portal.md](songbird-runbook-portal.md)
 - [songbird-runbook-vms.md](songbird-runbook-vms.md)
 - [songbird-runbook-win11.md](songbird-runbook-win11.md)
+- [songbird-runbook-win11-use.md](songbird-runbook-win11-use.md)
 - [songbird-runbook-local-ai.md](songbird-runbook-local-ai.md)
 
 ## Validate a host change
