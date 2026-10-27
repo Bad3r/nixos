@@ -246,11 +246,10 @@ let
   # encrypted format, using sops_lastmodified for dotenv and an aligned mac =
   # field for INI. Requiring the configured host recipient alongside the full
   # cipher token rejects quoted metadata excerpts without binding to policy.
-  hasChunkedInfix =
-    needle: s:
+  hasChunkedInfixWith =
+    chunkSize: needle: s:
     let
       len = builtins.stringLength s;
-      chunkSize = 8192;
       overlap = builtins.stringLength needle;
       pattern = ".*${lib.escapeRegex needle}.*";
       offsets = builtins.genList (i: i * chunkSize) (builtins.div (len + chunkSize - 1) chunkSize);
@@ -258,6 +257,7 @@ let
     builtins.any (
       i: builtins.match pattern (builtins.substring i (chunkSize + overlap) s) != null
     ) offsets;
+  hasChunkedInfix = hasChunkedInfixWith 8192;
 
   # Anchor on SOPS MAC footer fields and the configured recipient, not bare
   # cipher tokens. Prose can quote a footer without carrying policy metadata.
@@ -391,10 +391,9 @@ let
     )
     ++ lib.optional (
       let
-        block = lib.concatStrings (lib.genList (_: "x") 8192);
-        large = lib.concatStrings (lib.genList (_: block) 11000);
+        large = lib.concatStrings (lib.genList (_: "x") 11000);
       in
-      !(hasChunkedInfix "needle" (large + "needle")) || hasChunkedInfix "missing" large
+      !(hasChunkedInfixWith 1 "needle" (large + "needle")) || hasChunkedInfixWith 1 "missing" large
     ) "large-chunk-scan";
 
   requiredIgnoreRules = [

@@ -15,7 +15,9 @@ if [ -d "$backup" ] && [ ! -e "$FONT_INSTALL_DIR" ]; then
   mv -T "$backup" "$FONT_INSTALL_DIR"
 fi
 
-staging="$(mktemp -d "$FONT_INSTALL_DIR.new.XXXXXX")"
+staging="$FONT_INSTALL_DIR.new"
+rm -rf "$staging" "$FONT_INSTALL_DIR".new.*
+install -d -m 0700 "$staging"
 rotated=0
 installed=0
 committed=0
@@ -39,7 +41,9 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cat "${fontArchives[@]}" |
+for archive in "${fontArchives[@]}"; do
+  sops decrypt --input-type binary --output-type binary "$archive" || exit "$?"
+done |
   tar --no-same-owner --no-same-permissions -I zstd -xf - -C "$staging"
 (
   cd "$staging"
@@ -49,9 +53,9 @@ if [ -z "$(find "$staging/fonts" -type f \( -iname '*.ttf' -o -iname '*.otf' -o 
   echo "Windows/Office archive contains no font files" >&2
   exit 1
 fi
-families="$(find "$staging/fonts" -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.ttc' \) -exec fc-query -f '%{family}\n' {} +)"
+families="$(find "$staging/fonts" -type f \( -iname '*.ttf' -o -iname '*.otf' -o -iname '*.ttc' \) -exec fc-query -f '%{[]family{%{family}\n}}' {} +)"
 for wanted in Aptos 'Aptos Slab' 'Georgia Pro' 'Verdana Pro'; do
-  if [[ $families != *"$wanted"* ]]; then
+  if ! grep -Fxq -- "$wanted" <<<"$families"; then
     echo "Windows/Office archive has no face declaring $wanted" >&2
     exit 1
   fi

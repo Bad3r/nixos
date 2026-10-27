@@ -28,7 +28,7 @@ in
         runtimeReady = (hostsRegistry.${hostName} or { }).sopsRuntimeReady or false;
         installReady = archiveExists && runtimeReady;
         installDir = "/var/lib/fonts/windows-office";
-        secretName = part: "fonts/windows-office/part-${part}";
+        archiveFiles = map archivePart parts;
         installSecretsDeps = sopsInstallSecretsDeps config;
       in
       {
@@ -61,37 +61,25 @@ in
           archiveExists && !runtimeReady
         ) "Windows/Office secret fonts are disabled on ${hostName} until sopsRuntimeReady is set.";
 
-        sops.secrets = lib.optionalAttrs installReady (
-          builtins.listToAttrs (
-            map (
-              part:
-              lib.nameValuePair (secretName part) {
-                sopsFile = archivePart part;
-                format = "binary";
-                owner = "root";
-                group = "root";
-                mode = "0400";
-                restartUnits = [ "windows-office-fonts.service" ];
-              }
-            ) parts
-          )
-        );
-
         systemd.services = lib.optionalAttrs installReady {
           windows-office-fonts = {
             description = "Install Windows and Office fonts from encrypted archive";
             wantedBy = [ "multi-user.target" ];
             after = installSecretsDeps;
             requires = installSecretsDeps;
+            restartTriggers = archiveFiles;
             path = with pkgs; [
               coreutils
               findutils
               gnutar
+              gnugrep
+              sops
               zstd
               fontconfig
             ];
             environment = {
               FONT_INSTALL_DIR = installDir;
+              SOPS_AGE_KEY_FILE = config.sops.age.keyFile;
             };
             serviceConfig = {
               Type = "oneshot";
@@ -101,9 +89,7 @@ in
               Restart = "on-failure";
             };
             script = ''
-              fontArchives=( ${
-                lib.escapeShellArgs (map (part: config.sops.secrets.${secretName part}.path) parts)
-              } )
+              fontArchives=( ${lib.escapeShellArgs (map toString archiveFiles)} )
             ''
             + builtins.readFile ./_office-fonts-install.sh;
           };

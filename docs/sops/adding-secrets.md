@@ -69,6 +69,8 @@ The policy and the age key are in [sops-nix Usage](README.md).
 
 Keep plaintext archives outside the checkout while packing or encrypting fonts.
 The MonoLisa and Windows/Office installers decrypt archives at runtime, keeping plaintext font files out of the Nix store.
+The Windows/Office service streams decryption from the encrypted store files using the host's age identity.
+Its archive parts are not declared as runtime SOPS secrets, so decrypted archives do not remain resident after installation.
 
 For Windows/Office updates, retain the archive's `fonts/` directory, provenance, licenses, and `SHA256SUMS` manifest.
 Regenerate the manifest after changing the payload, excluding the manifest itself.
