@@ -83,7 +83,7 @@ Remove Magnitude's baseline and host rows atomically with its module.
 
 The app's `package` defaults to `pkgs.llama-cpp-cuda` with the stock CUDA capability set; the service's own default is the CPU build.
 Songbird sets it to the same package built for capability 12.0 alone, through a `cudaPackages` override on llama-cpp, so the CUDA redistributables keep their cached derivations.
-The fork applies its system-message fold to llama-cpp-cuda only, which already keeps cache.nixos-cuda.org from serving it; dropping the nine other architectures cuts the local compile to about 4 to 5 minutes.
+The fork applies its system-message fold to llama-cpp-cuda only, which already keeps cache.nixos-cuda.org from serving it; dropping the nine other architectures cuts the local compile to about 4 minutes.
 CPU llama-cpp, whisper-cpp, and ffmpeg-full keep their stock derivations and come from cache.nixos.org.
 Songbird's pkgs refuse the CUDA build until the app module allowlists `cccl`, `cuda_cudart`, `cuda_nvcc`, `libnvvm`, `cuda_crt`, `libcublas`, and `cuda_nvrtc` in `nixpkgs.allowedUnfreePackages`.
 Through Songbird's overlays and the sm_120 override, the output is `/nix/store/6b18cz21ycbz9slyfzmm97wvz9nj8cps-llama-cpp-cuda-0.7.0`.
@@ -92,7 +92,7 @@ Gate 03 checked the stock output of its lock, `/nix/store/6avc3v3yrns0imfy308qy2
 Gate 03 passed on 2026-10-26 for the main lock, before the fold patch and the sm_120 override made the package a local build.
 cache.nixos-cuda.org then served the stock output and its 18-path, 1.2 GiB runtime closure, every path verified against key `cache.nixos-cuda.org:74DUi4Ye579gUqzH4ziL9IyiJBlDpMRn9MBN8oNan9M=`, and a fresh-store plan with cache.nixos.org built nothing.
 It still serves the CUDA build inputs and runtime libraries of Songbird's local build.
-Without the cache, the plan compiles 26 derivations, including CUDA llama.cpp and nodejs.
+Without the cache, the plan compiled 26 derivations, including CUDA llama.cpp and nodejs.
 
 `vx` is not a trusted user, so the host daemon ignores a client-side `extra-substituters`.
 Main commit `a4a73a25` adds the URL and key to `extra-substituters` and `extra-trusted-public-keys` in `.github/actions/install-lix/substituters.conf` and `build.sh`; Songbird runs it before the engine swap is switched.
