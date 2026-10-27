@@ -15,10 +15,9 @@
       Without that secret, before the host's sopsRuntimeReady, or with security.repoSecrets
       disabled, it runs without a key, so the host binds a non-loopback listener only while
       `services.llama-cpp.apiKeyFile` is set.
-    * `client.*` configures `claude-local` (modules/agents/claude-code) and the Codex `local`
-      profile (modules/agents/codex).
-    * The default package substitutes from cache.nixos-cuda.org; without that cache the host
-      compiles CUDA llama.cpp.
+    * `client.*` holds the endpoint, default model, and context sizes that local clients use.
+    * songbird overrides llama-cpp-cuda's `cudaCapabilities` to sm_120, so no cache serves its
+      build. The host compiles it against CUDA libraries from cache.nixos-cuda.org in about 4 minutes.
 */
 { config, ... }:
 let
@@ -78,22 +77,27 @@ in
               if cfg.enable then "http://127.0.0.1:${toString config.services.llama-cpp.settings.port}" else null;
             defaultText = lib.literalExpression ''if enable then "http://127.0.0.1:''${toString config.services.llama-cpp.settings.port}" else null'';
             example = "http://songbird.internal:10100";
-            description = "Server origin for `claude-local` and the Codex `local` profile, or null to install neither.";
+            description = "Server origin local clients use, or null for none.";
           };
 
           model = lib.mkOption {
             type = lib.types.str;
-            example = "gemma-4-12b-it-qat";
-            description = "Model name, a section of the server's models preset, that `claude-local` and the Codex `local` profile request.";
+            example = "gemma-4-26b-a4b";
+            description = "Model name, a section of the server's models preset, that clients request by default.";
           };
 
-          contextWindow = lib.mkOption {
-            type = lib.types.ints.positive;
-            default = 128000;
+          contextWindows = lib.mkOption {
+            type = lib.types.attrsOf lib.types.ints.positive;
+            default = { };
+            example = {
+              gemma-4-26b-a4b = 119808;
+            };
             description = ''
-              Context size, in tokens, that the clients compact within. Codex and Claude
-              Code assume a larger window for unknown model names; keep it within the
-              server's context for the model.
+              Context size, in tokens, that the clients compact within, per model name the
+              clients may request; it must cover `model`. Agent clients commonly assume a
+              larger window for unknown model names; keep each some thousands of tokens
+              under the server's context for that model, because llama-server's
+              over-context error may not trigger the clients' reactive compaction.
             '';
           };
 
@@ -129,6 +133,15 @@ in
             mode = "0400";
             restartUnits = lib.optional cfg.enable "llama-cpp.service";
           };
+        })
+
+        (lib.mkIf (cfg.client.endpoint != null) {
+          assertions = [
+            {
+              assertion = cfg.client.contextWindows ? ${cfg.client.model};
+              message = "programs.llama-cpp.extended.client.contextWindows has no entry for client.model ${cfg.client.model}.";
+            }
+          ];
         })
 
         (lib.mkIf (cfg.client.endpoint != null && ownerHome != null) {

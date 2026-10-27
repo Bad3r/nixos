@@ -44,10 +44,21 @@ People read about 5 tokens per second, so anything above 40 feels instant.
   DFlash proposes token blocks for the main model to check.
 - The GPU draws about 300 W while decoding, up to 365 W during prefill, and 42 W idle.
 
+## Model roles
+
+Each role names a section of the models preset in [services.nix](../../../modules/hosts/songbird/services.nix), measured with llama.cpp 0.7.0 on CUDA.
+
+- `gemma-4-26b-a4b` is the default, as the only preset that passes every client, tool-call, and vision check.
+- `lfm2.5-24b-a2b` decodes 273 tokens per second at a 1.9k-token prompt and 230 at 31k, text only; its weaker tool picks suit bulk work, not agents.
+- `mimo-v2.6-9b` is the light vision and agent model, but it ignores a required tool choice in 5 of 9 requests, so paperless avoids it.
+- `qwen3.8-27b-gsq-mtp`'s chat template rejects system messages after the first, which agent clients commonly send.
+  It passed the client checks only through a proxy that folds them into the first.
+- `minicpm5-2b` is the small text-only preset, and `minicpm5-2b-dspark` adds DSpark drafting, which decodes 1.5 times as fast.
+
 ## What it enables
 
 - A private assistant: chat, image questions, and document questions with Qwen3.8 27B or Gemma 4, also served to the iPhone over the Mesh.
-- Side work for Claude Code and Codex: commit messages, summaries, log triage, classification, and anything whose data must stay on the host.
+- Side work for any agent or API client: commit messages, summaries, log triage, classification, and anything whose data must stay on the host.
 - Local code search and next-edit completion with small embedding and completion models.
 - Speech: push-to-talk dictation, meeting transcripts with speaker labels, and text to speech with voice cloning.
 - Images and video: image generation and editing, and short 720p clips with sound.
