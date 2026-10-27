@@ -35,6 +35,7 @@ Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
    ```
 
    The router unloads the current model before it loads the requested one.
+   `claude-local` exits on a name that is not a preset model.
 
 2. To add a model, add an entry to `llamaModels` in [services.nix](../../../modules/hosts/songbird/services.nix), named as clients request it, with its Hugging Face repository in `hf-repo`.
    To make it the default, set `llamaModel` to that name and move `load-on-startup` to its entry, then switch.
@@ -79,6 +80,7 @@ Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
    ```
 
    The profile turns memories off, so the local model neither reads memories nor extracts them from past sessions.
+   Approval requests go to the user, since the automatic reviewer requests a model the local server does not serve.
 
 Verification: `codex exec -p local --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `provider: llama-cpp` and `ready`.
 
