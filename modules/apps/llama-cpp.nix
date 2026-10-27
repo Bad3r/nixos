@@ -135,12 +135,6 @@ in
           assertions = [
             {
               assertion =
-                !(config.programs.claude-code.extended.enable or false)
-                || ownerHome.home.file ? ".local/bin/claude-local";
-              message = "programs.llama-cpp.extended.client.endpoint is set, but modules/agents/claude-code installs no claude-local; it reads the client options from another path.";
-            }
-            {
-              assertion =
                 !(config.programs.codex.extended.enable or false) || ownerHome.home.activation ? codexLocalProfile;
               message = "programs.llama-cpp.extended.client.endpoint is set, but modules/agents/codex writes no local profile; it reads the client options from another path.";
             }

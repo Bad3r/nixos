@@ -13,7 +13,6 @@
   externalBinary,
   installMethods,
   scratchDir,
-  localClient ? null,
 }:
 let
   rmShim = import ../_rm-shim.nix { inherit lib pkgs; };
@@ -173,49 +172,11 @@ let
 
     exec ${lib.getExe claudeWrapped} "$@"
   '';
-
-  # Points every model slot at one local model. The launcher and settings.json
-  # pin the haiku and subagent slots to cloud models, and only `--settings` env
-  # outranks both; llama-server holds one model at a time, so mixed slots reload it.
-  claudeLocalWrapped = pkgs.writeShellApplication {
-    name = "claude-local";
-    runtimeInputs = [ pkgs.jq ];
-    text = ''
-      model=''${CLAUDE_LOCAL_MODEL:-${lib.escapeShellArg localClient.model}}
-      settings=$(jq -cn \
-        --arg model "$model" \
-        --arg url ${lib.escapeShellArg localClient.endpoint} \
-        --arg context ${toString localClient.contextWindow} '
-          {
-            model: $model,
-            env: {
-              ANTHROPIC_BASE_URL: $url,
-              ANTHROPIC_DEFAULT_HAIKU_MODEL: $model,
-              ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME: $model,
-              ANTHROPIC_DEFAULT_SONNET_MODEL: $model,
-              ANTHROPIC_DEFAULT_OPUS_MODEL: $model,
-              CLAUDE_CODE_SUBAGENT_MODEL: $model,
-              CLAUDE_CODE_MAX_CONTEXT_TOKENS: $context
-            }
-          }
-        ')
-      ${
-        if localClient.apiKeyFile == null then
-          "ANTHROPIC_AUTH_TOKEN=llama-cpp-local"
-        else
-          "ANTHROPIC_AUTH_TOKEN=$(<${lib.escapeShellArg localClient.apiKeyFile})"
-      }
-      export ANTHROPIC_AUTH_TOKEN
-
-      exec ${lib.getExe claudeWrapped} --settings "$settings" "$@"
-    '';
-  };
 in
 {
   inherit
     claudeWrapped
     claudeRcWrapped
-    claudeLocalWrapped
     wrapperBody
     ;
 }

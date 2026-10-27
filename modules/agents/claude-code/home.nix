@@ -11,8 +11,6 @@
     * User-level instructions generated via flake.lib.agents.systemPrompt
       (modules/agents/system-prompt.nix)
     * Optional Context7 API key can be provisioned via SOPS at `sops.secrets."context7/api-key"`
-    * `claude-local` runs the same launcher against the llama.cpp endpoint in
-      programs.llama-cpp.extended.client (modules/apps/llama-cpp.nix).
     * Plugins, LSP plugins included, are enabledPlugins in _plugins.nix; an
       enabled *-lsp entry also installs its language server
       (modules/agents/claude-code/nixos.nix). skillOverrides sits in the same file.
@@ -137,10 +135,6 @@ _: {
       };
       inherit (activationResult) activation;
 
-      localClient = lib.attrByPath [ "programs" "llama-cpp" "extended" "client" ] {
-        endpoint = null;
-      } osConfig;
-
       claudeRuntime = import ./_launcher.nix {
         inherit
           lib
@@ -149,7 +143,6 @@ _: {
           bunInstallDir
           externalBinary
           installMethods
-          localClient
           ;
         inherit (agents) scratchDir;
       };
@@ -192,12 +185,6 @@ _: {
             # `claude rc` needs; see launchOnly in _env.nix.
             ".local/bin/claude-rc" = {
               source = lib.getExe claudeRuntime.claudeRcWrapped;
-              executable = true;
-            };
-          }
-          // lib.optionalAttrs (localClient.endpoint != null) {
-            ".local/bin/claude-local" = {
-              source = lib.getExe claudeRuntime.claudeLocalWrapped;
               executable = true;
             };
           }
