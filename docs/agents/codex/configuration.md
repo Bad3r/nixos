@@ -52,7 +52,7 @@ Use `codex --no-daemon` to run a session without it.
 The [site policy](../../../modules/agents/codex/_settings.nix) selects the default approval reviewer.
 The automatic reviewer evaluates requests for additional permissions and commands that execution rules mark for review.
 
-To use human approval by default, create or edit `$CODEX_HOME/overrides.toml` (normally `~/.config/codex/overrides.toml`):
+To use human approval by default, create or edit `$CODEX_HOME/overrides.toml` (`~/.config/codex/overrides.toml` for `codex`, `~/.config/codex-local/overrides.toml` for `codex-local`):
 
 ```toml
 approvals_reviewer = "user"

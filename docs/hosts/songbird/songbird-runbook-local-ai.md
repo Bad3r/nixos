@@ -82,6 +82,7 @@ Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes.
    Its threads stay out of the `codex` home, where `exec resume` or `fork` would send them to OpenAI.
    Resume and fork them with `codex-local resume` and `codex-local fork`.
    Trusted projects in `trusted-projects.toml` and command approvals in `rules/default.rules` are shared with the `codex` home; trust accepted at a prompt is not, so the other home asks again.
+   Each home reads its own `overrides.toml`, so settings in `~/.config/codex/overrides.toml` do not apply to `codex-local`.
    Memories are off, and approval requests go to the user, since the automatic reviewer requests a model the local server does not serve.
 
 Verification: `codex-local exec --skip-git-repo-check 'Reply with the word ready' < /dev/null` prints `provider: llama-cpp` and `ready`.
