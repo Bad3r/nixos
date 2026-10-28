@@ -382,7 +382,7 @@ let
         package = lib.mkPackageOption pkgs "rustdesk-flutter" { };
 
         intelEncodeDevice = lib.mkOption {
-          type = lib.types.nullOr lib.types.str;
+          type = lib.types.nullOr (lib.types.strMatching "/dev/dri/.+");
           default = null;
           example = "/dev/dri/by-path/pci-0000:00:02.0-render";
           description = ''
