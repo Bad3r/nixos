@@ -58,9 +58,10 @@ The Intel Vulkan driver found no iGPU in `llama-cpp-transcribe` or `llama-cpp-di
 
 ```sh
 journalctl -u llama-cpp-transcribe -u llama-cpp-dictate -b -g 'ggml_vulkan|invalid device'
+VK_DRIVER_FILES=/run/opengl-driver/share/vulkan/icd.d/intel_icd.x86_64.json vulkaninfo --summary
 ```
 
-Run `VK_DRIVER_FILES=/run/opengl-driver/share/vulkan/icd.d/intel_icd.x86_64.json vulkaninfo --summary`; when it lists no Intel device, the i915 driver or Mesa is missing from the running generation, so switch or reboot into one that has them.
+When `vulkaninfo` lists no Intel device, the running generation lacks i915 or Mesa, so switch or reboot into one that has them.
 
 ## A model fails to load with invalid device: CUDA0
 

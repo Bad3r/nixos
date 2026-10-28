@@ -74,18 +74,18 @@ Verification: a question about an attached photo gets an answer, and `curl -s -H
 
 ## Transcribe a recording
 
-Precondition: a shell on songbird as the owner, and a recording.
+Precondition: a shell on songbird as the owner, and a recording, `<file>`.
 
-1. The server decodes only WAV, MP3, and FLAC, so convert any other recording to WAV first:
+1. The server decodes only WAV, MP3, and FLAC, so convert an `<input>` in any other format to a WAV `<file>`:
 
    ```sh
-   ffmpeg -i <input> -ac 1 -ar 16000 <recording>.wav
+   ffmpeg -i <input> -ac 1 -ar 16000 -f wav <file>
    ```
 
 2. Send the file to the speech-to-text service and strip the language prefix from the transcript:
 
    ```sh
-   curl -s -H "Authorization: Bearer $(cat /run/secrets/llama-cpp/api-key)" -F file=@<recording> -F language=en http://127.0.0.1:10102/v1/audio/transcriptions | jq -r '.text | sub("^language [^<]*<asr_text>"; "")'
+   curl -s -H "Authorization: Bearer $(cat /run/secrets/llama-cpp/api-key)" -F file=@<file> -F language=en http://127.0.0.1:10102/v1/audio/transcriptions | jq -r '.text | sub("^language [^<]*<asr_text>"; "")'
    ```
 
    The `language` field is optional; the first request after an idle period waits while the model reloads.
@@ -100,7 +100,7 @@ Precondition: a shell on songbird as the owner, and a recording.
 Verification: the command prints the transcript without the `language` prefix, and the same request without the key prints `401`:
 
 ```sh
-curl -s -o /dev/null -w '%{http_code}\n' -F file=@<recording> http://127.0.0.1:10102/v1/audio/transcriptions
+curl -s -o /dev/null -w '%{http_code}\n' -F file=@<file> http://127.0.0.1:10102/v1/audio/transcriptions
 ```
 
 ## Open a live dictation session
