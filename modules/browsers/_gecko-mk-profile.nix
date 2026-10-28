@@ -6,15 +6,11 @@
 
   Arguments:
     pkgs, lib, config: standard module args from the caller.
-    osConfig: the host's NixOS config. "nvidia" in its
-      `services.xserver.videoDrivers` gates the Gecko blocklist override that
-      hardware video decoding on NVIDIA depends on, the same signal
-      modules/hosts/common/webkitgtk-dmabuf.nix keys the WebKitGTK case on.
-      Required rather than defaulted so a new Gecko caller cannot omit it and
-      silently ship with hardware decoding still blocklisted. Its
-      `gpu.intel.vulkanDecode` moves decode to the Intel iGPU through
-      `withIgpuVideoDecode`, `igpuVulkanDecodeExecutables`, and the Vulkan
-      prefs.
+    osConfig: the host's NixOS config. Its `gpu.intel.vulkanDecode` moves
+      decode to the Intel iGPU through `withIgpuVideoDecode`,
+      `igpuVulkanDecodeExecutables`, and the Vulkan prefs. Required rather than
+      defaulted so a new Gecko caller cannot omit it and silently ship without
+      hardware decoding.
   Returns:
     mkProfile, policies, nativeMessagingHosts, profile packages, and helpers.
 */
@@ -28,10 +24,9 @@
   firefoxpwaPackage ? pkgs.firefoxpwa,
 }:
 let
-  nvidiaGpu = lib.elem "nvidia" (lib.attrByPath [ "services" "xserver" "videoDrivers" ] [ ] osConfig);
   igpuVulkanDecode = lib.attrByPath [ "gpu" "intel" "vulkanDecode" "enable" ] false osConfig;
   geckoPrefs = import ./_gecko-prefs.nix {
-    inherit lib nvidiaGpu igpuVulkanDecode;
+    inherit lib igpuVulkanDecode;
     fonts = if (config.stylix.enable or false) then config.stylix.fonts else null;
   };
   geckoBookmarks = import ./_gecko-bookmarks.nix { inherit lib; };
