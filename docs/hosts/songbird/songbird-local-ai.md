@@ -60,7 +60,9 @@ Each role names a section of the models preset in [services.nix](../../../module
   A vendored chat template renders the system messages its GGUF template drops after the first two.
 - `qwen3.8-27b-gsq-mtp`'s chat template rejects system messages after the first, which agent clients commonly send.
   It passed the client checks only through a proxy that folds them into the first.
-- `minicpm5-2b` is the small text-only preset, and `minicpm5-2b-dspark` adds DSpark drafting, which decodes 1.5 times as fast.
+- `lfm3-1.7b` is the small text-only helper for tool calls, JSON extraction, and summaries, passing 51 of 60 helper checks on build 11942.
+  It decodes 288 tokens per second, prefills 23.6k per second at a 55k-token prompt, and takes 4.4 GB of VRAM at its 256k context.
+  Its paperless dates and correspondents are unreliable, so paperless avoids it.
 
 ## What it enables
 
