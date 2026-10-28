@@ -8,7 +8,7 @@ The RTX 5080 runs open-weight models on songbird, so chat, coding side work, spe
 
 ## How models are served
 
-- The `llama-cpp` system service runs llama.cpp's `llama-server` with CUDA from [llama-cpp.nix](../../../modules/apps/llama-cpp.nix), so it serves without a login and without `/data`.
+- The `llama-cpp` system service runs llama.cpp's `llama-server` from [llama-cpp.nix](../../../modules/apps/llama-cpp.nix), so it serves without a login and without `/data`.
 - `llama-server` builds from llama.cpp master through the `llama-cpp` flake input, so updating that input brings in models upstream merged since the last update.
 - In router mode it keeps one model loaded, in a child process, and swaps models when a request names another preset entry from [services.nix](../../../modules/hosts/songbird/services.nix).
 - Models download from Hugging Face on first load into `/var/cache/llama-cpp` on disk A.
@@ -44,6 +44,9 @@ People read about 5 tokens per second, so anything above 40 feels instant.
 | Gemma 4 26B-A4B, 32K in context | GPU, `q8_0` cache    |    123 |   5,000 |
 
 - Vulkan builds decode about a quarter slower than CUDA on Qwen3.5 9B and match it on Gemma 4 E4B.
+- On build 11960, EmbeddingGemma 2 (Q8_0) embeds 512-token inputs at 2,440 tokens per second on the iGPU and 1,160 on 8 CPU threads.
+  At 2048-token inputs both run near 1,330.
+- Vulkan flash attention halves the iGPU's embedding speed at 512 tokens and costs more at 2048, since Mesa ANV exposes no matrix cores.
 - The Qwen3.5 9B comparison pairs Magnitude with DFlash drafting against llama.cpp without drafting.
   DFlash proposes token blocks for the main model to check.
 - The GPU draws about 300 W while decoding, up to 365 W during prefill, and 42 W idle.

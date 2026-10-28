@@ -210,9 +210,9 @@ in
       services.logind.settings.Login.HandlePowerKey = "lock";
 
       programs.llama-cpp.extended = {
-        # Only for the RTX 5080 (sm_120), the host's one GPU. The flake's
-        # packages.cuda imports its own nixpkgs for every capability, so the
-        # scope is built from this host's pkgs instead.
+        # CUDA for the RTX 5080 (sm_120) only, Vulkan for the Arrow Lake iGPU
+        # through Mesa ANV. The flake's packages.cuda imports its own nixpkgs
+        # for every capability, so the scope is built from this host's pkgs instead.
         package =
           let
             src = inputs.llama-cpp;
@@ -223,6 +223,7 @@ in
           in
           (llamaPackages.llama-cpp.override {
             useCuda = true;
+            useVulkan = true;
             cudaPackages = pkgs.cudaPackages.override {
               config = pkgs.config // {
                 cudaCapabilities = [ "12.0" ];
