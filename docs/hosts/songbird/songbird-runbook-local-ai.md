@@ -72,6 +72,56 @@ Precondition: [Check the llama.cpp service](#check-the-llamacpp-service) passes,
 
 Verification: a question about an attached photo gets an answer, and `curl -s -H "Authorization: Bearer <key>" 'http://<songbird-address>:10100/props?model=<model>' | jq .modalities.vision` prints `true` from a LAN host or a Mesh peer.
 
+## Transcribe a recording
+
+Precondition: a shell on songbird as the owner, and a recording, `<file>`.
+
+1. The server decodes only WAV, MP3, and FLAC, so convert an `<input>` in any other format to a WAV `<file>`:
+
+   ```sh
+   ffmpeg -i <input> -ac 1 -ar 16000 -f wav <file>
+   ```
+
+2. Send the file to the speech-to-text service and strip the language prefix from the transcript:
+
+   ```sh
+   curl -s -H "Authorization: Bearer $(cat /run/secrets/llama-cpp/api-key)" -F file=@<file> -F language=en http://127.0.0.1:10102/v1/audio/transcriptions | jq -r '.text | sub("^language [^<]*<asr_text>"; "")'
+   ```
+
+   The `language` field is optional; the first request after an idle period waits while the model reloads.
+
+3. Show the unit and its log when the request fails:
+
+   ```sh
+   systemctl status llama-cpp-transcribe
+   journalctl -u llama-cpp-transcribe -b
+   ```
+
+Verification: the command prints the transcript without the `language` prefix, and the same request without the key prints `401`:
+
+```sh
+curl -s -o /dev/null -w '%{http_code}\n' -F file=@<file> http://127.0.0.1:10102/v1/audio/transcriptions
+```
+
+## Open a live dictation session
+
+Precondition: a shell on songbird as the owner.
+
+1. Open a session on the dictation service and print its first event:
+
+   ```sh
+   nix run nixpkgs#websocat -- -1 -U -H="Authorization: Bearer $(cat /run/secrets/llama-cpp/api-key)" 'ws://127.0.0.1:10103/v1/realtime?intent=transcription'
+   ```
+
+2. Show the unit and its log when the session fails:
+
+   ```sh
+   systemctl status llama-cpp-dictate
+   journalctl -u llama-cpp-dictate -b
+   ```
+
+Verification: the command prints a `session.created` event whose `session.audio.input.format.rate` is the sample rate a client sends.
+
 ## Free the GPU
 
 Precondition: none.

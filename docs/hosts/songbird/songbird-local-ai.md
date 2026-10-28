@@ -1,6 +1,6 @@
 # Songbird local AI
 
-The RTX 5080 runs open-weight models on songbird, so chat, coding side work, speech, images, and document conversion stay on the host.
+The RTX 5080 and the Arrow Lake iGPU run open-weight models on songbird, so chat, coding side work, speech, images, and document conversion stay on the host.
 
 - [songbird-runbook-local-ai.md](songbird-runbook-local-ai.md)
 - [songbird-runbook-paperless.md](songbird-runbook-paperless.md)
@@ -17,6 +17,19 @@ The RTX 5080 runs open-weight models on songbird, so chat, coding side work, spe
 - Child processes listen on loopback without a key, so any process in the host network namespace reaches the loaded model.
 - A second service, `llama-cpp-embed`, serves one pinned embedding model on the CPU to loopback, so paperless embeddings never evict the router's model.
 - paperless-ngx sends its suggestions and document chat to the router's default model with a key of its own, so it never makes the router swap models: [paperless.nix](../../../modules/apps/paperless.nix).
+
+## Speech-to-text on the iGPU
+
+- Two more services transcribe speech on the iGPU through Vulkan, on loopback with the router's keys, so speech-to-text never touches the RTX 5080: [llama-cpp.nix](../../../modules/apps/llama-cpp.nix).
+- Recordings and files go to `llama-cpp-transcribe`, which serves Qwen3-ASR 1.7B over the OpenAI-style `/v1/audio/transcriptions` and decodes WAV, MP3, and FLAC.
+- Live microphone audio goes to `llama-cpp-dictate`, which serves LFM3-Audio 2B over the `/v1/realtime?intent=transcription` WebSocket, English only.
+  LFM3-Audio loops or drops words on long files sent in one request, so files stay with Qwen3-ASR.
+- Together they hold about 10 GiB of shared memory; `llama-cpp-transcribe` frees its 6.6 GiB after an idle period, and the next request waits for the reload.
+- A transcription request holds about 16 tokens per second of audio, so one request fits about 34 minutes, and concurrent requests share that context.
+- Qwen3-ASR returns `text` as `language <Name><asr_text>` followed by the transcript, so clients strip everything through `<asr_text>`.
+- Qwen3-ASR detects the spoken language, so the `language` field is optional; a `prompt` field replaces the transcription instruction, so clients leave it unset.
+- A live client sends the `Authorization` header with the WebSocket upgrade, then `input_audio_buffer.append` events of base64 PCM16 mono at the rate `session.created` reports.
+  It ends the input with `input_audio_buffer.commit` and `"final": true`, and reads `conversation.item.input_audio_transcription.delta` and `.completed` events.
 
 ## How a model fits
 
@@ -46,6 +59,10 @@ People read about 5 tokens per second, so anything above 40 feels instant.
 - Vulkan builds decode about a quarter slower than CUDA on Qwen3.5 9B and match it on Gemma 4 E4B.
 - On build 11960, EmbeddingGemma 2 (Q8_0) embeds 512-token inputs at 2,440 tokens per second on the iGPU and 1,160 on 8 CPU threads.
   At 2048-token inputs both run near 1,330.
+- On build 11960, Qwen3-ASR 1.7B (Q8_0) on the iGPU transcribes one request at 3.8 times real time, a median 2.2 s per clip of under 40 s, using a third of a CPU core.
+  It transcribes recordings of 2.5 to 5 minutes in one request at 4.5 times real time.
+- Over `/v1/realtime`, LFM3-Audio 2B (Q8_0) on the iGPU shows the first words 1.2 to 2.2 s into speech and the final text within 0.7 s of its end.
+  Text arrives in bursts about once a second.
 - Vulkan flash attention halves the iGPU's embedding speed at 512 tokens and costs more at 2048, since Mesa ANV exposes no matrix cores.
 - The Qwen3.5 9B comparison pairs Magnitude with DFlash drafting against llama.cpp without drafting.
   DFlash proposes token blocks for the main model to check.
@@ -81,7 +98,7 @@ Each role names a section of the models preset in [services.nix](../../../module
 
 - Long multi-file engineering stays with hosted frontier models, which lead every model that fits by a wide margin on the Artificial Analysis Intelligence Index.
 - Claude Code and Codex run only against hosted models; local agent work runs in qwen-code, which is built for OpenAI-compatible servers.
-- One engine owns the GPU at a time: language, image, and speech models share the same 16 GB, and a second engine evicts or starves the first.
+- One engine owns the RTX 5080 at a time: language, image, and speech generation models share the same 16 GB, and a second engine evicts or starves the first.
 - Models whose 4-bit file exceeds about 40 GB, such as GLM-5.3, Kimi K3, and Qwen3.5 122B-A10B, fit in neither VRAM nor the RAM the desktop leaves free.
 - The PCIe 4.0 link in [songbird-hardware.md](songbird-hardware.md) slows prefill whenever weights stream from RAM.
 - The 37xx NPU runs small OpenVINO models only, so language models stay on the RTX 5080.
