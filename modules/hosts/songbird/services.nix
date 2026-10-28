@@ -51,10 +51,6 @@ in
       llamaVision = llamaCommon // {
         mmproj-auto = true;
       };
-      llamaMinicpm2b = llamaCommon // {
-        hf-repo = "openbmb/MiniCPM5-2B-GGUF:Q8_0";
-        ctx-size = 131072;
-      };
       # llama-server models preset: one section per model, named as clients request it.
       # n-gpu-layers = all makes a model that does not fit in VRAM fail to load instead of offloading.
       llamaModels = {
@@ -64,11 +60,6 @@ in
           ctx-size = 65536;
           ubatch-size = 1152;
           image-max-tokens = 1120;
-        };
-        minicpm5-2b = llamaMinicpm2b;
-        minicpm5-2b-dspark = llamaMinicpm2b // {
-          spec-draft-hf = "magnitudedev/MiniCPM5-2B-DSpark-GGUF:DSpark";
-          spec-type = "draft-dspark";
         };
         # Its chat template rejects system messages after the first, which agent clients commonly send.
         "qwen3.8-27b-gsq-mtp" = llamaVision // {
@@ -88,6 +79,10 @@ in
         "lfm2.5-24b-a2b" = llamaCommon // {
           hf-repo = "unsloth/LFM2.5-24B-A2B-GGUF:UD-Q3_K_XL";
           ctx-size = 131072;
+        };
+        "lfm3-1.7b" = llamaCommon // {
+          hf-repo = "LiquidAI/LFM3-1.7B-GGUF:Q8_0";
+          ctx-size = 262144;
         };
       };
       # The default model clients request.
