@@ -126,7 +126,11 @@
               backend = lib.mkDefault "glx";
               vSync = lib.mkDefault true;
               # Composited windows never reach G-SYNC Compatible scanout.
-              settings.unredir-if-possible = lib.mkDefault true;
+              settings = {
+                unredir-if-possible = lib.mkDefault true;
+                # Unredirect toggles flash black on NVIDIA; brief fullscreen windows skip them.
+                unredir-if-possible-delay = lib.mkDefault 500;
+              };
             };
             udiskie = {
               enable = lib.mkDefault (appRows.enabled "udiskie");
