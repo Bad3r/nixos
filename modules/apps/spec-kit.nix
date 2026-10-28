@@ -28,6 +28,16 @@
     }:
     let
       cfg = config.programs."spec-kit".extended;
+      basePackage = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.spec-kit;
+      # Temporary until MCP requests an IPv4 port for its IPv4-only cleanup test.
+      python = pkgs.python3.override {
+        self = python;
+        packageOverrides = _final: prev: {
+          mcp = prev.mcp.overrideAttrs (old: {
+            patches = (old.patches or [ ]) ++ [ ./spec-kit/mcp-ipv4-stream-cleanup-test.patch ];
+          });
+        };
+      };
     in
     {
       options.programs."spec-kit".extended = {
@@ -39,8 +49,8 @@
 
         package = lib.mkOption {
           type = lib.types.package;
-          default = inputs.llm-agents.packages.${pkgs.stdenv.hostPlatform.system}.spec-kit;
-          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.spec-kit";
+          default = basePackage.override { python3 = python; };
+          defaultText = lib.literalExpression "inputs.llm-agents.packages.\${system}.spec-kit.override { python3 = ...; }";
           description = "The spec-kit package to use.";
         };
       };

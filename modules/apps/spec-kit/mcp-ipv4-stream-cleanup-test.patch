@@ -1,0 +1,36 @@
+diff --git a/tests/client/test_transport_stream_cleanup.py b/tests/client/test_transport_stream_cleanup.py
+--- a/tests/client/test_transport_stream_cleanup.py
++++ b/tests/client/test_transport_stream_cleanup.py
+@@ -12,12 +12,14 @@ nondeterministically in an unrelated later test.
+ """
+ 
+ import gc
++import socket
+ import sys
+ from collections.abc import Iterator
+ from contextlib import contextmanager
+ 
+ import httpx2
+ import pytest
++from anyio.pytest_plugin import FreePortFactory
+ 
+ from mcp.client.sse import sse_client
+ from mcp.client.streamable_http import streamable_http_client
+@@ -56,13 +58,16 @@ def _assert_no_memory_stream_leak() -> Iterator[None]:
+ 
+ 
+ @pytest.mark.anyio
+-async def test_sse_client_closes_all_streams_on_connection_error(free_tcp_port: int) -> None:
++async def test_sse_client_closes_all_streams_on_connection_error(
++    free_tcp_port_factory: FreePortFactory,
++) -> None:
+     """sse_client creates streams only after the SSE connection succeeds, so a
+     ConnectError propagates directly with nothing to leak.
+ 
+     Before the fix, streams were created before connecting and only 2 of 4 were
+     closed in the finally block.
+     """
++    free_tcp_port = free_tcp_port_factory(socket.AF_INET)
+     with _assert_no_memory_stream_leak():
+         with pytest.raises(httpx2.ConnectError):
+             async with sse_client(f"http://127.0.0.1:{free_tcp_port}/sse"):
