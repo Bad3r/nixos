@@ -13,6 +13,7 @@
     * Replaces the host's nixos-<host> device profile exclude list at boot and on every switch when it
       differs from the base list below plus the host's encrypted <host>.exclude entries, and restarts
       warp-svc while the daemon still applies another list.
+    * Journals warp-svc output at its real priorities from info up.
 
   Options:
     enable: Whether this host enrolls and runs warp-svc (the common baseline leaves it off).
@@ -303,6 +304,9 @@ let
             # The client only dials out; the upstream default opens inbound
             # UDP 2408 that nothing listens on.
             openFirewall = false;
+            # warp-svc writes its debug stream to the journal; the files under
+            # /var/log/cloudflare-warp keep it for warp-diag.
+            logLevel = "info";
           };
 
           # The rendered file preserves NixOS's normal static mappings and adds
@@ -388,6 +392,13 @@ let
             # bind-mounted in as a regular file instead of symlinked (ELOOP).
             serviceConfig.BindReadOnlyPaths = [
               "${config.sops.templates.${templateName}.path}:${config.services.cloudflare-warp.rootDir}/mdm.xml"
+            ];
+            # Without an IPv6 stack, warp-svc retries its IPv6 fwmark rule every
+            # 30 s and logs three lines per attempt while the IPv4 tunnel is fine.
+            serviceConfig.LogFilterPatterns = lib.mkIf (lib.elem "ipv6.disable=1" config.boot.kernelParams) [
+              "~WARN warp_connection::platform::desktop::linux: Reinstalling missing WARP fwmark policy rule family=IPv6$"
+              "~INFO warp_tun::linux: IPv6 disabled, ignoring netlink rejection .* ipv6_disabled_source=BootCommandLine$"
+              "~WARN actor_connection::network: Reinstalled missing WARP fwmark policy rules observed=Ipv4Only$"
             ];
           };
 
