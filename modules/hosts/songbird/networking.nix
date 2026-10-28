@@ -27,5 +27,18 @@
         # it presented wlx<permanent-mac> on the stock install.
         "10-intel-be200" = altnamesOnly "pci-0000:86:00.0";
       };
+
+    # Wired ports only: Wi-Fi may be a public network, and WARP and the VM
+    # bridges carry no mDNS peers.
+    services.avahi = {
+      allowInterfaces = [
+        "eth0"
+        "eth1"
+      ];
+      publish = {
+        enable = true;
+        addresses = true;
+      };
+    };
   };
 }

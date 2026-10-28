@@ -26,6 +26,12 @@
             openFirewall = true;
           };
 
+          # Avahi owns mDNS; a second stack on UDP 5353 splits unicast replies between them.
+          resolved.settings.Resolve = {
+            MulticastDNS = false;
+            LLMNR = false;
+          };
+
           # Power management
           upower.enable = true;
 
