@@ -100,9 +100,12 @@ _: {
         # its argon2id was still running and killed it. Restore the wait, but
         # bound both the absent-device and unlock-prompt paths at 60 seconds.
         # nofail emits no Requires=, so either expiry still lets root boot.
+        # The bound starts after cryptroot so the boot prompt has no deadline
+        # and this unlock reuses the cached root passphrase.
         initrd.systemd.services."systemd-cryptsetup@data" = {
           overrideStrategy = "asDropin";
           wantedBy = [ "initrd.target" ];
+          after = [ "systemd-cryptsetup@cryptroot.service" ];
           before = [ "initrd.target" ];
           serviceConfig.TimeoutStartSec = "60s";
         };
