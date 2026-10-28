@@ -1,6 +1,7 @@
 # Copyright (c) 2026 Bad3r
 """Select the highest refresh rate at a connected output's preferred resolution."""
 
+import argparse
 import os
 import re
 import subprocess
@@ -72,13 +73,45 @@ def select_mode(modes: list[Mode], pin: list[str]) -> Mode | None:
     )
 
 
-def main() -> None:
-    if os.environ.get("SRANDRD_EVENT") != "connected":
+def with_gsync_compatible(metamode: str) -> str:
+    entries = []
+    depth = 0
+    start = 0
+    for index, char in enumerate(metamode):
+        depth += {"{": 1, "}": -1}.get(char, 0)
+        if char == "," and depth == 0:
+            entries.append(metamode[start:index].strip())
+            start = index + 1
+    entries.append(metamode[start:].strip())
+    updated = []
+    for entry in entries:
+        if "AllowGSYNCCompatible=" in entry:
+            updated.append(entry)
+        elif entry.endswith("}"):
+            updated.append(f"{entry[:-1]}, AllowGSYNCCompatible=On}}")
+        else:
+            updated.append(f"{entry} {{AllowGSYNCCompatible=On}}")
+    return ", ".join(updated)
+
+
+def allow_gsync_compatible(nvidia_settings: str) -> None:
+    current = subprocess.check_output(
+        [nvidia_settings, "-t", "-q", "CurrentMetaMode"], text=True
+    ).strip()
+    _, separator, metamode = current.partition(" :: ")
+    if not separator:
+        msg = f"unexpected CurrentMetaMode output: {current!r}"
+        raise RuntimeError(msg)
+    updated = with_gsync_compatible(metamode)
+    if updated == metamode:
         return
-    output = os.environ["SRANDRD_OUTPUT"]
+    print(f"display-hotplug: assigning MetaMode {updated}", file=sys.stderr)
+    subprocess.run([nvidia_settings, "--assign", f"CurrentMetaMode={updated}"], check=True)
+
+
+def set_mode(output: str, pin: list[str]) -> None:
     query = subprocess.check_output(["xrandr", "--query"], text=True)
     modes = output_modes(query, output)
-    pin = sys.argv[1:]
     target = select_mode(modes, pin)
     # Without a primary output, i3bar's tray_output primary shows no tray.
     primary = [] if re.search(r"^\S+ connected primary ", query, re.MULTILINE) else ["--primary"]
@@ -107,6 +140,19 @@ def main() -> None:
             file=sys.stderr,
         )
     subprocess.run(["xrandr", "--output", output, "--auto", *primary], check=True)
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--nvidia-settings")
+    parser.add_argument("pin", nargs="*")
+    args = parser.parse_args()
+    if os.environ.get("SRANDRD_EVENT") != "connected":
+        return
+    set_mode(os.environ["SRANDRD_OUTPUT"], args.pin)
+    # RandR-created MetaModes drop per-mode attributes.
+    if args.nvidia_settings:
+        allow_gsync_compatible(args.nvidia_settings)
 
 
 if __name__ == "__main__":

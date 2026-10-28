@@ -70,9 +70,9 @@ let
             A pinned mode names an EDID the attached panel may not advertise.
             That does not cost a session: the driver discards MetaModes it
             cannot validate and "nvidia-auto-select" is guaranteed present, so X
-            still starts. `ForceFullCompositionPipeline` is enabled for the
-            X screen so dynamically selected and fallback modes retain the
-            composition pipeline without per-mode attributes.
+            still starts. Every configured mode carries
+            `AllowGSYNCCompatible=On`; RandR-created modes drop it, so the i3
+            display-hotplug handler reapplies it after each mode change.
           '';
         };
 
@@ -97,17 +97,17 @@ let
           {
             services.xserver = {
               videoDrivers = lib.mkDefault [ "nvidia" ];
-              # RandR-created MetaModes do not inherit per-mode composition attributes.
+              # G-SYNC Compatible does not run under the full composition pipeline.
               screenSection =
                 let
-                  metaMode = m: "${m} +0+0";
+                  metaMode = m: "${m} +0+0 {AllowGSYNCCompatible=On}";
                   modes = [
                     cfg.metamode
                   ]
                   ++ lib.optional (cfg.metamode != "nvidia-auto-select") "nvidia-auto-select";
                 in
                 lib.mkDefault ''
-                  Option "ForceFullCompositionPipeline" "true"
+                  Option "ForceFullCompositionPipeline" "false"
                   Option "metamodes" "${lib.concatMapStringsSep "; " metaMode modes}"
                 '';
             };
