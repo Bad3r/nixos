@@ -2,7 +2,12 @@
 # Enables X11 with the i3 window manager
 let
   i3SessionModule =
-    { pkgs, lib, ... }:
+    {
+      config,
+      pkgs,
+      lib,
+      ...
+    }:
     {
       options.gui.i3 = {
         # Display geometry hints consumed by the Home Manager i3 config via
@@ -56,6 +61,8 @@ let
           snixembed.extended.enable = lib.mkOverride 1050 true;
           # lock.target's only locker is the unit this row gates.
           "i3lock-color".extended.enable = lib.mkOverride 1050 true;
+          # display-hotplug sets NVIDIA modes through nvidia-settings.
+          "nvidia-settings".extended.enable = lib.mkIf config.gpu.nvidia.enable (lib.mkOverride 1050 true);
         };
       };
     };
