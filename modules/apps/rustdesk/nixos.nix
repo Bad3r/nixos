@@ -387,10 +387,9 @@ let
           example = "/dev/dri/by-path/pci-0000:00:02.0-render";
           description = ''
             Render node of an Intel GPU that encodes the shared screen as H.264
-            through VA-API and intel-media-driver, in place of every other
-            hardware encoder. RustDesk has no VA-API HEVC encoder, so a peer
-            that prefers H.265 gets H.264. Null leaves the choice to RustDesk,
-            which prefers NVENC, then AMF, then VA-API on the first render node.
+            or H.265 through VA-API and intel-media-driver, in place of every
+            other hardware encoder. Null leaves the choice to RustDesk, which
+            prefers NVENC, then AMF, then H.264 VA-API on the first render node.
           '';
         };
       };
@@ -456,7 +455,7 @@ let
             // lib.optionalAttrs (cfg.intelEncodeDevice != null) {
               LIBVA_DRIVER_NAME = "iHD";
               LIBVA_DRIVERS_PATH = "${pkgs.intel-media-driver}/lib/dri";
-              RUSTDESK_HWCODEC_ENCODERS = "h264_vaapi";
+              RUSTDESK_HWCODEC_ENCODERS = "h264_vaapi,hevc_vaapi";
               RUSTDESK_HWCODEC_VAAPI_DEVICE = cfg.intelEncodeDevice;
             };
             serviceConfig = meshOnly // {
