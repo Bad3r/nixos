@@ -11,7 +11,10 @@
       hardware video decoding on NVIDIA depends on, the same signal
       modules/hosts/common/webkitgtk-dmabuf.nix keys the WebKitGTK case on.
       Required rather than defaulted so a new Gecko caller cannot omit it and
-      silently ship with hardware decoding still blocklisted.
+      silently ship with hardware decoding still blocklisted. Its
+      `gpu.intel.vulkanDecode` moves decode to the Intel iGPU through
+      `withIgpuVideoDecode`, `igpuVulkanDecodeExecutables`, and the Vulkan
+      prefs.
   Returns:
     mkProfile, policies, nativeMessagingHosts, profile packages, and helpers.
 */
@@ -26,8 +29,9 @@
 }:
 let
   nvidiaGpu = lib.elem "nvidia" (lib.attrByPath [ "services" "xserver" "videoDrivers" ] [ ] osConfig);
+  igpuVulkanDecode = lib.attrByPath [ "gpu" "intel" "vulkanDecode" "enable" ] false osConfig;
   geckoPrefs = import ./_gecko-prefs.nix {
-    inherit lib nvidiaGpu;
+    inherit lib nvidiaGpu igpuVulkanDecode;
     fonts = if (config.stylix.enable or false) then config.stylix.fonts else null;
   };
   geckoBookmarks = import ./_gecko-bookmarks.nix { inherit lib; };
@@ -167,10 +171,53 @@ let
         fi
       '') profiles
     );
+
+  # Gecko cannot import the iGPU's tiled VA-API frames into the NVIDIA EGL
+  # compositor, but its Vulkan decoder copies frames to linear buffers for a
+  # compositor on another GPU.
+  withIgpuVideoDecode =
+    package:
+    if igpuVulkanDecode then
+      package.overrideAttrs (old: {
+        makeWrapperArgs =
+          old.makeWrapperArgs
+          ++ lib.concatLists (
+            lib.mapAttrsToList (name: value: [
+              "--set"
+              name
+              value
+            ]) osConfig.gpu.intel.vulkanDecode.environment
+          )
+          # The sandboxed RDD cannot read $HOME, so it skips the per-app user file and loads this one.
+          ++ [
+            "--prefix"
+            "XDG_CONFIG_DIRS"
+            ":"
+            "${osConfig.gpu.intel.vulkanDecode.loaderSettingsDir}"
+          ];
+      })
+    else
+      package;
+
+  # Every process of the browser sees only the Intel Vulkan device, not just
+  # the decoder: Gecko's Vulkan decoder has no device pref, and only WebGPU
+  # (off on Linux release builds and in librewolf.cfg) loses the RTX 5080.
+  # gfxtest is the probe that reports the decodable codecs.
+  igpuVulkanDecodeExecutables =
+    package:
+    let
+      name = package.unwrapped.binaryName;
+    in
+    lib.optionals igpuVulkanDecode [
+      "${package}/lib/${name}/${name}"
+      "${package.unwrapped}/lib/${name}/gfxtest"
+    ];
 in
 {
   inherit
     mkProfile
+    withIgpuVideoDecode
+    igpuVulkanDecodeExecutables
     mkXdgProfileRoot
     mkDarkreaderSeed
     policies

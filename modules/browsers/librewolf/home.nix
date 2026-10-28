@@ -53,6 +53,8 @@ _: {
       };
     in
     {
+      imports = [ ../../home-manager/_intel-vulkan-decode.nix ];
+
       config = lib.mkIf nixosEnabled {
         assertions = [
           {
@@ -74,6 +76,8 @@ _: {
           file = gecko.mkCustomKeysFiles config.programs.librewolf // xdgProfileRoot.file;
         };
 
+        gpu.intel.vulkanDecode.executables = gecko.igpuVulkanDecodeExecutables config.programs.librewolf.finalPackage;
+
         programs.librewolf = {
           enable = true;
           # This repo intentionally keeps LibreWolf on the legacy profile root.
@@ -81,7 +85,7 @@ _: {
           # Home Manager's declarative user.js, customKeys.json, extension
           # storage, and profile-scoped packages, so the XDG leaf is a symlink.
           configPath = legacyProfilesPath;
-          package = osConfig.programs.librewolf.extended.package;
+          package = gecko.withIgpuVideoDecode osConfig.programs.librewolf.extended.package;
           # See modules/browsers/firefox/home.nix for why this uses the browser
           # native-messaging option instead of `home.packages`, and why the
           # firefoxpwa connector manifest is added when firefoxpwa is enabled.

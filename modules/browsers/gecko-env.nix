@@ -26,7 +26,9 @@
   decoding whenever the active GPU is NVIDIA, so _gecko-prefs.nix sets the
   media.hardware-video-decoding.force-enabled override wherever "nvidia" drives
   services.xserver.videoDrivers (the same signal modules/hosts/common/webkitgtk-dmabuf.nix
-  keys its own NVIDIA workaround on).
+  keys its own NVIDIA workaround on). A host's gpu.intel.vulkanDecode instead
+  moves decode to the Intel iGPU through Vulkan, and Gecko then skips VA-API
+  (_gecko-mk-profile.nix withIgpuVideoDecode).
 
   WEBKIT_DISABLE_DMABUF_RENDERER from the same dotfiles branch is
   WebKit-specific and owned by modules/hosts/common/webkitgtk-dmabuf.nix.

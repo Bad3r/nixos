@@ -7,12 +7,17 @@
       the browser use its built-in defaults.
     * `nvidiaGpu` is whether "nvidia" drives the host's `services.xserver.videoDrivers`;
       it adds the blocklist override without which Gecko never probes VA-API on NVIDIA.
+    * `igpuVulkanDecode` is the host's `gpu.intel.vulkanDecode.enable`; it turns
+      on Vulkan decode, which only the browser's Intel-only Vulkan loader
+      settings (withIgpuVideoDecode, igpuVulkanDecodeExecutables) keep off the
+      NVIDIA GPU.
 */
 
 {
   lib,
   fonts ? null,
   nvidiaGpu ? false,
+  igpuVulkanDecode ? false,
 }:
 let
   geckoSearch = import ./_gecko-search.nix { };
@@ -202,5 +207,15 @@ in
       # and only runs its VA-API probe when this pref is set, whatever libva
       # driver gecko-env.nix routes to. Required since Firefox 137.
       "media.hardware-video-decoding.force-enabled" = true;
+    }
+    // lib.optionalAttrs igpuVulkanDecode {
+      # Vulkan decode on the iGPU (see withIgpuVideoDecode in
+      # _gecko-mk-profile.nix). Once it is usable Gecko skips its VA-API probe
+      # (gfxPlatform.cpp), so codecs anv cannot decode, such as VP8, fall to the
+      # CPU instead of NVDEC. Release builds blocklist it on all Linux devices
+      # (FEATURE_VIDEO_DECODING_VULKAN_DISABLED), so it needs both prefs until
+      # Firefox lifts that blocklist.
+      "media.hardware-video-decoding-vulkan.enabled" = true;
+      "media.hardware-video-decoding-vulkan.force-enabled" = true;
     };
 }
