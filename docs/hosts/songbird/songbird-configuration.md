@@ -12,6 +12,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 ## GPU
 
 - The NVIDIA driver runs its open kernel modules, since Blackwell is supported only by them: [nvidia-gpu.nix](../../../modules/hosts/songbird/nvidia-gpu.nix).
+- Apps that decode through Vulkan on the iGPU see only the Intel Vulkan driver, since FFmpeg and Gecko would otherwise pick the RTX 5080: [intel-vulkan-decode.nix](../../../modules/hosts/common/intel-vulkan-decode.nix).
 - libva carries the iGPU's driver beside nvidia-vaapi-driver, so an app can select the iGPU in its own wrapper while the session stays on NVDEC: [nvidia-gpu.nix](../../../modules/hosts/songbird/nvidia-gpu.nix).
 - The monitor advertises a low refresh rate as preferred. The i3 display handler selects the highest advertised rate at the preferred resolution on startup and reconnect: [services.nix](../../../modules/apps/i3wm/services.nix).
 - RustDesk encodes the shared screen as H.264 or H.265 on the iGPU through VA-API, keeping NVENC off the RTX 5080 that runs llama.cpp: [rustdesk.nix](../../../modules/hosts/songbird/rustdesk.nix).

@@ -22,6 +22,8 @@ _: {
       # decode or encode on 0000:00:02.0 under their own LIBVA_DRIVER_NAME=iHD.
       hardware.graphics.extraPackages = [ pkgs.intel-media-driver ];
 
+      gpu.intel.vulkanDecode.enable = true;
+
       # Suspend/hibernate VRAM preservation
       # (nvidia.NVreg_PreserveVideoMemoryAllocations=1 plus the
       # nvidia-suspend/hibernate/resume units) comes from
