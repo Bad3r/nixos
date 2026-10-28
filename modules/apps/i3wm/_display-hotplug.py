@@ -1,5 +1,8 @@
 # Copyright (c) 2026 Bad3r
-"""Select the highest refresh rate at a connected output's preferred resolution."""
+"""Select the highest refresh rate at a connected output's preferred resolution.
+
+On NVIDIA, the mode is set through a MetaMode that keeps AllowGSYNCCompatible.
+"""
 
 import argparse
 import os
@@ -7,7 +10,7 @@ import re
 import subprocess
 import sys
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_HALF_UP, Decimal
 
 
 @dataclass(frozen=True)
@@ -73,7 +76,7 @@ def select_mode(modes: list[Mode], pin: list[str]) -> Mode | None:
     )
 
 
-def with_gsync_compatible(metamode: str) -> str:
+def split_metamode(metamode: str) -> list[str]:
     entries = []
     depth = 0
     start = 0
@@ -83,42 +86,96 @@ def with_gsync_compatible(metamode: str) -> str:
             entries.append(metamode[start:index].strip())
             start = index + 1
     entries.append(metamode[start:].strip())
-    updated = []
-    for entry in entries:
-        if "AllowGSYNCCompatible=" in entry:
-            updated.append(entry)
-        elif entry.endswith("}"):
-            updated.append(f"{entry[:-1]}, AllowGSYNCCompatible=On}}")
-        else:
-            updated.append(f"{entry} {{AllowGSYNCCompatible=On}}")
-    return ", ".join(updated)
+    # A MetaMode with no enabled display reads as a bare NULL.
+    return [entry for entry in entries if entry and entry != "NULL"]
 
 
-def allow_gsync_compatible(nvidia_settings: str) -> None:
-    current = subprocess.check_output(
-        [nvidia_settings, "-t", "-q", "CurrentMetaMode"], text=True
-    ).strip()
+def with_gsync_compatible(entry: str) -> str:
+    if "AllowGSYNCCompatible=" in entry:
+        return entry
+    if entry.endswith("}"):
+        return f"{entry[:-1]}, AllowGSYNCCompatible=On}}"
+    return f"{entry} {{AllowGSYNCCompatible=On}}"
+
+
+def nvidia_mode_name(name: str, rate: str) -> str:
+    # The driver names modes <width>x<height>_<refresh rounded to an integer>.
+    return f"{name}_{Decimal(rate).to_integral_value(rounding=ROUND_HALF_UP)}"
+
+
+def run_nvidia_settings(nvidia_settings: str, *args: str) -> str:
+    result = subprocess.run([nvidia_settings, *args], capture_output=True, text=True, check=True)
+    # nvidia-settings exits 0 after rejecting a query or assignment.
+    if "ERROR:" in result.stdout + result.stderr:
+        msg = f"nvidia-settings {' '.join(args)}: {(result.stdout + result.stderr).strip()}"
+        raise RuntimeError(msg)
+    return result.stdout
+
+
+def set_metamode(nvidia_settings: str, output: str, mode: str | None) -> None:
+    current = run_nvidia_settings(nvidia_settings, "-t", "-q", "CurrentMetaMode").strip()
     _, separator, metamode = current.partition(" :: ")
     if not separator:
         msg = f"unexpected CurrentMetaMode output: {current!r}"
         raise RuntimeError(msg)
-    updated = with_gsync_compatible(metamode)
-    if updated == metamode:
+    device = re.search(
+        rf"\[dpy:([0-9]+)\] \({re.escape(output)}\)",
+        run_nvidia_settings(nvidia_settings, "-q", "dpys"),
+    )
+    if device is None:
+        msg = f"no NVIDIA display device named {output}"
+        raise RuntimeError(msg)
+    entries = split_metamode(metamode)
+    own = next(
+        (index for index, entry in enumerate(entries) if entry.startswith(f"DPY-{device[1]}:")),
+        None,
+    )
+    fields = entries[own].split(":", 1)[1].split("{", 1)[0].split() if own is not None else []
+    current_mode = fields[0] if fields and fields[0] != "NULL" else None
+    wanted = mode or current_mode or "nvidia-auto-select"
+    updated = [with_gsync_compatible(entry) for entry in entries]
+    if current_mode != wanted:
+        position = next(
+            (field for field in fields if re.fullmatch(r"[+-][0-9]+[+-][0-9]+", field)), "+0+0"
+        )
+        entry = f"DPY-{device[1]}: {wanted} {position} {{AllowGSYNCCompatible=On}}"
+        if own is None:
+            updated.append(entry)
+        else:
+            updated[own] = entry
+    if updated == entries:
         return
-    print(f"display-hotplug: assigning MetaMode {updated}", file=sys.stderr)
-    subprocess.run([nvidia_settings, "--assign", f"CurrentMetaMode={updated}"], check=True)
+    print(f"display-hotplug: assigning MetaMode {', '.join(updated)}", file=sys.stderr)
+    run_nvidia_settings(nvidia_settings, "--assign", f"CurrentMetaMode={', '.join(updated)}")
 
 
-def set_mode(output: str, pin: list[str]) -> None:
+def set_primary(output: str, primary: list[str]) -> None:
+    if primary:
+        print(f"display-hotplug: setting {output} as primary", file=sys.stderr)
+        subprocess.run(["xrandr", "--output", output, *primary], check=True)
+
+
+def set_mode(output: str, pin: list[str], nvidia_settings: str | None) -> None:
     query = subprocess.check_output(["xrandr", "--query"], text=True)
     modes = output_modes(query, output)
     target = select_mode(modes, pin)
     # Without a primary output, i3bar's tray_output primary shows no tray.
     primary = [] if re.search(r"^\S+ connected primary ", query, re.MULTILINE) else ["--primary"]
+    if nvidia_settings:
+        # RandR-created MetaModes drop AllowGSYNCCompatible, so one MetaMode
+        # assignment sets the mode and the attribute together.
+        mode = nvidia_mode_name(*pin) if pin else None
+        if mode is None and target is not None:
+            mode = nvidia_mode_name(target.name, str(target.rate))
+        try:
+            set_metamode(nvidia_settings, output, mode)
+        except (RuntimeError, subprocess.CalledProcessError) as error:
+            print(f"display-hotplug: {error}; falling back to xrandr", file=sys.stderr)
+        else:
+            set_primary(output, primary)
+            return
     if target is not None and target.current:
-        if primary:
-            print(f"display-hotplug: setting {output} as primary", file=sys.stderr)
-            subprocess.run(["xrandr", "--output", output, *primary], check=True)
+        set_primary(output, primary)
         return
     if target is not None or pin:
         name, rate = pin or (target.name, str(target.rate))
@@ -149,10 +206,7 @@ def main() -> None:
     args = parser.parse_args()
     if os.environ.get("SRANDRD_EVENT") != "connected":
         return
-    set_mode(os.environ["SRANDRD_OUTPUT"], args.pin)
-    # RandR-created MetaModes drop per-mode attributes.
-    if args.nvidia_settings:
-        allow_gsync_compatible(args.nvidia_settings)
+    set_mode(os.environ["SRANDRD_OUTPUT"], args.pin, args.nvidia_settings)
 
 
 if __name__ == "__main__":

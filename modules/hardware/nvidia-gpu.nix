@@ -64,15 +64,17 @@ let
             session startup and reconnect. If no preferred mode is advertised,
             it uses the largest advertised resolution. A pinned mode overrides
             this selection. Other formats emit an evaluation warning and use
-            automatic selection. Failed mode requests are logged and fall back
-            to RandR's preferred mode with `--auto`.
+            automatic selection. A rejected MetaMode assignment falls back to
+            xrandr, and failed xrandr mode requests are logged and fall back to
+            RandR's preferred mode with `--auto`.
 
             A pinned mode names an EDID the attached panel may not advertise.
             That does not cost a session: the driver discards MetaModes it
             cannot validate and "nvidia-auto-select" is guaranteed present, so X
             still starts. Every configured mode carries
             `AllowGSYNCCompatible=On`; RandR-created modes drop it, so the i3
-            display-hotplug handler reapplies it after each mode change.
+            display-hotplug handler sets modes through one CurrentMetaMode
+            assignment that carries it.
           '';
         };
 
