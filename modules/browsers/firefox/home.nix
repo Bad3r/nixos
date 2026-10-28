@@ -34,6 +34,8 @@ _: {
       };
     in
     {
+      imports = [ ../../home-manager/_intel-vulkan-decode.nix ];
+
       config = lib.mkIf nixosEnabled {
         assertions = [
           {
@@ -55,6 +57,8 @@ _: {
           file = gecko.mkCustomKeysFiles config.programs.firefox // xdgProfileRoot.file;
         };
 
+        gpu.intel.vulkanDecode.executables = gecko.igpuVulkanDecodeExecutables config.programs.firefox.finalPackage;
+
         programs.firefox = {
           enable = true;
           # This repo intentionally keeps Firefox on the legacy profile root.
@@ -62,7 +66,7 @@ _: {
           # Home Manager's declarative user.js, customKeys.json, extension
           # storage, and profile-scoped packages, so the XDG leaf is a symlink.
           configPath = legacyProfilesPath;
-          package = osConfig.programs.firefox.extended.package;
+          package = gecko.withIgpuVideoDecode osConfig.programs.firefox.extended.package;
           # `home.packages` is not on Firefox's native-messaging discovery
           # path. Use HM's browser-native option so manifests land in
           # ~/.mozilla/native-messaging-hosts. firefoxpwa ships the PWA connector
