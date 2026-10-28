@@ -55,7 +55,9 @@ Each role names a section of the models preset in [services.nix](../../../module
 - `qwen3.8-27b-gsq-mtp` is the default: paperless suggestions pass with it and map existing tags that Gemma 4 leaves as new names.
 - `gemma-4-26b-a4b` is the only preset that passes every client, tool-call, and vision check, and suggests about 2.5 times as fast as the default.
 - `lfm2.5-24b-a2b` decodes 273 tokens per second at a 1.9k-token prompt and 230 at 31k, text only; its weaker tool picks suit bulk work, not agents.
-- `mimo-v2.6-9b` is the light vision and agent model, but it ignores a required tool choice in 5 of 9 requests, so paperless avoids it.
+- `ornith-1.5-9b` is the light vision, coding, and agent model; MTP drafting decodes it at 130 tokens per second on short prompts.
+  It ignores a required tool choice in 5 of 10 requests, so paperless avoids it.
+  A vendored chat template renders the system messages its GGUF template drops after the first two.
 - `qwen3.8-27b-gsq-mtp`'s chat template rejects system messages after the first, which agent clients commonly send.
   It passed the client checks only through a proxy that folds them into the first.
 - `minicpm5-2b` is the small text-only preset, and `minicpm5-2b-dspark` adds DSpark drafting, which decodes 1.5 times as fast.
@@ -79,7 +81,7 @@ Each role names a section of the models preset in [services.nix](../../../module
 - The PCIe 4.0 link in [songbird-hardware.md](songbird-hardware.md) slows prefill whenever weights stream from RAM.
 - The 37xx NPU runs small OpenVINO models only, so language models stay on the RTX 5080.
 - Model files take up to 25 GB each on disk A, plus up to 1.4 GB per drafter or vision projector.
-- `mimo-v2.6-9b` ignores `tool_choice = required`, which paperless AI suggestions need, so it cannot replace the default model while paperless uses it.
+- `ornith-1.5-9b` ignores `tool_choice = required`, which paperless AI suggestions need, so it cannot replace the default model while paperless uses it.
 
 ## Sources
 
