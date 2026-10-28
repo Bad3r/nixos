@@ -13,7 +13,8 @@
     * Replaces the host's nixos-<host> device profile exclude list at boot and on every switch when it
       differs from the base list below plus the host's encrypted <host>.exclude entries, and restarts
       warp-svc while the daemon still applies another list.
-    * Journals warp-svc output at its real priorities from info up.
+    * Journals warp-svc output at its real priorities from info up, minus the IPv6 fwmark retry lines
+      it repeats without an IPv6 stack.
 
   Options:
     enable: Whether this host enrolls and runs warp-svc (the common baseline leaves it off).
@@ -395,7 +396,8 @@ let
             ];
             # Without an IPv6 stack, warp-svc retries its IPv6 fwmark rule every
             # 30 s and logs three lines per attempt while the IPv4 tunnel is fine.
-            serviceConfig.LogFilterPatterns = lib.mkIf (lib.elem "ipv6.disable=1" config.boot.kernelParams) [
+            # The patterns match the uncolored text that logLevel turns on.
+            serviceConfig.LogFilterPatterns = lib.mkIf (config.services.cloudflare-warp.logLevel != null) [
               "~WARN warp_connection::platform::desktop::linux: Reinstalling missing WARP fwmark policy rule family=IPv6$"
               "~INFO warp_tun::linux: IPv6 disabled, ignoring netlink rejection .* ipv6_disabled_source=BootCommandLine$"
               "~WARN actor_connection::network: Reinstalled missing WARP fwmark policy rules observed=Ipv4Only$"
