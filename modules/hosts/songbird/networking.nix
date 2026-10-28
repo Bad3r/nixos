@@ -20,7 +20,12 @@
       in
       {
         # Realtek RTL8126 5 GbE (r8169), the wired uplink.
-        "10-realtek-5gbe" = altnamesOnly "pci-0000:84:00.0";
+        "10-realtek-5gbe" = altnamesOnly "pci-0000:84:00.0" // {
+          extraConfig = ''
+            [EnergyEfficientEthernet]
+            Enable=no
+          '';
+        };
         # Intel I226-V 2.5 GbE (igc), second onboard port.
         "10-intel-2p5gbe" = altnamesOnly "pci-0000:85:00.0";
         # Intel BE200 Wi-Fi 7 (iwlwifi). Never carried a .link before this, so
