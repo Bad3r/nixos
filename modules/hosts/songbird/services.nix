@@ -92,9 +92,14 @@ in
       llamaPreset = (pkgs.formats.iniWithGlobalSection { }).generate "llama-cpp-models.ini" {
         globalSection.version = 1;
         sections = llamaModels // {
-          # [*] reaches every keyless child but not the router, which strips child CORS
-          # headers; the default reflects any Origin, so any web page could read a child.
-          "*".cors-origins = "http://127.0.0.1:${toString llamaPort}";
+          # [*] reaches every child but not the router.
+          "*" = {
+            # The router strips child CORS headers; the default reflects any Origin,
+            # so any web page could read a keyless child.
+            cors-origins = "http://127.0.0.1:${toString llamaPort}";
+            # Pinned to CUDA0, a child whose CUDA init fails exits instead of falling back to a Vulkan device.
+            device = "CUDA0";
+          };
         };
       };
     in
@@ -210,9 +215,9 @@ in
       services.logind.settings.Login.HandlePowerKey = "lock";
 
       programs.llama-cpp.extended = {
-        # Only for the RTX 5080 (sm_120), the host's one GPU. The flake's
-        # packages.cuda imports its own nixpkgs for every capability, so the
-        # scope is built from this host's pkgs instead.
+        # CUDA for the RTX 5080 (sm_120) only, Vulkan for the Arrow Lake iGPU
+        # through Mesa ANV. The flake's packages.cuda imports its own nixpkgs
+        # for every capability, so the scope is built from this host's pkgs instead.
         package =
           let
             src = inputs.llama-cpp;
@@ -223,6 +228,7 @@ in
           in
           (llamaPackages.llama-cpp.override {
             useCuda = true;
+            useVulkan = true;
             cudaPackages = pkgs.cudaPackages.override {
               config = pkgs.config // {
                 cudaCapabilities = [ "12.0" ];

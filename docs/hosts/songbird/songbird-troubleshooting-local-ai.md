@@ -51,3 +51,13 @@ journalctl -u llama-cpp -b -g 'tensor overrides to CPU'
 ```
 
 Lower `ctx-size` in the model's `llamaModels` entry; when the model then fits, add `fit = "off"` to keep every tensor on the GPU.
+
+## A model fails to load with invalid device: CUDA0
+
+CUDA failed to initialize in the model's child process, and the router's presets pin CUDA0 instead of falling back to a Vulkan device.
+
+```sh
+journalctl -u llama-cpp -b -g 'ggml_cuda_init|invalid device'
+```
+
+Run `nvidia-smi`; a driver/library version mismatch means a switch replaced the NVIDIA driver without a reboot, so reboot.
