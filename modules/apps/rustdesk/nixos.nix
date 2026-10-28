@@ -380,6 +380,19 @@ let
         };
 
         package = lib.mkPackageOption pkgs "rustdesk-flutter" { };
+
+        intelEncodeDevice = lib.mkOption {
+          type = lib.types.nullOr lib.types.str;
+          default = null;
+          example = "/dev/dri/by-path/pci-0000:00:02.0-render";
+          description = ''
+            Render node of an Intel GPU that encodes the shared screen as H.264
+            through VA-API and intel-media-driver, in place of every other
+            hardware encoder. RustDesk has no VA-API HEVC encoder, so a peer
+            that prefers H.265 gets H.264. Null leaves the choice to RustDesk,
+            which prefers NVENC, then AMF, then VA-API on the first render node.
+          '';
+        };
       };
 
       config = lib.mkMerge [
@@ -434,7 +447,18 @@ let
               pkgs.xdg-utils
               pkgs.xrandr
             ];
-            environment.PULSE_LATENCY_MSEC = "60";
+            # rustdesk-flutter hands LIBVA_*, RUSTDESK_HWCODEC_*, and the audio
+            # latency variables to its server processes, past sudo-rs and the
+            # session's own LIBVA_DRIVER_NAME.
+            environment = {
+              PULSE_LATENCY_MSEC = "60";
+            }
+            // lib.optionalAttrs (cfg.intelEncodeDevice != null) {
+              LIBVA_DRIVER_NAME = "iHD";
+              LIBVA_DRIVERS_PATH = "${pkgs.intel-media-driver}/lib/dri";
+              RUSTDESK_HWCODEC_ENCODERS = "h264_vaapi";
+              RUSTDESK_HWCODEC_VAAPI_DEVICE = cfg.intelEncodeDevice;
+            };
             serviceConfig = meshOnly // {
               ExecStartPre = lib.getExe seedConfig;
               ExecStart = "${lib.getExe cfg.package} --service";
