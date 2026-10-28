@@ -16,8 +16,9 @@
       disabled, it runs without a key, so the host binds a non-loopback listener only while
       `services.llama-cpp.apiKeyFile` is set.
     * `client.*` holds the endpoint, default model, context sizes, and API key that local clients use.
-    * songbird builds the `llama-cpp` flake input, llama.cpp master, for sm_120 only, so no cache
-      serves its build. The host compiles it against CUDA libraries from cache.nixos-cuda.org.
+    * songbird builds the `llama-cpp` flake input, llama.cpp master, with CUDA for sm_120 only and
+      Vulkan, so no cache serves its build. The host compiles it against CUDA libraries from
+      cache.nixos-cuda.org.
 */
 { config, ... }:
 let
