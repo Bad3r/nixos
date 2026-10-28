@@ -40,10 +40,13 @@
             efi.canTouchEfiVariables = true;
           };
 
-          crashDump = {
-            enable = true;
-            reservedMemory = "512M";
-          };
+          # Panic logs go to UEFI variables and land in /var/lib/systemd/pstore;
+          # kdump cannot unlock the Argon2 root inside a small crash kernel.
+          kernelParams = [
+            "efi_pstore.pstore_disable=0"
+            "softlockup_panic=1"
+            "panic=10"
+          ];
 
           # Increase kernel log verbosity and allow magic SysRq for crash triage
           kernel.sysctl = {

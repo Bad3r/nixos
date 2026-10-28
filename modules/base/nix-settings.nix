@@ -30,10 +30,8 @@ let
     ];
   };
   settings = clientSettings // {
-    # Hard-linking on every store write taxes builds and large substitution
-    # runs and serializes on the store lock; the scheduled
-    # nix.optimise.automatic run below deduplicates instead.
-    auto-optimise-store = lib.mkDefault false;
+    # Links each path before it is valid, so files of running processes are never swapped.
+    auto-optimise-store = true;
     keep-outputs = false;
   };
 in
@@ -43,12 +41,7 @@ in
   };
   config = {
     nix.settings = settings;
-    flake.nixosModules.base.nix = {
-      inherit settings;
-      # Store deduplication off the critical path; replaces
-      # auto-optimise-store (defaults to 03:45 daily).
-      optimise.automatic = true;
-    };
+    flake.nixosModules.base.nix.settings = settings;
 
     flake.homeManagerModules.base = _: {
       nix.settings = clientSettings;

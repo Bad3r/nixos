@@ -86,6 +86,12 @@
               lib.warn "display-hotplug: gpu.nvidia.metamode '${metamode}' is not <width>x<height>_<rate>; using automatic resolution and refresh selection" null
             else
               parsed;
+          hotplugArgs =
+            lib.optionals osConfig.gpu.nvidia.enable [
+              "--nvidia-settings"
+              (lib.getExe' osConfig.hardware.nvidia.package.settings "nvidia-settings")
+            ]
+            ++ lib.optionals (pinnedMode != null) pinnedMode;
           # The NVIDIA driver discards every MetaMode when it reprobes while
           # the panel sleeps off the bus, so the panel returns with no mode.
           displayHotplugScript = pkgs.writeShellApplication {
@@ -95,9 +101,7 @@
               pkgs.xrandr
             ];
             text = /* bash */ ''
-              exec python3 ${./_display-hotplug.py} ${
-                lib.optionalString (pinnedMode != null) (lib.escapeShellArgs pinnedMode)
-              }
+              exec python3 ${./_display-hotplug.py} ${lib.escapeShellArgs hotplugArgs}
             '';
           };
         in
@@ -121,6 +125,12 @@
               package = lib.mkDefault (appRows.package "picom");
               backend = lib.mkDefault "glx";
               vSync = lib.mkDefault true;
+              # Composited windows never reach G-SYNC Compatible scanout.
+              settings = {
+                unredir-if-possible = lib.mkDefault true;
+                # Unredirect toggles flash black on NVIDIA; brief fullscreen windows skip them.
+                unredir-if-possible-delay = lib.mkDefault 500;
+              };
             };
             udiskie = {
               enable = lib.mkDefault (appRows.enabled "udiskie");

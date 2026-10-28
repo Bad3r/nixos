@@ -1,6 +1,8 @@
 # WARP troubleshooting
 
-`warp-svc` logs to `journalctl -u cloudflare-warp.service`; `warp-cli` talks to it over its local socket without sudo.
+`warp-svc` logs info and above to `journalctl -u cloudflare-warp.service`.
+Its full debug stream is in `/var/log/cloudflare-warp/cfwarp_service_log.txt` and its rotations, readable without sudo.
+`warp-cli` talks to the daemon over its local socket without sudo.
 
 ## The switch warns that enrollment is disabled
 
@@ -11,7 +13,7 @@ Fix: `git submodule update --init secrets`, or install the age identity per [hos
 ## Registration missing after the switch
 
 Cause: `warp-svc` did not load `mdm.xml`, or the token is not in the Service Auth policy.
-Diagnostic: `journalctl -u cloudflare-warp.service | grep -i -E 'policy|mdm|register|registration|auth'`; `Unable to read local policy file` followed by `Service token credentials not configured: missing organization` means the file did not load, and `warp-cli --accept-tos registration show` then reports `Account type: Free`.
+Diagnostic: `grep -i -E 'policy|mdm|register|registration|auth' /var/log/cloudflare-warp/cfwarp_service_log.txt*`; `Unable to read local policy file` followed by `Service token credentials not configured: missing organization` means the file did not load, and `warp-cli --accept-tos registration show` then reports `Account type: Free`.
 Fix: for a load failure, read the next section; an authorization error in the log means the token id is absent from `hosts-service-auth` on the `Warp Login App`.
 
 ## warp-svc logs Too many levels of symbolic links
@@ -42,7 +44,8 @@ Fix: `warp-cli --accept-tos connect`, after `nmcli con down "<ProtonVPN connecti
 ## warp-svc reports an IPv6 error
 
 Cause: every host boots with `ipv6.disable=1`, and the client assigns an IPv6 address to its interface.
-Diagnostic: `journalctl -u cloudflare-warp.service | grep -i -E 'ipv6|inet6|address family'`.
+Diagnostic: `grep -i -E 'ipv6|inet6|address family' /var/log/cloudflare-warp/cfwarp_service_log.txt*`.
+The journal omits the IPv6 fwmark retry lines that `warp-svc` repeats every 30 s.
 Fix: none on the host, since the kernel parameter stays; report the log lines and change the Cloudflare side instead.
 
 ## Peers cannot reach the host over the Mesh
