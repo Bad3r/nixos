@@ -8,6 +8,12 @@
   Summary:
     * Runs `llama-server` as the nixpkgs `services.llama-cpp` system service, from this module's package.
     * Serves OpenAI Chat Completions and Responses, Anthropic Messages, and a built-in web UI.
+    * `embeddings.enable` adds `llama-cpp-embed`, a CPU embeddings server.
+    * `transcription.enable` adds `llama-cpp-transcribe`, which transcribes audio files over
+      `/v1/audio/transcriptions`, and `dictation.enable` adds `llama-cpp-dictate`, which
+      transcribes live English audio over the `/v1/realtime` WebSocket. Both run on the Intel
+      iGPU through Vulkan, which `package` must support, and accept the main server's keys.
+    * The three extra servers listen on loopback only.
 
   Notes:
     * The host sets `services.llama-cpp.settings`: listener, router flags, and models preset.
@@ -69,6 +75,135 @@ in
       embedKeysTemplate = "llama-cpp/embed-api-keys";
       embedKeyed = apiKeyReady && cfg.apiKeys != { };
       embedCfg = cfg.embeddings;
+      audioServers = {
+        transcription = "llama-cpp-transcribe";
+        dictation = "llama-cpp-dictate";
+      };
+      audioUnits = lib.mapAttrsToList (
+        attr: unit: lib.optional cfg.${attr}.enable "${unit}.service"
+      ) audioServers;
+      enabledAudioUnits = lib.concatLists audioUnits;
+      # The router's hardening, for a second llama-server that loads one model from the store.
+      loopbackServerConfig =
+        removeAttrs config.systemd.services.llama-cpp.serviceConfig [
+          "ExecStart"
+          "LoadCredential"
+          "StateDirectory"
+          "CacheDirectory"
+          "WorkingDirectory"
+          "Environment"
+        ]
+        // {
+          IPAddressDeny = "any";
+          IPAddressAllow = "localhost";
+        };
+
+      audioServerOptions =
+        {
+          unit,
+          what,
+          name,
+          port,
+          repo,
+          rev,
+          file,
+          hash,
+          mmprojHash,
+          modelText,
+        }:
+        let
+          fetch =
+            f: h:
+            pkgs.fetchurl {
+              url = "https://huggingface.co/${repo}/resolve/${rev}/${f}";
+              hash = h;
+            };
+        in
+        {
+          enable = lib.mkEnableOption "the `${unit}` ${what} server on loopback, on the Intel iGPU through Vulkan";
+
+          model = lib.mkOption {
+            type = lib.types.path;
+            default = fetch file hash;
+            defaultText = lib.literalMD "${modelText}, Q8_0, from `${repo}`";
+            description = "Speech recognition model GGUF.";
+          };
+
+          mmproj = lib.mkOption {
+            type = lib.types.path;
+            default = fetch "mmproj-${file}" mmprojHash;
+            defaultText = lib.literalMD "the Q8_0 audio projector from `${repo}`";
+            description = "Audio projector GGUF matching `model`.";
+          };
+
+          name = lib.mkOption {
+            type = lib.types.str;
+            default = name;
+            description = "Model name the instance reports and clients send.";
+          };
+
+          port = lib.mkOption {
+            type = lib.types.port;
+            default = port;
+            description = "Loopback port of the server.";
+          };
+        };
+
+      audioServerConfig =
+        attr: extraArgs:
+        let
+          srv = cfg.${attr};
+          unit = audioServers.${attr};
+        in
+        lib.mkIf srv.enable {
+          assertions = [
+            {
+              assertion = cfg.enable;
+              message = "programs.llama-cpp.extended.${attr}.enable takes its unit hardening and API key from the llama-cpp service; set programs.llama-cpp.extended.enable too.";
+            }
+          ];
+
+          systemd.services.${unit} = lib.mkIf cfg.enable {
+            description = "llama.cpp ${attr} server";
+            wantedBy = [ "multi-user.target" ];
+            after = lib.optionals apiKeyReady (sopsInstallSecretsDeps config);
+            requires = lib.optionals apiKeyReady (sopsInstallSecretsDeps config);
+            environment = {
+              # Leaves the Intel iGPU as the only device, so Vulkan0 cannot be a discrete GPU.
+              CUDA_VISIBLE_DEVICES = "-1";
+              VK_DRIVER_FILES = config.gpu.intel.vulkanDecode.intelIcd;
+            };
+            serviceConfig = loopbackServerConfig // {
+              ExecStart =
+                utils.escapeSystemdExecArgs (
+                  [
+                    (lib.getExe' cfg.package "llama-server")
+                    "--model"
+                    srv.model
+                    "--mmproj"
+                    srv.mmproj
+                    "--alias"
+                    srv.name
+                    "--host"
+                    "127.0.0.1"
+                    "--port"
+                    (toString srv.port)
+                    "--device"
+                    "Vulkan0"
+                    "--n-gpu-layers"
+                    "all"
+                    "--no-webui"
+                  ]
+                  ++ extraArgs
+                )
+                + lib.optionalString apiKeyReady " --api-key-file %d/api-key";
+              LoadCredential = lib.optional apiKeyReady "api-key:${config.services.llama-cpp.apiKeyFile}";
+              # NVIDIA's CUDA and Vulkan drivers need /dev/nvidia*, which stays closed.
+              DevicePolicy = "closed";
+              DeviceAllow = [ "char-drm rw" ];
+            };
+          };
+        };
     in
     {
       options.programs.llama-cpp.extended = {
@@ -135,6 +270,32 @@ in
             default = 8;
             description = "CPU threads for embedding.";
           };
+        };
+
+        transcription = audioServerOptions {
+          unit = audioServers.transcription;
+          what = "audio file transcription";
+          name = "qwen3-asr-1.7b";
+          port = 10102;
+          repo = "ggml-org/Qwen3-ASR-1.7B-GGUF";
+          rev = "36a678687ba7d07a74ca70ccb0e36902e005fb80";
+          file = "Qwen3-ASR-1.7B-Q8_0.gguf";
+          hash = "sha256-WOItBTLU6srwNM+sF6b+0VnzfEE5DHEBhng75DnR/Fc=";
+          mmprojHash = "sha256-RsHVM68/NUzrN86FXbzv99p/p88ealI987E0QL0WTA0=";
+          modelText = "Qwen3-ASR 1.7B";
+        };
+
+        dictation = audioServerOptions {
+          unit = audioServers.dictation;
+          what = "live English transcription";
+          name = "lfm3-audio-2b";
+          port = 10103;
+          repo = "LiquidAI/LFM3-Audio-2B-GGUF";
+          rev = "642697a5597a675cb819ed236ac415c1e60a4f6f";
+          file = "LFM3-Audio-2B-Q8_0.gguf";
+          hash = "sha256-1ONpArqPDuezM1lgMKWdZQ+IrHZmC02bpf93w8Ilj8A=";
+          mmprojHash = "sha256-JmAekEJFqFvY888yCmKeiXz8AcHQk2notP2VHxMCTT4=";
+          modelText = "LFM3-Audio 2B";
         };
 
         client = {
@@ -213,7 +374,7 @@ in
             owner = "root";
             group = "root";
             mode = "0400";
-            restartUnits = [ "llama-cpp.service" ];
+            restartUnits = [ "llama-cpp.service" ] ++ enabledAudioUnits;
           };
         })
 
@@ -240,53 +401,65 @@ in
             wantedBy = [ "multi-user.target" ];
             after = lib.optionals embedKeyed (sopsInstallSecretsDeps config);
             requires = lib.optionals embedKeyed (sopsInstallSecretsDeps config);
-            serviceConfig =
-              removeAttrs config.systemd.services.llama-cpp.serviceConfig [
-                "ExecStart"
-                "LoadCredential"
-                "StateDirectory"
-                "CacheDirectory"
-                "WorkingDirectory"
-                "Environment"
-              ]
-              // {
-                ExecStart =
-                  utils.escapeSystemdExecArgs [
-                    (lib.getExe' cfg.package "llama-server")
-                    "--model"
-                    embedCfg.model
-                    "--alias"
-                    embedCfg.name
-                    "--embeddings"
-                    "--host"
-                    "127.0.0.1"
-                    "--port"
-                    (toString embedCfg.port)
-                    "--device"
-                    "none"
-                    "--threads"
-                    (toString embedCfg.threads)
-                    # Four slots of 2048 tokens; an input must fit one ubatch.
-                    "--ctx-size"
-                    "8192"
-                    "--parallel"
-                    "4"
-                    "--batch-size"
-                    "2048"
-                    "--ubatch-size"
-                    "2048"
-                    "--no-webui"
-                  ]
-                  + lib.optionalString embedKeyed " --api-key-file %d/api-key";
-                LoadCredential = lib.optional embedKeyed "api-key:${
-                  config.sops.templates.${embedKeysTemplate}.path
-                }";
-                PrivateDevices = true;
-                IPAddressDeny = "any";
-                IPAddressAllow = "localhost";
-              };
+            serviceConfig = loopbackServerConfig // {
+              ExecStart =
+                utils.escapeSystemdExecArgs [
+                  (lib.getExe' cfg.package "llama-server")
+                  "--model"
+                  embedCfg.model
+                  "--alias"
+                  embedCfg.name
+                  "--embeddings"
+                  "--host"
+                  "127.0.0.1"
+                  "--port"
+                  (toString embedCfg.port)
+                  "--device"
+                  "none"
+                  "--threads"
+                  (toString embedCfg.threads)
+                  # Four slots of 2048 tokens; an input must fit one ubatch.
+                  "--ctx-size"
+                  "8192"
+                  "--parallel"
+                  "4"
+                  "--batch-size"
+                  "2048"
+                  "--ubatch-size"
+                  "2048"
+                  "--no-webui"
+                ]
+                + lib.optionalString embedKeyed " --api-key-file %d/api-key";
+              LoadCredential = lib.optional embedKeyed "api-key:${
+                config.sops.templates.${embedKeysTemplate}.path
+              }";
+              PrivateDevices = true;
+            };
           };
         })
+
+        (audioServerConfig "transcription" [
+          # The benchmarked size: a lone request fits about 34 minutes of audio at about 16 tokens per second.
+          "--ctx-size"
+          "32768"
+          "--parallel"
+          "4"
+          "--kv-unified"
+          # Frees the weights and KV cache in shared memory; the next request waits for the reload.
+          "--sleep-idle-seconds"
+          "1800"
+        ])
+
+        # No --sleep-idle-seconds: /v1/realtime reads the audio sample rate from the freed mtmd context
+        # before it wakes the server.
+        (audioServerConfig "dictation" [
+          # The benchmarked size; a live session restarts its context every 15 to 30 seconds of speech.
+          "--ctx-size"
+          "32768"
+          "--parallel"
+          "4"
+          "--kv-unified"
+        ])
 
         (lib.mkIf (keyNeeded && apiKeyReady) {
           sops.secrets."llama-cpp/api-key" = {
@@ -295,7 +468,7 @@ in
             path = apiKeyPath;
             inherit owner;
             mode = "0400";
-            restartUnits = lib.optional cfg.enable "llama-cpp.service";
+            restartUnits = lib.optional cfg.enable "llama-cpp.service" ++ enabledAudioUnits;
           };
         })
 

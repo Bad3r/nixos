@@ -52,6 +52,16 @@ journalctl -u llama-cpp -b -g 'tensor overrides to CPU'
 
 Lower `ctx-size` in the model's `llamaModels` entry; when the model then fits, add `fit = "off"` to keep every tensor on the GPU.
 
+## A speech service exits with invalid device: Vulkan0
+
+The Intel Vulkan driver found no iGPU in `llama-cpp-transcribe` or `llama-cpp-dictate`, which load only that driver and allow only DRM device nodes.
+
+```sh
+journalctl -u llama-cpp-transcribe -u llama-cpp-dictate -b -g 'ggml_vulkan|invalid device'
+```
+
+Run `VK_DRIVER_FILES=/run/opengl-driver/share/vulkan/icd.d/intel_icd.x86_64.json vulkaninfo --summary`; when it lists no Intel device, the i915 driver or Mesa is missing from the running generation, so switch or reboot into one that has them.
+
 ## A model fails to load with invalid device: CUDA0
 
 CUDA failed to initialize in the model's child process, and the router's presets pin CUDA0 instead of falling back to a Vulkan device.
