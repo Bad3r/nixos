@@ -13,6 +13,7 @@ Songbird takes the hosts-common baseline through its registry entry in [registry
 
 - The NVIDIA driver runs its open kernel modules, since Blackwell is supported only by them: [nvidia-gpu.nix](../../../modules/hosts/songbird/nvidia-gpu.nix).
 - The monitor advertises a low refresh rate as preferred. The i3 display handler selects the highest advertised rate at the preferred resolution on startup and reconnect: [services.nix](../../../modules/apps/i3wm/services.nix).
+- RustDesk encodes the shared screen as H.264 on the iGPU through VA-API, keeping NVENC off the RTX 5080 that runs llama.cpp: [rustdesk.nix](../../../modules/hosts/songbird/rustdesk.nix).
 - mpv keeps the OpenGL backend under vo=gpu-next, since the Vulkan backend deadlocked the GPU on rapid playlist switching: [mpv.nix](../../../modules/hosts/songbird/mpv.nix).
 - The cache-root policy excludes songbird's NVIDIA kernel module from the binary cache, since it builds from source with no configured substituter: [policy.nix](../../../modules/hosts/songbird/policy.nix).
 
