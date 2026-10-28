@@ -16,7 +16,10 @@ let
             rustdesk-flutter =
               final.runCommand prev.rustdesk-flutter.name
                 {
-                  nativeBuildInputs = [ final.librsvg ];
+                  nativeBuildInputs = [
+                    final.librsvg
+                    final.patchelf
+                  ];
                   inherit (prev.rustdesk-flutter) meta passthru version;
                 }
                 ''
@@ -26,7 +29,9 @@ let
 
                   app="$out/app/rustdesk"
                   rm "$app/rustdesk" "$out/bin/rustdesk" "$out/bin/.rustdesk-wrapped"
-                  install -m 555 "$original/app/rustdesk/rustdesk" "$app/rustdesk"
+                  install -m 755 "$original/app/rustdesk/rustdesk" "$app/rustdesk"
+                  # nix-store --optimise would hard-link a byte-identical copy to the original.
+                  patchelf --add-rpath "$app/lib" "$app/rustdesk"
                   ln -s ../app/rustdesk/rustdesk "$out/bin/.rustdesk-wrapped"
                   substitute "$original/bin/rustdesk" "$out/bin/rustdesk" \
                     --replace-fail "$original/" "$out/"
