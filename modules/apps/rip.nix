@@ -365,10 +365,7 @@ let
 
         # Bootstrap the trash store and point the XDG home trash at it. The
         # store sits on the same filesystem as the files being trashed (see
-        # `trashPath` above), so it stays off the `/tmp` tmpfs. Keeping it
-        # off `/tmp` also sidesteps the boot-time `D! /tmp` wipe from
-        # `boot.tmp.cleanOnBoot` and the tmpfs mount, so these rules need no
-        # ordering relationship with any other tmpfiles drop-in.
+        # `trashPath` above), so it survives reboots outside the `/tmp` tmpfs.
         systemd.tmpfiles.settings."rip-trash" = {
           # Create the trash directory; clean entries older than 10 days.
           ${cfg.trashPath}.d = {
