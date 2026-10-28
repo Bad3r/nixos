@@ -17,6 +17,9 @@ _: {
       # The iGPU remains present for VA-API fallback and GPU-less bring-up only.
     };
 
+    # The panel's EDID reports 10 bits per primary colour channel.
+    services.xserver.defaultDepth = 30;
+
     # Suspend/hibernate VRAM preservation
     # (nvidia.NVreg_PreserveVideoMemoryAllocations=1 plus the
     # nvidia-suspend/hibernate/resume units) comes from
