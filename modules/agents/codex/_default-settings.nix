@@ -50,8 +50,8 @@
   # tool_output_token_limit = 10000;
 
   # Approval and execution policy
-  approval_policy = "on-request";
-  # approvals_reviewer = "user"; # user | guardian
+  # approval_policy = "on-request"; # on-request | never | { granular = { ... }; }
+  # approvals_reviewer = "user"; # user | auto_review
   # auto_review = { policy = ""; };
   # Selects a named permissions profile; definitions are composed in _settings.nix.
   # default_permissions = "workspace";

@@ -54,7 +54,8 @@ Use `codex --no-daemon` to run a session without it.
 
 ## Approval defaults and runtime overrides
 
-The [site policy](../../../modules/agents/codex/_settings.nix) selects the default approval reviewer.
+The [site policy](../../../modules/agents/codex/_settings.nix) selects the approval categories and default reviewer.
+Enabled approval categories send requests to the selected reviewer; disabled categories reject requests before review.
 The automatic reviewer evaluates requests for additional permissions and commands that execution rules mark for review.
 
 To use human approval by default, create or edit `$CODEX_HOME/overrides.toml` (normally `~/.config/codex/overrides.toml`):
@@ -94,7 +95,8 @@ Inspect their runtime stage:
 codex features list
 ```
 
-The `codex/config` flake check validates generated TOML with the pinned binary, checks configured feature stages, and exercises both rejected fields.
+The `codex/config` flake check validates generated TOML with the pinned binary and rejects configured flags marked as removed.
+Synthetic inputs exercise launcher merge precedence, regeneration, partial overrides, and recovery from malformed mutable inputs.
 
 ## Check source behavior
 
