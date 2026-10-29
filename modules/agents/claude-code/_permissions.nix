@@ -66,20 +66,11 @@ let
   # so these override the broad allows even under
   # acceptEdits/auto/bypassPermissions. Unlike the codex execpolicy
   # (modules/agents/codex/_exec-policy.nix), no git subcommand is gated here.
-  stashHelperAsk = map (argv: builtins.concatStringsSep " " argv) (
-    import ../_stash-helper-invocations.nix
-  );
-
   bashAsk = [
     "gh repo delete"
     "gh pr close --delete-branch"
-  ]
-  ++ stashHelperAsk
-  ++ [
     # These wrapping forms must ask, or every rule above is bypassable
     # through `bash -c '...'`.
-    "bash scripts/prune-old-stashes.sh"
-    "bash ./scripts/prune-old-stashes.sh"
     "bash -c"
     "bash -lc"
     "zsh -c"
