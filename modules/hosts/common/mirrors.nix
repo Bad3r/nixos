@@ -72,6 +72,19 @@ let
             # Model Context Protocol
             "modelcontextprotocol/modelcontextprotocol" # Specification and https://modelcontextprotocol.io
             "modelcontextprotocol/python-sdk"
+            "agronholm/anyio"
+
+            # Local AI and document indexing
+            "ggml-org/llama.cpp"
+            "paperless-ngx/paperless-ngx"
+            "run-llama/llama_index"
+
+            # Virtualization and Windows integration
+            "microvm-nix/microvm.nix"
+            "mhammond/pywin32"
+            "virtio-win/kvm-guest-drivers-windows"
+            "winfsp/winfsp"
+            "farag2/Sophia-Script-for-Windows"
 
             # Applications
             "https://codeberg.org/librewolf/settings.git"
@@ -80,9 +93,13 @@ let
             "duplicati/duplicati"
             "logseq/logseq"
             "mpv-player/mpv"
+            "mbnuqw/sidebery"
             "openai/codex"
             "rclone/rclone"
             "restic/restic"
+            "rustdesk/rustdesk"
+            "rustdesk/hbb_common"
+            "rustdesk-org/hwcodec"
             "s0md3v/wappalyzer-next"
             "tridactyl/tridactyl"
 

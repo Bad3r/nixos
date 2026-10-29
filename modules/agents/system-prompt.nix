@@ -64,7 +64,8 @@ let
           to its owner. If one fails for lack of privileges, use
           ${questionToolText vars.questionTool} to ask the user to run it and paste the
           output.
-        - Local source and docs mirrors: `ls $LOCAL_MIRRORS`; the list is in
+        - Local source and docs mirrors: `ls $LOCAL_MIRRORS`; check them before fetching
+          upstream source. The list is in
           `~/nixos/modules/hosts/common/mirrors.nix`.
         - `$TMPDIR` is this session's throwaway dir, shared with subagents and swept
           after a week idle. Anything you name to the user, reuse across sessions, cite

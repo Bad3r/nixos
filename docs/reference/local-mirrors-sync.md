@@ -17,10 +17,10 @@ A spec without a directory is cloned, gets the [maintenance](#maintenance) run, 
 An existing mirror goes through these steps:
 
 1. Fetch every remote, pruning deleted branches.
-2. Stash uncommitted changes, untracked files included.
-3. Save `HEAD` on a `git-mirror/backup-<UTC time>` branch when it holds commits the tracking branch lacks.
-4. Reset hard to the tracking branch, or to the remote's default branch when `HEAD` tracks none.
-5. Delete untracked and ignored files.
+2. Stash uncommitted changes to tracked files.
+3. Refuse an update that would overwrite an untracked or ignored local path.
+4. Save `HEAD` on a `git-mirror/backup-<UTC time>` branch when it holds commits the tracking branch lacks.
+5. Update to the tracking branch, or to the remote's default branch when `HEAD` tracks none.
 6. Run [maintenance](#maintenance).
 
 A failed clone or fetch is retried with a growing delay before the spec fails.
@@ -28,11 +28,16 @@ Any failed spec fails the whole run once the other specs finish.
 
 ## Local work
 
-Changes made inside a mirror survive a sync only as a stash or a backup branch.
+Untracked and ignored files remain in place across syncs, including local agent instructions such as `CLAUDE.md`.
+They need no upstream commit, fork, or change to `.gitignore`.
+Optional local ignore rules belong in `.git/info/exclude`.
+
+Tracked edits survive as a stash, and local commits survive on a backup branch.
 A stash or backup branch that git cannot create, as during a conflicted merge, fails the spec before the reset.
 `programs.gitMirror.maxBackups` caps each kind per mirror.
 
-Ignored files never reach a stash, so build output inside a mirror is gone after the next sync.
+Local files are neither backed up nor pruned by sync.
+If upstream introduces a conflicting file or directory, move the local path elsewhere before retrying.
 The sync resets whichever branch is checked out, including one created inside the mirror.
 
 List the saved state from the mirror directory, and move what is needed into a separate clone before later syncs prune it:
