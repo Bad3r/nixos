@@ -94,7 +94,8 @@ Inspect their runtime stage:
 codex features list
 ```
 
-The `codex/config` flake check validates generated TOML with the pinned binary, checks configured feature stages, and exercises both rejected fields.
+The `codex/config` flake check validates generated TOML with the pinned binary and rejects configured flags marked as removed.
+Synthetic inputs exercise launcher merge precedence, regeneration, partial overrides, and recovery from malformed mutable inputs.
 
 ## Check source behavior
 
