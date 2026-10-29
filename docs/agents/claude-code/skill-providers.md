@@ -23,10 +23,10 @@ Account-synced skills and plugins are disabled in the Claude settings.
 Hide a standalone or bundled skill through `skillOverrides` in `modules/agents/claude-code/_plugins.nix`:
 
 ```nix
-skillOverrides.commit = "off";
+skillOverrides.sbx = "off";
 ```
 
-A skill's own frontmatter, such as `commit`'s `disable-model-invocation`, is a separate control that `skillOverrides` does not override.
+A skill's `disable-model-invocation` frontmatter is a separate control that `skillOverrides` does not override.
 
 Plugin-owned skill bundles follow their `enabledPlugins` entry in the same file.
 `skillOverrides` does not affect plugin-provided skills.
