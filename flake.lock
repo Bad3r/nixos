@@ -915,11 +915,11 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1793218767,
-        "narHash": "sha256-Jj6GlwEFmRVBSVCKS7Oaq+mH22OXWWsWSN+2A40DErY=",
+        "lastModified": 1793273725,
+        "narHash": "sha256-qlOYsATtm8Tp1Vir1nnY5xLxFQJWcMOH5AjvseLqMf8=",
         "owner": "Bad3r",
         "repo": "nixpkgs",
-        "rev": "2ce5a169e0b9a9abdd9472c220be3a90ff012ffb",
+        "rev": "7ebc6fcc1f90edb717f9bc6f7b6195036afec0e0",
         "type": "github"
       },
       "original": {
