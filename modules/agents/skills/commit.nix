@@ -3,19 +3,25 @@ let
   commitSelectModeSection = command: ''
     ## Select Mode
 
-    Default to `worktree_atomic` mode. Switch to `direct_current_branch` only when the user explicitly requests current-branch execution.
+    Use `worktree_atomic` for new work, `existing_task` to continue an authorized task on its existing non-main branch, and `direct_current_branch` for explicitly requested current-branch execution, including `main` or `master`.
+
+    For new work:
 
     1. `${command}` means commit only (no push, no PR) in a newly created worktree.
     2. `${command} and push` means commit + push + PR + labels from a newly created worktree, unless the user explicitly requests the current branch.
     3. `${command} ... create pull request` means commit + push + PR + labels from a newly created worktree.
     4. `${command} ... explicit branch` uses the provided text as the branch seed, then still creates a brand-new unique branch.
+
+    For an existing task or PR, reuse its verified branch and worktree instead of creating another branch or PR. Retain the publication scope already authorized in the conversation; a commit-only request does not authorize a push.
   '';
 
   commitSkillBody = ''
-    If the user provides an explicit commit message argument, use it after checks. If user intent is ambiguous, ask one short clarifying question before mutating state.
-    Direct commits on the current branch are allowed only when the user explicitly requests current-branch execution, including `main` or `master`.
-    Never reuse an existing worktree path from a prior invocation.
-    Never reuse any existing local or remote branch name from a prior invocation.
+    If the user provides an explicit commit message argument, use it after checks. Resolve routine choices from the task and prior authorization; ask only when missing information materially affects scope or risks unrelated work.
+    Committing on `main` or `master` requires explicit current-branch authorization. Reuse a non-main task branch only when its identity and authorization are established.
+    Continuing an authorized task on its existing non-main branch does not require renewed branch or publication approval. Honor explicit holds until the user supersedes them.
+    In `existing_task` mode, verify branch ownership, the PR head when present, and unrelated work before editing. For new tasks, create a fresh branch and worktree.
+
+    Task authorization does not extend to other repositories, consumer lock bumps, merging, or activation. Perform those actions only when they are within the authorized scope.
 
     ## Apply `~/trees` Naming Standard
 
@@ -36,19 +42,19 @@ let
     - If names follow non-type phase/task style (for example `phase-7-5-deploy-verification`), use the same hyphenated value for both branch and worktree directory.
     - If no entries exist, default to `type/slug` branch naming and `type-slug` worktree directories.
 
-    When the user provides an explicit branch name, treat it as a seed and generate a new unique branch from it.
-    Do not infer "same feature" from changed files alone. Resolve branch seed only from explicit user branch text, explicit ticket/issue identifier, or explicit "continue branch X" wording, then generate a new unique branch name.
+    For new work, treat a provided branch name as a seed and generate a unique branch from it.
+    For an existing task, resolve its branch from the conversation and current PR metadata; matching changed filenames alone do not establish task identity.
 
     ## Enforce Non-Negotiable Safety Rules
 
-    Apply these rules in every mode, unless the user overwrites it:
+    Apply these rules in every mode unless the user explicitly authorizes the specific exception:
 
     - Never run `git stash drop` or `git stash clear`.
     - Never run `git reset --hard` unless the user explicitly requests it.
     - Never run `git clean -fd`.
     - Never run `git add -A` or `git add .`; stage explicit file paths only.
     - Never run `git push --force` to `main` or `master`.
-    - Treat `flake.lock` as protected and exclude it from transfer, staging, and cleanup unless the user explicitly requests it.
+    - Treat `flake.lock` as protected and exclude it from transfer, staging, and cleanup unless updating it is explicitly within the authorized task.
     - When moving edits to a new worktree with explicit file paths, only those paths must become clean in the invoking checkout before staging or commit continues.
     - If the required cleanup scope remains dirty after transfer, fail hard and report remaining paths.
 
@@ -60,12 +66,12 @@ let
 
     - Never run `git commit` when current branch is `main` or `master`.
     - Never perform commit operations in-place on the primary checkout when it is on `main` or `master`.
-    - Always create a new worktree and new non-main branch first, then commit inside that new worktree.
+    - For new tasks, create a new worktree and non-main branch. An existing authorized task may reuse its verified non-main branch.
     - Exception: if the user explicitly requests current-branch execution, allow in-place commit/push on the active branch, including `main` or `master`.
 
     ## Require Invocation-Local Worktree Creation
 
-    Enforce this gate before any `git add` or `git commit` when `current_branch_explicit=false`:
+    Enforce this gate before any `git add` or `git commit` in `worktree_atomic` mode:
 
     1. Snapshot existing worktree paths at invocation start:
 
@@ -80,7 +86,7 @@ let
 
     ## Require Invocation-Local Branch Creation
 
-    Enforce this gate before any `git worktree add`, `git add`, or `git commit` when `current_branch_explicit=false`:
+    Enforce this gate before any `git worktree add`, `git add`, or `git commit` in `worktree_atomic` mode:
 
     1. Snapshot existing local and remote branch names at invocation start:
 
@@ -110,10 +116,10 @@ let
 
     - Stage only files for one logical concern.
     - Use explicit paths: `git add path/to/file1 path/to/file2`.
-    - Exclude `flake.lock` from staging unless the user explicitly requested it.
+    - Exclude `flake.lock` from staging unless updating it is explicitly within the authorized task.
     - Split unrelated concerns into separate commits.
 
-    If nothing is staged, inspect unstaged changes, propose the exact file list to stage, and proceed only after user confirmation.
+    If nothing is staged, inspect unstaged changes and stage the explicit paths belonging to the authorized task. Preserve unrelated changes. Ask only when ownership or scope cannot be determined safely.
 
     ## Write Commit Messages
 
@@ -141,17 +147,20 @@ let
        - `pr_required` for PR requests
        - `labels_required` when PR labels are requested
        - `current_branch_explicit` only when the user clearly requests current-branch execution
-       - `requested_paths` when the user names explicit files to commit
+       - `existing_task` when continuing an authorized task on its verified existing non-main branch
+       - `reuse_existing_branch` when `current_branch_explicit` or `existing_task` is true
+       - `requested_paths` from explicit file names or the verified scope of the authorized task
        - `keep_source_paths` when the user explicitly asks to keep source-checkout edits
-       - `flake_lock_explicit` when `flake.lock` is explicitly requested
+       - `flake_lock_explicit` when updating `flake.lock` is explicitly within the authorized task
     2. Normalize intent flags:
-       - If `current_branch_explicit` is false and `push_required` is true, force `pr_required=true` and `labels_required=true`.
-       - If `current_branch_explicit` is false and `pr_required` is true, force `labels_required=true`.
-       - If `current_branch_explicit` is true, do not auto-enable PR or labels; run only what the user explicitly requested.
+       - Retain commit, push, and PR authorization from earlier turns of the same task, subject to later scope restrictions.
+       - If `reuse_existing_branch` is false and `push_required` is true, set `pr_required=true` and `labels_required=true`.
+       - If `reuse_existing_branch` is false and `pr_required` is true, set `labels_required=true`.
+       - For an existing PR, update that PR; do not create another PR. For direct current-branch execution, do not add PR operations outside the authorized scope.
        - If `flake_lock_explicit` is false, remove `flake.lock` from `requested_paths`.
-       - If `requested_paths` becomes empty after filtering, stop and ask for explicit paths.
+       - If `requested_paths` becomes empty after filtering, report that no authorized changes remain; ask only if unresolved scope prevents completing the task.
        - Set `cleanup_source_paths=true` when `requested_paths` is non-empty and `keep_source_paths` is false.
-    3. If `current_branch_explicit` is true, keep the invoking checkout as active path and skip steps 4-16.
+    3. If `reuse_existing_branch` is true, use the verified task worktree and skip steps 4-16. Main/master still requires explicit current-branch authorization.
     4. Resolve branch seed in this order:
        - Explicit branch text from user input
        - Explicit ticket/issue id from user input
@@ -200,34 +209,32 @@ let
 
        - If stash apply fails, stop immediately, report stderr and the stash ref, and do not continue.
        - Never drop transfer stashes automatically; keep them available for recovery.
-    17. Set active working directory to the new worktree when `current_branch_explicit=false`; otherwise keep the invoking checkout active.
+    17. Set the active directory to the new worktree in `worktree_atomic` mode, or the verified task worktree when reusing an existing branch.
     18. Run preflight checks, stage exact files, draft/confirm message when needed, and commit.
-    19. If `cleanup_source_paths=true` and `current_branch_explicit=false`, clean requested paths in the invoking checkout after commit:
+    19. If `cleanup_source_paths=true` and `reuse_existing_branch=false`, clean requested paths in the invoking checkout after commit:
        - For tracked files, run `git -C "$invoking_checkout" restore --source=HEAD -- <path>`.
        - For untracked files, run `rip "$invoking_checkout/<path>"`.
        - Verify with `git -C "$invoking_checkout" status --porcelain --untracked-files=all -- <requested_paths...>`.
        - If any requested path remains dirty, stop and report exact paths.
     20. If `push_required`, push safely with upstream tracking.
-    21. If `pr_required`, create PR with `gh pr create --fill --base base-branch --head active-branch` unless user provides custom title/body.
+    21. If PR publication is authorized and an existing PR is in scope, update its title and description to match the final implementation and validation. Otherwise, if `pr_required`, create the requested PR.
     22. Because `pr_required` implies `labels_required`, always set labels immediately after PR creation:
        - Prefer user-provided labels.
        - Otherwise inspect `gh label list` and apply best-matching existing labels.
-    23. Return active path, active branch, commit SHA, whether `current_branch_explicit` was used, and optional push/PR outputs.
+    23. Return the active path, branch, commit SHA, selected mode, and push/PR outcome.
 
     ## Handle Failures
 
-    If any command fails:
+    Surface failures and inspect their cause. Retry routine recoverable failures within the authorized scope, including a hook that refreshes generated files and requests a retry. Preserve hooks and unrelated work.
 
-    1. Stop and report the exact failed command and stderr.
-    2. Explain whether commit/push/PR happened or not.
-    3. Provide the smallest safe recovery step and continue only after confirmation when state is ambiguous.
+    If recovery needs a destructive action or an unresolved scope decision, report the command, error, current publication state, and the specific decision needed. Do not treat a recoverable failure as a reason to request approval already granted.
   '';
 in
 {
   flake.lib.agents._internal.skills.raw.commit = {
     name = "commit";
     title = "Git Commit Skill";
-    description = "Safe commit workflow: default to a fresh ~/trees worktree + branch; allow current-branch commit/push only when explicitly requested, including main/master.";
+    description = "Commit scoped changes in a fresh worktree for new tasks or the verified branch of an existing task or PR; require explicit current-branch authorization for main/master.";
     body = commitSkillBody;
 
     codex = {
@@ -239,7 +246,7 @@ in
       openaiYaml.interface = {
         display_name = "Commit Workflow";
         short_description = "Safe commit, push, branch, and PR workflow";
-        default_prompt = "Use $commit with default worktree + new-branch flow. Commit/push on the current branch only when the user explicitly requests it, including main/master.";
+        default_prompt = "Use $commit to complete the authorized commit and publication scope. Create a worktree for new work or continue the verified branch of an existing task or PR. Require explicit current-branch authorization for main/master.";
       };
     };
 
