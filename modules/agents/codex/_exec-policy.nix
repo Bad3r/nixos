@@ -31,9 +31,8 @@ let
   # Route bare `rm` through the trash-cli-backed shim (PATH prepend plus a top-level
   # rm() function) so `find -exec rm`, `xargs rm`, and nested shells inside a
   # Codex session trash deletions instead of running coreutils rm. Mirrors the
-  # claude-code wrapper: the bwrap workspace-write sandbox bounds the blast
-  # radius, but the workspace is the user's work, so the shim is what keeps
-  # those deletions recoverable.
+  # claude-code wrapper. The `rm` allow rule runs it outside bwrap, so the shim,
+  # not the sandbox, is what keeps those deletions recoverable.
   #
   # Keep the wrapper executable named `bash` so Codex continues to classify
   # `bash -lc ...` invocations as shell commands and applies execpolicy to the
@@ -89,104 +88,23 @@ let
 
   execPolicyManagedRules =
     let
-      allowAllCommands = [
-        "rip"
-        "sed"
+      # An allow rule runs the command outside bwrap in every sandbox mode, so
+      # only commands that can neither write files nor run other programs qualify.
+      readOnlyCommands = [
         "head"
         "tail"
-        "awk"
         "nl"
-        "rg"
         "strings"
         "readlink"
-        "find"
-        "sort"
-        "uniq"
-        "printf"
-        "mktemp"
-        "codex"
-        "claude"
         "grep"
         "jq"
-        "yq"
-        "htmlq"
-        "mkdir"
-        "sqlite3"
         "cat"
         "stat"
-        "uv"
-        "bun"
-        "npm"
-        "npx"
-        "bunx"
-        "deno"
-        "devenv"
-        "direnv"
-        "treefmt"
-        "touch"
         "ls"
         "eza"
         "du"
         "lsblk"
-        "python"
-        "python3"
-        "playwright"
-        "chromium"
       ];
-
-      # Lix: allow the binaries hosts actually run (RFC #282).
-      nixHostExecutables = [
-        {
-          name = "nix";
-          paths = [
-            "/run/current-system/sw/bin/nix"
-            (lib.getExe pkgs.lixPackageSets.latest.lix)
-          ];
-        }
-        {
-          name = "nix-instantiate";
-          paths = [
-            "/run/current-system/sw/bin/nix-instantiate"
-            (lib.getExe' pkgs.lixPackageSets.latest.lix "nix-instantiate")
-          ];
-        }
-      ];
-
-      nixAllowedSubcommands = [
-        [ "develop" ]
-        [ "run" ]
-        [ "shell" ]
-        [ "fmt" ]
-        [ "eval" ]
-        [ "build" ]
-        [
-          "flake"
-          "check"
-        ]
-        [
-          "store"
-          "diff-closure"
-        ]
-        [
-          "store"
-          "repair"
-        ]
-      ];
-
-      allowedNixPatterns =
-        let
-          withNix = subcommand: [ "nix" ] ++ subcommand;
-          withAcceptFlakeConfig =
-            subcommand:
-            [
-              "nix"
-              "--accept-flake-config"
-            ]
-            ++ subcommand;
-        in
-        (map withNix nixAllowedSubcommands)
-        ++ (map withAcceptFlakeConfig nixAllowedSubcommands)
-        ++ [ [ "nix-instantiate" ] ];
 
       # Prompt outranks the `sbx` allow; sbx's own refusal reads env the agent controls.
       promptedSbxRules =
@@ -451,9 +369,9 @@ let
     lib.concatStringsSep "\n" (
       [
         "# Managed by Home Manager. Edit modules/agents/codex/_exec-policy.nix."
-        "# Allowlisted nix commands run without execpolicy prompts."
-        "# The workspace permissions profile grants ~/.cache/nix write access and"
-        "# allows the Nix daemon Unix socket at /nix/var/nix/daemon-socket/socket."
+        "# Allowed commands run outside the sandbox, even under --sandbox read-only."
+        "# Nix commands run sandboxed: the workspace permissions profile grants ~/.cache/nix"
+        "# write access and allows the Nix daemon Unix socket at /nix/var/nix/daemon-socket/socket."
         "# Git destructive coverage is best-effort: execpolicy only matches argv prefixes,"
         "# so forms like `git -C repo reset --hard`, `git checkout -- path`, or"
         "# `git push origin main --force` do not hit these prompt rules."
@@ -468,20 +386,11 @@ let
           decision = "allow";
           justification = "Bare `rm` is rewritten to the local trash-cli-backed shim.";
         })
+        (execPolicyRule { pattern = [ "rip" ]; })
         ""
-        "# Auto-allowed command prefixes"
+        "# Read-only commands"
       ]
-      ++ [
-        ""
-        "# Canonicalize common Nix host executable paths before prefix matching"
-      ]
-      ++ map execPolicyHostExecutable nixHostExecutables
-      ++ map (cmd: execPolicyRule { pattern = [ cmd ]; }) allowAllCommands
-      ++ [
-        ""
-        "# Auto-allowed nix prefixes"
-      ]
-      ++ map (pattern: execPolicyRule { inherit pattern; }) allowedNixPatterns
+      ++ map (cmd: execPolicyRule { pattern = [ cmd ]; }) readOnlyCommands
       ++ [
         ""
         "# Destructive git prefixes that must ask first"
