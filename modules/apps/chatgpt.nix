@@ -14,6 +14,9 @@
 
   Notes:
     * Package sourced from llm-agents.nix flake (github:Bad3r/llm-agents.nix).
+    * Electron app with productName "Codex": its Chromium profile lives in
+      $XDG_CONFIG_HOME/Codex, while its agent state shares $CODEX_HOME
+      (~/.config/codex) with the CLI.
 */
 { inputs, ... }:
 {

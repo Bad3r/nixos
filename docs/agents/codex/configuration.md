@@ -26,6 +26,11 @@ After rebuilding and switching NixOS, launch the application from the desktop me
 Sign in with a ChatGPT account and choose ChatGPT or Codex in the application.
 The `codex` command continues to launch the separately configured terminal agent.
 
+The application is an Electron build named `Codex`, so its Chromium profile lives in `$XDG_CONFIG_HOME/Codex`.
+That directory holds window state, cookies, caches, and the built-in browser profile.
+Its agent sessions, history, and memories go to `$CODEX_HOME`, shared with the terminal agent.
+Configure both through `$CODEX_HOME`; the capitalized directory carries no Codex settings.
+
 ## Runtime files
 
 The [launcher](../../../modules/agents/codex/_wrapper.nix) merges these files in order:

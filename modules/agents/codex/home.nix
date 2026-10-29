@@ -32,6 +32,8 @@
       - overrides.toml: optional user settings, merged last (mutable)
     * Execpolicy is separate from config.toml and is loaded from the rules/ directory under CODEX_HOME.
       The nix-managed layer is written to codex/rules/20-managed.rules.
+    * ~/.config/Codex (capitalized) is the desktop app's Electron profile
+      (modules/apps/chatgpt.nix), not CODEX_HOME.
     * To trust a new project, add it to ~/.config/codex/trusted-projects.toml:
         [projects."/path/to/project"]
         trust_level = "trusted"
