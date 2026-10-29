@@ -17,7 +17,7 @@ The Python publisher runs and logs the same way under `git-mirror-python-docs.se
 ## Firefox source docs
 
 `git-mirror-firefox-docs.service` runs `./mach doc` in the Firefox mirror, configured under `programs.gitMirror.firefoxDocs`.
-The output stays outside the checkout, so the sync can keep the source tree clean.
+The output stays outside the checkout.
 
 | Path in `mozilla-firefox-firefox-docs` | Content                       |
 | -------------------------------------- | ----------------------------- |
@@ -28,8 +28,8 @@ The output stays outside the checkout, so the sync can keep the source tree clea
 
 A change to the `mach doc` options rebuilds the current revision, since `last-built-revision` records them.
 The service skips a mirror without a checkout, an executable `mach`, or a valid `HEAD`.
-It fails on a checkout with local changes.
-A build that dirties the checkout only logs a warning, since the next sync cleans it.
+It fails on a checkout with tracked edits; untracked local files do not block a build.
+A build that changes tracked files logs a warning; the next sync stashes those edits.
 With `linkcheck` set, a second `mach doc --linkcheck` pass writes to `linkcheck/<sha>`, pruned like the builds.
 
 ## Python documentation sources

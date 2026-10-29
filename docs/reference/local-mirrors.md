@@ -16,6 +16,32 @@ Each repository spec lands in one flat directory under the root:
 - An HTTP(S) URL lands in its host and path joined by dashes, minus `.git`, a leading `www.`, and a `.com`, `.org`, or `.net` suffix.
   `https://codeberg.org/librewolf/settings.git` lands in `$LOCAL_MIRRORS/codeberg-librewolf-settings`.
 
+## Reusing source
+
+Check for a mirror before cloning or downloading upstream source.
+Read upstream source without modifying tracked files, since [sync replaces tracked edits](local-mirrors-sync.md#local-work).
+Untracked local files, including agent instructions, remain in place across syncs.
+The mirror follows upstream; use the package's pinned revision when investigating installed behavior.
+
+Read a file at that revision without checking out another branch:
+
+```sh
+git -C "$LOCAL_MIRRORS/ggml-org-llama.cpp" show <revision>:tools/server/README.md
+```
+
+For edits, make an independent local clone under the session's scratch directory:
+
+```sh
+git clone --no-hardlinks "$LOCAL_MIRRORS/ggml-org-llama.cpp" "$TMPDIR/llama.cpp"
+git -C "$TMPDIR/llama.cpp" remote set-url origin https://github.com/ggml-org/llama.cpp.git
+git -C "$TMPDIR/llama.cpp" switch --detach <revision>
+```
+
+If the revision is missing, fetch it from upstream into the scratch clone.
+Fetch another upstream branch explicitly when the local clone lacks its refs.
+Avoid `--shared` and object alternates: mirror maintenance can prune objects a dependent clone still needs.
+Run builds and untrusted code in a disposable sandbox, following the agent's sandbox instructions.
+
 ## Adding a mirror
 
 1. Add the spec to `programs.gitMirror.repos` in `modules/hosts/common/mirrors.nix`.

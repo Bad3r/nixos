@@ -23,6 +23,39 @@ let
   # break the check itself. Declaring all of them keeps the list a readable
   # inventory of what a suite needs rather than of what stdenv forgot.
   suites = {
+    git-mirror-sync = {
+      dir = ../../tests/git-mirror-sync;
+      subjects = [ ];
+      packages =
+        { pkgs, ... }:
+        let
+          mkStampGuard = import ../../modules/git/_mirror-root-stamp-guard.nix;
+        in
+        [
+          (import ../../modules/git/_mirror-sync-repo.nix { inherit pkgs mkStampGuard; })
+          (import ../../modules/git/_firefox-docs-builder.nix {
+            inherit pkgs mkStampGuard;
+            inherit (pkgs) lib;
+            mirrorRoot = ".";
+            stampName = ".test-root-stamp";
+            firefoxDocs = {
+              repoPath = ".";
+              outputRoot = ".";
+              lockPath = "./firefox.lock";
+              format = "html";
+              maxRevisions = 3;
+              archive = false;
+              jobs = null;
+              disableWarningsCheck = true;
+              verbose = false;
+              noAutodoc = true;
+              path = null;
+              linkcheck = false;
+            };
+          })
+        ];
+      extraInputs = _: [ ];
+    };
     duplicati-r2-generator = {
       dir = ../../tests/duplicati-r2-generator;
       subjects = [ ];
