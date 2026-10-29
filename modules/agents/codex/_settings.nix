@@ -42,7 +42,13 @@ let
     # Core settings
     model = "gpt-6.1-sol";
     review_model = "gpt-6.1-sol";
-    approval_policy = "on-request";
+    approval_policy.granular = {
+      sandbox_approval = true;
+      rules = true;
+      mcp_elicitations = true;
+      request_permissions = true;
+      skill_approval = true;
+    };
     approvals_reviewer = "auto_review";
     default_permissions = "workspace";
     web_search = "live";

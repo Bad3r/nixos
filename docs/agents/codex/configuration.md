@@ -54,7 +54,8 @@ Use `codex --no-daemon` to run a session without it.
 
 ## Approval defaults and runtime overrides
 
-The [site policy](../../../modules/agents/codex/_settings.nix) selects the default approval reviewer.
+The [site policy](../../../modules/agents/codex/_settings.nix) selects the approval categories and default reviewer.
+Enabled approval categories send requests to the selected reviewer; disabled categories reject requests before review.
 The automatic reviewer evaluates requests for additional permissions and commands that execution rules mark for review.
 
 To use human approval by default, create or edit `$CODEX_HOME/overrides.toml` (normally `~/.config/codex/overrides.toml`):
