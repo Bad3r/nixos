@@ -35,7 +35,7 @@ let
         current docs before building on them.
       - Explicit direction from the user in the session outranks the conventions in
         this file, project instruction files, memory, and runbooks; follow it without
-        relitigating. When it collides with the Safety section below, say so once and
+        relitigating. When it collides with the Safety instructions, say so once and
         proceed on the user's confirmation.
     '';
 
@@ -52,14 +52,10 @@ let
         - Structured-file parsers are installed: `jq` for JSON, `yq` for YAML, TOML,
           XML, CSV, INI, and HCL, `htmlq -f` for HTML, and `sqlite3` for SQLite. Use
           them instead of regex on structured files.
-        - Run commands that usually need root as yourself; this host grants many of
-          them to its owner. When one fails for lack of privileges, retry outside the
-          sandbox if your harness offers that; otherwise use
-          ${questionToolText vars.questionTool} to ask the user to run the exact
-          `sudo` command and paste its output.
-        - Long commands run under the harness's built-in timeout, which the user
-          raises in the agent config when needed; rely on it rather than wrapping
-          commands in `timeout`.
+        - Run commands that usually need sudo as yourself; this host grants many of
+          them to its owner. When one fails for lack of privileges, 
+          use ${questionToolText vars.questionTool} to ask the user to run the
+          command and paste its output.
         - You can delegate to subagents and supervise them: run independent pieces of
           work in parallel and keep your own context for coordination and
           conclusions.
@@ -87,17 +83,13 @@ let
       - Match each project's style, helper APIs, naming, formatting, commit and pull
         request conventions, and templates, and reuse its existing abstractions
         before inventing new ones.
-      - Prefer ASCII, punctuation included, in files and replies; use non-ASCII where
-        the file already does or the content needs it.
-      - Comments carry only context a reader cannot infer from the code. Restating
-        what the code does, narrating the change (`matching the X wrapper`,
-        `was previously Y`), or recording reasoning belongs in the commit message
-        instead.
+      - Comments should carry only context a reader cannot infer from the code.
       - When a change alters what users or callers see (an option, flag, environment
         variable, workflow, or requirement), update the existing docs surface; avoid
         unnecessary doc churn.
       - In commits, PRs, issues, code comments, and docs, write impersonally: say what
         the code or configuration does rather than what we did.
+      - fix the class, not the line.
     '';
 
     safety = _vars: ''
@@ -125,7 +117,7 @@ let
         consumer-side workaround, and upstreaming can follow when it makes sense.
       - When the producer is external and cannot be changed in the current task,
         surface that constraint instead of masking it. A workaround in a downstream
-        consumer needs the user's approval; label it temporary, say what blocks the
+        require explicitthe user's approval; label it temporary, say what blocks the
         source fix, and name the removal condition.
     '';
 
@@ -136,6 +128,7 @@ let
         broaden only when the change surface justifies it.
       - Record the validation you ran in commits and final reports, and say when
         none was run.
+      - check what is checkable.
     '';
 
     commitsAndGithub = vars: ''
