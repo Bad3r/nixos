@@ -1,6 +1,6 @@
 # USBGuard Configuration
 
-This repository ships a [USBGuard](https://usbguard.github.io/) module to control USB device access, but the service is currently disabled: `modules/hosts/common/usbguard.nix` sets `enabled = false`, which forces `services.usbguard.enable` off on every common host. Set that toggle to `true` to activate the workflow below. Rules are stored encrypted via sops at `secrets/usbguard/<host>.yaml`.
+This repository ships a [USBGuard](https://usbguard.github.io/) module to control USB device access, but the service is off: `modules/hosts/common/usbguard.nix` sets `enabled = false`, which forces `services.usbguard.enable` off on every common host. Set that toggle to `true` to activate the workflow below. Rules are stored encrypted via sops at `secrets/usbguard/<host>.yaml`.
 
 ## Adding New Devices
 
@@ -30,7 +30,7 @@ This repository ships a [USBGuard](https://usbguard.github.io/) module to contro
 
 USBGuard performs **exact string matching** on device names, including trailing whitespace. If a device reports its name with padding:
 
-```
+```text
 name "USB 2.0 BILLBOARD             "
 ```
 
@@ -40,7 +40,7 @@ Your rule must include those trailing spaces verbatim. Copying directly from `us
 
 Allowing a USB hub does **not** automatically allow devices connected through it. Each child device must be explicitly allowed:
 
-```
+```text
 Parent Hub (2109:2813) ← allowed
   └── Child Hub (05e3:0618) ← must also be allowed
         └── Storage (05e3:0752) ← must also be allowed
@@ -69,7 +69,7 @@ Always add devices to the encrypted rules file after testing with runtime allows
 
 ## Rule Format
 
-```
+```text
 allow id <vendor>:<product> serial "<serial>" name "<name>" hash "<hash>" parent-hash "<parent-hash>" via-port "<port>" with-interface <interfaces> with-connect-type "<type>"
 ```
 

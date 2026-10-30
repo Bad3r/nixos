@@ -108,7 +108,7 @@ ______________________________________________________________________
 
 1. **Cleanroom reverse engineering** - Document behavior, rewrite from scratch
 
-   - Example: https://github.com/ghuntley/claude-code-source-code-deobfuscation
+   - Example: <https://github.com/ghuntley/claude-code-source-code-deobfuscation>
 
 2. **Manual analysis** - Use custom tailor-made pattern extraction scripts
 

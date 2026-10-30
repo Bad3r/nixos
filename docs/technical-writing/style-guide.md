@@ -141,3 +141,5 @@ nix develop path:. -c pre-commit run docs-style --files docs/technical-writing/s
 ```
 
 A page that fails the cap is split, not compressed into longer lines.
+
+The `rumdl` hook checks Markdown syntax on commit and in the manual sweep; its rules and exempt paths live in `.rumdl.toml`.

@@ -43,7 +43,7 @@ retired one would have contributed is that enumeration, and reproducing it is
 the remaining work. Four gaps carry it.
 
 1. The detector and the publisher do not talk to each other
-   (https://github.com/Bad3r/nixos/issues/422). `cache-roots.nix` publishes a
+   (<https://github.com/Bad3r/nixos/issues/422>). `cache-roots.nix` publishes a
    hand-maintained name list, while `scripts/cache-coverage-allowlist.txt`
    suppresses diverged local builds that list never publishes
    (age-plugin-fido2prf, librepods, snixembed, subjack, cewl, normcap, zap,
@@ -58,19 +58,19 @@ the remaining work. Four gaps carry it.
    RAR-enabled p7zip left the file for the opposite reason: `cache-roots.nix`
    publishes it as `p7zip-rar` now, so its glob was deleted in the same change.
 2. ~~Only the primary host sources entries~~ (closed,
-   https://github.com/Bad3r/nixos/issues/423). `cache-roots.nix` iterates every
+   <https://github.com/Bad3r/nixos/issues/423>). `cache-roots.nix` iterates every
    registered host that builds for the current system and keys links
    `<host>/<package>/<output>`, so a sibling host's apps and its distinct
    closures are published too. This pulls each registered host's selected
    nvidia-x11 closure into the cache; before the change, evaluating a sibling
    host fetched its driver and then published nothing for it.
 3. Nothing gates coverage in CI
-   (https://github.com/Bad3r/nixos/issues/424). `scripts/cache-coverage.sh`
+   (<https://github.com/Bad3r/nixos/issues/424>). `scripts/cache-coverage.sh`
    is reachable only through `build.sh --cache-coverage` and `nix run`, and
    `check.yml` never invokes it, so allowlist drift and new divergences
    surface during a host switch rather than during review.
 4. Multi-output entries are published in part
-   (https://github.com/Bad3r/nixos/issues/426). `cachix push` uploads the
+   (<https://github.com/Bad3r/nixos/issues/426>). `cachix push` uploads the
    runtime closure of the `linkFarm`, so only an entry's default output reaches
    the cache, while the detector counts a derivation as substitutable only when
    every output is served. proton-vpn (`out`, `dist`) and nemo (`out`, `dev`,

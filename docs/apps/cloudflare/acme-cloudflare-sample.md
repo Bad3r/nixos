@@ -33,6 +33,6 @@ Implementation notes:
 
 Reference material:
 
-- https://search.nixos.org/options?show=security.acme
-- https://developers.cloudflare.com/ssl/edge-certificates/challenges/dns-01/
+- <https://search.nixos.org/options?show=security.acme>
+- <https://developers.cloudflare.com/ssl/edge-certificates/challenges/dns-01/>
 - `nixos_docs_md/222_quick_start.md` (local mirror)

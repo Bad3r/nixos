@@ -10,7 +10,7 @@ Add a module, export it under a namespace, and the flake wires it up automatical
 
 The `import-tree` function (see `flake.nix`) recursively imports every `.nix` file under `modules/` that does **not** start with an underscore.
 
-```
+```text
 modules/
 ├── apps/
 │   ├── ent.nix          ← Imported automatically

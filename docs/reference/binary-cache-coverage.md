@@ -2,7 +2,7 @@
 
 Operator surface for serving custom derivations from a binary cache instead
 of rebuilding them on every host switch (issue
-https://github.com/Bad3r/nixos/issues/382). Cache topology lives in
+<https://github.com/Bad3r/nixos/issues/382>). Cache topology lives in
 `.github/actions/install-lix/substituters.conf` and substituter wiring in
 `modules/hosts/common/nix-substituters.nix`; the build surface lives in
 `modules/meta/cache-roots.nix`; the CI publisher is
@@ -56,7 +56,7 @@ is coverage, not a change of service.
 ## Audit findings
 
 Build-log profiling under `~/.local/state/nixos-build/` after PR
-https://github.com/Bad3r/nixos/pull/380 still showed on the order of 170
+<https://github.com/Bad3r/nixos/pull/380> still showed on the order of 170
 derivations built locally per full system build. Three groups remain:
 
 - custom flake packages and overlay-modified packages (pnpm and npm

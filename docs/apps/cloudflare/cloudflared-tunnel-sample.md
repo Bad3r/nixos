@@ -34,6 +34,6 @@ Fill in the following pieces before deploying:
 
 Reference material:
 
-- https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/
-- https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/configuration/local-management/
-- https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/configuration/local-management/ingress/
+- <https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/>
+- <https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/configuration/local-management/>
+- <https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/configuration/local-management/ingress/>
