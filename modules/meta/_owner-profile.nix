@@ -4,6 +4,8 @@ in
 {
   username = "vx";
   uid = 1000;
+  group = "users";
+  gid = 100;
   email = "bad3r@unsigned.sh";
   name = "Bad3r";
   matrix = "@bad3r:matrix.org";

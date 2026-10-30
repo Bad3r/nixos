@@ -1,41 +1,13 @@
-# Hardware truth for songbird (Intel Core Ultra 9 285K on an ASUS ROG Maximus
-# Z890 Hero), harvested from `nixos-generate-config` and `lsblk` on the
-# installed disk A rather than copied from the plan in docs/hosts/songbird/.
+# harvested from `nixos-generate-config` and `lsblk`
 _: {
   configurations.nixos.songbird.module =
     {
-      config,
       lib,
       pkgs,
       metaOwner,
       ...
     }:
-    let
-      owner = metaOwner.username;
-      ownerCfg = config.users.users.${owner};
-      # /portal needs a stable numeric owner. NixOS allocates a free UID for
-      # null, which cannot safely be represented by this static mount option.
-      ownerGroup =
-        if ownerCfg.group == "" then
-          throw "songbird /portal requires users.users.${owner}.group to be set"
-        else
-          ownerCfg.group;
-      ownerUid =
-        if ownerCfg.uid == null then
-          throw "songbird /portal requires users.users.${owner}.uid to be pinned"
-        else
-          ownerCfg.uid;
-      # attrByPath's default covers an absent group, not a present one whose
-      # gid is null (the option default for any group outside ids.gids).
-      ownerGidRaw = lib.attrByPath [ "users" "groups" ownerGroup "gid" ] null config;
-      ownerGid =
-        if ownerGidRaw == null then
-          throw "songbird /portal requires users.groups.${ownerGroup}.gid to be pinned"
-        else
-          ownerGidRaw;
-    in
     {
-      # Platform configuration (required)
       nixpkgs.hostPlatform = lib.mkDefault "x86_64-linux";
 
       hardware = {
@@ -44,8 +16,7 @@ _: {
           # profile (hosts-common) would only derive this from
           # enableRedistributableFirmware, so pin it.
           updateMicrocode = true;
-          # NPU 37xx at 0000:00:0b.0 (intel_vpu): firmware plus the Level Zero
-          # driver, as nixos-generate-config reports for this CPU.
+          # NPU 37xx at 0000:00:0b.0 (intel_vpu)
           npu.enable = true;
         };
 
@@ -83,13 +54,11 @@ _: {
             allowDiscards = true;
           };
           # Samsung 860 PRO 2TB SATA: the LUKS2 + XFS /data volume.
-          # Root does not depend on it, so nofail keeps an absent or unopened
-          # drive from dropping the systemd initrd into the emergency shell.
           data = {
             device = "/dev/disk/by-uuid/183d1f98-e95d-4d6c-89de-cbed409bd9a0";
             allowDiscards = true;
             crypttabExtraOpts = [
-              "nofail"
+              "nofail" # doesn't halt boot if failed to unlock
               "x-systemd.device-timeout=60s"
             ];
           };
@@ -100,8 +69,7 @@ _: {
         # its argon2id was still running and killed it. Restore the wait, but
         # bound both the absent-device and unlock-prompt paths at 60 seconds.
         # nofail emits no Requires=, so either expiry still lets root boot.
-        # The bound starts after cryptroot so the boot prompt has no deadline
-        # and this unlock reuses the cached root passphrase.
+        # Reuses the cached root passphrase.
         initrd.systemd.services."systemd-cryptsetup@data" = {
           overrideStrategy = "asDropin";
           wantedBy = [ "initrd.target" ];
@@ -146,9 +114,9 @@ _: {
           ];
         };
 
-        # Samsung SSD 970 PRO 512GB (chipset M.2, 0000:82:00.0): plain NTFS
-        # volume labeled "portal", the drive shared with the Windows dual
-        # boot. Kernel ntfs3 with windows_names blocks names Windows cannot
+        # Samsung SSD 970 PRO 512GB (chipset M.2, 0000:82:00.0): NTFS
+        # Mounts as /portal, shared with the Windows dual.
+        # Kernel ntfs3 with windows_names blocks names Windows cannot
         # read; nofail keeps a dirty (unclean Windows exit) or absent volume
         # from blocking boot. The masks are the /boot pair above: uid=/gid=
         # alone leave the mode at ~current_umask() of whatever mounted the
@@ -157,8 +125,8 @@ _: {
           device = "/dev/disk/by-uuid/2FF3F415221D0FA3";
           fsType = "ntfs3";
           options = [
-            "uid=${toString ownerUid}"
-            "gid=${toString ownerGid}"
+            "uid=${toString metaOwner.uid}"
+            "gid=${toString metaOwner.gid}"
             "fmask=0077"
             "dmask=0077"
             "windows_names"
@@ -251,7 +219,7 @@ _: {
               unitConfig.ConditionPathIsMountPoint = "/data";
               serviceConfig = {
                 Type = "oneshot";
-                ExecStart = "${pkgs.coreutils}/bin/chown ${owner}:${ownerGroup} /data";
+                ExecStart = "${pkgs.coreutils}/bin/chown ${metaOwner.username}:${metaOwner.group} /data";
               };
             };
           }

@@ -16,6 +16,7 @@
       base = {
         # Define groups that may not exist by default
         users.groups = {
+          ${metaOwner.group}.gid = metaOwner.gid;
           plugdev = { }; # For removable devices and USB access
           bluetooth = { }; # For Bluetooth device access
           netdev = { }; # For network device management (avahi SetHostName)
@@ -24,9 +25,9 @@
 
         users.users.${metaOwner.username} = {
           isNormalUser = true; # Changed from isSystemUser - this is an interactive user
-          inherit (metaOwner) uid;
+          inherit (metaOwner) uid group;
           initialHashedPassword = "$y$j9T$XpFjwEnrrlkXEQpySrmJf0$Hrzam.8Q.oY2GI16bC8XdONqW.rTjfmhABU2Q.bDSZ1";
-          # isNormalUser auto-sets: group="users", createHome=true, home="/home/${username}", useDefaultShell=true
+          # isNormalUser auto-sets: createHome=true, home="/home/${username}", useDefaultShell=true
 
           extraGroups = lib.mkAfter [
             "wheel" # Admin privileges
