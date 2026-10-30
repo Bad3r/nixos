@@ -23,6 +23,28 @@ let
   # break the check itself. Declaring all of them keeps the list a readable
   # inventory of what a suite needs rather than of what stdenv forgot.
   suites = {
+    duplicati-r2-repair = {
+      dir = ../../tests/duplicati-r2-repair;
+      subjects = [
+        {
+          src = ../../scripts/duplicati-r2-repair.sh;
+          dest = "scripts/duplicati-r2-repair.sh";
+        }
+      ];
+      extraInputs = pkgs: [
+        pkgs.jq
+        pkgs.gnused
+        pkgs.gnugrep
+        pkgs.diffutils
+        pkgs.duplicati
+      ];
+      packages = { pkgs, ... }: [
+        (pkgs.runCommand "duplicati-r2-backup-test-subject" { } ''
+          mkdir -p "$out/bin"
+          cp ${nixosConfigurations.songbird.config.systemd.services.duplicati-r2-generate-units.environment.DUPLICATI_R2_BACKUP_EXEC} "$out/bin/duplicati-r2-backup-test-subject"
+        '')
+      ];
+    };
     duplicati-r2-generator = {
       dir = ../../tests/duplicati-r2-generator;
       subjects = [ ];

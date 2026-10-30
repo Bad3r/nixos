@@ -64,6 +64,16 @@ Upstream references: the [`duplicati/documentation`](https://github.com/duplicat
 
 ## Operating invariants
 
+For maintenance, run `scripts/duplicati-r2-repair.sh --help` and follow [recovery.md](recovery.md).
+An empty destination subpath uses the target slug, matching scheduled backups.
+The destination endpoint uses `R2_S3_ENDPOINT`, then the host derived from `R2_ACCOUNT_ID`, even when `R2_S3_ENDPOINT_URL` is also set.
+Without either host source, the repair script accepts `R2_S3_ENDPOINT_URL` or `AWS_ENDPOINT_URL`; an unresolved endpoint aborts maintenance.
+
+Manifest `extraArgs` must be an array of strings; missing or null means no extra arguments, and empty strings are skipped.
+List/purge omit direct inherited `--include` and `--exclude` options because Duplicati rejects backup filters for those operations.
+Repair retains those filters.
+Explicit CLI passthrough and parameter files are forwarded unchanged; filters supplied through either still cause Duplicati to reject list/purge.
+
 - One R2 bucket holds backups for every host. Per-host isolation is by prefix (`<host>/`), per-target isolation is by sub-prefix (`<slug>/`).
 - The encrypted manifest is shared across hosts. Targets whose source path does not exist on a given host fail loudly with `SourceIsMissing` rather than silently writing under that host prefix.
 - Disabling a target (`enable: false` in the manifest) is the supported reversible mechanism. The generator removes its units on the next activation; remote backups stay intact.

@@ -13,6 +13,10 @@ Flags:
 Environment variables:
   DUPLICATI_R2_CONFIG    Override path to the rendered Duplicati config (default: /run/duplicati-r2/config.json)
 
+Manifest extraArgs must be an array of strings (missing/null means none).
+List/purge omit inherited --include/--exclude options. Explicit CLI arguments
+and parameter files are forwarded unchanged and must suit the operation.
+
 Examples:
   sudo ./duplicati-r2-repair.sh bankdata
   sudo ./duplicati-r2-repair.sh --list-broken-files bankdata
@@ -112,7 +116,8 @@ if [[ ! -f $env_file ]]; then
 fi
 
 bucket=$(jq -r --arg slug "$target" '.targets[$slug].bucket // .bucket // "duplicati-nixos-backups"' "$config_path")
-dest_subpath=$(jq -r --arg slug "$target" '.destSubpath // $slug' <<<"$target_json")
+dest_subpath=$(jq -r '.destSubpath // empty' <<<"$target_json")
+[[ -n $dest_subpath ]] || dest_subpath="$target"
 state_dir=$(jq -r --arg slug "$target" '.targets[$slug].stateDir // .stateDir // "/var/lib/duplicati-r2"' "$config_path")
 manifest_hostname=$(jq -r '.hostname // empty' "$config_path")
 
@@ -129,7 +134,25 @@ if [[ -z ${hostname_value:-} ]]; then
 fi
 
 declare -a extra_args_raw=()
-mapfile -t extra_args_raw < <(jq -r '.extraArgs // [] | .[]' <<<"$target_json") || extra_args_raw=()
+args_file=$(mktemp)
+trap 'rm -f "$args_file"' EXIT
+# NUL delimiters preserve newlines in arguments; Bash cannot represent NULs.
+if ! jq -j '
+  .extraArgs | if . == null then [] else . end
+  | if type != "array" then error("expected an array of strings")
+    elif any(.[]; type != "string") then error("expected string elements")
+    elif any(.[]; contains("\u0000")) then error("NUL in argument")
+    else .[] | ., "\u0000" end
+' <<<"$target_json" >"$args_file"; then
+  echo "invalid extraArgs for target '$target': expected an array of strings without NUL" >&2
+  exit 78
+fi
+if ! mapfile -d '' -t extra_args_raw <"$args_file"; then
+  echo "unable to read extraArgs for target '$target'" >&2
+  exit 78
+fi
+rm -f "$args_file"
+trap - EXIT
 declare -a extra_args=()
 for arg in "${extra_args_raw[@]}"; do
   [[ -n $arg ]] && extra_args+=("$arg")
@@ -152,10 +175,15 @@ export AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY
 export AUTH_USERNAME="$AWS_ACCESS_KEY_ID" AUTH_PASSWORD="$AWS_SECRET_ACCESS_KEY"
 export DUPLICATI_PASSPHRASE PASSPHRASE="$DUPLICATI_PASSPHRASE"
 
+endpoint_host="${R2_S3_ENDPOINT:-}"
+if [[ -z $endpoint_host && -n ${R2_ACCOUNT_ID:-} ]]; then
+  endpoint_host="${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+fi
+
 if [[ -n ${R2_S3_ENDPOINT_URL:-} ]]; then
   export AWS_ENDPOINT_URL="$R2_S3_ENDPOINT_URL"
-elif [[ -n ${R2_S3_ENDPOINT:-} ]]; then
-  export AWS_ENDPOINT_URL="https://${R2_S3_ENDPOINT}"
+elif [[ -n $endpoint_host ]]; then
+  export AWS_ENDPOINT_URL="https://${endpoint_host}"
 fi
 
 if [[ -z ${AWS_REGION:-} && -z ${AWS_DEFAULT_REGION:-} ]]; then
@@ -168,18 +196,18 @@ fi
 
 encoded_subpath=$(jq -rn --arg s "$dest_subpath" '$s | @uri')
 
-server_param=""
-if [[ -n ${R2_S3_ENDPOINT:-} ]]; then
-  server_param="&s3-server-name=${R2_S3_ENDPOINT}"
-elif [[ -n ${R2_S3_ENDPOINT_URL:-} ]]; then
-  server_host=${R2_S3_ENDPOINT_URL#https://}
+server_host="$endpoint_host"
+# Match the backup producer before applying the URL-only fallbacks.
+if [[ -z $server_host ]]; then
+  server_host=${R2_S3_ENDPOINT_URL:-${AWS_ENDPOINT_URL:-}}
+  server_host=${server_host#https://}
   server_host=${server_host#http://}
-  server_param="&s3-server-name=${server_host}"
-elif [[ -n ${AWS_ENDPOINT_URL:-} ]]; then
-  server_host=${AWS_ENDPOINT_URL#https://}
-  server_host=${server_host#http://}
-  server_param="&s3-server-name=${server_host}"
 fi
+if [[ -z $server_host ]]; then
+  echo "R2 endpoint missing: set R2_S3_ENDPOINT, R2_ACCOUNT_ID, R2_S3_ENDPOINT_URL, or AWS_ENDPOINT_URL" >&2
+  exit 78
+fi
+server_param="&s3-server-name=${server_host}"
 
 dest="s3://${bucket}/${hostname_value}/${encoded_subpath}?use-ssl=true&s3-ext-disablehostprefixinjection=true&s3-disable-chunk-encoding=true&s3-client=minio${server_param}"
 
@@ -196,7 +224,14 @@ if [[ ${#passthrough[@]} -gt 0 ]]; then
 fi
 
 common_args=("$dest" "--dbpath=${db_path}")
-[[ ${#extra_args[@]} -gt 0 ]] && common_args+=("${extra_args[@]}")
+for arg in "${extra_args[@]}"; do
+  if "$list_broken"; then
+    case "${arg%%=*}" in
+    --[iI][nN][cC][lL][uU][dD][eE] | --[eE][xX][cC][lL][uU][dD][eE]) continue ;;
+    esac
+  fi
+  common_args+=("$arg")
+done
 [[ ${#passthrough[@]} -gt 0 ]] && common_args+=("${passthrough[@]}")
 
 run_cli() {
