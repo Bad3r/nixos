@@ -193,6 +193,7 @@ let
         runtimeInputs = [
           pkgs.acl
           pkgs.coreutils
+          pkgs.gnugrep
           pkgs.hostname
           pkgs.jq
         ];
