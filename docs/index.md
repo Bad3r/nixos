@@ -376,21 +376,53 @@
 - [apps/cloudflare/cloudflared-tunnel-sample.md](apps/cloudflare/cloudflared-tunnel-sample.md)
   - Sample NixOS configuration for Cloudflare Tunnel (cloudflared) with ingress rules and credential setup.
 - [apps/cloudflare/containers/README.md](apps/cloudflare/containers/README.md)
-  - Technical documentation index for Cloudflare Containers.
+  - Overview, instance types, quick start, and page index for Cloudflare Containers.
 - [apps/cloudflare/containers/architecture.md](apps/cloudflare/containers/architecture.md)
-  - Architecture, request flow, and rollout model for Cloudflare Containers.
+  - Components, request flow, runtime isolation, and location selection for Cloudflare Containers.
+- [apps/cloudflare/containers/images.md](apps/cloudflare/containers/images.md)
+  - Image distribution, registry sources, and Dockerfile examples for Cloudflare Containers.
 - [apps/cloudflare/containers/configuration.md](apps/cloudflare/containers/configuration.md)
-  - Wrangler, Dockerfile, environment, and deployment configuration for Cloudflare Containers.
+  - Project setup, Wrangler configuration, container options, and TypeScript setup for Cloudflare Containers.
+- [apps/cloudflare/containers/deployment.md](apps/cloudflare/containers/deployment.md)
+  - Environment variables, secrets, deploy, local development, and Wrangler commands for Cloudflare Containers.
 - [apps/cloudflare/containers/api-reference.md](apps/cloudflare/containers/api-reference.md)
-  - Container package properties, helper functions, methods, and TypeScript interfaces.
+  - Container class properties and helper functions for Cloudflare Containers.
+- [apps/cloudflare/containers/api-methods.md](apps/cloudflare/containers/api-methods.md)
+  - Container instance methods, event types, and `ctx.container` controls for Cloudflare Containers.
+- [apps/cloudflare/containers/api-hooks.md](apps/cloudflare/containers/api-hooks.md)
+  - Status hooks and a complete Container class example for Cloudflare Containers.
 - [apps/cloudflare/containers/lifecycle.md](apps/cloudflare/containers/lifecycle.md)
-  - Cold starts, warm requests, sleep behavior, shutdown, storage lifetime, and rollouts.
-- [apps/cloudflare/containers/storage-networking.md](apps/cloudflare/containers/storage-networking.md)
-  - Disk, R2 mount, ingress, egress, DNS, and network-isolation notes for Containers.
+  - Container states, sleep, out-of-memory behavior, and instance lifetime for Cloudflare Containers.
+- [apps/cloudflare/containers/cold-starts.md](apps/cloudflare/containers/cold-starts.md)
+  - Cold start timeline, latency factors, warm requests, and keep-warm patterns for Cloudflare Containers.
+- [apps/cloudflare/containers/shutdown.md](apps/cloudflare/containers/shutdown.md)
+  - SIGTERM handling, the grace period, and rollouts for Cloudflare Containers.
+- [apps/cloudflare/containers/storage.md](apps/cloudflare/containers/storage.md)
+  - Ephemeral disk and Durable Object storage for Cloudflare Containers.
+- [apps/cloudflare/containers/r2-mount.md](apps/cloudflare/containers/r2-mount.md)
+  - Mounting R2 buckets over FUSE in Cloudflare Containers.
+- [apps/cloudflare/containers/networking.md](apps/cloudflare/containers/networking.md)
+  - Ingress, egress, DNS, and network isolation for Cloudflare Containers.
+- [apps/cloudflare/containers/internal-routing.md](apps/cloudflare/containers/internal-routing.md)
+  - Extra ports and container-to-container routing for Cloudflare Containers.
 - [apps/cloudflare/containers/use-cases.md](apps/cloudflare/containers/use-cases.md)
-  - Practical Cloudflare Containers examples and application patterns.
-- [apps/cloudflare/containers/limitations-roadmap.md](apps/cloudflare/containers/limitations-roadmap.md)
-  - Beta limitations, platform gaps, and roadmap notes for Cloudflare Containers.
+  - Workload fit for Cloudflare Containers versus Workers, with an index of examples.
+- [apps/cloudflare/containers/examples/fullstack.md](apps/cloudflare/containers/examples/fullstack.md)
+  - Cloudflare Containers example: Pages frontend with a Python API container.
+- [apps/cloudflare/containers/examples/batch-job.md](apps/cloudflare/containers/examples/batch-job.md)
+  - Cloudflare Containers example: cron-triggered batch job.
+- [apps/cloudflare/containers/examples/code-sandbox.md](apps/cloudflare/containers/examples/code-sandbox.md)
+  - Cloudflare Containers example: per-user code sandbox.
+- [apps/cloudflare/containers/examples/websocket-chat.md](apps/cloudflare/containers/examples/websocket-chat.md)
+  - Cloudflare Containers example: WebSocket chat with one container per room.
+- [apps/cloudflare/containers/examples/ml-inference.md](apps/cloudflare/containers/examples/ml-inference.md)
+  - Cloudflare Containers example: ML inference service.
+- [apps/cloudflare/containers/examples/image-processing.md](apps/cloudflare/containers/examples/image-processing.md)
+  - Cloudflare Containers example: ImageMagick resize service.
+- [apps/cloudflare/containers/limitations.md](apps/cloudflare/containers/limitations.md)
+  - Beta limitations and workarounds for Cloudflare Containers.
+- [apps/cloudflare/containers/comparison.md](apps/cloudflare/containers/comparison.md)
+  - Cloudflare Containers compared with Workers, Kubernetes, AWS Lambda, and Fly.io.
 - [apps/cloudflare/warp/README.md](apps/cloudflare/warp/README.md)
   - Cloudflare WARP on the fleet: service-token enrollment, per-host mode, Mesh reachability, coexistence.
 - [apps/cloudflare/warp/deployment.md](apps/cloudflare/warp/deployment.md)
