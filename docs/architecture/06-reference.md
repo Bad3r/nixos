@@ -55,7 +55,7 @@ review and cannot be turned off.
 | ---------------------------------------------------------------------- | ------------------------------------------------------------------ |
 | `nix run path:.#treefmt -- .`                                          | Format all Nix files                                               |
 | `nix develop path:. -c bash scripts/hooks/sync-pre-commit-hooks.sh`    | Sync shared git hooks and absolute config for all linked worktrees |
-| `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, gitleaks)          |
+| `nix develop path:. -c pre-commit run --all-files --hook-stage manual` | Run git hooks (treefmt, deadnix, statix, typos, rumdl, gitleaks)   |
 | `nix run path:.#hook-gitleaks`                                         | Sweep the full history for credentials, the scan CI runs           |
 | `nix flake check path:. --accept-flake-config`                         | Full flake validation (with builds/checks)                         |
 | `nix flake check path:. --accept-flake-config --no-build --offline`    | Fast offline evaluation-only check                                 |

@@ -32,7 +32,7 @@ A codec that nixpkgs does not package at all needs a custom FFmpeg build.
 
 `nix flake check` (or a host build) fails with an assertion message like:
 
-```
+```text
 host.defaults.videoPlayer is set to "mpv" but the app module is not enabled.
 Enable it with: programs.mpv.extended.enable = true;
 Or set host.defaults.videoPlayer = null; to disable this default.

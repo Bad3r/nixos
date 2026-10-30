@@ -410,6 +410,7 @@ let
       rofi.extended.enable = lib.mkOverride 1100 true;
       rsync.extended.enable = lib.mkOverride 1100 false;
       ruff.extended.enable = lib.mkOverride 1100 true;
+      rumdl.extended.enable = lib.mkOverride 1100 true;
       "rust-analyzer".extended.enable = lib.mkOverride 1100 false;
       "rust-clippy".extended.enable = lib.mkOverride 1100 false;
       rustc.extended.enable = lib.mkOverride 1100 false;

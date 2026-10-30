@@ -43,20 +43,7 @@ Complete option surface, manifest schema, and runtime artifact catalog for `serv
 | -------- | ---- | --------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `secret` | str  | `duplicati-r2/<NAME>` | SOPS selector for the credential. Override per-key when the encrypted file uses non-default selector names. |
 
-The default credential set covers nine names, declared in `credentialNames` inside `modules/services/duplicati-r2.nix`:
-
-```
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-R2_ACCOUNT_ID
-R2_API_TOKEN
-R2_BUCKET
-R2_S3_ENDPOINT
-R2_S3_ENDPOINT_URL
-R2_REGION
-DUPLICATI_PASSPHRASE
-```
-
+The default credential set covers the names in `credentialNames` inside `modules/services/duplicati-r2.nix`.
 Each becomes a `sops.secrets."duplicati-r2/<NAME>"` entry sourced from `secrets/duplicati-r2.yaml`. The rendered env file concatenates them as `KEY=value` lines.
 
 ## Manifest schema
