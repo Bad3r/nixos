@@ -41,7 +41,7 @@ let
       packages = { pkgs, ... }: [
         (pkgs.runCommand "duplicati-r2-backup-test-subject" { } ''
           mkdir -p "$out/bin"
-          cp ${nixosConfigurations.songbird.config.systemd.services.duplicati-r2-generate-units.environment.DUPLICATI_R2_BACKUP_EXEC} "$out/bin/duplicati-r2-backup-test-subject"
+          cp ${nixosConfigurations.songbird.config.services.duplicati-r2.backupPackage}/bin/duplicati-r2-backup "$out/bin/duplicati-r2-backup-test-subject"
         '')
       ];
     };

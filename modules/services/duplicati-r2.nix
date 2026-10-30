@@ -692,13 +692,21 @@ let
 
         package = mkPackageOption pkgs "duplicati" { };
 
-        # Set on every host so tests reach the generator without the secrets that enable the service.
+        # Set on every host so tests reach the scripts without the secrets that enable the service.
         generatorPackage = mkOption {
           type = types.package;
           internal = true;
           readOnly = true;
           default = generatorScript;
           description = "Script that renders the backup and verify units from the manifest.";
+        };
+
+        backupPackage = mkOption {
+          type = types.package;
+          internal = true;
+          readOnly = true;
+          default = backupScript;
+          description = "Script the generated backup units run for each target.";
         };
 
         configFile = mkOption {
@@ -904,7 +912,7 @@ let
             environment = {
               DUPLICATI_R2_CONFIG_SOURCE = manifestSource;
               DUPLICATI_R2_CONFIG_DEST = manifestDest;
-              DUPLICATI_R2_BACKUP_EXEC = "${backupScript}/bin/duplicati-r2-backup";
+              DUPLICATI_R2_BACKUP_EXEC = "${cfg.backupPackage}/bin/duplicati-r2-backup";
               DUPLICATI_R2_VERIFY_EXEC = "${verifyScript}/bin/duplicati-r2-verify";
               DUPLICATI_R2_DEFAULT_BUCKET = defaultBucket;
               DUPLICATI_R2_DEFAULT_STATE_DIR = defaultStateDir;
