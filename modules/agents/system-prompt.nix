@@ -62,7 +62,14 @@ let
         - Local mirrors live under `$LOCAL_MIRRORS` as `<owner>-<repo>` for GitHub
           sources, with a host prefix for other forges, and as
           `<owner>-<repo>-docs/current` for rendered docs; `ls $LOCAL_MIRRORS` shows
-          what exists. Prefer them over web fetches, and suggest a new mirror when a
+          what exists. Check there before cloning or downloading upstream source.
+          Keep tracked mirror files unchanged; sync stashes tracked edits and
+          updates to upstream. Untracked local instructions survive syncs.
+          For edits, clone locally with `git clone --no-hardlinks <mirror> <scratch>`
+          and set that clone's origin to the upstream URL before fetching missing
+          refs. Avoid `--shared` and alternates because mirror maintenance can prune
+          their objects. Match source reads to the package's pinned revision rather
+          than assuming the mirror's HEAD matches it. Suggest a new mirror when a
           source you use often is missing. The list is managed in
           `~/nixos/modules/hosts/common/mirrors.nix`.
         - `$TMPDIR` is this session's throwaway dir, shared with subagents and swept

@@ -90,7 +90,7 @@ pkgs.writeShellApplication {
       exit 0
     fi
 
-    dirty_before=$(git -C "$repo_path" status --porcelain --untracked-files=all)
+    dirty_before=$(git -C "$repo_path" status --porcelain --untracked-files=no)
     if [ -n "$dirty_before" ]; then
       log "refusing to build from a dirty Firefox checkout"
       printf '%s\n' "$dirty_before" >&2
@@ -211,9 +211,9 @@ pkgs.writeShellApplication {
       exit 1
     fi
 
-    dirty_after=$(git -C "$repo_path" status --porcelain --untracked-files=all)
+    dirty_after=$(git -C "$repo_path" status --porcelain --untracked-files=no)
     if [ -n "$dirty_after" ]; then
-      log "warning: Firefox checkout became dirty while building docs; git-mirror will clean it during the next sync"
+      log "warning: Firefox checkout has tracked edits after building docs; git-mirror will stash them during the next sync"
       printf '%s\n' "$dirty_after" >&2
     fi
 
