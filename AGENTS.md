@@ -38,6 +38,11 @@ never a goal: remove legacy support instead of carrying both paths.
   `modules/hosts/common/nix-substituters.nix`) and
   `modules/meta/cache-roots.nix`. Adding a cache is a policy decision for the
   user.
+- The nixpkgs, home-manager, stylix, and llm-agents.nix inputs track Bad3r's
+  forks (`docs/reference/fork-sync-automation.md`), so a package or module fix
+  lands on the fork branch, not in a local override or consumer-side
+  workaround: validate it with `--override-input`, push the fork branch, then
+  update the lock.
 - Unfree packages are allowlisted with `nixpkgs.allowedUnfreePackages` next to
   the module that installs them.
 - Local mirrors are listed in `modules/hosts/common/mirrors.nix` by GitHub
