@@ -273,7 +273,7 @@ in
               credentialsFile = "/run/secrets/r2/credentials.env";
             };
 
-            # Provide `r2` in PATH for the real user.
+            # Provide `r2c` in PATH for the real user.
             home-manager.users.${username}.programs.r2-cloud = {
               enable = true;
               accountIdFile = "/run/secrets/r2/account-id";

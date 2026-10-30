@@ -3,7 +3,7 @@
 ## Scope
 
 Document how `secrets/r2.yaml` is transformed into runtime files used by
-system services and the `r2` CLI wrapper.
+system services and the `r2c` CLI wrapper.
 
 ## Source of Truth
 

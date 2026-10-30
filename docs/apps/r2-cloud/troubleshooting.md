@@ -87,7 +87,7 @@ Fix:
   `vx` (provisioned by the `r2-runtime-paths.service` oneshot, not
   `systemd.tmpfiles`)
 
-## Symptom: `r2 share worker ...` fails due to missing admin env vars
+## Symptom: `r2c share worker ...` fails due to missing admin env vars
 
 Checks:
 

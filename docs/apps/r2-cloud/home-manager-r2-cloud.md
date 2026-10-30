@@ -2,7 +2,7 @@
 
 ## Scope
 
-Document how Home Manager is wired to provide the `r2` wrapper and credential
+Document how Home Manager is wired to provide the `r2c` wrapper and credential
 inputs for user `vx`.
 
 ## Source of Truth
@@ -50,7 +50,7 @@ Configured values (applied only when the host policy enables the runtime):
 
 Operational effect (when enabled):
 
-- `r2` wrapper is in the HM user profile
+- `r2c` wrapper is in the HM user profile
 - wrapper reads credentials/account ID from rendered runtime secret paths
 - wrapper can source Worker share admin variables from `explorer.env`
 

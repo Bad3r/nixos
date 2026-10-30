@@ -465,7 +465,7 @@
 - [apps/r2-cloud/secrets-and-rendered-files.md](apps/r2-cloud/secrets-and-rendered-files.md)
   - Mapping from `secrets/r2.yaml` to `/run/secrets/r2/*` and HM env templates.
 - [apps/r2-cloud/songbird-runtime.md](apps/r2-cloud/songbird-runtime.md)
-  - Runtime contract for sync/restic/git-annex/r2 wrapper on this host.
+  - Runtime contract for sync/restic/git-annex/r2c wrapper on this host.
 - [apps/r2-cloud/home-manager-r2-cloud.md](apps/r2-cloud/home-manager-r2-cloud.md)
   - HM-side `programs.r2-cloud` load path and credential-source behavior.
 - [apps/r2-cloud/validation-and-drift-checks.md](apps/r2-cloud/validation-and-drift-checks.md)

@@ -68,7 +68,7 @@
                 owner = ownerName;
               };
 
-              # Worker admin signing credentials for `r2 share worker ...`.
+              # Worker admin signing credentials for `r2c share worker ...`.
               #
               # Keep these in SOPS and render them at runtime so the secret never
               # lands in the Nix store.
