@@ -66,14 +66,14 @@ npm install @cloudflare/containers wrangler
 
 ### Container options
 
-| Option                        | Required | Description                     |
-| ----------------------------- | -------- | ------------------------------- |
-| `class_name`                  | Yes      | Container class in the Worker   |
-| `image`                       | Yes      | Dockerfile path or registry URL |
-| `instance_type`               | No       | Named or custom type            |
-| `max_instances`               | No       | Maximum concurrent instances    |
-| `rollout_step_percentage`     | No       | First rollout step, in percent  |
-| `rollout_active_grace_period` | No       | Seconds before active updates   |
+| Option                        | Required | Description                                            |
+| ----------------------------- | -------- | ------------------------------------------------------ |
+| `class_name`                  | Yes      | Container class in the Worker                          |
+| `image`                       | Yes      | Dockerfile path or registry URL                        |
+| `instance_type`               | No       | Named or custom type                                   |
+| `max_instances`               | No       | `number`: maximum concurrent instances                 |
+| `rollout_step_percentage`     | No       | `number`: first rollout step, in percent               |
+| `rollout_active_grace_period` | No       | `number`: seconds until an active container can update |
 
 `instance_type` takes a [named type](./README.md#instance-types) or a custom `{ vcpu, memory_mib, disk_mb }` object, and defaults to `lite`.
 `image` takes a local Dockerfile path or one of the [registry sources](./images.md#registry-sources).
@@ -111,15 +111,15 @@ export interface Env {
 
 ```text
 my-container-app/
-├── src/
-│   ├── index.ts          # Worker entry point
-│   ├── container.ts      # Container class definition
-│   └── types.ts          # TypeScript types
-├── container/
-│   ├── Dockerfile        # Container image definition
-│   ├── package.json      # Container dependencies
-│   └── server.js         # Container application
-├── wrangler.jsonc        # Wrangler configuration
-├── package.json          # Worker dependencies
-└── tsconfig.json         # TypeScript config
++-- src/
+|   +-- index.ts          # Worker entry point
+|   +-- container.ts      # Container class definition
+|   +-- types.ts          # TypeScript types
++-- container/
+|   +-- Dockerfile        # Container image definition
+|   +-- package.json      # Container dependencies
+|   +-- server.js         # Container application
++-- wrangler.jsonc        # Wrangler configuration
++-- package.json          # Worker dependencies
++-- tsconfig.json         # TypeScript config
 ```

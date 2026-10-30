@@ -31,7 +31,7 @@ Containers need the Workers Paid plan.
 | [Networking](./networking.md)             | Ingress, egress, DNS, isolation         |
 | [Internal routing](./internal-routing.md) | Extra ports and container-to-container  |
 | [Use cases](./use-cases.md)               | Workload fit and worked examples        |
-| [Limitations](./limitations.md)           | Beta constraints and workarounds        |
+| [Limitations](./limitations.md)           | Platform constraints and workarounds    |
 | [Comparison](./comparison.md)             | Workers, Kubernetes, Lambda, Fly.io     |
 
 ## Quick start
@@ -65,7 +65,7 @@ Resources are fixed per instance type, and a process that exceeds its memory is 
 
 ## Nix build suitability
 
-Containers fit Nix package builds poorly as the primary builder, especially kernel and browser-heavy closures, because of the per-instance resource limits and beta platform gaps.
+Containers fit Nix package builds poorly as the primary builder, especially kernel and browser-heavy closures, because of the per-instance resource limits and platform gaps.
 The workable split:
 
 1. Compile on dedicated x86_64 builders: local, VM, or remote builders.

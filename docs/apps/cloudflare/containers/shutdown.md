@@ -6,22 +6,22 @@ Each case sends SIGTERM, allows up to 15 minutes for cleanup, then sends SIGKILL
 ```text
 Shutdown Triggered
 (sleepAfter / stop() / deploy)
-         │
-         ▼
-┌─────────────────┐
-│  SIGTERM sent   │
-└────────┬────────┘
-         │  up to 15 minutes: finish active requests,
-         │  close connections, flush logs, save state, exit
-         ▼
-┌─────────────────┐   yes   ┌──────────────────┐
-│ Process exited? │────────▶│ Stopped cleanly  │
-└────────┬────────┘         └──────────────────┘
-         │ no
-         ▼
-┌─────────────────┐
-│  SIGKILL sent   │
-└─────────────────┘
+         |
+         v
++-----------------+
+|  SIGTERM sent   |
++--------+--------+
+         |  up to 15 minutes: finish active requests,
+         |  close connections, flush logs, save state, exit
+         v
++-----------------+   yes   +------------------+
+| Process exited? |-------->| Stopped cleanly  |
++--------+--------+         +------------------+
+         | no
+         v
++-----------------+
+|  SIGKILL sent   |
++-----------------+
 ```
 
 ## Handling SIGTERM
@@ -73,17 +73,14 @@ State that must outlive the container goes to [Durable Object storage](./storage
 
 ## Rollouts
 
-`wrangler deploy` replaces running containers in two steps:
+`wrangler deploy` replaces running containers in two steps.
+By default the first step updates 10% of instances (`rollout_step_percentage`) and the second the rest.
+An active container receives SIGTERM after `rollout_active_grace_period` seconds and follows the shutdown sequence above.
 
-1. The first step updates 10% of instances.
-2. The second step updates the remaining 90%.
-
-Running containers in each step receive SIGTERM and follow the shutdown sequence above.
-
-| Parameter                     | Description                          |
-| ----------------------------- | ------------------------------------ |
-| `rollout_step_percentage`     | Percentage for the first step        |
-| `rollout_active_grace_period` | Seconds before an active one updates |
+| Parameter                     | Description                                  |
+| ----------------------------- | -------------------------------------------- |
+| `rollout_step_percentage`     | Percentage for the first step                |
+| `rollout_active_grace_period` | Seconds until an active container can update |
 
 ```jsonc
 {

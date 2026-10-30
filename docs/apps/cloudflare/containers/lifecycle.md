@@ -3,39 +3,39 @@
 A container moves between four states; a request or `start()` brings it up, and inactivity, `stop()`, or an error takes it down.
 
 ```text
-                ┌──────────────┐
-                │   STOPPED    │◄─────────────────────────┐
-                └──────┬───────┘                          │
-                       │                                  │
-                       │ start() / first request          │
-                       ▼                                  │
-                ┌──────────────┐                          │
-                │   STARTING   │                          │
-                └──────┬───────┘                          │
-                       │                                  │
-                       │ ports ready                      │
-                       ▼                                  │
-┌─────────────────────────────────────────────────┐       │
-│                    RUNNING                      │       │
-│  ┌─────────────────────────────────────────┐    │       │
-│  │ Processing requests                     │    │       │
-│  │ Executing background tasks              │    │       │
-│  └─────────────────────────────────────────┘    │       │
-└─────────────────────────┬───────────────────────┘       │
-                          │                               │
-          ┌───────────────┼───────────────┐               │
-          │               │               │               │
-          ▼               ▼               ▼               │
-   sleepAfter        stop()          OOM/Error            │
-   elapsed           called          occurred             │
-          │               │               │               │
-          └───────────────┼───────────────┘               │
-                          │                               │
-                          ▼                               │
-                ┌──────────────┐                          │
-                │   STOPPING   │──────────────────────────┘
-                │  (SIGTERM)   │
-                └──────────────┘
+                +--------------+
+                |   STOPPED    |<-------------------------+
+                +------+-------+                          |
+                       |                                  |
+                       | start() / first request          |
+                       v                                  |
+                +--------------+                          |
+                |   STARTING   |                          |
+                +------+-------+                          |
+                       |                                  |
+                       | ports ready                      |
+                       v                                  |
++-------------------------------------------------+       |
+|                    RUNNING                      |       |
+|  +-----------------------------------------+    |       |
+|  | Processing requests                     |    |       |
+|  | Executing background tasks              |    |       |
+|  +-----------------------------------------+    |       |
++-------------------------+-----------------------+       |
+                          |                               |
+          +---------------+---------------+               |
+          |               |               |               |
+          v               v               v               |
+   sleepAfter        stop()          OOM/Error            |
+   elapsed           called          occurred             |
+          |               |               |               |
+          +---------------+---------------+               |
+                          |                               |
+                          v                               |
+                +--------------+                          |
+                |   STOPPING   |--------------------------+
+                |  (SIGTERM)   |
+                +--------------+
 ```
 
 | State        | Description                     |
@@ -60,20 +60,20 @@ export class MyContainer extends Container {
 
 ```text
 Last Request Completes
-         │
-         ▼
-┌─────────────────────────────────────┐
-│        Inactivity Period            │
-│   (sleepAfter countdown running)    │
-├─────────────────────────────────────┤
-│   New request? ─────► Reset timer   │
-│                       Stay running  │
-│                                     │
-│   No request for sleepAfter?        │
-│         │                           │
-│         ▼                           │
-│   Begin shutdown                    │
-└─────────────────────────────────────┘
+         |
+         v
++-------------------------------------+
+|        Inactivity Period            |
+|   (sleepAfter countdown running)    |
++-------------------------------------+
+|   New request? -----> Reset timer   |
+|                       Stay running  |
+|                                     |
+|   No request for sleepAfter?        |
+|         |                           |
+|         v                           |
+|   Begin shutdown                    |
++-------------------------------------+
 ```
 
 | Use case           | Value               | Reason                      |
@@ -109,7 +109,7 @@ The fix is a larger `instance_type` in `wrangler.jsonc` ([instance types](./READ
 ## Instance lifetime
 
 A container has no hard runtime limit and runs indefinitely while it receives requests.
-Host server maintenance restarts it:
+Host server maintenance can restart it:
 
 1. SIGTERM goes to the container.
 2. The 15-minute grace period runs.

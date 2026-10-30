@@ -110,6 +110,8 @@ server.listen(8080);
 
 ## Worker (src/index.ts)
 
+The `IMAGE_PROCESSOR` binding needs the `ImageProcessor` container, Durable Object binding, and migration entries in [`wrangler.jsonc`](../configuration.md#wrangler-configuration).
+
 ```typescript
 import { Container, getContainer } from "@cloudflare/containers";
 

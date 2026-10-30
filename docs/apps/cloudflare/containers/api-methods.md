@@ -96,13 +96,13 @@ export class MyContainer extends Container {
 }
 ```
 
-| Member             | Description                        |
-| ------------------ | ---------------------------------- |
-| `running`          | Whether the container runs         |
-| `start()`          | Start the container                |
-| `destroy()`        | Forcefully terminate the container |
-| `signal(sig)`      | Send a signal to the container     |
-| `getTcpPort(port)` | Get a TCP socket to a port         |
-| `monitor()`        | Stream status events               |
+| Member             | Description                           |
+| ------------------ | ------------------------------------- |
+| `running`          | `boolean`: whether the container runs |
+| `start()`          | Start the container                   |
+| `destroy()`        | Forcefully terminate the container    |
+| `signal(sig)`      | Send a signal to the container        |
+| `getTcpPort(port)` | Get a TCP socket to a port            |
+| `monitor()`        | Stream status events                  |
 
 The class also has the full Durable Object [storage API](./storage.md#durable-object-storage).

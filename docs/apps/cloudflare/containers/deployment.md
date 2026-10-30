@@ -1,6 +1,6 @@
 # Cloudflare Containers deployment
 
-Wrangler builds the image, pushes it, and deploys the Worker in one step; variables and secrets reach the container process through the Container class.
+Wrangler builds the image, pushes it, and deploys the Worker; variables and secrets reach the container process through the Container class.
 
 ## Environment variables
 
@@ -37,7 +37,7 @@ DATABASE_URL=postgres://localhost/dev
 
 ### Passing values to the container
 
-Worker variables and secrets reach the container process only through `envVars`:
+Worker variables and secrets reach the container process through `envVars`:
 
 ```typescript
 import { Container } from "@cloudflare/containers";

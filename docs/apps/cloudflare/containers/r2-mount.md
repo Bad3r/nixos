@@ -33,7 +33,7 @@ CMD ["node", "server.js"]
 A read-only mount is faster and safer when the container only reads:
 
 ```bash
-tigrisfs --endpoint "${R2_ENDPOINT}" -o ro -f "${R2_BUCKET}" /mnt/r2 &
+tigrisfs --endpoint "${R2_ENDPOINT}" -o ro -f "${R2_BUCKET_NAME}" /mnt/r2 &
 ```
 
 ## Container class

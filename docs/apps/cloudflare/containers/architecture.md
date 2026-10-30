@@ -7,15 +7,15 @@ Cloudflare Containers combines three Cloudflare technologies:
 3. **Container VMs**: isolated execution environments.
 
 ```text
-┌─────────────┐     ┌─────────────────┐     ┌─────────────────┐
-│   Client    │────▶│     Worker      │────▶│ Durable Object  │
-│             │     │  (routing/auth) │     │ (Container ctrl)│
-└─────────────┘     └─────────────────┘     └────────┬────────┘
-                                                     │
-                                            ┌────────▼────────┐
-                                            │   Container VM  │
-                                            │  (linux/amd64)  │
-                                            └─────────────────┘
++-------------+     +-----------------+     +-----------------+
+|   Client    |---->|     Worker      |---->| Durable Object  |
+|             |     |  (routing/auth) |     | (Container ctrl)|
++-------------+     +-----------------+     +--------+--------+
+                                                     |
+                                            +--------v--------+
+                                            |   Container VM  |
+                                            |  (linux/amd64)  |
+                                            +-----------------+
 ```
 
 ## Component responsibilities

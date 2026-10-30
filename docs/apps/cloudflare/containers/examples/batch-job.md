@@ -18,7 +18,7 @@ COPY . .
 CMD ["python", "job.py"]
 ```
 
-## Job Script (job.py)
+## Job script (job.py)
 
 ```python
 import os
