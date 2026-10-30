@@ -3,7 +3,7 @@ disable = [
   "MD004", # mdformat owns bullet markers and alternates - and * to keep adjacent lists apart
   "MD013", # mdformat runs with wrap = "keep" and pages hold one sentence per line
 ]
-# The style guide allows ASCII only.
+# Enforces the style guide's "no em or en dashes" and ASCII quotes; other non-ASCII passes.
 extend-enable = ["MD088"]
 exclude = [
   "docs/drafts/**", # working drafts, exempt from docs-style
