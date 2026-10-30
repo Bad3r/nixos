@@ -5,6 +5,7 @@ export LC_ALL=C
 prog_name="${0##*/}"
 output_format="json"
 
+# build.sh print_kernel_report_details reads the JSON keys listed in usage.
 usage() {
   cat <<EOF
 Usage: ${prog_name} [--json | --text]
