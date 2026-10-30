@@ -51,5 +51,3 @@ export default {
   },
 };
 ```
-
-Each service is its own Container class with its own binding and migration in [`wrangler.jsonc`](./configuration.md#wrangler-configuration).

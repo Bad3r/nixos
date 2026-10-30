@@ -10,11 +10,11 @@ A container's `image` key in the Wrangler configuration names either a local Doc
 4. **Pre-warm**: instances are pre-scheduled for quick starts.
 
 ```text
-┌──────────┐    ┌─────────────┐    ┌──────────────────┐
-│  Docker  │───▶│  Cloudflare │───▶│  Global Edge     │
-│  Build   │    │  Registry   │    │  Pre-fetch       │
-└──────────┘    │  (R2-backed)│    │  Locations       │
-                └─────────────┘    └──────────────────┘
++----------+    +-------------+    +------------------+
+|  Docker  |--->|  Cloudflare |--->|  Global Edge     |
+|  Build   |    |  Registry   |    |  Pre-fetch       |
++----------+    |  (R2-backed)|    |  Locations       |
+                +-------------+    +------------------+
 ```
 
 ## Registry sources

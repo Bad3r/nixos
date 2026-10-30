@@ -95,6 +95,8 @@ console.log("Sandbox executor running on port 8080");
 
 ## Worker (src/index.ts)
 
+The `SANDBOX` binding needs the `Sandbox` container, Durable Object binding, and migration entries in [`wrangler.jsonc`](../configuration.md#wrangler-configuration).
+
 ```typescript
 import { Container, getContainer } from "@cloudflare/containers";
 

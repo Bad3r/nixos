@@ -1,7 +1,6 @@
 # Cloudflare Containers limitations
 
-Cloudflare Containers is in beta, and the constraints below shape how a workload is built on it.
-Cloudflare's [beta info and roadmap](https://developers.cloudflare.com/containers/beta-info/) tracks the planned changes.
+Cloudflare Containers has no autoscaling, runs only `linux/amd64` images, loses its disk on every restart, and takes ingress only through a Worker.
 
 ## Scaling
 

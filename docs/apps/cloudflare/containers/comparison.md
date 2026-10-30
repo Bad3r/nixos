@@ -7,7 +7,7 @@ Workloads map to one or the other by [use case](./use-cases.md).
 
 | Aspect         | Workers                   | Containers                       |
 | -------------- | ------------------------- | -------------------------------- |
-| **Cold start** | Very fast, edge runtime   | Higher, VM provisioning          |
+| **Cold start** | Very fast, edge runtime   | Higher, provisioning and warm-up |
 | **Runtime**    | V8: JS, TS, WASM          | Any runtime in a container image |
 | **CPU time**   | 30 s default, up to 300 s | Long-running process model       |
 | **Disk**       | No container filesystem   | 2-20 GB per instance             |

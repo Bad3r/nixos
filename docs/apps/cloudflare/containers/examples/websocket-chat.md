@@ -14,7 +14,7 @@ EXPOSE 8080
 CMD ["node", "chat-server.js"]
 ```
 
-## Chat Server (chat-server.js)
+## Chat server (chat-server.js)
 
 ```javascript
 const WebSocket = require("ws");
@@ -74,6 +74,8 @@ console.log("Chat server running on port 8080");
 ```
 
 ## Worker (src/index.ts)
+
+The `CHAT_SERVER` binding needs the `ChatServer` container, Durable Object binding, and migration entries in [`wrangler.jsonc`](../configuration.md#wrangler-configuration).
 
 ```typescript
 import { Container, getContainer } from "@cloudflare/containers";

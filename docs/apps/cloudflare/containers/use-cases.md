@@ -1,6 +1,6 @@
 # Cloudflare Containers use cases
 
-Containers fit workloads that need a non-JavaScript runtime, more resources, or a filesystem; Workers fit light, latency-sensitive edge logic.
+Containers fit workloads that need a non-JavaScript runtime, more resources, or a filesystem; Workers fit light, latency-sensitive edge logic and orchestration.
 
 ## Containers fit
 

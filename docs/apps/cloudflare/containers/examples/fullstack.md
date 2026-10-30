@@ -2,20 +2,20 @@
 
 A React frontend served by Pages with a Python FastAPI backend in a container; the Worker routes `/api/` requests to the backend.
 
-## Project Structure
+## Project structure
 
 ```text
 my-app/
-├── frontend/
-│   ├── src/
-│   └── package.json
-├── backend/
-│   ├── app.py
-│   ├── requirements.txt
-│   └── Dockerfile
-├── src/
-│   └── index.ts
-└── wrangler.jsonc
++-- frontend/
+|   +-- src/
+|   +-- package.json
++-- backend/
+|   +-- app.py
+|   +-- requirements.txt
+|   +-- Dockerfile
++-- src/
+|   +-- index.ts
++-- wrangler.jsonc
 ```
 
 ## Backend Dockerfile

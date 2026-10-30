@@ -12,7 +12,7 @@ All inbound traffic reaches a container through its Worker; outbound traffic goe
 | gRPC         | Yes       | HTTP/2 through the Worker      |
 | Direct TCP   | No        | Not from end users             |
 | Direct UDP   | No        | Not from end users             |
-| Raw sockets  | No        | Not from end users             |
+| Raw sockets  | No        | Not supported                  |
 
 The Worker validates a request before forwarding it, so an invalid request never incurs container cost:
 
