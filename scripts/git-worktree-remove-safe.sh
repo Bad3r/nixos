@@ -5,7 +5,26 @@ export LC_ALL=C
 prog_name="${0##*/}"
 
 usage() {
-  printf 'usage: %s <worktree-path>\n' "${prog_name}" >&2
+  printf 'usage: %s [--force] <worktree-path>\n' "${prog_name}"
+}
+
+help() {
+  usage
+  cat <<'EOF_HELP'
+
+Remove a linked git worktree after checking that it holds no local state.
+
+Runs from any directory against the repository that owns the worktree. Refuses
+the primary worktree, the worktree containing the current directory, and dirty,
+untracked, or non-disposable ignored files, in the worktree or any submodule.
+Git itself refuses a locked worktree.
+
+Options:
+  -f, --force  Skip the dirty-state checks and discard that state, printing it
+               to stderr first. The primary-worktree and current-directory checks
+               still apply.
+  -h, --help   Show this help.
+EOF_HELP
 }
 
 error_msg() {
@@ -29,148 +48,102 @@ filter_disposable_status() {
   sed -E "${disposable_status_sed_script}"
 }
 
-git_common_dir() {
-  local repo_root common_dir
-  repo_root="$1"
-  common_dir="$(git -C "${repo_root}" rev-parse --git-common-dir)"
-  if [[ ${common_dir} != /* ]]; then
-    common_dir="${repo_root}/${common_dir}"
-  fi
-  readlink -f "${common_dir}"
+primary_worktree_root() {
+  local entry
+  entry="$(git -C "$1" worktree list --porcelain | head -n 1)"
+  readlink -f "${entry#worktree }"
 }
 
-resolve_worktree_root() {
-  local target_path
-  target_path="$1"
-  if [[ ! -d ${target_path} ]]; then
-    error_msg "worktree path does not exist: ${target_path}"
-    exit 1
-  fi
-  if ! git -C "${target_path}" rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    error_msg "path is not inside a git worktree: ${target_path}"
-    exit 1
-  fi
-  readlink -f "$(git -C "${target_path}" rev-parse --show-toplevel)"
-}
+# Porcelain status of the worktree and its submodules, submodule paths prefixed.
+# Lines matching sed script $2 are dropped; an empty script keeps everything.
+worktree_state() {
+  local sed_script
+  sed_script="$2"
+  export sed_script
 
-require_registered_unlocked_worktree() {
-  local repo_root worktree_path current_path in_target found locked entry
-  repo_root="$1"
-  worktree_path="$2"
-  current_path=""
-  in_target=false
-  found=false
-  locked=false
-
-  while IFS= read -r -d '' entry; do
-    case "${entry}" in
-    worktree\ *)
-      current_path="$(readlink -f "${entry#worktree }")"
-      if [[ ${current_path} == "${worktree_path}" ]]; then
-        in_target=true
-        found=true
-      else
-        in_target=false
-      fi
-      ;;
-    locked*)
-      if [[ ${in_target} == true ]]; then
-        locked=true
-      fi
-      ;;
-    esac
-  done < <(git -C "${repo_root}" worktree list --porcelain -z)
-
-  if [[ ${found} != true ]]; then
-    error_msg "path is not a registered worktree for this repository: ${worktree_path}"
-    exit 1
-  fi
-  if [[ ${locked} == true ]]; then
-    error_msg "refusing to remove locked worktree: ${worktree_path}"
-    exit 1
-  fi
+  git -C "$1" status --porcelain=v1 --untracked-files=all --ignored=matching |
+    sed -E "${sed_script}"
+  # shellcheck disable=SC2016 # This body runs inside git-submodule foreach.
+  git -C "$1" submodule foreach --quiet --recursive '
+    git status --porcelain=v1 --untracked-files=all --ignored=matching |
+      sed -E "${sed_script}" |
+      sed "s#^\(...\)#\1${displaypath}/#"
+  '
 }
 
 require_clean_worktree() {
-  local worktree_path status submodule_status
-  worktree_path="$1"
-
-  status="$(
-    git -C "${worktree_path}" status --porcelain=v1 --untracked-files=all --ignored=matching |
-      filter_disposable_status
-  )"
-  if [[ -n ${status} ]]; then
-    error_msg "refusing to remove worktree with dirty, untracked, or ignored local state: ${worktree_path}"
-    printf '%s\n' "${status}" >&2
+  local state
+  state="$(worktree_state "$1" "${disposable_status_sed_script}")"
+  if [[ -n ${state} ]]; then
+    error_msg "refusing to remove worktree with dirty, untracked, or ignored local state: $1"
+    printf '%s\n' "${state}" >&2
     exit 1
   fi
+}
 
-  # shellcheck disable=SC2016 # This body runs inside git-submodule foreach.
-  if ! submodule_status="$(
-    git -C "${worktree_path}" submodule foreach --quiet --recursive '
-      status="$(git status --porcelain=v1 --untracked-files=all --ignored=matching |
-        sed -E "${disposable_status_sed_script}")"
-      if test -n "${status}"; then
-        printf "%s\n%s\n" "${displaypath}" "${status}"
-        exit 1
-      fi
-    ' 2>&1
-  )"; then
-    error_msg "refusing to remove worktree with dirty submodule state: ${worktree_path}"
-    printf '%s\n' "${submodule_status}" >&2
-    exit 1
+report_discarded_state() {
+  local state
+  state="$(worktree_state "$1" "")"
+  if [[ -n ${state} ]]; then
+    error_msg "--force discards this state in $1:"
+    printf '%s\n' "${state}" >&2
   fi
 }
 
 main() {
-  local repo_root target_arg worktree_path repo_common_dir worktree_common_dir remove_output remove_status
+  local repo_root worktree_path
+  local force=false
+
+  while [[ $# -gt 0 ]]; do
+    case "$1" in
+    -h | --help)
+      help
+      exit 0
+      ;;
+    -f | --force)
+      force=true
+      shift
+      ;;
+    --)
+      shift
+      break
+      ;;
+    -*)
+      error_msg "unknown option: $1"
+      usage >&2
+      exit 64
+      ;;
+    *)
+      break
+      ;;
+    esac
+  done
 
   if [[ $# -ne 1 ]]; then
-    usage
+    usage >&2
     exit 64
   fi
 
-  if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
-    error_msg "must be run from within the repository that owns the worktree"
-    exit 1
-  fi
+  worktree_path="$(git -C "$1" rev-parse --show-toplevel)"
+  worktree_path="$(readlink -f "${worktree_path}")"
+  repo_root="$(primary_worktree_root "${worktree_path}")"
 
-  repo_root="$(git rev-parse --show-toplevel)"
-  target_arg="$1"
-  worktree_path="$(resolve_worktree_root "${target_arg}")"
-  repo_root="$(readlink -f "${repo_root}")"
-  repo_common_dir="$(git_common_dir "${repo_root}")"
-  worktree_common_dir="$(git_common_dir "${worktree_path}")"
-
-  if [[ ${repo_common_dir} != "${worktree_common_dir}" ]]; then
-    error_msg "target belongs to a different repository: ${worktree_path}"
-    exit 1
-  fi
   if [[ ${worktree_path} == "${repo_root}" ]]; then
-    error_msg "refusing to remove the worktree running this helper: ${worktree_path}"
+    error_msg "refusing to remove the primary worktree: ${worktree_path}"
+    exit 1
+  fi
+  if [[ $(readlink -f .)/ == "${worktree_path}"/* ]]; then
+    error_msg "refusing to remove the worktree containing the current directory: ${worktree_path}"
     exit 1
   fi
 
-  require_registered_unlocked_worktree "${repo_root}" "${worktree_path}"
-  require_clean_worktree "${worktree_path}"
-
-  if remove_output="$(git -C "${repo_root}" worktree remove "${worktree_path}" 2>&1)"; then
-    if [[ -n ${remove_output} ]]; then
-      printf '%s\n' "${remove_output}" >&2
-    fi
-    exit 0
+  if [[ ${force} == true ]]; then
+    report_discarded_state "${worktree_path}"
   else
-    remove_status="$?"
+    require_clean_worktree "${worktree_path}"
   fi
 
-  if [[ ${remove_output} == *"working trees containing submodules cannot be moved or removed"* ]]; then
-    error_msg "worktree contains submodules; retrying with --force after clean checks: ${worktree_path}"
-    git -C "${repo_root}" worktree remove --force "${worktree_path}"
-    exit 0
-  fi
-
-  printf '%s\n' "${remove_output}" >&2
-  exit "${remove_status}"
+  git -C "${repo_root}" worktree remove --force "${worktree_path}"
 }
 
 main "$@"

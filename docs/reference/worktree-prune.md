@@ -57,6 +57,7 @@ only surface in the journal, not as a failed unit.
   dirty-submodule state. The helper is the final arbiter: a worktree the
   dry-run lists as removable can still be refused at apply time, reported as
   `reason=helper-refused`.
+  Run by hand, the helper takes `--force` to discard that state after listing it.
 - Every deleted branch tip is first preserved as
   `refs/prune-backup/<branch>/<epoch>`. This repository squash-merges PRs, so
   `git branch -d` cannot confirm merged-ness; recoverability comes from the

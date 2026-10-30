@@ -153,8 +153,99 @@ test_ignored_submodule_precommit_config_allows_removal() {
   assert_worktree_removed "${repo}" "${worktree}"
 }
 
+test_force_removes_dirty_worktree_with_submodules() {
+  local repo submodule_source worktree stderr_file
+  repo="${tmpdir}/force"
+  worktree="${tmpdir}/force-worktree"
+  stderr_file="${tmpdir}/force.stderr"
+
+  mkdir -p "${repo}"
+  init_repo "${repo}"
+  printf '%s\n' root >"${repo}/README.md"
+  commit_all "${repo}" "initial root"
+  submodule_source="$(make_submodule_source force)"
+  add_submodule "${repo}" "${submodule_source}"
+
+  git -C "${repo}" worktree add -q -b force-test "${worktree}"
+  git -C "${worktree}" -c protocol.file.allow=always submodule update -q --init --recursive
+  printf '%s\n' draft >"${worktree}/draft.txt"
+  printf '%s\n' draft >"${worktree}/deps/sub/draft.txt"
+
+  if (cd "${repo}" && "${SUT}" "${worktree}") 2>/dev/null; then
+    printf 'FAIL: dirty worktree was removed without --force\n' >&2
+    exit 1
+  fi
+  assert_worktree_kept "${repo}" "${worktree}"
+
+  (cd "${repo}" && "${SUT}" --force "${worktree}") 2>"${stderr_file}"
+  assert_worktree_removed "${repo}" "${worktree}"
+  for reported in 'draft.txt' 'deps/sub/draft.txt'; do
+    if ! grep -Fq -- "${reported}" "${stderr_file}"; then
+      printf 'FAIL: --force did not report discarded %s\n' "${reported}" >&2
+      exit 1
+    fi
+  done
+}
+
+test_force_still_refuses_the_primary_worktree() {
+  local repo
+  repo="${tmpdir}/force-primary"
+
+  mkdir -p "${repo}"
+  init_repo "${repo}"
+  printf '%s\n' root >"${repo}/README.md"
+  commit_all "${repo}" "initial root"
+
+  if (cd "${tmpdir}" && "${SUT}" --force "${repo}") 2>/dev/null; then
+    printf 'FAIL: --force removed the primary worktree\n' >&2
+    exit 1
+  fi
+  [[ -d ${repo}/.git ]]
+}
+
+test_removes_from_outside_the_owning_repository() {
+  local repo other worktree
+  repo="${tmpdir}/outside"
+  other="${tmpdir}/outside-other"
+  worktree="${tmpdir}/outside-worktree"
+
+  for dir in "${repo}" "${other}"; do
+    mkdir -p "${dir}"
+    init_repo "${dir}"
+    printf '%s\n' root >"${dir}/README.md"
+    commit_all "${dir}" "initial root"
+  done
+  git -C "${repo}" worktree add -q -b outside-test "${worktree}"
+
+  (cd "${other}" && "${SUT}" "${worktree}")
+  assert_worktree_removed "${repo}" "${worktree}"
+}
+
+test_refuses_the_worktree_containing_the_current_directory() {
+  local repo worktree
+  repo="${tmpdir}/inside"
+  worktree="${tmpdir}/inside-worktree"
+
+  mkdir -p "${repo}"
+  init_repo "${repo}"
+  printf '%s\n' root >"${repo}/README.md"
+  commit_all "${repo}" "initial root"
+  git -C "${repo}" worktree add -q -b inside-test "${worktree}"
+  mkdir "${worktree}/sub"
+
+  if (cd "${worktree}/sub" && "${SUT}" --force "${worktree}") 2>/dev/null; then
+    printf 'FAIL: removed the worktree containing the current directory\n' >&2
+    exit 1
+  fi
+  assert_worktree_kept "${repo}" "${worktree}"
+}
+
 test_ignored_root_precommit_config_allows_removal
 test_tracked_root_precommit_config_refuses_removal_with_submodules
 test_ignored_submodule_precommit_config_allows_removal
+test_force_removes_dirty_worktree_with_submodules
+test_force_still_refuses_the_primary_worktree
+test_removes_from_outside_the_owning_repository
+test_refuses_the_worktree_containing_the_current_directory
 
-printf '3 passed\n'
+printf '7 passed\n'
