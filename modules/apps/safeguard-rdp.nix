@@ -10,7 +10,7 @@
       before the one-time launch token expires.
 
   Notes:
-    * Needs Safeguard's URI launch mode and `programs.remmina.extended`.
+    * Needs Safeguard's URI launch mode.
     * Replaces Remmina as the rdp:// handler; `.rdp` files still open in Remmina.
 */
 _:
@@ -40,6 +40,7 @@ let
       config = lib.mkIf cfg.enable (
         lib.mkMerge [
           {
+            programs.remmina.extended.enable = lib.mkOverride 1050 true;
             environment.systemPackages = [ cfg.package ];
             xdg.mime.defaultApplications."x-scheme-handler/rdp" = desktop;
             xdg.mime.addedAssociations."x-scheme-handler/rdp" = desktop;
