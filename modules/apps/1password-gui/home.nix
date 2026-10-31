@@ -52,6 +52,20 @@ _: {
       };
 
       config = lib.mkIf nixosEnabled {
+        # start 1p socket
+        systemd.user.services."1password" = {
+          Unit = {
+            Description = "1Password in the tray, serving the SSH agent socket";
+            After = [ "graphical-session.target" ];
+            PartOf = [ "graphical-session.target" ];
+          };
+          Service = {
+            ExecStart = "${lib.getExe' osConfig.programs._1password-gui.package "1password"} --silent";
+            Restart = "on-failure";
+          };
+          Install.WantedBy = [ "graphical-session.target" ];
+        };
+
         home.activation.configure1PasswordSettings = lib.hm.dag.entryAfter [ "writeBoundary" ] ''
           settings_dir="$HOME/.config/1Password/settings"
           settings_path="$settings_dir/settings.json"

@@ -17,6 +17,7 @@
   Notes:
     * Uses nixpkgs package `pkgs._1password-gui`; the app key omits the leading underscore for repo module discovery.
     * Delegates browser-support wrapper setup to nixpkgs' `programs._1password-gui` module.
+    * A Home Manager user unit starts the app with `--silent` at graphical-session start, to start the 1p socket.
 */
 _:
 let
