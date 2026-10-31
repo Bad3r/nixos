@@ -7,7 +7,7 @@ Maintainer reference for the duplicati-r2 NixOS service: encrypted client-side b
 A nonempty manifest with every target explicitly disabled pauses backups without failing activation.
 Missing manifests, empty target sets, and enabled targets that produce no backup timers fail activation.
 
-```
+```text
 secrets/duplicati-r2.yaml          (encrypted credentials)
 secrets/duplicati-config.json      (encrypted manifest, sops binary mode)
             |

@@ -14,7 +14,7 @@ It starts in `off` mode, with no filtering; `F3` cycles through the modes at run
 - Direct flag: `mpv --script-opts=playlist_filter-mode=block-images ...` or `mpv --script-opts=playlist_filter-mode=images-only ...`.
 - Persistent default, which the module does not write: `~/.config/mpv/script-opts/playlist_filter.conf` containing the line below.
 
-```
+```text
 mode=block-images
 ```
 
@@ -23,7 +23,7 @@ The `F3` runtime cycle works on top of whichever startup mode is active, and the
 
 Override the keybinding in `input.conf`:
 
-```
+```text
 F3 script-binding playlist_filter-cycle
 ```
 

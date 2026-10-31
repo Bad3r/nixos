@@ -4,19 +4,19 @@ Complete option surface, manifest schema, and runtime artifact catalog for `serv
 
 ## services.duplicati-r2
 
-| Option               | Type                     | Default                 | Notes                                                                                                                                                                                  |
-| -------------------- | ------------------------ | ----------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `enable`             | bool                     | `false`                 | Master toggle for the service.                                                                                                                                                         |
-| `package`            | package                  | `pkgs.duplicati`        | Provides `duplicati-cli`.                                                                                                                                                              |
-| `configFile`         | nullOr path              | `null`                  | Path to a SOPS-encrypted manifest. When set, the manifest is decrypted via a sops template into `/run/duplicati-r2/config.json`. When `null`, the manifest is rendered from `targets`. |
-| `environmentFile`    | path                     | `/etc/duplicati/r2.env` | Rendered dotenv with credentials, mode 0400. Path appears in the manifest so the helper scripts can locate it.                                                                         |
-| `stateDir`           | path                     | `/var/lib/duplicati-r2` | Root for per-target SQLite metadata. Created mode 0700 root:root.                                                                                                                      |
-| `stateDirReadableBy` | listOf str               | `[]`                    | Usernames granted POSIX ACL read access (immediate plus default ACL) to `stateDir` and the SQLite databases. The base mode stays 0700.                                                 |
-| `bucket`             | str                      | see module default      | R2 bucket name. Used when the manifest does not override it. The literal default lives in the module source so docs do not duplicate the production identifier.                        |
-| `hostname`           | nullOr str               | `null`                  | Override for the `<host>` segment in the destination URL. When `null`, falls back to `config.networking.hostName`.                                                                     |
-| `credentials`        | attrsOf credentialModule | nine standard keys      | Maps environment variable names to SOPS selectors.                                                                                                                                     |
-| `targets`            | attrsOf targetModule     | `{}`                    | Inline target definitions. Required when `configFile` is `null`.                                                                                                                       |
-| `verify`             | nullOr verifyModule      | `null`                  | Optional shared verification schedule applied to every target.                                                                                                                         |
+| Option               | Type                     | Default                    | Notes                                                                                                                                                                                  |
+| -------------------- | ------------------------ | -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `enable`             | bool                     | `false`                    | Master toggle for the service.                                                                                                                                                         |
+| `package`            | package                  | `pkgs.duplicati`           | Provides `duplicati-cli`.                                                                                                                                                              |
+| `configFile`         | nullOr path              | `null`                     | Path to a SOPS-encrypted manifest. When set, the manifest is decrypted via a sops template into `/run/duplicati-r2/config.json`. When `null`, the manifest is rendered from `targets`. |
+| `environmentFile`    | path                     | `/etc/duplicati/r2.env`    | Rendered dotenv with credentials, mode 0400. Path appears in the manifest so the helper scripts can locate it.                                                                         |
+| `stateDir`           | path                     | `/var/lib/duplicati-r2`    | Root for per-target SQLite metadata. Created mode 0700 root:root.                                                                                                                      |
+| `stateDirReadableBy` | listOf str               | `[]`                       | Usernames granted POSIX ACL read access (immediate plus default ACL) to `stateDir` and the SQLite databases. The base mode stays 0700.                                                 |
+| `bucket`             | str                      | see module default         | R2 bucket name. Used when the manifest does not override it. The literal default lives in the module source so docs do not duplicate the production identifier.                        |
+| `hostname`           | nullOr str               | `null`                     | Override for the `<host>` segment in the destination URL. When `null`, falls back to `config.networking.hostName`.                                                                     |
+| `credentials`        | attrsOf credentialModule | the `credentialNames` keys | Maps environment variable names to SOPS selectors.                                                                                                                                     |
+| `targets`            | attrsOf targetModule     | `{}`                       | Inline target definitions. Required when `configFile` is `null`.                                                                                                                       |
+| `verify`             | nullOr verifyModule      | `null`                     | Optional shared verification schedule applied to every target.                                                                                                                         |
 
 ## targetModule
 
@@ -43,20 +43,7 @@ Complete option surface, manifest schema, and runtime artifact catalog for `serv
 | -------- | ---- | --------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `secret` | str  | `duplicati-r2/<NAME>` | SOPS selector for the credential. Override per-key when the encrypted file uses non-default selector names. |
 
-The default credential set covers nine names, declared in `credentialNames` inside `modules/services/duplicati-r2.nix`:
-
-```
-AWS_ACCESS_KEY_ID
-AWS_SECRET_ACCESS_KEY
-R2_ACCOUNT_ID
-R2_API_TOKEN
-R2_BUCKET
-R2_S3_ENDPOINT
-R2_S3_ENDPOINT_URL
-R2_REGION
-DUPLICATI_PASSPHRASE
-```
-
+The default credential set covers the names in `credentialNames` inside `modules/services/duplicati-r2.nix`.
 Each becomes a `sops.secrets."duplicati-r2/<NAME>"` entry sourced from `secrets/duplicati-r2.yaml`. The rendered env file concatenates them as `KEY=value` lines.
 
 ## Manifest schema

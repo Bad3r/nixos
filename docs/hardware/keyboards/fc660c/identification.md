@@ -15,7 +15,7 @@ The example output comes from `songbird` and differs in bus path and hidraw numb
 lsusb -d 4853:660c
 ```
 
-```
+```text
 Bus 003 Device 007: ID 4853:660c Hasu FC660C
 ```
 
@@ -56,7 +56,7 @@ The kernel input layer needs no bus path at all, because it is a flat list keyed
 grep -A3 'Name="Hasu FC660C"$' /proc/bus/input/devices
 ```
 
-```
+```text
 N: Name="Hasu FC660C"
 P: Phys=usb-0000:80:14.0-8.3/input0
 S: Sysfs=/devices/pci0000:80/0000:80:14.0/usb3/3-8/3-8.3/3-8.3:1.0/0003:4853:660C.0004/input/input1

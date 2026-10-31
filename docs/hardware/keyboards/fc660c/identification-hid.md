@@ -35,7 +35,7 @@ xxd /sys/class/hidraw/hidraw<N>/device/report_descriptor
 
 Interface 1 prints 34 bytes, matching `wDescriptorLength` from the USB descriptor:
 
-```
+```text
 06 60 FF 09 61 A1 01 09 62 15 00 26 FF 00 95 20
 75 08 81 02 09 63 15 00 26 FF 00 95 20 75 08 91
 02 C0

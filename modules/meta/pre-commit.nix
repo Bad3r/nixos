@@ -109,6 +109,8 @@ _: {
               entry = "${config.packages.hook-luacheck}/bin/hook-luacheck";
             };
 
+            rumdl.enable = true;
+
             typos = {
               enable = true;
               settings.configPath = ".typos.toml";

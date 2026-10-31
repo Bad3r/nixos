@@ -1,0 +1,28 @@
+[global]
+disable = [
+  "MD004", # mdformat owns bullet markers and alternates - and * to keep adjacent lists apart
+  "MD013", # mdformat runs with wrap = "keep" and pages hold one sentence per line
+]
+# Enforces the style guide's "no em or en dashes" and ASCII quotes; other non-ASCII passes.
+extend-enable = ["MD088"]
+exclude = [
+  "docs/drafts/**", # working drafts, exempt from docs-style
+  "tests/**",       # fixtures are test input, not pages
+]
+# The pre-commit hook runs on every commit; a cache only leaves .rumdl_cache in the tree.
+cache = false
+
+[per-file-ignores]
+"README.md" = ["MD033", "MD041"]                   # GitHub landing page opens on an HTML logo block
+"CLAUDE.md" = ["MD041"]                            # a bare @AGENTS.md import
+"docs/csec/protocol-aware-firewall.md" = ["MD038"] # HTTP method prefixes end in a literal space
+"docs/usage/espanso-usage.md" = ["MD038"]          # expansions end in a literal space
+# Temporary: these pages exceed the docs-style line cap, so any edit must split them first.
+# Drop this entry once they are split and their diagram fences carry a language.
+"docs/apps/cloudflare/containers/*.md" = ["MD040"]
+
+[MD033]
+table-allowed-elements = ["br"] # the only line break a GFM table cell can hold
+
+[MD088]
+normalize-dashes = true

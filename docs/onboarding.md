@@ -32,7 +32,7 @@ The directories fall into layers, from the flake root outward to documentation.
     Operational scripts, evaluation logic such as the unfree predicate and the package checks, and CI pipelines.
 09. **Documentation** (`docs/` and the root `README.md`, `CLAUDE.md`, and `AGENTS.md`).
     Long-form references and agent prompt guides.
-10. **Project configuration** (`pyproject.toml`, git attributes, and the sops, gitleaks, and typos policies).
+10. **Project configuration** (`pyproject.toml`, git attributes, and the sops, gitleaks, typos, and rumdl policies).
     Repository-level policy and tooling dotfiles.
 
 ## Key Concepts

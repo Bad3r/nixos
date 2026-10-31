@@ -28,7 +28,7 @@ _: {
 ```
 
 - A `resolve` entry that is not a `workloads.names` key fails evaluation.
-- A service name fails evaluation unless a guest on the network has a `service:<name>` [link](workload-links.md), since the forward chain drops traffic between bridges otherwise.
+- A service name fails evaluation unless a guest on the network has a `service:<name>` [workload link](workload-links.md), since the forward chain drops traffic between bridges otherwise.
 - Inside a Podman network, containers resolve each other through aardvark-dns's own names; `<name>` and `<name>.vm` from `workloads.names` do not resolve there, and a `resolve` list fails evaluation.
 - A guest with an interface on the network resolves to that interface's address there.
 - dnsmasq also answers bare names from DHCP reservations and leases, so guests should look up the `.vm` form.
